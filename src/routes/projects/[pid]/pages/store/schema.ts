@@ -69,6 +69,8 @@ export type SheetFrameDoc = {
 	view?: View
 	yaw?: number; pitch?: number
 	frozen?: string[]
+	/** Layers locked in this frame only (types.ts SheetFrame.vpLocked). */
+	vpLocked?: string[]
 	locked?: boolean
 	border: 'dashed' | 'solid' | 'none'
 	/** An imported frame's unmapped Sheets source (types.ts SheetFrame.source). */

@@ -359,6 +359,14 @@
 		if (lost) toast('Pasted — its model isn’t in this project, so the frame shows “Missing model”')
 		return true
 	}
+	/** J1 VP Lock: lock / unlock a layer in the active sheet frame only (one undo step, like VP Freeze). */
+	function toggleVpLock(layerId: string) {
+		const p = session.panes[session.focused], f = activeFrame; if (!p || !f) return
+		ensureHist(p.activeId)
+		const cur = f.vpLocked ?? [], on = cur.includes(layerId)
+		updateFrame(p.activeId, f.id, { vpLocked: on ? cur.filter((x) => x !== layerId) : [...cur, layerId] })
+		commitFrame(p.activeId, on ? 'VP unlock layer' : 'VP lock layer')
+	}
 	function toggleVpFreeze(layerId: string) {
 		const p = session.panes[session.focused], f = activeFrame; if (!p || !f) return
 		ensureHist(p.activeId)
@@ -1030,7 +1038,7 @@
 				{#if rightTab === 'blocks'}
 					<BlocksPanel armed={placeBlock} onarm={armBlock} />
 				{:else if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) { rememberOutlet(es[0]); if (es[0].live) proj.resyncCalib(es[0].src) } }} onwalk={startWalk} modelNode={singleOfKind(activeSel, 'node')?.sub} modelSeg={singleOfKind(activeSel, 'seg')?.sub}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

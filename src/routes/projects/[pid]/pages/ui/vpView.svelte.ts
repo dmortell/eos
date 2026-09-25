@@ -78,6 +78,7 @@ export class VpView {
 	get active() { return this.p.active ?? false }
 	get modelSpace() { return this.p.modelSpace ?? false }
 	get frozen() { return this.p.frozen ?? NONE }
+	get vpLocked() { return this.p.vpLocked ?? NONE }   // J1: layers locked in this viewport only
 	get focused() { return this.p.focused ?? true }
 	get tool() { return this.p.tool ?? 'Select' }
 	get border() { return this.p.border ?? 'dashed' }
@@ -133,7 +134,9 @@ export class VpView {
 	mls = $derived(this.mdl?.layers ?? [])
 	frozenSet = $derived(new Set(this.frozen))
 	isLayerHidden = (id?: string) => isLayerHidden(this.mls, id) || (!!id && this.frozenSet.has(id))
-	isLayerLocked = (id?: string) => isLayerLocked(this.mls, id)
+	// J1 VP Lock: locked in the model OR in this viewport only (picking / grips / snapping all ask this)
+	vpLockedSet = $derived(new Set(this.vpLocked))
+	isLayerLocked = (id?: string) => isLayerLocked(this.mls, id) || (!!id && this.vpLockedSet.has(id))
 	layerColor = (id?: string) => layerColor(this.mls, id)
 	layerDash = (id?: string) => (id ? this.mls.find((l) => l.id === id)?.dash : undefined)   // XP32 ByLayer line type
 	layerPreds = { hidden: this.isLayerHidden, locked: this.isLayerLocked }

@@ -269,7 +269,7 @@
 							<div class="vp-tag">{f.label}{#if cd} · fill{/if}</div>
 						</div>
 					{:else}
-					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys} hideHidden={f.hideHidden} mono={f.mono} zBand={f.zBand}
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} vpLocked={f.vpLocked} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys} hideHidden={f.hideHidden} mono={f.mono} zBand={f.zBand}
 						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
 					{/if}

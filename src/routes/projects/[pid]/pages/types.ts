@@ -25,6 +25,8 @@ export type SheetFrame = {
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
 	 *  Document state — it rides the frames history, so a freeze is undoable. */
 	frozen?: string[]
+	/** J1 VP Lock: layer ids LOCKED in this frame only (shown, but not pickable / editable here). Undoable like frozen. */
+	vpLocked?: string[]
 	/** XP22: a locked frame can't be moved or resized on the paper (still selectable, editable inside). */
 	locked?: boolean
 	/** Imported from the Sheets tool (drawings-plan phase 8) with NO Pages model to show yet: what it showed there

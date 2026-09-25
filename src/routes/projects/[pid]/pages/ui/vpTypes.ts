@@ -38,6 +38,8 @@ export type VpProps = {
 	modelSpace?: boolean
 	/** VP Freeze: layer ids hidden in THIS viewport only (a sheet frame's `frozen`). */
 	frozen?: string[]
+	/** J1: layers locked in this viewport only (SheetFrame.vpLocked). */
+	vpLocked?: string[]
 	tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor
 	frameId?: string; modelId?: import('../3dview/types').ModelId
 	/** An imported frame's unmapped Sheets source (SheetFrame.source) — shown instead of any model. */

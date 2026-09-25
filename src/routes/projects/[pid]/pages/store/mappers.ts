@@ -24,6 +24,7 @@ export function frameToDoc(f: SheetFrame, seq: number, vs: FrameViewState = {}):
 	if (f.label && f.label !== String(seq)) d.label = f.label
 	if (f.modelId != null) d.modelId = f.modelId
 	if (f.frozen?.length) d.frozen = [...f.frozen]
+	if (f.vpLocked?.length) d.vpLocked = [...f.vpLocked]
 	if (f.locked) d.locked = true
 	if (f.source) d.source = f.source
 	if (f.storeys) d.storeys = [...f.storeys]
@@ -45,6 +46,7 @@ export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameVi
 	}
 	if (d.modelId != null) frame.modelId = d.modelId
 	if (d.frozen?.length) frame.frozen = [...d.frozen]
+	if (d.vpLocked?.length) frame.vpLocked = [...d.vpLocked]
 	if (d.locked) frame.locked = true
 	if (d.source) frame.source = d.source
 	if (d.storeys) frame.storeys = [...d.storeys]

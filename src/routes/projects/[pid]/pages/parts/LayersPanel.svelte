@@ -12,7 +12,9 @@
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
-	let { layers = [], frozen = null, onfreeze, countOf, ondelete }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+	// J1 VP Lock: `vpLocked` (the active frame's locked layer ids; null = no frame active) + `onvplock` — the same idea.
+	let { layers = [], frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+		vpLocked?: string[] | null; onvplock?: (id: string) => void
 		/** J2: how many shapes / model objects sit on a layer, and delete a layer WITH its items (one undo step). */
 		countOf?: (id: string) => number; ondelete?: (id: string) => void } = $props()
 	const swatchOf = (l: Layer) => l.swatch ?? 'color'
@@ -120,6 +122,13 @@
 										<Icon name="snowflake" size={12} />
 									</button>
 								{/if}
+								{#if vpLocked}
+									<!-- J1: lock the layer in the ACTIVE viewport only (still shown, can't be picked / edited there) -->
+									<button class="ly-lock-btn vp" class:on={vpLocked.includes(l.id)} aria-label="{vpLocked.includes(l.id) ? 'Unlock' : 'Lock'} {l.name} in this viewport"
+										title="{vpLocked.includes(l.id) ? 'Unlock' : 'Lock'} in the active viewport only (VP Lock)" onclick={(e) => { e.stopPropagation(); onvplock?.(l.id) }}>
+										<Icon name={vpLocked.includes(l.id) ? 'lock' : 'lockOpen'} size={12} /><em>VP</em>
+									</button>
+								{/if}
 								{#if editing === l.id}
 									<input class="ly-edit" bind:value={l.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} onclick={(e) => e.stopPropagation()} />
 								{:else}
@@ -221,6 +230,8 @@
 	.ly-lock-btn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--faint); background:none; border:none; }
 	.ly-lock-btn:hover { color:var(--text); background:var(--line); }
 	.ly-lock-btn.on { color:var(--accent); }
+	.ly-lock-btn.vp { width:26px; gap:1px; }
+	.ly-lock-btn.vp em { font-style:normal; font-size:7px; font-weight:700; letter-spacing:-.02em; }
 	.ly-name { flex:1; min-width:0; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.ly-row.active .ly-name { color:var(--accent); font-weight:600; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
