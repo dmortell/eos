@@ -8,11 +8,15 @@
 	// left/right share the y axis (mirrored); all elevations have z up. Matches KestrelCad2's
 	// camera.setView and the Sheets model3d BASIS.
 	import { isoR, DEFAULT_YAW, DEFAULT_PITCH } from '../3dview/projection'
+	import type { View3d } from '../viewState.svelte'
 	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	// yaw/pitch drive the 3D (iso) triad so the WCS axes rotate WITH the orbited view. Ignored for the
 	// orthographic views (their axes are fixed — see TRIAD below).
-	let { projection = 'plan', yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = false, onset, onpersp }:
-		{ projection?: Proj; yaw?: number; pitch?: number; /** the 3D view is a perspective */ persp?: boolean; onset?: (p: Proj) => void; onpersp?: (on: boolean) => void } = $props()
+	let { projection = 'plan', yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, view3d = 'persp', onset, onview3d }:
+		{ projection?: Proj; yaw?: number; pitch?: number; /** the 3D view's style */ view3d?: View3d; onset?: (p: Proj) => void; onview3d?: (m: View3d) => void } = $props()
+	// the 3D button's popout: perspective (3D, the default) / parallel ISO / WIRE frame
+	const MODES: [View3d, string, string][] = [['persp', '3D', 'Perspective 3D view'], ['iso', 'ISO', 'Parallel (isometric) 3D view'], ['wire', 'WIRE', 'Wireframe 3D view (edges only, see-through)']]
+	let pop = $state(false)
 
 	// Kestrel axis colours (renderer.js drawUCS): X red, Y green, Z blue.
 	const AX = { x: '#d17f88', y: '#79b89e', z: '#7eabdf' }
@@ -64,11 +68,14 @@
 	<div class="vc-btns">
 		<button class:on={projection === 'rear'} onclick={() => onset?.('rear')} title="Rear view">Rear</button>
 		<button class:on={projection === 'left'} onclick={() => onset?.('left')} title="Left view">Left</button>
-		<button class="d3" class:on={projection === 'iso'} onclick={() => onset?.('iso')} title="3D view">3D</button>
+		<span class="d3wrap">
+			<button class="d3" class:on={projection === 'iso'} onclick={() => onset?.('iso')} title={MODES.find((m) => m[0] === view3d)?.[2] ?? '3D view'}>{MODES.find((m) => m[0] === view3d)?.[1] ?? '3D'}</button>
+			{#if onview3d}<button class="d3caret" title="3D view style" aria-label="3D view style" onclick={() => (pop = !pop)}>▾</button>{/if}
+			{#if pop && onview3d}
+				<span class="d3pop">{#each MODES as [m, l, t] (m)}<button class:on={view3d === m} title={t} onclick={() => { onview3d(m); onset?.('iso'); pop = false }}>{l}</button>{/each}</span>
+			{/if}
+		</span>
 	</div>
-	{#if projection === 'iso' && onpersp}
-		<div class="vc-btns"><button class:on={persp} onclick={() => onpersp(!persp)} title="Perspective (on) or parallel (off) 3D view — also PERSPECTIVE on the command line">Persp</button></div>
-	{/if}
 </div>
 
 <!-- Bottom-left axis triad (WCS) -->
@@ -104,6 +111,11 @@
 	.vc-btns button:hover { border-color:var(--accent-dim); }
 	.vc-btns button.on { color:var(--accent); border-color:var(--accent); background:var(--active); }
 	.d3 { letter-spacing:.04em; }
+	.d3wrap { position:relative; display:inline-flex; }
+	.d3wrap .d3 { border-top-right-radius:0; border-bottom-right-radius:0; }
+	.vc-btns .d3caret { border-top-left-radius:0; border-bottom-left-radius:0; border-left:none; padding:2px 3px; }
+	.d3pop { position:absolute; top:100%; right:0; margin-top:2px; display:flex; flex-direction:column; gap:2px; z-index:8; }
+	.d3pop button { min-width:44px; }
 	.wcs { position:absolute; bottom:10px; left:10px; z-index:6; pointer-events:none; }
 	.wcs svg { filter:drop-shadow(0 1px 2px #0006); }
 	.ax { font-size:8px; font-weight:700; }

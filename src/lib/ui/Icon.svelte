@@ -20,7 +20,8 @@ import {
 
 let lucide: Record<string, any> = {
 	archive: Archive, arrowLeft: ArrowLeft,
-	blinds: Blinds, brickWall: BrickWall, circleDot: CircleDot, doorOpen: DoorOpen, paintbrush: Paintbrush, radius: Radius,   // OpenCad's tool icons (window, wall, penetration, door, format painter, arc)
+	// OpenCad's tool icons: window, wall, penetration, door, format painter, arc
+	blinds: Blinds, brickWall: BrickWall, circleDot: CircleDot, doorOpen: DoorOpen, paintbrush: Paintbrush, radius: Radius,
 	center: TextAlignCenter, alignCenter: TextAlignCenter,
 	alignTop: AlignVerticalJustifyStart, alignBottom: AlignVerticalJustifyEnd,
 	alignMiddle: AlignVerticalJustifyCenter,

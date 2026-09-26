@@ -5,6 +5,8 @@
 // Rendered by Icon.svelte for any name not covered by the Lucide map
 // (or explicitly via the `k-` prefix when a Lucide name shadows one).
 export const KESTREL_ICONS: Record<string, string> = {
+	// (EOS addition) an OPENING: a box with its diagonals corner to corner — a hole in a wall
+	"opening": "M4 4h16v16H4zM4 4l16 16M20 4 4 20",
 	"line": "M4 20 20 4M3 18h3v3H3zM18 3h3v3h-3z",
 	"polyline": "m3 18 6-12 6 10 6-12M2 17h2v2H2zM8 5h2v2H8zM14 15h2v2h-2zM20 3h2v2h-2z",
 	"circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9 12h6M12 9v6",

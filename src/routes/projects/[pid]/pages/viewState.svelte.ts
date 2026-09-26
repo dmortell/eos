@@ -15,7 +15,9 @@
 import type { Proj } from './types'
 
 export type Pt2 = { x: number; y: number }
-export type ViewState = { pan?: Pt2; zoom?: number; orbit?: { yaw: number; pitch: number }; /** the orbit view is a perspective */ persp?: boolean; proj?: Proj; canvas?: Pt2 & { zoom: number } }
+/** The 3D view's style: a perspective (the default), the parallel iso, or a perspective wireframe. */
+export type View3d = 'persp' | 'iso' | 'wire'
+export type ViewState = { pan?: Pt2; zoom?: number; orbit?: { yaw: number; pitch: number }; /** the orbit (3D) view's style */ view3d?: View3d; proj?: Proj; canvas?: Pt2 & { zoom: number } }
 
 /** Today's `vkey`: one entry per pane × view (tab or frame id) × projection. */
 export const viewKey = (paneId: string, viewId: string, proj: string): string => `${paneId}:${viewId}:${proj}`
@@ -79,10 +81,10 @@ class ViewStateStore {
 	setOrbit(paneId: string, viewId: string, proj: string, yaw: number, pitch: number) {
 		this.#put(viewKey(paneId, viewId, proj), { orbit: { yaw, pitch } })
 	}
-	/** Perspective (vs parallel) for an orbit view — per pane + viewport, like its orbit. */
-	getPersp(paneId: string, viewId: string, proj: string): boolean { return !!this.#at(viewKey(paneId, viewId, proj))?.persp }
-	setPersp(paneId: string, viewId: string, proj: string, on: boolean) {
-		this.#put(viewKey(paneId, viewId, proj), { persp: on })
+	/** The 3D view's style (perspective / iso / wireframe) — per pane + viewport, like its orbit. Default perspective. */
+	getView3d(paneId: string, viewId: string, proj: string): View3d { return this.#at(viewKey(paneId, viewId, proj))?.view3d ?? 'persp' }
+	setView3d(paneId: string, viewId: string, proj: string, mode: View3d) {
+		this.#put(viewKey(paneId, viewId, proj), { view3d: mode })
 	}
 
 	// ── coarse-grained: projection choice + canvas position, per pane+tab ──

@@ -50,7 +50,7 @@
 		{ q: 'A cable ladder or hatched area', a: 'Draw a rectangle (or ellipse / closed polyline), then Properties › HATCH: Vertical lines at 300 mm spacing reads as ladder rungs; Horizontal, Grid and Diagonal too.' },
 		{ q: 'Stacked (baseline) dimensions with extension lines', a: 'Draw one dimension, then DIMBASELINE (DBA): each next click stacks a dimension from the same base with extension lines back to the points. Any dimension: Properties › Ext. lines.' },
 		{ q: 'Wrapped notes / a notes table', a: 'NOTE, or Properties › TEXT › Wrap on: markdown (# heading, - list, | table |, **bold**) wrapped to a width. The pencil (or double-click it) opens the big editor with a preview; paste from Word / Excel keeps the formatting.' },
-		{ q: 'Perspective 3D', a: 'In the 3D view click Persp under the ViewCube (or type PERSPECTIVE). Drag to orbit — it turns about the middle of the view.' },
+		{ q: 'Perspective / iso / wireframe 3D', a: 'The 3D button under the ViewCube opens a popout: 3D = perspective (the default), ISO = parallel iso, WIRE = see-through wireframe (PERSPECTIVE on / off on the command line too). Drag to orbit — it turns about the middle of the view.' },
 		{ q: 'Line up with other points while drawing', a: 'OTRACK (status bar, on by default): move level with an end / midpoint and a dashed blue guide locks you to its x or y. POLAR (F10) gives 15° rays; ORTHO (F8) horizontal / vertical.' },
 		{ q: 'Check walls / conduits for broken bits', a: 'AUDIT: lists missing blocks, then broken wall / conduit nodes and segments, loose connections and stale rack allocations, and offers to fix them (one undo step).' },
 	]

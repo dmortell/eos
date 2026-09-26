@@ -50,5 +50,5 @@ export type VpProps = {
 	hideHidden?: boolean; mono?: boolean; zBand?: { z0: number; z1: number }
 	/** In split view only the focused pane's instance handles keys and drives the shared status line. */
 	focused?: boolean
-	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; /** the orbit view is a PERSPECTIVE (not parallel) */ persp?: boolean
+	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; /** the orbit view is a PERSPECTIVE (not parallel) */ persp?: boolean; /** the orbit view as a WIREFRAME (edges only) */ wire?: boolean
 }

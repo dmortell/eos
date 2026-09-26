@@ -17,8 +17,8 @@
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
-		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number; /** the perspective camera (iso) — 3dview/projection perspCam; null = parallel */ persp?: Persp
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, wire = false, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number; /** the perspective camera (iso) — 3dview/projection perspCam; null = parallel */ persp?: Persp; /** iso: edges only (a wireframe), no solid faces */ wire?: boolean
 			/** A building elevation showing only these storeys (a riser drawing's floors); undefined = all. */ showStoreys?: string[]
 			/** Model mm per paper mm (the viewport's `paperMm`) — labels are sized on PAPER so they stay readable. */ paperMm?: number
 			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number
@@ -153,7 +153,7 @@
 		return `rgb(${mix(rgb[0])},${mix(rgb[1])},${mix(rgb[2])})`
 	}
 	const isoFaces = $derived.by(() => {
-		if (dir !== 'iso') return []
+		if (dir !== 'iso' || wire) return []   // a wireframe draws edges instead (below)
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number; shade: string }[] = []
 		const cuts = openingCuts(model.objects, (o) => isOpening(o) && visible(o) && inClip(o))   // OpenCad-style: openings cut real holes in walls
 		for (const o of model.objects) {
@@ -230,6 +230,16 @@
 	{#each isoFaces as f, i (i)}
 		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" style:fill={f.shade} stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
 	{/each}
+	<!-- WIRE: every edge of every object, no faces (see-through; the 3D popout's WIRE) -->
+	{#if wire}
+		{#each model.objects as o (o.id)}
+			{#if visible(o) && inClip(o) && !isOpening(o) && !inHiddenFloors(o)}
+				{#each project(o, 'iso', yaw, pitch, cx, cy, persp) as s, i (i)}
+					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={colorOf(o)} stroke-width={weightOf(o)} vector-effect="non-scaling-stroke" />
+				{/each}
+			{/if}
+		{/each}
+	{/if}
 	<!-- Openings in 3D: draw the frame outline (on top of the wall face) + a door's floor swing, so a
 	     door/window reads on the model even without a true CSG hole. -->
 	{#each model.objects as o (o.id)}

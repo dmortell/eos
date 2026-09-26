@@ -15,7 +15,7 @@
 	import DrawingsDialog from './parts/DrawingsDialog.svelte'
 	import Pane from './parts/Pane.svelte'
 	import { newId } from './ids'
-	import { viewState } from './viewState.svelte'
+	import { viewState, type View3d } from './viewState.svelte'
 	import { docs } from './doc.svelte'
 	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, type Workspace, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems, navDrawingId } from './mock/data'
@@ -245,7 +245,7 @@
 	}
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
 	// viewId = a tab id (→ its drawing's docId) or a sheet frame id (kept) — see the view-state KEYS note above.
-	const orbitOf = (paneId: string, viewId: string, proj: Proj) => ({ ...(viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }), persp: viewState.getPersp(paneId, didOf(viewId), proj) })
+	const orbitOf = (paneId: string, viewId: string, proj: Proj) => { const m = viewState.getView3d(paneId, didOf(viewId), proj); return { ...(viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }), view3d: m, persp: m !== 'iso', wire: m === 'wire' } }
 	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { viewState.setOrbit(paneId, didOf(viewId), proj, yaw, pitch) }
 	// A SECTION is a plan marker (NOT a tab): a clip box + a primary sight direction + a name, stored in the
 	// MODEL (`Model.sections`, B5) so it is model-scoped (a cut on one model's plan doesn't show on another)
@@ -819,7 +819,7 @@
 			const p = session.panes[session.focused], a = p && session.tabs.find((t) => t.id === p.activeId); if (!p || !a) return 'No view'
 			const vid = activeVpOf(a.id) ?? a.id, pr = gizmoProj(p, a)
 			if (pr !== 'iso') return 'PERSPECTIVE works in the 3D view (switch to 3D first)'
-			const next = on ?? !viewState.getPersp(p.id, didOf(vid), pr); viewState.setPersp(p.id, didOf(vid), pr, next); return next
+			const next = on ?? viewState.getView3d(p.id, didOf(vid), pr) === 'iso'; viewState.setView3d(p.id, didOf(vid), pr, next ? 'persp' : 'iso'); return next
 		},
 		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {
@@ -1024,7 +1024,7 @@
 		{ icon: 'server', name: 'Rack' },       // runs the RACK command (a pseudo-tool: setPaneTool routes it)
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
-		{ icon: 'doorOpen', name: 'Opening' },
+		{ icon: 'opening', name: 'Opening' },
 		{ icon: 'circleDot', name: 'Penetration' },   // runs PEN (pseudo-tool)
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'ruler', name: 'Dimension' },
@@ -1145,7 +1145,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setPersp: (paneId: string, viewId: string, proj: Proj, on: boolean) => viewState.setPersp(paneId, didOf(viewId), proj, on), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
