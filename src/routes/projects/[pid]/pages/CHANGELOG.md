@@ -4,6 +4,10 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 9 (2026-09-26) — status-bar counts
+- **Status-bar counts** (K1): Outlets / Conduits / Racks totals for the active model. With a selection, they
+  count only the selection, tagged SEL.
+
 ## Round 8 (2026-09-26) — notes blocks, rack presets, pasted images to storage
 - **NOTE** (K3): a notes block shape — markdown (# headings, - bullets, 1. lists, | tables | with a |---| header row,
   **bold**) laid out in paper mm and wrapped to its width (`ui/noteLayout.ts`); annotative, optional frame. Grips

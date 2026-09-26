@@ -14,11 +14,13 @@
 	const SNAP_STEPS: [number, string][] = [[1, '1'], [5, '5'], [10, '10'], [25, '25'], [44.45, '1U'], [50, '50'], [100, '100'], [250, '250'], [500, '500'], [1000, '1000']]
 	let { toggles = $bindable<Record<string, boolean>>({}), snapStep = $bindable(100), acadMode = $bindable(true),
 		paperSize = 'A3', paperLandscape = true, onpapersize, onorient, paperMargin = 10, onmargin,
-		coords = null, zoom = 100, onzoom, onfit }:
+		coords = null, counts = null, zoom = 100, onzoom, onfit }:
 		{ toggles?: Record<string, boolean>; snapStep?: number; acadMode?: boolean;
 			paperSize?: PaperSize; paperLandscape?: boolean; onpapersize?: (s: PaperSize) => void; onorient?: (landscape: boolean) => void;
 			/** XP7: the sheet's paper margin (mm) */ paperMargin?: number; onmargin?: (mm: number) => void;
-			coords?: { x: number; y: number } | null; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
+			coords?: { x: number; y: number } | null;
+			/** K1: outlet / conduit / rack totals — of the selection (sel) or the whole active model. */
+			counts?: { sel: boolean; outlets: number; conduits: number; racks: number } | null; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
 </script>
 
 <footer class="statusbar">
@@ -53,6 +55,12 @@
 		<button class:on={acadMode} title="AutoCAD interactions: wheel zooms, draw with two clicks (off = EOS: wheel pans, press-drag to draw)" onclick={() => (acadMode = !acadMode)}>ACAD</button>
 	</div>
 	<div class="sb-spacer"></div>
+	{#if counts}
+		<div class="counts" title={counts.sel ? 'In the selection' : 'In the active model (select to count a subset)'}>
+			{#if counts.sel}<span class="sel-tag">SEL</span>{/if}
+			Outlets <b>{counts.outlets}</b> · Conduits <b>{counts.conduits}</b> · Racks <b>{counts.racks}</b>
+		</div>
+	{/if}
 	<div class="zoom">
 		<button onclick={() => onzoom?.(0.8)}>−</button>
 		<span>{zoom}%</span>
@@ -77,6 +85,9 @@
 	.orient-glyph.portrait { width:10px; height:14px; }
 	.coords { font-family:Consolas,monospace; padding:0 10px; color:var(--text); min-width:96px; }
 	.toggles { display:flex; gap:2px; }
+	.counts { padding:0 10px; white-space:nowrap; }
+	.counts b { color:var(--text); font-weight:600; }
+	.sel-tag { font-size:9px; letter-spacing:.04em; color:var(--accent); margin-right:4px; }
 	.toggles button { padding:2px 7px; border-radius:4px; font-size:10px; letter-spacing:.04em; color:var(--faint); background:none; border:1px solid transparent; }
 	.toggles button:hover { background:var(--hover); }
 	.toggles button.on { color:var(--accent); background:var(--active); border-color:var(--accent-dim); }

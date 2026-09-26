@@ -47,6 +47,7 @@
 	import { PageActions, type ActiveView } from './pageActions'
 	import { outletSticky, rememberOutlet, walk, incLabel } from './ui/outletPlace.svelte'
 	import { outletRows, exportOutletSchedule } from './store/outletSchedule'
+	import { isOutletEnt } from './store/allocate'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
@@ -524,6 +525,14 @@
 	// `mdl.guides`, not `.objects`); a selected NODE's `.id` is its PARENT object's id, so this still
 	// resolves to the parent's props — same behaviour as before, just sourced from the new Selection.
 	let activeModelSel = $derived([...idsOfKind(activeSel, 'obj'), ...idsOfKind(activeSel, 'guide'), ...idsOfKind(activeSel, 'node'), ...idsOfKind(activeSel, 'seg')])
+	// K1: status-bar counts — outlets / conduits / racks in the selection, or the whole active model when nothing's selected.
+	let sbCounts = $derived.by(() => {
+		const m = modelById(activeMid())
+		if (!m) return null
+		const objIds = new Set(idsOfKind(activeSel, 'obj')), sel = selEnts.length > 0 || objIds.size > 0
+		const ents = sel ? selEnts : (m.shapes ?? []), objs = sel ? m.objects.filter((o) => o.id && objIds.has(o.id)) : m.objects
+		return { sel, outlets: ents.filter(isOutletEnt).length, conduits: objs.filter((o) => o.type === 'conduit').length, racks: objs.filter((o) => o.rack).length }
+	})
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
 	let selModelObj = $derived(activeModelSel.length === 1 ? (modelById(activeMid())?.objects.find(o => o.id === activeModelSel[0]) ?? null) : null)
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
@@ -1231,7 +1240,7 @@
 		onorient={(l) => setPaper(session.panes[session.focused]?.activeId, { landscape: l })}
 		paperMargin={paperOf(session.panes[session.focused]?.activeId).margin ?? DEFAULT_MARGIN_MM}
 		onmargin={(mm) => setPaper(session.panes[session.focused]?.activeId, { margin: mm })}
-		coords={worldXY} zoom={canvasNav.dispZoom} onzoom={navZoom} onfit={navFit} />
+		coords={worldXY} counts={sbCounts} zoom={canvasNav.dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>
