@@ -17,7 +17,7 @@
 	import VpWidgets from './render/VpWidgets.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { GROUND, MMPU } from './geometry'
-	import { HANDLE_PX, stepScale } from '../constants'
+	import { HANDLE_PX, stepScale, effScale } from '../constants'
 	import { onDark } from './modelSpace'
 	import { imgEdit } from '../imageEdit.svelte'
 	import { VpView } from './vpView.svelte'
@@ -75,7 +75,13 @@
 		</g>
 	</svg>
 
-	{#if !v.modelSpace}<div class="vp-tag"><Icon name={tagIcon[v.kind]} size={10} /> {v.label}{#if v.scale}<span class="vp-scale">{v.scale}</span>{/if}</div>{/if}   <!-- B31: model space names itself in the pane's bar -->
+	{#if !v.modelSpace}
+		<!-- the viewport's number / name (top-left) and its EFFECTIVE scale (top-right: the frame's 1:N ÷ its content zoom,
+		     so it's right after zooming inside the viewport); plain text on paper when printed (B31: model space names itself
+		     in the pane's bar) -->
+		<div class="vp-tag"><Icon name={tagIcon[v.kind]} size={10} /> <span class="vp-num">{v.label}</span></div>
+		{#if v.scale}<div class="vp-scale-tag">{effScale(v.scale, v.view.zoom)}</div>{/if}
+	{/if}
 	<VpWidgets {v} {x} />
 	{#if v.missing}
 		<div class="vp-missing">{#if v.missing.unmapped}<b>Not mapped yet</b><span>Imported from Sheets: {v.missing.unmapped} — no Pages model for it yet.</span>{:else}<b>Missing model</b>{#if v.missing.name}<span>“{v.missing.name}” is archived — unarchive it to show it here.</span>{:else}<span>The model this view points at doesn't exist.</span>{/if}{/if}</div>
@@ -103,7 +109,14 @@
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;
 	}
 	.vp-tag :global(svg) { color:#94a3b8; }
-	.vp-scale { color:#94a3b8; font-family:Consolas,monospace; }
+	.vp-scale-tag { position:absolute; top:6px; right:6px; font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px; font-family:Consolas,monospace; }
+	.vp-num { font-weight:600; }
+	/* print: the number and scale as plain drawing text (no chips / icon), black, a touch larger */
+	@media print {
+		.vp-tag, .vp-scale-tag { background:none; border:none; color:#000; font-size:10px; padding:0; }
+		.vp-tag :global(svg) { display:none; }
+		.vp-num { font-weight:700; }
+	}
 	.vp-missing { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
 		font-size:12px; color:#94a3b8; pointer-events:none; text-align:center; padding:12px; }
 	.vp-missing b { color:#f59e0b; font-size:13px; }

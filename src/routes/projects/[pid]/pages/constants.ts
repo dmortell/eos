@@ -25,6 +25,8 @@ export const modelUnitToPaperMm = (scaleN: number) => 1 / (scaleN || 1)
 export const modelUnitToPaperPx = (scaleN: number) => modelUnitToPaperMm(scaleN) * PAPER_PX_PER_MM
 /** The N of a '1:N' scale string (the scale DENOMINATOR); malformed / zero → 1 (1:1). */
 export const scaleDenom = (scale: string | undefined) => parseInt((scale || '1:1').split(':')[1] || '1') || 1
+/** A viewport's EFFECTIVE scale for its label: its 1:N ÷ its content zoom (zooming in a viewport changes the real scale). */
+export const effScale = (scale: string | undefined, zoom = 1): string => `1:${Math.max(1, Math.round(scaleDenom(scale) / (zoom || 1)))}`
 /** The drawing scales Alt+wheel steps a sheet viewport through (OpenCad). */
 export const SCALE_STEPS = [1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000, 1250, 1500, 2000, 2500, 5000]
 /** The next scale up (dir 1 = larger drawing = smaller N) or down from `scale`, as '1:N'. */
@@ -45,7 +47,7 @@ export const clampViewZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(VIEW_ZOO
 export const clampCanvasZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, z))
 export type PaperSize = 'A4' | 'A3' | 'A2'
 /** XP7: the paper margin (mm) a sheet starts with — drawn as a guide, frames snap to it. */
-export const DEFAULT_MARGIN_MM = 10
+export const DEFAULT_MARGIN_MM = 5   // the printed border, 5 mm in (Dave 2026-09-26); the title block sits on it
 /** ISO A-series paper, landscape [width, height] in mm. */
 export const PAPER_SIZES: Record<PaperSize, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420] }
 /** On-screen paper dimensions (px) for a size + orientation. */

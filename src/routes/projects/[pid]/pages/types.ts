@@ -119,5 +119,7 @@ export type Workspace = {
 	seedFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	addFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	commitFrame: (tabId: string, label: string) => void
+	/** Ctrl-drag on a viewport frame: copy it in place (with its view). */
+	dupFrameInPlace: (tabId: string, frameId: string) => void
 	envFor: (pane: { id: string; activeId: string }) => import('./ui/vpTypes').Env
 }

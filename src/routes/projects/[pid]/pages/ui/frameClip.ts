@@ -5,7 +5,10 @@
 import type { SheetFrame } from '../types'
 import type { Ent } from './geometry'
 
-export type FrameClip = { frames: SheetFrame[]; shapes: { modelId: string; ent: Ent }[] }
+/** `views`: each copied frame's content pan / zoom (+ 3D orbit) at copy time, by its SOURCE id — the copy opens
+ *  looking at the same thing (a new frame id would otherwise start at the default view). */
+export type FrameView = { view: { zoom: number; x: number; y: number }; yaw?: number; pitch?: number }
+export type FrameClip = { frames: SheetFrame[]; shapes: { modelId: string; ent: Ent }[]; views?: Record<string, FrameView> }
 const KEY = 'eos.pages.frameClip'
 
 /** The frames + the annotations scoped to them (`shapesOf(modelId)` = a model's shapes). */
@@ -28,7 +31,9 @@ export function pasteClip(clip: FrameClip, newId: (p?: string) => string, nextSe
 	const gids = new Map<string, string>()
 	const shapes = clip.shapes.map(({ modelId, ent }) => ({ modelId, ent: { ...ent, id: newId(), space: `view:${fid.get(ent.space!.slice(5))}`,
 		groupId: ent.groupId ? gids.get(ent.groupId) ?? (gids.set(ent.groupId, newId()), gids.get(ent.groupId)) : undefined } }))
-	return { frames, shapes }
+	// views follow their frame to the copy's id
+	const views = clip.views ? Object.fromEntries(Object.entries(clip.views).flatMap(([k, v]) => (fid.has(k) ? [[fid.get(k)!, v]] : []))) : undefined
+	return { frames, shapes, views }
 }
 
 export function saveClip(c: FrameClip) { try { localStorage.setItem(KEY, JSON.stringify(c)) } catch { /* private mode / full */ } }

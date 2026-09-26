@@ -4,6 +4,7 @@
 	// bbox X/Y (moves all) and the style fields they share ("mixed" when they differ) — edits apply to all.
 	import { ColorPicker, Icon } from '$lib'
 	import { textDialog } from '../../ui/textDialog.svelte'
+	import { layerUI } from '../../layers.svelte'
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
@@ -366,6 +367,7 @@
 		<option value="">— none —</option>
 		{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 	</select>
+	{#if cc('layer')}<button class="pp-mini" title="Make this the current layer (new shapes go on it)" aria-label="Make current layer" onclick={() => { layerUI.active = cc('layer') as string }}><Icon name="check" size={12} /></button>{/if}
 </div>
 {#if activeFrameId}
 	<!-- SCOPE (§6): model-space shows in every view of the model; view-space shows only in this viewport. -->

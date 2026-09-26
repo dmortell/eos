@@ -51,6 +51,7 @@ export const inScope = (ctx: ViewCtx, e: Ent): boolean => !e.space || e.space ==
  *  line; an elevation-native object shows only in that elevation) AND its scope includes this frame. */
 export const inThisView = (ctx: ViewCtx, e: Ent): boolean => inScope(ctx, e) && (onPlanPlane(e) || e.plane === ctx.dir)
 	&& !(e.type === 'insert' && ctx.isElev && onPlanPlane(e))   // plan block symbols (outlets) aren't drawn in elevations
+	&& !(e.type === 'image' && !ctx.isPlan && onPlanPlane(e))   // a plan's floorplan / PDF image belongs to the plan only (not elevations / 3D)
 
 /** A plan-plane 2D shape shown in the 3D ISO view is PROJECTED onto the ground plane (z=0); it renders
  *  (foreshortened) but isn't interactive there (edit it in plan/elevation). */

@@ -13,7 +13,8 @@
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
 	// J1 VP Lock: `vpLocked` (the active frame's locked layer ids; null = no frame active) + `onvplock` — the same idea.
-	let { layers = [], frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+	let { layers = [], frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete, onpick }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+		/** Pick a shape → its layer becomes current (runs LAYMCUR). */ onpick?: () => void
 		vpLocked?: string[] | null; onvplock?: (id: string) => void
 		/** J2: how many shapes / model objects sit on a layer, and delete a layer WITH its items (one undo step). */
 		countOf?: (id: string) => number; ondelete?: (id: string) => void } = $props()
@@ -88,6 +89,7 @@
 		<div class="lp-search">
 			<Icon name="search" size={12} />
 			<input placeholder="Search layers…" bind:value={search} />
+			{#if onpick}<button class="lp-pick" title="Make a shape's layer current: click this, then click the shape (LAYMCUR)" aria-label="Pick a shape's layer" onclick={onpick}><Icon name="crosshair" size={12} /></button>{/if}
 		</div>
 	</div>
 
@@ -106,12 +108,17 @@
 				{#if isOpen(g)}
 					{#each kids as l (l.id)}
 						{#if matches(l.name) || matches(g)}
+							{@const vpHidden = !!frozen?.includes(l.id)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active}
 								class:dragbefore={dr.isBefore(l.id)} class:dragafter={dr.isAfter(l.id)} title="Drag to reorder (sets draw z-order)"
 								{...dr.row(l.id)} onclick={() => (layerUI.active = l.id)}>
-								<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={(e) => { e.stopPropagation(); l.visible = !l.visible }}>
-									<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
+								<!-- in a sheet viewport (paper) the eye hides the layer in THAT viewport only (VP Freeze) — hiding it
+								     everywhere by accident is too easy; Shift+click hides it globally (Dave 2026-09-26) -->
+								<button class="ly-eye" class:vp={!!frozen} aria-label="Show/hide {l.name}"
+									title={frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
+									onclick={(e) => { e.stopPropagation(); if (frozen && !e.shiftKey) onfreeze?.(l.id); else l.visible = !l.visible }}>
+									<Icon name={l.visible && !vpHidden ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
 								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); l.locked = !l.locked }}>
 									<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
@@ -226,6 +233,9 @@
 	.ly-row.dragafter { box-shadow:inset 0 -2px 0 var(--accent); }   /* insert below the target */
 	.ly-eye { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.ly-eye:hover { color:var(--text); background:var(--line); }
+	.ly-eye.vp { color:var(--accent); }
+	.lp-pick { display:inline-flex; align-items:center; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 2px; }
+	.lp-pick:hover { color:var(--accent); }   /* in a viewport: the eye acts on that viewport only */
 	/* lock toggle beside the eye: faint when unlocked, accent when locked */
 	.ly-lock-btn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--faint); background:none; border:none; }
 	.ly-lock-btn:hover { color:var(--text); background:var(--line); }

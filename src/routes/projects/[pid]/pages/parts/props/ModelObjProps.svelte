@@ -2,7 +2,8 @@
 	// Properties › ONE 3D model object (a box / wall / conduit): label, layer, colour, then its geometry — a box's
 	// position / size / shape / rotation (+ door / window settings on an opening layer), a wall's or conduit's
 	// defaults and per-segment overrides with each segment's true 3D length. Edits write straight to the model.
-	import { ColorPicker } from '$lib'
+	import { ColorPicker, Icon } from '$lib'
+	import { layerUI } from '../../layers.svelte'
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
 	import { num, strVal, blurOnEnter, fmtLen } from './fields'
@@ -73,6 +74,7 @@
 	<select value={obj.layer ?? ''} onchange={(e) => onupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 		{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 	</select>
+	{#if obj.layer}<button class="pp-mini" title="Make this the current layer" aria-label="Make current layer" onclick={() => { layerUI.active = obj.layer! }}><Icon name="check" size={12} /></button>{/if}
 </div>
 <!-- F8: the object's own colour over its layer's (ByLayer = none) -->
 <div class="prop"><span>Colour</span>

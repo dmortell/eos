@@ -10,7 +10,7 @@
 	import { imgEdit, clearImgMode } from './imageEdit.svelte'
 	import { tick } from 'svelte'
 	import { page } from '$app/state'
-	import { goto } from '$app/navigation'
+	import { goto, replaceState } from '$app/navigation'
 	import PaperPage from './parts/PaperPage.svelte'
 	import DrawingsDialog from './parts/DrawingsDialog.svelte'
 	import Pane from './parts/Pane.svelte'
@@ -65,7 +65,7 @@
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
 	import { DocEdit } from './docEdit.svelte'
-	import { clipOf, pasteClip, saveClip, loadClip } from './ui/frameClip'
+	import { clipOf, pasteClip, saveClip, loadClip, type FrameClip } from './ui/frameClip'
 	import PrintBook, { type BookApi } from './parts/PrintBook.svelte'
 	import BlocksPanel from './parts/BlocksPanel.svelte'
 	import { blockFromShapes } from './ui/blocks'
@@ -365,15 +365,37 @@
 	}
 	// B2: copy / cut / paste / duplicate the selected viewport FRAME on paper (ui/frameClip.ts; the clipboard is in
 	// localStorage, so it survives a reload and crosses sheets). Returns whether the key did anything.
+	/** A frame's clip — with its CURRENT content view (focused pane) + orbit, so the copy opens looking at the same thing. */
+	function frameClipOf(tabId: string, f: SheetFrame): FrameClip {
+		const p = session.panes[session.focused], cl = clipOf([$state.snapshot(f) as SheetFrame], (mid) => $state.snapshot(entsForModel(mid)) as Ent[], modelIdOf(tabId))
+		if (p) { const o = orbitOf(p.id, f.id, f.proj as Proj); cl.views = { [f.id]: { view: { ...viewOf(p.id, f.id, f.proj as Proj) }, yaw: o.yaw, pitch: o.pitch } } }
+		return cl
+	}
+	/** Ctrl-drag on a viewport frame: a copy stays where it was (same view), the drag carries the original. */
+	function dupFrameInPlace(tabId: string, frameId: string) {
+		const f = framesOf(tabId).find((x) => x.id === frameId); if (!f) return
+		const pasted = pasteClip(frameClipOf(tabId, f), (p) => newId(p), nextFrameSeq(framesOf(tabId)), 0)
+		ensureHist(tabId)
+		setFrames(tabId, [...framesOf(tabId), ...pasted.frames])
+		for (const s of pasted.shapes) { const m = modelById(s.modelId); if (m) m.shapes = [...(m.shapes ?? []), s.ent] }
+		applyClipViews(pasted)
+		recordEdit(tabId, 'Copy viewport')
+	}
+	/** A pasted clip's views → every pane's view state for the new frame ids. */
+	function applyClipViews(c: FrameClip) {
+		for (const fr of c.frames) { const v = c.views?.[fr.id]; if (!v) continue
+			for (const p of session.panes) { setView(p.id, fr.id, fr.proj as Proj, v.view); if (v.yaw != null && v.pitch != null) setOrbit(p.id, fr.id, fr.proj as Proj, v.yaw, v.pitch) } }
+	}
 	function frameClipKey(tabId: string, k: 'c' | 'x' | 'v' | 'd'): boolean {
-		const f = selFrameObj, defModel = modelIdOf(tabId)
-		const clip = () => clipOf(f ? [$state.snapshot(f) as SheetFrame] : [], (mid) => $state.snapshot(entsForModel(mid)) as Ent[], defModel)
+		const f = selFrameObj
+		const clip = () => frameClipOf(tabId, f!)
 		if ((k === 'c' || k === 'x' || k === 'd') && !f) return false
 		if (k === 'c' || k === 'x') { const cl = clip(); saveClip(cl); navigator.clipboard?.writeText(JSON.stringify({ 'eos-pages-frames': 1, clip: cl })).catch(() => {}); toast(k === 'x' ? 'Viewport cut' : 'Viewport copied'); if (k === 'x') { deleteFrame(tabId, f!.id); selStore.set(tabId, selClear()) } return true }
 		const src = k === 'd' ? clip() : loadClip(); if (!src) return false
 		const pasted = pasteClip(src, (p) => newId(p), nextFrameSeq(framesOf(tabId)), Math.round(10 * PAPER_PX_PER_MM))
 		ensureHist(tabId)
 		setFrames(tabId, [...framesOf(tabId), ...pasted.frames])
+		applyClipViews(pasted)
 		let lost = 0
 		for (const s of pasted.shapes) { const m = modelById(s.modelId); if (m) m.shapes = [...(m.shapes ?? []), s.ent]; else lost++ }
 		for (const fr of pasted.frames) if (fr.modelId && !modelById(fr.modelId)) lost++
@@ -408,10 +430,23 @@
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
 		if (a?.kind === 'sheet') {
 			const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; const f = framesOf(a.id).find((x) => x.id === av)
-			if (av && f) carryFocus(pane.id, av, f.proj as Proj, proj, scaleDenom(f.scale ?? scaleOf(a.id)))
+			// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
+			// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
+			if (av && f && proj !== 'iso' && !viewState.hasView(pane.id, didOf(av), proj)) centreFrameContent(pane.id, a.id, f, proj)
 			if (av) updateFrame(a.id, av, f?.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
 		}
 		else if (a) { carryFocus(pane.id, a.id, projOf(pane, a), proj, scaleDenom(scaleOf(a.id))); viewState.setProj(pane.id, didOf(a.id), proj) }
+	}
+	/** Centre a sheet frame's content for projection `proj` at the frame's own scale (its zoom kept): the model's
+	 *  objects (+ in plan, its plan shapes / floorplan). */
+	function centreFrameContent(paneId: string, tabId: string, f: SheetFrame, proj: Proj) {
+		const mdl = modelById(f.modelId ?? modelIdOf(tabId)); if (!mdl) return
+		const ls = mdl.layers ?? [], n = scaleDenom(f.scale ?? scaleOf(tabId))
+		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: f.id, paperMm: n, mdl, yaw: 0, pitch: 0 }
+		const extra = proj === 'plan' ? (mdl.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model' || e.space === 'view:' + f.id) && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e)) : []
+		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: f.clip, visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
+		const z = viewOf(paneId, f.id, f.proj as Proj).zoom || 1, k = (z * fit.n) / n   // fit's view is at 1:fit.n, zoom 1 → this frame's scale + zoom
+		setView(paneId, f.id, proj, { zoom: z, x: PLAN_CX * (1 - z) + fit.view.x * k, y: PLAN_CY * (1 - z) + fit.view.y * k })   // view + z·(C + (P − C)/N) = C at the content's middle
 	}
 	// Keep your place across a view switch (plan ↔ elevations): the 3D point at the centre of the view you leave is
 	// put at the centre of the one you open, at the same zoom. A view only knows two of the three coordinates, so the
@@ -912,7 +947,20 @@
 	function saveTreeItem(item: TreeItem) {
 		const pid = page.params.pid; if (!pid) return
 		try { const all = JSON.parse(localStorage.getItem(TREE_LS) || '{}'); all[pid] = item; localStorage.setItem(TREE_LS, JSON.stringify(all)) } catch { /* private mode */ }
+		setUrlItem(item)
 	}
+	// SHARE: the selected tree item rides in the URL (?node=<place id> or ?doc=<drawing id>), so a copied link opens
+	// the same place / drawing for someone else. A link's item wins over the one remembered in this browser.
+	function setUrlItem(item: TreeItem) {
+		try {
+			const u = new URL(location.href); u.searchParams.delete('node'); u.searchParams.delete('doc')
+			if (item.node) u.searchParams.set('node', item.node); else if (item.doc) u.searchParams.set('doc', item.doc)
+			if (u.href !== location.href) replaceState(u, page.state)
+		} catch { /* the router isn't ready yet */ }
+	}
+	const urlItem = (): TreeItem | undefined => { const n = page.url.searchParams.get('node'), d = page.url.searchParams.get('doc'); return n ? { node: n } : d ? { doc: d } : undefined }
+	// the active tab's drawing follows into the URL too (a tab opened from the tab strip / another pane)
+	$effect(() => { const d = active?.docId; if (d && restoredFor === page.params.pid) untrack(() => { const t = proj.realTree; if (urlItem()?.doc !== d && t && findNodePath(t.tree, { docId: d })) setUrlItem({ doc: d }) }) })   // only drawings the tree can reopen
 	let treeReveal = $state<string[]>([])
 	// The tree fills in over several snapshots (project doc first, then risers / drawings / racks rows), so the
 	// restore RETRIES on each tree update until it finds the item — and gives up once the user clicks in the
@@ -924,7 +972,8 @@
 		untrack(() => {
 			if (!restoreStart) restoreStart = Date.now()
 			let item: TreeItem | undefined
-			try { item = JSON.parse(localStorage.getItem(TREE_LS) || '{}')[pid] } catch { /* private mode */ }
+			item = urlItem()   // a shared link first
+			if (!item) try { item = JSON.parse(localStorage.getItem(TREE_LS) || '{}')[pid] } catch { /* private mode */ }
 			if (!item || Date.now() - restoreStart > 15000) { restoredFor = pid; return }
 			if (proj.store && proj.store.status !== 'ready') return   // wait for the stored models (a place's "has a model")
 			if (item.node === t.project.id) { restoredFor = pid; selectNode({ id: t.project.id, label: t.project.label, kind: 'project' }); return }
@@ -1152,7 +1201,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
@@ -1261,7 +1310,7 @@
 				{#if rightTab === 'blocks'}
 					<BlocksPanel armed={placeBlock} onarm={armBlock} />
 				{:else if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} onpick={() => cmdRunner.run('LAYMCUR')} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) { rememberOutlet(es[0]); if (es[0].live) proj.resyncCalib(es[0].src) } }} onwalk={startWalk} modelNode={singleOfKind(activeSel, 'node')?.sub} modelSeg={singleOfKind(activeSel, 'seg')?.sub}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

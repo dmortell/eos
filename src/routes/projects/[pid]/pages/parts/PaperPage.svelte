@@ -30,7 +30,7 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
 		entities = [], entsForModel = undefined, tabModelId = undefined, conduitOf = () => null,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframedup, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
@@ -43,7 +43,7 @@
 			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
 			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; ondeactivate?: () => void } = $props()
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy the frame in place (the drag then carries the original) */ onframedup?: (id: string) => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const tbShown = $derived(tb === undefined ? shownTitleBlock(undefined, fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo })) : tb)
 	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
@@ -100,7 +100,9 @@
 	const snapEdge = (v: number, lines: number[], tolPaperPx: number): number => v + frameSnapDelta([v], lines, GRID_STEP_PX, tolPaperPx)
 	// Frame snap lines in SHEET-AREA coords (frame geometry's frame of reference, inset PAD from the paper's
 	// corner): the paper edges + margin (XP7), the drawing area's own edges and the title block's edges (A8).
-	const PAD = 10   // .paper's padding
+	const PAD = 10   // .paper's padding (frames are placed relative to it — don't change it, or every sheet's frames move)
+	/** The title block is inset by the rest of the paper MARGIN so its outer edges sit ON the (printed) margin border. */
+	const tbInset = $derived(Math.max(0, marginMm * PAPER_PX_PER_MM - PAD))
 	let tbEl: HTMLDivElement | undefined = $state()
 	function snapLines(): { x: number[]; y: number[] } {
 		const pl = paperSnapLines(pw, ph, marginMm * PAPER_PX_PER_MM), x = pl.x.map((v) => v - PAD), y = pl.y.map((v) => v - PAD)
@@ -205,7 +207,7 @@
 		if (tool !== 'Viewport') {
 			const border = frameBorderHit(p)
 			// XP22: a LOCKED frame selects but never drags
-			if (border) { selectFrame(border.id); if (!border.locked) startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true); return }
+			if (border) { selectFrame(border.id); if (!border.locked) { if (e.ctrlKey || e.metaKey) onframedup?.(border.id); startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true) } return }   // Ctrl-drag: a copy stays behind
 			clearFrameSel()   // clicking empty paper (or a frame's interior) deselects any frame
 			if (frameHit(p)) return   // interior of an inactive frame: deselect only, no marquee (matches the old .vp-interior stopPropagation)
 		}
@@ -255,7 +257,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
-	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px">
+	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px" style:--tb-inset="{tbInset}px" style:--pad="{PAD + tbInset}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
 			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
@@ -382,18 +384,18 @@
 		min-height:34px; padding:3px 4px; gap:6px; display:flex; align-items:center; justify-content:center;
 		font-family:Georgia, serif; font-size:18px; font-weight:700; color:#1f2937; border-bottom:1px solid #94a3b8;
 	}
-	.tb { position:relative; z-index:3; background:#fff; }   /* above a frame that strays over it */
+	.tb { position:relative; z-index:3; background:#fff; margin:var(--tb-inset, 0) var(--tb-inset, 0) var(--tb-inset, 0) 0; }   /* above a frame that strays over it; inset onto the margin border */
 	.tb-logo img { max-width:45%; object-fit:contain; }
 	.tb-logo span { padding:0 4px; }
 	/* A6: a band along the BOTTOM — the sections side by side */
 	.paper.tb-h { flex-direction:column; }
-	.paper.tb-h .tb { width:auto; min-width:0; flex-direction:row; align-items:stretch; min-height:58px; }
+	.paper.tb-h .tb { width:auto; min-width:0; flex-direction:row; align-items:stretch; min-height:58px; margin:0 var(--tb-inset, 0) var(--tb-inset, 0) var(--tb-inset, 0); }
 	.paper.tb-h .tb > * { border-bottom:none; border-right:1px solid #cbd5e1; flex:1 1 0; min-width:0; }
 	.paper.tb-h .tb-logo { flex:0 0 auto; height:auto; padding:0 8px; }
 	.paper.tb-h .tb-grid { margin-top:0; grid-template-columns:repeat(4, 1fr); flex:2 1 0; border-right:none; }
 	.paper.tb-h .tb-revs { margin-top:0; }
 	/* A6: a COMPACT box in the bottom-right corner, over the drawing area */
-	.paper.tb-c .tb { position:absolute; right:10px; bottom:10px; width:34%; background:#fff; z-index:3; }
+	.paper.tb-c .tb { position:absolute; right:var(--pad, 10px); bottom:var(--pad, 10px); width:34%; background:#fff; z-index:3; }
 	.tb-revs { width:100%; border-collapse:collapse; margin-top:auto; font-size:7px; color:#1f2937; table-layout:fixed; }
 	.tb-revs th { font-size:6px; letter-spacing:.06em; color:#94a3b8; font-weight:500; text-align:left; padding:2px 3px; border-bottom:1px solid #cbd5e1; }
 	.tb-revs th:nth-child(1) { width:20%; } .tb-revs th:nth-child(2) { width:34%; }

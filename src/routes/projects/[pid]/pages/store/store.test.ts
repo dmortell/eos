@@ -72,7 +72,7 @@ describe('sheet + model docs', () => {
 	it('a new sheet is a registry entry with an EMPTY number, filed under its place', () => {
 		const d = newSheetDoc({ pid: P, id: 's1', title: 'Plan', placeId: 'p3', sortOrder: 2, user: 'u', now: 't' })
 		expect(d).toMatchObject({ toolType: 'pages', drawingNumber: '', status: 'active', placeId: 'p3', sortOrder: 2, tags: [], sourceDocId: `${P}_s1`, frames: [] })
-		expect(d.paper).toEqual({ size: 'A3', landscape: true, marginMm: 10 })
+		expect(d.paper).toEqual({ size: 'A3', landscape: true, marginMm: 5 })   // DEFAULT_MARGIN_MM
 	})
 	it('normSheet fills fields an older doc lacks', () => {
 		const d = normSheet({ id: 's9', title: 'X' })
