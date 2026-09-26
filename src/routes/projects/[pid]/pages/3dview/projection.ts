@@ -62,8 +62,8 @@ function conduitRunsRings(o: Conduit): P3[][][] {
 	return conduitRuns(o).map((run) => conduitRings({ w: run.w, h: run.h, edges: run.edges, path: run.points }))
 }
 // Per-segment wall boxes across all runs.
-function wallRunBoxes(o: Wall) {
-	return wallRuns(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: run.h, thickness: run.thickness, pts: run.points }))
+function wallRunBoxes(o: Wall, cuts: Cut[] = []) {
+	return wallRuns(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: run.h, thickness: run.thickness, pts: run.points }, cuts))
 }
 
 const proj = (dir: Dir, p: P3) => {
@@ -458,17 +458,55 @@ const ringSolidFaces = (bot: P3[], top: P3[]): Face[] => {
 	return faces
 }
 // Per-segment box rings (bot/top) for a thick wall, with mitred corners.
-function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }) {
+function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }, cuts: Cut[] = []) {
 	const { left, right } = wallOffsets(o.pts, o.thickness)
 	const boxes: { bot: P3[]; top: P3[] }[] = []
+	const box = (q: V2[], z0: number, z1: number) => { if (z1 - z0 >= 1) boxes.push({ bot: q.map((p) => ({ x: p.x, y: p.y, z: z0 })), top: q.map((p) => ({ x: p.x, y: p.y, z: z1 })) }) }
 	for (let i = 0; i < o.pts.length - 1; i++) {
 		const q = [left[i], left[i + 1], right[i + 1], right[i]] // mitred segment footprint
-		boxes.push({
-			bot: q.map((p) => ({ x: p.x, y: p.y, z: o.z })),
-			top: q.map((p) => ({ x: p.x, y: p.y, z: o.z + o.h })),
-		})
+		const gaps = cuts.length ? segmentGaps(o.pts[i], o.pts[i + 1], o.thickness / 2, o.z, o.z + o.h, cuts) : []
+		if (!gaps.length) { box(q, o.z, o.z + o.h); continue }
+		// OPENINGS (after OpenCad's wall builder): the segment becomes solid panels around each hole — full-height
+		// jambs between them, a header above and a sill below — so a door / window is a real hole in 3D, its
+		// reveals the panels' side faces. A jamb at the segment's own end keeps the mitred corner.
+		const P = o.pts[i], Q = o.pts[i + 1], len = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / len, uy = (Q.y - P.y) / len
+		const perp = (c: V2) => { const dx = c.x - P.x, dy = c.y - P.y, a = dx * ux + dy * uy; return { x: dx - a * ux, y: dy - a * uy } }
+		const nl = perp(left[i]), nr = perp(right[i])   // the two faces' offsets from the centreline
+		const at = (s: number, side: V2): V2 => ({ x: P.x + ux * s + side.x, y: P.y + uy * s + side.y })
+		const quad = (s0: number, s1: number): V2[] => [s0 <= 0 ? left[i] : at(s0, nl), s1 >= len ? left[i + 1] : at(s1, nl), s1 >= len ? right[i + 1] : at(s1, nr), s0 <= 0 ? right[i] : at(s0, nr)]
+		let cur = 0
+		for (const g of gaps) {
+			if (g.s0 > cur) box(quad(cur, g.s0), o.z, o.z + o.h)
+			box(quad(g.s0, g.s1), g.z1, o.z + o.h)   // header
+			box(quad(g.s0, g.s1), o.z, g.z0)         // sill (a door has none: its z0 is the floor)
+			cur = Math.max(cur, g.s1)
+		}
+		if (cur < len) box(quad(cur, len), o.z, o.z + o.h)
 	}
 	return boxes
+}
+/** A hole an OPENING box cuts (plan footprint corners + its height range). */
+export type Cut = { pts: V2[]; z0: number; z1: number }
+/** The cuts of the model's opening objects (boxes on an "opening" layer). */
+export function openingCuts(objs: Obj[], isOpening: (o: Obj) => boolean): Cut[] {
+	const out: Cut[] = []
+	for (const o of objs) if (o.type === 'prism' && isOpening(o)) out.push({ pts: boxFootprint(o.x, o.y, o.w, o.d, 4, 0, o.rot), z0: o.z, z1: o.z + o.h })
+	return out
+}
+/** Where cuts cross a wall segment P→Q (half thickness `half`, height z0..z1): each hole's span along the centreline
+ *  (s0..s1, clamped to the segment) and its height range (clamped to the wall), sorted along the segment. A cut counts
+ *  when its footprint overlaps the wall's band. */
+export function segmentGaps(P: V2, Q: V2, half: number, z0: number, z1: number, cuts: Cut[]): { s0: number; s1: number; z0: number; z1: number }[] {
+	const len = Math.hypot(Q.x - P.x, Q.y - P.y); if (len < 1) return []
+	const ux = (Q.x - P.x) / len, uy = (Q.y - P.y) / len, out: { s0: number; s1: number; z0: number; z1: number }[] = []
+	for (const c of cuts) {
+		const zz0 = Math.max(z0, c.z0), zz1 = Math.min(z1, c.z1); if (zz1 - zz0 < 1) continue
+		let a0 = Infinity, a1 = -Infinity, p0 = Infinity, p1 = -Infinity
+		for (const p of c.pts) { const dx = p.x - P.x, dy = p.y - P.y, a = dx * ux + dy * uy, n = -dx * uy + dy * ux; a0 = Math.min(a0, a); a1 = Math.max(a1, a); p0 = Math.min(p0, n); p1 = Math.max(p1, n) }
+		if (p1 < -half || p0 > half || a1 <= 0 || a0 >= len) continue
+		out.push({ s0: Math.max(0, a0), s1: Math.min(len, a1), z0: zz0, z1: zz1 })
+	}
+	return out.sort((a, b) => a.s0 - b.s0)
 }
 
 // 3D wireframe edges of an object (for the isometric view).
@@ -491,13 +529,14 @@ function edges3d(o: Obj): Seg[] {
 }
 
 // 3D faces of an object (for hidden-line / solid rendering in the iso view).
-export function faces3d(o: Obj): Face[] {
+/** `cuts` = the model's opening holes (openingCuts): a wall is built with them as real holes. */
+export function faces3d(o: Obj, cuts: Cut[] = []): Face[] {
 	if (o.type === 'prism') {
 		const { bot, top } = prismRings(o)
 		return ringSolidFaces(bot, top)
 	}
 	if (o.type === 'wall') {
-		return wallRunBoxes(o).flatMap((b) => ringSolidFaces(b.bot, b.top))
+		return wallRunBoxes(o, cuts).flatMap((b) => ringSolidFaces(b.bot, b.top))
 	}
 	// conduit: mitered tube side faces (ring strips) + end caps, per run
 	const faces: Face[] = []

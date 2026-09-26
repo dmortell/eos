@@ -9,7 +9,7 @@ import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox, arcPts, isNote } from './geometry'
 import { layoutNote, type NoteLayout } from './noteLayout'
-import { isoBounds, faces3d, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
+import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
 
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
@@ -263,10 +263,11 @@ export function isoPickFaces(ctx: ViewCtx, ml: MLayers): IsoPickFace[] {
 	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible, ctx.persp ?? null); if (!b) return []
 	const vm = viewMapOf(ctx, b)
 	const depth = (v: { x: number; y: number; z: number }) => isoDepthR(v, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ctx.persp ?? null)
+	const cuts = openingCuts(mdl.objects, (o) => ml.visible(o) && !!mdl.layers?.find((l) => l.id === o.layer)?.opening)
 	const out: IsoPickFace[] = []
 	for (const o of mdl.objects) {
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue
-		for (const f of faces3d(o)) {
+		for (const f of faces3d(o, cuts)) {   // a wall's openings are holes here too, so you pick what's seen through them
 			if (f.pts.length < 3) continue
 			out.push({ id: o.id, pts: f.pts.map((v) => vm.toDraw(v)), depth: f.pts.reduce((s, v) => s + depth(v), 0) / f.pts.length })
 		}

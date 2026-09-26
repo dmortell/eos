@@ -31,6 +31,10 @@ open items; `review.md §0a` tracks which review findings are closed.
   things and lets go of the rest, and matches each object's layer by id, then by name.
   **From the Sheets tool:** Ctrl+C (or Copy) in a Sheets 3D viewport also puts the objects on the system clipboard in
   this format, mirrored from Sheets' y-up plan to Pages' y-down (`sheets/tools/model3d/pagesClip.ts`).
+- **Doors / windows are real holes in 3D** (after OpenCad's wall builder): in the 3D / perspective view each wall
+  segment an opening box crosses is built as solid panels around it — jambs either side, a header above and (a
+  window) a sill below — so you see through the hole and its reveals. Picking in 3D goes through the hole too.
+  Plan / elevations keep their masked openings. (`3dview/projection.ts` openingCuts / segmentGaps / wallBoxes)
 - **HATCH (2D)**: a rect, ellipse or closed polyline can carry a line pattern (horizontal, vertical, grid, diagonal,
   diagonal cross) at a spacing in model mm (default 300, e.g. cable-ladder rungs). Properties › HATCH; DXF as lines.
 

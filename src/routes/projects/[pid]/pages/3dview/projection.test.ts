@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
 	boxFootprint, prismRings, dominantAxis, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH,
 	objBounds, inClip, trimToClip, modelZRange, modelBounds, xyCenter, doorGeom, project, faces3d,
-	posAlong, sizeAlong, roundObj, moveAlong,
+	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps,
 } from './projection'
-import type { Prism, Wall, Conduit, Clip } from './types'
+import type { Prism, Wall, Conduit, Clip, Obj } from './types'
 
 const prism = (over: Partial<Prism> = {}): Prism => ({ type: 'prism', x: 100, y: 200, z: 0, w: 400, d: 300, h: 1000, edges: 4, ...over })
 // Straight wall along +x from (0,0) to (1000,0), thickness 200, height 3000.
@@ -296,5 +296,26 @@ describe('axis accessors / mutators', () => {
 		const p = prism({ x: 1.4, w: 2.6, h: 9.5 }); roundObj(p); expect([p.x, p.w, p.h]).toEqual([1, 3, 10])
 		const c = conduit({ w: 99.6, nodes: [{ id: 'a', x: 0.2, y: 0.7, z: 1.5 }] }); roundObj(c)
 		expect(c.w).toBe(100); expect(c.nodes[0]).toMatchObject({ x: 0, y: 1, z: 2 })
+	})
+})
+
+describe('wall openings as real holes (OpenCad-style panels)', () => {
+	const wall = { type: 'wall', id: 'w', h: 3000, thickness: 100, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 4000, y: 0, z: 0 }], segments: [{ id: 's', a: 'a', b: 'b' }] } as Obj
+	const door = { type: 'prism', id: 'd', x: 1000, y: -100, z: 0, w: 900, d: 200, h: 2100, edges: 4 } as Obj
+	const win = { type: 'prism', id: 'n', x: 2500, y: -100, z: 900, w: 1000, d: 200, h: 1200, edges: 4 } as Obj
+	it('segmentGaps finds each opening crossing the wall band, clamped and sorted; one off the wall is ignored', () => {
+		const away = { type: 'prism', id: 'x', x: 1000, y: 800, z: 0, w: 900, d: 200, h: 2100, edges: 4 } as Obj
+		const cuts = openingCuts([win, door, away], (o) => o.type === 'prism')
+		expect(segmentGaps({ x: 0, y: 0 }, { x: 4000, y: 0 }, 50, 0, 3000, cuts)).toEqual([{ s0: 1000, s1: 1900, z0: 0, z1: 2100 }, { s0: 2500, s1: 3500, z0: 900, z1: 2100 }])
+	})
+	it('the wall becomes panels: no faces without openings change; with a door + window, more (smaller) boxes', () => {
+		const plain = faces3d(wall).length
+		const cut = faces3d(wall, openingCuts([door, win], () => true))
+		expect(plain).toBe(6)   // one box
+		// jamb 0–1000, door header, jamb 1900–2500, window header + sill, jamb 3500–4000 = 6 boxes × 6 faces
+		expect(cut.length).toBe(36)
+		// nothing of the wall sits inside the door hole (x 1000–1900, z 0–2100)
+		const inside = cut.some((f) => f.pts.every((p) => p.x > 1001 && p.x < 1899 && p.z < 2099))
+		expect(inside).toBe(false)
 	})
 })

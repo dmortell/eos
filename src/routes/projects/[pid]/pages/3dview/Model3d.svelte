@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
+	import { project, objBounds, faces3d, openingCuts, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
 	import { BASIS } from './types'
 	import { storeyMap } from './storeyMap'
 	import { fillLabel, fillTone, conduitFill } from './fill'
@@ -155,10 +155,11 @@
 	const isoFaces = $derived.by(() => {
 		if (dir !== 'iso') return []
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number; shade: string }[] = []
+		const cuts = openingCuts(model.objects, (o) => isOpening(o) && visible(o) && inClip(o))   // OpenCad-style: openings cut real holes in walls
 		for (const o of model.objects) {
 			if (!visible(o) || !inClip(o) || isOpening(o)) continue
 			const col = colorOf(o), lw = weightOf(o)
-			for (const f of faces3d(o)) {
+			for (const f of faces3d(o, cuts)) {   // walls come with their openings as real holes
 				if (f.pts.length < 3) continue
 				let d = 0
 				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy, persp)
