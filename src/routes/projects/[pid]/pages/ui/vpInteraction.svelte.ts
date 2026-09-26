@@ -11,7 +11,7 @@
 import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv } from './geometry'
+import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv, isNote } from './geometry'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
@@ -22,6 +22,7 @@ import { cptPick } from './cptPick.svelte'
 import { explodeEnt } from './explode'
 import { rackHeightMm } from '../store/racksImport'
 import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
+import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
@@ -333,7 +334,7 @@ export class VpInteraction {
 			let at = this.lastPtr
 			if (!at && v.svg) { const r = v.svg.getBoundingClientRect(); at = v.toModel(r.left + r.width / 2, r.top + r.height / 2) }
 			if (!at) return 'No view to paste into'
-			const e: Ent = kind === 'note' ? { id: uid(), type: 'note', a: at, text, noteW: 110, noteBox: true, plane: drawPlane(v.ctx) } : { id: uid(), type: 'text', a: at, text, plane: drawPlane(v.ctx) }
+			const e: Ent = kind === 'note' ? { id: uid(), type: 'text', a: at, text, noteW: 110, noteBox: true, plane: drawPlane(v.ctx) } : { id: uid(), type: 'text', a: at, text, plane: drawPlane(v.ctx) }
 			if (v.editor.ents.add(e) === false) return null
 			v.selectEnts([e.id]); return null
 		},
@@ -347,6 +348,13 @@ export class VpInteraction {
 			if (POLY.has(t)) return n ? { prompt: `${t}: specify next point  <Enter / right-click finishes>`, options: n >= 2 && t === 'Line' ? ['Close', 'Undo'] : ['Undo'] } : { prompt: `${t}: specify first point` }
 			const corner = t === 'Rectangle' || t === 'Ellipse' || t === 'Furniture' || t === 'Section'
 			return n ? { prompt: `${t}: specify ${corner ? 'opposite corner' : 'second point'}`, options: ['Undo'] } : { prompt: `${t}: specify ${corner ? 'first corner' : 'first point'}` }
+		},
+		graphAudit: (fix) => {
+			const v = this.v, m = v.mdl; if (!m) return null
+			const snap = { id: m.id, objects: $state.snapshot(m.objects) as Obj[], shapes: $state.snapshot(m.shapes ?? []) as Ent[] }
+			const issues = auditGraph(snap)
+			if (fix && issues.length) { v.editor.edit.begin(); m.objects = fixGraph(snap); v.editor.edit.mark('Audit: fix graph'); v.editor.edit.end() }
+			return issues
 		},
 		entAt: (u) => { const d = this.toDraw(u); return d ? (this.v.hit(d)[0] ?? null) : null },
 		erase: () => this.v.editor.sel.delete(),
@@ -598,7 +606,7 @@ export class VpInteraction {
 		if (POLY.has(v.tool) && this.draft.length) { this.finishPolyline(); return }
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return
 		const ent = v.entities.find((x) => x.id === v.hit(p)[0])
-		if (ent?.type === 'text') { this.startTextEdit(ent); return }
+		if (ent?.type === 'text' && !isNote(ent)) { this.startTextEdit(ent); return }
 		if (ent && insertLink(ent) && insertLink(ent) !== '~url') { v.on.openLink?.(insertLink(ent)); return }   // D4: a linked symbol opens its target
 		if (v.tool === 'Select' && v.modelEditable) this.insertGraphNode(p)
 	}

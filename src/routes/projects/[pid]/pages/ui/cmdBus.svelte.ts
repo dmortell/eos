@@ -7,6 +7,7 @@
 // routes its clicks to it (snapped like a draw click, ORTHO relative to `base`) and reports the cursor (`hover`) for
 // the rubber band and direct-distance entry.
 import type { Pt, Ent } from './geometry'
+import type { GraphIssue } from '../3dview/graphAudit'
 
 export type PickReq = {
 	kind: 'point' | 'ent'
@@ -86,6 +87,8 @@ export type VpCommandTarget = {
 	restoreView(s: { view: { zoom: number; x: number; y: number }; scale: string }): void
 	/** The viewport's <svg> (SVGOUT / PNGOUT). */
 	svg(): SVGSVGElement | undefined
+	/** AUDIT: this view's model's graph / connection faults (3dview/graphAudit.ts); `fix` repairs them in one undo step. */
+	graphAudit(fix: boolean): GraphIssue[] | null
 	/** Pick the shape at a user point (top-most pickable), or null. */
 	entAt(u: Pt): string | null
 }

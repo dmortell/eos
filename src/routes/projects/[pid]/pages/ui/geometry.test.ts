@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { type Ent, dist, segDist, translate, textBox, elevU, flatSpan, PLAN_CX, PLAN_CY } from './geometry'
+import { type Ent, dist, segDist, translate, textBox, elevU, flatSpan, isNote, migrateNote, PLAN_CX, PLAN_CY } from './geometry'
 
 describe('dist / segDist', () => {
 	it('dist is euclidean', () => {
@@ -52,3 +52,13 @@ describe('flatSpan — flat objects collapse to a ground line on the view axis',
 	})
 })
 
+
+describe('NOTE merged into TEXT', () => {
+	it('a stored note becomes a wrapped text; a plain text stays plain', () => {
+		const old = { id: 'n', type: 'note', a: [0, 0], text: '# T' } as unknown as Ent
+		const m = migrateNote(old)
+		expect(m.type).toBe('text'); expect(m.noteW).toBe(90); expect(isNote(m)).toBe(true)
+		const t: Ent = { id: 't', type: 'text', a: [0, 0], text: 'x' }
+		expect(migrateNote(t)).toBe(t); expect(isNote(t)).toBe(false)
+	})
+})

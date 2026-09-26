@@ -52,6 +52,9 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import type { Ent, ElevDir } from './ui/geometry'
+	import { PLAN_CX, PLAN_CY, GROUND } from './ui/geometry'
+	import type { ViewCtx } from './ui/view'
+	import { bbox as entBBox, onPlanPlane } from './ui/hit'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
@@ -310,7 +313,15 @@
 	// this is the page's baseline, so it's not a recorded edit.
 	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
 		if (framesOf(tabId).length) return
-		setFrames(tabId, [{ id: newFrameId(), x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: scaleOf(tabId), clip: null, label: '1', seq: 1, modelId: proj.newFrameModel(tabId) }])
+		const id = newFrameId(), modelId = proj.newFrameModel(tabId)
+		// fit the plan to the new viewport — its 3D objects AND its plan shapes / floorplan image (a zone's content
+		// is often far from the drawing centre, so the sheet's default view would show it half off the frame)
+		const mdl = modelById(modelId ?? modelIdOf(tabId) ?? FLOOR_MODEL_ID), ls = mdl?.layers ?? []
+		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: id, paperMm: scaleDenom(scaleOf(tabId)), mdl, yaw: 0, pitch: 0 }
+		const extra = (mdl?.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model') && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e))
+		const fit = mdl ? fitFrame(mdl.objects, 'plan', { w: w / PAPER_PX_PER_MM, h: h / PAPER_PX_PER_MM }, { visible: (o) => !isLayerHidden(ls, o.layer), extra }) : null
+		setFrames(tabId, [{ id, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: fit ? `1:${fit.n}` : scaleOf(tabId), clip: null, label: '1', seq: 1, modelId }])
+		if (fit) for (const p of session.panes) setView(p.id, id, 'plan', fit.view)
 	}
 	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view. Frame edits
 	// (add / move / resize / delete / re-source) record on the page's per-doc history so Ctrl-Z works.

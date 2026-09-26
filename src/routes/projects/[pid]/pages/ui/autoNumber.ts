@@ -3,6 +3,7 @@
 // a template without `#` gets the number appended. Texts take it as their text, block inserts as one
 // attribute (TAG), 2-point / poly lines as their label.
 import type { Ent, Pt } from './geometry'
+import { isNote } from './geometry'
 
 export type NumberOrder = 'rows' | 'cols'
 export interface AutoNumberOpts {
@@ -32,7 +33,7 @@ function anchor(e: Ent): Pt {
 
 /** Can this shape take a number (with this attribute tag for inserts)? */
 export function numberable(e: Ent, tag?: string): boolean {
-	return e.type === 'text' || e.type === 'polyline' || (e.type === 'insert' && !!tag)
+	return (e.type === 'text' && !isNote(e)) || e.type === 'polyline' || (e.type === 'insert' && !!tag)
 }
 
 /** Sort in reading order: cluster on the cross axis within `tol`, then along the main axis. */

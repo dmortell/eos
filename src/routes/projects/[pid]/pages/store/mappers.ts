@@ -6,6 +6,7 @@ import type { Model } from '../3dview/types'
 import type { SheetFrame } from '../types'
 import type { PageDoc } from '../doc.svelte'
 import type { View, Ent } from '../ui/geometry'
+import { migrateNote } from '../ui/geometry'
 import type { ModelDoc, PagesSheetDoc, SheetFrameDoc, SheetPaper } from './schema'
 
 /** Paper px → paper mm, rounded to 0.1 mm (the editor lays frames out in paper px). */
@@ -106,7 +107,7 @@ type StoredPt = { x: number; y: number }
 export const encodeShapes = (ss: Ent[] | undefined): Ent[] | undefined =>
 	ss?.map((s) => (s.pts ? ({ ...s, pts: s.pts.map(([x, y]) => ({ x, y })) } as unknown as Ent) : s))
 export const decodeShapes = (ss: Ent[] | undefined): Ent[] | undefined =>
-	ss?.map((s) => (s.pts ? { ...s, pts: (s.pts as unknown as (StoredPt | [number, number])[]).map((p) => (Array.isArray(p) ? p : [p.x, p.y]) as [number, number]) } : s))
+	ss?.map((s) => migrateNote(s.pts ? { ...s, pts: (s.pts as unknown as (StoredPt | [number, number])[]).map((p) => (Array.isArray(p) ? p : [p.x, p.y]) as [number, number]) } : s))
 
 /** An in-memory model → its stored doc. Pass PLAIN data (`$state.snapshot` first): Firestore can't store
  *  the proxies, and undefined fields are stripped by the db layer. */

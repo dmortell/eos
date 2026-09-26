@@ -9,7 +9,7 @@
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
 	import { blockDef, insertBounds } from '../../ui/blocks'
 	import { blockList } from '../../blocks.svelte'
-	import { translate, textBox, arcPts, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../../ui/geometry'
+	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../../ui/geometry'
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
@@ -40,8 +40,8 @@
 	// shows the PLACEMENT). Text is annotative, so its box is the same one the Viewport draws and hits.
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
+		if (isNote(e)) { const n = noteGeom(e, scaleN); return [e.a![0], e.a![1], e.a![0] + n.w, e.a![1] + n.h] }
 		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
-		if (e.type === 'note') { const n = noteGeom(e, scaleN); return [e.a![0], e.a![1], e.a![0] + n.w, e.a![1] + n.h] }
 		if (e.type === 'insert') return insertBounds(e, scaleN)   // no `b`: the block's extent at the insertion point
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
@@ -180,9 +180,10 @@
 		</span>
 	</div>
 {/if}
-{#if single?.type === 'text'}
+{#if single?.type === 'text' && !isNote(single)}
 	<div class="prop-sec">TEXT</div>
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
+	<label class="prop cb" title="Wrap to a width on paper, with markdown (# headings, - lists, | tables |, **bold**)"><span>Wrap</span><input type="checkbox" checked={false} onchange={() => setAll({ noteW: 90, callout: undefined })} /></label>
 	<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
 	{#if single.callout}
 		<div class="prop"><span>Frame</span>
@@ -204,14 +205,15 @@
 			</span></div>
 	{/if}
 {/if}
-{#if single?.type === 'note'}
-	<!-- K3: the note's markdown (# headings, - bullets, 1. lists, | tables |, **bold**), its width on paper + frame -->
-	<div class="prop-sec">NOTE<button class="pp-mini sec-btn" title="Edit in a large editor (with a preview)" aria-label="Edit note" onclick={() => (noteEdit = true)}><Icon name="edit" size={12} /></button></div>
+{#if single && isNote(single)}
+	<!-- a WRAPPED text (was K3 NOTE): its markdown (# headings, - bullets, 1. lists, | tables |, **bold**), its width on paper + frame -->
+	<div class="prop-sec">TEXT · WRAPPED<button class="pp-mini sec-btn" title="Edit in a large editor (with a preview)" aria-label="Edit note" onclick={() => (noteEdit = true)}><Icon name="edit" size={12} /></button></div>
 	{#if noteEdit}
 		{@const n = single}
 		<NoteDialog text={n.text ?? ''} width={n.noteW ?? 90} fontPt={n.fontPt ?? 8} onclose={() => (noteEdit = false)} onapply={(t) => { onupdate?.({ ...n, text: t }); noteEdit = false }} />
 	{/if}
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} title="# heading · - bullet · 1. list · | a | b | table (|---| under the header row) · **bold**" onchange={(e) => setAll({ text: (e.currentTarget as HTMLTextAreaElement).value })}></textarea></div>
+	<label class="prop cb" title="Off = plain lines (no wrap, no markdown; can be a callout)"><span>Wrap</span><input type="checkbox" checked onchange={() => setAll({ noteW: undefined, noteBox: undefined })} /></label>
 	<div class="prop"><span>Width (mm)</span><input class="navf" type="number" min="15" value={single.noteW ?? 90} onkeydown={fnav} onchange={(e) => { const n = Math.round(num(e)); if (n >= 15) setAll({ noteW: n }) }} /></div>
 	<label class="prop cb"><span>Frame</span><input type="checkbox" checked={!!single.noteBox} onchange={(e) => setAll({ noteBox: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 {/if}

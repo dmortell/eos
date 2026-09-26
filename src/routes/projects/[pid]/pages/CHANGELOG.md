@@ -4,9 +4,19 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
-## Round 9 (2026-09-26) — status-bar counts
+## Round 9 (2026-09-26) — status-bar counts, NOTE → TEXT, graph AUDIT
 - **Status-bar counts** (K1): Outlets / Conduits / Racks totals for the active model. With a selection, they
   count only the selection, tagged SEL.
+- **NOTE merged into TEXT**: a note is now a TEXT with a wrap width (`noteW`, `isNote()`); stored / copied
+  `type: 'note'` shapes migrate on load. Properties › TEXT has a **Wrap** switch (on = wrapped markdown with a width
+  and an optional frame, off = plain lines that can be a callout). The NOTE command and pasted multi-line text make
+  a wrapped text. Labels stay a plain field on other objects.
+- **AUDIT** also checks the active model's walls / conduits (`3dview/graphAudit.ts`): segments naming missing nodes,
+  zero-length and duplicate segments, nodes on top of each other, orphan nodes, empty runs, ends attached to a box /
+  outlet that's gone, devices in a missing rack, panel ports allocated to a missing outlet. It lists them and
+  offers a fix (one undo step).
+- **New sheet here** fits the viewport to the place's plan: 3D objects plus the plan's shapes and floorplan image
+  (a zone far from the drawing centre used to open half off the frame).
 
 ## Round 8 (2026-09-26) — notes blocks, rack presets, pasted images to storage
 - **NOTE** (K3): a notes block shape — markdown (# headings, - bullets, 1. lists, | tables | with a |---| header row,

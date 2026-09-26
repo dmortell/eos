@@ -494,20 +494,29 @@ export const SCRIPTS: Record<string, Script> = {
 		const a = await c.ask({ prompt: `Delete these ${unused.length} from the library?`, options: ['Yes', 'No'], def: 'N' })
 		if (a.kind === 'option' && a.key === 'Yes') { c.host.deleteBlocks(unused.map((b) => b.id)); c.out(`Deleted ${unused.length} block${unused.length > 1 ? 's' : ''}`) }
 	},
-	audit: async (c) => {   // block inserts whose block is gone from the library
+	audit: async (c) => {   // block inserts whose block is gone from the library, then this model's graphs / connections
 		const u = c.host.blockUsage()
-		if (!u.missing.length) return c.out(`Blocks OK — every block insert has its block (${u.models} loaded model${u.models === 1 ? '' : 's'})`)
-		const byModel = new Map<string, number>(); for (const m of u.missing) byModel.set(m.model, (byModel.get(m.model) ?? 0) + 1)
-		c.out(`${u.missing.length} insert${u.missing.length > 1 ? 's' : ''} of a missing block: ${[...byModel].map(([m, n]) => `${m} ${n}`).join(', ')} — drawn as a crossed box`)
-		const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
-		if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
+		if (!u.missing.length) c.out(`Blocks OK — every block insert has its block (${u.models} loaded model${u.models === 1 ? '' : 's'})`)
+		else {
+			const byModel = new Map<string, number>(); for (const m of u.missing) byModel.set(m.model, (byModel.get(m.model) ?? 0) + 1)
+			c.out(`${u.missing.length} insert${u.missing.length > 1 ? 's' : ''} of a missing block: ${[...byModel].map(([m, n]) => `${m} ${n}`).join(', ')} — drawn as a crossed box`)
+			const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
+			if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
+		}
+		const g = c.t.graphAudit(false)
+		if (!g) return
+		if (!g.length) return c.out('Walls / conduits OK — no broken nodes, segments or connections in this model')
+		for (const i of g.slice(0, 12)) c.out(`${i.label}: ${i.text}`)
+		if (g.length > 12) c.out(`… and ${g.length - 12} more`)
+		const a = await c.ask({ prompt: `Fix ${g.length} graph / connection fault${g.length > 1 ? 's' : ''}? (merge, drop, detach — one undo step)`, options: ['Yes', 'No'], def: 'N' })
+		if (a.kind === 'option' && a.key === 'Yes') { c.t.graphAudit(true); c.out('Fixed (Ctrl+Z undoes)') }
 	},
 	note: async (c) => {   // K3: a notes block (markdown) from its top-left corner — edit its text in Properties
 		c.host.tool('Select')
 		const p = await point(c, 'Specify the top-left corner of the note')
-		const e = c.t.newEnt({ type: 'note', a: D(c, p), text: '# Notes\n1. First note\n2. Second note\n\n| Item | Qty |\n|---|---|\n| Outlets | 24 |', noteW: 90, noteBox: true })
+		const e = c.t.newEnt({ type: 'text', a: D(c, p), text: '# Notes\n1. First note\n2. Second note\n\n| Item | Qty |\n|---|---|\n| Outlets | 24 |', noteW: 90, noteBox: true })
 		add(c, e); c.t.select([e.id])
-		c.out('Note placed — edit its text (markdown) in Properties › NOTE; drag the right-edge grip to resize')
+		c.out('Note placed (a wrapped text) — edit its markdown in Properties › TEXT; drag the right-edge grip to resize')
 	},
 	rack: async (c) => {   // a RACK model object (real W × D × H + rack data) — sizes remembered for the next one
 		c.host.tool('Select')

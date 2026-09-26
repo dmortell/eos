@@ -4,7 +4,7 @@
 //   arrange     draw order = array position (later = painted on top): front/back jump to the ends,
 //               forward/backward step the selection past one non-selected neighbour.
 //   setGroup    put shapes in one new group, or ungroup them.
-import { translate, type Ent } from './geometry'
+import { translate, isNote, migrateNote, type Ent } from './geometry'
 
 export class Clipboard {
 	#items: Ent[] = []
@@ -33,7 +33,7 @@ export const clipText = (ents: readonly Ent[]) => JSON.stringify({ [CLIP_MARK]: 
 /** Clipboard text → shapes, or null when it isn't ours. */
 export function fromClipText(text: string): Ent[] | null {
 	if (!text.includes(CLIP_MARK)) return null
-	try { const o = JSON.parse(text); return o?.[CLIP_MARK] && Array.isArray(o.ents) ? (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string') : null } catch { return null }
+	try { const o = JSON.parse(text); return o?.[CLIP_MARK] && Array.isArray(o.ents) ? (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote) : null } catch { return null }
 }
 
 // ── office apps (Word / Excel / Notepad): copied shapes also go out as readable text + HTML (a note's table as a real
@@ -44,9 +44,9 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function readable(ents: readonly Ent[]): { plain: string; html: string } {
 	const plain: string[] = [], html: string[] = []
 	for (const e of ents) {
-		const t = e.type === 'text' || e.type === 'note' ? e.text ?? '' : e.type === 'insert' ? e.attrs?.LABEL ?? '' : e.type === 'dim' && e.text ? e.text : ''
+		const t = e.type === 'text' ? e.text ?? '' : e.type === 'insert' ? e.attrs?.LABEL ?? '' : e.type === 'dim' && e.text ? e.text : ''
 		if (!t.trim()) continue
-		if (e.type === 'note') {   // markdown → TSV lines for plain, <table>/<p> for HTML
+		if (isNote(e)) {   // markdown → TSV lines for plain, <table>/<p> for HTML
 			const rows: string[][] = []
 			const flush = () => { if (!rows.length) return; html.push('<table border="1">' + rows.map((r) => '<tr>' + r.map((c) => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</table>'); rows.length = 0 }
 			for (const ln of t.split('\n')) {

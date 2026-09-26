@@ -68,7 +68,7 @@ describe('system clipboard text', () => {
 
 describe('office clipboard', () => {
 	it('shapes out: readable text + a table for Excel; our data round-trips through the HTML', () => {
-		const ents: Ent[] = [{ id: 't', type: 'text', a: [0, 0], text: 'Hello' }, { id: 'n', type: 'note', a: [0, 0], text: '# Title\n| A | B |\n|---|---|\n| 1 | 2 |' }]
+		const ents: Ent[] = [{ id: 't', type: 'text', a: [0, 0], text: 'Hello' }, { id: 'n', type: 'text', noteW: 90, a: [0, 0], text: '# Title\n| A | B |\n|---|---|\n| 1 | 2 |' }]
 		const r = readable(ents)
 		expect(r.plain).toBe('Hello\nTitle\nA\tB\n1\t2'); expect(r.html).toContain('<table border="1"><tr><td>A</td>')
 		expect(fromClipHtml(clipHtml(ents))).toEqual(ents)

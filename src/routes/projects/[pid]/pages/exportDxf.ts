@@ -13,7 +13,7 @@ import type { Model, Obj, Clip, Dir } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
-import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
+import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
@@ -142,7 +142,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			text(doc, T(m), 2.5 * N, dimLabel(len, e.unit, e.text), layer, 'center', -ang + tRot)
 			return
 		}
-		case 'note': {   // K3: each laid-out line as TEXT, a table's grid as lines (N = model mm per paper mm)
+		case 'text': if (isNote(e)) {   // a wrapped (markdown) text: each laid-out line as TEXT, a table's grid as lines (N = model mm per paper mm)
 			const lay = noteGeom(e, N).layout, a = e.a!, at = (x: number, y: number): Pt => [a[0] + x * N, a[1] + y * N]
 			for (const it of lay.items) {
 				if (it.kind === 'text') text(doc, T(at(it.x, it.y)), it.size * N, it.text.replaceAll('**', ''), layer, 'left', tRot)   // DXF TEXT has no inline bold
@@ -151,7 +151,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			if (e.noteBox) doc.poly([T(at(0, 0)), T(at(e.noteW ?? 90, 0)), T(at(e.noteW ?? 90, lay.h)), T(at(0, lay.h))], { closed: true, layer })
 			return
 		}
-		case 'text': {
+		{   // a plain text
 			const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * N, lh = fs * 1.18
 			const lines = (e.text ?? '').split('\n')
 			const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0

@@ -19,10 +19,13 @@ export function niceScale(n: number): number {
 export function fitFrame(objects: Obj[], dir: Dir, frameMm: { w: number; h: number },
 	opts: { yaw?: number; pitch?: number; visible?: (o: Obj) => boolean; clip?: Clip | null
 		/** Remap a projected height (engine v) — a riser drawing's collapsed floors (3dview/storeyMap.ts). */
-		mapV?: (v: number) => number } = {}): { n: number; view: { zoom: number; x: number; y: number } } | null {
+		mapV?: (v: number) => number
+		/** More drawn-coordinate boxes to include ([x0, y0, x1, y1]) — e.g. the plan's shapes and floorplan image. */
+		extra?: [number, number, number, number][] } = {}): { n: number; view: { zoom: number; x: number; y: number } } | null {
 	const vis = objects.filter((o) => (opts.visible ? opts.visible(o) : true))
 	const shown = opts.clip ? vis.map((o) => trimToClip(o, opts.clip!)).filter((o): o is Obj => !!o) : vis
-	if (!shown.length || frameMm.w <= 0 || frameMm.h <= 0) return null
+	const extra = opts.extra ?? []
+	if ((!shown.length && !extra.length) || frameMm.w <= 0 || frameMm.h <= 0) return null
 	const yaw = opts.yaw ?? DEFAULT_YAW, pitch = opts.pitch ?? DEFAULT_PITCH
 	const isoBox = dir === 'iso' ? isoBounds(shown, yaw, pitch, PLAN_CX, PLAN_CY) : null
 	const vm = viewMap(dir, PLAN_CX, PLAN_CY, GROUND, yaw, pitch, isoBox)
@@ -31,6 +34,7 @@ export function fitFrame(objects: Obj[], dir: Dir, frameMm: { w: number; h: numb
 		const [x, y] = vm.uvToDraw(opts.mapV ? { u: q.u, v: opts.mapV(q.v) } : q)
 		if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
 	}
+	for (const [a, b, c, d] of extra) if ([a, b, c, d].every(isFinite)) { x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, d) }
 	if (!isFinite(x0)) return null
 	const n = niceScale(Math.max((x1 - x0) / frameMm.w, (y1 - y0) / frameMm.h, 1e-6) * 1.1)
 	// The Viewport draws P at view + (C + (P − C) / N) about the plan centre C: centring the bounds' mid-point
