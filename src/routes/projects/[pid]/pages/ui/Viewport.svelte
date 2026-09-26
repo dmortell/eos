@@ -9,6 +9,7 @@
 	// pointer/key state machine is ./vpInteraction.svelte.ts; the overlays are render/VpMarks (under the
 	// entities), render/VpOverlays (above) and render/VpWidgets (HTML). Pure logic stays in hit/grips/snap/
 	// place/mapper/gestures.ts.
+	import { untrack } from 'svelte'
 	import { Icon } from '$lib'
 	import { panzoom } from './panzoom'
 	import EntRender from './render/EntRender.svelte'
@@ -37,6 +38,22 @@
 		if (!v.active || !v.focused) return
 		cmdBus.target = x.cmdTarget
 		return () => { if (cmdBus.target === x.cmdTarget) cmdBus.target = null }
+	})
+	// A standalone (model-space) viewport's viewBox is centred on the pane, so a pane that narrows / widens (the split
+	// bar, a split, the side panels) would slide the drawing. Shift the view so the content stays put ON SCREEN (Dave:
+	// "the content shouldn't move when the split bar is moved"): screen x = left + (vbx − minX)·u, and minX moves by
+	// −Δw / 2u, so vbx moves by −Δw / 2u − Δleft / u (the right split pane's left edge moves with the bar). Sheet
+	// frames (boxW) keep their own rule.
+	let lastBox: { w: number; h: number; l: number; t: number } | null = null
+	$effect(() => {
+		const w = v.vpW, h = v.vpH, framed = !!props.boxW
+		untrack(() => {
+			const r = v.svg?.getBoundingClientRect()
+			const p = lastBox; lastBox = framed || !w || !h || !r ? null : { w, h, l: r.left, t: r.top }
+			if (!p || !lastBox || (p.w === w && p.h === h && p.l === lastBox.l && p.t === lastBox.t)) return
+			const u = v.pxPerUnit, cur = v.view
+			v.on.view?.({ zoom: cur.zoom, x: cur.x - (w - p.w) / u / 2 - (lastBox.l - p.l) / u, y: cur.y - (h - p.h) / u / 2 - (lastBox.t - p.t) / u })
+		})
 	})
 </script>
 

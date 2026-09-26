@@ -15,6 +15,8 @@ open items; `review.md §0a` tracks which review findings are closed.
   a place still holding things stays and says why).
 - **File › Drawings**: Shift+click a checkbox selects the range.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
+- Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
+  pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).
 
 ## Round 16 (2026-09-27) — the editing merge, phases 3–4 (done)
 - **3D objects run on the engine** (walls, boxes, conduits in plan / elevation): body move with grid snap anchored on
