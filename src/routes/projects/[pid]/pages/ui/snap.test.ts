@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps, PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta, polarPt } from './snap'
+import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps, PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta, polarPt, alignPt } from './snap'
 import { rotatePt, type GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
@@ -422,5 +422,18 @@ describe('POLAR tracking', () => {
 		const d = polarPt([0, 0], [70, 72])!   // ~45.8°
 		expect(Math.atan2(d.p[1], d.p[0]) * 180 / Math.PI).toBeCloseTo(45)
 		expect(polarPt([0, 0], [100, 14])).toBeNull()   // ~8°: between rays
+	})
+})
+
+describe('O9 OTRACK alignment', () => {
+	it('lines up with a nearby point on x and / or y; nothing when nothing is level', () => {
+		const m = { toModel: (x: number, y: number) => [x, y] as Pt, toClient: (x: number, y: number) => ({ x, y }), tolMm: (px: number) => px }
+		const ents: Ent[] = [{ id: 'l', type: 'polyline', pts: [[100, 100], [300, 100]] }]
+		const ctx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 0, cy: 0, ground: 0, paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 } as ViewCtx
+		const a = alignPt(ctx, m, ents, 103, 250)!          // below the line's left end: x lines up with 100
+		expect(a.p).toEqual([100, 250]); expect(a.ax).toBe(true); expect(a.ay).toBe(false)
+		const b = alignPt(ctx, m, ents, 297, 102.5)!         // near the right end... but ON the line's y too
+		expect(b.p[1]).toBe(100)
+		expect(alignPt(ctx, m, ents, 180, 260)).toBeNull()
 	})
 })

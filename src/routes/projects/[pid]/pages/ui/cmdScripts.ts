@@ -6,6 +6,7 @@ import { dist, arc3, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
+import { nextFreeLabel } from './clipboard'
 import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner, stretchEnt, cornerInPolyline } from './modify'
 
 export type CmdHost = {
@@ -134,6 +135,7 @@ const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 &&
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
 const rackDef = { u: 42, w: 600, d: 1000 }
+const penDef: { dia: number; through: 'wall' | 'slab' } = { dia: 100, through: 'slab' }   // PEN: remembered for the next run
 /** RACK presets (the option's first word is what a click / typed letter picks). */
 const RACK_PRESETS: Record<string, { u: number; w: number; d: number }> = {
 	'Server 600×1000 42U': { u: 42, w: 600, d: 1000 }, 'Network 800×1000 42U': { u: 42, w: 800, d: 1000 },
@@ -527,6 +529,22 @@ export const SCRIPTS: Record<string, Script> = {
 		const e = c.t.newEnt({ type: 'text', a: D(c, p), text: '# Notes\n1. First note\n2. Second note\n\n| Item | Qty |\n|---|---|\n| Outlets | 24 |', noteW: 90, noteBox: true })
 		add(c, e); c.t.select([e.id])
 		c.out('Note placed (a wrapped text) — edit its markdown in Properties › TEXT; drag the right-edge grip to resize')
+	},
+	pen: async (c) => {   // O2: core-drill penetrations — diameter + wall / slab once, then click each; tags count on
+		c.host.tool('Select')
+		penDef.dia = Math.max(1, Math.round(await number(c, 'Diameter (mm)', penDef.dia)))
+		const th = await c.ask({ prompt: `Through <${penDef.through}>`, options: ['Wall', 'Slab'], enter: true })
+		if (th.kind === 'option') penDef.through = th.key === 'Wall' ? 'wall' : 'slab'
+		const taken = new Set(c.t.visibleEnts().filter((e) => e.type === 'insert' && e.block === 'penetration').map((e) => e.attrs?.TAG ?? ''))
+		let n = 0
+		for (;;) {
+			const q = await c.ask({ prompt: 'Specify the penetration point or <Enter ends>', point: {}, enter: true })
+			if (q.kind !== 'point') break
+			const tag = nextFreeLabel('P01', taken); taken.add(tag)
+			add(c, c.t.newEnt({ type: 'insert', block: 'penetration', a: D(c, q.p), attrs: { TAG: tag, DIA: String(penDef.dia), THROUGH: penDef.through } }))
+			n++
+		}
+		if (n) c.out(`${n} penetration${n > 1 ? 's' : ''} placed (Ø${penDef.dia}, through ${penDef.through})`)
 	},
 	rack: async (c) => {   // a RACK model object (real W × D × H + rack data) — sizes remembered for the next one
 		c.host.tool('Select')

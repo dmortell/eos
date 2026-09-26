@@ -12,6 +12,7 @@ import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
 import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv, isNote } from './geometry'
+import { orbitShift } from '../3dview/projection'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
@@ -57,7 +58,9 @@ type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi:
 type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
 type SecDrag = { id: string; start: Pt; c0: Clip }
 type SecResize = { id: string; apply: (p: Pt) => Clip }
-type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number }
+/** `rel` = the drawing offset of the viewport's middle from the iso pivot at the start, `view0` the view then — the orbit
+ *  pans so that point stays in the middle (orbit about what you're looking at). */
+type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number; rel: [number, number] | null; view0: View }
 export type TextEdit = { id: string; /** what's edited: a TEXT's text, a dimension's text override, a line's label */ field: 'text' | 'dim' | 'label'; placeholder?: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number }
 
 /** True when a keystroke is going into a form field — the viewport must not treat it as a canvas command. */
@@ -136,12 +139,15 @@ export class VpInteraction {
 	}
 	/** POLAR tracking: the 15° ray the last draw point slid onto (drawn dashed), else null. */
 	polarTrack = $state<[Pt, Pt] | null>(null)
+	/** O9 OTRACK: the dashed guides to the snap points the last draw point lined up with. */
+	alignTracks = $state.raw<[Pt, Pt][]>([])
 	/** The point a draw/place uses: object snap wins; else the Shift/ORTHO/POLAR-constrained, grid-snapped pointer. */
 	private drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const v = this.v, m = v.mapper(); if (!m) { v.snapMark = null; return null }
-		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, polar: v.polar, tool: v.tool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
+		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, polar: v.polar, otrack: v.otrack, tool: v.tool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
 		v.snapMark = r.mark
 		this.polarTrack = r.track ?? null
+		this.alignTracks = r.tracks ?? []
 		return r.p
 	}
 	/** While drawing a Wall/Trunk/Pipe in an elevation: the segment the NEXT point snaps its depth onto. */
@@ -755,7 +761,8 @@ export class VpInteraction {
 		if (cptPick.obj && v.isPlan) return   // placing connection points: onClick adds one (no drag of the box)
 		if (v.navMode === 'pan') return   // latched Pan: panzoom owns the drag (it only gets here when the pan target is disabled)
 		if (v.kind === 'iso' && (v.tool === 'Select' || v.navMode === 'orbit')) {   // 3D: a plain drag (or any drag with Orbit latched) orbits
-			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: v.yaw, pitch0: v.pitch }, { onMove: this.onOrbitMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true } }, reg)
+			const r = v.svg?.getBoundingClientRect(), mid = r ? v.toModel(r.left + r.width / 2, r.top + r.height / 2) : null
+			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: v.yaw, pitch0: v.pitch, rel: mid ? [mid[0] - v.cx, mid[1] - v.cy] : null, view0: { ...v.view } }, { onMove: this.onOrbitMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true } }, reg)
 			return
 		}
 		if (v.tool !== 'Select') {   // EOS mode: a shape is one press-drag-release
@@ -986,5 +993,9 @@ export class VpInteraction {
 			np = Math.max(S, Math.min(Math.PI / 2 - 0.02, Math.round(np / S) * S))
 		}
 		this.v.on.orbit?.(ny, np)
+		if (s.rel) {   // keep the middle of the view where it was (the pivot itself stays put by construction)
+			const [nx, nyy] = orbitShift(s.rel, s.yaw0, s.pitch0, ny, np), k = s.view0.zoom * (this.v.dscale || 1)
+			this.v.on.view?.({ zoom: s.view0.zoom, x: s.view0.x + k * (s.rel[0] - nx), y: s.view0.y + k * (s.rel[1] - nyy) })
+		}
 	}
 }

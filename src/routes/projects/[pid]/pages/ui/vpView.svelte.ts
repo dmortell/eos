@@ -115,6 +115,7 @@ export class VpView {
 	get snapStep() { return this.p.env?.snapStep || SNAP_STEP }       // the grid step (mm) — editable in the status bar
 	get ortho() { return this.p.env?.ortho ?? false }                // ORTHO: constrain line-draw + move to H/V
 	get polar() { return this.p.env?.polar ?? false }                // POLAR: snap the rubber band to 15° rays
+	get otrack() { return this.p.env?.otrack ?? false }              // O9 OTRACK: line up with nearby snap points
 	get centerDraw() { return this.p.env?.cen ?? false }             // CEN: draw rect/ellipse centre-out
 	get canvasZoom() { return this.p.env?.canvasZoom ?? 1 }
 	get mono() { return !!this.p.mono }                               // I2: a black-and-white viewport

@@ -46,6 +46,13 @@
 	let q = $state('')
 	const hit = (...s: string[]) => { const t = q.trim().toLowerCase(); return !t || s.some((x) => x.toLowerCase().includes(t)) }
 	const shortcuts = $derived(SHORTCUTS.filter(([a, b]) => hit(a, b)))
+	/** Function keys — the app's own, and the browser's (which the app leaves alone). */
+	const FKEYS: [string, string][] = [
+		['F1', 'This help'], ['F8', 'ORTHO on / off (lines, walls, trunks, pipes: horizontal / vertical)'], ['F9', 'SNAP to the grid on / off'],
+		['F10', 'POLAR tracking on / off (15° rays)'], ['F11', 'Full screen (the browser)'], ['F12', 'Developer tools (the browser)'],
+		['F3 · F5 · F6 · F7', 'Browser keys (find · reload · address bar · caret browsing) — not used by Pages'],
+	]
+	const fkeys = $derived(FKEYS.filter(([a, b]) => hit(a, b) || hit('function keys F-keys')))
 	const howto = $derived(HOWTO.filter((h) => hit(h.q, h.a)))
 	const groups = $derived.by(() => {
 		const cs = COMMANDS.filter((c) => hit(c.label, c.names, c.description, c.group))
@@ -76,6 +83,10 @@
 			{#if shortcuts.length}
 				<h3>Keys &amp; mouse</h3>
 				<div class="grid">{#each shortcuts as [a, b] (a)}<div class="row"><span>{a}</span><kbd>{b}</kbd></div>{/each}</div>
+			{/if}
+			{#if fkeys.length}
+				<h3>Function keys</h3>
+				<div class="grid">{#each fkeys as [k, what] (k)}<div class="row"><span>{what}</span><kbd>{k}</kbd></div>{/each}</div>
 			{/if}
 			{#if !q.trim() || hit('command line coordinates point typed')}
 				<h3>The command line</h3>

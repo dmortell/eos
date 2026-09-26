@@ -35,6 +35,7 @@ export const COMMANDS: CmdDef[] = [
 	C('guide', 'Guide', 'GUIDE · XLINE · XL', 'Drop a construction guide line', 'Draw'),
 	C('note', 'Notes block', 'NOTE · NOTES', 'A wrapped text block: markdown headings, lists and tables (edit in Properties)', 'Draw'),
 	C('rack','Rack', 'RACK · RA', 'Place racks (a real W × D × U rack object, with devices) — click centres', 'Draw'),
+	C('pen', 'Penetration', 'PEN · PENETRATION', 'Place core-drill penetrations through a wall or slab — auto-numbered tags (P01, P02 …), diameter', 'Draw'),
 	C('outlet','Outlet', 'OUTLET · OU', 'Place outlets (the next label each)', 'Draw'),
 	C('blocks', 'Insert block', 'INSERT · I · BLOCK · B', 'Open the Blocks panel to place a block', 'Draw'),
 	C('image', 'Image', 'IMAGE · IM · IMAGEATTACH', 'Insert an image', 'Draw'),

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
 	boxFootprint, prismRings, dominantAxis, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH,
 	objBounds, inClip, trimToClip, modelZRange, modelBounds, xyCenter, doorGeom, project, faces3d,
-	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps,
+	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps, isoBounds, orbitShift,
 } from './projection'
 import type { Prism, Wall, Conduit, Clip, Obj } from './types'
 
@@ -317,5 +317,15 @@ describe('wall openings as real holes (OpenCad-style panels)', () => {
 		// nothing of the wall sits inside the door hole (x 1000–1900, z 0–2100)
 		const inside = cut.some((f) => f.pts.every((p) => p.x > 1001 && p.x < 1899 && p.z < 2099))
 		expect(inside).toBe(false)
+	})
+})
+
+describe('orbit without wobble', () => {
+	it('the iso pivot is the projected 3D content centre (turning keeps it put); orbitShift is the identity at the same angles', () => {
+		const o = { type: 'prism', id: 'p', x: 0, y: 0, z: 0, w: 1000, d: 500, h: 800, edges: 4 } as Obj
+		const b = isoBounds([o], 0.3, 0.5, 0, 0)!, c = isoR({ x: 500, y: 250, z: 400 }, 0.3, 0.5, 0, 0)
+		expect(b.icx).toBeCloseTo(c.u); expect(b.icy).toBeCloseTo(c.v)
+		const [x, y] = orbitShift([120, -40], 0.3, 0.5, 0.3, 0.5)
+		expect(x).toBeCloseTo(120); expect(y).toBeCloseTo(-40)
 	})
 })

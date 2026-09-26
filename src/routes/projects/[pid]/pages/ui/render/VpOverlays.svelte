@@ -30,6 +30,10 @@
 	{@render preview(x.draft[0], x.cur)}
 {/if}
 <!-- POLAR tracking: the 15° ray the point is sliding along -->
+{#if x.alignTracks.length && v.active && (x.draft.length || x.pickCur || v.tool !== 'Select')}
+	<!-- O9 OTRACK: dashed guides to the snap points the cursor has lined up with -->
+	{#each x.alignTracks as [p, q], i (i)}<line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#38bdf8" stroke-width={sw} stroke-dasharray="{2 * sw} {4 * sw}" opacity="0.85" pointer-events="none" />{/each}
+{/if}
 {#if x.polarTrack && v.active && (x.draft.length || x.pickCur)}
 	<line x1={x.polarTrack[0][0]} y1={x.polarTrack[0][1]} x2={x.polarTrack[1][0]} y2={x.polarTrack[1][1]} stroke="#22c55e" stroke-width={sw} stroke-dasharray="{2 * sw} {4 * sw}" opacity="0.8" pointer-events="none" />
 {/if}

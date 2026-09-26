@@ -160,6 +160,11 @@ export const SYMBOL_BLOCKS: BlockDef[] = [
 		attributes: [{ tag: 'REF', label: 'Photo №', default: '1', pos: [0, S * 0.18], height: 1.9, color: 'contrast' }, LINK],
 		shapes: [tri('v', [[S * 0.4, -S * 0.2], [S * 1.5, -S * 0.75], [S * 1.5, S * 0.75]], { fill: 'none' }), circle('c', S * 0.6, { color: BYBLOCK, fill: '#1f2937' })] },
 	...[1, 2, 3, 4].map(elevTag),
+	// O2 (OpenCad): a PENETRATION / core drill through a wall or slab — ring + crosshair, its tag and diameter (PEN command)
+	{ id: 'penetration', name: 'Penetration (core drill)', category: 'penetration', rev: 1, annotative: true,
+		attributes: [{ tag: 'TAG', label: 'Tag', default: 'P01', pos: [S * 1.4, -S * 0.6], height: 2.5 }, { tag: 'DIA', label: 'Diameter (mm)', default: '100', pos: [S * 1.4, S * 1.1], height: 1.8 },
+			{ tag: 'THROUGH', label: 'Through (wall / slab)', default: 'slab', pos: [0, 0], height: 1, visible: false }],
+		shapes: [circle('c', S * 0.75, { color: BYBLOCK }), shape('h', { type: 'polyline', pts: [[-S * 1.1, 0], [S * 1.1, 0]], color: BYBLOCK }), shape('v', { type: 'polyline', pts: [[0, -S * 1.1], [0, S * 1.1]], color: BYBLOCK })] },
 	{ id: 'faceplate', name: 'Faceplate (2 ports)', category: 'faceplate', rev: 2, attributes: [{ tag: 'LABEL', label: 'Label', pos: [0, -64], height: 11 }],   // real size, 70 × 115 mm
 		shapes: [shape('f', { type: 'rect', a: [-35, -57.5], b: [35, 57.5], color: BYBLOCK }), shape('p1', { type: 'rect', a: [-16, -33], b: [16, -4], color: BYBLOCK }), shape('p2', { type: 'rect', a: [-16, 4], b: [16, 33], color: BYBLOCK })] },
 	// D1: a LEGEND — no fixed geometry: its rows come from the model's layers (ui/legend.ts), drawn by EntRender

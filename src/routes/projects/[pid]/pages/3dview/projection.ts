@@ -552,19 +552,33 @@ export function faces3d(o: Obj, cuts: Cut[] = []): Face[] {
 	return faces
 }
 
-// Centre of the ISO-projected content (drawing-plane u/v bbox centre) — the pivot Model3d uses to keep
-// the oblique model centred, and that a hit-test needs to reproduce the same projection. `visible` lets
-// callers skip hidden-layer objects so the centre matches exactly what's drawn.
+// The ISO view's centring pivot — Model3d centres the oblique model on it, and every hit-test / grip / fit
+// reproduces the same projection through it. It is the projection of the content's 3D CENTRE (the centre of the
+// visible objects' model bounds), a FIXED point: orbiting turns the model about it without drifting. (It used to
+// be the centre of the projected 2D box, which moves as the box's silhouette changes with the angle — the model
+// wobbled while orbiting.) `visible` skips hidden-layer objects so the pivot matches what's drawn.
 export function isoBounds(objects: Obj[], yaw: number, pitch: number, cx: number, cy: number, visible?: (o: Obj) => boolean, persp: Persp = null) {
-	let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
-	for (const o of objects) {
-		if (visible && !visible(o)) continue
-		for (const s of project(o, 'iso', yaw, pitch, cx, cy, persp)) for (const p of s.pts) {
-			if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
-			if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
-		}
-	}
-	return minu === Infinity ? null : { icx: (minu + maxu) / 2, icy: (minv + maxv) / 2 }
+	const c = contentCentre(objects, visible); if (!c) return null
+	const q = isoR(c, yaw, pitch, cx, cy, persp)
+	return { icx: q.u, icy: q.v }
+}
+/** The centre of the visible objects' 3D model bounds (null = none). */
+export function contentCentre(objects: Obj[], visible?: (o: Obj) => boolean): P3 | null {
+	let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
+	for (const o of objects) { if (visible && !visible(o)) continue; const b = objBounds(o); x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); z0 = Math.min(z0, b.z0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); z1 = Math.max(z1, b.z1) }
+	return isFinite(x0) ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2 } : null
+}
+/** ORBIT about a point: the drawing-coord offset (from the iso pivot) of the point `rel` (a drawing offset from the
+ *  pivot at yaw0 / pitch0, taken on the pivot's horizontal plane) after the camera turns to yaw1 / pitch1. The caller
+ *  pans by the difference so what was at the middle of the view stays there (parallel camera; close enough in
+ *  perspective). */
+export function orbitShift(rel: [number, number], yaw0: number, pitch0: number, yaw1: number, pitch1: number): [number, number] {
+	// drawing offset → engine (u, v up) → the camera-rotated (x1, y1) on the pivot plane → model (dx, dy') → new angles
+	const du = rel[0], dv = -rel[1], sp0 = Math.sin(pitch0) || 1e-6
+	const x1 = du, y1 = dv / sp0
+	const c0 = Math.cos(yaw0), s0 = Math.sin(yaw0), dx = x1 * c0 + y1 * s0, dy = -x1 * s0 + y1 * c0
+	const c1 = Math.cos(yaw1), s1 = Math.sin(yaw1), nx1 = dx * c1 - dy * s1, ny1 = dx * s1 + dy * c1
+	return [nx1, -(ny1 * Math.sin(pitch1))]
 }
 
 // Door swing geometry in the PLAN (model x/y): the hinge at one JAMB on the wall centreline, the unit

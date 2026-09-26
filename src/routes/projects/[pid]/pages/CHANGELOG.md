@@ -4,6 +4,20 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 11 (2026-09-26) — OpenCad picks: icons, penetrations, alignment tracking, steadier orbit
+- **Icons from OpenCad** (lucide): Wall = brick wall, Box = box, Opening = door, Dimension = ruler, plus new tool
+  buttons **Arc** (in Shapes, runs ARC) and **Format painter** (runs MATCHPROP). The Guide tool moved to a crosshair.
+- **Penetrations** (O2): the PEN command / the Penetration button (Openings group) places core-drill symbols —
+  diameter and through wall / slab asked once, then click each; tags count on (P01, P02 …). A built-in annotative
+  block (`penetration`: ring + crosshair, TAG / DIA / THROUGH attributes).
+- **Alignment tracking** (O9, OTRACK in the status bar, on by default): while drawing / placing, the cursor lines up
+  with a nearby snap point it is level with (same x and / or y) and a dashed guide shows it; Shift / ORTHO and a
+  real object snap take precedence; the free axis still grid-snaps.
+- **Orbit without wobble**: the 3D view now centres on the projection of the content's 3D centre (a fixed point), and
+  an orbit drag pans so the point in the middle of the view stays there — you orbit around what you're looking at.
+- **Function keys**: F8 = ORTHO, F9 = SNAP (AutoCAD's), with F1 / F10; the Help dialog lists them (and the browser's
+  own F-keys Pages leaves alone).
+
 ## Round 10 (2026-09-26) — extension lines, edit in place, more connection points, perspective, hatch
 - **DIMBASELINE** stacks draw real **extension lines** back to the measured points (`dimExt`, signed mm); any
   dimension can have them (Properties › Ext. lines); DXF too.

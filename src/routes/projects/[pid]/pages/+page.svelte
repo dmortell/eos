@@ -176,7 +176,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, otrack: toggles.OTRACK, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -754,7 +754,7 @@
 			}
 			const panel = { layers: 'layers', props: 'props', history: 'history', blockspanel: 'blocks', blocks: 'blocks' } as const
 			if (id in panel) { rightTab = panel[id as keyof typeof panel]; rightOpen = true; return }
-			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', polar: 'POLAR', osnap: 'OSNAP', lwt: 'LWT' }
+			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', polar: 'POLAR', osnap: 'OSNAP', otrack: 'OTRACK', lwt: 'LWT' }
 			if (toggleKey[id]) return toggle(toggleKey[id])
 			switch (id) {
 				case 'outlet': return menuAction('Outlet')
@@ -978,6 +978,8 @@
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
 		else if (e.key === 'F1') { e.preventDefault(); helpOpen = true }
 		else if (e.key === 'F10') { e.preventDefault(); toggles.POLAR = !toggles.POLAR; statusText = `POLAR ${toggles.POLAR ? 'on' : 'off'}` }
+		else if (e.key === 'F8') { e.preventDefault(); toggles.ORTHO = !toggles.ORTHO; statusText = `ORTHO ${toggles.ORTHO ? 'on' : 'off'}` }
+		else if (e.key === 'F9') { e.preventDefault(); toggles.SNAP = !toggles.SNAP; statusText = `SNAP ${toggles.SNAP ? 'on' : 'off'}` }
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 		// typing → the command line, wherever focus is (the tree / a button after a click) — text fields returned above
@@ -1016,16 +1018,19 @@
 		{ icon: 'k-line', name: 'Line' },
 		{ icon: 'rectangle', name: 'Rectangle' },
 		{ icon: 'circle', name: 'Ellipse' },
-		{ icon: 'waypoints', name: 'Wall' },
-		{ icon: 'square', name: 'Furniture' },
+		{ icon: 'radius', name: 'Arc' },        // runs the ARC command (pseudo-tool)
+		{ icon: 'brickWall', name: 'Wall' },
+		{ icon: 'box', name: 'Furniture' },
 		{ icon: 'server', name: 'Rack' },       // runs the RACK command (a pseudo-tool: setPaneTool routes it)
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
-		{ icon: 'rect', name: 'Opening' },
+		{ icon: 'doorOpen', name: 'Opening' },
+		{ icon: 'circleDot', name: 'Penetration' },   // runs PEN (pseudo-tool)
 		{ icon: 'scan', name: 'Section' },
-		{ icon: 'dimension', name: 'Dimension' },
+		{ icon: 'ruler', name: 'Dimension' },
+		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
 		{ icon: 'k-text', name: 'Text' },
-		{ icon: 'ruler', name: 'Guide' },       // drop an alignment guide (sets the depth plane across views)
+		{ icon: 'crosshair', name: 'Guide' },   // drop an alignment guide (sets the depth plane across views)
 		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
 	]
 	const iconOf = (name: string) => TOOLS.find((t) => t.name === name)?.icon ?? 'square'
@@ -1034,12 +1039,13 @@
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
 		{ tool: 'Line' },
-		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse'] },   // 2D/footprint draws
+		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D/footprint draws
 		{ group: 'conduits', label: 'Conduits', members: ['Wall', 'Trunk', 'Pipe'] },      // node/segment graph tools
 		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
-		{ tool: 'Opening' },
+		{ group: 'openings', label: 'Openings', members: ['Opening', 'Penetration'] },
 		{ tool: 'Section' },
 		{ tool: 'Dimension' },
+		{ tool: 'Format painter' },
 		{ tool: 'Text' },
 		{ group: 'guide', label: 'Guide', members: [] },   // special: fly-out picks H / V orientation (touch)
 		{ tool: 'Viewport' },
@@ -1093,7 +1099,7 @@
 	// projection changes — see the Full-size button + ViewCube — so the other pane is undisturbed).
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
-	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, LWT: false, CEN: false })
+	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, OTRACK: true, LWT: false, CEN: false })
 	let snapStep = $state(100)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
@@ -1114,7 +1120,9 @@
 	// `pane`/`pi` as its own props and can just call `ws.setFocused(pi)` itself.
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
-	function setPaneTool(pane: WorkPane, t: string) { if (t === 'Rack') { cmdRunner.run('RACK'); return } pane.tool = t; navMode = null }   // Rack = the RACK command
+	/** Pseudo-tools that run a COMMAND instead of arming a draw tool (they draw / act through the command line). */
+	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Penetration: 'PEN' }
+	function setPaneTool(pane: WorkPane, t: string) { if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return } pane.tool = t; navMode = null }
 	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
 	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every

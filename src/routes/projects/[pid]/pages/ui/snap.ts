@@ -168,16 +168,51 @@ export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, 
 	return st.best ? { p: st.best.p, type: st.best.type } : null
 }
 
+/** O9 OTRACK (OpenCad's alignment snap, AutoCAD object-snap tracking): the pointer lines up with a snap point it is
+ *  level with — same x (within `tolPx` screen px) and / or same y — among the snap points within `rangePx` (and the
+ *  run's last point `base`). The nearest such point wins per axis; the result takes its x / y, and `tracks` are the
+ *  dashed guides from each point to the result. null = nothing lined up. */
+export function alignPt(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, clientY: number, opts: SnapOpts = {}, base?: Pt, tolPx = 6, rangePx = 400): { p: Pt; tracks: [Pt, Pt][]; ax: boolean; ay: boolean } | null {
+	const p0 = m.toModel(clientX, clientY), rm = m.tolMm(rangePx)
+	let bx: { pt: Pt; d: number } | null = null, by: { pt: Pt; d: number } | null = null
+	const consider = (pt: Pt) => {
+		const sp = m.toClient(pt[0], pt[1]), dx = Math.abs(sp.x - clientX), dy = Math.abs(sp.y - clientY), d = Math.hypot(dx, dy)
+		if (d > rangePx || d < tolPx) return   // out of range, or ON the point (that's an object snap's job)
+		if (dx < tolPx && (!bx || d < bx.d)) bx = { pt, d }
+		if (dy < tolPx && (!by || d < by.d)) by = { pt, d }
+	}
+	if (base) consider(base)
+	for (const e of ents) {
+		if (e.id === opts.exclude || e.id === opts.editingId || !inThisView(ctx, e)) continue
+		if (e.type !== 'arc' && e.type !== 'insert' && !e.rot) { const [x0, y0, x1, y1] = bbox(ctx, e); if (p0[0] < x0 - rm || p0[0] > x1 + rm || p0[1] < y0 - rm || p0[1] > y1 + rm) continue }
+		for (const s of cachedSnaps(ctx, e)) consider(s.point)
+	}
+	if (opts.objs && opts.ml) for (const o of opts.objs) for (const s of objSnaps(ctx, o, opts.ml)) consider(s.point)
+	const X = bx as { pt: Pt; d: number } | null, Y = by as { pt: Pt; d: number } | null
+	if (!X && !Y) return null
+	const p: Pt = [X ? X.pt[0] : p0[0], Y ? Y.pt[1] : p0[1]]
+	const tracks: [Pt, Pt][] = []
+	if (X) tracks.push([X.pt, p]); if (Y) tracks.push([Y.pt, p])
+	return { p, tracks, ax: !!X, ay: !!Y }
+}
+
 /** What drawPoint reads: the OSNAP / SNAP / ORTHO toggles, the active tool, the entities to snap to, and
  *  the inline-edited text id (skipped). */
-export type DrawInputs = { osnap: boolean; snap: boolean; /** grid step, mm (default SNAP_STEP) */ step?: number; ortho: boolean; /** POLAR tracking (15° rays) */ polar?: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
+export type DrawInputs = { osnap: boolean; snap: boolean; /** grid step, mm (default SNAP_STEP) */ step?: number; ortho: boolean; /** POLAR tracking (15° rays) */ polar?: boolean; /** O9 OTRACK: line up with nearby snap points */ otrack?: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
 
 /** The point a draw/place should use, plus the snap mark to show. Object snap wins outright; otherwise
  *  the pointer point, Shift-constrained (square / 15°, per tool) or ORTHO-locked (H/V, Line + Dimension
  *  only) relative to `base`, then grid-snapped when SNAP is on. `mark` is null unless an object snap hit. */
-export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: number, clientY: number, base?: Pt, shift = false): { p: Pt; mark: SnapHit | null; track?: [Pt, Pt] } {
+export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: number, clientY: number, base?: Pt, shift = false): { p: Pt; mark: SnapHit | null; track?: [Pt, Pt]; tracks?: [Pt, Pt][] } {
 	const hit = inp.osnap ? findSnap(ctx, m, inp.ents, clientX, clientY, { editingId: inp.editingId, objs: inp.objs, ml: inp.ml }) : null
 	if (hit) return { p: hit.p, mark: hit }   // object snap wins over grid snap
+	if (inp.otrack && !(base && (shift || inp.ortho))) {   // O9: line up with a nearby snap point (not while Shift / ORTHO constrain)
+		const a = alignPt(ctx, m, inp.ents, clientX, clientY, { editingId: inp.editingId, objs: inp.objs, ml: inp.ml }, base)
+		if (a) {   // the lined-up axis is exact; the free one still grid-snaps
+			const g = inp.snap ? snapToGrid(a.p, inp.step || SNAP_STEP) : a.p
+			return { p: [a.ax ? a.p[0] : g[0], a.ay ? a.p[1] : g[1]], mark: null, tracks: a.tracks }
+		}
+	}
 	let p = m.toModel(clientX, clientY)
 	if (base) {
 		if (shift) p = constrainPt(inp.tool, base, p, true)                                       // Shift: 15° / square
