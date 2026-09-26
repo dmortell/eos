@@ -4,6 +4,14 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 15 (2026-09-27) — the editing merge, phases 0–2
+- **One editing engine** (`ui/itemEdit.svelte.ts`, `editing-merge-plan.md`): move / grip / Ctrl-drag copy / Shift-ORTHO
+  axis lock / marquee (window / crossing) / arrow nudge / Ctrl+D are written ONCE and driven through an ItemSource per
+  kind. Shapes run on it (no behaviour change); unit-tested.
+- **Sheet viewports run on the same engine**: move and corner-resize (paper snaps, Alt off, Shift square), Ctrl-drag
+  leaves a copy (with its view), Shift+click borders / a marquee select SEVERAL, arrow keys nudge (1 mm, Shift 10 mm),
+  Delete removes all selected — each one undo step. PaperPage's own drag / marquee code is gone.
+
 ## Round 14 (2026-09-26) — view-direction previews, layer fixes
 - **Direction changes on a sheet viewport are previews**: the ViewCube / 3D popout change shows a "Preview · was
   FRONT — Keep / Revert" chip under the ViewCube; Keep makes it stick (one undo step), Revert — or leaving the viewport

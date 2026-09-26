@@ -1,6 +1,6 @@
 # Editing merge — one editing path for shapes, 3D objects and sheet viewports
 
-**Status:** plan, 2026-09-27. Asked for by Dave ("ctrl-drag should have been working on all shapes including
+**Status:** phases 0–2 DONE 2026-09-27 (CHANGELOG round 15); phases 3–4 open. Planned 2026-09-27. Asked for by Dave ("ctrl-drag should have been working on all shapes including
 viewports — why separate move / drag / select functions?"). Supersedes the scattered todos it absorbs:
 `todo.md` → "P1 — ONE editing path for paper space", "REFACTOR: unify editing" (the frame part) and "Unify PRIMARY
 viewport … (d) PaperPage ↔ Viewport merge".

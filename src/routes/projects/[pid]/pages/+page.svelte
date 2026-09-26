@@ -383,15 +383,18 @@
 		if (p) { const o = orbitOf(p.id, f.id, f.proj as Proj); cl.views = { [f.id]: { view: { ...viewOf(p.id, f.id, f.proj as Proj) }, yaw: o.yaw, pitch: o.pitch } } }
 		return cl
 	}
-	/** Ctrl-drag on a viewport frame: a copy stays where it was (same view), the drag carries the original. */
-	function dupFrameInPlace(tabId: string, frameId: string) {
-		const f = framesOf(tabId).find((x) => x.id === frameId); if (!f) return
-		const pasted = pasteClip(frameClipOf(tabId, f), (p) => newId(p), nextFrameSeq(framesOf(tabId)), 0)
+	/** Ctrl-drag on viewport frames (the editing engine asks): copies of them IN PLACE — their views, view-scoped notes
+	 *  and numbering — returned so the engine drags the copies (the originals stay). Recorded with the drag's step. */
+	function dupFramesInPlace(tabId: string, ids: string[]): SheetFrame[] {
+		const fs = ids.map((id) => framesOf(tabId).find((x) => x.id === id)).filter((f): f is SheetFrame => !!f); if (!fs.length) return []
+		const clips = fs.map((f) => frameClipOf(tabId, f))
+		const clip: FrameClip = { frames: clips.flatMap((c) => c.frames), shapes: clips.flatMap((c) => c.shapes), views: Object.assign({}, ...clips.map((c) => c.views ?? {})) }
+		const pasted = pasteClip(clip, (p) => newId(p), nextFrameSeq(framesOf(tabId)), 0)
 		ensureHist(tabId)
 		setFrames(tabId, [...framesOf(tabId), ...pasted.frames])
 		for (const s of pasted.shapes) { const m = modelById(s.modelId); if (m) m.shapes = [...(m.shapes ?? []), s.ent] }
 		applyClipViews(pasted)
-		recordEdit(tabId, 'Copy viewport')
+		return pasted.frames
 	}
 	/** A pasted clip's views → every pane's view state for the new frame ids. */
 	function applyClipViews(c: FrameClip) {
@@ -522,6 +525,7 @@
 	// edit too, via `framesOf(...).find(...)` returning a fresh reference) so the "show Properties" $effect
 	// below fires only on an actual SELECTION change, matching the old `session.selFrame`-keyed effect.
 	let selFrameId = $derived(active ? singleOfKind(selStore.of(active.id), 'frame')?.id ?? null : null)
+	let selFrameIds = $derived(active ? idsOfKind(selStore.of(active.id), 'frame') : [])   // several frames (paper multi-select)
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrameId ? framesOf(t.id).find((f) => f.id === selFrameId) ?? null : null })
 
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
@@ -1095,7 +1099,7 @@
 		else if (mod && !e.shiftKey && active?.kind === 'sheet' && !activeVpOf(active.id) && ['c', 'x', 'd'].includes(e.key.toLowerCase())) {   // B2: frames on paper (Ctrl+V = the paste event, onPaste)
 			if (frameClipKey(active.id, e.key.toLowerCase() as 'c' | 'x' | 'v' | 'd')) e.preventDefault()
 		}
-		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && (() => { const av = activeVpOf(active.id); return !av || (av !== selFrameId && !selStore.of(av).length) })()) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space) — even while ANOTHER viewport is active (unless that one has its own selection)
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameIds.length && active && (() => { const av = activeVpOf(active.id); return !av || (!selFrameIds.includes(av) && !selStore.of(av).length) })()) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space) — even while ANOTHER viewport is active (unless that one has its own selection)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
 		window.addEventListener('keydown', onGlobalKey, true)
@@ -1238,7 +1242,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, liveClip, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, liveClip, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>

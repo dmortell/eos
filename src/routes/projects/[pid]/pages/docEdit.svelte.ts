@@ -198,6 +198,7 @@ export class DocEdit {
 			return
 		}
 		if (sectionItem) { const m = mdl(); if (m) deleteSection(m, edit, sectionItem.id); selStore.set(viewId, selClear()); return }
-		if (frameItem) { this.#h.deleteFrame(tabId, frameItem.id); selStore.set(viewId, selClear()) }   // a frame records its own step
+		const frameIds = idsOfKind(s, 'frame')
+		if (frameIds.length) { for (const id of frameIds) this.#h.deleteFrame(tabId, id); selStore.set(viewId, selClear()) }   // each frame records its own step
 	}
 }

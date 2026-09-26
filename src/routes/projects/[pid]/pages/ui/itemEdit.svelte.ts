@@ -19,9 +19,10 @@ export interface ItemSource<T> {
 	translate(t: T, dx: number, dy: number): T
 	grips(t: T): ItemGrip<T>[]
 	/** A grip's target point after the kind's own constraints (Shift square / 15°, grid) — default: `p`. */
-	gripPoint?(t: T, gi: number, p: Pt, shift: boolean): Pt
-	/** Grid-snap a move delta, anchored on the first moved item (the group stays rigid) — default: none. */
-	snapDelta?(dx: number, dy: number, base: T): [number, number]
+	gripPoint?(t: T, gi: number, p: Pt, shift: boolean, free?: boolean): Pt
+	/** Grid-snap a move delta, anchored on the first moved item (the group stays rigid) — default: none. `free` = Alt
+	 *  held (a kind whose snapping Alt turns off, e.g. frames). */
+	snapDelta?(dx: number, dy: number, base: T, free?: boolean): [number, number]
 	/** Copies with NEW ids, in place (Ctrl-drag / Ctrl+D place them) — groups kept together, labels made free. */
 	duplicate(ts: T[]): T[]
 	/** A locked item selects but never moves — default: every item moves. */
@@ -69,13 +70,13 @@ export class ItemEditor<T> {
 		return true
 	}
 	/** The pointer at surface point `p` (client point for the grip's object snap). */
-	moveTo(p: Pt, shift: boolean, client?: { x: number; y: number }) {
+	moveTo(p: Pt, shift: boolean, client?: { x: number; y: number }, free = false) {
 		const src = this.src, d = this.drag; if (!d) return
 		d.last = p
 		if (d.kind === 'grip') {
 			const g = src.grips(d.base)[d.gi]; if (!g) return
 			const s = client && this.env.gripSnap ? this.env.gripSnap(client.x, client.y, d.id) : null
-			src.commit.update([g.apply(s ?? (src.gripPoint ? src.gripPoint(d.base, d.gi, p, shift) : p))])
+			src.commit.update([g.apply(s ?? (src.gripPoint ? src.gripPoint(d.base, d.gi, p, shift, free) : p))])
 			return
 		}
 		if (d.dup && !d.duplicated) {   // Ctrl-drag: on the first real move, drop copies and drag THEM
@@ -84,7 +85,7 @@ export class ItemEditor<T> {
 			d.bases = copies; d.duplicated = true
 		}
 		const [dx, dy] = this.axisLock(p[0] - d.start[0], p[1] - d.start[1], shift)
-		const [gx, gy] = src.snapDelta ? src.snapDelta(dx, dy, d.bases[0]) : [dx, dy]
+		const [gx, gy] = src.snapDelta ? src.snapDelta(dx, dy, d.bases[0], free) : [dx, dy]
 		src.commit.update(d.bases.map((b) => src.translate(b, gx, gy)))
 	}
 	/** Shift pressed / released mid-drag: re-apply from the last point (a move re-locks WITHOUT grid snap, as before). */

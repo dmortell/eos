@@ -22,6 +22,7 @@
 		['Big text editor for a note / text', 'Double-click a note · Shift+double-click a text'], ['Orbit the 3D view (about the view middle)', 'Drag (3D view)'],
 		['Repeat the last command', 'Enter / Space on an empty line'], ['Drag out a copy of shapes', 'Ctrl+drag'],
 		['Sheet viewport: step its scale / pan its contents', 'Alt+wheel / Alt+drag over it'],
+		['Sheet viewports: select several / nudge them', 'Shift+click borders or drag a box · arrows (Shift = 10 mm)'],
 		['Paste at the cursor (Ctrl+V keeps the position)', 'Ctrl+Shift+V'], ['Zoom to the selection', 'Z, Enter (with a selection)'],
 		['Type a command', 'Just type (over the drawing)'],
 	]

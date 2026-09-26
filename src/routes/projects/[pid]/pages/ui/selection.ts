@@ -22,7 +22,7 @@ export type Selection = SelItem[]
 
 /** The kinds that are multi-select + Shift/Ctrl-additive: 2D entities and (I4) 3D model objects. Every
  *  other kind replaces on toggle. A multi selection is ONE kind — toggling an 'obj' drops any 'ent's. */
-const MULTI = new Set<SelKind>(['ent', 'obj'])
+const MULTI = new Set<SelKind>(['ent', 'obj', 'frame'])   // frames too (editing merge phase 2: paper space edits like shapes)
 
 /** A plain click / marquee / programmatic select: REPLACES the whole selection with exactly `items`.
  *  Mixing kinds in one call isn't meaningful (today's UI never does it) and isn't validated here — callers

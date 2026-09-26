@@ -10,10 +10,11 @@
 	import Viewport from '../ui/Viewport.svelte'
 	import type { Env, VpOn } from '../ui/vpTypes'
 	import { noopEditor, type Editor } from '../ui/editor'
-	import { singleOfKind } from '../ui/selection'
+	import { singleOfKind, idsOfKind } from '../ui/selection'
 	import type { Ent, Pt, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
+	import { ItemEditor, type ItemSource } from '../ui/itemEdit.svelte'
 	import { inBox, marqueeSelect } from '../ui/hit'
 	import { gripsLocal, constrainGrip } from '../ui/grips'
 	import { PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta } from '../ui/snap'
@@ -30,7 +31,7 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
 		entities = [], entsForModel = undefined, tabModelId = undefined, conduitOf = () => null,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframedup, ondeactivate, frameClip = (f: SheetFrame) => f.clip }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframesdup, ondeactivate, frameClip = (f: SheetFrame) => f.clip }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
@@ -43,7 +44,7 @@
 			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
 			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy the frame in place (the drag then carries the original) */ onframedup?: (id: string) => void; /** a frame's clip (a section-linked frame follows its marker) */ frameClip?: (f: SheetFrame) => import('../3dview/types').Clip | null; ondeactivate?: () => void } = $props()
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy these frames IN PLACE (views + scoped notes) and return the copies — the engine drags them */ onframesdup?: (ids: string[]) => SheetFrame[]; /** a frame's clip (a section-linked frame follows its marker) */ frameClip?: (f: SheetFrame) => import('../3dview/types').Clip | null; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const tbShown = $derived(tb === undefined ? shownTitleBlock(undefined, fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo })) : tb)
 	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
@@ -70,19 +71,7 @@
 		return { x: (cx - r.left) / s, y: (cy - r.top) / s }
 	}
 
-	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed). `set`
-	// reports the new geometry up (onframegeom); `commit` records one history step at the end.
-	// beginPointerDrag-managed (ui/gestures.ts) with a 4 px move threshold (B19): a jittery click on a frame
-	// border no longer records a 'Move viewport' step — same threshold the Sheets tool uses.
-	/** `view`: a frame RESIZE also re-aims the frame's content view so the drawing stays put on the paper (the viewBox is
-	 *  centred on the frame, so without this a resize from the left / top — or any size change — slides the content). */
-	type FrameDrag = { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean; view?: { v0: View; set: (v: View) => void } }
-	const reg = new DragRegistry()
-	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false, view?: FrameDrag['view']) {
-		e.stopPropagation()
-		beginPointerDrag<FrameDrag>(e, { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit, view },
-			{ onMove: onDrag, onUp: (_e, d, moved) => { if (d.commit && moved) onframecommit?.() } }, reg, { thresholdPx: 4 })   // one history step per extra-frame move/resize
-	}
+	const reg = new DragRegistry()   // one registry for the paper's drags (a 2nd finger cancels)
 	// PaperPage's own corner order (CORNERS below: TL,TR,BR,BL = gi 0-3) doesn't match grips.ts's rect-branch
 	// output order (TL,BR,BL,TR = index 0-3, grips.ts's rect branch) — GRIP_IDX reindexes one to the other.
 	// LEFT_GI/TOP_GI say which corners clamp x/y against the MIN size (matches the old hand-rolled clamp:
@@ -111,43 +100,81 @@
 		return { x, y }
 	}
 
-	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
-	// has been dragged off the paper.
-	function onDrag(e: PointerEvent, drag: FrameDrag) {
-		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
-		const b = drag.base
-		const lines = snapLines()
-		const tol = SNAP_TOL_PX / drag.s
-		if (drag.mode === 'move') {
-			let x = b.x + dx, y = b.y + dy
-			if (!e.altKey) {   // move: both edges of an axis snap together (the whole frame shifts)
-				x += frameSnapDelta([x, x + b.w], lines.x, GRID_STEP_PX, tol)
-				y += frameSnapDelta([y, y + b.h], lines.y, GRID_STEP_PX, tol)
-			}
-			drag.set({ w: b.w, h: b.h, x, y }); return
-		}
-		// Corner resize (opposite corner fixed) + Shift-square constrain reuse grips.ts's rect grip
-		// (R8-lite) via a throwaway fake rect `Ent` built from `drag.base`
-		// — storage stays `Frame`/`SheetFrame`, only the resize MATH is shared.
-		const baseEnt: Ent = { id: 'frame', type: 'rect', a: [b.x, b.y], b: [b.x + b.w, b.y + b.h] }
-		const opts = { gripMm: 0, shift: () => e.shiftKey, imgCropId: null }
-		const gi = GRIP_IDX[drag.gi]
-		const grip = gripsLocal(PAPER_CTX, baseEnt, opts)[gi]
-		let p: Pt = [toSheet(e.clientX, e.clientY).x, toSheet(e.clientX, e.clientY).y]
-		p = constrainGrip(PAPER_CTX, baseEnt, gi, p, e.shiftKey, opts)
-		if (!e.altKey) p = [snapEdge(p[0], lines.x, tol), snapEdge(p[1], lines.y, tol)]   // resize: only the dragged edge(s) snap
-		const anchor = grip.anchor!   // the opposite corner, held fixed
-		const px = LEFT_GI.has(drag.gi) ? Math.min(p[0], anchor[0] - MIN) : Math.max(p[0], anchor[0] + MIN)
-		const py = TOP_GI.has(drag.gi) ? Math.min(p[1], anchor[1] - MIN) : Math.max(p[1], anchor[1] + MIN)
-		const edited = grip.apply([px, py])
-		const [ex0, ey0] = edited.a!, [ex1, ey1] = edited.b!
-		const nf = { x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) }
-		drag.set(nf)   // may extend beyond the sheet
-		if (drag.view) {   // content at frameX + (c − minX)·ppu stays put: shift the view by −ΔL/ppu − ΔW/(2·ppu) (same for y)
-			const u = PAPER_PX_PER_MM, v0 = drag.view.v0
-			drag.view.set({ zoom: v0.zoom, x: v0.x - (nf.x - b.x) / u - (nf.w - b.w) / (2 * u), y: v0.y - (nf.y - b.y) / u - (nf.h - b.h) / (2 * u) })
-		}
+	// ── FRAMES ON THE ONE EDITING ENGINE (editing-merge-plan.md phase 2) ── move / corner-resize / Ctrl-drag copy / marquee /
+	// Shift-select / arrow nudge run in ItemEditor, like shapes; this source says how a FRAME moves, resizes (opposite corner
+	// fixed, MIN size, Shift square, paper snap lines — Alt off), copies (with its view, via the parent) and records (the
+	// page history). Viewports move freely on an infinite canvas — no position clamp.
+	const snapTol = () => SNAP_TOL_PX / scaleOf()
+	const baseEntOf = (b: Frame): Ent => ({ id: 'frame', type: 'rect', a: [b.x, b.y], b: [b.x + b.w, b.y + b.h] })
+	const gripOpts = (shift = false) => ({ gripMm: 0, shift: () => shift, imgCropId: null })
+	let dragStart: Map<string, { f: SheetFrame; v0: View }> = new Map()   // the frames as they were at the press (resize keeps content still)
+	let dragChanged = false
+	const frameSource: ItemSource<SheetFrame> = {
+		kind: 'frame',
+		get: (id) => frames.find((f) => f.id === id),
+		id: (f) => f.id,
+		translate: (f, dx, dy) => ({ ...f, x: f.x + dx, y: f.y + dy }),
+		// the four corners — PaperPage's gi order (TL, TR, BR, BL); the opposite corner stays, MIN size kept
+		grips: (f) => CORNERS.map(([cx, cy], gi) => ({ x: f.x + cx * f.w, y: f.y + cy * f.h, apply: (p: Pt) => {
+			const grip = gripsLocal(PAPER_CTX, baseEntOf(f), gripOpts())[GRIP_IDX[gi]], anchor = grip.anchor!
+			const px = LEFT_GI.has(gi) ? Math.min(p[0], anchor[0] - MIN) : Math.max(p[0], anchor[0] + MIN)
+			const py = TOP_GI.has(gi) ? Math.min(p[1], anchor[1] - MIN) : Math.max(p[1], anchor[1] + MIN)
+			const ed = grip.apply([px, py]), [ex0, ey0] = ed.a!, [ex1, ey1] = ed.b!
+			return { ...f, x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) }
+		} })),
+		gripPoint: (f, gi, p, shift, free) => {   // Shift square (the rect grip's rule); the dragged edge(s) snap unless Alt
+			const q = constrainGrip(PAPER_CTX, baseEntOf(f), GRIP_IDX[gi], p, shift, gripOpts(shift))
+			if (free) return q
+			const lines = snapLines(), tol = snapTol()
+			return [snapEdge(q[0], lines.x, tol), snapEdge(q[1], lines.y, tol)]
+		},
+		snapDelta: (dx, dy, b, free) => {   // move: both edges of an axis snap together (the whole frame shifts)
+			if (free) return [dx, dy]
+			const lines = snapLines(), tol = snapTol(), x = b.x + dx, y = b.y + dy
+			return [dx + frameSnapDelta([x, x + b.w], lines.x, GRID_STEP_PX, tol), dy + frameSnapDelta([y, y + b.h], lines.y, GRID_STEP_PX, tol)]
+		},
+		duplicate: (fs) => onframesdup?.(fs.map((f) => f.id)) ?? [],   // the parent copies them IN PLACE (views, scoped notes) and returns them
+		canMove: (f) => !f.locked,
+		marquee: (a, b) => marqueeSelect(PAPER_CTX, frames.filter((f) => !isFrameActive(f.id)).map(frameEnt), a, b, () => true),
+		sel: { ids: () => idsOfKind(editor.sel.get(), 'frame'), set: (ids) => editor.sel.only(ids.map((id) => ({ kind: 'frame' as const, id }))) },
+		commit: {
+			begin: () => { dragChanged = false; dragStart = new Map(frames.map((f) => [f.id, { f: { ...f }, v0: { ...frameView(f.id, f.proj) } }])) },
+			update: (fs) => {
+				dragChanged = true
+				for (const f of fs) {
+					onframegeom?.(f.id, { x: f.x, y: f.y, w: f.w, h: f.h })
+					const s = dragStart.get(f.id)
+					if (s && (f.w !== s.f.w || f.h !== s.f.h)) {   // a RESIZE keeps the drawing still on the paper: shift the view by −ΔL/ppu − ΔW/(2·ppu)
+						const u = PAPER_PX_PER_MM, b = s.f
+						makeFrameOn(f).view?.({ zoom: s.v0.zoom, x: s.v0.x - (f.x - b.x) / u - (f.w - b.w) / (2 * u), y: s.v0.y - (f.y - b.y) / u - (f.h - b.h) / (2 * u) })
+					}
+				}
+			},
+			add: () => {},   // copies are already on the page (onframesdup made them)
+			end: () => { if (dragChanged) onframecommit?.(); dragChanged = false },   // one history step — none for a click
+		},
 	}
+	const items = new ItemEditor<SheetFrame>(frameSource, { ortho: () => false })
+	const toPt = (e: PointerEvent | MouseEvent): Pt => { const s = toSheet(e.clientX, e.clientY); return [s.x, s.y] }
+	/** A press on a frame's border band (move) or a corner grip: the engine drags it (Ctrl = drag a copy, Alt = no snap). */
+	function startFrameDrag(e: PointerEvent, id: string, kind: 'move' | 'grip', gi: number) {
+		e.stopPropagation()
+		const mod = e.ctrlKey || e.metaKey
+		if (!items.beginMove(id, toPt(e), kind, gi, { dup: mod && kind === 'move', additive: false })) return   // a LOCKED frame: selected, no drag (XP22)
+		beginPointerDrag(e, null, { onMove: (ev) => items.moveTo(toPt(ev), ev.shiftKey, undefined, ev.altKey), onUp: () => items.endMove(), onCancel: (_s, moved) => items.cancelMove(moved) }, reg, { thresholdPx: 4 })
+	}
+	// arrow keys nudge the selected frames (1 mm, Shift 10 mm) while no viewport is active on this focused sheet
+	$effect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (!focused || !e.key.startsWith('Arrow') || frames.some((f) => isFrameActive(f.id)) || !idsOfKind(editor.sel.get(), 'frame').length) return
+			const t = e.target as HTMLElement | null; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
+			e.preventDefault()
+			const s = (e.shiftKey ? 10 : 1) * PAPER_PX_PER_MM
+			items.nudge(e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0)
+		}
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
+	})
 
 	// Frame pick + marquee (R8-lite): border-band pick and marquee
 	// selection reuse `hit.ts`'s `inBox`/`marqueeSelect` instead of hand-rolled DOM/geometry, so there's one
@@ -191,54 +218,36 @@
 		return null
 	}
 
-	// Selection marquee (paper space): drag a box across empty paper; if it touches the
-	// frame, the frame is selected. This is the touch-friendly alternative to a border click.
-	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
-	let placingFrame = $state(false)   // dragging out a NEW viewport frame (the Viewport tool)
+	// Paper-space press: a frame's BORDER BAND → the engine drags it (select / Shift toggles / Ctrl drags a copy); empty
+	// paper → the engine's selection marquee (window / crossing, Shift / Ctrl unions); the Viewport tool → drag out a
+	// new frame. A frame's interior never selects (Dave: select by the border or a marquee).
+	let placing = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)   // the Viewport tool's box
 	function onSheetDown(e: PointerEvent) {
-		// A pointerdown INSIDE an active viewport is that viewport's (drawing/editing) — the sheet must not
-		// also start a paper-space marquee/frame-placement (that hijacked drawing after the primary was
-		// removed). Only handle presses on the bare paper. The Viewport tool disables frame bands, so its
-		// press lands here regardless of position (border test is skipped below).
+		// A pointerdown INSIDE an active viewport is that viewport's (drawing/editing) — the sheet must not also start a
+		// paper-space marquee / frame placement. Only presses on the bare paper (or an inactive frame) land here.
 		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
-		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
+		e.preventDefault()   // stop a native text/element drag starting after a double-click
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		const p = toSheet(e.clientX, e.clientY)
-		if (tool !== 'Viewport') {
-			const border = frameBorderHit(p)
-			// XP22: a LOCKED frame selects but never drags
-			if (border) { selectFrame(border.id); if (!border.locked) { if (e.ctrlKey || e.metaKey) onframedup?.(border.id); startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true) } return }   // Ctrl-drag: a copy stays behind
-			clearFrameSel()   // clicking empty paper (or a frame's interior) deselects any frame
-			if (frameHit(p)) return   // interior of an inactive frame: deselect only, no marquee (matches the old .vp-interior stopPropagation)
-		}
-		placingFrame = tool === 'Viewport'
-		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
-		window.addEventListener('pointermove', onMarquee)
-		window.addEventListener('pointerup', endMarquee)
-	}
-	function onMarquee(e: PointerEvent) {
-		if (!marquee) return
-		const p = toSheet(e.clientX, e.clientY)
-		marquee = { ...marquee, x1: p.x, y1: p.y }
-	}
-	function endMarquee() {
-		window.removeEventListener('pointermove', onMarquee)
-		window.removeEventListener('pointerup', endMarquee)
-		const m = marquee; marquee = null
-		const wasPlacing = placingFrame; placingFrame = false
-		if (!m) return
-		const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
-		if (wasPlacing) {   // Viewport tool: the marquee box becomes a NEW viewport frame
-			if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0)
+		if (tool === 'Viewport') {
+			placing = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
+			beginPointerDrag(e, null, { onMove: (ev) => { const q = toSheet(ev.clientX, ev.clientY); if (placing) placing = { ...placing, x1: q.x, y1: q.y } },
+				onUp: () => { const m = placing; placing = null; if (!m) return
+					const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
+					if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0) },
+				onCancel: () => { placing = null } }, reg)
 			return
 		}
-		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected); a frame selects by its border band or a marquee (Dave: not by a plain click inside)
-		// marqueeSelect (window vs crossing by drag direction — a BEHAVIOUR CHANGE from the old
-		// always-crossing `touches()`, flagged in R8-lite — matches every other
-		// marquee in the app now, including the entity marquee); take the LAST match = topmost frame,
-		// since `frames` and the built `Ent[]` share index order and 'frame' selection is single-select.
-		const ids = marqueeSelect(PAPER_CTX, frames.map(frameEnt), [m.x0, m.y0], [m.x1, m.y1], () => true)
-		if (ids.length) selectFrame(ids[ids.length - 1])
+		const border = frameBorderHit(p)
+		if (border) {
+			if (e.shiftKey) { e.stopPropagation(); editor.sel.toggle([{ kind: 'frame', id: border.id }]); return }   // Shift: add / remove it
+			startFrameDrag(e, border.id, 'move', -1); return
+		}
+		const add = e.shiftKey || e.ctrlKey || e.metaKey
+		if (!add) clearFrameSel()   // clicking empty paper (or a frame's interior) deselects
+		if (frameHit(p)) return   // interior of an inactive frame: deselect only, no marquee
+		items.beginMarquee([p.x, p.y], add)
+		beginPointerDrag(e, null, { onMove: (ev) => items.marqueeTo(toPt(ev)), onUp: () => items.endMarquee(3), onCancel: () => items.cancelMarquee() }, reg)
 	}
 	// Double-click activates the topmost INACTIVE frame under the pointer (band or interior); outside any
 	// frame it exits the active viewport + deselects. A dblclick inside the ACTIVE viewport's own content
@@ -252,7 +261,11 @@
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
-	let mq = $derived(marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null)
+	// the box being dragged: a new frame (Viewport tool) or the engine's selection marquee
+	let mq = $derived.by(() => {
+		const m = placing ?? (items.marquee ? { x0: items.marquee.a[0], y0: items.marquee.a[1], x1: items.marquee.b[0], y1: items.marquee.b[1] } : null)
+		return m ? { x: Math.min(m.x0, m.x1), y: Math.min(m.y0, m.y1), w: Math.abs(m.x1 - m.x0), h: Math.abs(m.y1 - m.y0) } : null
+	})
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -293,7 +306,7 @@
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
 									<Handle cx={cx * f.w} cy={cy * f.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
-										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g), true, { v0: { ...frameView(f.id, f.proj) }, set: (v) => fon.view?.(v) })} />
+										onpointerdown={(e) => startFrameDrag(e, f.id, 'grip', i)} />
 								{/each}
 							</svg>
 						{/if}

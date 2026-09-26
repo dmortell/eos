@@ -122,8 +122,8 @@ export type Workspace = {
 	seedFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	addFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	commitFrame: (tabId: string, label: string) => void
-	/** Ctrl-drag on a viewport frame: copy it in place (with its view). */
-	dupFrameInPlace: (tabId: string, frameId: string) => void
+	/** Ctrl-drag on viewport frames: copies in place (with their views), returned. */
+	dupFramesInPlace: (tabId: string, ids: string[]) => SheetFrame[]
 	/** A frame's clip (a section-linked frame follows its marker). */
 	liveClip: (f: SheetFrame, tabId?: string) => import('./3dview/types').Clip | null
 	/** A sheet viewport's previewed direction change: its original, and Keep / Revert. */
