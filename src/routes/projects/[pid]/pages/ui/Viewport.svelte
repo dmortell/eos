@@ -95,7 +95,7 @@
 	.vp:hover { border-color:#5ac6d2; }
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
-	.vp-svg.model { background:#eef3f8; }
+	.vp-svg.model { background:#fff; }   /* elevations / 3D on paper: white like the plan (Dave 2026-09-26) */
 	/* B31: model space — AutoCAD-style dark background, edge to edge, no frame border/glow. `--vp-paper` is the
 	   colour an opening's hole / an iso face is filled with to mask what's behind (Model3d). */
 	.vp.model-space { --vp-paper:#212830; background:var(--vp-paper); border-width:0; box-shadow:none; }
@@ -114,7 +114,8 @@
 	.vp-num { font-weight:600; }
 	/* print: the number and scale as plain drawing text (no chips / icon), black, a touch larger */
 	@media print {
-		.vp-tag, .vp-scale-tag { background:none; border:none; color:#000; font-size:10px; padding:0; }
+		.vp-tag { background:none; border:none; color:#000; font-size:10px; padding:0; }
+		.vp-scale-tag { display:none; }   /* the scale is a screen aid (the title block carries the sheet's scale) */
 		.vp-tag :global(svg) { display:none; }
 		.vp-num { font-weight:700; }
 	}

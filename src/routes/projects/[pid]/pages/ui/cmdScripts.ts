@@ -675,10 +675,16 @@ export const SCRIPTS: Record<string, Script> = {
 		c.out(`Layer “${r.name}” created — it is now the current layer`)
 	},
 	laymcur: async (c) => {   // the layer of a shape becomes current (the selected one, else pick one)
+		// a selected shape or model object, else click one — walls / boxes / trunks as well as 2D shapes
 		const sel = c.t.selected()
-		const id = sel.length === 1 ? sel[0] : ((await c.ask({ prompt: 'Select a shape whose layer will become current', ent: true })) as { id: string }).id
-		const e = c.t.ents([id])[0]; if (!e?.layer) throw new CmdError('That shape has no layer')
-		const r = c.host.setCurrentLayer(e.layer); if (typeof r === 'string') throw new CmdError(r)
+		let layer = sel.length === 1 ? c.t.ents([sel[0]])[0]?.layer ?? null : c.t.selObjLayer()
+		if (!layer) {
+			const a = await c.ask({ prompt: 'Select an object whose layer will become current', point: {} })
+			if (a.kind !== 'point') return
+			layer = c.t.layerAt(a.p)
+			if (!layer) throw new CmdError('Nothing with a layer there — click a shape, wall, box or trunk')
+		}
+		const r = c.host.setCurrentLayer(layer); if (typeof r === 'string') throw new CmdError(r)
 		c.out(`“${r.name}” is now the current layer`)
 	},
 	svgout: async (c) => {

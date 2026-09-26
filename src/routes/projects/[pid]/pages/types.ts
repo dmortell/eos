@@ -126,5 +126,9 @@ export type Workspace = {
 	dupFrameInPlace: (tabId: string, frameId: string) => void
 	/** A frame's clip (a section-linked frame follows its marker). */
 	liveClip: (f: SheetFrame, tabId?: string) => import('./3dview/types').Clip | null
+	/** A sheet viewport's previewed direction change: its original, and Keep / Revert. */
+	viewPreviewOn: (tabId: string) => { frameId: string; orig: Proj } | null
+	keepView: (frameId: string) => void
+	revertView: (frameId: string) => void
 	envFor: (pane: { id: string; activeId: string }) => import('./ui/vpTypes').Env
 }

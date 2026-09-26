@@ -118,17 +118,12 @@
 								<button class="ly-eye" class:vp={!!frozen} aria-label="Show/hide {l.name}"
 									title={frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
 									onclick={(e) => { e.stopPropagation(); if (frozen && !e.shiftKey) onfreeze?.(l.id); else l.visible = !l.visible }}>
-									<Icon name={l.visible && !vpHidden ? 'eye' : 'eyeSlash'} size={13} />
+									<!-- hidden everywhere = crossed eye; frozen in this viewport only = a snowflake (VP Freeze — the eye does it now) -->
+									<Icon name={!l.visible ? 'eyeSlash' : vpHidden ? 'snowflake' : 'eye'} size={13} />
 								</button>
 								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); l.locked = !l.locked }}>
 									<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
 								</button>
-								{#if frozen}
-									<button class="ly-lock-btn" class:on={frozen.includes(l.id)} aria-label="{frozen.includes(l.id) ? 'Thaw' : 'Freeze'} {l.name} in this viewport"
-										title="{frozen.includes(l.id) ? 'Thaw' : 'Freeze'} in the active viewport only (VP Freeze)" onclick={(e) => { e.stopPropagation(); onfreeze?.(l.id) }}>
-										<Icon name="snowflake" size={12} />
-									</button>
-								{/if}
 								{#if vpLocked}
 									<!-- J1: lock the layer in the ACTIVE viewport only (still shown, can't be picked / edited there) -->
 									<button class="ly-lock-btn vp" class:on={vpLocked.includes(l.id)} aria-label="{vpLocked.includes(l.id) ? 'Unlock' : 'Lock'} {l.name} in this viewport"

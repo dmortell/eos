@@ -71,10 +71,10 @@
 <div class="prop"><span>Label</span><input value={obj.label ?? ''} placeholder="(none)"
 	onchange={(e) => onupdate?.({ label: (e.currentTarget as HTMLInputElement).value.trim() || undefined })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span>Layer</span>
-	<select value={obj.layer ?? ''} onchange={(e) => onupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
+	<span class="pp-row"><select value={obj.layer ?? ''} onchange={(e) => onupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 		{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 	</select>
-	{#if obj.layer}<button class="pp-mini" title="Make this the current layer" aria-label="Make current layer" onclick={() => { layerUI.active = obj.layer! }}><Icon name="check" size={12} /></button>{/if}
+	{#if obj.layer}<button class="pp-mini" title="Make this the current layer" aria-label="Make current layer" onclick={() => { layerUI.active = obj.layer! }}><Icon name="check" size={12} /></button>{/if}</span>
 </div>
 <!-- F8: the object's own colour over its layer's (ByLayer = none) -->
 <div class="prop"><span>Colour</span>

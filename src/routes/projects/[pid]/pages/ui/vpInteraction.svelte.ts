@@ -346,6 +346,14 @@ export class VpInteraction {
 			return null
 		},
 		cursor: () => this.lastPtr,
+		layerAt: (u) => {
+			const v = this.v, d = this.toDraw(u); if (!d) return null
+			const eid = v.hit(d)[0], e = eid ? v.entities.find((x) => x.id === eid) : null
+			if (e?.layer) return e.layer
+			const oid = v.hitModel(d), o = oid ? v.mdl?.objects.find((x) => x.id === oid) : null
+			return o?.layer ?? null
+		},
+		selObjLayer: () => { const ids = idsOfKind(this.v.selection, 'obj'); const o = ids.length === 1 ? this.v.mdl?.objects.find((x) => x.id === ids[0]) : null; return o?.layer ?? null },
 		hasSelection: () => this.v.sel.length > 0 || idsOfKind(this.v.selection, 'obj').length > 0,
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },

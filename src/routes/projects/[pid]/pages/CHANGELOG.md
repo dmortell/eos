@@ -4,6 +4,16 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 14 (2026-09-26) — view-direction previews, layer fixes
+- **Direction changes on a sheet viewport are previews**: the ViewCube / 3D popout change shows a "Preview · was
+  FRONT — Keep / Revert" chip under the ViewCube; Keep makes it stick (one undo step), Revert — or leaving the viewport
+  / switching tab — puts the old direction back.
+- **Layers**: with a viewport active the eye IS the VP freeze now (a snowflake in the eye when frozen there; Shift+click
+  = everywhere) — the separate snowflake column is gone. LAYMCUR / the Layers crosshair pick walls, boxes and trunks too.
+  The ✓ beside Properties › Layer sits on the same line.
+- **Delete** removes a selected sheet viewport even while another viewport is active.
+- Elevation / 3D views on paper have a white background; the viewport scale label no longer prints.
+
 ## Round 13 (2026-09-26) — sheet viewports, sections, sharing, print
 - **Viewport copies**: Ctrl-drag a sheet viewport's border to leave a copy behind; copy / paste / duplicate carry the
   content view (pan / zoom + 3D orbit), so the copy shows the same thing. Switching a viewport to a projection it has

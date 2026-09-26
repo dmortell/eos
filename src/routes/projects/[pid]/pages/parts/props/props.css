@@ -7,6 +7,10 @@
 .pp .pp-scale input { flex:1; min-width:0; }
 .pp .pp-mini { font-size:10px; padding:2px 7px; border-radius:4px; color:var(--text); background:var(--input); border:1px solid var(--line); cursor:pointer; }
 .pp .pp-mini:hover { border-color:var(--accent); }
+/* a control + a small button on ONE line (e.g. Layer ▾ + ✓ make current) */
+.pp .pp-row { display:flex; align-items:center; gap:4px; min-width:0; }
+.pp .pp-row > select, .pp .pp-row > input { flex:1 1 auto; min-width:0; }
+.pp .pp-row > .pp-mini { flex:0 0 auto; display:inline-flex; align-items:center; padding:2px 4px; }
 .pp .pp-ro { font-size:11px; color:var(--muted); font-family:Consolas,monospace; padding:3px 6px; }
 .pp .prop-sec { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:8px 4px 4px; }
 .pp .prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }

@@ -71,6 +71,9 @@ export type VpCommandTarget = {
 	selectAll(keep?: (e: Ent) => boolean): void; deselect(): void; select(ids: string[]): void
 	reorder(ids: string[], op: 'front' | 'back' | 'forward' | 'backward'): void
 	erase(): void; duplicate(): string | null; group(): string | null; ungroup(): string | null
+	/** LAYMCUR: the layer of the shape or MODEL object at a user point (walls, boxes, trunks …), or of the selected model object. */
+	layerAt(u: Pt): string | null
+	selObjLayer(): string | null
 	/** The last pointer position over this view (drawing coords), or null — Ctrl+Shift+V pastes there. */
 	cursor(): Pt | null
 	/** ZOOM Object: frame the selection (error text when nothing's selected); whether anything is selected. */

@@ -363,11 +363,11 @@
 <div class="prop-sec">STYLE</div>
 <!-- R5: entities pick from the model's one layer list, the same list as model objects -->
 <div class="prop"><span>Layer</span>
-	<select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setAll({ layer: strVal(e) || undefined })}>
+	<span class="pp-row"><select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setAll({ layer: strVal(e) || undefined })}>
 		<option value="">— none —</option>
 		{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 	</select>
-	{#if cc('layer')}<button class="pp-mini" title="Make this the current layer (new shapes go on it)" aria-label="Make current layer" onclick={() => { layerUI.active = cc('layer') as string }}><Icon name="check" size={12} /></button>{/if}
+	{#if cc('layer')}<button class="pp-mini" title="Make this the current layer (new shapes go on it)" aria-label="Make current layer" onclick={() => { layerUI.active = cc('layer') as string }}><Icon name="check" size={12} /></button>{/if}</span>
 </div>
 {#if activeFrameId}
 	<!-- SCOPE (§6): model-space shows in every view of the model; view-space shows only in this viewport. -->

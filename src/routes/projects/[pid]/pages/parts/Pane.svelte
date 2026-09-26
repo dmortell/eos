@@ -187,8 +187,16 @@
 			     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
 			{@const gvp = ws.activeVpOf(a.id) ?? a.id}
 			{@const gorb = ws.orbitOf(p.id, gvp, ws.gizmoProj(p, a))}
+			{@const vprev = ws.viewPreviewOn(a.id)}
 			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch} view3d={gorb.view3d} onview3d={(m) => ws.setView3d(p.id, gvp, 'iso', m)}
 				onset={(proj) => ws.gizmoSet(p, a, proj)} />
+			{#if vprev}
+				<!-- a previewed direction change (ViewCube / 3D popout): Keep it, or it reverts on leaving the viewport -->
+				<div class="vprev" title="The viewport's direction changes only if you Keep it — leaving the viewport reverts it">
+					<span>Preview · was {vprev.orig === 'iso' ? '3D' : vprev.orig.toUpperCase()}</span>
+					<button class="keep" onclick={() => ws.keepView(vprev.frameId)}>Keep</button><button onclick={() => ws.revertView(vprev.frameId)}>Revert</button>
+				</div>
+			{/if}
 		{/if}
 		<!-- F1: the Trunk / Pipe spec bar (what the next run is drawn as) -->
 		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
@@ -247,6 +255,11 @@
 	   ToolStrip.svelte's own scoped styles — R9 commit 2.) */
 	.navtools { bottom:12px; right:12px; flex-direction:column; z-index:5; }
 	/* Pane-level status/help chip — screen space, so it stays put & readable at any zoom. */
+	/* a previewed viewport-direction change: under the ViewCube (top-right), Keep / Revert */
+	.vprev { position:absolute; top:128px; right:10px; z-index:7; display:flex; align-items:center; gap:4px; padding:3px 6px; font-size:10px;
+		color:var(--text); background:var(--panel); border:1px solid var(--accent); border-radius:6px; box-shadow:0 3px 10px #0005; }
+	.vprev button { font-size:10px; padding:1px 7px; border-radius:4px; border:1px solid var(--line); background:var(--input); color:var(--text); cursor:pointer; }
+	.vprev button.keep { background:var(--accent); border-color:var(--accent); color:contrast-color(var(--accent)); }
 	.pane-status { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:6; white-space:nowrap;
 		font-size:11px; color:var(--text); background:color-mix(in srgb, var(--panel) 88%, transparent);
 		border:1px solid var(--line-soft); border-radius:6px; padding:3px 12px; pointer-events:none;

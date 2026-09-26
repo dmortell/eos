@@ -439,13 +439,38 @@
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id); const f = (av ? framesOf(a.id).find((x) => x.id === av) : null) ?? framesOf(a.id)[0]; return (f?.proj ?? 'plan') as Proj }
 		return projOf(pane, a)
 	}
+	// A sheet viewport's DIRECTION change (ViewCube / 3D popout) is a PREVIEW until "Keep" (Dave 2026-09-26: a front view
+	// accidentally left as 3D prints wrong). The original is remembered here; Revert — or leaving the viewport / the
+	// sheet — puts it back. Keep makes it the viewport's direction (one undo step).
+	let viewPreview = $state<Record<string, { tab: string; orig: Proj; label: string; wasActive: boolean }>>({})
+	function revertView(frameId: string) {
+		const p = viewPreview[frameId]; if (!p) return
+		const { [frameId]: _, ...rest } = viewPreview; viewPreview = rest
+		if (framesOf(p.tab).some((f) => f.id === frameId)) updateFrame(p.tab, frameId, { proj: p.orig, label: p.label })
+	}
+	function keepView(frameId: string) {
+		const p = viewPreview[frameId]; if (!p) return
+		const { [frameId]: _, ...rest } = viewPreview; viewPreview = rest
+		recordEdit(p.tab, 'Change view direction')
+	}
+	$effect(() => {   // auto-revert: the viewport was left (deactivated), or its sheet isn't the focused tab any more
+		const ids = Object.keys(viewPreview), focusedTab = session.panes[session.focused]?.activeId
+		const act = ids.map((id) => isVpActive(id))
+		untrack(() => ids.forEach((id, i) => {
+			const p = viewPreview[id]; if (!p) return
+			if (act[i] && !p.wasActive) viewPreview = { ...viewPreview, [id]: { ...p, wasActive: true } }
+			else if ((p.wasActive && !act[i]) || focusedTab !== p.tab) revertView(id)
+		}))
+	})
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
 		if (a?.kind === 'sheet') {
 			const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; const f = framesOf(a.id).find((x) => x.id === av)
 			// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
 			// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
 			if (av && f && proj !== 'iso' && !viewState.hasView(pane.id, didOf(av), proj)) centreFrameContent(pane.id, a.id, f, proj)
+			if (av && f && !viewPreview[av]) viewPreview = { ...viewPreview, [av]: { tab: a.id, orig: f.proj as Proj, label: f.label, wasActive: isVpActive(av) } }
 			if (av) updateFrame(a.id, av, f?.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
+			if (av && viewPreview[av]?.orig === proj) { const { [av]: _, ...rest } = viewPreview; viewPreview = rest }   // back where it started
 		}
 		else if (a) { carryFocus(pane.id, a.id, projOf(pane, a), proj, scaleDenom(scaleOf(a.id))); viewState.setProj(pane.id, didOf(a.id), proj) }
 	}
@@ -1070,7 +1095,7 @@
 		else if (mod && !e.shiftKey && active?.kind === 'sheet' && !activeVpOf(active.id) && ['c', 'x', 'd'].includes(e.key.toLowerCase())) {   // B2: frames on paper (Ctrl+V = the paste event, onPaste)
 			if (frameClipKey(active.id, e.key.toLowerCase() as 'c' | 'x' | 'v' | 'd')) e.preventDefault()
 		}
-		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && (() => { const av = activeVpOf(active.id); return !av || (av !== selFrameId && !selStore.of(av).length) })()) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space) — even while ANOTHER viewport is active (unless that one has its own selection)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
 		window.addEventListener('keydown', onGlobalKey, true)
@@ -1213,7 +1238,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, liveClip, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, liveClip, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
