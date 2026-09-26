@@ -18,6 +18,9 @@
 		['Edit text in place', 'Double-click it'], ['Add a node to a wall / conduit', 'Double-click a segment'],
 		['Branch from a node', 'Ctrl-drag the node'], ['Pull a node off a joined run / split a run there', 'Alt-drag the node'],
 		['Select a run, then one segment', 'Click it, click again'], ['Enter a viewport on a sheet', 'Double-click it'],
+		['Window select (enclosed) / crossing (touched)', 'Drag left → right / right → left'], ['Edit a dimension’s text or a line’s label', 'Double-click it'],
+		['Big text editor for a note / text', 'Double-click a note · Shift+double-click a text'], ['Orbit the 3D view (about the view middle)', 'Drag (3D view)'],
+		['Repeat the last command', 'Enter / Space on an empty line'],
 		['Type a command', 'Just type (over the drawing)'],
 	]
 	type HowTo = { q: string; a: string }
@@ -40,6 +43,16 @@
 		{ q: 'Copy shapes to another tab / project, or paste a screenshot', a: 'Ctrl+C copies the selection to the system clipboard too, so Ctrl+V pastes it in another browser tab or project. Ctrl+V with an image on the clipboard (a screenshot, a copied picture) inserts it as an image shape — set its scale / crop in Properties.' },
 		{ q: 'Export', a: 'File › Export… (DXF), File › Outlet Schedule… (Excel), SVGOUT / PNGOUT (the view as on screen), PDF / Print (choose “Save as PDF”).' },
 		{ q: 'Section views / elevations from the plan', a: 'Draw a Section (SEC) box on the plan, select it and click one of its arrows — that elevation drops onto the current sheet as a viewport.' },
+		{ q: 'Copy walls / furniture / racks to another model or project (also from the Sheets tool)', a: 'Select them and Ctrl+C (in a Sheets 3D viewport too), then Ctrl+V in the other view — they land at the same coordinates (pasted back into the same model they step 5 paper mm aside). Layers are matched by name.' },
+		{ q: 'Draw trunks / pipes of a given size and height', a: 'Pick Trunk or Pipe: the bar at the top of the pane sets the catalogue item (conduit, trunking, tray, ladder …), Rect / Round, W × H, and where it runs (under floor, plenum, below ceiling, wall, custom Z) — the height comes from the floor’s levels.' },
+		{ q: 'Doors and windows as holes', a: 'Draw an Opening box across the wall (plan). In 3D the wall is built around it (jambs, header, sill) so you see through it; plan / elevations show the masked gap. Properties › the opening sets door swing / window.' },
+		{ q: 'Core drills / penetrations', a: 'The Penetration button (Openings group) or PEN: the diameter and wall / slab once, then click each spot — tags count on (P01, P02 …). Edit the tag / Ø in Properties.' },
+		{ q: 'A cable ladder or hatched area', a: 'Draw a rectangle (or ellipse / closed polyline), then Properties › HATCH: Vertical lines at 300 mm spacing reads as ladder rungs; Horizontal, Grid and Diagonal too.' },
+		{ q: 'Stacked (baseline) dimensions with extension lines', a: 'Draw one dimension, then DIMBASELINE (DBA): each next click stacks a dimension from the same base with extension lines back to the points. Any dimension: Properties › Ext. lines.' },
+		{ q: 'Wrapped notes / a notes table', a: 'NOTE, or Properties › TEXT › Wrap on: markdown (# heading, - list, | table |, **bold**) wrapped to a width. The pencil (or double-click it) opens the big editor with a preview; paste from Word / Excel keeps the formatting.' },
+		{ q: 'Perspective 3D', a: 'In the 3D view click Persp under the ViewCube (or type PERSPECTIVE). Drag to orbit — it turns about the middle of the view.' },
+		{ q: 'Line up with other points while drawing', a: 'OTRACK (status bar, on by default): move level with an end / midpoint and a dashed blue guide locks you to its x or y. POLAR (F10) gives 15° rays; ORTHO (F8) horizontal / vertical.' },
+		{ q: 'Check walls / conduits for broken bits', a: 'AUDIT: lists missing blocks, then broken wall / conduit nodes and segments, loose connections and stale rack allocations, and offers to fix them (one undo step).' },
 	]
 	const EXAMPLES = ['LINE 0,0 @3000,0 @0,2000 ENTER', 'REC;0,0;1200,600', 'C 500,500 250', 'M · pick a base point · @500,0', 'AR · R · 4 · 1 · 1500', 'ZW · two corners']
 
