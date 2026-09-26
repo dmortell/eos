@@ -12,7 +12,7 @@ import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
 import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv, isNote } from './geometry'
-import { orbitShift } from '../3dview/projection'
+import { orbitShift, isoBounds, objBounds } from '../3dview/projection'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
@@ -27,11 +27,12 @@ import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from './hit'
+import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, viewMapOf, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
 import { textDialog } from './textDialog.svelte'
 import { trunkSpecs, specProfile } from './trunkSpec.svelte'
+import { openingSpec } from './openingSpec.svelte'
 import { idsOfKind } from './selection'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { insertLink } from './blocks'
@@ -163,7 +164,7 @@ export class VpInteraction {
 		const ent = buildEnt(v.ctx, tool, a, b, { centerDraw: v.centerDraw, uid })   // Line / Rectangle / Ellipse / Dimension
 		if (ent) { v.editor.ents.add(ent); return }
 		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
-		if (ps && v.isPlan) { this.addModelObj(prismObj(v.ctx, a, b, ps.layer, ps.h, () => newId(ps.tag))); return }
+		if (ps && v.isPlan) { this.addModelObj(prismObj(v.ctx, a, b, ps.layer, ps.h, () => newId(ps.tag), tool === 'Opening' ? openingSpec.extra() : {})); return }   // an Opening takes the bar's type / height / sill
 		if (tool === 'Section' && v.isPlan && v.mdl) {   // B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
 			const sec = sectionObj(v.ctx, a, b, newId('sec'), sectionName(v.mdl.sections ?? [])); if (!sec) return
 			addSection(v.mdl, v.editor.edit, sec)
@@ -328,6 +329,24 @@ export class VpInteraction {
 		deselect: () => this.v.clearSel(),
 		select: (ids) => this.v.selectEnts(ids),
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
+		zoomSelection: () => {   // ZOOM Object / Z with a selection: frame the selected shapes + model objects
+			const v = this.v, boxes: [number, number, number, number][] = v.entities.filter((e) => v.selSet.has(e.id)).map((e) => bbox(v.ctx, e))
+			const objIds = new Set(idsOfKind(v.selection, 'obj'))
+			if (objIds.size && v.mdl) {
+				const ib = v.kind === 'iso' ? isoBounds(v.mdl.objects, v.yaw, v.pitch, v.cx, v.cy, v.mlayers.visible, v.persp) : null, vm = viewMapOf(v.ctx, ib)
+				for (const o of v.mdl.objects) if (o.id && objIds.has(o.id)) {
+					const b = objBounds(o), ps = [b.x0, b.x1].flatMap((x) => [b.y0, b.y1].flatMap((y) => [b.z0, b.z1].map((z) => vm.toDraw({ x, y, z }))))
+					boxes.push([Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))])
+				}
+			}
+			if (!boxes.length) return 'Nothing selected to zoom to'
+			const x0 = Math.min(...boxes.map((b) => b[0])), y0 = Math.min(...boxes.map((b) => b[1])), x1 = Math.max(...boxes.map((b) => b[2])), y1 = Math.max(...boxes.map((b) => b[3]))
+			const pad = Math.max(x1 - x0, y1 - y0, 200) * 0.1
+			v.zoomToBox(x0 - pad, y0 - pad, x1 + pad, y1 + pad)
+			return null
+		},
+		cursor: () => this.lastPtr,
+		hasSelection: () => this.v.sel.length > 0 || idsOfKind(this.v.selection, 'obj').length > 0,
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
 		addRack: ({ u, w, d, at, rot }) => {

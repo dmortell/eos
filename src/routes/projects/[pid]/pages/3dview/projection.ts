@@ -485,6 +485,49 @@ function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }, cu
 	}
 	return boxes
 }
+/** HOLES IN FURNITURE: a plain upright rectangular box (4 edges, no rotation / tilt) with openings running right
+ *  THROUGH it — across its full depth (a hole along x) or full width (along y) — split into solid sub-boxes: full
+ *  pieces between the holes, and above / below each (the same panel idea as a wall). E.g. a desk box with the space
+ *  between its legs cut out. null = nothing cuts it (draw the box itself). Only the first axis with through-holes is
+ *  used; a pocket that doesn't go right through is ignored. */
+export function prismPanels(o: Obj, cuts: Cut[]): Prism[] | null {
+	if (o.type !== 'prism' || !cuts.length || (o.edges ?? 4) !== 4 || o.rot || o.rotX || o.rotY) return null
+	const bb = (c: Cut) => ({ x0: Math.min(...c.pts.map((p) => p.x)), x1: Math.max(...c.pts.map((p) => p.x)), y0: Math.min(...c.pts.map((p) => p.y)), y1: Math.max(...c.pts.map((p) => p.y)) })
+	const top = o.z + o.h
+	for (const axis of ['x', 'y'] as const) {
+		const lo = axis === 'x' ? o.x : o.y, len = axis === 'x' ? o.w : o.d
+		const gaps: { s0: number; s1: number; z0: number; z1: number }[] = []
+		for (const c of cuts) {
+			const b = bb(c), z0 = Math.max(o.z, c.z0), z1 = Math.min(top, c.z1)
+			if (z1 - z0 < 1) continue
+			const through = axis === 'x' ? b.y0 <= o.y + 0.5 && b.y1 >= o.y + o.d - 0.5 : b.x0 <= o.x + 0.5 && b.x1 >= o.x + o.w - 0.5
+			const a0 = (axis === 'x' ? b.x0 : b.y0) - lo, a1 = (axis === 'x' ? b.x1 : b.y1) - lo
+			if (!through || a1 <= 0 || a0 >= len) continue
+			gaps.push({ s0: Math.max(0, a0), s1: Math.min(len, a1), z0, z1 })
+		}
+		if (!gaps.length) continue
+		gaps.sort((p, q) => p.s0 - q.s0)
+		const out: Prism[] = [], part = (s0: number, s1: number, z0: number, z1: number) => {
+			if (s1 - s0 < 1 || z1 - z0 < 1) return
+			out.push({ ...(o as Prism), ...(axis === 'x' ? { x: o.x + s0, w: s1 - s0 } : { y: o.y + s0, d: s1 - s0 }), z: z0, h: z1 - z0 })
+		}
+		let cur = 0
+		for (const g of gaps) { part(cur, g.s0, o.z, top); part(g.s0, g.s1, g.z1, top); part(g.s0, g.s1, o.z, g.z0); cur = Math.max(cur, g.s1) }
+		part(cur, len, o.z, top)
+		return out
+	}
+	return null
+}
+/** Does this cut cross any wall of `objs`? (An opening that doesn't — e.g. the leg space of a desk — isn't drawn as a
+ *  masked wall hole.) */
+export function cutsAWall(c: Cut, objs: Obj[]): boolean {
+	for (const o of objs) {
+		if (o.type !== 'wall') continue
+		for (const run of wallRuns(o)) for (let i = 0; i + 1 < run.points.length; i++)
+			if (segmentGaps(run.points[i], run.points[i + 1], run.thickness / 2, run.points[i].z ?? 0, (run.points[i].z ?? 0) + run.h, [c]).length) return true
+	}
+	return false
+}
 /** A hole an OPENING box cuts (plan footprint corners + its height range). */
 export type Cut = { pts: V2[]; z0: number; z1: number }
 /** The cuts of the model's opening objects (boxes on an "opening" layer). */
@@ -532,6 +575,7 @@ function edges3d(o: Obj): Seg[] {
 /** `cuts` = the model's opening holes (openingCuts): a wall is built with them as real holes. */
 export function faces3d(o: Obj, cuts: Cut[] = []): Face[] {
 	if (o.type === 'prism') {
+		const parts = prismPanels(o, cuts); if (parts) return parts.flatMap((p) => faces3d(p))   // holes through a box (a desk's leg space)
 		const { bot, top } = prismRings(o)
 		return ringSolidFaces(bot, top)
 	}

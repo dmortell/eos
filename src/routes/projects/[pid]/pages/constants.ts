@@ -25,6 +25,14 @@ export const modelUnitToPaperMm = (scaleN: number) => 1 / (scaleN || 1)
 export const modelUnitToPaperPx = (scaleN: number) => modelUnitToPaperMm(scaleN) * PAPER_PX_PER_MM
 /** The N of a '1:N' scale string (the scale DENOMINATOR); malformed / zero → 1 (1:1). */
 export const scaleDenom = (scale: string | undefined) => parseInt((scale || '1:1').split(':')[1] || '1') || 1
+/** The drawing scales Alt+wheel steps a sheet viewport through (OpenCad). */
+export const SCALE_STEPS = [1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000, 1250, 1500, 2000, 2500, 5000]
+/** The next scale up (dir 1 = larger drawing = smaller N) or down from `scale`, as '1:N'. */
+export function stepScale(scale: string | undefined, dir: 1 | -1): string {
+	const n = scaleDenom(scale)
+	const next = dir > 0 ? [...SCALE_STEPS].reverse().find((s) => s < n) ?? SCALE_STEPS[0] : SCALE_STEPS.find((s) => s > n) ?? SCALE_STEPS[SCALE_STEPS.length - 1]
+	return `1:${next}`
+}
 /** mm per typographic point → fontPt · PT_MM = paper mm; × scaleDenom(scale) = model mm (annotative text). */
 export const PT_MM = 0.352778
 // ── Zoom limits (one place — the wheel, the nav toolbar and zoom-to-extents all clamp here) ──

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
 	boxFootprint, prismRings, dominantAxis, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH,
 	objBounds, inClip, trimToClip, modelZRange, modelBounds, xyCenter, doorGeom, project, faces3d,
-	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps, isoBounds, orbitShift,
+	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps, isoBounds, orbitShift, prismPanels,
 } from './projection'
 import type { Prism, Wall, Conduit, Clip, Obj } from './types'
 
@@ -327,5 +327,18 @@ describe('orbit without wobble', () => {
 		expect(b.icx).toBeCloseTo(c.u); expect(b.icy).toBeCloseTo(c.v)
 		const [x, y] = orbitShift([120, -40], 0.3, 0.5, 0.3, 0.5)
 		expect(x).toBeCloseTo(120); expect(y).toBeCloseTo(-40)
+	})
+})
+
+describe('holes through furniture', () => {
+	const desk = { type: 'prism', id: 'd', x: 0, y: 0, z: 0, w: 1600, d: 800, h: 750, edges: 4 } as Obj
+	it('a leg space right through the depth splits a desk into two legs + a top; a pocket or no cut leaves it whole', () => {
+		const legSpace = openingCuts([{ type: 'prism', id: 'o', x: 100, y: -10, z: 0, w: 1400, d: 820, h: 700, edges: 4 } as Obj], () => true)
+		const parts = prismPanels(desk, legSpace)!
+		expect(parts.map((p) => p.type === 'prism' && [p.x, p.w, p.z, p.h])).toEqual([[0, 100, 0, 750], [100, 1400, 700, 50], [1500, 100, 0, 750]])
+		const pocket = openingCuts([{ type: 'prism', id: 'p', x: 100, y: 100, z: 0, w: 400, d: 300, h: 300, edges: 4 } as Obj], () => true)
+		expect(prismPanels(desk, pocket)).toBeNull()
+		expect(prismPanels(desk, [])).toBeNull()
+		expect(faces3d(desk, legSpace).length).toBe(18)   // 3 boxes × 6 faces
 	})
 })

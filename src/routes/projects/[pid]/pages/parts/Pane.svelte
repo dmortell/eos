@@ -19,6 +19,7 @@
 	import PaperPage from './PaperPage.svelte'
 	import ToolStrip from './ToolStrip.svelte'
 	import TrunkSpecBar from './TrunkSpecBar.svelte'
+	import OpeningSpecBar from './OpeningSpecBar.svelte'
 	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
@@ -191,6 +192,7 @@
 		{/if}
 		<!-- F1: the Trunk / Pipe spec bar (what the next run is drawn as) -->
 		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
+		{#if focused && a && p.tool === 'Opening'}<OpeningSpecBar />{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>

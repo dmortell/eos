@@ -71,6 +71,11 @@ export type VpCommandTarget = {
 	selectAll(keep?: (e: Ent) => boolean): void; deselect(): void; select(ids: string[]): void
 	reorder(ids: string[], op: 'front' | 'back' | 'forward' | 'backward'): void
 	erase(): void; duplicate(): string | null; group(): string | null; ungroup(): string | null
+	/** The last pointer position over this view (drawing coords), or null — Ctrl+Shift+V pastes there. */
+	cursor(): Pt | null
+	/** ZOOM Object: frame the selection (error text when nothing's selected); whether anything is selected. */
+	zoomSelection(): string | null
+	hasSelection(): boolean
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void
 	zoomPrev(): string | null

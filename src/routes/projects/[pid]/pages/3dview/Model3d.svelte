@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, openingCuts, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
+	import { project, objBounds, faces3d, openingCuts, prismPanels, cutsAWall, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
 	import { BASIS } from './types'
 	import { storeyMap } from './storeyMap'
 	import { fillLabel, fillTone, conduitFill } from './fill'
@@ -152,6 +152,10 @@
 		const k = 0.2, mix = (v: number) => Math.round((v * k + 255 * (1 - k)) * sf)   // a light tint of the layer colour, then shaded
 		return `rgb(${mix(rgb[0])},${mix(rgb[1])},${mix(rgb[2])})`
 	}
+	// every shown opening's hole (walls AND furniture it runs through), and which openings actually cut a wall (only those
+	// are drawn as a masked hole in plan / elevation — a desk's leg space is not a hole in the drawing)
+	const allCuts = $derived(openingCuts(model.objects, (o) => isOpening(o) && visible(o)))
+	const wallHoles = $derived(new Set(model.objects.filter((o) => o.id && isOpening(o) && visible(o) && o.type === 'prism' && cutsAWall(openingCuts([o], () => true)[0], model.objects)).map((o) => o.id!)))
 	const isoFaces = $derived.by(() => {
 		if (dir !== 'iso' || wire) return []   // a wireframe draws edges instead (below)
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number; shade: string }[] = []
@@ -287,7 +291,7 @@
 		{#if to && visible(o) && !isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(to, dir, yaw, pitch, cx, cy, persp) as s, i (i)}
+			{#each (dir !== 'plan' ? prismPanels(to, allCuts) ?? [to] : [to]).flatMap((part) => project(part, dir, yaw, pitch, cx, cy, persp)) as s, i (i)}
 				{#if s.closed}
 					<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{:else}
@@ -304,7 +308,8 @@
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
 			{#each project(to, dir, yaw, pitch, cx, cy, persp) as s, i (i)}
-				<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+				{#if !o.id || wallHoles.has(o.id)}<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+				{:else}<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw * 0.6} stroke-dasharray={dashArray('dashed', canvasZoom)} opacity="0.6" vector-effect="non-scaling-stroke" />{/if}   <!-- a hole through furniture: just its outline (the box itself is split, see prismPanels) -->
 			{/each}
 			<!-- Pass 3: door swing / window glazing on top of the gap (plan only; elevation shows the gap). -->
 			{#each openingExtras(to, dir) as pl, i (`x${i}`)}

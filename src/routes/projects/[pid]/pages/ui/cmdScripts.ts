@@ -274,9 +274,11 @@ export const SCRIPTS: Record<string, Script> = {
 		c.out(`Distance = ${fmt(Math.hypot(dx, dy))},  Angle = ${fmt(((angleOf(p, q) % 360) + 360) % 360)}°,  ΔX = ${fmt(dx)},  ΔY = ${fmt(dy)}`)
 	},
 	zoom: async (c) => {
-		const a = await c.ask({ prompt: 'Specify corner of window, or', options: ['All', 'Extents', 'Previous', 'Window'], point: {}, def: 'Extents' })
+		// with something selected, Enter (the default) zooms to it — ZOOM Object (OpenCad's Z)
+		const a = await c.ask({ prompt: 'Specify corner of window, or', options: ['All', 'Extents', 'Object', 'Previous', 'Window'], point: {}, def: c.t.hasSelection() ? 'Object' : 'Extents' })
 		if (a.kind === 'point') return zoomWindow(c, a.p)
 		if (a.kind !== 'option') return
+		if (a.key === 'Object') return chk(c.t.zoomSelection())
 		if (a.key === 'Window') return zoomWindow(c)
 		if (a.key === 'Previous') return chk(c.t.zoomPrev())
 		chk(c.host.run('fit'))

@@ -10,7 +10,7 @@ import { selStore } from './selStore.svelte'
 import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
 import { deleteModelSel, deleteGraphNode, deleteGraphSeg, deleteSection } from './ui/modelEdit'
 import { Clipboard, arrange, setGroup, relabelCopies, clipText, clipHtml, readable, resolvePastedLayer, type ArrangeOp, type ClipLayers } from './ui/clipboard'
-import type { Ent } from './ui/geometry'
+import type { Ent, Pt } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
 import { unlinkIfMoved } from './ui/floorplanLink'
 import { followConnections } from './3dview/connect'
@@ -107,9 +107,9 @@ export class DocEdit {
 	}
 	/** The copies actually added (B19: 5 PAPER mm per paste, stacking; E12: copied outlets get free labels) — shapes
 	 *  and 3D objects, in ONE undo step; a pasted object's layer is matched in this model by id, then by name. */
-	pasteEnts = (tabId?: string): { ents: Ent[]; objs: Obj[] } | undefined => {
+	pasteEnts = (tabId?: string, at?: Pt): { ents: Ent[]; objs: Obj[] } | undefined => {
 		if (this.clipboard.empty || !tabId) return
-		const t = this.#h.timeline, p = this.clipboard.pasteAll(5 * this.#h.scaleN(), () => newId(), this.#h.modelIdOf(tabId))
+		const t = this.#h.timeline, p = this.clipboard.pasteAll(5 * this.#h.scaleN(), () => newId(), this.#h.modelIdOf(tabId), at)
 		const copies = relabelCopies(p.ents, this.#h.entsOf(tabId)), m = modelById(this.#h.modelIdOf(tabId))
 		t.beginGesture()
 		const ents = copies.filter((c) => this.addEnt(tabId, c, false))

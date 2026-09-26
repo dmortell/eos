@@ -20,7 +20,9 @@
 		['Select a run, then one segment', 'Click it, click again'], ['Enter a viewport on a sheet', 'Double-click it'],
 		['Window select (enclosed) / crossing (touched)', 'Drag left → right / right → left'], ['Edit a dimension’s text or a line’s label', 'Double-click it'],
 		['Big text editor for a note / text', 'Double-click a note · Shift+double-click a text'], ['Orbit the 3D view (about the view middle)', 'Drag (3D view)'],
-		['Repeat the last command', 'Enter / Space on an empty line'],
+		['Repeat the last command', 'Enter / Space on an empty line'], ['Drag out a copy of shapes', 'Ctrl+drag'],
+		['Sheet viewport: step its scale / pan its contents', 'Alt+wheel / Alt+drag over it'],
+		['Paste at the cursor (Ctrl+V keeps the position)', 'Ctrl+Shift+V'], ['Zoom to the selection', 'Z, Enter (with a selection)'],
 		['Type a command', 'Just type (over the drawing)'],
 	]
 	type HowTo = { q: string; a: string }
@@ -45,7 +47,10 @@
 		{ q: 'Section views / elevations from the plan', a: 'Draw a Section (SEC) box on the plan, select it and click one of its arrows — that elevation drops onto the current sheet as a viewport.' },
 		{ q: 'Copy walls / furniture / racks to another model or project (also from the Sheets tool)', a: 'Select them and Ctrl+C (in a Sheets 3D viewport too), then Ctrl+V in the other view — they land at the same coordinates (pasted back into the same model they step 5 paper mm aside). Layers are matched by name.' },
 		{ q: 'Draw trunks / pipes of a given size and height', a: 'Pick Trunk or Pipe: the bar at the top of the pane sets the catalogue item (conduit, trunking, tray, ladder …), Rect / Round, W × H, and where it runs (under floor, plenum, below ceiling, wall, custom Z) — the height comes from the floor’s levels.' },
-		{ q: 'Doors and windows as holes', a: 'Draw an Opening box across the wall (plan). In 3D the wall is built around it (jambs, header, sill) so you see through it; plan / elevations show the masked gap. Properties › the opening sets door swing / window.' },
+		{ q: 'Doors and windows as holes', a: 'Pick Opening: the bar at the top sets Door / Window / Rect hole, its height and sill. Drag the box across the wall (plan). In 3D the wall is built around it (jambs, header, sill) so you see through it; plan / elevations show the masked gap. Properties › the opening sets door swing / window.' },
+		{ q: 'A desk with legs (a hole through furniture)', a: 'Draw the desk as a Box, then an Opening (Rect hole) through it — right across its full depth or width, as high as the leg space. The box is split into its legs and top in 3D and elevations; the hole shows as a dashed outline in plan. Save it to the library as a block later.' },
+		{ q: 'Pick a shape under a box (e.g. under a table top)', a: 'Turn WIRE on in the status bar: boxes then pick only on their outline, so what is under / inside them can be clicked.' },
+		{ q: 'Measure a distance', a: 'The Measure button (ruler + pencil) or DIST: click two points — the distance and angle show in the command line, nothing is drawn.' },
 		{ q: 'Core drills / penetrations', a: 'The Penetration button (Openings group) or PEN: the diameter and wall / slab once, then click each spot — tags count on (P01, P02 …). Edit the tag / Ø in Properties.' },
 		{ q: 'A cable ladder or hatched area', a: 'Draw a rectangle (or ellipse / closed polyline), then Properties › HATCH: Vertical lines at 300 mm spacing reads as ladder rungs; Horizontal, Grid and Diagonal too.' },
 		{ q: 'Stacked (baseline) dimensions with extension lines', a: 'Draw one dimension, then DIMBASELINE (DBA): each next click stacks a dimension from the same base with extension lines back to the points. Any dimension: Properties › Ext. lines.' },

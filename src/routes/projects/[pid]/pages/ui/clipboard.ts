@@ -4,7 +4,7 @@
 //   arrange     draw order = array position (later = painted on top): front/back jump to the ends,
 //               forward/backward step the selection past one non-selected neighbour.
 //   setGroup    put shapes in one new group, or ungroup them.
-import { translate, isNote, migrateNote, type Ent } from './geometry'
+import { translate, isNote, migrateNote, type Ent, type Pt } from './geometry'
 import type { Obj } from '../3dview/types'
 
 export class Clipboard {
@@ -30,11 +30,13 @@ export class Clipboard {
 	paste(stepMm: number, newId: () => string, target?: string): Ent[] { return this.pasteAll(stepMm, newId, target).ents }
 	/** The shapes AND 3D objects for the next paste (fresh ids; attachments between copied things re-pointed).
 	 *  Offset only when pasting back into the model it was copied from (`target` = that model: each paste steps further,
-	 *  so copies don't land on the original); into any other model, tab or project it keeps its exact position. */
-	pasteAll(stepMm: number, newId: () => string, target?: string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } {
+	 *  so copies don't land on the original); into any other model, tab or project it keeps its exact position.
+	 *  `at` (paste at the cursor): the content's centre lands there instead (drawing coords; objects move in plan). */
+	pasteAll(stepMm: number, newId: () => string, target?: string, at?: Pt): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } {
 		if (this.empty) return { ents: [], objs: [], layers: {} }
 		this.#pastes++
-		const off = this.#src != null && target === this.#src ? stepMm * this.#pastes : 0, entIds = new Map<string, string>()
+		const entIds = new Map<string, string>(), c = at ? contentCentre(this.#items, this.#objs) : null
+		const off: number | [number, number] = at && c ? [at[0] - c[0], at[1] - c[1]] : this.#src != null && target === this.#src ? stepMm * this.#pastes : 0
 		const ents = pasteCopies(this.#items, off, newId).map((c, i) => (entIds.set(this.#items[i].id, c.id), c))
 		return { ents, objs: pasteObjCopies(this.#objs, off, newId, entIds), layers: this.#layers }
 	}
@@ -45,15 +47,17 @@ export type ClipLayers = Record<string, string>
 /** 3D objects for a paste: moved `off` mm in plan (x and y), fresh object ids, groups kept together under new group
  *  ids. A conduit end attached to a copied box / outlet follows the copy; attached to anything NOT copied it's let go
  *  (the copy would otherwise snap back onto the original). A device keeps its rack only if the rack came too. */
-export function pasteObjCopies(objs: readonly Obj[], off: number, newId: () => string, entIds: Map<string, string> = new Map()): Obj[] {
+/** An offset: the same on both axes, or [dx, dy]. */
+const ox = (o: number | [number, number]) => (typeof o === 'number' ? o : o[0]), oy = (o: number | [number, number]) => (typeof o === 'number' ? o : o[1])
+export function pasteObjCopies(objs: readonly Obj[], off: number | [number, number], newId: () => string, entIds: Map<string, string> = new Map()): Obj[] {
 	const ids = new Map(objs.filter((o) => o.id).map((o) => [o.id!, newId()])), gids = new Map<string, string>()
 	return objs.map((o) => {
 		const c = structuredClone(o) as Obj
 		if (o.id) c.id = ids.get(o.id)
 		if (c.groupId) { if (!gids.has(c.groupId)) gids.set(c.groupId, newId()); c.groupId = gids.get(c.groupId) }
-		if (c.type === 'prism') { c.x += off; c.y += off }
+		if (c.type === 'prism') { c.x += ox(off); c.y += oy(off) }
 		else for (const n of c.nodes) {
-			n.x += off; n.y += off
+			n.x += ox(off); n.y += oy(off)
 			if (!n.conn) continue
 			const to = n.conn.ent ? entIds.get(n.conn.ent) : n.conn.obj ? ids.get(n.conn.obj) : undefined
 			if (to) n.conn = n.conn.ent ? { ent: to } : { ...n.conn, obj: to }
@@ -142,12 +146,12 @@ export function textToShape(text: string): { kind: 'text' | 'note'; text: string
 }
 
 /** Copies moved by `off` (x and y) with fresh ids; members of one copied group share one NEW group id. */
-export function pasteCopies(items: Ent[], off: number, newId: () => string): Ent[] {
+export function pasteCopies(items: Ent[], off: number | [number, number], newId: () => string): Ent[] {
 	const gids = new Map<string, string>()
 	return items.map((e) => {
 		let gid = e.groupId
 		if (gid) { if (!gids.has(gid)) gids.set(gid, newId()); gid = gids.get(gid) }
-		return { ...translate(e, off, off), id: newId(), groupId: gid }
+		return { ...translate(e, ox(off), oy(off)), id: newId(), groupId: gid }
 	})
 }
 
@@ -189,4 +193,12 @@ export function arrange(arr: Ent[], ids: string[], op: ArrangeOp): Ent[] | null 
 export const setGroup = (arr: Ent[], ids: string[], gid: string | undefined): Ent[] => {
 	const s = new Set(ids)
 	return arr.map((e) => (s.has(e.id) ? { ...e, groupId: gid } : e))
+}
+/** The centre of copied content's extent (drawing / plan coords): the shapes' points, else the objects' plan footprints. */
+export function contentCentre(ents: readonly Ent[], objs: readonly Obj[]): Pt | null {
+	const xs: number[] = [], ys: number[] = []
+	const add = (p?: Pt) => { if (p) { xs.push(p[0]); ys.push(p[1]) } }
+	for (const e of ents) { add(e.a); add(e.b); e.pts?.forEach(add) }
+	if (!xs.length) for (const o of objs) { if (o.type === 'prism') { add([o.x, o.y]); add([o.x + o.w, o.y + o.d]) } else o.nodes.forEach((n) => add([n.x, n.y])) }
+	return xs.length ? [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2] : null
 }

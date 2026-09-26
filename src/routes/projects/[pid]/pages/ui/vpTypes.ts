@@ -12,7 +12,7 @@ import type { Clip } from '../3dview/types'
 import type { Editor } from './editor'
 
 export type Env = {
-	acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; polar?: boolean; /** O9 alignment tracking */ otrack?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number
+	acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; polar?: boolean; /** O9 alignment tracking */ otrack?: boolean; /** WIRE: boxes pick by outline only */ wire?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number
 	/** SNAP grid spacing, model mm (status bar); defaults to SNAP_STEP. */
 	snapStep?: number
 	/** The nav bar's latched Pan / Orbit tool: a left drag pans / orbits (iso) instead of using `tool`. */

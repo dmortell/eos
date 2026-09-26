@@ -72,7 +72,7 @@ export const COMMANDS: CmdDef[] = [
 	// inquiry
 	C('dist', 'Distance', 'DIST · DI', 'The distance + angle between two points', 'Inquiry'),
 	// view
-	C('zoom', 'Zoom', 'ZOOM · Z', 'A window (two corners), or Extents / Previous', 'View'),
+	C('zoom', 'Zoom', 'ZOOM · Z', 'A window (two corners), or Extents / Object (the selection — the default when something is selected) / Previous', 'View'),
 	C('fit', 'Zoom extents', 'ZOOMEXTENTS · ZE · ZA', 'Fit the view', 'View'),
 	C('zoomwin', 'Zoom window', 'ZOOMWINDOW · ZW', 'Zoom to a window (two corners)', 'View'),
 	C('zoomprev', 'Zoom previous', 'ZOOMPREVIOUS · ZP', 'Back to the previous view', 'View'),

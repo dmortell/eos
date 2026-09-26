@@ -17,7 +17,7 @@
 	import VpWidgets from './render/VpWidgets.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { GROUND, MMPU } from './geometry'
-	import { HANDLE_PX } from '../constants'
+	import { HANDLE_PX, stepScale } from '../constants'
 	import { onDark } from './modelSpace'
 	import { imgEdit } from '../imageEdit.svelte'
 	import { VpView } from './vpView.svelte'
@@ -46,7 +46,8 @@
 <div class="vp print:!border-transparent" class:active={v.active} class:model-space={v.modelSpace} bind:clientWidth={v.vpW} bind:clientHeight={v.vpH} role="button" tabindex="0" style:cursor={x.cursorStyle}
 	style:border-style={v.active ? 'solid' : v.border === 'none' ? 'dotted' : v.border}
 	style:border-color={v.border === 'none' && !v.active ? '#94a3b866' : undefined}
-	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, leftPans: () => v.navMode === 'pan', onpan: v.onPan, onzoom: v.onZoom }}
+	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, leftPans: () => v.navMode === 'pan', onpan: v.onPan, onzoom: v.onZoom,
+		altWheel: v.modelSpace ? undefined : (d: 1 | -1) => v.on.scale?.(stepScale(v.scale, d)), altDrag: () => !v.modelSpace && !v.active }}
 	onpointerdowncapture={x.noteRightDown} onwheelcapture={x.noteWheel}
 	ondragover={x.onDragOver} ondrop={x.onDrop}
 	onclick={x.onClick} ondblclick={x.onDblclick} oncontextmenu={x.onContext} onpointerdown={x.onDown} onpointermove={x.onMove} onpointerleave={x.onLeave}

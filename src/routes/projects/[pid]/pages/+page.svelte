@@ -53,7 +53,7 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
-	import type { Ent, ElevDir } from './ui/geometry'
+	import type { Ent, ElevDir, Pt } from './ui/geometry'
 	import { PLAN_CX, PLAN_CY, GROUND, ELEV_BASIS, elevU, elevUInv } from './ui/geometry'
 	import type { ViewCtx } from './ui/view'
 	import { bbox as entBBox, onPlanPlane } from './ui/hit'
@@ -176,7 +176,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, otrack: toggles.OTRACK, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, otrack: toggles.OTRACK, wire: toggles.WIRE, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -517,7 +517,11 @@
 		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
 	/** Ctrl+V (the browser's paste event — it reads the SYSTEM clipboard without a permission prompt): shapes copied in
 	 *  another tab / project paste here; a pasted image (a screenshot) becomes an image shape; else our own copy. */
+	/** Ctrl+Shift+V: the next paste centres on the cursor (the keydown sets it, the paste event uses it). */
+	let pasteAtCursor = false, pasteAt: Pt | null = null
 	function onPaste(e: ClipboardEvent) {
+		const atCursor = pasteAtCursor; pasteAtCursor = false
+		pasteAt = atCursor ? cmdBus.target?.cursor() ?? null : null
 		if ((e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable="true"]')) return
 		const a = active; if (!a) return
 		if (a.kind === 'sheet' && !activeVpOf(a.id)) {   // PAPER: viewport frames — from the system clipboard (another tab / browser), else ours
@@ -702,7 +706,7 @@
 		// Edit-menu clipboard/delete (B8) — act on the active VIEWPORT's selection (the Ctrl-key paths already work).
 		else if (item === 'Cut') { const a = active, vid = activeSelViewId(); if (a) { cutEnts(a.id, activeEntIds(), activeObjIds()); selStore.set(vid, selClear()) } }
 		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, activeEntIds(), activeObjIds()) }
-		else if (item === 'Paste') { const a = active, vid = activeSelViewId(); if (a && vid) selectPasted(vid, pasteEnts(a.id)) }
+		else if (item === 'Paste') { const a = active, vid = activeSelViewId(), at = pasteAt; pasteAt = null; if (a && vid) selectPasted(vid, pasteEnts(a.id, at ?? undefined)) }
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
 		else if (item === 'Text') { if (active) focusTool('Text') }
@@ -754,7 +758,7 @@
 			}
 			const panel = { layers: 'layers', props: 'props', history: 'history', blockspanel: 'blocks', blocks: 'blocks' } as const
 			if (id in panel) { rightTab = panel[id as keyof typeof panel]; rightOpen = true; return }
-			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', polar: 'POLAR', osnap: 'OSNAP', otrack: 'OTRACK', lwt: 'LWT' }
+			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', polar: 'POLAR', osnap: 'OSNAP', otrack: 'OTRACK', wire: 'WIRE', lwt: 'LWT' }
 			if (toggleKey[id]) return toggle(toggleKey[id])
 			switch (id) {
 				case 'outlet': return menuAction('Outlet')
@@ -964,6 +968,7 @@
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return   // don't hijack field editing
+		if (mod && e.shiftKey && e.key.toLowerCase() === 'v') pasteAtCursor = true   // Ctrl+Shift+V: the paste EVENT follows — it lands at the cursor
 		// Esc first drops a latched Pan (or an Orbit that's live in a 3D view) — unless a dialog is open; a latched
 		// Orbit in a flat view does nothing, so it doesn't swallow the viewport's Esc ladder (cancel a draft first)
 		const fp = session.panes[session.focused]
@@ -1029,6 +1034,7 @@
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'ruler', name: 'Dimension' },
 		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
+		{ icon: 'pencilRuler', name: 'Measure' },         // runs DIST: two clicks, nothing drawn (pseudo-tool)
 		{ icon: 'k-text', name: 'Text' },
 		{ icon: 'crosshair', name: 'Guide' },   // drop an alignment guide (sets the depth plane across views)
 		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
@@ -1046,6 +1052,7 @@
 		{ tool: 'Section' },
 		{ tool: 'Dimension' },
 		{ tool: 'Format painter' },
+		{ tool: 'Measure' },
 		{ tool: 'Text' },
 		{ group: 'guide', label: 'Guide', members: [] },   // special: fly-out picks H / V orientation (touch)
 		{ tool: 'Viewport' },
@@ -1099,7 +1106,7 @@
 	// projection changes — see the Full-size button + ViewCube — so the other pane is undisturbed).
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
-	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, OTRACK: true, LWT: false, CEN: false })
+	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, OTRACK: true, WIRE: false, LWT: false, CEN: false })
 	let snapStep = $state(100)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
@@ -1121,7 +1128,7 @@
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
 	/** Pseudo-tools that run a COMMAND instead of arming a draw tool (they draw / act through the command line). */
-	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Penetration: 'PEN' }
+	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Penetration: 'PEN', Measure: 'DIST' }
 	function setPaneTool(pane: WorkPane, t: string) { if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return } pane.tool = t; navMode = null }
 	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }

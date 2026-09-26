@@ -116,6 +116,7 @@ export class VpView {
 	get ortho() { return this.p.env?.ortho ?? false }                // ORTHO: constrain line-draw + move to H/V
 	get polar() { return this.p.env?.polar ?? false }                // POLAR: snap the rubber band to 15° rays
 	get otrack() { return this.p.env?.otrack ?? false }              // O9 OTRACK: line up with nearby snap points
+	get wire2d() { return this.p.env?.wire ?? false }                 // WIRE: boxes pick by their outline only (plan / elevation)
 	get centerDraw() { return this.p.env?.cen ?? false }             // CEN: draw rect/ellipse centre-out
 	get canvasZoom() { return this.p.env?.canvasZoom ?? 1 }
 	get mono() { return !!this.p.mono }                               // I2: a black-and-white viewport
@@ -342,7 +343,7 @@ export class VpView {
 	graphNodeApply = (n: GN, p: Pt, origin?: Pt) => {
 		this.snapMark = graphNodeApply(this.ctx, n, p, { snapNode: (q, ex, o) => snapNode(this.ctx, q, ex, this.tolMm(10), this.tolMm(8), this.mlayers, o), rnd: this.rndSnap }, origin)
 	}
-	hitModel = (p: Pt) => hitModel(this.ctx, p, this.tolMm(4), this.mlayers)
+	hitModel = (p: Pt) => hitModel(this.ctx, p, this.tolMm(4), this.mlayers, this.wire2d)
 	/** Elevation depth-snap: the wall/conduit segment a drawn point snaps its DEPTH onto (~12 px). */
 	elevDepthSnap = (p: Pt) => elevDepthSnap(this.ctx, p, this.tolMm(12), this.mlayers)
 	/** P4: the iso pick faces, projected once per model / orbit / layer change. */

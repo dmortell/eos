@@ -188,8 +188,8 @@ function inPoly(pt: Pt, poly: Pt[]): boolean {
 	return c
 }
 /** Inside the polygon, or within `thr` of its outline (so a thin or edge-on shape stays pickable). */
-function nearPoly(pt: Pt, poly: Pt[], thr: number): boolean {
-	if (poly.length >= 3 && inPoly(pt, poly)) return true
+function nearPoly(pt: Pt, poly: Pt[], thr: number, edgeOnly = false): boolean {
+	if (!edgeOnly && poly.length >= 3 && inPoly(pt, poly)) return true   // WIRE: only the outline picks
 	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if (segDist(pt, poly[j], poly[i]) <= thr) return true
 	return false
 }
@@ -236,7 +236,8 @@ export function graphSegAt(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'condu
 /** Topmost model object under p (drawing coords): a prism whose DRAWN outline (`prismOutline` — the
  *  `project()` shape Model3d paints, so rotation, tilt and odd edge counts come for free, R7) contains p
  *  or lies within `thrMm` of it, or a wall/conduit graph. `thrMm` = pick tolerance in unscaled model mm. */
-export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): string | null {
+/** `wire` (the WIRE toggle, OpenCad): a box picks only on its outline, so shapes under / inside it stay pickable. */
+export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers, wire = false): string | null {
 	const mdl = ctx.mdl
 	if (!(ctx.isPlan || ctx.isElev) || !mdl) return null
 	const thr = thrMm
@@ -245,7 +246,7 @@ export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): strin
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue
 		if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(ctx, o, p, thr)) return o.id; continue }
 		if (o.type !== 'prism') continue
-		if (nearPoly(p, prismOutline(ctx, o), thr)) return o.id
+		if (nearPoly(p, prismOutline(ctx, o), thr, wire)) return o.id
 	}
 	return null
 }

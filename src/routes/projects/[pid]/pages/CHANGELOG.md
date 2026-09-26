@@ -4,6 +4,22 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 12 (2026-09-26) — 3D popout, opening bar, desk holes, WIRE, paste at cursor
+- **3D popout** under the ViewCube: 3D = perspective (now the default), ISO = parallel iso, WIRE = see-through
+  wireframe (per viewport; PERSPECTIVE on the command line switches 3D / ISO).
+- **Opening bar** (the Opening tool): Door / Window / Rect hole, height and sill — the next opening box takes them
+  (`ui/openingSpec.svelte.ts`). Round holes aren't offered (walls are cut into box panels).
+- **Holes through furniture**: an opening that runs right through a plain box (its full depth or width) splits it
+  into solid parts — a desk's legs and top — in 3D and elevations (`projection.ts prismPanels`); openings that
+  don't cross a wall show as a dashed outline instead of a masked hole.
+- **WIRE** (status bar): boxes pick only on their outline in plan / elevation, so shapes under or inside them can be
+  picked (OpenCad's wire).
+- **Zoom to the selection**: ZOOM › Object (Z, Enter with something selected).
+- **Paste at the cursor**: Ctrl+Shift+V centres the pasted content on the cursor (Ctrl+V keeps the position).
+- **Sheet viewports**: Alt+wheel steps the scale, Alt+drag pans the contents — without entering the viewport.
+- **Measure** button (runs DIST). Icons: the tool strip shows OpenCad's icons again (a stale compile), Opening = a box
+  with diagonals; connection-point × marks are half the size.
+
 ## Round 11 (2026-09-26) — OpenCad picks: icons, penetrations, alignment tracking, steadier orbit
 - **Icons from OpenCad** (lucide): Wall = brick wall, Box = box, Opening = door, Dimension = ruler, plus new tool
   buttons **Arc** (in Shapes, runs ARC) and **Format painter** (runs MATCHPROP). The Guide tool moved to a crosshair.
