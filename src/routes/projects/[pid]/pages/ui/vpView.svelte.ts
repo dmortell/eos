@@ -23,7 +23,7 @@ import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
 import { imgEdit } from '../imageEdit.svelte'
-import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, type Persp } from '../3dview/projection'
+import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip } from '../3dview/types'
 import { storeyMap } from '../3dview/storeyMap'
 
@@ -98,6 +98,18 @@ export class VpView {
 	get clip() { return this.p.clip ?? null }
 	get yaw() { return this.p.yaw ?? DEFAULT_YAW }
 	get pitch() { return this.p.pitch ?? DEFAULT_PITCH }
+	/** An elevation's GROUND LINE span (drawing u): the section clip along the view's axis, else the visible model's extent
+	 *  (+ a margin), else a default — so a section's elevation doesn't draw a ground line across the whole sheet. */
+	groundSpan = $derived.by((): [number, number] => {
+		if (this.kind === 'plan' || this.kind === 'iso') return [0, 0]
+		const dir = this.kind as ElevDir, ax = ELEV_BASIS[dir].axis, c = this.clip
+		let lo = Infinity, hi = -Infinity
+		if (c) { lo = ax === 0 ? c.x0 : c.y0; hi = ax === 0 ? c.x1 : c.y1 }
+		else for (const o of this.mdl?.objects ?? []) { if (!this.mlayers.visible(o)) continue; const b = objBounds(o); lo = Math.min(lo, ax === 0 ? b.x0 : b.y0); hi = Math.max(hi, ax === 0 ? b.x1 : b.y1) }
+		if (!isFinite(lo)) return [PLAN_CX - 20000, PLAN_CX + 20000]
+		const a = elevU(dir, lo), b = elevU(dir, hi), pad = c ? 0 : 500
+		return [Math.min(a, b) - pad, Math.max(a, b) + pad]
+	})
 	/** The perspective camera (iso only), aimed at the model's visible content. */
 	persp = $derived.by((): Persp => (this.p.persp && this.kind === 'iso' && this.mdl ? perspCam(this.mdl.objects, this.mlayers.visible) : null))
 	get boxW() { return this.p.boxW }
@@ -397,7 +409,10 @@ export class VpView {
 		if (!this.active || !s || !svg) return null
 		const sp = this.toClient(Math.min(s.clip.x0, s.clip.x1), Math.min(s.clip.y0, s.clip.y1)); if (!sp) return null
 		const r = svg.getBoundingClientRect()
-		return { x: sp.x - r.left, y: sp.y - r.top, id: s.id, dir: s.dir }
+		// client px → .vp-LOCAL px: on a zoomed sheet the viewport is CSS-scaled, so divide by its on-screen scale (else the
+		// toolbar lands far from the box — Dave, Zone 3303 elevations)
+		const k = this.vpW ? r.width / this.vpW : 1
+		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, dir: s.dir }
 	})
 
 	// ── grips ──

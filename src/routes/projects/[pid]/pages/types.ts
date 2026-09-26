@@ -20,6 +20,9 @@ export type SheetFrame = {
 	id: string; x: number; y: number; w: number; h: number
 	border: 'dashed' | 'solid' | 'none'
 	proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: ModelId
+	/** A frame dropped from a SECTION marker: its id — the frame's clip FOLLOWS the section live (edit the marker, the
+	 *  elevation updates). `clip` keeps the last copy as a fallback (the section deleted / another model). */
+	section?: string
 	/** Pages sheets (drawings-plan §2.2): the frame's sequence number on its sheet — its default, printable label. */
 	seq?: number
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
@@ -121,5 +124,7 @@ export type Workspace = {
 	commitFrame: (tabId: string, label: string) => void
 	/** Ctrl-drag on a viewport frame: copy it in place (with its view). */
 	dupFrameInPlace: (tabId: string, frameId: string) => void
+	/** A frame's clip (a section-linked frame follows its marker). */
+	liveClip: (f: SheetFrame, tabId?: string) => import('./3dview/types').Clip | null
 	envFor: (pane: { id: string; activeId: string }) => import('./ui/vpTypes').Env
 }

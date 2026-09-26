@@ -153,7 +153,7 @@
 						onseed={(x, y, w, h) => ws.seedFrame(a.id, x, y, w, h)}
 						onaddframe={(x, y, w, h) => ws.addFrame(a.id, x, y, w, h)}
 						onframegeom={(id, g) => ws.updateFrame(a.id, id, g)}
-						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframedup={(id) => ws.dupFrameInPlace(a.id, id)}
+						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframedup={(id) => ws.dupFrameInPlace(a.id, id)} frameClip={(f) => ws.liveClip(f, a.id)}
 						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
 					<div class="vp-fill">

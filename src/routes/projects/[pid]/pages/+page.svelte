@@ -78,7 +78,7 @@
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, Section } from './3dview/types'
+	import type { Model, ModelId, Section, Clip } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 
@@ -260,6 +260,12 @@
 	}
 	// Drop a section's elevation for a direction as a viewport FRAME on the current sheet (focused pane's
 	// sheet, else the first sheet tab); focuses it + selects the new frame. Frame size starts at the clip aspect.
+	/** A frame's clip: a frame dropped from a SECTION follows that marker live; else its own stored clip. */
+	function liveClip(f: SheetFrame, tabId?: string): Clip | null {
+		if (!f.section) return f.clip
+		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : FLOOR_MODEL_ID)), s = m?.sections?.find((x) => x.id === f.section)
+		return s ? s.clip : f.clip
+	}
 	function dropSectionDir(id: string, dir: ElevDir) {
 		const found = findSection(id); if (!found) return
 		const clip = found.sec.clip
@@ -269,11 +275,17 @@
 		openTab(sheet.id)
 		ensureHist(sheet.id)
 		const fid = newFrameId()
-		const cw = Math.abs(clip.x1 - clip.x0) || 1, ch = Math.abs(clip.y1 - clip.y0) || 1
-		const W = 320, H = Math.max(120, Math.min(460, Math.round((W * ch) / cw)))
+		// the frame takes the ELEVATION's proportions (along the view axis × the cut's height), not the plan box's
+		const along = Math.abs(ELEV_BASIS[dir].axis === 0 ? clip.x1 - clip.x0 : clip.y1 - clip.y0) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
+		const W = 420, H = Math.max(120, Math.min(520, Math.round((W * tall) / along)))
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		const seq = nextFrameSeq(framesOf(sheet.id))
-		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: scaleOf(sheet.id), clip: { ...clip }, label: String(seq), seq, modelId: found.mid }])
+		// fit the cut into the frame (scale + centred view), and LINK the frame to the section: editing the marker
+		// updates this elevation live (liveClip)
+		const mdl = modelById(found.mid), ls = mdl?.layers ?? []
+		const fit = mdl ? fitFrame(mdl.objects, dir, { w: W / PAPER_PX_PER_MM, h: H / PAPER_PX_PER_MM }, { clip, visible: (o) => !isLayerHidden(ls, o.layer) }) : null
+		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: fit ? `1:${fit.n}` : scaleOf(sheet.id), clip: { ...clip }, section: id, label: String(seq), seq, modelId: found.mid }])
+		if (fit) for (const p of session.panes) setView(p.id, fid, dir, fit.view)
 		if (session.panes[session.focused]) { session.panes[session.focused].activeId = sheet.id; session.panes[session.focused].layout = 'sheet' }
 		selStore.set(sheet.id, selOnly([{ kind: 'frame', id: fid }]))
 		recordEdit(sheet.id, 'Drop section viewport')
@@ -357,7 +369,7 @@
 		const elev = f.proj !== 'plan' && f.proj !== 'iso'
 		const sm = elev && f.storeys && mdl.storeys?.length ? storeyMap(mdl.storeys, f.storeys) : null, vs = elev ? BASIS[f.proj as ElevDir].vs : 1
 		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
-			{ yaw: orb.yaw, pitch: orb.pitch, clip: f.clip, mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
+			{ yaw: orb.yaw, pitch: orb.pitch, clip: liveClip(f, a2.id), mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
 				visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
@@ -444,7 +456,7 @@
 		const ls = mdl.layers ?? [], n = scaleDenom(f.scale ?? scaleOf(tabId))
 		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: f.id, paperMm: n, mdl, yaw: 0, pitch: 0 }
 		const extra = proj === 'plan' ? (mdl.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model' || e.space === 'view:' + f.id) && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e)) : []
-		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: f.clip, visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
+		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: liveClip(f, tabId), visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
 		const z = viewOf(paneId, f.id, f.proj as Proj).zoom || 1, k = (z * fit.n) / n   // fit's view is at 1:fit.n, zoom 1 → this frame's scale + zoom
 		setView(paneId, f.id, proj, { zoom: z, x: PLAN_CX * (1 - z) + fit.view.x * k, y: PLAN_CY * (1 - z) + fit.view.y * k })   // view + z·(C + (P − C)/N) = C at the content's middle
 	}
@@ -873,7 +885,7 @@
 		if (a.kind === 'sheet') {
 			const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av) ?? framesOf(a.id)[0]
 			if (!f) return 'no-frame'
-			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: f.clip, frozen: f.frozen, storeys: f.storeys, frameId: f.id }
+			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: liveClip(f, a.id), frozen: f.frozen, storeys: f.storeys, frameId: f.id }
 		}
 		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId ?? FLOOR_MODEL_ID, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
 	}
@@ -1201,7 +1213,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFrameInPlace, liveClip, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>

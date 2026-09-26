@@ -57,8 +57,9 @@
 		<g transform="translate({v.view.x} {v.view.y}) scale({v.view.zoom}) translate({CX} {CY}) scale({v.dscale}) translate({-CX} {-CY})">
 			{#if v.isElev}
 				<!-- flat elevation backdrop: the ground line at GROUND (mm) + the direction label -->
-				<line x1={8 * MMPU} y1={GROUND} x2={392 * MMPU} y2={GROUND} stroke="#94a3b8" stroke-width="1.2" />
-				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{v.elevDir.toUpperCase()}</text>
+				<!-- the ground line spans the section cut / the model (v.groundSpan), the label is 2.5 paper mm (annotative) -->
+				<line x1={v.groundSpan[0]} y1={GROUND} x2={v.groundSpan[1]} y2={GROUND} stroke="#94a3b8" stroke-width="1.2" vector-effect="non-scaling-stroke" />
+				<text x={v.groundSpan[0]} y={GROUND + 4 * v.paperMm} font-size={2.5 * v.paperMm} fill="#64748b" font-weight="600">{v.elevDir.toUpperCase()}</text>
 			{/if}
 			<!-- Background-layer shapes (a floor's calibrated floorplan PDF image) under the 3D model -->
 			{#each v.backEnts as e (e.id)}{#if !(e.id === x.editText?.id && x.editText.field === 'text') && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}

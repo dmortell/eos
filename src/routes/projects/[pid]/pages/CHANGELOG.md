@@ -4,6 +4,22 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 13 (2026-09-26) — sheet viewports, sections, sharing, print
+- **Viewport copies**: Ctrl-drag a sheet viewport's border to leave a copy behind; copy / paste / duplicate carry the
+  content view (pan / zoom + 3D orbit), so the copy shows the same thing. Switching a viewport to a projection it has
+  no view for yet centres its content at the viewport's scale (instead of carrying a point that could be empty).
+- **Plan images** (floorplan PDFs) show only in the plan — not in elevations / 3D.
+- **Share links**: the URL carries the selected tree item (`?node=` a place, `?doc=` a drawing); opening the link
+  selects / opens it (before the one remembered in the browser).
+- **Print**: the viewport number sits top-left and its EFFECTIVE scale (1:N ÷ content zoom) top-right, as plain text
+  when printed; the title block sits ON the margin border; new sheets default to a 5 mm margin.
+- **Layers on paper**: with a sheet viewport active the eye hides the layer in THAT viewport only (VP freeze, teal
+  eye); Shift+click hides it everywhere. **Make a shape's layer current**: ✓ beside Properties › Layer, or the
+  crosshair in the Layers panel (LAYMCUR).
+- **Sections**: the floating toolbar sits on the selected box again on a zoomed sheet; "drop" makes a viewport sized
+  to the elevation (along × height), fitted to the cut, and LINKED to the section (`SheetFrame.section`) — editing the
+  box updates it live; the elevation's ground line spans the cut and its label is 2.5 paper mm.
+
 ## Round 12 (2026-09-26) — 3D popout, opening bar, desk holes, WIRE, paste at cursor
 - **3D popout** under the ViewCube: 3D = perspective (now the default), ISO = parallel iso, WIRE = see-through
   wireframe (per viewport; PERSPECTIVE on the command line switches 3D / ISO).

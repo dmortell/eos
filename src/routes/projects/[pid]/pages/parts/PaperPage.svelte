@@ -30,7 +30,7 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
 		entities = [], entsForModel = undefined, tabModelId = undefined, conduitOf = () => null,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframedup, ondeactivate }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframedup, ondeactivate, frameClip = (f: SheetFrame) => f.clip }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
@@ -43,7 +43,7 @@
 			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
 			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy the frame in place (the drag then carries the original) */ onframedup?: (id: string) => void; ondeactivate?: () => void } = $props()
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy the frame in place (the drag then carries the original) */ onframedup?: (id: string) => void; /** a frame's clip (a section-linked frame follows its marker) */ frameClip?: (f: SheetFrame) => import('../3dview/types').Clip | null; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const tbShown = $derived(tb === undefined ? shownTitleBlock(undefined, fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo })) : tb)
 	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
@@ -279,7 +279,7 @@
 						</div>
 					{:else}
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} vpLocked={f.vpLocked} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys} hideHidden={f.hideHidden} mono={f.mono} zBand={f.zBand}
-						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} persp={frameOrbit(f.id, f.proj).persp} wire={frameOrbit(f.id, f.proj).wire} pitch={frameOrbit(f.id, f.proj).pitch}
+						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={frameClip(f)} yaw={frameOrbit(f.id, f.proj).yaw} persp={frameOrbit(f.id, f.proj).persp} wire={frameOrbit(f.id, f.proj).wire} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
 					{/if}
 					{#if !fa}

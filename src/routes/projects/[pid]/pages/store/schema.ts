@@ -63,6 +63,8 @@ export type SheetFrameDoc = {
 	label?: string
 	x: number; y: number; w: number; h: number
 	modelId?: ModelId
+	/** The section marker this frame follows (live clip) — see SheetFrame.section. */
+	section?: string
 	direction: Dir
 	scale: string
 	clip: Clip | null
