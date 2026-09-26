@@ -7,6 +7,7 @@ import type { GNode } from './graph'
 import type { Obj, Model } from './types'
 import type { Ent } from '../ui/geometry'
 import { isOutletEnt } from '../store/allocate'
+import { blockDef } from '../ui/blocks'
 
 /** A node's attachment: a model object's point (`obj` + `pt`), or an outlet shape (`ent`). */
 export type Conn = { obj?: string; ent?: string; pt?: string }
@@ -45,11 +46,36 @@ export function boxPoints(o: Obj): ConnPt[] {
 		return { x: cx + x, y: cy + y, conn: { obj: o.id, pt: p.id }, z0: o.z, z1: o.z + o.h }
 	})
 }
-/** Every connection point in the model: boxes (not the conduits themselves) + outlets. */
-export function connPoints(m: Pick<Model, 'objects'> & { shapes?: Ent[] }): ConnPt[] {
+/** A wall's points: every node (ends + corners) and each segment's midpoint (`pt` = the node id / 'm:' + segment id),
+ *  spanning the wall's height. */
+export function wallPoints(o: Obj): ConnPt[] {
+	if (o.type !== 'wall' || !o.id) return []
+	const byId = new Map(o.nodes.map((n) => [n.id, n])), zr = (z: number) => ({ z0: z, z1: z + o.h })
+	const out: ConnPt[] = o.nodes.map((n) => ({ x: n.x, y: n.y, conn: { obj: o.id, pt: n.id }, ...zr(n.z) }))
+	for (const s of o.segments) {
+		const a = byId.get(s.a), b = byId.get(s.b); if (!a || !b) continue
+		out.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, conn: { obj: o.id, pt: 'm:' + s.id }, ...zr(Math.min(a.z, b.z)) })
+	}
+	return out
+}
+/** A conduit's FREE ends (nodes on one segment, not themselves attached) — another run (a trunk feeding a pipe of a
+ *  different size, which can't join) attaches there and follows it. */
+export function conduitEnds(o: Obj): ConnPt[] {
+	if (o.type !== 'conduit' || !o.id) return []
+	const deg = new Map<string, number>(); for (const s of o.segments) for (const k of [s.a, s.b]) deg.set(k, (deg.get(k) ?? 0) + 1)
+	return o.nodes.filter((n) => deg.get(n.id) === 1 && !n.conn).map((n) => ({ x: n.x, y: n.y, conn: { obj: o.id, pt: n.id }, z0: n.z, z1: n.z }))
+}
+/** Every point one object offers (a box's, a wall's, a conduit's free ends). */
+export const objPoints = (o: Obj): ConnPt[] => (o.type === 'prism' ? boxPoints(o) : o.type === 'wall' ? wallPoints(o) : conduitEnds(o))
+/** A plan block a conduit can attach to: an outlet (it has PORTS), a faceplate, or a custom block — not markers,
+ *  doors, tags, legends or north arrows. */
+const connectable = (e: Ent) => e.type === 'insert' && !!e.a && (!e.plane || e.plane === 'plan') && (isOutletEnt(e) || ['faceplate', 'custom'].includes(blockDef(e.block)?.category ?? ''))
+/** Every connection point in the model: boxes, walls, conduits' free ends, and outlets / faceplates / custom blocks.
+ *  `self` = the object whose own points are left out (a run can't attach to itself). */
+export function connPoints(m: Pick<Model, 'objects'> & { shapes?: Ent[] }, self?: string): ConnPt[] {
 	const out: ConnPt[] = []
-	for (const o of m.objects) out.push(...boxPoints(o))
-	for (const e of m.shapes ?? []) if (isOutletEnt(e) && e.a && !e.plane) out.push({ x: e.a[0], y: e.a[1], conn: { ent: e.id } })
+	for (const o of m.objects) if (!self || o.id !== self) out.push(...objPoints(o))
+	for (const e of m.shapes ?? []) if (connectable(e)) out.push({ x: e.a![0], y: e.a![1], conn: { ent: e.id } })
 	return out
 }
 /** The connection point within `tol` of (x, y) — the nearest; with a height `z`, a box spanning it (the room on the

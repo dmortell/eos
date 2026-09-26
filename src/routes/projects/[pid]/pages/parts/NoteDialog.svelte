@@ -8,10 +8,17 @@
 	import { textToShape } from '../ui/clipboard'
 	import { PT_MM } from '../constants'
 
-	let { text, width = 90, fontPt = 8, onapply, onclose }: { text: string; width?: number; fontPt?: number; onapply: (t: string) => void; onclose: () => void } = $props()
+	let { text, width = 90, fontPt = 8, plain = false, onapply, onclose }: { text: string; width?: number; fontPt?: number; /** a plain (unwrapped) TEXT: no markdown, the preview shows its lines as-is */ plain?: boolean; onapply: (t: string) => void; onclose: () => void } = $props()
 	// svelte-ignore state_referenced_locally
 	let draft = $state(text)
-	const lay = $derived(layoutNote(draft, width, fontPt * PT_MM))
+	const lay = $derived(plain ? plainLayout(draft, fontPt * PT_MM) : layoutNote(draft, width, fontPt * PT_MM))
+	/** A plain text's lines, laid out like the note preview (no wrap: the box fits the longest line). */
+	function plainLayout(t: string, size: number) {
+		const lines = t.split('\n'), lh = size * 1.35, pad = 1.5
+		const w = Math.max(20, ...lines.map((l) => l.length * size * 0.6 + 2 * pad))
+		return { w, h: lines.length * lh + 2 * pad, items: lines.map((l, i) => ({ kind: 'text' as const, x: pad, y: pad + (i + 0.8) * lh, size, bold: false, text: l })) }
+	}
+	const boxW = $derived(plain ? (lay as { w: number }).w : width)
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') { e.preventDefault(); onclose() }
 		else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onapply(draft) }
@@ -20,9 +27,10 @@
 	/** Paste from Word / Google Docs / a web page keeps its headings, bold, lists and tables (as markdown); Excel's
 	 *  tab-separated cells become a table. Plain text pastes as-is. */
 	function onPaste(e: ClipboardEvent) {
-		const dt = e.clipboardData, html = dt?.getData('text/html') ?? '', plain = dt?.getData('text/plain') ?? ''
+		if (plain) return   // a plain text takes the pasted text as-is
+		const dt = e.clipboardData, html = dt?.getData('text/html') ?? '', txt = dt?.getData('text/plain') ?? ''
 		let md = html ? htmlToMarkdown(new DOMParser().parseFromString(html, 'text/html')) : ''
-		if (!md && plain.includes('\t')) md = textToShape(plain)?.text ?? ''
+		if (!md && txt.includes('\t')) md = textToShape(txt)?.text ?? ''
 		if (!md) return
 		e.preventDefault()
 		const ta = e.currentTarget as HTMLTextAreaElement
@@ -33,16 +41,16 @@
 
 <div class="nd-back">
 	<button class="nd-dismiss" aria-label="Close" tabindex="-1" onclick={onclose}></button>
-	<div class="nd" role="dialog" aria-modal="true" aria-label="Edit note" tabindex="-1" use:focusText onkeydown={onKey}>
-		<div class="nd-head"><span>Edit note</span><span class="hint"># heading · - bullet · 1. list · | a | b | table (|---| under the header) · **bold** · Ctrl+Enter applies</span>
+	<div class="nd" role="dialog" aria-modal="true" aria-label={plain ? "Edit text" : "Edit note"} tabindex="-1" use:focusText onkeydown={onKey}>
+		<div class="nd-head"><span>{plain ? "Edit text" : "Edit note"}</span><span class="hint">{plain ? "Plain lines (turn Wrap on in Properties for markdown) · Ctrl+Enter applies" : "# heading · - bullet · 1. list · | a | b | table (|---| under the header) · **bold** · Ctrl+Enter applies"}</span>
 			<button class="nd-x" title="Close (Esc)" onclick={onclose}><Icon name="x" size={15} /></button></div>
 		<div class="nd-body">
 			<textarea bind:value={draft} spellcheck="false" onpaste={onPaste}></textarea>
 			<div class="prev" title="Preview (as it prints)">
-				<svg viewBox="0 0 {width} {lay.h}" width="100%">
-					<rect x="0" y="0" width={width} height={lay.h} fill="#fff" stroke="#cbd5e1" stroke-width="0.3" />
+				<svg viewBox="0 0 {boxW} {lay.h}" width="100%">
+					<rect x="0" y="0" width={boxW} height={lay.h} fill="#fff" stroke="#cbd5e1" stroke-width="0.3" />
 					{#each lay.items as it, i (i)}
-						{#if it.kind === 'text'}<text x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill="#111" font-family="Consolas, monospace">{#each noteRuns(it.text) as [t, b], j (j)}<tspan font-weight={b ? 700 : undefined}>{t}</tspan>{/each}</text>
+						{#if it.kind === 'text'}<text x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill="#111" font-family="Consolas, monospace">{#each plain ? [[it.text, false] as const] : noteRuns(it.text) as [t, b], j (j)}<tspan font-weight={b ? 700 : undefined}>{t}</tspan>{/each}</text>
 						{:else}<line x1={it.a[0]} y1={it.a[1]} x2={it.b[0]} y2={it.b[1]} stroke="#111" stroke-width="0.2" />{/if}
 					{/each}
 				</svg>

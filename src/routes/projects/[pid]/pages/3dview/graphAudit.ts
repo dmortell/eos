@@ -12,7 +12,7 @@
 import type { Obj } from './types'
 import type { Ent } from '../ui/geometry'
 import type { GNode, GSeg } from './graph'
-import { boxPoints } from './connect'
+import { objPoints } from './connect'
 import { isOutletEnt } from '../store/allocate'
 
 export type GraphIssue = { obj: string; label: string; kind: 'dangling' | 'zero' | 'duplicate-node' | 'orphan' | 'duplicate-seg' | 'empty' | 'conn' | 'rack' | 'alloc'; text: string }
@@ -53,7 +53,7 @@ function repair(o: Graph, out: GraphIssue[]): Graph {
 function run(objects: Obj[], shapes: Ent[]): { issues: GraphIssue[]; fixed: (Obj | null)[] } {
 	const issues: GraphIssue[] = []
 	const boxes = new Map(objects.filter((o) => o.id).map((o) => [o.id!, o]))
-	const outlets = new Set(shapes.filter(isOutletEnt).map((e) => e.id)), shapeIds = new Set(shapes.map((e) => e.id))
+	const shapeIds = new Set(shapes.map((e) => e.id))
 	const fixed = objects.map((o): Obj | null => {
 		if (isGraph(o)) {
 			const g = repair(o, issues)
@@ -61,7 +61,7 @@ function run(objects: Obj[], shapes: Ent[]): { issues: GraphIssue[]; fixed: (Obj
 			let lost = 0
 			const nodes = g.nodes.map((n) => {
 				const c = n.conn; if (!c) return n
-				const ok = c.ent ? shapeIds.has(c.ent) && outlets.has(c.ent) : c.obj ? (() => { const b = boxes.get(c.obj!); return !!b && boxPoints(b).some((p) => p.conn.pt === c.pt) })() : false
+				const ok = c.ent ? shapeIds.has(c.ent) : c.obj ? (() => { const b = boxes.get(c.obj!); return !!b && objPoints(b).some((p) => p.conn.pt === c.pt) })() : false
 				if (ok) return n
 				lost++; const { conn: _, ...rest } = n; return rest
 			})

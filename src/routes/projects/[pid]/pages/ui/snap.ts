@@ -64,6 +64,14 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 	return []
 }
 
+/** `entSnaps`, cached per shape (shapes are replaced on edit, never mutated) and view. */
+const snapCache = new WeakMap<Ent, { k: string; s: EntSnap[] }>()
+function cachedSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
+	const k = `${ctx.dir}|${ctx.elevDir}|${ctx.paperMm}|${ctx.ground}`, c = snapCache.get(e)
+	if (c && c.k === k) return c.s
+	const s = entSnaps(ctx, e); snapCache.set(e, { k, s }); return s
+}
+
 /** Corners + edge midpoints (+ centre, the average of the corners) of a CLOSED drawing-coord outline —
  *  shared by the prism branches of `objSnaps` below. */
 function polySnaps(pts: Pt[]): EntSnap[] {
@@ -148,9 +156,13 @@ export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, 
 		const d = Math.hypot(sp.x - clientX, sp.y - clientY)
 		if (d < r && (!st.best || d < st.best.d)) st.best = { p: s.point, type: s.type, d }
 	}
+	// §5 perf: a shape whose (cached) box is farther than the radius can't have a snap point in reach — skip it before
+	// listing its points (also cached). An arc's centre / a block's insertion point can lie outside its box: always listed.
+	const p0 = m.toModel(clientX, clientY), rm = m.tolMm(r)
 	for (const e of ents) {
 		if (e.id === opts.exclude || e.id === opts.editingId || !inThisView(ctx, e)) continue
-		for (const s of entSnaps(ctx, e)) consider(s)
+		if (e.type !== 'arc' && e.type !== 'insert' && !e.rot) { const [x0, y0, x1, y1] = bbox(ctx, e); if (p0[0] < x0 - rm || p0[0] > x1 + rm || p0[1] < y0 - rm || p0[1] > y1 + rm) continue }
+		for (const s of cachedSnaps(ctx, e)) consider(s)
 	}
 	if (opts.objs && opts.ml) for (const o of opts.objs) for (const s of objSnaps(ctx, o, opts.ml)) consider(s)
 	return st.best ? { p: st.best.p, type: st.best.type } : null

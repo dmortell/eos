@@ -28,7 +28,8 @@ const TOL_PX = 8
  *  compatible conduits it joins them (F3), else it is added. Returns the object it ended up in. */
 export function commitConduit(v: VpView, o: Conduit): Obj | null {
 	const mdl = v.mdl; if (!mdl) return null
-	if (v.isPlan) { const cp = connPoints(mdl), tol = v.tolMm(TOL_PX); for (const n of o.nodes) attachNode(n, cp, tol) }
+	if (v.isPlan) { const cp = connPoints(mdl, o.id).filter((p) => { const t = p.conn.obj ? mdl.objects.find((x) => x.id === p.conn.obj) : null; return !(t?.type === 'conduit' && compatible(t, o)) }), tol = v.tolMm(TOL_PX);   // a compatible run's end JOINS instead (below)
+		 for (const n of o.nodes) attachNode(n, cp, tol) }
 	const ed = v.editor.edit; ed.begin()
 	const into = joinNewConduit(mdl.objects, o, v.tolMm(TOL_PX), newId)
 	if (into === o) mdl.objects.push(o)
@@ -67,7 +68,7 @@ export function moveModelItems(v: VpView, s: MDrag, p: Pt) {
 export function endModelMove(v: VpView, s: MDrag) {
 	const mdl = v.mdl; if (!mdl || !v.isPlan) return
 	const cp = connPoints(mdl), tol = v.tolMm(TOL_PX)
-	for (const it of s.items) { const o = mdl.objects.find((x) => x.id === it.id); if (o?.type === 'conduit') for (const n of o.nodes) if (n.conn) attachNode(n, cp, tol) }
+	for (const it of s.items) { const o = mdl.objects.find((x) => x.id === it.id); if (o?.type === 'conduit') { const cpo = cp.filter((p) => p.conn.obj !== o.id); for (const n of o.nodes) if (n.conn) attachNode(n, cpo, tol) } }
 }
 
 /** A model grip drag step: the grip applies; F5 riders take the dragged node's position; a resized / rotated box
@@ -87,7 +88,7 @@ export function moveModelGrip(v: VpView, s: MGripDrag, p: Pt) {
 	const go = s.grip.obj, n = s.grip.node && go && (go.type === 'wall' || go.type === 'conduit') ? (go.nodes as GN[]).find((x) => x.id === s.grip.node!.id) : undefined
 	if (n && s.peers?.length) for (const q of s.peers) { q.x = n.x; q.y = n.y; q.z = n.z }
 	const o = go ?? v.mSelObj
-	if (o?.type === 'prism' && o.id && v.mdl) followConnections(v.mdl, new Set([o.id]))
+	if (o?.id && v.mdl) followConnections(v.mdl, new Set([o.id]))   // a box resized, a wall / conduit node dragged: what's attached to it follows
 }
 
 /** F3: a conduit node dropped onto another node merges them — in the same conduit (closing a loop / removing a
@@ -102,5 +103,5 @@ export function dropNodeJoin(v: VpView, g: MGrip) {
 	if (same) { mergeNodes(o, same.id, n.id); v.selectObj(o.id!); return }
 	const other = mdl.objects.find((c) => c !== o && compatible(c, o) && c.type === 'conduit' && c.nodes.some(near))
 	if (other && joinGraph(other as Conduit, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!); return }
-	if (v.isPlan) attachNode(n, connPoints(mdl), tol)
+	if (v.isPlan) attachNode(n, connPoints(mdl, o.id), tol)
 }

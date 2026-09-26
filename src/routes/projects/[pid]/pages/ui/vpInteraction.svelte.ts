@@ -28,7 +28,8 @@ import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoi
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from './hit'
 import { newId } from '../ids'
-import { constrainPt } from './annotations'
+import { constrainPt, lineLabelAt } from './annotations'
+import { textDialog } from './textDialog.svelte'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { insertLink } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
@@ -55,7 +56,7 @@ type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
 type SecDrag = { id: string; start: Pt; c0: Clip }
 type SecResize = { id: string; apply: (p: Pt) => Clip }
 type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number }
-export type TextEdit = { id: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number }
+export type TextEdit = { id: string; /** what's edited: a TEXT's text, a dimension's text override, a line's label */ field: 'text' | 'dim' | 'label'; placeholder?: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number }
 
 /** True when a keystroke is going into a form field — the viewport must not treat it as a canvas command. */
 const isTypingTarget = (el: EventTarget | null) => { const n = el as HTMLElement | null; if (!n?.tagName) return false; const t = n.tagName; return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || n.isContentEditable }
@@ -431,13 +432,35 @@ export class VpInteraction {
 		const [x, y] = localPx(ent.a!)
 		const [cx, cy] = localPx(rotCenter(v.ctx, ent))   // B19: the SVG text rotates about its bbox centre — so does the editor
 		const fontPx = (ent.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * view.zoom * (vpW / vbW)   // annotative: paperMm·dscale cancels (B3)
-		this.editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '', align: ent.align ?? 'left', valign: ent.valign ?? 'top', rot: ent.rot ?? 0, cx, cy }
+		this.editText = { id: ent.id, field: 'text', x, y, fontPx, value: ent.text ?? '', align: ent.align ?? 'left', valign: ent.valign ?? 'top', rot: ent.rot ?? 0, cx, cy }
+		tick().then(() => { this.textInput?.focus(); this.textInput?.select() })
+	}
+	/** Edit a DIMENSION's text override (empty = the measured length; <> stands for it) or a line's LABEL in place:
+	 *  a one-line editor centred on the drawn figure, turned with it. */
+	private startFieldEdit(ent: Ent) {
+		const v = this.v, { vpW, vpH, vbW, minX, minY, view, dscale, cx: CX, cy: CY, paperMm } = v
+		if (!vpW || !vpH) return
+		const localPx = (q: Pt): Pt => { const vbx = view.x + view.zoom * (CX + dscale * (q[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (q[1] - CY)); return [(vbx - minX) / vbW * vpW, (vby - minY) / v.vbH * vpH] }
+		let at: Pt, rot: number, align: 'left' | 'center' | 'right' = 'center'
+		if (ent.type === 'dim') {
+			const A = ent.a!, B = ent.b!, len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, ux = (B[0] - A[0]) / len, uy = (B[1] - A[1]) / len
+			const off = ent.dimOff ?? 2.5 * paperMm, t = ent.dimT ?? 0.5
+			at = [A[0] + ux * len * t - uy * off, A[1] + uy * len * t + ux * off]
+			const ang = (Math.atan2(uy, ux) * 180) / Math.PI; rot = ang > 90 || ang < -90 ? ang + 180 : ang
+		} else {
+			const lb = lineLabelAt(ent.pts ?? [], ent.textPos, 1.2 * paperMm); if (!lb) return
+			at = lb.p; rot = lb.rot; align = lb.anchor === 'start' ? 'left' : lb.anchor === 'end' ? 'right' : 'center'
+		}
+		const [x, y] = localPx(at), fontPx = 2.5 * view.zoom * (vpW / vbW)   // the figure is 2.5 paper mm (annotative)
+		this.editText = { id: ent.id, field: ent.type === 'dim' ? 'dim' : 'label', placeholder: ent.type === 'dim' ? '(the length)' : '(no label)',
+			x, y, fontPx, value: ent.text ?? '', align, valign: 'bottom', rot, cx: x, cy: y }
 		tick().then(() => { this.textInput?.focus(); this.textInput?.select() })
 	}
 	commitText = () => {
 		const t = this.editText; if (!t) return
 		const ent = this.v.entities.find((x) => x.id === t.id)
-		if (ent) this.v.editor.ents.update({ ...ent, text: t.value })
+		const val = t.field === 'text' ? t.value : t.value.replace(/\n/g, ' ').trim() || undefined   // a dim / label is one line
+		if (ent && val !== ent.text) this.v.editor.ents.update({ ...ent, text: val })
 		this.editText = null
 	}
 	cancelText = () => { this.editText = null }
@@ -606,7 +629,11 @@ export class VpInteraction {
 		if (POLY.has(v.tool) && this.draft.length) { this.finishPolyline(); return }
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return
 		const ent = v.entities.find((x) => x.id === v.hit(p)[0])
-		if (ent?.type === 'text' && !isNote(ent)) { this.startTextEdit(ent); return }
+		// a wrapped text — or Shift+double-click on a plain one — opens the large editor dialog (+page renders it)
+		if (ent?.type === 'text' && (isNote(ent) || e.shiftKey)) { const id = ent.id; textDialog.open({ text: ent.text ?? '', plain: !isNote(ent), width: ent.noteW, fontPt: ent.fontPt,
+			apply: (t) => { const cur = this.v.entities.find((x) => x.id === id); if (cur) this.v.editor.ents.update({ ...cur, text: t }) } }); return }
+		if (ent?.type === 'text') { this.startTextEdit(ent); return }
+		if (ent?.type === 'dim' || (ent?.type === 'polyline' && ent.text)) { this.startFieldEdit(ent); return }
 		if (ent && insertLink(ent) && insertLink(ent) !== '~url') { v.on.openLink?.(insertLink(ent)); return }   // D4: a linked symbol opens its target
 		if (v.tool === 'Select' && v.modelEditable) this.insertGraphNode(p)
 	}

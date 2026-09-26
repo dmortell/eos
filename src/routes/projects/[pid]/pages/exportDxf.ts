@@ -13,7 +13,7 @@ import type { Model, Obj, Clip, Dir } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
-import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, type Ent, type Pt, type ElevDir } from './ui/geometry'
+import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
@@ -136,6 +136,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			doc.poly([T(A), T(B)], { layer })
 			doc.poly([T([A[0] - px * tk, A[1] - py * tk]), T([A[0] + px * tk, A[1] + py * tk])], { layer })
 			doc.poly([T([B[0] - px * tk, B[1] - py * tk]), T([B[0] + px * tk, B[1] + py * tk])], { layer })
+			for (const [p, q] of dimExtLines(e, N)) doc.poly([T(p), T(q)], { layer })
 			const off = e.dimOff ?? 2.5 * N, t = e.dimT ?? 0.5
 			const m: Pt = [A[0] + ux * len * t + px * off, A[1] + uy * len * t + py * off]
 			let ang = (Math.atan2(uy, ux) * 180) / Math.PI; if (ang > 90 || ang < -90) ang += 180

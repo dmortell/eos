@@ -165,8 +165,10 @@ async function dimChain(c: CmdCtx, baseline: boolean) {
 		// the new point is projected onto the chain's line (continue) / measured along it (baseline), like AutoCAD
 		const t = (to[0] - A[0]) * (B[0] - A[0]) / L / L + (to[1] - A[1]) * (B[1] - A[1]) / L / L
 		const b: Pt = [A[0] + (B[0] - A[0]) * t + nx * o, A[1] + (B[1] - A[1]) * t + ny * o]
-		const { id: _id, groupId: _g, text: _t, ...style } = src
-		return c.t.newEnt({ ...style, type: 'dim', a, b })
+		const { id: _id, groupId: _g, text: _t, dimExt: e0, ...style } = src
+		// baseline: each stacked dim's extension lines reach back to the measured points (the source's own + its offset)
+		const ext = baseline ? (e0 ?? 0) + o : e0
+		return c.t.newEnt({ ...style, type: 'dim', a, b, ...(ext ? { dimExt: ext } : {}) })
 	}
 	for (;;) {
 		const kk = k + 1

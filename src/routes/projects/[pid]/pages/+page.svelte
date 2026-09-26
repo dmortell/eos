@@ -31,6 +31,8 @@
 	import StatusBar from './parts/StatusBar.svelte'
 	import CommandLine from './parts/CommandLine.svelte'
 	import HelpDialog from './parts/HelpDialog.svelte'
+	import NoteDialog from './parts/NoteDialog.svelte'
+	import { textDialog } from './ui/textDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
 	import { fromClipText, fromClipHtml, textToShape } from './ui/clipboard'
 	import { htmlToMarkdown } from './ui/htmlToMd'
@@ -1118,6 +1120,7 @@
 	{#if bookIds}<PrintBook ids={bookIds} api={bookApi} onclose={() => (bookIds = null)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if helpOpen}<HelpDialog onclose={() => (helpOpen = false)} onrun={(id) => { const c = commandById(id); if (c) cmdRunner.run(primaryName(c)) }} />{/if}
+	{#if textDialog.req}{@const r = textDialog.req}{#key r}<NoteDialog text={r.text} plain={r.plain} width={r.width ?? 90} fontPt={r.fontPt ?? 8} onclose={() => textDialog.close()} onapply={(t) => { r.apply(t); textDialog.close() }} />{/key}{/if}
 	{#if defaultsOpen && proj.store}<DrawingDefaultsDialog value={proj.store.project?.drawingDefaults} onchange={(d) => proj.store?.saveDrawingDefaults(d)} onclose={() => (defaultsOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 

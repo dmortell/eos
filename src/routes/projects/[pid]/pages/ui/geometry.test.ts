@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { type Ent, dist, segDist, translate, textBox, elevU, flatSpan, isNote, migrateNote, PLAN_CX, PLAN_CY } from './geometry'
+import { type Ent, dist, segDist, translate, textBox, elevU, flatSpan, isNote, migrateNote, dimExtLines, PLAN_CX, PLAN_CY } from './geometry'
 
 describe('dist / segDist', () => {
 	it('dist is euclidean', () => {
@@ -60,5 +60,16 @@ describe('NOTE merged into TEXT', () => {
 		expect(m.type).toBe('text'); expect(m.noteW).toBe(90); expect(isNote(m)).toBe(true)
 		const t: Ent = { id: 't', type: 'text', a: [0, 0], text: 'x' }
 		expect(migrateNote(t)).toBe(t); expect(isNote(t)).toBe(false)
+	})
+})
+
+describe('dimExtLines', () => {
+	it('none without dimExt; with it, each line runs from near the measured point to past the dim line', () => {
+		const d: Ent = { id: 'd', type: 'dim', a: [0, 100], b: [1000, 100] }
+		expect(dimExtLines(d, 1)).toEqual([])
+		// a→b along +x: the perpendicular is +y, so the measured points are 100 back at y = 0
+		const [la, lb] = dimExtLines({ ...d, dimExt: 100 }, 1)
+		expect(la[0][0]).toBeCloseTo(0); expect(la[0][1]).toBeCloseTo(1); expect(la[1][1]).toBeCloseTo(101.5)
+		expect(lb[0][0]).toBeCloseTo(1000)
 	})
 })

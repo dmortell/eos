@@ -3,7 +3,7 @@
 	// callout, line label / length / heads, block + attributes, image calibration + crop). Several: the group's
 	// bbox X/Y (moves all) and the style fields they share ("mixed" when they differ) — edits apply to all.
 	import { ColorPicker, Icon } from '$lib'
-	import NoteDialog from '../NoteDialog.svelte'
+	import { textDialog } from '../../ui/textDialog.svelte'
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
@@ -99,7 +99,8 @@
 	function setAll(patch: Partial<Ent>) { onupdate?.(ents.map((e) => ({ ...e, ...patch }))) }
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 	let blockName = $state<string | null>(null)
-	let noteEdit = $state(false)   // K3: the large NOTE editor (NoteDialog)
+	/** The large editor dialog (+page renders it; ui/textDialog): a wrapped text's markdown, or a plain text's lines. */
+	function editBig(n: Ent) { textDialog.open({ text: n.text ?? '', plain: !isNote(n), width: n.noteW, fontPt: n.fontPt, apply: (t) => onupdate?.({ ...n, text: t }) }) }
 	// D4: link a symbol to a sheet (its drawing number fills an empty SHEET) or to a URL
 	function setLink(ins: Ent, v: string) {
 		const attrs: Record<string, string> = { ...(ins.attrs ?? {}), LINK: v }
@@ -181,7 +182,7 @@
 	</div>
 {/if}
 {#if single?.type === 'text' && !isNote(single)}
-	<div class="prop-sec">TEXT</div>
+	<div class="prop-sec">TEXT<button class="pp-mini sec-btn" title="Edit in a large editor (or Shift+double-click the text)" aria-label="Edit text" onclick={() => editBig(single!)}><Icon name="edit" size={12} /></button></div>
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 	<label class="prop cb" title="Wrap to a width on paper, with markdown (# headings, - lists, | tables |, **bold**)"><span>Wrap</span><input type="checkbox" checked={false} onchange={() => setAll({ noteW: 90, callout: undefined })} /></label>
 	<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
@@ -207,11 +208,7 @@
 {/if}
 {#if single && isNote(single)}
 	<!-- a WRAPPED text (was K3 NOTE): its markdown (# headings, - bullets, 1. lists, | tables |, **bold**), its width on paper + frame -->
-	<div class="prop-sec">TEXT · WRAPPED<button class="pp-mini sec-btn" title="Edit in a large editor (with a preview)" aria-label="Edit note" onclick={() => (noteEdit = true)}><Icon name="edit" size={12} /></button></div>
-	{#if noteEdit}
-		{@const n = single}
-		<NoteDialog text={n.text ?? ''} width={n.noteW ?? 90} fontPt={n.fontPt ?? 8} onclose={() => (noteEdit = false)} onapply={(t) => { onupdate?.({ ...n, text: t }); noteEdit = false }} />
-	{/if}
+	<div class="prop-sec">TEXT · WRAPPED<button class="pp-mini sec-btn" title="Edit in a large editor (with a preview)" aria-label="Edit note" onclick={() => editBig(single!)}><Icon name="edit" size={12} /></button></div>
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} title="# heading · - bullet · 1. list · | a | b | table (|---| under the header row) · **bold**" onchange={(e) => setAll({ text: (e.currentTarget as HTMLTextAreaElement).value })}></textarea></div>
 	<label class="prop cb" title="Off = plain lines (no wrap, no markdown; can be a callout)"><span>Wrap</span><input type="checkbox" checked onchange={() => setAll({ noteW: undefined, noteBox: undefined })} /></label>
 	<div class="prop"><span>Width (mm)</span><input class="navf" type="number" min="15" value={single.noteW ?? 90} onkeydown={fnav} onchange={(e) => { const n = Math.round(num(e)); if (n >= 15) setAll({ noteW: n }) }} /></div>
@@ -238,6 +235,7 @@
 	<div class="prop"><span>Length</span><input class="navf" type="number" min="1" value={Math.round(lineLen(single))} onkeydown={fnav} onchange={(e) => setLineLen(num(e))} /></div>
 	{#if single.type === 'dim'}
 		<div class="prop"><span>Text</span><input value={single.text ?? ''} placeholder="(the length)" title="Your own text; <> = the measured length (e.g. R<>, Ø<>, <> typ.)" onchange={(e) => setAll({ text: strVal(e).trim() || undefined })} onkeydown={blurOnEnter} /></div>
+		<div class="prop"><span>Ext. lines</span><input class="navf" type="number" step="50" value={single.dimExt ?? 0} title="Extension lines: how far (mm, ± = which side) the measured points sit back from the dimension line; 0 = none" onkeydown={fnav} onchange={(e) => setAll({ dimExt: Math.round(num(e)) || undefined })} /></div>
 		<div class="prop"><span>Unit</span>
 			<select value={single.unit ?? 'mm'} onchange={(e) => setAll({ unit: strVal(e) === 'mm' ? undefined : (strVal(e) as 'cm' | 'm') })}>
 				<option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option>

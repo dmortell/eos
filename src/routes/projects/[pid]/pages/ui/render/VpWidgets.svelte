@@ -23,7 +23,7 @@
 {/if}
 {#if x.editText}
 	{@const t = x.editText}
-	{@const lines = (t.value || ' ').split('\n')}
+	{@const lines = (t.value || t.placeholder || ' ').split('\n')}
 	{@const cols = Math.max(...lines.map((l) => l.length), 3)}
 	{@const w = cols * t.fontPx * 0.62 + 14}
 	{@const lh = t.fontPx * 1.2}
@@ -31,10 +31,10 @@
 	{@const top = t.y - t.fontPx * 0.8 - (t.valign === 'middle' ? ((lines.length - 1) * lh) / 2 : t.valign === 'bottom' ? (lines.length - 1) * lh : 0)}
 	<!-- Opaque, auto-sizing editor over the (hidden) text. Enter = newline (keydown is stopped so the viewport's
 	     own Enter handler can't preempt it); Ctrl/⌘-Enter or blur commits; Esc cancels. -->
-	<textarea class="text-edit" bind:this={x.textInput} value={t.value} oninput={(e) => { if (x.editText) x.editText.value = e.currentTarget.value }} spellcheck="false" wrap="off"
+	<textarea class="text-edit" bind:this={x.textInput} value={t.value} placeholder={t.placeholder} oninput={(e) => { if (x.editText) x.editText.value = e.currentTarget.value }} spellcheck="false" wrap="off"
 		style="left:{left}px; top:{top}px; font-size:{t.fontPx}px; line-height:{lh}px; width:{w}px; height:{lines.length * lh + 6}px; text-align:{t.align}; transform-origin:{t.cx - left}px {t.cy - top}px; transform:rotate({t.rot}deg)"
 		onpointerdown={stop} onclick={stop} ondblclick={stop} onblur={x.commitText}
-		onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); x.cancelText() } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); x.commitText() } }}></textarea>
+		onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); x.cancelText() } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || t.field !== 'text')) { e.preventDefault(); x.commitText() } }}></textarea>
 {/if}
 {#if x.scaleGeom}
 	<!-- image SCALE: after the 2-point line, an inline entry for the real-world distance → resize -->

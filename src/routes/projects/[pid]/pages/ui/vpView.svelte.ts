@@ -16,7 +16,7 @@ import type { VpProps, VpKind } from './vpTypes'
 import { pickSectionGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
 import { SNAP_STEP, rndTo, snapNode, graphNodeApply, elevDepthSnap } from './snap'
 import { barycentre, groupBox } from './groupXf'
-import { connPoints, boxPoints, type ConnPt } from '../3dview/connect'
+import { connPoints, objPoints, type ConnPt } from '../3dview/connect'
 import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDraw, hitModel, isoPickFaces, viewMapOf, hitSection, hitGuide, type GN } from './hit'
 import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
@@ -413,8 +413,8 @@ export class VpView {
 	connMarks = $derived.by((): ConnPt[] => {
 		const m = this.mdl; if (!m || !this.active || !this.isPlan) return []
 		const sel = this.mSelObj
-		if (this.tool === 'Trunk' || this.tool === 'Pipe' || (this.tool === 'Select' && sel?.type === 'conduit')) return connPoints(m)
-		return this.tool === 'Select' && sel?.type === 'prism' ? boxPoints(sel) : []
+		if (this.tool === 'Trunk' || this.tool === 'Pipe' || (this.tool === 'Select' && sel?.type === 'conduit')) return connPoints(m, sel?.type === 'conduit' ? sel.id : undefined)
+		return this.tool === 'Select' && (sel?.type === 'prism' || sel?.type === 'wall') ? objPoints(sel) : []
 	})
 	/** D13: two or more editable shapes selected (Select tool) → ONE group transform box replaces their own grips:
 	 *  corner handles scale all about the opposite corner, the top handle rotates all about the barycentre. */

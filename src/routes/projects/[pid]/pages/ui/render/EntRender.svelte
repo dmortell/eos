@@ -11,7 +11,7 @@
 	// stays with the caller. Tool UI (`preview`, `drawDot`, `crosshair` snippets) stays in the Viewport.
 	import type { Pt, Ent, Dash } from '../geometry'
 	import type { ViewCtx } from '../view'
-	import { STYLE_DEFAULTS, textBox, arcPath, isNote } from '../geometry'
+	import { STYLE_DEFAULTS, textBox, arcPath, isNote, dimExtLines } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom } from '../hit'
 	import { noteRuns } from '../noteLayout'
@@ -186,6 +186,7 @@
 		{@render head(headGeom(e.headEnd ?? 'arrow', A, B, 3.5 * paperMm), col)}
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
+		{#each dimExtLines(e, paperMm) as [p, q], i (i)}<line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />{/each}
 		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{dimLabel(len, e.unit, e.text)}</text>
 	{:else if e.type === 'insert'}
 		<!-- a BLOCK insert: the definition's shapes ('byblock' colour / fill from this insert) + its attribute

@@ -66,6 +66,10 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// DIMENSION text offset: signed perpendicular distance (mm) of the measured-length text from the dim
 	// line; undefined = a small auto offset. Draggable via a grip. Firestore-stable.
 	dimOff?: number;
+	// DIMENSION extension lines: the measured points sit `dimExt` mm back from the dim line (a / b), along its
+	// perpendicular (signed, the same side convention as dimOff); undefined = the dim line IS on the points
+	// (short ticks only). DIMBASELINE sets it so each stacked dim reaches back to the base line. Firestore-stable.
+	dimExt?: number;
 	// DIMENSION text position ALONG the line: 0..1 fraction from start (a) to end (b); undefined = 0.5
 	// (centred). Draggable via the same text grip. Firestore-stable.
 	dimT?: number;
@@ -79,6 +83,15 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// A WRAPPED TEXT (was the K3 NOTE; `isNote`): a text with `noteW` — its `text` is markdown (ui/noteLayout.ts), laid out from its top-left `a` in a box `noteW` PAPER
 	// mm wide (annotative, default 90); `noteBox` draws the frame round it. Firestore-stable.
 	noteW?: number; noteBox?: boolean }
+/** A dimension's two extension lines (drawing coords): from a small gap off each measured point to just past the
+ *  dim line. [] when it has no `dimExt`. `paperMm` = model mm per paper mm (the gap / overshoot are paper sizes). */
+export function dimExtLines(e: Ent, paperMm: number): [Pt, Pt][] {
+	const A = e.a, B = e.b, ext = e.dimExt
+	if (!A || !B || !ext) return []
+	const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, px = -(B[1] - A[1]) / L, py = (B[0] - A[0]) / L, s = Math.sign(ext)
+	const gap = Math.min(1 * paperMm, Math.abs(ext) / 2), over = 1.5 * paperMm
+	return [A, B].map((P): [Pt, Pt] => [[P[0] - px * (ext - s * gap), P[1] - py * (ext - s * gap)], [P[0] + px * s * over, P[1] + py * s * over]])
+}
 /** A wrapped markdown text (a "note"): a TEXT with a wrap width. Without one it's plain lines. */
 export const isNote = (e: Ent): boolean => e.type === 'text' && e.noteW != null
 /** A stored shape from before NOTE merged into TEXT: type 'note' → a wrapped text. */
