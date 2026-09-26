@@ -4,7 +4,7 @@
 	// order/active drive both the model objects and the entities on the canvas. View-Preset picker +
 	// search, per-layer eye/lock/colour and a settings dialog. Mutations go straight onto the model's
 	// reactive list (layers.svelte.ts helpers).
-	import { Icon, ColorPicker, DragReorder } from '$lib'
+	import { Icon, ColorPicker, DragReorder, listClick, selBlock } from '$lib'
 	import { COLORS } from '../palette'
 	import { type Layer, layerUI, layerGroup, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
@@ -37,9 +37,45 @@
 	let editing = $state<string | null>(null)   // layer id being renamed
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
 
+	// MULTI-SELECT ($lib listClick): Ctrl/⌘-click toggles a layer, Shift-click takes the range from the last one (in the
+	// order shown); a plain click makes the layer active (and the only one selected). With several selected, the eye /
+	// lock of any of them sets them all, dragging one moves them all, and the bar below the list shows / hides / locks /
+	// colours / deletes them together.
+	let selLayers = $state<string[]>([]), lAnchor: string | null = null
+	const shownIds = $derived(layerGroups(layers).flatMap((g) => (isOpen(g) ? layers.filter((l) => layerGroup(l) === g && (matches(l.name) || matches(g))).map((l) => l.id) : [])))
+	const inMulti = (id: string) => selLayers.length > 1 && selLayers.includes(id)
+	const selObjs = () => layers.filter((l) => selLayers.includes(l.id))
+	/** The layers an eye / lock click on `id` acts on: the selection when `id` is in it, else just `id`. */
+	const actOn = (id: string) => (inMulti(id) ? selObjs() : layers.filter((l) => l.id === id))
+	function rowClick(e: MouseEvent, id: string) {
+		const r = listClick(shownIds, selLayers, lAnchor, id, e)
+		selLayers = r.sel; lAnchor = r.anchor
+		if (!r.multi) layerUI.active = id
+	}
+	function eyeClick(e: MouseEvent, l: Layer) {
+		// the clicked row's NEW state applies to all of them: frozen in this viewport (paper), else visible everywhere
+		if (frozen && !e.shiftKey) { const fz = !frozen.includes(l.id); for (const x of actOn(l.id)) if (frozen.includes(x.id) !== fz) onfreeze?.(x.id) }
+		else { const on = !l.visible; for (const x of actOn(l.id)) x.visible = on }
+	}
+	function lockClick(l: Layer) { const on = !l.locked; for (const x of actOn(l.id)) x.locked = on }
+	// bulk delete (the active layer stays — new shapes land on it); click-again when any holds items
+	let bulkDelArm = $state(false)
+	const bulkDelIds = $derived(selLayers.filter((id) => id !== layerUI.active))
+	const bulkDelCount = $derived(countOf ? bulkDelIds.reduce((s, id) => s + countOf(id), 0) : 0)
+	function bulkDelete() {
+		if (!bulkDelIds.length) return
+		if (bulkDelCount && !bulkDelArm) { bulkDelArm = true; return }
+		for (const id of bulkDelIds) { if (ondelete) ondelete(id); else removeLayer(layers, id) }
+		selLayers = selLayers.filter((id) => id === layerUI.active); bulkDelArm = false
+	}
+
 	// DRAG to reorder layers = change draw z-order (array position). Reusable $lib helper handles the DnD
-	// state + direction-aware drop; `moveLayer` applies it.
-	const dr = new DragReorder((id, t, after) => moveLayer(layers, id, t, after), (id) => layers.findIndex((l) => l.id === id))
+	// state + direction-aware drop; `moveLayer` applies it — to the whole selection when a selected layer is dragged
+	// (after the target: the last goes first, so each lands right after it and the block keeps its order).
+	const dr = new DragReorder((id, t, after) => {
+		const block = selBlock(layers.map((l) => l.id), selLayers, id); if (block.includes(t)) return
+		for (const x of after ? [...block].reverse() : block) moveLayer(layers, x, t, after)
+	}, (id) => layers.findIndex((l) => l.id === id))
 
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
@@ -110,18 +146,19 @@
 						{#if matches(l.name) || matches(g)}
 							{@const vpHidden = !!frozen?.includes(l.id)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active}
-								class:dragbefore={dr.isBefore(l.id)} class:dragafter={dr.isAfter(l.id)} title="Drag to reorder (sets draw z-order)"
-								{...dr.row(l.id)} onclick={() => (layerUI.active = l.id)}>
+							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} class:multi={inMulti(l.id)}
+								class:dragbefore={dr.isBefore(l.id)} class:dragafter={dr.isAfter(l.id)}
+								title={inMulti(l.id) ? `${selLayers.length} layers selected — drag to move them together` : 'Drag to reorder (sets draw z-order) · Ctrl / Shift+click: select several'}
+								{...dr.row(l.id)} onclick={(e) => rowClick(e, l.id)}>
 								<!-- in a sheet viewport (paper) the eye hides the layer in THAT viewport only (VP Freeze) — hiding it
 								     everywhere by accident is too easy; Shift+click hides it globally (Dave 2026-09-26) -->
 								<button class="ly-eye" class:vp={!!frozen} aria-label="Show/hide {l.name}"
 									title={frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
-									onclick={(e) => { e.stopPropagation(); if (frozen && !e.shiftKey) onfreeze?.(l.id); else l.visible = !l.visible }}>
+									onclick={(e) => { e.stopPropagation(); eyeClick(e, l) }}>
 									<!-- hidden everywhere = crossed eye; frozen in this viewport only = a snowflake (VP Freeze — the eye does it now) -->
 									<Icon name={!l.visible ? 'eyeSlash' : vpHidden ? 'snowflake' : 'eye'} size={13} />
 								</button>
-								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); l.locked = !l.locked }}>
+								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); lockClick(l) }}>
 									<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
 								</button>
 								{#if vpLocked}
@@ -150,6 +187,22 @@
 			{/if}
 		{/each}
 	</div>
+
+	{#if selLayers.length > 1}
+		<!-- several layers selected: act on them all -->
+		<div class="lp-bulk">
+			<b>{selLayers.length} layers</b>
+			<button title="Show them" onclick={() => { for (const x of selObjs()) x.visible = true }}><Icon name="eye" size={12} /></button>
+			<button title="Hide them" onclick={() => { for (const x of selObjs()) x.visible = false }}><Icon name="eyeSlash" size={12} /></button>
+			<button title="Lock them" onclick={() => { for (const x of selObjs()) x.locked = true }}><Icon name="lock" size={12} /></button>
+			<button title="Unlock them" onclick={() => { for (const x of selObjs()) x.locked = false }}><Icon name="lockOpen" size={12} /></button>
+			<span class="lp-bulk-col" title="Colour them"><ColorPicker value={selObjs()[0]?.color ?? ''} colors={COLORS} onchange={(v) => { if (v) for (const x of selObjs()) x.color = v }} /></span>
+			<button class="danger" disabled={!bulkDelIds.length} onblur={() => (bulkDelArm = false)} onclick={bulkDelete}
+				title={bulkDelIds.length < selLayers.length ? 'Delete them (the active layer stays)' : 'Delete them'}>
+				<Icon name="trash" size={12} />{#if bulkDelArm} Delete + {bulkDelCount} items?{/if}</button>
+			<button title="Clear the selection" onclick={() => { selLayers = []; bulkDelArm = false }}><Icon name="close" size={12} /></button>
+		</div>
+	{/if}
 
 	<button class="lp-new" onclick={() => { const l = addLayer(layers); editing = l.id }}><Icon name="plus" size={13} /> New Layer</button>
 </div>
@@ -223,6 +276,14 @@
 	.ly-row { display:flex; align-items:center; gap:6px; padding:3px 4px 3px 22px; border-radius:5px; cursor:default; }
 	.ly-row:hover { background:var(--hover); }
 	.ly-row.active { background:var(--active); }
+	.ly-row.multi { background:var(--accent-dim, var(--active)); box-shadow:inset 2px 0 0 var(--accent); }
+	.lp-bulk { flex:0 0 auto; display:flex; align-items:center; gap:3px; margin:4px 6px 0; padding:4px 6px; border:1px solid var(--accent-dim, var(--line)); border-radius:6px; background:var(--panel2); font-size:11px; color:var(--text); }
+	.lp-bulk b { flex:1; font-weight:600; }
+	.lp-bulk button { display:inline-flex; align-items:center; gap:3px; height:20px; min-width:20px; justify-content:center; border:none; border-radius:4px; background:none; color:var(--muted); font-size:11px; }
+	.lp-bulk button:hover:not(:disabled) { background:var(--hover); color:var(--text); }
+	.lp-bulk button.danger { color:var(--danger); }
+	.lp-bulk button:disabled { opacity:.4; }
+	.lp-bulk-col { display:inline-flex; }
 	.ly-row[draggable=true] { cursor:grab; }
 	.ly-row.dragbefore { box-shadow:inset 0 2px 0 var(--accent); }   /* insert above the target */
 	.ly-row.dragafter { box-shadow:inset 0 -2px 0 var(--accent); }   /* insert below the target */

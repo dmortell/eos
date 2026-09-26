@@ -11,7 +11,7 @@
 	// are left out).
 	// All writes go through the callbacks (the store saves them); the lists are derived from the props.
 	import { tick } from 'svelte'
-	import { Icon } from '$lib'
+	import { Icon, listClick } from '$lib'
 	import type { PagesSheetDoc, Place, SheetKind } from '../store/schema'
 	import { sheetRows, filterRows, sortRows, groupRows, renumber, modelUsage, missingModelFrames, placePath,
 		type SortKey, type GroupBy, type ModelInfo } from '../store/drawingList'
@@ -83,6 +83,12 @@
 
 	function sortBy(k: SortKey) { if (sortKey === k) sortDir = sortDir === 1 ? -1 : 1; else { sortKey = k; sortDir = 1 } }
 	function toggle(id: string) { const s = new Set(sel); if (s.has(id)) s.delete(id); else s.add(id); sel = s }
+	// a checkbox click toggles its row; Shift+click ADDS the range from the last one clicked (in the order shown)
+	let ckAnchor: string | null = null
+	function rowCheck(e: MouseEvent, id: string) {
+		if (e.shiftKey && ckAnchor) { sel = new Set(listClick(groups.flatMap((g) => g.rows.map((r) => r.id)), [...sel], ckAnchor, id, { shiftKey: true, ctrlKey: true }).sel); return }
+		toggle(id); ckAnchor = id
+	}
 	const allShownSel = $derived(shown.length > 0 && selIds.length === shown.length)
 	function toggleAll() { sel = allShownSel ? new Set() : new Set(shown.map((r) => r.id)) }
 
@@ -198,7 +204,7 @@
 							{#if groupBy !== 'none'}<tr class="gh"><td colspan={COLS.length + 3}>{g.label} <em>{g.rows.length}</em></td></tr>{/if}
 							{#each g.rows as r (r.id)}
 								<tr class:sel={sel.has(r.id)} ondblclick={() => onopen(r.id)}>
-									<td class="ck"><input type="checkbox" checked={sel.has(r.id)} onchange={() => toggle(r.id)} /></td>
+									<td class="ck"><input type="checkbox" checked={sel.has(r.id)} title="Shift+click: select the range" onclick={(e) => { e.preventDefault(); rowCheck(e, r.id) }} /></td>
 									<td><input class="cell num" value={r.number} placeholder="—" onchange={(e) => one(r.id, { drawingNumber: val(e).trim() })} onkeydown={blurOnEnter} /></td>
 									<td><input class="cell" value={r.title} onchange={(e) => { const t = val(e).trim(); if (t) one(r.id, { title: t }) }} onkeydown={blurOnEnter} /></td>
 									<td class="muted">{r.placePath || '—'}</td>

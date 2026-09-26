@@ -4,6 +4,17 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 17 (2026-09-27) — multi-select in lists
+- **One list multi-select rule** (`$lib/ui/listSelect.ts`, unit-tested): Ctrl/⌘+click toggles, Shift+click takes the
+  range from the last item (in the order shown), Ctrl+Shift adds the range.
+- **Layers**: select several; the eye / lock of any selected layer sets them all (in a sheet viewport the eye freezes them
+  there); dragging one moves them all (order kept); a bar shows / hides / locks / unlocks / colours / deletes them (the
+  active layer stays; click again when they hold items). A plain click still makes a layer active.
+- **Drawings tree**: places AND sheets multi-select (was sheets only); dragging one moves the block (rows inside a
+  selected place go with it); the ⋮ menu of a selected row deletes them all (sheets first, then places deepest first —
+  a place still holding things stays and says why).
+- **File › Drawings**: Shift+click a checkbox selects the range.
+
 ## Round 16 (2026-09-27) — the editing merge, phases 3–4 (done)
 - **3D objects run on the engine** (walls, boxes, conduits in plan / elevation): body move with grid snap anchored on
   the first object, Ctrl-drag copy, arrow nudge, Ctrl+D, and the selection box now takes objects too. Shapes and

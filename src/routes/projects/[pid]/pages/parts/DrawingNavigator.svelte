@@ -2,7 +2,7 @@
 	// Left-sidebar DRAWING NAVIGATOR (Pages mockup) — modelled on the reference design:
 	// a tree organised by LOCATION (Floors / Server Rooms / Data Center / Racks) whose
 	// leaves are the drawings / views. Clicking a leaf opens it as a canvas tab. Mock data.
-	import { Icon, DragReorder } from '$lib'
+	import { Icon, DragReorder, listClick, selBlock } from '$lib'
 	import { TreeDrag, type DropZone } from './treeDrag.svelte'
 	import { LINK_TOOLS, type SheetLink } from '../store/schema'
 	import { tick, untrack } from 'svelte'
@@ -79,25 +79,36 @@
 		if (a.folder === 'floor' && a.floorNumber != null) { const b = buildingOfNode(t); if (b && b !== buildingOfNode(a)) onmovefloor?.(a.floorNumber, b) }
 		else if (a.folder === 'building' && t.folder === 'building') onmovebuilding?.(a.label, t.label, after)
 	}, (id) => flat.findIndex((n) => n.id === id))
-	// B8: Ctrl/⌘-click toggles a sheet into a multi-selection, Shift-click selects the range from the last one;
-	// dragging any selected sheet moves the whole block, keeping its order.
-	let selSheets = $state<string[]>([]), selAnchor: string | null = null
-	const sheetIds = $derived(flat.filter((n) => n.sheet && n.drawing).map((n) => n.id))
-	function sheetClick(e: MouseEvent, n: Node): boolean {
-		if (e.shiftKey && selAnchor) {
-			const a = sheetIds.indexOf(selAnchor), b = sheetIds.indexOf(n.id); if (a < 0 || b < 0) return false
-			selSheets = sheetIds.slice(Math.min(a, b), Math.max(a, b) + 1); return true
+	// B8 → multi-select for PLACES and SHEETS ($lib listClick): Ctrl/⌘-click toggles a row, Shift-click selects the
+	// range from the last one (in the order shown); a plain click opens / selects as before. Dragging any selected row
+	// moves the whole block (keeping its order; a row inside a selected place goes with its place), and the ⋮ menu of a
+	// selected row deletes them all.
+	let selRows = $state<string[]>([]), selAnchor: string | null = null
+	const isSelRow = (n: Node) => !!placesMode && (!!n.place || (!!n.sheet && !!n.drawing))
+	const parentOf = $derived.by(() => { const m = new Map<string, string>(); const walk = (ns: Node[], p?: string) => { for (const n of ns) { if (p) m.set(n.id, p); if (n.children) walk(n.children, n.id) } }; walk(TREE_NODES); return m })
+	const ancestors = (id: string) => { const out: string[] = []; for (let p = parentOf.get(id); p; p = parentOf.get(p)) out.push(p); return out }
+	/** The selectable rows in the order SHOWN (collapsed branches skipped) — Shift ranges run over this. */
+	const shownRows = $derived.by(() => { const out: string[] = []; const walk = (ns: Node[]) => { for (const n of ns) { if (search && !visible(n)) continue; if (isSelRow(n)) out.push(n.id); if (n.children && (openOf(n) || search)) walk(n.children) } }; walk(TREE_NODES); return out })
+	const inMulti = (id: string) => selRows.length > 1 && selRows.includes(id)
+	function rowSelClick(e: MouseEvent, n: Node): boolean {
+		let cur = selRows
+		if ((e.ctrlKey || e.metaKey || e.shiftKey) && !cur.length) {   // the open sheet / selected place joins the selection
+			const open = flat.find((x) => x.sheet && x.drawing && (x.docId ?? x.id) === activeDoc)?.id ?? (nodeById(activeNode)?.place ? activeNode : undefined)
+			if (open) { cur = [open]; selAnchor ??= open }
 		}
-		if (e.ctrlKey || e.metaKey) {
-			const open = flat.find((x) => x.sheet && x.drawing && (x.docId ?? x.id) === activeDoc)?.id   // the open sheet joins the selection
-			const cur = selSheets.length ? selSheets : open ? [open] : []
-			selSheets = cur.includes(n.id) ? cur.filter((x) => x !== n.id) : [...cur, n.id]; selAnchor = n.id; return true
-		}
-		selSheets = []; selAnchor = n.id; return false
+		const r = listClick(shownRows, cur, selAnchor, n.id, e)
+		selRows = r.multi ? r.sel : []; selAnchor = r.anchor
+		return r.multi
+	}
+	/** A drag / bulk action's rows: the selection (in shown order) when `id` is in it — minus rows whose place is also
+	 *  in it (they move / go with it) — else just `id`. */
+	function blockOf(id: string): string[] {
+		const b = selBlock(shownRows, selRows, id)
+		return b.filter((x) => !ancestors(x).some((a) => b.includes(a)))
 	}
 	function moveRows(id: string, target: string, zone: DropZone) {
-		const block = selSheets.includes(id) && selSheets.length > 1 ? sheetIds.filter((x) => selSheets.includes(x)) : [id]
-		if (block.includes(target)) return
+		const block = blockOf(id)
+		if (block.includes(target) || ancestors(target).some((a) => block.includes(a))) return   // not into itself
 		// after a row (a drop on a SHEET row's middle also lands after it): move the LAST first so each lands right
 		// after the target, ahead of the ones already moved; 'into' a place appends, so it keeps the order as is
 		const after = zone === 'after' || (zone === 'into' && !!nodeById(target)?.sheet)
@@ -141,8 +152,24 @@
 	type MenuItem = { key: string; label: string; icon: string; danger?: boolean; confirm?: string; run: () => void }
 	let menu = $state<{ id: string; x: number; y: number } | null>(null)
 	let menuConfirm = $state<string | null>(null)
+	/** Delete every selected row: sheets first (the message offers Undo), then places deepest first (a place empties
+	 *  as its selected contents go); a place that still holds things stays and says why. */
+	function deleteSelected(block: string[]) {
+		const rows = block.map((id) => nodeById(id)).filter((x): x is Node => !!x)
+		for (const r of rows) if (r.sheet) onsheetdelete?.(r.id)
+		const errs: string[] = []
+		for (const r of rows.filter((x) => x.place).sort((a, b) => ancestors(b.id).length - ancestors(a.id).length)) { const err = onplacedelete?.(r.id); if (err) errs.push(`${r.label}: ${err}`) }
+		selRows = []
+		delErr = errs.length ? { id: rows.find((x) => x.place)!.id, msg: errs.join(' · ') } : null
+	}
 	function menuItems(n: Node): MenuItem[] {
 		const out: MenuItem[] = []
+		if (inMulti(n.id)) {   // a row of a multi-selection: the actions on them all
+			const block = blockOf(n.id)
+			if ((onsheetdelete || onplacedelete) && block.length) out.push({ key: 'delsel', label: `Delete ${block.length} selected`, icon: 'trash', danger: true, confirm: `Click again to delete ${block.length}`, run: () => deleteSelected(block) })
+			out.push({ key: 'clearsel', label: 'Clear the selection', icon: 'close', run: () => { selRows = [] } })
+			return out
+		}
 		if (n.drawing && !n.sheet) {   // another tool's register drawing (`d:<id>`)
 			if (onimportdrawing && n.id.startsWith('d:')) out.push({ key: 'import', label: 'Import into Pages', icon: 'download', run: () => onimportdrawing?.(n.id) })
 			if (onimportriser && n.id.startsWith('riser:')) out.push({ key: 'riser', label: 'Import into the building model', icon: 'download',
@@ -302,10 +329,10 @@
 		{@const isOpen = openOf(n) || (!!search && (n.children?.length ?? 0) > 0)}
 		{#if n.drawing && n.sheet && placesMode}
 			<!-- a stored Pages SHEET: opens a tab like any drawing; draggable between places, renamable, archivable -->
-			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} class:multi={selSheets.includes(n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
+			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} class:multi={inMulti(n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
 				{...dragProps(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n) || dropInto(n)}
-				title={selSheets.length > 1 && selSheets.includes(n.id) ? `${selSheets.length} sheets selected — drag to move them together` : undefined}
-				onclick={(e) => { if (!sheetClick(e, n)) onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id }) }}
+				title={inMulti(n.id) ? `${selRows.length} selected — drag to move them together · ⋮ to delete them` : undefined}
+				onclick={(e) => { if (!rowSelClick(e, n)) onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id }) }}
 				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}
 				onkeydown={(e) => { if (e.key === 'Enter') onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id }) }}>
 				<span class="dn-chev spacer"></span>
@@ -335,9 +362,10 @@
 		{:else}
 			<!-- location folder: chevron toggles expand; the row selects it (props in right panel). A FLOOR row
 			     also opens the floor's model tab — single click previews, double click keeps (like a drawing). -->
-			<div class="dn-row folder" class:active={activeNode === n.id} style:padding-left="{depth * 12 + 8}px"
+			<div class="dn-row folder" class:active={activeNode === n.id} class:multi={inMulti(n.id)} style:padding-left="{depth * 12 + 8}px"
 				{...dragProps(n)} class:drop-into={dropInto(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n)}
-				onclick={() => { onselectnode?.({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
+				title={inMulti(n.id) ? `${selRows.length} selected — drag to move them together · ⋮ to delete them` : undefined}
+				onclick={(e) => { if (isSelRow(n) && rowSelClick(e, n)) return; onselectnode?.({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
 					if (n.place && onopenplace) { if (n.modelFloor || n.hasModel) onopenplace(n.id, true) } else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, true) } }}
 				ondblclick={() => { if (n.place && onopenplace) onopenplace(n.id, false); else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, false) } }}
 				role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }) } }}>
