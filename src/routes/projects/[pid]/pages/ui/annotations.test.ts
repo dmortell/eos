@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray, lineLabelAt, tileLines } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray, lineLabelAt, tileLines, hatchLines, hatchOutline } from './annotations'
 
 describe('tileLines (D2)', () => {
 	it('lines every tile from the shifted origin, inside the rect only; none for silly sizes', () => {
@@ -150,5 +150,19 @@ describe('dashArray (XP32)', () => {
 		expect(dashArray('solid')).toBeUndefined()
 		expect(dashArray('dashed')).toBe('6 4')
 		expect(dashArray('dashdot', 2)).toBe('4 1.5 0.5 1.5')
+	})
+})
+
+describe('HATCH lines', () => {
+	it('vertical rungs every 300 across a 1000 × 200 rect; none without a pattern; clipped to an ellipse', () => {
+		const r: Ent = { id: 'r', type: 'rect', a: [0, 0], b: [1000, 200], hatch: 'v' }
+		const ls = hatchLines(r)
+		expect(ls.map(([p]) => Math.round(p[0]))).toEqual([300, 600, 900])
+		for (const [p, q] of ls) { expect(Math.min(p[1], q[1])).toBeCloseTo(0); expect(Math.max(p[1], q[1])).toBeCloseTo(200) }
+		expect(hatchLines({ ...r, hatch: undefined })).toEqual([])
+		const e: Ent = { id: 'e', type: 'ellipse', a: [0, 0], b: [1000, 1000], hatch: 'h', hatchStep: 500 }
+		const [[p, q]] = hatchLines(e)   // one line through the middle, from edge to edge
+		expect(Math.abs(q[0] - p[0])).toBeCloseTo(1000, -1)
+		expect(hatchOutline({ id: 'o', type: 'polyline', pts: [[0, 0], [10, 0]] })).toBeNull()
 	})
 })

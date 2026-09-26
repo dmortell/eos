@@ -16,6 +16,7 @@
 	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
 	import { arrange, type AlignOp } from '../../ui/arrange'
 	import { noteGeom } from '../../ui/hit'
+	import { hatchOutline } from '../../ui/annotations'
 	import { incLabel } from '../../ui/outletPlace.svelte'
 	import { isOutletEnt } from '../../store/allocate'
 
@@ -213,6 +214,15 @@
 	<label class="prop cb" title="Off = plain lines (no wrap, no markdown; can be a callout)"><span>Wrap</span><input type="checkbox" checked onchange={() => setAll({ noteW: undefined, noteBox: undefined })} /></label>
 	<div class="prop"><span>Width (mm)</span><input class="navf" type="number" min="15" value={single.noteW ?? 90} onkeydown={fnav} onchange={(e) => { const n = Math.round(num(e)); if (n >= 15) setAll({ noteW: n }) }} /></div>
 	<label class="prop cb"><span>Frame</span><input type="checkbox" checked={!!single.noteBox} onchange={(e) => setAll({ noteBox: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
+{/if}
+{#if single && hatchOutline(single)}
+	<!-- HATCH (2D): a line pattern across the shape — e.g. cable-ladder rungs (vertical, 300 mm) -->
+	<div class="prop-sec">HATCH</div>
+	<div class="prop"><span>Pattern</span>
+		<select value={single.hatch ?? ''} onchange={(e) => setAll({ hatch: ((e.currentTarget as HTMLSelectElement).value || undefined) as Ent['hatch'] })}>
+			<option value="">None</option><option value="h">Horizontal</option><option value="v">Vertical</option><option value="x">Grid</option><option value="d">Diagonal</option><option value="dx">Diagonal cross</option>
+		</select></div>
+	{#if single.hatch}<div class="prop"><span>Spacing</span><input class="navf" type="number" min="1" step="50" value={single.hatchStep ?? 300} title="Line spacing (model mm)" onkeydown={fnav} onchange={(e) => { const n = num(e); if (n > 0) setAll({ hatchStep: n === 300 ? undefined : n }) }} /></div>{/if}
 {/if}
 {#if single?.type === 'rect'}
 	<div class="prop-sec">RECT</div>

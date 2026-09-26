@@ -21,7 +21,7 @@ export function constrainPt(tool: string, a: Pt, p: Pt, shift: boolean): Pt {
 		const s = Math.max(Math.abs(dx), Math.abs(dy))
 		return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
 	}
-	if (tool === 'Line' || tool === 'Dimension') {
+	if (tool === 'Line' || tool === 'Dimension' || tool === 'Wall' || tool === 'Trunk' || tool === 'Pipe') {   // lines and runs: 15° steps
 		const len = Math.hypot(dx, dy), step = Math.PI / 12   // 15°
 		const ang = Math.round(Math.atan2(dy, dx) / step) * step
 		return [a[0] + len * Math.cos(ang), a[1] + len * Math.sin(ang)]
@@ -89,6 +89,47 @@ export function tileLines(a: Pt, b: Pt, tile: number, off: Pt = [0, 0]): [Pt, Pt
 	const out: [Pt, Pt][] = []
 	for (let x = Math.ceil((x0 - off[0]) / tile) * tile + off[0]; x < x1; x += tile) if (x > x0) out.push([[x, y0], [x, y1]])
 	for (let y = Math.ceil((y0 - off[1]) / tile) * tile + off[1]; y < y1; y += tile) if (y > y0) out.push([[x0, y], [x1, y]])
+	return out
+}
+
+/** HATCH (2D): the closed outline a shape's line pattern fills — a rect's corners, an ellipse as a 64-gon, a closed
+ *  polyline's points — or null when the shape can't be hatched. Unrotated drawing coords (the render wrapper rotates). */
+export function hatchOutline(e: Ent): Pt[] | null {
+	if ((e.type === 'rect' || e.type === 'ellipse') && e.a && e.b) {
+		const x0 = Math.min(e.a[0], e.b[0]), x1 = Math.max(e.a[0], e.b[0]), y0 = Math.min(e.a[1], e.b[1]), y1 = Math.max(e.a[1], e.b[1])
+		if (e.type === 'rect') return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2
+		return Array.from({ length: 64 }, (_, i): Pt => [cx + rx * Math.cos((i / 64) * 2 * Math.PI), cy + ry * Math.sin((i / 64) * 2 * Math.PI)])
+	}
+	const p = e.type === 'polyline' ? e.pts : undefined
+	if (p && p.length > 3 && Math.hypot(p[0][0] - p[p.length - 1][0], p[0][1] - p[p.length - 1][1]) < 1e-6) return p.slice(0, -1)
+	return null
+}
+/** A shape's hatch lines: parallel lines `hatchStep` model mm apart (default 300 — cable-ladder rungs), across its
+ *  outline — h = horizontal, v = vertical, x = both, d = 45°, dx = both diagonals. The first line is one step in from
+ *  the outline's edge. Capped at 400 lines per direction (a too-fine step draws none). */
+export function hatchLines(e: Ent): [Pt, Pt][] {
+	const poly = e.hatch ? hatchOutline(e) : null, step = e.hatchStep ?? 300
+	if (!poly || !(step > 0)) return []
+	const angs = { h: [0], v: [90], x: [0, 90], d: [45], dx: [45, 135] }[e.hatch!] ?? []
+	const out: [Pt, Pt][] = []
+	for (const deg of angs) {
+		const r = (deg * Math.PI) / 180, ux = Math.cos(r), uy = Math.sin(r), flip = -uy < -1e-9 || (Math.abs(uy) < 1e-9 && ux < 0) ? -1 : 1
+		const nx = -uy * flip, ny = ux * flip   // the normal points right / down, so the first line is one step from the left / top edge
+		const ss = poly.map((q) => q[0] * nx + q[1] * ny), s0 = Math.min(...ss), s1 = Math.max(...ss)
+		if ((s1 - s0) / step > 400) continue
+		for (let s = s0 + step; s < s1 - 1e-9; s += step) {
+			const ts: number[] = []
+			for (let i = 0; i < poly.length; i++) {
+				const a = poly[i], b = poly[(i + 1) % poly.length], da = ss[i] - s, db = ss[(i + 1) % poly.length] - s
+				if ((da < 0) === (db < 0)) continue
+				const t = da / (da - db), x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t
+				ts.push(x * ux + y * uy)
+			}
+			ts.sort((a, b) => a - b)
+			for (let i = 0; i + 1 < ts.length; i += 2) out.push([[ts[i] * ux + s * nx, ts[i] * uy + s * ny], [ts[i + 1] * ux + s * nx, ts[i + 1] * uy + s * ny]])
+		}
+	}
 	return out
 }
 

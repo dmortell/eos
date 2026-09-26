@@ -156,7 +156,7 @@
 				{:else if a}
 					<div class="vp-fill">
 						<Viewport modelSpace kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
+							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} persp={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).persp} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
 					</div>
 				{:else}
 					<div class="canvas-center">
@@ -185,7 +185,7 @@
 			     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
 			{@const gvp = ws.activeVpOf(a.id) ?? a.id}
 			{@const gorb = ws.orbitOf(p.id, gvp, ws.gizmoProj(p, a))}
-			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch}
+			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch} persp={gorb.persp} onpersp={(on) => ws.setPersp(p.id, gvp, ws.gizmoProj(p, a), on)}
 				onset={(proj) => ws.gizmoSet(p, a, proj)} />
 		{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->

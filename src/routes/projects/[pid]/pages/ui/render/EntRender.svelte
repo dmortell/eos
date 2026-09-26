@@ -15,7 +15,7 @@
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom } from '../hit'
 	import { noteRuns } from '../noteLayout'
-	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
+	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, hatchLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
@@ -260,6 +260,8 @@
 			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
 		</text>
 	{/if}
+	<!-- HATCH (2D): the line pattern across a rect / ellipse / closed polyline — not on its edge-on elevation line -->
+	{#if e.hatch && !isFlatElev(ctx, e)}{#each hatchLines(e) as [p, q], i (i)}<line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={ink} stroke-width={w * 0.8} stroke-dasharray={da} vector-effect="non-scaling-stroke" />{/each}{/if}
 {/snippet}
 
 <style>

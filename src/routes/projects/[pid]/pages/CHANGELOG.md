@@ -4,6 +4,26 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 10 (2026-09-26) — extension lines, edit in place, more connection points, perspective, hatch
+- **DIMBASELINE** stacks draw real **extension lines** back to the measured points (`dimExt`, signed mm); any
+  dimension can have them (Properties › Ext. lines); DXF too.
+- **Edit in place**: double-click a dimension to edit its text override (empty = the length), or a line's label;
+  double-click a wrapped text (Shift+double-click a plain one) to open the large editor. The editor has a plain
+  mode for unwrapped text, and the Properties pencil opens the same dialog (`ui/textDialog.svelte.ts`).
+- **Connection points** beyond boxes and outlets: a wall's nodes and segment midpoints, another conduit's free ends
+  (a trunk feeding a pipe of another size), and faceplate / custom blocks. Dragging a wall / conduit node or
+  resizing a box carries what's attached to it. A run never attaches to itself, and a compatible run's end still
+  joins instead.
+- **Faster snapping / picking** (§5): shape bounding boxes, snap points and note layouts are cached per shape; the
+  hover pick and the object snap skip shapes whose box is out of reach.
+- **Shift / ORTHO** now constrain Wall, Trunk and Pipe drawing (15° steps / H-V), as they did lines.
+- **Keep your place across views**: switching plan ↔ elevations (the ViewCube) re-centres the new view on the same
+  3D point at the same zoom (the height comes from the last elevation you looked at).
+- **Perspective 3D**: a **Persp** button under the ViewCube in the 3D view (and the PERSPECTIVE command) switches
+  that viewport between the parallel iso and a perspective camera aimed at the model's content; picking follows it.
+- **HATCH (2D)**: a rect, ellipse or closed polyline can carry a line pattern (horizontal, vertical, grid, diagonal,
+  diagonal cross) at a spacing in model mm (default 300, e.g. cable-ladder rungs). Properties › HATCH; DXF as lines.
+
 ## Round 9 (2026-09-26) — status-bar counts, NOTE → TEXT, graph AUDIT
 - **Status-bar counts** (K1): Outlets / Conduits / Racks totals for the active model. With a selection, they
   count only the selection, tagged SEL.

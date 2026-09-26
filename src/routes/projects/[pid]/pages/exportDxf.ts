@@ -15,7 +15,7 @@ import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/pro
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom } from './ui/hit'
-import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
+import { lineLabelAt, groundPts, tileLines, hatchLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
 import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
 import { dimLabel } from './ui/drawingDefaults'
@@ -119,6 +119,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 		case 'polyline': {
 			const pts = e.pts ?? []
 			doc.poly(pts.map(T), { layer })
+			if (e.hatch) for (const [p, q] of hatchLines(e)) doc.poly([T(p), T(q)], { layer })   // HATCH on a closed polyline
 			const lb = e.text ? lineLabelAt(pts, e.textPos, 1.2 * N) : null
 			if (lb) text(doc, T(lb.p), 2.5 * N, e.text!, layer, lb.anchor === 'middle' ? 'center' : lb.anchor === 'end' ? 'right' : 'left', -lb.rot + tRot)
 			return
@@ -128,6 +129,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			const g = groundPts(e)   // the outline points (a rect's 4 corners / an ellipse's 32)
 			doc.poly(g.pts.map(T), { closed: true, layer })
 			if (e.type === 'rect' && e.tile) for (const [p, q] of tileLines(e.a!, e.b!, e.tile, e.tileOff)) doc.poly([T(p), T(q)], { layer })   // D2
+			if (e.hatch) for (const [p, q] of hatchLines(e)) doc.poly([T(p), T(q)], { layer })   // HATCH (2D) — as plain lines
 			return
 		}
 		case 'dim': {

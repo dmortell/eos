@@ -106,7 +106,9 @@ export type Workspace = {
 	projOf: (pane: { id: string }, a: Tab | null) => Proj
 	gizmoProj: (pane: { id: string }, a: Tab | null) => Proj
 	gizmoSet: (pane: { id: string }, a: Tab | null, proj: Proj) => void
-	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number }
+	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number; persp?: boolean }
+	/** Perspective on / off for an orbit (iso) view. */
+	setPersp: (paneId: string, viewId: string, proj: Proj, on: boolean) => void
 	viewOf: (paneId: string, viewId: string, proj: Proj) => View
 	entsOf: (id: string) => import('./ui/geometry').Ent[]
 	entsForModel: (mid?: ModelId) => import('./ui/geometry').Ent[]

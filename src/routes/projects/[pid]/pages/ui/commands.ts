@@ -86,6 +86,7 @@ export const COMMANDS: CmdDef[] = [
 	C('right', 'Right view', 'RIGHT', 'Right elevation', 'View'),
 	C('iso', '3D view', 'ISO · SEISO · 3D', 'The 3D view', 'View'),
 	C('view', 'Named views', 'VIEW · V', 'Save / restore / delete a named zoom + pan + scale of this drawing', 'View'),
+	C('perspective', 'Perspective 3D', 'PERSPECTIVE · PERSP', 'The 3D view as a perspective (on) or parallel iso (off)', 'View'),
 	C('split','Split editor', 'SPLIT · VPORTS', 'Split into two panes', 'View'),
 	C('unsplit', 'Unsplit', 'UNSPLIT', 'Back to one pane', 'View'),
 	// settings toggles

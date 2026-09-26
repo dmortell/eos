@@ -20,7 +20,7 @@ export type ActiveView = {
 export type PageActionsHost = {
 	/** null (with the reason toasted by the caller's wording) when no drawing is open / a sheet has no frame. */
 	activeView: () => ActiveView | null | 'no-frame'
-	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number }
+	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number; persp?: boolean }
 	entsForModel: (mid: ModelId) => Ent[]
 	addEnt: (tabId: string, e: Ent) => boolean
 	activeLayerName: (mid: ModelId) => string

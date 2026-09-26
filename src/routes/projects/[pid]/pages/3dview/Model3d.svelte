@@ -10,15 +10,15 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
 	import { BASIS } from './types'
 	import { storeyMap } from './storeyMap'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
-		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number; /** the perspective camera (iso) — 3dview/projection perspCam; null = parallel */ persp?: Persp
 			/** A building elevation showing only these storeys (a riser drawing's floors); undefined = all. */ showStoreys?: string[]
 			/** Model mm per paper mm (the viewport's `paperMm`) — labels are sized on PAPER so they stay readable. */ paperMm?: number
 			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number
@@ -60,7 +60,7 @@
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
 	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the
 	// iso content's OWN bounding box on the viewBox centre (cx,cy).
-	const isoBox = $derived.by(() => (dir !== 'iso' ? null : isoBounds(model.objects, yaw, pitch, cx, cy, visible)))
+	const isoBox = $derived.by(() => (dir !== 'iso' ? null : isoBounds(model.objects, yaw, pitch, cx, cy, visible, persp)))
 	// BUILDING STOREYS (a building model is the source of truth for levels — drawings-plan): in an elevation each
 	// storey's floor datum is a dashed line across the model's horizontal extent (+ a margin), named at its left.
 	const STOREY_COL = '#94a3b8'
@@ -112,7 +112,7 @@
 		const out: { id: string; text: string; u: number; v: number; mid?: boolean }[] = []
 		for (const o of model.objects) {
 			if (!o.label || !visible(o) || inHiddenFloors(o)) continue
-			const pts = project(o, dir, yaw, pitch, cx, cy).flatMap((s) => mv(s.pts))
+			const pts = project(o, dir, yaw, pitch, cx, cy, persp).flatMap((s) => mv(s.pts))
 			if (!pts.length) continue
 			const us = pts.map((p) => p.u), vs = pts.map((p) => p.v)
 			// an elevation's group is v-UP (the text is flipped back upright); the plan is y-down as is
@@ -161,8 +161,8 @@
 			for (const f of faces3d(o)) {
 				if (f.pts.length < 3) continue
 				let d = 0
-				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy)
-				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw, shade: faceShade(f.pts, col) })
+				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy, persp)
+				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy, persp)), depth: d / f.pts.length, col, lw, shade: faceShade(f.pts, col) })
 			}
 		}
 		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
@@ -172,7 +172,7 @@
 	// camera. Lets us draw custom opening geometry (door swing / window glazing) the engine's project()
 	// doesn't emit, in the same drawing space as everything else.
 	const projPt = (d: Dir, p: { x: number; y: number; z: number }) =>
-		d === 'iso' ? isoR(p, yaw, pitch, cx, cy) : { u: BASIS[d].hs * p[BASIS[d].h], v: BASIS[d].vs * p[BASIS[d].v] }
+		d === 'iso' ? isoR(p, yaw, pitch, cx, cy, persp) : { u: BASIS[d].hs * p[BASIS[d].h], v: BASIS[d].vs * p[BASIS[d].v] }
 	// A door's leaf + swing arc, or a window's glazing line, as projected polylines. Drawn in PLAN and
 	// ISO (on the floor at the opening's base z); elevation shows only the masked gap. Hinge sits at one
 	// jamb (flipped by `flip`), radius = the door width (the opening's long footprint dimension), swept
@@ -220,7 +220,7 @@
 		return out.sort((a, b) => b.depth - a.depth)
 	})
 	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.
-	const xform = $derived(viewMap(dir, cx, cy, ground, yaw, pitch, isoBox).xform)
+	const xform = $derived(viewMap(dir, cx, cy, ground, yaw, pitch, isoBox, persp).xform)
 </script>
 
 <g class="m3d" transform={xform}>
@@ -235,7 +235,7 @@
 		{#if visible(o) && inClip(o) && isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(o, 'iso', yaw, pitch, cx, cy) as s, i (i)}
+			{#each project(o, 'iso', yaw, pitch, cx, cy, persp) as s, i (i)}
 				<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 			{#each openingExtras(o, 'iso') as pl, i (`x${i}`)}
@@ -276,7 +276,7 @@
 		{#if to && visible(o) && !isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
+			{#each project(to, dir, yaw, pitch, cx, cy, persp) as s, i (i)}
 				{#if s.closed}
 					<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{:else}
@@ -292,7 +292,7 @@
 		{#if to && visible(o) && isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
+			{#each project(to, dir, yaw, pitch, cx, cy, persp) as s, i (i)}
 				<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 			<!-- Pass 3: door swing / window glazing on top of the gap (plan only; elevation shows the gap). -->

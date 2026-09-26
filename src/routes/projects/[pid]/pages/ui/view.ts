@@ -27,6 +27,8 @@ export type ViewCtx = {
 	/** Iso (oblique) camera angles, for the 3D-view projection + depth pick. */
 	yaw: number
 	pitch: number
+	/** The perspective camera of the orbit view (3dview/projection perspCam); null / unset = parallel. */
+	persp?: import('../3dview/projection').Persp
 }
 
 /** Model-layer visibility/lock predicates a model hit-test gates on (from the model's own layers). */

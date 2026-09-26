@@ -181,7 +181,7 @@ export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: num
 	let p = m.toModel(clientX, clientY)
 	if (base) {
 		if (shift) p = constrainPt(inp.tool, base, p, true)                                       // Shift: 15° / square
-		else if (inp.ortho && (inp.tool === 'Line' || inp.tool === 'Dimension')) p = orthoPt(base, p)   // ORTHO: H/V
+		else if (inp.ortho && ['Line', 'Dimension', 'Wall', 'Trunk', 'Pipe'].includes(inp.tool)) p = orthoPt(base, p)   // ORTHO: H/V
 		else if (inp.polar) { const r = polarPt(base, p); if (r) return { p: r.p, mark: null, track: r.track } }   // POLAR: on a 15° ray
 	}
 	if (inp.snap) p = snapToGrid(p, inp.step || SNAP_STEP)   // grid snap

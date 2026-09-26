@@ -42,7 +42,7 @@
 			// PAPER space (border/marquee click, grips, Properties). Both share the same per-viewport
 			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
 			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
-			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const tbShown = $derived(tb === undefined ? shownTitleBlock(undefined, fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo })) : tb)
@@ -277,7 +277,7 @@
 						</div>
 					{:else}
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} vpLocked={f.vpLocked} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys} hideHidden={f.hideHidden} mono={f.mono} zBand={f.zBand}
-						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
+						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} persp={frameOrbit(f.id, f.proj).persp} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
 					{/if}
 					{#if !fa}

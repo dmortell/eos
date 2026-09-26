@@ -61,6 +61,9 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// D2 FLOOR-TILE GRID (rect): grid lines every `tile` mm inside the rect, aligned to the model origin shifted by
 	// `tileOff` (so tiles line up with the building's real grid wherever the rect is). Firestore-stable.
 	tile?: number; tileOff?: Pt;
+	// HATCH (2D, a rect / ellipse / closed polyline): a line pattern across it — h / v / x (both) / d (45°) / dx (both
+	// diagonals) — `hatchStep` model mm apart (default 300: cable-ladder rungs). ui/annotations hatchLines. Firestore-stable.
+	hatch?: 'h' | 'v' | 'x' | 'd' | 'dx'; hatchStep?: number;
 	// D3 (insert): drawn mirrored left↔right (a door's hinge side). Firestore-stable.
 	mirror?: boolean;
 	// DIMENSION text offset: signed perpendicular distance (mm) of the measured-length text from the dim

@@ -140,7 +140,7 @@ export function pickable(ctx: ViewCtx, e: Ent, layers: { hidden(id?: string): bo
 
 /** This view's model -> drawing mapping (R7). Iso needs the content box it is centred on (`isoBounds`). */
 export const viewMapOf = (ctx: ViewCtx, isoBox: { icx: number; icy: number } | null = null): ViewMap =>
-	viewMap(ctx.dir, ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox)
+	viewMap(ctx.dir, ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox, ctx.persp ?? null)
 
 /** A wall/conduit vertex in model space. */
 export type GN = { id: string; x: number; y: number; z: number; bend?: number; conn?: { obj?: string; ent?: string; pt?: string } }
@@ -260,9 +260,9 @@ export type IsoPickFace = { id: string; pts: Pt[]; depth: number }
 export function isoPickFaces(ctx: ViewCtx, ml: MLayers): IsoPickFace[] {
 	const mdl = ctx.mdl
 	if (!mdl) return []
-	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible); if (!b) return []
+	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible, ctx.persp ?? null); if (!b) return []
 	const vm = viewMapOf(ctx, b)
-	const depth = (v: { x: number; y: number; z: number }) => isoDepthR(v, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy)
+	const depth = (v: { x: number; y: number; z: number }) => isoDepthR(v, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ctx.persp ?? null)
 	const out: IsoPickFace[] = []
 	for (const o of mdl.objects) {
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue

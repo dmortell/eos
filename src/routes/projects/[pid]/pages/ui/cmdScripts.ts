@@ -29,6 +29,8 @@ export type CmdHost = {
 	/** Named views of the active drawing (VIEW): read / write the stored set. */
 	namedViews(): Record<string, NamedView>
 	saveNamedViews(v: Record<string, NamedView>): void
+	/** PERSPECTIVE: the focused viewport's 3D view perspective on / off (undefined = toggle); returns the new state, or an error. */
+	perspective(on?: boolean): boolean | string
 	/** A file name for an export of the active view ('3F Plan - Front'). */
 	exportName(): string
 }
@@ -512,6 +514,12 @@ export const SCRIPTS: Record<string, Script> = {
 		if (g.length > 12) c.out(`… and ${g.length - 12} more`)
 		const a = await c.ask({ prompt: `Fix ${g.length} graph / connection fault${g.length > 1 ? 's' : ''}? (merge, drop, detach — one undo step)`, options: ['Yes', 'No'], def: 'N' })
 		if (a.kind === 'option' && a.key === 'Yes') { c.t.graphAudit(true); c.out('Fixed (Ctrl+Z undoes)') }
+	},
+	perspective: async (c) => {   // the 3D view: perspective / parallel (iso)
+		const a = await c.ask({ prompt: 'Perspective <toggle>', options: ['ON', 'OFF'], enter: true })
+		const r = c.host.perspective(a.kind === 'option' ? a.key === 'ON' : undefined)
+		if (typeof r === 'string') throw new CmdError(r)
+		c.out(r ? 'Perspective on' : 'Perspective off (parallel iso)')
 	},
 	note: async (c) => {   // K3: a notes block (markdown) from its top-left corner — edit its text in Properties
 		c.host.tool('Select')

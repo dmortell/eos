@@ -240,7 +240,24 @@ export const DEFAULT_PITCH = Math.atan(1 / Math.SQRT2)
 // Orbit camera: yaw around the vertical (z) axis, pitch (elevation, 0=side,
 // π/2=top-down), centered on the ground pivot (cx,cy,0). Parallel (orthographic)
 // projection: u right, v up, depth into screen.
-function cam(p: P3, yaw: number, pitch: number, cx: number, cy: number) {
+/** A PERSPECTIVE camera for the orbit view: it looks at `at` (the content centre) from `d` mm away. null = parallel
+ *  (the classic iso). Points nearer than the camera's near limit are clamped so nothing flips. */
+export type Persp = { d: number; at: P3 } | null
+/** The perspective camera for a set of objects: aimed at their bounds' centre, 1.6 × their diagonal away. */
+export function perspCam(objects: Obj[], visible?: (o: Obj) => boolean): Persp {
+	let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
+	for (const o of objects) { if (visible && !visible(o)) continue; const b = objBounds(o); x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); z0 = Math.min(z0, b.z0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); z1 = Math.max(z1, b.z1) }
+	if (!isFinite(x0)) return null
+	const diag = Math.hypot(x1 - x0, y1 - y0, z1 - z0) || 1000
+	return { d: diag * 1.6, at: { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2 } }
+}
+function cam(p: P3, yaw: number, pitch: number, cx: number, cy: number, persp: Persp = null) {
+	const c = camPar(p, yaw, pitch, cx, cy)
+	if (!persp) return c
+	const t = camPar(persp.at, yaw, pitch, cx, cy), s = persp.d / Math.max(persp.d * 0.05, persp.d + c.depth - t.depth)
+	return { u: t.u + (c.u - t.u) * s, v: t.v + (c.v - t.v) * s, depth: c.depth }
+}
+function camPar(p: P3, yaw: number, pitch: number, cx: number, cy: number) {
 	// Pages plan is y-DOWN (small y = top/back of the plan); model3d's native iso treats +y as up/back,
 	// which would place plan-top at the iso FRONT (the two conventions disagree on y). cam is used only
 	// by the iso projection, so negate dy here to make iso consistent with Pages' y-down plan (a matching
@@ -252,13 +269,13 @@ function cam(p: P3, yaw: number, pitch: number, cx: number, cy: number) {
 	const cp = Math.cos(pitch), sp = Math.sin(pitch)
 	return { u: x1, v: y1 * sp + dz * cp, depth: y1 * cp - dz * sp }
 }
-export const isoR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) => {
-	const c = cam(p, yaw, pitch, cx, cy)
+export const isoR = (p: P3, yaw: number, pitch: number, cx: number, cy: number, persp: Persp = null) => {
+	const c = cam(p, yaw, pitch, cx, cy, persp)
 	return { u: c.u, v: c.v }
 }
 // Painter's-algorithm depth: larger = farther (draw first).
-export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) =>
-	cam(p, yaw, pitch, cx, cy).depth
+export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: number, persp: Persp = null) =>
+	cam(p, yaw, pitch, cx, cy, persp).depth
 
 // ── R7 (review.md §R7): ONE projection path for render and edit ──
 // `project()` / `isoR()` produce engine coords (u right, v UP). Pages draws in model mm with y DOWN,
@@ -278,12 +295,12 @@ export type ViewMap = {
  *  the elevation ground line (drawing y of z = 0). Iso also needs the camera (`yaw`/`pitch`) and the content
  *  box it is centred on (`isoBounds(…)`; null = no content → pivot at the centre). */
 export function viewMap(dir: Dir, cx: number, cy: number, ground: number, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH,
-	isoBox: { icx: number; icy: number } | null = null): ViewMap {
+	isoBox: { icx: number; icy: number } | null = null, persp: Persp = null): ViewMap {
 	if (dir === 'plan') return { uvToDraw: (q) => [q.u, q.v], toDraw: (p) => [p.x, p.y], xform: '' }
 	if (dir === 'iso') {
 		const ix = cx - (isoBox?.icx ?? 0), iy = cy + (isoBox?.icy ?? 0)   // centre the content box on (cx, cy)
 		const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ix, iy - q.v]
-		return { uvToDraw, toDraw: (p) => uvToDraw(isoR(p, yaw, pitch, cx, cy)), xform: `translate(${ix} ${iy}) scale(1 -1)` }
+		return { uvToDraw, toDraw: (p) => uvToDraw(isoR(p, yaw, pitch, cx, cy, persp)), xform: `translate(${ix} ${iy}) scale(1 -1)` }
 	}
 	const b = BASIS[dir]
 	const ox = cx - b.hs * (b.h === 'x' ? cx : cy)   // re-centre the on-axis coord about the plan centre (= geometry.elevU)
@@ -499,11 +516,11 @@ export function faces3d(o: Obj): Face[] {
 // Centre of the ISO-projected content (drawing-plane u/v bbox centre) — the pivot Model3d uses to keep
 // the oblique model centred, and that a hit-test needs to reproduce the same projection. `visible` lets
 // callers skip hidden-layer objects so the centre matches exactly what's drawn.
-export function isoBounds(objects: Obj[], yaw: number, pitch: number, cx: number, cy: number, visible?: (o: Obj) => boolean) {
+export function isoBounds(objects: Obj[], yaw: number, pitch: number, cx: number, cy: number, visible?: (o: Obj) => boolean, persp: Persp = null) {
 	let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
 	for (const o of objects) {
 		if (visible && !visible(o)) continue
-		for (const s of project(o, 'iso', yaw, pitch, cx, cy)) for (const p of s.pts) {
+		for (const s of project(o, 'iso', yaw, pitch, cx, cy, persp)) for (const p of s.pts) {
 			if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
 			if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
 		}
@@ -524,9 +541,9 @@ export function doorGeom(o: Prism) {
 
 // Project an object to one or more drawing-plane outlines for the direction.
 // For iso, `yaw`/`cx`/`cy` orbit the model around the vertical axis.
-export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, cx = 0, cy = 0): Shape[] {
+export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, cx = 0, cy = 0, persp: Persp = null): Shape[] {
 	if (dir === 'iso') {
-		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, pitch, cx, cy), isoR(s[1], yaw, pitch, cx, cy)] }))
+		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, pitch, cx, cy, persp), isoR(s[1], yaw, pitch, cx, cy, persp)] }))
 	}
 
 	if (o.type === 'prism') {

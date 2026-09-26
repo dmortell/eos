@@ -23,7 +23,7 @@ import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
 import { imgEdit } from '../imageEdit.svelte'
-import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds } from '../3dview/projection'
+import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip } from '../3dview/types'
 import { storeyMap } from '../3dview/storeyMap'
 
@@ -98,6 +98,8 @@ export class VpView {
 	get clip() { return this.p.clip ?? null }
 	get yaw() { return this.p.yaw ?? DEFAULT_YAW }
 	get pitch() { return this.p.pitch ?? DEFAULT_PITCH }
+	/** The perspective camera (iso only), aimed at the model's visible content. */
+	persp = $derived.by((): Persp => (this.p.persp && this.kind === 'iso' && this.mdl ? perspCam(this.mdl.objects, this.mlayers.visible) : null))
 	get boxW() { return this.p.boxW }
 	get boxH() { return this.p.boxH }
 	get frameId() { return this.p.frameId }
@@ -258,7 +260,7 @@ export class VpView {
 	/** Model mm per paper mm — ANNOTATIVE sizes (dim text/arrows, cloud bumps, text, section labels) are a
 	 *  fixed size ON PAPER (B3), unlike gripSize which is screen-constant. */
 	paperMm = $derived(1 / (this.dscale || 1))
-	ctx = $derived<ViewCtx>({ dir: this.kind, isPlan: this.isPlan, isElev: this.isElev, isIso: this.kind === 'iso', elevDir: this.elevDir, cx: CX, cy: CY, ground: GROUND, frameId: this.frameId, paperMm: this.paperMm, mdl: this.mdl, yaw: this.yaw, pitch: this.pitch })
+	ctx = $derived<ViewCtx>({ dir: this.kind, isPlan: this.isPlan, isElev: this.isElev, isIso: this.kind === 'iso', elevDir: this.elevDir, cx: CX, cy: CY, ground: GROUND, frameId: this.frameId, paperMm: this.paperMm, mdl: this.mdl, yaw: this.yaw, pitch: this.pitch, persp: this.persp })
 	inThisView = (e: Ent) => inThisView(this.ctx, e)
 	bbox = (e: Ent) => bbox(this.ctx, e)
 	/** A hidden or locked layer's entities can't be picked; nor can entities that don't belong to this view. */
@@ -347,7 +349,7 @@ export class VpView {
 	/** Plan (x,y,0) → iso drawing coords (Model3d's mapping, R7), to lay plan 2D shapes on the ground. */
 	isoGround = $derived.by(() => {
 		if (this.kind !== 'iso' || !this.mdl) return null
-		const b = isoBounds(this.mdl.objects, this.yaw, this.pitch, CX, CY, this.mlayers.visible); if (!b) return null
+		const b = isoBounds(this.mdl.objects, this.yaw, this.pitch, CX, CY, this.mlayers.visible, this.persp); if (!b) return null
 		const vm = viewMapOf(this.ctx, b)
 		return (x: number, y: number): Pt => vm.toDraw({ x, y, z: 0 })
 	})

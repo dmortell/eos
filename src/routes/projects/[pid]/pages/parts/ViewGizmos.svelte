@@ -11,8 +11,8 @@
 	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	// yaw/pitch drive the 3D (iso) triad so the WCS axes rotate WITH the orbited view. Ignored for the
 	// orthographic views (their axes are fixed — see TRIAD below).
-	let { projection = 'plan', yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, onset }:
-		{ projection?: Proj; yaw?: number; pitch?: number; onset?: (p: Proj) => void } = $props()
+	let { projection = 'plan', yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = false, onset, onpersp }:
+		{ projection?: Proj; yaw?: number; pitch?: number; /** the 3D view is a perspective */ persp?: boolean; onset?: (p: Proj) => void; onpersp?: (on: boolean) => void } = $props()
 
 	// Kestrel axis colours (renderer.js drawUCS): X red, Y green, Z blue.
 	const AX = { x: '#d17f88', y: '#79b89e', z: '#7eabdf' }
@@ -66,6 +66,9 @@
 		<button class:on={projection === 'left'} onclick={() => onset?.('left')} title="Left view">Left</button>
 		<button class="d3" class:on={projection === 'iso'} onclick={() => onset?.('iso')} title="3D view">3D</button>
 	</div>
+	{#if projection === 'iso' && onpersp}
+		<div class="vc-btns"><button class:on={persp} onclick={() => onpersp(!persp)} title="Perspective (on) or parallel (off) 3D view — also PERSPECTIVE on the command line">Persp</button></div>
+	{/if}
 </div>
 
 <!-- Bottom-left axis triad (WCS) -->

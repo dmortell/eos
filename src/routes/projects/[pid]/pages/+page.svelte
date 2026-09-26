@@ -54,7 +54,7 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import type { Ent, ElevDir } from './ui/geometry'
-	import { PLAN_CX, PLAN_CY, GROUND } from './ui/geometry'
+	import { PLAN_CX, PLAN_CY, GROUND, ELEV_BASIS, elevU, elevUInv } from './ui/geometry'
 	import type { ViewCtx } from './ui/view'
 	import { bbox as entBBox, onPlanPlane } from './ui/hit'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
@@ -245,7 +245,7 @@
 	}
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
 	// viewId = a tab id (→ its drawing's docId) or a sheet frame id (kept) — see the view-state KEYS note above.
-	const orbitOf = (paneId: string, viewId: string, proj: Proj) => viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+	const orbitOf = (paneId: string, viewId: string, proj: Proj) => ({ ...(viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }), persp: viewState.getPersp(paneId, didOf(viewId), proj) })
 	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { viewState.setOrbit(paneId, didOf(viewId), proj, yaw, pitch) }
 	// A SECTION is a plan marker (NOT a tab): a clip box + a primary sight direction + a name, stored in the
 	// MODEL (`Model.sections`, B5) so it is model-scoped (a cut on one model's plan doesn't show on another)
@@ -406,8 +406,34 @@
 		return projOf(pane, a)
 	}
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
-		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; const f = framesOf(a.id).find((x) => x.id === av); if (av) updateFrame(a.id, av, f?.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] }) }   // a numbered frame keeps its label
-		else if (a) viewState.setProj(pane.id, didOf(a.id), proj)
+		if (a?.kind === 'sheet') {
+			const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; const f = framesOf(a.id).find((x) => x.id === av)
+			if (av && f) carryFocus(pane.id, av, f.proj as Proj, proj, scaleDenom(f.scale ?? scaleOf(a.id)))
+			if (av) updateFrame(a.id, av, f?.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
+		}
+		else if (a) { carryFocus(pane.id, a.id, projOf(pane, a), proj, scaleDenom(scaleOf(a.id))); viewState.setProj(pane.id, didOf(a.id), proj) }
+	}
+	// Keep your place across a view switch (plan ↔ elevations): the 3D point at the centre of the view you leave is
+	// put at the centre of the one you open, at the same zoom. A view only knows two of the three coordinates, so the
+	// third comes from the last focus of that viewport (e.g. plan → front keeps the height you last looked at in an
+	// elevation). Iso keeps its own view. Drawing coords: plan = the model footprint (x, y); an elevation = (elevU of
+	// its axis, GROUND − z). The view maps P to  view + zoom · (C + (P − C) / N)  about the plan centre C.
+	const focusOf = new Map<string, { x?: number; y?: number; z?: number }>()
+	function carryFocus(paneId: string, vid: string, from: Proj, to: Proj, n: number) {
+		if (from === to || from === 'iso' || to === 'iso') return
+		const d = 1 / (n || 1), v0 = viewOf(paneId, vid, from)
+		const at = (vx: number, c: number) => c + ((c - vx) / v0.zoom - c) / d   // the drawing coord at the view centre
+		const px = at(v0.x, PLAN_CX), py = at(v0.y, PLAN_CY), key = paneId + '|' + vid
+		const f = { ...focusOf.get(key) }
+		if (from === 'plan') { f.x = px; f.y = py }
+		else { const b = ELEV_BASIS[from as ElevDir]; f[b.axis === 0 ? 'x' : 'y'] = elevUInv(from as ElevDir, px); f.z = GROUND - py }
+		focusOf.set(key, f)
+		const v1 = viewOf(paneId, vid, to), put = (P: number | undefined, c: number, keep: number) => (P == null ? keep : c - v0.zoom * (c + d * (P - c)))
+		if (to === 'plan') setView(paneId, vid, 'plan', { zoom: v0.zoom, x: put(f.x, PLAN_CX, v1.x), y: put(f.y, PLAN_CY, v1.y) })
+		else {
+			const b = ELEV_BASIS[to as ElevDir], h = b.axis === 0 ? f.x : f.y
+			setView(paneId, vid, to, { zoom: v0.zoom, x: put(h == null ? undefined : elevU(to as ElevDir, h), PLAN_CX, v1.x), y: put(f.z == null ? undefined : GROUND - f.z, PLAN_CY, v1.y) })
+		}
 	}
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
 	// scale, else the tab's (the primary viewport's) — the same choice as the active-viewport bar (B19).
@@ -783,6 +809,12 @@
 		// VIEW: named views per project + drawing (+ the active viewport on a sheet), kept in this browser
 		namedViews: () => { try { return JSON.parse(localStorage.getItem(namedViewKey()) ?? '{}') } catch { return {} } },
 		saveNamedViews: (v) => { try { localStorage.setItem(namedViewKey(), JSON.stringify(v)) } catch { /* private mode */ } },
+		perspective: (on) => {
+			const p = session.panes[session.focused], a = p && session.tabs.find((t) => t.id === p.activeId); if (!p || !a) return 'No view'
+			const vid = activeVpOf(a.id) ?? a.id, pr = gizmoProj(p, a)
+			if (pr !== 'iso') return 'PERSPECTIVE works in the 3D view (switch to 3D first)'
+			const next = on ?? !viewState.getPersp(p.id, didOf(vid), pr); viewState.setPersp(p.id, didOf(vid), pr, next); return next
+		},
 		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {
 			const l = modelById(activeMid())?.layers?.find((x) => x.id === id); if (!l) return 'That layer is not in this model'
@@ -1099,7 +1131,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setPersp: (paneId: string, viewId: string, proj: Proj, on: boolean) => viewState.setPersp(paneId, didOf(viewId), proj, on), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
