@@ -26,11 +26,12 @@ describe('clipboard', () => {
 	it('each paste lands a further step away, with fresh ids', () => {
 		const cb = new Clipboard(), id = counter()
 		expect(cb.paste(5, id)).toEqual([])
-		cb.copy([r('a')])
-		expect(cb.paste(5, id)[0]).toMatchObject({ id: 'n1', a: [5, 5], b: [15, 15] })
-		expect(cb.paste(5, id)[0]).toMatchObject({ id: 'n2', a: [10, 10] })
-		cb.copy([r('a')])   // a new copy restarts the stacking
-		expect(cb.paste(5, id)[0].a).toEqual([5, 5])
+		cb.copy([r('a')], [], {}, 'm')
+		expect(cb.paste(5, id, 'm')[0]).toMatchObject({ id: 'n1', a: [5, 5], b: [15, 15] })
+		expect(cb.paste(5, id, 'm')[0]).toMatchObject({ id: 'n2', a: [10, 10] })
+		cb.copy([r('a')], [], {}, 'm')   // a new copy restarts the stacking
+		expect(cb.paste(5, id, 'm')[0].a).toEqual([5, 5])
+		expect(cb.paste(5, id, 'other')[0].a).toEqual([0, 0])   // into ANOTHER model: exactly where it was
 	})
 	it('a copied group gets ONE new group id; ungrouped shapes stay ungrouped', () => {
 		const out = pasteCopies([r('a', 'g'), r('b', 'g'), r('c')], 0, counter())
@@ -60,11 +61,11 @@ describe('system clipboard text', () => {
 		const ents: Ent[] = [{ id: 'a', type: 'rect', a: [0, 0], b: [10, 10] }]
 		expect(fromClipText(clipText(ents))).toEqual(ents)
 		expect(fromClipText('hello')).toBeNull(); expect(fromClipText('{"eos-pages-shapes":1,"ents":5}')).toBeNull()
-		const cb = new Clipboard(); cb.copy(ents)
+		const cb = new Clipboard(); cb.copy(ents, [], {}, 'm')
 		let n = 0; const id = () => 'n' + ++n
-		cb.paste(5, id); cb.load(JSON.parse(JSON.stringify(ents)))
-		expect(cb.paste(5, id)[0].a).toEqual([10, 10])   // 2nd paste: still stacking
-		cb.load([{ ...ents[0], id: 'b' }]); expect(cb.paste(5, id)[0].a).toEqual([5, 5])   // new content: restarts
+		cb.paste(5, id, 'm'); cb.load(JSON.parse(JSON.stringify(ents)))
+		expect(cb.paste(5, id, 'm')[0].a).toEqual([10, 10])   // 2nd paste: still stacking
+		cb.load([{ ...ents[0], id: 'b' }]); expect(cb.paste(5, id, 'm')[0].a).toEqual([0, 0])   // new content from elsewhere: no offset
 	})
 })
 

@@ -27,7 +27,7 @@ open items; `review.md §0a` tracks which review findings are closed.
   tool (`ui/trunkSpec.svelte.ts`); new runs are drawn with it.
 - **Copy / paste 3D objects** (walls, boxes / furniture / racks, trunks / pipes): Ctrl+C / X / V and Edit › Copy /
   Cut / Paste carry the selected model objects too, over the system clipboard, so they paste into another model,
-  tab or project. A paste gives them new ids, moves them 5 paper mm like shapes, keeps attachments between copied
+  tab or project. A paste gives them new ids — offset 5 paper mm only when pasted back into the model they came from (into any other model, tab or project they keep their exact position, shapes too) — keeps attachments between copied
   things and lets go of the rest, and matches each object's layer by id, then by name.
   **From the Sheets tool:** Ctrl+C (or Copy) in a Sheets 3D viewport also puts the objects on the system clipboard in
   this format, mirrored from Sheets' y-up plan to Pages' y-down (`sheets/tools/model3d/pagesClip.ts`).

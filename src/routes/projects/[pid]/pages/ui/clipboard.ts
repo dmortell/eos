@@ -12,12 +12,14 @@ export class Clipboard {
 	#objs: Obj[] = []
 	#layers: ClipLayers = {}
 	#pastes = 0
+	/** The model the copy came from (unset = the system clipboard: another tab / project / the Sheets tool). */
+	#src: string | undefined
 	get empty() { return !this.#items.length && !this.#objs.length }
 	get items(): readonly Ent[] { return this.#items }
 	get objs(): readonly Obj[] { return this.#objs }
 	/** Copy (pass PLAIN snapshots — `$state.snapshot` them first). `objs` = 3D model objects (walls, boxes, conduits…),
 	 *  `layers` = their layers' names by id, so a paste into another model finds the matching layer. */
-	copy(ents: Ent[], objs: Obj[] = [], layers: ClipLayers = {}) { this.#items = ents; this.#objs = objs; this.#layers = layers; this.#pastes = 0 }
+	copy(ents: Ent[], objs: Obj[] = [], layers: ClipLayers = {}, src?: string) { this.#items = ents; this.#objs = objs; this.#layers = layers; this.#src = src; this.#pastes = 0 }
 	/** What the SYSTEM clipboard held (another tab / project): taken over unless it's what's already held (then the
 	 *  paste stacking continues). */
 	load(ents: Ent[], objs: Obj[] = [], layers: ClipLayers = {}) {
@@ -25,12 +27,14 @@ export class Clipboard {
 	}
 	/** The shapes for the next paste, `stepMm` further along each time (the caller sizes it: 5 paper mm × the
 	 *  viewport's scale N). */
-	paste(stepMm: number, newId: () => string): Ent[] { return this.pasteAll(stepMm, newId).ents }
-	/** The shapes AND 3D objects for the next paste (fresh ids; attachments between copied things re-pointed). */
-	pasteAll(stepMm: number, newId: () => string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } {
+	paste(stepMm: number, newId: () => string, target?: string): Ent[] { return this.pasteAll(stepMm, newId, target).ents }
+	/** The shapes AND 3D objects for the next paste (fresh ids; attachments between copied things re-pointed).
+	 *  Offset only when pasting back into the model it was copied from (`target` = that model: each paste steps further,
+	 *  so copies don't land on the original); into any other model, tab or project it keeps its exact position. */
+	pasteAll(stepMm: number, newId: () => string, target?: string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } {
 		if (this.empty) return { ents: [], objs: [], layers: {} }
 		this.#pastes++
-		const off = stepMm * this.#pastes, entIds = new Map<string, string>()
+		const off = this.#src != null && target === this.#src ? stepMm * this.#pastes : 0, entIds = new Map<string, string>()
 		const ents = pasteCopies(this.#items, off, newId).map((c, i) => (entIds.set(this.#items[i].id, c.id), c))
 		return { ents, objs: pasteObjCopies(this.#objs, off, newId, entIds), layers: this.#layers }
 	}

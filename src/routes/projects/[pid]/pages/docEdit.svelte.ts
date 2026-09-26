@@ -88,7 +88,7 @@ export class DocEdit {
 		const s = new Set(ids), items = this.#ents(mid).filter((e) => s.has(e.id)).map((e) => $state.snapshot(e) as Ent)
 		const os = new Set(objIds), objs = (m?.objects ?? []).filter((o) => o.id && os.has(o.id)).map((o) => $state.snapshot(o) as Obj)
 		const layers: ClipLayers = {}; for (const o of objs) { const l = o.layer && m?.layers?.find((x) => x.id === o.layer); if (l) layers[l.id] = l.name }
-		this.clipboard.copy(items, objs, layers)
+		this.clipboard.copy(items, objs, layers, mid)
 		// …and to the SYSTEM clipboard, so another tab / project can paste them (writing needs no permission)
 		// as readable text + HTML (Word / Notepad / Excel get the words / cells), our shapes hidden in the HTML
 		if (items.length || objs.length) {
@@ -109,7 +109,7 @@ export class DocEdit {
 	 *  and 3D objects, in ONE undo step; a pasted object's layer is matched in this model by id, then by name. */
 	pasteEnts = (tabId?: string): { ents: Ent[]; objs: Obj[] } | undefined => {
 		if (this.clipboard.empty || !tabId) return
-		const t = this.#h.timeline, p = this.clipboard.pasteAll(5 * this.#h.scaleN(), () => newId())
+		const t = this.#h.timeline, p = this.clipboard.pasteAll(5 * this.#h.scaleN(), () => newId(), this.#h.modelIdOf(tabId))
 		const copies = relabelCopies(p.ents, this.#h.entsOf(tabId)), m = modelById(this.#h.modelIdOf(tabId))
 		t.beginGesture()
 		const ents = copies.filter((c) => this.addEnt(tabId, c, false))
