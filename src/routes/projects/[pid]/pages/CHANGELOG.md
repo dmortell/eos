@@ -4,6 +4,12 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 16 (2026-09-27) — the editing merge, phases 3–4
+- **3D objects run on the engine** (walls, boxes, conduits in plan / elevation): body move with grid snap anchored on
+  the first object, Ctrl-drag copy, arrow nudge, Ctrl+D, and the selection box now takes objects too. Shapes and
+  objects can be selected TOGETHER (Shift / Ctrl+click or a box) and move / copy / nudge / delete as one undo step.
+  Rack devices still slide only up / down their rack; attached conduit ends still follow. The old `MDrag` path is gone.
+
 ## Round 15 (2026-09-27) — the editing merge, phases 0–2
 - **One editing engine** (`ui/itemEdit.svelte.ts`, `editing-merge-plan.md`): move / grip / Ctrl-drag copy / Shift-ORTHO
   axis lock / marquee (window / crossing) / arrow nudge / Ctrl+D are written ONCE and driven through an ItemSource per

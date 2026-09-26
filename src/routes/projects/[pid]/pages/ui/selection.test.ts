@@ -29,7 +29,6 @@ describe('exclusivity: entity vs model vs section vs frame vs guide vs node', ()
 	})
 	it('picking a model object, section, guide, or frame each replace whatever was selected before, of any kind', () => {
 		expect(selOnly([obj('o1')])).toEqual([obj('o1')])
-		expect(selToggle([ent('e1'), ent('e2')], [obj('o1')])).toEqual([obj('o1')])   // even via toggle (a different kind)
 		expect(selToggle([obj('o1')], [section('s1')])).toEqual([section('s1')])
 		expect(selToggle([section('s1')], [guide('g1')])).toEqual([guide('g1')])
 		expect(selToggle([guide('g1')], [frame('f1')])).toEqual([frame('f1')])
@@ -55,15 +54,16 @@ describe('additive (Shift/Ctrl) toggle is ONLY for entities', () => {
 		expect(selToggle([ent('a')], group)).toEqual([ent('a'), ent('b')])       // partial → add the rest (B25 "whole group")
 		expect(selToggle([ent('a'), ent('b')], group)).toEqual([])               // all in → remove both
 	})
-	it('Shift/Ctrl-clicking an entity while a NON-entity is currently selected drops the non-entity (eos-f8 note 3)', () => {
-		expect(selToggle([obj('o1')], [ent('e1')])).toEqual([ent('e1')])
+	it('Shift/Ctrl-clicking an entity while a NON-drawing kind is currently selected drops it (eos-f8 note 3)', () => {
 		expect(selToggle([section('s1')], [ent('e1')])).toEqual([ent('e1')])
 		expect(selToggle([frame('f1')], [ent('e1'), ent('e2')])).toEqual([ent('e1'), ent('e2')])
 	})
-	it('model objects are additive too (I4), but never mixed with entities', () => {
+	it('model objects are additive too (I4), and MIX with entities (editing merge phase 3)', () => {
 		expect(selToggle([obj('o1')], [obj('o2')])).toEqual([obj('o1'), obj('o2')])
 		expect(selToggle([obj('o1'), obj('o2')], [obj('o1')])).toEqual([obj('o2')])
-		expect(selToggle([ent('e1')], [obj('o1')])).toEqual([obj('o1')])
+		expect(selToggle([ent('e1')], [obj('o1')])).toEqual([ent('e1'), obj('o1')])
+		expect(selToggle([obj('o1'), ent('e1')], [ent('e1')])).toEqual([obj('o1')])
+		expect(selToggle([ent('e1'), obj('o1')], [frame('f1')])).toEqual([frame('f1')])   // frames never mix
 	})
 	it('toggling with an existing single-kind selection still just replaces it (no additive gesture for guide/section/frame/node)', () => {
 		expect(selToggle([section('s1')], [section('s1')])).toEqual([section('s1')])   // "re-toggling" the same single item still just re-selects it (no such gesture exists today)

@@ -15,8 +15,6 @@ import { zToU, uToZ } from '../store/racksImport'
 import { joinNewConduit, joinGraph, mergeNodes, compatible } from '../3dview/graphJoin'
 import { connPoints, attachNode, followConnections } from '../3dview/connect'
 
-/** A model body move: the press point + each object's start position (a box) or node positions (a graph). */
-export type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
 /** A model grip drag; `branch` undoes a Ctrl-branch that never moved; F5: other objects' nodes riding along. */
 /** `split`: an Alt-drag on a node joining 2+ segments of ONE run — on the first move the node splits (ui/modelEdit
  *  splitNode) and the drag carries the copy (the selected segment's end, else the one along the drag). */
@@ -37,38 +35,53 @@ export function commitConduit(v: VpView, o: Conduit): Obj | null {
 	return into
 }
 
-/** The body move, absolute from the press: a box moves (a rack device only up / down its rack, whole U); a wall /
- *  conduit translates all its nodes. In elevation the horizontal drag maps to the view's on-axis coord (× the
- *  ELEV_BASIS sign) and the vertical one changes z (≥ 0). Attached conduit ends follow moved boxes (F6). */
-export function moveModelItems(v: VpView, s: MDrag, p: Pt) {
-	const mdl = v.mdl; if (!mdl) return
-	const dx = p[0] - s.start[0], dy = p[1] - s.start[1], rnd = v.rndSnap
-	const elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
-	const shift = (t: { x: number; y: number; z: number }, f: { x: number; y: number; z: number }) => {
-		if (elev) { if (elev.axis === 0) t.x = rnd(f.x + elev.sign * dx); else t.y = rnd(f.y + elev.sign * dx); t.z = Math.max(0, rnd(f.z - dy)) }
-		else { t.x = rnd(f.x + dx); t.y = rnd(f.y + dy) }
+// ── 3D objects on the editing engine (ItemEditor, editing-merge-plan.md phase 3): translate a COPY, snap the delta,
+// write the copies back into the live model, re-attach after the move ──
+type P3 = { x: number; y: number; z: number }
+/** A plain copy of `o` moved by the view's (dx, dy): in plan x / y; in elevation the horizontal maps to the view's
+ *  on-axis coord (× the ELEV_BASIS sign) and the vertical changes z (≥ 0). A box moves its origin, a wall / conduit
+ *  all its nodes. */
+export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
+	const c = structuredClone(o) as Obj, elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
+	const shift = (t: P3) => {
+		if (elev) { if (elev.axis === 0) t.x += elev.sign * dx; else t.y += elev.sign * dx; t.z = Math.max(0, t.z - dy) }
+		else { t.x += dx; t.y += dy }
 	}
-	for (const it of s.items) {
-		const o = mdl.objects.find((x) => x.id === it.id); if (!o) continue
-		if (o.type === 'prism' && it.o0) {
-			shift(o, it.o0)
-			// G4: a rack DEVICE slides only up / down its rack, snapping to whole U
+	if (c.type === 'prism') shift(c); else for (const n of c.nodes as GN[]) shift(n)
+	return c
+}
+/** The move delta grid-snapped (SNAP on) so the object's reference point — a box's origin, a run's first node —
+ *  lands on the grid; the group stays rigid. */
+export function objSnapDelta(v: VpView, o: Obj, dx: number, dy: number): [number, number] {
+	const r: P3 | undefined = o.type === 'prism' ? o : (o.nodes as GN[])[0]
+	if (!r || !v.snap) return [dx, dy]
+	const elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
+	const h = elev ? elev.sign * (elev.axis === 0 ? r.x : r.y) : r.x, vv = elev ? -r.z : r.y
+	return [v.rndSnap(h + dx) - h, v.rndSnap(vv + dy) - vv]
+}
+/** Write moved copies back into the live objects (in place — grips and pickers hold them): a rack DEVICE only slides
+ *  up / down its rack, whole U (G4); attached conduit ends follow (F6). */
+export function applyObjMoves(v: VpView, moved: Obj[]) {
+	const mdl = v.mdl; if (!mdl) return
+	for (const m of moved) {
+		const o = mdl.objects.find((x) => x.id === m.id); if (!o) continue
+		if (o.type === 'prism' && m.type === 'prism') {
 			const rk = o.device && mdl.objects.find((x) => x.id === o.device!.rackId)
 			if (o.device && rk?.type === 'prism') {
-				const u = zToU(rk.z, o.z, (rk.rack?.u ?? 42) - o.device.hU + 1)
-				o.x = it.o0.x; o.y = it.o0.y; o.z = uToZ(rk.z, u)
+				const u = zToU(rk.z, m.z, (rk.rack?.u ?? 42) - o.device.hU + 1)
+				o.z = uToZ(rk.z, u)
 				if (o.device.u !== u) o.device = { ...o.device, u }
-			}
-		}
-		else if ((o.type === 'wall' || o.type === 'conduit') && it.n0) for (const g of it.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
+			} else { o.x = m.x; o.y = m.y; o.z = m.z }
+		} else if ((o.type === 'wall' || o.type === 'conduit') && m.type === o.type)
+			for (const g of m.nodes as GN[]) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) { n.x = g.x; n.y = g.y; n.z = g.z } }
 	}
-	followConnections(mdl, new Set(s.items.map((it) => it.id)))
+	followConnections(mdl, new Set(moved.map((m) => m.id!)))
 }
 /** After a body move: a conduit moved bodily keeps only the attachments its nodes still sit on (F6). */
-export function endModelMove(v: VpView, s: MDrag) {
-	const mdl = v.mdl; if (!mdl || !v.isPlan) return
+export function endObjMove(v: VpView, ids: string[]) {
+	const mdl = v.mdl; if (!mdl || !v.isPlan || !ids.length) return
 	const cp = connPoints(mdl), tol = v.tolMm(TOL_PX)
-	for (const it of s.items) { const o = mdl.objects.find((x) => x.id === it.id); if (o?.type === 'conduit') { const cpo = cp.filter((p) => p.conn.obj !== o.id); for (const n of o.nodes) if (n.conn) attachNode(n, cpo, tol) } }
+	for (const id of ids) { const o = mdl.objects.find((x) => x.id === id); if (o?.type === 'conduit') { const cpo = cp.filter((p) => p.conn.obj !== o.id); for (const n of o.nodes) if (n.conn) attachNode(n, cpo, tol) } }
 }
 
 /** A model grip drag step: the grip applies; F5 riders take the dragged node's position; a resized / rotated box

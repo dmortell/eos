@@ -337,3 +337,19 @@ export function marqueeSelect(ctx: ViewCtx, ents: Ent[], a: Pt, b: Pt, isPickabl
 		return crossing ? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0 : bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1
 	}).map((en) => en.id)
 }
+/** The model objects a marquee a→b takes (plan / elevation; visible + unlocked), same window / crossing rule as
+ *  marqueeSelect — a box by its outline, a wall / conduit by its nodes. */
+export function marqueeModel(ctx: ViewCtx, a: Pt, b: Pt, ml: MLayers): string[] {
+	const mdl = ctx.mdl
+	if (!(ctx.isPlan || ctx.isElev) || !mdl) return []
+	const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
+	const crossing = b[0] < a[0]
+	return mdl.objects.filter((o) => {
+		if (!o.id || !ml.visible(o) || ml.locked(o)) return false
+		const pts = o.type === 'prism' ? prismOutline(ctx, o) : o.type === 'wall' || o.type === 'conduit' ? (o.nodes as GN[]).map((n) => graphNodeDraw(ctx, n)) : []
+		if (!pts.length) return false
+		const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
+		const bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys)
+		return crossing ? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0 : bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1
+	}).map((o) => o.id!)
+}

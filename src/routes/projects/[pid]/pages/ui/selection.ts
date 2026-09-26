@@ -21,8 +21,11 @@ export type SelItem = { kind: SelKind; id: string; sub?: string }
 export type Selection = SelItem[]
 
 /** The kinds that are multi-select + Shift/Ctrl-additive: 2D entities and (I4) 3D model objects. Every
- *  other kind replaces on toggle. A multi selection is ONE kind — toggling an 'obj' drops any 'ent's. */
+ *  other kind replaces on toggle. Shapes and 3D objects MIX (editing merge phase 3 — the engine moves / copies /
+ *  nudges both in one step); frames stay on their own (paper space). */
 const MULTI = new Set<SelKind>(['ent', 'obj', 'frame'])   // frames too (editing merge phase 2: paper space edits like shapes)
+const DRAWING = new Set<SelKind>(['ent', 'obj'])
+const mixes = (a: SelKind, b: SelKind) => a === b || (DRAWING.has(a) && DRAWING.has(b))
 
 /** A plain click / marquee / programmatic select: REPLACES the whole selection with exactly `items`.
  *  Mixing kinds in one call isn't meaningful (today's UI never does it) and isn't validated here — callers
@@ -42,7 +45,7 @@ export function selToggle(current: Selection, items: SelItem[]): Selection {
 	const kind = items[0].kind
 	if (!MULTI.has(kind)) return items
 	const toggleIds = new Set(items.map((i) => i.id))
-	const curEnts = current.filter((s) => s.kind === kind)
+	const curEnts = current.filter((s) => mixes(s.kind, kind))
 	const curIds = new Set(curEnts.map((s) => s.id))
 	const allAlreadyIn = items.every((i) => curIds.has(i.id))
 	if (allAlreadyIn) return curEnts.filter((s) => !toggleIds.has(s.id))

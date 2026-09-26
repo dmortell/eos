@@ -182,6 +182,10 @@ export class DocEdit {
 		const entIds = idsOfKind(s, 'ent'), objGuideIds = [...idsOfKind(s, 'obj'), ...idsOfKind(s, 'guide')]
 		const nodeItem = singleOfKind(s, 'node'), sectionItem = singleOfKind(s, 'section'), frameItem = singleOfKind(s, 'frame')
 		const mdl = () => modelById(this.#h.modelIdOf(tabId))
+		if (entIds.length && objGuideIds.length) {   // a mixed shapes + objects selection: one undo step
+			edit.begin(); this.deleteEnts(tabId, entIds); const m = mdl(); if (m) deleteModelSel(m, edit, objGuideIds); edit.end()
+			selStore.set(viewId, selClear()); return
+		}
 		if (entIds.length) { this.deleteEnts(tabId, entIds); selStore.set(viewId, selClear()); return }
 		if (objGuideIds.length) { const m = mdl(); if (m) deleteModelSel(m, edit, objGuideIds); selStore.set(viewId, selClear()); return }
 		if (nodeItem) {

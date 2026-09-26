@@ -25,16 +25,16 @@ import { rackHeightMm } from '../store/racksImport'
 import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
 import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
-import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
+import { commitConduit, translateObj, objSnapDelta, applyObjMoves, endObjMove, moveModelGrip, dropNodeJoin, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, viewMapOf, type GN } from './hit'
+import { rotCenter, bbox, hitIsoFaces, marqueeSelect, marqueeModel, graphSegAt, viewMapOf, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
 import { textDialog } from './textDialog.svelte'
 import { trunkSpecs, specProfile } from './trunkSpec.svelte'
 import { openingSpec } from './openingSpec.svelte'
 import { idsOfKind } from './selection'
-import { pasteCopies, relabelCopies } from './clipboard'
+import { pasteCopies, relabelCopies, pasteObjCopies } from './clipboard'
 import { ItemEditor, type ItemSource } from './itemEdit.svelte'
 import { insertLink } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
@@ -57,6 +57,8 @@ const uid = () => newId('e')
 /** D13: a group-box drag — scale about `pivot` (the opposite corner) toward `corner`, or rotate about `pivot`
  *  (the barycentre) from the press angle `a0` (radians). */
 type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
+/** One editable DRAWING item: a 2D shape or a 3D model object (they select, move, copy and nudge together). */
+type DItem = { k: 'ent'; e: Ent } | { k: 'obj'; o: Obj }
 type SecDrag = { id: string; start: Pt; c0: Clip }
 type SecResize = { id: string; apply: (p: Pt) => Clip }
 /** `rel` = the drawing offset of the viewport's middle from the iso pivot at the start, `view0` the view then — the orbit
@@ -93,28 +95,52 @@ export class VpInteraction {
 	private endDraft() { this.draft = []; this.cur = null; this.v.snapMark = null }
 
 	// ── gestures ──
-	// SHAPES on the one editing engine (editing-merge-plan.md): move / grip / Ctrl-drag copy / marquee / nudge / Ctrl+D run
-	// in ItemEditor through this ItemSource; this class keeps the tool-specific gestures and the pointer plumbing.
-	private readonly entSource: ItemSource<Ent> = {
-		kind: 'ent',
-		get: (id) => this.v.entities.find((x) => x.id === id),
-		id: (e) => e.id,
-		translate: (e, dx, dy) => moveEnt(this.v.ctx, e, dx, dy),
-		grips: (e) => this.v.gripsFor(e),
-		gripPoint: (e, gi, p, shift) => { const v = this.v, cp = constrainGrip(v.ctx, e, gi, p, shift, v.gripOpts()); return v.snap ? snapToGrid(cp, v.snapStep) : cp },
-		snapDelta: (dx, dy, base) => snapDelta(dx, dy, base, this.v.snap ? this.v.snapStep : 0),
-		duplicate: (es) => relabelCopies(pasteCopies(es, 0, uid), this.v.entities),   // own ids + group ids; outlets get the next free label (E12)
-		marquee: (a, b) => marqueeSelect(this.v.ctx, this.v.entities, a, b, this.v.pickable),   // layer-gated
+	// SHAPES + 3D OBJECTS on the one editing engine (editing-merge-plan.md): move / grip / Ctrl-drag copy / marquee /
+	// nudge / Ctrl+D run in ItemEditor through this ItemSource; this class keeps the tool-specific gestures (model grips,
+	// node branch / split, sections, guides, orbit) and the pointer plumbing. Both kinds record on the MODEL timeline,
+	// so a mixed move is one undo step.
+	private movedObjs: string[] = []   // objects the open step moved (re-attached when it closes, F6)
+	private readonly drawSource: ItemSource<DItem> = {
+		kind: 'draw',
+		get: (id) => {
+			const e = this.v.entities.find((x) => x.id === id); if (e) return { k: 'ent', e }
+			const o = this.v.mdl?.objects.find((x) => x.id === id)
+			return o ? { k: 'obj', o: $state.snapshot(o) as Obj } : undefined   // a plain copy — the live one is written in place
+		},
+		id: (t) => (t.k === 'ent' ? t.e.id : t.o.id!),
+		translate: (t, dx, dy) => (t.k === 'ent' ? { k: 'ent', e: moveEnt(this.v.ctx, t.e, dx, dy) } : { k: 'obj', o: translateObj(this.v, t.o, dx, dy) }),
+		grips: (t) => (t.k === 'ent' ? this.v.gripsFor(t.e).map((g) => ({ x: g.x, y: g.y, apply: (p: Pt): DItem => ({ k: 'ent', e: g.apply(p) }) })) : []),   // model grips: their own path (onDown)
+		gripPoint: (t, gi, p, shift) => {
+			if (t.k !== 'ent') return p
+			const v = this.v, cp = constrainGrip(v.ctx, t.e, gi, p, shift, v.gripOpts()); return v.snap ? snapToGrid(cp, v.snapStep) : cp
+		},
+		snapDelta: (dx, dy, base) => (base.k === 'ent' ? snapDelta(dx, dy, base.e, this.v.snap ? this.v.snapStep : 0) : objSnapDelta(this.v, base.o, dx, dy)),
+		duplicate: (ts) => [
+			...relabelCopies(pasteCopies(ts.flatMap((t) => (t.k === 'ent' ? [t.e] : [])), 0, uid), this.v.entities).map((e): DItem => ({ k: 'ent', e })),   // own ids + group ids; outlets get the next free label (E12)
+			...pasteObjCopies(ts.flatMap((t) => (t.k === 'obj' ? [t.o] : [])), 0, newId).map((o): DItem => ({ k: 'obj', o })),
+		],
+		marquee: (a, b) => [...marqueeSelect(this.v.ctx, this.v.entities, a, b, this.v.pickable), ...marqueeModel(this.v.ctx, a, b, this.v.mlayers)],   // layer-gated
 		expand: (ids) => this.v.expandGroup(ids),
-		sel: { ids: () => this.v.sel, set: (ids) => this.v.selectEnts(ids) },
+		sel: {
+			ids: () => [...this.v.sel, ...idsOfKind(this.v.selection, 'obj')],
+			set: (ids) => { const ents = new Set(this.v.entities.map((e) => e.id)); this.v.editor.sel.only(ids.map((id) => ({ kind: ents.has(id) ? 'ent' : 'obj', id }))) },
+		},
 		commit: {
-			begin: () => this.v.editor.edit.begin(),
-			update: (es) => this.v.editor.ents.updateMany(es),   // one array pass; DocEdit brings attached conduit ends along (F6)
-			add: (es) => es.forEach((e) => this.v.editor.ents.add(e)),
-			end: (ms) => this.v.editor.edit.end(ms),
+			begin: () => { this.movedObjs = []; this.v.editor.edit.begin() },
+			update: (ts) => {
+				const es = ts.flatMap((t) => (t.k === 'ent' ? [t.e] : [])), os = ts.flatMap((t) => (t.k === 'obj' ? [t.o] : []))
+				if (es.length) this.v.editor.ents.updateMany(es)   // one array pass; DocEdit brings attached conduit ends along (F6)
+				if (os.length) { applyObjMoves(this.v, os); this.movedObjs = os.map((o) => o.id!); this.v.editor.edit.mark() }
+			},
+			add: (ts) => {
+				for (const t of ts) if (t.k === 'ent') this.v.editor.ents.add(t.e)
+				const os = ts.flatMap((t) => (t.k === 'obj' ? [t.o] : []))
+				if (os.length && this.v.mdl) { this.v.mdl.objects.push(...os); this.v.editor.edit.mark() }
+			},
+			end: (ms) => { endObjMove(this.v, this.movedObjs); this.movedObjs = []; this.v.editor.edit.end(ms) },
 		},
 	}
-	readonly items = new ItemEditor<Ent>(this.entSource, { ortho: () => this.v.ortho, gripSnap: (x, y, id) => (this.v.osnap ? this.findSnap(x, y, id) : null) })
+	readonly items = new ItemEditor<DItem>(this.drawSource, { ortho: () => this.v.ortho, gripSnap: (x, y, id) => (this.v.osnap ? this.findSnap(x, y, id) : null) })
 	/** The selection box being dragged (VpOverlays draws it). */
 	get marquee() { return this.items.marquee }
 	private suppressClick = false   // swallow the click that ends a real drag (avoids re-select)
@@ -416,8 +442,8 @@ export class VpInteraction {
 		entAt: (u) => { const d = this.toDraw(u); return d ? (this.v.hit(d)[0] ?? null) : null },
 		erase: () => this.v.editor.sel.delete(),
 		duplicate: () => {
-			if (!this.v.sel.length) return 'Select shapes first'
-			this.items.duplicateSel(5 * this.v.paperMm); return null   // the same engine as Ctrl+D
+			if (!this.items.duplicateSel(5 * this.v.paperMm).length) return 'Select shapes first'
+			return null   // the same engine as Ctrl+D (shapes and 3D objects)
 		},
 		group: () => { const s = this.v.sel; if (s.length < 2) return 'Select two or more shapes'; this.v.editor.ents.group(s); return null },
 		ungroup: () => { const s = this.v.sel; if (!s.length) return 'Select a group'; this.v.editor.ents.ungroup(s); return null },
@@ -739,14 +765,14 @@ export class VpInteraction {
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
 		const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
 		if (mod && k === 'a') { e.preventDefault(); v.selectEnts(v.entities.map((x) => x.id)); return }
-		if (mod && k === 'd' && sel.length) {   // duplicate, offset 5 PAPER mm (B19: visible at any scale)
+		const objSel = idsOfKind(v.selection, 'obj')   // walls / boxes / conduits edit alongside shapes (their own kind in the Selection)
+		if (mod && k === 'd' && (sel.length || objSel.length)) {   // duplicate, offset 5 PAPER mm (B19: visible at any scale)
 			e.preventDefault(); this.items.duplicateSel(5 * v.paperMm)
 			return
 		}
 		if (mod) {   // draw order: Ctrl+] forward · Ctrl+[ backward · +Shift = to front / back; clipboard; grouping
 			if ((e.key === ']' || e.key === '}') && sel.length) { e.preventDefault(); ents.reorder(sel, e.shiftKey ? 'front' : 'forward'); return }
 			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); ents.reorder(sel, e.shiftKey ? 'back' : 'backward'); return }
-			const objSel = idsOfKind(v.selection, 'obj')   // walls / boxes / conduits copy too (their own kind in the Selection)
 			if (k === 'c' && (sel.length || objSel.length)) { e.preventDefault(); ents.copy(sel, objSel); return }
 			if (k === 'x' && (sel.length || objSel.length)) { e.preventDefault(); ents.cut(sel, objSel); return }
 			if (k === 'v') return   // the PASTE EVENT does it (+page onPaste — it can read the system clipboard)
@@ -754,7 +780,7 @@ export class VpInteraction {
 		}
 		// every selection kind deletes through ONE call (kinds are mutually exclusive in the Selection)
 		if ((e.key === 'Delete' || e.key === 'Backspace') && (sel.length || v.modelSel.length || v.selSection) && !this.draft.length) { e.preventDefault(); v.editor.sel.delete(); return }
-		if (sel.length && e.key.startsWith('Arrow')) {
+		if ((sel.length || objSel.length) && e.key.startsWith('Arrow')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
 			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
@@ -851,18 +877,9 @@ export class VpInteraction {
 			if (v.selSection !== pk.id) v.selectSection(pk.id)
 			ed.begin()
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
-		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move
-			const mo = v.mdl?.objects.find((o) => o.id === pk.id); if (!mo) return
-			if (e.shiftKey || e.ctrlKey || e.metaKey) return   // I4: a modifier press only toggles it (onClick)
-			// pressing one of several selected objects keeps the selection and drags them all
-			const multi = v.modelSel.length > 1 && v.modelSel.includes(mo.id!)
-			if (!multi) v.selectObj(mo.id!)
-			const objs = multi ? v.mdl!.objects.filter((o) => v.modelSel.includes(o.id!)) : [mo]
-			ed.begin()
-			beginPointerDrag<MDrag>(e, { start: p, items: objs.map((o) => ({ id: o.id!,
-				o0: o.type === 'prism' ? { x: o.x, y: o.y, z: o.z } : undefined,
-				n0: (o.type === 'wall' || o.type === 'conduit') ? (o.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
-			})) }, { onMove: this.onModelDragMove, onUp: this.onModelDragUp, onCancel: this.closeEdit }, reg, { thresholdPx: 3 })   // a click is not a move (no phantom undo step)
+		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)
+			if (e.shiftKey) { this.reg.forget(e); return }   // I4: a Shift press only toggles it (onClick)
+			this.startEntDrag(e, p, 'move', pk.id, -1)
 		} else if (!pk) {   // empty space → a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			this.items.beginMarquee(p, e.shiftKey || e.ctrlKey || e.metaKey)
 			beginPointerDrag(e, null, { onMove: this.onMarqueeMove, onUp: this.onMarqueeUp, onCancel: () => this.items.cancelMarquee() }, reg)
@@ -881,9 +898,9 @@ export class VpInteraction {
 		}
 	}
 
-	// ── entity move / grip / Ctrl-duplicate drag — the engine (ItemEditor) does the work; this is the pointer plumbing ──
+	// ── shape / object move, shape grip, Ctrl-duplicate drag — the engine (ItemEditor) does the work; this is the pointer plumbing ──
 	private startEntDrag(e: PointerEvent, p: Pt, kind: 'grip' | 'move', id: string, gi: number) {
-		if (!this.v.entities.some((x) => x.id === id)) return
+		if (!this.v.entities.some((x) => x.id === id) && !this.v.mdl?.objects.some((o) => o.id === id)) return
 		if (e.shiftKey && kind === 'move') { this.shiftPressId = id; this.reg.forget(e); return }   // Shift-press on a body is selection-only (toggles on release)
 		// Ctrl/⌘-drag DUPLICATES (copies created on the first move); a Ctrl-CLICK toggles via onClick
 		const mod = e.ctrlKey || e.metaKey
@@ -930,17 +947,8 @@ export class VpInteraction {
 		this.v.editor.edit.end()
 	}
 
-	// ── model body move (absolute from the press) + model grips — the edits are ui/vpModelEdit.ts; here the undo
-	// step (opened at press, marked per move, closed at release) and the trailing click ──
-	private onModelDragMove = (e: PointerEvent, s: MDrag) => {
-		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		moveModelItems(this.v, s, p)
-		this.v.editor.edit.mark()   // fold this move into the open undo step
-	}
-	private onModelDragUp = (_e: PointerEvent, s: MDrag, moved: boolean) => {
-		if (moved) { this.suppressClick = true; endModelMove(this.v, s) }
-		this.v.editor.edit.end()
-	}
+	// ── model grips (body moves run on the engine, above) — the edits are ui/vpModelEdit.ts; here the undo step
+	// (opened at press, marked per move, closed at release) and the trailing click ──
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
 		moveModelGrip(this.v, s, p)
