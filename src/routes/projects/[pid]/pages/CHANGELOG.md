@@ -25,6 +25,12 @@ open items; `review.md §0a` tracks which review findings are closed.
   trunking, cable tray, cable ladder, or Custom), Rect / Round, W × H (Ø for round), location (under floor, ceiling
   plenum, below ceiling, on wall, custom Z) and the resulting underside height from the floor's levels. Remembered per
   tool (`ui/trunkSpec.svelte.ts`); new runs are drawn with it.
+- **Copy / paste 3D objects** (walls, boxes / furniture / racks, trunks / pipes): Ctrl+C / X / V and Edit › Copy /
+  Cut / Paste carry the selected model objects too, over the system clipboard, so they paste into another model,
+  tab or project. A paste gives them new ids, moves them 5 paper mm like shapes, keeps attachments between copied
+  things and lets go of the rest, and matches each object's layer by id, then by name.
+  **From the Sheets tool:** Ctrl+C (or Copy) in a Sheets 3D viewport also puts the objects on the system clipboard in
+  this format, mirrored from Sheets' y-up plan to Pages' y-down (`sheets/tools/model3d/pagesClip.ts`).
 - **HATCH (2D)**: a rect, ellipse or closed polyline can carry a line pattern (horizontal, vertical, grid, diagonal,
   diagonal cross) at a spacing in model mm (default 300, e.g. cable-ladder rungs). Properties › HATCH; DXF as lines.
 

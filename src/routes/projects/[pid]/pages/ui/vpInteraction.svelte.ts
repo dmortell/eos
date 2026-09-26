@@ -31,6 +31,7 @@ import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
 import { textDialog } from './textDialog.svelte'
 import { trunkSpecs, specProfile } from './trunkSpec.svelte'
+import { idsOfKind } from './selection'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { insertLink } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
@@ -700,8 +701,9 @@ export class VpInteraction {
 		if (mod) {   // draw order: Ctrl+] forward · Ctrl+[ backward · +Shift = to front / back; clipboard; grouping
 			if ((e.key === ']' || e.key === '}') && sel.length) { e.preventDefault(); ents.reorder(sel, e.shiftKey ? 'front' : 'forward'); return }
 			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); ents.reorder(sel, e.shiftKey ? 'back' : 'backward'); return }
-			if (k === 'c' && sel.length) { e.preventDefault(); ents.copy(sel); return }
-			if (k === 'x' && sel.length) { e.preventDefault(); ents.cut(sel); return }
+			const objSel = idsOfKind(v.selection, 'obj')   // walls / boxes / conduits copy too (their own kind in the Selection)
+			if (k === 'c' && (sel.length || objSel.length)) { e.preventDefault(); ents.copy(sel, objSel); return }
+			if (k === 'x' && (sel.length || objSel.length)) { e.preventDefault(); ents.cut(sel, objSel); return }
 			if (k === 'v') return   // the PASTE EVENT does it (+page onPaste — it can read the system clipboard)
 			if (k === 'g' && sel.length) { e.preventDefault(); if (e.shiftKey) ents.ungroup(sel); else ents.group(sel); return }
 		}

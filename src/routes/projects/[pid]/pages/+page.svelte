@@ -34,7 +34,7 @@
 	import NoteDialog from './parts/NoteDialog.svelte'
 	import { textDialog } from './ui/textDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
-	import { fromClipText, fromClipHtml, textToShape } from './ui/clipboard'
+	import { fromClipData, fromClipHtmlData, textToShape } from './ui/clipboard'
 	import { htmlToMarkdown } from './ui/htmlToMd'
 	import { cmdBus } from './ui/cmdBus.svelte'
 	import { createUploadThing } from '../uploads/uploader'
@@ -207,9 +207,9 @@
 			ents: {
 				add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e), updateMany: (es: Ent[]) => updateEnts(a.id, es),
 				delete: (ids: string[]) => { deleteEnts(a.id, ids); selStore.set(viewId, selClear()) },
-				copy: (ids: string[]) => copyEnts(a.id, ids),
-				cut: (ids: string[]) => { cutEnts(a.id, ids); selStore.set(viewId, selClear()) },
-				paste: () => { const copies = pasteEnts(a.id); if (copies?.length) selStore.set(viewId, selOnly(copies.map((c): SelItem => ({ kind: 'ent', id: c.id })))) },
+				copy: (ids: string[], objIds?: string[]) => copyEnts(a.id, ids, objIds),
+				cut: (ids: string[], objIds?: string[]) => { cutEnts(a.id, ids, objIds); selStore.set(viewId, selClear()) },
+				paste: () => selectPasted(viewId, pasteEnts(a.id)),
 				group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 				reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
 			},
@@ -485,6 +485,12 @@
 	// instance) means "whichever viewport is currently active in this tab".
 	const activeSelViewId = (): string | undefined => { const a = active; return a ? (activeVpOf(a.id) ?? a.id) : undefined }
 	const activeEntIds = (): string[] => idsOfKind(selStore.of(activeSelViewId()), 'ent')
+	const activeObjIds = (): string[] => idsOfKind(selStore.of(activeSelViewId()), 'obj')
+	/** Select what a paste added: its shapes, else its 3D objects (a selection holds one kind or the other). */
+	function selectPasted(vid: string, p: { ents: Ent[]; objs: { id?: string }[] } | undefined) {
+		if (p?.ents.length) selStore.set(vid, selOnly(p.ents.map((c): SelItem => ({ kind: 'ent', id: c.id }))))
+		else if (p?.objs.length) selStore.set(vid, selOnly(p.objs.flatMap((o): SelItem[] => (o.id ? [{ kind: 'obj', id: o.id }] : []))))
+	}
 	// View (content pan/zoom) is keyed by PANE + view + PROJECTION, so a split pans each pane independently
 	// AND each projection of a viewport (plan / front / … / 3D) remembers its own framing — flipping the
 	// ViewCube restores that view's pan/zoom instead of carrying one framing across all directions.
@@ -521,11 +527,11 @@
 			return
 		}
 		const dt = e.clipboardData, plain = dt?.getData('text/plain') ?? '', html = dt?.getData('text/html') ?? ''
-		const ents = fromClipText(plain) ?? (html ? fromClipHtml(html) : null)
+		const data = fromClipData(plain) ?? (html ? fromClipHtmlData(html) : null), ents = data && (data.ents.length || data.objs.length) ? data.ents : null
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
 		if (img) { void pasteImage(img); return }
-		if (ents?.length) { docEdit.clipboard.load(ents); menuAction('Paste'); return }
+		if (data && ents) { docEdit.clipboard.load(data.ents, data.objs, data.layers); menuAction('Paste'); return }   // shapes and / or 3D objects
 		// text from another app (Word / Excel / Notepad …): a text shape, or a NOTE keeping headings / bold / lists / tables
 		const md = html ? htmlToMarkdown(new DOMParser().parseFromString(html, 'text/html')) : ''
 		const shape = md && md.includes('\n') ? { kind: 'note' as const, text: md } : textToShape(md || plain)
@@ -694,9 +700,9 @@
 		else if (item === 'Undo') undo()
 		else if (item === 'Redo') redo()
 		// Edit-menu clipboard/delete (B8) — act on the active VIEWPORT's selection (the Ctrl-key paths already work).
-		else if (item === 'Cut') { const a = active, vid = activeSelViewId(); if (a) { cutEnts(a.id, activeEntIds()); selStore.set(vid, selClear()) } }
-		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, activeEntIds()) }
-		else if (item === 'Paste') { const a = active, vid = activeSelViewId(); if (a) { const copies = pasteEnts(a.id); if (copies?.length) selStore.set(vid, selOnly(copies.map((c): SelItem => ({ kind: 'ent', id: c.id })))) } }
+		else if (item === 'Cut') { const a = active, vid = activeSelViewId(); if (a) { cutEnts(a.id, activeEntIds(), activeObjIds()); selStore.set(vid, selClear()) } }
+		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, activeEntIds(), activeObjIds()) }
+		else if (item === 'Paste') { const a = active, vid = activeSelViewId(); if (a && vid) selectPasted(vid, pasteEnts(a.id)) }
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
 		else if (item === 'Text') { if (active) focusTool('Text') }

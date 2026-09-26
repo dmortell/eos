@@ -22,8 +22,9 @@ export type Editor = {
 		/** Several shapes in ONE array pass + one record (a group move / transform per pointer move). */
 		updateMany(es: Ent[]): void
 		delete(ids: string[]): void
-		copy(ids: string[]): void
-		cut(ids: string[]): void
+		/** Shapes `ids` and / or 3D model objects `objIds` (a selection holds one kind or the other). */
+		copy(ids: string[], objIds?: string[]): void
+		cut(ids: string[], objIds?: string[]): void
 		paste(): void
 		group(ids: string[]): void
 		ungroup(ids: string[]): void

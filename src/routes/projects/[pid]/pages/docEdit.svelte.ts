@@ -9,7 +9,7 @@ import { activeLayerIn, removeLayer } from './layers.svelte'
 import { selStore } from './selStore.svelte'
 import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
 import { deleteModelSel, deleteGraphNode, deleteGraphSeg, deleteSection } from './ui/modelEdit'
-import { Clipboard, arrange, setGroup, relabelCopies, clipText, clipHtml, readable, type ArrangeOp } from './ui/clipboard'
+import { Clipboard, arrange, setGroup, relabelCopies, clipText, clipHtml, readable, resolvePastedLayer, type ArrangeOp, type ClipLayers } from './ui/clipboard'
 import type { Ent } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
 import { unlinkIfMoved } from './ui/floorplanLink'
@@ -82,26 +82,41 @@ export class DocEdit {
 	}
 
 	// ── clipboard, groups, draw order (the logic is ui/clipboard.ts) ──
-	copyEnts = (tabId: string, ids: string[]) => {
-		const s = new Set(ids), items = this.#ents(this.#h.modelIdOf(tabId)).filter((e) => s.has(e.id)).map((e) => $state.snapshot(e) as Ent)
-		this.clipboard.copy(items)
+	/** Copy shapes and / or 3D model objects (`objIds`: walls, boxes, conduits — a selection holds one kind or the other). */
+	copyEnts = (tabId: string, ids: string[], objIds: string[] = []) => {
+		const mid = this.#h.modelIdOf(tabId), m = modelById(mid)
+		const s = new Set(ids), items = this.#ents(mid).filter((e) => s.has(e.id)).map((e) => $state.snapshot(e) as Ent)
+		const os = new Set(objIds), objs = (m?.objects ?? []).filter((o) => o.id && os.has(o.id)).map((o) => $state.snapshot(o) as Obj)
+		const layers: ClipLayers = {}; for (const o of objs) { const l = o.layer && m?.layers?.find((x) => x.id === o.layer); if (l) layers[l.id] = l.name }
+		this.clipboard.copy(items, objs, layers)
 		// …and to the SYSTEM clipboard, so another tab / project can paste them (writing needs no permission)
 		// as readable text + HTML (Word / Notepad / Excel get the words / cells), our shapes hidden in the HTML
-		if (items.length) {
-			const r = readable(items), plain = r.plain || clipText(items)
+		if (items.length || objs.length) {
+			const r = readable(items), data = clipText(items, objs, layers), plain = r.plain || data
 			const write = typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write
-				? navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([plain], { type: 'text/plain' }), 'text/html': new Blob([clipHtml(items)], { type: 'text/html' }) })])
-				: navigator.clipboard?.writeText(clipText(items))
-			write?.catch(() => navigator.clipboard?.writeText(clipText(items)).catch(() => {}))
+				? navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([plain], { type: 'text/plain' }), 'text/html': new Blob([clipHtml(items, objs, layers)], { type: 'text/html' }) })])
+				: navigator.clipboard?.writeText(data)
+			write?.catch(() => navigator.clipboard?.writeText(data).catch(() => {}))
 		}
 	}
-	cutEnts = (tabId: string, ids: string[]) => { this.copyEnts(tabId, ids); this.deleteEnts(tabId, ids) }
-	/** The copies actually added (B19: 5 PAPER mm per paste, stacking; E12: copied outlets get free labels). */
-	pasteEnts = (tabId?: string): Ent[] | undefined => {
+	cutEnts = (tabId: string, ids: string[], objIds: string[] = []) => {
+		this.copyEnts(tabId, ids, objIds)
+		if (ids.length) this.deleteEnts(tabId, ids)
+		const m = modelById(this.#h.modelIdOf(tabId)), rm = new Set(objIds), t = this.#h.timeline
+		if (m && rm.size) { t.beginGesture(); m.objects = m.objects.filter((o) => !o.id || !rm.has(o.id)); this.modelEdit(tabId, 'Cut'); t.endGesture() }
+	}
+	/** The copies actually added (B19: 5 PAPER mm per paste, stacking; E12: copied outlets get free labels) — shapes
+	 *  and 3D objects, in ONE undo step; a pasted object's layer is matched in this model by id, then by name. */
+	pasteEnts = (tabId?: string): { ents: Ent[]; objs: Obj[] } | undefined => {
 		if (this.clipboard.empty || !tabId) return
-		const t = this.#h.timeline, copies = relabelCopies(this.clipboard.paste(5 * this.#h.scaleN(), () => newId()), this.#h.entsOf(tabId))
-		t.beginGesture(); const added = copies.filter((c) => this.addEnt(tabId, c, false)); t.endGesture()
-		return added
+		const t = this.#h.timeline, p = this.clipboard.pasteAll(5 * this.#h.scaleN(), () => newId())
+		const copies = relabelCopies(p.ents, this.#h.entsOf(tabId)), m = modelById(this.#h.modelIdOf(tabId))
+		t.beginGesture()
+		const ents = copies.filter((c) => this.addEnt(tabId, c, false))
+		const objs = m ? p.objs.map((o) => ({ ...o, layer: resolvePastedLayer(o.layer, p.layers, m.layers ?? []) }) as Obj) : []
+		if (m && objs.length) { m.objects = [...m.objects, ...objs]; this.modelEdit(tabId, objs.length > 1 ? `Paste ${objs.length} objects` : 'Paste object') }
+		t.endGesture()
+		return { ents, objs }
 	}
 	groupEnts = (tabId: string, ids: string[]) => {
 		if (ids.length < 2) return

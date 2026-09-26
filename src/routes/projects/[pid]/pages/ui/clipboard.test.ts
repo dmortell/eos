@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText, readable, clipHtml, fromClipHtml, textToShape } from './clipboard'
+import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText, readable, clipHtml, fromClipHtml, textToShape, fromClipData, fromClipHtmlData, pasteObjCopies, resolvePastedLayer } from './clipboard'
+import type { Obj } from '../3dview/types'
+import { toPagesClip } from '../../sheets/tools/model3d/pagesClip'
 
 describe('copy labels (E12)', () => {
 	it('counts a trailing number on (padding kept), else appends -copy', () => {
@@ -79,5 +81,32 @@ describe('office clipboard', () => {
 		expect(textToShape('a\nb')).toEqual({ kind: 'note', text: 'a\nb' })
 		expect(textToShape('Item\tQty\nOutlet\t24\n')!.text).toBe('| Item | Qty |\n| --- | --- |\n| Outlet | 24 |')
 		expect(textToShape('  \n')).toBeNull()
+	})
+})
+
+describe('3D objects on the clipboard', () => {
+	const box = { type: 'prism', id: 'b1', x: 0, y: 0, z: 0, w: 600, d: 1000, h: 2000, edges: 4, layer: 'L1' } as Obj
+	const run = { type: 'conduit', id: 'c1', w: 100, h: 50, edges: 4, nodes: [{ id: 'a', x: 0, y: 0, z: 0, conn: { obj: 'b1', pt: 'c' } }, { id: 'b', x: 1000, y: 0, z: 0, conn: { obj: 'gone', pt: 'c' } }], segments: [{ id: 's', a: 'a', b: 'b' }] } as Obj
+	it('paste: new ids, moved, an attachment to a copied box follows it, others are let go', () => {
+		let k = 0; const [b, c] = pasteObjCopies([box, run], 100, () => 'n' + ++k)
+		expect(b.id).not.toBe('b1'); expect(b.type === 'prism' && [b.x, b.y]).toEqual([100, 100])
+		if (c.type !== 'conduit') throw new Error('conduit expected')
+		expect(c.nodes[0].conn).toEqual({ obj: b.id, pt: 'c' }); expect(c.nodes[1].conn).toBeUndefined()
+		expect(run.type === 'conduit' && run.nodes[0].x).toBe(0)   // the source is untouched
+	})
+	it('round-trips through text + HTML; a layer is matched by id, then by name', () => {
+		const t = clipText([], [box], { L1: 'Furniture' })
+		expect(fromClipData(t)?.objs.length).toBe(1)
+		expect(fromClipHtmlData(clipHtml([], [box], { L1: 'Furniture' }))?.layers).toEqual({ L1: 'Furniture' })
+		expect(fromClipText(clipText([{ id: 't', type: 'text', a: [0, 0], text: 'x' }]))?.length).toBe(1)
+		expect(resolvePastedLayer('L1', { L1: 'Furniture' }, [{ id: 'L1', name: 'Other' }])).toBe('L1')
+		expect(resolvePastedLayer('L1', { L1: 'Furniture' }, [{ id: 'f9', name: 'Furniture' }])).toBe('f9')
+		expect(resolvePastedLayer('L1', { L1: 'Furniture' }, [])).toBeUndefined()
+	})
+	it('a Sheets 3D copy arrives mirrored to y-down', () => {
+		const d = fromClipData(toPagesClip([{ ...box, y: 500, rot: 30 } as never, run as never], (id) => (id === 'L1' ? 'Furniture' : undefined)))!
+		const b = d.objs[0]; expect(b.type === 'prism' && [b.y, b.rot]).toEqual([-1500, -30])
+		const c = d.objs[1]; expect(c.type === 'conduit' && c.nodes[1].y).toBe(0)
+		expect(d.layers).toEqual({ L1: 'Furniture' })
 	})
 })

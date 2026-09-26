@@ -4,6 +4,7 @@ import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Pr
 import { moveAlong, roundObj, project, xyCenter, objBounds, modelBounds, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
+import { toPagesClip } from './pagesClip'
 
 type P3 = { x: number; y: number; z: number }
 
@@ -646,7 +647,11 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 
 	duplicateSel = () => this.duplicateSelection(200) // Ctrl+D / panel: offset copy of the selection
-	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
+	copySel = () => {
+		this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj)
+		// …and to the SYSTEM clipboard in the Pages format, so a Pages view can paste them (pagesClip.ts)
+		if (this.clipboard.length) navigator.clipboard?.writeText(toPagesClip(this.clipboard, (id) => this.model?.layers?.find((l) => l.id === id)?.name)).catch(() => {})
+	}
 	paste = () => {
 		if (!this.clipboard.length) return
 		const b = BASIS[this.direction]

@@ -5,35 +5,85 @@
 //               forward/backward step the selection past one non-selected neighbour.
 //   setGroup    put shapes in one new group, or ungroup them.
 import { translate, isNote, migrateNote, type Ent } from './geometry'
+import type { Obj } from '../3dview/types'
 
 export class Clipboard {
 	#items: Ent[] = []
+	#objs: Obj[] = []
+	#layers: ClipLayers = {}
 	#pastes = 0
-	get empty() { return !this.#items.length }
+	get empty() { return !this.#items.length && !this.#objs.length }
 	get items(): readonly Ent[] { return this.#items }
-	/** Copy (pass PLAIN snapshots — `$state.snapshot` them first). */
-	copy(ents: Ent[]) { this.#items = ents; this.#pastes = 0 }
-	/** Shapes from the SYSTEM clipboard (another tab / project): taken over unless they're what's already held (then
-	 *  the paste stacking continues). */
-	load(ents: Ent[]) { if (clipText(ents) !== clipText(this.#items)) this.copy(ents) }
+	get objs(): readonly Obj[] { return this.#objs }
+	/** Copy (pass PLAIN snapshots — `$state.snapshot` them first). `objs` = 3D model objects (walls, boxes, conduits…),
+	 *  `layers` = their layers' names by id, so a paste into another model finds the matching layer. */
+	copy(ents: Ent[], objs: Obj[] = [], layers: ClipLayers = {}) { this.#items = ents; this.#objs = objs; this.#layers = layers; this.#pastes = 0 }
+	/** What the SYSTEM clipboard held (another tab / project): taken over unless it's what's already held (then the
+	 *  paste stacking continues). */
+	load(ents: Ent[], objs: Obj[] = [], layers: ClipLayers = {}) {
+		if (clipText(ents, objs) !== clipText(this.#items, this.#objs)) this.copy(ents, objs, layers)
+	}
 	/** The shapes for the next paste, `stepMm` further along each time (the caller sizes it: 5 paper mm × the
 	 *  viewport's scale N). */
-	paste(stepMm: number, newId: () => string): Ent[] {
-		if (!this.#items.length) return []
+	paste(stepMm: number, newId: () => string): Ent[] { return this.pasteAll(stepMm, newId).ents }
+	/** The shapes AND 3D objects for the next paste (fresh ids; attachments between copied things re-pointed). */
+	pasteAll(stepMm: number, newId: () => string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } {
+		if (this.empty) return { ents: [], objs: [], layers: {} }
 		this.#pastes++
-		return pasteCopies(this.#items, stepMm * this.#pastes, newId)
+		const off = stepMm * this.#pastes, entIds = new Map<string, string>()
+		const ents = pasteCopies(this.#items, off, newId).map((c, i) => (entIds.set(this.#items[i].id, c.id), c))
+		return { ents, objs: pasteObjCopies(this.#objs, off, newId, entIds), layers: this.#layers }
 	}
+}
+/** A copied 3D object's layer names, by layer id. */
+export type ClipLayers = Record<string, string>
+
+/** 3D objects for a paste: moved `off` mm in plan (x and y), fresh object ids, groups kept together under new group
+ *  ids. A conduit end attached to a copied box / outlet follows the copy; attached to anything NOT copied it's let go
+ *  (the copy would otherwise snap back onto the original). A device keeps its rack only if the rack came too. */
+export function pasteObjCopies(objs: readonly Obj[], off: number, newId: () => string, entIds: Map<string, string> = new Map()): Obj[] {
+	const ids = new Map(objs.filter((o) => o.id).map((o) => [o.id!, newId()])), gids = new Map<string, string>()
+	return objs.map((o) => {
+		const c = structuredClone(o) as Obj
+		if (o.id) c.id = ids.get(o.id)
+		if (c.groupId) { if (!gids.has(c.groupId)) gids.set(c.groupId, newId()); c.groupId = gids.get(c.groupId) }
+		if (c.type === 'prism') { c.x += off; c.y += off }
+		else for (const n of c.nodes) {
+			n.x += off; n.y += off
+			if (!n.conn) continue
+			const to = n.conn.ent ? entIds.get(n.conn.ent) : n.conn.obj ? ids.get(n.conn.obj) : undefined
+			if (to) n.conn = n.conn.ent ? { ent: to } : { ...n.conn, obj: to }
+			else delete n.conn
+		}
+		if (c.device) { const r = ids.get(c.device.rackId); if (r) c.device = { ...c.device, rackId: r } }
+		return c
+	})
+}
+/** A pasted object's layer in the TARGET model: the same id if it has one, else the layer of the same name, else
+ *  none (it falls back to the model's first layer). */
+export function resolvePastedLayer(layer: string | undefined, names: ClipLayers, target: { id: string; name: string }[]): string | undefined {
+	if (!layer || target.some((l) => l.id === layer)) return layer
+	const n = names[layer]
+	return n ? target.find((l) => l.name === n)?.id : undefined
 }
 
 // ── the SYSTEM clipboard: copied shapes also go out as marked JSON text, so another browser tab / project can
 // paste them (its paste event reads them back) ──
 const CLIP_MARK = 'eos-pages-shapes'
 /** Shapes → clipboard text. */
-export const clipText = (ents: readonly Ent[]) => JSON.stringify({ [CLIP_MARK]: 1, ents })
+export const clipText = (ents: readonly Ent[], objs: readonly Obj[] = [], layers: ClipLayers = {}) =>
+	JSON.stringify(objs.length ? { [CLIP_MARK]: 1, ents, objs, layers } : { [CLIP_MARK]: 1, ents })
 /** Clipboard text → shapes, or null when it isn't ours. */
-export function fromClipText(text: string): Ent[] | null {
+export function fromClipText(text: string): Ent[] | null { return fromClipData(text)?.ents ?? null }
+/** Clipboard text → shapes + 3D objects (+ their layer names), or null when it isn't ours. */
+export function fromClipData(text: string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } | null {
 	if (!text.includes(CLIP_MARK)) return null
-	try { const o = JSON.parse(text); return o?.[CLIP_MARK] && Array.isArray(o.ents) ? (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote) : null } catch { return null }
+	try {
+		const o = JSON.parse(text); if (!o?.[CLIP_MARK] || !Array.isArray(o.ents)) return null
+		const ents = (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote)
+		const objs = Array.isArray(o.objs) ? (o.objs as Obj[]).filter((x) => x && ['prism', 'wall', 'conduit'].includes(x.type)) : []
+		return { ents, objs, layers: o.layers && typeof o.layers === 'object' ? o.layers : {} }
+	} catch { return null }
 }
 
 // ── office apps (Word / Excel / Notepad): copied shapes also go out as readable text + HTML (a note's table as a real
@@ -64,14 +114,16 @@ const HTML_MARK = 'eos-pages-shapes:'
 function toB64(s: string): string { const u = new TextEncoder().encode(s); let b = ''; for (let i = 0; i < u.length; i += 0x8000) b += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(b) }
 const fromB64 = (b: string) => new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0)))
 /** Shapes → clipboard HTML: the readable part + our data hidden in a comment (base64 JSON). */
-export function clipHtml(ents: readonly Ent[]): string {
-	const b64 = toB64(clipText(ents))
+export function clipHtml(ents: readonly Ent[], objs: readonly Obj[] = [], layers: ClipLayers = {}): string {
+	const b64 = toB64(clipText(ents, objs, layers))
 	return `<!--${HTML_MARK}${b64}-->` + readable(ents).html
 }
 /** Clipboard HTML → our shapes, or null. */
-export function fromClipHtml(html: string): Ent[] | null {
+export function fromClipHtml(html: string): Ent[] | null { return fromClipHtmlData(html)?.ents ?? null }
+/** Clipboard HTML → our shapes + 3D objects, or null. */
+export function fromClipHtmlData(html: string): ReturnType<typeof fromClipData> {
 	const m = new RegExp(`<!--${HTML_MARK}([A-Za-z0-9+/=]+)-->`).exec(html); if (!m) return null
-	try { return fromClipText(fromB64(m[1])) } catch { return null }
+	try { return fromClipData(fromB64(m[1])) } catch { return null }
 }
 /** Text from another app → a text shape's text (one line) or a NOTE's markdown (tab-separated cells → a table). */
 export function textToShape(text: string): { kind: 'text' | 'note'; text: string } | null {
