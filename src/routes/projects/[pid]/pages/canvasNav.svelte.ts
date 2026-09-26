@@ -70,10 +70,12 @@ export class CanvasNav {
 	 *  menu) may reset an active sheet frame's own content (with "Pan content" on); automatic refits (mount,
 	 *  split, layout toggle) never do (B28). A mount refit (`skipIfPersisted`) leaves a remembered view /
 	 *  canvas alone (B27). Fit resets the 3D orbit of the same viewport whose content it resets (B30). */
-	fitPane = (idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean } = {}) => {
+	/** `keepViews`: a pane only changed SIZE (split / unsplit) — refit a paper sheet, but leave a model view's pan / zoom
+	 *  / orbit alone (Dave: splitting reset the left model tab's view). */
+	fitPane = (idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean; keepViews?: boolean } = {}) => {
 		const h = this.#h, p = h.panes()[idx]; if (!p) return
 		const pr = this.activeProj(p), av = this.activeViewportId(p)
-		if (av && av === p.activeId && opts.skipIfPersisted && h.hasView(p.id, av, pr)) return
+		if (av && av === p.activeId && ((opts.skipIfPersisted && h.hasView(p.id, av, pr)) || opts.keepViews)) return
 		if (av && (av === p.activeId || (opts.explicit && this.zoomsContent(p)))) { h.setOrbit(p.id, av, pr, DEFAULT_YAW, DEFAULT_PITCH); h.setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
 		if (opts.skipIfPersisted && p.activeId && h.hasCanvas(p.id, p.activeId)) return
 		const a2 = h.tabs().find((t) => t.id === p.activeId), canvas = h.canvasEl(idx)

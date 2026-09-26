@@ -715,13 +715,13 @@
 		// is always `p2`, so view state keyed by pane id stays with its side across re-splits.
 		session.panes = [...session.panes, { id: 'p2', activeId: src.activeId, tool: 'Select', layout: src.layout }]
 		session.focused = 1; splitFrac = 0.5
-		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
+		tick().then(() => { fitPane(0, { keepViews: true }); fitPane(1, { keepViews: true }) })   // both panes narrowed → refit their SHEETS (a model view keeps its pan / zoom)
 	}
 	function closePane(idx: number) {
 		if (session.panes.length < 2 || idx === 0) return   // the left pane (p1) always remains; only the split closes
 		session.panes = session.panes.filter((_, i) => i !== idx)
 		session.focused = 0
-		tick().then(() => fitPane(0))
+		tick().then(() => fitPane(0, { keepViews: true }))
 	}
 	function startSplitDrag(e: PointerEvent) {
 		e.preventDefault()

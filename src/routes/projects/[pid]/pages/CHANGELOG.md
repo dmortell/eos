@@ -14,6 +14,7 @@ open items; `review.md §0a` tracks which review findings are closed.
   selected place go with it); the ⋮ menu of a selected row deletes them all (sheets first, then places deepest first —
   a place still holding things stays and says why).
 - **File › Drawings**: Shift+click a checkbox selects the range.
+- Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 
 ## Round 16 (2026-09-27) — the editing merge, phases 3–4 (done)
 - **3D objects run on the engine** (walls, boxes, conduits in plan / elevation): body move with grid snap anchored on
