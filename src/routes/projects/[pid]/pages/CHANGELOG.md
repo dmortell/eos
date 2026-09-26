@@ -4,11 +4,17 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
-## Round 16 (2026-09-27) — the editing merge, phases 3–4
+## Round 16 (2026-09-27) — the editing merge, phases 3–4 (done)
 - **3D objects run on the engine** (walls, boxes, conduits in plan / elevation): body move with grid snap anchored on
   the first object, Ctrl-drag copy, arrow nudge, Ctrl+D, and the selection box now takes objects too. Shapes and
   objects can be selected TOGETHER (Shift / Ctrl+click or a box) and move / copy / nudge / delete as one undo step.
   Rack devices still slide only up / down their rack; attached conduit ends still follow. The old `MDrag` path is gone.
+- **The command line works on paper** (`ui/paperCmd.ts`): with no viewport active, MOVE / COPY (multiple) / ARRAY
+  (rectangular) / ALIGN / DIST / ERASE / select-by-point act on the selected viewport frames in paper mm (Y up), each
+  one undo step, through the same engine as the mouse; ROTATE / SCALE / drawing commands say "Not on paper — enter a
+  viewport". Clicked points go to the running command.
+- **Viewport tool uses the Rectangle gesture**: ACAD on = click one corner, click the other (the box follows the
+  cursor); EOS = press-drag. Corners snap to the paper lines (Alt off); Esc cancels.
 
 ## Round 15 (2026-09-27) — the editing merge, phases 0–2
 - **One editing engine** (`ui/itemEdit.svelte.ts`, `editing-merge-plan.md`): move / grip / Ctrl-drag copy / Shift-ORTHO

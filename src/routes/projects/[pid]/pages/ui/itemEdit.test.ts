@@ -61,4 +61,12 @@ describe('ItemEditor (the one editing engine)', () => {
 		expect(w.ed.nudge(5, 0)).toBe(true); expect(w.items().map((i) => i.x)).toEqual([5, 105]); expect(w.log.at(-1)).toBe('end 600')
 		expect(w.ed.duplicateSel(20)).toEqual(['c1', 'c2']); expect(w.items().at(-1)).toMatchObject({ x: 125, y: 20 })
 	})
+	it('MOVE / COPY (command line): one step each; a copy keeps the originals selected; locked items stay', () => {
+		const w = world([{ id: 'a', x: 0, y: 0, w: 10 }, { id: 'L', x: 50, y: 0, w: 10, locked: true }])
+		w.src.sel.set(['a', 'L'])
+		expect(w.ed.moveSel(10, 0)).toBe(true); expect(w.items().map((i) => i.x)).toEqual([10, 50]); expect(w.log).toEqual(['begin', 'end'])
+		expect(w.ed.copySel([[0, 20], [0, 40]])).toEqual(['c1', 'c2', 'c3', 'c4'])
+		expect(w.items().filter((i) => i.id.startsWith('c')).map((i) => i.y)).toEqual([20, 20, 40, 40]); expect(w.sel()).toEqual(['a', 'L'])
+		expect(w.log.slice(2)).toEqual(['begin', 'add 2', 'add 2', 'end'])
+	})
 })

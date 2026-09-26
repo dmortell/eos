@@ -118,11 +118,29 @@ export class ItemEditor<T> {
 
 	// ── keys ──
 	/** Arrow keys: move the selection by (dx, dy); a burst coalesces into one step (closes 600 ms after the last). */
-	nudge(dx: number, dy: number): boolean {
+	nudge(dx: number, dy: number): boolean { return this.moveSel(dx, dy, 600) }
+	/** Move the selection by (dx, dy) as one step (MOVE on the command line; `settleMs` coalesces a burst). Locked items
+	 *  stay. Returns false when nothing movable is selected. */
+	moveSel(dx: number, dy: number, settleMs?: number): boolean {
 		const src = this.src, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is T => !!t && (!src.canMove || src.canMove(t)))
 		if (!items.length) return false
-		src.commit.begin(); src.commit.update(items.map((t) => src.translate(t, dx, dy))); src.commit.end(600)
+		src.commit.begin(); src.commit.update(items.map((t) => src.translate(t, dx, dy))); src.commit.end(settleMs)
 		return true
+	}
+	/** COPY / ARRAY: one copy of the selection per offset, all in ONE step; the originals stay selected. Returns the
+	 *  copies' ids. */
+	copySel(offs: [number, number][]): string[] {
+		const src = this.src, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is T => !!t)
+		if (!items.length || !offs.length) return []
+		const keep = src.sel.ids(), out: string[] = []
+		src.commit.begin()
+		for (const [dx, dy] of offs) {
+			const copies = src.duplicate(items).map((c) => src.translate(c, dx, dy))
+			src.commit.add(copies); src.commit.update(copies)   // add places them (shapes); update positions kinds whose duplicate is in place (frames)
+			out.push(...copies.map((c) => src.id(c)))
+		}
+		src.commit.end(); src.sel.set(keep)
+		return out
 	}
 	/** Ctrl+D: copies of the selection `off` along both axes, selected. Returns the copies' ids. */
 	duplicateSel(off: number): string[] {

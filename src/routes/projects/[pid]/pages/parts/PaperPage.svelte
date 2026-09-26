@@ -7,6 +7,7 @@
 	//    resize (opposite corner fixed, like the rect tool). Double-click enters it.
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
+	import { untrack } from 'svelte'
 	import Viewport from '../ui/Viewport.svelte'
 	import type { Env, VpOn } from '../ui/vpTypes'
 	import { noopEditor, type Editor } from '../ui/editor'
@@ -25,6 +26,8 @@
 	import { fillTitleBlock, shownTitleBlock, type TbShown } from '../titleBlock'
 	import FillSection from './FillSection.svelte'
 	import type { Conduit } from '../3dview/types'
+	import { cmdBus } from '../ui/cmdBus.svelte'
+	import { paperCmdTarget } from '../ui/paperCmd'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
@@ -176,6 +179,35 @@
 		return () => window.removeEventListener('keydown', onKey)
 	})
 
+	// ── the COMMAND LINE on paper (editing-merge-plan.md phase 4): with no viewport active on this focused sheet, MOVE /
+	// COPY / ARRAY / ALIGN / ERASE … act on the selected frames through the same engine (ui/paperCmd.ts) ──
+	let cursorPx: Pt | null = null
+	const paperTarget = paperCmdTarget({
+		k: PAPER_PX_PER_MM,
+		height: () => sheetEl?.offsetHeight ?? 0,
+		frames: () => frames,
+		selected: () => idsOfKind(editor.sel.get(), 'frame'),
+		select: (ids) => editor.sel.only(ids.map((id) => ({ kind: 'frame' as const, id }))),
+		frameAt: (d) => (frameBorderHit({ x: d[0], y: d[1] }) ?? frameHit({ x: d[0], y: d[1] }))?.id ?? null,
+		moveSel: (dx, dy) => items.moveSel(dx, dy),
+		copySel: (offs) => items.copySel(offs),
+		place: (fs) => { const src = frameSource.commit; src.begin(); src.update(fs.flatMap((p) => { const f = frames.find((x) => x.id === p.id); return f ? [{ ...f, x: p.x, y: p.y }] : [] })); src.end() },
+		erase: () => editor.sel.delete(),
+		cursor: () => cursorPx,
+	})
+	$effect(() => {
+		if (!focused || frames.some((f) => isFrameActive(f.id))) return
+		cmdBus.target = paperTarget
+		return () => { if (cmdBus.target === paperTarget) cmdBus.target = null }
+	})
+	/** A running command's point / shape pick (cmdBus.pick) takes this click on the paper. */
+	function pickOnPaper(e: PointerEvent): boolean {
+		const pk = cmdBus.target === paperTarget ? cmdBus.pick : null; if (!pk) return false
+		const s = toSheet(e.clientX, e.clientY), d: Pt = [s.x, s.y], u = paperTarget.toUser(d)!
+		pk.resolve({ p: u, ent: pk.kind === 'ent' ? (paperTarget.entAt(u) ?? undefined) : undefined })
+		return true
+	}
+
 	// Frame pick + marquee (R8-lite): border-band pick and marquee
 	// selection reuse `hit.ts`'s `inBox`/`marqueeSelect` instead of hand-rolled DOM/geometry, so there's one
 	// implementation of each. `PAPER_CTX` is a throwaway `ViewCtx` — the rect-fallback paths of `bbox`/`inBox`
@@ -222,20 +254,40 @@
 	// paper → the engine's selection marquee (window / crossing, Shift / Ctrl unions); the Viewport tool → drag out a
 	// new frame. A frame's interior never selects (Dave: select by the border or a marquee).
 	let placing = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)   // the Viewport tool's box
+	// The Viewport tool draws its box with the RECTANGLE tool's gesture: EOS press-drag, or (ACAD on) click a corner,
+	// click the opposite one; corners snap to the paper lines (Alt off), Esc / another tool cancels.
+	let placeArmed = $state(false)   // ACAD: the first corner is down, the next click places
+	const snapPt = (p: { x: number; y: number }, free: boolean) => { if (free) return p; const l = snapLines(), t = snapTol(); return { x: snapEdge(p.x, l.x, t), y: snapEdge(p.y, l.y, t) } }
+	function finishPlacing() {
+		const m = placing; placing = null; placeArmed = false; if (!m) return
+		const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
+		if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0)
+	}
+	$effect(() => { if (tool !== 'Viewport') untrack(() => { placing = null; placeArmed = false }) })
+	$effect(() => {
+		const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && placing) { placing = null; placeArmed = false } }
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
+	})
+	function onSheetMove(e: PointerEvent) {
+		const s = toSheet(e.clientX, e.clientY); cursorPx = [s.x, s.y]
+		if (placeArmed && placing) { const q = snapPt(s, e.altKey); placing = { ...placing, x1: q.x, y1: q.y } }
+	}
 	function onSheetDown(e: PointerEvent) {
 		// A pointerdown INSIDE an active viewport is that viewport's (drawing/editing) — the sheet must not also start a
 		// paper-space marquee / frame placement. Only presses on the bare paper (or an inactive frame) land here.
 		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click
+		if (pickOnPaper(e)) return   // a running command (MOVE / COPY …) wants this point
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		const p = toSheet(e.clientX, e.clientY)
 		if (tool === 'Viewport') {
-			placing = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
-			beginPointerDrag(e, null, { onMove: (ev) => { const q = toSheet(ev.clientX, ev.clientY); if (placing) placing = { ...placing, x1: q.x, y1: q.y } },
-				onUp: () => { const m = placing; placing = null; if (!m) return
-					const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
-					if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0) },
-				onCancel: () => { placing = null } }, reg)
+			const q = snapPt(p, e.altKey)
+			if (placing && placeArmed) { placing = { ...placing, x1: q.x, y1: q.y }; finishPlacing(); return }   // ACAD: the second click
+			placing = { x0: q.x, y0: q.y, x1: q.x, y1: q.y }
+			beginPointerDrag(e, null, { onMove: (ev) => { const r = snapPt(toSheet(ev.clientX, ev.clientY), ev.altKey); if (placing) placing = { ...placing, x1: r.x, y1: r.y } },
+				onUp: (_ev, _s, moved) => { if (moved) finishPlacing(); else if (env.acad) placeArmed = true; else placing = null },
+				onCancel: () => { placing = null; placeArmed = false } }, reg, { thresholdPx: 4 })
 			return
 		}
 		const border = frameBorderHit(p)
@@ -272,7 +324,7 @@
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
 	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px" style:--tb-inset="{tbInset}px" style:--pad="{PAD + tbInset}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
+		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown} onpointermove={onSheetMove}>
 			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
 			     projection + scale; select by the border band (interior inert), double-click to edit inside,
 			     corner grips resize. The Viewport tool disables the bands so a new frame can be dragged out

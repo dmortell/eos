@@ -24,6 +24,8 @@
 		['Select shapes and 3D objects together', 'Drag a box · Shift / Ctrl+click (they move, copy, nudge and delete together)'],
 		['Sheet viewport: step its scale / pan its contents', 'Alt+wheel / Alt+drag over it'],
 		['Sheet viewports: select several / nudge them', 'Shift+click borders or drag a box · arrows (Shift = 10 mm)'],
+		['Sheet viewports: MOVE / COPY / ARRAY / ALIGN / ERASE (paper mm, e.g. M, 0,0, @20,0)', 'Type the command with no viewport active'],
+		['Draw a new sheet viewport', 'Viewport tool: two clicks (ACAD) or press-drag · Alt = no snap'],
 		['Paste at the cursor (Ctrl+V keeps the position)', 'Ctrl+Shift+V'], ['Zoom to the selection', 'Z, Enter (with a selection)'],
 		['Type a command', 'Just type (over the drawing)'],
 	]
