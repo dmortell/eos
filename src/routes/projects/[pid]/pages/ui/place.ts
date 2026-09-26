@@ -77,6 +77,8 @@ export type GraphOpts = {
 	depthSnap: (p: Pt) => number | null
 	/** Id minter, called with the tool's prefix ('w' / 't' / 'p'). */
 	uid: (prefix: string) => string
+	/** F1: the conduit's profile + plan node height from the spec bar (ui/trunkSpec); unset = the tool's default. */
+	profile?: { w: number; h: number; edges: number; z: number }
 	/** Layer resolver (defaults to `resolveLayer(ctx.mdl, …)`). */
 	layerId?: (id: string) => string | undefined
 }
@@ -91,7 +93,7 @@ export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts)
 	const spec = GRAPH_TOOL[tool]
 	if (!spec || pts.length < 2) return null
 	const layerId = opts.layerId ?? ((id: string) => resolveLayer(ctx.mdl, id))
-	const nodesZ = tool === 'Wall' ? 0 : (ctx.mdl?.levels?.ceilingTile ?? 2600)
+	const nodesZ = tool === 'Wall' ? 0 : (opts.profile?.z ?? ctx.mdl?.levels?.ceilingTile ?? 2600)
 	const ax = ctx.isElev ? ELEV_BASIS[ctx.elevDir].axis : 0
 	const toNode = (p: Pt) => {
 		if (!ctx.isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
@@ -102,7 +104,8 @@ export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts)
 	const { nodes, segments } = polyToGraph(pts.map(toNode))
 	const common = { nodes, segments, layer: layerId(spec.layer), id: opts.uid(spec.tag) }
 	if (spec.kind === 'wall') return { type: 'wall', h: spec.profile.h, thickness: spec.profile.thickness, ...common }
-	return { type: 'conduit', w: spec.profile.w, h: spec.profile.h, edges: spec.profile.edges, ...common }
+	const pr = opts.profile ?? spec.profile
+	return { type: 'conduit', w: pr.w, h: pr.h, edges: pr.edges, ...common }
 }
 
 /** A footprint drag (plan a→b) → a prism on `layer` with height `h` (whole mm, at least 1×1). An

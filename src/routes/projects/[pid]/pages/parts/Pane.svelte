@@ -18,13 +18,14 @@
 	import Viewport from '../ui/Viewport.svelte'
 	import PaperPage from './PaperPage.svelte'
 	import ToolStrip from './ToolStrip.svelte'
+	import TrunkSpecBar from './TrunkSpecBar.svelte'
 	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
 	import { type Proj, type WorkPane, type Workspace, SCALES } from '../types'
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
-	import { FLOOR_MODEL_ID } from '../3dview/models.svelte'
+	import { FLOOR_MODEL_ID, modelById } from '../3dview/models.svelte'
 	import { DEFAULT_MARGIN_MM } from '../constants'
 	import { tick } from 'svelte'
 
@@ -188,6 +189,8 @@
 			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch} persp={gorb.persp} onpersp={(on) => ws.setPersp(p.id, gvp, ws.gizmoProj(p, a), on)}
 				onset={(proj) => ws.gizmoSet(p, a, proj)} />
 		{/if}
+		<!-- F1: the Trunk / Pipe spec bar (what the next run is drawn as) -->
+		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>

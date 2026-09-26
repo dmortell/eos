@@ -21,6 +21,10 @@ open items; `review.md §0a` tracks which review findings are closed.
   3D point at the same zoom (the height comes from the last elevation you looked at).
 - **Perspective 3D**: a **Persp** button under the ViewCube in the 3D view (and the PERSPECTIVE command) switches
   that viewport between the parallel iso and a perspective camera aimed at the model's content; picking follows it.
+- **Trunk / Pipe spec bar** (F1): arming Trunk or Pipe shows a bar over the pane: a catalogue (PF / E conduit,
+  trunking, cable tray, cable ladder, or Custom), Rect / Round, W × H (Ø for round), location (under floor, ceiling
+  plenum, below ceiling, on wall, custom Z) and the resulting underside height from the floor's levels. Remembered per
+  tool (`ui/trunkSpec.svelte.ts`); new runs are drawn with it.
 - **HATCH (2D)**: a rect, ellipse or closed polyline can carry a line pattern (horizontal, vertical, grid, diagonal,
   diagonal cross) at a spacing in model mm (default 300, e.g. cable-ladder rungs). Properties › HATCH; DXF as lines.
 

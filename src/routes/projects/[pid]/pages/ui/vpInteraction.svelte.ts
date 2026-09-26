@@ -30,6 +30,7 @@ import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from
 import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
 import { textDialog } from './textDialog.svelte'
+import { trunkSpecs, specProfile } from './trunkSpec.svelte'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { insertLink } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
@@ -182,7 +183,7 @@ export class VpInteraction {
 		const ax = v.isElev ? ELEV_BASIS[v.elevDir].axis : 0
 		const guide = v.isElev ? selectedPlanGuide(v.mdl.guides ?? [], v.modelSel, ax === 0 ? 'h' : 'v') : null
 		if (v.isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
-		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId })
+		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId, profile: (() => { const s = trunkSpecs.of(v.tool); return s ? specProfile(s, v.mdl?.levels) : undefined })() })
 		if (!o) return
 		if (o.type !== 'conduit') return this.addModelObj(o)
 		const into = commitConduit(v, o)   // F6 attach + F3 join (ui/vpModelEdit.ts)
