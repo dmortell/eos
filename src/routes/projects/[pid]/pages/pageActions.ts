@@ -11,6 +11,7 @@ import type { ModelId } from './3dview/types'
 import { viewToDxf } from './exportDxf'
 import { downloadDxf } from '../sheets/dxf/dxf'
 import { internImage } from './imageStore'
+import { uploadShape, type UploadFile } from './ui/pdfFiles'
 
 /** What the focused pane shows, resolved: the model + direction + the frame's view settings (a sheet) or the tab's. */
 export type ActiveView = {
@@ -42,6 +43,23 @@ export class PageActions {
 		const r = viewToDxf({ model: m, ents: this.#h.entsForModel(v.mid), dir: v.dir, clip: v.clip, yaw: orb.yaw, pitch: orb.pitch, frozen: v.frozen, storeys: v.storeys, scaleN: scaleDenom(v.scale), frameId: v.frameId })
 		downloadDxf(r.text, `${v.title} - ${PROJ_LABEL[v.dir]}`)
 		toast(`Exported ${v.title} (${PROJ_LABEL[v.dir]}): ${r.objects} object${r.objects === 1 ? '' : 's'}, ${r.shapes} shape${r.shapes === 1 ? '' : 's'}${r.skipped ? ` — ${r.skipped} image${r.skipped === 1 ? '' : 's'} left out` : ''}`)
+	}
+
+	/** Insert › From Uploads…: an uploaded PDF page / picture (stored by reference, so it survives a reload) on the
+	 *  active layer — in plan placed by its Uploads calibration (a PDF then follows it live), else centred like
+	 *  addImage; in an elevation on that plane, standing on the ground line. */
+	addUpload = async (f: UploadFile, page: number): Promise<boolean> => {
+		const v = this.#h.activeView()
+		if (!v || v === 'no-frame') { toast('Open a drawing first, then Insert › From Uploads…'); return false }
+		const elev = ELEV.has(v.dir), w = elev ? 4000 : 9000, cx = 14000, cy = elev ? GROUND - w * 0.35 : 8750
+		const base: Ent = { id: newId(), type: 'image', a: [cx - w / 2, cy - w * 0.35], b: [cx + w / 2, cy + w * 0.35], src: '', plane: elev ? (v.dir as ElevDir) : 'plan',
+			lockAspect: true, opacity: f.kind === 'pdf' ? 0.6 : 1, live: f.kind === 'pdf' && !elev ? true : undefined }
+		let e = await uploadShape(base, f, page, !elev).catch(() => null)
+		if (!e) { toast(`Couldn't load ${f.name}`); return false }
+		if (elev) { const h = Math.abs(e.b![1] - e.a![1]); e = { ...e, a: [e.a![0], GROUND - h], b: [e.b![0], GROUND] } }   // stand it on the ground line
+		if (!this.#h.addEnt(v.tabId, e)) return false
+		toast(`${f.name} added to ${modelById(v.mid)?.name ?? 'the model'} on layer “${this.#h.activeLayerName(v.mid)}”.`)
+		return true
 	}
 
 	/** Place an image (a data-URL or URL) on the active layer, sized to its aspect ratio, aspect-locked. The data-URL

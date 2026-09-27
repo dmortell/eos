@@ -31,6 +31,7 @@
 	import StatusBar from './parts/StatusBar.svelte'
 	import CommandLine from './parts/CommandLine.svelte'
 	import HelpDialog from './parts/HelpDialog.svelte'
+	import UploadPicker from './parts/UploadPicker.svelte'
 	import NoteDialog from './parts/NoteDialog.svelte'
 	import { textDialog } from './ui/textDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
@@ -786,6 +787,7 @@
 		else if (item === 'Paste') { const a = active, vid = activeSelViewId(), at = pasteAt; pasteAt = null; if (a && vid) selectPasted(vid, pasteEnts(a.id, at ?? undefined)) }
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
+		else if (item === 'From Uploads…') uploadPick = true
 		else if (item === 'Outlet') { if (active) armBlock(outletSticky.block) }   // E1: the last-used outlet block, sticky ports / type / layer, next label
 		// Insert › a drawing tool (Box = the Furniture tool): arms it in the focused pane, like the tool strip
 		else if (MENU_TOOL[item] || TOOLS.some((t) => t.name === item)) { const p = session.panes[session.focused]; if (active && p) setPaneTool(p, MENU_TOOL[item] ?? item) }
@@ -920,7 +922,8 @@
 		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId ?? FLOOR_MODEL_ID, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
 	}
 	// File › Export… (DXF) and Insert › Image… — pageActions.ts
-	const { exportActiveDxf, addImage, importImage } = new PageActions({
+	let uploadPick = $state(false), uploadBusy = $state(false)   // Insert › From Uploads… (parts/UploadPicker)
+	const { exportActiveDxf, addImage, importImage, addUpload } = new PageActions({
 		activeView, orbitOf, entsForModel, addEnt: (t, e) => addEnt(t, e),
 		activeLayerName: (mid) => activeLayerIn(modelById(mid)?.layers ?? [])?.name ?? '—',
 	})
@@ -1286,6 +1289,16 @@
 	{/if}
 	{#if bookIds}<PrintBook ids={bookIds} api={bookApi} onclose={() => (bookIds = null)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
+	{#if uploadPick}
+		<!-- Insert › From Uploads…: an uploaded PDF page / picture into the active drawing -->
+		<div class="up-dlg-back" role="presentation" onclick={() => (uploadPick = false)}>
+			<div class="up-dlg" role="dialog" aria-label="Insert from Uploads" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') uploadPick = false }}>
+				<div class="up-dlg-head">Insert from Uploads</div>
+				<UploadPicker action="Insert" busy={uploadBusy} oncancel={() => (uploadPick = false)}
+					onpick={async (f, pg) => { uploadBusy = true; try { if (await addUpload(f, pg)) uploadPick = false } finally { uploadBusy = false } }} />
+			</div>
+		</div>
+	{/if}
 	{#if helpOpen}<HelpDialog onclose={() => (helpOpen = false)} onrun={(id) => { const c = commandById(id); if (c) cmdRunner.run(primaryName(c)) }} />{/if}
 	{#if textDialog.req}{@const r = textDialog.req}{#key r}<NoteDialog text={r.text} plain={r.plain} width={r.width ?? 90} fontPt={r.fontPt ?? 8} onclose={() => textDialog.close()} onapply={(t) => { r.apply(t); textDialog.close() }} />{/key}{/if}
 	{#if defaultsOpen && proj.store}<DrawingDefaultsDialog value={proj.store.project?.drawingDefaults} onchange={(d) => proj.store?.saveDrawingDefaults(d)} onclose={() => (defaultsOpen = false)} />{/if}
@@ -1425,6 +1438,9 @@
 </div>
 
 <style>
+	.up-dlg-back { position:fixed; inset:0; z-index:120; background:#0006; display:flex; align-items:center; justify-content:center; }
+	.up-dlg { width:min(340px, 92vw); background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 20px 60px #0009; padding:10px 8px 6px; }
+	.up-dlg-head { font-size:13px; font-weight:600; color:var(--text); margin:0 6px 6px; }
 	/* Number inputs: Chrome's spin arrows sit at the right, so the caret of an EMPTY right-aligned field hid against
 	   them — a little right padding, and an empty field (placeholder showing) types from the left. */
 	.shell :global(input[type='number']) { padding-right: 4px; }

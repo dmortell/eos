@@ -25,6 +25,11 @@ open items; `review.md §0a` tracks which review findings are closed.
   load had them (a late async cleanup), so opening a place found "no model" and created + stored an empty duplicate
   (Test Project got a second, empty "4F"). The registry now tracks which load owns each model, and a place's model is
   looked up in the store's own list before one is ever created.
+- **Replace / insert PDFs and pictures from Uploads** (`ui/pdfFiles.ts`, `parts/UploadPicker.svelte`): Properties ›
+  IMAGE › File › Replace… swaps an image's PDF page / picture for another uploaded one (this project's first, then other
+  projects' — only referenced), placed by its Uploads calibration (else keeping the size); layer, opacity, live stay.
+  Insert › From Uploads… adds one (a PDF follows its calibration live; in an elevation it stands on the ground line).
+  Tested: Test Project › 4F's floorplan replaced with Project Journey's "L3303 Plan Clean-EIRE.pdf".
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).

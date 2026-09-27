@@ -20,6 +20,8 @@
 	import { hatchOutline } from '../../ui/annotations'
 	import { incLabel } from '../../ui/outletPlace.svelte'
 	import { isOutletEnt } from '../../store/allocate'
+	import { uploadShape, pdfOf, type UploadFile } from '../../ui/pdfFiles'
+	import UploadPicker from '../UploadPicker.svelte'
 
 	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
 		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
@@ -99,6 +101,12 @@
 	const mixedColor = $derived(new Set(ents.map((e) => e.color)).size > 1)
 	const mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { onupdate?.(ents.map((e) => ({ ...e, ...patch }))) }
+	// IMAGE › Replace…: another uploaded PDF page / picture (parts/UploadPicker), placed by its Uploads calibration
+	let pdfPick = $state(false), pdfBusy = $state(false)
+	async function applyPdfPick(e: Ent, f: UploadFile, pg: number) {
+		pdfBusy = true
+		try { onupdate?.(await uploadShape(e, f, pg)); pdfPick = false } finally { pdfBusy = false }
+	}
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 	let blockName = $state<string | null>(null)
 	/** The large editor dialog (+page renders it; ui/textDialog): a wrapped text's markdown, or a plain text's lines. */
@@ -330,7 +338,15 @@
 	<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing), greyscale + CROP
 	     (visible sub-rect of the source, as %). Real backend stores these against the fileId (§4). -->
 	{@const cr = single.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
+	{@const cur = pdfOf(single)}
 	<div class="prop-sec">IMAGE</div>
+	<!-- the PDF (page) it shows, and Replace…: another uploaded PDF / page, placed from ITS Uploads calibration -->
+	<div class="prop"><span>File</span>
+		<span class="pdf-cur" title={cur ? `${cur.fileId} · page ${cur.page}` : single.src?.startsWith('img:') ? 'From this computer — kept only until the page reloads; replace it with an uploaded file' : single.src}>{cur ? `${cur.fileId}${cur.page > 1 ? ` · p${cur.page}` : ''}` : single.src?.startsWith('img:') ? '(local picture — not saved)' : decodeURIComponent(single.src?.split('/').pop() ?? '(picture)')}</span>
+		<button class="pp-mini" title="Show another uploaded PDF page or picture (Uploads tool)" onclick={() => (pdfPick = true)}>Replace…</button></div>
+	{#if pdfPick}
+		<UploadPicker current={cur} busy={pdfBusy} onpick={(f, pg) => void applyPdfPick(single!, f, pg)} oncancel={() => (pdfPick = false)} />
+	{/if}
 	<div class="prop"><span>Opacity %</span><input class="navf" type="number" min="10" max="100" step="5" value={Math.round((single.opacity ?? 1) * 100)} onkeydown={fnav} onchange={(e) => setAll({ opacity: Math.max(0.05, Math.min(1, num(e) / 100)) })} /></div>
 	{#if single.src?.startsWith('pdf:')}
 		<!-- I6: a floorplan page can follow its Uploads calibration live; moving / scaling / cropping it here unlinks it -->
