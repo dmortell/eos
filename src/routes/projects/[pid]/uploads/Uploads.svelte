@@ -5,6 +5,7 @@
 	import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 	import { nanoid } from 'nanoid'
 	import { toast } from 'svelte-sonner'
+	import { CAD_FILE, CAD_UPLOAD_MAX_MB } from '../pages/constants'
 	import { createUploadThing } from './uploader'
 	import { providerLabel, inferProvider, type FileProvider } from './provider'
 	import { fileProjectIds, fileInProject, fileIsShared, membershipPayload } from '$lib/files'
@@ -174,7 +175,14 @@
 			setTimeout(() => { uploadError = '' }, 5000)
 			return
 		}
-		const arr = Array.from(fileList)
+		// DXF / DWG are accepted up to CAD_UPLOAD_MAX_MB (pages/constants.ts) for now; bigger ones are skipped with a message
+		const tooBig = Array.from(fileList).filter((f) => CAD_FILE.test(f.name) && f.size > CAD_UPLOAD_MAX_MB * 1024 * 1024)
+		if (tooBig.length) {
+			uploadError = `${tooBig.map((f) => f.name).join(', ')}: DXF / DWG files are limited to ${CAD_UPLOAD_MAX_MB} MB for now`
+			setTimeout(() => { uploadError = '' }, 6000)
+		}
+		const arr = Array.from(fileList).filter((f) => !tooBig.includes(f))
+		if (!arr.length) return
 		uploading = true
 		uploadError = ''
 		for (const f of arr) uploadProgress[f.name] = 0
@@ -286,6 +294,7 @@
 	}
 
 	function openFile(file: FileDoc, tool?: string) {
+		if (CAD_FILE.test(file.name ?? file.id)) { toast('No preview for DXF / DWG yet — it is stored here for Pages (DXF import is on the way)'); return }
 		const url = `/projects/${projectId}/uploads/${encodeURIComponent(file.id)}` + (tool ? `?tool=${tool}` : '')
 		goto(url)
 	}
@@ -356,7 +365,7 @@
 
 <Titlebar menu={true} title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
 
-<input bind:this={fileInput} type="file" accept=".pdf,image/*" multiple class="hidden" onchange={onInputChange} disabled={storageFull} />
+<input bind:this={fileInput} type="file" accept=".pdf,image/*,.dxf,.dwg" multiple class="hidden" onchange={onInputChange} disabled={storageFull} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="flex-1 overflow-hidden flex flex-col bg-gray-50" style="height: calc(100vh - 33px)"
@@ -511,7 +520,9 @@
 
 								<!-- Origin / Scale status -->
 								<div class="flex items-center gap-2">
-									{#if !status.hasOrigin}
+									{#if CAD_FILE.test(file.name ?? file.id)}
+										<span class="text-[10px] text-gray-500" title="A CAD drawing — real mm coordinates, no calibration needed">CAD</span>
+									{:else if !status.hasOrigin}
 										<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
 											title="Set origin" onclick={(e) => { e.stopPropagation(); openFile(file, 'origin') }}>Set origin</button>
 									{:else if !status.hasScale}
