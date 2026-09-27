@@ -189,7 +189,7 @@
 			<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
 			<!-- ViewCube re-orients the view's content in place (the sheet's paper viewport too) — it
 			     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
-			{@const gvp = ws.activeVpOf(a.id) ?? a.id}
+			{@const gvp = a.kind === 'sheet' ? (ws.targetFrameOf(a.id)?.id ?? a.id) : (ws.activeVpOf(a.id) ?? a.id)}
 			{@const gorb = ws.orbitOf(p.id, gvp, ws.gizmoProj(p, a))}
 			{@const vprev = ws.viewPreviewOn(a.id)}
 			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch} view3d={gorb.view3d} onview3d={(m) => ws.setView3d(p.id, gvp, 'iso', m)}
@@ -198,7 +198,7 @@
 				<!-- a previewed direction change (ViewCube / 3D popout): Keep it, or it reverts on leaving the viewport -->
 				<div class="vprev" title="The viewport's direction changes only if you Keep it — leaving the viewport reverts it">
 					<span>Preview · was {vprev.orig === 'iso' ? '3D' : vprev.orig.toUpperCase()}</span>
-					<button class="keep" onclick={() => ws.keepView(vprev.frameId)}>Keep</button><button onclick={() => ws.revertView(vprev.frameId)}>Revert</button>
+					<button class="keep" onclick={() => vprev.ids.forEach(ws.keepView)}>Keep</button><button onclick={() => vprev.ids.forEach(ws.revertView)}>Revert</button>
 				</div>
 			{/if}
 		{/if}

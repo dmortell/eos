@@ -139,7 +139,9 @@ export type Workspace = {
 	/** A section-line frame's ground-line title ("SECTION A–A′"); undefined = the viewport's own. */
 	frameViewTitle: (f: SheetFrame, tabId?: string) => string | undefined
 	/** A sheet viewport's previewed direction change: its original, and Keep / Revert. */
-	viewPreviewOn: (tabId: string) => { frameId: string; orig: Proj } | null
+	viewPreviewOn: (tabId: string) => { frameId: string; orig: Proj; ids: string[] } | null
+	/** The sheet frame the view tools act on: active → selected → the only one; null = none picked. */
+	targetFrameOf: (tabId: string) => SheetFrame | null
 	keepView: (frameId: string) => void
 	revertView: (frameId: string) => void
 	envFor: (pane: { id: string; activeId: string }) => import('./ui/vpTypes').Env

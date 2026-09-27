@@ -550,10 +550,20 @@
 	}
 	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
-	// The ViewCube reflects + re-aims a SHEET's active frame (or its first frame); a model-layout tab uses
-	// the per-pane viewState projection as before.
+	/** The sheet frames the view tools (ViewCube, 3D popout, PERSPECTIVE, export, fit) act on: the ACTIVE viewport; else
+	 *  the frames SELECTED on paper; else the sheet's only frame; else none (several frames, none picked — the tools
+	 *  ask for one rather than guessing the first). */
+	function targetFramesOf(tabId: string): SheetFrame[] {
+		const fs = framesOf(tabId), av = activeVpOf(tabId)
+		const act = av && av !== tabId ? fs.find((f) => f.id === av) : null; if (act) return [act]
+		const sel = new Set(idsOfKind(selStore.of(tabId), 'frame')), picked = fs.filter((f) => sel.has(f.id))
+		return picked.length ? picked : fs.length === 1 ? fs : []
+	}
+	function targetFrameOf(tabId: string): SheetFrame | null { return targetFramesOf(tabId)[0] ?? null }
+	// The ViewCube reflects + re-aims a SHEET's target frame (above); a model-layout tab uses the per-pane viewState
+	// projection as before.
 	const gizmoProj = (pane: { id: string }, a: Tab | null): Proj => {
-		if (a?.kind === 'sheet') { const av = activeVpOf(a.id); const f = (av ? framesOf(a.id).find((x) => x.id === av) : null) ?? framesOf(a.id)[0]; return (f?.proj ?? 'plan') as Proj }
+		if (a?.kind === 'sheet') return (targetFrameOf(a.id)?.proj ?? 'plan') as Proj
 		return projOf(pane, a)
 	}
 	// A sheet viewport's DIRECTION change (ViewCube / 3D popout) is a PREVIEW until "Keep" (Dave 2026-09-26: a front view
@@ -581,13 +591,17 @@
 	})
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
 		if (a?.kind === 'sheet') {
-			const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; const f = framesOf(a.id).find((x) => x.id === av)
-			// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
-			// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
-			if (av && f && proj !== 'iso' && !viewState.hasView(pane.id, didOf(av), proj)) centreFrameContent(pane.id, a.id, f, proj)
-			if (av && f && !viewPreview[av]) viewPreview = { ...viewPreview, [av]: { tab: a.id, orig: f.proj as Proj, label: f.label, wasActive: isVpActive(av) } }
-			if (av) updateFrame(a.id, av, f?.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
-			if (av && viewPreview[av]?.orig === proj) { const { [av]: _, ...rest } = viewPreview; viewPreview = rest }   // back where it started
+			const fs = targetFramesOf(a.id)
+			if (!fs.length) { toast('Select a viewport first — click its border (or double-click into it)'); return }
+			for (const f of fs) {
+				const av = f.id
+				// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
+				// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
+				if (proj !== 'iso' && !viewState.hasView(pane.id, didOf(av), proj)) centreFrameContent(pane.id, a.id, f, proj)
+				if (!viewPreview[av]) viewPreview = { ...viewPreview, [av]: { tab: a.id, orig: f.proj as Proj, label: f.label, wasActive: isVpActive(av) } }
+				updateFrame(a.id, av, f.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
+				if (viewPreview[av]?.orig === proj) { const { [av]: _, ...rest } = viewPreview; viewPreview = rest }   // back where it started
+			}
 		}
 		else if (a) { carryFocus(pane.id, a.id, projOf(pane, a), proj, scaleDenom(scaleOf(a.id))); viewState.setProj(pane.id, didOf(a.id), proj) }
 	}
@@ -659,12 +673,11 @@
 	// a view of a model that's missing (archived / unknown) shows no shapes — never another model's
 	const entsForModel = (mid?: ModelId): Ent[] => (mid != null ? (modelById(mid)?.archived ? [] : modelById(mid)?.shapes ?? []) : modelById(FLOOR_MODEL_ID)?.shapes ?? [])
 	// The model a tab's ACTIVE viewport edits: the active sheet frame's model; else (no active frame, e.g.
-	// an image imported without entering a viewport) the FIRST frame's model; else the tab's own model; else
-	// the floor. Drawing needs an active viewport, so the fallbacks only bite for viewport-less actions.
+	// an image imported without entering a viewport) the SELECTED (or only) frame's, else the first frame's model; else
+	// the tab's own model; else the floor. Drawing needs an active viewport, so the fallbacks only bite for
+	// viewport-less actions.
 	function modelIdOf(tabId: string): ModelId {
-		const av = activeVpOf(tabId)
-		if (av && av !== tabId) { const f = framesOf(tabId).find((x) => x.id === av); if (f?.modelId != null) return f.modelId }
-		return framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
+		return targetFrameOf(tabId)?.modelId ?? framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
 	const mdlEntsOf = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
 	/** F12: a conduit of a model by id (a fill-rate frame's content). */
@@ -1048,7 +1061,8 @@
 		saveNamedViews: (v) => { try { localStorage.setItem(namedViewKey(), JSON.stringify(v)) } catch { /* private mode */ } },
 		perspective: (on) => {
 			const p = session.panes[session.focused], a = p && session.tabs.find((t) => t.id === p.activeId); if (!p || !a) return 'No view'
-			const vid = activeVpOf(a.id) ?? a.id, pr = gizmoProj(p, a)
+			const vid = a.kind === 'sheet' ? targetFrameOf(a.id)?.id : a.id, pr = gizmoProj(p, a)
+			if (!vid) return 'Select a viewport first — click its border (or double-click into it)'
 			if (pr !== 'iso') return 'PERSPECTIVE works in the 3D view (switch to 3D first)'
 			const next = on ?? viewState.getView3d(p.id, didOf(vid), pr) === 'iso'; viewState.setView3d(p.id, didOf(vid), pr, next ? 'persp' : 'iso'); return next
 		},
@@ -1059,11 +1073,12 @@
 			return { name: l.name }
 		},
 	})
-	// The focused pane's ACTIVE VIEW: a sheet's active frame (else its first), or a model tab's own view.
+	// The focused pane's ACTIVE VIEW: a sheet's target frame (active → selected → the only one; else its first), or a
+	// model tab's own view.
 	function activeView(): ActiveView | null | 'no-frame' {
 		const p = session.panes[session.focused], a = active; if (!p || !a) return null
 		if (a.kind === 'sheet') {
-			const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av) ?? framesOf(a.id)[0]
+			const f = targetFrameOf(a.id) ?? framesOf(a.id)[0]
 			if (!f) return 'no-frame'
 			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: liveClip(f, a.id), frozen: f.frozen, storeys: f.storeys, frameId: f.id }
 		}
@@ -1425,7 +1440,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, removeFramesInPlace, liveClip, liveOClip, frameViewTitle, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, removeFramesInPlace, liveClip, liveOClip, frameViewTitle, keepView, revertView, viewPreviewOn: (tabId: string) => { const es = Object.entries(viewPreview).filter(([, p]) => p.tab === tabId); return es.length ? { frameId: es[0][0], orig: es[0][1].orig, ids: es.map(([id]) => id) } : null }, targetFrameOf, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>

@@ -28,6 +28,9 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   section lines; W × H for boxes; the measured value for H / V dims; the applied Δ while moving or grip-dragging shapes /
   3D objects; from the base point in MOVE / COPY picks; Δ from the selected guide when placing a guide. It flips to the
   cursor's other side near the viewport's edge.
+- Fix: the ViewCube / 3D popout / PERSPECTIVE / export on a sheet acted on the FIRST viewport when none was active,
+  even with another one selected. They now act on the active viewport, else the selected one(s), else the sheet's only
+  one; with several and none picked they ask (`targetFramesOf`).
 - Fix: a word answering the prompt's options (H while dimensioning) was replaced by the top command suggestion
   (HISTORY) on Enter.
 - Viewport tool: **right-click** cancels a box being placed, or with nothing pending goes back to Select (like every
