@@ -1,6 +1,11 @@
 # Sections at any angle + the Elevation tool — plan
 
-**Status:** plan, 2026-09-27 (todo #17 "O4 section marker" + #1 "Elevation tool"). Not started.
+**Status:** plan APPROVED 2026-09-27 (Dave: "looks fine, implement when ready"). Todo #17 "O4 section marker" + #1
+"Elevation tool". Dave's review notes: OpenCad's section marker looks great (keep its FLIP to change the look
+direction); its elevations look good — objects BEHIND walls are properly hidden unless seen through holes (doors /
+windows / openings), which needs DEPTH; sections at any angle matter (drawings with non-orthogonal rooms).
+Decisions (§5) taken as recommended: box sections stay alongside line sections; the elevation marker uses the eltag
+look; numbering per model (E1, E2 …) — revisit if Dave objects.
 
 ## 1. What Dave asked for
 
@@ -67,6 +72,7 @@ type ElevFrame = { o: Pt; t: Pt; n: Pt }   // origin (plan mm), unit along the v
 | 3 | **Section line** (O4): tool, render (dashed + arrows + A / A′), grips, Properties (name, depth, flip), drop-as-sheet linked | M |
 | 4 | **Elevation marker** + tool + ELEV command, numbered callout, drop-as-sheet linked | M |
 | 5 | Editing 3D objects inside oblique views; DXF export of oblique views | M |
+| 6 | **Hidden lines in elevations / sections** (Dave): what is behind a wall (by depth along `n`) is hidden, except where the wall has an opening — clip each object's projected faces by the nearer walls' projected panels (walls are already cut into panels around openings, `openingCuts` / `segmentGaps`), nearest first; a flag per view ("Hidden lines", default on) | M–L |
 
 Each phase: one commit, unit tests (projection of a known box at 30°: u / depth values; clip of a wall crossing the
 line), Help + CHANGELOG, live check on Test Project.
