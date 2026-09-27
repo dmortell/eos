@@ -168,6 +168,14 @@ export function frameAt(o: Pt, deg: number): ElevFrame {
 	const r = (deg * Math.PI) / 180, z = (x: number) => (Math.abs(x) < 1e-12 ? 0 : x)
 	return mkFrame(o, [z(Math.sin(r)), z(-Math.cos(r))])
 }
+/** The frame whose horizontal runs along the plan line a→b (a section's CUT line, phase 2's OClip): t = unit(b − a),
+ *  looking along its right-hand normal n, about `o` (default a). An axis-aligned line gives exact ±1 / 0 components. */
+export function frameOnLine(a: Pt, b: Pt, o: Pt = a): ElevFrame {
+	const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1
+	return mkFrame(o, dy === 0 ? [dx < 0 ? -1 : 1, 0] : dx === 0 ? [0, dy < 0 ? -1 : 1] : [dx / len, dy / len])
+}
+/** The plan angle a frame looks along (degrees, 0..360, frameAt's convention: 90 = front) — for labels. */
+export const frameAngle = (f: ElevFrame): number => { const d = (Math.atan2(f.n[1], f.n[0]) * 180) / Math.PI; return Math.round((d < 0 ? d + 360 : d) * 1e6) / 1e6 }
 /** The plan axis an axis-aligned frame's horizontal runs along (0 = x, 1 = y); null when oblique. */
 export const frameAxis = (f: ElevFrame): 0 | 1 | null => (f.t[1] === 0 ? 0 : f.t[0] === 0 ? 1 : null)
 /** A plan point → the drawing's horizontal u (= elevU of its on-axis coord for the four dirs). */
@@ -240,8 +248,12 @@ export const rectPts = (x0: number, y0: number, x1: number, y1: number): Pt[] =>
 
 // Horizontal drawing span [min,max] of a flat (z=0) object seen edge-on in an elevation dir.
 export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [number, number] {
+	return flatSpanOf(e, frameOf(dir, cx, cy))
+}
+/** `flatSpan` in any view frame (an oblique one too — the ground line is the shape's along-t extent). */
+export function flatSpanOf(e: Ent, f: ElevFrame): [number, number] {
 	const pts = e.type === 'polyline' || e.type === 'arc' ? (e.type === 'arc' ? arcPts(e) : e.pts ?? []) : [e.a!, e.b ?? e.a!]   // a point (insert / text) → its a
-	return frameSpan(frameOf(dir, cx, cy), pts)
+	return frameSpan(f, pts)
 }
 
 export const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])

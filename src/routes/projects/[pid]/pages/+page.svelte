@@ -76,7 +76,8 @@
 	import { modelForPlace } from './3dview/models.svelte'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
-	import { objBounds } from './3dview/projection'
+	import { objBounds, oclipOf, oclipWidth } from './3dview/projection'
+	import { devObliqueFrame } from './ui/devOblique'
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
@@ -279,8 +280,8 @@
 		ensureHist(sheet.id)
 		const fid = newFrameId()
 		// the frame takes the ELEVATION's proportions (along the view axis × the cut's height), not the plan box's
-		// oblique: phase 2 — the axis-aligned clip's extent along the view axis (an OClip has its own width)
-		const along = Math.abs(frameAxis(frameOf(dir)) === 0 ? clip.x1 - clip.x0 : clip.y1 - clip.y0) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
+		// (the clip seen through the dir's frame: its oriented clip's width = the box's extent along the view axis)
+		const along = oclipWidth(oclipOf(clip, frameOf(dir))) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
 		const W = 420, H = Math.max(120, Math.min(520, Math.round((W * tall) / along)))
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		const seq = nextFrameSeq(framesOf(sheet.id))
@@ -373,8 +374,9 @@
 		// a riser drawing with hidden floors fits its COLLAPSED extent (as drawn)
 		const elev = f.proj !== 'plan' && f.proj !== 'iso'
 		const sm = elev && f.storeys && mdl.storeys?.length ? storeyMap(mdl.storeys, f.storeys) : null, vs = elev ? BASIS[f.proj as ElevDir].vs : 1
+		const clip = liveClip(f, a2.id), dfr = elev ? devObliqueFrame(f.id) : null   // DEV: an oblique view (ui/devOblique.ts) fits as drawn
 		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
-			{ yaw: orb.yaw, pitch: orb.pitch, clip: liveClip(f, a2.id), mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
+			{ yaw: orb.yaw, pitch: orb.pitch, clip, frame: dfr, oclip: dfr && clip ? oclipOf(clip, dfr) : null, mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
 				visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')

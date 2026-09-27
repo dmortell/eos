@@ -4,7 +4,7 @@
 // pass, P1) and the drafting flags come in as arguments. Graph-node snapping (snapNode/graphNodeApply)
 // and the elevation depth snap (elevDepthSnap) take the tolerances in model mm + the model-layer preds.
 import type { Pt, Ent } from './geometry'
-import { ctxFrame, type ViewCtx, type MLayers } from './view'
+import { ctxFrame, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
 import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3 } from './geometry'
@@ -67,7 +67,7 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 /** `entSnaps`, cached per shape (shapes are replaced on edit, never mutated) and view. */
 const snapCache = new WeakMap<Ent, { k: string; s: EntSnap[] }>()
 function cachedSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
-	const k = `${ctx.dir}|${ctx.elevDir}|${ctx.paperMm}|${ctx.ground}`, c = snapCache.get(e)
+	const k = `${ctx.dir}|${ctx.elevDir}|${ctx.paperMm}|${ctx.ground}|${frameKey(ctx)}`, c = snapCache.get(e)
 	if (c && c.k === k) return c.s
 	const s = entSnaps(ctx, e); snapCache.set(e, { k, s }); return s
 }
@@ -312,7 +312,8 @@ export type DepthSnap = { off: number; a: Pt; b: Pt }
 export function elevDepthSnap(ctx: ViewCtx, p: Pt, tolMm: number, ml: MLayers): DepthSnap | null {
 	const mdl = ctx.mdl; if (!ctx.isElev || !mdl) return null
 	const f = ctxFrame(ctx), ax = frameAxis(f)
-	// oblique: phase 2 — `off` is an axis-aligned model coord (y / x) the placers write back; a frame depth then
+	// oblique: phase 5 — `off` is an axis-aligned model coord (y / x) the placers write back; an oblique view would need a
+	// frame depth (frameDepth) + frameInv. Unreached there today: drawing walls / trunks in an oblique view is off (read-only).
 	const onC = (n: GN) => frameAlong(f, [n.x, n.y]), offC = (n: GN) => (ax === 0 ? n.y : n.x)
 	const pu = uToAlong(f, p[0]), pz = ctx.ground - p[1]   // the drawn point's along coord (model on-axis) + z
 	let best: DepthSnap | null = null, bestD = tolMm

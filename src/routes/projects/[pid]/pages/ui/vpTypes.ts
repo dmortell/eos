@@ -7,8 +7,8 @@
 // bracket (`edit`), section drops (`sections`) and the per-viewport Selection (`sel`) — defaulting to
 // `noopEditor` so every call site can read `editor.ents.add(e)` etc. directly, no `?.`. Drafting/interaction
 // flags are grouped into one `env` object.
-import type { Ent, View, ElevDir } from './geometry'
-import type { Clip } from '../3dview/types'
+import type { Ent, View, ElevDir, ElevFrame } from './geometry'
+import type { Clip, OClip } from '../3dview/types'
 import type { Editor } from './editor'
 
 export type Env = {
@@ -53,4 +53,8 @@ export type VpProps = {
 	/** In split view only the focused pane's instance handles keys and drives the shared status line. */
 	focused?: boolean
 	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; /** the orbit view is a PERSPECTIVE (not parallel) */ persp?: boolean; /** the orbit view as a WIREFRAME (edges only) */ wire?: boolean
+	/** An elevation's explicit VIEW FRAME + ORIENTED clip (elevation-section-plan.md phase 2): an oblique section /
+	 *  elevation. Phases 3–4 pass them from a section line / elevation marker; unset = the `kind` dir's own frame
+	 *  (and `clip`). (Dev: ui/devOblique.ts sets an angle from the console.) */
+	frame?: ElevFrame | null; oclip?: OClip | null
 }

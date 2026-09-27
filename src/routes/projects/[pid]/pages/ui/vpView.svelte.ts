@@ -7,7 +7,8 @@
 // injects the view (`ctx`, tolerances, layer predicates) into them.
 import { untrack } from 'svelte'
 import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom } from '../constants'
-import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY, frameOf, frameSpan, rectPts } from './geometry'
+import { type Pt, type Ent, type View, type ElevDir, type ElevFrame, GROUND, PLAN_CX, PLAN_CY, frameOf, frameAxis, frameAngle, frameU, frameSpan, rectPts } from './geometry'
+import { devObliqueFrame } from './devOblique'
 import { makeMapper, type Mapper } from './mapper'
 import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
@@ -23,8 +24,8 @@ import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
 import { imgEdit } from '../imageEdit.svelte'
-import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, type Persp } from '../3dview/projection'
-import { BASIS, type Obj, type Clip } from '../3dview/types'
+import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
+import { BASIS, type Obj, type Clip, type OClip } from '../3dview/types'
 import { storeyMap } from '../3dview/storeyMap'
 
 export const INK = '#475569', SEL = '#0e7490'
@@ -98,12 +99,33 @@ export class VpView {
 	get clip() { return this.p.clip ?? null }
 	get yaw() { return this.p.yaw ?? DEFAULT_YAW }
 	get pitch() { return this.p.pitch ?? DEFAULT_PITCH }
-	/** An elevation's GROUND LINE span (drawing u): the section clip along the view's axis, else the visible model's extent
-	 *  (+ a margin), else a default — so a section's elevation doesn't draw a ground line across the whole sheet. */
+	/** Phase 2 (elevation-section-plan.md): an elevation's EXPLICIT view frame — the `frame` prop, else the `oclip` prop's
+	 *  cut-line frame (a section line / elevation marker hands these in, phases 3–4), else a DEV console angle
+	 *  (ui/devOblique.ts); about the plan centre. null = the `kind` dir's own frame (every existing view). */
+	obFrame = $derived.by((): ElevFrame | null => {
+		if (!ELEV.has(this.kind)) return null
+		if (this.p.frame) return this.p.frame
+		if (this.p.oclip) return oclipFrame(this.p.oclip, [CX, CY])
+		return devObliqueFrame(this.frameId)
+	})
+	/** Its ORIENTED clip: the `oclip` prop, else — an explicit frame over a section's box — the frame-aligned OClip
+	 *  covering `clip` (projection oclipOf). null without an explicit frame (the axis `clip` path, unchanged). */
+	oclip = $derived.by((): OClip | null => (!this.obFrame ? null : this.p.oclip ?? (this.clip ? oclipOf(this.clip, this.obFrame) : null)))
+	/** The elevation's view frame: its explicit one, else the dir's about the plan centre (= ctxFrame(ctx)). */
+	elevFrame = $derived.by(() => this.obFrame ?? frameOf(this.elevDir, CX, CY))
+	/** An OBLIQUE view (a frame off the four axes): 3D objects are read-only in it until phase 5 (no grips / moves /
+	 *  graph drawing; picking still selects). */
+	oblique = $derived(!!this.obFrame && frameAxis(this.obFrame) === null)
+	/** The elevation's name on its ground line: the dir, or an explicit frame's look angle. */
+	elevLabel = $derived.by(() => (this.obFrame ? `${Math.round(frameAngle(this.obFrame) * 10) / 10}°` : this.elevDir.toUpperCase()))
+	/** An elevation's GROUND LINE span (drawing u): the section clip along the view's axis (an oriented clip: its cut
+	 *  line), else the visible model's extent (+ a margin), else a default — so a section's elevation doesn't draw a
+	 *  ground line across the whole sheet. */
 	groundSpan = $derived.by((): [number, number] => {
 		if (this.kind === 'plan' || this.kind === 'iso') return [0, 0]
-		const f = frameOf(this.kind as ElevDir), c = this.clip, pts: Pt[] = []
-		if (c) pts.push(...rectPts(c.x0, c.y0, c.x1, c.y1))   // oblique: phase 2 (an oriented clip's own width)
+		const f = this.elevFrame, c = this.clip, oc = this.oclip, pts: Pt[] = []
+		if (oc) { const a = frameU(f, oc.a), b = frameU(f, oc.b); return [Math.min(a, b), Math.max(a, b)] }
+		if (c) pts.push(...rectPts(c.x0, c.y0, c.x1, c.y1))
 		else for (const o of this.mdl?.objects ?? []) { if (!this.mlayers.visible(o)) continue; const b = objBounds(o); pts.push(...rectPts(b.x0, b.y0, b.x1, b.y1)) }
 		const [a, b] = frameSpan(f, pts), pad = c ? 0 : 500
 		if (!isFinite(a)) return [PLAN_CX - 20000, PLAN_CX + 20000]
@@ -140,9 +162,11 @@ export class VpView {
 	isPlan = $derived(this.kind === 'plan')
 	// iso (oblique) editing deferred to the 3D camera; a riser frame with collapsed floors (`storeys`) is view-only
 	// — its picking / grips would sit at the uncollapsed heights (edit in the model tab)
-	modelEditable = $derived.by(() => (this.isPlan || this.isElev) && !this.p.storeys)
-	/** Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none. */
-	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev ? this.elevDir : null)
+	// — and an OBLIQUE elevation is read-only for 3D objects until phase 5 (its grips would edit x / w or y / d)
+	modelEditable = $derived.by(() => (this.isPlan || this.isElev) && !this.p.storeys && !this.oblique)
+	/** Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none — nor has an oblique view (a
+	 *  guide's `plane` is an ElevDir; its drawn position means nothing through another frame). */
+	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev && !this.oblique ? this.elevDir : null)
 	/** The model the `modelId` prop asks for is ARCHIVED or unknown (drawings-plan §2.3): the viewport shows a
 	 *  "Missing model" placeholder instead of quietly falling back to another model. */
 	missing = $derived.by((): { name: string | null; unmapped?: string } | null => {
@@ -273,7 +297,8 @@ export class VpView {
 	/** Model mm per paper mm — ANNOTATIVE sizes (dim text/arrows, cloud bumps, text, section labels) are a
 	 *  fixed size ON PAPER (B3), unlike gripSize which is screen-constant. */
 	paperMm = $derived(1 / (this.dscale || 1))
-	ctx = $derived<ViewCtx>({ dir: this.kind, isPlan: this.isPlan, isElev: this.isElev, isIso: this.kind === 'iso', elevDir: this.elevDir, cx: CX, cy: CY, ground: GROUND, frameId: this.frameId, paperMm: this.paperMm, mdl: this.mdl, yaw: this.yaw, pitch: this.pitch, persp: this.persp })
+	ctx = $derived<ViewCtx>({ dir: this.kind, isPlan: this.isPlan, isElev: this.isElev, isIso: this.kind === 'iso', elevDir: this.elevDir, cx: CX, cy: CY, ground: GROUND, frameId: this.frameId, paperMm: this.paperMm, mdl: this.mdl, yaw: this.yaw, pitch: this.pitch, persp: this.persp,
+		...(this.obFrame ? { frame: this.obFrame, oclip: this.oclip ?? undefined } : {}) })   // an explicit (oblique) view frame — ctxFrame / ctxProj
 	inThisView = (e: Ent) => inThisView(this.ctx, e)
 	bbox = (e: Ent) => bbox(this.ctx, e)
 	/** A hidden or locked layer's entities can't be picked; nor can entities that don't belong to this view. */
@@ -383,7 +408,7 @@ export class VpView {
 			else if (o.type === 'wall' || o.type === 'conduit') for (const n of o.nodes as GN[]) pts.push([n.x, n.y])
 		}
 		if (!pts.length) return null
-		const [ua, ub] = frameSpan(frameOf(this.elevDir, CX, CY), pts)
+		const [ua, ub] = frameSpan(this.elevFrame, pts)
 		const x0 = ua - 500, x1 = ub + 500
 		const sm = this.collapse, vs = BASIS[this.elevDir].vs, y = (z: number) => GROUND - vs * (sm ? sm.map(z) : z)
 		const slabs: { y0: number; y1: number }[] = [], floors: number[] = [], ceilings: number[] = []

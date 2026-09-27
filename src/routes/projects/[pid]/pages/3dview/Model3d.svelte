@@ -10,16 +10,20 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, openingCuts, prismPanels, cutsAWall, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
+	import { project, objBounds, faces3d, openingCuts, prismPanels, cutsAWall, isoR, isoDepthR, trimToClip, trimToOClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp, type ProjDir } from './projection'
 	import { BASIS } from './types'
-	import { frameOf, dotT, dotN, type ElevDir } from '../ui/geometry'
+	import { frameOf, frameAxis, dotT, dotN, type ElevDir, type ElevFrame } from '../ui/geometry'
 	import { storeyMap } from './storeyMap'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
-	import type { Model, Obj, Dir, Clip } from './types'
+	import type { Model, Obj, Dir, Clip, OClip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, wire = false, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
-		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number; /** the perspective camera (iso) — 3dview/projection perspCam; null = parallel */ persp?: Persp; /** iso: edges only (a wireframe), no solid faces */ wire?: boolean
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, frame = null, oclip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, wire = false, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null
+			/** Phase 2 (elevation-section-plan.md): an elevation's explicit VIEW FRAME (an oblique section / elevation —
+			 *  it replaces `dir`'s axis) and its ORIENTED clip (replaces `clip`). null = the four-dir view as before. */
+			frame?: ElevFrame | null; oclip?: OClip | null
+			yaw?: number; pitch?: number; /** the perspective camera (iso) — 3dview/projection perspCam; null = parallel */ persp?: Persp; /** iso: edges only (a wireframe), no solid faces */ wire?: boolean
 			/** A building elevation showing only these storeys (a riser drawing's floors); undefined = all. */ showStoreys?: string[]
 			/** Model mm per paper mm (the viewport's `paperMm`) — labels are sized on PAPER so they stay readable. */ paperMm?: number
 			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number
@@ -29,6 +33,17 @@
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
 	const inClip = (o: Obj) => { if (!clip) return true; const b = objBounds(o); return b.x1 >= clip.x0 && b.x0 <= clip.x1 && b.y1 >= clip.y0 && b.y0 <= clip.y1 }
+	// The section cut for plan / elevation passes: an explicit frame's ORIENTED clip, else the axis clip, else none.
+	const trim = (o: Obj): Obj | null => (oclip ? trimToOClip(o, oclip) : clip ? trimToClip(o, clip) : o)
+	// THE VIEW FRAME (elevation-section-plan.md phase 2): an elevation projects through `frame` when given (an oblique
+	// view), else `dir`'s own axis-aligned frame — `pd` is what `project` / `viewMap` take (the dir itself when no frame,
+	// so every existing view runs the unchanged path), `fr` the frame the local helpers dot with.
+	const isElevDir = $derived(dir !== 'plan' && dir !== 'iso')
+	const pd = $derived<ProjDir>(isElevDir && frame ? frame : dir)
+	const fr = $derived(isElevDir ? (frame ?? frameOf(dir as ElevDir)) : null)
+	// the rack FACE this view looks at (a one-face device shows only there): front / rear by the frame's t (+x / −x);
+	// none for a side or oblique view (every device shows)
+	const faceDir = $derived(!fr || frameAxis(fr) !== 0 ? null : fr.t[0] > 0 ? 'front' : 'rear')
 
 	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
@@ -41,18 +56,18 @@
 	// XP32: an object draws with its layer's line type (plan / elevation outlines; iso faces stay solid).
 	const dashOf = (o: Obj) => dashArray(layerOf(o)?.dash, canvasZoom)
 	// G4: a rack device mounted on ONE face only shows in that face's elevation (front / rear)
-	const onFace = (o: Obj) => { const m = o.device?.mount; return !m || m === 'both' || !(dir === 'front' || dir === 'rear') || m === dir }
+	const onFace = (o: Obj) => { const m = o.device?.mount; return !m || m === 'both' || !faceDir || m === faceDir }
 	// I1: in plan, an object entirely above / below the cut band is not drawn
 	const inBand = (o: Obj) => { if (!zBand || dir !== 'plan') return true; const b = objBounds(o); return b.z1 > zBand.z0 && b.z0 < zBand.z1 }
 	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) && onFace(o) && inBand(o) }
 	// G4: a rack's RU numbers down its left rail in the front / rear elevation (1 at the bottom, like the Racks tool)
 	const RU = 45, RAIL = 40
 	const ruMarks = $derived.by(() => {
-		if (dir !== 'front' && dir !== 'rear') return []
-		const f = frameOf(dir), out: { id: string; u: number; v: number; n: number }[] = []
+		if (!faceDir || !fr) return []   // a front / rear-facing view only (not a side or oblique one)
+		const f = fr, out: { id: string; u: number; v: number; n: number }[] = []
 		for (const o of model.objects) {
 			if (o.type !== 'prism' || !o.rack || !visible(o)) continue
-			const uL = Math.min(dotT(f, o.x, o.y), dotT(f, o.x + o.w, o.y))   // oblique: phase 2 (the rack's face edges, unrotated)
+			const uL = Math.min(dotT(f, o.x, o.y), dotT(f, o.x + o.w, o.y))   // the rack's face edges (unrotated)
 			for (let n = 1; n <= o.rack.u; n++) out.push({ id: `${o.id}-${n}`, u: uL + 22, v: vsOf * (o.z + RAIL + (n - 1) * RU + 12), n })
 		}
 		return out
@@ -72,8 +87,8 @@
 	const mv = (pts: { u: number; v: number }[]) => (sm ? pts.map((p) => ({ u: p.u, v: vsOf * sm!.map(vsOf * p.v) })) : pts)
 	const inHiddenFloors = (o: Obj) => { if (!sm) return false; const b = objBounds(o); return sm.hidden(b.z0, b.z1) }
 	const uSpan = $derived.by(() => {
-		if (dir === 'plan' || dir === 'iso') return null
-		const f = frameOf(dir)
+		if (!fr) return null
+		const f = fr
 		let u0 = Infinity, u1 = -Infinity
 		for (const o of model.objects) { const bb = objBounds(o); for (const [x, y] of [[bb.x0, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1], [bb.x1, bb.y0]]) { const u = dotT(f, x, y); u0 = Math.min(u0, u); u1 = Math.max(u1, u) } }
 		return isFinite(u0) ? { u0: u0 - 1500, u1: u1 + 500 } : { u0: -1500, u1: 10500 }
@@ -113,7 +128,7 @@
 		const out: { id: string; text: string; u: number; v: number; mid?: boolean }[] = []
 		for (const o of model.objects) {
 			if (!o.label || !visible(o) || inHiddenFloors(o)) continue
-			const pts = project(o, dir, yaw, pitch, cx, cy, persp).flatMap((s) => mv(s.pts))
+			const pts = project(o, pd, yaw, pitch, cx, cy, persp).flatMap((s) => mv(s.pts))
 			if (!pts.length) continue
 			const us = pts.map((p) => p.u), vs = pts.map((p) => p.v)
 			// an elevation's group is v-UP (the text is flipped back upright); the plan is y-down as is
@@ -179,7 +194,7 @@
 	// engine's project()), iso via the orbit camera. Lets us draw custom opening geometry (door swing / window
 	// glazing) the engine's project() doesn't emit, in the same drawing space as everything else.
 	const projPt = (d: Dir, p: { x: number; y: number; z: number }) =>
-		d === 'iso' ? isoR(p, yaw, pitch, cx, cy, persp) : d === 'plan' ? { u: p.x, v: p.y } : { u: dotT(frameOf(d), p.x, p.y), v: p.z }
+		d === 'iso' ? isoR(p, yaw, pitch, cx, cy, persp) : d === 'plan' ? { u: p.x, v: p.y } : { u: dotT(d === dir && fr ? fr : frameOf(d), p.x, p.y), v: p.z }
 	// A door's leaf + swing arc, or a window's glazing line, as projected polylines. Drawn in PLAN and
 	// ISO (on the floor at the opening's base z); elevation shows only the masked gap. Hinge sits at one
 	// jamb (flipped by `flip`), radius = the door width (the opening's long footprint dimension), swept
@@ -210,14 +225,14 @@
 	// I2: plan / elevation HIDDEN-LINE removal — every face projected orthographically, painted farthest first in the
 	// paper colour, so a nearer face hides the lines behind it (the iso solid render's painter's algorithm, flat).
 	// `far` = distance away from the viewer: plan looks down (−z), front along +y, rear −y, right −x, left +x.
-	// (an elevation's = the view frame's origin-free depth x·n)
-	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' ? -p.z : dotN(frameOf(dir as ElevDir), p.x, p.y)
+	// (an elevation's = the view frame's origin-free depth x·n — an oblique frame's too)
+	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' || !fr ? -p.z : dotN(fr, p.x, p.y)
 	const hlFaces = $derived.by(() => {
 		if (!hideHidden || dir === 'iso') return []
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []
 		for (const o of model.objects) {
 			if (!visible(o) || isOpening(o) || inHiddenFloors(o)) continue
-			const to = clip ? trimToClip(o, clip) : o; if (!to) continue
+			const to = trim(o); if (!to) continue
 			const col = colorOf(o), lw = weightOf(o)
 			for (const f of faces3d(to)) {
 				if (f.pts.length < 3) continue
@@ -228,7 +243,7 @@
 		return out.sort((a, b) => b.depth - a.depth)
 	})
 	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.
-	const xform = $derived(viewMap(dir, cx, cy, ground, yaw, pitch, isoBox, persp).xform)
+	const xform = $derived(viewMap(pd, cx, cy, ground, yaw, pitch, isoBox, persp).xform)
 </script>
 
 <g class="m3d" transform={xform}>
@@ -290,11 +305,11 @@
 		{/each}
 	{/if}
 	{#each hideHidden ? [] : model.objects as o (o.id)}
-		{@const to = clip ? trimToClip(o, clip) : o}
+		{@const to = trim(o)}
 		{#if to && visible(o) && !isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each (dir !== 'plan' ? prismPanels(to, allCuts) ?? [to] : [to]).flatMap((part) => project(part, dir, yaw, pitch, cx, cy, persp)) as s, i (i)}
+			{#each (dir !== 'plan' ? prismPanels(to, allCuts) ?? [to] : [to]).flatMap((part) => project(part, pd, yaw, pitch, cx, cy, persp)) as s, i (i)}
 				{#if s.closed}
 					<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{:else}
@@ -306,11 +321,11 @@
 	<!-- Pass 2: openings ON TOP — a paper-coloured fill masks the wall behind (a real hole), then a
 	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. -->
 	{#each model.objects as o (o.id)}
-		{@const to = clip ? trimToClip(o, clip) : o}
+		{@const to = trim(o)}
 		{#if to && visible(o) && isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(to, dir, yaw, pitch, cx, cy, persp) as s, i (i)}
+			{#each project(to, pd, yaw, pitch, cx, cy, persp) as s, i (i)}
 				{#if !o.id || wallHoles.has(o.id)}<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 				{:else}<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw * 0.6} stroke-dasharray={dashArray('dashed', canvasZoom)} opacity="0.6" vector-effect="non-scaling-stroke" />{/if}   <!-- a hole through furniture: just its outline (the box itself is split, see prismPanels) -->
 			{/each}

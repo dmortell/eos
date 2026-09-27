@@ -76,11 +76,11 @@
 				<!-- flat elevation backdrop: the ground line at GROUND (mm) + the direction label -->
 				<!-- the ground line spans the section cut / the model (v.groundSpan), the label is 2.5 paper mm (annotative) -->
 				<line x1={v.groundSpan[0]} y1={GROUND} x2={v.groundSpan[1]} y2={GROUND} stroke="#94a3b8" stroke-width="1.2" vector-effect="non-scaling-stroke" />
-				<text x={v.groundSpan[0]} y={GROUND + 4 * v.paperMm} font-size={2.5 * v.paperMm} fill="#64748b" font-weight="600">{v.elevDir.toUpperCase()}</text>
+				<text x={v.groundSpan[0]} y={GROUND + 4 * v.paperMm} font-size={2.5 * v.paperMm} fill="#64748b" font-weight="600">{v.elevLabel}</text>
 			{/if}
 			<!-- Background-layer shapes (a floor's calibrated floorplan PDF image) under the 3D model -->
 			{#each v.backEnts as e (e.id)}{#if !(e.id === x.editText?.id && x.editText.field === 'text') && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
-			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} yaw={v.yaw} pitch={v.pitch} persp={v.persp} wire={!!v.p.wire} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} />{/if}
+			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} frame={v.obFrame} oclip={v.oclip} yaw={v.yaw} pitch={v.pitch} persp={v.persp} wire={!!v.p.wire} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} />{/if}
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
 			{#each v.frontEnts as e (e.id)}{#if !(e.id === x.editText?.id && x.editText.field === 'text') && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}

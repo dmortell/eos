@@ -43,6 +43,11 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Sections at any angle, phase 2**: an ORIENTED clip `OClip` (a cut line + depth + z band; `oclipOf` converts a box
+  exactly, `trimToOClip` / `inOClip` trim walls / conduits and test rotated boxes); projection, wall panels + openings,
+  the depth sort, hit-testing and the viewport mapping work for ANY view frame. An oblique view is read-only for 3D
+  objects (edit there = phase 5). Dev-only: `__pagesOblique(30)` in the console turns elevations to plan 30°.
+  20 tests (`ui/oblique.test.ts`).
 - **Sections at any angle, phase 1** (`elevation-section-plan.md`): an `ElevFrame` (origin, along `t`, look `n`) in
   `ui/geometry.ts`; the four elevation directions are fixed frames and every elevation call site (projection, hit,
   grips, snap, place, model edits, viewport mapping) goes through it — no visible change, pinned bit-for-bit by

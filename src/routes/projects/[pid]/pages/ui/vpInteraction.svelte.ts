@@ -210,7 +210,7 @@ export class VpInteraction {
 	/** While drawing a Wall/Trunk/Pipe in an elevation: the segment the NEXT point snaps its depth onto. */
 	depthSnapMark = $derived.by(() => {
 		const v = this.v, t = v.tool
-		if (!v.isElev || !v.active || !this.cur || !v.mdl || !(t === 'Wall' || t === 'Trunk' || t === 'Pipe')) return null
+		if (!v.isElev || v.oblique || !v.active || !this.cur || !v.mdl || !(t === 'Wall' || t === 'Trunk' || t === 'Pipe')) return null
 		return v.elevDepthSnap(this.cur)
 	})
 
@@ -231,7 +231,7 @@ export class VpInteraction {
 	private finishPolyline() {
 		const v = this.v
 		if (v.tool === 'Line') { const pl = polylineEnt(v.ctx, this.draft, uid); if (pl) v.editor.ents.add(pl) }
-		else if (MODEL_GRAPH.has(v.tool) && (v.isPlan || v.isElev)) this.placeGraph(trimTail(this.draft))
+		else if (MODEL_GRAPH.has(v.tool) && (v.isPlan || (v.isElev && !v.oblique))) this.placeGraph(trimTail(this.draft))
 		this.endDraft()
 	}
 	private addModelObj(o: Obj) {
@@ -244,7 +244,7 @@ export class VpInteraction {
 	private placeGraph(pts: Pt[]) {
 		const v = this.v
 		if (!v.mdl || pts.length < 2) return
-		const ax = v.isElev ? frameAxis(ctxFrame(v.ctx)) : 0   // oblique: phase 2 (a depth guide must run along the view's t)
+		const ax = v.isElev ? frameAxis(ctxFrame(v.ctx)) : 0   // oblique: phase 5 (a depth guide must run along the view's t; the graph tools are off in an oblique view)
 		const guide = v.isElev ? selectedPlanGuide(v.mdl.guides ?? [], v.modelSel, ax === 0 ? 'h' : 'v') : null
 		if (v.isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId, profile: (() => { const s = trunkSpecs.of(v.tool); return s ? specProfile(s, v.mdl?.levels) : undefined })() })
@@ -307,7 +307,7 @@ export class VpInteraction {
 	private acceptDraw(d: Pt): string | null {
 		const v = this.v, tool = v.tool
 		if (tool === 'Select') return 'Pick a drawing command first (e.g. L for a line, REC for a rectangle)'
-		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev)) return `${tool}: switch to the plan view`
+		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev && !v.oblique)) return `${tool}: switch to the plan view`
 		if (tool === 'Text') { v.editor.ents.add({ id: uid(), type: 'text', a: d, text: 'TEXT', plane: drawPlane(v.ctx) }); return null }
 		if (tool === 'Block') { if (v.blockId) this.placeBlock(v.blockId, d); return null }
 		if (tool === 'Guide') { this.placeGuide(d, v.guideIsVert(false)); return null }
@@ -564,7 +564,7 @@ export class VpInteraction {
 			tool: v.tool, n: this.draft.length, isPlan: v.isPlan, isElev: v.isElev, guideSpace: !!v.viewSpace, guideVert: v.guideIsVert(false),
 			guideDelta: g && ref ? Math.abs(ref.pos - g.pos) : null,
 			graphSelected: !!v.mSelObj && (v.mSelObj.type === 'wall' || v.mSelObj.type === 'conduit'),
-			depthGuide: v.isElev && !!selectedPlanGuide(v.mdl?.guides ?? [], v.modelSel, frameAxis(ctxFrame(v.ctx)) === 0 ? 'h' : 'v'),   // oblique: phase 2 (as placeGraph)
+			depthGuide: v.isElev && !!selectedPlanGuide(v.mdl?.guides ?? [], v.modelSel, frameAxis(ctxFrame(v.ctx)) === 0 ? 'h' : 'v'),   // oblique: phase 5 (as placeGraph)
 		})
 	})
 	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, tool: this.v.tool, prompt: this.prompt }))
@@ -693,7 +693,7 @@ export class VpInteraction {
 		if (tool === 'Renumber') { const p = v.toModel(e.clientX, e.clientY); if (p) this.walkClick(p); return }   // E3
 		if (tool === 'Guide') { const p = v.toModel(e.clientX, e.clientY); if (p) this.placeGuide(p, v.guideIsVert(e.shiftKey)); return }
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in an elevation.
-		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev)) return
+		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev && !v.oblique)) return   // (not in an oblique view: phase 5)
 		if (!v.acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = this.drawPoint(e.clientX, e.clientY, this.draft.at(-1), e.shiftKey); if (!sp) return
 		if (POLY.has(tool)) { if (!this.draft.length || dist(this.draft.at(-1)!, sp) > 0.01) this.draft = [...this.draft, sp]; this.cur = sp; v.snapMark = null; return }   // accumulate (skip dup)
@@ -898,6 +898,7 @@ export class VpInteraction {
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)
 			if (e.shiftKey) { this.reg.forget(e); return }   // I4: a Shift press only toggles it (onClick)
+			if (v.oblique) { this.reg.forget(e); return }    // an OBLIQUE view is read-only for 3D objects (phase 5): the click still selects
 			this.startEntDrag(e, p, 'move', pk.id, -1)
 		} else if (!pk) {   // empty space → a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			this.items.beginMarquee(p, e.shiftKey || e.ctrlKey || e.metaKey)

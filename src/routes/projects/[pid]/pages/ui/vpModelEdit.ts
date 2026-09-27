@@ -41,9 +41,11 @@ export function commitConduit(v: VpView, o: Conduit): Obj | null {
 type P3 = { x: number; y: number; z: number }
 /** A plain copy of `o` moved by the view's (dx, dy): in plan x / y; in elevation the horizontal steps along the view
  *  frame's t (frameStep: the on-axis coord × its sign for the four dirs) and the vertical changes z (≥ 0). A box moves
- *  its origin, a wall / conduit all its nodes. */
+ *  its origin, a wall / conduit all its nodes. An OBLIQUE view is read-only for 3D objects (elevation-section-plan.md
+ *  phase 5 adds moving them there) — the copy comes back unmoved, so a nudge / mixed move leaves them in place. */
 export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
-	const c = structuredClone(o) as Obj, step = v.isElev ? frameStep(ctxFrame(v.ctx), dx) : null
+	const c = structuredClone(o) as Obj; if (v.oblique) return c
+	const step = v.isElev ? frameStep(ctxFrame(v.ctx), dx) : null
 	const shift = (t: P3) => {
 		if (step) { if (step[0]) t.x += step[0]; if (step[1]) t.y += step[1]; t.z = Math.max(0, t.z - dy) }
 		else { t.x += dx; t.y += dy }

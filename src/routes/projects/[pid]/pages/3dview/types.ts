@@ -152,6 +152,11 @@ export const DIR_LABEL: Record<Dir, string> = { plan: 'Plan', front: 'Front', re
 
 // Axis-aligned model-space box; a section/elevation crop (cull + auto-frame).
 export type Clip = { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }
+/** An ORIENTED clip (elevation-section-plan.md §3.2) — a section at any angle: the CUT line a→b in plan (plan mm,
+ *  [x, y] like an Ent's points) is the view's width, the view looks along its right-hand normal (the view frame's
+ *  n, geometry `frameOnLine`), `depth` = how far behind the line it reaches, z0..z1 its height band. An axis-aligned
+ *  Clip + ElevDir converts to one (projection `oclipOf`). Firestore-friendly (arrays of numbers, no nesting). */
+export type OClip = { a: [number, number]; b: [number, number]; depth: number; z0: number; z1: number }
 
 // A section marker on the plan = another viewport's clip + its editable properties. The plan
 // editor reads these via sectionsProvider and edits them via onSectionUpdate (host applies to

@@ -98,8 +98,9 @@ export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts)
 	const toNode = (p: Pt) => {
 		if (!ctx.isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
 		const onAxis = Math.round(uToAlong(f, p[0])), z = Math.max(0, Math.round(ctx.ground - p[1]))
-		// oblique: phase 2 — the depth is an axis-aligned model coord (a plan guide's y / x, the depth-snap's off-axis
-		// coord, else the plan centre); an oblique view places at frameInv(u, depth)
+		// oblique: phase 5 — the depth is an axis-aligned model coord (a plan guide's y / x, the depth-snap's off-axis
+		// coord, else the plan centre); an oblique view would place at frameInv(u, depth). (Not reached: an oblique view
+		// doesn't draw walls / trunks until then — vpInteraction gates the graph tools.)
 		const off = opts.guide ? opts.guide.pos : (opts.depthSnap(p) ?? (ax === 0 ? ctx.cy : ctx.cx))
 		return ax === 0 ? { x: onAxis, y: off, z } : { x: off, y: onAxis, z }
 	}

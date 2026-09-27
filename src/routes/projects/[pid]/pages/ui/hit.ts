@@ -5,9 +5,9 @@
 import type { Pt, Ent } from './geometry'
 import { insertBounds, blockDef } from './blocks'
 import { isLegend } from './legend'
-import type { ViewCtx, MLayers } from './view'
+import { ctxFrame, ctxProj, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
-import { flatSpan, segDist, textBox, arcPts, isNote } from './geometry'
+import { flatSpanOf, segDist, textBox, arcPts, isNote, frameAxis, rectPts } from './geometry'
 import { layoutNote, type NoteLayout } from './noteLayout'
 import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
@@ -61,14 +61,14 @@ export const groundInIso = (ctx: ViewCtx, e: Ent): boolean => ctx.isIso && onPla
 export const isFlatElev = (ctx: ViewCtx, e: Ent): boolean => ctx.isElev && FLAT.has(e.type) && onPlanPlane(e)
 
 /** Horizontal drawing span of a flat object projected onto the ground line for the current side view. */
-export function flatXSpan(ctx: ViewCtx, e: Ent): [number, number] { return flatSpan(e, ctx.elevDir, ctx.cx, ctx.cy) }
+export function flatXSpan(ctx: ViewCtx, e: Ent): [number, number] { return flatSpanOf(e, ctxFrame(ctx)) }
 
 // §5 perf: bboxes are cached per shape. Shapes are replaced (never mutated) on every edit, so the object itself is the
 // key; the entry also records what else the box depends on — the view (plane / projection / paper scale), the model
 // (a legend's rows) and the block definition (an insert's extent) — and is rebuilt when any differs.
 type BBox = [number, number, number, number]
 const bbCache = new WeakMap<Ent, { k: string; mdl: unknown; def: unknown; b: BBox }>()
-const ctxKey = (ctx: ViewCtx) => `${ctx.dir}|${ctx.elevDir}|${ctx.paperMm}|${ctx.ground}|${ctx.cx}|${ctx.cy}`
+const ctxKey = (ctx: ViewCtx) => `${ctx.dir}|${ctx.elevDir}|${ctx.paperMm}|${ctx.ground}|${ctx.cx}|${ctx.cy}|${frameKey(ctx)}`
 /** An entity's UNrotated view-bbox (drawing units). Handles elevation ground-line collapse, image crop
  *  windows, polyline extents and the text box; the a/b default covers dim/rect/ellipse/image. Cached. */
 export function bbox(ctx: ViewCtx, e: Ent): BBox {
@@ -141,7 +141,7 @@ export function pickable(ctx: ViewCtx, e: Ent, layers: { hidden(id?: string): bo
 
 /** This view's model -> drawing mapping (R7). Iso needs the content box it is centred on (`isoBounds`). */
 export const viewMapOf = (ctx: ViewCtx, isoBox: { icx: number; icy: number } | null = null): ViewMap =>
-	viewMap(ctx.dir, ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox, ctx.persp ?? null)
+	viewMap(ctxProj(ctx), ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox, ctx.persp ?? null)   // an oblique elevation: its own frame
 
 /** A wall/conduit vertex in model space. */
 export type GN = { id: string; x: number; y: number; z: number; bend?: number; conn?: { obj?: string; ent?: string; pt?: string } }
@@ -152,10 +152,12 @@ export type GN = { id: string; x: number; y: number; z: number; bend?: number; c
  *  outline instead — see `hitModel`.) */
 export function prismRect(ctx: ViewCtx, o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
 	if (o.type !== 'prism') return null
-	if (ctx.isElev) {   // oblique: phase 2 — the box's (x, y) and (x+w, y+d) corners bound its u only on an axis-aligned frame
+	if (ctx.isElev) {
 		const vm = viewMapOf(ctx)
 		const [u0, y1] = vm.toDraw({ x: o.x, y: o.y, z: o.z }), [u1, y0] = vm.toDraw({ x: o.x + o.w, y: o.y + o.d, z: o.z + o.h })
-		return { x0: Math.min(u0, u1), y0, x1: Math.max(u0, u1), y1 }
+		if (frameAxis(ctxFrame(ctx)) !== null) return { x0: Math.min(u0, u1), y0, x1: Math.max(u0, u1), y1 }   // the (x, y) / (x+w, y+d) corners bound u on an axis-aligned frame
+		const us = rectPts(o.x, o.y, o.x + o.w, o.y + o.d).map(([x, y]) => vm.toDraw({ x, y, z: o.z })[0])   // oblique: all four footprint corners (unrotated, like the axis rect)
+		return { x0: Math.min(...us), y0, x1: Math.max(...us), y1 }
 	}
 	if (ctx.isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
 	return null
@@ -169,7 +171,7 @@ export const prismTilted = (o: Obj): boolean => o.type === 'prism' && !!((o.rotX
  *  when tilted, B10), mapped through the view's `viewMap` (R7). Plan / elevation only. */
 export function prismOutline(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>): Pt[] {
 	const vm = viewMapOf(ctx)
-	return convexHull(project(o, ctx.dir).flatMap((sh) => sh.pts.map((q) => vm.uvToDraw(q) as Pt)))
+	return convexHull(project(o, ctxProj(ctx)).flatMap((sh) => sh.pts.map((q) => vm.uvToDraw(q) as Pt)))
 }
 
 /** Convex hull (monotone chain) of drawing-coord points — the silhouette outline. */
@@ -209,7 +211,7 @@ export function graphNodeDraw(ctx: ViewCtx, n: GN): Pt {
 export function graphHit(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt, thr: number): boolean {
 	if (ctx.isElev) {
 		const vm = viewMapOf(ctx)   // R7: the same engine -> drawing mapping Model3d renders with
-		for (const sh of project(o, ctx.elevDir)) {
+		for (const sh of project(o, ctxProj(ctx))) {   // (an oblique view: through its frame)
 			if (sh.closed && sh.pts.length >= 3 && inPoly(p, sh.pts.map((q) => vm.uvToDraw(q) as Pt))) return true
 		}
 	}

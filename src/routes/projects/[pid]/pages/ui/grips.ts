@@ -95,7 +95,7 @@ export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>,
 		const f = ctxFrame(ctx), ax = frameAxis(f)
 		const c1 = uToAlong(f, p[0]), c2 = uToAlong(f, anchor[0])
 		const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
-		if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }   // oblique: phase 2 (the box's x / w or y / d; a rotated frame needs anchoredResize)
+		if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }   // oblique: phase 5 (the box's x / w or y / d; a rotated frame needs anchoredResize — no grips in an oblique view yet)
 		const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
 		o.z = Math.max(0, rnd(ctx.ground - baseY)); o.h = Math.max(1, rnd(baseY - topY))
 	} else {
@@ -123,7 +123,7 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 			const r = prismRect(ctx, o)!
 			const C: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]
 			const off = (r.y1 - r.y0) / 2 + Math.max(r.x1 - r.x0, r.y1 - r.y0) * 0.35
-			const ax = frameAxis(ctxFrame(ctx)), cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)   // oblique: phase 2 (tilt about the look axis, not x / y)
+			const ax = frameAxis(ctxFrame(ctx)), cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)   // oblique: phase 5 (tilt about the look axis, not x / y)
 			const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
 			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
 				const a = handleAngle(C, p, shift(), true)   // −180..180: a natural tilt range

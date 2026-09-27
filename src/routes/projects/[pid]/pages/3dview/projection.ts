@@ -1,7 +1,7 @@
 // Ported verbatim from sheets/tools/model3d (the mature 3D engine) for the Pages 3D model — see model-plan.md.
-import type { Axis, Clip, Conduit, Dir, Obj, Prism, Wall } from './types'
+import type { Axis, Clip, Conduit, Dir, Obj, OClip, Prism, Wall } from './types'
 import { runs as graphRuns, nodeMap } from './graph'
-import { frameOf, dotT, frameShift, type ElevDir } from '../ui/geometry'
+import { frameOf, frameOnLine, dotT, dotN, frameShift, rectPts, type ElevDir, type ElevFrame } from '../ui/geometry'
 
 // A projected outline in drawing-plane coords (u right, v up).
 export type Shape = { pts: { u: number; v: number }[]; closed: boolean }
@@ -67,8 +67,16 @@ function wallRunBoxes(o: Wall, cuts: Cut[] = []) {
 	return wallRuns(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: run.h, thickness: run.thickness, pts: run.points }, cuts))
 }
 
+/** A projection: 'plan' / 'iso' / one of the four ElevDirs, or an explicit elevation VIEW FRAME — an oblique section /
+ *  elevation (elevation-section-plan.md phase 2). Everything that projects an elevation (`project`, `viewMap`,
+ *  `projectPt`) takes either; an ElevDir is its axis-aligned `frameOf` (so the four views keep their numbers). */
+export type ProjDir = Dir | ElevFrame
+/** The elevation frame a projection stands for (only meaningful for an elevation: not 'plan' / 'iso'). */
+export const projFrame = (d: ProjDir, cx?: number, cy?: number): ElevFrame => (typeof d === 'object' ? d : frameOf(d as ElevDir, cx, cy))
 // Plan: (x, y). Elevation: the view frame's origin-free horizontal x·t (= the old BASIS hs · p[h]) and z up.
-const proj = (dir: Dir, p: P3) => dir === 'plan' ? { u: p.x, v: p.y } : { u: dotT(frameOf(dir as ElevDir), p.x, p.y), v: p.z }
+const proj = (dir: ProjDir, p: P3) => dir === 'plan' ? { u: p.x, v: p.y } : { u: dotT(projFrame(dir), p.x, p.y), v: p.z }
+/** One model point in ENGINE coords (u right, v up) for a plan / elevation projection (iso: `isoR`). */
+export const projectPt = (dir: ProjDir, p: P3): { u: number; v: number } => proj(dir, p)
 
 const clampEdges = (e: number) => Math.max(3, Math.min(24, Math.round(e)))
 
@@ -292,8 +300,9 @@ export type ViewMap = {
 }
 /** The drawing-space mapping of view `dir`. `cx`/`cy` = the plan centre (elevation / iso pivot), `ground` =
  *  the elevation ground line (drawing y of z = 0). Iso also needs the camera (`yaw`/`pitch`) and the content
- *  box it is centred on (`isoBounds(…)`; null = no content → pivot at the centre). */
-export function viewMap(dir: Dir, cx: number, cy: number, ground: number, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH,
+ *  box it is centred on (`isoBounds(…)`; null = no content → pivot at the centre). An explicit ElevFrame (an oblique
+ *  view) carries its own origin — `cx` / `cy` are then unused. */
+export function viewMap(dir: ProjDir, cx: number, cy: number, ground: number, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH,
 	isoBox: { icx: number; icy: number } | null = null, persp: Persp = null): ViewMap {
 	if (dir === 'plan') return { uvToDraw: (q) => [q.u, q.v], toDraw: (p) => [p.x, p.y], xform: '' }
 	if (dir === 'iso') {
@@ -301,7 +310,7 @@ export function viewMap(dir: Dir, cx: number, cy: number, ground: number, yaw = 
 		const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ix, iy - q.v]
 		return { uvToDraw, toDraw: (p) => uvToDraw(isoR(p, yaw, pitch, cx, cy, persp)), xform: `translate(${ix} ${iy}) scale(1 -1)` }
 	}
-	const f = frameOf(dir, cx, cy)
+	const f = projFrame(dir, cx, cy)
 	const ox = frameShift(f)   // re-centre the engine horizontal about the frame origin (= geometry.frameU)
 	const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ox, ground - q.v]
 	return { uvToDraw, toDraw: (p) => uvToDraw({ u: dotT(f, p.x, p.y), v: p.z }), xform: `translate(${ox} ${ground}) scale(1 -1)` }
@@ -344,7 +353,11 @@ function segInXY(a: { x: number; y: number }, b: { x: number; y: number }, c: Cl
 }
 export function trimToClip(o: Obj, c: Clip): Obj | null {
 	if (o.type === 'prism') return inClip(o, c) ? o : null
-	const nm = nodeMap(o.nodes)
+	return trimSegs(o, nodeMap(o.nodes), c)
+}
+/** The segment trim of `trimToClip`, over node positions `nm` (the model's own, or an OClip's local coords) tested
+ *  against the box `c` in the same coords. */
+function trimSegs(o: Extract<Obj, { type: 'wall' | 'conduit' }>, nm: Map<string, P3>, c: Clip): Obj | null {
 	const top = o.type === 'wall' ? o.h : 0
 	const keep = o.segments.filter((s) => {
 		const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) return false
@@ -372,6 +385,64 @@ export function inClip(o: Obj, c: Clip): boolean {
 	const ov = (a0: number, a1: number, b0: number, b1: number) =>
 		Math.max(a0, a1) >= Math.min(b0, b1) && Math.min(a0, a1) <= Math.max(b0, b1)
 	return ov(b.x0, b.x1, c.x0, c.x1) && ov(b.y0, b.y1, c.y0, c.y1) && ov(b.z0, b.z1, c.z0, c.z1)
+}
+
+// ── ORIENTED clips (elevation-section-plan.md §3.2 — a section at any angle) ──
+// An OClip is a rectangle in plan standing on its cut line a→b, reaching `depth` along the view's look direction n
+// (frameOnLine(a, b).n), over z0..z1. Its LOCAL coords: s = (p − a)·t along the line, d = (p − a)·n behind it — the
+// clip is then the axis box [0, |b − a|] × [0, depth] × [z0, z1] in (s, d, z), so the oriented trim is today's
+// axis trim on transformed nodes (`trimSegs`) and a box's overlap is a separating-axis test. For an axis-aligned
+// Clip converted with `oclipOf` (the four dirs) the transform is exact (±1 / 0 components), so the result equals
+// `trimToClip` (the elevFrame tests pin it); existing views still call `trimToClip` itself.
+/** An axis-aligned Clip seen through view frame `f` → the OClip covering it: the frame-aligned bounds of its four
+ *  plan corners, the cut line on the near side (min depth) running along t. For the four dirs it IS the clip (front:
+ *  a = (x0, y0) → b = (x1, y0), depth y1 − y0); for an oblique frame, the smallest frame-aligned rect around it. */
+export function oclipOf(c: Clip, f: ElevFrame): OClip {
+	let s0 = Infinity, s1 = -Infinity, d0 = Infinity, d1 = -Infinity
+	for (const [x, y] of rectPts(c.x0, c.y0, c.x1, c.y1)) { const s = dotT(f, x, y), d = dotN(f, x, y); s0 = Math.min(s0, s); s1 = Math.max(s1, s); d0 = Math.min(d0, d); d1 = Math.max(d1, d) }
+	const at = (s: number, d: number): [number, number] => [s * f.t[0] + d * f.n[0], s * f.t[1] + d * f.n[1]]   // (s, d) in the origin-free basis → plan
+	return { a: at(s0, d0), b: at(s1, d0), depth: d1 - d0, z0: c.z0, z1: c.z1 }
+}
+/** The view frame an OClip looks through (its cut line's frame), about `o` (default its start a). */
+export const oclipFrame = (oc: OClip, o?: [number, number]): ElevFrame => frameOnLine(oc.a, oc.b, o ?? oc.a)
+/** The clip's width along its cut line (= the elevation's drawn width). */
+export const oclipWidth = (oc: OClip): number => Math.hypot(oc.b[0] - oc.a[0], oc.b[1] - oc.a[1])
+/** Plan point → the clip's local (s along the cut line from a, d behind it) — `x` / `y` so the axis helpers take it. */
+function oclipLocal(oc: OClip): (x: number, y: number) => { x: number; y: number } {
+	const { t, n } = frameOnLine(oc.a, oc.b), ax = oc.a[0], ay = oc.a[1]
+	return (x, y) => { const dx = x - ax, dy = y - ay; return { x: dx * t[0] + dy * t[1], y: dx * n[0] + dy * n[1] } }
+}
+/** The OClip as an axis box in its local coords (a negative depth reaches in front of the line). */
+const oclipBox = (oc: OClip): Clip => ({ x0: 0, x1: oclipWidth(oc), y0: Math.min(0, oc.depth), y1: Math.max(0, oc.depth), z0: oc.z0, z1: oc.z1 })
+/** Do two convex plan polygons overlap (touching counts)? Separating-axis test over both polygons' edge normals. */
+function convexOverlap(A: { x: number; y: number }[], B: { x: number; y: number }[]): boolean {
+	for (const P of [A, B]) for (let i = 0; i < P.length; i++) {
+		const p = P[i], q = P[(i + 1) % P.length], nx = p.y - q.y, ny = q.x - p.x
+		if (!nx && !ny) continue
+		let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity
+		for (const v of A) { const k = v.x * nx + v.y * ny; a0 = Math.min(a0, k); a1 = Math.max(a1, k) }
+		for (const v of B) { const k = v.x * nx + v.y * ny; b0 = Math.min(b0, k); b1 = Math.max(b1, k) }
+		if (a1 < b0 || b1 < a0) return false
+	}
+	return true
+}
+/** Does an object overlap an oriented clip? A BOX by its true (rotated) footprint rectangle against the clip's rect
+ *  (+ the z band) — `inClip` for the four dirs, where the axes coincide; a wall / conduit when any segment is kept. */
+export function inOClip(o: Obj, oc: OClip): boolean {
+	if (o.type !== 'prism') return trimToOClip(o, oc) !== null
+	const b = objBounds(o)
+	if (Math.max(b.z0, b.z1) < Math.min(oc.z0, oc.z1) || Math.min(b.z0, b.z1) > Math.max(oc.z0, oc.z1)) return false
+	const L = oclipLocal(oc), c = oclipBox(oc), cx = o.x + o.w / 2, cy = o.y + o.d / 2
+	const r = ((o.rot ?? 0) * Math.PI) / 180, co = Math.cos(r), si = Math.sin(r)
+	const foot = rectPts(o.x, o.y, o.x + o.w, o.y + o.d).map(([x, y]) => (o.rot ? L(cx + (x - cx) * co - (y - cy) * si, cy + (x - cx) * si + (y - cy) * co) : L(x, y)))
+	return convexOverlap(foot, rectPts(c.x0, c.y0, c.x1, c.y1).map(([x, y]) => ({ x, y })))
+}
+/** `trimToClip` for an ORIENTED clip: a box passes whole when it overlaps the clip's rect (`inOClip`); a wall /
+ *  conduit keeps the segments that cross it (the same test as the axis trim, on nodes in the clip's local coords). */
+export function trimToOClip(o: Obj, oc: OClip): Obj | null {
+	if (o.type === 'prism') return inOClip(o, oc) ? o : null
+	const L = oclipLocal(oc)
+	return trimSegs(o, new Map(o.nodes.map((n) => [n.id, { ...L(n.x, n.y), z: n.z }])), oclipBox(oc))
 }
 
 // Full model z-range (for defaulting a section's vertical extent).
@@ -653,7 +724,9 @@ export function rackPlan(o: Extract<Obj, { type: 'prism' }>): { closed: boolean;
 	]
 }
 
-export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, cx = 0, cy = 0, persp: Persp = null): Shape[] {
+/** `dir` may be an explicit ElevFrame (an oblique elevation): the same outlines, through its t. A vertical prism / wall
+ *  box still stands as an upright rectangle (its silhouette's u-range × z-range), whatever the angle. */
+export function project(o: Obj, dir: ProjDir, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, cx = 0, cy = 0, persp: Persp = null): Shape[] {
 	if (dir === 'iso') {
 		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, pitch, cx, cy, persp), isoR(s[1], yaw, pitch, cx, cy, persp)] }))
 	}
