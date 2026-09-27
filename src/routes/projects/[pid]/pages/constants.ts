@@ -16,7 +16,7 @@ export const PAPER_PX_PER_MM = PAPER_W / 420
 
 /** CAD drawings (DXF / DWG) the Uploads tool accepts, and their size limit (MB) for now — checked before uploading. */
 export const CAD_FILE = /\.(dxf|dwg)$/i
-export const CAD_UPLOAD_MAX_MB = 5
+export const CAD_UPLOAD_MAX_MB = 8
 
 // ── True drawing scale on paper (B2) ────────────────────────────────────────
 // A paper viewport frame renders at TRUE scale: at 1:1 one model unit (mm) = one paper mm; at 1:N it

@@ -227,7 +227,7 @@
 				{#each def.attributes as ad (ad.tag)}
 					{#if ad.visible !== false && attrValue(e, ad)}
 						{@const c = attrColor(e, ad)}
-						<text class="anno" x={e.mirror ? -ad.pos[0] : ad.pos[0]} y={ad.pos[1]} font-size={ad.height} text-anchor="middle"
+						<text class="anno" x={e.mirror ? -ad.pos[0] : ad.pos[0]} y={ad.pos[1]} font-size={Math.max(ad.height, ((ad.minPaper ?? 0) * paperMm) / (k || 1))} text-anchor="middle"
 							fill={c ? (c !== '#ffffff' ? tone(c) : c) : ink}>{attrValue(e, ad)}</text>
 					{/if}
 				{/each}

@@ -18,7 +18,7 @@ import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, type Ent, type Pt, type ElevDir } from './ui/geometry'
-import { inThisView, rotCenter, rotatePt, noteGeom } from './ui/hit'
+import { inThisView, rotCenter, rotatePt, noteGeom, bbox } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines, hatchLines, headGeom } from './ui/annotations'
 import { blockDef, attrValue, insertScale, type BlockDef } from './ui/blocks'
 import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
@@ -84,12 +84,16 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	const uv = (q: { u: number; v: number }) => P(vm.uvToDraw(sm ? { u: q.u, v: vs * sm.map(vs * q.v) } : q))
 	const x: Ex = { doc, ctx, N, blocks: new Map(), blockNames: new Set(), anon: 0 }
 	let objects = 0, shapes = 0, images = 0, skipped = 0
+	// the drawing's extents (DXF coords) → $EXTMIN / $EXTMAX + the *Active view, so a viewer (LibreCAD) OPENS on the
+	// content instead of round the origin with it off screen
+	const ext = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity }
+	const grow = (q: [number, number]) => { if (!Number.isFinite(q[0]) || !Number.isFinite(q[1])) return; ext.x0 = Math.min(ext.x0, q[0]); ext.y0 = Math.min(ext.y0, q[1]); ext.x1 = Math.max(ext.x1, q[0]); ext.y1 = Math.max(ext.y1, q[1]) }
 
 	// ── images first: an underlay sits BELOW everything (DXF draws in entity order) ──
 	for (const e of inp.ents) {
 		if (e.type !== 'image' || !keep(e)) continue
 		const ref = inp.images?.get(e.id)
-		if (ref && imageToDxf(ms, e, ctx, P, dxfLayer(e.layer), ref, `PAGES_IMG_${images + 1}`)) images++
+		if (ref && imageToDxf(ms, e, ctx, P, dxfLayer(e.layer), ref, `PAGES_IMG_${images + 1}`)) { images++; const [a, b, c, d] = bbox(ctx, e); grow(P([a, b])); grow(P([c, d])) }
 		else skipped++
 	}
 	if (images) fixImageObjects(doc.w)
@@ -100,7 +104,7 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 		if (sm) { const b = objBounds(o); if (sm.hidden(b.z0, b.z1)) continue }
 		const to: Obj | null = inp.clip ? trimToClip(o, inp.clip) : o; if (!to) continue
 		const layer = dxfLayer(o.layer)
-		for (const s of project(to, dir, yaw, pitch, PLAN_CX, PLAN_CY)) doc.poly(s.pts.map(uv), { closed: s.closed, layer })
+		for (const s of project(to, dir, yaw, pitch, PLAN_CX, PLAN_CY)) { const pts = s.pts.map(uv); pts.forEach(grow); doc.poly(pts, { closed: s.closed, layer }) }
 		if (o.label && !isIso) {   // a labelled object's name (a riser room "IDF01-A"), centred like the viewport draws it
 			const b = objBounds(o), mid = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: (b.z0 + b.z1) / 2 }
 			const [dx, dy] = vm.toDraw(mid)
@@ -124,9 +128,27 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	for (const e of inp.ents) {
 		if (e.type === 'image' || !keep(e)) continue
 		entToDxf(x, ms, e, P, dxfLayer(e.layer))
+		const [a, b, c, d] = bbox(ctx, e); grow(P([a, b])); grow(P([c, d]))
 		shapes++
 	}
-	return { text: doc.stringify(), objects, shapes, images, skipped }
+	const has = ext.x0 <= ext.x1
+	if (has) setExtents(doc, ext)
+	const dxf = doc.stringify()
+	return { text: has ? activeView(dxf, ext) : dxf, objects, shapes, images, skipped }
+}
+
+type Ext = { x0: number; y0: number; x1: number; y1: number }
+/** $EXTMIN / $EXTMAX: the drawing's extents in the header. */
+export function setExtents(doc: DxfDoc, e: Ext) {
+	doc.w.setVariable('$EXTMIN', { 10: e.x0, 20: e.y0, 30: 0 })
+	doc.w.setVariable('$EXTMAX', { 10: e.x1, 20: e.y1, 30: 0 })
+}
+/** The *Active viewport's centre (12 / 22) and height (40), 5 % margin, fitting a ~16:10 window either way — what
+ *  LibreCAD opens on. Patched into the text: @tarikjabiri/dxf ignores its VPORT's viewCenter / viewHeight and always
+ *  writes 0,0 / 200 (the content then opened off screen, Dave 2026-09-27). */
+export function activeView(dxf: string, e: Ext): string {
+	const cx = (e.x0 + e.x1) / 2, cy = (e.y0 + e.y1) / 2, h = Math.max(1, (e.y1 - e.y0) * 1.05, ((e.x1 - e.x0) * 1.05) / 1.6)
+	return dxf.replace(/(\n2\n\*Active\n[\s\S]*?\n12\n)0(\n22\n)0([\s\S]*?\n40\n)200\n/, `$1${cx}$2${cy}$3${h}\n`)
 }
 
 /** Rasterises one image shape for the DXF (a browser job — dxfImages.ts): the sidecar's bytes + extension + pixel size. */

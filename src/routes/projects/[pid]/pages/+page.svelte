@@ -821,7 +821,7 @@
 		else if (item === 'Open Project…') openProjectOpen = true
 		else if (item === 'Drawing Defaults…') { if (proj.store) defaultsOpen = true; else toast('Drawing defaults are saved with the project — open a project first') }
 		else if (item === 'Drawings…') { if (proj.hasPlaces) proj.drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
-		else if (item === 'Export…') exportActiveDxf()
+		else if (item === 'Export DXF…') exportActiveDxf()
 		else if (item === 'Outlet Schedule…') {   // C2: the active model's outlets → Excel
 			const m = modelById(activeMid()), rows = m ? outletRows(m, proj.allocatedOutlets) : []
 			if (!rows.length) toast('No outlets in this model'); else exportOutletSchedule(rows, m!.name ?? 'model').then(() => toast(`Outlet schedule: ${rows.length} outlets`))
@@ -877,7 +877,7 @@
 				case 'unsplit': return closePane(1)
 				case 'undo': return undo()
 				case 'redo': return redo()
-				case 'dxfout': return menuAction('Export…')
+				case 'dxfout': return menuAction('Export DXF…')
 				case 'plot': return menuAction('Print…')
 				case 'schedule': return menuAction('Outlet Schedule…')
 				case 'drawings': return menuAction('Drawings…')

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { viewToDxf, viewToDxfBundle, imageCut, visibleRect, type DxfImageRef } from './exportDxf'
+import { viewToDxf, viewToDxfBundle, imageCut, visibleRect, setExtents, activeView, type DxfImageRef } from './exportDxf'
+import { DxfDoc } from '../sheets/dxf/dxf'
 import { setBlockResolver, type BlockDef } from './ui/blocks'
 import type { Model } from './3dview/types'
 import type { Ent } from './ui/geometry'
@@ -221,5 +222,16 @@ describe('DXF export — images (O15)', () => {
 		expect(r.text).toContain('Plan_1_img1.png')
 		// no images → no files (the caller downloads the bare .dxf)
 		expect((await viewToDxfBundle({ model: bare, ents: [], dir: 'plan', scaleN: 100 }, 'x', ras)).files).toEqual([])
+	})
+})
+
+describe('DXF extents (a viewer opens on the content)', () => {
+	it('$EXTMIN / $EXTMAX and the *Active view centre follow the drawing', () => {
+		const doc = new DxfDoc(), e = { x0: 10000, y0: 5000, x1: 30000, y1: 15000 }
+		setExtents(doc, e)
+		const s = activeView(doc.stringify(), e)
+		expect(s).toMatch(/\$EXTMIN\s+10\s+10000\s+20\s+5000/)
+		expect(s).toMatch(/\$EXTMAX\s+10\s+30000\s+20\s+15000/)
+		expect(s).toMatch(/\*Active[\s\S]*?\n12\n20000\n22\n10000\n[\s\S]*?\n40\n13125\n/)   // centre + height (20000 × 1.05 / 1.6)
 	})
 })

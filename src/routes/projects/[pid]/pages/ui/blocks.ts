@@ -20,6 +20,9 @@ export type AttrDef = {
 	/** Where the text sits, relative to the insertion point (mm), and its height (mm). */
 	pos: Pt
 	height: number
+	/** Never smaller than this many PAPER mm (the Sheets tool's outlet-label rule: max(the model height, 2.5 paper mm ×
+	 *  the scale)) — so a label stays readable at 1:100 (Dave: Pages' outlet labels were half the Sheets size). */
+	minPaper?: number
 	/** false = stored and edited, never drawn (e.g. TYPE). */
 	visible?: boolean
 	/** Text colour: 'byblock' = the insert's colour; 'contrast' = white on a filled insert, else its colour;
@@ -115,9 +118,9 @@ function triangle(r: number, down = 0): Pt[] {
 const CENTRED = 1 / 6
 const round = (p: Pt): Pt => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]
 export const OUTLET_ATTRS: AttrDef[] = [
-	{ tag: 'LABEL', label: 'Label', pos: [0, -R * 0.85], height: 120, color: undefined },
+	{ tag: 'LABEL', label: 'Label', pos: [0, -R * 0.85], height: 120, minPaper: 2.5, color: undefined },
 	{ tag: 'PORTS', label: 'Ports', default: '1', pos: [0, R * 0.3], height: 170, color: 'contrast' },
-	{ tag: 'NOTE', label: 'Note', pos: [0, R * 1.55], height: 100 },
+	{ tag: 'NOTE', label: 'Note', pos: [0, R * 1.55], height: 100, minPaper: 2 },
 	{ tag: 'TYPE', label: 'Type', default: 'network', pos: [0, 0], height: 100, visible: false },
 ]
 const shape = (id: string, s: Omit<Ent, 'id'>): Ent => ({ id, ...s })
@@ -181,18 +184,18 @@ export const SYMBOL_BLOCKS: BlockDef[] = [
 /** The built-in blocks: the outlet symbols, then the D3 symbols (SYMBOL_BLOCKS, appended below). */
 export const DEFAULT_BLOCKS: BlockDef[] = [
 	{
-		id: 'outlet-box', name: 'Outlet — rosette / box', category: 'outlet', attributes: OUTLET_ATTRS, rev: 3,
+		id: 'outlet-box', name: 'Outlet — rosette / box', category: 'outlet', attributes: OUTLET_ATTRS, rev: 4,
 		shapes: [
 			shape('c', { type: 'ellipse', a: [-R * 0.75, -R * 0.75], b: [R * 0.75, R * 0.75], color: BYBLOCK, fill: BYBLOCK }),
 			shape('t', { type: 'polyline', pts: triangle(R * 0.75, CENTRED).map(round), color: BYBLOCK }),
 		],
 	},
 	{
-		id: 'outlet-wall', name: 'Outlet — wall mount', category: 'outlet', attributes: OUTLET_ATTRS, rev: 3,
+		id: 'outlet-wall', name: 'Outlet — wall mount', category: 'outlet', attributes: OUTLET_ATTRS, rev: 4,
 		shapes: [shape('t', { type: 'polyline', pts: triangle(R * 0.9, CENTRED).map(round), color: BYBLOCK, fill: BYBLOCK })],
 	},
 	{
-		id: 'outlet-floor', name: 'Outlet — floorbox', category: 'outlet', attributes: OUTLET_ATTRS,
+		id: 'outlet-floor', name: 'Outlet — floorbox', category: 'outlet', attributes: OUTLET_ATTRS, rev: 1,
 		shapes: [
 			shape('s', { type: 'rect', a: [-R * 0.707, -R * 0.707].map(Math.round) as Pt, b: [R * 0.707, R * 0.707].map(Math.round) as Pt, color: BYBLOCK, fill: BYBLOCK }),
 			shape('t', { type: 'polyline', pts: triangle(R * 0.8).map(round), color: BYBLOCK }),
