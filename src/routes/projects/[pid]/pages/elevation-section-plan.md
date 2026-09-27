@@ -4,8 +4,9 @@
 "Elevation tool". Dave's review notes: OpenCad's section marker looks great (keep its FLIP to change the look
 direction); its elevations look good — objects BEHIND walls are properly hidden unless seen through holes (doors /
 windows / openings), which needs DEPTH; sections at any angle matter (drawings with non-orthogonal rooms).
-Decisions (§5) taken as recommended: box sections stay alongside line sections; the elevation marker uses the eltag
-look; numbering per model (E1, E2 …) — revisit if Dave objects.
+Decisions (§5, Dave 2026-09-27): (1) box sections STAY alongside line sections for now (review later); (2) the
+elevation marker tries the eltag look (may revert to a plain arrow — keep the marker's drawing in one function);
+(3) numbering PER SHEET (like eltags: "1 / A-201").
 
 ## 1. What Dave asked for
 
