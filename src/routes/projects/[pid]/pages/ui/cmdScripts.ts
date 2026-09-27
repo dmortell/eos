@@ -134,7 +134,7 @@ async function layerPicks(c: CmdCtx, op: 'off' | 'frz', prompt: string) {
 const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
-const rackDef = { u: 42, w: 600, d: 1000 }
+const rackDef = { u: 42, w: 600, d: 1000, rot: 0 }   // rot: RACK's Left / Right (90° steps), remembered for the next rack
 const penDef: { dia: number; through: 'wall' | 'slab' } = { dia: 100, through: 'slab' }   // PEN: remembered for the next run
 /** RACK presets (the option's first word is what a click / typed letter picks). */
 const RACK_PRESETS: Record<string, { u: number; w: number; d: number }> = {
@@ -558,11 +558,17 @@ export const SCRIPTS: Record<string, Script> = {
 			rackDef.d = Math.round(await number(c, 'Depth (mm)', rackDef.d))
 		}
 		if (!(rackDef.u > 0 && rackDef.w > 0 && rackDef.d > 0)) throw new CmdError('Sizes must be positive')
-		for (;;) {   // several racks: keep clicking centres (Enter ends)
-			const foot = (u: Pt) => { const p = D(c, u); return [c.t.newEnt({ type: 'rect', a: [p[0] - rackDef.w / 2, p[1] - rackDef.d / 2], b: [p[0] + rackDef.w / 2, p[1] + rackDef.d / 2] })] }
-			const a = await c.ask({ prompt: `Rack ${rackDef.w}×${rackDef.d} ${rackDef.u}U — specify its centre or <Enter ends>`, point: { ghost: foot }, enter: true })
+		for (;;) {   // several racks: keep clicking centres (Enter ends); Left / Right turn the next one 90° (remembered)
+			const foot = (u: Pt) => {   // the ghost footprint, turned like the rack will be (the front line shows which way it faces)
+				const p = D(c, u), r = (rackDef.rot * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r), hw = rackDef.w / 2, hd = rackDef.d / 2
+				const at = (x: number, y: number): Pt => [p[0] + x * cs - y * sn, p[1] + x * sn + y * cs]
+				return [c.t.newEnt({ type: 'polyline', pts: [at(-hw, -hd), at(hw, -hd), at(hw, hd), at(-hw, hd), at(-hw, -hd)] }),
+					c.t.newEnt({ type: 'polyline', pts: [at(-rackDef.w * 0.3, -hd - 40), at(rackDef.w * 0.3, -hd - 40)] })]
+			}
+			const a = await c.ask({ prompt: `Rack ${rackDef.w}×${rackDef.d} ${rackDef.u}U${rackDef.rot ? ` · ${rackDef.rot}°` : ''} — specify its centre or <Enter ends>`, point: { ghost: foot }, options: ['Left', 'Right'], enter: true })
+			if (a.kind === 'option') { rackDef.rot = (rackDef.rot + (a.key === 'Left' ? 270 : 90)) % 360; continue }   // rotate 90° and ask again
 			if (a.kind !== 'point') return
-			const r = c.t.addRack({ ...rackDef, at: a.p, rot: 0 })
+			const r = c.t.addRack({ ...rackDef, at: a.p, rot: rackDef.rot })
 			if ('err' in r) throw new CmdError(r.err)
 			c.out(`Rack ${r.label} placed (rotate / label / devices in Properties)`)
 		}

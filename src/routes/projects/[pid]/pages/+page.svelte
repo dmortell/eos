@@ -1158,6 +1158,8 @@
 		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
 		{ icon: 'pencilRuler', name: 'Measure' },         // runs DIST: two clicks, nothing drawn (pseudo-tool)
 		{ icon: 'k-text', name: 'Text' },
+		{ icon: 'callout', name: 'Callout' },   // runs LEADER: an arrow to a note (pseudo-tool)
+		{ icon: 'stickyNote', name: 'Note' },   // runs NOTE: a wrapped multi-line notes block (pseudo-tool)
 		{ icon: 'crosshair', name: 'Guide' },   // drop an alignment guide (sets the depth plane across views)
 		{ icon: 'moveHorizontal', name: 'Guide H' },
 		{ icon: 'moveVertical', name: 'Guide V' },
@@ -1170,7 +1172,7 @@
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
 		{ sep: 'draw' },
-		{ tool: 'Text' },
+		{ group: 'text', label: 'Text · callout · note', members: ['Text', 'Callout', 'Note'] },
 		{ tool: 'Line' },
 		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D draws
 		{ sep: 'building' },
@@ -1193,11 +1195,11 @@
 		'Guide V': { tool: 'Guide', set: () => (guideVert = true), is: () => guideVert },
 	}
 	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V' }   // Insert-menu names → tools
-	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance' }
+	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Callout: 'Callout (an arrow to a note)', Note: 'Note (multi-line text block)' }
 	const toolIs = (tool: string, name: string) => { const tv = TOOL_VARIANT[name]; return tv ? tool === tv.tool && tv.is() : tool === name }
 	const toolLabel = (name: string) => TOOL_LABEL[name] ?? name
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
-	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Wall', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
+	let groupTool = $state<Record<string, string>>({ text: 'Text', shapes: 'Rectangle', conduits: 'Wall', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
 	// Which tool-group fly-out is TAP-opened (touch has no hover). Cleared by a press outside any `.grp`.
 	let openGroup = $state<string | null>(null)
 	$effect(() => {
@@ -1267,7 +1269,7 @@
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
 	/** Pseudo-tools that run a COMMAND instead of arming a draw tool (they draw / act through the command line). */
-	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Measure: 'DIST' }
+	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Measure: 'DIST', Callout: 'LEADER', Note: 'NOTE' }
 	function setPaneTool(pane: WorkPane, t: string) {
 		if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return }
 		const tv = TOOL_VARIANT[t]; if (tv) { tv.set(); t = tv.tool }

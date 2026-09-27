@@ -1,7 +1,7 @@
 <script module lang="ts">
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
-	Archive, ArrowLeft, Blinds, PencilRuler, Box, BrickWall, Cable, CircleDot, DoorOpen, Paintbrush, Radius, Camera, Check, Crosshair, Crop,
+	Archive, ArrowLeft, Blinds, MessageSquareQuote, StickyNote, PencilRuler, Box, BrickWall, Cable, CircleDot, DoorOpen, Paintbrush, Radius, Camera, Check, Crosshair, Crop,
 	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle, CirclePile,
 	Ellipsis, EllipsisVertical, ExternalLink, Expand, Eye, EyeOff,
 	FileDown, FileText, FileUp, FileImage, Folder, FolderOpen,
@@ -21,7 +21,7 @@ import {
 let lucide: Record<string, any> = {
 	archive: Archive, arrowLeft: ArrowLeft,
 	// OpenCad's tool icons: window, wall, penetration, door, format painter, arc
-	blinds: Blinds, brickWall: BrickWall, circleDot: CircleDot, doorOpen: DoorOpen, paintbrush: Paintbrush, radius: Radius, pencilRuler: PencilRuler,
+	blinds: Blinds, callout: MessageSquareQuote, stickyNote: StickyNote, brickWall: BrickWall, circleDot: CircleDot, doorOpen: DoorOpen, paintbrush: Paintbrush, radius: Radius, pencilRuler: PencilRuler,
 	center: TextAlignCenter, alignCenter: TextAlignCenter,
 	alignTop: AlignVerticalJustifyStart, alignBottom: AlignVerticalJustifyEnd,
 	alignMiddle: AlignVerticalJustifyCenter,

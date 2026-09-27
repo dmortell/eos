@@ -1,8 +1,8 @@
 # Pages tool — changelog
 
 A readable, curated history of the major milestones (R11). For the exact, per-commit record use
-`git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
-open items; `review.md §0a` tracks which review findings are closed.
+`git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
+condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
 ## Round 17 (2026-09-27) — multi-select in lists
 - **One list multi-select rule** (`$lib/ui/listSelect.ts`, unit-tested): Ctrl/⌘+click toggles, Shift+click takes the
@@ -43,6 +43,15 @@ open items; `review.md §0a` tracks which review findings are closed.
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **DXF opens on the drawing** (Dave: LibreCAD opened with it off screen): `$EXTMIN` / `$EXTMAX` + the `*Active`
+  view's centre / height from the content (patched into the text — `@tarikjabiri/dxf` ignores them). File menu item
+  renamed **Export DXF…**.
+- **Outlet labels as big as in the Sheets tool**: a block attribute can have a `minPaper` height; an outlet's LABEL is
+  ≥ 2.5 paper mm and NOTE ≥ 2 (at 1:100: 250 mm, was a fixed 120 mm). Rack names centred in the rack in plan.
+- **Text fly-out**: Text · **Callout** (LEADER: an arrow to a note) · **Note** (NOTE: a wrapped multi-line block).
+- **RACK: Left / Right** while placing turn the rack (and its preview, with the front line) 90°; the angle is kept for
+  the next rack.
+- CAD uploads (DXF / DWG) up to 8 MB.
 - **DXF export, proper CAD objects** (O15–O17; `exportDxf.ts`, `dxfEntities.ts`, `dxfImages.ts`):
   - blocks are written ONCE as BLOCK definitions (shapes on layer 0) + INSERTs with rotation / scale / mirror, and
     their attributes as ATTDEF / ATTRIB (hidden ones invisible, not dropped) — recipients can count by block name;
@@ -498,3 +507,122 @@ now deleted; it's in git history.
 - Image underlays with origin/scale/crop calibration; layers with groups + view presets.
 - Touch: 1-finger draw/select, 2-finger navigate, pointer capture (the reference touch model in the app).
 - Object styling (colour/weight/layer), copy/paste, group/ungroup, z-order, tool fly-outs with touch parity.
+
+## Earlier work (moved from todo.md, 2026-09-27)
+Items ticked in `todo.md` that the sections above didn't already record, condensed. Dates are when they were done.
+
+**Drawing / editing**
+- **Ellipse tool** (Shift = circle), **polylines** (the Line tool keeps adding segments in ACAD mode; Enter /
+  double-click finishes) and an **inline text editor** (double-click a text) — 2026-09-20.
+- **Shift constraints** live as Shift goes up / down: 15° lines / dims and square rects / ellipses while drawing, axis
+  lock while moving, square about the opposite corner while resizing, 15° steps on a line end (2026-09-20).
+- **CEN** status toggle: rectangles / ellipses drawn centre-out; every status toggle has a tooltip (2026-09-22).
+- **Rotation**: a Rotation field (`rot`) in Properties (2026-09-20); a **rotate handle on every shape** (rect /
+  ellipse / image / line, a box in plan), Shift snapping to 15° live (2026-09-22).
+- **Picking**: a ~7 px screen tolerance at any scale (2026-09-20; lines 2026-09-21); unfilled closed shapes pick by
+  their outline only; Shift+click only selects (never moves) (2026-09-21).
+- **Right-click** ends a multi-point draw (polyline / Wall / Trunk / Pipe) and, with no draft, returns a drawing tool
+  to Select; **Esc** from a drawing tool returns to Select first (2026-09-21).
+- **Ctrl/⌘-drag duplicates** the selection; **one history step per drag / nudge gesture** (2026-09-21).
+- **Graph nodes** (walls / conduits): insert a node in an elevation too, branch a node into a tee, node snap + pull a
+  node off its partner (2026-09-20); select a node and Delete it — 1 segment: removed, 2: joined, 3+: the first two
+  kept joined (2026-09-22).
+- **Conduits**: per-segment width / height and a per-corner bend radius (a conduit default, a node's own overrides)
+  (2026-09-22).
+- **Guide lines** (2026-09-21): the Guide tool drops H / V guides (a Horizontal / Vertical fly-out for touch, Shift
+  flips with a mouse) — selectable, draggable, undoable; a selected plan guide gives the depth of a conduit drawn in
+  an elevation; a live Δ mm readout from the selected guide while placing the next (2026-09-22).
+- **Text**: a monospaced font like Sheets; vertical align (top / middle / bottom); Enter = newline in the inline
+  editor (Ctrl/⌘+Enter commits, with an on-screen hint); the editor sits on the text at any zoom and auto-sizes; the
+  whole text extent is clickable (2026-09-20).
+- **Object style**: colour / fill / weight / font / align on every shape with Sheets' defaults; an explicit weight
+  always renders; the style shows while selected (grips mark the selection); a shared colour-grid picker
+  (`$lib/ui/ColorPicker.svelte`) for objects, fills and layers, with Kestrel-style architectural tones (2026-09-20).
+- **Model units are millimetres** (review §4.2, 2026-09-20; 1:100 default), and a view's scale really renders
+  (2026-09-21).
+- **Pan-content zoom re-scales the view**: with a viewport active and "Pan content" on, the wheel changes the drawing
+  scale (1:100 → 1:84 …) about the cursor (2026-09-20).
+- Fixes (2026-09-20): a polyline double-click no longer adds a zero-length segment; strokes and grips stay a constant
+  width on canvas zoom.
+
+**3D model**
+- **Box base height (`z0`)**: dragging a box in plan no longer moves it in elevation; elevation grips edit width /
+  height / base (2026-09-20).
+- **Flat objects** (rects, lines, dims …) show as a ground line in elevations (2026-09-21).
+- **Shapes drawn on an elevation** live in that plane and show only there (v1, 2026-09-20); **plan shapes lie on the
+  ground** in the 3D view, foreshortened (2026-09-22).
+- **Select objects in the 3D view** by the front-most face at the click (2026-09-21).
+- **Orbit** button in the zoom tools (3D only), Shift snaps the orbit to 15°; the **WCS triad** is twice the size and
+  turns with the orbit (2026-09-22).
+- **Sections**: a persistent plan marker — drag to move, corner grips to resize, a floating toolbar (open / direction
+  / delete), arrows on all four sides that drop that direction as a viewport on the current sheet; the arrow matches
+  the direction dropdown (2026-09-20 → 22).
+- **Risers** (2026-09-24 → 25): several risers per building; the riser doc's hiddenFloors → the frame's; Fit on a
+  frame with hidden floors; free labels → front-elevation text, cables keep their colour; per-storey heights
+  (Properties › HEIGHTS on a building). **H1** (checked 2026-09-27): imported riser rooms, ladders and cables are all
+  editable in Pages, also in frames with hidden floors (a room kind + write-back to the Risers tool: not needed).
+
+**Sheets & viewports**
+- **Viewport frames**: one array of uniform frames per sheet, no special primary (2026-09-21); frame Properties (name,
+  type, X / Y / W / H, border — "none" shows a faint non-printing dotted border); a Model / Source dropdown re-points
+  a frame at another model (2026-09-21).
+- **Active-viewport bar**: scale dropdown (1:1 … 1:500) + Full-size (2026-09-21).
+- **ViewCube**: fixed-size pane gizmos with an x / y / z triad; redesigned (TOP / FRONT / RIGHT + a 3D button, amber
+  hover); re-orients a sheet viewport in place instead of going fullscreen (2026-09-20); per tab and per split pane
+  (2026-09-21).
+- **Paper**: A4 / A3 / A2 + portrait / landscape in the status bar, per tab, without jumping the view; each split pane
+  fits its own sheet (2026-09-20). **Print at true size** on the chosen paper (`@page`, review §2.2).
+- **Per-projection framing**: a viewport's content pan / zoom and orbit are kept per view direction (2026-09-22).
+- **Model / Sheet layouts**: Sheet = paper + viewport frames, Model = the drawing fills the pane; GRID toggle; the
+  model name at the top centre of model tabs (2026-09-21).
+- **The first paper / model-space mock** (2026-09-20): Kestrel-style drawing with a rubber-band preview, shared
+  `Handle.svelte` grips, fixed-scale viewport windows on an infinite canvas, double-click to enter a viewport, border /
+  marquee select, the Esc ladder, window / crossing selection, Ctrl+P prints the focused sheet.
+
+**Layers**
+- **Wired to the canvas** (`layers.svelte.ts`, 2026-09-20): new objects take the active layer; hidden layers hide,
+  locked ones can't be picked; ByLayer colour.
+- **Layer settings dialog** (name, colour, fill / line, line type, thickness in mm, lock, delete) and a **lock** beside
+  every eye.
+- **Drag to reorder layers** (direction-aware drop line) and **paint by layer order**, then by the objects' own order
+  (Ctrl+] / Ctrl+[ and Properties › ARRANGE restack within a layer) (2026-09-20 → 21).
+- **Background** layer group; Insert › Image… onto the active layer (2026-09-21).
+
+**Files & floorplans**
+- **Image calibration in the viewport** (Properties › IMAGE › Calibrate, 2026-09-22): origin crosshair, 2-point scale
+  to a real distance, a crop window with the trim dimmed (grips on the cropped extent), crop % fields, opacity; resize
+  keeps the aspect ratio (Shift = free).
+
+**Navigation & UI**
+- **Mouse / touch model decided** against Sheets (the §1a table in `todo.md`): the ACAD toggle picks the wheel + draw
+  gesture, window / crossing marquee, one finger never pans.
+- **Drawing navigator**: VSCode-style preview tabs; places select → place properties; the project name above the tree;
+  Ctrl+K command palette (2026-09-20).
+- **Properties panel**: two-way editing of the selection (a group box for several), page props when nothing is
+  selected; X/Y/Z · W/D/H vector rows, a Layer dropdown, a multiline text box, Enter / Shift+Enter to the next /
+  previous field; Delete in a field no longer deletes the selection (2026-09-20 → 21).
+- **Status bar**: SNAP / ORTHO (Shift toggles it) / OSNAP / LWT wired; coordinates in mm from the active viewport; the
+  zoom follows the wheel (2026-09-20 → 21). Tool prompts + inline-edit help sit at the pane's bottom centre.
+- **Split view** mirrors the current pane; switching plan / elevation in one pane doesn't refit the other; the active
+  viewport + selection come back per tab.
+- **Tabs**: closing the last one shows "No page open"; the page title is the active drawing's name (clean Save-as-PDF
+  file names).
+- **Package / Version** selectors in the title bar (mock); the per-drawing revision lives in the History panel.
+
+**Backend & project**
+- **History panel** (2026-09-20): an undo / redo timeline (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) — click any step to jump,
+  undone steps faded; revision snapshots with a date and a note (REV / DATE / paper SIZE in the title block);
+  restoring a revision restores only the current drawing.
+
+**Other**
+- **Code review 1 fixes** (`review.md`, 2026-09-20): fit centring (§2.1), keys go to the focused split pane (§2.6),
+  Delete / Backspace + the Edit menu (§2.8), dropDoc leaks, the dirty flag, HistoryPanel prop mutation, title-block
+  size, ViewCube TOP restores the sheet, shared wheel-normalise / zoom clamp + touchcancel (§4.4); adopted additive
+  select, group move, Ctrl+D, select-all and nudge; `ui/geometry.ts` + its first Vitest tests.
+- **Viewport callbacks bundled** into one `on` object (with `env`), cutting the Viewport props from ~30 to ~12
+  (2026-09-21); shared constants in `pages/constants.ts`.
+- **Review of the small parity items** (1f7c681): 8 bugs fixed — among them a pan drag that also clicked / drew, a
+  dropped block of sheets reversing, hiding the title block stopping the margin border printing, and a click dropping
+  a multi-selection of model objects.
+- Fixes: a press inside an active frame no longer starts a paper marquee (2026-09-21); double-click-to-activate after
+  the callback bundling; a marquee after a double-click no longer sticks with a not-allowed cursor (2026-09-20).
