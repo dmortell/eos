@@ -22,6 +22,7 @@
 	import { isOutletEnt } from '../../store/allocate'
 	import { uploadShape, pdfOf, type UploadFile } from '../../ui/pdfFiles'
 	import UploadPicker from '../UploadPicker.svelte'
+	import { srcMissing } from '../../ui/render/fileWatch.svelte'
 
 	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
 		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
@@ -344,6 +345,7 @@
 	<div class="prop"><span>File</span>
 		<span class="pdf-cur" title={cur ? `${cur.fileId} · page ${cur.page}` : single.src?.startsWith('img:') ? 'From this computer — kept only until the page reloads; replace it with an uploaded file' : single.src}>{cur ? `${cur.fileId}${cur.page > 1 ? ` · p${cur.page}` : ''}` : single.src?.startsWith('img:') ? '(local picture — not saved)' : decodeURIComponent(single.src?.split('/').pop() ?? '(picture)')}</span>
 		<button class="pp-mini" title="Show another uploaded PDF page or picture (Uploads tool)" onclick={() => (pdfPick = true)}>Replace…</button></div>
+	{#if srcMissing(single.src)}<div class="pp-missing">⚠ This file was deleted from Uploads — Replace… it, or delete the image.</div>{/if}
 	{#if pdfPick}
 		<UploadPicker current={cur} busy={pdfBusy} onpick={(f, pg) => void applyPdfPick(single!, f, pg)} oncancel={() => (pdfPick = false)} />
 	{/if}

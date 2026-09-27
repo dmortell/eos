@@ -36,6 +36,10 @@ open items; `review.md §0a` tracks which review findings are closed.
   active layer; before, Image… kept it only until a reload and pastes never showed in Uploads. A drop outside a
   viewport no longer makes the browser open the file.
 - **Ctrl+A / SELECTALL** selects every shape AND 3D object on visible, unlocked layers (was shapes only).
+- **Missing files**: an image whose PDF / picture was deleted in the Uploads tool now shows a red dashed "Missing
+  file" placeholder (live — even while the browser still has it cached), and Properties says so (Replace… / delete).
+  `ui/render/fileWatch.svelte.ts`.
+- Title bar: Help is a bold "?" on a round badge; the search dialog closes with a × button.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).

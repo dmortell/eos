@@ -17,6 +17,7 @@
 	import { noteRuns } from '../noteLayout'
 	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, hatchLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
+	import { srcMissing, srcName } from './fileWatch.svelte'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
 	import { isLegend, legendRows, legendSize, LEGEND } from '../legend'
@@ -124,8 +125,14 @@
 		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 		{@const cropping = imgCrop === e.id}
 		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
-		{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={imgFilter} />{/if}
-		<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={imgFilter} />
+		{#if srcMissing(e.src)}
+			<!-- its file was deleted (Uploads): a placeholder, so it can be seen, replaced (Properties) or deleted -->
+			<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="#ef444414" stroke="#ef4444" stroke-width={1.5 / (canvasZoom || 1)} stroke-dasharray="{6 / (canvasZoom || 1)} {4 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />
+			<text x={rx + (cr.x + cr.w / 2) * rw} y={ry + (cr.y + cr.h / 2) * rh} text-anchor="middle" dominant-baseline="middle" fill="#ef4444" font-size={Math.min(cr.w * rw, cr.h * rh) / 12}>Missing file: {srcName(e.src ?? '')}</text>
+		{:else}
+			{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={imgFilter} />{/if}
+			<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={imgFilter} />
+		{/if}
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline' && e.cloud}
 		<!-- REVCLOUD: a cloud round the closed outline -->

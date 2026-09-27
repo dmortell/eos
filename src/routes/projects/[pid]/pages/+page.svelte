@@ -1515,8 +1515,8 @@
 	.tb-kbd { font-size:10px; font-weight:600; color:var(--text); background:var(--hover); border:1px solid var(--muted); border-radius:3px; padding:0 5px; opacity:.85; }
 	/* Help: a round badge with a BOLD "?" — the thin outline icon was hard to make out at title-bar size */
 	.titlebar .tb-help { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; margin:0 3px; border-radius:50%;
-		background:#e2e8f0; color:#0f172a; border:none; font:800 14px/1 system-ui, sans-serif; cursor:pointer; }
-	.titlebar .tb-help span { color:#0f172a; transform:translateY(.5px); }
+		background:var(--muted); color:var(--title); border:none; font:800 14px/1 system-ui, sans-serif; cursor:pointer; }
+	.titlebar .tb-help span { color:var(--title); transform:translateY(.5px); }
 	.titlebar .tb-help:hover { background:var(--accent); }
 	.titlebar .tb-help:hover span { color:#fff; }
 	.shell[data-mock-theme='light'] .titlebar .tb-kbd { color:#e2e8f0; border-color:#94a3b8; background:#334155; }
