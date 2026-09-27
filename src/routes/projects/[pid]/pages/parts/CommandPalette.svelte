@@ -37,7 +37,7 @@
 		<div class="cp-search">
 			<Icon name="search" size={15} />
 			<input placeholder="Search drawings, floors, rooms…" bind:value={query} use:autofocus onkeydown={onKey} />
-			<span class="cp-kbd">Esc</span>
+			<button class="cp-close" title="Close (Esc)" aria-label="Close" onclick={() => onclose?.()}><Icon name="close" size={15} /></button>
 		</div>
 		<div class="cp-list">
 			{#each results as it, i (it.title + i)}
@@ -60,7 +60,8 @@
 	.cp-search :global(svg) { color:var(--muted); flex:0 0 auto; }
 	.cp-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:14px; }
 	.cp-search input:focus { outline:none; }
-	.cp-kbd { font-size:10px; color:var(--faint); border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+	.cp-close { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex:0 0 auto; border:none; border-radius:5px; background:none; color:var(--muted); cursor:pointer; }
+	.cp-close:hover { background:var(--hover); color:var(--text); }
 	.cp-list { max-height:52vh; overflow-y:auto; padding:5px; }
 	.cp-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px; border-radius:6px; background:none; border:none; color:var(--text); text-align:left; }
 	.cp-item.sel { background:var(--active); }

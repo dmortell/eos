@@ -1348,7 +1348,7 @@
 			<button class="tb-search" title="Search drawings (Ctrl+K)" onclick={() => (paletteOpen = true)}>
 				<Icon name="search" size={14} /> <span>Search…</span> <span class="tb-kbd">⌃K</span>
 			</button>
-			<button class="tb-help" title="Help — shortcuts, how do I…, commands (F1)" onclick={() => (helpOpen = true)}><Icon name="help" size={16} /><span>Help</span></button>
+			<button class="tb-help" title="Help — shortcuts, how do I…, commands (F1)" aria-label="Help" onclick={() => (helpOpen = true)}><span>?</span></button>
 			<button class="tb-icon" title="Toggle light / dark" onclick={(e) => { e.stopPropagation(); mockTheme = mockTheme === 'dark' ? 'light' : 'dark' }}>
 				<Icon name={mockTheme === 'dark' ? 'moon' : 'sun'} size={15} />
 			</button>
@@ -1513,11 +1513,12 @@
 	.tb-search:hover { background:var(--hover); color:var(--text); }
 	.tb-search span:first-of-type { min-width:66px; text-align:left; }
 	.tb-kbd { font-size:10px; font-weight:600; color:var(--text); background:var(--hover); border:1px solid var(--muted); border-radius:3px; padding:0 5px; opacity:.85; }
-	/* Help: a labelled button (an icon alone was hard to read) */
-	.tb-help { display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px 0 7px; border-radius:6px; font-size:12px; font-weight:600;
-		color:var(--text); background:var(--panel); border:1px solid var(--line); }
-	.tb-help:hover { background:var(--hover); border-color:var(--accent); color:var(--accent); }
-	.shell[data-mock-theme='light'] .titlebar .tb-help { color:#e2e8f0; background:#334155; border-color:#475569; }
+	/* Help: a round badge with a BOLD "?" — the thin outline icon was hard to make out at title-bar size */
+	.titlebar .tb-help { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; margin:0 3px; border-radius:50%;
+		background:#e2e8f0; color:#0f172a; border:none; font:800 14px/1 system-ui, sans-serif; cursor:pointer; }
+	.titlebar .tb-help span { color:#0f172a; transform:translateY(.5px); }
+	.titlebar .tb-help:hover { background:var(--accent); }
+	.titlebar .tb-help:hover span { color:#fff; }
 	.shell[data-mock-theme='light'] .titlebar .tb-kbd { color:#e2e8f0; border-color:#94a3b8; background:#334155; }
 
 	/* Light mode: keep the titlebar dark (like EOS's slate-800 header), with
