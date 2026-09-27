@@ -32,18 +32,37 @@ export async function geocode(q: string, fetchFn: typeof fetch = fetch): Promise
 	return js.map((p) => ({ lat: +p.lat, lon: +p.lon, name: p.display_name, osmType: p.osm_type, osmId: p.osm_id, cls: p.category ?? p.class, type: p.type }))
 }
 
-/** The Overpass query: buildings + building parts within `r` metres of the point, with their geometry. */
-export const overpassQuery = (lat: number, lon: number, r = 250) =>
-	`[out:json][timeout:25];(way["building"](around:${r},${lat},${lon});relation["building"](around:${r},${lat},${lon});way["building:part"](around:${r},${lat},${lon});relation["building:part"](around:${r},${lat},${lon}););out geom tags;`
+/** The Overpass query: buildings + building parts within `r` metres of the point, with their geometry — plus the
+ *  geocoded element itself (`want`, e.g. relation/3816171), so THE building is there even when the area is huge. */
+export const overpassQuery = (lat: number, lon: number, r = 250, want?: { osmType?: string; osmId?: number }) => {
+	// a BOUNDING BOX (±r m), not `around:` — Overpass answers a bbox from its index far faster (around: on relations
+	// with geometry timed out on every server in central Tokyo)
+	const dLat = r / 110574, dLon = r / (111320 * Math.cos((lat * Math.PI) / 180)), f6 = (v: number) => v.toFixed(6)
+	const a = `(${f6(lat - dLat)},${f6(lon - dLon)},${f6(lat + dLat)},${f6(lon + dLon)})`
+	const own = want?.osmId && (want.osmType === 'way' || want.osmType === 'relation') ? `${want.osmType}(${want.osmId});` : ''
+	return `[out:json][timeout:90];(way["building"]${a};relation["building"]${a};way["building:part"]${a};relation["building:part"]${a};${own});out geom tags;`
+}
 
-export type OverpassJson = { elements: OverpassEl[] }
+/** `remark` = Overpass's note when it ran out of time / memory — the result is then PARTIAL. */
+export type OverpassJson = { elements: OverpassEl[]; remark?: string }
 type LL = { lat: number; lon: number }
 export type OverpassEl = { type: 'way' | 'relation' | 'node'; id: number; tags?: Record<string, string>; geometry?: LL[]; members?: { type: string; role: string; geometry?: LL[] }[] }
 
-export async function fetchBuildings(lat: number, lon: number, r = 250, fetchFn: typeof fetch = fetch): Promise<OverpassJson> {
-	const res = await fetchFn(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(overpassQuery(lat, lon, r)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-	if (!res.ok) throw new Error(`Building data request failed (${res.status})`)
-	return (await res.json()) as OverpassJson
+/** The public Overpass servers, tried in turn — the main one is often busy (429 / 504). */
+export const OVERPASS_SERVERS = [OVERPASS, 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
+export async function fetchBuildings(lat: number, lon: number, r = 250, fetchFn: typeof fetch = fetch, want?: { osmType?: string; osmId?: number }): Promise<OverpassJson> {
+	const body = 'data=' + encodeURIComponent(overpassQuery(lat, lon, r, want))
+	let last = ''
+	for (const url of OVERPASS_SERVERS) {
+		try {
+			// a hung server (dense city centres are slow) gives way to the next after 25 s
+			const res = await fetchFn(url, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(45000) })
+			if (res.ok) return (await res.json()) as OverpassJson
+			last = String(res.status)
+			if (res.status !== 429 && res.status < 500) break   // a bad query won't work anywhere else either
+		} catch (e) { last = (e as Error).message }   // a network error / CORS: the next server
+	}
+	throw new Error(`Building data request failed (${last}) — the OSM servers are busy`)
 }
 
 /** lat / lon → local metres about (lat0, lon0) (an equirectangular approximation — fine over a few hundred metres). */
@@ -95,7 +114,11 @@ export function toBuildings(js: OverpassJson, lat0: number, lon0: number): OsmBu
 		if (!tags.building && !tags['building:part']) continue
 		let rings: { outer: LL[][]; inner: LL[][] }
 		if (el.type === 'way' && el.geometry?.length) rings = { outer: [el.geometry], inner: [] }
-		else if (el.type === 'relation' && el.members) rings = { outer: joinRings(el.members.filter((m) => m.role !== 'inner' && m.geometry).map((m) => m.geometry!)), inner: joinRings(el.members.filter((m) => m.role === 'inner' && m.geometry).map((m) => m.geometry!)) }
+		else if (el.type === 'relation' && el.members) {
+			// a multipolygon: outer / inner rings; a type=building relation: its OUTLINE (its parts come as their own elements)
+			const isOuter = tags.type === 'building' ? (role: string) => role === 'outline' : (role: string) => role !== 'inner' && role !== 'part'
+			rings = { outer: joinRings(el.members.filter((m) => isOuter(m.role) && m.geometry).map((m) => m.geometry!)), inner: joinRings(el.members.filter((m) => m.role === 'inner' && m.geometry).map((m) => m.geometry!)) }
+		}
 		else continue
 		const hs = heightsOf(tags, part)
 		rings.outer.forEach((o, k) => {
@@ -121,7 +144,10 @@ export const centroid = (r: Pt2[]): Pt2 => { let x = 0, y = 0; for (const p of r
 /** THE building at the site: the one Nominatim matched (same OSM id), else the one containing the site point, else the
  *  nearest within 80 m; null = none. Parts are never the target (they belong to it). */
 export function pickTarget(bs: OsmBuilding[], place?: Pick<OsmPlace, 'osmType' | 'osmId'>): OsmBuilding | null {
-	const whole = bs.filter((b) => !b.part)
+	// canopies, roofs over entrances, carports … and slivers are never THE building (a station entrance's roof sat on the
+	// Shin-Marunouchi Building's geocoded point)
+	const MINOR = new Set(['roof', 'canopy', 'carport', 'entrance', 'kiosk', 'shed', 'hut', 'toilets', 'bridge'])
+	const whole = bs.filter((b) => !b.part && !MINOR.has(b.tags.building) && area(b.outer) >= 40)
 	if (place?.osmType && place.osmId) { const id = `${place.osmType}/${place.osmId}`; const hit = whole.find((b) => b.id === id || b.id.startsWith(id + '#')); if (hit) return hit }
 	const inside = whole.filter((b) => inRing([0, 0], b.outer)).sort((a, b) => area(a.outer) - area(b.outer))[0]
 	if (inside) return inside

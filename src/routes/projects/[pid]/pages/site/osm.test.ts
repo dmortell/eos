@@ -34,6 +34,14 @@ describe('site OSM data', () => {
 	})
 	it('the Overpass query asks for buildings + parts around the point with geometry', () => {
 		const q = overpassQuery(35.6, 139.7, 200)
-		expect(q).toContain('way["building"](around:200,35.6,139.7)'); expect(q).toContain('building:part'); expect(q).toContain('out geom tags')
+		expect(q).toContain('way["building"](35.598191,139.697790,35.601809,139.702210)'); expect(q).toContain('building:part'); expect(q).toContain('out geom tags')
+		expect(overpassQuery(35.6, 139.7, 200, { osmType: 'relation', osmId: 3816171 })).toContain('relation(3816171);')   // THE building, whatever the area
+	})
+	it('never picks a canopy / roof / sliver as the building (the Shin-Marunouchi entrance roof)', () => {
+		const js: OverpassJson = { elements: [
+			{ type: 'way', id: 9, tags: { building: 'roof' }, geometry: sq(-0.00001, -0.00001, 0.00002) },
+			{ type: 'way', id: 10, tags: { building: 'commercial', height: '198' }, geometry: sq(-0.0006, -0.0003, 0.0009) },
+		] }
+		expect(pickTarget(toBuildings(js, 0, 0))!.id).toBe('way/10')
 	})
 })

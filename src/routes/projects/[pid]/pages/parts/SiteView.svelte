@@ -19,6 +19,7 @@
 	let target = $state<OsmBuilding | null>(null)
 	let parts = $state<OsmBuilding[]>([])
 	let count = $state(0)
+	let partial = $state(false)   // Overpass ran out of time: some neighbours may be missing
 	let tiles = $state(true)
 	let host: HTMLDivElement | undefined = $state()
 	let scene: SiteScene | null = null
@@ -39,7 +40,8 @@
 	async function show(p: OsmPlace, my = ++seq) {
 		place = p; status = 'loading'; err = ''
 		try {
-			const js = await fetchBuildings(p.lat, p.lon, 250)
+			const js = await fetchBuildings(p.lat, p.lon, 180, fetch, p)   // + the matched building itself, whatever the area's size
+			partial = !!js.remark
 			if (my !== seq) return
 			const bs = toBuildings(js, p.lat, p.lon)
 			count = bs.filter((b) => !b.part).length
@@ -111,6 +113,7 @@
 						<button class="si-match" class:on={m === place} title={m.name} onclick={() => show(m)}>{m.name}</button>
 					{/each}
 				{/if}
+				{#if partial}<div class="si-note">The OSM server returned a partial result — some neighbours may be missing (Find again later).</div>{/if}
 				{#if osmUrl}<a class="si-link" href={osmUrl} target="_blank" rel="noopener noreferrer">Open on OpenStreetMap ↗</a>{/if}
 			</div>
 		{/if}
