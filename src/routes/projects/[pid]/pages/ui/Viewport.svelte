@@ -25,6 +25,7 @@
 	import { VpInteraction } from './vpInteraction.svelte'
 	import type { VpProps } from './vpTypes'
 	import { cmdBus } from './cmdBus.svelte'
+	import { DIR_LABEL } from '../3dview/types'
 
 	const props: VpProps = $props()
 	// the props PROXY itself is handed over (never destructured), so VpView's getters read every prop live
@@ -32,6 +33,9 @@
 	const v = new VpView(props)
 	const x = new VpInteraction(v)
 	const tagIcon: Record<string, string> = { plan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
+	/** The view's DIRECTION as the ViewCube names it (Plan / Front … / 3D, and the 3D popout's ISO / WIRE), shown with
+	 *  the scale — a sheet viewport's direction is otherwise only visible on the cube, for the TARGET viewport. */
+	const modeLabel = $derived(v.kind === 'iso' ? (props.wire ? 'WIRE' : props.persp ? '3D' : 'ISO') : DIR_LABEL[v.kind]?.toUpperCase() ?? '')
 	const CX = v.cx, CY = v.cy
 	// the command line drives the focused pane's ACTIVE viewport (ui/cmdBus)
 	$effect(() => {
@@ -98,7 +102,7 @@
 		     so it's right after zooming inside the viewport); plain text on paper when printed (B31: model space names itself
 		     in the pane's bar) -->
 		<div class="vp-tag"><Icon name={tagIcon[v.kind]} size={10} /> <span class="vp-num">{v.label}</span></div>
-		{#if v.scale}<div class="vp-scale-tag">{effScale(v.scale, v.view.zoom)}</div>{/if}
+		{#if v.scale || modeLabel}<div class="vp-scale-tag">{#if modeLabel}<span class="vp-mode">{modeLabel}</span>{/if}{#if v.scale && modeLabel}{' · '}{/if}{#if v.scale}{effScale(v.scale, v.view.zoom)}{/if}</div>{/if}
 	{/if}
 	<VpWidgets {v} {x} />
 	{#if v.missing}
@@ -128,6 +132,7 @@
 	}
 	.vp-tag :global(svg) { color:#94a3b8; }
 	.vp-scale-tag { position:absolute; top:6px; right:6px; font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px; font-family:Consolas,monospace; }
+	.vp-mode { font-weight:700; color:#0e7490; letter-spacing:0.04em; }
 	.vp-num { font-weight:600; }
 	/* print: the number and scale as plain drawing text (no chips / icon), black, a touch larger */
 	@media print {
