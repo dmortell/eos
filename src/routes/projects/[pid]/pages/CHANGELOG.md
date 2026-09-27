@@ -12,6 +12,12 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Lineweights for 3D objects**: walls / boxes / conduits draw at their layer's lineweight in mm like 2D shapes (true
   width with LWT on, hairlines with it off; the old px "Thickness" maps to mm).
 - **Printing always uses true lineweights** (like AutoCAD's plot), whatever the LWT display toggle.
+- **A floor model's datum is FL±0 = the top of the raised floor** (Dave: racks / furniture sat on the slab; `ui/levels.ts`,
+  tested): its `levels` stay stored above the slab top (the Risers tool's heights) but read from FL — the structure
+  lines (raised floor at 0, slab top at −raised floor, ceiling / ceiling slab FL-relative), trunk / pipe heights
+  (under floor = on the slab below FL; plenum / below ceiling from FL), a new section box (slab top → ceiling slab)
+  and the default conduit height. Objects move / draw down to the slab top (z below 0). No data changes: everything
+  drawn from z 0 now stands on the raised floor. (A building model's storeys keep their slab-top datum.)
 - todo closed: VSCode slowness, 33F as a full-floor model, one model per floor (models are per floor / place, detail
   views have their own), model tabs as an infinite canvas (done in B31: dark model space, one zoom layer), "layer /
   colour / lineweight editing" (round 19). F4 context-menu split and the grid snap base point → LOW.

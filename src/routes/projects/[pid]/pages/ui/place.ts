@@ -10,6 +10,7 @@ import { frameAxis, frameStep, uToAlong, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
 import { isFlatElev } from './hit'
+import { flOffset, levelsFromFL } from './levels'
 
 /** The DRAWING PLANE new 2D geometry lands in: undefined in plan (= the model/plan plane, see `onPlanPlane`),
  *  the ElevDir when drawn natively in an elevation. (Was Viewport's `drawPlane()`; iso draws nothing.) */
@@ -93,11 +94,11 @@ export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts)
 	const spec = GRAPH_TOOL[tool]
 	if (!spec || pts.length < 2) return null
 	const layerId = opts.layerId ?? ((id: string) => resolveLayer(ctx.mdl, id))
-	const nodesZ = tool === 'Wall' ? 0 : (opts.profile?.z ?? ctx.mdl?.levels?.ceilingTile ?? 2600)
+	const nodesZ = tool === 'Wall' ? 0 : (opts.profile?.z ?? levelsFromFL(ctx.mdl?.levels).ceilingTile ?? 2600)   // heights from FL±0 (ui/levels)
 	const f = ctxFrame(ctx), ax = ctx.isElev ? frameAxis(f) : 0
 	const toNode = (p: Pt) => {
 		if (!ctx.isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
-		const onAxis = Math.round(uToAlong(f, p[0])), z = Math.max(0, Math.round(ctx.ground - p[1]))
+		const onAxis = Math.round(uToAlong(f, p[0])), z = Math.max(0 - flOffset(ctx.mdl?.levels), Math.round(ctx.ground - p[1]))   // down to the slab (under the raised floor)
 		// oblique: phase 5 — the depth is an axis-aligned model coord (a plan guide's y / x, the depth-snap's off-axis
 		// coord, else the plan centre); an oblique view would place at frameInv(u, depth). (Not reached: an oblique view
 		// doesn't draw walls / trunks until then — vpInteraction gates the graph tools.)
@@ -126,8 +127,10 @@ export function prismObj(ctx: ViewCtx, a: Pt, b: Pt, layer: string, h: number, u
  *  Plan only — null elsewhere. The caller pushes it into `mdl.sections` as one model edit. */
 export function sectionObj(ctx: ViewCtx, a: Pt, b: Pt, id: string, name: string): BoxSection | null {
 	if (!ctx.isPlan) return null
-	const clip: Clip = { x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
-		x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: ctx.mdl?.levels?.ceilingSlab ?? 3200 }
+	// from the slab top (under the raised floor, FL − its height) to the ceiling slab — heights from FL±0 (ui/levels)
+	const L = levelsFromFL(ctx.mdl?.levels)
+	const clip: Clip = { x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: L.slabTop,
+		x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: L.ceilingSlab ?? 3200 }
 	return { id, clip, dir: 'front', name }
 }
 

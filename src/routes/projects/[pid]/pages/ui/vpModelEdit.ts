@@ -6,6 +6,7 @@
 import type { Pt } from './geometry'
 import { frameStep, dotT } from './geometry'
 import { ctxFrame, type ViewCtx } from './view'
+import { flOffset } from './levels'
 import type { GN } from './hit'
 import type { MGrip } from './grips'
 import type { VpView } from './vpView.svelte'
@@ -49,9 +50,9 @@ export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
 /** `translateObj` on a ViewCtx (unit-testable without a VpView). */
 export function translateInView(ctx: ViewCtx, o: Obj, dx: number, dy: number): Obj {
 	const c = structuredClone(o) as Obj
-	const step = ctx.isElev ? frameStep(ctxFrame(ctx), dx) : null
+	const step = ctx.isElev ? frameStep(ctxFrame(ctx), dx) : null, zMin = 0 - flOffset(ctx.mdl?.levels)   // down to the slab, under the raised floor (ui/levels)
 	const shift = (t: P3) => {
-		if (step) { if (step[0]) t.x += step[0]; if (step[1]) t.y += step[1]; t.z = Math.max(0, t.z - dy) }
+		if (step) { if (step[0]) t.x += step[0]; if (step[1]) t.y += step[1]; t.z = Math.max(Math.min(zMin, t.z), t.z - dy) }
 		else { t.x += dx; t.y += dy }
 	}
 	if (c.type === 'prism') shift(c); else for (const n of c.nodes as GN[]) shift(n)

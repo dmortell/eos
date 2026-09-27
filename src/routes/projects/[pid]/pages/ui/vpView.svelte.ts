@@ -31,6 +31,7 @@ import { isElevMarker, elevMarkerDir, elevMarkerGrips, elevMarkerRegion, elevMar
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip, type OClip, type Storey } from '../3dview/types'
+import { flOffset } from './levels'
 import { storeyMap } from '../3dview/storeyMap'
 
 export const INK = '#475569', SEL = '#0e7490'
@@ -428,9 +429,10 @@ export class VpView {
 	 *  layer A-FLOR, its ceiling (a line) on A-CLNG — only while those layers are on. Spans the model's footprint
 	 *  along this view's axis; a riser frame's collapsed floors are skipped / remapped like everything else. */
 	structure = $derived.by(() => {
-		// a FLOOR model has no storeys, only its `levels` (floor datum 0): drawn as one storey at z 0
+		// a FLOOR model has no storeys, only its `levels` (heights above its slab top) and its datum z 0 = FL±0, the raised
+		// floor's top (ui/levels.ts): drawn as one storey whose slab top sits at FL − raised floor (a nominal 200 mm slab)
 		const m = this.mdl, lv = m?.levels
-		const st: Storey[] | undefined = m?.storeys?.length ? m.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ id: '_levels', name: '', z: 0, ...lv }] : undefined
+		const st: Storey[] | undefined = m?.storeys?.length ? m.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ id: '_levels', name: '', ...lv, z: 0 - flOffset(lv), slab: 200 }] : undefined
 		if (!m || !this.isElev || !st?.length) return null
 		const has = (id: string) => this.mls.some((l) => l.id === id) && !this.isLayerHidden(id)
 		const showF = has('a-flor'), showC = has('a-clng'); if (!showF && !showC) return null

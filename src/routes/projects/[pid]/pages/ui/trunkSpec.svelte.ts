@@ -2,6 +2,7 @@
 // a catalogue item (or Custom), round / rectangular, W × H (a round one: its diameter), where it runs, and its height.
 // One spec per tool, remembered in localStorage (a per-user drawing preference, like the snap step).
 import type { Levels } from '../3dview/types'
+import { levelsFromFL } from './levels'
 
 export type TrunkShape = 'rect' | 'round'
 export type TrunkLoc = 'underfloor' | 'plenum' | 'ceiling' | 'wall' | 'custom'
@@ -27,11 +28,12 @@ export const CATALOGUE: CatItem[] = [
 ]
 export const LOCATIONS: [TrunkLoc, string][] = [['underfloor', 'Under floor'], ['plenum', 'Ceiling plenum'], ['ceiling', 'Below ceiling'], ['wall', 'On wall'], ['custom', 'Custom Z']]
 
-/** The run's underside for a location, from the model's levels (defaults: ceiling tiles at 2600 mm). */
+/** The run's underside for a location, from the model's levels read from FL±0 = the raised floor's top (ui/levels;
+ *  defaults: ceiling tiles at FL+2600). */
 export function specZ(s: TrunkSpec, lv: Levels | undefined): number {
-	const tile = lv?.ceilingTile ?? 2600
+	const L = levelsFromFL(lv), tile = L.ceilingTile ?? 2600
 	switch (s.loc) {
-		case 'underfloor': return 0                     // on the slab, in the raised-floor void
+		case 'underfloor': return L.slabTop             // on the slab, in the raised-floor void (below FL)
 		case 'plenum': return tile + 50                 // just above the ceiling tiles
 		case 'ceiling': return Math.max(0, tile - s.h - 50)   // hung just below them
 		case 'wall': return 300                         // along the wall, above the skirting

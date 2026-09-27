@@ -18,6 +18,7 @@ import type { Model, Obj, Clip, Dir, OClip } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, trimToOClip, oclipFrame, openingCuts, objBounds, type ProjDir } from './3dview/projection'
 import { hiddenLines, lookNegOf, type HLSeg } from './3dview/hiddenLines'
+import { flOffset } from './ui/levels'
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, dimGeom, dimTextAt, frameOf, rectPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom, bbox } from './ui/hit'
@@ -155,7 +156,7 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	// and the ceiling slab's underside (its top) on A-CLNG — a floor model's own `levels` count as one storey at 0 ──
 	const onL = (id: string) => !!layerOf(id) && shown(id)   // like the viewport: only on an existing, shown layer
 	if (isElev && (onL('a-flor') || onL('a-clng'))) {
-		const lv = model.levels, sts = model.storeys?.length ? model.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ z: 0, ...lv }] : []
+		const lv = model.levels, sts = model.storeys?.length ? model.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ ...lv, z: 0 - flOffset(lv) }] : []   // a floor model: FL±0 = the raised floor's top (ui/levels)
 		const xs: number[] = []
 		for (const o of model.objects) { const b = objBounds(o); for (const [cx, cy] of rectPts(b.x0, b.y0, b.x1, b.y1)) xs.push(vm.toDraw({ x: cx, y: cy, z: 0 })[0]) }
 		if (xs.length) {
