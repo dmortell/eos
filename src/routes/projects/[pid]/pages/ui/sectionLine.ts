@@ -81,8 +81,10 @@ export function lineSectionMarks(s: LineSection, u: number): { arrows: [SecArrow
 }
 /** The two end labels: the name at a, the name primed at b ("A" / "A′"). */
 export const lineSectionLabels = (s: { name?: string }): [string, string] => { const n = s.name || '?'; return [n, `${n}′`] }
-/** A section's display title — "Section A–A′" for a line, the box's own name ("Section A"). */
+/** A section's display title — "Section A–A′" for a line, the box's own name ("Section A"), an elevation marker's name
+ *  else "Elevation 1" (phase 4 — its number). */
 export function sectionTitle(s: Section): string {
+	if (s.kind === 'elev') return s.name || `Elevation ${s.number || '?'}`
 	if (!isLineSection(s)) return s.name ?? 'Section'
 	const [a, b] = lineSectionLabels(s)
 	return `Section ${a}–${b}`
@@ -117,9 +119,11 @@ export function applyLineGrip(s0: LineSection, key: LineGripKey, p: Pt, shift = 
 	return key === 'a' ? { a: e } : { b: e }
 }
 
-/** A section dragged by (dx, dy) from its press-time copy `s0` → its patch (whole mm): a line's ends, a box's clip. */
-export function moveSection(s0: Section, dx: number, dy: number): Partial<LineSection> | { clip: Clip } {
+/** A section dragged by (dx, dy) from its press-time copy `s0` → its patch (whole mm): a line's ends, an elevation
+ *  marker's point, a box's clip. */
+export function moveSection(s0: Section, dx: number, dy: number): Partial<LineSection> | { at: [number, number] } | { clip: Clip } {
 	if (isLineSection(s0)) return { a: rnd([s0.a[0] + dx, s0.a[1] + dy]), b: rnd([s0.b[0] + dx, s0.b[1] + dy]) }
+	if (s0.kind === 'elev') return { at: rnd([s0.at[0] + dx, s0.at[1] + dy]) }
 	const c = s0.clip
 	return { clip: { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) } }
 }

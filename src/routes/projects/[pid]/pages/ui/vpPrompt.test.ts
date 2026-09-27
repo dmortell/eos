@@ -31,5 +31,11 @@ describe('Viewport prompt / status line', () => {
 		expect(statusLine({ ...s, active: false, editingText: true })).toMatch(/^Editing text/)
 		expect(statusLine({ ...s, imgText: 'X', sectionSelected: true })).toBe('X')
 		expect(statusLine({ ...s, tool: 'Select', sectionSelected: true })).toMatch(/^Section selected/)
+		expect(statusLine({ ...s, tool: 'Select', sectionSelected: true, sectionElev: true })).toMatch(/^Elevation marker selected/)
+	})
+	it('the Elevation tool (phase 4): the point, then the look; plan only', () => {
+		expect(toolPrompt({ ...base, tool: 'Elevation' })).toBe('Specify the elevation marker point')
+		expect(toolPrompt({ ...base, tool: 'Elevation', n: 1 })).toMatch(/^Specify the way it looks .* Enter = up the sheet$/)
+		expect(toolPrompt({ ...base, tool: 'Elevation', isPlan: false })).toBe('Switch to the plan view to place an elevation marker')
 	})
 })

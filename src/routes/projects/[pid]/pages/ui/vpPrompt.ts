@@ -44,6 +44,9 @@ export function toolPrompt(a: PromptArgs): string {
 			if (!isPlan) return 'Switch to the plan view to cut a section'
 			if (a.sectionLine) return n ? 'Specify the section line end (A′) — it looks to the left of A → A′ · Shift = 15°' : 'Specify the section line start (A)'
 			return n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner'
+		case 'Elevation':
+			if (!isPlan) return 'Switch to the plan view to place an elevation marker'
+			return n ? 'Specify the way it looks (the four axes · Shift = 15°) — or type an angle · Enter = up the sheet' : 'Specify the elevation marker point'
 		case 'Opening': return isPlan ? (n ? 'Specify opposite corner' : 'Specify opening (door / window / hole) corner') : 'Switch to the plan view to place an opening'
 		case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 		case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
@@ -64,10 +67,11 @@ export function imgModeText(mode: string | null | undefined, entering: boolean, 
 	return null
 }
 
-export function statusLine(a: { editingText: boolean; active: boolean; imgText: string | null; sectionSelected: boolean; sectionLine?: boolean; tool: string; prompt: string }): string {
+export function statusLine(a: { editingText: boolean; active: boolean; imgText: string | null; sectionSelected: boolean; sectionLine?: boolean; sectionElev?: boolean; tool: string; prompt: string }): string {
 	if (a.editingText) return 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
 	if (!a.active) return ''
 	if (a.imgText) return a.imgText
+	if (a.sectionSelected && a.sectionElev && a.tool === 'Select') return 'Elevation marker selected · drag it to move · drag the arrow tip to turn (Shift = 15°) · the band ends = width, the diamond = depth · toolbar: drop as viewport / turn round / delete'
 	if (a.sectionSelected && a.sectionLine && a.tool === 'Select') return 'Section line selected · drag an end (Shift = 15°) or the depth handle · drag the line to move · click an end arrow to flip · toolbar: drop as viewport / flip / delete'
 	if (a.sectionSelected && a.tool === 'Select') return 'Section selected · drag a corner to resize · drag the box to move · toolbar: open / re-aim / delete'
 	return `${a.tool} · ${a.prompt}`

@@ -14,7 +14,7 @@ import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
 import type { ViewCtx, MLayers } from './view'
 import type { VpProps, VpKind } from './vpTypes'
-import { pickSectionGrip, pickLineSectionGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
+import { pickSectionGrip, pickLineSectionGrip, pickElevGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
 import { SNAP_STEP, rndTo, snapNode, graphNodeApply, elevDepthSnap } from './snap'
 import { barycentre, groupBox } from './groupXf'
 import { connPoints, objPoints, type ConnPt } from '../3dview/connect'
@@ -24,6 +24,7 @@ import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip, patchSection, flipSection } from './modelEdit'
 import { isLineSection, lineSectionDir, lineSectionGrips, lineSectionRegion, sectionTitle } from './sectionLine'
+import { isElevMarker, elevMarkerDir, elevMarkerGrips, elevMarkerRegion, elevMarkerLine, ELEV_R } from './elevMarker'
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip, type OClip } from '../3dview/types'
@@ -430,33 +431,49 @@ export class VpView {
 	/** A section drag's patch (a box's clip, a line's ends / depth) — inside the gesture, which records the step. */
 	patchSection = (id: string, patch: SectionPatch) => { if (this.mdl) patchSection(this.mdl, id, patch) }
 	setSectionDir = (id: string, dir: ElevDir) => { if (this.mdl) setSectionDir(this.mdl, this.editor.edit, id, dir) }
-	/** A LINE section looks the other way (its end arrows / toolbar / Properties) — one undo step. */
+	/** A LINE section looks the other way (its end arrows / toolbar / Properties), an elevation marker turns round —
+	 *  one undo step. */
 	flipSection = (id: string) => { if (this.mdl) flipSection(this.mdl, this.editor.edit, id) }
+	/** The plan marks' annotative unit (drawing mm per paper mm) — section-line arrows, elevation-marker callouts — never
+	 *  smaller on screen than a clickable ~4 px; their hit-test and grips use the same, so what's drawn is what's hit. */
+	markU = $derived(Math.max(this.paperMm, this.tolMm(4)))
 	/** Delete a section — unless it still drives sheet viewports: then the page ASKS (keep them as plain elevations /
 	 *  delete them too) and does the delete itself (editor.sections.askDelete). */
 	deleteSection = (id: string) => {
 		if (this.editor.sections.askDelete(id)) return
 		if (this.mdl && deleteSection(this.mdl, this.editor.edit, id) && this.selSection === id) this.clearSel()
 	}
-	hitSection = (p: Pt) => hitSection(this.ctx, this.sections, p, this.tolMm(6))
+	hitSection = (p: Pt) => hitSection(this.ctx, this.sections, p, this.tolMm(6), this.markU)
 	hitGuide = (p: Pt) => hitGuide(this.viewGuides, p, this.tolMm(6))
 	/** The selected section's floating toolbar position (.vp-local px), tracking pan/zoom/resize — at a box's top-left, a
-	 *  line's top-left bounds — plus what it shows: a box's sight dir, a line's flip, and the viewports it drives. */
+	 *  line's top-left bounds, a marker's callout + region bounds — plus what it shows: a box's sight dir, a line's flip / a
+	 *  marker's turn, and the viewports it drives. */
 	secToolbar = $derived.by(() => {
 		void this.view; void this.canvasZoom; void this.vpW; void this.vpH   // deps: reposition on pan/zoom/resize
 		const s = this.selSectionObj, svg = this.svg
 		if (!this.active || !s || !svg) return null
-		const at: Pt = isLineSection(s) ? [Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1])] : [Math.min(s.clip.x0, s.clip.x1), Math.min(s.clip.y0, s.clip.y1)]
+		const R = ELEV_R * this.markU, mb = isElevMarker(s) ? [...elevMarkerRegion(s), [s.at[0] - R, s.at[1] - R] as Pt] : null
+		const at: Pt = isLineSection(s) ? [Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1])]
+			: mb ? [Math.min(...mb.map((q) => q[0])), Math.min(...mb.map((q) => q[1]))]
+			: s.kind === 'elev' ? s.at : [Math.min(s.clip.x0, s.clip.x1), Math.min(s.clip.y0, s.clip.y1)]
 		const sp = this.toClient(at[0], at[1]); if (!sp) return null
 		const r = svg.getBoundingClientRect()
 		// client px → .vp-LOCAL px: on a zoomed sheet the viewport is CSS-scaled, so divide by its on-screen scale (else the
 		// toolbar lands far from the box — Dave, Zone 3303 elevations)
 		const k = this.vpW ? r.width / this.vpW : 1
-		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, line: isLineSection(s), dir: isLineSection(s) ? lineSectionDir(s) : s.dir,
+		// `line`: ONE view (a line section or an elevation marker — drop again = another linked viewport; flip / turn)
+		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, line: s.kind === 'line' || s.kind === 'elev', elev: s.kind === 'elev',
+			dir: isLineSection(s) ? lineSectionDir(s) : s.kind === 'elev' ? elevMarkerDir(s) : s.dir,
 			title: sectionTitle(s), links: this.editor.sections.links(s.id) }
 	})
 	/** The selected LINE section's grips (ends + depth handle) and its cut region, for VpMarks. */
 	lineSecSel = $derived.by(() => { const s = this.selSectionObj; return s && isLineSection(s) ? { grips: lineSectionGrips(s), region: lineSectionRegion(s) } : null })
+	/** The selected ELEVATION MARKER's grips (turn · band ends · depth), the region it sees and its cut line, for VpMarks. */
+	elevSecSel = $derived.by(() => {
+		const s = this.selSectionObj; if (!s || !isElevMarker(s)) return null
+		const ln = elevMarkerLine(s)
+		return { grips: elevMarkerGrips(s, this.markU), region: elevMarkerRegion(s), cut: [ln.a, ln.b] as [Pt, Pt] }
+	})
 
 	// ── grips ──
 	/** The single selected model object (drives model-grip render + pick). */
@@ -502,6 +519,7 @@ export class VpView {
 		if (this.mSelObj) { const g = pickModelGrip(m, this.mGrips, clientX, clientY); if (g) return { kind: 'mgrip', grip: g } }
 		const ss = this.selSectionObj
 		if (ss && isLineSection(ss)) { const sg = pickLineSectionGrip(m, ss, clientX, clientY, () => this.shiftDown); if (sg) return { kind: 'sgrip', sg } }
+		else if (ss && isElevMarker(ss)) { const sg = pickElevGrip(m, ss, clientX, clientY, this.markU, () => this.shiftDown); if (sg) return { kind: 'sgrip', sg } }
 		else if (ss) { const sg = pickSectionGrip(m, ss, clientX, clientY); if (sg) return { kind: 'sgrip', sg: { id: sg.id, apply: (p: Pt) => ({ clip: sg.apply(p) }) } } }
 		const gx = this.groupXf
 		if (gx) {

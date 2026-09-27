@@ -6,8 +6,9 @@ import type { Pt, Ent } from './geometry'
 import { insertBounds, blockDef } from './blocks'
 import { isLegend } from './legend'
 import { ctxFrame, ctxProj, frameKey, type ViewCtx, type MLayers } from './view'
-import type { Obj, Clip, Guide, LineSection } from '../3dview/types'
+import type { Obj, Clip, Guide, LineSection, ElevMarker } from '../3dview/types'
 import { hitLineSection } from './sectionLine'
+import { hitElevMarker } from './elevMarker'
 import { flatSpanOf, segDist, textBox, arcPts, isNote, frameAxis, rectPts } from './geometry'
 import { layoutNote, type NoteLayout } from './noteLayout'
 import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
@@ -307,16 +308,19 @@ export function sectionCorners(c: Clip): Pt[] {
 	return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 }
 
-/** What hitSection needs of a section marker (kept minimal so it is testable with a literal list): a box, or a line. */
-export type SectionLike = { id: string; clip: Clip; kind?: 'box' } | LineSection
+/** What hitSection needs of a section marker (kept minimal so it is testable with a literal list): a box, a line, or
+ *  an elevation marker. */
+export type SectionLike = { id: string; clip: Clip; kind?: 'box' } | LineSection | ElevMarker
 
 /** A section marker under p (plan only): a box's BORDER within thrMm (the interior stays free for model/entity
- *  picks), a line section's cut line. Returns the section id, topmost (last-drawn) first. */
-export function hitSection(ctx: ViewCtx, sections: SectionLike[], p: Pt, thrMm: number): string | null {
+ *  picks), a line section's cut line, an elevation marker's callout (circle + arrow — annotative, `markU` mm per paper
+ *  mm, the size VpMarks draws it at). Returns the section id, topmost (last-drawn) first. */
+export function hitSection(ctx: ViewCtx, sections: SectionLike[], p: Pt, thrMm: number, markU = 1): string | null {
 	if (!ctx.isPlan || !sections.length) return null
 	for (let i = sections.length - 1; i >= 0; i--) {
 		const s = sections[i]
 		if (s.kind === 'line') { if (hitLineSection(s, p, thrMm)) return s.id; continue }
+		if (s.kind === 'elev') { if (hitElevMarker(s, p, markU, thrMm)) return s.id; continue }
 		const c = s.clip
 		const corners: Pt[] = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]
 		for (let k = 0; k < 4; k++) if (segDist(p, corners[k], corners[(k + 1) % 4]) < thrMm) return sections[i].id

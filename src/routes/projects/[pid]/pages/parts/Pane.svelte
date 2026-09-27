@@ -21,6 +21,7 @@
 	import TrunkSpecBar from './TrunkSpecBar.svelte'
 	import OpeningSpecBar from './OpeningSpecBar.svelte'
 	import SectionSpecBar from './SectionSpecBar.svelte'
+	import ElevationSpecBar from './ElevationSpecBar.svelte'
 	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
@@ -204,6 +205,7 @@
 		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
 		{#if focused && a && p.tool === 'Opening'}<OpeningSpecBar />{/if}
 		{#if focused && a && p.tool === 'Section'}<SectionSpecBar />{/if}
+		{#if focused && a && p.tool === 'Elevation'}<ElevationSpecBar />{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>

@@ -35,6 +35,7 @@ export const COMMANDS: CmdDef[] = [
 	C('window', 'Window', 'WINDOW · WIN', 'Draw a window (an opening in a wall)', 'Draw'),
 	C('section', 'Section', 'SECTION · SEC', 'Cut a section — a box, or a line at any angle (the bar’s Box / Line); type or pick its points', 'Draw'),
 	C('secline', 'Section line', 'SECTIONLINE · SECL', 'Cut a section along a line at any angle (A–A′): two points; it looks to the line’s left — flip / depth on the section', 'Draw'),
+	C('elev', 'Elevation marker', 'ELEVATION · ELEV', 'Place an elevation marker: its point, then the way it looks — a point, or an angle (CCW from +X, 90 = up the sheet); Enter = up. Drop it as linked viewports', 'Draw'),
 	C('guide', 'Guide', 'GUIDE · XLINE · XL', 'Drop a construction guide line', 'Draw'),
 	C('note', 'Notes block', 'NOTE · NOTES', 'A wrapped text block: markdown headings, lists and tables (edit in Properties)', 'Draw'),
 	C('rack','Rack', 'RACK · RA', 'Place racks (a real W × D × U rack object, with devices) — click centres', 'Draw'),

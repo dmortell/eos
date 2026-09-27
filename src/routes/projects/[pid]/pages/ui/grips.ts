@@ -4,8 +4,9 @@
 // The entity/model grip builders (gripsFor/modelGrips/…) move here in later slices; this first slice is
 // the self-contained section-marker grips.
 import type { Pt, Ent } from './geometry'
-import type { Clip, Obj, LineSection } from '../3dview/types'
+import type { Clip, Obj, LineSection, ElevMarker } from '../3dview/types'
 import { lineSectionGrips, applyLineGrip } from './sectionLine'
+import { elevMarkerGrips, applyElevGrip } from './elevMarker'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
 import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
@@ -45,6 +46,18 @@ export function pickLineSectionGrip(m: Mapper, sel: LineSection, clientX: number
 	for (const g of lineSectionGrips(s0)) {
 		const sp = m.toClient(g.p[0], g.p[1])
 		if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id: sel.id, apply: (p: Pt) => applyLineGrip(s0, g.key, p, shift()) }
+	}
+	return null
+}
+
+/** Which grip of the selected ELEVATION MARKER a press grabs (14px): the turn handle on its arrow tip (Shift: 15° steps,
+ *  read live), a band end (width) or the depth handle. `u` = the annotative unit it's drawn at (the tip sits 1.55
+ *  callout radii out). `apply` maps the pointer to the marker's patch, from the press-time copy. */
+export function pickElevGrip(m: Mapper, sel: ElevMarker, clientX: number, clientY: number, u: number, shift: () => boolean = () => false): { id: string; apply: (p: Pt) => Partial<ElevMarker> } | null {
+	const m0: ElevMarker = { ...sel, at: [sel.at[0], sel.at[1]] }
+	for (const g of elevMarkerGrips(m0, u)) {
+		const sp = m.toClient(g.p[0], g.p[1])
+		if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id: sel.id, apply: (p: Pt) => applyElevGrip(m0, g.key, p, shift()) }
 	}
 	return null
 }

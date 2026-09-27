@@ -176,7 +176,7 @@ export function addSection(mdl: Model, edit: EditScope, sec: Section): void {
  *  `s.dir === dir` early return). Returns whether it actually changed anything. */
 export function setSectionDir(mdl: Model, edit: EditScope, id: string, dir: ElevDir): boolean {
 	const s = mdl.sections?.find((x) => x.id === id)
-	if (!s || s.kind === 'line' || s.dir === dir) return false   // a LINE section has no sight dir (it looks off its line)
+	if (!s || s.kind === 'line' || s.kind === 'elev' || s.dir === dir) return false   // a LINE / an elevation marker has no sight dir (it looks off its line / its angle)
 	edit.begin(); s.dir = dir; edit.mark('Set section direction'); edit.end()
 	return true
 }
@@ -195,7 +195,7 @@ export function deleteSection(mdl: Model, edit: EditScope, id: string): boolean 
  *  one undo step on release, the same way a grip drag does. A no-op if the section isn't found. */
 export function setSectionClip(mdl: Model, id: string, clip: Clip): void {
 	const s = mdl.sections?.find((x) => x.id === id)
-	if (s && s.kind !== 'line') s.clip = clip
+	if (s && s.kind !== 'line' && s.kind !== 'elev') s.clip = clip
 }
 
 /** Apply a patch to a section IN PLACE, no edit bracket (a drag streams these; the gesture records one step) — a line's
@@ -211,10 +211,11 @@ export function updateSection(mdl: Model, edit: EditScope, id: string, patch: Re
 	edit.begin(); patchSection(mdl, id, patch); edit.mark(label); edit.end()
 	return true
 }
-/** Turn a LINE section round (it looks the other way; ends and labels stay) — one undo step, 'Flip section'. False for
- *  a box / an unknown id. */
+/** Turn a LINE section round (it looks the other way; ends and labels stay), or an ELEVATION MARKER (its look + 180°,
+ *  it stays put) — one undo step, 'Flip section'. False for a box / an unknown id. */
 export function flipSection(mdl: Model, edit: EditScope, id: string): boolean {
 	const s = mdl.sections?.find((x) => x.id === id)
+	if (s?.kind === 'elev') return updateSection(mdl, edit, id, { angle: (((s.angle + 180) % 360) + 360) % 360 }, 'Turn elevation marker')
 	if (!s || s.kind !== 'line') return false
 	return updateSection(mdl, edit, id, { flip: s.flip ? undefined : true }, 'Flip section')
 }

@@ -2,13 +2,16 @@
 
 <script lang="ts">
 	// The Viewport's model-space MARKS drawn UNDER the entities: alignment guides (+ the Guide tool's hover
-	// preview) and plan section markers (cut box, sight arrows, label, corner grips of the selected one).
+	// preview) and plan section markers (cut box, sight arrows, label, corner grips of the selected one; a section line;
+	// an elevation marker's callout — ElevMarkerGlyph — with its region + turn / width / depth grips when selected).
 	// Clicking a marker border selects it; when selected, all 4 arrows show and each one DROPS that direction's
 	// elevation as a viewport frame on the current sheet.
 	import Handle from '../../parts/Handle.svelte'
 	import { sectionArrowFor } from '../annotations'
 	import { sectionCorners } from '../hit'
 	import { lineSectionMarks } from '../sectionLine'
+	import { elevMarkerMarks, elevMarkerRef } from '../elevMarker'
+	import ElevMarkerGlyph from './ElevMarkerGlyph.svelte'
 	import type { ElevDir } from '../geometry'
 	import type { VpView } from '../vpView.svelte'
 	import type { VpInteraction } from '../vpInteraction.svelte'
@@ -17,9 +20,9 @@
 	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	const SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	const sw = $derived(1 / (v.canvasZoom || 1))
-	// a section line's marks (arrows / labels) are ANNOTATIVE — paper mm, so they print at one size — but never smaller
-	// on screen than a clickable ~4 px unit (the arrows flip it)
-	const markU = $derived(Math.max(v.paperMm, v.tolMm(4)))
+	// a section line's marks (arrows / labels) and an elevation marker's callout are ANNOTATIVE — paper mm, so they print
+	// at one size — but never smaller on screen than a clickable ~4 px unit (the arrows flip it); hit-tests use the same
+	const markU = $derived(v.markU)
 </script>
 
 <!-- the building STRUCTURE in an elevation (layers A-FLOR / A-CLNG): slabs, raised floors, ceilings -->
@@ -60,6 +63,10 @@
 			{#each mk.labels as lb, i (i)}
 				<text class="section-label" x={lb.p[0]} y={lb.p[1]} font-size={3.5 * v.paperMm} text-anchor="middle" dominant-baseline="central">{lb.text}</text>
 			{/each}
+		{:else if s.kind === 'elev'}
+			<!-- an ELEVATION MARKER (phase 4): its callout (ui/elevMarker.ts elevMarkerMarks — the eltag look), numbered PER SHEET:
+			     its first linked viewport's number / sheet, else its own number. Picked / moved via hitSection (circle + arrow). -->
+			<ElevMarkerGlyph marks={elevMarkerMarks(s, markU, elevMarkerRef(s, v.editor.sections.links(s.id)))} sel={s.id === v.selSection} {sw} />
 		{:else}
 		{@const bx = Math.min(s.clip.x0, s.clip.x1)}
 		{@const by = Math.min(s.clip.y0, s.clip.y1)}
@@ -87,7 +94,23 @@
 				<Handle cx={g.p[0]} cy={g.p[1]} size={v.gripSize} cursor="crosshair" strokeWidth={1.2 * sw} />
 			{/if}
 		{/each}
-	{:else if v.active && v.selSectionObj && v.selSectionObj.kind !== 'line'}
+	{:else if v.active && v.elevSecSel}
+		<!-- the selected elevation marker: the region it sees (faint), its cut line, the band-end grips (width), the depth
+		     diamond and the TURN handle on the arrow tip (a ring) -->
+		{@const es = v.elevSecSel}
+		<polygon class="section-region" points={es.region.map((q) => q.join(',')).join(' ')} />
+		<line class="section-line sel" x1={es.cut[0][0]} y1={es.cut[0][1]} x2={es.cut[1][0]} y2={es.cut[1][1]} stroke-width={sw} />
+		{#each es.grips as g (g.key)}
+			{#if g.key === 'depth'}
+				{@const r = v.gripSize * 0.75}
+				<polygon class="section-depth" points="{g.p[0]},{g.p[1] - r} {g.p[0] + r},{g.p[1]} {g.p[0]},{g.p[1] + r} {g.p[0] - r},{g.p[1]}" stroke-width={1.2 * sw}><title>Depth — drag along the look</title></polygon>
+			{:else if g.key === 'rot'}
+				<circle class="section-depth" cx={g.p[0]} cy={g.p[1]} r={v.gripSize * 0.6} stroke-width={1.2 * sw}><title>Turn — drag round (Shift = 15°)</title></circle>
+			{:else}
+				<Handle cx={g.p[0]} cy={g.p[1]} size={v.gripSize} cursor="crosshair" strokeWidth={1.2 * sw} />
+			{/if}
+		{/each}
+	{:else if v.active && v.selSectionObj && v.selSectionObj.kind !== 'line' && v.selSectionObj.kind !== 'elev'}
 		{#each sectionCorners(v.selSectionObj.clip) as c (c.join(','))}
 			<Handle cx={c[0]} cy={c[1]} size={v.gripSize} cursor="crosshair" strokeWidth={1.2 * sw} />
 		{/each}

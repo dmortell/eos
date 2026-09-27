@@ -48,12 +48,13 @@ import type { VpView, SectionPatch } from './vpView.svelte'
 import type { Obj, Section } from '../3dview/types'
 import { sectionSpec } from './sectionSpec.svelte'
 import { moveSection } from './sectionLine'
+import { elevMarkerObj, elevMarkerNumber, lookAngle, userToPlanAngle, ELEV_DEFAULT_ANGLE } from './elevMarker'
 
-export const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide', 'Block'])
+export const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Elevation', 'Opening', 'Guide', 'Block'])
 /** Polyline-style tools (click points, Enter / dbl-click / right-click to finish). */
 export const POLY = new Set(['Line', 'Wall', 'Trunk', 'Pipe'])
 const MODEL_GRAPH = new Set(['Wall', 'Trunk', 'Pipe'])   // build a wall/conduit graph (plan or elevation)
-const MODEL_TOOL = new Set(['Wall', 'Trunk', 'Pipe', 'Furniture', 'Section', 'Opening'])   // plan-only model tools (graphs also in elevation)
+const MODEL_TOOL = new Set(['Wall', 'Trunk', 'Pipe', 'Furniture', 'Section', 'Elevation', 'Opening'])   // plan-only model tools (graphs also in elevation)
 const uid = () => newId('e')
 
 /** Entity move/grip drag. `bases` = what a body-move drags (the whole selection when the grabbed entity is in
@@ -177,6 +178,9 @@ export class VpInteraction {
 	get marquee() { return this.items.marquee }
 	private suppressClick = false   // swallow the click that ends a real drag (avoids re-select)
 	private shiftPressId: string | null = null   // B25: the entity a Shift-press landed on (onClick toggles THIS id)
+	/** The section marker the latest press grabbed (pickAt put it above model objects — a marker's callout often sits on a
+	 *  box / slab): its no-move click keeps IT selected rather than re-picking what lies under it. */
+	private pressedSection: string | null = null
 	private rDownPt: { x: number; y: number } | null = null   // where the RIGHT button went down (onContext: click vs pan-drag)
 	private readonly reg = new DragRegistry()
 	private closeEdit = () => this.v.editor.edit.end()   // onCancel for gestures that open an undo step at press
@@ -260,6 +264,17 @@ export class VpInteraction {
 			addSection(v.mdl, v.editor.edit, sec)
 			v.selectSection(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
+		// phase 4 — the ELEVATION tool: a = the marker's point, b = where it looks (the four axes; Shift = 15° steps — the
+		// live Shift, as the preview draws it); a click on the point itself looks up the sheet (front)
+		if (tool === 'Elevation') this.placeElev(a, dist(a, b) < 1 ? ELEV_DEFAULT_ANGLE : lookAngle(a, b, v.shiftDown ? 15 : 90))
+	}
+	/** An ELEVATION MARKER at `at` looking along plan `angle` (ui/elevMarker.ts): the model's next free number, the spec
+	 *  bar's width × depth, every height — one undo step, then selected (its toolbar drops it as a linked viewport). */
+	private placeElev(at: Pt, angle: number) {
+		const v = this.v; if (!v.isPlan || !v.mdl) return
+		const m = elevMarkerObj(at, angle, newId('sec'), elevMarkerNumber(v.mdl.sections ?? []), sectionSpec.elevWidth, sectionSpec.elevDepth)
+		addSection(v.mdl, v.editor.edit, m)
+		v.selectSection(m.id)
 	}
 	/** AutoCAD-mode Line = a POLYLINE: keep clicking, Enter / dbl-click / right-click finishes (Esc cancels). */
 	private finishPolyline() {
@@ -348,7 +363,17 @@ export class VpInteraction {
 		if (tool === 'Renumber') { this.walkClick(d); return null }
 		if (POLY.has(tool)) { this.draft = [...this.draft, d]; this.cur = d; return null }
 		if (!this.draft.length) { this.draft = [d]; this.cur = d; return null }
+		// a TYPED look point aims the marker exactly (no axis snap) — X,Y / @DX,DY / @D<A
+		if (tool === 'Elevation') { const a = this.draft[0]; this.endDraft(); this.placeElev(a, dist(a, d) < 1 ? ELEV_DEFAULT_ANGLE : lookAngle(a, d, 0)); return null }
 		this.place(this.draft[0], d); this.endDraft(); return null
+	}
+	/** The Elevation tool with its point placed: Enter / right-click / a bare number finishes it — looking up the sheet,
+	 *  or along a typed angle (`userDeg`: the command line's CAD angle, CCW from +X, 90 = up). False = not in that state. */
+	private finishElev(userDeg?: number): boolean {
+		if (this.v.tool !== 'Elevation' || this.draft.length !== 1) return false
+		const a = this.draft[0]; this.endDraft()
+		this.placeElev(a, userDeg == null ? ELEV_DEFAULT_ANGLE : userToPlanAngle(userDeg))
+		return true
 	}
 	readonly cmdTarget: VpCommandTarget = {
 		drawing: () => this.v.tool !== 'Select',
@@ -359,13 +384,14 @@ export class VpInteraction {
 			return err
 		},
 		distance: (n) => {
+			if (this.finishElev(n)) return null   // ELEV: after the point, a bare number is the look ANGLE (CCW from +X)
 			const last = this.draft.at(-1); if (!last) return 'Type or click the first point, then a distance'
 			const aim = this.cur && dist(this.cur, last) > 1e-6 ? this.cur : this.hoverPt && dist(this.hoverPt, last) > 1e-6 ? this.hoverPt : [last[0] + 1, last[1]] as Pt
 			const L = dist(aim, last), d: Pt = [last[0] + ((aim[0] - last[0]) / L) * n, last[1] + ((aim[1] - last[1]) / L) * n]
 			const err = this.acceptDraw(d); if (!err) this.lastUser = this.toUser(d)
 			return err
 		},
-		finish: () => { if (POLY.has(this.v.tool) && this.draft.length >= 2) this.finishPolyline(); else this.endDraft() },
+		finish: () => { if (POLY.has(this.v.tool) && this.draft.length >= 2) this.finishPolyline(); else if (!this.finishElev()) this.endDraft() },
 		cancel: () => this.endDraft(),
 		close: () => { if (POLY.has(this.v.tool) && this.draft.length >= 3) { this.draft = [...this.draft, this.draft[0]]; this.finishPolyline() } },
 		undoPoint: () => { this.draft = this.draft.slice(0, -1); this.cur = this.draft.at(-1) ?? null },
@@ -474,6 +500,7 @@ export class VpInteraction {
 			if (t === 'Text' || t === 'Block' || t === 'Guide') return { prompt: `${t === 'Block' ? 'Insert' : t}: specify the insertion point` }
 			if (POLY.has(t)) return n ? { prompt: `${t}: specify next point  <Enter / right-click finishes>`, options: n >= 2 && t === 'Line' ? ['Close', 'Undo'] : ['Undo'] } : { prompt: `${t}: specify first point` }
 			if (t === 'Section' && sectionSpec.kind === 'line') return n ? { prompt: 'Section line: specify its end (A′) — it looks to the left of A → A′', options: ['Undo'] } : { prompt: 'Section line: specify its start (A)' }
+			if (t === 'Elevation') return n ? { prompt: 'Elevation: specify the way it looks — a point, or an angle (CCW from +X, 90 = up the sheet)  <Enter = up>', options: ['Undo'] } : { prompt: 'Elevation: specify the marker point' }
 			const corner = t === 'Rectangle' || t === 'Ellipse' || t === 'Furniture' || t === 'Section'
 			return n ? { prompt: `${t}: specify ${corner ? 'opposite corner' : 'second point'}`, options: ['Undo'] } : { prompt: `${t}: specify ${corner ? 'first corner' : 'first point'}` }
 		},
@@ -688,7 +715,7 @@ export class VpInteraction {
 			sectionLine: sectionSpec.kind === 'line',
 		})
 	})
-	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, sectionLine: this.v.selSectionObj?.kind === 'line', tool: this.v.tool, prompt: this.prompt }))
+	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, sectionLine: this.v.selSectionObj?.kind === 'line', sectionElev: this.v.selSectionObj?.kind === 'elev', tool: this.v.tool, prompt: this.prompt }))
 
 	// ── click-cycle: what's under a plain Select click, top-most first — each entity (with its group), then the
 	// model object. `lastClick.k` = which one the previous click at that spot picked. ──
@@ -787,6 +814,7 @@ export class VpInteraction {
 				if (g.length) v.toggleEnts(g); else { const mid = v.hitModel(p); if (mid) v.toggleObj(mid) }
 				return
 			}
+			if (this.pressedSection) { const id = this.pressedSection; this.pressedSection = null; return v.selectSection(id) }   // the press grabbed a marker
 			// entity wins; else a model object; else a section marker border; else a guide; else clear.
 			// Clicking again on the same spot steps DOWN through everything under it (entities top-first, then the
 			// model object), so a shape hidden under another can be reached.
@@ -887,6 +915,7 @@ export class VpInteraction {
 		}
 		if (gesture) { if (v.tool !== 'Select' || this.draft.length) { e.preventDefault(); e.stopPropagation() } return }
 		if (POLY.has(v.tool) && this.draft.length) { e.preventDefault(); e.stopPropagation(); this.finishPolyline(); return }
+		if (this.finishElev()) { e.preventDefault(); e.stopPropagation(); return }   // = Enter: the marker looks up the sheet
 		if (v.tool !== 'Select') { e.preventDefault(); e.stopPropagation(); this.endDraft(); v.on.tool?.('Select') }
 	}
 
@@ -897,7 +926,7 @@ export class VpInteraction {
 		else if (v.active && this.draft.length && this.lastRaw) this.cur = constrainPt(this.constrainTool, this.draft.at(-1)!, this.lastRaw, shift)   // Shift: square / 15°
 	}
 	/** The tool a Shift constraint follows: a section LINE draws like a line (15° steps), else the tool itself. */
-	private get constrainTool() { return this.v.tool === 'Section' && sectionSpec.kind === 'line' ? 'Line' : this.v.tool }
+	private get constrainTool() { return (this.v.tool === 'Section' && sectionSpec.kind === 'line') || this.v.tool === 'Elevation' ? 'Line' : this.v.tool }
 
 	// ══ keys: Esc ladder (exit image mode → cancel draft → back to Select → clear selection → exit viewport),
 	// Enter finishes a polyline, clipboard / group / draw order, Delete, arrow nudges ══
@@ -908,6 +937,7 @@ export class VpInteraction {
 		if (e.key === 'Shift') { v.shiftDown = true; this.reconstrain(true); this.updateGuidePreview(true); return }
 		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
+		if (e.key === 'Enter' && this.finishElev()) { e.preventDefault(); return }   // Elevation: its point placed → look up the sheet
 		if (e.key === 'F2') {   // edit the ONE selected item's label in place (text / dim / line / block / object name)
 			const objs = idsOfKind(v.selection, 'obj'), ent = sel.length === 1 && !objs.length ? v.entities.find((x) => x.id === sel[0]) : undefined
 			const obj = !sel.length && objs.length === 1 ? v.mdl?.objects.find((o) => o.id === objs[0]) : undefined
@@ -964,6 +994,7 @@ export class VpInteraction {
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click drops a direction
 		this.suppressClick = false   // clear any stale flag from a drag that never got its click
 		this.shiftPressId = null
+		this.pressedSection = null
 		this.selAtPress = this.selKey()
 		v.demoteNodeToObj()          // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		if (reg.noteDown(e)) { this.cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
@@ -1026,6 +1057,7 @@ export class VpInteraction {
 		} else if (pk?.kind === 'section') {   // a section border / cut line → select + move (a no-move press just selects)
 			const sm = v.sections.find((s) => s.id === pk.id); if (!sm) return
 			if (v.selSection !== pk.id) v.selectSection(pk.id)
+			this.pressedSection = pk.id   // a no-move click keeps it (onClick), even over a model object
 			ed.begin()
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, s0: $state.snapshot(sm) as Section }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)
@@ -1079,6 +1111,7 @@ export class VpInteraction {
 	private onDrawUp = (e: PointerEvent) => {
 		const a = this.draft[0]; this.draft = []; this.cur = null
 		const b = this.drawPoint(e.clientX, e.clientY, a, e.shiftKey); this.v.snapMark = null
+		if (a && b && dist(a, b) < 2 && this.v.tool === 'Elevation') { this.placeElev(a, ELEV_DEFAULT_ANGLE); this.suppressClick = true; return }   // a tap: a marker looking up the sheet
 		if (!a || !b || dist(a, b) < 2) return   // no drag → not a shape
 		this.place(a, b)
 		this.suppressClick = true

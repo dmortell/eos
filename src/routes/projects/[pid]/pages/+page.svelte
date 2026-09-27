@@ -78,7 +78,8 @@
 	import { BASIS } from './3dview/types'
 	import { objBounds, oclipOf, oclipWidth, oclipFrame, modelZRange } from './3dview/projection'
 	import { devObliqueFrame } from './ui/devOblique'
-	import { isLineSection, lineSectionOClip, lineSectionClip, lineSectionDir, sectionTitle, sectionLinksOf, type SectionLink, type LinkSource } from './ui/sectionLine'
+	import { sectionTitle, sectionLinksOf, type SectionLink, type LinkSource } from './ui/sectionLine'
+	import { sectionOClip, sectionClip, sectionDir, sectionAllHeights } from './ui/elevMarker'
 	import { sectionSpec } from './ui/sectionSpec.svelte'
 	import { deleteSection as deleteSectionIn, updateSection as updateSectionIn } from './ui/modelEdit'
 	import SectionDeleteDialog from './parts/SectionDeleteDialog.svelte'
@@ -274,34 +275,36 @@
 		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : FLOOR_MODEL_ID))
 		return m?.sections?.find((x) => x.id === f.section) ?? null
 	}
-	/** A frame's clip: a frame dropped from a SECTION follows that marker live (a line section: the axis box covering its
-	 *  cut — what box-only code like the DXF export reads); else its own stored clip. */
+	/** A frame's clip: a frame dropped from a SECTION follows that marker live (a line section / an elevation marker: the
+	 *  axis box covering its region — what box-only code like the DXF export reads); else its own stored clip. */
 	function liveClip(f: SheetFrame, tabId?: string): Clip | null {
 		const s = frameSection(f, tabId)
-		return !s ? f.clip : isLineSection(s) ? lineSectionClip(s) : s.clip
+		return s ? sectionClip(s) : f.clip
 	}
-	/** A frame's ORIENTED clip (phase 3): a frame linked to a section LINE reads the line's view LIVE — every linked frame
-	 *  (any sheet) follows a move / rotate / flip / depth change; unlinked (the section gone, or kept as a plain elevation)
-	 *  it keeps its last copy (`f.oclip`). null = no oriented view (a box section / a plain frame). */
+	/** A frame's ORIENTED clip (phases 3–4): a frame linked to a section LINE or an ELEVATION MARKER reads its view LIVE —
+	 *  every linked frame (any sheet) follows a move / turn / flip / width / depth change; unlinked (the marker gone, or
+	 *  kept as a plain elevation) it keeps its last copy (`f.oclip`). null = no oriented view (a box section / a plain
+	 *  frame). */
 	function liveOClip(f: SheetFrame, tabId?: string): OClip | null {
 		const s = frameSection(f, tabId)
-		return s && isLineSection(s) ? lineSectionOClip(s) : (f.oclip ?? null)
+		return (s && sectionOClip(s)) ?? f.oclip ?? null
 	}
-	/** A section-line frame's ground-line title ("SECTION A–A′"); undefined = the Viewport's own. */
+	/** A section-line / elevation-marker frame's ground-line title ("SECTION A–A′", "ELEVATION 1" or the marker's name);
+	 *  undefined = the Viewport's own. */
 	function frameViewTitle(f: SheetFrame, tabId?: string): string | undefined {
 		const s = frameSection(f, tabId)
-		return s && isLineSection(s) ? sectionTitle(s).toUpperCase() : undefined
+		return s && sectionOClip(s) ? sectionTitle(s).toUpperCase() : undefined
 	}
 	// Drop a section's view as a viewport FRAME LINKED to it (SheetFrame.section) on the current sheet: every call adds
 	// ANOTHER one (Dave: a section usually drives several elevation viewports — on one sheet or many — each with its own
 	// view-scoped annotations, freezes, scale, z band …; none of that lives on the section). A BOX drops direction `dir`
-	// (its clip, live); a LINE ignores `dir` — its one view is its OClip (live, liveOClip), the frame filed under the
-	// nearest ElevDir. The frame is sized to the view's proportions and fitted (scale + centred view).
+	// (its clip, live); a LINE / an ELEVATION MARKER ignores `dir` — its one view is its OClip (live, liveOClip), the
+	// frame filed under the nearest ElevDir. The frame is sized to the view's proportions and fitted (scale + centred view).
 	function dropSectionDir(id: string, dir: ElevDir) {
 		const found = findSection(id); if (!found) return
-		const sec = found.sec, line = isLineSection(sec) ? sec : null
-		const oc = line ? lineSectionOClip(line) : null, clip = isLineSection(sec) ? lineSectionClip(sec) : sec.clip
-		const view: ElevDir = line ? lineSectionDir(line) : dir
+		const sec = found.sec
+		const oc = sectionOClip(sec), clip = sectionClip(sec)
+		const view: ElevDir = sectionDir(sec, dir)
 		const focusedTab = session.tabs.find((t) => t.id === session.panes[session.focused]?.activeId)
 		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : session.tabs.find((t) => t.kind === 'sheet')
 		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
@@ -310,9 +313,9 @@
 		const fid = newFrameId()
 		const mdl = modelById(found.mid), ls = mdl?.layers ?? []
 		// the frame takes the ELEVATION's proportions (along the view axis × the cut's height), not the plan box's
-		// (the clip seen through the dir's frame: its oriented clip's width = the box's extent along the view axis). A line
-		// with no z band is as tall as the model.
-		const zr = line && (line.z0 == null || line.z1 == null) && mdl ? modelZRange(mdl.objects) : null
+		// (the clip seen through the dir's frame: its oriented clip's width = the box's extent along the view axis). A line /
+		// marker with no z band is as tall as the model.
+		const zr = sectionAllHeights(sec) && mdl ? modelZRange(mdl.objects) : null
 		const along = (oc ? oclipWidth(oc) : oclipWidth(oclipOf(clip, frameOf(dir)))) || 1
 		const tall = (zr ? zr.z1 - Math.min(0, zr.z0) : Math.abs(clip.z1 - clip.z0)) || 1
 		const W = 420, H = Math.max(120, Math.min(520, Math.round((W * tall) / along)))
@@ -363,7 +366,7 @@
 	function finishSectionDelete(mode: 'keep' | 'delete') {
 		const ask = secAsk; secAsk = null; if (!ask) return
 		const found = findSection(ask.id), m = found && modelById(found.mid); if (!found || !m) return
-		const sec = found.sec, clip = isLineSection(sec) ? lineSectionClip(sec) : sec.clip, oc = isLineSection(sec) ? lineSectionOClip(sec) : null
+		const sec = found.sec, clip = sectionClip(sec), oc = sectionOClip(sec)
 		for (const sid of new Set(ask.links.flatMap((l) => (l.sheetId ? [l.sheetId] : [])))) proj.loadSheet(sid)   // their frames into the doc store (and the history)
 		const tab = session.panes[session.focused]?.activeId ?? ''
 		beginGesture()
@@ -1263,6 +1266,7 @@
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'scan', name: 'Section box' },     // the Section tool with its form set (TOOL_VARIANT)
 		{ icon: 'section', name: 'Section line' }, // phase 3: a cut line at any angle (A–A′)
+		{ icon: 'elevmark', name: 'Elevation' },   // phase 4: an elevation marker (a point + the way it looks)
 		{ icon: 'ruler', name: 'Dimension' },
 		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
 		{ icon: 'pencilRuler', name: 'Measure' },         // runs DIST: two clicks, nothing drawn (pseudo-tool)
@@ -1291,6 +1295,7 @@
 		{ sep: 'annotate' },
 		{ group: 'measure', label: 'Dimension · measure · guides', members: ['Dimension', 'Measure', 'Guide H', 'Guide V'] },
 		{ group: 'sections', label: 'Sections · box / line', members: ['Section box', 'Section line'] },
+		{ tool: 'Elevation' },
 		{ sep: 'modify' },
 		{ tool: 'Format painter' },
 		{ tool: 'Viewport' },
@@ -1306,7 +1311,7 @@
 		'Section line': { tool: 'Section', set: () => sectionSpec.setKind('line'), is: () => sectionSpec.kind === 'line' },
 	}
 	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V', Section: 'Section box' }   // Insert-menu names → tools
-	const TOOL_LABEL: Record<string, string> = { 'Section box': 'Section box (drag a box; its arrows drop elevations)', 'Section line': 'Section line (A–A′ at any angle)', Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Callout: 'Callout (an arrow to a note)', Note: 'Note (multi-line text block)' }
+	const TOOL_LABEL: Record<string, string> = { 'Section box': 'Section box (drag a box; its arrows drop elevations)', 'Section line': 'Section line (A–A′ at any angle)', Elevation: 'Elevation marker (a point + the way it looks)', Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Callout: 'Callout (an arrow to a note)', Note: 'Note (multi-line text block)' }
 	const toolIs = (tool: string, name: string) => { const tv = TOOL_VARIANT[name]; return tv ? tool === tv.tool && tv.is() : tool === name }
 	const toolLabel = (name: string) => TOOL_LABEL[name] ?? name
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
@@ -1540,7 +1545,7 @@
 						frameSection={selFrameObj ? (() => { const s = frameSection(selFrameObj, active?.id); return s ? sectionTitle(s) : undefined })() : undefined}
 						section={selSection?.sec ?? null} sectionLinks={selSection ? sectionLinks(selSection.sec.id) : []}
 						onsectionupdate={updateSelSection} onsectionopen={openSectionLink}
-						onsectiondrop={() => { const s = selSection?.sec; if (s) dropSectionDir(s.id, isLineSection(s) ? lineSectionDir(s) : s.dir) }}
+						onsectiondrop={() => { const s = selSection?.sec; if (s) dropSectionDir(s.id, sectionDir(s)) }}
 						onsectiondelete={() => { const s = selSection; if (!s || askSectionDelete(s.sec.id)) return; const m = modelById(s.mid), tab = session.panes[session.focused]?.activeId ?? ''
 							if (m && deleteSectionIn(m, { begin: beginGesture, mark: (l?: string) => modelEdit(tab, l), end: endGesture }, s.sec.id)) { const vid = activeSelViewId(); if (vid) selStore.set(vid, selClear()) } }}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}

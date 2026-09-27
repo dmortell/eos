@@ -5,7 +5,7 @@ import {
 } from './modelEdit'
 import type { ViewCtx, MLayers } from './view'
 import { graphSegAt } from './hit'
-import type { Model, Obj, Prism, Wall, Guide, Section, BoxSection, LineSection } from '../3dview/types'
+import type { Model, Obj, Prism, Wall, Guide, Section, BoxSection, LineSection, ElevMarker } from '../3dview/types'
 
 // A recording EditScope: logs 'begin' / 'mark:<label>' / 'end' in call order, so a test can assert both
 // the bracket shape (begin→mark→end, or nothing at all for a no-op) and the exact undo label.
@@ -258,6 +258,22 @@ describe('line sections (phase 3): patchSection / updateSection / flipSection', 
 		const m = mdl({ sections: [line()] }), edit = recEdit()
 		expect(setSectionDir(m, edit, 'l1', 'rear')).toBe(false); expect(edit.log).toEqual([])
 		setSectionClip(m, 'l1', { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 })
+		expect('clip' in m.sections![0]).toBe(false)
+	})
+})
+
+describe('elevation markers (phase 4): flip turns it round; box-only edits leave it alone', () => {
+	const em = (angle = 270): ElevMarker => ({ id: 'e1', kind: 'elev', at: [0, 0], angle, width: 4000, depth: 3000, number: '1' })
+	it('flipSection adds 180° (kept in 0..360) as "Turn elevation marker"', () => {
+		const m = mdl({ sections: [em()] }), edit = recEdit()
+		expect(flipSection(m, edit, 'e1')).toBe(true); expect((m.sections![0] as ElevMarker).angle).toBe(90)
+		expect(flipSection(m, edit, 'e1')).toBe(true); expect((m.sections![0] as ElevMarker).angle).toBe(270)
+		expect(edit.log).toEqual(['begin', 'mark:Turn elevation marker', 'end', 'begin', 'mark:Turn elevation marker', 'end'])
+	})
+	it('setSectionDir / setSectionClip do nothing to it', () => {
+		const m = mdl({ sections: [em()] }), edit = recEdit()
+		expect(setSectionDir(m, edit, 'e1', 'rear')).toBe(false); expect(edit.log).toEqual([])
+		setSectionClip(m, 'e1', { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 })
 		expect('clip' in m.sections![0]).toBe(false)
 	})
 })

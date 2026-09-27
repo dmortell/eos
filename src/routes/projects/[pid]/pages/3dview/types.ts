@@ -120,7 +120,7 @@ export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: n
 // (id/plane/orient/pos), matching entities' `plane` — see [[project_pages_firestore_schema]].
 export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number }
 
-// A SECTION marker drawn on the plan, in one of two forms (both model-scoped: they ride the model snapshot → undoable,
+// A SECTION marker drawn on the plan, in one of three forms (all model-scoped: they ride the model snapshot → undoable,
 // and a cut on one model's plan does NOT show on another's; Firestore-stable field names). Its views are dropped onto
 // sheets as viewport frames LINKED to it (SheetFrame.section — any number of frames, each with its own annotations /
 // freezes / scale); the marker itself just lives here. (B5 — moved out of the +page per-tab maps.)
@@ -129,9 +129,17 @@ export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number 
 //    coords like an Ent's points), drawn dashed with an arrow at each end and "A" / "A′" labels. It looks to the LEFT of
 //    a → b as drawn (`flip` = the right), `depth` mm (> 0) past the line; z0..z1 = its height band (unset = every
 //    height). Its view is the OClip `ui/sectionLine.ts lineSectionOClip` builds. `name` = the letter ("A").
+//  · an ELEVATION MARKER (phase 4): a point `at` (plan mm) + the way it LOOKS — `angle`, plan degrees on the drawing
+//    (0 = → +x, 90 = ↓ +y down the sheet, 270 = ↑ up it: the plan's rotation sense, like an eltag arm) — seeing a band
+//    `width` mm wide (centred on `at`, across the look) out to `depth` mm ahead; z0..z1 as a line's. Underneath it IS a
+//    line section: the cut through `at` perpendicular to the look (ui/elevMarker.ts elevMarkerOClip), so dropping /
+//    linking / live updates / the delete ask are the line's. `number` = its own callout number while no viewport shows
+//    it ("1", "2" … per model; a linked one shows its first viewport's per-sheet number + sheet instead, like eltags);
+//    `name` = an optional title ("North wall") — the frame's ground line then reads it, else "ELEVATION 1".
 export type BoxSection = { id: string; kind?: 'box'; clip: Clip; dir: ElevDir; name?: string }
 export type LineSection = { id: string; kind: 'line'; a: [number, number]; b: [number, number]; depth: number; flip?: boolean; z0?: number; z1?: number; name?: string }
-export type Section = BoxSection | LineSection
+export type ElevMarker = { id: string; kind: 'elev'; at: [number, number]; angle: number; width: number; depth: number; z0?: number; z1?: number; number?: string; name?: string }
+export type Section = BoxSection | LineSection | ElevMarker
 
 // `objects` = 3D geometry (walls/prisms/conduits). `shapes` = 2D annotations/shapes/text/dims (the drawn
 // `Ent`s from ui/geometry.ts; the stored field was `ents` before 2026-09-24 — migrate.ts renames it), each tagged with a `plane` + `space` scope. Both belong to the model and

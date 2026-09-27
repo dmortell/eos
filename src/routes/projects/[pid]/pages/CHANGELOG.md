@@ -43,6 +43,13 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Elevation marker** (sections-at-any-angle phase 4): the **Elevation** tool (Annotate section; Insert ›
+  Elevation; ELEV) — click the spot, click / drag the look (axis snap, Shift = 15°); spec bar width × depth. Drawn as
+  an eltag-style callout (one function, `elevMarkerMarks`, so it can become a plain arrow): linked → "1 / A-201", else
+  its own number. Selected: its seen region, turn / width / depth grips, drag to move; Properties (number, title,
+  look ↑ → ↓ ←, angle, width, depth, band, linked viewports). One marker drives many linked viewports (like section
+  lines — it is a third Section kind). A no-move click on any section marker keeps it selected. `ui/elevMarker.ts`
+  (+23 tests).
 - **Tab / Shift+Tab in the label editor** save the label and move to the next / previous item of the SAME KIND
   (outlet → outlet, rack → rack …) in reading order (rows top → bottom, left → right), wrapping; it gets selected.
 - **Section LINES at any angle** (phase 3, OpenCad's O4): the Section button is a group — Section box · **Section

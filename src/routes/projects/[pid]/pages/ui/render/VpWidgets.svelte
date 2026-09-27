@@ -18,10 +18,10 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 	<div class="section-toolbar" style="left:{tb.x}px; top:{Math.max(2, tb.y - 30)}px" onpointerdown={stop} onclick={stop}>
 		{#if tb.line}
-			<!-- a LINE section: ONE view (every drop adds another linked viewport of it), flip, delete -->
+			<!-- a LINE section / an ELEVATION MARKER: ONE view (every drop adds another linked viewport of it), flip / turn round, delete -->
 			<span class="st-name">{tb.title}</span>
 			<button class="st-btn" title="Drop as a viewport on the sheet (again = another linked viewport)" onclick={() => v.editor.sections.dropDir(tb.id, tb.dir)}><Icon name="panels" size={13} /></button>
-			<button class="st-btn" title="Flip — look the other way (or click an end arrow)" onclick={() => v.flipSection(tb.id)}><Icon name="mirror" size={13} /></button>
+			<button class="st-btn" title={tb.elev ? 'Turn round — look the other way (or drag the arrow tip)' : 'Flip — look the other way (or click an end arrow)'} onclick={() => v.flipSection(tb.id)}><Icon name="mirror" size={13} /></button>
 		{:else}
 			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => v.editor.sections.dropDir(tb.id, tb.dir)}><Icon name="panels" size={13} /></button>
 			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={tb.dir} onchange={(e) => v.setSectionDir(tb.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
@@ -39,7 +39,7 @@
 				{/if}
 			</span>
 		{/if}
-		<button class="st-btn st-del" title="Delete this section" onclick={() => v.deleteSection(tb.id)}><Icon name="trash" size={13} /></button>
+		<button class="st-btn st-del" title={tb.elev ? 'Delete this elevation marker' : 'Delete this section'} onclick={() => v.deleteSection(tb.id)}><Icon name="trash" size={13} /></button>
 	</div>
 {/if}
 {#if x.hoverLink && !x.editText}

@@ -13,6 +13,8 @@
 	import { imgEdit } from '../../imageEdit.svelte'
 	import { sectionSpec } from '../sectionSpec.svelte'
 	import { lineSectionMarks, lineSectionRegion } from '../sectionLine'
+	import { elevMarkerMarks, elevMarkerRegion, lookAngle, ELEV_DEFAULT_ANGLE } from '../elevMarker'
+	import ElevMarkerGlyph from './ElevMarkerGlyph.svelte'
 
 	let { v, x }: { v: VpView; x: VpInteraction } = $props()
 	const sw = $derived(1 / (v.canvasZoom || 1))   // ~1 px on screen at ANY canvas zoom (non-scaling-stroke can't see the CSS zoom)
@@ -163,6 +165,13 @@
 		{/each}
 	{:else if tool === 'Section' && sectionSpec.kind !== 'line'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width={1.2 * sw} />
+	{:else if tool === 'Elevation' && v.isPlan}
+		<!-- an ELEVATION MARKER being aimed: the look snapped as placing will (four axes · Shift = 15° — the live Shift), the
+		     band it will see (the bar's width × depth), and its callout -->
+		{@const pv = { id: '', kind: 'elev' as const, at: [a[0], a[1]] as [number, number], angle: Math.hypot(p[0] - a[0], p[1] - a[1]) < 1 ? ELEV_DEFAULT_ANGLE : lookAngle(a, p, v.shiftDown ? 15 : 90), width: sectionSpec.elevWidth, depth: sectionSpec.elevDepth }}
+		<polygon points={elevMarkerRegion(pv).map((q) => q.join(',')).join(' ')} fill="#0e749011" stroke="#0e749066" stroke-dasharray="4 3" stroke-width={sw} />
+		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-dasharray="4 3" stroke-width={sw} />
+		<ElevMarkerGlyph marks={elevMarkerMarks(pv, v.markU, { num: '' })} preview {sw} />
 	{/if}
 	<!-- the fixed anchor point (first click / centre) as a small hollow square -->
 	{@const ds = gs * 1.2}
