@@ -134,6 +134,8 @@ export const ELEV_BASIS: Record<ElevDir, { axis: 0 | 1; sign: 1 | -1 }> = {
 }
 // Project a scalar footprint coordinate (along the dir's axis) to the elevation's horizontal drawing
 // coord, mirrored per dir and re-centred about the plan centre so every view sits centred in the viewBox.
+// (ELEV_BASIS / elevU / elevUInv are the PRE-FRAME formulas, kept as the reference the ElevFrame tests pin —
+// app code goes through the frame helpers below.)
 export function elevU(dir: ElevDir, coord: number, cx = PLAN_CX, cy = PLAN_CY): number {
 	const { axis, sign } = ELEV_BASIS[dir]
 	return cx + sign * (coord - (axis === 0 ? cx : cy))
@@ -143,16 +145,103 @@ export function elevUInv(dir: ElevDir, u: number, cx = PLAN_CX, cy = PLAN_CY): n
 	const { axis, sign } = ELEV_BASIS[dir]
 	return (axis === 0 ? cx : cy) + sign * (u - cx)
 }
-// Project a point's on-axis coordinate for the current dir.
-export const elevH = (dir: ElevDir, p: Pt, cx = PLAN_CX, cy = PLAN_CY): number => elevU(dir, p[ELEV_BASIS[dir].axis], cx, cy)
+
+// ── ElevFrame: a HORIZONTAL VIEW FRAME (elevation-section-plan.md §3.1) ──
+// An elevation / section looks horizontally along `n` (unit, plan mm, y down) and its drawing's horizontal runs
+// along `t` (unit, the view's "right": n = (−t.y, t.x)), about the origin `o`. Drawing coords: u = o.x + (p − o)·t
+// (the origin draws at its own plan x, so the four ElevDir frames — origin = the plan centre — keep elevU's
+// centring) and v = GROUND − z as before; depth (sorting / clipping) d = (p − o)·n, larger = farther. The four
+// ElevDirs are the axis-aligned frames (`frameOf`): front t +x / n +y, rear −x / −y, right +y / −x, left −y / +x
+// (= Model3d's hidden-line `far`). An AXIS-ALIGNED frame (t = ±x or ±y) takes a fast path through the exact
+// ELEV_BASIS arithmetic, so every existing view keeps its numbers bit for bit; an oblique one (frameAt) is the
+// general dot product.
+export type ElevFrame = { o: Pt; t: Pt; n: Pt }
+const mkFrame = (o: Pt, t: Pt): ElevFrame => ({ o, t, n: [0 - t[1], t[0]] })   // 0 − t.y: no −0 in n
+const DIR_T: Record<ElevDir, Pt> = { front: [1, 0], rear: [-1, 0], right: [0, 1], left: [0, -1] }
+const DIR_FRAMES = Object.fromEntries((Object.keys(DIR_T) as ElevDir[]).map((d) => [d, mkFrame([PLAN_CX, PLAN_CY], DIR_T[d])])) as Record<ElevDir, ElevFrame>
+/** The frame of an ElevDir about the plan centre (cx, cy). The default-centre frames are SHARED — don't mutate. */
+export const frameOf = (dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): ElevFrame =>
+	cx === PLAN_CX && cy === PLAN_CY ? DIR_FRAMES[dir] : mkFrame([cx, cy], DIR_T[dir])
+/** An oblique frame about `o` looking along plan angle `deg` (from +x toward +y, the plan's rotation sense).
+ *  Multiples of 90° come out exactly axis-aligned (90° = front), so they take the fast path. */
+export function frameAt(o: Pt, deg: number): ElevFrame {
+	const r = (deg * Math.PI) / 180, z = (x: number) => (Math.abs(x) < 1e-12 ? 0 : x)
+	return mkFrame(o, [z(Math.sin(r)), z(-Math.cos(r))])
+}
+/** The plan axis an axis-aligned frame's horizontal runs along (0 = x, 1 = y); null when oblique. */
+export const frameAxis = (f: ElevFrame): 0 | 1 | null => (f.t[1] === 0 ? 0 : f.t[0] === 0 ? 1 : null)
+/** A plan point → the drawing's horizontal u (= elevU of its on-axis coord for the four dirs). */
+export function frameU(f: ElevFrame, p: Pt): number {
+	const { o, t } = f
+	if (t[1] === 0) return o[0] + t[0] * (p[0] - o[0])
+	if (t[0] === 0) return o[0] + t[1] * (p[1] - o[1])
+	return o[0] + (p[0] - o[0]) * t[0] + (p[1] - o[1]) * t[1]
+}
+/** A plan point's depth along the look direction from the origin (larger = farther from the viewer). */
+export function frameDepth(f: ElevFrame, p: Pt): number {
+	const { o, n } = f
+	if (n[1] === 0) return n[0] * (p[0] - o[0])
+	if (n[0] === 0) return n[1] * (p[1] - o[1])
+	return (p[0] - o[0]) * n[0] + (p[1] - o[1]) * n[1]
+}
+/** Drawing u + depth → the plan point (the inverse of frameU + frameDepth; the on-axis coord = elevUInv). */
+export function frameInv(f: ElevFrame, u: number, depth = 0): Pt {
+	const { o, t, n } = f
+	if (t[1] === 0) return [o[0] + t[0] * (u - o[0]), o[1] + n[1] * depth]
+	if (t[0] === 0) return [o[0] + n[0] * depth, o[1] + t[1] * (u - o[0])]
+	const s = u - o[0]
+	return [o[0] + s * t[0] + depth * n[0], o[1] + s * t[1] + depth * n[1]]
+}
+/** The ALONG coordinate of a plan point — the scalar a view's horizontal measures (typed user coords, depth-snap
+ *  matching): for an axis-aligned frame its model coord on that axis (x / y); oblique, the distance along t from o.
+ *  `alongToU` / `uToAlong` map it to the drawing u and back (= elevU / elevUInv for the four dirs). */
+export function frameAlong(f: ElevFrame, p: Pt): number {
+	const ax = frameAxis(f)
+	return ax === null ? (p[0] - f.o[0]) * f.t[0] + (p[1] - f.o[1]) * f.t[1] : p[ax]
+}
+export function alongToU(f: ElevFrame, a: number): number {
+	const ax = frameAxis(f)
+	return ax === null ? f.o[0] + a : f.o[0] + f.t[ax] * (a - f.o[ax])
+}
+export function uToAlong(f: ElevFrame, u: number): number {
+	const ax = frameAxis(f)
+	return ax === null ? u - f.o[0] : f.o[ax] + f.t[ax] * (u - f.o[0])
+}
+/** Plan point p slid along t so it draws at u, keeping its depth (axis-aligned: only the on-axis coord changes). */
+export function frameSetU(f: ElevFrame, p: Pt, u: number): Pt {
+	const ax = frameAxis(f)
+	if (ax === 0) return [uToAlong(f, u), p[1]]
+	if (ax === 1) return [p[0], uToAlong(f, u)]
+	const d = u - frameU(f, p)
+	return [p[0] + d * f.t[0], p[1] + d * f.t[1]]
+}
+/** A drawing-horizontal step du as a plan vector (du·t; exact zeros off-axis for the four dirs). */
+export const frameStep = (f: ElevFrame, du: number): Pt => [f.t[0] === 0 ? 0 : f.t[0] * du, f.t[1] === 0 ? 0 : f.t[1] * du]
+/** ENGINE coords (3dview/projection `project()`, origin-free): the horizontal x·t (= BASIS hs · p[h]) and the
+ *  depth x·n (Model3d's `far`). viewMap re-centres: drawing u = dotT + frameShift. */
+export function dotT(f: ElevFrame, x: number, y: number): number {
+	const t = f.t
+	return t[1] === 0 ? t[0] * x : t[0] === 0 ? t[1] * y : x * t[0] + y * t[1]
+}
+export function dotN(f: ElevFrame, x: number, y: number): number {
+	const n = f.n
+	return n[1] === 0 ? n[0] * x : n[0] === 0 ? n[1] * y : x * n[0] + y * n[1]
+}
+/** Drawing u − engine u: o.x − o·t (= viewMap's old `cx − hs · centre`). */
+export const frameShift = (f: ElevFrame): number => f.o[0] - dotT(f, f.o[0], f.o[1])
+/** The drawing-u span [min, max] of plan points: the along coords' extremes mapped to u (u is monotone in the
+ *  along coord, mirrored for rear / left — so this is elevU of the min / max on-axis coord, as before). */
+export function frameSpan(f: ElevFrame, pts: Pt[]): [number, number] {
+	const as = pts.map((p) => frameAlong(f, p)), u0 = alongToU(f, Math.min(...as)), u1 = alongToU(f, Math.max(...as))
+	return [Math.min(u0, u1), Math.max(u0, u1)]
+}
+/** A plan rectangle's 4 corners (for a frame span — an oblique frame needs all four). */
+export const rectPts = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+
 // Horizontal drawing span [min,max] of a flat (z=0) object seen edge-on in an elevation dir.
 export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [number, number] {
-	const ax = ELEV_BASIS[dir].axis
-	let lo: number, hi: number
-	if (e.type === 'polyline' || e.type === 'arc') { const cs = (e.type === 'arc' ? arcPts(e) : e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
-	else { const b = e.b ?? e.a!; lo = Math.min(e.a![ax], b[ax]); hi = Math.max(e.a![ax], b[ax]) }   // a point (insert / text) → its a
-	const u0 = elevU(dir, lo, cx, cy), u1 = elevU(dir, hi, cx, cy)
-	return [Math.min(u0, u1), Math.max(u0, u1)]
+	const pts = e.type === 'polyline' || e.type === 'arc' ? (e.type === 'arc' ? arcPts(e) : e.pts ?? []) : [e.a!, e.b ?? e.a!]   // a point (insert / text) → its a
+	return frameSpan(frameOf(dir, cx, cy), pts)
 }
 
 export const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])

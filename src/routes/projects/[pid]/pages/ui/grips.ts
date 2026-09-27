@@ -8,7 +8,8 @@ import type { Clip, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
 import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
-import { ELEV_BASIS, elevU, elevUInv, textBox, STYLE_DEFAULTS, isNote } from './geometry'
+import { frameAxis, frameU, frameSetU, uToAlong, textBox, STYLE_DEFAULTS, isNote } from './geometry'
+import { ctxFrame } from './view'
 import { doorGeom } from '../3dview/projection'
 import { insertBounds } from './blocks'
 
@@ -78,8 +79,8 @@ export function anchoredResize(Aw: Pt, Pw: Pt, rot: number): { c: Pt; D: Pt; F: 
 
 /** Resize a prism by dragging corner `gi` to p, holding `anchor` (opposite corner, captured at grip-down)
  *  fixed. Plan edits footprint x/y/w/d — a ROTATED box by the same world-anchored rule as a rotated shape
- *  (anchoredResize), its sizes grid-snapped along its own axes; elevation edits the on-axis size (via elevUInv) +
- *  z/h. `rnd` grid-snaps. Mutates `o`. */
+ *  (anchoredResize), its sizes grid-snapped along its own axes; elevation edits the on-axis size (the view frame's
+ *  along coord, uToAlong) + z/h. `rnd` grid-snaps. Mutates `o`. */
 export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>, gi: number, p: Pt, anchor: Pt, rnd: (v: number) => number) {
 	void gi
 	if (ctx.isPlan && o.rot) {
@@ -91,10 +92,10 @@ export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>,
 		return
 	}
 	if (ctx.isElev) {
-		const ax = ELEV_BASIS[ctx.elevDir].axis
-		const c1 = elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy), c2 = elevUInv(ctx.elevDir, anchor[0], ctx.cx, ctx.cy)
+		const f = ctxFrame(ctx), ax = frameAxis(f)
+		const c1 = uToAlong(f, p[0]), c2 = uToAlong(f, anchor[0])
 		const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
-		if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }
+		if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }   // oblique: phase 2 (the box's x / w or y / d; a rotated frame needs anchoredResize)
 		const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
 		o.z = Math.max(0, rnd(ctx.ground - baseY)); o.h = Math.max(1, rnd(baseY - topY))
 	} else {
@@ -122,7 +123,7 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 			const r = prismRect(ctx, o)!
 			const C: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]
 			const off = (r.y1 - r.y0) / 2 + Math.max(r.x1 - r.x0, r.y1 - r.y0) * 0.35
-			const ax = ELEV_BASIS[ctx.elevDir].axis, cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)
+			const ax = frameAxis(ctxFrame(ctx)), cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)   // oblique: phase 2 (tilt about the look axis, not x / y)
 			const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
 			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
 				const a = handleAngle(C, p, shift(), true)   // −180..180: a natural tilt range
@@ -200,16 +201,15 @@ export function rotGripLocal(ctx: ViewCtx, e: Ent, gripMm: number, shift: () => 
 	return { x: cx, y: y0 - gripMm * 6, rotate: true, apply: (p: Pt) => ({ ...e, rot: handleAngle([cx, cy], p, shift()) }) }
 }
 
-/** A flat object in elevation is a ground line; drag its min/max x-edge end (via elevU/elevUInv), keeping
- *  it flat. A 3+-point polyline has no simple edge (left as-is); a 2-point one uses `pts` like `a`/`b`. */
+/** A flat object in elevation is a ground line; drag its min/max x-edge end (via the view frame: frameU /
+ *  frameSetU), keeping it flat. A 3+-point polyline has no simple edge (left as-is); a 2-point one uses `pts` like `a`/`b`. */
 export function setFlatX(ctx: ViewCtx, e: Ent, edge: 'min' | 'max', u: number): Ent {
 	if (e.type === 'polyline' && !is2PtPolyline(e)) return e
 	const [pa, pb]: [Pt, Pt] = e.type === 'polyline' ? [e.pts![0], e.pts![1]] : [e.a!, e.b!]
-	const ax = ELEV_BASIS[ctx.elevDir].axis
-	const ua = elevU(ctx.elevDir, pa[ax], ctx.cx, ctx.cy), ub = elevU(ctx.elevDir, pb[ax], ctx.cx, ctx.cy)
+	const f = ctxFrame(ctx)
+	const ua = frameU(f, pa), ub = frameU(f, pb)
 	const aIsMin = ua <= ub, moveA = (edge === 'min') === aIsMin
-	const m = elevUInv(ctx.elevDir, u, ctx.cx, ctx.cy)
-	const setPt = (pt: Pt): Pt => ax === 0 ? [m, pt[1]] : [pt[0], m]
+	const setPt = (pt: Pt): Pt => frameSetU(f, pt, u)
 	if (e.type === 'polyline') return { ...e, pts: moveA ? [setPt(pa), pb] : [pa, setPt(pb)] }
 	return moveA ? { ...e, a: setPt(e.a!) } : { ...e, b: setPt(e.b!) }
 }

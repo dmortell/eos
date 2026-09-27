@@ -12,6 +12,7 @@
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
 	import { project, objBounds, faces3d, openingCuts, prismPanels, cutsAWall, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp } from './projection'
 	import { BASIS } from './types'
+	import { frameOf, dotT, dotN, type ElevDir } from '../ui/geometry'
 	import { storeyMap } from './storeyMap'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
@@ -48,11 +49,11 @@
 	const RU = 45, RAIL = 40
 	const ruMarks = $derived.by(() => {
 		if (dir !== 'front' && dir !== 'rear') return []
-		const b = BASIS[dir], out: { id: string; u: number; v: number; n: number }[] = []
+		const f = frameOf(dir), out: { id: string; u: number; v: number; n: number }[] = []
 		for (const o of model.objects) {
 			if (o.type !== 'prism' || !o.rack || !visible(o)) continue
-			const uL = Math.min(b.hs * o.x, b.hs * (o.x + o.w))
-			for (let n = 1; n <= o.rack.u; n++) out.push({ id: `${o.id}-${n}`, u: uL + 22, v: b.vs * (o.z + RAIL + (n - 1) * RU + 12), n })
+			const uL = Math.min(dotT(f, o.x, o.y), dotT(f, o.x + o.w, o.y))   // oblique: phase 2 (the rack's face edges, unrotated)
+			for (let n = 1; n <= o.rack.u; n++) out.push({ id: `${o.id}-${n}`, u: uL + 22, v: vsOf * (o.z + RAIL + (n - 1) * RU + 12), n })
 		}
 		return out
 	})
@@ -72,9 +73,9 @@
 	const inHiddenFloors = (o: Obj) => { if (!sm) return false; const b = objBounds(o); return sm.hidden(b.z0, b.z1) }
 	const uSpan = $derived.by(() => {
 		if (dir === 'plan' || dir === 'iso') return null
-		const b = BASIS[dir]
+		const f = frameOf(dir)
 		let u0 = Infinity, u1 = -Infinity
-		for (const o of model.objects) { const bb = objBounds(o); for (const c of b.h === 'x' ? [bb.x0, bb.x1] : [bb.y0, bb.y1]) { u0 = Math.min(u0, b.hs * c); u1 = Math.max(u1, b.hs * c) } }
+		for (const o of model.objects) { const bb = objBounds(o); for (const [x, y] of [[bb.x0, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1], [bb.x1, bb.y0]]) { const u = dotT(f, x, y); u0 = Math.min(u0, u); u1 = Math.max(u1, u) } }
 		return isFinite(u0) ? { u0: u0 - 1500, u1: u1 + 500 } : { u0: -1500, u1: 10500 }
 	})
 	// labels are ANNOTATIVE: a fixed size on paper (model mm = paper mm × paperMm); in model space never below
@@ -83,12 +84,12 @@
 	const labelH = $derived(Math.max(LABEL_PAPER_MM * (paperMm || 1), 12 * (pxMm || 0)))
 	const storeyLines = $derived.by(() => {
 		if (!uSpan || !model.storeys?.length) return []
-		const b = BASIS[dir as keyof typeof BASIS], shown = sm ? sm.shown : model.storeys
-		const lines = shown.map((s) => ({ id: s.id, name: s.name, v: b.vs * (sm ? sm.map(s.z) : s.z), ...uSpan }))
+		const shown = sm ? sm.shown : model.storeys
+		const lines = shown.map((s) => ({ id: s.id, name: s.name, v: vsOf * (sm ? sm.map(s.z) : s.z), ...uSpan }))
 		// the ROOF: above the top floor's soffit by a slab (its own slab thickness)
 		const top = [...model.storeys].sort((a, c) => c.z - a.z)[0]
 		const zr = top.z + (top.ceilingSlab ?? 3600) + (top.slab ?? 200)
-		lines.push({ id: 'roof', name: 'RF', v: b.vs * (sm ? sm.map(zr) : zr), ...uSpan })
+		lines.push({ id: 'roof', name: 'RF', v: vsOf * (sm ? sm.map(zr) : zr), ...uSpan })
 		return lines
 	})
 	// F10: a conduit carrying cables is labelled in PLAN with its fill ("12 C6A · 37%") at its longest segment's
@@ -174,11 +175,11 @@
 		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
 		return out
 	})
-	// Project a model point for the current dir: plan/elevation via the BASIS table, iso via the orbit
-	// camera. Lets us draw custom opening geometry (door swing / window glazing) the engine's project()
-	// doesn't emit, in the same drawing space as everything else.
+	// Project a model point for the current dir: plan (x, y), an elevation via its view frame (x·t, z up — the
+	// engine's project()), iso via the orbit camera. Lets us draw custom opening geometry (door swing / window
+	// glazing) the engine's project() doesn't emit, in the same drawing space as everything else.
 	const projPt = (d: Dir, p: { x: number; y: number; z: number }) =>
-		d === 'iso' ? isoR(p, yaw, pitch, cx, cy, persp) : { u: BASIS[d].hs * p[BASIS[d].h], v: BASIS[d].vs * p[BASIS[d].v] }
+		d === 'iso' ? isoR(p, yaw, pitch, cx, cy, persp) : d === 'plan' ? { u: p.x, v: p.y } : { u: dotT(frameOf(d), p.x, p.y), v: p.z }
 	// A door's leaf + swing arc, or a window's glazing line, as projected polylines. Drawn in PLAN and
 	// ISO (on the floor at the opening's base z); elevation shows only the masked gap. Hinge sits at one
 	// jamb (flipped by `flip`), radius = the door width (the opening's long footprint dimension), swept
@@ -209,7 +210,8 @@
 	// I2: plan / elevation HIDDEN-LINE removal — every face projected orthographically, painted farthest first in the
 	// paper colour, so a nearer face hides the lines behind it (the iso solid render's painter's algorithm, flat).
 	// `far` = distance away from the viewer: plan looks down (−z), front along +y, rear −y, right −x, left +x.
-	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' ? -p.z : dir === 'front' ? p.y : dir === 'rear' ? -p.y : dir === 'right' ? -p.x : p.x
+	// (an elevation's = the view frame's origin-free depth x·n)
+	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' ? -p.z : dotN(frameOf(dir as ElevDir), p.x, p.y)
 	const hlFaces = $derived.by(() => {
 		if (!hideHidden || dir === 'iso') return []
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []

@@ -43,6 +43,12 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Sections at any angle, phase 1** (`elevation-section-plan.md`): an `ElevFrame` (origin, along `t`, look `n`) in
+  `ui/geometry.ts`; the four elevation directions are fixed frames and every elevation call site (projection, hit,
+  grips, snap, place, model edits, viewport mapping) goes through it — no visible change, pinned bit-for-bit by
+  `ui/elevFrame.test.ts`; `frameAt(o, deg)` builds an oblique one (used from phase 2).
+- **Fix — Properties › W / H of a ROTATED shape or box moved it**: it turns about its centre, so growing from the
+  unrotated corner slid it; now its drawn top-left corner stays put (`ui/resizeKeep.ts`, 2D rect / ellipse + 3D box).
 - **DXF opens on the drawing** (Dave: LibreCAD opened with it off screen): `$EXTMIN` / `$EXTMAX` + the `*Active`
   view's centre / height from the content (patched into the text — `@tarikjabiri/dxf` ignores them). File menu item
   renamed **Export DXF…**.

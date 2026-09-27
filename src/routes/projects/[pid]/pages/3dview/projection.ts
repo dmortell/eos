@@ -1,6 +1,7 @@
 // Ported verbatim from sheets/tools/model3d (the mature 3D engine) for the Pages 3D model — see model-plan.md.
-import { BASIS, type Axis, type Clip, type Conduit, type Dir, type Obj, type Prism, type Wall } from './types'
+import type { Axis, Clip, Conduit, Dir, Obj, Prism, Wall } from './types'
 import { runs as graphRuns, nodeMap } from './graph'
+import { frameOf, dotT, frameShift, type ElevDir } from '../ui/geometry'
 
 // A projected outline in drawing-plane coords (u right, v up).
 export type Shape = { pts: { u: number; v: number }[]; closed: boolean }
@@ -66,10 +67,8 @@ function wallRunBoxes(o: Wall, cuts: Cut[] = []) {
 	return wallRuns(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: run.h, thickness: run.thickness, pts: run.points }, cuts))
 }
 
-const proj = (dir: Dir, p: P3) => {
-	const b = BASIS[dir]
-	return { u: b.hs * p[b.h], v: b.vs * p[b.v] }
-}
+// Plan: (x, y). Elevation: the view frame's origin-free horizontal x·t (= the old BASIS hs · p[h]) and z up.
+const proj = (dir: Dir, p: P3) => dir === 'plan' ? { u: p.x, v: p.y } : { u: dotT(frameOf(dir as ElevDir), p.x, p.y), v: p.z }
 
 const clampEdges = (e: number) => Math.max(3, Math.min(24, Math.round(e)))
 
@@ -302,10 +301,10 @@ export function viewMap(dir: Dir, cx: number, cy: number, ground: number, yaw = 
 		const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ix, iy - q.v]
 		return { uvToDraw, toDraw: (p) => uvToDraw(isoR(p, yaw, pitch, cx, cy, persp)), xform: `translate(${ix} ${iy}) scale(1 -1)` }
 	}
-	const b = BASIS[dir]
-	const ox = cx - b.hs * (b.h === 'x' ? cx : cy)   // re-centre the on-axis coord about the plan centre (= geometry.elevU)
+	const f = frameOf(dir, cx, cy)
+	const ox = frameShift(f)   // re-centre the engine horizontal about the frame origin (= geometry.frameU)
 	const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ox, ground - q.v]
-	return { uvToDraw, toDraw: (p) => uvToDraw({ u: b.hs * p[b.h], v: b.vs * p[b.v] }), xform: `translate(${ox} ${ground}) scale(1 -1)` }
+	return { uvToDraw, toDraw: (p) => uvToDraw({ u: dotT(f, p.x, p.y), v: p.z }), xform: `translate(${ox} ${ground}) scale(1 -1)` }
 }
 
 // Axis-aligned model bounds of an object.

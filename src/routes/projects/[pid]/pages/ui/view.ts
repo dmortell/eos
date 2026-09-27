@@ -2,7 +2,7 @@
 // Viewport's $derived props and passed explicitly as the first argument, so the functions in hit.ts (and
 // later grips.ts / snap.ts) read no component closure state and are unit-testable. No component state
 // inside — just plain values.
-import type { ElevDir } from './geometry'
+import { frameOf, type ElevDir, type ElevFrame } from './geometry'
 import type { Model } from '../3dview/types'
 
 export type ViewCtx = {
@@ -30,6 +30,10 @@ export type ViewCtx = {
 	/** The perspective camera of the orbit view (3dview/projection perspCam); null / unset = parallel. */
 	persp?: import('../3dview/projection').Persp
 }
+
+/** The elevation's horizontal VIEW FRAME (geometry ElevFrame) about the view's plan centre — valid when isElev. The
+ *  one place an oblique view (a section line / elevation marker, phase 2+) will hand its own frame in. */
+export const ctxFrame = (ctx: ViewCtx): ElevFrame => frameOf(ctx.elevDir, ctx.cx, ctx.cy)
 
 /** Model-layer visibility/lock predicates a model hit-test gates on (from the model's own layers). */
 export type MLayers = { visible(o: import('../3dview/types').Obj): boolean; locked(o: import('../3dview/types').Obj): boolean }

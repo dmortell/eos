@@ -56,7 +56,7 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import type { Ent, ElevDir, Pt } from './ui/geometry'
-	import { PLAN_CX, PLAN_CY, GROUND, ELEV_BASIS, elevU, elevUInv } from './ui/geometry'
+	import { PLAN_CX, PLAN_CY, GROUND, frameOf, frameAxis, frameU, frameSetU } from './ui/geometry'
 	import type { ViewCtx } from './ui/view'
 	import { bbox as entBBox, onPlanPlane } from './ui/hit'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
@@ -160,7 +160,7 @@
 		return viewState.getProj(pane.id, didOf(a.id)) ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
 	// Map a projection to the Viewport render kind (same names since the 'floorplan'→'plan' rename): plan, iso → oblique 3D, the four
-	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
+	// elevations pass through as their own kind (the Viewport projects each through its view frame, geometry ElevFrame).
 	const projKind = (p: Proj) => p as 'plan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
 	// A drawing's DOCUMENT state (paper / scale / viewport frames) is keyed by a stable DRAWING id — the
 	// tab's TITLE — not the ephemeral tab id, so closing a tab (or reusing the preview slot) never destroys
@@ -279,7 +279,8 @@
 		ensureHist(sheet.id)
 		const fid = newFrameId()
 		// the frame takes the ELEVATION's proportions (along the view axis × the cut's height), not the plan box's
-		const along = Math.abs(ELEV_BASIS[dir].axis === 0 ? clip.x1 - clip.x0 : clip.y1 - clip.y0) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
+		// oblique: phase 2 — the axis-aligned clip's extent along the view axis (an OClip has its own width)
+		const along = Math.abs(frameAxis(frameOf(dir)) === 0 ? clip.x1 - clip.x0 : clip.y1 - clip.y0) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
 		const W = 420, H = Math.max(120, Math.min(520, Math.round((W * tall) / along)))
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		const seq = nextFrameSeq(framesOf(sheet.id))
@@ -505,13 +506,16 @@
 		const px = at(v0.x, PLAN_CX), py = at(v0.y, PLAN_CY), key = paneId + '|' + vid
 		const f = { ...focusOf.get(key) }
 		if (from === 'plan') { f.x = px; f.y = py }
-		else { const b = ELEV_BASIS[from as ElevDir]; f[b.axis === 0 ? 'x' : 'y'] = elevUInv(from as ElevDir, px); f.z = GROUND - py }
+		else {   // an elevation knows the plan coords its frame moves along (the on-axis one for the four dirs; both when oblique)
+			const fr = frameOf(from as ElevDir), ax = frameAxis(fr), q = frameSetU(fr, [f.x ?? PLAN_CX, f.y ?? PLAN_CY], px)
+			if (ax !== 1) f.x = q[0]; if (ax !== 0) f.y = q[1]; f.z = GROUND - py
+		}
 		focusOf.set(key, f)
 		const v1 = viewOf(paneId, vid, to), put = (P: number | undefined, c: number, keep: number) => (P == null ? keep : c - v0.zoom * (c + d * (P - c)))
 		if (to === 'plan') setView(paneId, vid, 'plan', { zoom: v0.zoom, x: put(f.x, PLAN_CX, v1.x), y: put(f.y, PLAN_CY, v1.y) })
 		else {
-			const b = ELEV_BASIS[to as ElevDir], h = b.axis === 0 ? f.x : f.y
-			setView(paneId, vid, to, { zoom: v0.zoom, x: put(h == null ? undefined : elevU(to as ElevDir, h), PLAN_CX, v1.x), y: put(f.z == null ? undefined : GROUND - f.z, PLAN_CY, v1.y) })
+			const fr = frameOf(to as ElevDir), ax = frameAxis(fr), known = (ax === 1 || f.x != null) && (ax === 0 || f.y != null)
+			setView(paneId, vid, to, { zoom: v0.zoom, x: put(known ? frameU(fr, [f.x ?? PLAN_CX, f.y ?? PLAN_CY]) : undefined, PLAN_CX, v1.x), y: put(f.z == null ? undefined : GROUND - f.z, PLAN_CY, v1.y) })
 		}
 	}
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own

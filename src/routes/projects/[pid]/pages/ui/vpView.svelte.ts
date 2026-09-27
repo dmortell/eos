@@ -7,7 +7,7 @@
 // injects the view (`ctx`, tolerances, layer predicates) into them.
 import { untrack } from 'svelte'
 import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom } from '../constants'
-import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY, ELEV_BASIS, elevU } from './geometry'
+import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY, frameOf, frameSpan, rectPts } from './geometry'
 import { makeMapper, type Mapper } from './mapper'
 import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
@@ -102,13 +102,12 @@ export class VpView {
 	 *  (+ a margin), else a default — so a section's elevation doesn't draw a ground line across the whole sheet. */
 	groundSpan = $derived.by((): [number, number] => {
 		if (this.kind === 'plan' || this.kind === 'iso') return [0, 0]
-		const dir = this.kind as ElevDir, ax = ELEV_BASIS[dir].axis, c = this.clip
-		let lo = Infinity, hi = -Infinity
-		if (c) { lo = ax === 0 ? c.x0 : c.y0; hi = ax === 0 ? c.x1 : c.y1 }
-		else for (const o of this.mdl?.objects ?? []) { if (!this.mlayers.visible(o)) continue; const b = objBounds(o); lo = Math.min(lo, ax === 0 ? b.x0 : b.y0); hi = Math.max(hi, ax === 0 ? b.x1 : b.y1) }
-		if (!isFinite(lo)) return [PLAN_CX - 20000, PLAN_CX + 20000]
-		const a = elevU(dir, lo), b = elevU(dir, hi), pad = c ? 0 : 500
-		return [Math.min(a, b) - pad, Math.max(a, b) + pad]
+		const f = frameOf(this.kind as ElevDir), c = this.clip, pts: Pt[] = []
+		if (c) pts.push(...rectPts(c.x0, c.y0, c.x1, c.y1))   // oblique: phase 2 (an oriented clip's own width)
+		else for (const o of this.mdl?.objects ?? []) { if (!this.mlayers.visible(o)) continue; const b = objBounds(o); pts.push(...rectPts(b.x0, b.y0, b.x1, b.y1)) }
+		const [a, b] = frameSpan(f, pts), pad = c ? 0 : 500
+		if (!isFinite(a)) return [PLAN_CX - 20000, PLAN_CX + 20000]
+		return [a - pad, b + pad]
 	})
 	/** The perspective camera (iso only), aimed at the model's visible content. */
 	persp = $derived.by((): Persp => (this.p.persp && this.kind === 'iso' && this.mdl ? perspCam(this.mdl.objects, this.mlayers.visible) : null))
@@ -378,14 +377,14 @@ export class VpView {
 		if (!m || !this.isElev || !st?.length) return null
 		const has = (id: string) => this.mls.some((l) => l.id === id) && !this.isLayerHidden(id)
 		const showF = has('a-flor'), showC = has('a-clng'); if (!showF && !showC) return null
-		const ax = ELEV_BASIS[this.elevDir].axis, cs: number[] = []
+		const pts: Pt[] = []
 		for (const o of m.objects) {
-			if (o.type === 'prism') { const lo = ax === 0 ? o.x : o.y; cs.push(lo, lo + (ax === 0 ? o.w : o.d)) }
-			else if (o.type === 'wall' || o.type === 'conduit') for (const n of o.nodes as GN[]) cs.push(ax === 0 ? n.x : n.y)
+			if (o.type === 'prism') pts.push(...rectPts(o.x, o.y, o.x + o.w, o.y + o.d))
+			else if (o.type === 'wall' || o.type === 'conduit') for (const n of o.nodes as GN[]) pts.push([n.x, n.y])
 		}
-		if (!cs.length) return null
-		const ua = elevU(this.elevDir, Math.min(...cs), CX, CY), ub = elevU(this.elevDir, Math.max(...cs), CX, CY)
-		const x0 = Math.min(ua, ub) - 500, x1 = Math.max(ua, ub) + 500
+		if (!pts.length) return null
+		const [ua, ub] = frameSpan(frameOf(this.elevDir, CX, CY), pts)
+		const x0 = ua - 500, x1 = ub + 500
 		const sm = this.collapse, vs = BASIS[this.elevDir].vs, y = (z: number) => GROUND - vs * (sm ? sm.map(z) : z)
 		const slabs: { y0: number; y1: number }[] = [], floors: number[] = [], ceilings: number[] = []
 		for (const s of st) {

@@ -4,9 +4,9 @@
 // exactly what `on.beginedit?.()/on.modeledit?.(label)/on.endedit?.(ms)` did inline in Viewport. Behaviour
 // is unchanged; only the seam moved, per §6's note that this is where R6's `editor` prop reads from.
 import type { Pt } from './geometry'
-import type { ViewCtx, MLayers } from './view'
+import { ctxFrame, type ViewCtx, type MLayers } from './view'
 import type { Model, Obj, Guide, Section, Clip } from '../3dview/types'
-import { ELEV_BASIS, elevUInv, segDist } from './geometry'
+import { frameAxis, frameSetU, segDist } from './geometry'
 import { graphNodeDraw, type GN } from './hit'
 
 export type { GN }
@@ -98,11 +98,12 @@ export function insertGraphNode(ctx: ViewCtx, mdl: Model, edit: EditScope, p: Pt
 				edit.begin()
 				const nid = uid('n')
 				// Seed at a's coords, then set its in-view coords from p (no snap unless `rnd` rounds): the
-				// plan takes x/y, an elevation takes the on-axis coord + z (keeping a's off-axis coord).
+				// plan takes x/y, an elevation slides it along the view's horizontal (frameSetU: the on-axis coord,
+				// keeping a's off-axis coord) + takes z.
 				const nn: GN = { id: nid, x: a.x, y: a.y, z: a.z }
 				if (ctx.isElev) {
-					const ax = ELEV_BASIS[ctx.elevDir].axis
-					if (ax === 0) nn.x = rnd(elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy)); else nn.y = rnd(elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy))
+					const f = ctxFrame(ctx), ax = frameAxis(f), m = frameSetU(f, [a.x, a.y], p[0])
+					if (ax !== 1) nn.x = rnd(m[0]); if (ax !== 0) nn.y = rnd(m[1])   // round only what the view moves
 					nn.z = Math.max(0, rnd(ctx.ground - p[1]))
 				} else { nn.x = rnd(p[0]); nn.y = rnd(p[1]) }
 				;(o.nodes as GN[]).push(nn)

@@ -4,7 +4,8 @@
 // joined nodes riding along), and a node dropped on another node (F3 merge). Plain functions of the view — the
 // class keeps the drag bookkeeping (undo step open / close, the trailing click) and calls these.
 import type { Pt } from './geometry'
-import { ELEV_BASIS } from './geometry'
+import { frameStep, dotT } from './geometry'
+import { ctxFrame } from './view'
 import type { GN } from './hit'
 import type { MGrip } from './grips'
 import type { VpView } from './vpView.svelte'
@@ -38,13 +39,13 @@ export function commitConduit(v: VpView, o: Conduit): Obj | null {
 // ── 3D objects on the editing engine (ItemEditor, editing-merge-plan.md phase 3): translate a COPY, snap the delta,
 // write the copies back into the live model, re-attach after the move ──
 type P3 = { x: number; y: number; z: number }
-/** A plain copy of `o` moved by the view's (dx, dy): in plan x / y; in elevation the horizontal maps to the view's
- *  on-axis coord (× the ELEV_BASIS sign) and the vertical changes z (≥ 0). A box moves its origin, a wall / conduit
- *  all its nodes. */
+/** A plain copy of `o` moved by the view's (dx, dy): in plan x / y; in elevation the horizontal steps along the view
+ *  frame's t (frameStep: the on-axis coord × its sign for the four dirs) and the vertical changes z (≥ 0). A box moves
+ *  its origin, a wall / conduit all its nodes. */
 export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
-	const c = structuredClone(o) as Obj, elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
+	const c = structuredClone(o) as Obj, step = v.isElev ? frameStep(ctxFrame(v.ctx), dx) : null
 	const shift = (t: P3) => {
-		if (elev) { if (elev.axis === 0) t.x += elev.sign * dx; else t.y += elev.sign * dx; t.z = Math.max(0, t.z - dy) }
+		if (step) { if (step[0]) t.x += step[0]; if (step[1]) t.y += step[1]; t.z = Math.max(0, t.z - dy) }
 		else { t.x += dx; t.y += dy }
 	}
 	if (c.type === 'prism') shift(c); else for (const n of c.nodes as GN[]) shift(n)
@@ -55,8 +56,7 @@ export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
 export function objSnapDelta(v: VpView, o: Obj, dx: number, dy: number): [number, number] {
 	const r: P3 | undefined = o.type === 'prism' ? o : (o.nodes as GN[])[0]
 	if (!r || !v.snap) return [dx, dy]
-	const elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
-	const h = elev ? elev.sign * (elev.axis === 0 ? r.x : r.y) : r.x, vv = elev ? -r.z : r.y
+	const h = v.isElev ? dotT(ctxFrame(v.ctx), r.x, r.y) : r.x, vv = v.isElev ? -r.z : r.y   // the drawn horizontal (origin-free x·t)
 	return [v.rndSnap(h + dx) - h, v.rndSnap(vv + dy) - vv]
 }
 /** Write moved copies back into the live objects (in place — grips and pickers hold them): a rack DEVICE only slides

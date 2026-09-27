@@ -4,10 +4,10 @@
 // pass, P1) and the drafting flags come in as arguments. Graph-node snapping (snapNode/graphNodeApply)
 // and the elevation depth snap (elevDepthSnap) take the tolerances in model mm + the model-layer preds.
 import type { Pt, Ent } from './geometry'
-import type { ViewCtx, MLayers } from './view'
+import { ctxFrame, type ViewCtx, type MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
-import { ELEV_BASIS, elevUInv, arcPts, arc3 } from './geometry'
+import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3 } from './geometry'
 import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
@@ -257,13 +257,13 @@ export function snapNode(ctx: ViewCtx, p: Pt, exclude: GN, thrMm: number, brkMm:
 
 /** Move graph node `n` to drawn point p, IN PLACE (store mutation, like the grips): first snap onto a
  *  nearby node via `opts.snapNode` so runs join, then grid-round each coord via `opts.rnd`. In an
- *  elevation the drawn point sets the on-axis coord (via elevUInv) + z (GROUND − y); in plan, x/y.
- *  Returns the snap mark to show — null unless a node snap happened. */
+ *  elevation the drawn point slides the node along the view's horizontal (frameSetU: the on-axis coord for the
+ *  four dirs) + sets z (GROUND − y); in plan, x/y. Returns the snap mark to show — null unless a node snap happened. */
 export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p: Pt, exclude: GN, origin?: Pt) => Pt | null; rnd: (v: number) => number }, origin?: Pt): SnapHit | null {
 	const q = opts.snapNode(p, n, origin) ?? p   // snap to a nearby node so runs join
 	if (ctx.isElev) {
-		const u = opts.rnd(elevUInv(ctx.elevDir, q[0], ctx.cx, ctx.cy))
-		if (ELEV_BASIS[ctx.elevDir].axis === 0) n.x = u; else n.y = u
+		const f = ctxFrame(ctx), ax = frameAxis(f), m = frameSetU(f, [n.x, n.y], q[0])
+		if (ax !== 1) n.x = opts.rnd(m[0]); if (ax !== 0) n.y = opts.rnd(m[1])   // round only what the view moves
 		n.z = Math.max(0, opts.rnd(ctx.ground - q[1]))
 	} else { n.x = opts.rnd(q[0]); n.y = opts.rnd(q[1]) }
 	return q === p ? null : { p: q, type: 'end' }
@@ -311,9 +311,10 @@ export type DepthSnap = { off: number; a: Pt; b: Pt }
  *  space (on-axis coord + z), so it can't drift from how the model is rendered. */
 export function elevDepthSnap(ctx: ViewCtx, p: Pt, tolMm: number, ml: MLayers): DepthSnap | null {
 	const mdl = ctx.mdl; if (!ctx.isElev || !mdl) return null
-	const ax = ELEV_BASIS[ctx.elevDir].axis
-	const onC = (n: GN) => (ax === 0 ? n.x : n.y), offC = (n: GN) => (ax === 0 ? n.y : n.x)
-	const pu = elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy), pz = ctx.ground - p[1]   // the drawn point's model on-axis + z
+	const f = ctxFrame(ctx), ax = frameAxis(f)
+	// oblique: phase 2 — `off` is an axis-aligned model coord (y / x) the placers write back; a frame depth then
+	const onC = (n: GN) => frameAlong(f, [n.x, n.y]), offC = (n: GN) => (ax === 0 ? n.y : n.x)
+	const pu = uToAlong(f, p[0]), pz = ctx.ground - p[1]   // the drawn point's along coord (model on-axis) + z
 	let best: DepthSnap | null = null, bestD = tolMm
 	for (const o of mdl.objects) {
 		if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !ml.visible(o)) continue

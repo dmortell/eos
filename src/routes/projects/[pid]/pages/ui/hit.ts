@@ -152,7 +152,7 @@ export type GN = { id: string; x: number; y: number; z: number; bend?: number; c
  *  outline instead — see `hitModel`.) */
 export function prismRect(ctx: ViewCtx, o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
 	if (o.type !== 'prism') return null
-	if (ctx.isElev) {
+	if (ctx.isElev) {   // oblique: phase 2 — the box's (x, y) and (x+w, y+d) corners bound its u only on an axis-aligned frame
 		const vm = viewMapOf(ctx)
 		const [u0, y1] = vm.toDraw({ x: o.x, y: o.y, z: o.z }), [u1, y0] = vm.toDraw({ x: o.x + o.w, y: o.y + o.d, z: o.z + o.h })
 		return { x0: Math.min(u0, u1), y0, x1: Math.max(u0, u1), y1 }

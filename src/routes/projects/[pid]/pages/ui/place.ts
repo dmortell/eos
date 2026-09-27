@@ -4,9 +4,9 @@
 // guides push, toasts — and the 'Section' tool (B5: `on.section(clip)` stays with the caller until
 // `sectionObj` lands). Ids come in as functions so the builders stay deterministic under test.
 import type { Pt, Ent, ElevDir } from './geometry'
-import type { ViewCtx } from './view'
+import { ctxFrame, type ViewCtx } from './view'
 import type { Obj, Guide, Model, Section, Clip } from '../3dview/types'
-import { ELEV_BASIS, elevUInv, dist, translate } from './geometry'
+import { frameAxis, frameStep, uToAlong, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
 import { isFlatElev } from './hit'
@@ -86,7 +86,7 @@ export type GraphOpts = {
 /** A clicked run of drawing points → a wall or conduit graph object with the tool's default profile, or
  *  null (unknown tool / fewer than 2 points). In PLAN the points are x/y at the tool's default height
  *  (walls on the floor, trunks/pipes at the model's ceiling-tile level, default 2600). In an ELEVATION the
- *  drawn point gives the on-axis coord (`elevUInv`) and z (`ground − y`, clamped ≥ 0) — so a vertical run
+ *  drawn point gives the on-axis coord (the view frame's `uToAlong`) and z (`ground − y`, clamped ≥ 0) — so a vertical run
  *  can be drawn — and the DEPTH (off-axis coord) comes from the selected plan guide, else the depth-snap,
  *  else the plan centre. The "no depth guide" toast and `addModelObj` stay with the caller. */
 export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts): Obj | null {
@@ -94,10 +94,12 @@ export function graphObj(ctx: ViewCtx, tool: string, pts: Pt[], opts: GraphOpts)
 	if (!spec || pts.length < 2) return null
 	const layerId = opts.layerId ?? ((id: string) => resolveLayer(ctx.mdl, id))
 	const nodesZ = tool === 'Wall' ? 0 : (opts.profile?.z ?? ctx.mdl?.levels?.ceilingTile ?? 2600)
-	const ax = ctx.isElev ? ELEV_BASIS[ctx.elevDir].axis : 0
+	const f = ctxFrame(ctx), ax = ctx.isElev ? frameAxis(f) : 0
 	const toNode = (p: Pt) => {
 		if (!ctx.isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
-		const onAxis = Math.round(elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy)), z = Math.max(0, Math.round(ctx.ground - p[1]))
+		const onAxis = Math.round(uToAlong(f, p[0])), z = Math.max(0, Math.round(ctx.ground - p[1]))
+		// oblique: phase 2 — the depth is an axis-aligned model coord (a plan guide's y / x, the depth-snap's off-axis
+		// coord, else the plan centre); an oblique view places at frameInv(u, depth)
 		const off = opts.guide ? opts.guide.pos : (opts.depthSnap(p) ?? (ax === 0 ? ctx.cy : ctx.cx))
 		return ax === 0 ? { x: onAxis, y: off, z } : { x: off, y: onAxis, z }
 	}
@@ -175,9 +177,8 @@ export function imageScaled(img: Ent, measured: number, real: number): Ent {
  *  also takes this branch — see the pinned test.) */
 export function moveEnt(ctx: ViewCtx, en: Ent, dx: number, dy: number): Ent {
 	if (isFlatElev(ctx, en)) {   // B24: only a PLAN-plane flat is edge-on here; an elevation-native shape translates freely
-		const { axis, sign } = ELEV_BASIS[ctx.elevDir]
-		const d = sign * dx
-		return axis === 0 ? translate(en, d, 0) : translate(en, 0, d)
+		const [sx, sy] = frameStep(ctxFrame(ctx), dx)   // the drag along the view's horizontal, as a plan step
+		return translate(en, sx, sy)
 	}
 	return translate(en, dx, dy)
 }

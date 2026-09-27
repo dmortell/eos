@@ -11,7 +11,8 @@
 import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv, isNote } from './geometry'
+import { type Pt, type Ent, type View, STYLE_DEFAULTS, dist, frameAxis, alongToU, uToAlong, isNote } from './geometry'
+import { ctxFrame } from './view'
 import { orbitShift, isoBounds, objBounds } from '../3dview/projection'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
@@ -243,7 +244,7 @@ export class VpInteraction {
 	private placeGraph(pts: Pt[]) {
 		const v = this.v
 		if (!v.mdl || pts.length < 2) return
-		const ax = v.isElev ? ELEV_BASIS[v.elevDir].axis : 0
+		const ax = v.isElev ? frameAxis(ctxFrame(v.ctx)) : 0   // oblique: phase 2 (a depth guide must run along the view's t)
 		const guide = v.isElev ? selectedPlanGuide(v.mdl.guides ?? [], v.modelSel, ax === 0 ? 'h' : 'v') : null
 		if (v.isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId, profile: (() => { const s = trunkSpecs.of(v.tool); return s ? specProfile(s, v.mdl?.levels) : undefined })() })
@@ -294,13 +295,13 @@ export class VpInteraction {
 	private toDraw(u: Pt): Pt | null {
 		const v = this.v
 		if (v.isPlan) return [u[0], -u[1]]
-		if (v.isElev) return [elevU(v.elevDir, u[0], v.ctx.cx, v.ctx.cy), v.ctx.ground - u[1]]
+		if (v.isElev) return [alongToU(ctxFrame(v.ctx), u[0]), v.ctx.ground - u[1]]   // user x = the along coord (model on-axis)
 		return null
 	}
 	private toUser(d: Pt): Pt | null {
 		const v = this.v
 		if (v.isPlan) return [d[0], -d[1]]
-		if (v.isElev) return [elevUInv(v.elevDir, d[0], v.ctx.cx, v.ctx.cy), v.ctx.ground - d[1]]
+		if (v.isElev) return [uToAlong(ctxFrame(v.ctx), d[0]), v.ctx.ground - d[1]]
 		return null
 	}
 	private acceptDraw(d: Pt): string | null {
@@ -563,7 +564,7 @@ export class VpInteraction {
 			tool: v.tool, n: this.draft.length, isPlan: v.isPlan, isElev: v.isElev, guideSpace: !!v.viewSpace, guideVert: v.guideIsVert(false),
 			guideDelta: g && ref ? Math.abs(ref.pos - g.pos) : null,
 			graphSelected: !!v.mSelObj && (v.mSelObj.type === 'wall' || v.mSelObj.type === 'conduit'),
-			depthGuide: v.isElev && !!selectedPlanGuide(v.mdl?.guides ?? [], v.modelSel, ELEV_BASIS[v.elevDir].axis === 0 ? 'h' : 'v'),
+			depthGuide: v.isElev && !!selectedPlanGuide(v.mdl?.guides ?? [], v.modelSel, frameAxis(ctxFrame(v.ctx)) === 0 ? 'h' : 'v'),   // oblique: phase 2 (as placeGraph)
 		})
 	})
 	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, tool: this.v.tool, prompt: this.prompt }))

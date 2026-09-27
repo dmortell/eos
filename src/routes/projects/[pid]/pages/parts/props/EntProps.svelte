@@ -22,6 +22,7 @@
 	import { isOutletEnt } from '../../store/allocate'
 	import { uploadShape, pdfOf, type UploadFile } from '../../ui/pdfFiles'
 	import UploadPicker from '../UploadPicker.svelte'
+	import { resizeKeepCorner } from '../../ui/resizeKeep'
 	import { srcMissing } from '../../ui/render/fileWatch.svelte'
 
 	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
@@ -64,18 +65,18 @@
 	// Move the whole selection so the group bbox corner reaches v — all shapes in ONE update (one undo step).
 	function setX(v: number) { const dx = v - gb.x; onupdate?.(ents.map((e) => translate(e, dx, 0))) }
 	function setY(v: number) { const dy = v - gb.y; onupdate?.(ents.map((e) => translate(e, 0, dy))) }
-	// Single-entity size edits (anchored at the top-left).
+	// Single-entity size edits, anchored at the top-left — the DRAWN one for a rotated shape (it turns about its
+	// centre, so growing from the unrotated corner slid it; ui/resizeKeep.ts, shared with 3D boxes).
 	const boxKind = (e?: Ent | null) => e?.type === 'rect' || e?.type === 'ellipse'
-	function setW(v: number) {
+	function setSize(w2?: number, h2?: number) {
 		const e = single; if (!boxKind(e)) return
-		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), h = Math.abs(e!.b![1] - e!.a![1])
-		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + Math.max(1, v), y0 + h] })
+		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), w = Math.abs(e!.b![0] - e!.a![0]), h = Math.abs(e!.b![1] - e!.a![1])
+		const nw = w2 != null ? Math.max(1, w2) : w, nh = h2 != null ? Math.max(1, h2) : h
+		const [x, y] = resizeKeepCorner(x0, y0, w, h, e!.rot ?? 0, nw, nh)
+		onupdate?.({ ...e!, a: [x, y], b: [x + nw, y + nh] })
 	}
-	function setH(v: number) {
-		const e = single; if (!boxKind(e)) return
-		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), w = Math.abs(e!.b![0] - e!.a![0])
-		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + w, y0 + Math.max(1, v)] })
-	}
+	const setW = (v: number) => setSize(v, undefined)
+	const setH = (v: number) => setSize(undefined, v)
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
 	// Toggle a text box into a CALLOUT (box + leader). Leave `leader` undefined → the Viewport places its
 	// paperMm-based default (B3); it's kept across off/on so re-enabling restores the previous target.

@@ -115,6 +115,7 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	// ── storey levels (an elevation of a building) ──
 	if (isElev && model.storeys?.length) {
 		const layer = doc.layer('Levels', '#94a3b8'), xs: number[] = []
+		// oblique: phase 5 — two opposite bounds corners give the u extent only on an axis-aligned frame
 		for (const o of model.objects) { const b = objBounds(o); xs.push(vm.toDraw({ x: b.x0, y: b.y0, z: 0 })[0], vm.toDraw({ x: b.x1, y: b.y1, z: 0 })[0]) }
 		const x0 = xs.length ? Math.min(...xs) - 1500 : 0, x1 = xs.length ? Math.max(...xs) + 500 : 10000
 		for (const st of sm ? sm.shown : model.storeys) {

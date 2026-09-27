@@ -15,6 +15,7 @@
 	import { newId } from '../../ids'
 	import { cptUV, DEFAULT_CPTS, type CPt } from '../../3dview/connect'
 	import { cptPick } from '../../ui/cptPick.svelte'
+	import { resizeKeepCorner } from '../../ui/resizeKeep'
 
 	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId, segId }: {
 		obj: Obj; layers?: MLayer[]
@@ -90,8 +91,9 @@
 	</div>
 	<div class="prop-sec">SIZE</div>
 	<div class="vecrow">
-		<NumCell k="W" v={Math.round(obj.w)} set={(n) => onupdate?.({ w: Math.max(1, n) })} />
-		<NumCell k="D" v={Math.round(obj.d)} set={(n) => onupdate?.({ d: Math.max(1, n) })} />
+		<!-- a ROTATED box keeps its drawn top-left corner (it turns about its centre — growing from the unrotated corner slid it) -->
+		<NumCell k="W" v={Math.round(obj.w)} set={(n) => { const w = Math.max(1, n), [x, y] = resizeKeepCorner(obj.x, obj.y, obj.w, obj.d, obj.rot ?? 0, w, obj.d); onupdate?.({ w, x, y }) }} />
+		<NumCell k="D" v={Math.round(obj.d)} set={(n) => { const d = Math.max(1, n), [x, y] = resizeKeepCorner(obj.x, obj.y, obj.w, obj.d, obj.rot ?? 0, obj.w, d); onupdate?.({ d, x, y }) }} />
 		<NumCell k="H" v={Math.round(obj.h)} set={(n) => onupdate?.({ h: Math.max(1, n) })} />
 	</div>
 	<div class="prop"><span>Shape</span>
