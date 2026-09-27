@@ -19,6 +19,9 @@ export type PageDoc = {
 	paper: { size: PaperSize; landscape: boolean; margin?: number }
 	scale: string
 	frames: SheetFrame[]
+	/** The sheet has had a viewport (its default one was seeded, or one was added): a sheet the user then EMPTIES
+	 *  stays empty — only a brand-new sheet gets the default viewport (Dave: Delete "did nothing", it re-seeded). */
+	seeded?: boolean
 	revisions?: { name: string; note: string; t: number }[]
 	modelId?: import('./3dview/types').ModelId
 	dir?: ElevDir
@@ -62,7 +65,7 @@ class DocsStore {
 	framesOf(id: string): SheetFrame[] { return this.#docs[id]?.frames ?? [] }
 	setFrames(id: string, frames: SheetFrame[]) {
 		const cur = this.#docs[id] ?? emptyDoc(id)
-		this.#docs = { ...this.#docs, [id]: { ...cur, frames } }
+		this.#docs = { ...this.#docs, [id]: { ...cur, frames, seeded: cur.seeded || frames.length > 0 } }
 	}
 
 	/** The frames field of every doc, snapshot-ready for the history system (matches the old

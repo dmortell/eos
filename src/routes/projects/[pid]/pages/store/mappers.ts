@@ -71,12 +71,13 @@ export function sheetToPage(s: PagesSheetDoc): Omit<PageDoc, 'id'> {
 		title: s.title, kind: 'sheet', scale: s.scale || '1:100',
 		paper: { size: s.paper.size, landscape: s.paper.landscape, margin: s.paper.marginMm },
 		frames: s.frames.map((f) => docToFrame(f).frame),
+		seeded: s.seeded ?? s.frames.length > 0,
 	}
 }
 /** The editor's page doc folded back into its stored sheet (registry fields kept from `s`). */
-export function pageToSheet(s: PagesSheetDoc, d: Pick<PageDoc, 'paper' | 'scale' | 'frames'>): PagesSheetDoc {
+export function pageToSheet(s: PagesSheetDoc, d: Pick<PageDoc, 'paper' | 'scale' | 'frames'> & { seeded?: boolean }): PagesSheetDoc {
 	return {
-		...s, scale: d.scale, sheetSize: d.paper.size,
+		...s, scale: d.scale, sheetSize: d.paper.size, ...(d.seeded || s.seeded ? { seeded: true } : {}),
 		paper: { size: d.paper.size, landscape: d.paper.landscape, marginMm: d.paper.margin ?? DEFAULT_MARGIN_MM },
 		// a frame's STORED view (an import's centring; later the live pan) is kept — the editor doesn't carry it
 		frames: d.frames.map((f, i) => { const old = s.frames.find((x) => x.id === f.id); return frameToDoc(f, f.seq ?? i + 1, old ? { view: old.view, yaw: old.yaw, pitch: old.pitch } : {}) }),

@@ -141,6 +141,9 @@ export type PagesSheetDoc = {
 	// content
 	paper: SheetPaper
 	frames: SheetFrameDoc[]
+	/** It has had a viewport — an emptied sheet stays empty (no default viewport re-seeded). Unset on older sheets:
+	 *  read as "has frames". */
+	seeded?: boolean
 }
 
 // ── models (drawings-plan §2.3) ──────────────────────────────────────────────────────────────────────

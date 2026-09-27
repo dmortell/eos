@@ -424,7 +424,7 @@
 	// Seed a sheet's DEFAULT viewport (fills the sheet, plan view) the first time PaperPage measures it —
 	// this is the page's baseline, so it's not a recorded edit.
 	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
-		if (framesOf(tabId).length) return
+		if (framesOf(tabId).length || docs.get(didOf(tabId))?.seeded) return   // an EMPTIED sheet stays empty — only a new one gets the default viewport
 		const id = newFrameId(), modelId = proj.newFrameModel(tabId)
 		// fit the plan to the new viewport — its 3D objects AND its plan shapes / floorplan image (a zone's content
 		// is often far from the drawing centre, so the sheet's default view would show it half off the frame)

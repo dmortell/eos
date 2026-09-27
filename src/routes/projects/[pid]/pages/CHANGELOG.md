@@ -43,6 +43,9 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Fix — deleting a sheet's last viewport "did nothing"**: the sheet re-seeded a default viewport as soon as it had
+  none. A sheet may have NO viewports: only a brand-new sheet gets the default one (`PageDoc.seeded`, stored on the
+  sheet; older sheets with viewports count as seeded).
 - **Elevation marker** (sections-at-any-angle phase 4): the **Elevation** tool (Annotate section; Insert ›
   Elevation; ELEV) — click the spot, click / drag the look (axis snap, Shift = 15°); spec bar width × depth. Drawn as
   an eltag-style callout (one function, `elevMarkerMarks`, so it can become a plain arrow): linked → "1 / A-201", else
