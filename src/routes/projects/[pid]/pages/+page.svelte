@@ -1246,7 +1246,7 @@
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, OTRACK: true, WIRE: false, LWT: false, CEN: false })
-	let snapStep = $state(100)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP)
+	let snapStep = $state(10)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP) — default 10 mm (Dave)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
 	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an

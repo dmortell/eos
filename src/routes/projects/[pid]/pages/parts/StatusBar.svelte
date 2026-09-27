@@ -12,7 +12,7 @@
 	}
 	// SNAP grid steps (model mm). 44.45 = one rack unit (1U), so rack devices step U by U in an elevation.
 	const SNAP_STEPS: [number, string][] = [[1, '1'], [5, '5'], [10, '10'], [25, '25'], [44.45, '1U'], [50, '50'], [100, '100'], [250, '250'], [500, '500'], [1000, '1000']]
-	let { toggles = $bindable<Record<string, boolean>>({}), snapStep = $bindable(100), acadMode = $bindable(true),
+	let { toggles = $bindable<Record<string, boolean>>({}), snapStep = $bindable(10), acadMode = $bindable(true),
 		paperSize = 'A3', paperLandscape = true, onpapersize, onorient, paperMargin = 10, onmargin,
 		coords = null, counts = null, zoom = 100, onzoom, onfit }:
 		{ toggles?: Record<string, boolean>; snapStep?: number; acadMode?: boolean;
