@@ -189,6 +189,7 @@
 		tool: (t: string) => (pane.tool = t), scale: (s: string) => setScale(a.id, s),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 		openLink,
+		dropFiles: (fs, at) => { activateVp(a.id); void insertFiles(fs, at) },
 	})
 	/** D4: a symbol's link — a URL opens in a new browser tab, a sheet id opens that sheet. */
 	function openLink(link: string) {
@@ -324,6 +325,7 @@
 		deactivate: () => deactivateVp(frame.id),
 		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, frame.proj, yaw, pitch),
+		dropFiles: (fs, at) => { activateFrame(a.id, frame.id); void tick().then(() => insertFiles(fs, at)) },   // into THIS viewport's model
 	})
 	// Seed a sheet's DEFAULT viewport (fills the sheet, plan view) the first time PaperPage measures it —
 	// this is the page's baseline, so it's not a recorded edit.
@@ -612,7 +614,7 @@
 		const data = fromClipData(plain) ?? (html ? fromClipHtmlData(html) : null), ents = data && (data.ents.length || data.objs.length) ? data.ents : null
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
-		if (img) { void pasteImage(img); return }
+		if (img) { void insertFiles([img], cmdBus.target?.cursor() ?? null); return }   // at the cursor, on the active layer
 		if (data && ents) { docEdit.clipboard.load(data.ents, data.objs, data.layers); menuAction('Paste'); return }   // shapes and / or 3D objects
 		// text from another app (Word / Excel / Notepad …): a text shape, or a NOTE keeping headings / bold / lists / tables
 		const md = html ? htmlToMarkdown(new DOMParser().parseFromString(html, 'text/html')) : ''
@@ -621,19 +623,43 @@
 		menuAction('Paste')
 	}
 	$effect(() => { window.addEventListener('paste', onPaste); return () => window.removeEventListener('paste', onPaste) })
-	// A PASTED image (a screenshot …) goes to FILE STORAGE (UploadThing's image route, like Uploads / logos) and the
-	// image shape points at its URL — on the active layer (addImage). Offline / a failed upload: the in-page copy.
-	const { startUpload: uploadImage } = createUploadThing('imageUploader', {})
-	async function pasteImage(file: File) {
-		const name = file.name && file.name !== 'image.png' ? file.name : `pasted-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`
-		toast('Uploading the pasted image…', { id: 'paste-img' })
-		try {
-			const res = await uploadImage([new File([file], name, { type: file.type })])
-			const url = res?.[0]?.ufsUrl; if (!url) throw new Error('no URL')
-			toast.dismiss('paste-img'); addImage(url)
-		} catch (err) {
-			toast.warning(`Couldn't upload the image (${err instanceof Error ? err.message : 'error'}) — kept in this page only`, { id: 'paste-img' })
-			const r = new FileReader(); r.onload = () => addImage(String(r.result)); r.readAsDataURL(file)
+	// a file dropped OUTSIDE a viewport must not make the browser open it (navigating away from the workspace)
+	$effect(() => {
+		const stop = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault() }
+		window.addEventListener('dragover', stop); window.addEventListener('drop', stop)
+		return () => { window.removeEventListener('dragover', stop); window.removeEventListener('drop', stop) }
+	})
+	// Pictures / PDFs from THIS COMPUTER — Insert › Image…, a paste (a screenshot …), a drag-and-drop from the OS: each
+	// is uploaded to FILE STORAGE (UploadThing, the Uploads tool's route) and recorded in the project's Uploads (a
+	// `files` doc, so it is listed there and in Insert › From Uploads…), then inserted on the ACTIVE layer, centred at
+	// `at` (the drop point / the cursor) when given. Offline / a failed upload: a picture is kept in this page only.
+	const { startUpload: uploadFile } = createUploadThing('floorplanUploader', {})
+	const ctxDb = getContext('db') as Firestore | undefined
+	/** A `files` doc id (the Uploads tool keys files by NAME, across projects): the name, else `name-2.ext`, … */
+	async function freeFileName(name: string): Promise<string> {
+		const db = ctxDb; if (!db) return name
+		const dot = name.lastIndexOf('.'), base = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : ''
+		for (let i = 1; i < 50; i++) { const n = i === 1 ? name : `${base}-${i}${ext}`; if (!(await db.getOne('files', n).catch(() => null))) return n }
+		return `${base}-${Date.now()}${ext}`
+	}
+	async function insertFiles(files: File[], at?: [number, number] | null) {
+		const pid = page.params.pid ?? '', db = ctxDb
+		for (const file of files.filter((f) => f.type.startsWith('image/') || /\.pdf$/i.test(f.name))) {
+			const pdf = /\.pdf$/i.test(file.name)
+			const raw = file.name && file.name !== 'image.png' ? file.name : `pasted-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`
+			toast(`Uploading ${raw}…`, { id: 'ins-file' })
+			try {
+				const name = await freeFileName(raw)
+				const res = await uploadFile([new File([file], name, { type: file.type })])
+				const r = res?.[0], url = r?.ufsUrl; if (!r || !url) throw new Error('no URL')
+				await db?.save('files', { id: name, name, url, key: r.key, path: r.key, provider: 'uploadthing', size: file.size, projectId: pid, projectIds: [pid], uploadedAt: new Date(), ...(pdf ? { pageCount: 1 } : {}) })
+				toast.dismiss('ins-file')
+				await addUpload({ id: name, name, kind: pdf ? 'pdf' : 'image', url, pages: 1, projectId: pid, projectName: '', mine: true }, 1, at)
+			} catch (err) {
+				if (pdf) { toast.error(`Couldn't upload ${raw} (${err instanceof Error ? err.message : 'error'})`, { id: 'ins-file' }); continue }
+				toast.warning(`Couldn't upload ${raw} (${err instanceof Error ? err.message : 'error'}) — kept in this page only`, { id: 'ins-file' })
+				const fr = new FileReader(); fr.onload = () => addImage(String(fr.result)); fr.readAsDataURL(file)
+			}
 		}
 	}
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
@@ -786,7 +812,7 @@
 		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, activeEntIds(), activeObjIds()) }
 		else if (item === 'Paste') { const a = active, vid = activeSelViewId(), at = pasteAt; pasteAt = null; if (a && vid) selectPasted(vid, pasteEnts(a.id, at ?? undefined)) }
 		else if (item === 'Delete') deleteSelection()
-		else if (item === 'Image…') importImage()
+		else if (item === 'Image…') importImage((fs) => void insertFiles(fs))
 		else if (item === 'From Uploads…') uploadPick = true
 		else if (item === 'Outlet') { if (active) armBlock(outletSticky.block) }   // E1: the last-used outlet block, sticky ports / type / layer, next label
 		// Insert › a drawing tool (Box = the Furniture tool): arms it in the focused pane, like the tool strip
@@ -977,7 +1003,7 @@
 	// The PROJECT side — Firestore data, places, stored models + sheets, title block, drawings dialog — lives in
 	// pagesProject.svelte.ts; it reaches the workspace through this host.
 	const proj = new PagesProject({
-		db: getContext('db') as Firestore | undefined,
+		db: ctxDb,
 		auth: getContext('session') as AuthSession | undefined,
 		pid: () => page.params.pid,
 		session, openDrawing, closeTab, toast: (m) => toast(m), didOf, paperOf, framesOf, scaleOf,

@@ -27,6 +27,8 @@ export type VpOn = {
 	scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void
 	/** D4: a double-clicked symbol's link (a sheet id, or a URL). */
 	openLink?: (link: string) => void
+	/** Files dropped from the OS onto the viewport (pictures / PDFs), at a drawing point. */
+	dropFiles?: (files: File[], at: [number, number] | null) => void
 }
 
 export type VpKind = 'plan' | 'iso' | ElevDir

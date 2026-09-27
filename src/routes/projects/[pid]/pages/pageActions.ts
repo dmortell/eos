@@ -48,15 +48,18 @@ export class PageActions {
 	/** Insert › From Uploads…: an uploaded PDF page / picture (stored by reference, so it survives a reload) on the
 	 *  active layer — in plan placed by its Uploads calibration (a PDF then follows it live), else centred like
 	 *  addImage; in an elevation on that plane, standing on the ground line. */
-	addUpload = async (f: UploadFile, page: number): Promise<boolean> => {
+	addUpload = async (f: UploadFile, page: number, at?: [number, number] | null): Promise<boolean> => {
 		const v = this.#h.activeView()
 		if (!v || v === 'no-frame') { toast('Open a drawing first, then Insert › From Uploads…'); return false }
-		const elev = ELEV.has(v.dir), w = elev ? 4000 : 9000, cx = 14000, cy = elev ? GROUND - w * 0.35 : 8750
+		const elev = ELEV.has(v.dir), w = elev ? 4000 : 9000, cx = at?.[0] ?? 14000, cy = at?.[1] ?? (elev ? GROUND - w * 0.35 : 8750)   // `at`: a drop / the cursor (drawing coords)
 		const base: Ent = { id: newId(), type: 'image', a: [cx - w / 2, cy - w * 0.35], b: [cx + w / 2, cy + w * 0.35], src: '', plane: elev ? (v.dir as ElevDir) : 'plan',
 			lockAspect: true, opacity: f.kind === 'pdf' ? 0.6 : 1, live: f.kind === 'pdf' && !elev ? true : undefined }
-		let e = await uploadShape(base, f, page, !elev).catch(() => null)
+		let e = await uploadShape(base, f, page, !elev && !at).catch(() => null)
 		if (!e) { toast(`Couldn't load ${f.name}`); return false }
-		if (elev) { const h = Math.abs(e.b![1] - e.a![1]); e = { ...e, a: [e.a![0], GROUND - h], b: [e.b![0], GROUND] } }   // stand it on the ground line
+		if (at) {   // dropped / pasted at a point: centred there (a fresh upload has no calibration to follow)
+			const hw = Math.abs(e.b![0] - e.a![0]) / 2, hh = Math.abs(e.b![1] - e.a![1]) / 2
+			e = { ...e, a: [at[0] - hw, at[1] - hh], b: [at[0] + hw, at[1] + hh] }; delete e.live
+		} else if (elev) { const h = Math.abs(e.b![1] - e.a![1]); e = { ...e, a: [e.a![0], GROUND - h], b: [e.b![0], GROUND] } }   // stand it on the ground line
 		if (!this.#h.addEnt(v.tabId, e)) return false
 		toast(`${f.name} added to ${modelById(v.mid)?.name ?? 'the model'} on layer “${this.#h.activeLayerName(v.mid)}”.`)
 		return true
@@ -79,17 +82,13 @@ export class PageActions {
 		img.src = src
 		return true
 	}
-	/** Insert › Image…: pick a file, then addImage. */
-	importImage = () => {
+	/** Insert › Image…: pick picture / PDF files from this computer — each is uploaded to the project's Uploads (so it
+	 *  is saved and listed there) and inserted on the active layer (`insertFiles`, +page). */
+	importImage = (insertFiles: (fs: File[]) => void) => {
 		if (!this.#h.activeView()) { toast('Open a drawing first, then Insert › Image…'); return }
 		const input = document.createElement('input')
-		input.type = 'file'; input.accept = 'image/*'
-		input.onchange = () => {
-			const file = input.files?.[0]; if (!file) return
-			const reader = new FileReader()
-			reader.onload = () => this.addImage(String(reader.result))
-			reader.readAsDataURL(file)
-		}
+		input.type = 'file'; input.accept = 'image/*,.pdf'; input.multiple = true
+		input.onchange = () => { const fs = [...(input.files ?? [])]; if (fs.length) insertFiles(fs) }
 		input.click()
 	}
 }

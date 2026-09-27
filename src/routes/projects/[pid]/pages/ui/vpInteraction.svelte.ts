@@ -141,6 +141,13 @@ export class VpInteraction {
 			end: (ms) => { endObjMove(this.v, this.movedObjs); this.movedObjs = []; this.v.editor.edit.end(ms) },
 		},
 	}
+	/** Ctrl+A / SELECTALL: every shape AND 3D object this view can pick — visible, on an unlocked layer (objects in plan /
+	 *  elevation; the 3D view picks faces, not a selection box). */
+	selectAllItems() {
+		const v = this.v, ents = v.entities.filter((e) => v.pickable(e)).map((e) => e.id)
+		const objs = v.isPlan || v.isElev ? (v.mdl?.objects ?? []).filter((o) => o.id && v.mlayers.visible(o) && !v.mlayers.locked(o)).map((o) => o.id!) : []
+		this.drawSource.sel.set([...ents, ...objs])
+	}
 	readonly items = new ItemEditor<DItem>(this.drawSource, { ortho: () => this.v.ortho, gripSnap: (x, y, id) => (this.v.osnap ? this.findSnap(x, y, id) : null) })
 	/** The selection box being dragged (VpOverlays draws it). */
 	get marquee() { return this.items.marquee }
@@ -373,7 +380,7 @@ export class VpInteraction {
 			ed.edit.end()
 		},
 		newEnt: (e) => ({ plane: drawPlane(this.v.ctx), ...e, id: uid() }) as Ent,
-		selectAll: (keep) => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e) && (!keep || keep($state.snapshot(e) as Ent))).map((e) => e.id)),
+		selectAll: (keep) => { if (!keep) { this.selectAllItems(); return } this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e) && keep($state.snapshot(e) as Ent)).map((e) => e.id)) },   // a filter (QSELECT) is shapes-only
 		deselect: () => this.v.clearSel(),
 		select: (ids) => this.v.selectEnts(ids),
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
@@ -600,8 +607,18 @@ export class VpInteraction {
 		v.editor.ents.update({ ...hit, attrs: { ...(hit.attrs ?? {}), LABEL: next } })
 		walk.label = next; v.selectEnts([hit.id])
 	}
-	onDragOver = (e: DragEvent) => { if (this.v.active && e.dataTransfer?.types.includes('application/x-pages-block')) e.preventDefault() }
+	onDragOver = (e: DragEvent) => {
+		const t = e.dataTransfer?.types
+		if ((this.v.active && t?.includes('application/x-pages-block')) || t?.includes('Files')) { e.preventDefault(); if (t?.includes('Files') && e.dataTransfer) e.dataTransfer.dropEffect = 'copy' }
+	}
 	onDrop = (e: DragEvent) => {
+		const files = [...(e.dataTransfer?.files ?? [])]
+		if (files.length) {   // pictures / PDFs from the OS: uploaded to the project's Uploads, placed where dropped (active layer)
+			e.preventDefault(); e.stopPropagation()
+			const p = this.v.toModel(e.clientX, e.clientY)
+			this.v.on.dropFiles?.(files, p ? [p[0], p[1]] : null)
+			return
+		}
 		const id = e.dataTransfer?.getData('application/x-pages-block'); if (!id || !this.v.active) return
 		e.preventDefault()
 		const p = this.drawPoint(e.clientX, e.clientY); if (p) this.placeBlock(id, p)
@@ -765,7 +782,7 @@ export class VpInteraction {
 		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
 		const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
-		if (mod && k === 'a') { e.preventDefault(); v.selectEnts(v.entities.map((x) => x.id)); return }
+		if (mod && k === 'a') { e.preventDefault(); this.selectAllItems(); return }
 		const objSel = idsOfKind(v.selection, 'obj')   // walls / boxes / conduits edit alongside shapes (their own kind in the Selection)
 		if (mod && k === 'd' && (sel.length || objSel.length)) {   // duplicate, offset 5 PAPER mm (B19: visible at any scale)
 			e.preventDefault(); this.items.duplicateSel(5 * v.paperMm)

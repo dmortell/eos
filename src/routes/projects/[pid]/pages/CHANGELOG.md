@@ -30,6 +30,12 @@ open items; `review.md §0a` tracks which review findings are closed.
   projects' — only referenced), placed by its Uploads calibration (else keeping the size); layer, opacity, live stay.
   Insert › From Uploads… adds one (a PDF follows its calibration live; in an elevation it stands on the ground line).
   Tested: Test Project › 4F's floorplan replaced with Project Journey's "L3303 Plan Clean-EIRE.pdf".
+- **Pictures / PDFs from this computer are saved**: Insert › Image… (several, pictures or PDFs), a paste (Ctrl+V a
+  screenshot — at the cursor) and a drag-and-drop from the OS onto a viewport (at the drop point) all upload the file
+  to the project's Uploads (a `files` doc under a free name — never overwriting another file) and insert it on the
+  active layer; before, Image… kept it only until a reload and pastes never showed in Uploads. A drop outside a
+  viewport no longer makes the browser open the file.
+- **Ctrl+A / SELECTALL** selects every shape AND 3D object on visible, unlocked layers (was shapes only).
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).
