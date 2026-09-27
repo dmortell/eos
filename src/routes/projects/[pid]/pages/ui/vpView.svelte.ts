@@ -493,13 +493,22 @@ export class VpView {
 	mGrips = $derived(this.mSelObj ? modelGrips(this.ctx, this.mSelObj, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown, gripMm: this.gripSize }) : [])
 	gripOpts = (): GripOpts => ({ gripMm: this.gripSize, shift: () => this.shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	gripsFor = (e: Ent): Grip[] => gripsFor(this.ctx, e, this.gripOpts())
+	/** A connection point you can SEE and use here: its box / wall / conduit / outlet is on a shown, unlocked layer (not
+	 *  frozen / VP-locked in this viewport) — a hidden or locked item's points are neither drawn nor attached to. */
+	connUsable = (p: ConnPt): boolean => {
+		const m = this.mdl; if (!m) return false
+		const layer = p.conn.obj ? m.objects.find((o) => o.id === p.conn.obj)?.layer : (m.shapes ?? []).find((e) => e.id === p.conn.ent)?.layer
+		return !this.isLayerHidden(layer) && !this.isLayerLocked(layer)
+	}
+	/** The model's connection points a NEW attachment may use (connUsable); `self` = the run's own, left out. */
+	connTargets = (self?: string): ConnPt[] => (this.mdl ? connPoints(this.mdl, self).filter(this.connUsable) : [])
 	/** F6: the connection points to show as × (plan): all of them while drawing a trunk / pipe or with a conduit
-	 *  selected (to drop its nodes on); a selected box's own. */
+	 *  selected (to drop its nodes on); a selected box's own. Hidden / locked items' points aren't shown. */
 	connMarks = $derived.by((): ConnPt[] => {
 		const m = this.mdl; if (!m || !this.active || !this.isPlan) return []
 		const sel = this.mSelObj
-		if (this.tool === 'Trunk' || this.tool === 'Pipe' || (this.tool === 'Select' && sel?.type === 'conduit')) return connPoints(m, sel?.type === 'conduit' ? sel.id : undefined)
-		return this.tool === 'Select' && (sel?.type === 'prism' || sel?.type === 'wall') ? objPoints(sel) : []
+		if (this.tool === 'Trunk' || this.tool === 'Pipe' || (this.tool === 'Select' && sel?.type === 'conduit')) return this.connTargets(sel?.type === 'conduit' ? sel.id : undefined)
+		return this.tool === 'Select' && (sel?.type === 'prism' || sel?.type === 'wall') ? objPoints(sel).filter(this.connUsable) : []
 	})
 	/** D13: two or more editable shapes selected (Select tool) → ONE group transform box replaces their own grips:
 	 *  corner handles scale all about the opposite corner, the top handle rotates all about the barycentre. */

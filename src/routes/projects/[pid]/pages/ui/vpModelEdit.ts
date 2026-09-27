@@ -27,7 +27,7 @@ const TOL_PX = 8
  *  compatible conduits it joins them (F3), else it is added. Returns the object it ended up in. */
 export function commitConduit(v: VpView, o: Conduit): Obj | null {
 	const mdl = v.mdl; if (!mdl) return null
-	if (v.isPlan) { const cp = connPoints(mdl, o.id).filter((p) => { const t = p.conn.obj ? mdl.objects.find((x) => x.id === p.conn.obj) : null; return !(t?.type === 'conduit' && compatible(t, o)) }), tol = v.tolMm(TOL_PX);   // a compatible run's end JOINS instead (below)
+	if (v.isPlan) { const cp = v.connTargets(o.id).filter((p) => { const t = p.conn.obj ? mdl.objects.find((x) => x.id === p.conn.obj) : null; return !(t?.type === 'conduit' && compatible(t, o)) }), tol = v.tolMm(TOL_PX);   // a compatible run's end JOINS instead (below)
 		 for (const n of o.nodes) attachNode(n, cp, tol) }
 	const ed = v.editor.edit; ed.begin()
 	const into = joinNewConduit(mdl.objects, o, v.tolMm(TOL_PX), newId)
@@ -118,5 +118,5 @@ export function dropNodeJoin(v: VpView, g: MGrip) {
 	if (same) { mergeNodes(o, same.id, n.id); v.selectObj(o.id!); return }
 	const other = mdl.objects.find((c) => c !== o && compatible(c, o) && c.type === 'conduit' && c.nodes.some(near))
 	if (other && joinGraph(other as Conduit, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!); return }
-	if (v.isPlan) attachNode(n, connPoints(mdl, o.id), tol)
+	if (v.isPlan) attachNode(n, v.connTargets(o.id), tol)   // not onto a hidden / locked item's point
 }

@@ -28,6 +28,9 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   section lines; W × H for boxes; the measured value for H / V dims; the applied Δ while moving or grip-dragging shapes /
   3D objects; from the base point in MOVE / COPY picks; Δ from the selected guide when placing a guide. It flips to the
   cursor's other side near the viewport's edge.
+- Connection points (the green ×) of an item on a HIDDEN or LOCKED layer (or one frozen / VP-locked in the viewport)
+  aren't shown, and a new trunk / pipe end doesn't attach to them (`VpView.connUsable` / `connTargets`); existing
+  attachments still follow.
 - A sheet viewport's top-right tag shows its **direction** with the scale — PLAN / FRONT / … · 1:N, and 3D / ISO /
   WIRE in 3D (the ViewCube shows only the target viewport's).
 - **Legend tool**: Text fly-out › Legend, Insert › Legend (+ Callout, Note there too), LEGEND command — places the
