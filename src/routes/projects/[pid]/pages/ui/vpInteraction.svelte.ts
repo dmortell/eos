@@ -110,11 +110,12 @@ export class VpInteraction {
 		id: (t) => (t.k === 'ent' ? t.e.id : t.o.id!),
 		translate: (t, dx, dy) => (t.k === 'ent' ? { k: 'ent', e: moveEnt(this.v.ctx, t.e, dx, dy) } : { k: 'obj', o: translateObj(this.v, t.o, dx, dy) }),
 		grips: (t) => (t.k === 'ent' ? this.v.gripsFor(t.e).map((g) => ({ x: g.x, y: g.y, apply: (p: Pt): DItem => ({ k: 'ent', e: g.apply(p) }) })) : []),   // model grips: their own path (onDown)
-		gripPoint: (t, gi, p, shift) => {
+		gripPoint: (t, gi, p, shift, free) => {
 			if (t.k !== 'ent') return p
-			const v = this.v, cp = constrainGrip(v.ctx, t.e, gi, p, shift, v.gripOpts()); return v.snap ? snapToGrid(cp, v.snapStep) : cp
+			const v = this.v, cp = constrainGrip(v.ctx, t.e, gi, p, shift, v.gripOpts()); return v.snap && !free ? snapToGrid(cp, v.snapStep) : cp
 		},
-		snapDelta: (dx, dy, base) => (base.k === 'ent' ? snapDelta(dx, dy, base.e, this.v.snap ? this.v.snapStep : 0) : objSnapDelta(this.v, base.o, dx, dy)),
+		// Alt held while dragging (`free`) = no grid snap (and no object snap for a grip) — a precise free placement
+		snapDelta: (dx, dy, base, free) => (free ? [dx, dy] : base.k === 'ent' ? snapDelta(dx, dy, base.e, this.v.snap ? this.v.snapStep : 0) : objSnapDelta(this.v, base.o, dx, dy)),
 		duplicate: (ts) => [
 			...relabelCopies(pasteCopies(ts.flatMap((t) => (t.k === 'ent' ? [t.e] : [])), 0, uid), this.v.entities).map((e): DItem => ({ k: 'ent', e })),   // own ids + group ids; outlets get the next free label (E12)
 			...pasteObjCopies(ts.flatMap((t) => (t.k === 'obj' ? [t.o] : [])), 0, newId).map((o): DItem => ({ k: 'obj', o })),
@@ -909,7 +910,7 @@ export class VpInteraction {
 	}
 	private onDragMove = (e: PointerEvent) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		this.items.moveTo(p, e.shiftKey, { x: e.clientX, y: e.clientY })
+		this.items.moveTo(p, e.shiftKey, { x: e.clientX, y: e.clientY }, e.altKey)   // Alt = snapping off for this move
 	}
 	private onDragUp = (_e: PointerEvent, _s: null, moved: boolean) => {
 		if (moved) this.suppressClick = true

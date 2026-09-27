@@ -107,11 +107,12 @@ export class PagesProject {
 			const src = new ProjectSource(db, pid)
 			const stop = src.start()
 			// stored models go into the editor's model registry from the SUBSCRIPTION callback (remote changes only)
+			const owner = {}   // this load's token in the model registry (removeModels on close drops only what it still owns)
 			const ps = new PagesStore(db, pid, untrack(() => this.#h.auth?.user?.email ?? ''), {
 				onModels: (changed, removed) => {
 					for (const d of changed) {
 						const isNew = !modelById(d.id), m = docToModel(d)
-						upsertModel(m); if (isNew) this.#h.addModelToHistory(m); if (m.underlays?.length) this.floorplans.convertUnderlays(m.id)
+						upsertModel(m, owner); if (isNew) this.#h.addModelToHistory(m); if (m.underlays?.length) this.floorplans.convertUnderlays(m.id)
 					}
 					removeModels(removed)
 				},
@@ -129,7 +130,7 @@ export class PagesProject {
 			return () => {
 				stop()
 				const ids = ps.models.map((m) => m.id)
-				void ps.stop().then(() => removeModels(ids))   // save pending edits, then drop this project's models
+				void ps.stop().then(() => removeModels(ids, owner))   // save pending edits, then drop this project's models — unless a newer load has them
 				untrack(() => { if (this.src === src) this.src = null; if (this.store === ps) this.store = null })
 			}
 		})
@@ -322,6 +323,10 @@ export class PagesProject {
 	ensurePlaceModel = (placeId: string): ModelId | undefined => {
 		const ps = this.store, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place || ps.status !== 'ready') return
 		let m = modelForPlace(placeId)
+		if (!m) {   // not in the registry — but STORED? (the registry can lag the store) → load that one, never a duplicate
+			const d = ps.models.find((x) => x.placeId === placeId && !x.archived) ?? ps.models.find((x) => x.placeId === placeId)
+			if (d) { upsertModel(docToModel(d)); m = modelById(d.id) }
+		}
 		if (!m) {
 			// a rack ROW is a rack-row model (G4: its front / rear elevations are the rack elevations)
 			const kind: ModelKind = place.legacy?.row != null ? 'rack' : (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'

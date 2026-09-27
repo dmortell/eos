@@ -24,14 +24,22 @@ export function ensureFloorModel(floor: string): ModelId {
 // history snapshot. `$state.snapshot` UNWRAPS Svelte proxies to plain data (structuredClone throws on a
 // proxy — and the stored step's model IS a proxy, living inside the $state history tree), giving a deep
 // plain copy so the restored live state never aliases the stored step; splice re-proxies it reactively.
-/** Put a model into the registry: replace the one with its id IN PLACE (keeps the array reference), or append. */
-export function upsertModel(m: Model) {
+/** Which loader (a project's store) last put each model into the registry — a closing project may drop only the
+ *  models it still OWNS: its async close used to land AFTER a re-opened store (a hot reload, the same project) had
+ *  loaded the same ids, emptying the registry under it — and opening a place then created a DUPLICATE model. */
+const owners = new Map<ModelId, object>()
+/** Put a model into the registry: replace the one with its id IN PLACE (keeps the array reference), or append.
+ *  `owner` = the loader putting it there (see `removeModels`). */
+export function upsertModel(m: Model, owner?: object) {
 	const i = models.findIndex((x) => x.id === m.id)
 	if (i >= 0) models[i] = m; else models.push(m)
+	if (owner) owners.set(m.id, owner)
 }
-/** Drop models from the registry (their project closed, or they were deleted remotely). */
-export function removeModels(ids: Iterable<ModelId>) {
-	const rm = new Set(ids)
+/** Drop models from the registry (their project closed, or they were deleted remotely). With `owner`, only the
+ *  ones that loader still owns (a newer load of the same id keeps it). */
+export function removeModels(ids: Iterable<ModelId>, owner?: object) {
+	const rm = new Set([...ids].filter((id) => !owner || !owners.has(id) || owners.get(id) === owner))
+	for (const id of rm) owners.delete(id)
 	for (let i = models.length - 1; i >= 0; i--) if (rm.has(models[i].id)) models.splice(i, 1)
 }
 /** The (first non-archived, else any) model filed under a Pages place. */

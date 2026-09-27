@@ -75,7 +75,7 @@ export class ItemEditor<T> {
 		d.last = p
 		if (d.kind === 'grip') {
 			const g = src.grips(d.base)[d.gi]; if (!g) return
-			const s = client && this.env.gripSnap ? this.env.gripSnap(client.x, client.y, d.id) : null
+			const s = client && this.env.gripSnap && !free ? this.env.gripSnap(client.x, client.y, d.id) : null   // Alt: no object snap
 			src.commit.update([g.apply(s ?? (src.gripPoint ? src.gripPoint(d.base, d.gi, p, shift, free) : p))])
 			return
 		}

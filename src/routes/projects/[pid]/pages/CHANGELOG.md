@@ -19,6 +19,12 @@ open items; `review.md §0a` tracks which review findings are closed.
   Box (the Furniture tool — the old 2D Box was merged into it in R4) + Rack; Trunk + Pipe; Dimension + Measure + H / V
   guides in one group. Insert menu lists the same tools (Box, Wall, Door, Window, Hole, Penetration, Trunk, Pipe,
   guides, Section — Trunk / Rack there now work); DOOR / WINDOW commands.
+- Strip follow-up: Text before Line; Wall + Trunk + Pipe one group again; the box is just "Box"; Penetration removed
+  (PEN didn't work — todo). **Alt while dragging** a shape / 3D object (move or grip) turns grid + object snap off.
+- **Fix — duplicate place models**: a closing project load could drop models from the registry AFTER a re-opened
+  load had them (a late async cleanup), so opening a place found "no model" and created + stored an empty duplicate
+  (Test Project got a second, empty "4F"). The registry now tracks which load owns each model, and a place's model is
+  looked up in the store's own list before one is ever created.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).

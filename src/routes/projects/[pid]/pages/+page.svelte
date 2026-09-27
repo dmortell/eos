@@ -1124,7 +1124,6 @@
 		{ icon: 'doorOpen', name: 'Door' },     // the Opening tool with its type set (TOOL_VARIANT)
 		{ icon: 'blinds', name: 'Window' },
 		{ icon: 'opening', name: 'Hole' },
-		{ icon: 'circleDot', name: 'Penetration' },   // runs PEN (pseudo-tool)
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'ruler', name: 'Dimension' },
 		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
@@ -1142,15 +1141,13 @@
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
 		{ sep: 'draw' },
+		{ tool: 'Text' },
 		{ tool: 'Line' },
 		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D draws
-		{ tool: 'Text' },
 		{ sep: 'building' },
-		{ tool: 'Wall' },
-		{ group: 'openings', label: 'Openings', members: ['Door', 'Window', 'Hole', 'Penetration'] },
+		{ group: 'conduits', label: 'Walls · trunks · pipes', members: ['Wall', 'Trunk', 'Pipe'] },   // node / segment graph tools
+		{ group: 'openings', label: 'Openings', members: ['Door', 'Window', 'Hole'] },
 		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
-		{ sep: 'services' },
-		{ group: 'conduits', label: 'Conduits', members: ['Trunk', 'Pipe'] },
 		{ sep: 'annotate' },
 		{ group: 'measure', label: 'Dimension · measure · guides', members: ['Dimension', 'Measure', 'Guide H', 'Guide V'] },
 		{ tool: 'Section' },
@@ -1167,11 +1164,11 @@
 		'Guide V': { tool: 'Guide', set: () => (guideVert = true), is: () => guideVert },
 	}
 	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V' }   // Insert-menu names → tools
-	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box (furniture)', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Penetration: 'Penetration (round)' }
+	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance' }
 	const toolIs = (tool: string, name: string) => { const tv = TOOL_VARIANT[name]; return tv ? tool === tv.tool && tv.is() : tool === name }
 	const toolLabel = (name: string) => TOOL_LABEL[name] ?? name
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
-	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Trunk', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
+	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Wall', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
 	// Which tool-group fly-out is TAP-opened (touch has no hover). Cleared by a press outside any `.grp`.
 	let openGroup = $state<string | null>(null)
 	$effect(() => {
@@ -1241,7 +1238,7 @@
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
 	/** Pseudo-tools that run a COMMAND instead of arming a draw tool (they draw / act through the command line). */
-	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Penetration: 'PEN', Measure: 'DIST' }
+	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Measure: 'DIST' }
 	function setPaneTool(pane: WorkPane, t: string) {
 		if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return }
 		const tv = TOOL_VARIANT[t]; if (tv) { tv.set(); t = tv.tool }

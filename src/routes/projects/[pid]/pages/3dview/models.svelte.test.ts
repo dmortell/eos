@@ -13,6 +13,15 @@ describe('model registry (drawings-plan phase 3)', () => {
 		removeModels(['t-a', 't-b'])
 		expect(models.length).toBe(n)
 	})
+	it('a closing loader drops only the models it still owns (a re-opened project keeps them — no duplicate on open)', () => {
+		const oldLoad = {}, newLoad = {}
+		upsertModel({ id: 't-o', name: 'O', objects: [], placeId: 'p9' }, oldLoad)
+		upsertModel({ id: 't-o', name: 'O', objects: [], placeId: 'p9' }, newLoad)   // the same project loaded again
+		removeModels(['t-o'], oldLoad)   // the old load's late close
+		expect(modelForPlace('p9')?.id).toBe('t-o')
+		removeModels(['t-o'], newLoad)
+		expect(modelById('t-o')).toBeUndefined()
+	})
 	it('setModels restores BY ID and keeps a model the snapshot never saw (created after it)', () => {
 		const before = snapModels()
 		upsertModel({ id: 't-new', name: 'New', objects: [], shapes: [] })
