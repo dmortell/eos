@@ -1346,7 +1346,7 @@
 		</div>
 		<div class="tb-right">
 			<button class="tb-search" title="Search drawings (Ctrl+K)" onclick={() => (paletteOpen = true)}>
-				<Icon name="search" size={14} /> <span>Search…</span> <span class="tb-kbd">⌃K</span>
+				<Icon name="search" size={14} /> <span>Search…</span> <span class="tb-kbd">⌃&thinsp;K</span>
 			</button>
 			<button class="tb-help" title="Help — shortcuts, how do I…, commands (F1)" aria-label="Help" onclick={() => (helpOpen = true)}><Icon name="help" size={19} /></button>
 			<button class="tb-icon" title="Toggle light / dark" onclick={(e) => { e.stopPropagation(); mockTheme = mockTheme === 'dark' ? 'light' : 'dark' }}>
