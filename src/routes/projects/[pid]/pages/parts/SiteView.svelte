@@ -5,7 +5,7 @@
 	// neighbours on the OSM map (site/siteScene.ts, three.js). Nothing is stored except the address, when you save it.
 	import { onDestroy } from 'svelte'
 	import { Icon } from '$lib'
-	import { geocode, fetchBuildings, toBuildings, pickTarget, partsOf, factsOf, type OsmPlace, type OsmBuilding } from '../site/osm'
+	import { geocode, fetchBuildings, fetchTarget, fetchParts, toBuildings, pickTarget, partsOf, factsOf, type OsmPlace, type OsmBuilding, type OverpassJson } from '../site/osm'
 	import type { SiteScene } from '../site/siteScene'
 
 	let { projectName = 'Project', address = '', onsaveaddress, onclose }: { projectName?: string; address?: string; onsaveaddress?: (a: string) => void; onclose?: () => void } = $props()
@@ -20,7 +20,9 @@
 	let parts = $state<OsmBuilding[]>([])
 	let count = $state(0)
 	let partial = $state(false)   // Overpass ran out of time: some neighbours may be missing
+	let noParts = $state(false)   // building only: Overpass didn't answer for its parts (or it has none)
 	let tiles = $state(true)
+	let neighbours = $state(false)   // off: only THE building (one small query); on: every building within 180 m
 	let host: HTMLDivElement | undefined = $state()
 	let scene: SiteScene | null = null
 	let seq = 0
@@ -40,7 +42,12 @@
 	async function show(p: OsmPlace, my = ++seq) {
 		place = p; status = 'loading'; err = ''
 		try {
-			const js = await fetchBuildings(p.lat, p.lon, 180, fetch, p)   // + the matched building itself, whatever the area's size
+			// building only (a way / relation match): its outline from OSM's main API (fast, reliable), then its parts from
+			// Overpass if that answers within 15 s; with neighbours: Overpass for everything within 180 m (+ it by id)
+			const own = !neighbours && p.osmId && (p.osmType === 'way' || p.osmType === 'relation') ? { osmType: p.osmType, osmId: p.osmId } : null
+			let js: OverpassJson
+			if (own) { js = await fetchTarget(own); if (my !== seq) return; status = 'loading'; noParts = false; const ps = await fetchParts(own); js = { elements: [...js.elements, ...ps] }; noParts = !ps.length }
+			else js = await fetchBuildings(p.lat, p.lon, 180, fetch, p, neighbours)   // + the matched building itself, whatever the area's size
 			partial = !!js.remark
 			if (my !== seq) return
 			const bs = toBuildings(js, p.lat, p.lon)
@@ -76,6 +83,7 @@
 		{#if q.trim() && q.trim() !== address.trim() && onsaveaddress}
 			<button class="site-save" title="Save this as the project's Address (Properties › PROJECT)" onclick={() => onsaveaddress?.(q.trim())}>Save as project address</button>
 		{/if}
+		<label class="site-tiles" title="Load the buildings around it too (a bigger request — the free OSM servers can be slow)"><input type="checkbox" bind:checked={neighbours} onchange={() => { if (place) show(place) }} /> Neighbours</label>
 		<label class="site-tiles" title="The OpenStreetMap map on the ground"><input type="checkbox" bind:checked={tiles} /> Map</label>
 		{#if scene}<button class="site-ico" title="Frame the building" aria-label="Frame the building" onclick={() => scene?.frameTarget()}><Icon name="expand" size={13} /></button>{/if}
 		<button class="site-ico" title="Close (back to the drawings)" aria-label="Close" onclick={() => onclose?.()}><Icon name="close" size={14} /></button>
@@ -91,7 +99,7 @@
 				<p>Enter the site address above — the building is found on OpenStreetMap and shown here in 3D with its neighbours. Save it as the project address to see it every time you select the project.</p>
 			</div>
 		{:else if status === 'searching' || status === 'loading'}
-			<div class="site-card small"><span class="spin"></span>{status === 'searching' ? 'Finding the address…' : 'Loading the buildings around it…'}</div>
+			<div class="site-card small"><span class="spin"></span>{status === 'searching' ? 'Finding the address…' : neighbours ? 'Loading the buildings around it…' : 'Loading the building…'}</div>
 		{:else if status === 'none'}
 			<div class="site-card small">No match on OpenStreetMap — try the street and city, or the building's name.</div>
 		{:else if status === 'error'}
@@ -113,6 +121,7 @@
 						<button class="si-match" class:on={m === place} title={m.name} onclick={() => show(m)}>{m.name}</button>
 					{/each}
 				{/if}
+				{#if target && noParts && !neighbours}<div class="si-note">Its outline only — OSM's separate building parts (setbacks, podium, tower) didn't load or it has none.</div>{/if}
 				{#if partial}<div class="si-note">The OSM server returned a partial result — some neighbours may be missing (Find again later).</div>{/if}
 				{#if osmUrl}<a class="si-link" href={osmUrl} target="_blank" rel="noopener noreferrer">Open on OpenStreetMap ↗</a>{/if}
 			</div>

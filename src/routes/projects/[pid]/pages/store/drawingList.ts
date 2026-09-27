@@ -7,7 +7,7 @@ import { ancestorsOf } from './places'
 
 export type SheetRow = {
 	id: string; number: string; title: string; placeId: string | null; placePath: string
-	kind: string; discipline: string; tags: string[]; status: PagesSheetDoc['status']
+	kind: string; discipline: string; category: string; tags: string[]; status: PagesSheetDoc['status']
 	rev: string; size: string; scale: string; updatedAt: string; frames: number
 }
 
@@ -19,7 +19,7 @@ export function placePath(places: Place[], id: string | null): string {
 export function sheetRows(sheets: PagesSheetDoc[], places: Place[]): SheetRow[] {
 	return sheets.map((s) => ({
 		id: s.id, number: s.drawingNumber ?? '', title: s.title, placeId: s.placeId, placePath: placePath(places, s.placeId),
-		kind: s.kind ?? '', discipline: s.discipline ?? '', tags: s.tags ?? [], status: s.status,
+		kind: s.kind ?? '', discipline: s.discipline ?? '', category: s.category ?? '', tags: s.tags ?? [], status: s.status,
 		rev: s.latestRevisionCode ?? '', size: s.paper ? `${s.paper.size} ${s.paper.landscape ? 'L' : 'P'}` : s.sheetSize ?? '',
 		scale: s.frames?.[0]?.scale ?? s.scale ?? '', updatedAt: s.updatedAt ?? '', frames: s.frames?.length ?? 0,
 	}))
@@ -30,10 +30,10 @@ export function filterRows(rows: SheetRow[], f: ListFilter): SheetRow[] {
 	const q = f.q?.trim().toLowerCase()
 	return rows.filter((r) => (!f.status || r.status === f.status) && (!f.kind || r.kind === f.kind) && (!f.discipline || r.discipline === f.discipline)
 		&& (!f.tag || r.tags.includes(f.tag))
-		&& (!q || [r.number, r.title, r.placePath, r.kind, r.discipline, ...r.tags].join(' ').toLowerCase().includes(q)))
+		&& (!q || [r.number, r.title, r.placePath, r.kind, r.discipline, r.category, ...r.tags].join(' ').toLowerCase().includes(q)))
 }
 
-export type SortKey = 'number' | 'title' | 'placePath' | 'kind' | 'discipline' | 'rev' | 'size' | 'scale' | 'updatedAt'
+export type SortKey = 'number' | 'title' | 'placePath' | 'kind' | 'discipline' | 'category' | 'rev' | 'size' | 'scale' | 'updatedAt'
 /** Natural order ("E-2" before "E-10"); blanks last either way. */
 export function sortRows(rows: SheetRow[], key: SortKey, dir: 1 | -1 = 1): SheetRow[] {
 	const cmp = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
@@ -44,7 +44,7 @@ export function sortRows(rows: SheetRow[], key: SortKey, dir: 1 | -1 = 1): Sheet
 	})
 }
 
-export type GroupBy = 'none' | 'place' | 'kind' | 'discipline' | 'tag' | 'size'
+export type GroupBy = 'none' | 'place' | 'kind' | 'discipline' | 'category' | 'tag' | 'size'
 export type RowGroup = { key: string; label: string; rows: SheetRow[] }
 /** Groups in first-seen order of the (already sorted) rows; by tag, a row appears under each of its tags. */
 export function groupRows(rows: SheetRow[], by: GroupBy): RowGroup[] {
@@ -53,7 +53,7 @@ export function groupRows(rows: SheetRow[], by: GroupBy): RowGroup[] {
 	const put = (key: string, label: string, r: SheetRow) => { const g = out.get(key) ?? { key, label, rows: [] }; g.rows.push(r); out.set(key, g) }
 	for (const r of rows) {
 		if (by === 'tag') { if (!r.tags.length) put('', '(no tag)', r); for (const t of r.tags) put(t, t, r); continue }
-		const v = by === 'place' ? r.placePath : by === 'kind' ? r.kind : by === 'discipline' ? r.discipline : r.size
+		const v = by === 'place' ? r.placePath : by === 'kind' ? r.kind : by === 'discipline' ? r.discipline : by === 'category' ? r.category : r.size
 		put(v, v || `(no ${by})`, r)
 	}
 	return [...out.values()].sort((a, b) => (!a.key !== !b.key ? (a.key ? -1 : 1) : 0))   // the "(no …)" group last

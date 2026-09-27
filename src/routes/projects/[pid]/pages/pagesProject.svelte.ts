@@ -32,7 +32,7 @@ import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versio
 import { storeyLevels, floorLabel, stackFloors, restack, storeyHeights, setStoreyHeights, type FloorHeights } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
 import type { Storey } from './3dview/types'
-import { LINK_TOOLS, sheetLinkUrl, type PagesSheetDoc, type SheetLink } from './store/schema'
+import { LINK_TOOLS, sheetLinkUrl, type PagesSheetDoc, type SheetLink, type TreeViewDoc } from './store/schema'
 import { buildPlaceTree } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
 import { describePlace } from './store/placeProps'
@@ -40,6 +40,11 @@ import { fillTitleBlock, initialsOf, shownTitleBlock, type TbShown } from './tit
 import type { DropZone } from './parts/treeDrag.svelte'
 import { ProjectImports } from './projectImports.svelte'
 import { isOutletEnt, outletRef, allocatedOutlets as allocatedIn, type OutletRef } from './store/allocate'
+import { treeItems, buildGroupedTree, buildCustomTree, viewById, allViews, groupPatch, newCustomView, addFolder, renameFolder, removeFolder, moveFolder,
+	dropRefs, removeRefs, setFolderFilter, PLACES_VIEW, type TreeViewsApi, type TreeFilter, type CustomFolderDoc } from './store/treeViews'
+import { DEFAULT_TAGS, mergeTags, hasTag, suggestSheetMeta } from './store/tags'
+import { globalTags } from './store/globalTags.svelte'
+import { placePath } from './store/drawingList'
 
 type TreeNodeSel = { id: string; label: string; kind: string; floorNumber?: number; building?: string }
 /** A Sheets-tool sheet as the drawings dialog's Import tab lists it. */
@@ -93,12 +98,18 @@ export class PagesProject {
 	drawingsOpen = $state(false)
 	/** Phase 8 imports (Sheets sheets, register drawings, risers). */
 	readonly imports: ProjectImports
+	/** The tree view shown (tree-views-plan) — per user per project (localStorage). */
+	treeViewId = $state<string>(PLACES_VIEW)
 
 	constructor(host: ProjectHost) {
 		this.#h = host
 		this.imports = new ProjectImports(this, host)
 		// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
 		$effect(() => { const db = this.#h.db; if (db) untrack(() => startBlocks(db)) })
+		// the GLOBAL tag vocabulary (settings/pagesTags) — the tag picker's suggestions in every project
+		$effect(() => { const db = this.#h.db; if (db) untrack(() => globalTags.start(db)) })
+		// the tree view this USER last looked at in this project (tree-views-plan §3.1: per user, per project)
+		$effect(() => { const pid = this.#h.pid(); untrack(() => { this.treeViewId = pid ? readViewChoice(pid) : PLACES_VIEW }) })
 		this.floorplans = new Floorplans({ db: () => this.#h.db, src: () => this.src, amendModelHistory: this.#h.amendModelHistory })
 		// One live ProjectSource + PagesStore per project id (re-created when Open Project navigates to another pid)
 		$effect(() => {
@@ -181,6 +192,91 @@ export class PagesProject {
 		if (!this.hasPlaces) return t
 		return { project: t.project, tree: buildPlaceTree({ pid: src.pid, places: this.store!.places, drawings: src.drawings, risers: src.risers, floors: src.project?.floors, sheets: this.store!.sheets,
 			modelPlaces: new Set(models.filter((m) => m.placeId && !m.archived).map((m) => m.placeId!)) }) }
+	})
+	// ── tree VIEWS (tree-views-plan.md): the same models + sheets listed by place (default), grouped by their fields
+	// (built-in templates), or in the team's own folders (custom views, stored in `pages.treeViews`) ──
+	/** The view shown — "By place" until the project has places (the grouped views list Pages items only). */
+	treeView = $derived.by(() => (this.hasPlaces ? viewById(this.store?.project?.treeViews, this.treeViewId) : viewById([], PLACES_VIEW)))
+	/** Every live model + sheet as a tree item (store/treeViews.ts). */
+	#treeItems = $derived.by(() => (this.store && this.hasPlaces ? treeItems(this.store.sheets, this.storedModelInfo, this.store.places) : []))
+	/** The rows the navigator shows for the current view. */
+	shownTree = $derived.by(() => {
+		const v = this.treeView
+		if (v.kind === 'places') return this.realTree?.tree ?? null
+		return v.kind === 'group' ? buildGroupedTree(this.#treeItems, v) : buildCustomTree(this.#treeItems, v)
+	})
+	setTreeView = (id: string) => { this.treeViewId = id; const pid = this.#h.pid(); if (pid) writeViewChoice(pid, id) }
+	#storedViews = () => this.store?.project?.treeViews ?? []
+	#saveViews = (views: TreeViewDoc[]) => this.store?.saveTreeViews(views)
+	/** Edit the CURRENT custom view's folders (`fn` returns null = nothing to change). */
+	#editFolders(fn: (fs: CustomFolderDoc[]) => CustomFolderDoc[] | null) {
+		const v = this.treeView; if (v.kind !== 'custom' || !this.store) return
+		const next = fn(v.folders ?? []); if (!next) return
+		this.#saveViews(this.#storedViews().map((x) => (x.id === v.id ? { ...x, folders: next, updatedAt: new Date().toISOString() } : x)))
+	}
+	/** All tags in this project's sheets. */
+	projectTags = $derived.by(() => mergeTags([], (this.store?.sheets ?? []).filter((s) => s.status !== 'archived').flatMap((s) => s.tags ?? [])))
+	/** Where the tag picker's suggestions come from: the global vocabulary, this project's tags, the defaults. */
+	tagPools = $derived.by(() => [globalTags.tags, this.projectTags, DEFAULT_TAGS])
+	#distinct = (f: (s: PagesSheetDoc) => string | undefined) => [...new Set((this.store?.sheets ?? []).map((s) => f(s)?.trim()).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+	disciplineOptions = $derived.by(() => this.#distinct((s) => s.discipline))
+	categoryOptions = $derived.by(() => mergeTags(this.#distinct((s) => s.category), ['racks', 'risers', 'AV rooms']))
+	/** The navigator's tree-view API (TreeViewsApi) — null until the project has places. */
+	navViews = $derived.by((): TreeViewsApi | null => {
+		if (!this.hasPlaces) return null
+		const self = this   // the getters below run with `this` = the API object
+		return {
+			get list() { return allViews(self.store?.project?.treeViews) },
+			get current() { return self.treeView },
+			select: (id) => this.setTreeView(id),
+			create: (name) => {
+				const v = newCustomView(newId('tv'), name.trim() || 'My view', this.#h.auth?.user?.email ?? '', new Date().toISOString())
+				this.#saveViews([...this.#storedViews(), v]); this.setTreeView(v.id)
+				this.#h.toast(`View “${v.name}” — shared with the team. Add folders with + and drag models / sheets in`)
+			},
+			rename: (id, name) => { if (name.trim()) this.#saveViews(this.#storedViews().map((x) => (x.id === id ? { ...x, name: name.trim() } : x))) },
+			remove: (id) => {
+				const v = this.#storedViews().find((x) => x.id === id); if (!v) return
+				this.#saveViews(this.#storedViews().filter((x) => x.id !== id))
+				if (this.treeViewId === id) this.setTreeView(PLACES_VIEW)
+				this.#h.toast(`View “${v.name}” deleted (its drawings are untouched)`)
+			},
+			openModel: (mid, preview) => this.openModelRow(mid, preview),
+			groupDrop: (refs, path) => {
+				const ps = this.store; if (!ps) return
+				const patches = refs.map((r) => ps.sheets.find((s) => `s:${s.id}` === r)).filter((s): s is PagesSheetDoc => !!s)
+					.map((s) => ({ id: s.id, patch: groupPatch(path, s) })).filter((p): p is { id: string; patch: NonNullable<ReturnType<typeof groupPatch>> } => !!p.patch)
+				if (!patches.length) return
+				this.updateSheets(patches)
+				const what = path.filter((p) => p.level !== 'floor' && p.level !== 'zone' && p.level !== 'building' && p.level !== 'place').map((p) => p.value || `no ${p.level}`).join(' · ')
+				this.#h.toast(`${patches.length} sheet${patches.length === 1 ? '' : 's'} → ${what}`)
+			},
+			folderAdd: (parentId, smart) => {
+				if (this.treeView.kind !== 'custom') return
+				const id = newId('cf')
+				this.#editFolders((fs) => addFolder(fs, { id, name: smart ? 'New smart folder' : 'New folder', parentId, ...(smart ? { filter: {} } : {}) }))
+				return `cf:${id}`
+			},
+			folderRename: (id, name) => this.#editFolders((fs) => renameFolder(fs, id, name)),
+			folderDelete: (id) => this.#editFolders((fs) => removeFolder(fs, id)),
+			folderMove: (id, targetId, zone) => this.#editFolders((fs) => moveFolder(fs, id, targetId, zone)),
+			fileRefs: ({ refs, to, target, zone, copy }) => this.#editFolders((fs) => {
+				let next = fs
+				for (const { ref, from } of refs) if (from && from !== to && (!copy || !to)) next = removeRefs(next, from, [ref])
+				if (!to) return next === fs ? null : next
+				return dropRefs(next, { refs: refs.map((r) => r.ref), to, target, zone })   // null (a smart folder) = no change at all
+			}),
+			folderFilter: (id) => (this.treeView.folders ?? []).find((f) => f.id === id)?.filter,
+			setFolderFilter: (id, f) => this.#editFolders((fs) => setFolderFilter(fs, id, f)),
+			tagsOf: (ref) => this.store?.sheets.find((s) => `s:${s.id}` === ref)?.tags ?? [],
+			setTags: (patches) => this.updateSheets(patches.filter((p) => p.ref.startsWith('s:')).map((p) => ({ id: p.ref.slice(2), patch: { tags: p.tags } }))),
+			get tagPools() { return self.tagPools },
+			get filterOptions() {
+				const pl = self.store?.places ?? []
+				return { disciplines: self.disciplineOptions, categories: self.categoryOptions,
+					places: pl.map((p) => ({ id: p.id, path: placePath(pl, p.id) })).sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true })) }
+			},
+		}
 	})
 	canSeedPlaces = $derived.by(() => this.store?.status === 'ready' && !this.hasPlaces && this.src?.status === 'ready')
 	navStatus = $derived.by(() => (this.src?.status === 'loading' ? 'Loading project…' : this.src?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : ''))
@@ -365,6 +461,14 @@ export class PagesProject {
 		if (p) viewState.setProj(p.id, this.#h.didOf(p.activeId), 'front')
 		return true
 	}
+	/** A MODEL row of a tree view: a place's model opens like its place row (floorplan attached …); any other stored
+	 *  model by id. */
+	openModelRow = (id: string, preview: boolean) => {
+		const m = modelById(id); if (!m) return
+		if (m.placeId && modelForPlace(m.placeId)?.id === id) { this.openPlaceModel(m.placeId, preview); return }
+		this.#h.openDrawing({ title: `${m.name} · Model`, kind: 'model', preview, modelId: m.id, docId: `model:${m.id}` })
+		this.#planIfUnset()
+	}
 	openModelById = (id: string) => {
 		const m = modelById(id); if (!m) return
 		this.drawingsOpen = false
@@ -545,11 +649,22 @@ export class PagesProject {
 	}
 	updateSheets = (patches: { id: string; patch: Partial<PagesSheetDoc> }[]) => {
 		const ps = this.store; if (!ps) return
+		const used: string[] = []
 		for (const { id, patch } of patches) {
 			const sh = ps.sheets.find((x) => x.id === id); if (!sh) continue
-			ps.saveSheet({ ...sh, ...patch })
+			// tags are case-insensitively unique on a sheet ('AV' = 'av', the first spelling kept)
+			const p = patch.tags ? { ...patch, tags: mergeTags([], patch.tags) } : patch
+			ps.saveSheet({ ...sh, ...p })
+			if (p.tags) used.push(...p.tags.filter((t) => !hasTag(sh.tags ?? [], t)))
 			if (patch.title) this.#retitleTabs(id, patch.title)
 		}
+		// a tag used for the first time joins the GLOBAL vocabulary (suggested in every project)
+		if (used.length) void globalTags.add(used).then((ok) => { if (!ok) this.#h.toast('Couldn’t add the new tag to the shared tag list (settings/pagesTags) — the sheet keeps it') })
+	}
+	/** Properties › DRAWING: the active stored sheet's kind / discipline / category / tags. */
+	setSheetMeta = (patch: Partial<Pick<PagesSheetDoc, 'kind' | 'discipline' | 'category' | 'tags'>>) => {
+		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null; if (!sh) return
+		this.updateSheets([{ id: sh.id, patch }])
 	}
 	archiveSheet = (id: string) => {
 		if (!this.store) return
@@ -638,6 +753,17 @@ export class PagesProject {
 		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null
 		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: this.#drawnDefault(sh), hideTitleBlock: !!sh.hideTitleBlock } : null
 	})
+	/** Properties › DRAWING: the active stored sheet's kind / discipline / category / tags, what they could be
+	 *  (auto-suggest — offered, never applied by itself) and the suggestion lists. */
+	activeSheetMeta = $derived.by(() => {
+		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null
+		if (!sh || sh.link) return null
+		return {
+			kind: sh.kind ?? '', discipline: sh.discipline ?? '', category: sh.category ?? '', tags: sh.tags ?? [],
+			hint: suggestSheetMeta(sh, (mid) => modelById(mid)?.kind),
+			tagPools: this.tagPools, disciplines: this.disciplineOptions, categories: this.categoryOptions,
+		}
+	})
 
 	// ── phase 7: HISTORY — model versions + sheet revisions for the ACTIVE tab (store/versions.ts) ──
 	/** The stored model the active tab edits (a model tab), else null. */
@@ -711,5 +837,9 @@ export class PagesProject {
 		return `Package "${name.trim() || 'Package'}" created with ${issued.length} sheet${issued.length === 1 ? '' : 's'}${skipped ? ` (${skipped} not issued yet, left out)` : ''}`
 	}
 }
+/** The tree view a user picked, per project (localStorage — a convenience; unavailable storage = By place). */
+const VIEW_KEY = (pid: string) => `eos-pages-treeview:${pid}`
+function readViewChoice(pid: string): string { try { return localStorage.getItem(VIEW_KEY(pid)) || PLACES_VIEW } catch { return PLACES_VIEW } }
+function writeViewChoice(pid: string, id: string) { try { localStorage.setItem(VIEW_KEY(pid), id) } catch { /* private mode / full */ } }
 /** What a version restore puts back: the model's content (its id, name, place and stamps stay). */
 const RESTORED_KEYS = ['objects', 'shapes', 'guides', 'sections', 'layers', 'underlays', 'levels', 'storeys', 'levelRef'] as const

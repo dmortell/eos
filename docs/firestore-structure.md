@@ -49,6 +49,7 @@ Surveyed 2026-09-23 from the code (read-only) plus a look at the live Hibiya pro
 | `logs/{pid}/{tool}/{autoId}` | per tool (frames, racks, patching, outlets, fillrate, risers) | `lib/logger.ts`, `frames/parts/LogsDialog.svelte` | timestamp (serverTimestamp), uid, tool, changes[], floor?, room? |
 | `users/{uid}` | global, id = auth uid | several; written by `Session.syncUserProfile` | displayName, email, photoURL, providerIds, lastLoginAt, `role` (admin/manager/user — set by hand, never written by code) |
 | `settings/presence` | one global doc | presence | users{uid: {displayName, lastActive…}} |
+| `settings/pagesTags` | one global doc — the Pages drawing-tag vocabulary (every tag used in any project) | Pages `store/globalTags.svelte.ts` (tag-picker suggestions; a new tag is added in a transaction, case-insensitively unique) | tags[], updatedAt |
 | `catalog/{maker-sku}` · `library/{lib-x}` · `labelFormats/{fmt-x}` | global | catalog service · sheets ShapeLibrary · AssignPortsDialog | CatalogProduct · LibraryShape · {name, template} |
 | `surveys/{id}` (+ `/photos`, `/floorplans`) · `tasks/{id}` | global, linked by optional `projectId` | survey tool, drawings SurveyViewport · tasks, Dashboard | Survey… · Task |
 

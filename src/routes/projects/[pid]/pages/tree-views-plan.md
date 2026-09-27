@@ -101,7 +101,13 @@ phase 3.
 | 2 | Tag UX: chip picker with project vocabulary in the sheet's Properties + bulk tag from the tree; auto-suggest on new / dropped sheets | M |
 | 3 | Custom views: folders, drag in / out / reorder, smart folders; drop-on-group sets the field | M–L |
 
-## 5. Questions for Dave
+## 5. Decided (Dave 2026-09-27)
+- Custom views are SHARED with the team (stored in the project's Pages doc; the chosen view is per user).
+- Tags are FREE text; the suggestions are GLOBAL — one tag vocabulary across all projects (a doc outside any project),
+  merged with the project's own tags; a new tag joins it.
+- Models appear in grouped views and always look clearly different from sheets (§3.5).
+
+## 5a. Questions for Dave (answered above)
 1. Should models appear in the grouped views (e.g. "33F model" under Floors), or sheets only? (Wherever they appear
    they must look clearly different from sheets — §3.5, Dave 2026-09-27.)
 2. Custom views shared with the team (recommended) or personal?

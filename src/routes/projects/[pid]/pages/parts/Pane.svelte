@@ -70,7 +70,7 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="tabs" onwheel={(e) => { if (e.deltaY) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() } }}>
 			{#each ws.tabs as t (t.id)}
-				<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} onclick={() => ws.openTab(t.id, pi)}
+				<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} class:model={t.kind === 'model'} onclick={() => ws.openTab(t.id, pi)}
 					ondblclick={() => ws.promoteTab(t.id)}
 					role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') ws.openTab(t.id, pi) }}>
 					<Icon name={ws.kindIcon[t.kind]} size={12} />
@@ -231,6 +231,8 @@
 	   so focus shows through the tab indicator itself (no strip-wide bar over it). */
 	.pane.focused .tab.active { border-top-color:var(--accent); }
 	.tab-name { font-size:12px; }
+	/* a MODEL tab's icon in the model colour, like its tree row (tree-views-plan §3.5) */
+	.tab.model > :global(svg:first-child) { color:var(--model); }
 	/* VSCode-style preview tab: italic label until promoted (double-click / edit). */
 	.tab.preview .tab-name { font-style:italic; }
 	.dirty { color:var(--accent); font-size:14px; line-height:0; }

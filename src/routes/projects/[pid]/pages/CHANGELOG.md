@@ -4,6 +4,29 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
+## Round 21 (2026-09-27) — tree views, tags, site view by OSM API
+- **Tree views** (`tree-views-plan.md`, all 3 phases; `store/treeViews.ts` tested):
+  - A switcher "By place ▾" (per user, per project) with templates — By place (the only one where a drag re-files),
+    By drawing type, Outlets / trunks by level, Elevations by category, By discipline — folders built from each item's
+    fields ("(no …)" last), models first under "Models" / "Sheets".
+  - **Models vs sheets obvious everywhere**: a model row has a cube (building) icon in the model teal, a MODEL pill and
+    "Model — opens in model space"; a sheet row its drawing number (monospace) + "Sheet … — opens the paper layout";
+    in the place tree a place with a model shows the MODEL pill (click = open it); model tabs show the model icon.
+  - **Tags**: a chip picker (`parts/TagPicker.svelte`) in Properties › DRAWING (Type, Discipline, Category, Tags) and
+    ⋮ › Tags… on a multi-selection (a partial tag shows "2/5" + to give it to all); ✦ suggestions from the sheet's
+    viewports / title (`store/tags.ts`, tested), never applied on their own. Tag suggestions are GLOBAL across all
+    projects (Firestore `settings/pagesTags`) merged with the project's own; a new tag joins the list.
+  - **Custom views** shared with the team (`pages.treeViews`): New view…, folders (nest, reorder, rename, delete),
+    items are references (an item can be in several folders; Ctrl-drag copies; Add to … / Remove from …), SMART folders
+    with a filter editor (`parts/SmartFilterEditor.svelte`); in a grouped view a drop on a folder SETS its field
+    (type / discipline / category / tag).
+  - New sheet field `category`; sheet types + outlets / trunks / rack / riser; File › Drawings… has Category (column,
+    bulk set, group by, Excel export).
+- **Site view: building only by default** — a "Neighbours" switch (off): THE building comes from OSM's main API
+  (`/api/0.6/{way|relation}/{id}/full`, fast even when the public Overpass servers hang), its building:part pieces from
+  Overpass best-effort (15 s; else its outline + a note); Neighbours on = everything within 180 m via Overpass
+  (bbox query, 3 servers, timeouts).
+
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor
   (A-FLOR), ceiling = the plenum's bottom (A-CLNG, dashed) and NEW the ceiling slab's underside = the plenum's top

@@ -29,7 +29,7 @@
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, modelNode, modelSeg, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, frameObjs = [], onframesupdate, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
-		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall,
+		sheetInfo = null, onsheetfield, sheetMeta = null, onsheetmeta, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall,
 		section = null, sectionLinks = [], onsectionupdate, onsectiondrop, onsectiondelete, onsectionopen, frameSection = undefined }:
 		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
@@ -60,6 +60,8 @@
 			/** A STORED Pages sheet's title-block fields (Drawing №, Drawn — `drawnDefault` = the creator's initials). */
 			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string; hideTitleBlock: boolean } | null
 			onsheetfield?: ((key: 'drawingNumber' | 'drawnBy', value: string) => void) & ((key: 'hideTitleBlock', value: boolean) => void)
+			/** The stored sheet's type / discipline / category / tags + suggestions (Properties › DRAWING, tree-views-plan §3.3). */
+			sheetMeta?: import('svelte').ComponentProps<typeof PageProps>['sheetMeta']; onsheetmeta?: import('svelte').ComponentProps<typeof PageProps>['onsheetmeta']
 			/** The selected frame's model storeys (a building) — its FLOORS checklist in an elevation. */
 			frameStoreys?: { id: string; name: string; z?: number }[]
 			/** The selected frame's model conduits (F12 fill-rate frame). */
@@ -96,7 +98,7 @@
 	{:else if ents.length === 0 && !nObjs && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
 	{:else if ents.length === 0 && !nObjs}
-		<PageProps title={pageTitle} kind={pageKind} {activeLayer} ontitle={onpagetitle} {sheetInfo} {onsheetfield} {titleBlock} {ontitleblock} />
+		<PageProps title={pageTitle} kind={pageKind} {activeLayer} ontitle={onpagetitle} {sheetInfo} {onsheetfield} {sheetMeta} {onsheetmeta} {titleBlock} {ontitleblock} />
 	{:else}
 		<!-- shapes and / or 3D objects — a MIXED selection shows both parts, each editing its own kind -->
 		{#if ents.length && nObjs}<div class="pp-mixed">{ents.length} shape{ents.length > 1 ? 's' : ''} + {nObjs} 3D object{nObjs > 1 ? 's' : ''} — each part below edits its own kind</div>{/if}

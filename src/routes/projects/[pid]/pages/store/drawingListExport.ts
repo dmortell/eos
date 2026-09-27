@@ -8,6 +8,7 @@ const COLS: { head: string; width: number; get: (r: SheetRow) => string }[] = [
 	{ head: 'Place', width: 30, get: (r) => r.placePath },
 	{ head: 'Kind', width: 12, get: (r) => r.kind },
 	{ head: 'Discipline', width: 14, get: (r) => r.discipline },
+	{ head: 'Category', width: 14, get: (r) => r.category },
 	{ head: 'Tags', width: 24, get: (r) => r.tags.join(', ') },
 	{ head: 'Status', width: 10, get: (r) => r.status },
 	{ head: 'Rev', width: 8, get: (r) => r.rev },

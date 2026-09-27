@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLen, heightsOf, joinRings, toBuildings, pickTarget, partsOf, factsOf, inRing, overpassQuery, type OverpassJson } from './osm'
+import { parseLen, heightsOf, joinRings, toBuildings, pickTarget, partsOf, factsOf, inRing, overpassQuery, overpassTargetQuery, osmApiToOverpass, type OverpassJson } from './osm'
 
 const sq = (lat: number, lon: number, d: number) => [{ lat, lon }, { lat, lon: lon + d }, { lat: lat + d, lon: lon + d }, { lat: lat + d, lon }, { lat, lon }]
 
@@ -36,6 +36,17 @@ describe('site OSM data', () => {
 		const q = overpassQuery(35.6, 139.7, 200)
 		expect(q).toContain('way["building"](35.598191,139.697790,35.601809,139.702210)'); expect(q).toContain('building:part'); expect(q).toContain('out geom tags')
 		expect(overpassQuery(35.6, 139.7, 200, { osmType: 'relation', osmId: 3816171 })).toContain('relation(3816171);')   // THE building, whatever the area
+		const t = overpassTargetQuery({ osmType: 'way', osmId: 42 })   // no neighbours: just it + its parts
+		expect(t).toContain('way(42)->.b;'); expect(t).toContain('way["building:part"](around.b:0)'); expect(t).not.toContain('way["building"](')
+	})
+	it('the OSM API `full` JSON → the building with its geometry (a way; a multipolygon relation\'s outer ring)', () => {
+		const n = (id: number, lat: number, lon: number) => ({ type: 'node', id, lat, lon })
+		const els = [n(1, 0, 0), n(2, 0, 0.001), n(3, 0.001, 0.001), n(4, 0.001, 0), { type: 'way', id: 7, nodes: [1, 2, 3, 4, 1], tags: { building: 'office', height: '167' } }]
+		const w = osmApiToOverpass({ elements: els }, { osmType: 'way', osmId: 7 })
+		const [b] = toBuildings(w, 0.0005, 0.0005); expect(b.h).toBe(167); expect(b.outer).toHaveLength(4)
+		const rel = osmApiToOverpass({ elements: [...els, { type: 'relation', id: 9, members: [{ type: 'way', ref: 7, role: 'outer' }], tags: { building: 'yes', type: 'multipolygon' } }] }, { osmType: 'relation', osmId: 9 })
+		expect(toBuildings(rel, 0, 0)[0].outer).toHaveLength(4)
+		expect(osmApiToOverpass({ elements: els }, { osmType: 'way', osmId: 99 }).elements).toHaveLength(0)
 	})
 	it('never picks a canopy / roof / sliver as the building (the Shin-Marunouchi entrance roof)', () => {
 		const js: OverpassJson = { elements: [

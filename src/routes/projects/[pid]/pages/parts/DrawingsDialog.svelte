@@ -12,7 +12,7 @@
 	// All writes go through the callbacks (the store saves them); the lists are derived from the props.
 	import { tick } from 'svelte'
 	import { Icon, listClick } from '$lib'
-	import type { PagesSheetDoc, Place, SheetKind } from '../store/schema'
+	import { SHEET_KINDS, type PagesSheetDoc, type Place, type SheetKind } from '../store/schema'
 	import { sheetRows, filterRows, sortRows, groupRows, renumber, modelUsage, missingModelFrames, placePath,
 		type SortKey, type GroupBy, type ModelInfo } from '../store/drawingList'
 	import { exportDrawingRows } from '../store/drawingListExport'
@@ -35,10 +35,10 @@
 		onimportlegacy?: (id: string, placeId: string | null) => Promise<string[]>
 	} = $props()
 
-	const KINDS: SheetKind[] = ['plan', 'elevation', 'schematic', 'detail', 'schedule']
+	const KINDS: SheetKind[] = SHEET_KINDS
 	const COLS: { key: SortKey; label: string }[] = [
 		{ key: 'number', label: 'Dwg №' }, { key: 'title', label: 'Title' }, { key: 'placePath', label: 'Place' }, { key: 'kind', label: 'Kind' },
-		{ key: 'discipline', label: 'Discipline' }, { key: 'rev', label: 'Rev' }, { key: 'size', label: 'Size' }, { key: 'scale', label: 'Scale' }, { key: 'updatedAt', label: 'Updated' },
+		{ key: 'discipline', label: 'Discipline' }, { key: 'category', label: 'Category' }, { key: 'rev', label: 'Rev' }, { key: 'size', label: 'Size' }, { key: 'scale', label: 'Scale' }, { key: 'updatedAt', label: 'Updated' },
 	]
 
 	let tab = $state<'sheets' | 'archived' | 'models' | 'import'>('sheets')
@@ -74,6 +74,7 @@
 	const shown = $derived(sortRows(filterRows(live, { q, kind: fKind, discipline: fDisc, tag: fTag }), sortKey, sortDir))
 	const groups = $derived(groupRows(shown, groupBy))
 	const disciplines = $derived([...new Set(live.map((r) => r.discipline).filter(Boolean))].sort())
+	const categories = $derived([...new Set([...live.map((r) => r.category).filter(Boolean), 'racks', 'risers', 'AV rooms'])].sort())
 	const tags = $derived([...new Set(live.flatMap((r) => r.tags))].sort())
 	// the selection only ever holds rows that are still shown (a filter / archive drops the rest)
 	const selIds = $derived(shown.filter((r) => sel.has(r.id)).map((r) => r.id))
@@ -98,7 +99,7 @@
 	const parseTags = (v: string) => [...new Set(v.split(',').map((t) => t.trim()).filter(Boolean))]
 
 	// bulk controls
-	let bDisc = $state(''), bTag = $state(''), rnStart = $state(1), rnPattern = $state('{n:3}')
+	let bDisc = $state(''), bCat = $state(''), bTag = $state(''), rnStart = $state(1), rnPattern = $state('{n:3}')
 	function applyRenumber() {
 		// in the order shown (group by group), so a grouped register numbers place by place
 		const order = groups.flatMap((g) => g.rows.map((r) => r.id)).filter((id, i, a) => sel.has(id) && a.indexOf(id) === i)
@@ -158,7 +159,7 @@
 				<select bind:value={fTag} title="Tag"><option value="">All tags</option>{#each tags as t (t)}<option value={t}>{t}</option>{/each}</select>
 				<select bind:value={groupBy} title="Group by">
 					<option value="none">No grouping</option><option value="place">By place</option><option value="kind">By kind</option>
-					<option value="discipline">By discipline</option><option value="tag">By tag</option><option value="size">By sheet size</option>
+					<option value="discipline">By discipline</option><option value="category">By category</option><option value="tag">By tag</option><option value="size">By sheet size</option>
 				</select>
 				<span class="sp"></span>
 				<button class="dd-btn" disabled={exporting || !shown.length} onclick={exportXlsx} title={selIds.length ? 'Export the selected sheets' : 'Export the sheets shown'}>
@@ -170,6 +171,7 @@
 					<select value="" onchange={(e) => { const v = val(e); if (v) bulk(() => ({ kind: v as SheetKind })); (e.currentTarget as HTMLSelectElement).value = '' }}>
 						<option value="">Set kind…</option>{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}</select>
 					<span class="grp"><input placeholder="Discipline" bind:value={bDisc} list="dd-discs" /><button class="dd-btn" onclick={() => bulk(() => ({ discipline: bDisc.trim() }))}>Set</button></span>
+						<span class="grp"><input placeholder="Category" bind:value={bCat} list="dd-cats" /><button class="dd-btn" onclick={() => bulk(() => ({ category: bCat.trim() }))}>Set</button></span>
 					<span class="grp"><input placeholder="Tag" bind:value={bTag} list="dd-tags" />
 						<button class="dd-btn" disabled={!bTag.trim()} onclick={() => bulk((id) => ({ tags: [...new Set([...tagsOf(id), bTag.trim()])] }))}>Add</button>
 						<button class="dd-btn" disabled={!bTag.trim()} onclick={() => bulk((id) => ({ tags: tagsOf(id).filter((t) => t !== bTag.trim()) }))}>Remove</button></span>
@@ -191,6 +193,7 @@
 			{/if}
 			{#if notice}<div class="dd-notice">{notice}<button class="dd-btn ghost" onclick={() => (notice = '')}><Icon name="x" size={12} /></button></div>{/if}
 			<datalist id="dd-discs">{#each disciplines as d (d)}<option value={d}></option>{/each}</datalist>
+			<datalist id="dd-cats">{#each categories as c (c)}<option value={c}></option>{/each}</datalist>
 			<datalist id="dd-tags">{#each tags as t (t)}<option value={t}></option>{/each}</datalist>
 			<div class="dd-table">
 				<table>
@@ -211,6 +214,7 @@
 									<td><select class="cell" value={r.kind} onchange={(e) => one(r.id, { kind: (val(e) || undefined) as SheetKind | undefined })}>
 										<option value="">—</option>{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}</select></td>
 									<td><input class="cell" value={r.discipline} placeholder="—" list="dd-discs" onchange={(e) => one(r.id, { discipline: val(e).trim() })} onkeydown={blurOnEnter} /></td>
+										<td><input class="cell" value={r.category} placeholder="—" list="dd-cats" onchange={(e) => one(r.id, { category: val(e).trim() })} onkeydown={blurOnEnter} /></td>
 									<td class="muted">{r.rev || '—'}</td><td class="muted">{r.size}</td><td class="muted">{r.scale}</td><td class="muted">{fmtDay(r.updatedAt)}</td>
 									<td><input class="cell" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => one(r.id, { tags: parseTags(val(e)) })} onkeydown={blurOnEnter} /></td>
 									<td class="act"><button title="Open" onclick={() => onopen(r.id)}><Icon name="link" size={13} /></button></td>

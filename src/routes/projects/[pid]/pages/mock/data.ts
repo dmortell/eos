@@ -30,7 +30,22 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 	/** Pages places: a rack ROW — its model can (re)import the row's racks + devices from the Racks tool. */
 	racksRow?: boolean
 	/** B5: a link sheet (opens another tool). */
-	link?: boolean }
+	link?: boolean
+	/** A sheet's drawing number (shown as a monospace prefix — tree-views-plan §3.5). */
+	number?: string
+	/** A MODEL leaf (tree views): the model id it opens (in model space), and the model's kind (its icon). */
+	model?: string; modelKind?: string
+	/** The ITEM this row shows when the row id is view-specific (a grouped / custom view can list an item more than
+	 *  once): `s:<sheetId>` / `m:<modelId>`. Actions (rename, delete, drag …) use it; absent = the row id itself. */
+	ref?: string
+	/** A folder of a GROUP view: its level + value, and the whole path from the top (a drop on it sets those). */
+	vgroup?: { level: string; value: string; path: { level: string; value: string }[] }
+	/** A folder of a CUSTOM view (its folder id); `smart` = it fills itself from a saved filter. */
+	cfolder?: string; smart?: boolean
+	/** A custom view's pool of every item ("Not in a folder") — drag from it to add to a folder. */
+	pool?: boolean
+	/** A thin sub-heading row ("Models" / "Sheets") inside a grouped folder — not an item. */
+	subhead?: boolean }
 
 /** The project sits above the tree as a label (click → project props). */
 export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }

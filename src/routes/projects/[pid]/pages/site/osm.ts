@@ -43,6 +43,11 @@ export const overpassQuery = (lat: number, lon: number, r = 250, want?: { osmTyp
 	return `[out:json][timeout:90];(way["building"]${a};relation["building"]${a};way["building:part"]${a};relation["building:part"]${a};${own});out geom tags;`
 }
 
+/** THE building only (no neighbours): the matched way / relation and the building:part pieces touching it — one small
+ *  query, light on the busy public servers. */
+export const overpassTargetQuery = (want: { osmType: string; osmId: number }) =>
+	`[out:json][timeout:60];${want.osmType}(${want.osmId})->.b;.b out geom tags;(way["building:part"](around.b:0);relation["building:part"](around.b:0););out geom tags;`
+
 /** `remark` = Overpass's note when it ran out of time / memory — the result is then PARTIAL. */
 export type OverpassJson = { elements: OverpassEl[]; remark?: string }
 type LL = { lat: number; lon: number }
@@ -50,8 +55,11 @@ export type OverpassEl = { type: 'way' | 'relation' | 'node'; id: number; tags?:
 
 /** The public Overpass servers, tried in turn — the main one is often busy (429 / 504). */
 export const OVERPASS_SERVERS = [OVERPASS, 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
-export async function fetchBuildings(lat: number, lon: number, r = 250, fetchFn: typeof fetch = fetch, want?: { osmType?: string; osmId?: number }): Promise<OverpassJson> {
-	const body = 'data=' + encodeURIComponent(overpassQuery(lat, lon, r, want))
+export async function fetchBuildings(lat: number, lon: number, r = 250, fetchFn: typeof fetch = fetch, want?: { osmType?: string; osmId?: number }, neighbours = true): Promise<OverpassJson> {
+	// no neighbours: the matched building by id (+ its parts); a match that isn't a way / relation (a point) → a tight radius
+	const byId = !neighbours && want?.osmId && (want.osmType === 'way' || want.osmType === 'relation')
+	const q = byId ? overpassTargetQuery({ osmType: want!.osmType!, osmId: want!.osmId! }) : overpassQuery(lat, lon, neighbours ? r : 40, want)
+	const body = 'data=' + encodeURIComponent(q)
 	let last = ''
 	for (const url of OVERPASS_SERVERS) {
 		try {
@@ -63,6 +71,32 @@ export async function fetchBuildings(lat: number, lon: number, r = 250, fetchFn:
 		} catch (e) { last = (e as Error).message }   // a network error / CORS: the next server
 	}
 	throw new Error(`Building data request failed (${last}) — the OSM servers are busy`)
+}
+
+/** THE building from OSM's main API (`/api/0.6/{way|relation}/{id}/full`) — one element, fast and reliable even when the
+ *  public Overpass servers are overloaded — converted to the Overpass shape (`geometry` / member geometries). */
+export async function fetchTarget(want: { osmType: string; osmId: number }, fetchFn: typeof fetch = fetch): Promise<OverpassJson> {
+	const r = await fetchFn(`https://api.openstreetmap.org/api/0.6/${want.osmType}/${want.osmId}/full.json`, { signal: AbortSignal.timeout(20000) })
+	if (!r.ok) throw new Error(`The building's outline couldn't be loaded (${r.status})`)
+	return osmApiToOverpass(await r.json(), want)
+}
+type OsmApiEl = { type: string; id: number; lat?: number; lon?: number; nodes?: number[]; members?: { type: string; ref: number; role: string }[]; tags?: Record<string, string> }
+/** THE building's building:part pieces (Overpass, the main server only, a short timeout) — best effort: [] if busy. */
+export async function fetchParts(want: { osmType: string; osmId: number }, fetchFn: typeof fetch = fetch): Promise<OverpassEl[]> {
+	try {
+		const res = await fetchFn(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(overpassTargetQuery(want)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(15000) })
+		return res.ok ? ((await res.json()) as OverpassJson).elements.filter((e) => e.tags?.['building:part']) : []
+	} catch { return [] }
+}
+/** OSM API `full` JSON → Overpass-style elements (the requested way / relation with its geometry). */
+export function osmApiToOverpass(js: { elements: OsmApiEl[] }, want: { osmType: string; osmId: number }): OverpassJson {
+	const nodes = new Map<number, LL>(), ways = new Map<number, OsmApiEl>()
+	for (const e of js.elements) { if (e.type === 'node' && e.lat != null && e.lon != null) nodes.set(e.id, { lat: e.lat, lon: e.lon }); else if (e.type === 'way') ways.set(e.id, e) }
+	const geomOf = (w?: OsmApiEl) => (w?.nodes ?? []).map((n) => nodes.get(n)).filter((p): p is LL => !!p)
+	const el = js.elements.find((e) => e.type === want.osmType && e.id === want.osmId)
+	if (!el) return { elements: [] }
+	if (el.type === 'way') return { elements: [{ type: 'way', id: el.id, tags: el.tags, geometry: geomOf(el) }] }
+	return { elements: [{ type: 'relation', id: el.id, tags: el.tags, members: (el.members ?? []).filter((m) => m.type === 'way').map((m) => ({ type: 'way', role: m.role, geometry: geomOf(ways.get(m.ref)) })) }] }
 }
 
 /** lat / lon → local metres about (lat0, lon0) (an equirectangular approximation — fine over a few hundred metres). */

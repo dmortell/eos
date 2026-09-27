@@ -1528,8 +1528,9 @@
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator tree={proj.realTree?.tree ?? null} project={proj.realTree?.project ?? null} status={proj.navStatus}
+				<DrawingNavigator tree={proj.shownTree} project={proj.realTree?.project ?? null} status={proj.navStatus}
 					placesMode={proj.hasPlaces} onseedplaces={proj.canSeedPlaces ? proj.seedPlaces : undefined}
+					views={proj.navViews} onopenmodel={(id, preview) => { restoredFor = page.params.pid ?? ''; proj.openModelRow(id, preview) }}
 					onplaceadd={proj.onPlaceAdd} onplacerename={proj.onPlaceRename} onplacemove={proj.onPlaceMove} onplacedelete={proj.onPlaceDelete}
 					onopenplace={proj.hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; proj.openPlaceModel(id, preview) } : undefined}
 					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
@@ -1603,7 +1604,7 @@
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name, z: s.z }))}
 						frameConduits={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.objects ?? [] : []).filter((o) => o.type === 'conduit' && o.id).map((o, i) => ({ id: o.id!, name: o.label || `Conduit ${i + 1}` }))}
-						sheetInfo={proj.activeSheetInfo} onsheetfield={proj.setSheetField}
+						sheetInfo={proj.activeSheetInfo} onsheetfield={proj.setSheetField} sheetMeta={proj.activeSheetMeta} onsheetmeta={proj.setSheetMeta}
 						titleBlock={proj.store?.project?.titleBlock} ontitleblock={proj.store && proj.hasPlaces ? (t: TitleBlockTemplate) => proj.store!.saveTitleBlock(t) : undefined}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
@@ -1654,6 +1655,8 @@
 		--canvas:#121c29; --hover:#2c3b4d; --active:#244852; --accent:#5ac6d2; --accent-dim:#304d58;
 		--text:#dce4ed; --muted:#8b9aab; --faint:#63768b; --line:#344151; --line-soft:#2a3645; --input:#17212e;
 		--danger:#ed8d92;
+		/* tree-views-plan §3.5: MODEL rows / tabs (model space) vs paper sheets — a green-teal apart from the accent */
+		--model:#5fd4a0;
 		height:100dvh; display:flex; flex-direction:column; overflow:hidden;
 		background:var(--bg); color:var(--text);
 		font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif; font-size:12px;
@@ -1663,6 +1666,7 @@
 		--canvas:#edf2f6; --hover:#e3ebf3; --active:#d6eef2; --accent:#157a8b; --accent-dim:#b9dce4;
 		--text:#23374a; --muted:#697e91; --faint:#8191a2; --line:#ced8e2; --line-soft:#e0e6ed; --input:#fff;
 		--danger:#bd4951;
+		--model:#0f8a5f;
 	}
 	.shell :global(button) { cursor:pointer; color:inherit; }
 

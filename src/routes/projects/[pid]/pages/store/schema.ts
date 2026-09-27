@@ -48,6 +48,33 @@ export type PagesProject = {
 	drawingDefaults?: DrawingDefaults
 	/** ISO time the places were seeded from the old tools' data (absent = never seeded). */
 	seededAt?: string
+	/** The team's CUSTOM tree views (tree-views-plan §3.4) — shared by everyone on the project; which view a user
+	 *  is looking at is per user (localStorage). The built-in views (By place, By drawing type …) are code, not stored. */
+	treeViews?: TreeViewDoc[]
+}
+
+// ── tree views (tree-views-plan §3) ─────────────────────────────────────────────────────────────────
+/** A grouping level of a GROUP view: floor / zone / building / place come from the item's place, the rest from
+ *  the sheet's registry fields. */
+export type GroupKey = 'building' | 'floor' | 'zone' | 'place' | 'kind' | 'discipline' | 'tag' | 'category'
+/** A filter over the tree's items: any-of within a field, all-of across fields. `kinds` may hold 'model' (models
+ *  pass only then); `places` = at or under any of these place ids. */
+export type TreeFilter = { kinds?: string[]; tags?: string[]; disciplines?: string[]; categories?: string[]; places?: string[] }
+/** A folder of a CUSTOM view. `items` = references (`s:<sheetId>` / `m:<modelId>`, like a playlist — an item can be
+ *  in several folders); a SMART folder has a `filter` instead and fills itself. Flat list, nested by `parentId`. */
+export type CustomFolderDoc = { id: string; name: string; parentId: string | null; order: number; items: string[]; filter?: TreeFilter }
+/** A stored (custom) tree view — `projects/{pid}.pages.treeViews[]`. */
+export type TreeViewDoc = {
+	id: string; name: string
+	kind: 'group' | 'custom'
+	/** group: the levels, outermost first. */
+	levels?: GroupKey[]
+	filter?: TreeFilter
+	/** group: the 'tag' level groups by THESE tags only (others → the "(none)" folder). */
+	tagSet?: string[]
+	/** custom: the folders. */
+	folders?: CustomFolderDoc[]
+	createdBy?: string; updatedAt?: string
 }
 
 // ── sheets (drawings-plan §2.2) ──────────────────────────────────────────────────────────────────────
@@ -94,7 +121,9 @@ export function sheetLinkUrl(pid: string, l: SheetLink): string {
 	const q = new URLSearchParams(); if (l.floor != null) q.set('floor', String(l.floor)); if (l.room) q.set('room', l.room)
 	return `/projects/${pid}/${l.tool}${q.size ? `?${q}` : ''}`
 }
-export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedule'
+export type SheetKind = 'plan' | 'outlets' | 'trunks' | 'elevation' | 'rack' | 'riser' | 'schematic' | 'detail' | 'schedule'
+/** Every sheet kind, in the order menus + the tree's "By drawing type" list them. */
+export const SHEET_KINDS: SheetKind[] = ['plan', 'outlets', 'trunks', 'elevation', 'rack', 'riser', 'schematic', 'detail', 'schedule']
 
 /** A Pages sheet: a `projects/{pid}/drawings/{id}` registry entry (`toolType: 'pages'`) with its content on
  *  it (Option A). The registry fields match `$lib/types/versioning` DrawingDoc so the existing packages /
@@ -114,6 +143,9 @@ export type PagesSheetDoc = {
 	tags: string[]
 	kind?: SheetKind
 	discipline?: string
+	/** What the sheet is about within its kind — e.g. an elevation's 'racks' / 'risers' / 'AV rooms' (free text,
+	 *  suggested from the project's other sheets; tree-views-plan §3.2 "Elevations by category"). '' = none. */
+	category?: string
 	sheetSize?: string
 	scale?: string
 	latestRevisionCode?: string
