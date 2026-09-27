@@ -43,6 +43,8 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Tab / Shift+Tab in the label editor** save the label and move to the next / previous item of the SAME KIND
+  (outlet → outlet, rack → rack …) in reading order (rows top → bottom, left → right), wrapping; it gets selected.
 - **Section LINES at any angle** (phase 3, OpenCad's O4): the Section button is a group — Section box · **Section
   line** (spec bar Box | Line + Depth; SECTIONLINE / SECL; Insert › Section line). Two clicks / press-drag, Shift =
   15°. Drawn dashed with perpendicular arrows + "A" / "A′"; selected: its seen region, end grips, a depth handle, drag

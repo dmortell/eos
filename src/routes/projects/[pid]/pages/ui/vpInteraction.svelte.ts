@@ -627,6 +627,39 @@ export class VpInteraction {
 		tick().then(() => { this.textInput?.focus(); this.textInput?.select() })
 		return true
 	}
+	/** Tab / Shift+Tab in the in-place editor: save this label and move the editor to the next / previous item of the
+	 *  SAME KIND (outlet → outlet, rack → rack, dimension → dimension …) in READING ORDER — rows top to bottom, left to
+	 *  right in a row — wrapping at the ends. The item gets selected. */
+	editNextLabel(dir: 1 | -1) {
+		const v = this.v, t = this.editText; if (!t) return
+		const curEnt = t.field !== 'obj' ? v.entities.find((x) => x.id === t.id) : undefined
+		const curObj = t.field === 'obj' ? v.mdl?.objects.find((o) => o.id === t.id) : undefined
+		this.commitText()
+		const entKind = (e: Ent) => (e.type === 'insert' ? `insert:${e.block}` : e.type === 'polyline' ? (e.pts?.length === 2 ? 'line2' : 'poly') : e.type === 'text' ? (isNote(e) ? 'note' : 'text') : e.type)
+		const objKind = (o: Obj) => (o.type === 'prism' ? (o.rack ? 'rack' : o.device ? 'device' : 'box') : o.type)
+		type Item = { ent?: Ent; obj?: Obj; c: Pt; h: number }
+		const box = (pts: Pt[]) => { const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]); return { c: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2] as Pt, h: Math.max(...ys) - Math.min(...ys) } }
+		let items: Item[]
+		if (curEnt) {
+			const k = entKind(curEnt)
+			items = v.entities.filter((e) => v.pickable(e) && entKind(e) === k).map((e) => { const [x0, y0, x1, y1] = bbox(v.ctx, e); return { ent: e, ...box([[x0, y0], [x1, y1]]) } })
+		} else if (curObj) {
+			const k = objKind(curObj)
+			items = (v.mdl?.objects ?? []).filter((o) => o.id && objKind(o) === k && v.mlayers.visible(o) && !v.mlayers.locked(o))
+				.map((o) => ({ obj: o, ...box(o.type === 'prism' ? prismOutline(v.ctx, o) : (o.nodes as GN[]).map((n) => v.graphNodeDraw(n))) }))
+		} else return
+		if (items.length < 2) return
+		// reading order: by y, then items within half a (typical) item height of a row's first share that row, by x
+		const tol = Math.max(1, (items.map((i) => i.h).sort((a, b) => a - b)[items.length >> 1] || 0) / 2)
+		const byY = [...items].sort((a, b) => a.c[1] - b.c[1]), rows: Item[][] = []
+		for (const it of byY) { const r = rows.at(-1); if (r && Math.abs(it.c[1] - r[0].c[1]) <= tol) r.push(it); else rows.push([it]) }
+		const order = rows.flatMap((r) => r.sort((a, b) => a.c[0] - b.c[0]))
+		const i = order.findIndex((it) => (it.ent ?? it.obj)?.id === t.id), next = order[(i + dir + order.length) % order.length]
+		const id = (next.ent ?? next.obj)!.id!
+		this.drawSource.sel.set([id])
+		const fresh = next.ent ? v.entities.find((x) => x.id === id) : undefined, freshObj = next.obj ? v.mdl?.objects.find((o) => o.id === id) : undefined
+		this.editLabelOf(fresh, freshObj)
+	}
 	/** F2 / double-click: edit the label of THIS item in place — a text, a dimension, a line's label, a block's label, a
 	 *  box / rack / run's name. A note opens its dialog. False = nothing to edit. */
 	editLabelOf(ent?: Ent, obj?: Obj): boolean {

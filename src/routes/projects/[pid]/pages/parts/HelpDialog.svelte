@@ -15,7 +15,7 @@
 		['Nudge (× 10 with Shift)', 'Arrow keys'], ['Zoom in / out / fit', '+ / − / Home'], ['Pan', 'Right- or middle-drag'],
 		['Zoom at the cursor', 'Wheel (ACAD on)'], ['Keep square / 15° / H-V', 'Shift while drawing'],
 		['Finish a line / run', 'Enter · double-click · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat)'],
-		['Edit text / a label in place (outlet, block, box, rack, line, dimension)', 'Double-click it · F2 (the selected one)'], ['Open a linked symbol', 'Click its badge (hover) · double-click it'], ['Align / distribute shapes + 3D objects', 'Properties › ALIGN (2+ selected) · ALIGN'], ['Add a node to a wall / conduit', 'Double-click a segment'],
+		['Edit text / a label in place (outlet, block, box, rack, line, dimension)', 'Double-click it · F2 (the selected one)'], ['…then the next / previous one of the same kind (reading order)', 'Tab / Shift+Tab in the label editor'], ['Open a linked symbol', 'Click its badge (hover) · double-click it'], ['Align / distribute shapes + 3D objects', 'Properties › ALIGN (2+ selected) · ALIGN'], ['Add a node to a wall / conduit', 'Double-click a segment'],
 		['Branch from a node', 'Ctrl-drag the node'], ['Pull a node off a joined run / split a run there', 'Alt-drag the node'],
 		['Select a run, then one segment', 'Click it, click again'], ['Enter a viewport on a sheet', 'Double-click it'],
 		['Window select (enclosed) / crossing (touched)', 'Drag left → right / right → left'], ['Edit a dimension’s text or a line’s label', 'Double-click it'],
