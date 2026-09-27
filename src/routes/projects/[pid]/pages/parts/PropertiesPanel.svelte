@@ -10,12 +10,14 @@
 	// The shared field styles live in props/props.css (global, scoped under `.pp`); small helpers in props/fields.ts.
 	import './props/props.css'
 	import FrameProps from './props/FrameProps.svelte'
+	import FramesProps from './props/FramesProps.svelte'
 	import ModelObjProps from './props/ModelObjProps.svelte'
 	import ModelObjsProps from './props/ModelObjsProps.svelte'
 	import PlaceProps from './props/PlaceProps.svelte'
 	import PageProps from './props/PageProps.svelte'
 	import EntProps from './props/EntProps.svelte'
 	import AlignBar from './props/AlignBar.svelte'
+	import RotateBar from './props/RotateBar.svelte'
 	import SectionProps from './props/SectionProps.svelte'
 	import type { Ent } from '../ui/geometry'
 	import type { Obj, Layer as MLayer, Section } from '../3dview/types'
@@ -26,7 +28,7 @@
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, modelNode, modelSeg, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
+		frameObj = null, frameObjs = [], onframesupdate, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall,
 		section = null, sectionLinks = [], onsectionupdate, onsectiondrop, onsectiondelete, onsectionopen, frameSection = undefined }:
 		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -48,6 +50,8 @@
 			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void;
 			onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
+			/** Two or more frames selected on paper + the patch-them-all callback (one step). */
+			frameObjs?: SheetFrame[]; onframesupdate?: (patch: Partial<SheetFrame>) => void;
 			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
 			modelList?: { id: string; name: string }[]; activeFrameId?: string;
 			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
@@ -77,27 +81,34 @@
 	// B19: the inputs are uncontrolled (`value=` + `onchange`), so a half-typed value would survive a selection
 	// change and land on the NEXT selection's first commit. Keying the panel body on WHAT is selected remounts
 	// every input when the selection changes (a value edit keeps the same ids → no remount, focus kept).
-	const selKey = $derived([...ents.map((e) => e.id), modelObj?.id ?? '', ...modelObjs.map((o) => o.id ?? ''), frameObj?.id ?? '', node?.id ?? '', section?.id ?? ''].join('|'))
+	const selKey = $derived([...ents.map((e) => e.id), modelObj?.id ?? '', ...modelObjs.map((o) => o.id ?? ''), frameObj?.id ?? '', ...frameObjs.map((f) => f.id), node?.id ?? '', section?.id ?? ''].join('|'))
+	const nObjs = $derived(modelObjs.length > 1 && onmodelsupdate ? modelObjs.length : modelObj ? 1 : 0)
 </script>
 
 {#key selKey}
 <div class="pp">
-	{#if frameObj}
+	{#if frameObjs.length > 1}
+		<FramesProps frames={frameObjs} onupdate={onframesupdate} />
+	{:else if frameObj}
 		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} conduits={frameConduits} section={frameSection} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
 	{:else if section}
 		<SectionProps sec={section} links={sectionLinks} onupdate={onsectionupdate} ondrop={onsectiondrop} ondelete={onsectiondelete} onopen={onsectionopen} />
-	{:else if modelObjs.length > 1 && onmodelsupdate}
-		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
-	{:else if modelObj}
-		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} {outletsFor} {allocated} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} nodeId={modelNode} segId={modelSeg} />
-	{:else if ents.length === 0 && node}
+	{:else if ents.length === 0 && !nObjs && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
-	{:else if ents.length === 0}
+	{:else if ents.length === 0 && !nObjs}
 		<PageProps title={pageTitle} kind={pageKind} {activeLayer} ontitle={onpagetitle} {sheetInfo} {onsheetfield} {titleBlock} {ontitleblock} />
 	{:else}
-		<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />
+		<!-- shapes and / or 3D objects — a MIXED selection shows both parts, each editing its own kind -->
+		{#if ents.length && nObjs}<div class="pp-mixed">{ents.length} shape{ents.length > 1 ? 's' : ''} + {nObjs} 3D object{nObjs > 1 ? 's' : ''} — each part below edits its own kind</div>{/if}
+		{#if ents.length}<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />{/if}
+		{#if modelObjs.length > 1 && onmodelsupdate}
+			<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
+		{:else if modelObj}
+			<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} {outletsFor} {allocated} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} nodeId={modelNode} segId={modelSeg} />
+		{/if}
 	{/if}
-	<!-- 2+ drawing items (shapes and / or 3D objects): align / distribute them as drawn (props/AlignBar) -->
-	{#if !frameObj && ents.length + Math.max(modelObjs.length, modelObj ? 1 : 0) >= 2}<AlignBar />{/if}
+	<!-- any drawing items: ⟲ / ⟳ (props/RotateBar); 2+ (shapes and / or 3D objects): align / distribute them as drawn (props/AlignBar) -->
+	{#if !frameObj && !frameObjs.length && !section && ents.length + Math.max(modelObjs.length, modelObj ? 1 : 0) >= 1}<RotateBar />{/if}
+	{#if !frameObj && !frameObjs.length && ents.length + Math.max(modelObjs.length, modelObj ? 1 : 0) >= 2}<AlignBar />{/if}
 </div>
 {/key}

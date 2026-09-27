@@ -2,7 +2,8 @@
 // "Specify base point:" — and then edits through the viewport's command target. Answers come from typed tokens or
 // viewport clicks (ui/commandRunner.svelte.ts routes them). Coordinates are USER coords (model mm, Y up); angles
 // are degrees CCW from +X.
-import { dist, arc3, type Pt, type Ent } from './geometry'
+import { dist, arc3, dimGeom, dimSetLine, dimTextOffMm, type Pt, type Ent } from './geometry'
+import { dimSpec } from './dimSpec.svelte'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
@@ -162,9 +163,15 @@ async function dimChain(c: CmdCtx, baseline: boolean) {
 	c.host.tool('Select')
 	const src = await sourceDim(c), A = src.a!, B = src.b!
 	const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / L, ny = (B[0] - A[0]) / L
-	const step = 8 * c.t.paperMm() * (src.dimOff != null && src.dimOff < 0 ? -1 : 1)
-	let from = B, k = 0
+	const step = 8 * c.t.paperMm() * (dimTextOffMm(src, c.t.paperMm()) < 0 ? -1 : 1)
+	const g = dimGeom(src), linear = src.dimMode === 'h' || src.dimMode === 'v'
+	let from = linear ? g.M2 : B, k = 0
 	const make = (to: Pt, kk: number): Ent => {
+		if (linear) {   // a LINEAR (H / V) chain: the same mode, from the measured points, its dim line on the source's (stacked out for baseline)
+			const o = baseline ? step * kk : 0, q: Pt = [g.A[0] + g.p[0] * o, g.A[1] + g.p[1] * o]
+			const { id: _id, groupId: _g, text: _t, dimExt: _e, ...style } = src
+			return dimSetLine(c.t.newEnt({ ...style, type: 'dim', a: baseline ? g.M1 : from, b: to }), q)
+		}
 		const o = baseline ? step * kk : 0, a: Pt = baseline ? [A[0] + nx * o, A[1] + ny * o] : from
 		// the new point is projected onto the chain's line (continue) / measured along it (baseline), like AutoCAD
 		const t = (to[0] - A[0]) * (B[0] - A[0]) / L / L + (to[1] - A[1]) * (B[1] - A[1]) / L / L
@@ -627,6 +634,9 @@ export const SCRIPTS: Record<string, Script> = {
 		const [arc, txt] = build(D(c, p)), gid = 'g' + arc.id
 		c.t.apply({ add: [{ ...arc, groupId: gid }, { ...txt, groupId: gid }] })
 	},
+	// DIMLINEAR / DIMALIGNED: the Dimension tool with its mode set (Linear = H or V by the larger delta)
+	dimlinear: async (c) => { dimSpec.setMode('auto'); c.host.tool('Dimension'); c.out('Dimension · Linear (horizontal or vertical) — H / V / A switch while drawing') },
+	dimaligned: async (c) => { dimSpec.setMode('aligned'); c.host.tool('Dimension'); c.out('Dimension · Aligned') },
 	dimcontinue: (c) => dimChain(c, false),
 	dimbaseline: (c) => dimChain(c, true),
 	dimradius: (c) => dimCircle(c, false),

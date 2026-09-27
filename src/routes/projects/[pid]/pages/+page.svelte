@@ -498,16 +498,28 @@
 		applyClipViews(pasted)
 		return pasted.frames
 	}
+	/** Ctrl RELEASED mid-drag: the in-place copies go again (with their view-scoped notes) — within the drag's step. */
+	function removeFramesInPlace(tabId: string, ids: string[]) {
+		const rm = new Set(ids), sp = new Set(ids.map((id) => `view:${id}`))
+		setFrames(tabId, framesOf(tabId).filter((f) => !rm.has(f.id)))
+		for (const m of models) if (m.shapes?.some((e) => e.space && sp.has(e.space))) m.shapes = m.shapes.filter((e) => !e.space || !sp.has(e.space))
+	}
 	/** A pasted clip's views → every pane's view state for the new frame ids. */
 	function applyClipViews(c: FrameClip) {
 		for (const fr of c.frames) { const v = c.views?.[fr.id]; if (!v) continue
 			for (const p of session.panes) { setView(p.id, fr.id, fr.proj as Proj, v.view); if (v.yaw != null && v.pitch != null) setOrbit(p.id, fr.id, fr.proj as Proj, v.yaw, v.pitch) } }
 	}
 	function frameClipKey(tabId: string, k: 'c' | 'x' | 'v' | 'd'): boolean {
-		const f = selFrameObj
-		const clip = () => frameClipOf(tabId, f!)
-		if ((k === 'c' || k === 'x' || k === 'd') && !f) return false
-		if (k === 'c' || k === 'x') { const cl = clip(); saveClip(cl); navigator.clipboard?.writeText(JSON.stringify({ 'eos-pages-frames': 1, clip: cl })).catch(() => {}); toast(k === 'x' ? 'Viewport cut' : 'Viewport copied'); if (k === 'x') { deleteFrame(tabId, f!.id); selStore.set(tabId, selClear()) } return true }
+		// every selected frame (paper multi-select) — one clip, their relative layout kept
+		const ids = new Set(idsOfKind(selStore.of(tabId), 'frame')), fs = framesOf(tabId).filter((f) => ids.has(f.id))
+		const clip = (): FrameClip => { const cs = fs.map((f) => frameClipOf(tabId, f)); return { frames: cs.flatMap((c) => c.frames), shapes: cs.flatMap((c) => c.shapes), views: Object.assign({}, ...cs.map((c) => c.views ?? {})) } }
+		if ((k === 'c' || k === 'x' || k === 'd') && !fs.length) return false
+		const what = fs.length > 1 ? `${fs.length} viewports` : 'Viewport'
+		if (k === 'c' || k === 'x') {
+			const cl = clip(); saveClip(cl); navigator.clipboard?.writeText(JSON.stringify({ 'eos-pages-frames': 1, clip: cl })).catch(() => {}); toast(`${what} ${k === 'x' ? 'cut' : 'copied'}`)
+			if (k === 'x') { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => !ids.has(f.id))); for (const id of ids) deactivateVp(id); recordEdit(tabId, `Cut ${what.toLowerCase()}`); selStore.set(tabId, selClear()) }
+			return true
+		}
 		const src = k === 'd' ? clip() : loadClip(); if (!src) return false
 		const pasted = pasteClip(src, (p) => newId(p), nextFrameSeq(framesOf(tabId)), Math.round(10 * PAPER_PX_PER_MM))
 		ensureHist(tabId)
@@ -516,8 +528,8 @@
 		let lost = 0
 		for (const s of pasted.shapes) { const m = modelById(s.modelId); if (m) m.shapes = [...(m.shapes ?? []), s.ent]; else lost++ }
 		for (const fr of pasted.frames) if (fr.modelId && !modelById(fr.modelId)) lost++
-		recordEdit(tabId, k === 'd' ? 'Duplicate viewport' : 'Paste viewport')
-		selStore.set(tabId, selOnly(pasted.frames.map((fr): SelItem => ({ kind: 'frame', id: fr.id })).slice(0, 1)))
+		recordEdit(tabId, `${k === 'd' ? 'Duplicate' : 'Paste'} ${pasted.frames.length > 1 ? pasted.frames.length + ' viewports' : 'viewport'}`)
+		selStore.set(tabId, selOnly(pasted.frames.map((fr): SelItem => ({ kind: 'frame', id: fr.id }))))
 		if (lost) toast('Pasted — its model isn’t in this project, so the frame shows “Missing model”')
 		return true
 	}
@@ -796,7 +808,7 @@
 	// Selecting an entity likewise drops any tree-node selection (was `setSel`'s job pre-R3).
 	$effect(() => { if (idsOfKind(activeSel, 'ent').length) session.treeNode = null })
 	// Selecting a sheet viewport frame likewise shows its Properties.
-	$effect(() => { if (selFrameId) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
+	$effect(() => { if (selFrameIds.length) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
 	// A selected SECTION marker (phase 3): its model + the section, for Properties (name / depth / flip / z band, the
 	// viewports it drives); selecting one shows them.
 	let selSectionId = $derived(singleOfKind(activeSel, 'section')?.id ?? null)
@@ -1413,7 +1425,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, liveClip, liveOClip, frameViewTitle, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, removeFramesInPlace, liveClip, liveOClip, frameViewTitle, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
@@ -1542,6 +1554,8 @@
 						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} outletsFor={proj.outletsForRack} allocated={proj.allocatedOutlets}
 						sheets={(proj.store?.sheets ?? []).filter((s) => s.status !== 'archived' && !s.link).map((s) => ({ id: s.id, title: s.title, number: s.drawingNumber }))} onopenlink={openLink} onsaveblock={saveSelAsBlock} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
+						frameObjs={active && selFrameIds.length > 1 ? framesOf(active.id).filter((f) => selFrameIds.includes(f.id)) : []}
+						onframesupdate={(patch) => { if (!active || selFrameIds.length < 2) return; ensureHist(active.id); for (const id of selFrameIds) updateFrame(active.id, id, patch); commitFrame(active.id, `Edit ${selFrameIds.length} viewports`) }}
 						frameSection={selFrameObj ? (() => { const s = frameSection(selFrameObj, active?.id); return s ? sectionTitle(s) : undefined })() : undefined}
 						section={selSection?.sec ?? null} sectionLinks={selSection ? sectionLinks(selSection.sec.id) : []}
 						onsectionupdate={updateSelSection} onsectionopen={openSectionLink}

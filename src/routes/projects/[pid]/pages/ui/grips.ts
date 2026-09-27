@@ -10,7 +10,7 @@ import { elevMarkerGrips, applyElevGrip } from './elevMarker'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
 import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
-import { frameAxis, frameU, frameSetU, uToAlong, textBox, STYLE_DEFAULTS, isNote } from './geometry'
+import { frameAxis, frameU, frameSetU, uToAlong, textBox, STYLE_DEFAULTS, isNote, dimGeom, dimTextAt, dimSetLine } from './geometry'
 import { ctxFrame } from './view'
 import { doorGeom } from '../3dview/projection'
 import { insertBounds } from './blocks'
@@ -255,15 +255,16 @@ export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 			{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: (p) => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: (p) => ({ ...e, b: p }) },
 		]
-		{   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimOff)
-			const a = e.a!, b = e.b!, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
-			const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, px = -uy, py = ux
-			const off = e.dimOff ?? 2.5 * ctx.paperMm, t = e.dimT ?? 0.5
-			gs.push({ x: a[0] + ux * len * t + px * off, y: a[1] + uy * len * t + py * off, apply: (p: Pt) => {
+		{   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimTextOff, PAPER mm — so it reads
+			// the same at any scale; it replaces an older model-mm dimOff)
+			const g = dimGeom(e), a = g.A, len = g.len || 1, [ux, uy] = g.u, [px, py] = g.p, tp = dimTextAt(e, ctx.paperMm).p
+			gs.push({ x: tp[0], y: tp[1], apply: (p: Pt) => {
 				const along = (p[0] - a[0]) * ux + (p[1] - a[1]) * uy, perp = (p[0] - a[0]) * px + (p[1] - a[1]) * py
 				const nt = Math.max(0, Math.min(1, Math.round((along / len) * 100) / 100))
-				return { ...e, dimT: nt === 0.5 ? undefined : nt, dimOff: Math.round(perp) }
+				return { ...e, dimT: nt === 0.5 ? undefined : nt, dimTextOff: Math.round((perp / (ctx.paperMm || 1)) * 10) / 10, dimOff: undefined }
 			} })
+			// a grip on the DIM LINE (a quarter along it): drag it to move the line off / onto the measured points (dimExt)
+			gs.push({ x: a[0] + (g.B[0] - a[0]) * 0.25, y: a[1] + (g.B[1] - a[1]) * 0.25, apply: (p: Pt) => dimSetLine(e, p) })
 		}
 		return gs
 	}
@@ -374,7 +375,7 @@ export function constrainGrip(ctx: ViewCtx, base: Ent, gi: number, p: Pt, shift:
 		const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
 		return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
 	}
-	if (base.type === 'dim' || is2PtPolyline(base)) {
+	if ((base.type === 'dim' && gi <= 1) || is2PtPolyline(base)) {   // (a dim's text / dim-line grips: no 15° about an end)
 		const an = base.type === 'dim' ? (gi === 0 ? base.b! : base.a!) : (gi === 0 ? base.pts![1] : base.pts![0])
 		const dx = p[0] - an[0], dy = p[1] - an[1], len = Math.hypot(dx, dy), step = Math.PI / 12
 		const ang = Math.round(Math.atan2(dy, dx) / step) * step

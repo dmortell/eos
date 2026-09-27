@@ -10,7 +10,7 @@
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
 	import { blockDef, insertBounds } from '../../ui/blocks'
 	import { blockList } from '../../blocks.svelte'
-	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../../ui/geometry'
+	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, dimGeom, dimSetMode, dimTextOffMm, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash, type DimMode } from '../../ui/geometry'
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
@@ -82,9 +82,11 @@
 	function setCallout(on: boolean) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, callout: on }) }
 	// D8: a dimension's (or a 2-point line's) length; typing one moves the END along the same direction.
 	const ends = (e: Ent): [Pt, Pt] | null => e.type === 'dim' ? [e.a!, e.b!] : e.type === 'polyline' && e.pts?.length === 2 ? [e.pts[0], e.pts[1]] : null
-	const lineLen = (e: Ent) => { const q = ends(e); return q ? Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) : 0 }
+	// a LINEAR (H / V) dim measures only Δx / Δy (dimGeom): its length is that, and typing one moves b along that axis
+	const lineLen = (e: Ent) => { if (e.type === 'dim') return dimGeom(e).len; const q = ends(e); return q ? Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) : 0 }
 	function setLineLen(v: number) {
 		const e = single, q = e && ends(e), L = e ? lineLen(e) : 0; if (!e || !q || !(v > 0) || !L) return
+		if (e.type === 'dim' && (e.dimMode === 'h' || e.dimMode === 'v')) { const u = dimGeom(e).u; onupdate?.({ ...e, b: e.dimMode === 'h' ? [q[0][0] + u[0] * v, q[1][1]] : [q[1][0], q[0][1] + u[1] * v] }); return }
 		const b: Pt = [q[0][0] + ((q[1][0] - q[0][0]) * v) / L, q[0][1] + ((q[1][1] - q[0][1]) * v) / L]
 		onupdate?.(e.type === 'dim' ? { ...e, b } : { ...e, pts: [q[0], b] })
 	}
@@ -237,6 +239,14 @@
 	<!-- D8: type a length — the end point moves along the line, the angle stays -->
 	<div class="prop"><span>Length</span><input class="navf" type="number" min="1" value={Math.round(lineLen(single))} onkeydown={fnav} onchange={(e) => setLineLen(num(e))} /></div>
 	{#if single.type === 'dim'}
+		<!-- aligned (the true distance) or linear: only the horizontal / vertical distance — a switch keeps the measured points -->
+		<div class="prop"><span>Mode</span>
+			<select value={single.dimMode ?? 'aligned'} title="Aligned = the true distance between the points; Horizontal / Vertical = only Δx / Δy (a linear dimension)" onchange={(e) => onupdate?.(dimSetMode(single!, strVal(e) as DimMode))}>
+				<option value="aligned">Aligned</option><option value="h">Horizontal</option><option value="v">Vertical</option>
+			</select></div>
+		<!-- the figure's distance from the dim line, in PAPER mm (± = which side); its grip drags it (and along the line) -->
+		<div class="prop"><span>Text offset</span><input class="navf" type="number" step="0.5" value={Math.round((dimTextOffMm(single, scaleN) / (scaleN || 1)) * 10) / 10} title="How far the figure sits off the dimension line (paper mm, ± = which side) — or drag its grip"
+			onkeydown={fnav} onchange={(e) => { const n = num(e); if (Number.isFinite(n)) setAll({ dimTextOff: Math.round(n * 10) / 10, dimOff: undefined }) }} /></div>
 		<div class="prop"><span>Text</span><input value={single.text ?? ''} placeholder="(the length)" title="Your own text; <> = the measured length (e.g. R<>, Ø<>, <> typ.)" onchange={(e) => setAll({ text: strVal(e).trim() || undefined })} onkeydown={blurOnEnter} /></div>
 		<div class="prop"><span>Ext. lines</span><input class="navf" type="number" step="50" value={single.dimExt ?? 0} title="Extension lines: how far (mm, ± = which side) the measured points sit back from the dimension line; 0 = none" onkeydown={fnav} onchange={(e) => setAll({ dimExt: Math.round(num(e)) || undefined })} /></div>
 		<div class="prop"><span>Unit</span>

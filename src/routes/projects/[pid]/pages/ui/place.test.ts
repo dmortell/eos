@@ -38,6 +38,9 @@ describe('buildEnt', () => {
 	it('Line makes a 2-point polyline (R4: the retired line type); Dimension takes a/b as drawn — both with the view plane', () => {
 		expect(buildEnt(planCtx, 'Line', a, b, { centerDraw: false, uid: ids() })).toEqual({ id: 'e1', type: 'polyline', pts: [a, b], plane: undefined })
 		expect(buildEnt(elevCtx('front'), 'Dimension', a, b, { centerDraw: true, uid: ids() })).toEqual({ id: 'e1', type: 'dim', a, b, plane: 'front' })
+		// a linear dim stores its mode; aligned stays unset (existing data unchanged)
+		expect(buildEnt(planCtx, 'Dimension', a, b, { centerDraw: false, uid: ids(), dimMode: 'v' })).toMatchObject({ type: 'dim', a, b, dimMode: 'v' })
+		expect(buildEnt(planCtx, 'Dimension', a, b, { centerDraw: false, uid: ids(), dimMode: 'aligned' })).not.toHaveProperty('dimMode')
 	})
 	it('Rectangle / Ellipse use the corners as drawn, or centre-out with CEN (first point = centre)', () => {
 		expect(buildEnt(planCtx, 'Rectangle', a, b, { centerDraw: false, uid: ids() })).toMatchObject({ type: 'rect', a, b })

@@ -30,7 +30,9 @@
 		e.stopPropagation()   // the viewport / page keys stay out of the typing
 		if (e.key === 'Enter' || (e.key === ' ' && spaceIsEnter && !runner.want?.text)) {   // an unknown word with a suggestion showing → run the highlighted suggestion
 			e.preventDefault(); const s = sugg[pick]
-			submit(s && readToken(text.trim(), false).kind === 'error' ? primaryName(s) : text)
+			// a word answering the prompt's own options (the Dimension's H / V …) goes through as typed, not as a suggestion
+			const w = text.trim().toUpperCase(), isOption = !!w && (drawWant?.options ?? runner.want?.options ?? []).some((o) => o.toUpperCase().startsWith(w))
+			submit(s && !isOption && readToken(text.trim(), false).kind === 'error' ? primaryName(s) : text)
 		}
 		else if (e.key === 'Escape') { e.preventDefault(); if (text) text = ''; else submit('ESC') }
 		else if (e.key === 'Tab') { e.preventDefault(); complete() }

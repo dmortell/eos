@@ -1,7 +1,7 @@
 // MODIFY geometry for the command line (OFFSET / TRIM / EXTEND / BREAK / LENGTHEN) — pure, in DRAWING coords.
 // Lines are 'polyline' shapes; a polyline is parametrised by its arc length `s` (0 at pts[0]). Cutting / boundary
 // edges come from every other shape's outline (`outline`).
-import { type Pt, type Ent, arc3, arcPts, dist } from './geometry'
+import { type Pt, type Ent, arc3, arcPts, dist, dimGeom } from './geometry'
 
 const EPS = 1e-6
 const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]]
@@ -46,7 +46,7 @@ export function outline(e: Ent): Pt[][] {
 	switch (e.type) {
 		case 'polyline': return e.pts && e.pts.length >= 2 ? [e.pts] : []
 		case 'arc': return [arcPts(e)]
-		case 'dim': return [[e.a!, e.b!]]
+		case 'dim': { const g = dimGeom(e); return [[g.A, g.B]] }   // the dim line (a linear dim's is off its points)
 		case 'rect': { const [ax, ay] = e.a!, [bx, by] = e.b!, c: Pt = [(ax + bx) / 2, (ay + by) / 2]; return [R([[ax, ay], [bx, ay], [bx, by], [ax, by], [ax, ay]], c)] }
 		case 'ellipse': {
 			const c: Pt = [(e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2], rx = Math.abs(e.b![0] - e.a![0]) / 2, ry = Math.abs(e.b![1] - e.a![1]) / 2

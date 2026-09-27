@@ -70,8 +70,10 @@ export class CommandRunner {
 	private async step(token: string): Promise<boolean> {
 		if (this.want) return this.feed(token)
 		const t = cmdBus.target
-		const r = readToken(token, !!t?.drawing())
 		const err = (m: string | null | void) => { if (m) { this.out(m, 'err'); return false } return true }
+		// a draw tool's own option word (the Dimension's H / V …) wins over a command alias while it is armed
+		if (t?.drawing() && /^[a-z]+$/i.test(token)) { const o = t.drawOption?.(token); if (o !== undefined) return err(o) }
+		const r = readToken(token, !!t?.drawing())
 		switch (r.kind) {
 			case 'cmd': return err(await this.exec(r.id))
 			case 'point': return t ? err(t.acceptPoint(resolvePoint(r, t.lastPoint()))) : err('No active viewport — click into a view first')

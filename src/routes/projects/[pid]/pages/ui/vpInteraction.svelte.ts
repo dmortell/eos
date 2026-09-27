@@ -11,7 +11,7 @@
 import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, type View, STYLE_DEFAULTS, dist, frameAxis, alongToU, uToAlong, isNote } from './geometry'
+import { type Pt, type Ent, type View, STYLE_DEFAULTS, dist, frameAxis, alongToU, uToAlong, isNote, dimTextAt } from './geometry'
 import { ctxFrame } from './view'
 import { orbitShift, isoBounds, objBounds } from '../3dview/projection'
 import { beginPointerDrag, DragRegistry } from './gestures'
@@ -23,7 +23,7 @@ import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
 import { cptPick } from './cptPick.svelte'
 import { explodeEnt } from './explode'
 import { rackHeightMm } from '../store/racksImport'
-import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
+import { uvAt, DEFAULT_CPTS, followConnections } from '../3dview/connect'
 import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, translateObj, objSnapDelta, applyObjMoves, endObjMove, moveModelGrip, dropNodeJoin, type MGripDrag } from './vpModelEdit'
@@ -47,6 +47,7 @@ import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
 import type { VpView, SectionPatch } from './vpView.svelte'
 import type { Obj, Section } from '../3dview/types'
 import { sectionSpec } from './sectionSpec.svelte'
+import { dimSpec, resolveDimMode, DIM_TOOL_MODES } from './dimSpec.svelte'
 import { moveSection } from './sectionLine'
 import { elevMarkerObj, elevMarkerNumber, lookAngle, userToPlanAngle, ELEV_DEFAULT_ANGLE } from './elevMarker'
 
@@ -145,6 +146,11 @@ export class VpInteraction {
 				const os = ts.flatMap((t) => (t.k === 'obj' ? [t.o] : []))
 				if (os.length && this.v.mdl) { this.v.mdl.objects.push(...os); this.v.editor.edit.mark() }
 			},
+			remove: (ids) => {   // Ctrl released mid-drag: the copies go again (within the open step)
+				const rm = new Set(ids), m = this.v.mdl
+				const es = this.v.entities.filter((e) => rm.has(e.id)).map((e) => e.id); if (es.length) this.v.editor.ents.delete(es)
+				if (m && m.objects.some((o) => o.id && rm.has(o.id))) { m.objects = m.objects.filter((o) => !o.id || !rm.has(o.id)); this.v.editor.edit.mark() }
+			},
 			end: (ms) => { endObjMove(this.v, this.movedObjs); this.movedObjs = []; this.v.editor.edit.end(ms) },
 		},
 	}
@@ -152,19 +158,51 @@ export class VpInteraction {
 	 *  box by its outline, a wall / conduit by its nodes) and moved through the editing engine: one undo step. Returns
 	 *  an error to show, or null. (Properties › ARRANGE and the ALIGN command call it.) */
 	arrangeSel(op: AlignOp): string | null {
-		const v = this.v, src = this.drawSource, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is DItem => !!t)
-		const boxOf = (t: DItem): [number, number, number, number] => {
-			let pts: Pt[]
-			if (t.k === 'ent') { const [x0, y0, x1, y1] = bbox(v.ctx, t.e), c = rotCenter(v.ctx, t.e); pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map((q) => (t.e.rot ? rotatePt(q as Pt, c, t.e.rot) : q as Pt)) }
-			else if (t.o.type === 'prism') pts = prismOutline(v.ctx, t.o)
-			else pts = (t.o.nodes as GN[]).map((n) => v.graphNodeDraw(n))
-			const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
-			return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
-		}
-		const moves = arrangeMoves(items, op, boxOf, (t) => (t.k === 'ent' ? t.e.groupId : t.o.groupId))
+		const src = this.drawSource, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is DItem => !!t)
+		const moves = arrangeMoves(items, op, (t) => this.drawnBox(t), (t) => (t.k === 'ent' ? t.e.groupId : t.o.groupId))
 		if (!moves.length) return items.length < (op.endsWith('space') ? 3 : 2) ? (op.endsWith('space') ? 'Distribute needs 3 or more items (a group counts once)' : 'Select two or more items') : 'Nothing to move — they are already aligned'
 		src.commit.begin(); src.commit.update(moves.map(([t, dx, dy]) => src.translate(t, dx, dy))); src.commit.end()
 		return null
+	}
+	/** An item's box AS DRAWN in this view (a rotated box by its outline, a wall / conduit by its nodes). */
+	private drawnBox(t: DItem): [number, number, number, number] {
+		const v = this.v
+		let pts: Pt[]
+		if (t.k === 'ent') { const [x0, y0, x1, y1] = bbox(v.ctx, t.e), c = rotCenter(v.ctx, t.e); pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map((q) => (t.e.rot ? rotatePt(q as Pt, c, t.e.rot) : q as Pt)) }
+		else if (t.o.type === 'prism') pts = prismOutline(v.ctx, t.o)
+		else pts = (t.o.nodes as GN[]).map((n) => v.graphNodeDraw(n))
+		const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
+		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+	}
+	/** Properties ⟲ / ⟳ / "Rotate by": turn the selection — shapes AND 3D objects — `ccw` degrees (CAD sense) about
+	 *  its middle as drawn (one item turns in place), one undo step. 3D objects turn in PLAN only (about z); in another
+	 *  view the shapes still turn. Returns an error to show, or null. */
+	rotateSel(ccw: number): string | null {
+		const v = this.v, src = this.drawSource, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is DItem => !!t)
+		const ents = items.flatMap((t) => (t.k === 'ent' ? [t.e] : [])), objs = v.isPlan ? items.flatMap((t) => (t.k === 'obj' ? [t.o] : [])) : []
+		if (!ents.length && !objs.length) return items.length ? '3D objects turn in the plan view' : 'Select something to rotate'
+		if (!ccw) return null
+		const bs = [...ents.map((e): DItem => ({ k: 'ent', e })), ...objs.map((o): DItem => ({ k: 'obj', o }))].map((t) => this.drawnBox(t))
+		const pivot: Pt = ents.length === 1 && !objs.length ? rotCenter(v.ctx, ents[0])
+			: [(Math.min(...bs.map((b) => b[0])) + Math.max(...bs.map((b) => b[2]))) / 2, (Math.min(...bs.map((b) => b[1])) + Math.max(...bs.map((b) => b[3]))) / 2]
+		const deg = -ccw   // CAD CCW → drawing (y down) CW
+		const ed = v.editor
+		ed.edit.begin()
+		if (ents.length) ed.ents.updateMany(ents.map((e) => rotateAbout(e, pivot, deg, rotCenter(v.ctx, e))))
+		if (objs.length && v.mdl) {
+			for (const m of objs) {
+				const o = v.mdl.objects.find((x) => x.id === m.id); if (!o) continue
+				if (o.type === 'prism') {
+					const [cx, cy] = rotatePt([o.x + o.w / 2, o.y + o.d / 2], pivot, deg)
+					o.x = cx - o.w / 2; o.y = cy - o.d / 2
+					const r = (((o.rot ?? 0) + deg) % 360 + 360) % 360; o.rot = Math.abs(r) < 1e-9 ? undefined : r
+				} else for (const n of o.nodes as GN[]) { const [x, y] = rotatePt([n.x, n.y], pivot, deg); n.x = x; n.y = y }
+			}
+			followConnections(v.mdl, new Set(objs.map((o) => o.id!)))
+			ed.edit.mark()
+		}
+		ed.edit.end()
+		return !v.isPlan && items.some((t) => t.k === 'obj') ? '3D objects turn in the plan view — only the shapes turned' : null
 	}
 	/** Ctrl+A / SELECTALL: every shape AND 3D object this view can pick — visible, on an unlocked layer (objects in plan /
 	 *  elevation; the 3D view picks faces, not a selection box). */
@@ -223,6 +261,53 @@ export class VpInteraction {
 		this.guideCur = { orient: vert ? 'v' : 'h', pos: vert ? this.lastGuidePt[0] : this.lastGuidePt[1] }
 	}
 
+	// ── the live SPACING READOUT (dynamic input — the guide Δ generalised): a small label by the cursor with the length /
+	// angle / Δx Δy (user mm, Y up) from the last draft point while drawing, from where a shape or grip started while
+	// dragging it, from a command's base point, or from the selected guide while placing the next. VpWidgets draws it. ──
+	/** A move / grip drag's from → to (drawing coords) and the pointer; the engine's drag isn't reactive, so it's noted per move. */
+	private dragRO = $state<{ from: Pt; to: Pt; at: Pt } | null>(null)
+	private noteDragRO() {
+		const d = this.items.drag, src = this.drawSource
+		if (!d?.last) { this.dragRO = null; return }
+		if (d.kind === 'grip') {   // the grip's own travel (where the grip now sits — after snap / constraint)
+			const g0 = src.grips(d.base)[d.gi], cur = src.get(d.id), g1 = cur ? src.grips(cur)[d.gi] : undefined
+			this.dragRO = g0 && g1 ? { from: [g0.x, g0.y], to: [g1.x, g1.y], at: d.last } : null
+			return
+		}
+		const b0 = d.bases[0], cur = b0 ? src.get(src.id(b0)) : undefined   // the move as applied (axis lock / grid snap included)
+		if (!b0 || !cur) { this.dragRO = null; return }
+		const x0 = this.drawnBox(b0), x1 = this.drawnBox(cur)
+		this.dragRO = { from: [x0[0], x0[1]], to: [x1[0], x1[1]], at: d.last }
+	}
+	readout = $derived.by((): { x: number; y: number; lines: string[] } | null => {
+		const v = this.v; if (!v.active || this.editText) return null
+		const tool = v.tool, f = (n: number) => String(Math.round(n) || 0)
+		let from: Pt, to: Pt, at: Pt, kind: 'line' | 'box' | 'delta' | 'dim' | 'guide' = 'delta'
+		if (this.pickCur && this.pickBase) { from = this.pickBase; to = at = this.pickCur; if (this.pickBox) kind = 'box' }
+		else if (this.dragRO) ({ from, to, at } = this.dragRO)
+		else if (this.draft.length && this.cur && tool !== 'Elevation' && tool !== 'Text' && tool !== 'Block') {
+			const boxy = tool === 'Rectangle' || tool === 'Ellipse' || tool === 'Furniture' || tool === 'Opening' || (tool === 'Section' && sectionSpec.kind !== 'line')
+			from = POLY.has(tool) ? this.draft.at(-1)! : this.draft[0]; to = at = this.cur
+			kind = boxy ? 'box' : tool === 'Dimension' && resolveDimMode(dimSpec.mode, from, to) !== 'aligned' ? 'dim' : 'line'
+			if (boxy && v.centerDraw && (tool === 'Rectangle' || tool === 'Ellipse')) from = [2 * from[0] - to[0], 2 * from[1] - to[1]]   // CEN: centre-out
+		} else if (tool === 'Guide' && this.guideCur && this.lastGuidePt) {
+			const g = this.guideCur, ref = v.viewGuides.find((x) => v.modelSel.includes(x.id) && x.orient === g.orient); if (!ref) return null
+			from = g.orient === 'v' ? [ref.pos, 0] : [0, ref.pos]; to = g.orient === 'v' ? [g.pos, 0] : [0, g.pos]; at = this.lastGuidePt; kind = 'guide'
+		} else return null
+		const uf = this.toUser(from), ut = this.toUser(to); if (!uf || !ut) return null   // (3D: no user plane)
+		const dx = ut[0] - uf[0], dy = ut[1] - uf[1], L = Math.hypot(dx, dy)
+		if (L < 1e-6) return null
+		const ang = Math.round((((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360) * 10) / 10 % 360
+		const lines = kind === 'box' ? [`${f(Math.abs(dx))} × ${f(Math.abs(dy))} mm`]
+			: kind === 'guide' ? [`Δ ${f(L)} mm`]
+			: kind === 'dim' ? (() => { const m = resolveDimMode(dimSpec.mode, from, to); return [`${f(m === 'h' ? Math.abs(dx) : Math.abs(dy))} mm`, m === 'h' ? 'horizontal' : 'vertical'] })()
+			: [`${kind === 'delta' ? 'Δ ' : ''}${f(L)} mm  ∠ ${ang}°`, `Δx ${f(dx)}  Δy ${f(dy)}`]
+		// .vp-LOCAL px (pre canvas CSS transform), as the in-place editor's
+		const { vpW, vpH, vbW, vbH, minX, minY, view, dscale, cx: CX, cy: CY } = v; if (!vpW || !vpH) return null
+		const vbx = view.x + view.zoom * (CX + dscale * (at[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (at[1] - CY))
+		return { x: ((vbx - minX) / vbW) * vpW, y: ((vby - minY) / vbH) * vpH, lines }
+	})
+
 	// ── object snap (osnap, Kestrel-style) + the draw point: they RETURN the mark; the view shows it ──
 	private findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
 		const v = this.v, m = v.mapper()
@@ -253,7 +338,7 @@ export class VpInteraction {
 	// ── placing (builders in ui/place.ts; the side effects + tool dispatch stay here) ──
 	private place(a: Pt, b: Pt) {
 		const v = this.v, tool = v.tool
-		const ent = buildEnt(v.ctx, tool, a, b, { centerDraw: v.centerDraw, uid })   // Line / Rectangle / Ellipse / Dimension
+		const ent = buildEnt(v.ctx, tool, a, b, { centerDraw: v.centerDraw, uid, dimMode: resolveDimMode(dimSpec.mode, a, b) })   // Line / Rectangle / Ellipse / Dimension (its bar's mode)
 		if (ent) { v.editor.ents.add(ent); return }
 		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
 		if (ps && v.isPlan) { this.addModelObj(prismObj(v.ctx, a, b, ps.layer, ps.h, () => newId(ps.tag), tool === 'Opening' ? openingSpec.extra() : {})); return }   // an Opening takes the bar's type / height / sill
@@ -395,6 +480,7 @@ export class VpInteraction {
 		cancel: () => this.endDraft(),
 		close: () => { if (POLY.has(this.v.tool) && this.draft.length >= 3) { this.draft = [...this.draft, this.draft[0]]; this.finishPolyline() } },
 		undoPoint: () => { this.draft = this.draft.slice(0, -1); this.cur = this.draft.at(-1) ?? null },
+		drawOption: (token) => (this.v.tool === 'Dimension' && dimSpec.option(token) ? null : undefined),   // A / L / H / V: the Dimension's mode
 		selected: () => [...this.v.sel],
 		ents: (ids) => ids.map((id) => this.v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent),
 		visibleEnts: () => this.v.entities.filter((e) => this.v.inThisView(e) && !this.v.isLayerHidden(e.layer)).map((e) => $state.snapshot(e) as Ent),
@@ -472,6 +558,7 @@ export class VpInteraction {
 		selObjLayer: () => { const ids = idsOfKind(this.v.selection, 'obj'); const o = ids.length === 1 ? this.v.mdl?.objects.find((x) => x.id === ids[0]) : null; return o?.layer ?? null },
 		hasSelection: () => this.v.sel.length > 0 || idsOfKind(this.v.selection, 'obj').length > 0,
 		arrangeSel: (op) => this.arrangeSel(op),
+		rotateSel: (ccw) => this.rotateSel(ccw),
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
 		addRack: ({ u, w, d, at, rot }) => {
@@ -501,6 +588,10 @@ export class VpInteraction {
 			if (POLY.has(t)) return n ? { prompt: `${t}: specify next point  <Enter / right-click finishes>`, options: n >= 2 && t === 'Line' ? ['Close', 'Undo'] : ['Undo'] } : { prompt: `${t}: specify first point` }
 			if (t === 'Section' && sectionSpec.kind === 'line') return n ? { prompt: 'Section line: specify its end (A′) — it looks to the left of A → A′', options: ['Undo'] } : { prompt: 'Section line: specify its start (A)' }
 			if (t === 'Elevation') return n ? { prompt: 'Elevation: specify the way it looks — a point, or an angle (CCW from +X, 90 = up the sheet)  <Enter = up>', options: ['Undo'] } : { prompt: 'Elevation: specify the marker point' }
+			if (t === 'Dimension') {   // its mode is an option at either point (the bar shows it too)
+				const lbl = DIM_TOOL_MODES.find(([m]) => m === dimSpec.mode)?.[1] ?? ''
+				return { prompt: `Dimension (${lbl}): specify ${n ? 'second' : 'first'} point`, options: [...DIM_TOOL_MODES.filter(([m]) => m !== dimSpec.mode).map(([, , o]) => o), ...(n ? ['Undo'] : [])] }
+			}
 			const corner = t === 'Rectangle' || t === 'Ellipse' || t === 'Furniture' || t === 'Section'
 			return n ? { prompt: `${t}: specify ${corner ? 'opposite corner' : 'second point'}`, options: ['Undo'] } : { prompt: `${t}: specify ${corner ? 'first corner' : 'first point'}` }
 		},
@@ -596,10 +687,7 @@ export class VpInteraction {
 		const localPx = (q: Pt): Pt => { const vbx = view.x + view.zoom * (CX + dscale * (q[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (q[1] - CY)); return [(vbx - minX) / vbW * vpW, (vby - minY) / v.vbH * vpH] }
 		let at: Pt, rot: number, align: 'left' | 'center' | 'right' = 'center'
 		if (ent.type === 'dim') {
-			const A = ent.a!, B = ent.b!, len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, ux = (B[0] - A[0]) / len, uy = (B[1] - A[1]) / len
-			const off = ent.dimOff ?? 2.5 * paperMm, t = ent.dimT ?? 0.5
-			at = [A[0] + ux * len * t - uy * off, A[1] + uy * len * t + ux * off]
-			const ang = (Math.atan2(uy, ux) * 180) / Math.PI; rot = ang > 90 || ang < -90 ? ang + 180 : ang
+			const ta = dimTextAt(ent, paperMm); at = ta.p; rot = ta.rot   // aligned / H / V (geometry.ts)
 		} else {
 			const lb = lineLabelAt(ent.pts ?? [], ent.textPos, 1.2 * paperMm); if (!lb) return
 			at = lb.p; rot = lb.rot; align = lb.anchor === 'start' ? 'left' : lb.anchor === 'end' ? 'right' : 'center'
@@ -806,7 +894,11 @@ export class VpInteraction {
 		}
 		if (tool === 'Select') {
 			const p = v.toModel(e.clientX, e.clientY); if (!p) return
-			if (v.kind === 'iso') { const mid = hitIsoFaces(v.isoFaces, p); if (mid) v.selectObj(mid); else v.clearSel(); return }   // 3D: select a shape (no in-view grips yet)
+			if (v.kind === 'iso') {   // 3D: select a shape (no in-view grips yet) — or a screen-facing callout / legend (ui/isoAnno.ts) in paint order
+				const aid = v.hitIsoAnno(p), mid = aid ? null : hitIsoFaces(v.isoFaces, p), bid = aid || mid ? null : v.hitIsoAnno(p, true)
+				if (aid || bid) v.selectEnts(v.expandGroup([(aid ?? bid)!])); else if (mid) v.selectObj(mid); else v.clearSel()
+				return
+			}
 			// B25: a Shift-press toggles the entity that was PRESSED, not whatever sits under the release point.
 			const g = v.expandGroup(this.shiftPressId ? [this.shiftPressId] : v.hit(p))   // + any group it belongs to
 			this.shiftPressId = null
@@ -922,7 +1014,7 @@ export class VpInteraction {
 	/** Re-apply the Shift constraint the instant Shift changes — for a draw and for a move/grip drag. */
 	private reconstrain(shift: boolean) {
 		const v = this.v
-		if (this.items.drag) this.items.reconstrain(shift)
+		if (this.items.drag) { this.items.reconstrain(shift); this.noteDragRO() }
 		else if (v.active && this.draft.length && this.lastRaw) this.cur = constrainPt(this.constrainTool, this.draft.at(-1)!, this.lastRaw, shift)   // Shift: square / 15°
 	}
 	/** The tool a Shift constraint follows: a section LINE draws like a line (15° steps), else the tool itself. */
@@ -935,6 +1027,7 @@ export class VpInteraction {
 		if (!v.active || !v.focused || this.editText) return   // in split view only the focused pane handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { v.shiftDown = true; this.reconstrain(true); this.updateGuidePreview(true); return }
+		if ((e.key === 'Control' || e.key === 'Meta') && this.items.drag) { this.items.setDup(true); return }   // copy, live
 		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
 		if (e.key === 'Enter' && this.finishElev()) { e.preventDefault(); return }   // Elevation: its point placed → look up the sheet
@@ -977,6 +1070,7 @@ export class VpInteraction {
 		else v.on.deactivate?.()
 	}
 	onKeyUp = (e: KeyboardEvent) => {
+		if ((e.key === 'Control' || e.key === 'Meta') && this.items.drag && this.v.active && this.v.focused) { this.items.setDup(false); return }
 		if (e.key !== 'Shift') return
 		this.v.shiftDown = false
 		if (this.v.active && this.v.focused) { this.reconstrain(false); this.updateGuidePreview(false) }
@@ -1094,12 +1188,13 @@ export class VpInteraction {
 	private onDragMove = (e: PointerEvent) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
 		this.items.moveTo(p, e.shiftKey, { x: e.clientX, y: e.clientY }, e.altKey)   // Alt = snapping off for this move
+		this.noteDragRO()   // the spacing readout by the cursor
 	}
 	private onDragUp = (_e: PointerEvent, _s: null, moved: boolean) => {
 		if (moved) this.suppressClick = true
-		this.v.snapMark = null; this.items.endMove()
+		this.v.snapMark = null; this.items.endMove(); this.dragRO = null
 	}
-	private onDragCancel = (_s: null, moved: boolean) => { this.v.snapMark = null; this.items.cancelMove(moved) }   // 2nd finger → revert any partial move/resize
+	private onDragCancel = (_s: null, moved: boolean) => { this.v.snapMark = null; this.items.cancelMove(moved); this.dragRO = null }   // 2nd finger → revert any partial move/resize
 
 	// ── EOS press-drag draw: press = first point, drag = preview, release = second point ──
 	private onDrawMove = (e: PointerEvent) => {

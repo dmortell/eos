@@ -19,6 +19,7 @@ import { SNAP_STEP, rndTo, snapNode, graphNodeApply, elevDepthSnap } from './sna
 import { barycentre, groupBox } from './groupXf'
 import { connPoints, objPoints, type ConnPt } from '../3dview/connect'
 import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDraw, hitModel, isoPickFaces, viewMapOf, hitSection, hitGuide, type GN } from './hit'
+import { hitIsoAnno } from './isoAnno'
 import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
@@ -397,6 +398,11 @@ export class VpView {
 		const vm = viewMapOf(this.ctx, b)
 		return (x: number, y: number): Pt => vm.toDraw({ x, y, z: 0 })
 	})
+	/** ISO: the screen-facing callout / legend under p (ui/isoAnno.ts), on a shown + unlocked layer. `back` = the
+	 *  background-layer ones, drawn UNDER the model (so the click tries them after its faces); else the front ones,
+	 *  drawn over it (tried first). */
+	hitIsoAnno = (p: Pt, back = false) => hitIsoAnno(this.ctx, back ? this.backEnts : this.frontEnts, this.isoGround, p, this.tolMm(3.5),
+		(e) => !this.isLayerHidden(e.layer) && !this.isLayerLocked(e.layer))
 
 	// ── section markers (B5: they live in the MODEL; edits mutate it in place, bracketed on its history) ──
 	sections = $derived(this.isPlan ? (this.mdl?.sections ?? []) : [])

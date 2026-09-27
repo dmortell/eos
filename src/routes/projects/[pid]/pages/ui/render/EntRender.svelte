@@ -11,9 +11,10 @@
 	// stays with the caller. Tool UI (`preview`, `drawDot`, `crosshair` snippets) stays in the Viewport.
 	import type { Pt, Ent, Dash } from '../geometry'
 	import type { ViewCtx } from '../view'
-	import { STYLE_DEFAULTS, textBox, arcPath, isNote, dimExtLines } from '../geometry'
+	import { STYLE_DEFAULTS, textBox, arcPath, isNote, dimExtLines, dimGeom, dimTextAt } from '../geometry'
 	import { PT_MM } from '../../constants'
-	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom } from '../hit'
+	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom, bbox } from '../hit'
+	import { isoFacing, isoAnnoEnt } from '../isoAnno'
 	import { noteRuns } from '../noteLayout'
 	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, hatchLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
@@ -51,7 +52,8 @@
 			/** I2: a black-and-white viewport — every colour is the ink. */
 			mono?: boolean
 		}
-		/** Iso view only: projects a plan point onto the ground plane (drawing coords). Null elsewhere. */
+		/** Iso view only: projects a plan point onto the ground plane (drawing coords). Null elsewhere. Lays plan
+		 *  shapes on the ground, and anchors the screen-facing callouts / legends (ui/isoAnno.ts). */
 		isoGround?: ((x: number, y: number) => Pt) | null
 		/** The id of the image currently in CROP calibration (shows the full image faint + the crop window), or null. */
 		imgCrop?: string | null
@@ -78,9 +80,23 @@
 	const paperMm = $derived(style.paperMm)
 	const canvasZoom = $derived(style.canvasZoom)
 	const SEL = $derived(style.sel)
+	// ISO: a callout / legend faces the SCREEN (ui/isoAnno.ts) — its anchors (text position, leader tip, legend corner)
+	// projected into iso drawing coords, then drawn by the ordinary 2D path at paper size, upright. The child render
+	// gets a non-iso ctx so it takes the `drawn` branch instead of the ground projection (the copy's points are
+	// already projected); every other ctx field (paperMm, the model's layers for a legend's rows) is the view's own.
+	const isoAnno = $derived(isoGround && groundInIso(ctx, e) && isoFacing(e) ? isoAnnoEnt(e, isoGround) : null)
+	const flatCtx = $derived<ViewCtx>(isoAnno ? { ...ctx, isIso: false } : ctx)
 </script>
 
-{#if groundInIso(ctx, e)}
+{#if isoAnno}
+	<EntRender e={isoAnno} ctx={flatCtx} {selected} {style} {imgCrop} {clipNs} />
+	<!-- no grips in the iso view (VpOverlays skips ground-in-iso shapes): a selected one shows a dashed frame instead -->
+	{#if selected}
+		{@const bb = bbox(flatCtx, isoAnno)}
+		{@const m = style.gripSize}
+		<rect x={bb[0] - m} y={bb[1] - m} width={bb[2] - bb[0] + 2 * m} height={bb[3] - bb[1] + 2 * m} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{4 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" style="pointer-events:none" />
+	{/if}
+{:else if groundInIso(ctx, e)}
 	<!-- a plan 2D shape laid on the GROUND in the iso view: outline points (rotated by e.rot) projected via
 	     isoGround. Text places at its projected anchor; other types draw as a (foreshortened) poly. -->
 	{#if isoGround}
@@ -174,19 +190,17 @@
 		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}
 		<!-- a real dimension: dim line with arrowheads, perpendicular extension ticks, and the measured
-		     length (mm) set above the line, aligned to it, at a constant on-screen size. -->
+		     length (mm) set above the line, aligned to it, at a constant on-screen size. Aligned / horizontal /
+		     vertical (dimMode) — geometry.ts dimGeom places the dim line and the extension lines. -->
 		{@const col = selected ? SEL : (e.color ?? '#0e766e')}
-		{@const A = e.a!}{@const B = e.b!}
-		{@const len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1}
-		{@const ux = (B[0] - A[0]) / len}{@const uy = (B[1] - A[1]) / len}
-		{@const px = -uy}{@const py = ux}
+		{@const g = dimGeom(e)}
+		{@const A = g.A}{@const B = g.B}
+		{@const px = g.p[0]}{@const py = g.p[1]}
 		{@const tk = 1.5 * paperMm}
-		{@const off = e.dimOff ?? 2.5 * paperMm}
-		{@const t = e.dimT ?? 0.5}
-		{@const mx = A[0] + ux * len * t + px * off}
-		{@const my = A[1] + uy * len * t + py * off}
-		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
-		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
+		{@const ta = dimTextAt(e, paperMm)}
+		{@const mx = ta.p[0]}{@const my = ta.p[1]}
+		{@const rang = ta.rot}
+		{@const len = g.len}
 		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 		<!-- XP33: a dimension's ends default to ARROW; each end can be arrow / dot / tick / none -->
 		{@render head(headGeom(e.headStart ?? 'arrow', B, A, 3.5 * paperMm), col)}

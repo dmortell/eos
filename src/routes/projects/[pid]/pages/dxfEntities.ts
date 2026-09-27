@@ -54,15 +54,18 @@ export function addAttribs(out: EntitiesManager, ins: Insert, atts: { at: vec3_t
  *  dimension only", +128 "text at a user-defined position" — as AutoCAD writes a moved figure). `text` = the
  *  override ('<>' = the measured value); undefined = the measurement. */
 export class DimEnt extends EntityBase {
+	/** `o.rotated` (degrees): a ROTATED / linear dimension (type 0 — horizontal 0°, vertical 90°) measuring along that
+	 *  angle instead of an aligned one. */
 	constructor(readonly p1: vec3_t, readonly p2: vec3_t, readonly defPt: vec3_t, readonly textPt: vec3_t,
-		readonly o: { block?: string; text?: string; style?: string; measured?: number; layerName?: string } = {}) {
+		readonly o: { block?: string; text?: string; style?: string; measured?: number; layerName?: string; rotated?: number } = {}) {
 		super('DIMENSION', 'AcDbDimension', { layerName: o.layerName })
 	}
 	protected dxfyChild(dx: Dxfier) {
+		const rotated = this.o.rotated != null
 		dx.push(2, this.o.block)
 		dx.point3d(this.defPt)
 		dx.point3d(this.textPt, 1)
-		dx.push(70, 1 | (this.o.block ? 32 : 0) | 128)
+		dx.push(70, (rotated ? 0 : 1) | (this.o.block ? 32 : 0) | 128)
 		dx.push(71, 5)   // attachment: middle-centre
 		dx.push(42, this.o.measured)
 		dx.push(1, this.o.text)
@@ -72,7 +75,8 @@ export class DimEnt extends EntityBase {
 		dx.point3d(this.p2, 4)
 		// the measured direction: AutoCAD ignores 50 on an aligned dim, but readers that measure every linear dim
 		// along 50 (ezdxf) would otherwise read a vertical one as 0
-		dx.push(50, (Math.atan2(this.p2.y - this.p1.y, this.p2.x - this.p1.x) * 180) / Math.PI)
+		dx.push(50, rotated ? this.o.rotated : (Math.atan2(this.p2.y - this.p1.y, this.p2.x - this.p1.x) * 180) / Math.PI)
+		if (rotated) dx.subclassMarker('AcDbRotatedDimension')
 	}
 }
 

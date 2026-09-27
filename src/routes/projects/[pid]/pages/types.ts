@@ -131,6 +131,7 @@ export type Workspace = {
 	commitFrame: (tabId: string, label: string) => void
 	/** Ctrl-drag on viewport frames: copies in place (with their views), returned. */
 	dupFramesInPlace: (tabId: string, ids: string[]) => SheetFrame[]
+	removeFramesInPlace: (tabId: string, ids: string[]) => void
 	/** A frame's clip (a section-linked frame follows its marker). */
 	liveClip: (f: SheetFrame, tabId?: string) => import('./3dview/types').Clip | null
 	/** A frame's ORIENTED clip — a section LINE's view (live from the section, else the frame's last copy); null = none. */

@@ -158,6 +158,18 @@ describe('DXF export — dimensions (O17)', () => {
 		expect(num(v, 50)).toBe(-90)   // a vertical dim's direction (down the page = −y in the DXF)
 		expect(new Set(ds.map((d) => get(d, 2))).size).toBe(3)   // one geometry block each
 	})
+	it('a linear H / V dim is a ROTATED dimension at 0° / 90°: the measured points, the dim line through b, Δx / Δy', () => {
+		const rs = records(viewToDxf({ model: bare, ents: [dim({ id: 'h', a: [0, 0], b: [1000, -400], dimMode: 'h', dimExt: -200 }), dim({ id: 'v', a: [0, 0], b: [1000, -400], dimMode: 'v' })], dir: 'plan', scaleN: 100 }).text)
+		const [h, v] = ofType(rs, 'DIMENSION')
+		expect(num(h, 70)).toBe(0 | 32 | 128)   // rotated (linear), own block, text placed
+		expect(num(h, 50)).toBe(0)
+		expect(num(h, 42)).toBe(1000)
+		expect([num(h, 13), num(h, 23), num(h, 14), num(h, 24)]).toEqual([0, 0, 1000, 400])   // the measured points a / b (y up)
+		expect([num(h, 10), num(h, 20)]).toEqual([1000, 200])   // the dim line: y = a.y + dimExt (drawing −200 → up 200)
+		expect(h.g.filter(([c]) => c === 100).map(([, s]) => s)).toContain('AcDbRotatedDimension')
+		expect(num(v, 70)).toBe(0 | 32 | 128); expect(num(v, 50)).toBe(90); expect(num(v, 42)).toBe(400)
+		expect([num(v, 10), num(v, 20)]).toEqual([0, 400])   // a vertical line through a, up to b's level
+	})
 })
 
 // ── O15: images as IMAGE + IMAGEDEF referencing sidecar files ──

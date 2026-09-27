@@ -34,10 +34,15 @@ export interface ItemSource<T> {
 	sel: { ids(): string[]; set(ids: string[]): void }
 	/** The kind's OWN history channel: begin a step, stream updates, add copies, close the step (`settleMs` = keep it
 	 *  open that long so a burst — arrow nudges — coalesces into one step). */
-	commit: { begin(): void; update(ts: T[]): void; add(ts: T[]): void; end(settleMs?: number): void }
+	commit: { begin(): void; update(ts: T[]): void; add(ts: T[]): void; end(settleMs?: number): void
+		/** Take items back out within the open step (Ctrl RELEASED mid-drag drops the copies) — without it a kind can
+		 *  only switch a drag into a copy, not back. */
+		remove?(ids: string[]): void }
 }
 
-export type MoveDrag<T> = { id: string; base: T; bases: T[]; kind: 'move' | 'grip'; gi: number; start: Pt; dup: boolean; duplicated: boolean; last: Pt | null }
+export type MoveDrag<T> = { id: string; base: T; bases: T[]; kind: 'move' | 'grip'; gi: number; start: Pt; dup: boolean; duplicated: boolean; last: Pt | null
+	/** the items as pressed (Ctrl toggled mid-drag puts them back / moves them again) + the last Shift / Alt state */
+	orig: T[]; shift: boolean; free: boolean }
 export type Marquee = { a: Pt; b: Pt; add?: boolean }
 
 export class ItemEditor<T> {
@@ -65,14 +70,14 @@ export class ItemEditor<T> {
 		const moveIds = kind === 'move' ? (sel.has(id) ? src.sel.ids() : expand([id])) : [id]
 		const bases = moveIds.map((i) => src.get(i)).filter((t): t is T => !!t)
 		if (src.canMove && bases.some((t) => !src.canMove!(t))) return false
-		this.drag = { id, base, bases, kind, gi, start: p, dup: opts.dup && kind === 'move', duplicated: false, last: null }
+		this.drag = { id, base, bases, kind, gi, start: p, dup: opts.dup && kind === 'move', duplicated: false, last: null, orig: bases, shift: false, free: false }
 		src.commit.begin()
 		return true
 	}
 	/** The pointer at surface point `p` (client point for the grip's object snap). */
 	moveTo(p: Pt, shift: boolean, client?: { x: number; y: number }, free = false) {
 		const src = this.src, d = this.drag; if (!d) return
-		d.last = p
+		d.last = p; d.shift = shift; d.free = free
 		if (d.kind === 'grip') {
 			const g = src.grips(d.base)[d.gi]; if (!g) return
 			const s = client && this.env.gripSnap && !free ? this.env.gripSnap(client.x, client.y, d.id) : null   // Alt: no object snap
@@ -94,6 +99,26 @@ export class ItemEditor<T> {
 		if (d.kind === 'grip') { this.moveTo(d.last, shift); return }
 		const [dx, dy] = this.axisLock(d.last[0] - d.start[0], d.last[1] - d.start[1], shift)
 		src.commit.update(d.bases.map((b) => src.translate(b, dx, dy)))
+	}
+	/** Ctrl pressed / released DURING a move drag, applied at once (not on the next pointer move): on → the originals go
+	 *  back to where they were and copies follow the pointer; off → the copies are removed and the originals follow it
+	 *  again. Before the first move it only sets what the first move does. */
+	setDup(on: boolean) {
+		const src = this.src, d = this.drag; if (!d || d.kind !== 'move' || d.dup === on) return
+		if (!on && d.duplicated && !src.commit.remove) return   // this kind can't take copies back out: stays a copy
+		d.dup = on
+		if (!d.last) return   // not moved yet: the first move decides
+		if (on) {
+			src.commit.update(d.orig)   // the originals back in place
+			const copies = src.duplicate(d.orig)
+			src.commit.add(copies); src.sel.set(copies.map((c) => src.id(c)))
+			d.bases = copies; d.duplicated = true
+		} else if (d.duplicated) {
+			src.commit.remove!(d.bases.map((c) => src.id(c)))
+			d.bases = d.orig; d.duplicated = false
+			src.sel.set(d.orig.map((t) => src.id(t)))
+		}
+		this.moveTo(d.last, d.shift, undefined, d.free)
 	}
 	endMove() { if (!this.drag) return; this.drag = null; this.src.commit.end() }
 	/** A cancelled drag (a second finger): put the items back. */

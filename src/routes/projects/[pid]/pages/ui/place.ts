@@ -3,7 +3,7 @@
 // the tool / view doesn't produce one). The Viewport keeps the side effects — `on.add`, `addModelObj`, the
 // guides push, toasts — and the 'Section' tool (B5: `on.section(clip)` stays with the caller until
 // `sectionObj` lands). Ids come in as functions so the builders stay deterministic under test.
-import type { Pt, Ent, ElevDir } from './geometry'
+import type { Pt, Ent, ElevDir, DimMode } from './geometry'
 import { ctxFrame, type ViewCtx } from './view'
 import type { Obj, Guide, Model, Section, BoxSection, LineSection, Clip } from '../3dview/types'
 import { frameAxis, frameStep, uToAlong, dist, translate } from './geometry'
@@ -24,14 +24,14 @@ export const resolveLayer = (mdl: Model | undefined, id: string): string | undef
 /** The two-point DRAW tools that make a 2D entity. Rect / ellipse honour CEN (centre-out: the first point is
  *  the centre). Returns null for every other tool: 'Furniture' / 'Opening' are model prisms (see
  *  `PRISM_TOOL` + `prismObj`), 'Section' is B5's clip box, 'Text' is placed by its own editor. */
-export function buildEnt(ctx: ViewCtx, tool: string, a: Pt, b: Pt, opts: { centerDraw: boolean; uid: () => string }): Ent | null {
+export function buildEnt(ctx: ViewCtx, tool: string, a: Pt, b: Pt, opts: { centerDraw: boolean; uid: () => string; /** the Dimension's mode (resolved: ui/dimSpec) — 'h' / 'v' stored, aligned left unset */ dimMode?: DimMode }): Ent | null {
 	const plane = drawPlane(ctx)
 	// R4: a 2-point polyline (the retired 'line' type's replacement). SEAM for a future command-line `LINE`
 	// entry (AutoCAD-style typed command instead of a mouse click): it should build the exact same shape —
 	// `{ type: 'polyline', pts: [a, b], plane }` — through this function or a shared helper, not a bespoke
 	// 'line' path, so keyboard- and pointer-drawn lines stay identical entities.
 	if (tool === 'Line') return { id: opts.uid(), type: 'polyline', pts: [a, b], plane }
-	if (tool === 'Dimension') return { id: opts.uid(), type: 'dim', a, b, plane }
+	if (tool === 'Dimension') return { id: opts.uid(), type: 'dim', a, b, plane, ...(opts.dimMode === 'h' || opts.dimMode === 'v' ? { dimMode: opts.dimMode } : {}) }
 	if (tool === 'Rectangle' || tool === 'Ellipse') {
 		const [ra, rb] = opts.centerDraw ? centerCorners(a, b) : [a, b]
 		return { id: opts.uid(), type: tool === 'Rectangle' ? 'rect' : 'ellipse', a: ra, b: rb, plane }

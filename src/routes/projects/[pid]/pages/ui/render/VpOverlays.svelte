@@ -7,7 +7,8 @@
 	// selection marquee. Tool UI only — no document content.
 	import Handle from '../../parts/Handle.svelte'
 	import { rotCenter, rotatePt, groundInIso } from '../hit'
-	import type { Pt } from '../geometry'
+	import { dimGeom, type Pt } from '../geometry'
+	import { dimSpec, resolveDimMode } from '../dimSpec.svelte'
 	import { SEL, type VpView } from '../vpView.svelte'
 	import { DRAW, POLY, type VpInteraction } from '../vpInteraction.svelte'
 	import { imgEdit } from '../../imageEdit.svelte'
@@ -145,8 +146,13 @@
 {#snippet preview(a: Pt, p: Pt)}
 	{@const tool = v.tool}
 	{@const qa = v.centerDraw && (tool === 'Rectangle' || tool === 'Ellipse') ? ([2 * a[0] - p[0], 2 * a[1] - p[1]] as Pt) : a}
-	{#if tool === 'Line' || tool === 'Dimension'}
+	{#if tool === 'Line'}
 		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-width={sw} />
+	{:else if tool === 'Dimension'}
+		<!-- the dim line as it will draw (its bar's mode: aligned / linear H or V) + extension lines to the points -->
+		{@const g = dimGeom({ id: '', type: 'dim', a, b: p, dimMode: resolveDimMode(dimSpec.mode, a, p) })}
+		<line x1={g.A[0]} y1={g.A[1]} x2={g.B[0]} y2={g.B[1]} stroke={SEL} stroke-width={sw} />
+		{#each [[g.M1, g.A], [g.M2, g.B]] as [m, d], i (i)}<line x1={m[0]} y1={m[1]} x2={d[0]} y2={d[1]} stroke={SEL} stroke-width={sw} stroke-dasharray="{3 * sw} {3 * sw}" opacity="0.7" />{/each}
 	{:else if tool === 'Rectangle'}
 		<rect x={Math.min(qa[0], p[0])} y={Math.min(qa[1], p[1])} width={Math.abs(p[0] - qa[0])} height={Math.abs(p[1] - qa[1])} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Ellipse'}

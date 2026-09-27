@@ -76,6 +76,13 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// DIMENSION text position ALONG the line: 0..1 fraction from start (a) to end (b); undefined = 0.5
 	// (centred). Draggable via the same text grip. Firestore-stable.
 	dimT?: number;
+	// DIMENSION mode (`dimGeom`): unset = ALIGNED (the true a→b distance, a / b on the dim line); 'h' / 'v' = a LINEAR
+	// dim measuring only Δx / Δy — a / b are then the MEASURED points and the dim line is horizontal / vertical, `dimExt`
+	// from a. Firestore-stable.
+	dimMode?: DimMode;
+	// DIMENSION text offset in PAPER mm (signed, perpendicular to the dim line — the same side convention as dimOff),
+	// so it reads the same at any scale; supersedes the older model-mm `dimOff`. Unset = dimOff, else 2.5. Firestore-stable.
+	dimTextOff?: number;
 	// D10 DIMENSION unit: the figure in mm (unset) / cm / m (ui/drawingDefaults dimLabel). Firestore-stable.
 	unit?: 'mm' | 'cm' | 'm'
 	// BLOCK INSERT (type 'insert', ui/blocks.ts): `block` = the global block definition id, placed with its
@@ -86,14 +93,67 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// A WRAPPED TEXT (was the K3 NOTE; `isNote`): a text with `noteW` — its `text` is markdown (ui/noteLayout.ts), laid out from its top-left `a` in a box `noteW` PAPER
 	// mm wide (annotative, default 90); `noteBox` draws the frame round it. Firestore-stable.
 	noteW?: number; noteBox?: boolean }
+/** A dimension's mode: 'aligned' (the default — unset on the shape) or a linear 'h' / 'v'. */
+export type DimMode = 'aligned' | 'h' | 'v'
+/** A dimension as drawn: the dim line A → B, the measured points M1 / M2 (the extension lines run M → A / B), the dim
+ *  line's unit direction `u` and perpendicular `p` (= (−u.y, u.x): the +dimExt / +text side), and the measured value. */
+export type DimGeom = { A: Pt; B: Pt; M1: Pt; M2: Pt; u: Pt; p: Pt; len: number }
+/** Where a dimension draws, per its mode. ALIGNED: a / b are the dim line's ends, the measured points sit `dimExt` back
+ *  along −p; the value is |b − a|. H / V: a / b are the measured points, the dim line is horizontal / vertical through
+ *  a moved `dimExt` along p (so dimExt reads the same way: how far a sits back from the line); the value is |Δx| / |Δy|.
+ *  u follows a → b along the axis, so rotating / mirroring the points carries the frame along. */
+export function dimGeom(e: Ent): DimGeom {
+	const a = e.a ?? [0, 0], b = e.b ?? a, ext = e.dimExt ?? 0
+	if (e.dimMode === 'h' || e.dimMode === 'v') {
+		const h = e.dimMode === 'h', s = Math.sign(h ? b[0] - a[0] : b[1] - a[1]) || 1
+		const u: Pt = h ? [s, 0] : [0, s], p: Pt = h ? [0, s] : [-s, 0]
+		if (h) { const y = a[1] + s * ext; return { A: [a[0], y], B: [b[0], y], M1: a, M2: b, u, p, len: Math.abs(b[0] - a[0]) } }
+		const x = a[0] - s * ext
+		return { A: [x, a[1]], B: [x, b[1]], M1: a, M2: b, u, p, len: Math.abs(b[1] - a[1]) }
+	}
+	const len = Math.hypot(b[0] - a[0], b[1] - a[1]), L = len || 1, u: Pt = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], p: Pt = [-u[1], u[0]]
+	return { A: a, B: b, M1: [a[0] - p[0] * ext, a[1] - p[1] * ext], M2: [b[0] - p[0] * ext, b[1] - p[1] * ext], u, p, len }
+}
 /** A dimension's two extension lines (drawing coords): from a small gap off each measured point to just past the
- *  dim line. [] when it has no `dimExt`. `paperMm` = model mm per paper mm (the gap / overshoot are paper sizes). */
+ *  dim line — none where the point is ON the line (an aligned dim without `dimExt`). `paperMm` = model mm per paper mm
+ *  (the gap / overshoot are paper sizes). */
 export function dimExtLines(e: Ent, paperMm: number): [Pt, Pt][] {
-	const A = e.a, B = e.b, ext = e.dimExt
-	if (!A || !B || !ext) return []
-	const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, px = -(B[1] - A[1]) / L, py = (B[0] - A[0]) / L, s = Math.sign(ext)
-	const gap = Math.min(1 * paperMm, Math.abs(ext) / 2), over = 1.5 * paperMm
-	return [A, B].map((P): [Pt, Pt] => [[P[0] - px * (ext - s * gap), P[1] - py * (ext - s * gap)], [P[0] + px * s * over, P[1] + py * s * over]])
+	if (!e.a || !e.b) return []
+	const g = dimGeom(e), [px, py] = g.p, out: [Pt, Pt][] = []
+	for (const [M, D] of [[g.M1, g.A], [g.M2, g.B]]) {
+		const d = (D[0] - M[0]) * px + (D[1] - M[1]) * py; if (Math.abs(d) < 1e-9) continue
+		const s = Math.sign(d), gap = Math.min(1 * paperMm, Math.abs(d) / 2), over = 1.5 * paperMm
+		out.push([[M[0] + px * s * gap, M[1] + py * s * gap], [D[0] + px * s * over, D[1] + py * s * over]])
+	}
+	return out
+}
+/** The default dimension text offset (paper mm), and the figure's height. */
+export const DIM_TEXT_OFF = 2.5
+/** A dimension's text offset from its dim line in model mm: `dimTextOff` (paper mm) × paperMm, else the older model-mm
+ *  `dimOff`, else the default 2.5 paper mm. */
+export const dimTextOffMm = (e: Ent, paperMm: number): number => (e.dimTextOff != null ? e.dimTextOff * paperMm : e.dimOff ?? DIM_TEXT_OFF * paperMm)
+/** Where a dimension's figure sits (its anchor, drawing coords) and its upright rotation (degrees). */
+export function dimTextAt(e: Ent, paperMm: number): { p: Pt; rot: number } {
+	const g = dimGeom(e), off = dimTextOffMm(e, paperMm), t = e.dimT ?? 0.5
+	const p: Pt = [g.A[0] + (g.B[0] - g.A[0]) * t + g.p[0] * off, g.A[1] + (g.B[1] - g.A[1]) * t + g.p[1] * off]
+	const ang = (Math.atan2(g.u[1], g.u[0]) * 180) / Math.PI
+	return { p, rot: ang > 90 || ang < -90 ? ang + 180 : ang }
+}
+/** DIMLINEAR's automatic pick: horizontal when the points are further apart in x than in y, else vertical. */
+export const autoDimMode = (a: Pt, b: Pt): 'h' | 'v' => (Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? 'h' : 'v')
+/** The dimension with its dim line moved through `q`, the measured points kept (the dim-line grip): H / V set `dimExt`;
+ *  an aligned one slides a / b along its perpendicular (dimExt = how far the points now sit back). Whole mm. */
+export function dimSetLine(e: Ent, q: Pt): Ent {
+	const g = dimGeom(e), ext = Math.round((q[0] - g.M1[0]) * g.p[0] + (q[1] - g.M1[1]) * g.p[1])
+	if (e.dimMode === 'h' || e.dimMode === 'v') return { ...e, dimExt: ext || undefined }
+	return { ...e, a: [g.M1[0] + g.p[0] * ext, g.M1[1] + g.p[1] * ext], b: [g.M2[0] + g.p[0] * ext, g.M2[1] + g.p[1] * ext], dimExt: ext || undefined }
+}
+/** The dimension switched to another mode, keeping what it measures FROM (the measured points) and its dim line
+ *  through the same middle point (as near as the new direction allows). Unchanged when already in that mode. */
+export function dimSetMode(e: Ent, mode: DimMode): Ent {
+	if (e.type !== 'dim' || !e.a || !e.b || (e.dimMode ?? 'aligned') === mode) return e
+	const g = dimGeom(e), q: Pt = [(g.A[0] + g.B[0]) / 2, (g.A[1] + g.B[1]) / 2]
+	return dimSetLine({ ...e, a: g.M1, b: g.M2, dimExt: undefined, dimMode: mode === 'aligned' ? undefined : mode }, q)
 }
 /** A wrapped markdown text (a "note"): a TEXT with a wrap width. Without one it's plain lines. */
 export const isNote = (e: Ent): boolean => e.type === 'text' && e.noteW != null

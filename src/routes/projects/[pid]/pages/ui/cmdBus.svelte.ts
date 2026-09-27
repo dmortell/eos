@@ -35,6 +35,9 @@ export type VpCommandTarget = {
 	/** A bare number while drawing: that far from the last point, toward the cursor (direct distance entry). */
 	distance(n: number): string | null
 	finish(): void; cancel(): void; close(): void; undoPoint(): void
+	/** A word typed while drawing that may be one of the armed tool's OPTIONS (the Dimension's Aligned / Linear /
+	 *  Horizontal / Vertical): null = taken, an error string, undefined = not an option (the token reads as usual). */
+	drawOption?(token: string): string | null | undefined
 	/** The selected shapes (ids), and shapes by id (plain snapshots, drawing coords). */
 	selected(): string[]
 	ents(ids: string[]): Ent[]
@@ -81,6 +84,8 @@ export type VpCommandTarget = {
 	hasSelection(): boolean
 	/** ALIGN / DISTRIBUTE the selection (shapes + 3D objects, as drawn) — one undo step; an error to show, or null. */
 	arrangeSel?(op: import('./arrange').AlignOp): string | null
+	/** Properties ⟲ / ⟳: turn the selection (shapes + 3D objects) `ccw` degrees about its middle — one step. */
+	rotateSel?(ccw: number): string | null
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void
 	zoomPrev(): string | null

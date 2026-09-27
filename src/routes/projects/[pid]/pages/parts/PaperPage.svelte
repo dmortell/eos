@@ -34,7 +34,7 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
 		entities = [], entsForModel = undefined, tabModelId = undefined, conduitOf = () => null,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframesdup, ondeactivate, frameClip = (f: SheetFrame) => f.clip, frameOClip = (f: SheetFrame) => f.oclip ?? null, frameTitle = () => undefined }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onframesdup, onframesremove, ondeactivate, ontool, frameClip = (f: SheetFrame) => f.clip, frameOClip = (f: SheetFrame) => f.oclip ?? null, frameTitle = () => undefined }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
@@ -46,8 +46,8 @@
 			// PAPER space (border/marquee click, grips, Properties). Both share the same per-viewport
 			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
 			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
-			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy these frames IN PLACE (views + scoped notes) and return the copies — the engine drags them */ onframesdup?: (ids: string[]) => SheetFrame[]; /** a frame's clip (a section-linked frame follows its marker) */ frameClip?: (f: SheetFrame) => import('../3dview/types').Clip | null;
+			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; /** switch the pane's tool (a right-click with the Viewport tool and nothing pending → Select) */ ontool?: (t: string) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; /** Ctrl-drag: copy these frames IN PLACE (views + scoped notes) and return the copies — the engine drags them */ onframesdup?: (ids: string[]) => SheetFrame[]; /** Ctrl released mid-drag: take those copies out again */ onframesremove?: (ids: string[]) => void; /** a frame's clip (a section-linked frame follows its marker) */ frameClip?: (f: SheetFrame) => import('../3dview/types').Clip | null;
 			/** a frame's ORIENTED clip — a section LINE's view, live (phase 3); null = none */ frameOClip?: (f: SheetFrame) => import('../3dview/types').OClip | null;
 			/** a frame's elevation title (a section line's "SECTION A–A′"); undefined = the Viewport's own */ frameTitle?: (f: SheetFrame) => string | undefined; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
@@ -156,6 +156,7 @@
 				}
 			},
 			add: () => {},   // copies are already on the page (onframesdup made them)
+			remove: (ids) => onframesremove?.(ids),
 			end: () => { if (dragChanged) onframecommit?.(); dragChanged = false },   // one history step — none for a click
 		},
 	}
@@ -170,7 +171,10 @@
 	}
 	// arrow keys nudge the selected frames (1 mm, Shift 10 mm) while no viewport is active on this focused sheet
 	$effect(() => {
+		const onCtrl = (e: KeyboardEvent) => { if ((e.key === 'Control' || e.key === 'Meta') && items.drag) items.setDup(e.type === 'keydown') }   // Ctrl mid-drag: copy / not, live
+		window.addEventListener('keyup', onCtrl)
 		const onKey = (e: KeyboardEvent) => {
+			onCtrl(e)
 			if (!focused || !e.key.startsWith('Arrow') || frames.some((f) => isFrameActive(f.id)) || !idsOfKind(editor.sel.get(), 'frame').length) return
 			const t = e.target as HTMLElement | null; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
 			e.preventDefault()
@@ -178,7 +182,7 @@
 			items.nudge(e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0)
 		}
 		window.addEventListener('keydown', onKey)
-		return () => window.removeEventListener('keydown', onKey)
+		return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onCtrl) }
 	})
 
 	// ── the COMMAND LINE on paper (editing-merge-plan.md phase 4): with no viewport active on this focused sheet, MOVE /
@@ -271,6 +275,13 @@
 		window.addEventListener('keydown', onKey)
 		return () => window.removeEventListener('keydown', onKey)
 	})
+	/** Right-click with the Viewport tool, like every drawing tool: a box being placed is cancelled; nothing pending →
+	 *  back to Select. (Inside an active viewport its own right-click rules apply.) */
+	function onSheetContext(e: MouseEvent) {
+		if (tool !== 'Viewport' || (e.target as Element).closest?.('.vp.active')) return
+		e.preventDefault()
+		if (placing) { placing = null; placeArmed = false } else ontool?.('Select')
+	}
 	function onSheetMove(e: PointerEvent) {
 		const s = toSheet(e.clientX, e.clientY); cursorPx = [s.x, s.y]
 		if (placeArmed && placing) { const q = snapPt(s, e.altKey); placing = { ...placing, x1: q.x, y1: q.y } }
@@ -326,7 +337,7 @@
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
 	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px" style:--tb-inset="{tbInset}px" style:--pad="{PAD + tbInset}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown} onpointermove={onSheetMove}>
+		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown} onpointermove={onSheetMove} oncontextmenu={onSheetContext}>
 			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
 			     projection + scale; select by the border band (interior inert), double-click to edit inside,
 			     corner grips resize. The Viewport tool disables the bands so a new frame can be dragged out

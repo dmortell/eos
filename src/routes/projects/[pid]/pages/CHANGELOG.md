@@ -4,6 +4,35 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
+## Round 18 (2026-09-27) — editing follow-ups
+- **Ctrl mid-drag, live**: pressing Ctrl during a move drag turns it into a copy at once (the originals jump back, copies
+  follow the pointer); releasing it turns it back (copies removed, originals follow) — shapes, 3D objects and sheet
+  viewports (`ItemEditor.setDup` + an optional `commit.remove`; unit-tested).
+- **Properties › ROTATE** (`props/RotateBar.svelte` → `vpInteraction.rotateSel`): ⟲ / ⟳ 90°, 180°, and "By" any
+  angle, for shapes, boxes, racks, blocks, images, walls, conduits — one item turns in place, several about their middle;
+  one undo step. 3D objects turn in plan (attached conduit ends follow).
+- **Several viewports**: Properties › VIEWPORTS (`props/FramesProps.svelte`) sets scale / border / hidden lines / colour
+  / lock on all selected frames in one step (differing fields show "mixed"); Ctrl+C / X / D copy / cut / duplicate ALL
+  selected frames (layout kept; the copies come selected).
+- **Mixed selections**: shapes + 3D objects selected together show BOTH property sections (was the objects only).
+- **Callouts + legends in 3D views** (`ui/isoAnno.ts`, tested): in iso / perspective they draw screen-facing at paper
+  size from their projected anchors (a callout's leader to its projected tip), pick like in plan (front layers over the
+  model), and show a dashed frame when selected.
+- **Dimension modes** (`ui/dimSpec.svelte.ts`, `parts/DimSpecBar.svelte`, tested): Aligned (default, as before) /
+  Linear (H or V by the larger delta, like DIMLINEAR) / Horizontal / Vertical — a bar while the tool is armed, A / L / H
+  / V on the command line, DIMLINEAR (DLI) / DIMALIGNED (DAL); Properties › DIMENSION › Mode + **Text offset** (paper mm,
+  `dimTextOff`; the text grip sets it) + a dim-line grip (`dimExt`). Render, hit, snaps, trim, iso, DXF (rotated linear
+  DIMENSIONs at 0° / 90°) follow the mode; a 90° turn swaps H ↔ V. Fixed: MIRROR didn't flip `dimExt`, SCALE didn't
+  scale it, Shift snapped the text grip to 15°.
+- **Live spacing readout** by the cursor (user mm, Y up): length / angle / Δx Δy while drawing lines, walls, conduits,
+  section lines; W × H for boxes; the measured value for H / V dims; the applied Δ while moving or grip-dragging shapes /
+  3D objects; from the base point in MOVE / COPY picks; Δ from the selected guide when placing a guide. It flips to the
+  cursor's other side near the viewport's edge.
+- Fix: a word answering the prompt's options (H while dimensioning) was replaced by the top command suggestion
+  (HISTORY) on Enter.
+- Viewport tool: **right-click** cancels a box being placed, or with nothing pending goes back to Select (like every
+  drawing tool).
+
 ## Round 17 (2026-09-27) — multi-select in lists
 - **One list multi-select rule** (`$lib/ui/listSelect.ts`, unit-tested): Ctrl/⌘+click toggles, Shift+click takes the
   range from the last item (in the order shown), Ctrl+Shift adds the range.

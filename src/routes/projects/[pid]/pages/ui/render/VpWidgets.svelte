@@ -64,6 +64,18 @@
 		onpointerdown={stop} onclick={stop} ondblclick={stop} onblur={x.commitText}
 		onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); x.cancelText() } else if (e.key === 'Tab') { e.preventDefault(); x.editNextLabel(e.shiftKey ? -1 : 1) } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || t.field !== 'text')) { e.preventDefault(); x.commitText() } }}></textarea>
 {/if}
+{#if x.readout}
+	{@const ro = x.readout}
+	{@const k = 1 / (v.canvasZoom || 1)}
+	{@const fx = ro.x > (v.vpW || Infinity) - 170 * k}
+	{@const fy = ro.y > (v.vpH || Infinity) - 50 * k}
+	<!-- the live SPACING READOUT by the cursor (length ∠ angle / Δx Δy, or W × H): drawn at its natural size — scale(1 /
+	     canvas zoom) undoes a zoomed sheet's CSS transform, so it stays crisp and constant on screen; near the viewport's
+	     right / bottom edge it flips to the cursor's other side (the viewport clips it) -->
+	<div class="spacing-ro" style="left:{ro.x}px; top:{ro.y}px; transform:scale({k}) translate({fx ? 'calc(-100% - 14px)' : '14px'}, {fy ? 'calc(-100% - 12px)' : '12px'})">
+		{#each ro.lines as l, i (i)}<div class:sub={i > 0}>{l}</div>{/each}
+	</div>
+{/if}
 {#if x.scaleGeom}
 	<!-- image SCALE: after the 2-point line, an inline entry for the real-world distance → resize -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -103,6 +115,10 @@
 		box-shadow:0 1px 6px #0003; user-select:text; -webkit-user-select:text;
 		font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749044; }
+	.spacing-ro { position:absolute; z-index:11; transform-origin:0 0; pointer-events:none; white-space:nowrap;
+		padding:2px 6px; border-radius:4px; background:#0f172ae0; color:#f8fafc; font-size:11px; line-height:1.35;
+		font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; box-shadow:0 1px 4px #0005; }
+	.spacing-ro .sub { color:#cbd5e1; font-size:10px; }
 	.scale-entry { position:absolute; z-index:12; transform:translate(-50%, -140%); display:flex; align-items:center; gap:5px; white-space:nowrap;
 		background:var(--panel, #fff); color:var(--text, #111827); border:1px solid #0e7490; border-radius:6px; padding:4px 6px; font-size:11px; box-shadow:0 4px 16px #0005; }
 	.scale-entry input { width:64px; background:var(--input, #f1f5f9); color:inherit; border:1px solid var(--line, #cbd5e1); border-radius:4px; padding:2px 5px; font-size:12px; }

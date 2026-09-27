@@ -17,7 +17,7 @@ import type { Model, Obj, Clip, Dir } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
-import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, type Ent, type Pt, type ElevDir } from './ui/geometry'
+import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, dimGeom, dimTextAt, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom, bbox } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines, hatchLines, headGeom } from './ui/annotations'
 import { blockDef, attrValue, insertScale, type BlockDef } from './ui/blocks'
@@ -278,9 +278,9 @@ function entToDxf(x: Ex, out: EntitiesManager, e: Ent, P: (p: Pt) => XY, layer: 
 			if (e.hatch) for (const [p, q] of hatchLines(e)) poly(out, [T(p), T(q)], layer)   // HATCH (2D) — as plain lines
 			return
 		}
-		case 'dim': {   // O17: an ALIGNED DIMENSION; what the viewport draws goes in its anonymous *D block
-			const A = e.a!, B = e.b!, len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1
-			const ux = (B[0] - A[0]) / len, uy = (B[1] - A[1]) / len, px = -uy, py = ux, tk = 1.5 * N
+		case 'dim': {   // O17: an ALIGNED DIMENSION (a linear H / V one: a ROTATED dim); what the viewport draws goes in its anonymous *D block
+			const g = dimGeom(e), A = g.A, B = g.B, len = g.len
+			const [px, py] = g.p, tk = 1.5 * N
 			const blk = anonBlock(x.doc.w, 'D', ++x.anon), L = '0'
 			poly(blk, [T(A), T(B)], L)
 			const hs = e.headStart ?? 'arrow', he = e.headEnd ?? 'arrow'
@@ -292,15 +292,16 @@ function entToDxf(x: Ex, out: EntitiesManager, e: Ent, P: (p: Pt) => XY, layer: 
 			poly(blk, [T([A[0] - px * tk, A[1] - py * tk]), T([A[0] + px * tk, A[1] + py * tk])], L)
 			poly(blk, [T([B[0] - px * tk, B[1] - py * tk]), T([B[0] + px * tk, B[1] + py * tk])], L)
 			for (const [p, q] of dimExtLines(e, N)) poly(blk, [T(p), T(q)], L)
-			const off = e.dimOff ?? 2.5 * N, t = e.dimT ?? 0.5
-			const m: Pt = [A[0] + ux * len * t + px * off, A[1] + uy * len * t + py * off]
-			let ang = (Math.atan2(uy, ux) * 180) / Math.PI; if (ang > 90 || ang < -90) ang += 180
-			text(blk, T(m), 2.5 * N, dimLabel(len, e.unit, e.text), L, 'center', -ang + tRot)
-			// the measured points sit `dimExt` back from the dim line (a / b ARE on it); the figure: the measurement in mm
+			const ta = dimTextAt(e, N), m = ta.p
+			text(blk, T(m), 2.5 * N, dimLabel(len, e.unit, e.text), L, 'center', -ta.rot + tRot)
+			// the measured points (dimGeom: `dimExt` back from the dim line); the figure: the measurement in mm
 			// ('<>' in a template) — a cm / m figure is written as a fixed override (the DXF measures in mm)
-			const ext = e.dimExt ?? 0, mA: Pt = [A[0] - px * ext, A[1] - py * ext], mB: Pt = [B[0] - px * ext, B[1] - py * ext]
 			const override = !e.unit || e.unit === 'mm' ? e.text || undefined : dimLabel(len, e.unit, e.text)
-			out.addEntity(new DimEnt(p3(T(mA)), p3(T(mB)), p3(T(B)), p3(T(m)), { block: blk.name, text: override, style: pagesDimStyle(x.doc.w, N, hs === 'tick' && he === 'tick'), measured: len, layerName: layer }))
+			// a linear dim measures along its dim line's direction AS EXPORTED (0° / 90° in a plan; the view's mapping and
+			// any own rotation carried along)
+			const tA = T(A), tB = T(B), dirDeg = (Math.atan2(tB[1] - tA[1], tB[0] - tA[0]) * 180) / Math.PI
+			const rotated = e.dimMode === 'h' || e.dimMode === 'v' ? (Math.round((((dirDeg % 180) + 180) % 180) * 1e6) / 1e6) % 180 : undefined   // 0..180
+			out.addEntity(new DimEnt(p3(T(g.M1)), p3(T(g.M2)), p3(tB), p3(T(m)), { block: blk.name, text: override, style: pagesDimStyle(x.doc.w, N, hs === 'tick' && he === 'tick'), measured: len, layerName: layer, rotated }))
 			return
 		}
 		case 'text': if (isNote(e)) {   // a wrapped (markdown) text: each laid-out line as TEXT, a table's grid as lines (N = model mm per paper mm)

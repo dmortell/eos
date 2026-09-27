@@ -2,7 +2,7 @@
 // These take their size as an explicit argument instead of reading the component's `paperMm` closure, so
 // they are unit-testable and shared by the render snippets, PaperPage and (future) print.
 import type { Pt, Ent, ElevDir, Head, Dash } from './geometry'
-import { arcPts } from './geometry'
+import { arcPts, dimGeom } from './geometry'
 import type { Clip } from '../3dview/types'
 
 /** Centre-out draw: given the centre `c` and the dragged corner `p`, the opposite corner is mirrored. */
@@ -188,7 +188,7 @@ export function sectionArrowFor(c: Clip, dir: ElevDir, size: number): string {
 export function groundPts(e: Ent): { pts: Pt[]; closed: boolean } {
 	const ell = (cx: number, cy: number, rx: number, ry: number): Pt[] =>
 		Array.from({ length: 32 }, (_, i) => { const t = (i / 32) * 2 * Math.PI; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] as Pt })
-	if (e.type === 'dim') return { pts: [e.a!, e.b!], closed: false }
+	if (e.type === 'dim') { const g = dimGeom(e); return { pts: [g.A, g.B], closed: false } }   // the dim line (= a / b when aligned)
 	if (e.type === 'polyline') return { pts: e.pts ?? [], closed: false }
 	if (e.type === 'arc') return { pts: arcPts(e), closed: false }
 	if (e.type === 'rect') { const [ax, ay] = e.a!, [bx, by] = e.b!; return { pts: [[ax, ay], [bx, ay], [bx, by], [ax, by]], closed: true } }

@@ -45,6 +45,17 @@ describe('ItemEditor (the one editing engine)', () => {
 		w.ed.moveTo([40, 0], false); w.ed.endMove()
 		expect(w.items().map((i) => [i.id, i.x])).toEqual([['a', 0], ['c1', 40]]); expect(w.sel()).toEqual(['c1'])
 	})
+	it('Ctrl pressed / released mid-drag switches to copies and back at once', () => {
+		const w = world([{ id: 'a', x: 0, y: 0, w: 10 }])
+		w.src.commit.remove = (ids) => { const rm = new Set(ids); w.src.get = (id) => (rm.has(id) ? undefined : w.items().find((i) => i.id === id)); for (const id of ids) w.log.push(`remove ${id}`) }
+		w.ed.beginMove('a', [0, 0], 'move', -1, { dup: false, additive: false })
+		w.ed.moveTo([40, 0], false)
+		w.ed.setDup(true)   // the original back, a copy where the pointer is
+		expect(w.items().map((i) => [i.id, i.x])).toEqual([['a', 0], ['c1', 40]]); expect(w.sel()).toEqual(['c1'])
+		w.ed.setDup(false)   // the copy goes, the original follows again
+		expect(w.log).toContain('remove c1'); expect(w.items().find((i) => i.id === 'a')!.x).toBe(40); expect(w.sel()).toEqual(['a'])
+		w.ed.endMove()
+	})
 	it('a grip reshapes; a locked item never drags; a cancel puts things back', () => {
 		const w = world([{ id: 'a', x: 0, y: 0, w: 10 }, { id: 'L', x: 50, y: 0, w: 10, locked: true }])
 		w.ed.beginMove('a', [10, 0], 'grip', 0, { dup: false, additive: false }); w.ed.moveTo([35, 0], false); w.ed.endMove()

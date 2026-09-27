@@ -5,7 +5,17 @@
 // shape moves its rotation centre (the unrotated bbox centre — what render / hit rotate about) round the pivot
 // and adds the angle to its `rot`, so a rotated rect / block / text / image turns rigidly with the group.
 import type { Ent, Pt } from './geometry'
+import { dimSetMode } from './geometry'
 import { rotatePt } from './hit'
+
+/** A LINEAR (H / V) dimension turned `deg`: a quarter turn keeps it linear (H ↔ V on an odd one — its frame follows
+ *  its points, so dimExt / the text side carry over); any other angle makes it an aligned dim first. */
+function dimForTurn(e: Ent, deg: number): Ent {
+	if (e.type !== 'dim' || (e.dimMode !== 'h' && e.dimMode !== 'v')) return e
+	const q = deg / 90, k = Math.round(q)
+	if (Math.abs(q - k) > 1e-9) return dimSetMode(e, 'aligned')
+	return k % 2 ? { ...e, dimMode: e.dimMode === 'h' ? 'v' : 'h' } : e
+}
 
 /** The group's pivot: the mean of the shapes' rotation centres (`centreOf` = rotCenter in the view). */
 export function barycentre(ents: Ent[], centreOf: (e: Ent) => Pt): Pt {
@@ -35,7 +45,8 @@ export function rotateAbout(e: Ent, c: Pt, deg: number, centre: Pt): Ent {
 	if (!deg) return e
 	const R = (p: Pt) => rotatePt(p, c, deg)
 	if ((e.type === 'polyline' || e.type === 'arc' || e.type === 'dim') && !e.rot) {
-		return e.type === 'dim' ? { ...e, a: R(e.a!), b: R(e.b!) } : { ...e, pts: e.pts?.map(R) }
+		if (e.type === 'dim') { const d = dimForTurn(e, deg); return { ...d, a: R(d.a!), b: R(d.b!) } }
+		return { ...e, pts: e.pts?.map(R) }
 	}
 	const nc = R(centre), dx = nc[0] - centre[0], dy = nc[1] - centre[1]
 	const t = (p?: Pt): Pt | undefined => (p ? [p[0] + dx, p[1] + dy] : p)
@@ -50,7 +61,8 @@ export function scaleAbout(e: Ent, c: Pt, s: number): Ent {
 	if (e.pts) out.pts = e.pts.map((p) => S(p)!)
 	if (e.type === 'text') out.fontPt = Math.max(1, Math.round((e.fontPt ?? 8) * s * 2) / 2)
 	if (e.type === 'insert') out.scale = Math.round((e.scale ?? 1) * s * 1000) / 1000
-	if (e.dimOff !== undefined) out.dimOff = e.dimOff * s
+	if (e.dimOff !== undefined) out.dimOff = e.dimOff * s   // (a paper-mm dimTextOff stays: it is annotative)
+	if (e.dimExt !== undefined) out.dimExt = Math.round(e.dimExt * s)   // the measured points scale with the rest
 	if (e.leader === undefined) delete out.leader
 	return out
 }
@@ -71,8 +83,15 @@ export function mirrorAbout(e: Ent, a: Pt, b: Pt, centreOf: (e: Ent) => Pt): Ent
 	const F = (p: Pt) => reflectPt(p, a, b)
 	if (e.type === 'polyline' || e.type === 'arc' || e.type === 'dim') {
 		const c = centreOf(e), W = (p: Pt) => (e.rot ? rotatePt(p, c, e.rot) : p)
-		const out: Ent = e.type === 'dim' ? { ...e, a: F(W(e.a!)), b: F(W(e.b!)) } : { ...e, pts: e.pts?.map((p) => F(W(p))) }
-		if (e.type === 'dim' && e.dimOff !== undefined) out.dimOff = -e.dimOff   // the text stays on the mirrored side
+		// a LINEAR dim stays linear across an H / V mirror line (H ↔ V across a 45° one), else it becomes aligned first
+		let d = e
+		if (e.type === 'dim' && (e.dimMode === 'h' || e.dimMode === 'v')) {
+			const ang = ((((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI) % 180) + 180) % 180, near = (x: number) => Math.abs(ang - x) < 1e-6
+			d = near(0) || near(180) || near(90) ? e : near(45) || near(135) ? { ...e, dimMode: e.dimMode === 'h' ? 'v' : 'h' } : dimSetMode(e, 'aligned')
+		}
+		const out: Ent = e.type === 'dim' ? { ...d, a: F(W(d.a!)), b: F(W(d.b!)) } : { ...e, pts: e.pts?.map((p) => F(W(p))) }
+		// a reflection turns the dim line's perpendicular round: the text / measured points stay on the mirrored side
+		if (e.type === 'dim') for (const k of ['dimOff', 'dimTextOff', 'dimExt'] as const) if (d[k] !== undefined) out[k] = -d[k]!
 		delete out.rot
 		return out
 	}

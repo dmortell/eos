@@ -22,6 +22,7 @@
 	import OpeningSpecBar from './OpeningSpecBar.svelte'
 	import SectionSpecBar from './SectionSpecBar.svelte'
 	import ElevationSpecBar from './ElevationSpecBar.svelte'
+	import DimSpecBar from './DimSpecBar.svelte'
 	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
@@ -153,10 +154,10 @@
 						frames={ws.framesOf(a.id)} editor={ws.paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}
 						isFrameActive={(id) => ws.isVpActive(id)} frameView={(id, proj) => ws.viewOf(p.id, id, proj as Proj)} frameEnv={ws.envFor(p)}
 						frameOrbit={(id, proj) => ws.orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => ws.vpFrameView(a, p, f)} makeFrameEditor={(f) => ws.vpEditor(a, f.id)}
-						onseed={(x, y, w, h) => ws.seedFrame(a.id, x, y, w, h)}
+						onseed={(x, y, w, h) => ws.seedFrame(a.id, x, y, w, h)} ontool={(t) => ws.setPaneTool(pane, t)}
 						onaddframe={(x, y, w, h) => ws.addFrame(a.id, x, y, w, h)}
 						onframegeom={(id, g) => ws.updateFrame(a.id, id, g)}
-						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframesdup={(ids) => ws.dupFramesInPlace(a.id, ids)} frameClip={(f) => ws.liveClip(f, a.id)} frameOClip={(f) => ws.liveOClip(f, a.id)} frameTitle={(f) => ws.frameViewTitle(f, a.id)}
+						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframesdup={(ids) => ws.dupFramesInPlace(a.id, ids)} onframesremove={(ids) => ws.removeFramesInPlace(a.id, ids)} frameClip={(f) => ws.liveClip(f, a.id)} frameOClip={(f) => ws.liveOClip(f, a.id)} frameTitle={(f) => ws.frameViewTitle(f, a.id)}
 						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
 					<div class="vp-fill">
@@ -206,6 +207,7 @@
 		{#if focused && a && p.tool === 'Opening'}<OpeningSpecBar />{/if}
 		{#if focused && a && p.tool === 'Section'}<SectionSpecBar />{/if}
 		{#if focused && a && p.tool === 'Elevation'}<ElevationSpecBar />{/if}
+		{#if focused && a && p.tool === 'Dimension'}<DimSpecBar />{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>

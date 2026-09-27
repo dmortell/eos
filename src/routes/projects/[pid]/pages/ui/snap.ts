@@ -7,7 +7,7 @@ import type { Pt, Ent } from './geometry'
 import { ctxFrame, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
-import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3 } from './geometry'
+import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3, dimGeom } from './geometry'
 import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
@@ -51,7 +51,16 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 		if (g) out.push({ point: g.c, type: 'center' })
 		return out
 	}
-	if (e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
+	if (e.type === 'dim') {
+		if (!e.dimMode || e.dimMode === 'aligned') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
+		// a linear (H / V) dim: its measured points, the dim line's ends (where not on a point) and its middle
+		const g = dimGeom(e), same = (p: Pt, q: Pt) => Math.abs(p[0] - q[0]) < 1e-6 && Math.abs(p[1] - q[1]) < 1e-6
+		const out: EntSnap[] = [{ point: g.M1, type: 'end' }, { point: g.M2, type: 'end' }]
+		if (!same(g.A, g.M1)) out.push({ point: g.A, type: 'end' })
+		if (!same(g.B, g.M2)) out.push({ point: g.B, type: 'end' })
+		out.push({ point: mid(g.A, g.B), type: 'mid' })
+		return out
+	}
 	if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
 		const [x0, y0, x1, y1] = bbox(ctx, e)
 		const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]

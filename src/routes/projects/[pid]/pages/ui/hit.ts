@@ -9,7 +9,7 @@ import { ctxFrame, ctxProj, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Obj, Clip, Guide, LineSection, ElevMarker } from '../3dview/types'
 import { hitLineSection } from './sectionLine'
 import { hitElevMarker } from './elevMarker'
-import { flatSpanOf, segDist, textBox, arcPts, isNote, frameAxis, rectPts } from './geometry'
+import { flatSpanOf, segDist, textBox, arcPts, isNote, frameAxis, rectPts, dimGeom } from './geometry'
 import { layoutNote, type NoteLayout } from './noteLayout'
 import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
@@ -91,6 +91,10 @@ function bboxRaw(ctx: ViewCtx, e: Ent): BBox {
 		const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
 		return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]
 	}
+	if (e.type === 'dim' && e.a && e.b) {   // the dim line AND the measured points (a linear / offset dim spans both)
+		const g = dimGeom(e), ps = [g.A, g.B, g.M1, g.M2], xs = ps.map((q) => q[0]), ys = ps.map((q) => q[1])
+		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+	}
 	const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 	return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 }
@@ -113,7 +117,7 @@ export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
 	{ const [x0, y0, x1, y1] = bbox(ctx, e); if (p[0] < x0 - thr || p[0] > x1 + thr || p[1] < y0 - thr || p[1] > y1 + thr) return false }   // §5: the cached box rejects most shapes at once
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return segDist(p, [x0, ctx.ground], [x1, ctx.ground]) < thr }
 	if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
-	if (e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
+	if (e.type === 'dim') { const g = dimGeom(e); return segDist(p, g.A, g.B) < thr || segDist(p, g.M1, g.A) < thr || segDist(p, g.M2, g.B) < thr }   // the dim line or an extension line
 	if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
 	if (e.type === 'rect') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, isFilled(e)) }
 	if (e.type === 'ellipse') {
