@@ -169,3 +169,15 @@ describe('block scale handle', () => {
 		expect(gripsLocal(planCtx, ins, { ...opts, shift: () => true })[0].apply([160, 160]).scale).toBe(1.5)
 	})
 })
+
+describe('rotated box resize (the shared anchoredResize rule)', () => {
+	it('a ROTATED 3D box keeps the opposite corner fixed while a corner is dragged, sizes grid-snapped in its own axes', () => {
+		const o = { id: 'r', type: 'prism', x: 0, y: 0, w: 600, d: 1000, z: 0, h: 2000, rot: 30 } as Extract<Obj, { type: 'prism' }>
+		const cs = prismCorners(planCtx, o), anchor = cs[0]
+		const grip = modelGrips(planCtx, o, { rnd: (v) => Math.round(v / 100) * 100, applyNode: () => {} })[2]   // drag BR (opposite TL)
+		grip.apply([cs[2][0] + 260, cs[2][1] + 130])
+		const after = prismCorners(planCtx, o)[0]
+		expect(after[0]).toBeCloseTo(anchor[0], 6); expect(after[1]).toBeCloseTo(anchor[1], 6)   // the anchor stayed put
+		expect(o.w % 100).toBe(0); expect(o.d % 100).toBe(0); expect(o.rot).toBe(30)
+	})
+})

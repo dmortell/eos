@@ -39,7 +39,9 @@ open items; `review.md §0a` tracks which review findings are closed.
 - **Missing files**: an image whose PDF / picture was deleted in the Uploads tool now shows a red dashed "Missing
   file" placeholder (live — even while the browser still has it cached), and Properties says so (Replace… / delete).
   `ui/render/fileWatch.svelte.ts`.
-- Title bar: Help is a bold "?" on a round badge; the search dialog closes with a × button.
+- Title bar: Help is the outline "?" icon, bigger + brighter; ⌃ K spaced; the search dialog closes with a × button.
+- **Fix — resizing a ROTATED box / rack** by its corner grips: it now uses the same world-anchored rule as a rotated
+  shape (`anchoredResize` in grips.ts, shared): the opposite corner stays put, sizes snap along the box's own axes.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).

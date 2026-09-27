@@ -67,11 +67,29 @@ export function prismCorners(ctx: ViewCtx, o: Obj): Pt[] {
 	return cs
 }
 
+/** THE rotated-box resize rule — shapes (gripsFor) AND 3D boxes (applyPrismGrip): a box rotated `rot`° has its
+ *  corner dragged to `Pw` while the opposite corner `Aw` stays fixed in the world → the new centre (their midpoint)
+ *  and the dragged / fixed corners in the box's own (un-rotated) axes about that centre. */
+export function anchoredResize(Aw: Pt, Pw: Pt, rot: number): { c: Pt; D: Pt; F: Pt } {
+	const c: Pt = [(Aw[0] + Pw[0]) / 2, (Aw[1] + Pw[1]) / 2]
+	const D = rotatePt(Pw, c, -rot)
+	return { c, D, F: [2 * c[0] - D[0], 2 * c[1] - D[1]] }
+}
+
 /** Resize a prism by dragging corner `gi` to p, holding `anchor` (opposite corner, captured at grip-down)
- *  fixed. Plan edits footprint x/y/w/d; elevation edits the on-axis size (via elevUInv) + z/h. `rnd`
- *  grid-snaps. Mutates `o`. */
+ *  fixed. Plan edits footprint x/y/w/d — a ROTATED box by the same world-anchored rule as a rotated shape
+ *  (anchoredResize), its sizes grid-snapped along its own axes; elevation edits the on-axis size (via elevUInv) +
+ *  z/h. `rnd` grid-snaps. Mutates `o`. */
 export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>, gi: number, p: Pt, anchor: Pt, rnd: (v: number) => number) {
 	void gi
+	if (ctx.isPlan && o.rot) {
+		const rot = o.rot, rel = rotatePt(p, anchor, -rot)   // the pointer in the box's own axes, from the anchor
+		const sz = (v: number) => (v < 0 ? -1 : 1) * Math.max(1, rnd(Math.abs(v)))
+		const sx = sz(rel[0] - anchor[0]), sy = sz(rel[1] - anchor[1])
+		const { c } = anchoredResize(anchor, rotatePt([anchor[0] + sx, anchor[1] + sy], anchor, rot), rot)
+		o.w = Math.abs(sx); o.d = Math.abs(sy); o.x = c[0] - o.w / 2; o.y = c[1] - o.d / 2   // exact snapped sizes about the shared centre
+		return
+	}
 	if (ctx.isElev) {
 		const ax = ELEV_BASIS[ctx.elevDir].axis
 		const c1 = elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy), c2 = elevUInv(ctx.elevDir, anchor[0], ctx.cx, ctx.cy)
@@ -311,9 +329,7 @@ export function gripsFor(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 					const s = Math.max(Math.abs(dx), Math.abs(dy)), sq = rotatePt([(dx < 0 ? -s : s), (dy < 0 ? -s : s)], [0, 0], rot)
 					Pw = [Aw[0] + sq[0], Aw[1] + sq[1]]
 				}
-				const cn: Pt = [(Aw[0] + Pw[0]) / 2, (Aw[1] + Pw[1]) / 2]   // new centre = midpoint(anchor, pointer)
-				const D = rotatePt(Pw, cn, -rot)                             // dragged corner, un-rotated
-				const F: Pt = [2 * cn[0] - D[0], 2 * cn[1] - D[1]]           // opposite corner → anchor stays world-fixed
+				const { D, F } = anchoredResize(Aw, Pw, rot)   // the shared rule (3D boxes use it too)
 				return resize(D, F)
 			} }
 		}
