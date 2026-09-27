@@ -17,6 +17,8 @@ export type PromptArgs = {
 	graphSelected: boolean
 	/** Elevation only: whether a plan guide is selected to fix the drawing depth. */
 	depthGuide: boolean
+	/** The Section tool draws a LINE (its spec bar's Line — phase 3), not a box. */
+	sectionLine?: boolean
 }
 
 export function toolPrompt(a: PromptArgs): string {
@@ -38,7 +40,10 @@ export function toolPrompt(a: PromptArgs): string {
 			return n ? `${n} point${n === 1 ? '' : 's'} · specify next ${t} point (Enter / double-click / right-click to finish · Shift = 15° · Esc = cancel)${depthHint}` : `Specify ${t} start${depthHint}`
 		}
 		case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
-		case 'Section': return isPlan ? (n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner') : 'Switch to the plan view to cut a section'
+		case 'Section':
+			if (!isPlan) return 'Switch to the plan view to cut a section'
+			if (a.sectionLine) return n ? 'Specify the section line end (A′) — it looks to the left of A → A′ · Shift = 15°' : 'Specify the section line start (A)'
+			return n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner'
 		case 'Opening': return isPlan ? (n ? 'Specify opposite corner' : 'Specify opening (door / window / hole) corner') : 'Switch to the plan view to place an opening'
 		case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 		case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
@@ -59,10 +64,11 @@ export function imgModeText(mode: string | null | undefined, entering: boolean, 
 	return null
 }
 
-export function statusLine(a: { editingText: boolean; active: boolean; imgText: string | null; sectionSelected: boolean; tool: string; prompt: string }): string {
+export function statusLine(a: { editingText: boolean; active: boolean; imgText: string | null; sectionSelected: boolean; sectionLine?: boolean; tool: string; prompt: string }): string {
 	if (a.editingText) return 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
 	if (!a.active) return ''
 	if (a.imgText) return a.imgText
+	if (a.sectionSelected && a.sectionLine && a.tool === 'Select') return 'Section line selected · drag an end (Shift = 15°) or the depth handle · drag the line to move · click an end arrow to flip · toolbar: drop as viewport / flip / delete'
 	if (a.sectionSelected && a.tool === 'Select') return 'Section selected · drag a corner to resize · drag the box to move · toolbar: open / re-aim / delete'
 	return `${a.tool} · ${a.prompt}`
 }

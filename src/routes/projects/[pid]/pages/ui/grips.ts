@@ -4,7 +4,8 @@
 // The entity/model grip builders (gripsFor/modelGrips/…) move here in later slices; this first slice is
 // the self-contained section-marker grips.
 import type { Pt, Ent } from './geometry'
-import type { Clip, Obj } from '../3dview/types'
+import type { Clip, Obj, LineSection } from '../3dview/types'
+import { lineSectionGrips, applyLineGrip } from './sectionLine'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
 import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
@@ -33,6 +34,17 @@ export function pickSectionGrip(m: Mapper, sel: { id: string; clip: Clip }, clie
 	for (let gi = 0; gi < 4; gi++) {
 		const sp = m.toClient(cs[gi][0], cs[gi][1])
 		if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id: sel.id, apply: (p: Pt) => resizeSectionClip(c0, p, cs[(gi + 2) % 4]) }
+	}
+	return null
+}
+
+/** Which grip of the selected LINE section a press grabs (14px, like the box corners): an end (moves it — Shift: 15°
+ *  steps about the other end, read live) or the depth handle. `apply` maps the pointer to the section's patch. */
+export function pickLineSectionGrip(m: Mapper, sel: LineSection, clientX: number, clientY: number, shift: () => boolean = () => false): { id: string; apply: (p: Pt) => Partial<LineSection> } | null {
+	const s0: LineSection = { ...sel, a: [sel.a[0], sel.a[1]], b: [sel.b[0], sel.b[1]] }   // press-time copy (the drag re-applies to it)
+	for (const g of lineSectionGrips(s0)) {
+		const sp = m.toClient(g.p[0], g.p[1])
+		if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id: sel.id, apply: (p: Pt) => applyLineGrip(s0, g.key, p, shift()) }
 	}
 	return null
 }

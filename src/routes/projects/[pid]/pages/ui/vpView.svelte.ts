@@ -14,7 +14,7 @@ import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
 import type { ViewCtx, MLayers } from './view'
 import type { VpProps, VpKind } from './vpTypes'
-import { pickSectionGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
+import { pickSectionGrip, pickLineSectionGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
 import { SNAP_STEP, rndTo, snapNode, graphNodeApply, elevDepthSnap } from './snap'
 import { barycentre, groupBox } from './groupXf'
 import { connPoints, objPoints, type ConnPt } from '../3dview/connect'
@@ -22,7 +22,8 @@ import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDra
 import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
-import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
+import { setSectionDir, deleteSection, setSectionClip, patchSection, flipSection } from './modelEdit'
+import { isLineSection, lineSectionDir, lineSectionGrips, lineSectionRegion, sectionTitle } from './sectionLine'
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip, type OClip } from '../3dview/types'
@@ -38,7 +39,7 @@ const CX = PLAN_CX, CY = PLAN_CY   // plan centre in mm (viewBox centre + scale 
  *  guide → section border → model object → nothing/marquee). */
 export type Pick =
 	| { kind: 'mgrip'; grip: MGrip }
-	| { kind: 'sgrip'; sg: { id: string; apply: (p: Pt) => Clip } }
+	| { kind: 'sgrip'; sg: { id: string; apply: (p: Pt) => SectionPatch } }
 	| { kind: 'ggrip'; rot?: boolean; corner?: number }
 	| { kind: 'grip'; id: string; gi: number }
 	| { kind: 'ent'; id: string }
@@ -46,6 +47,9 @@ export type Pick =
 	| { kind: 'section'; id: string }
 	| { kind: 'obj'; id: string }
 	| null
+
+/** What a section grip / move drag writes: a box's clip, or a line section's ends / depth (modelEdit patchSection). */
+export type SectionPatch = Record<string, unknown>
 
 /** D13: the multi-selection's transform box (drawing units): its bbox, the barycentre pivot, the rotate
  *  handle and the four corners (each with the corner opposite it — the scale pivot). */
@@ -116,8 +120,9 @@ export class VpView {
 	/** An OBLIQUE view (a frame off the four axes): 3D objects are read-only in it until phase 5 (no grips / moves /
 	 *  graph drawing; picking still selects). */
 	oblique = $derived(!!this.obFrame && frameAxis(this.obFrame) === null)
-	/** The elevation's name on its ground line: the dir, or an explicit frame's look angle. */
-	elevLabel = $derived.by(() => (this.obFrame ? `${Math.round(frameAngle(this.obFrame) * 10) / 10}°` : this.elevDir.toUpperCase()))
+	/** The elevation's name on its ground line: the `viewTitle` prop (a section line's "SECTION A–A′"), else the dir, or
+	 *  an explicit frame's look angle. */
+	elevLabel = $derived.by(() => this.p.viewTitle ?? (this.obFrame ? `${Math.round(frameAngle(this.obFrame) * 10) / 10}°` : this.elevDir.toUpperCase()))
 	/** An elevation's GROUND LINE span (drawing u): the section clip along the view's axis (an oriented clip: its cut
 	 *  line), else the visible model's extent (+ a margin), else a default — so a section's elevation doesn't draw a
 	 *  ground line across the whole sheet. */
@@ -422,22 +427,36 @@ export class VpView {
 	})
 	selSectionObj = $derived(this.isPlan && this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null)
 	setSectionClip = (id: string, clip: Clip) => { if (this.mdl) setSectionClip(this.mdl, id, clip) }   // inside a drag gesture (the caller records the step)
+	/** A section drag's patch (a box's clip, a line's ends / depth) — inside the gesture, which records the step. */
+	patchSection = (id: string, patch: SectionPatch) => { if (this.mdl) patchSection(this.mdl, id, patch) }
 	setSectionDir = (id: string, dir: ElevDir) => { if (this.mdl) setSectionDir(this.mdl, this.editor.edit, id, dir) }
-	deleteSection = (id: string) => { if (this.mdl && deleteSection(this.mdl, this.editor.edit, id) && this.selSection === id) this.clearSel() }
+	/** A LINE section looks the other way (its end arrows / toolbar / Properties) — one undo step. */
+	flipSection = (id: string) => { if (this.mdl) flipSection(this.mdl, this.editor.edit, id) }
+	/** Delete a section — unless it still drives sheet viewports: then the page ASKS (keep them as plain elevations /
+	 *  delete them too) and does the delete itself (editor.sections.askDelete). */
+	deleteSection = (id: string) => {
+		if (this.editor.sections.askDelete(id)) return
+		if (this.mdl && deleteSection(this.mdl, this.editor.edit, id) && this.selSection === id) this.clearSel()
+	}
 	hitSection = (p: Pt) => hitSection(this.ctx, this.sections, p, this.tolMm(6))
 	hitGuide = (p: Pt) => hitGuide(this.viewGuides, p, this.tolMm(6))
-	/** The selected section's floating toolbar position (.vp-local px), tracking pan/zoom/resize. */
+	/** The selected section's floating toolbar position (.vp-local px), tracking pan/zoom/resize — at a box's top-left, a
+	 *  line's top-left bounds — plus what it shows: a box's sight dir, a line's flip, and the viewports it drives. */
 	secToolbar = $derived.by(() => {
 		void this.view; void this.canvasZoom; void this.vpW; void this.vpH   // deps: reposition on pan/zoom/resize
 		const s = this.selSectionObj, svg = this.svg
 		if (!this.active || !s || !svg) return null
-		const sp = this.toClient(Math.min(s.clip.x0, s.clip.x1), Math.min(s.clip.y0, s.clip.y1)); if (!sp) return null
+		const at: Pt = isLineSection(s) ? [Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1])] : [Math.min(s.clip.x0, s.clip.x1), Math.min(s.clip.y0, s.clip.y1)]
+		const sp = this.toClient(at[0], at[1]); if (!sp) return null
 		const r = svg.getBoundingClientRect()
 		// client px → .vp-LOCAL px: on a zoomed sheet the viewport is CSS-scaled, so divide by its on-screen scale (else the
 		// toolbar lands far from the box — Dave, Zone 3303 elevations)
 		const k = this.vpW ? r.width / this.vpW : 1
-		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, dir: s.dir }
+		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, line: isLineSection(s), dir: isLineSection(s) ? lineSectionDir(s) : s.dir,
+			title: sectionTitle(s), links: this.editor.sections.links(s.id) }
 	})
+	/** The selected LINE section's grips (ends + depth handle) and its cut region, for VpMarks. */
+	lineSecSel = $derived.by(() => { const s = this.selSectionObj; return s && isLineSection(s) ? { grips: lineSectionGrips(s), region: lineSectionRegion(s) } : null })
 
 	// ── grips ──
 	/** The single selected model object (drives model-grip render + pick). */
@@ -481,7 +500,9 @@ export class VpView {
 	pickAt(clientX: number, clientY: number, p: Pt): Pick {
 		const m = this.mapper(); if (!m) return null
 		if (this.mSelObj) { const g = pickModelGrip(m, this.mGrips, clientX, clientY); if (g) return { kind: 'mgrip', grip: g } }
-		if (this.selSectionObj) { const sg = pickSectionGrip(m, this.selSectionObj, clientX, clientY); if (sg) return { kind: 'sgrip', sg } }
+		const ss = this.selSectionObj
+		if (ss && isLineSection(ss)) { const sg = pickLineSectionGrip(m, ss, clientX, clientY, () => this.shiftDown); if (sg) return { kind: 'sgrip', sg } }
+		else if (ss) { const sg = pickSectionGrip(m, ss, clientX, clientY); if (sg) return { kind: 'sgrip', sg: { id: sg.id, apply: (p: Pt) => ({ clip: sg.apply(p) }) } } }
 		const gx = this.groupXf
 		if (gx) {
 			const near = (q: Pt) => { const sp = m.toClient(q[0], q[1]); return Math.hypot(sp.x - clientX, sp.y - clientY) < 14 }

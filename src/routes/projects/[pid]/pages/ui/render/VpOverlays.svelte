@@ -11,6 +11,8 @@
 	import { SEL, type VpView } from '../vpView.svelte'
 	import { DRAW, POLY, type VpInteraction } from '../vpInteraction.svelte'
 	import { imgEdit } from '../../imageEdit.svelte'
+	import { sectionSpec } from '../sectionSpec.svelte'
+	import { lineSectionMarks, lineSectionRegion } from '../sectionLine'
 
 	let { v, x }: { v: VpView; x: VpInteraction } = $props()
 	const sw = $derived(1 / (v.canvasZoom || 1))   // ~1 px on screen at ANY canvas zoom (non-scaling-stroke can't see the CSS zoom)
@@ -149,7 +151,17 @@
 		<ellipse cx={(qa[0] + p[0]) / 2} cy={(qa[1] + p[1]) / 2} rx={Math.abs(p[0] - qa[0]) / 2} ry={Math.abs(p[1] - qa[1]) / 2} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Furniture' || tool === 'Opening'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width={sw} />
-	{:else if tool === 'Section'}
+	{:else if tool === 'Section' && sectionSpec.kind === 'line' && Math.hypot(p[0] - a[0], p[1] - a[1]) > 1}
+		<!-- a section LINE being drawn: the cut, its end arrows (where it will look) and the region it will see -->
+		{@const pv = { id: '', kind: 'line' as const, a: [a[0], a[1]] as [number, number], b: [p[0], p[1]] as [number, number], depth: sectionSpec.depth }}
+		{@const mk = lineSectionMarks(pv, Math.max(v.paperMm, v.tolMm(4)))}
+		<polygon points={lineSectionRegion(pv).map((q) => q.join(',')).join(' ')} fill="#0e749011" stroke="#0e749066" stroke-dasharray="4 3" stroke-width={sw} />
+		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke="#0e7490" stroke-dasharray="12 4 2 4" stroke-width={1.5 * sw} />
+		{#each mk.arrows as ar, i (i)}
+			<line x1={ar.end[0]} y1={ar.end[1]} x2={ar.tip[0]} y2={ar.tip[1]} stroke="#0e7490" stroke-width={1.5 * sw} />
+			<polygon points={ar.head.map((q) => q.join(',')).join(' ')} fill="#0e7490" stroke="#0e7490" stroke-width={sw} />
+		{/each}
+	{:else if tool === 'Section' && sectionSpec.kind !== 'line'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width={1.2 * sw} />
 	{/if}
 	<!-- the fixed anchor point (first click / centre) as a small hollow square -->

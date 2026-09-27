@@ -13,6 +13,7 @@
 import type { Ent, ElevDir } from './geometry'
 import type { EditScope } from './modelEdit'
 import type { Selection, SelItem } from './selection'
+import type { SectionLink } from './sectionLine'
 
 export type Editor = {
 	ents: {
@@ -32,7 +33,16 @@ export type Editor = {
 	}
 	edit: EditScope
 	sections: {
+		/** Drop a section's view as ANOTHER linked viewport frame on the current sheet (every call adds one — a section
+		 *  usually drives several). A box drops direction `dir`; a LINE section ignores it (it has one view). */
 		dropDir(id: string, dir: ElevDir): void
+		/** The sheet frames linked to a section, across every sheet (phase 3: the toolbar / Properties list them). */
+		links(id: string): SectionLink[]
+		/** Open a linked frame's sheet with that frame selected. */
+		openLink(l: SectionLink): void
+		/** Deleting a section that still drives viewports ASKS first (keep them as plain elevations / delete them too):
+		 *  true = the page took the delete over (it asked); false = nothing linked — the caller deletes it itself. */
+		askDelete(id: string): boolean
 	}
 	sel: {
 		get(): Selection
@@ -51,6 +61,6 @@ const noop = () => {}
 export const noopEditor: Editor = {
 	ents: { add: noop, update: noop, updateMany: noop, delete: noop, copy: noop, cut: noop, paste: noop, group: noop, ungroup: noop, reorder: noop },
 	edit: { begin: noop, mark: noop, end: noop },
-	sections: { dropDir: noop },
+	sections: { dropDir: noop, links: () => [], openLink: noop, askDelete: () => false },
 	sel: { get: () => [], only: noop, toggle: noop, clear: noop, delete: noop },
 }

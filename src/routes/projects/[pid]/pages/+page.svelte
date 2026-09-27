@@ -76,12 +76,16 @@
 	import { modelForPlace } from './3dview/models.svelte'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
-	import { objBounds, oclipOf, oclipWidth } from './3dview/projection'
+	import { objBounds, oclipOf, oclipWidth, oclipFrame, modelZRange } from './3dview/projection'
 	import { devObliqueFrame } from './ui/devOblique'
+	import { isLineSection, lineSectionOClip, lineSectionClip, lineSectionDir, sectionTitle, sectionLinksOf, type SectionLink, type LinkSource } from './ui/sectionLine'
+	import { sectionSpec } from './ui/sectionSpec.svelte'
+	import { deleteSection as deleteSectionIn, updateSection as updateSectionIn } from './ui/modelEdit'
+	import SectionDeleteDialog from './parts/SectionDeleteDialog.svelte'
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, Section, Clip } from './3dview/types'
+	import type { Model, ModelId, Section, Clip, OClip } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 
@@ -218,7 +222,7 @@
 				reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
 			},
 			edit,
-			sections: { dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
+			sections: { dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir), links: sectionLinks, openLink: openSectionLink, askDelete: askSectionDelete },
 			sel: {
 				get: () => selStore.of(viewId),
 				only: (items: SelItem[]) => selStore.set(viewId, selOnly(items)),
@@ -264,36 +268,121 @@
 	}
 	// Drop a section's elevation for a direction as a viewport FRAME on the current sheet (focused pane's
 	// sheet, else the first sheet tab); focuses it + selects the new frame. Frame size starts at the clip aspect.
-	/** A frame's clip: a frame dropped from a SECTION follows that marker live; else its own stored clip. */
-	function liveClip(f: SheetFrame, tabId?: string): Clip | null {
-		if (!f.section) return f.clip
-		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : FLOOR_MODEL_ID)), s = m?.sections?.find((x) => x.id === f.section)
-		return s ? s.clip : f.clip
+	/** The section a frame is linked to (its model's), else null (none / deleted / another model's). */
+	function frameSection(f: SheetFrame, tabId?: string): Section | null {
+		if (!f.section) return null
+		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : FLOOR_MODEL_ID))
+		return m?.sections?.find((x) => x.id === f.section) ?? null
 	}
+	/** A frame's clip: a frame dropped from a SECTION follows that marker live (a line section: the axis box covering its
+	 *  cut — what box-only code like the DXF export reads); else its own stored clip. */
+	function liveClip(f: SheetFrame, tabId?: string): Clip | null {
+		const s = frameSection(f, tabId)
+		return !s ? f.clip : isLineSection(s) ? lineSectionClip(s) : s.clip
+	}
+	/** A frame's ORIENTED clip (phase 3): a frame linked to a section LINE reads the line's view LIVE — every linked frame
+	 *  (any sheet) follows a move / rotate / flip / depth change; unlinked (the section gone, or kept as a plain elevation)
+	 *  it keeps its last copy (`f.oclip`). null = no oriented view (a box section / a plain frame). */
+	function liveOClip(f: SheetFrame, tabId?: string): OClip | null {
+		const s = frameSection(f, tabId)
+		return s && isLineSection(s) ? lineSectionOClip(s) : (f.oclip ?? null)
+	}
+	/** A section-line frame's ground-line title ("SECTION A–A′"); undefined = the Viewport's own. */
+	function frameViewTitle(f: SheetFrame, tabId?: string): string | undefined {
+		const s = frameSection(f, tabId)
+		return s && isLineSection(s) ? sectionTitle(s).toUpperCase() : undefined
+	}
+	// Drop a section's view as a viewport FRAME LINKED to it (SheetFrame.section) on the current sheet: every call adds
+	// ANOTHER one (Dave: a section usually drives several elevation viewports — on one sheet or many — each with its own
+	// view-scoped annotations, freezes, scale, z band …; none of that lives on the section). A BOX drops direction `dir`
+	// (its clip, live); a LINE ignores `dir` — its one view is its OClip (live, liveOClip), the frame filed under the
+	// nearest ElevDir. The frame is sized to the view's proportions and fitted (scale + centred view).
 	function dropSectionDir(id: string, dir: ElevDir) {
 		const found = findSection(id); if (!found) return
-		const clip = found.sec.clip
+		const sec = found.sec, line = isLineSection(sec) ? sec : null
+		const oc = line ? lineSectionOClip(line) : null, clip = isLineSection(sec) ? lineSectionClip(sec) : sec.clip
+		const view: ElevDir = line ? lineSectionDir(line) : dir
 		const focusedTab = session.tabs.find((t) => t.id === session.panes[session.focused]?.activeId)
 		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : session.tabs.find((t) => t.kind === 'sheet')
 		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
 		openTab(sheet.id)
 		ensureHist(sheet.id)
 		const fid = newFrameId()
+		const mdl = modelById(found.mid), ls = mdl?.layers ?? []
 		// the frame takes the ELEVATION's proportions (along the view axis × the cut's height), not the plan box's
-		// (the clip seen through the dir's frame: its oriented clip's width = the box's extent along the view axis)
-		const along = oclipWidth(oclipOf(clip, frameOf(dir))) || 1, tall = Math.abs(clip.z1 - clip.z0) || 1
+		// (the clip seen through the dir's frame: its oriented clip's width = the box's extent along the view axis). A line
+		// with no z band is as tall as the model.
+		const zr = line && (line.z0 == null || line.z1 == null) && mdl ? modelZRange(mdl.objects) : null
+		const along = (oc ? oclipWidth(oc) : oclipWidth(oclipOf(clip, frameOf(dir)))) || 1
+		const tall = (zr ? zr.z1 - Math.min(0, zr.z0) : Math.abs(clip.z1 - clip.z0)) || 1
 		const W = 420, H = Math.max(120, Math.min(520, Math.round((W * tall) / along)))
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		const seq = nextFrameSeq(framesOf(sheet.id))
-		// fit the cut into the frame (scale + centred view), and LINK the frame to the section: editing the marker
-		// updates this elevation live (liveClip)
-		const mdl = modelById(found.mid), ls = mdl?.layers ?? []
-		const fit = mdl ? fitFrame(mdl.objects, dir, { w: W / PAPER_PX_PER_MM, h: H / PAPER_PX_PER_MM }, { clip, visible: (o) => !isLayerHidden(ls, o.layer) }) : null
-		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: fit ? `1:${fit.n}` : scaleOf(sheet.id), clip: { ...clip }, section: id, label: String(seq), seq, modelId: found.mid }])
-		if (fit) for (const p of session.panes) setView(p.id, fid, dir, fit.view)
+		// fit the cut into the frame (scale + centred view) — through the view frame the Viewport draws with (a line's:
+		// its OClip's frame about the plan centre) — and LINK the frame to the section: editing the marker updates it live
+		const vf = oc ? oclipFrame(oc, [PLAN_CX, PLAN_CY]) : null
+		const fit = mdl ? fitFrame(mdl.objects, view, { w: W / PAPER_PX_PER_MM, h: H / PAPER_PX_PER_MM }, { clip, frame: vf, oclip: oc, visible: (o) => !isLayerHidden(ls, o.layer) }) : null
+		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: view, scale: fit ? `1:${fit.n}` : scaleOf(sheet.id), clip: { ...clip }, ...(oc ? { oclip: oc } : {}), section: id, label: String(seq), seq, modelId: found.mid }])
+		if (fit) for (const p of session.panes) setView(p.id, fid, view, fit.view)
 		if (session.panes[session.focused]) { session.panes[session.focused].activeId = sheet.id; session.panes[session.focused].layout = 'sheet' }
 		selStore.set(sheet.id, selOnly([{ kind: 'frame', id: fid }]))
 		recordEdit(sheet.id, 'Drop section viewport')
+	}
+	// ── the frames a section drives (phase 3 / Dave: usually several, on several sheets) ──
+	/** Every drawing to scan for linked frames: the loaded docs (with their stored sheet's number / title), and the
+	 *  stored sheets not loaded yet. */
+	function linkSources(): { loaded: LinkSource[]; stored: LinkSource[] } {
+		const sheets = proj.store?.sheets ?? []
+		const loaded = Object.values(docs.all()).map((d): LinkSource => {
+			const sid = sheetIdOf(d.id), sh = sid ? sheets.find((x) => x.id === sid) : undefined
+			return { did: d.id, ...(sid ? { sheetId: sid } : {}), title: sh?.title ?? session.tabs.find((t) => t.docId === d.id)?.title ?? d.title, number: sh?.drawingNumber, frames: d.frames }
+		})
+		const stored = sheets.map((sh): LinkSource => ({ did: SHEET + sh.id, sheetId: sh.id, title: sh.title, number: sh.drawingNumber, frames: sh.frames }))
+		return { loaded, stored }
+	}
+	/** The sheet frames linked to section `id` (toolbar / Properties list; the delete ask). */
+	function sectionLinks(id: string): SectionLink[] { const { loaded, stored } = linkSources(); return sectionLinksOf(id, loaded, stored) }
+	/** Open a linked frame's sheet (a stored sheet loads first) with that frame selected on its paper. */
+	async function openSectionLink(l: SectionLink) {
+		if (l.sheetId && proj.store?.sheets.some((s) => s.id === l.sheetId)) proj.openSheetById(l.sheetId)
+		else { const t = session.tabs.find((x) => x.docId === l.did); if (t) openTab(t.id); else { toast('That sheet isn’t open'); return } }
+		await tick()
+		const t = session.tabs.find((x) => x.docId === l.did); if (!t) return
+		const p = session.panes[session.focused]; if (p) { p.activeId = t.id; p.layout = 'sheet' }
+		selStore.set(t.id, selOnly([{ kind: 'frame', id: l.frameId }]))
+	}
+	/** Deleting a section that still drives viewports ASKS first (SectionDeleteDialog); false = nothing linked. */
+	let secAsk = $state<{ id: string; title: string; links: SectionLink[] } | null>(null)
+	function askSectionDelete(id: string): boolean {
+		const links = sectionLinks(id), found = findSection(id); if (!links.length || !found) return false
+		secAsk = { id, title: sectionTitle(found.sec), links }
+		return true
+	}
+	/** The ask's answer, ONE undo step: the section goes, and its linked frames are either KEPT as plain elevations
+	 *  (unlinked, still showing their last view: the box's clip / the line's OClip copied onto them) or DELETED too. */
+	function finishSectionDelete(mode: 'keep' | 'delete') {
+		const ask = secAsk; secAsk = null; if (!ask) return
+		const found = findSection(ask.id), m = found && modelById(found.mid); if (!found || !m) return
+		const sec = found.sec, clip = isLineSection(sec) ? lineSectionClip(sec) : sec.clip, oc = isLineSection(sec) ? lineSectionOClip(sec) : null
+		for (const sid of new Set(ask.links.flatMap((l) => (l.sheetId ? [l.sheetId] : [])))) proj.loadSheet(sid)   // their frames into the doc store (and the history)
+		const tab = session.panes[session.focused]?.activeId ?? ''
+		beginGesture()
+		for (const did of new Set(ask.links.map((l) => l.did))) {
+			const fs = docs.framesOf(did)
+			const next = mode === 'delete' ? fs.filter((f) => f.section !== ask.id)
+				: fs.map((f) => { if (f.section !== ask.id) return f; const { section: _s, ...rest } = f; return { ...rest, clip: { ...clip }, ...(oc ? { oclip: oc } : {}) } })
+			if (mode === 'delete') for (const f of fs) if (f.section === ask.id) deactivateVp(f.id)
+			docs.setFrames(did, readingOrder(next)); recordEdit(tab, 'Delete section')
+		}
+		deleteSectionIn(m, { begin: beginGesture, mark: (l?: string) => modelEdit(tab, l), end: endGesture }, ask.id)   // its end() closes the gesture: one step
+		for (const vid of [activeSelViewId(), ...session.tabs.map((t) => t.id)]) if (vid && singleOfKind(selStore.of(vid), 'section')?.id === ask.id) selStore.set(vid, selClear())
+		toast(mode === 'delete' ? `${sectionTitle(sec)} and its ${ask.links.length} viewport${ask.links.length === 1 ? '' : 's'} deleted` : `${sectionTitle(sec)} deleted — its viewports keep their last view`)
+	}
+	/** Properties › a section's field (name / depth / flip / z band): one undo step. */
+	function updateSelSection(patch: Record<string, unknown>, label?: string) {
+		const s = selSection; if (!s) return
+		const m = modelById(s.mid), tab = session.panes[session.focused]?.activeId ?? ''
+		if (m) updateSectionIn(m, { begin: beginGesture, mark: (l?: string) => modelEdit(tab, l), end: endGesture }, s.sec.id, patch, label)
 	}
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
@@ -374,9 +463,12 @@
 		// a riser drawing with hidden floors fits its COLLAPSED extent (as drawn)
 		const elev = f.proj !== 'plan' && f.proj !== 'iso'
 		const sm = elev && f.storeys && mdl.storeys?.length ? storeyMap(mdl.storeys, f.storeys) : null, vs = elev ? BASIS[f.proj as ElevDir].vs : 1
-		const clip = liveClip(f, a2.id), dfr = elev ? devObliqueFrame(f.id) : null   // DEV: an oblique view (ui/devOblique.ts) fits as drawn
+		// an oblique view fits as drawn: a section LINE's (its live OClip, through the frame the Viewport uses — about the
+		// plan centre), else a DEV console angle (ui/devOblique.ts) over the clip
+		const clip = liveClip(f, a2.id), loc = elev ? liveOClip(f, a2.id) : null
+		const dfr = loc ? oclipFrame(loc, [PLAN_CX, PLAN_CY]) : elev ? devObliqueFrame(f.id) : null
 		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
-			{ yaw: orb.yaw, pitch: orb.pitch, clip, frame: dfr, oclip: dfr && clip ? oclipOf(clip, dfr) : null, mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
+			{ yaw: orb.yaw, pitch: orb.pitch, clip, frame: dfr, oclip: loc ?? (dfr && clip ? oclipOf(clip, dfr) : null), mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
 				visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
@@ -491,7 +583,8 @@
 		const ls = mdl.layers ?? [], n = scaleDenom(f.scale ?? scaleOf(tabId))
 		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: f.id, paperMm: n, mdl, yaw: 0, pitch: 0 }
 		const extra = proj === 'plan' ? (mdl.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model' || e.space === 'view:' + f.id) && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e)) : []
-		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: liveClip(f, tabId), visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
+		const loc = proj !== 'plan' && proj !== 'iso' ? liveOClip(f, tabId) : null   // a section line's view: as the Viewport draws it
+		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: liveClip(f, tabId), frame: loc ? oclipFrame(loc, [PLAN_CX, PLAN_CY]) : null, oclip: loc, visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
 		const z = viewOf(paneId, f.id, f.proj as Proj).zoom || 1, k = (z * fit.n) / n   // fit's view is at 1:fit.n, zoom 1 → this frame's scale + zoom
 		setView(paneId, f.id, proj, { zoom: z, x: PLAN_CX * (1 - z) + fit.view.x * k, y: PLAN_CY * (1 - z) + fit.view.y * k })   // view + z·(C + (P − C)/N) = C at the content's middle
 	}
@@ -598,6 +691,7 @@
 		focusedTabId: () => session.panes[session.focused]?.activeId,
 		scaleN: () => propsScaleN, selModelObj: () => selModelObj, selModelObjs: () => selModelObjs,
 		drawingDefaults: () => proj.store?.project?.drawingDefaults,
+		askSectionDelete: (id) => askSectionDelete(id),
 	})
 	const { addEnt, updateEnt, updateEnts, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
 		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
@@ -700,6 +794,11 @@
 	$effect(() => { if (idsOfKind(activeSel, 'ent').length) session.treeNode = null })
 	// Selecting a sheet viewport frame likewise shows its Properties.
 	$effect(() => { if (selFrameId) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
+	// A selected SECTION marker (phase 3): its model + the section, for Properties (name / depth / flip / z band, the
+	// viewports it drives); selecting one shows them.
+	let selSectionId = $derived(singleOfKind(activeSel, 'section')?.id ?? null)
+	let selSection = $derived(selSectionId ? findSection(selSectionId) : null)
+	$effect(() => { if (selSectionId) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
 	// Exit an image calibration mode when its image is no longer the (single) selection.
 	$effect(() => { if (imgEdit.id && !(selEnts.length === 1 && selEnts[0].id === imgEdit.id)) clearImgMode() })
 	// I4 / F8: several model objects selected (Ctrl/Shift-click) — edited together (docEdit.updateModelObjs).
@@ -847,6 +946,8 @@
 		},
 		frames: (did) => docs.framesOf(did), scale: (did) => docs.scaleOf(did), tb: (did) => proj.titleBlockOf(did),
 		entsForModel, conduitOf, view: (fid, pr) => viewState.getView('p1', fid, pr), orbit: (fid, pr) => orbitOf('p1', fid, pr),
+		// a section-linked frame prints what it shows: its section's live clip / line view / title
+		clip: (f) => liveClip(f), oclip: (f) => liveOClip(f), title: (f) => frameViewTitle(f),
 	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
 	// The COMMAND LINE (Kestrel's): draw commands arm the focused pane's tool; points / selection edits go to its
@@ -1160,6 +1261,8 @@
 		{ icon: 'blinds', name: 'Window' },
 		{ icon: 'opening', name: 'Hole' },
 		{ icon: 'scan', name: 'Section' },
+		{ icon: 'scan', name: 'Section box' },     // the Section tool with its form set (TOOL_VARIANT)
+		{ icon: 'section', name: 'Section line' }, // phase 3: a cut line at any angle (A–A′)
 		{ icon: 'ruler', name: 'Dimension' },
 		{ icon: 'paintbrush', name: 'Format painter' },   // runs MATCHPROP (pseudo-tool)
 		{ icon: 'pencilRuler', name: 'Measure' },         // runs DIST: two clicks, nothing drawn (pseudo-tool)
@@ -1187,7 +1290,7 @@
 		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
 		{ sep: 'annotate' },
 		{ group: 'measure', label: 'Dimension · measure · guides', members: ['Dimension', 'Measure', 'Guide H', 'Guide V'] },
-		{ tool: 'Section' },
+		{ group: 'sections', label: 'Sections · box / line', members: ['Section box', 'Section line'] },
 		{ sep: 'modify' },
 		{ tool: 'Format painter' },
 		{ tool: 'Viewport' },
@@ -1199,13 +1302,15 @@
 		Hole: { tool: 'Opening', set: () => openingSpec.setKind('hole'), is: () => openingSpec.kind === 'hole' },
 		'Guide H': { tool: 'Guide', set: () => (guideVert = false), is: () => !guideVert },
 		'Guide V': { tool: 'Guide', set: () => (guideVert = true), is: () => guideVert },
+		'Section box': { tool: 'Section', set: () => sectionSpec.setKind('box'), is: () => sectionSpec.kind === 'box' },
+		'Section line': { tool: 'Section', set: () => sectionSpec.setKind('line'), is: () => sectionSpec.kind === 'line' },
 	}
-	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V' }   // Insert-menu names → tools
-	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Callout: 'Callout (an arrow to a note)', Note: 'Note (multi-line text block)' }
+	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V', Section: 'Section box' }   // Insert-menu names → tools
+	const TOOL_LABEL: Record<string, string> = { 'Section box': 'Section box (drag a box; its arrows drop elevations)', 'Section line': 'Section line (A–A′ at any angle)', Furniture: 'Box', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Callout: 'Callout (an arrow to a note)', Note: 'Note (multi-line text block)' }
 	const toolIs = (tool: string, name: string) => { const tv = TOOL_VARIANT[name]; return tv ? tool === tv.tool && tv.is() : tool === name }
 	const toolLabel = (name: string) => TOOL_LABEL[name] ?? name
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
-	let groupTool = $state<Record<string, string>>({ text: 'Text', shapes: 'Rectangle', conduits: 'Wall', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
+	let groupTool = $state<Record<string, string>>({ text: 'Text', shapes: 'Rectangle', conduits: 'Wall', openings: 'Door', boxes: 'Furniture', measure: 'Dimension', sections: sectionSpec.kind === 'line' ? 'Section line' : 'Section box' })
 	// Which tool-group fly-out is TAP-opened (touch has no hover). Cleared by a press outside any `.grp`.
 	let openGroup = $state<string | null>(null)
 	$effect(() => {
@@ -1303,7 +1408,7 @@
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, liveClip, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
+		viewOf, envFor, orbitOf, setView3d: (paneId: string, viewId: string, proj: Proj, mode: View3d) => viewState.setView3d(paneId, didOf(viewId), proj, mode), vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, dupFramesInPlace, liveClip, liveOClip, frameViewTitle, keepView, revertView, viewPreviewOn: (tabId: string) => { const e = Object.entries(viewPreview).find(([, p]) => p.tab === tabId); return e ? { frameId: e[0], orig: e[1].orig } : null }, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
@@ -1333,6 +1438,7 @@
 			</div>
 		</div>
 	{/if}
+	{#if secAsk}<SectionDeleteDialog title={secAsk.title} links={secAsk.links} onkeep={() => finishSectionDelete('keep')} ondelete={() => finishSectionDelete('delete')} onclose={() => (secAsk = null)} />{/if}
 	{#if helpOpen}<HelpDialog onclose={() => (helpOpen = false)} onrun={(id) => { const c = commandById(id); if (c) cmdRunner.run(primaryName(c)) }} />{/if}
 	{#if textDialog.req}{@const r = textDialog.req}{#key r}<NoteDialog text={r.text} plain={r.plain} width={r.width ?? 90} fontPt={r.fontPt ?? 8} onclose={() => textDialog.close()} onapply={(t) => { r.apply(t); textDialog.close() }} />{/key}{/if}
 	{#if defaultsOpen && proj.store}<DrawingDefaultsDialog value={proj.store.project?.drawingDefaults} onchange={(d) => proj.store?.saveDrawingDefaults(d)} onclose={() => (defaultsOpen = false)} />{/if}
@@ -1431,6 +1537,12 @@
 						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} outletsFor={proj.outletsForRack} allocated={proj.allocatedOutlets}
 						sheets={(proj.store?.sheets ?? []).filter((s) => s.status !== 'archived' && !s.link).map((s) => ({ id: s.id, title: s.title, number: s.drawingNumber }))} onopenlink={openLink} onsaveblock={saveSelAsBlock} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
+						frameSection={selFrameObj ? (() => { const s = frameSection(selFrameObj, active?.id); return s ? sectionTitle(s) : undefined })() : undefined}
+						section={selSection?.sec ?? null} sectionLinks={selSection ? sectionLinks(selSection.sec.id) : []}
+						onsectionupdate={updateSelSection} onsectionopen={openSectionLink}
+						onsectiondrop={() => { const s = selSection?.sec; if (s) dropSectionDir(s.id, isLineSection(s) ? lineSectionDir(s) : s.dir) }}
+						onsectiondelete={() => { const s = selSection; if (!s || askSectionDelete(s.sec.id)) return; const m = modelById(s.mid), tab = session.panes[session.focused]?.activeId ?? ''
+							if (m && deleteSectionIn(m, { begin: beginGesture, mark: (l?: string) => modelEdit(tab, l), end: endGesture }, s.sec.id)) { const vid = activeSelViewId(); if (vid) selStore.set(vid, selClear()) } }}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name, z: s.z }))}
 						frameConduits={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.objects ?? [] : []).filter((o) => o.type === 'conduit' && o.id).map((o, i) => ({ id: o.id!, name: o.label || `Conduit ${i + 1}` }))}

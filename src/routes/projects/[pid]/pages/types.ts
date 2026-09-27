@@ -3,7 +3,7 @@
 // (`SheetFrame`, previously duplicated in +page, PaperPage and PropertiesPanel), and the scale /
 // projection option lists (`SCALES` was two slightly different arrays; the projection labels were
 // `PROJ_LABEL` vs `DIR_LABEL` vs `PROJ_OPTS`). All derive from the engine's `Dir`/`DIR_LABEL`.
-import type { Dir, Clip, ModelId } from './3dview/types'
+import type { Dir, Clip, OClip, ModelId } from './3dview/types'
 import { DIR_LABEL } from './3dview/types'
 export type { Dir, Clip, ModelId }
 export { DIR_LABEL }
@@ -23,6 +23,10 @@ export type SheetFrame = {
 	/** A frame dropped from a SECTION marker: its id — the frame's clip FOLLOWS the section live (edit the marker, the
 	 *  elevation updates). `clip` keeps the last copy as a fallback (the section deleted / another model). */
 	section?: string
+	/** A frame dropped from a section LINE (elevation-section-plan.md phase 3): the line's view (an oriented clip), last
+	 *  copy — like `clip`, a fallback: the live one comes from the section (`liveOClip`); once the section is gone (or
+	 *  the frame was unlinked, "keep as a plain elevation") the frame keeps showing this view. */
+	oclip?: OClip
 	/** Pages sheets (drawings-plan §2.2): the frame's sequence number on its sheet — its default, printable label. */
 	seq?: number
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
@@ -129,6 +133,10 @@ export type Workspace = {
 	dupFramesInPlace: (tabId: string, ids: string[]) => SheetFrame[]
 	/** A frame's clip (a section-linked frame follows its marker). */
 	liveClip: (f: SheetFrame, tabId?: string) => import('./3dview/types').Clip | null
+	/** A frame's ORIENTED clip — a section LINE's view (live from the section, else the frame's last copy); null = none. */
+	liveOClip: (f: SheetFrame, tabId?: string) => OClip | null
+	/** A section-line frame's ground-line title ("SECTION A–A′"); undefined = the viewport's own. */
+	frameViewTitle: (f: SheetFrame, tabId?: string) => string | undefined
 	/** A sheet viewport's previewed direction change: its original, and Keep / Revert. */
 	viewPreviewOn: (tabId: string) => { frameId: string; orig: Proj } | null
 	keepView: (frameId: string) => void

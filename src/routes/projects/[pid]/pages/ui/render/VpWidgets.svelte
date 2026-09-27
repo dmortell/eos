@@ -4,20 +4,41 @@
 	// Each stops pointer/click propagation so a press on it never reaches the Viewport's own handlers.
 	import { Icon } from '$lib'
 	import type { ElevDir } from '../geometry'
+	import { linksSummary } from '../sectionLine'
 	import type { VpView } from '../vpView.svelte'
 	import type { VpInteraction } from '../vpInteraction.svelte'
 
 	let { v, x }: { v: VpView; x: VpInteraction } = $props()
 	const stop = (e: Event) => e.stopPropagation()
+	let linksOpen = $state<string | null>(null)   // the section whose linked-viewport list is dropped down
 </script>
 
 {#if v.secToolbar}
 	{@const tb = v.secToolbar}
+	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 	<div class="section-toolbar" style="left:{tb.x}px; top:{Math.max(2, tb.y - 30)}px" onpointerdown={stop} onclick={stop}>
-		<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => v.editor.sections.dropDir(tb.id, tb.dir)}><Icon name="panels" size={13} /></button>
-		<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={tb.dir} onchange={(e) => v.setSectionDir(tb.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
-			<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
-		</select>
+		{#if tb.line}
+			<!-- a LINE section: ONE view (every drop adds another linked viewport of it), flip, delete -->
+			<span class="st-name">{tb.title}</span>
+			<button class="st-btn" title="Drop as a viewport on the sheet (again = another linked viewport)" onclick={() => v.editor.sections.dropDir(tb.id, tb.dir)}><Icon name="panels" size={13} /></button>
+			<button class="st-btn" title="Flip — look the other way (or click an end arrow)" onclick={() => v.flipSection(tb.id)}><Icon name="mirror" size={13} /></button>
+		{:else}
+			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => v.editor.sections.dropDir(tb.id, tb.dir)}><Icon name="panels" size={13} /></button>
+			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={tb.dir} onchange={(e) => v.setSectionDir(tb.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
+				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
+			</select>
+		{/if}
+		<!-- the viewports this section drives (any sheet) — each opens its sheet with the frame selected -->
+		{#if tb.links.length}
+			<span class="st-links">
+				<button class="st-count" title={linksSummary(tb.links, 12)} onclick={() => (linksOpen = linksOpen === tb.id ? null : tb.id)}>{tb.links.length} VP</button>
+				{#if linksOpen === tb.id}
+					<span class="st-pop">
+						{#each tb.links as l (l.did + l.frameId)}<button onclick={() => { linksOpen = null; v.editor.sections.openLink(l) }}>{l.sheet} · {l.frame}</button>{/each}
+					</span>
+				{/if}
+			</span>
+		{/if}
 		<button class="st-btn st-del" title="Delete this section" onclick={() => v.deleteSection(tb.id)}><Icon name="trash" size={13} /></button>
 	</div>
 {/if}
@@ -68,6 +89,13 @@
 	.section-toolbar .st-btn:hover { background:#0e74901a; }
 	.section-toolbar .st-del { color:#dc2626; }
 	.section-toolbar .st-del:hover { background:#dc26261a; }
+	.section-toolbar .st-name { font-size:11px; font-weight:700; color:#0e7490; padding:0 4px; font-family:Consolas,monospace; white-space:nowrap; }
+	.section-toolbar .st-links { position:relative; display:inline-flex; }
+	.section-toolbar .st-count { font-size:10px; font-weight:700; color:#0e7490; background:#0e74901a; border:none; border-radius:4px; padding:2px 5px; cursor:pointer; white-space:nowrap; }
+	.section-toolbar .st-pop { position:absolute; top:100%; left:0; margin-top:4px; display:flex; flex-direction:column; min-width:120px; max-height:220px; overflow:auto;
+		background:#fff; border:1px solid #0e7490; border-radius:6px; box-shadow:0 4px 12px #0003; padding:2px; }
+	.section-toolbar .st-pop button { text-align:left; font-size:11px; color:#0f172a; background:none; border:none; border-radius:4px; padding:3px 6px; cursor:pointer; white-space:nowrap; }
+	.section-toolbar .st-pop button:hover { background:#0e74901a; }
 	.section-toolbar .st-dir { font-size:11px; color:#0e7490; background:#fff; border:1px solid #cbd5e1; border-radius:4px; padding:1px 3px; font-family:Consolas,monospace; }
 	/* Opaque editor over the (hidden) text: dark on white so it reads on the paper; auto-sized to the content. */
 	.text-edit { position:absolute; z-index:10; background:#fff; color:#111827; font-weight:600;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Right-sidebar PROPERTIES panel — a DISPATCHER: what's selected picks ONE section component (parts/props/):
 	//   a sheet viewport frame   → FrameProps
+	//   a section marker         → SectionProps (phase 3)
 	//   several model objects    → ModelObjsProps (I4)
 	//   one model object         → ModelObjProps
 	//   a tree node (a place)    → PlaceProps
@@ -15,8 +16,10 @@
 	import PageProps from './props/PageProps.svelte'
 	import EntProps from './props/EntProps.svelte'
 	import AlignBar from './props/AlignBar.svelte'
+	import SectionProps from './props/SectionProps.svelte'
 	import type { Ent } from '../ui/geometry'
-	import type { Obj, Layer as MLayer } from '../3dview/types'
+	import type { Obj, Layer as MLayer, Section } from '../3dview/types'
+	import type { SectionLink } from '../ui/sectionLine'
 	import type { SheetFrame } from '../types'
 	import type { TitleBlockTemplate } from '../titleBlock'
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
@@ -24,7 +27,8 @@
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, modelNode, modelSeg, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
-		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
+		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall,
+		section = null, sectionLinks = [], onsectionupdate, onsectiondrop, onsectiondelete, onsectionopen, frameSection = undefined }:
 		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
@@ -62,18 +66,26 @@
 			onheightall?: (placeId: string, key: HeightKey, value: number) => void
 			/** The PROJECT's title-block template (edited on a sheet page; undefined = the default). The editor shows
 			 *  only with `ontitleblock` (a project with Pages data). */
-			titleBlock?: TitleBlockTemplate; ontitleblock?: (t: TitleBlockTemplate) => void } = $props()
+			titleBlock?: TitleBlockTemplate; ontitleblock?: (t: TitleBlockTemplate) => void
+			/** A selected SECTION marker (phase 3: a line section's name / depth / flip / z band; a box's name / dir), the
+			 *  sheet frames it drives, and its actions. */
+			section?: Section | null; sectionLinks?: SectionLink[]
+			onsectionupdate?: (patch: Record<string, unknown>, label?: string) => void; onsectiondrop?: () => void; onsectiondelete?: () => void; onsectionopen?: (l: SectionLink) => void
+			/** The selected FRAME's linked section, by title ("Section A–A′"), if any. */
+			frameSection?: string } = $props()
 
 	// B19: the inputs are uncontrolled (`value=` + `onchange`), so a half-typed value would survive a selection
 	// change and land on the NEXT selection's first commit. Keying the panel body on WHAT is selected remounts
 	// every input when the selection changes (a value edit keeps the same ids → no remount, focus kept).
-	const selKey = $derived([...ents.map((e) => e.id), modelObj?.id ?? '', ...modelObjs.map((o) => o.id ?? ''), frameObj?.id ?? '', node?.id ?? ''].join('|'))
+	const selKey = $derived([...ents.map((e) => e.id), modelObj?.id ?? '', ...modelObjs.map((o) => o.id ?? ''), frameObj?.id ?? '', node?.id ?? '', section?.id ?? ''].join('|'))
 </script>
 
 {#key selKey}
 <div class="pp">
 	{#if frameObj}
-		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} conduits={frameConduits} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
+		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} conduits={frameConduits} section={frameSection} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
+	{:else if section}
+		<SectionProps sec={section} links={sectionLinks} onupdate={onsectionupdate} ondrop={onsectiondrop} ondelete={onsectiondelete} onopen={onsectionopen} />
 	{:else if modelObjs.length > 1 && onmodelsupdate}
 		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
 	{:else if modelObj}

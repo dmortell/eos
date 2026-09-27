@@ -31,6 +31,7 @@ export function frameToDoc(f: SheetFrame, seq: number, vs: FrameViewState = {}):
 	if (f.storeys) d.storeys = [...f.storeys]
 	if (f.fillOf) d.fillOf = f.fillOf
 	if (f.section) d.section = f.section
+	if (f.oclip) d.oclip = { ...f.oclip, a: [f.oclip.a[0], f.oclip.a[1]], b: [f.oclip.b[0], f.oclip.b[1]] }
 	if (f.hideHidden) d.hideHidden = true
 	if (f.mono) d.mono = true
 	if (f.zBand) d.zBand = { ...f.zBand }
@@ -54,6 +55,7 @@ export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameVi
 	if (d.storeys) frame.storeys = [...d.storeys]
 	if (d.fillOf) frame.fillOf = d.fillOf
 	if (d.section) frame.section = d.section
+	if (d.oclip) frame.oclip = { ...d.oclip, a: [d.oclip.a[0], d.oclip.a[1]], b: [d.oclip.b[0], d.oclip.b[1]] }
 	if (d.hideHidden) frame.hideHidden = true
 	if (d.mono) frame.mono = true
 	if (d.zBand) frame.zBand = { ...d.zBand }

@@ -38,6 +38,9 @@ export type DocEditHost = {
 	deleteFrame: (tabId: string, frameId: string) => void
 	/** D10: the project's drawing defaults (a freshly drawn shape starts with them). */
 	drawingDefaults: () => DrawingDefaults | undefined
+	/** A section that still drives sheet viewports: ask before deleting it (the page then deletes it, or not). True =
+	 *  asked (the caller stops); false / unset = nothing linked — delete it here. */
+	askSectionDelete?: (id: string) => boolean
 }
 
 export class DocEdit {
@@ -201,7 +204,10 @@ export class DocEdit {
 			selStore.set(viewId, removedObject ? selClear() : selOnly([{ kind: 'obj', id: segItem.id }]))
 			return
 		}
-		if (sectionItem) { const m = mdl(); if (m) deleteSection(m, edit, sectionItem.id); selStore.set(viewId, selClear()); return }
+		if (sectionItem) {
+			if (this.#h.askSectionDelete?.(sectionItem.id)) return   // it still drives sheet viewports: the page asks first (and deletes)
+			const m = mdl(); if (m) deleteSection(m, edit, sectionItem.id); selStore.set(viewId, selClear()); return
+		}
 		const frameIds = idsOfKind(s, 'frame')
 		if (frameIds.length) { for (const id of frameIds) this.#h.deleteFrame(tabId, id); selStore.set(viewId, selClear()) }   // each frame records its own step
 	}

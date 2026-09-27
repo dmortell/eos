@@ -6,8 +6,10 @@
 	import { PAPER_PX_PER_MM } from '../../constants'
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../../types'
 
-	let { frame, modelList = [], storeys = [], conduits = [], onupdate, ondelete, onfit }: {
+	let { frame, modelList = [], storeys = [], conduits = [], section = undefined, onupdate, ondelete, onfit }: {
 		frame: SheetFrame; modelList?: { id: string; name: string }[]
+		/** The section it's linked to (follows live), by title — "Section A–A′". */
+		section?: string
 		/** F12: the frame's model's conduits — a frame can show one's cross-section (fill) instead of a view. */
 		conduits?: { id: string; name: string }[]
 		/** The frame's model storeys (a building) — its FLOORS checklist in an elevation. */
@@ -29,6 +31,12 @@
 <!-- the frame's printed tag (its number by default — type e.g. "A" or "1 · Plan" to override) -->
 <div class="prop"><span>Label</span><input value={frame.label} placeholder={seqLabel} title="Printed above the viewport; empty = its number"
 	onchange={(e) => onupdate?.({ label: strVal(e).trim() || seqLabel })} onkeydown={blurOnEnter} /></div>
+{#if section}
+	<!-- a frame dropped from a section follows it live (move / flip / depth on the plan); its notes stay its own -->
+	<div class="prop"><span>Section</span><div class="pp-ro" title="Linked — it follows the section live">{section}</div></div>
+{:else if frame.section}
+	<div class="prop"><span>Section</span><div class="pp-ro" title="The section it was dropped from is gone — it keeps its last view">(deleted)</div></div>
+{/if}
 {#if modelList.length > 1}
 	<div class="prop"><span>Source</span>
 		<select value={frame.modelId ?? modelList[0]?.id} onchange={(e) => onupdate?.({ modelId: (e.currentTarget as HTMLSelectElement).value })}>

@@ -63,6 +63,12 @@ describe('frame mappers', () => {
 		const d = frameToDoc(f, 1)
 		expect('hideHidden' in d || 'mono' in d || 'zBand' in d).toBe(false)
 	})
+	it('keeps a section-line frame\'s link + its last view (oclip, phase 3); none when unset', () => {
+		const oclip = { a: [1000, 4000] as [number, number], b: [5000, 4000] as [number, number], depth: -2000, z0: 0, z1: 3000 }
+		const back = docToFrame(frameToDoc({ ...f, section: 'sec1', oclip }, 1)).frame
+		expect([back.section, back.oclip]).toEqual(['sec1', oclip])
+		expect('oclip' in frameToDoc(f, 1)).toBe(false)
+	})
 	it('nextFrameSeq continues after the highest', () => {
 		expect(nextFrameSeq([])).toBe(1); expect(nextFrameSeq([{ seq: 1 }, { seq: 4 }])).toBe(5)
 	})

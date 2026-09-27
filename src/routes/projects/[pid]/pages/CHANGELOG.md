@@ -43,6 +43,13 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Section LINES at any angle** (phase 3, OpenCad's O4): the Section button is a group — Section box · **Section
+  line** (spec bar Box | Line + Depth; SECTIONLINE / SECL; Insert › Section line). Two clicks / press-drag, Shift =
+  15°. Drawn dashed with perpendicular arrows + "A" / "A′"; selected: its seen region, end grips, a depth handle, drag
+  to move, click an end arrow to FLIP; Properties (name, look, depth, length / angle, z band). **One line drives many
+  viewports**: each "Drop as viewport" adds another linked frame (own annotations, layers, scale), all updating live;
+  the toolbar / Properties list them; deleting a line that still drives viewports asks (keep them as plain elevations
+  / delete them too). `ui/sectionLine.ts` (+18 tests).
 - **Align / distribute any selection** — shapes, 3D objects (boxes, racks, walls, runs) or both — measured as drawn
   (a rotated box by its outline), one undo step (`vpInteraction.arrangeSel`, `ui/arrange.ts arrangeMoves`); the
   Properties panel shows the ALIGN buttons for any 2+ items (`props/AlignBar.svelte`); the ALIGN command too.

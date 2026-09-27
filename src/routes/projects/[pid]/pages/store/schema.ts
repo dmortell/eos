@@ -7,7 +7,7 @@
 //   projects/{pid}/models/{id}          → ModelDoc                (one model per doc)
 //
 // Field names are Firestore-stable: rename only with a migration (see 3dview/migrate.ts `ents` → `shapes`).
-import type { Model, ModelId, Clip, Dir } from '../3dview/types'
+import type { Model, ModelId, Clip, OClip, Dir } from '../3dview/types'
 import type { View } from '../ui/geometry'
 import type { PaperSize } from '../constants'
 import type { ToolType } from '$lib/types/versioning'
@@ -68,6 +68,8 @@ export type SheetFrameDoc = {
 	direction: Dir
 	scale: string
 	clip: Clip | null
+	/** A section LINE's view, last copy (types.ts SheetFrame.oclip). */
+	oclip?: OClip
 	view?: View
 	yaw?: number; pitch?: number
 	frozen?: string[]

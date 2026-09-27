@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
 	addModelObj, deleteModelSel, deleteGraphNode, deleteGraphSeg, insertGraphNode, branchNode, splitNode,
-	addGuide, addSection, setSectionDir, deleteSection, setSectionClip, type EditScope, type GN,
+	addGuide, addSection, setSectionDir, deleteSection, setSectionClip, patchSection, updateSection, flipSection, type EditScope, type GN,
 } from './modelEdit'
 import type { ViewCtx, MLayers } from './view'
 import { graphSegAt } from './hit'
-import type { Model, Obj, Prism, Wall, Guide, Section } from '../3dview/types'
+import type { Model, Obj, Prism, Wall, Guide, Section, BoxSection, LineSection } from '../3dview/types'
 
 // A recording EditScope: logs 'begin' / 'mark:<label>' / 'end' in call order, so a test can assert both
 // the bracket shape (begin→mark→end, or nothing at all for a no-op) and the exact undo label.
@@ -184,7 +184,7 @@ describe('setSectionDir', () => {
 	it('changes the direction, brackets as Set section direction, returns true', () => {
 		const mm = m(), edit = recEdit()
 		expect(setSectionDir(mm, edit, 's1', 'rear')).toBe(true)
-		expect(mm.sections![0].dir).toBe('rear')
+		expect((mm.sections![0] as BoxSection).dir).toBe('rear')
 		expect(edit.log).toEqual(['begin', 'mark:Set section direction', 'end'])
 	})
 	it('NO-OP (no bracket at all) when the direction is unchanged', () => {
@@ -221,9 +221,44 @@ describe('setSectionClip — no edit bracket (the caller\'s drag gesture records
 		const m = mdl({ sections: [{ id: 's1', clip, dir: 'front' }] })
 		const newClip = { x0: 10, y0: 10, z0: 0, x1: 20, y1: 20, z1: 100 }
 		setSectionClip(m, 's1', newClip)
-		expect(m.sections![0].clip).toEqual(newClip)
+		expect((m.sections![0] as BoxSection).clip).toEqual(newClip)
 		setSectionClip(m, 'nope', newClip)   // no throw, no change elsewhere
 		expect(m.sections).toHaveLength(1)
+	})
+})
+
+describe('line sections (phase 3): patchSection / updateSection / flipSection', () => {
+	const line = (): LineSection => ({ id: 'l1', kind: 'line', a: [0, 0], b: [1000, 0], depth: 5000, name: 'A', z0: 0, z1: 3000 })
+	it('patchSection writes in place with no bracket, and REMOVES keys patched to undefined (the z band → every height)', () => {
+		const m = mdl({ sections: [line()] })
+		patchSection(m, 'l1', { a: [10, 20], z0: undefined, z1: undefined })
+		const s = m.sections![0] as LineSection
+		expect(s.a).toEqual([10, 20]); expect('z0' in s).toBe(false); expect('z1' in s).toBe(false)
+		patchSection(m, 'nope', { depth: 1 })   // no throw
+		expect(s.depth).toBe(5000)
+	})
+	it('updateSection is one bracketed step with its label; a no-op (no bracket) when not found / empty', () => {
+		const m = mdl({ sections: [line()] }), edit = recEdit()
+		expect(updateSection(m, edit, 'l1', { depth: 2000 }, 'Section depth')).toBe(true)
+		expect((m.sections![0] as LineSection).depth).toBe(2000)
+		expect(edit.log).toEqual(['begin', 'mark:Section depth', 'end'])
+		expect(updateSection(m, edit, 'nope', { depth: 1 })).toBe(false)
+		expect(updateSection(m, edit, 'l1', {})).toBe(false)
+		expect(edit.log).toHaveLength(3)
+	})
+	it('flipSection toggles a LINE (flip: true ↔ removed) as "Flip section"; refuses a box', () => {
+		const box: BoxSection = { id: 'b1', clip: { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 }, dir: 'front' }
+		const m = mdl({ sections: [line(), box] }), edit = recEdit()
+		expect(flipSection(m, edit, 'l1')).toBe(true); expect((m.sections![0] as LineSection).flip).toBe(true)
+		expect(flipSection(m, edit, 'l1')).toBe(true); expect('flip' in m.sections![0]).toBe(false)
+		expect(edit.log).toEqual(['begin', 'mark:Flip section', 'end', 'begin', 'mark:Flip section', 'end'])
+		expect(flipSection(m, recEdit(), 'b1')).toBe(false)
+	})
+	it('box-only edits leave a LINE section alone (setSectionDir / setSectionClip)', () => {
+		const m = mdl({ sections: [line()] }), edit = recEdit()
+		expect(setSectionDir(m, edit, 'l1', 'rear')).toBe(false); expect(edit.log).toEqual([])
+		setSectionClip(m, 'l1', { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 })
+		expect('clip' in m.sections![0]).toBe(false)
 	})
 })
 

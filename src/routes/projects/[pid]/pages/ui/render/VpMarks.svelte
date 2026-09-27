@@ -8,6 +8,7 @@
 	import Handle from '../../parts/Handle.svelte'
 	import { sectionArrowFor } from '../annotations'
 	import { sectionCorners } from '../hit'
+	import { lineSectionMarks } from '../sectionLine'
 	import type { ElevDir } from '../geometry'
 	import type { VpView } from '../vpView.svelte'
 	import type { VpInteraction } from '../vpInteraction.svelte'
@@ -16,6 +17,9 @@
 	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	const SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	const sw = $derived(1 / (v.canvasZoom || 1))
+	// a section line's marks (arrows / labels) are ANNOTATIVE — paper mm, so they print at one size — but never smaller
+	// on screen than a clickable ~4 px unit (the arrows flip it)
+	const markU = $derived(Math.max(v.paperMm, v.tolMm(4)))
 </script>
 
 <!-- the building STRUCTURE in an elevation (layers A-FLOR / A-CLNG): slabs, raised floors, ceilings -->
@@ -36,6 +40,27 @@
 {/if}
 {#if v.isPlan}
 	{#each v.sections as s (s.id)}
+		{#if s.kind === 'line'}
+			{@const sel = s.id === v.selSection}
+			{@const pick = sel && v.tool === 'Select'}
+			{@const mk = lineSectionMarks(s, markU)}
+			<!-- a section LINE (phase 3, OpenCad's look): dashed cut line, an arrow at each end pointing where it looks, A / A′.
+			     Selected + Select tool: the arrows are clickable — a CLICK flips it (on click, not press: the arrow jumps to the
+			     other side, and a release off it would click the canvas and drop the selection). Handlers sit on the hit
+			     elements themselves; the Viewport's own press / click bail on `.section-arrow.pick`. -->
+			<line class="section-line" class:sel x1={s.a[0]} y1={s.a[1]} x2={s.b[0]} y2={s.b[1]} stroke-width={(sel ? 2 : 1.5) * sw} />
+			{#each mk.arrows as ar, i (i)}
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<line class="section-arrow" class:pick x1={ar.end[0]} y1={ar.end[1]} x2={ar.tip[0]} y2={ar.tip[1]} stroke-width={1.6 * sw}
+					onpointerdown={(e) => { if (pick) e.stopPropagation() }} onclick={(e) => { if (!pick) return; e.stopPropagation(); v.flipSection(s.id) }}>{#if pick}<title>Flip — look the other way</title>{/if}</line>
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<polygon class="section-arrow" class:pick points={ar.head.map((q) => q.join(',')).join(' ')} stroke-width={1.2 * sw}
+					onpointerdown={(e) => { if (pick) e.stopPropagation() }} onclick={(e) => { if (!pick) return; e.stopPropagation(); v.flipSection(s.id) }}>{#if pick}<title>Flip — look the other way</title>{/if}</polygon>
+			{/each}
+			{#each mk.labels as lb, i (i)}
+				<text class="section-label" x={lb.p[0]} y={lb.p[1]} font-size={3.5 * v.paperMm} text-anchor="middle" dominant-baseline="central">{lb.text}</text>
+			{/each}
+		{:else}
 		{@const bx = Math.min(s.clip.x0, s.clip.x1)}
 		{@const by = Math.min(s.clip.y0, s.clip.y1)}
 		<rect class="section-mark" class:sel={s.id === v.selSection} x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={(s.id === v.selSection ? 2 : 1.4) * sw} />
@@ -49,8 +74,20 @@
 		{/each}
 		{@const pad = 1.5 * v.paperMm}
 		<text class="section-label" x={bx + pad} y={by - pad} font-size={3 * v.paperMm}>{s.name ?? 'Section'}</text>
+		{/if}
 	{/each}
-	{#if v.active && v.selSectionObj}
+	{#if v.active && v.lineSecSel}
+		<!-- the selected line section: the region it sees (to its depth), its end grips and the depth handle (a diamond) -->
+		<polygon class="section-region" points={v.lineSecSel.region.map((q) => q.join(',')).join(' ')} />
+		{#each v.lineSecSel.grips as g (g.key)}
+			{#if g.key === 'depth'}
+				{@const r = v.gripSize * 0.75}
+				<polygon class="section-depth" points="{g.p[0]},{g.p[1] - r} {g.p[0] + r},{g.p[1]} {g.p[0]},{g.p[1] + r} {g.p[0] - r},{g.p[1]}" stroke-width={1.2 * sw}><title>Depth — drag along the look</title></polygon>
+			{:else}
+				<Handle cx={g.p[0]} cy={g.p[1]} size={v.gripSize} cursor="crosshair" strokeWidth={1.2 * sw} />
+			{/if}
+		{/each}
+	{:else if v.active && v.selSectionObj && v.selSectionObj.kind !== 'line'}
 		{#each sectionCorners(v.selSectionObj.clip) as c (c.join(','))}
 			<Handle cx={c[0]} cy={c[1]} size={v.gripSize} cursor="crosshair" strokeWidth={1.2 * sw} />
 		{/each}
@@ -75,4 +112,9 @@
 	.section-arrow.pick { pointer-events:auto; cursor:pointer; }
 	.section-arrow.pick:hover { fill:#e0a020; stroke:#e0a020; }
 	.section-label { fill:#0e7490; font-weight:700; font-family:Consolas,monospace; pointer-events:none; }
+	/* A section LINE: the dashed cut (solid when selected), the region it sees (selected only), its depth handle. */
+	.section-line { stroke:#0e7490; stroke-dasharray:12 4 2 4; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-line.sel { stroke-dasharray:none; }
+	.section-region { fill:#0e749012; stroke:#0e749066; stroke-width:1; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-depth { fill:#fff; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
 </style>

@@ -20,6 +20,7 @@
 	import ToolStrip from './ToolStrip.svelte'
 	import TrunkSpecBar from './TrunkSpecBar.svelte'
 	import OpeningSpecBar from './OpeningSpecBar.svelte'
+	import SectionSpecBar from './SectionSpecBar.svelte'
 	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
@@ -154,7 +155,7 @@
 						onseed={(x, y, w, h) => ws.seedFrame(a.id, x, y, w, h)}
 						onaddframe={(x, y, w, h) => ws.addFrame(a.id, x, y, w, h)}
 						onframegeom={(id, g) => ws.updateFrame(a.id, id, g)}
-						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframesdup={(ids) => ws.dupFramesInPlace(a.id, ids)} frameClip={(f) => ws.liveClip(f, a.id)}
+						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')} onframesdup={(ids) => ws.dupFramesInPlace(a.id, ids)} frameClip={(f) => ws.liveClip(f, a.id)} frameOClip={(f) => ws.liveOClip(f, a.id)} frameTitle={(f) => ws.frameViewTitle(f, a.id)}
 						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
 					<div class="vp-fill">
@@ -202,6 +203,7 @@
 		<!-- F1: the Trunk / Pipe spec bar (what the next run is drawn as) -->
 		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
 		{#if focused && a && p.tool === 'Opening'}<OpeningSpecBar />{/if}
+		{#if focused && a && p.tool === 'Section'}<SectionSpecBar />{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>

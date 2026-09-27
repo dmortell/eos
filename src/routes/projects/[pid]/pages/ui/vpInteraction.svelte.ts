@@ -15,7 +15,7 @@ import { type Pt, type Ent, type View, STYLE_DEFAULTS, dist, frameAxis, alongToU
 import { ctxFrame } from './view'
 import { orbitShift, isoBounds, objBounds } from '../3dview/projection'
 import { beginPointerDrag, DragRegistry } from './gestures'
-import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
+import { drawPlane, buildEnt, sectionObj, sectionName, sectionLineObj, sectionLetter, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle } from './grips'
 import { rotateAbout, scaleAbout, cornerScale, barycentre, mirrorAbout } from './groupXf'
@@ -44,8 +44,10 @@ import { isOutletEnt } from '../store/allocate'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
-import type { VpView } from './vpView.svelte'
-import type { Obj, Clip } from '../3dview/types'
+import type { VpView, SectionPatch } from './vpView.svelte'
+import type { Obj, Section } from '../3dview/types'
+import { sectionSpec } from './sectionSpec.svelte'
+import { moveSection } from './sectionLine'
 
 export const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide', 'Block'])
 /** Polyline-style tools (click points, Enter / dbl-click / right-click to finish). */
@@ -61,8 +63,9 @@ const uid = () => newId('e')
 type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
 /** One editable DRAWING item: a 2D shape or a 3D model object (they select, move, copy and nudge together). */
 type DItem = { k: 'ent'; e: Ent } | { k: 'obj'; o: Obj }
-type SecDrag = { id: string; start: Pt; c0: Clip }
-type SecResize = { id: string; apply: (p: Pt) => Clip }
+/** A section moved by its border / cut line: its press-time copy `s0` (the drag re-applies to it — no drift). */
+type SecDrag = { id: string; start: Pt; s0: Section }
+type SecResize = { id: string; apply: (p: Pt) => SectionPatch }
 /** `rel` = the drawing offset of the viewport's middle from the iso pivot at the start, `view0` the view then — the orbit
  *  pans so that point stays in the middle (orbit about what you're looking at). */
 type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number; rel: [number, number] | null; view0: View }
@@ -230,7 +233,7 @@ export class VpInteraction {
 	/** The point a draw/place uses: object snap wins; else the Shift/ORTHO/POLAR-constrained, grid-snapped pointer. */
 	private drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const v = this.v, m = v.mapper(); if (!m) { v.snapMark = null; return null }
-		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, polar: v.polar, otrack: v.otrack, tool: v.tool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
+		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, polar: v.polar, otrack: v.otrack, tool: this.constrainTool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
 		v.snapMark = r.mark
 		this.polarTrack = r.track ?? null
 		this.alignTracks = r.tracks ?? []
@@ -251,7 +254,9 @@ export class VpInteraction {
 		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
 		if (ps && v.isPlan) { this.addModelObj(prismObj(v.ctx, a, b, ps.layer, ps.h, () => newId(ps.tag), tool === 'Opening' ? openingSpec.extra() : {})); return }   // an Opening takes the bar's type / height / sill
 		if (tool === 'Section' && v.isPlan && v.mdl) {   // B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
-			const sec = sectionObj(v.ctx, a, b, newId('sec'), sectionName(v.mdl.sections ?? [])); if (!sec) return
+			// the spec bar's Box / Line: a LINE is the cut a → b at any angle (phase 3), looking to its left as drawn
+			const ss = v.mdl.sections ?? []
+			const sec = sectionSpec.kind === 'line' ? sectionLineObj(v.ctx, a, b, newId('sec'), sectionLetter(ss), sectionSpec.depth) : sectionObj(v.ctx, a, b, newId('sec'), sectionName(ss)); if (!sec) return
 			addSection(v.mdl, v.editor.edit, sec)
 			v.selectSection(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
@@ -468,6 +473,7 @@ export class VpInteraction {
 			if (t === 'Select' || t === 'Renumber') return null
 			if (t === 'Text' || t === 'Block' || t === 'Guide') return { prompt: `${t === 'Block' ? 'Insert' : t}: specify the insertion point` }
 			if (POLY.has(t)) return n ? { prompt: `${t}: specify next point  <Enter / right-click finishes>`, options: n >= 2 && t === 'Line' ? ['Close', 'Undo'] : ['Undo'] } : { prompt: `${t}: specify first point` }
+			if (t === 'Section' && sectionSpec.kind === 'line') return n ? { prompt: 'Section line: specify its end (A′) — it looks to the left of A → A′', options: ['Undo'] } : { prompt: 'Section line: specify its start (A)' }
 			const corner = t === 'Rectangle' || t === 'Ellipse' || t === 'Furniture' || t === 'Section'
 			return n ? { prompt: `${t}: specify ${corner ? 'opposite corner' : 'second point'}`, options: ['Undo'] } : { prompt: `${t}: specify ${corner ? 'first corner' : 'first point'}` }
 		},
@@ -646,9 +652,10 @@ export class VpInteraction {
 			guideDelta: g && ref ? Math.abs(ref.pos - g.pos) : null,
 			graphSelected: !!v.mSelObj && (v.mSelObj.type === 'wall' || v.mSelObj.type === 'conduit'),
 			depthGuide: v.isElev && !!selectedPlanGuide(v.mdl?.guides ?? [], v.modelSel, frameAxis(ctxFrame(v.ctx)) === 0 ? 'h' : 'v'),   // oblique: phase 5 (as placeGraph)
+			sectionLine: sectionSpec.kind === 'line',
 		})
 	})
-	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, tool: this.v.tool, prompt: this.prompt }))
+	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, sectionLine: this.v.selSectionObj?.kind === 'line', tool: this.v.tool, prompt: this.prompt }))
 
 	// ── click-cycle: what's under a plain Select click, top-most first — each entity (with its group), then the
 	// model object. `lastClick.k` = which one the previous click at that spot picked. ──
@@ -854,8 +861,10 @@ export class VpInteraction {
 	private reconstrain(shift: boolean) {
 		const v = this.v
 		if (this.items.drag) this.items.reconstrain(shift)
-		else if (v.active && this.draft.length && this.lastRaw) this.cur = constrainPt(v.tool, this.draft.at(-1)!, this.lastRaw, shift)   // Shift: square / 15°
+		else if (v.active && this.draft.length && this.lastRaw) this.cur = constrainPt(this.constrainTool, this.draft.at(-1)!, this.lastRaw, shift)   // Shift: square / 15°
 	}
+	/** The tool a Shift constraint follows: a section LINE draws like a line (15° steps), else the tool itself. */
+	private get constrainTool() { return this.v.tool === 'Section' && sectionSpec.kind === 'line' ? 'Line' : this.v.tool }
 
 	// ══ keys: Esc ladder (exit image mode → cancel draft → back to Select → clear selection → exit viewport),
 	// Enter finishes a polyline, clipboard / group / draw order, Delete, arrow nudges ══
@@ -974,18 +983,18 @@ export class VpInteraction {
 			ed.begin()
 			beginPointerDrag<GroupDrag>(e, g, { onMove: this.onGroupMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true; this.closeEdit() },
 				onCancel: (s) => { v.editor.ents.updateMany(s.bases); this.closeEdit() } }, reg)
-		} else if (pk?.kind === 'sgrip') {   // a corner grip of the SELECTED section resizes it
+		} else if (pk?.kind === 'sgrip') {   // a grip of the SELECTED section: a box corner resizes it; a line's end / depth handle
 			ed.begin()
 			beginPointerDrag<SecResize>(e, { ...pk.sg }, { onMove: this.onSecResizeMove, onUp: this.onSecResizeUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'guide') {   // a guide (a thin overlay grabbed in open space) → select + drag
 			v.selectGuide(pk.id)
 			ed.begin()
 			beginPointerDrag<string>(e, pk.id, { onMove: this.onGuideDragMove, onUp: this.onGuideDragUp, onCancel: this.closeEdit }, reg)
-		} else if (pk?.kind === 'section') {   // a section border → select + move (a no-move press just selects)
+		} else if (pk?.kind === 'section') {   // a section border / cut line → select + move (a no-move press just selects)
 			const sm = v.sections.find((s) => s.id === pk.id); if (!sm) return
 			if (v.selSection !== pk.id) v.selectSection(pk.id)
 			ed.begin()
-			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
+			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, s0: $state.snapshot(sm) as Section }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)
 			if (e.shiftKey) { this.reg.forget(e); return }   // I4: a Shift press only toggles it (onClick)
 			if (v.oblique) { this.reg.forget(e); return }    // an OBLIQUE view is read-only for 3D objects (phase 5): the click still selects
@@ -1077,12 +1086,12 @@ export class VpInteraction {
 	}
 	private onModelGripCancel = () => { this.v.snapMark = null; this.v.editor.edit.end() }
 
-	// ── section marker move (drag the border) / resize (drag a corner of the SELECTED one); the linked
-	// elevation re-clips live. Each opens its undo step at press and ALWAYS closes it. ──
+	// ── section marker move (drag a box's border / a line's cut line) / reshape (a grip of the SELECTED one: a box corner,
+	// a line's end or depth handle); every linked elevation follows live. Each opens its undo step at press and ALWAYS
+	// closes it. ──
 	private onSecDragMove = (e: PointerEvent, s: SecDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		const dx = p[0] - s.start[0], dy = p[1] - s.start[1], c = s.c0
-		this.v.setSectionClip(s.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
+		this.v.patchSection(s.id, moveSection(s.s0, p[0] - s.start[0], p[1] - s.start[1]))
 	}
 	private onSecDragUp = (_e: PointerEvent, _s: SecDrag, moved: boolean) => {
 		if (moved) { this.suppressClick = true; this.v.editor.edit.mark('Move section') }
@@ -1090,7 +1099,7 @@ export class VpInteraction {
 	}
 	private onSecResizeMove = (e: PointerEvent, s: SecResize) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		this.v.setSectionClip(s.id, s.apply(p))
+		this.v.patchSection(s.id, s.apply(p))
 	}
 	private onSecResizeUp = (_e: PointerEvent, _s: SecResize, moved: boolean) => {
 		if (moved) { this.suppressClick = true; this.v.editor.edit.mark('Resize section') }

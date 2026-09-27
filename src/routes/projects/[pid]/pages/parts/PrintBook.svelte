@@ -12,6 +12,8 @@
 		frames: (did: string) => SheetFrame[]; scale: (did: string) => string; tb: (did: string) => TbShown
 		entsForModel: (mid?: string) => Ent[]; conduitOf: (mid: string | undefined, id: string) => (Conduit & { label?: string }) | null
 		view: (frameId: string, proj: Proj) => View; orbit: (frameId: string, proj: Proj) => { yaw: number; pitch: number }
+		/** A frame's live clip / section-line view (OClip) / elevation title — a section-linked frame follows its section. */
+		clip?: (f: SheetFrame) => import('../3dview/types').Clip | null; oclip?: (f: SheetFrame) => import('../3dview/types').OClip | null; title?: (f: SheetFrame) => string | undefined
 	}
 </script>
 
@@ -72,7 +74,8 @@
 				<PaperPage title={p.title} tool="Select" scale={api.scale(p.did)} pw={p.w} ph={p.h} sizeLabel="{p.paper.size} {p.paper.landscape ? 'L' : 'P'}"
 					marginMm={p.paper.margin ?? DEFAULT_MARGIN_MM} tb={api.tb(p.did)} env={{ canvasZoom: 1 }} focused={false}
 					frames={api.frames(p.did)} entsForModel={api.entsForModel} conduitOf={api.conduitOf} tabModelId={p.modelId}
-					frameView={(id, pr) => api.view(id, pr as Proj)} frameOrbit={(id, pr) => api.orbit(id, pr as Proj)} />
+					frameView={(id, pr) => api.view(id, pr as Proj)} frameOrbit={(id, pr) => api.orbit(id, pr as Proj)}
+					frameClip={(f) => (api.clip ? api.clip(f) : f.clip)} frameOClip={(f) => (api.oclip ? api.oclip(f) : f.oclip ?? null)} frameTitle={(f) => api.title?.(f)} />
 			{/if}
 		</div>
 	{/each}

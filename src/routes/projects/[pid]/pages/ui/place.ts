@@ -5,7 +5,7 @@
 // `sectionObj` lands). Ids come in as functions so the builders stay deterministic under test.
 import type { Pt, Ent, ElevDir } from './geometry'
 import { ctxFrame, type ViewCtx } from './view'
-import type { Obj, Guide, Model, Section, Clip } from '../3dview/types'
+import type { Obj, Guide, Model, Section, BoxSection, LineSection, Clip } from '../3dview/types'
 import { frameAxis, frameStep, uToAlong, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
@@ -124,20 +124,32 @@ export function prismObj(ctx: ViewCtx, a: Pt, b: Pt, layer: string, h: number, u
 /** The Section tool's cut box from a plan drag a→b (B5): a whole-mm, normalised clip spanning the floor to
  *  the model's ceiling slab (default 3200), sighted FRONT by default; re-aim it from the marker toolbar.
  *  Plan only — null elsewhere. The caller pushes it into `mdl.sections` as one model edit. */
-export function sectionObj(ctx: ViewCtx, a: Pt, b: Pt, id: string, name: string): Section | null {
+export function sectionObj(ctx: ViewCtx, a: Pt, b: Pt, id: string, name: string): BoxSection | null {
 	if (!ctx.isPlan) return null
 	const clip: Clip = { x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
 		x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: ctx.mdl?.levels?.ceilingSlab ?? 3200 }
 	return { id, clip, dir: 'front', name }
 }
 
-/** 'Section A', 'Section B', … — the first letter not used by the model's existing sections (so deleting
- *  B and cutting again gives B back); past Z, a numbered fallback. */
-export function sectionName(existing: Section[]): string {
-	const used = new Set(existing.map((s) => s.name))
-	for (let i = 0; i < 26; i++) { const n = `Section ${String.fromCharCode(65 + i)}`; if (!used.has(n)) return n }
-	return `Section ${existing.length + 1}`
+/** The Section tool's LINE form (elevation-section-plan.md phase 3): the cut line a → b dragged / clicked on the plan
+ *  (whole mm), looking to its left as drawn (ui/sectionLine.ts), `depth` mm deep, every height (no z band until set).
+ *  Plan only, and not a zero-length line — null otherwise. `name` is the bare letter ("A" → labels A / A′). */
+export function sectionLineObj(ctx: ViewCtx, a: Pt, b: Pt, id: string, name: string, depth: number): LineSection | null {
+	if (!ctx.isPlan) return null
+	const ra: [number, number] = [Math.round(a[0]), Math.round(a[1])], rb: [number, number] = [Math.round(b[0]), Math.round(b[1])]
+	if (Math.hypot(rb[0] - ra[0], rb[1] - ra[1]) < 1) return null
+	return { id, kind: 'line', a: ra, b: rb, depth: Math.max(1, Math.round(depth)), name }
 }
+
+/** The first letter A…Z no section of the model uses yet — a box's 'Section B' and a line's bare 'B' both count, so
+ *  the two kinds share one sequence (deleting B and cutting again gives B back); past Z, a number. */
+export function sectionLetter(existing: Section[]): string {
+	const used = new Set(existing.flatMap((s) => (s.name ? [s.name, s.name.replace(/^Section /, '')] : [])))
+	for (let i = 0; i < 26; i++) { const l = String.fromCharCode(65 + i); if (!used.has(l)) return l }
+	return String(existing.length + 1)
+}
+/** 'Section A', 'Section B', … — a BOX section's name (`sectionLetter`). */
+export const sectionName = (existing: Section[]): string => `Section ${sectionLetter(existing)}`
 
 /** A guide dropped at `p` in this view: horizontal (constant y) or vertical (constant x), on the view's
  *  drawing plane ('plan' or the ElevDir). Null in iso (no drawing plane). */

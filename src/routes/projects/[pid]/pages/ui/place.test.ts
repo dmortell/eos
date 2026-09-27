@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
 	drawPlane, resolveLayer, buildEnt, PRISM_TOOL, trimTail, polylineEnt, GRAPH_TOOL, graphObj, prismObj, guideObj,
-	imageWithOrigin, imageScaled, moveEnt, sectionObj, sectionName,
+	imageWithOrigin, imageScaled, moveEnt, sectionObj, sectionName, sectionLineObj, sectionLetter,
 } from './place'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
@@ -209,5 +209,22 @@ describe('sectionObj / sectionName (B5)', () => {
 		expect(sectionName([])).toBe('Section A')
 		expect(sectionName([sec('Section A'), sec('Section C')])).toBe('Section B')
 		expect(sectionName(Array.from({ length: 26 }, (_, i) => sec(`Section ${String.fromCharCode(65 + i)}`)))).toBe('Section 27')
+	})
+})
+
+describe('sectionLineObj / sectionLetter (phase 3: a section LINE)', () => {
+	it('a plan drag / two clicks → a whole-mm line section, the given depth, no z band; null off-plan or zero-length', () => {
+		expect(sectionLineObj(planCtx, [100.4, 200.6], [3100, 200], 'sec1', 'A', 5000)).toEqual({ id: 'sec1', kind: 'line', a: [100, 201], b: [3100, 200], depth: 5000, name: 'A' })
+		expect(sectionLineObj(planCtx, [0, 0], [10, 0], 's', 'B', 0)?.depth).toBe(1)   // depth ≥ 1
+		expect(sectionLineObj(planCtx, [5, 5], [5.2, 5.1], 's', 'A', 5000)).toBe(null)
+		expect(sectionLineObj(elevCtx('front'), [0, 0], [10, 10], 's', 'A', 5000)).toBe(null)
+	})
+	it('box and line sections share one letter sequence ("Section B" and a bare "B" both take B)', () => {
+		const box = (name: string) => ({ id: name, clip: { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 }, dir: 'front' as const, name })
+		const line = (name: string) => ({ id: name, kind: 'line' as const, a: [0, 0] as [number, number], b: [1, 0] as [number, number], depth: 1, name })
+		expect(sectionLetter([])).toBe('A')
+		expect(sectionLetter([box('Section A'), line('B')])).toBe('C')
+		expect(sectionName([line('A')])).toBe('Section B')
+		expect(sectionLetter(Array.from({ length: 26 }, (_, i) => line(String.fromCharCode(65 + i))))).toBe('27')
 	})
 })

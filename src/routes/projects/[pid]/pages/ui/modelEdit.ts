@@ -3,7 +3,7 @@
 // grip-drag code) and brackets the edit with `edit.begin/mark/end` so it rides the model undo history —
 // exactly what `on.beginedit?.()/on.modeledit?.(label)/on.endedit?.(ms)` did inline in Viewport. Behaviour
 // is unchanged; only the seam moved, per §6's note that this is where R6's `editor` prop reads from.
-import type { Pt } from './geometry'
+import type { Pt, ElevDir } from './geometry'
 import { ctxFrame, type ViewCtx, type MLayers } from './view'
 import type { Model, Obj, Guide, Section, Clip } from '../3dview/types'
 import { frameAxis, frameSetU, segDist } from './geometry'
@@ -174,9 +174,9 @@ export function addSection(mdl: Model, edit: EditScope, sec: Section): void {
 /** Change a section's cut direction (one undo step, labelled 'Set section direction'). A NO-OP — no edit
  *  bracket at all — when the section isn't found or the direction is already `dir` (matches the original
  *  `s.dir === dir` early return). Returns whether it actually changed anything. */
-export function setSectionDir(mdl: Model, edit: EditScope, id: string, dir: Section['dir']): boolean {
+export function setSectionDir(mdl: Model, edit: EditScope, id: string, dir: ElevDir): boolean {
 	const s = mdl.sections?.find((x) => x.id === id)
-	if (!s || s.dir === dir) return false
+	if (!s || s.kind === 'line' || s.dir === dir) return false   // a LINE section has no sight dir (it looks off its line)
 	edit.begin(); s.dir = dir; edit.mark('Set section direction'); edit.end()
 	return true
 }
@@ -195,5 +195,26 @@ export function deleteSection(mdl: Model, edit: EditScope, id: string): boolean 
  *  one undo step on release, the same way a grip drag does. A no-op if the section isn't found. */
 export function setSectionClip(mdl: Model, id: string, clip: Clip): void {
 	const s = mdl.sections?.find((x) => x.id === id)
-	if (s) s.clip = clip
+	if (s && s.kind !== 'line') s.clip = clip
+}
+
+/** Apply a patch to a section IN PLACE, no edit bracket (a drag streams these; the gesture records one step) — a line's
+ *  ends / depth, a box's clip, any section's name… A key patched to `undefined` is REMOVED (a line's z band back to
+ *  "every height"), not stored as undefined. A no-op if the section isn't found. */
+export function patchSection(mdl: Model, id: string, patch: Record<string, unknown>): void {
+	const s = mdl.sections?.find((x) => x.id === id) as Record<string, unknown> | undefined; if (!s) return
+	for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete s[k]; else s[k] = v }
+}
+/** A patch as ONE undo step (Properties: name / depth / z band …). False = not found / nothing to change. */
+export function updateSection(mdl: Model, edit: EditScope, id: string, patch: Record<string, unknown>, label = 'Edit section'): boolean {
+	if (!mdl.sections?.some((x) => x.id === id) || !Object.keys(patch).length) return false
+	edit.begin(); patchSection(mdl, id, patch); edit.mark(label); edit.end()
+	return true
+}
+/** Turn a LINE section round (it looks the other way; ends and labels stay) — one undo step, 'Flip section'. False for
+ *  a box / an unknown id. */
+export function flipSection(mdl: Model, edit: EditScope, id: string): boolean {
+	const s = mdl.sections?.find((x) => x.id === id)
+	if (!s || s.kind !== 'line') return false
+	return updateSection(mdl, edit, id, { flip: s.flip ? undefined : true }, 'Flip section')
 }

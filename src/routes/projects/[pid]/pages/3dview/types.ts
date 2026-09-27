@@ -120,11 +120,18 @@ export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: n
 // (id/plane/orient/pos), matching entities' `plane` — see [[project_pages_firestore_schema]].
 export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number }
 
-// A SECTION marker drawn on the plan: a clip box + the primary sight direction (which elevation it cuts)
-// + a display name. Model-scoped (rides the model snapshot → undoable, and a cut on one model's plan does
-// NOT show on another's). Firestore-stable (id/clip/dir/name). Its elevations are dropped onto a sheet as
-// viewport frames; the marker itself just lives here. (B5 — moved out of the +page per-tab maps.)
-export type Section = { id: string; clip: Clip; dir: ElevDir; name?: string }
+// A SECTION marker drawn on the plan, in one of two forms (both model-scoped: they ride the model snapshot → undoable,
+// and a cut on one model's plan does NOT show on another's; Firestore-stable field names). Its views are dropped onto
+// sheets as viewport frames LINKED to it (SheetFrame.section — any number of frames, each with its own annotations /
+// freezes / scale); the marker itself just lives here. (B5 — moved out of the +page per-tab maps.)
+//  · a BOX (`kind` unset — every section before phase 3): an axis-aligned clip box + the primary sight direction.
+//  · a LINE (elevation-section-plan.md phase 3, OpenCad's "O4"): the cut line a → b at any angle (plan mm, drawing
+//    coords like an Ent's points), drawn dashed with an arrow at each end and "A" / "A′" labels. It looks to the LEFT of
+//    a → b as drawn (`flip` = the right), `depth` mm (> 0) past the line; z0..z1 = its height band (unset = every
+//    height). Its view is the OClip `ui/sectionLine.ts lineSectionOClip` builds. `name` = the letter ("A").
+export type BoxSection = { id: string; kind?: 'box'; clip: Clip; dir: ElevDir; name?: string }
+export type LineSection = { id: string; kind: 'line'; a: [number, number]; b: [number, number]; depth: number; flip?: boolean; z0?: number; z1?: number; name?: string }
+export type Section = BoxSection | LineSection
 
 // `objects` = 3D geometry (walls/prisms/conduits). `shapes` = 2D annotations/shapes/text/dims (the drawn
 // `Ent`s from ui/geometry.ts; the stored field was `ents` before 2026-09-24 — migrate.ts renames it), each tagged with a `plane` + `space` scope. Both belong to the model and

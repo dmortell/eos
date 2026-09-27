@@ -54,7 +54,10 @@ export type VpProps = {
 	focused?: boolean
 	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; /** the orbit view is a PERSPECTIVE (not parallel) */ persp?: boolean; /** the orbit view as a WIREFRAME (edges only) */ wire?: boolean
 	/** An elevation's explicit VIEW FRAME + ORIENTED clip (elevation-section-plan.md phase 2): an oblique section /
-	 *  elevation. Phases 3–4 pass them from a section line / elevation marker; unset = the `kind` dir's own frame
+	 *  elevation. A frame linked to a section LINE gets `oclip` (live, +page liveOClip); unset = the `kind` dir's own frame
 	 *  (and `clip`). (Dev: ui/devOblique.ts sets an angle from the console.) */
 	frame?: ElevFrame | null; oclip?: OClip | null
+	/** An elevation's name on its ground line, over the default (the dir / an explicit frame's angle) — a section
+	 *  line's frame shows "SECTION A–A′". */
+	viewTitle?: string
 }
