@@ -40,6 +40,11 @@ open items; `review.md §0a` tracks which review findings are closed.
   file" placeholder (live — even while the browser still has it cached), and Properties says so (Replace… / delete).
   `ui/render/fileWatch.svelte.ts`.
 - Title bar: Help is the outline "?" icon, bigger + brighter; ⌃ K spaced; the search dialog closes with a × button.
+- **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
+  line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
+  rotating with the rack. 3D look: later.
+- **Uploads accepts DXF / DWG** (≤ `CAD_UPLOAD_MAX_MB` = 5 MB for now, `pages/constants.ts`); no preview yet — the
+  list shows "CAD" instead of origin / scale. (DXF import into Pages: next.)
 - **Fix — resizing a ROTATED box / rack** by its corner grips: it now uses the same world-anchored rule as a rotated
   shape (`anchoredResize` in grips.ts, shared): the opposite corner stays put, sizes snap along the box's own axes.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).

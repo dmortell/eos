@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
 	boxFootprint, prismRings, dominantAxis, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH,
 	objBounds, inClip, trimToClip, modelZRange, modelBounds, xyCenter, doorGeom, project, faces3d,
-	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps, isoBounds, orbitShift, prismPanels,
+	posAlong, sizeAlong, roundObj, moveAlong, openingCuts, segmentGaps, isoBounds, orbitShift, prismPanels, rackPlan, RACK_FRONT_GAP,
 } from './projection'
 import type { Prism, Wall, Conduit, Clip, Obj } from './types'
 
@@ -340,5 +340,16 @@ describe('holes through furniture', () => {
 		expect(prismPanels(desk, pocket)).toBeNull()
 		expect(prismPanels(desk, [])).toBeNull()
 		expect(faces3d(desk, legSpace).length).toBe(18)   // 3 boxes × 6 faces
+	})
+})
+
+describe('rackPlan (a rack in plan, like OpenCad)', () => {
+	it('footprint + an X + a front line just outside the front (−y) face, rotating with the rack', () => {
+		const r = { type: 'prism', x: 0, y: 0, w: 600, d: 1000, z: 0, h: 2000, edges: 4, rack: { u: 42 } } as unknown as Extract<Obj, { type: 'prism' }>
+		const s = rackPlan(r)
+		expect(s.map((x) => x.closed)).toEqual([true, false, false, false])
+		expect(s[3].pts.map((p) => [p.x, p.y])).toEqual([[120, -RACK_FRONT_GAP], [480, -RACK_FRONT_GAP]])
+		const f = rackPlan({ ...r, rot: 180 })[3].pts   // turned round: the front line is behind the old back
+		expect(f[0].y).toBeCloseTo(1000 + RACK_FRONT_GAP, 6)
 	})
 })
