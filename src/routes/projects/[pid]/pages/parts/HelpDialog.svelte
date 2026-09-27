@@ -15,7 +15,7 @@
 		['Nudge (× 10 with Shift)', 'Arrow keys'], ['Zoom in / out / fit', '+ / − / Home'], ['Pan', 'Right- or middle-drag'],
 		['Zoom at the cursor', 'Wheel (ACAD on)'], ['Keep square / 15° / H-V', 'Shift while drawing'],
 		['Finish a line / run', 'Enter · double-click · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat)'],
-		['Edit text in place', 'Double-click it'], ['Add a node to a wall / conduit', 'Double-click a segment'],
+		['Edit text / a label in place (outlet, block, box, rack, line, dimension)', 'Double-click it · F2 (the selected one)'], ['Open a linked symbol', 'Click its badge (hover) · double-click it'], ['Align / distribute shapes + 3D objects', 'Properties › ALIGN (2+ selected) · ALIGN'], ['Add a node to a wall / conduit', 'Double-click a segment'],
 		['Branch from a node', 'Ctrl-drag the node'], ['Pull a node off a joined run / split a run there', 'Alt-drag the node'],
 		['Select a run, then one segment', 'Click it, click again'], ['Enter a viewport on a sheet', 'Double-click it'],
 		['Window select (enclosed) / crossing (touched)', 'Drag left → right / right → left'], ['Edit a dimension’s text or a line’s label', 'Double-click it'],
@@ -81,7 +81,7 @@
 	const shortcuts = $derived(SHORTCUTS.filter(([a, b]) => hit(a, b)))
 	/** Function keys — the app's own, and the browser's (which the app leaves alone). */
 	const FKEYS: [string, string][] = [
-		['F1', 'This help'], ['F8', 'ORTHO on / off (lines, walls, trunks, pipes: horizontal / vertical)'], ['F9', 'SNAP to the grid on / off'],
+		['F1', 'This help'], ['F2', 'Edit the selected item’s label in place'], ['F8', 'ORTHO on / off (lines, walls, trunks, pipes: horizontal / vertical)'], ['F9', 'SNAP to the grid on / off'],
 		['F10', 'POLAR tracking on / off (15° rays)'], ['F11', 'Full screen (the browser)'], ['F12', 'Developer tools (the browser)'],
 		['F3 · F5 · F6 · F7', 'Browser keys (find · reload · address bar · caret browsing) — not used by Pages'],
 	]

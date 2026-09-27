@@ -79,6 +79,8 @@ export type VpCommandTarget = {
 	/** ZOOM Object: frame the selection (error text when nothing's selected); whether anything is selected. */
 	zoomSelection(): string | null
 	hasSelection(): boolean
+	/** ALIGN / DISTRIBUTE the selection (shapes + 3D objects, as drawn) — one undo step; an error to show, or null. */
+	arrangeSel?(op: import('./arrange').AlignOp): string | null
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void
 	zoomPrev(): string | null

@@ -43,6 +43,14 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **Align / distribute any selection** — shapes, 3D objects (boxes, racks, walls, runs) or both — measured as drawn
+  (a rotated box by its outline), one undo step (`vpInteraction.arrangeSel`, `ui/arrange.ts arrangeMoves`); the
+  Properties panel shows the ALIGN buttons for any 2+ items (`props/AlignBar.svelte`); the ALIGN command too.
+- **Double-click / F2 edit a label in place**: an outlet / block's LABEL (else its first visible attribute), a box /
+  rack's name, a 2-point line's (new) label — besides texts / dimensions / line labels as before. F2 = the one
+  selected item; a note opens its dialog. A wall / run segment's double-click still adds a node.
+- **Linked symbols** show a badge at their corner on hover (a page icon = a sheet, the external-link icon = a URL);
+  click it to open (or double-click the symbol).
 - **Sections at any angle, phase 2**: an ORIENTED clip `OClip` (a cut line + depth + z band; `oclipOf` converts a box
   exactly, `trimToOClip` / `inOClip` trim walls / conduits and test rotated boxes); projection, wall panels + openings,
   the depth sort, hit-testing and the viewport mapping work for ANY view frame. An oblique view is read-only for 3D

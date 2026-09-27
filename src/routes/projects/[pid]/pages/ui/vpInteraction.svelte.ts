@@ -28,7 +28,8 @@ import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, translateObj, objSnapDelta, applyObjMoves, endObjMove, moveModelGrip, dropNodeJoin, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, bbox, hitIsoFaces, marqueeSelect, marqueeModel, graphSegAt, viewMapOf, type GN } from './hit'
+import { rotCenter, rotatePt, prismOutline, bbox, hitIsoFaces, marqueeSelect, marqueeModel, graphSegAt, viewMapOf, type GN } from './hit'
+import { arrangeMoves, type AlignOp } from './arrange'
 import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
 import { textDialog } from './textDialog.svelte'
@@ -37,7 +38,7 @@ import { openingSpec } from './openingSpec.svelte'
 import { idsOfKind } from './selection'
 import { pasteCopies, relabelCopies, pasteObjCopies } from './clipboard'
 import { ItemEditor, type ItemSource } from './itemEdit.svelte'
-import { insertLink } from './blocks'
+import { insertLink, blockDef, insertScale, attrValue } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
 import { isOutletEnt } from '../store/allocate'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
@@ -65,7 +66,8 @@ type SecResize = { id: string; apply: (p: Pt) => Clip }
 /** `rel` = the drawing offset of the viewport's middle from the iso pivot at the start, `view0` the view then — the orbit
  *  pans so that point stays in the middle (orbit about what you're looking at). */
 type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number; rel: [number, number] | null; view0: View }
-export type TextEdit = { id: string; /** what's edited: a TEXT's text, a dimension's text override, a line's label */ field: 'text' | 'dim' | 'label'; placeholder?: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number }
+export type TextEdit = { id: string; /** what's edited: a TEXT's text, a dimension's text override, a line's label, a block
+	 *  insert's attribute (`tag`), a 3D object's name */ field: 'text' | 'dim' | 'label' | 'attr' | 'obj'; tag?: string; placeholder?: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number }
 
 /** True when a keystroke is going into a form field — the viewport must not treat it as a canvas command. */
 const isTypingTarget = (el: EventTarget | null) => { const n = el as HTMLElement | null; if (!n?.tagName) return false; const t = n.tagName; return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || n.isContentEditable }
@@ -142,6 +144,24 @@ export class VpInteraction {
 			end: (ms) => { endObjMove(this.v, this.movedObjs); this.movedObjs = []; this.v.editor.edit.end(ms) },
 		},
 	}
+	/** ALIGN / DISTRIBUTE the selection — shapes AND 3D objects, mixed — each measured as DRAWN in this view (a rotated
+	 *  box by its outline, a wall / conduit by its nodes) and moved through the editing engine: one undo step. Returns
+	 *  an error to show, or null. (Properties › ARRANGE and the ALIGN command call it.) */
+	arrangeSel(op: AlignOp): string | null {
+		const v = this.v, src = this.drawSource, items = src.sel.ids().map((i) => src.get(i)).filter((t): t is DItem => !!t)
+		const boxOf = (t: DItem): [number, number, number, number] => {
+			let pts: Pt[]
+			if (t.k === 'ent') { const [x0, y0, x1, y1] = bbox(v.ctx, t.e), c = rotCenter(v.ctx, t.e); pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map((q) => (t.e.rot ? rotatePt(q as Pt, c, t.e.rot) : q as Pt)) }
+			else if (t.o.type === 'prism') pts = prismOutline(v.ctx, t.o)
+			else pts = (t.o.nodes as GN[]).map((n) => v.graphNodeDraw(n))
+			const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
+			return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+		}
+		const moves = arrangeMoves(items, op, boxOf, (t) => (t.k === 'ent' ? t.e.groupId : t.o.groupId))
+		if (!moves.length) return items.length < (op.endsWith('space') ? 3 : 2) ? (op.endsWith('space') ? 'Distribute needs 3 or more items (a group counts once)' : 'Select two or more items') : 'Nothing to move — they are already aligned'
+		src.commit.begin(); src.commit.update(moves.map(([t, dx, dy]) => src.translate(t, dx, dy))); src.commit.end()
+		return null
+	}
 	/** Ctrl+A / SELECTALL: every shape AND 3D object this view can pick — visible, on an unlocked layer (objects in plan /
 	 *  elevation; the 3D view picks faces, not a selection box). */
 	selectAllItems() {
@@ -161,7 +181,7 @@ export class VpInteraction {
 	// ── hover cursor: 'move' over something a press would grab (P2: the same pickAt cascade as a press, at
 	// most once per animation frame) ──
 	hoverBody = $state(false)
-	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : this.myPick ? (this.myPick.kind === 'ent' ? 'pointer' : 'crosshair') : cptPick.obj && this.v.isPlan ? 'crosshair' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
+	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : this.myPick ? (this.myPick.kind === 'ent' ? 'pointer' : 'crosshair') : cptPick.obj && this.v.isPlan ? 'crosshair' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverLink ? 'pointer' : this.hoverBody ? 'move' : 'default'))
 	private hoverRaf = 0
 	private hoverAt: [number, number] | null = null
 	private hoverIdle = () => this.v.active && this.v.tool === 'Select' && !this.items.drag && !this.reg.active && !this.draft.length && !this.marquee
@@ -171,11 +191,20 @@ export class VpInteraction {
 		this.hoverRaf = requestAnimationFrame(() => {
 			this.hoverRaf = 0
 			const q = this.hoverAt; this.hoverAt = null
-			if (!q || !this.hoverIdle()) { this.hoverBody = false; return }
+			if (!q || !this.hoverIdle()) { this.hoverBody = false; this.hoverLink = null; return }
 			const lp = this.v.toModel(q[0], q[1])
 			this.hoverBody = !!lp && this.v.pickAt(q[0], q[1], lp) !== null
+			// a LINKED symbol under the pointer: a small link / web badge at its top-right corner (double-click opens it)
+			const ent = lp ? this.v.entities.find((x) => x.id === this.v.hit(lp)[0]) : undefined, link = ent ? insertLink(ent) : ''
+			const r = link && link !== '~url' ? this.v.svg?.getBoundingClientRect() : null
+			if (ent && r) {
+				const [, y0, x1] = bbox(this.v.ctx, ent), c = this.v.toClient(x1, y0)
+				this.hoverLink = c ? { x: c.x - r.left, y: c.y - r.top, link } : null
+			} else this.hoverLink = null
 		})
 	}
+	/** The linked symbol the pointer rests on: its badge position (px in the viewport) and link (a sheet id / a URL). */
+	hoverLink = $state<{ x: number; y: number; link: string } | null>(null)
 
 	// ── alignment GUIDES: the Guide tool drops a full-view h/v line in this view's space; a selected PLAN guide
 	// fixes the depth when drawing a conduit in an elevation ──
@@ -411,6 +440,7 @@ export class VpInteraction {
 		},
 		selObjLayer: () => { const ids = idsOfKind(this.v.selection, 'obj'); const o = ids.length === 1 ? this.v.mdl?.objects.find((x) => x.id === ids[0]) : null; return o?.layer ?? null },
 		hasSelection: () => this.v.sel.length > 0 || idsOfKind(this.v.selection, 'obj').length > 0,
+		arrangeSel: (op) => this.arrangeSel(op),
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
 		addRack: ({ u, w, d, at, rot }) => {
@@ -548,12 +578,63 @@ export class VpInteraction {
 	}
 	commitText = () => {
 		const t = this.editText; if (!t) return
+		if (t.field === 'attr' || t.field === 'obj') { this.commitLabel(t); this.editText = null; return }
 		const ent = this.v.entities.find((x) => x.id === t.id)
 		const val = t.field === 'text' ? t.value : t.value.replace(/\n/g, ' ').trim() || undefined   // a dim / label is one line
 		if (ent && val !== ent.text) this.v.editor.ents.update({ ...ent, text: val })
 		this.editText = null
 	}
 	cancelText = () => { this.editText = null }
+	/** A block attribute / a 3D object's name, typed in place (double-click, F2) — one line; one undo step. */
+	private commitLabel(t: TextEdit) {
+		const v = this.v, val = t.value.replace(/\n/g, ' ').trim()
+		if (t.field === 'attr' && t.tag) {
+			const ent = v.entities.find((x) => x.id === t.id); if (!ent || (ent.attrs?.[t.tag] ?? '') === val) return
+			v.editor.ents.update({ ...ent, attrs: { ...ent.attrs, [t.tag]: val } })
+		} else {
+			const o = v.mdl?.objects.find((x) => x.id === t.id); if (!o || (o.label ?? '') === val) return
+			v.editor.edit.begin(); o.label = val || undefined; v.editor.edit.mark('Rename'); v.editor.edit.end()
+		}
+	}
+	/** The in-place editor over a block insert's attribute (LABEL, else its first visible one) or a 3D object's name,
+	 *  centred on it, horizontal. False = it has no such field. */
+	private startLabelEdit(item: { ent?: Ent; obj?: Obj }): boolean {
+		const v = this.v, { vpW, vpH, vbW, minX, minY, view, dscale, cx: CX, cy: CY } = v
+		if (!vpW || !vpH) return false
+		const localPx = (q: Pt): Pt => { const vbx = view.x + view.zoom * (CX + dscale * (q[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (q[1] - CY)); return [(vbx - minX) / vbW * vpW, (vby - minY) / v.vbH * vpH] }
+		const fontPx = 2.5 * view.zoom * (vpW / vbW)
+		let at: Pt, edit: Pick<TextEdit, 'id' | 'field' | 'tag' | 'value' | 'placeholder'>
+		if (item.ent) {
+			const e = item.ent, def = e.type === 'insert' ? blockDef(e.block) : undefined
+			const ad = def?.attributes.find((a) => a.tag === 'LABEL' && a.visible !== false) ?? def?.attributes.find((a) => a.visible !== false)
+			if (!ad || !e.a) return false
+			const k = insertScale(e, v.paperMm)
+			at = [e.a[0] + (e.mirror ? -ad.pos[0] : ad.pos[0]) * k, e.a[1] + ad.pos[1] * k]
+			edit = { id: e.id, field: 'attr', tag: ad.tag, value: attrValue(e, ad), placeholder: `(${ad.label})` }
+		} else if (item.obj?.id) {
+			const o = item.obj, b = objBounds(o), [dx, dy] = v.graphNodeDraw({ id: '', x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: (b.z0 + b.z1) / 2 } as GN)
+			at = [dx, dy]
+			edit = { id: o.id!, field: 'obj', value: o.label ?? '', placeholder: '(name)' }
+		} else return false
+		const [x, y] = localPx(at)
+		this.editText = { ...edit, x, y, fontPx, align: 'center', valign: 'middle', rot: 0, cx: x, cy: y }
+		tick().then(() => { this.textInput?.focus(); this.textInput?.select() })
+		return true
+	}
+	/** F2 / double-click: edit the label of THIS item in place — a text, a dimension, a line's label, a block's label, a
+	 *  box / rack / run's name. A note opens its dialog. False = nothing to edit. */
+	editLabelOf(ent?: Ent, obj?: Obj): boolean {
+		if (ent?.type === 'text') { if (isNote(ent)) this.openNoteDialog(ent); else this.startTextEdit(ent); return true }
+		if (ent?.type === 'dim' || (ent?.type === 'polyline' && (ent.text || ent.pts?.length === 2))) { this.startFieldEdit(ent); return true }
+		if (ent) return this.startLabelEdit({ ent })
+		if (obj) return this.startLabelEdit({ obj })
+		return false
+	}
+	private openNoteDialog(ent: Ent) {
+		const id = ent.id
+		textDialog.open({ text: ent.text ?? '', plain: !isNote(ent), width: ent.noteW, fontPt: ent.fontPt,
+			apply: (t) => { const cur = this.v.entities.find((x) => x.id === id); if (cur) this.v.editor.ents.update({ ...cur, text: t }) } })
+	}
 
 	// ── prompt / status ──
 	prompt = $derived.by(() => {
@@ -735,7 +816,10 @@ export class VpInteraction {
 		if (ent?.type === 'text') { this.startTextEdit(ent); return }
 		if (ent?.type === 'dim' || (ent?.type === 'polyline' && ent.text)) { this.startFieldEdit(ent); return }
 		if (ent && insertLink(ent) && insertLink(ent) !== '~url') { v.on.openLink?.(insertLink(ent)); return }   // D4: a linked symbol opens its target
-		if (v.tool === 'Select' && v.modelEditable) this.insertGraphNode(p)
+		if (ent && this.editLabelOf(ent)) return   // a block's label, a 2-point line's (new) label — in place
+		const mid = v.hitModel(p), mo = mid ? v.mdl?.objects.find((o) => o.id === mid) : undefined
+		if (mo?.type === 'prism' && this.editLabelOf(undefined, mo)) return   // a box / rack: its name in place
+		if (v.tool === 'Select' && v.modelEditable) this.insertGraphNode(p)   // a wall / run segment: a new node (F2 renames it)
 	}
 
 	/** Right-click (CAD-style): ends a multi-point draft (= Enter); with a drawing tool and no draft it reverts
@@ -782,6 +866,12 @@ export class VpInteraction {
 		if (e.key === 'Shift') { v.shiftDown = true; this.reconstrain(true); this.updateGuidePreview(true); return }
 		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
+		if (e.key === 'F2') {   // edit the ONE selected item's label in place (text / dim / line / block / object name)
+			const objs = idsOfKind(v.selection, 'obj'), ent = sel.length === 1 && !objs.length ? v.entities.find((x) => x.id === sel[0]) : undefined
+			const obj = !sel.length && objs.length === 1 ? v.mdl?.objects.find((o) => o.id === objs[0]) : undefined
+			if (ent || obj) { e.preventDefault(); if (!this.editLabelOf(ent, obj)) toast('This has no label to edit') }
+			return
+		}
 		const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
 		if (mod && k === 'a') { e.preventDefault(); this.selectAllItems(); return }
 		const objSel = idsOfKind(v.selection, 'obj')   // walls / boxes / conduits edit alongside shapes (their own kind in the Selection)

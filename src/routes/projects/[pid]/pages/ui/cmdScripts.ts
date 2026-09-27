@@ -387,10 +387,13 @@ export const SCRIPTS: Record<string, Script> = {
 		}
 	},
 	align: async (c) => {   // ALIGN / DISTRIBUTE the selection (Properties › ARRANGE has the same as buttons)
-		const ids = await selection(c)
+		// a viewport aligns its WHOLE selection — shapes and 3D objects — as drawn (arrangeSel); paper frames: their rects
+		const all = !!c.t.arrangeSel && c.t.hasSelection()
+		const ids = all ? [] : await selection(c)
 		const a = await c.ask({ prompt: 'Align', options: ['Left', 'Center', 'Right', 'Top', 'Middle', 'Bottom', 'Horizontal spacing', 'Vertical spacing'], def: 'L' })
 		if (a.kind !== 'option') return
 		const op = ({ Left: 'left', Center: 'hcenter', Right: 'right', Top: 'top', Middle: 'vcenter', Bottom: 'bottom', 'Horizontal spacing': 'hspace', 'Vertical spacing': 'vspace' } as const)[a.key as 'Left']
+		if (all) { const err = c.t.arrangeSel!(op); if (err) throw new CmdError(err); return }
 		const out = arrange(c.t.ents(ids), op, (e) => c.t.bboxOf(e))
 		if (!out.length) throw new CmdError(op.endsWith('space') ? 'Distribute needs 3 or more shapes (a group counts once)' : 'Nothing to move — they are already aligned')
 		c.t.apply({ update: out })

@@ -21,6 +21,13 @@
 		<button class="st-btn st-del" title="Delete this section" onclick={() => v.deleteSection(tb.id)}><Icon name="trash" size={13} /></button>
 	</div>
 {/if}
+{#if x.hoverLink && !x.editText}
+	{@const hl = x.hoverLink}
+	{@const web = /^https?:\/\//i.test(hl.link)}
+	<!-- a LINKED symbol under the pointer: a badge at its corner — click it (or double-click the symbol) to open -->
+	<button class="link-badge" style="left:{hl.x}px; top:{hl.y}px" title={web ? `Open ${hl.link}` : 'Open the linked sheet'}
+		onpointerdown={stop} onclick={(e) => { stop(e); v.on.openLink?.(hl.link) }}><Icon name={web ? 'link' : 'fileText'} size={11} /></button>
+{/if}
 {#if x.editText}
 	{@const t = x.editText}
 	{@const lines = (t.value || t.placeholder || ' ').split('\n')}
@@ -50,6 +57,9 @@
 {/if}
 
 <style>
+	.link-badge { position:absolute; z-index:12; transform:translate(-40%, -60%); display:inline-flex; align-items:center; justify-content:center;
+		width:20px; height:20px; border-radius:50%; background:var(--accent); color:#fff; border:2px solid var(--panel); box-shadow:0 2px 6px #0006; cursor:pointer; }
+	.link-badge:hover { filter:brightness(1.15); }
 	/* Selected-section floating toolbar (screen space, tracks the box): open / re-aim / delete. */
 	.section-toolbar { position:absolute; z-index:12; display:flex; align-items:center; gap:3px; padding:2px;
 		background:#fff; border:1px solid #0e7490; border-radius:6px; box-shadow:0 2px 8px #0003; }

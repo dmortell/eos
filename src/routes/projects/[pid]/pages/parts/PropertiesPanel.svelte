@@ -14,6 +14,7 @@
 	import PlaceProps from './props/PlaceProps.svelte'
 	import PageProps from './props/PageProps.svelte'
 	import EntProps from './props/EntProps.svelte'
+	import AlignBar from './props/AlignBar.svelte'
 	import type { Ent } from '../ui/geometry'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 	import type { SheetFrame } from '../types'
@@ -84,5 +85,7 @@
 	{:else}
 		<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />
 	{/if}
+	<!-- 2+ drawing items (shapes and / or 3D objects): align / distribute them as drawn (props/AlignBar) -->
+	{#if !frameObj && ents.length + Math.max(modelObjs.length, modelObj ? 1 : 0) >= 2}<AlignBar />{/if}
 </div>
 {/key}
