@@ -1,4 +1,5 @@
-// File / Insert actions on the ACTIVE VIEW (moved out of +page.svelte): File › Export… (the view as DXF, C1) and
+// File / Insert actions on the ACTIVE VIEW (moved out of +page.svelte): File › Export… (the view as DXF, C1 — a ZIP
+// with its images, O15) and
 // Insert › Image… (a background image, standing on the ground line when inserted in an elevation — I5). The
 // "active view" is the focused pane's active sheet frame (else its first), or a model tab's own view.
 import { toast } from 'svelte-sonner'
@@ -8,7 +9,8 @@ import { scaleDenom } from './constants'
 import { DIR_LABEL as PROJ_LABEL, type Proj, type SheetFrame } from './types'
 import { modelById } from './3dview/models.svelte'
 import type { ModelId } from './3dview/types'
-import { viewToDxf } from './exportDxf'
+import { viewToDxfBundle, dxfImageEnts, type DxfViewInput } from './exportDxf'
+import { rasterForDxf, zipDxf, downloadBytes } from './dxfImages'
 import { downloadDxf } from '../sheets/dxf/dxf'
 import { internImage } from './imageStore'
 import { uploadShape, type UploadFile } from './ui/pdfFiles'
@@ -33,16 +35,27 @@ export class PageActions {
 	#h: PageActionsHost
 	constructor(host: PageActionsHost) { this.#h = host }
 
-	/** C1: the active view as a DXF in real mm (exportDxf.ts), named after the drawing and the view. */
-	exportActiveDxf = () => {
+	/** C1: the active view as a DXF in real mm (exportDxf.ts), named after the drawing and the view. O15: with images
+	 *  it downloads a ZIP — the .dxf + the rasterised images it references (dxfImages.ts); without, the bare .dxf. */
+	exportActiveDxf = async () => {
 		const v = this.#h.activeView()
 		if (v === 'no-frame') { toast('This sheet has no viewport to export'); return }
 		if (!v) { toast('Open a drawing first'); return }
 		const m = modelById(v.mid); if (!m) { toast('The model this view shows is missing'); return }
 		const orb = this.#h.orbitOf(v.paneId, v.viewId, v.dir)
-		const r = viewToDxf({ model: m, ents: this.#h.entsForModel(v.mid), dir: v.dir, clip: v.clip, yaw: orb.yaw, pitch: orb.pitch, frozen: v.frozen, storeys: v.storeys, scaleN: scaleDenom(v.scale), frameId: v.frameId })
-		downloadDxf(r.text, `${v.title} - ${PROJ_LABEL[v.dir]}`)
-		toast(`Exported ${v.title} (${PROJ_LABEL[v.dir]}): ${r.objects} object${r.objects === 1 ? '' : 's'}, ${r.shapes} shape${r.shapes === 1 ? '' : 's'}${r.skipped ? ` — ${r.skipped} image${r.skipped === 1 ? '' : 's'} left out` : ''}`)
+		const inp: DxfViewInput = { model: m, ents: this.#h.entsForModel(v.mid), dir: v.dir, clip: v.clip, yaw: orb.yaw, pitch: orb.pitch, frozen: v.frozen, storeys: v.storeys, scaleN: scaleDenom(v.scale), frameId: v.frameId }
+		const name = `${v.title} - ${PROJ_LABEL[v.dir]}`, stem = name.replace(/[^\w.-]+/g, '_')
+		const busy = dxfImageEnts(inp).length ? toast.loading(`Exporting ${name} — rendering its images…`) : undefined
+		try {
+			const r = await viewToDxfBundle(inp, stem, rasterForDxf)
+			if (r.files.length) downloadBytes(await zipDxf(`${stem}.dxf`, r.text, r.files), `${stem}.zip`, 'application/zip')
+			else downloadDxf(r.text, name)
+			const n = (k: number, w: string) => `${k} ${w}${k === 1 ? '' : 's'}`
+			toast(`Exported ${v.title} (${PROJ_LABEL[v.dir]}): ${n(r.objects, 'object')}, ${n(r.shapes, 'shape')}${r.images ? `, ${n(r.images, 'image')} (zipped with the .dxf — keep them in one folder)` : ''}${r.skipped ? ` — ${n(r.skipped, 'image')} couldn't be read and ${r.skipped === 1 ? 'was' : 'were'} left out` : ''}`, { id: busy })
+		} catch (err) {
+			console.error('DXF export failed', err)
+			toast.error(`DXF export failed: ${err instanceof Error ? err.message : err}`, { id: busy })
+		}
 	}
 
 	/** Insert › From Uploads…: an uploaded PDF page / picture (stored by reference, so it survives a reload) on the

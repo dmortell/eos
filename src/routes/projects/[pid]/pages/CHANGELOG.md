@@ -43,6 +43,16 @@ open items; `review.md §0a` tracks which review findings are closed.
 - **Racks in plan look like OpenCad's** (`projection.ts` `rackPlan`): footprint + an X corner to corner + a FRONT
   line (60 % of the width) 40 mm outside the front face (`RACK_FRONT_GAP`; OpenCad's sits ⅛ of the depth out) —
   rotating with the rack. 3D look: later.
+- **DXF export, proper CAD objects** (O15–O17; `exportDxf.ts`, `dxfEntities.ts`, `dxfImages.ts`):
+  - blocks are written ONCE as BLOCK definitions (shapes on layer 0) + INSERTs with rotation / scale / mirror, and
+    their attributes as ATTDEF / ATTRIB (hidden ones invisible, not dropped) — recipients can count by block name;
+  - dimensions are real aligned DIMENSIONs (with their geometry block, so every viewer shows them; arrows / dots /
+    ticks; a dim style per scale; `<>` text overrides kept);
+  - images (PDF pages, pictures) are rasterised, cropped, written as sidecar files and placed as IMAGE entities —
+    the export downloads a ZIP (the .dxf + images) when there are any, else the plain .dxf. The toast lists images
+    that couldn't be read (a deleted upload, a session-only picture).
+  - `@tarikjabiri/dxf` bugs worked round (ATTRIB sequence ends, anonymous dim blocks, image dictionary / reactors).
+    Verified with ezdxf (audit clean, correct render); not yet opened in AutoCAD.
 - **Uploads accepts DXF / DWG** (≤ `CAD_UPLOAD_MAX_MB` = 5 MB for now, `pages/constants.ts`); no preview yet — the
   list shows "CAD" instead of origin / scale. (DXF import into Pages: next.)
 - **Fix — resizing a ROTATED box / rack** by its corner grips: it now uses the same world-anchored rule as a rotated
