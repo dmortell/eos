@@ -37,6 +37,7 @@
 	import { fromClipData, fromClipHtmlData, textToShape } from './ui/clipboard'
 	import { htmlToMarkdown } from './ui/htmlToMd'
 	import { cmdBus } from './ui/cmdBus.svelte'
+	import { openingSpec } from './ui/openingSpec.svelte'
 	import { createUploadThing } from '../uploads/uploader'
 	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
@@ -785,9 +786,9 @@
 		else if (item === 'Paste') { const a = active, vid = activeSelViewId(), at = pasteAt; pasteAt = null; if (a && vid) selectPasted(vid, pasteEnts(a.id, at ?? undefined)) }
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
-		else if (item === 'Text') { if (active) focusTool('Text') }
 		else if (item === 'Outlet') { if (active) armBlock(outletSticky.block) }   // E1: the last-used outlet block, sticky ports / type / layer, next label
-		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
+		// Insert › a drawing tool (Box = the Furniture tool): arms it in the focused pane, like the tool strip
+		else if (MENU_TOOL[item] || TOOLS.some((t) => t.name === item)) { const p = session.panes[session.focused]; if (active && p) setPaneTool(p, MENU_TOOL[item] ?? item) }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
 		else if (item === 'Drawing Defaults…') { if (proj.store) defaultsOpen = true; else toast('Drawing defaults are saved with the project — open a project first') }
@@ -821,7 +822,7 @@
 	const namedViewKey = () => `eos.pages.views:${page.params.pid}:${active ? didOf(active.id) : ''}:${active ? (activeVpOf(active.id) ?? '') : ''}`
 	let layIsoSaved: [string, boolean][] | null = null   // LAYISO → LAYUNISO: the visibility before isolating
 	const cmdRunner = new CommandRunner({
-		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; focusTool(t) },
+		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; const tv = TOOL_VARIANT[t]; if (tv) tv.set(); focusTool(tv?.tool ?? t) },   // DOOR / WINDOW = the Opening tool with that type
 		run: (id) => {
 			const p = session.panes[session.focused]
 			const toggle = (k: string) => { toggles[k] = !toggles[k]; statusText = `${k} ${toggles[k] ? 'on' : 'off'}` }
@@ -1115,11 +1116,14 @@
 		{ icon: 'circle', name: 'Ellipse' },
 		{ icon: 'radius', name: 'Arc' },        // runs the ARC command (pseudo-tool)
 		{ icon: 'brickWall', name: 'Wall' },
-		{ icon: 'box', name: 'Furniture' },
+		{ icon: 'box', name: 'Furniture' },     // THE box tool (a 3D model box; the old 2D 'Box' was merged into it, R4)
 		{ icon: 'server', name: 'Rack' },       // runs the RACK command (a pseudo-tool: setPaneTool routes it)
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
 		{ icon: 'opening', name: 'Opening' },
+		{ icon: 'doorOpen', name: 'Door' },     // the Opening tool with its type set (TOOL_VARIANT)
+		{ icon: 'blinds', name: 'Window' },
+		{ icon: 'opening', name: 'Hole' },
 		{ icon: 'circleDot', name: 'Penetration' },   // runs PEN (pseudo-tool)
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'ruler', name: 'Dimension' },
@@ -1127,28 +1131,47 @@
 		{ icon: 'pencilRuler', name: 'Measure' },         // runs DIST: two clicks, nothing drawn (pseudo-tool)
 		{ icon: 'k-text', name: 'Text' },
 		{ icon: 'crosshair', name: 'Guide' },   // drop an alignment guide (sets the depth plane across views)
+		{ icon: 'moveHorizontal', name: 'Guide H' },
+		{ icon: 'moveVertical', name: 'Guide V' },
 		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
 	]
 	const iconOf = (name: string) => TOOLS.find((t) => t.name === name)?.icon ?? 'square'
-	// The tool strip groups related tools into ONE button with a fly-out (hover to reveal): the button
-	// shows + re-activates the group's LAST-USED tool, the fly-out switches variants. Singles render as-is.
+	// The tool strip, in sections (draw · building · services · annotate · modify / paper), groups related tools into
+	// ONE button with a fly-out (hover to reveal): the button shows + re-activates the group's LAST-USED tool, the
+	// fly-out switches variants. Singles render as-is.
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
+		{ sep: 'draw' },
 		{ tool: 'Line' },
-		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D/footprint draws
-		{ group: 'conduits', label: 'Conduits', members: ['Wall', 'Trunk', 'Pipe'] },      // node/segment graph tools
-		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
-		{ group: 'openings', label: 'Openings', members: ['Opening', 'Penetration'] },
-		{ tool: 'Section' },
-		{ tool: 'Dimension' },
-		{ tool: 'Format painter' },
-		{ tool: 'Measure' },
+		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D draws
 		{ tool: 'Text' },
-		{ group: 'guide', label: 'Guide', members: [] },   // special: fly-out picks H / V orientation (touch)
+		{ sep: 'building' },
+		{ tool: 'Wall' },
+		{ group: 'openings', label: 'Openings', members: ['Door', 'Window', 'Hole', 'Penetration'] },
+		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
+		{ sep: 'services' },
+		{ group: 'conduits', label: 'Conduits', members: ['Trunk', 'Pipe'] },
+		{ sep: 'annotate' },
+		{ group: 'measure', label: 'Dimension · measure · guides', members: ['Dimension', 'Measure', 'Guide H', 'Guide V'] },
+		{ tool: 'Section' },
+		{ sep: 'modify' },
+		{ tool: 'Format painter' },
 		{ tool: 'Viewport' },
 	]
+	// Strip entries that are a VARIANT of one real tool: the Opening tool with its type, the Guide tool with its axis.
+	const TOOL_VARIANT: Record<string, { tool: string; set: () => void; is: () => boolean }> = {
+		Door: { tool: 'Opening', set: () => openingSpec.setKind('door'), is: () => openingSpec.kind === 'door' },
+		Window: { tool: 'Opening', set: () => openingSpec.setKind('window'), is: () => openingSpec.kind === 'window' },
+		Hole: { tool: 'Opening', set: () => openingSpec.setKind('hole'), is: () => openingSpec.kind === 'hole' },
+		'Guide H': { tool: 'Guide', set: () => (guideVert = false), is: () => !guideVert },
+		'Guide V': { tool: 'Guide', set: () => (guideVert = true), is: () => guideVert },
+	}
+	const MENU_TOOL: Record<string, string> = { Box: 'Furniture', 'Horizontal guide': 'Guide H', 'Vertical guide': 'Guide V' }   // Insert-menu names → tools
+	const TOOL_LABEL: Record<string, string> = { Furniture: 'Box (furniture)', Hole: 'Rectangular hole', 'Guide H': 'Horizontal guide', 'Guide V': 'Vertical guide', Measure: 'Measure a distance', Penetration: 'Penetration (round)' }
+	const toolIs = (tool: string, name: string) => { const tv = TOOL_VARIANT[name]; return tv ? tool === tv.tool && tv.is() : tool === name }
+	const toolLabel = (name: string) => TOOL_LABEL[name] ?? name
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
-	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Wall' })
+	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Trunk', openings: 'Door', boxes: 'Furniture', measure: 'Dimension' })
 	// Which tool-group fly-out is TAP-opened (touch has no hover). Cleared by a press outside any `.grp`.
 	let openGroup = $state<string | null>(null)
 	$effect(() => {
@@ -1219,7 +1242,11 @@
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
 	/** Pseudo-tools that run a COMMAND instead of arming a draw tool (they draw / act through the command line). */
 	const TOOL_CMD: Record<string, string> = { Rack: 'RACK', Arc: 'ARC', 'Format painter': 'MATCHPROP', Penetration: 'PEN', Measure: 'DIST' }
-	function setPaneTool(pane: WorkPane, t: string) { if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return } pane.tool = t; navMode = null }
+	function setPaneTool(pane: WorkPane, t: string) {
+		if (TOOL_CMD[t]) { cmdRunner.run(TOOL_CMD[t]); return }
+		const tv = TOOL_VARIANT[t]; if (tv) { tv.set(); t = tv.tool }
+		pane.tool = t; navMode = null
+	}
 	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
 	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every
@@ -1236,7 +1263,7 @@
 	// viewState/selStore) still leak across a project→project client-side navigation; that's Dave's call,
 	// not started here.
 	const workspace: Workspace = {
-		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf,
+		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf, toolIs, toolLabel,
 		get acadMode() { return acadMode }, get statusText() { return statusText }, get navMode() { return navMode }, setNavMode, conduitOf,
 		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,

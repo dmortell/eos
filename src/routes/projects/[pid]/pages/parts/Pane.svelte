@@ -102,7 +102,8 @@
 		oncontextmenucapture={(e) => { if (ws.navMode && rDown && Math.hypot(e.clientX - rDown.x, e.clientY - rDown.y) <= 5) ws.setNavMode(null); rDown = null }}
 		ondblclick={(e) => { if (a && !modelLayout && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av); selStore.set(a.id, selClear()) } }}
 		use:panzoom={{ enabled: () => !!a && !modelLayout, wheelZoom: () => ws.acadMode, leftPans: () => ws.navMode === 'pan', onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
-		<ToolStrip tool={p.tool} onTool={(t) => ws.setPaneTool(pane, t)} dim={!!(a && !ws.isVpActive(a.id))} STRIP={ws.STRIP} iconOf={ws.iconOf} bind:guideVert bind:openGroup bind:groupTool />
+		<ToolStrip tool={p.tool} onTool={(t) => ws.setPaneTool(pane, t)} dim={!!(a && !ws.isVpActive(a.id))} STRIP={ws.STRIP} iconOf={ws.iconOf}
+			isOn={(t) => ws.toolIs(p.tool, t)} labelOf={ws.toolLabel} bind:openGroup bind:groupTool />
 		<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 		     can always be left even when zoomed right in and its own corner is off-screen. -->
 		{#if a && ws.activeVpOf(a.id)}

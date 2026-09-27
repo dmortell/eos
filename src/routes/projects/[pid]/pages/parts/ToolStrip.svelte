@@ -11,40 +11,34 @@
 	import type { StripItem } from '../types'
 
 	let {
-		tool, onTool, dim, STRIP, iconOf,
-		guideVert = $bindable(), openGroup = $bindable(), groupTool = $bindable(),
+		tool, onTool, dim, STRIP, iconOf, isOn = (t: string) => t === tool, labelOf = (t: string) => t,
+		openGroup = $bindable(), groupTool = $bindable(),
 	}: {
 		tool: string; onTool: (t: string) => void; dim: boolean; STRIP: StripItem[]; iconOf: (tool: string) => string
-		guideVert: boolean; openGroup: string | null; groupTool: Record<string, string>
+		/** A strip entry may be a VARIANT of a tool (Door = the Opening tool as a door, Guide H / V) — is it the armed one? */
+		isOn?: (name: string) => boolean; labelOf?: (name: string) => string
+		openGroup: string | null; groupTool: Record<string, string>
 	} = $props()
+	const keyOf = (s: StripItem) => ('tool' in s ? s.tool : 'group' in s ? s.group : 'sep:' + s.sep)
 </script>
 
 <div class="floattools glass-bar" class:dim>
-	{#each STRIP as s (('tool' in s) ? s.tool : s.group)}
-		<!-- strip: single tool, or a grouped fly-out (hover to reveal variants) -->
-			{#if 'tool' in s}
-				<button class="tool" class:on={tool === s.tool} title={s.tool} onclick={() => onTool(s.tool)}><Icon name={iconOf(s.tool)} size={16} /></button>
-			{:else if s.group === 'guide'}
-				<!-- Guide: pick Horizontal / Vertical from the fly-out (touch has no Shift) -->
-				<div class="grp">
-					<button class="tool grp-btn" class:on={tool === 'Guide'} title="Guide — {guideVert ? 'vertical' : 'horizontal'}" onclick={() => { onTool('Guide'); openGroup = 'guide' }}>
-						<Icon name={guideVert ? 'moveVertical' : 'moveHorizontal'} size={16} /><span class="grp-caret"></span>
-					</button>
-					<div class="flyout" class:open={openGroup === 'guide'}>
-						<button class="tool" class:on={tool === 'Guide' && !guideVert} title="Horizontal guide" onclick={() => { onTool('Guide'); guideVert = false; openGroup = null }}><Icon name="moveHorizontal" size={16} /></button>
-						<button class="tool" class:on={tool === 'Guide' && guideVert} title="Vertical guide" onclick={() => { onTool('Guide'); guideVert = true; openGroup = null }}><Icon name="moveVertical" size={16} /></button>
-					</div>
-				</div>
+	{#each STRIP as s (keyOf(s))}
+		<!-- strip: a section divider, a single tool, or a grouped fly-out (hover to reveal variants) -->
+			{#if 'sep' in s}
+				<span class="sep" role="separator"></span>
+			{:else if 'tool' in s}
+				<button class="tool" class:on={isOn(s.tool)} title={labelOf(s.tool)} onclick={() => onTool(s.tool)}><Icon name={iconOf(s.tool)} size={16} /></button>
 			{:else}
-				{@const inGrp = s.members.includes(tool)}
-				{@const cur = inGrp ? tool : groupTool[s.group]}
+				{@const on = s.members.find(isOn)}
+				{@const cur = on ?? groupTool[s.group] ?? s.members[0]}
 				<div class="grp">
-					<button class="tool grp-btn" class:on={inGrp} title="{s.label} — {cur}" onclick={() => { onTool(cur); openGroup = s.group }}>
+					<button class="tool grp-btn" class:on={!!on} title="{s.label} — {labelOf(cur)}" onclick={() => { onTool(cur); openGroup = s.group }}>
 						<Icon name={iconOf(cur)} size={16} /><span class="grp-caret"></span>
 					</button>
 					<div class="flyout" class:open={openGroup === s.group}>
 						{#each s.members as m (m)}
-							<button class="tool" class:on={tool === m} title={m} onclick={() => { onTool(m); groupTool = { ...groupTool, [s.group]: m }; openGroup = null }}><Icon name={iconOf(m)} size={16} /></button>
+							<button class="tool" class:on={isOn(m)} title={labelOf(m)} onclick={() => { onTool(m); groupTool = { ...groupTool, [s.group]: m }; openGroup = null }}><Icon name={iconOf(m)} size={16} /></button>
 						{/each}
 					</div>
 				</div>
@@ -62,6 +56,7 @@
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }
+	.sep { display:block; height:1px; margin:2px 5px; background:var(--line); opacity:.7; }
 	/* Grouped tool: a button that re-activates the group's last-used tool + a hover fly-out of variants. */
 	.grp { position:relative; display:flex; }
 	.grp-btn { position:relative; }

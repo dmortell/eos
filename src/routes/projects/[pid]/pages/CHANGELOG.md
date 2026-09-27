@@ -14,6 +14,11 @@ open items; `review.md §0a` tracks which review findings are closed.
   selected place go with it); the ⋮ menu of a selected row deletes them all (sheets first, then places deepest first —
   a place still holding things stays and says why).
 - **File › Drawings**: Shift+click a checkbox selects the range.
+- **Tool strip regrouped** into sections (draw · building · services · annotate · modify): Door, Window and Hole are
+  tools of their own (the Opening tool with that type) in an Openings group with Penetration; Wall stands alone;
+  Box (the Furniture tool — the old 2D Box was merged into it in R4) + Rack; Trunk + Pipe; Dimension + Measure + H / V
+  guides in one group. Insert menu lists the same tools (Box, Wall, Door, Window, Hole, Penetration, Trunk, Pipe,
+  guides, Section — Trunk / Rack there now work); DOOR / WINDOW commands.
 - Fix: splitting / unsplitting the editor no longer resets a MODEL tab's pan / zoom / orbit (only paper sheets refit).
 - Fix: a model view's content stays put ON SCREEN when its pane is resized (split, the split bar, side panels) — the
   pane reveals / covers more of the drawing instead of sliding it (Viewport.svelte resize compensation).

@@ -6,7 +6,7 @@
 		File: ['New Page', 'Open Project…', 'Drawings…', '—', 'Save', 'Export…', 'Outlet Schedule…', '—', 'Print…'],
 		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
 		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
-		Insert: ['Image…', '—', 'Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
+		Insert: ['Image…', '—', 'Outlet', 'Box', 'Rack', '—', 'Wall', 'Door', 'Window', 'Hole', 'Penetration', '—', 'Trunk', 'Pipe', '—', 'Text', 'Dimension', 'Horizontal guide', 'Vertical guide', 'Section'],
 		Format: ['Drawing Defaults…'],
 	}
 	let openMenu = $state<string | null>(null)

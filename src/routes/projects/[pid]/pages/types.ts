@@ -70,7 +70,7 @@ export type View = { zoom: number; x: number; y: number }
 
 /** One entry in the floating tool strip: a single tool, or a grouped fly-out of variants (Guide is a
  *  special case with no `members` — its fly-out picks H/V orientation instead of a tool). */
-export type StripItem = { tool: string } | { group: string; label: string; members: string[] }
+export type StripItem = { tool: string } | { group: string; label: string; members: string[] } | { sep: string }
 
 // R9's workspace-object step (eos-07's review of commit 1, point 3): +page.svelte's ~30 doc/view accessor
 // FUNCTIONS (framesOf, viewOf, vpEditor, …) were each their own prop on Pane.svelte — an R6-callback-bundle
@@ -81,6 +81,9 @@ export type StripItem = { tool: string } | { group: string; label: string; membe
 // still leak across a project→project client-side navigation); it only addresses the prop-explosion half.
 export type Workspace = {
 	tabs: Tab[]; kindIcon: Record<Kind, string>; STRIP: StripItem[]; iconOf: (tool: string) => string
+	/** Strip entries that are VARIANTS of one tool (Door / Window / Hole = Opening; Guide H / V = Guide): is `name` the
+	 *  armed one, and its tooltip name. */
+	toolIs: (tool: string, name: string) => boolean; toolLabel: (name: string) => string
 	/** The tab's filled title block (phase 5, titleBlock.ts). */
 	titleBlockOf: (tabId: string) => import('./titleBlock').TbShown
 	acadMode: boolean; statusText: string

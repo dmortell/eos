@@ -14,7 +14,7 @@ import type { Pt } from './geometry'
 /** Command id → the pane tool it arms. */
 export const CMD_TOOL: Record<string, string> = {
 	line: 'Line', rect: 'Rectangle', ellipse: 'Ellipse', dim: 'Dimension', text: 'Text', wall: 'Wall', trunk: 'Trunk',
-	pipe: 'Pipe', box: 'Furniture', opening: 'Opening', section: 'Section', guide: 'Guide', select: 'Select',
+	pipe: 'Pipe', box: 'Furniture', opening: 'Opening', door: 'Door', window: 'Window', section: 'Section', guide: 'Guide', select: 'Select',
 }
 
 type Line = { text: string; kind: 'in' | 'out' | 'err' }
