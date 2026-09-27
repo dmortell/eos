@@ -242,8 +242,8 @@
 	/* .tab-menu* now lives in TabMenu.svelte's own scoped styles — R9 commit 5. */
 
 	/* Canvas */
+	/* (no dot texture any more: GRID draws a real line grid — in the viewport and on the paper, ui/grid.ts) */
 	.canvas { position:relative; flex:1 1 auto; min-width:0; min-height:0; background:var(--canvas);
-		background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px;
 		display:flex; align-items:center; justify-content:center; overflow:hidden;
 		user-select:none; -webkit-user-select:none; }
 	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--faint); pointer-events:none; }

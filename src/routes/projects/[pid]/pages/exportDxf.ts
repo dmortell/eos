@@ -3,7 +3,8 @@
 // one DXF layer per Pages layer (ACI colour from the layer colour). Built on the Sheets tool's DXF writer
 // (sheets/dxf/dxf.ts, @tarikjabiri/dxf) + dxfEntities.ts (the entities that library gets wrong).
 //   plan       X = model x, Y = −model y (DXF is y-up)
-//   elevation  X = the drawing's horizontal, Y = height above the ground line (z = 0 → Y = 0), storey levels
+//   elevation  X = the drawing's horizontal, Y = height above the ground line (z = 0 → Y = 0), storey levels; a section
+//              line / elevation marker's view through its (maybe oblique) frame; Hidden lines = Hide → the visible edges only
 //   iso        a wireframe of the model's edges (no hidden lines)
 // Annotative sizes (text, dimension figures, arrow ticks) are drawn at the viewport's scale 1:N, as on paper.
 // O16 blocks are BLOCK definitions + INSERTs (attributes as ATTDEF / ATTRIB), so a recipient can count / swap them.
@@ -13,11 +14,12 @@
 //     zips the .dxf with them. Plain `viewToDxf` without `images` counts them in `skipped`.
 import { TextHorizontalAlignment, LWPolylineFlags, HatchBoundaryPaths, HatchPolylineBoundary, HatchPredefinedPatterns, BlockFlags, point2d, point3d, vertex, type EntitiesManager } from '@tarikjabiri/dxf'
 import { DxfDoc, sanitizeLayer } from '../sheets/dxf/dxf'
-import type { Model, Obj, Clip, Dir } from './3dview/types'
+import type { Model, Obj, Clip, Dir, OClip } from './3dview/types'
 import { BASIS } from './3dview/types'
-import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
+import { project, viewMap, isoBounds, trimToClip, trimToOClip, oclipFrame, openingCuts, objBounds, type ProjDir } from './3dview/projection'
+import { hiddenLines, lookNegOf, type HLSeg } from './3dview/hiddenLines'
 import { storeyMap } from './3dview/storeyMap'
-import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, dimGeom, dimTextAt, type Ent, type Pt, type ElevDir } from './ui/geometry'
+import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, dimGeom, dimTextAt, frameOf, rectPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt, noteGeom, bbox } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines, hatchLines, headGeom } from './ui/annotations'
 import { blockDef, attrValue, insertScale, type BlockDef } from './ui/blocks'
@@ -25,7 +27,8 @@ import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
 import { dimLabel } from './ui/drawingDefaults'
 import { PT_MM } from './constants'
 import type { ViewCtx } from './ui/view'
-import { AttEnt, DimEnt, addAttribs, anonBlock, pagesDimStyle, fixImageObjects } from './dxfEntities'
+import { AttEnt, DimEnt, addAttribs, anonBlock, pagesDimStyle, fixImageObjects, dxfEntStyle, styleEntities, layerLineweights, DXF_LW } from './dxfEntities'
+import { ownLw } from './ui/lineweight'
 
 /** A rasterised image's sidecar file, as an IMAGE entity references it (relative path + pixel size). */
 export type DxfImageRef = { path: string; pxW: number; pxH: number }
@@ -35,6 +38,12 @@ export type DxfViewInput = {
 	ents: Ent[]
 	dir: Dir
 	clip?: Clip | null
+	/** An elevation's ORIENTED clip (a section line / elevation marker, sections-at-any-angle phase 5): the view is drawn
+	 *  through its frame (about the plan centre, as the Viewport draws it) and trimmed to it — an oblique one exports as
+	 *  seen, not as `dir`'s axis-aligned projection. */
+	oclip?: OClip | null
+	/** Hidden lines (the frame's "Hidden lines: Hide"): an elevation exports only the visible edges (3dview/hiddenLines). */
+	hideHidden?: boolean
 	yaw?: number; pitch?: number
 	/** VP Freeze: layer ids hidden in this viewport only. */
 	frozen?: string[]
@@ -57,10 +66,13 @@ function viewScope(inp: DxfViewInput) {
 	const layers = model.layers ?? [], frozen = new Set(inp.frozen ?? [])
 	const layerOf = (id?: string) => layers.find((l) => l.id === id)
 	const shown = (id?: string) => { const l = layerOf(id); return (!l || l.visible) && !(id && frozen.has(id)) }
-	const ctx: ViewCtx = { dir, isPlan, isElev, isIso, elevDir: (isElev ? dir : 'front') as ElevDir, cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: inp.frameId, paperMm: N, mdl: model, yaw, pitch }
+	// an elevation with an oriented clip draws through that clip's frame about the plan centre (vpView.obFrame)
+	const oclip = isElev ? inp.oclip ?? null : null, frame = oclip ? oclipFrame(oclip, [PLAN_CX, PLAN_CY]) : null
+	const ctx: ViewCtx = { dir, isPlan, isElev, isIso, elevDir: (isElev ? dir : 'front') as ElevDir, cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: inp.frameId, paperMm: N, mdl: model, yaw, pitch,
+		...(frame && oclip ? { frame, oclip } : {}) }
 	// a plan shape seen in an elevation is an edge-on line — the viewport shows it at the ground; not exported
 	const keep = (e: Ent) => !isIso && shown(e.layer) && inThisView(ctx, e) && !(isElev && e.plane !== dir)
-	return { ctx, N, yaw, pitch, isPlan, isIso, isElev, layerOf, shown, keep }
+	return { ctx, N, yaw, pitch, isPlan, isIso, isElev, layerOf, shown, keep, oclip, frame }
 }
 
 /** The image shapes this view exports (what viewToDxfBundle rasterises). */
@@ -71,14 +83,17 @@ type Ex = { doc: DxfDoc; ctx: ViewCtx; N: number; blocks: Map<string, string | n
 
 export function viewToDxf(inp: DxfViewInput): DxfResult {
 	const { model, dir } = inp
-	const { ctx, N, yaw, pitch, isIso, isElev, layerOf, shown, keep } = viewScope(inp)
+	const { ctx, N, yaw, pitch, isIso, isElev, layerOf, shown, keep, oclip, frame } = viewScope(inp)
 	const doc = new DxfDoc(), ms = doc.w.modelSpace
 	const dxfLayer = (id?: string) => { const l = layerOf(id); return l ? doc.layer(l.name, l.color) : '0' }
 	// drawing coords (y-down, the viewport's own) → DXF (y-up; an elevation's ground line at Y = 0)
 	const baseY = isElev ? GROUND : 0
 	const P = (p: Pt): [number, number] => [p[0], baseY - p[1]]
 	const isoBox = isIso ? isoBounds(model.objects, yaw, pitch, PLAN_CX, PLAN_CY, (o) => shown(o.layer)) : null
-	const vm = viewMap(dir, PLAN_CX, PLAN_CY, GROUND, yaw, pitch, isoBox)
+	const pd: ProjDir = frame ?? dir   // what the projection draws: the oriented clip's frame, else the dir
+	const vm = viewMap(pd, PLAN_CX, PLAN_CY, GROUND, yaw, pitch, isoBox)
+	const trim = (o: Obj): Obj | null => (oclip ? trimToOClip(o, oclip) : inp.clip ? trimToClip(o, inp.clip) : o)
+	const isOpening = (o: Obj) => !!layerOf(o.layer)?.opening
 	const sm = isElev && inp.storeys && model.storeys?.length ? storeyMap(model.storeys, inp.storeys) : null
 	const vs = isElev ? BASIS[dir as ElevDir].vs : 1
 	const uv = (q: { u: number; v: number }) => P(vm.uvToDraw(sm ? { u: q.u, v: vs * sm.map(vs * q.v) } : q))
@@ -99,12 +114,24 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	if (images) fixImageObjects(doc.w)
 
 	// ── model objects ──
+	// hidden lines (an elevation, phase 6): every shown object's VISIBLE edges at once — walls with their openings as
+	// holes, the openings themselves not drawn (their hole is the panels' edges), as the viewport draws it
+	const hl = inp.hideHidden && isElev ? new Map<Obj, HLSeg[]>() : null
+	if (hl) {
+		const src = model.objects.filter((o) => shown(o.layer) && !isOpening(o) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()))
+		const tos = src.map(trim), keepI = tos.flatMap((t, i) => (t ? [i] : []))
+		const cuts = openingCuts(model.objects, (o) => isOpening(o) && shown(o.layer))
+		hiddenLines(keepI.map((i) => tos[i]!), frame ?? frameOf(dir as ElevDir), cuts, lookNegOf(oclip)).forEach((r, k) => hl.set(src[keepI[k]], r.segs))
+	}
 	for (const o of model.objects) {
 		if (!shown(o.layer)) continue
 		if (sm) { const b = objBounds(o); if (sm.hidden(b.z0, b.z1)) continue }
-		const to: Obj | null = inp.clip ? trimToClip(o, inp.clip) : o; if (!to) continue
+		const to: Obj | null = trim(o); if (!to) continue
 		const layer = dxfLayer(o.layer)
-		for (const s of project(to, dir, yaw, pitch, PLAN_CX, PLAN_CY)) { const pts = s.pts.map(uv); pts.forEach(grow); doc.poly(pts, { closed: s.closed, layer }) }
+		if (hl) {
+			const segs = hl.get(o); if (!segs) continue   // (an opening)
+			for (const s of segs) { const a = uv({ u: s[0], v: s[1] }), b = uv({ u: s[2], v: s[3] }); grow(a); grow(b); doc.line(a, b, layer) }
+		} else for (const s of project(to, pd, yaw, pitch, PLAN_CX, PLAN_CY)) { const pts = s.pts.map(uv); pts.forEach(grow); doc.poly(pts, { closed: s.closed, layer }) }
 		if (o.label && !isIso) {   // a labelled object's name (a riser room "IDF01-A"), centred like the viewport draws it
 			const b = objBounds(o), mid = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: (b.z0 + b.z1) / 2 }
 			const [dx, dy] = vm.toDraw(mid)
@@ -115,8 +142,8 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	// ── storey levels (an elevation of a building) ──
 	if (isElev && model.storeys?.length) {
 		const layer = doc.layer('Levels', '#94a3b8'), xs: number[] = []
-		// oblique: phase 5 — two opposite bounds corners give the u extent only on an axis-aligned frame
-		for (const o of model.objects) { const b = objBounds(o); xs.push(vm.toDraw({ x: b.x0, y: b.y0, z: 0 })[0], vm.toDraw({ x: b.x1, y: b.y1, z: 0 })[0]) }
+		// all four bounds corners: two opposite ones give the u extent only on an axis-aligned frame (not an oblique one)
+		for (const o of model.objects) { const b = objBounds(o); for (const [cx, cy] of rectPts(b.x0, b.y0, b.x1, b.y1)) xs.push(vm.toDraw({ x: cx, y: cy, z: 0 })[0]) }
 		const x0 = xs.length ? Math.min(...xs) - 1500 : 0, x1 = xs.length ? Math.max(...xs) + 500 : 10000
 		for (const st of sm ? sm.shown : model.storeys) {
 			const y = sm ? sm.map(st.z) : st.z
@@ -128,12 +155,16 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 	// ── 2D shapes that belong to this view ──
 	for (const e of inp.ents) {
 		if (e.type === 'image' || !keep(e)) continue
+		const n0 = ms.entities.length
 		entToDxf(x, ms, e, P, dxfLayer(e.layer))
+		styleEntities(ms, n0, dxfEntStyle(e))   // its own colour (else BYLAYER) + lineweight (370)
 		const [a, b, c, d] = bbox(ctx, e); grow(P([a, b])); grow(P([c, d]))
 		shapes++
 	}
 	const has = ext.x0 <= ext.x1
 	if (has) setExtents(doc, ext)
+	// each Pages layer's lineweight (its `lw` / legacy `weight`), the rest DEFAULT
+	layerLineweights(doc.w, new Map((model.layers ?? []).flatMap((l) => { const lw = ownLw(l); return lw !== undefined ? [[sanitizeLayer(l.name), lw] as [string, number]] : [] })))
 	const dxf = doc.stringify()
 	return { text: has ? activeView(dxf, ext) : dxf, objects, shapes, images, skipped }
 }
@@ -245,7 +276,7 @@ function blockToDxf(x: Ex, def: BlockDef): string | null {
 	for (let i = 2; x.blockNames.has(name.toUpperCase()); i++) name = `${base}_${i}`
 	x.blockNames.add(name.toUpperCase())
 	const blk = x.doc.w.addBlock(name), bP = (p: Pt): XY => [p[0], -p[1]]
-	for (const bs of def.shapes) entToDxf(x, blk, { ...bs, rot: undefined }, bP, '0')
+	for (const bs of def.shapes) { const n0 = blk.entities.length; entToDxf(x, blk, { ...bs, rot: undefined }, bP, '0'); styleEntities(blk, n0, dxfEntStyle(bs, true)) }
 	for (const ad of def.attributes) blk.addEntity(new AttEnt('ATTDEF', p3(bP(ad.pos)), Math.max(0.5, ad.height), ad.tag, ad.default ?? '', { layerName: '0', center: true, invisible: ad.visible === false, prompt: ad.label }))
 	if (def.attributes.length) blk.flags = BlockFlags.HasNonConstantAttribute
 	x.blocks.set(def.id, name)
@@ -294,13 +325,14 @@ function entToDxf(x: Ex, out: EntitiesManager, e: Ent, P: (p: Pt) => XY, layer: 
 			for (const [p, q] of dimExtLines(e, N)) poly(blk, [T(p), T(q)], L)
 			const ta = dimTextAt(e, N), m = ta.p
 			text(blk, T(m), 2.5 * N, dimLabel(len, e.unit, e.text), L, 'center', -ta.rot + tRot)
+			styleEntities(blk, 0, { aci: 0, lw: DXF_LW.byBlock })   // its geometry takes the DIMENSION's colour / lineweight
 			// the measured points (dimGeom: `dimExt` back from the dim line); the figure: the measurement in mm
 			// ('<>' in a template) — a cm / m figure is written as a fixed override (the DXF measures in mm)
 			const override = !e.unit || e.unit === 'mm' ? e.text || undefined : dimLabel(len, e.unit, e.text)
 			// a linear dim measures along its dim line's direction AS EXPORTED (0° / 90° in a plan; the view's mapping and
 			// any own rotation carried along)
 			const tA = T(A), tB = T(B), dirDeg = (Math.atan2(tB[1] - tA[1], tB[0] - tA[0]) * 180) / Math.PI
-			const rotated = e.dimMode === 'h' || e.dimMode === 'v' ? (Math.round((((dirDeg % 180) + 180) % 180) * 1e6) / 1e6) % 180 : undefined   // 0..180
+			const rotated = e.dimMode === 'h' || e.dimMode === 'v' || e.dimMode === 'r' ? (Math.round((((dirDeg % 180) + 180) % 180) * 1e6) / 1e6) % 180 : undefined   // 0..180
 			out.addEntity(new DimEnt(p3(T(g.M1)), p3(T(g.M2)), p3(tB), p3(T(m)), { block: blk.name, text: override, style: pagesDimStyle(x.doc.w, N, hs === 'tick' && he === 'tick'), measured: len, layerName: layer, rotated }))
 			return
 		}

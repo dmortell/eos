@@ -3,11 +3,11 @@
 // snap mark ({ p, type } | null) and the Viewport assigns its `snapMark` from that. The mapper (one per
 // pass, P1) and the drafting flags come in as arguments. Graph-node snapping (snapNode/graphNodeApply)
 // and the elevation depth snap (elevDepthSnap) take the tolerances in model mm + the model-layer preds.
-import type { Pt, Ent } from './geometry'
+import type { Pt, Ent, ElevFrame } from './geometry'
 import { ctxFrame, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
-import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3, dimGeom } from './geometry'
+import { frameAxis, frameAlong, frameSetU, uToAlong, alongToU, arcPts, arc3, dimGeom } from './geometry'
 import { bbox, graphNodeDraw, isFlatElev, flatXSpan, flatY, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
@@ -264,6 +264,16 @@ export function snapNode(ctx: ViewCtx, p: Pt, exclude: GN, thrMm: number, brkMm:
 	return best
 }
 
+/** Plan point p slid along an elevation frame so it draws at u, grid-rounded: axis-aligned, only the coord the view
+ *  moves rounds (the other keeps p's); OBLIQUE (phase 5), the ALONG coord rounds and the point stays at p's depth —
+ *  rounding x / y apart would shift it off its depth. */
+export function slideRnd(f: ElevFrame, p: Pt, u: number, rnd: (v: number) => number): Pt {
+	const ax = frameAxis(f), m = frameSetU(f, p, u)
+	if (ax === 0) return [rnd(m[0]), p[1]]
+	if (ax === 1) return [p[0], rnd(m[1])]
+	return frameSetU(f, p, alongToU(f, rnd(uToAlong(f, u))))
+}
+
 /** Move graph node `n` to drawn point p, IN PLACE (store mutation, like the grips): first snap onto a
  *  nearby node via `opts.snapNode` so runs join, then grid-round each coord via `opts.rnd`. In an
  *  elevation the drawn point slides the node along the view's horizontal (frameSetU: the on-axis coord for the
@@ -271,8 +281,7 @@ export function snapNode(ctx: ViewCtx, p: Pt, exclude: GN, thrMm: number, brkMm:
 export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p: Pt, exclude: GN, origin?: Pt) => Pt | null; rnd: (v: number) => number }, origin?: Pt): SnapHit | null {
 	const q = opts.snapNode(p, n, origin) ?? p   // snap to a nearby node so runs join
 	if (ctx.isElev) {
-		const f = ctxFrame(ctx), ax = frameAxis(f), m = frameSetU(f, [n.x, n.y], q[0])
-		if (ax !== 1) n.x = opts.rnd(m[0]); if (ax !== 0) n.y = opts.rnd(m[1])   // round only what the view moves
+		const m = slideRnd(ctxFrame(ctx), [n.x, n.y], q[0], opts.rnd); n.x = m[0]; n.y = m[1]
 		n.z = Math.max(0, opts.rnd(ctx.ground - q[1]))
 	} else { n.x = opts.rnd(q[0]); n.y = opts.rnd(q[1]) }
 	return q === p ? null : { p: q, type: 'end' }
@@ -322,7 +331,7 @@ export function elevDepthSnap(ctx: ViewCtx, p: Pt, tolMm: number, ml: MLayers): 
 	const mdl = ctx.mdl; if (!ctx.isElev || !mdl) return null
 	const f = ctxFrame(ctx), ax = frameAxis(f)
 	// oblique: phase 5 — `off` is an axis-aligned model coord (y / x) the placers write back; an oblique view would need a
-	// frame depth (frameDepth) + frameInv. Unreached there today: drawing walls / trunks in an oblique view is off (read-only).
+	// frame depth (frameDepth) + frameInv. Unreached there today: drawing walls / trunks in an oblique view is off (moving / resizing works, phase 5).
 	const onC = (n: GN) => frameAlong(f, [n.x, n.y]), offC = (n: GN) => (ax === 0 ? n.y : n.x)
 	const pu = uToAlong(f, p[0]), pz = ctx.ground - p[1]   // the drawn point's along coord (model on-axis) + z
 	let best: DepthSnap | null = null, bestD = tolMm

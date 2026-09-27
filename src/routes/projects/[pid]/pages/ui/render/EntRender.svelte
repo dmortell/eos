@@ -23,6 +23,7 @@
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
 	import { isLegend, legendRows, legendSize, LEGEND } from '../legend'
 	import { dimLabel } from '../drawingDefaults'
+	import { ownLw, strokePx, resolveColor, LW_DEFAULT, SCREEN_PX_PER_MM } from '../lineweight'
 	import EntRender from './EntRender.svelte'   // a block's shapes are drawn by this same component
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
@@ -31,8 +32,12 @@
 		/** Selection shows via the grips, NOT by recolouring — only a dim's colour flips to `style.sel`. */
 		selected?: boolean
 		style: {
-			/** LWT toggle: on = objects with no weight draw at STYLE_DEFAULTS.weight, off = a thin 0.5 display line. */
+			/** LWT toggle: on = every shape at its lineweight (mm — own → layer → 0.25, ui/lineweight.ts), off = hairlines. */
 			lwt: boolean
+			/** Stroke px (the SVG's CSS px) per lineweight mm — paper px per mm on a sheet, a CSS mm in model space. */
+			lwPxPerMm?: number
+			/** A layer's own lineweight by id (mm; ByLayer resolution), undefined = none. */
+			layerLw?: (id?: string) => number | undefined
 			/** The ancestor CSS canvas zoom — screen-constant strokes divide by it (non-scaling-stroke can't see it). */
 			canvasZoom: number
 			/** Model mm per paper mm (= 1/dscale): annotative sizes (arrowheads, dim ticks/text, cloud bumps, text). */
@@ -70,16 +75,20 @@
 	const imgFilter = $derived([pdfDark ? 'invert(1) hue-rotate(180deg)' : '', e.grey || style.mono ? 'grayscale(1)' : ''].filter(Boolean).join(' ') || undefined)
 	// I2: a black-and-white viewport draws every shape in the tool ink (fills too, so a filled symbol stays solid)
 	const tone = (c: string) => (style.mono ? style.ink : style.adapt ? style.adapt(c) : c)
-	const ink = $derived(tone(e.color ?? style.layerColor(e.layer) ?? style.ink))
-	// An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with no weight
-	// set (on = the default 1.2, off = a thin 0.5 display line).
-	const w = $derived((e.weight ?? (style.lwt ? STYLE_DEFAULTS.weight : 0.5)) / (style.canvasZoom || 1))
+	// ByLayer (ui/lineweight.ts resolveColor): no colour / 'bylayer' → the layer's colour (live: a layer recolour redraws)
+	const ink = $derived(tone(resolveColor(e.color, style.layerColor(e.layer), style.ink)))
+	// LINEWEIGHT (mm): the shape's own (`lw`, or a legacy px `weight` mapped) → its layer's → 0.25 mm. LWT on draws it
+	// at its paper width (a sheet frame) / CSS mm (model space); LWT off = hairlines. Screen-constant via non-scaling-stroke.
+	const lwMm = $derived(ownLw(e) ?? style.layerLw?.(e.layer) ?? LW_DEFAULT)
+	const w = $derived(strokePx(lwMm, { lwt: style.lwt, pxPerMm: style.lwPxPerMm ?? SCREEN_PX_PER_MM, canvasZoom: style.canvasZoom }))
 	const fill = $derived(style.mono && e.fill && e.fill !== 'none' && e.fill.toLowerCase() !== '#ffffff' ? style.ink : e.fill ?? 'none')
 	// XP32: the object's own line type, else its layer's (ByLayer) — screen-px dashes, like the weights.
 	const da = $derived(dashArray(e.dash ?? style.layerDash?.(e.layer), style.canvasZoom))
 	const paperMm = $derived(style.paperMm)
 	const canvasZoom = $derived(style.canvasZoom)
 	const SEL = $derived(style.sel)
+	/** A ByLayer dimension on no (known) layer: the dimension teal it always had. */
+	const DIM_INK = '#0e766e'
 	// ISO: a callout / legend faces the SCREEN (ui/isoAnno.ts) — its anchors (text position, leader tip, legend corner)
 	// projected into iso drawing coords, then drawn by the ordinary 2D path at paper size, upright. The child render
 	// gets a non-iso ctx so it takes the `drawn` branch instead of the ground projection (the copy's points are
@@ -194,7 +203,7 @@
 		<!-- a real dimension: dim line with arrowheads, perpendicular extension ticks, and the measured
 		     length (mm) set above the line, aligned to it, at a constant on-screen size. Aligned / horizontal /
 		     vertical (dimMode) — geometry.ts dimGeom places the dim line and the extension lines. -->
-		{@const col = selected ? SEL : (e.color ?? '#0e766e')}
+		{@const col = selected ? SEL : tone(resolveColor(e.color, style.layerColor(e.layer), DIM_INK))}
 		{@const g = dimGeom(e)}
 		{@const A = g.A}{@const B = g.B}
 		{@const px = g.p[0]}{@const py = g.p[1]}

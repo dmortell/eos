@@ -6,6 +6,7 @@
 //   setGroup    put shapes in one new group, or ungroup them.
 import { translate, isNote, migrateNote, type Ent, type Pt } from './geometry'
 import type { Obj } from '../3dview/types'
+import { imageSrc, internImage } from '../imageStore'
 
 export class Clipboard {
 	#items: Ent[] = []
@@ -78,9 +79,14 @@ export function resolvePastedLayer(layer: string | undefined, names: ClipLayers,
 // ── the SYSTEM clipboard: copied shapes also go out as marked JSON text, so another browser tab / project can
 // paste them (its paste event reads them back) ──
 const CLIP_MARK = 'eos-pages-shapes'
+/** An image whose `src` is this tab's in-memory key (`img:…`, imageStore) carries its DATA-URL in the clipboard — the key
+ *  means nothing in another tab / browser; the paste interns it again (below). */
+const portable = (e: Ent): Ent => (e.type === 'image' && e.src?.startsWith('img:') && imageSrc(e.src) ? { ...e, src: imageSrc(e.src) } : e)
 /** Shapes → clipboard text. */
-export const clipText = (ents: readonly Ent[], objs: readonly Obj[] = [], layers: ClipLayers = {}) =>
-	JSON.stringify(objs.length ? { [CLIP_MARK]: 1, ents, objs, layers } : { [CLIP_MARK]: 1, ents })
+export const clipText = (ents: readonly Ent[], objs: readonly Obj[] = [], layers: ClipLayers = {}) => {
+	const es = ents.map(portable)
+	return JSON.stringify(objs.length ? { [CLIP_MARK]: 1, ents: es, objs, layers } : { [CLIP_MARK]: 1, ents: es })
+}
 /** Clipboard text → shapes, or null when it isn't ours. */
 export function fromClipText(text: string): Ent[] | null { return fromClipData(text)?.ents ?? null }
 /** Clipboard text → shapes + 3D objects (+ their layer names), or null when it isn't ours. */
@@ -89,6 +95,7 @@ export function fromClipData(text: string): { ents: Ent[]; objs: Obj[]; layers: 
 	try {
 		const o = JSON.parse(text); if (!o?.[CLIP_MARK] || !Array.isArray(o.ents)) return null
 		const ents = (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote)
+			.map((e) => (e.type === 'image' && e.src?.startsWith('data:') ? { ...e, src: internImage(e.src) } : e))   // the bytes back out of the model
 		const objs = Array.isArray(o.objs) ? (o.objs as Obj[]).filter((x) => x && ['prism', 'wall', 'conduit'].includes(x.type)) : []
 		return { ents, objs, layers: o.layers && typeof o.layers === 'object' ? o.layers : {} }
 	} catch { return null }

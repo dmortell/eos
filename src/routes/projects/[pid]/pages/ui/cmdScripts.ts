@@ -2,8 +2,9 @@
 // "Specify base point:" — and then edits through the viewport's command target. Answers come from typed tokens or
 // viewport clicks (ui/commandRunner.svelte.ts routes them). Coordinates are USER coords (model mm, Y up); angles
 // are degrees CCW from +X.
-import { dist, arc3, dimGeom, dimSetLine, dimTextOffMm, type Pt, type Ent } from './geometry'
+import { dist, arc3, dimGeom, dimSetLine, dimTextOffMm, isLinearDim, type Pt, type Ent } from './geometry'
 import { dimSpec } from './dimSpec.svelte'
+import { polyMeasure, entMeasure, fmtArea } from './area'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
@@ -164,7 +165,7 @@ async function dimChain(c: CmdCtx, baseline: boolean) {
 	const src = await sourceDim(c), A = src.a!, B = src.b!
 	const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / L, ny = (B[0] - A[0]) / L
 	const step = 8 * c.t.paperMm() * (dimTextOffMm(src, c.t.paperMm()) < 0 ? -1 : 1)
-	const g = dimGeom(src), linear = src.dimMode === 'h' || src.dimMode === 'v'
+	const g = dimGeom(src), linear = isLinearDim(src)
 	let from = linear ? g.M2 : B, k = 0
 	const make = (to: Pt, kk: number): Ent => {
 		if (linear) {   // a LINEAR (H / V) chain: the same mode, from the measured points, its dim line on the source's (stacked out for baseline)
@@ -279,6 +280,28 @@ export const SCRIPTS: Record<string, Script> = {
 		const q = await point(c, 'Specify second point', p)
 		const [dx, dy] = sub(q, p)
 		c.out(`Distance = ${fmt(Math.hypot(dx, dy))},  Angle = ${fmt(((angleOf(p, q) % 360) + 360) % 360)}°,  ΔX = ${fmt(dx)},  ΔY = ${fmt(dy)}`)
+	},
+	area: async (c) => {   // O19: click the corners (Enter closes the loop), or Object = a rect / ellipse / closed polyline
+		const first = await c.ask({ prompt: 'Specify first corner point or', options: ['Object'], point: {}, enter: false })
+		if (first.kind === 'option') {
+			const pk = await pickEnt(c, 'Select a rect, ellipse or closed polyline')
+			const m = pk && entMeasure(pk.e)
+			if (!m) throw new CmdError('That shape has no area (pick a rect, an ellipse or a closed polyline)')
+			c.out(`Area = ${fmtArea(m.area)},  Perimeter = ${fmt(m.perimeter)}`)
+			return
+		}
+		if (first.kind !== 'point') return
+		const pts: Pt[] = [first.p]
+		for (;;) {
+			const a = await c.ask({ prompt: 'Specify next point or <Enter = total>', options: pts.length > 1 ? ['Undo'] : [], enter: true,
+				point: { base: pts[pts.length - 1], ghost: (u) => [c.t.newEnt({ type: 'polyline', pts: [...pts, u, pts[0]].map((q) => D(c, q)) })] } })
+			if (a.kind === 'option') { if (pts.length > 1) pts.pop(); continue }
+			if (a.kind !== 'point') break
+			pts.push(a.p)
+		}
+		if (pts.length < 3) throw new CmdError('An area needs 3 or more points')
+		const m = polyMeasure(pts)
+		c.out(`Area = ${fmtArea(m.area)},  Perimeter = ${fmt(m.perimeter)}`)
 	},
 	zoom: async (c) => {
 		// with something selected, Enter (the default) zooms to it — ZOOM Object (OpenCad's Z)
@@ -439,7 +462,7 @@ export const SCRIPTS: Record<string, Script> = {
 	matchprop: async (c) => {   // the source's layer + style onto each shape clicked after it
 		c.host.tool('Select')
 		const src = await pickEnt(c, 'Select source object'); if (!src) return
-		const s = src.e, KEYS = ['layer', 'color', 'fill', 'weight', 'dash'] as const, TEXT = ['fontPt', 'align', 'valign'] as const
+		const s = src.e, KEYS = ['layer', 'color', 'fill', 'weight', 'lw', 'dash'] as const, TEXT = ['fontPt', 'align', 'valign'] as const
 		for (;;) {
 			const d = await pickEnt(c, 'Select destination object(s) or <exit>', true); if (!d) return
 			const out: Ent = { ...d.e }

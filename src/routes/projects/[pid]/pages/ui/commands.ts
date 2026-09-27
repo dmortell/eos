@@ -77,6 +77,7 @@ export const COMMANDS: CmdDef[] = [
 	C('deselect', 'Deselect', 'DESELECT', 'Clear the selection', 'Modify'),
 	// inquiry
 	C('dist', 'Distance', 'DIST · DI', 'The distance + angle between two points', 'Inquiry'),
+	C('area', 'Area', 'AREA · AA', 'The area + perimeter of clicked corners (Enter totals) or of a rect / ellipse / closed polyline (Object)', 'Inquiry'),
 	// view
 	C('zoom', 'Zoom', 'ZOOM · Z', 'A window (two corners), or Extents / Object (the selection — the default when something is selected) / Previous', 'View'),
 	C('fit', 'Zoom extents', 'ZOOMEXTENTS · ZE · ZA', 'Fit the view', 'View'),

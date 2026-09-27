@@ -10,7 +10,10 @@ export type DrawingDefaults = {
 	color?: string
 	/** 0 = the tool default (STYLE_DEFAULTS) */
 	fontPt?: number
+	/** Legacy screen-px line weight (0 = unset) — still applied when `lw` is unset. */
 	weight?: number
+	/** LINEWEIGHT in paper mm (ui/lineweight.ts); −1 (LW_BYLAYER) / absent = ByLayer. */
+	lw?: number
 	/** '' = ByLayer */
 	dash?: Dash | ''
 	/** Dimension end heads; '' = arrow. */
@@ -28,7 +31,8 @@ export function withDefaults(e: Ent, d?: DrawingDefaults | null): Ent {
 	if (d.color && out.color === undefined) out.color = d.color
 	if (e.type === 'text' && d.fontPt && out.fontPt === undefined) out.fontPt = d.fontPt
 	if (STROKED.has(e.type)) {
-		if (d.weight && out.weight === undefined) out.weight = d.weight
+		if (d.lw !== undefined && d.lw >= 0) { if (out.lw === undefined && out.weight === undefined) out.lw = d.lw }
+		else if (d.weight && out.weight === undefined && out.lw === undefined) out.weight = d.weight
 		if (d.dash && out.dash === undefined) out.dash = d.dash
 	}
 	if (e.type === 'dim') {

@@ -22,6 +22,8 @@ import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDra
 import { hitIsoAnno } from './isoAnno'
 import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
+import { ownLw, SCREEN_PX_PER_MM } from './lineweight'
+import { gridPaths } from './grid'
 import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip, patchSection, flipSection } from './modelEdit'
 import { isLineSection, lineSectionDir, lineSectionGrips, lineSectionRegion, sectionTitle } from './sectionLine'
@@ -119,8 +121,8 @@ export class VpView {
 	oclip = $derived.by((): OClip | null => (!this.obFrame ? null : this.p.oclip ?? (this.clip ? oclipOf(this.clip, this.obFrame) : null)))
 	/** The elevation's view frame: its explicit one, else the dir's about the plan centre (= ctxFrame(ctx)). */
 	elevFrame = $derived.by(() => this.obFrame ?? frameOf(this.elevDir, CX, CY))
-	/** An OBLIQUE view (a frame off the four axes): 3D objects are read-only in it until phase 5 (no grips / moves /
-	 *  graph drawing; picking still selects). */
+	/** An OBLIQUE view (a frame off the four axes): 3D objects move / resize there (phase 5), but drawing walls / runs
+	 *  and plan guides stay off in it. */
 	oblique = $derived(!!this.obFrame && frameAxis(this.obFrame) === null)
 	/** The elevation's name on its ground line: the `viewTitle` prop (a section line's "SECTION A–A′"), else the dir, or
 	 *  an explicit frame's look angle. */
@@ -168,9 +170,9 @@ export class VpView {
 	elevDir = $derived((this.isElev ? this.kind : 'front') as ElevDir)
 	isPlan = $derived(this.kind === 'plan')
 	// iso (oblique) editing deferred to the 3D camera; a riser frame with collapsed floors (`storeys`) is view-only
-	// — its picking / grips would sit at the uncollapsed heights (edit in the model tab)
-	// — and an OBLIQUE elevation is read-only for 3D objects until phase 5 (its grips would edit x / w or y / d)
-	modelEditable = $derived.by(() => (this.isPlan || this.isElev) && !this.p.storeys && !this.oblique)
+	// — its picking / grips would sit at the uncollapsed heights (edit in the model tab). An OBLIQUE elevation edits too
+	// (phase 5): moves step along the frame's t, box grips resize along the box's own axis nearest t (grips.ts)
+	modelEditable = $derived.by(() => (this.isPlan || this.isElev) && !this.p.storeys)
 	/** Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none — nor has an oblique view (a
 	 *  guide's `plane` is an ElevDir; its drawn position means nothing through another frame). */
 	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev && !this.oblique ? this.elevDir : null)
@@ -195,6 +197,8 @@ export class VpView {
 	isLayerLocked = (id?: string) => isLayerLocked(this.mls, id) || (!!id && this.vpLockedSet.has(id))
 	layerColor = (id?: string) => layerColor(this.mls, id)
 	layerDash = (id?: string) => (id ? this.mls.find((l) => l.id === id)?.dash : undefined)   // XP32 ByLayer line type
+	/** A layer's own lineweight (mm; its `lw`, else its legacy px `weight` mapped — ui/lineweight.ts), undefined = none. */
+	layerLw = (id?: string) => (id ? ownLw(this.mls.find((l) => l.id === id)) : undefined)
 	layerPreds = { hidden: this.isLayerHidden, locked: this.isLayerLocked }
 	/** Model-object predicates: a hidden layer's objects don't show, a locked one's can't be picked (B16). */
 	mlayers: MLayers = { visible: (o: Obj) => !this.isLayerHidden(o.layer), locked: (o: Obj) => this.isLayerLocked(o.layer) }
@@ -313,11 +317,25 @@ export class VpView {
 	pickable = (e: Ent) => pickable(this.ctx, e, this.layerPreds)
 	/** Grips are a CONSTANT screen size (HANDLE_PX) whatever the view/canvas zoom or drawing scale. */
 	gripSize = $derived(HANDLE_PX / this.pxPerUnit / this.view.zoom / (this.canvasZoom || 1) / (this.dscale || 1))
+	/** Stroke px (the SVG's CSS px — a non-scaling stroke's unit) per lineweight mm: a sheet frame draws true PAPER mm
+	 *  (zooming with the paper, printing true); model space has no paper — a CSS mm on screen (ui/lineweight.ts). */
+	get lwPxPerMm() { return this.boxW ? PAPER_PX_PER_MM : SCREEN_PX_PER_MM / (this.canvasZoom || 1) }
 	/** Everything EntRender reads, built ONCE so every entity gets the same reference. B31: on dark model
 	 *  space the ByLayer ink is light and too-dark colours are lifted (ui/modelSpace.ts). */
 	entStyle = $derived(this.modelSpace
-		? { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, adapt: onDark, mono: this.mono }
-		: { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, mono: this.mono })
+		? { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, layerLw: this.layerLw, lwPxPerMm: this.lwPxPerMm, adapt: onDark, mono: this.mono }
+		: { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, layerLw: this.layerLw, lwPxPerMm: this.lwPxPerMm, mono: this.mono })
+	/** GRID (status bar GRID): the line grid's paths over the visible part of the drawing (ui/grid.ts) — minor lines
+	 *  at the SNAP step (or a ×10ⁿ multiple, never denser than ~6 screen px), majors every 10. Plan + elevations; in model
+	 *  space always, in a sheet frame only while it's being edited (paper space shows the paper's own grid). */
+	grid = $derived.by(() => {
+		if (!this.p.env?.grid || this.kind === 'iso' || this.missing || (!this.modelSpace && !this.active)) return null
+		const v = this.view, z = v.zoom || 1, ds = this.dscale || 1
+		// the view <g>: drawing P → viewBox view + z·(C + ds·(P − C)); invert the viewBox's corners
+		const inv = (V: number, o: number, C: number) => C + ((V - o) / z - C) / ds
+		const x0 = inv(this.minX, v.x, CX), x1 = inv(this.minX + this.vbW, v.x, CX), y0 = inv(this.minY, v.y, CY), y1 = inv(this.minY + this.vbH, v.y, CY)
+		return gridPaths(this.snapStep, this.pxPerUnit * z * ds * (this.canvasZoom || 1), [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)])
+	})
 
 	/** PAINT ORDER = layer order first (earlier layer = underneath), then array position within a layer; no
 	 *  layer / unknown → on top. P6: an O(n) check skips the sort when already in order (the common case). */

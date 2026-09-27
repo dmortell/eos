@@ -10,7 +10,12 @@
 //                    2+ images), its IMAGEDEF_REACTORs have no owner, and the CLASSES section is empty (AutoCAD
 //                    needs IMAGE / IMAGEDEF / … class records to read them) — fixImageObjects repairs them.
 // Checked against ezdxf's recover + audit (no errors / fixes for blocks, attributes, dimensions, images).
+//   STYLE            no entity lineweight option at all (group 370) and a hard-coded 0.00 mm on every LAYER —
+//                    styleEntities / layerLineweights write them (colour: the entity's own ACI + true colour).
 import { SeqEnd, BlockFlags, DxfRasterVariables, type CommonEntityOptions, type DxfWriter, type DxfBlock, type Dxfier, type Insert, type vec3_t, type EntitiesManager } from '@tarikjabiri/dxf'
+import { hexToAci } from '../sheets/dxf/dxf'
+import { ownLw, isByLayer } from './ui/lineweight'
+import type { Ent } from './ui/geometry'
 
 // The library doesn't export its Entity base class (neither the class nor its type) — every entity class extends
 // it, so take it from one that is exported, typed by what addEntity accepts.
@@ -135,5 +140,61 @@ export function fixImageObjects(w: DxfWriter) {
 			dx.type('CLASS'); dx.push(1, name); dx.push(2, cpp); dx.push(3, 'ISM'); dx.push(90, flags); dx.push(91, 0); dx.push(280, 0); dx.push(281, ent)
 		}
 		dx.end()
+	}
+}
+
+// ── OBJECT STYLE (ui/lineweight.ts): colour + lineweight per entity, lineweight per layer ──
+/** DXF group 370 codes: hundredths of a mm, or these. */
+export const DXF_LW = { byLayer: -1, byBlock: -2, default: -3 } as const
+/** A lineweight (mm) as a 370 value. */
+export const dxfLw = (mm: number) => Math.round(mm * 100)
+/** An entity's DXF colour / lineweight: `aci` (62; 0 = BYBLOCK, absent = BYLAYER), `rgb` (420, the exact colour), `lw` (370). */
+export type EntStyleDxf = { aci?: number; rgb?: number; lw: number }
+
+const hex6 = (c: string): string | null => {
+	const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c.trim()); if (!m) return null
+	return '#' + (m[1].length === 3 ? [...m[1]].map((x) => x + x).join('') : m[1]).toLowerCase()
+}
+/** A Pages shape's DXF style: an own colour → its nearest ACI + its exact RGB; ByLayer → none (BYLAYER, the default).
+ *  Lineweight: its own (`lw` / a legacy `weight`, mm) or BYLAYER. `inBlock` = a BLOCK definition's shape: 'byblock'
+ *  colour → BYBLOCK, no lineweight → BYBLOCK (it takes the insert's, as blocks.ts byBlock draws it). */
+export function dxfEntStyle(e: Pick<Ent, 'color' | 'lw' | 'weight'>, inBlock = false): EntStyleDxf {
+	const out: EntStyleDxf = { lw: DXF_LW.byLayer }
+	const c = e.color, hex = c && !isByLayer(c) ? hex6(c) : null
+	if (inBlock && c?.toLowerCase() === 'byblock') out.aci = 0
+	else if (hex) { out.aci = hexToAci(hex); out.rgb = parseInt(hex.slice(1), 16) }
+	const lw = ownLw(e)
+	out.lw = lw !== undefined ? dxfLw(lw) : inBlock ? DXF_LW.byBlock : DXF_LW.byLayer
+	return out
+}
+
+/** Run `body` with one Dxfier method swapped (restored after, even on a throw). */
+function withDx<K extends 'push' | 'visibilty'>(dx: Dxfier, k: K, fn: Dxfier[K], body: () => void) {
+	const own = Object.prototype.hasOwnProperty.call(dx, k), orig = dx[k]
+	dx[k] = fn
+	try { body() } finally { if (own) dx[k] = orig; else delete (dx as Partial<Dxfier>)[k] }
+}
+/** Colour + lineweight onto the entities `out` gained since index `from` (the writers only set their layer). 370 is
+ *  written in the entity's AcDbEntity section, right after its visibility (60) — the library has no field for it. */
+export function styleEntities(out: EntitiesManager, from: number, s: EntStyleDxf) {
+	for (const ent of out.entities.slice(from)) {
+		if (s.aci !== undefined) ent.colorNumber = s.aci
+		if (s.rgb !== undefined) ent.trueColor = String(s.rgb)
+		const dxfy = ent.dxfy.bind(ent), lw = s.lw
+		ent.dxfy = (dx: Dxfier) => {
+			const vis = dx.visibilty
+			let done = false
+			withDx(dx, 'visibilty', (v?: boolean) => { vis.call(dx, v); if (!done) { done = true; dx.push(370, lw) } }, () => dxfy(dx))
+		}
+	}
+}
+/** Every LAYER's lineweight (370): `lw` by layer name (mm), else DEFAULT — the library writes 0.00 mm on all. */
+export function layerLineweights(w: DxfWriter, lw: Map<string, number>) {
+	for (const r of w.tables.layerTable.records) {
+		const v = lw.has(r.name) ? dxfLw(lw.get(r.name)!) : DXF_LW.default, dxfy = r.dxfy.bind(r)
+		r.dxfy = (dx: Dxfier) => {
+			const push = dx.push
+			withDx(dx, 'push', (code: number, value?: unknown) => push.call(dx, code, (code === 370 ? v : value) as never), () => dxfy(dx))
+		}
 	}
 }

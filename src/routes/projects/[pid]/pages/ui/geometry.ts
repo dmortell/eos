@@ -17,6 +17,9 @@ export type Dash = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 // can reuse that shape directly rather than inventing its own DXF-side entity type.
 export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'arc' | 'image' | 'insert'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
+	// `lw` = the LINEWEIGHT in paper mm (ui/lineweight.ts LINEWEIGHTS; absent / −1 = ByLayer). `weight` is the legacy
+	// screen-px stroke — still read (mapped to mm) when there's no `lw`.
+	lw?: number;
 	// `z` = a PLAN-plane shape's height above the floor (mm; absent = 0): an elevation draws a flat one edge-on AT that
 	// height (drag it up / down there to set it), the 3D view lifts it (a callout's leader points up at a ceiling TV).
 	z?: number;
@@ -83,6 +86,9 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// dim measuring only Δx / Δy — a / b are then the MEASURED points and the dim line is horizontal / vertical, `dimExt`
 	// from a. Firestore-stable.
 	dimMode?: DimMode;
+	// DIMENSION 'r' (ROTATED linear) mode: the dim line's direction in degrees (drawing coords, [0, 180)) — like 'h' / 'v'
+	// but at any angle (an H / V dim turned by a non-90° angle becomes one, keeping its figure). Firestore-stable.
+	dimAng?: number;
 	// DIMENSION text offset in PAPER mm (signed, perpendicular to the dim line — the same side convention as dimOff),
 	// so it reads the same at any scale; supersedes the older model-mm `dimOff`. Unset = dimOff, else 2.5. Firestore-stable.
 	dimTextOff?: number;
@@ -96,8 +102,17 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// A WRAPPED TEXT (was the K3 NOTE; `isNote`): a text with `noteW` — its `text` is markdown (ui/noteLayout.ts), laid out from its top-left `a` in a box `noteW` PAPER
 	// mm wide (annotative, default 90); `noteBox` draws the frame round it. Firestore-stable.
 	noteW?: number; noteBox?: boolean }
-/** A dimension's mode: 'aligned' (the default — unset on the shape) or a linear 'h' / 'v'. */
-export type DimMode = 'aligned' | 'h' | 'v'
+/** A dimension's mode: 'aligned' (the default — unset on the shape) or a linear 'h' / 'v' / 'r' (rotated: `dimAng`). */
+export type DimMode = 'aligned' | 'h' | 'v' | 'r'
+/** A LINEAR dimension (measures along a fixed direction, not the true distance): H, V or rotated. */
+export const isLinearDim = (e: Ent): boolean => e.type === 'dim' && (e.dimMode === 'h' || e.dimMode === 'v' || e.dimMode === 'r')
+/** A linear dim's measuring direction in degrees [0, 180): H 0, V 90, rotated its `dimAng`. */
+export const dimDirDeg = (e: Ent): number => (e.dimMode === 'h' ? 0 : e.dimMode === 'v' ? 90 : ((((e.dimAng ?? 0) % 180) + 180) % 180))
+/** A linear direction (degrees) as the dim's mode: 0 → 'h', 90 → 'v', else 'r' with dimAng (H / V stay exact). */
+export function dimModeFor(deg: number): { dimMode: 'h' | 'v' | 'r'; dimAng?: number } {
+	const a = Math.round(((((deg % 180) + 180) % 180)) * 1e6) / 1e6 % 180
+	return a < 1e-6 || a > 180 - 1e-6 ? { dimMode: 'h' } : Math.abs(a - 90) < 1e-6 ? { dimMode: 'v' } : { dimMode: 'r', dimAng: a }
+}
 /** A dimension as drawn: the dim line A → B, the measured points M1 / M2 (the extension lines run M → A / B), the dim
  *  line's unit direction `u` and perpendicular `p` (= (−u.y, u.x): the +dimExt / +text side), and the measured value. */
 export type DimGeom = { A: Pt; B: Pt; M1: Pt; M2: Pt; u: Pt; p: Pt; len: number }
@@ -113,6 +128,12 @@ export function dimGeom(e: Ent): DimGeom {
 		if (h) { const y = a[1] + s * ext; return { A: [a[0], y], B: [b[0], y], M1: a, M2: b, u, p, len: Math.abs(b[0] - a[0]) } }
 		const x = a[0] - s * ext
 		return { A: [x, a[1]], B: [x, b[1]], M1: a, M2: b, u, p, len: Math.abs(b[1] - a[1]) }
+	}
+	if (e.dimMode === 'r') {   // ROTATED linear: like H / V along `dimAng` (u follows a → b; p = (−u.y, u.x), as for H / V)
+		const r = (dimDirDeg(e) * Math.PI) / 180, d: Pt = [Math.cos(r), Math.sin(r)], t = (b[0] - a[0]) * d[0] + (b[1] - a[1]) * d[1]
+		const s = Math.sign(t) || 1, u: Pt = [s * d[0], s * d[1]], p: Pt = [-u[1], u[0]]
+		const A: Pt = [a[0] + p[0] * ext, a[1] + p[1] * ext], len = Math.abs(t)
+		return { A, B: [A[0] + u[0] * len, A[1] + u[1] * len], M1: a, M2: b, u, p, len }
 	}
 	const len = Math.hypot(b[0] - a[0], b[1] - a[1]), L = len || 1, u: Pt = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], p: Pt = [-u[1], u[0]]
 	return { A: a, B: b, M1: [a[0] - p[0] * ext, a[1] - p[1] * ext], M2: [b[0] - p[0] * ext, b[1] - p[1] * ext], u, p, len }
@@ -148,15 +169,19 @@ export const autoDimMode = (a: Pt, b: Pt): 'h' | 'v' => (Math.abs(b[0] - a[0]) >
  *  an aligned one slides a / b along its perpendicular (dimExt = how far the points now sit back). Whole mm. */
 export function dimSetLine(e: Ent, q: Pt): Ent {
 	const g = dimGeom(e), ext = Math.round((q[0] - g.M1[0]) * g.p[0] + (q[1] - g.M1[1]) * g.p[1])
-	if (e.dimMode === 'h' || e.dimMode === 'v') return { ...e, dimExt: ext || undefined }
+	if (isLinearDim(e)) return { ...e, dimExt: ext || undefined }
 	return { ...e, a: [g.M1[0] + g.p[0] * ext, g.M1[1] + g.p[1] * ext], b: [g.M2[0] + g.p[0] * ext, g.M2[1] + g.p[1] * ext], dimExt: ext || undefined }
 }
 /** The dimension switched to another mode, keeping what it measures FROM (the measured points) and its dim line
  *  through the same middle point (as near as the new direction allows). Unchanged when already in that mode. */
-export function dimSetMode(e: Ent, mode: DimMode): Ent {
-	if (e.type !== 'dim' || !e.a || !e.b || (e.dimMode ?? 'aligned') === mode) return e
+export function dimSetMode(e: Ent, mode: DimMode, ang?: number): Ent {
+	if (e.type !== 'dim' || !e.a || !e.b) return e
 	const g = dimGeom(e), q: Pt = [(g.A[0] + g.B[0]) / 2, (g.A[1] + g.B[1]) / 2]
-	return dimSetLine({ ...e, a: g.M1, b: g.M2, dimExt: undefined, dimMode: mode === 'aligned' ? undefined : mode }, q)
+	// ROTATED: at `ang`, else along the dim line as it is now (a switch from aligned keeps the figure)
+	const r = mode === 'r' ? dimModeFor(ang ?? (Math.atan2(g.u[1], g.u[0]) * 180) / Math.PI) : null
+	if ((e.dimMode ?? 'aligned') === mode && (mode !== 'r' || r?.dimAng === e.dimAng)) return e
+	const { dimAng: _a, ...rest } = e
+	return dimSetLine({ ...rest, a: g.M1, b: g.M2, dimExt: undefined, ...(r ?? { dimMode: mode === 'aligned' ? undefined : mode }) }, q)
 }
 /** A wrapped markdown text (a "note"): a TEXT with a wrap width. Without one it's plain lines. */
 export const isNote = (e: Ent): boolean => e.type === 'text' && e.noteW != null

@@ -1163,7 +1163,6 @@ export class VpInteraction {
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, s0: $state.snapshot(sm) as Section }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)
 			if (e.shiftKey) { this.reg.forget(e); return }   // I4: a Shift press only toggles it (onClick)
-			if (v.oblique) { this.reg.forget(e); return }    // an OBLIQUE view is read-only for 3D objects (phase 5): the click still selects
 			this.startEntDrag(e, p, 'move', pk.id, -1)
 		} else if (!pk) {   // empty space → a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			this.items.beginMarquee(p, e.shiftKey || e.ctrlKey || e.metaKey)

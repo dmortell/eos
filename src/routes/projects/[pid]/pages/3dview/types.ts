@@ -67,8 +67,11 @@ export type CableRun = { type: string; qty: number; d?: number }
 // weight = non-scaling lineweight (screen px); opening = objects on this layer CUT the wall (masked hole +
 // frame); group = the Layers-panel heading (undefined = 'Model', the object layers); swatch/dash = how the
 // panel draws the layer's chip (a colour fill, or a line of that dash).
-export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number; opening?: boolean;
-	group?: string; swatch?: 'color' | 'line'; dash?: 'solid' | 'dashed' | 'dotted' }
+// lw = the layer's 2D LINEWEIGHT in paper mm (ByLayer for its shapes, ui/lineweight.ts); absent = its `weight` mapped.
+export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number; lw?: number; opening?: boolean;
+	group?: string; swatch?: 'color' | 'line'; dash?: 'solid' | 'dashed' | 'dotted'
+	/** AutoCAD "New VP Freeze": a sheet viewport CREATED later starts with this layer frozen (its `frozen` list). */
+	newVpFrz?: boolean }
 
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.

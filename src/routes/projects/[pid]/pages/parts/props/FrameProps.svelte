@@ -78,7 +78,7 @@
 	<div class="prop"><span>Hidden lines</span>
 		<span class="pp-seg">
 			<button class:on={!frame.hideHidden} title="Every edge, as a wireframe" onclick={() => onupdate?.({ hideHidden: undefined })}>Show</button>
-			<button class:on={!!frame.hideHidden} title="Nearer faces hide what's behind them" onclick={() => onupdate?.({ hideHidden: true })}>Hide</button>
+			<button class:on={!!frame.hideHidden} title={frame.proj === 'plan' ? "Nearer faces hide what's behind them" : 'What is behind a nearer wall / object is hidden — except through its openings (doors, windows, holes). On by default for a dropped section / elevation'} onclick={() => onupdate?.({ hideHidden: true })}>Hide</button>
 		</span></div>
 {/if}
 <div class="prop"><span>Colour</span>

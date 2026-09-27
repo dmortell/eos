@@ -5,7 +5,7 @@
 // class keeps the drag bookkeeping (undo step open / close, the trailing click) and calls these.
 import type { Pt } from './geometry'
 import { frameStep, dotT } from './geometry'
-import { ctxFrame } from './view'
+import { ctxFrame, type ViewCtx } from './view'
 import type { GN } from './hit'
 import type { MGrip } from './grips'
 import type { VpView } from './vpView.svelte'
@@ -40,12 +40,16 @@ export function commitConduit(v: VpView, o: Conduit): Obj | null {
 // write the copies back into the live model, re-attach after the move ──
 type P3 = { x: number; y: number; z: number }
 /** A plain copy of `o` moved by the view's (dx, dy): in plan x / y; in elevation the horizontal steps along the view
- *  frame's t (frameStep: the on-axis coord × its sign for the four dirs) and the vertical changes z (≥ 0). A box moves
- *  its origin, a wall / conduit all its nodes. An OBLIQUE view is read-only for 3D objects (elevation-section-plan.md
- *  phase 5 adds moving them there) — the copy comes back unmoved, so a nudge / mixed move leaves them in place. */
+ *  frame's t (frameStep: the on-axis coord × its sign for the four dirs; du·t in plan for an OBLIQUE frame — the depth
+ *  along n is kept, elevation-section-plan.md phase 5) and the vertical changes z (≥ 0). A box moves its origin, a
+ *  wall / conduit all its nodes. (Pure in the view's ctx: `translateInView`.) */
 export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
-	const c = structuredClone(o) as Obj; if (v.oblique) return c
-	const step = v.isElev ? frameStep(ctxFrame(v.ctx), dx) : null
+	return translateInView(v.ctx, o, dx, dy)
+}
+/** `translateObj` on a ViewCtx (unit-testable without a VpView). */
+export function translateInView(ctx: ViewCtx, o: Obj, dx: number, dy: number): Obj {
+	const c = structuredClone(o) as Obj
+	const step = ctx.isElev ? frameStep(ctxFrame(ctx), dx) : null
 	const shift = (t: P3) => {
 		if (step) { if (step[0]) t.x += step[0]; if (step[1]) t.y += step[1]; t.z = Math.max(0, t.z - dy) }
 		else { t.x += dx; t.y += dy }
@@ -56,10 +60,15 @@ export function translateObj(v: VpView, o: Obj, dx: number, dy: number): Obj {
 /** The move delta grid-snapped (SNAP on) so the object's reference point — a box's origin, a run's first node —
  *  lands on the grid; the group stays rigid. */
 export function objSnapDelta(v: VpView, o: Obj, dx: number, dy: number): [number, number] {
+	return v.snap ? objSnapDeltaIn(v.ctx, o, dx, dy, v.rndSnap) : [dx, dy]
+}
+/** `objSnapDelta` on a ViewCtx + a grid rounder. In an elevation the horizontal grid runs ALONG the frame: the reference
+ *  point's origin-free x·t lands on a multiple (an oblique frame too — the move then steps along t, `translateInView`). */
+export function objSnapDeltaIn(ctx: ViewCtx, o: Obj, dx: number, dy: number, rnd: (v: number) => number): [number, number] {
 	const r: P3 | undefined = o.type === 'prism' ? o : (o.nodes as GN[])[0]
-	if (!r || !v.snap) return [dx, dy]
-	const h = v.isElev ? dotT(ctxFrame(v.ctx), r.x, r.y) : r.x, vv = v.isElev ? -r.z : r.y   // the drawn horizontal (origin-free x·t)
-	return [v.rndSnap(h + dx) - h, v.rndSnap(vv + dy) - vv]
+	if (!r) return [dx, dy]
+	const h = ctx.isElev ? dotT(ctxFrame(ctx), r.x, r.y) : r.x, vv = ctx.isElev ? -r.z : r.y   // the drawn horizontal (origin-free x·t)
+	return [rnd(h + dx) - h, rnd(vv + dy) - vv]
 }
 /** Write moved copies back into the live objects (in place — grips and pickers hold them): a rack DEVICE only slides
  *  up / down its rack, whole U (G4); attached conduit ends follow (F6). */

@@ -19,6 +19,8 @@ import { uploadShape, type UploadFile } from './ui/pdfFiles'
 export type ActiveView = {
 	tabId: string; title: string; paneId: string; viewId: string; mid: ModelId; dir: Proj; scale: string
 	clip: SheetFrame['clip']; frozen?: string[]; storeys?: string[]; frameId?: string
+	/** A section line / elevation marker frame's live oriented clip (its view, maybe oblique) + the frame's hidden lines. */
+	oclip?: SheetFrame['oclip'] | null; hideHidden?: boolean
 }
 export type PageActionsHost = {
 	/** null (with the reason toasted by the caller's wording) when no drawing is open / a sheet has no frame. */
@@ -43,7 +45,7 @@ export class PageActions {
 		if (!v) { toast('Open a drawing first'); return }
 		const m = modelById(v.mid); if (!m) { toast('The model this view shows is missing'); return }
 		const orb = this.#h.orbitOf(v.paneId, v.viewId, v.dir)
-		const inp: DxfViewInput = { model: m, ents: this.#h.entsForModel(v.mid), dir: v.dir, clip: v.clip, yaw: orb.yaw, pitch: orb.pitch, frozen: v.frozen, storeys: v.storeys, scaleN: scaleDenom(v.scale), frameId: v.frameId }
+		const inp: DxfViewInput = { model: m, ents: this.#h.entsForModel(v.mid), dir: v.dir, clip: v.clip, oclip: v.oclip, hideHidden: v.hideHidden, yaw: orb.yaw, pitch: orb.pitch, frozen: v.frozen, storeys: v.storeys, scaleN: scaleDenom(v.scale), frameId: v.frameId }
 		const name = `${v.title} - ${PROJ_LABEL[v.dir]}`, stem = name.replace(/[^\w.-]+/g, '_')
 		const busy = dxfImageEnts(inp).length ? toast.loading(`Exporting ${name} — rendering its images…`) : undefined
 		try {

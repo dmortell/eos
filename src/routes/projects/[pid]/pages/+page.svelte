@@ -325,7 +325,7 @@
 		// its OClip's frame about the plan centre) — and LINK the frame to the section: editing the marker updates it live
 		const vf = oc ? oclipFrame(oc, [PLAN_CX, PLAN_CY]) : null
 		const fit = mdl ? fitFrame(mdl.objects, view, { w: W / PAPER_PX_PER_MM, h: H / PAPER_PX_PER_MM }, { clip, frame: vf, oclip: oc, visible: (o) => !isLayerHidden(ls, o.layer) }) : null
-		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: view, scale: fit ? `1:${fit.n}` : scaleOf(sheet.id), clip: { ...clip }, ...(oc ? { oclip: oc } : {}), section: id, label: String(seq), seq, modelId: found.mid }])
+		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: view, scale: fit ? `1:${fit.n}` : scaleOf(sheet.id), clip: { ...clip }, ...(oc ? { oclip: oc } : {}), section: id, label: String(seq), seq, modelId: found.mid, ...newVpFrozen(found.mid), hideHidden: true }])   // a section / elevation view: hidden lines ON (phase 6; Properties › Hidden lines › Show turns them off)
 		if (fit) for (const p of session.panes) setView(p.id, fid, view, fit.view)
 		if (session.panes[session.focused]) { session.panes[session.focused].activeId = sheet.id; session.panes[session.focused].layout = 'sheet' }
 		selStore.set(sheet.id, selOnly([{ kind: 'frame', id: fid }]))
@@ -423,6 +423,11 @@
 	})
 	// Seed a sheet's DEFAULT viewport (fills the sheet, plan view) the first time PaperPage measures it —
 	// this is the page's baseline, so it's not a recorded edit.
+	/** A NEW viewport's frozen layers: its model's layers marked "Hide in new viewports" (AutoCAD New VP Freeze). */
+	function newVpFrozen(mid?: string): { frozen?: string[] } {
+		const ids = (modelById(mid ?? FLOOR_MODEL_ID)?.layers ?? []).filter((l) => l.newVpFrz).map((l) => l.id)
+		return ids.length ? { frozen: ids } : {}
+	}
 	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
 		if (framesOf(tabId).length || docs.get(didOf(tabId))?.seeded) return   // an EMPTIED sheet stays empty — only a new one gets the default viewport
 		const id = newFrameId(), modelId = proj.newFrameModel(tabId)
@@ -432,15 +437,15 @@
 		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: id, paperMm: scaleDenom(scaleOf(tabId)), mdl, yaw: 0, pitch: 0 }
 		const extra = (mdl?.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model') && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e))
 		const fit = mdl ? fitFrame(mdl.objects, 'plan', { w: w / PAPER_PX_PER_MM, h: h / PAPER_PX_PER_MM }, { visible: (o) => !isLayerHidden(ls, o.layer), extra }) : null
-		setFrames(tabId, [{ id, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: fit ? `1:${fit.n}` : scaleOf(tabId), clip: null, label: '1', seq: 1, modelId }])
+		setFrames(tabId, [{ id, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: fit ? `1:${fit.n}` : scaleOf(tabId), clip: null, label: '1', seq: 1, modelId, ...newVpFrozen(modelId) }])
 		if (fit) for (const p of session.panes) setView(p.id, id, 'plan', fit.view)
 	}
 	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view. Frame edits
 	// (add / move / resize / delete / re-source) record on the page's per-doc history so Ctrl-Z works.
 	function addFrame(tabId: string, x: number, y: number, w: number, h: number) {
 		ensureHist(tabId)   // capture the pre-add baseline first
-		const id = newFrameId(), seq = nextFrameSeq(framesOf(tabId))
-		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: String(seq), seq, modelId: proj.newFrameModel(tabId) }])
+		const id = newFrameId(), seq = nextFrameSeq(framesOf(tabId)), mid = proj.newFrameModel(tabId)
+		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: String(seq), seq, modelId: mid, ...newVpFrozen(mid) }])
 		selStore.set(tabId, selOnly([{ kind: 'frame', id }]))
 		recordEdit(tabId, 'Add viewport')
 	}
@@ -1080,7 +1085,7 @@
 		if (a.kind === 'sheet') {
 			const f = targetFrameOf(a.id) ?? framesOf(a.id)[0]
 			if (!f) return 'no-frame'
-			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: liveClip(f, a.id), frozen: f.frozen, storeys: f.storeys, frameId: f.id }
+			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: liveClip(f, a.id), oclip: liveOClip(f, a.id), hideHidden: f.hideHidden, frozen: f.frozen, storeys: f.storeys, frameId: f.id }
 		}
 		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId ?? FLOOR_MODEL_ID, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
 	}

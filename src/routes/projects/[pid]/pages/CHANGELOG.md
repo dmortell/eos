@@ -4,6 +4,40 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
+## Round 19 (2026-09-27) — AREA, rotated dims, new-viewport freeze, clipboard images
+- **AREA** command (O19, `ui/area.ts`, tested): click the corners (a live outline; Undo drops the last; Enter totals) or
+  Object → a rect / ellipse / closed polyline; prints the area in m² (and mm²) and the perimeter.
+- **Rotated linear dimensions**: mode 'r' + `dimAng` — measures along a set angle. Properties › DIMENSION › Mode ›
+  Rotated (+ Angle, CCW from +X). An H / V dim turned by any angle now stays LINEAR (rotated, same figure) instead of
+  becoming aligned; a mirror reflects its direction; DXF writes it as a rotated linear DIMENSION.
+- **Hide in new viewports** (AutoCAD "New VP Freeze"): a layer setting — viewports created later (the Viewport tool,
+  a new sheet's first viewport, a section dropped as a sheet) start with that layer frozen; existing ones are untouched.
+- **System clipboard + images**: an image whose picture only lived in this tab's memory (`img:` key) now copies with
+  its data, so it pastes in another tab / browser.
+- **Line grid** (like OpenCad, `ui/grid.ts`, tested) replaces the dot grid: minor lines at the SNAP step (×10 when
+  they'd get closer than 6 px), a major every 10th, minors fading in as they open up (no pop when zooming); drawn
+  ABOVE background layers (floorplan PDFs / images) and under the drawing; screen only (not printed / exported); the
+  GRID toggle. Sheets get a paper grid too (the 5 mm frame snap, major 50 mm).
+- **ByLayer colour + mm lineweights** (`ui/lineweight.ts`, tested): a shape's colour resolves own → its layer's → ink
+  (dimensions included — they were fixed teal, now their layer's colour); lineweights are real paper mm (`Ent.lw` /
+  `Layer.lw`, ByLayer default; the AutoCAD list 0.00–2.11 mm): LWT on draws them at true paper width on sheets,
+  LWT off = hairlines. Old px `weight`s map to the nearest mm (1.2 px → 0.25 mm). Properties › Lineweight, Layer
+  settings › Lineweight, Drawing defaults › Lineweight; MATCHPROP copies it. DXF writes the colour (ACI 62 + RGB 420,
+  none = BYLAYER), lineweight (370) per entity and per layer, BYBLOCK inside block definitions.
+- **Sections at any angle — phases 5 + 6 DONE** (`elevation-section-plan.md` complete):
+  - Phase 5: 3D objects EDIT in angled (oblique) section / elevation viewports — drag sideways (slides along the view)
+    or up / down (height), box corner grips resize (`obliqueResize`: the box axis closest to the view), wall / trunk
+    nodes drag keeping their depth (`slideRnd`); DXF export of an angled viewport projects through its own frame and
+    trims to its clip (it exported the nearest axis view before).
+  - Phase 6: exact HIDDEN LINES (`3dview/hiddenLines.ts`, tested) — every visible edge clipped against nearer faces,
+    walls as panels with real holes, so what's behind a wall is hidden but shows through doors / windows / holes (the
+    old painted mask hid things in FRONT of openings too); no seams between panels; straight and angled views; DXF
+    writes the visible edges. New viewports dropped from a section / elevation marker start with Hidden lines = Hide
+    (existing frames unchanged; Properties › Hidden lines). A section line / marker view looks along −n of its line's
+    frame (its OClip depth is negative) — `lookNegOf` flips the depth order there (else the FAR wall hid everything:
+    caught live on Test Project 4F › Elevations, the racks vanished).
+- todo: E7 (per-port labels) closed — not needed (Dave: only for a new Frames tool).
+
 ## Round 18 (2026-09-27) — editing follow-ups
 - **Ctrl mid-drag, live**: pressing Ctrl during a move drag turns it into a copy at once (the originals jump back, copies
   follow the pointer); releasing it turns it back (copies removed, originals follow) — shapes, 3D objects and sheet

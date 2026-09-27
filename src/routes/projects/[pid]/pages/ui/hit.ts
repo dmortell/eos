@@ -11,7 +11,7 @@ import { hitLineSection } from './sectionLine'
 import { hitElevMarker } from './elevMarker'
 import { flatSpanOf, segDist, textBox, arcPts, isNote, frameAxis, rectPts, dimGeom } from './geometry'
 import { layoutNote, type NoteLayout } from './noteLayout'
-import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
+import { isoBounds, faces3d, openingCuts, isoDepthR, project, viewMap, boxFootprint, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
 
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
@@ -166,7 +166,9 @@ export function prismRect(ctx: ViewCtx, o: Obj): { x0: number; y0: number; x1: n
 		const vm = viewMapOf(ctx)
 		const [u0, y1] = vm.toDraw({ x: o.x, y: o.y, z: o.z }), [u1, y0] = vm.toDraw({ x: o.x + o.w, y: o.y + o.d, z: o.z + o.h })
 		if (frameAxis(ctxFrame(ctx)) !== null) return { x0: Math.min(u0, u1), y0, x1: Math.max(u0, u1), y1 }   // the (x, y) / (x+w, y+d) corners bound u on an axis-aligned frame
-		const us = rectPts(o.x, o.y, o.x + o.w, o.y + o.d).map(([x, y]) => vm.toDraw({ x, y, z: o.z })[0])   // oblique: all four footprint corners (unrotated, like the axis rect)
+		// oblique: the footprint AS DRAWN (turned by rot, project()'s outline) — the grips sit on it and resize along the
+		// box's own axis nearest the view's t (grips applyPrismGrip); unrotated it is the four corners' u range
+		const us = (o.rot ? boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot).map((q) => [q.x, q.y] as Pt) : rectPts(o.x, o.y, o.x + o.w, o.y + o.d)).map(([x, y]) => vm.toDraw({ x, y, z: o.z })[0])
 		return { x0: Math.min(...us), y0, x1: Math.max(...us), y1 }
 	}
 	if (ctx.isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }

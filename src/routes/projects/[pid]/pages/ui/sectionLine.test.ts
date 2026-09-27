@@ -84,7 +84,7 @@ describe('line section → its view (OClip + frame), agreeing with the box secti
 		expect(inOClip(tall, oc)).toBe(true)
 		expect(inOClip(tall, lineSectionOClip(line({ z0: 0, z1: 3000 })))).toBe(false)
 	})
-	it('at 30°: an oblique frame (read-only for 3D objects); a wall crossing the line is trimmed to the region', () => {
+	it('at 30°: an oblique frame (3D objects edit along its t — obliqueEdit.test.ts); a wall crossing the line is trimmed to the region', () => {
 		const r = Math.PI / 6, s = line({ a: [0, 0], b: [4000 * Math.cos(r), -4000 * Math.sin(r)], depth: 1000 })
 		const oc = lineSectionOClip(s), f = oclipFrame(oc, C)
 		expect(frameAxis(f)).toBe(null)

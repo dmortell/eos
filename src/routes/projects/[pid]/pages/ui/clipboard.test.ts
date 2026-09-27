@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText, readable, clipHtml, fromClipHtml, textToShape, fromClipData, fromClipHtmlData, pasteObjCopies, resolvePastedLayer } from './clipboard'
 import type { Obj } from '../3dview/types'
+import { internImage, imageSrc } from '../imageStore'
 import { toPagesClip } from '../../sheets/tools/model3d/pagesClip'
 
 describe('copy labels (E12)', () => {
@@ -21,6 +22,16 @@ import type { Ent } from './geometry'
 const r = (id: string, groupId?: string): Ent => ({ id, type: 'rect', a: [0, 0], b: [10, 10], groupId })
 const ids = (a: Ent[] | null) => a?.map((e) => e.id)
 const counter = () => { let n = 0; return () => `n${++n}` }
+
+describe('clipboard: images across tabs', () => {
+	it('an in-memory image (img: key) travels as its data-URL and is interned again on paste', () => {
+		const key = internImage('data:image/png;base64,AAAA')
+		const text = clipText([{ id: 'i', type: 'image', a: [0, 0], b: [10, 10], src: key }])
+		expect(text).toContain('data:image/png;base64,AAAA'); expect(text).not.toContain(key)
+		const back = fromClipData(text)!.ents[0]
+		expect(back.src?.startsWith('img:')).toBe(true); expect(imageSrc(back.src)).toBe('data:image/png;base64,AAAA')
+	})
+})
 
 describe('clipboard', () => {
 	it('each paste lands a further step away, with fresh ids', () => {

@@ -5,16 +5,15 @@
 // shape moves its rotation centre (the unrotated bbox centre — what render / hit rotate about) round the pivot
 // and adds the angle to its `rot`, so a rotated rect / block / text / image turns rigidly with the group.
 import type { Ent, Pt } from './geometry'
-import { dimSetMode } from './geometry'
+import { isLinearDim, dimDirDeg, dimModeFor } from './geometry'
 import { rotatePt } from './hit'
 
-/** A LINEAR (H / V) dimension turned `deg`: a quarter turn keeps it linear (H ↔ V on an odd one — its frame follows
- *  its points, so dimExt / the text side carry over); any other angle makes it an aligned dim first. */
+/** A LINEAR dimension turned `deg`: it stays linear with its direction turned too — H ↔ V on a quarter turn, a ROTATED
+ *  linear dim at any other angle (its frame follows its points, so the figure, dimExt and the text side carry over). */
 function dimForTurn(e: Ent, deg: number): Ent {
-	if (e.type !== 'dim' || (e.dimMode !== 'h' && e.dimMode !== 'v')) return e
-	const q = deg / 90, k = Math.round(q)
-	if (Math.abs(q - k) > 1e-9) return dimSetMode(e, 'aligned')
-	return k % 2 ? { ...e, dimMode: e.dimMode === 'h' ? 'v' : 'h' } : e
+	if (!isLinearDim(e)) return e
+	const { dimAng: _a, ...rest } = e
+	return { ...rest, ...dimModeFor(dimDirDeg(e) + deg) }
 }
 
 /** The group's pivot: the mean of the shapes' rotation centres (`centreOf` = rotCenter in the view). */
@@ -83,11 +82,12 @@ export function mirrorAbout(e: Ent, a: Pt, b: Pt, centreOf: (e: Ent) => Pt): Ent
 	const F = (p: Pt) => reflectPt(p, a, b)
 	if (e.type === 'polyline' || e.type === 'arc' || e.type === 'dim') {
 		const c = centreOf(e), W = (p: Pt) => (e.rot ? rotatePt(p, c, e.rot) : p)
-		// a LINEAR dim stays linear across an H / V mirror line (H ↔ V across a 45° one), else it becomes aligned first
+		// a LINEAR dim stays linear, its direction reflected too (2φ − θ for a mirror line at φ): H / V across an H / V
+		// line, H ↔ V across a 45° one, a rotated linear dim otherwise
 		let d = e
-		if (e.type === 'dim' && (e.dimMode === 'h' || e.dimMode === 'v')) {
-			const ang = ((((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI) % 180) + 180) % 180, near = (x: number) => Math.abs(ang - x) < 1e-6
-			d = near(0) || near(180) || near(90) ? e : near(45) || near(135) ? { ...e, dimMode: e.dimMode === 'h' ? 'v' : 'h' } : dimSetMode(e, 'aligned')
+		if (isLinearDim(e)) {
+			const phi = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI, { dimAng: _a, ...rest } = e
+			d = { ...rest, ...dimModeFor(2 * phi - dimDirDeg(e)) }
 		}
 		const out: Ent = e.type === 'dim' ? { ...d, a: F(W(d.a!)), b: F(W(d.b!)) } : { ...e, pts: e.pts?.map((p) => F(W(p))) }
 		// a reflection turns the dim line's perpendicular round: the text / measured points stay on the mirrored side

@@ -8,7 +8,7 @@
 	// Tooltips for the terse toggle codes.
 	const TOGGLE_TITLES: Record<string, string> = {
 		GRID: 'Show the reference grid', SNAP: 'Snap points to the grid (step: the box beside it)', ORTHO: 'Constrain draw/move to horizontal/vertical', POLAR: 'Polar tracking (F10): the rubber band snaps to 15° angles',
-		OSNAP: 'Snap to object points (ends, midpoints, centres)', OTRACK: 'Alignment tracking: line up with nearby snap points (dashed guides)', WIRE: 'Wire: boxes pick only on their outline, so shapes under or inside them (e.g. legs under a table top) can be picked', LWT: 'Show lineweights', CEN: 'Draw rectangles/ellipses centre-out (first click = centre)',
+		OSNAP: 'Snap to object points (ends, midpoints, centres)', OTRACK: 'Alignment tracking: line up with nearby snap points (dashed guides)', WIRE: 'Wire: boxes pick only on their outline, so shapes under or inside them (e.g. legs under a table top) can be picked', LWT: 'Show lineweights (mm — true paper width on a sheet); off = every line a hairline', CEN: 'Draw rectangles/ellipses centre-out (first click = centre)',
 	}
 	// SNAP grid steps (model mm). 44.45 = one rack unit (1U), so rack devices step U by U in an elevation.
 	const SNAP_STEPS: [number, string][] = [[1, '1'], [5, '5'], [10, '10'], [25, '25'], [44.45, '1U'], [50, '50'], [100, '100'], [250, '250'], [500, '500'], [1000, '1000']]

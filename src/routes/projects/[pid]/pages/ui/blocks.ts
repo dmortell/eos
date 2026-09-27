@@ -87,11 +87,14 @@ export function blockFromShapes(ents: Ent[], id: string, name: string): { def: B
 /** D4: an insert's link target (its LINK attribute: a sheet id, or a URL), if any. */
 export const insertLink = (e: Ent) => (e.type === 'insert' && e.attrs?.LINK?.trim()) || ''
 
-/** A block's shape as drawn for this insert: 'byblock' colour / fill replaced by the insert's. */
+/** A block's shape as drawn for this insert: 'byblock' colour / fill replaced by the insert's; it lies on the
+ *  insert's LAYER (so an uncoloured shape is ByLayer of the insert's layer, like AutoCAD's layer 0), and a shape with
+ *  no lineweight of its own takes the insert's (`lw`, when set). */
 export function byBlock(s: Ent, ins: Ent): Ent {
 	const color = s.color === BYBLOCK ? ins.color : s.color
 	const fill = s.fill === BYBLOCK ? ins.fill ?? 'none' : s.fill
-	return { ...s, color, fill, layer: ins.layer }
+	const lw = s.lw === undefined && s.weight === undefined ? ins.lw : s.lw
+	return { ...s, color, fill, layer: ins.layer, ...(lw !== undefined ? { lw } : {}) }
 }
 
 /** An attribute's value on an insert (falls back to the definition's default). */

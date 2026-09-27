@@ -84,6 +84,14 @@
 			{/if}
 			<!-- Background-layer shapes (a floor's calibrated floorplan PDF image) under the 3D model -->
 			{#each v.backEnts as e (e.id)}{#if !(e.id === x.editText?.id && x.editText.field === 'text') && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
+			<!-- GRID (status bar GRID, ui/grid.ts): minor + major lines ABOVE the background layers (a floorplan PDF) and
+			     under the model + shapes; screen only (`.vp-screen` — not in SVGOUT / PNGOUT, hidden in print) -->
+			{#if v.grid}
+				<g class="vp-screen vp-grid" class:dark={v.modelSpace} pointer-events="none" stroke-width={1 / (v.canvasZoom || 1)}>
+					{#if v.grid.minor}<path class="minor" d={v.grid.minor} style:--a={v.grid.minorAlpha} />{/if}
+					{#if v.grid.major}<path class="major" d={v.grid.major} />{/if}
+				</g>
+			{/if}
 			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} frame={v.obFrame} oclip={v.oclip} yaw={v.yaw} pitch={v.pitch} persp={v.persp} wire={!!v.p.wire} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} />{/if}
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
@@ -126,6 +134,14 @@
 	   components carry their own copy of this rule (EntRender sets it inline). */
 	.vp-svg line { vector-effect: non-scaling-stroke; }
 	.vp-svg text { font-family:'Inter','Segoe UI',system-ui,sans-serif; }
+	/* GRID: thin screen-constant lines, subtle on white paper and on dark model space; minors fade in with zoom (--a) */
+	.vp-grid path { fill:none; vector-effect:non-scaling-stroke; shape-rendering:crispEdges; stroke:#64748b; }
+	.vp-grid .minor { stroke-opacity:calc(0.16 * var(--a, 1)); }
+	.vp-grid .major { stroke-opacity:0.3; }
+	.vp-grid.dark path { stroke:#a9b4c2; }
+	.vp-grid.dark .minor { stroke-opacity:calc(0.12 * var(--a, 1)); }
+	.vp-grid.dark .major { stroke-opacity:0.24; }
+	@media print { .vp-grid { display:none; } }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;

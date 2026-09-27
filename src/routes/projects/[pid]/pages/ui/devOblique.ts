@@ -6,7 +6,7 @@
 //   __pagesOblique(null)        back to normal (null with an id clears just that frame)
 //   __pagesOblique()            lists what is set
 // The view keeps its ElevDir `kind` (shapes drawn in it still land on that dir's plane); a section-linked frame's box
-// becomes the oblique frame's covering OClip (projection `oclipOf`). 3D objects are read-only there (phase 5).
+// becomes the oblique frame's covering OClip (projection `oclipOf`). 3D objects move / resize along its t (phase 5).
 // A production build compiles all of this away (`import.meta.env.DEV` is false: nothing is set, no hook installed).
 import { SvelteMap } from 'svelte/reactivity'
 import { frameAt, PLAN_CX, PLAN_CY, type ElevFrame } from './geometry'

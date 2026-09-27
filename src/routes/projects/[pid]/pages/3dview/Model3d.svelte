@@ -14,6 +14,7 @@
 	import { BASIS } from './types'
 	import { frameOf, frameAxis, dotT, dotN, type ElevDir, type ElevFrame } from '../ui/geometry'
 	import { storeyMap } from './storeyMap'
+	import { hiddenLines, lookNegOf } from './hiddenLines'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip, OClip } from './types'
@@ -228,7 +229,7 @@
 	// (an elevation's = the view frame's origin-free depth x·n — an oblique frame's too)
 	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' || !fr ? -p.z : dotN(fr, p.x, p.y)
 	const hlFaces = $derived.by(() => {
-		if (!hideHidden || dir === 'iso') return []
+		if (!hideHidden || dir !== 'plan') return []   // (an elevation: exact hidden lines, `hlLines` below)
 		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []
 		for (const o of model.objects) {
 			if (!visible(o) || isOpening(o) || inHiddenFloors(o)) continue
@@ -241,6 +242,18 @@
 			}
 		}
 		return out.sort((a, b) => b.depth - a.depth)
+	})
+	// Phase 6 (elevation-section-plan.md): an ELEVATION / SECTION's hidden lines are exact (3dview/hiddenLines.ts) — each
+	// object's visible edges, clipped by every nearer face, walls built with their openings as real holes (so what is
+	// behind a wall shows through its door / window). Any frame (the four dirs or an oblique one). Openings themselves
+	// aren't masked or outlined here: the wall panels' edges draw the hole. Fills (paper colour, under all the lines)
+	// keep an underlay from showing through the model, as the painted render did.
+	const hlLines = $derived.by(() => {
+		if (!hideHidden || !fr) return []
+		const objs: Obj[] = [], src: Obj[] = []
+		for (const o of model.objects) { if (!visible(o) || isOpening(o) || inHiddenFloors(o)) continue; const to = trim(o); if (to) { objs.push(to); src.push(o) } }
+		return hiddenLines(objs, fr, allCuts, lookNegOf(oclip)).map((r, i) => ({ o: src[i], d: r.segs.map((s) => mv([{ u: s[0], v: s[1] }, { u: s[2], v: s[3] }])).map(([a, b]) => `M${a.u},${a.v}L${b.u},${b.v}`).join(''),
+			fill: r.fills.map((pts) => `M${mv(pts).map((p) => `${p.u},${p.v}`).join('L')}Z`).join('') }))
 	})
 	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.
 	const xform = $derived(viewMap(pd, cx, cy, ground, yaw, pitch, isoBox, persp).xform)
@@ -303,6 +316,13 @@
 		{#each hlFaces as f, i (i)}
 			<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hl" style="fill: var(--vp-paper, #fff)" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
 		{/each}
+		<!-- an elevation / section: exact hidden lines — every paper fill first, then the visible edges -->
+		{#each hlLines as h, i (i)}
+			{#if h.fill}<path d={h.fill} class="hl" style="fill: var(--vp-paper, #fff)" stroke="none" />{/if}
+		{/each}
+		{#each hlLines as h, i (i)}
+			{#if h.d}<path d={h.d} fill="none" stroke={colorOf(h.o)} stroke-width={weightOf(h.o)} stroke-dasharray={dashOf(h.o)} stroke-linecap="round" vector-effect="non-scaling-stroke" />{/if}
+		{/each}
 	{/if}
 	{#each hideHidden ? [] : model.objects as o (o.id)}
 		{@const to = trim(o)}
@@ -319,8 +339,9 @@
 		{/if}
 	{/each}
 	<!-- Pass 2: openings ON TOP — a paper-coloured fill masks the wall behind (a real hole), then a
-	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. -->
-	{#each model.objects as o (o.id)}
+	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. (Not with an
+	     elevation's hidden lines: its walls already have the holes, and a mask would hide what is seen through them.) -->
+	{#each hideHidden && fr ? [] : model.objects as o (o.id)}
 		{@const to = trim(o)}
 		{#if to && visible(o) && isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}

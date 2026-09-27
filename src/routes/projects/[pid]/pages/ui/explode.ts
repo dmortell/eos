@@ -10,7 +10,7 @@ import { PT_MM } from '../constants'
 type Opts = { centreOf: (e: Ent) => Pt; paperMm: number; uid: () => string }
 
 export function explodeEnt(e: Ent, o: Opts): Ent[] | null {
-	const base = { layer: e.layer, color: e.color, weight: e.weight, dash: e.dash, plane: e.plane, space: e.space }
+	const base = { layer: e.layer, color: e.color, weight: e.weight, lw: e.lw, dash: e.dash, plane: e.plane, space: e.space }
 	const line = (a: Pt, b: Pt): Ent => ({ ...base, id: o.uid(), type: 'polyline', pts: [a, b] })
 	if (e.type === 'polyline' && (e.pts?.length ?? 0) > 2) {
 		const c = o.centreOf(e), W = (p: Pt) => (e.rot ? rotatePt(p, c, e.rot) : p), p = e.pts!

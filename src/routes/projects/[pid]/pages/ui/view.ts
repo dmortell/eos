@@ -43,7 +43,7 @@ export const ctxFrame = (ctx: ViewCtx): ElevFrame => ctx.frame ?? frameOf(ctx.el
 /** What the projection engine (`project` / `viewMap`) draws this view as: its explicit frame in an elevation that has
  *  one, else `dir`. */
 export const ctxProj = (ctx: ViewCtx): ProjDir => (ctx.isElev && ctx.frame ? ctx.frame : ctx.dir)
-/** An OBLIQUE elevation (a frame off the four axes): read-only for 3D objects until phase 5. */
+/** An OBLIQUE elevation (a frame off the four axes): 3D objects move along its t (phase 5); no graph drawing / guides. */
 export const ctxOblique = (ctx: ViewCtx): boolean => ctx.isElev && !!ctx.frame && frameAxis(ctx.frame) === null
 /** A cache-key fragment for the view frame (hit / snap caches key on the view). */
 export const frameKey = (ctx: ViewCtx): string => (ctx.frame ? `${ctx.frame.o}|${ctx.frame.t}` : '')

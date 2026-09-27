@@ -9,6 +9,7 @@
 	import { type Layer, layerUI, layerGroup, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
 	import { tick } from 'svelte'
+	import { LINEWEIGHTS, lwLabel, resolveLw } from '../ui/lineweight'
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
@@ -224,7 +225,17 @@
 				</label>
 				<label class="lp-f"><span>Thickness</span><input type="number" min="0.25" max="6" step="0.25" bind:value={dlg.weight} /><em>mm</em></label>
 			{/if}
+			<!-- the 2D lineweight its ByLayer shapes draw / print with (paper mm; Default = from the thickness, else 0.25) -->
+			<label class="lp-f" title="The lineweight (paper mm) of this layer's ByLayer shapes when LWT is on — and in DXF"><span>Lineweight</span>
+				<select value={dlg.lw != null && dlg.lw >= 0 ? String(dlg.lw) : ''} onchange={(e) => { if (!dlg) return; const v = (e.currentTarget as HTMLSelectElement).value; if (v === '') delete dlg.lw; else dlg.lw = Number(v) }}>
+					<option value="">Default ({lwLabel(resolveLw({}, { weight: dlg.weight }))})</option>
+					{#each LINEWEIGHTS as w (w)}<option value={String(w)}>{lwLabel(w)}</option>{/each}
+				</select></label>
 			<label class="lp-f"><span>Locked</span><input type="checkbox" bind:checked={dlg.locked} /></label>
+			<!-- AutoCAD's "New VP Freeze": viewports created from now on start with this layer frozen (hidden in them);
+			     existing viewports are untouched -->
+			<label class="lp-f" title="Viewports created from now on start with this layer hidden in them (existing viewports keep theirs)"><span>Hide in new viewports</span>
+				<input type="checkbox" checked={!!dlg.newVpFrz} onchange={(e) => { if (dlg) { if ((e.currentTarget as HTMLInputElement).checked) dlg.newVpFrz = true; else delete dlg.newVpFrz } }} /></label>
 			<div class="lp-dlg-btns">
 				<button class="lp-del" onclick={del} disabled={dlgId === layerUI.active}
 					title={dlgId === layerUI.active ? 'This is the active layer — make another layer active first' : delCount ? `${delCount} item${delCount === 1 ? '' : 's'} on this layer are deleted with it` : 'Delete this empty layer'}>

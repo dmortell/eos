@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { barycentre, groupBox, rotateAbout, scaleAbout, cornerScale, mirrorAbout, reflectPt } from './groupXf'
-import { dimGeom, type Ent, type Pt } from './geometry'
+import { dimGeom, dimSetMode, type Ent, type Pt } from './geometry'
+import { rotatePt } from './hit'
 
 const box = (e: Ent): [number, number, number, number] => {
 	const ps = e.pts ?? [e.a!, e.b ?? e.a!], xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1])
@@ -44,13 +45,17 @@ describe('group transform (D13)', () => {
 
 describe('dimensions under rotate / mirror / scale', () => {
 	const h: Ent = { id: 'd', type: 'dim', a: [0, 0], b: [300, 100], dimMode: 'h', dimExt: 50, dimTextOff: 3 }
-	it('a quarter turn keeps a linear dim linear (H ↔ V), measuring the same points; another angle makes it aligned', () => {
+	it('a quarter turn keeps a linear dim linear (H ↔ V), measuring the same points; another angle makes it ROTATED, same figure', () => {
 		const q = rotateAbout(h, [0, 0], 90, ctr(h))
 		expect(q.dimMode).toBe('v'); expect(r(q.a)).toEqual([0, 0]); expect(r(q.b)).toEqual([-100, 300])
 		expect(dimGeom(q).len).toBeCloseTo(300)
 		expect(rotateAbout(h, [0, 0], 180, ctr(h)).dimMode).toBe('h')
 		const t = rotateAbout(h, [0, 0], 30, ctr(h))
-		expect(t.dimMode).toBeUndefined(); expect(dimGeom(t).len).toBeCloseTo(Math.hypot(300, 100))   // aligned between the SAME (turned) points
+		expect(t.dimMode).toBe('r'); expect(t.dimAng).toBeCloseTo(30); expect(dimGeom(t).len).toBeCloseTo(300)   // still measures the (turned) Δx
+		const g0 = dimGeom(h), g1 = dimGeom(t)   // the whole dim turned: its dim line too, at the same offset
+		expect(r(g1.A)).toEqual(r(rotatePt(g0.A, [0, 0], 30))); expect(r(g1.B)).toEqual(r(rotatePt(g0.B, [0, 0], 30)))
+		const back = rotateAbout(t, [0, 0], -30, ctr(t))   // and turned back: H again
+		expect(back.dimMode).toBe('h'); expect(back.dimAng).toBeUndefined()
 	})
 	it('a mirror keeps the text / measured points on the mirrored side (aligned too) and a linear dim linear', () => {
 		const m = mirrorAbout(h, [0, 500], [10, 500], ctr)   // across a horizontal line
@@ -61,6 +66,16 @@ describe('dimensions under rotate / mirror / scale', () => {
 		const ma = mirrorAbout(al, [0, 500], [10, 500], ctr)
 		expect(r(dimGeom(ma).M1)).toEqual(r(reflectPt(dimGeom(al).M1, [0, 500], [10, 500])))
 		expect(mirrorAbout(h, [0, 0], [10, 10], ctr).dimMode).toBe('v')   // across 45°: H ↔ V
+		const m30 = mirrorAbout(h, [0, 0], [Math.cos(Math.PI / 12), Math.sin(Math.PI / 12)], ctr)   // across 15°: rotated to 30°
+		expect(m30.dimMode).toBe('r'); expect(m30.dimAng).toBeCloseTo(30); expect(dimGeom(m30).len).toBeCloseTo(300)
+	})
+	it('ROTATED mode from Properties: along a set angle, keeping the measured points', () => {
+		const al: Ent = { id: 'a', type: 'dim', a: [0, 0], b: [1000, 1000] }
+		const rr = dimSetMode(al, 'r', 0)   // 0° is horizontal → stored as H
+		expect(rr.dimMode).toBe('h'); expect(dimGeom(rr).len).toBeCloseTo(1000)
+		const r45 = dimSetMode(al, 'r', 45)
+		expect(r45.dimMode).toBe('r'); expect(dimGeom(r45).len).toBeCloseTo(Math.hypot(1000, 1000))
+		expect(r(dimGeom(r45).M1)).toEqual([0, 0]); expect(r(dimGeom(r45).M2)).toEqual([1000, 1000])
 	})
 	it('scale: dimExt scales with the points, the paper-mm text offset stays', () => {
 		const s = scaleAbout(h, [0, 0], 2)

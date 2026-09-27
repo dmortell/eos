@@ -6,7 +6,8 @@
 import type { Pt, ElevDir } from './geometry'
 import { ctxFrame, type ViewCtx, type MLayers } from './view'
 import type { Model, Obj, Guide, Section, Clip } from '../3dview/types'
-import { frameAxis, frameSetU, segDist } from './geometry'
+import { segDist } from './geometry'
+import { slideRnd } from './snap'
 import { graphNodeDraw, type GN } from './hit'
 
 export type { GN }
@@ -102,8 +103,7 @@ export function insertGraphNode(ctx: ViewCtx, mdl: Model, edit: EditScope, p: Pt
 				// keeping a's off-axis coord) + takes z.
 				const nn: GN = { id: nid, x: a.x, y: a.y, z: a.z }
 				if (ctx.isElev) {
-					const f = ctxFrame(ctx), ax = frameAxis(f), m = frameSetU(f, [a.x, a.y], p[0])
-					if (ax !== 1) nn.x = rnd(m[0]); if (ax !== 0) nn.y = rnd(m[1])   // round only what the view moves
+					const m = slideRnd(ctxFrame(ctx), [a.x, a.y], p[0], rnd); nn.x = m[0]; nn.y = m[1]   // round only what the view moves (oblique: the along coord)
 					nn.z = Math.max(0, rnd(ctx.ground - p[1]))
 				} else { nn.x = rnd(p[0]); nn.y = rnd(p[1]) }
 				;(o.nodes as GN[]).push(nn)

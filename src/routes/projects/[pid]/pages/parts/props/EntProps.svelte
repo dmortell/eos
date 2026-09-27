@@ -10,7 +10,7 @@
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
 	import { blockDef, insertBounds } from '../../ui/blocks'
 	import { blockList } from '../../blocks.svelte'
-	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, dimGeom, dimSetMode, dimTextOffMm, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash, type DimMode } from '../../ui/geometry'
+	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, dimGeom, dimSetMode, dimTextOffMm, isLinearDim, dimDirDeg, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash, type DimMode } from '../../ui/geometry'
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
@@ -23,6 +23,7 @@
 	import UploadPicker from '../UploadPicker.svelte'
 	import { resizeKeepCorner } from '../../ui/resizeKeep'
 	import { srcMissing } from '../../ui/render/fileWatch.svelte'
+	import { LINEWEIGHTS, LW_BYLAYER, LW_DEFAULT, lwLabel, ownLw } from '../../ui/lineweight'
 
 	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
 		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
@@ -86,7 +87,7 @@
 	const lineLen = (e: Ent) => { if (e.type === 'dim') return dimGeom(e).len; const q = ends(e); return q ? Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) : 0 }
 	function setLineLen(v: number) {
 		const e = single, q = e && ends(e), L = e ? lineLen(e) : 0; if (!e || !q || !(v > 0) || !L) return
-		if (e.type === 'dim' && (e.dimMode === 'h' || e.dimMode === 'v')) { const u = dimGeom(e).u; onupdate?.({ ...e, b: e.dimMode === 'h' ? [q[0][0] + u[0] * v, q[1][1]] : [q[1][0], q[0][1] + u[1] * v] }); return }
+		if (isLinearDim(e)) { const u = dimGeom(e).u, d = v - L; onupdate?.({ ...e, b: [q[1][0] + u[0] * d, q[1][1] + u[1] * d] }); return }   // b slides along the measuring direction
 		const b: Pt = [q[0][0] + ((q[1][0] - q[0][0]) * v) / L, q[0][1] + ((q[1][1] - q[0][1]) * v) / L]
 		onupdate?.(e.type === 'dim' ? { ...e, b } : { ...e, pts: [q[0], b] })
 	}
@@ -104,6 +105,12 @@
 	const mixedColor = $derived(new Set(ents.map((e) => e.color)).size > 1)
 	const mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { onupdate?.(ents.map((e) => ({ ...e, ...patch }))) }
+	// LINEWEIGHT: the selection's common own lineweight ('-1' ByLayer, '' mixed); the layer's shown beside ByLayer
+	const anyLw = $derived(ents.some((e) => STROKE_TYPES.has(e.type) || e.type === 'insert'))
+	const lwSel = $derived.by(() => { const s = new Set(ents.map((e) => ownLw(e) ?? LW_BYLAYER)); return s.size === 1 ? String([...s][0]) : '' })
+	const lwLayer = $derived.by(() => { const ids = new Set(ents.map((e) => e.layer)); if (ids.size !== 1) return undefined; const l = layers.find((x) => x.id === ents[0].layer); return l ? (ownLw(l) ?? LW_DEFAULT) : undefined })
+	/** Set the lineweight (mm; LW_BYLAYER = ByLayer) — drops the legacy px `weight` so it no longer applies. */
+	const setLw = (mm: number) => setAll({ lw: mm >= 0 ? mm : undefined, weight: undefined })
 	// IMAGE › Replace…: another uploaded PDF page / picture (parts/UploadPicker), placed by its Uploads calibration
 	let pdfPick = $state(false), pdfBusy = $state(false)
 	async function applyPdfPick(e: Ent, f: UploadFile, pg: number) {
@@ -249,9 +256,14 @@
 	{#if single.type === 'dim'}
 		<!-- aligned (the true distance) or linear: only the horizontal / vertical distance — a switch keeps the measured points -->
 		<div class="prop"><span>Mode</span>
-			<select value={single.dimMode ?? 'aligned'} title="Aligned = the true distance between the points; Horizontal / Vertical = only Δx / Δy (a linear dimension)" onchange={(e) => onupdate?.(dimSetMode(single!, strVal(e) as DimMode))}>
-				<option value="aligned">Aligned</option><option value="h">Horizontal</option><option value="v">Vertical</option>
+			<select value={single.dimMode ?? 'aligned'} title="Aligned = the true distance between the points; Horizontal / Vertical = only Δx / Δy; Rotated = the distance along a set angle (linear dimensions)" onchange={(e) => onupdate?.(dimSetMode(single!, strVal(e) as DimMode))}>
+				<option value="aligned">Aligned</option><option value="h">Horizontal</option><option value="v">Vertical</option><option value="r">Rotated</option>
 			</select></div>
+		{#if single.dimMode === 'r'}
+			<!-- the measuring direction, CCW from +X like the ROTATE command (drawing y runs down, so it's stored negated) -->
+			<div class="prop"><span>Angle (°)</span><input class="navf" type="number" step="any" value={Math.round(((360 - dimDirDeg(single)) % 180) * 100) / 100} title="The direction it measures along, CCW from +X (0 = horizontal, 90 = vertical)"
+				onkeydown={fnav} onchange={(e) => { const n = num(e); if (Number.isFinite(n)) onupdate?.(dimSetMode(single!, 'r', -n)) }} /></div>
+		{/if}
 		<!-- the figure's distance from the dim line, in PAPER mm (± = which side); its grip drags it (and along the line) -->
 		<div class="prop"><span>Text offset</span><input class="navf" type="number" step="0.5" value={Math.round((dimTextOffMm(single, scaleN) / (scaleN || 1)) * 10) / 10} title="How far the figure sits off the dimension line (paper mm, ± = which side) — or drag its grip"
 			onkeydown={fnav} onchange={(e) => { const n = num(e); if (Number.isFinite(n)) setAll({ dimTextOff: Math.round(n * 10) / 10, dimOff: undefined }) }} /></div>
@@ -407,7 +419,16 @@
 			<option value="">ByLayer</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="dashdot">Dash-dot</option>
 		</select>
 	</div>
-	<div class="prop"><span>Weight</span><input class="navf" type="number" min="0.1" step="0.1" value={(cc('weight') as number | undefined) ?? STYLE_DEFAULTS.weight} onkeydown={fnav} onchange={(e) => setAll({ weight: Math.max(0.1, num(e)) })} /></div>
+{/if}
+{#if anyLw}
+	<!-- LINEWEIGHT (paper mm, ui/lineweight.ts): ByLayer = the layer's (else 0.25 mm); shown true width with LWT on -->
+	<div class="prop"><span>Lineweight</span>
+		<select class="navf" value={lwSel} onkeydown={fnav} onchange={(e) => setLw(+strVal(e))}>
+			{#if lwSel === ''}<option value="" disabled>mixed</option>{/if}
+			<option value={String(LW_BYLAYER)}>ByLayer{lwLayer !== undefined ? ` (${lwLabel(lwLayer)})` : ''}</option>
+			{#each LINEWEIGHTS as w (w)}<option value={String(w)}>{lwLabel(w)}</option>{/each}
+		</select>
+	</div>
 {/if}
 {#if anyFillable}
 	<div class="prop"><span>Fill</span>

@@ -19,6 +19,7 @@
 	import { inBox, marqueeSelect } from '../ui/hit'
 	import { gripsLocal, constrainGrip } from '../ui/grips'
 	import { PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta } from '../ui/snap'
+	import { gridPaths } from '../ui/grid'
 	import type { ViewCtx } from '../ui/view'
 	import { HANDLE_PX, PAPER_W, PAPER_H, PAPER_PX_PER_MM } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
@@ -90,6 +91,9 @@
 	// geometry's actual unit, see BAND_PX above). `SNAP_TOL_PX` is SCREEN px (matches Sheets' SNAP_TOL),
 	// converted to paper px per-drag via `drag.s`, same pattern as Sheets' `SNAP_TOL / drag.scale`.
 	const GRID_STEP_PX = PAPER_SNAP_STEP * PAPER_PX_PER_MM
+	// GRID (status bar): the same step drawn as a line grid over the sheet area (sheet-area px, where frames snap)
+	let sheetW = $state(0), sheetH = $state(0)
+	const paperGrid = $derived(env.grid && sheetW > 0 && sheetH > 0 ? gridPaths(GRID_STEP_PX, canvasZoom || 1, [0, 0, sheetW, sheetH]) : null)
 	const SNAP_TOL_PX = 6
 	const snapEdge = (v: number, lines: number[], tolPaperPx: number): number => v + frameSnapDelta([v], lines, GRID_STEP_PX, tolPaperPx)
 	// Frame snap lines in SHEET-AREA coords (frame geometry's frame of reference, inset PAD from the paper's
@@ -342,7 +346,15 @@
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
 	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px" style:--tb-inset="{tbInset}px" style:--pad="{PAD + tbInset}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown} onpointermove={onSheetMove} oncontextmenu={onSheetContext}>
+		<div class="sheet-area" bind:this={sheetEl} bind:clientWidth={sheetW} bind:clientHeight={sheetH} onpointerdown={onSheetDown} onpointermove={onSheetMove} oncontextmenu={onSheetContext}>
+			{#if paperGrid}
+				<!-- GRID in paper space (ui/grid.ts): the frame-snap grid (5 paper mm, a major line every 50 mm, minors fading
+				     out as the sheet zooms out) under the frames — screen only (hidden in print) -->
+				<svg class="paper-grid" width={sheetW} height={sheetH} stroke-width={1 / (canvasZoom || 1)} aria-hidden="true">
+					{#if paperGrid.minor}<path class="minor" d={paperGrid.minor} style:--a={paperGrid.minorAlpha} />{/if}
+					{#if paperGrid.major}<path class="major" d={paperGrid.major} />{/if}
+				</svg>
+			{/if}
 			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
 			     projection + scale; select by the border band (interior inert), double-click to edit inside,
 			     corner grips resize. The Viewport tool disables the bands so a new frame can be dragged out
@@ -430,6 +442,12 @@
 	/* XP7: paper margin guide — dashed, under the frames, never interactive, hidden in print */
 	.margin-guide { position:absolute; border:1px dashed #94a3b866; pointer-events:none; z-index:0; }
 	.margin-guide.printed { border:0.5px solid #334155; }   /* A9: printed hairline border (printing.ts keeps it) */
+	/* GRID in paper space: under the frames, never interactive, screen only */
+	.paper-grid { position:absolute; left:0; top:0; pointer-events:none; overflow:visible; }
+	.paper-grid path { fill:none; vector-effect:non-scaling-stroke; shape-rendering:crispEdges; stroke:#64748b; }
+	.paper-grid .minor { stroke-opacity:calc(0.14 * var(--a, 1)); }
+	.paper-grid .major { stroke-opacity:0.26; }
+	@media print { .paper-grid { display:none; } }
 	/* No overflow clip here: the pane (.canvas) already clips at the real screen edge. A clip
 	   on this transformed wrapper would move/scale with the canvas and cut off viewports moved
 	   away from the paper — the canvas is meant to be infinite (pan to follow). */

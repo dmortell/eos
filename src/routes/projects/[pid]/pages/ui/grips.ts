@@ -3,7 +3,7 @@
 // press) and reuses m.toClient per corner, so an N-grip object costs one layout read, not N (the P1 fix).
 // The entity/model grip builders (gripsFor/modelGrips/…) move here in later slices; this first slice is
 // the self-contained section-marker grips.
-import type { Pt, Ent } from './geometry'
+import type { Pt, Ent, ElevFrame } from './geometry'
 import type { Clip, Obj, LineSection, ElevMarker } from '../3dview/types'
 import { lineSectionGrips, applyLineGrip } from './sectionLine'
 import { elevMarkerGrips, applyElevGrip } from './elevMarker'
@@ -118,15 +118,36 @@ export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>,
 	}
 	if (ctx.isElev) {
 		const f = ctxFrame(ctx), ax = frameAxis(f)
-		const c1 = uToAlong(f, p[0]), c2 = uToAlong(f, anchor[0])
-		const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
-		if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }   // oblique: phase 5 (the box's x / w or y / d; a rotated frame needs anchoredResize — no grips in an oblique view yet)
+		if (ax === null) obliqueResize(f, o, p[0], anchor[0], rnd)   // phase 5: along the box's own axis nearest t
+		else {
+			const c1 = uToAlong(f, p[0]), c2 = uToAlong(f, anchor[0])
+			const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
+			if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }
+		}
 		const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
 		o.z = Math.max(0, rnd(ctx.ground - baseY)); o.h = Math.max(1, rnd(baseY - topY))
 	} else {
 		o.x = rnd(Math.min(p[0], anchor[0])); o.w = Math.max(1, rnd(Math.abs(p[0] - anchor[0])))
 		o.y = rnd(Math.min(p[1], anchor[1])); o.d = Math.max(1, rnd(Math.abs(p[1] - anchor[1])))
 	}
+}
+
+/** A box's horizontal resize in an OBLIQUE elevation (elevation-section-plan.md §3.4 phase 5): the drawn width is its
+ *  turned footprint seen along t — w·|ex·t| + d·|ey·t| (ex / ey its own axes, turned by rot). The drag changes the ONE
+ *  size whose axis runs nearest t (so a box squared to the view resizes exactly; one at an angle foreshortens), grid-
+ *  rounded, and the box slides along that axis so the ANCHORED side (drawing u `ua`) stays where it is — the dragged
+ *  side lands on `up`. Mutates `o` (x / y about its centre, as the rotated plan resize). */
+export function obliqueResize(f: ElevFrame, o: Extract<Obj, { type: 'prism' }>, up: number, ua: number, rnd: (v: number) => number) {
+	const r = ((o.rot ?? 0) * Math.PI) / 180, ex: Pt = [Math.cos(r), Math.sin(r)], ey: Pt = [-Math.sin(r), Math.cos(r)]
+	const tx = ex[0] * f.t[0] + ex[1] * f.t[1], ty = ey[0] * f.t[0] + ey[1] * f.t[1]
+	const alongX = Math.abs(tx) >= Math.abs(ty), k = alongX ? tx : ty, e = alongX ? ex : ey
+	const other = alongX ? o.d * Math.abs(ty) : o.w * Math.abs(tx)   // the fixed size's share of the drawn width
+	const size = Math.max(1, rnd((Math.abs(up - ua) - other) / Math.abs(k)))
+	const W = size * Math.abs(k) + other, uc = ua + (up >= ua ? 1 : -1) * (W / 2)   // the new centre's drawn u
+	const c: Pt = [o.x + o.w / 2, o.y + o.d / 2], cu = frameU(f, c), s = (uc - cu) / k   // slide the centre along e to uc
+	const nc: Pt = [c[0] + e[0] * s, c[1] + e[1] * s]
+	if (alongX) o.w = size; else o.d = size
+	o.x = nc[0] - o.w / 2; o.y = nc[1] - o.d / 2
 }
 
 /** Grips of the selected model object. prism = 4 resize corners (dropped when tilted) + a rotate handle
@@ -144,11 +165,12 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 			const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
 			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = handleAngle([cx, cy], p, shift()) } })
 		}
-		if (ctx.isElev && !o.open) {   // elevation rotate handle → in-plane tilt (front/rear → rotY, left/right → rotX)
+		const tax = ctx.isElev ? frameAxis(ctxFrame(ctx)) : null
+		if (ctx.isElev && !o.open && tax !== null) {   // elevation rotate handle → in-plane tilt (front/rear → rotY, left/right → rotX); none in an OBLIQUE view (a tilt about its look axis isn't rotX / rotY)
 			const r = prismRect(ctx, o)!
 			const C: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]
 			const off = (r.y1 - r.y0) / 2 + Math.max(r.x1 - r.x0, r.y1 - r.y0) * 0.35
-			const ax = frameAxis(ctxFrame(ctx)), cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)   // oblique: phase 5 (tilt about the look axis, not x / y)
+			const ax = tax, cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)
 			const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
 			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
 				const a = handleAngle(C, p, shift(), true)   // −180..180: a natural tilt range

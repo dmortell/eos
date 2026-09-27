@@ -6,12 +6,15 @@
 	import { COLORS } from '../palette'
 	import { STYLE_DEFAULTS, type Dash, type Head } from '../ui/geometry'
 	import type { DrawingDefaults, DimUnit } from '../ui/drawingDefaults'
+	import { LINEWEIGHTS, LW_BYLAYER, lwLabel, legacyWeightMm } from '../ui/lineweight'
 	let { value, onchange, onclose }: { value?: DrawingDefaults; onchange: (d: DrawingDefaults) => void; onclose: () => void } = $props()
 
 	// every field present: the project doc is merge-saved, so a cleared field must be written as '' / 0
-	const full = (d?: DrawingDefaults): Required<DrawingDefaults> => ({ color: d?.color ?? '', fontPt: d?.fontPt ?? 0, weight: d?.weight ?? 0, dash: d?.dash ?? '', dimHead: d?.dimHead ?? '', dimUnit: d?.dimUnit ?? 'mm' })
-	const set = (patch: Partial<DrawingDefaults>) => onchange({ ...full(value), ...patch })
+	const full = (d?: DrawingDefaults): Required<DrawingDefaults> => ({ color: d?.color ?? '', fontPt: d?.fontPt ?? 0, weight: d?.weight ?? 0, lw: d?.lw ?? LW_BYLAYER, dash: d?.dash ?? '', dimHead: d?.dimHead ?? '', dimUnit: d?.dimUnit ?? 'mm' })
+	const set =(patch: Partial<DrawingDefaults>) => onchange({ ...full(value), ...patch })
 	const cur = $derived(full(value))
+	// the lineweight shown: its `lw`, else a legacy px `weight` as mm (ui/lineweight.ts), else ByLayer
+	const lwShown = $derived(cur.lw >= 0 ? cur.lw : cur.weight > 0 ? legacyWeightMm(cur.weight) : LW_BYLAYER)
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 	const sel = (e: Event) => (e.currentTarget as HTMLSelectElement).value
 	function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); onclose() } }
@@ -26,7 +29,11 @@
 		<div class="dd-body">
 			<label><span>Colour</span><ColorPicker value={cur.color || undefined} colors={COLORS} allowByLayer onchange={(v) => set({ color: v ?? '' })} /></label>
 			<label><span>Text size (pt)</span><input type="number" min="0" max="96" value={cur.fontPt || ''} placeholder={String(STYLE_DEFAULTS.fontPt)} onchange={(e) => set({ fontPt: Math.max(0, Math.round(num(e))) })} /></label>
-			<label><span>Line weight</span><input type="number" min="0" step="0.1" value={cur.weight || ''} placeholder={String(STYLE_DEFAULTS.weight)} onchange={(e) => set({ weight: Math.max(0, num(e)) })} /></label>
+			<label><span>Lineweight</span>
+				<select value={String(lwShown)} onchange={(e) => set({ lw: +sel(e), weight: 0 })}>
+					<option value={String(LW_BYLAYER)}>ByLayer</option>
+					{#each LINEWEIGHTS as w (w)}<option value={String(w)}>{lwLabel(w)}</option>{/each}
+				</select></label>
 			<label><span>Line type</span>
 				<select value={cur.dash} onchange={(e) => set({ dash: sel(e) as Dash | '' })}>
 					<option value="">ByLayer</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="dashdot">Dash-dot</option>
