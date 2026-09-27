@@ -4,6 +4,18 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
+## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
+- **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor
+  (A-FLOR), ceiling = the plenum's bottom (A-CLNG, dashed) and NEW the ceiling slab's underside = the plenum's top
+  (A-CLNG, dash-dot; skipped where the storey above's slab band already draws it); thin 1 px lines, shown while those
+  Architectural layers are on. DXF export writes the same lines on A-FLOR / A-CLNG.
+- **Lineweights for 3D objects**: walls / boxes / conduits draw at their layer's lineweight in mm like 2D shapes (true
+  width with LWT on, hairlines with it off; the old px "Thickness" maps to mm).
+- **Printing always uses true lineweights** (like AutoCAD's plot), whatever the LWT display toggle.
+- todo closed: VSCode slowness, 33F as a full-floor model, one model per floor (models are per floor / place, detail
+  views have their own), model tabs as an infinite canvas (done in B31: dark model space, one zoom layer), "layer /
+  colour / lineweight editing" (round 19). F4 context-menu split and the grid snap base point → LOW.
+
 ## Round 19 (2026-09-27) — AREA, rotated dims, new-viewport freeze, clipboard images
 - **AREA** command (O19, `ui/area.ts`, tested): click the corners (a live outline; Undo drops the last; Enter totals) or
   Object → a rect / ellipse / closed polyline; prints the area in m² (and mm²) and the perimeter.

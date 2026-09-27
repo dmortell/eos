@@ -17,9 +17,10 @@
 	import { hiddenLines, lookNegOf } from './hiddenLines'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
+	import { strokePx, resolveLw, SCREEN_PX_PER_MM } from '../ui/lineweight'
 	import type { Model, Obj, Dir, Clip, OClip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, frame = null, oclip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, wire = false, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, frame = null, oclip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, persp = null, wire = false, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null, lwt = undefined, lwPxPerMm = undefined }:
 		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null
 			/** Phase 2 (elevation-section-plan.md): an elevation's explicit VIEW FRAME (an oblique section / elevation —
 			 *  it replaces `dir`'s axis) and its ORIENTED clip (replaces `clip`). null = the four-dir view as before. */
@@ -29,7 +30,9 @@
 			/** Model mm per paper mm (the viewport's `paperMm`) — labels are sized on PAPER so they stay readable. */ paperMm?: number
 			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number
 			/** I2: plan / elevation hidden-line removal (nearer faces hide what's behind), and black-and-white. */ hideHidden?: boolean; mono?: boolean
-			/** I1: a plan's CUT band — only objects reaching into z0..z1 show (e.g. one floor, slab to slab). */ zBand?: { z0: number; z1: number } | null } = $props()
+			/** I1: a plan's CUT band — only objects reaching into z0..z1 show (e.g. one floor, slab to slab). */ zBand?: { z0: number; z1: number } | null
+			/** Lineweights (ui/lineweight): the LWT toggle and the viewport's px per paper mm — given, lines draw at their
+			 *  layer's mm weight like 2D shapes; undefined = the layer's px weight (the old look). */ lwt?: boolean; lwPxPerMm?: number } = $props()
 	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
@@ -53,7 +56,11 @@
 	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : mono ? '#000000' : o.color ?? layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
-	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
+	// the stroke of an object's lines: with `lwt` given (a Pages viewport), its LAYER's lineweight in paper mm through the
+	// same rule as 2D shapes (ui/lineweight strokePx: true width with LWT on, a hairline with it off); else the layer's
+	// px weight as before. A selected object draws a little heavier.
+	const baseW = (o: Obj) => (lwt == null ? (layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1) : strokePx(resolveLw({}, layerOf(o)), { lwt, pxPerMm: lwPxPerMm ?? SCREEN_PX_PER_MM, canvasZoom }))
+	const weightOf = (o: Obj) => baseW(o) + (isSel(o) ? 1.2 / (canvasZoom || 1) : 0)
 	// XP32: an object draws with its layer's line type (plan / elevation outlines; iso faces stay solid).
 	const dashOf = (o: Obj) => dashArray(layerOf(o)?.dash, canvasZoom)
 	// G4: a rack device mounted on ONE face only shows in that face's elevation (front / rear)

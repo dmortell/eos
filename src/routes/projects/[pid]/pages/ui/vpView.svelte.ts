@@ -30,7 +30,7 @@ import { isLineSection, lineSectionDir, lineSectionGrips, lineSectionRegion, sec
 import { isElevMarker, elevMarkerDir, elevMarkerGrips, elevMarkerRegion, elevMarkerLine, ELEV_R } from './elevMarker'
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
-import { BASIS, type Obj, type Clip, type OClip } from '../3dview/types'
+import { BASIS, type Obj, type Clip, type OClip, type Storey } from '../3dview/types'
 import { storeyMap } from '../3dview/storeyMap'
 
 export const INK = '#475569', SEL = '#0e7490'
@@ -428,7 +428,9 @@ export class VpView {
 	 *  layer A-FLOR, its ceiling (a line) on A-CLNG — only while those layers are on. Spans the model's footprint
 	 *  along this view's axis; a riser frame's collapsed floors are skipped / remapped like everything else. */
 	structure = $derived.by(() => {
-		const m = this.mdl, st = m?.storeys
+		// a FLOOR model has no storeys, only its `levels` (floor datum 0): drawn as one storey at z 0
+		const m = this.mdl, lv = m?.levels
+		const st: Storey[] | undefined = m?.storeys?.length ? m.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ id: '_levels', name: '', z: 0, ...lv }] : undefined
 		if (!m || !this.isElev || !st?.length) return null
 		const has = (id: string) => this.mls.some((l) => l.id === id) && !this.isLayerHidden(id)
 		const showF = has('a-flor'), showC = has('a-clng'); if (!showF && !showC) return null
@@ -441,14 +443,17 @@ export class VpView {
 		const [ua, ub] = frameSpan(this.elevFrame, pts)
 		const x0 = ua - 500, x1 = ub + 500
 		const sm = this.collapse, vs = BASIS[this.elevDir].vs, y = (z: number) => GROUND - vs * (sm ? sm.map(z) : z)
-		const slabs: { y0: number; y1: number }[] = [], floors: number[] = [], ceilings: number[] = []
+		const slabs: { y0: number; y1: number }[] = [], floors: number[] = [], ceilings: number[] = [], soffits: number[] = []
 		for (const s of st) {
 			if (sm?.hidden(s.z, s.z + (s.ceilingSlab ?? 3000))) continue
 			if (showF && s.slab) { const a = y(s.z - s.slab), b = y(s.z); slabs.push({ y0: Math.min(a, b), y1: Math.max(a, b) }) }
 			if (showF && s.raisedFloor) floors.push(y(s.z + s.raisedFloor))
-			if (showC && s.ceilingTile) ceilings.push(y(s.z + s.ceilingTile))
+			if (showC && s.ceilingTile) ceilings.push(y(s.z + s.ceilingTile))   // the ceiling = the PLENUM's bottom
+			// the ceiling SLAB's underside (the plenum's top) — unless the next storey's slab band already draws it there
+			const top = s.ceilingSlab != null ? s.z + s.ceilingSlab : null
+			if (showC && top != null && !(showF && st.some((n) => n.slab && Math.abs(n.z - n.slab - top) < 1))) soffits.push(y(top))
 		}
-		return { x0, x1, slabs, floors, ceilings, floorColor: this.layerColor('a-flor') }   // (lines: fixed darker tones, VpMarks)
+		return { x0, x1, slabs, floors, ceilings, soffits, floorColor: this.layerColor('a-flor') }   // (lines: fixed darker tones, VpMarks)
 	})
 	selSectionObj = $derived(this.isPlan && this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null)
 	setSectionClip = (id: string, clip: Clip) => { if (this.mdl) setSectionClip(this.mdl, id, clip) }   // inside a drag gesture (the caller records the step)

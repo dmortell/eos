@@ -33,6 +33,8 @@
 		<!-- raised floor + ceiling: 1 px, darker tones (Dave: were too faint) -->
 		{#each s.floors as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#6b6152" stroke-width="1" vector-effect="non-scaling-stroke" />{/each}
 		{#each s.ceilings as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#7d5f74" stroke-width="1" stroke-dasharray="6 3" vector-effect="non-scaling-stroke" />{/each}
+		<!-- the ceiling SLAB's underside (the plenum between it and the ceiling): thin dash-dot -->
+		{#each s.soffits as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#6b6152" stroke-width="1" stroke-dasharray="10 3 2 3" vector-effect="non-scaling-stroke" />{/each}
 	</g>
 {/if}
 {#if v.viewSpace}

@@ -61,7 +61,7 @@
 	import { bbox as entBBox, onPlanPlane } from './ui/hit'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
-	import { getContext, untrack } from 'svelte'
+	import { getContext, untrack, flushSync } from 'svelte'
 	import type { Firestore, Session as AuthSession } from '$lib'
 	import { findNodePath } from './projectTree'
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
@@ -184,7 +184,8 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, otrack: toggles.OTRACK, wire: toggles.WIRE, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	let printing = $state(false)   // printing now: true lineweights whatever LWT says (the beforeprint effect below)
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT || printing, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, otrack: toggles.OTRACK, wire: toggles.WIRE, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -1372,6 +1373,13 @@
 	})
 	const { canvasPan, canvasZoom, activeProj, navZoom, fitPane, navFit, refitAll } = canvasNav
 
+	// A print always shows TRUE lineweights (AutoCAD plots object lineweights whatever the LWT display toggle): LWT is
+	// forced on from 'beforeprint' to 'afterprint' — flushed synchronously so the page is re-rendered before it prints.
+	$effect(() => {
+		const on = () => { printing = true; flushSync() }, off = () => { printing = false }
+		window.addEventListener('beforeprint', on); window.addEventListener('afterprint', off)
+		return () => { window.removeEventListener('beforeprint', on); window.removeEventListener('afterprint', off) }
+	})
 	// Print mechanics live in printing.ts (R9 commit 4) — this effect just owns the FOCUSED PANE's paper
 	// (session/paperOf, per-instance state printing.ts deliberately doesn't know about) and the
 	// mount/unmount wiring. `onBeforePrint` is rebuilt each time the effect re-runs (whenever the focused

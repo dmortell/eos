@@ -151,6 +151,23 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 			text(ms, [x0, y + 1 * N], 2.2 * N, st.name, layer, 'left', 0)
 		}
 	}
+	// ── the STRUCTURE (as the viewport draws it, VpView.structure): raised floor on A-FLOR, ceiling (the plenum's bottom)
+	// and the ceiling slab's underside (its top) on A-CLNG — a floor model's own `levels` count as one storey at 0 ──
+	const onL = (id: string) => !!layerOf(id) && shown(id)   // like the viewport: only on an existing, shown layer
+	if (isElev && (onL('a-flor') || onL('a-clng'))) {
+		const lv = model.levels, sts = model.storeys?.length ? model.storeys : lv && (lv.raisedFloor || lv.ceilingTile || lv.ceilingSlab) ? [{ z: 0, ...lv }] : []
+		const xs: number[] = []
+		for (const o of model.objects) { const b = objBounds(o); for (const [cx, cy] of rectPts(b.x0, b.y0, b.x1, b.y1)) xs.push(vm.toDraw({ x: cx, y: cy, z: 0 })[0]) }
+		if (xs.length) {
+			const x0 = Math.min(...xs) - 500, x1 = Math.max(...xs) + 500
+			const at = (z: number, id: string) => { if (!onL(id) || (sm && sm.hidden(z, z))) return; const y = sm ? sm.map(z) : z; doc.line([x0, y], [x1, y], dxfLayer(id)) }
+			for (const s of sts) {
+				if (s.raisedFloor) at(s.z + s.raisedFloor, 'a-flor')
+				if (s.ceilingTile) at(s.z + s.ceilingTile, 'a-clng')
+				if (s.ceilingSlab) at(s.z + s.ceilingSlab, 'a-clng')
+			}
+		}
+	}
 
 	// ── 2D shapes that belong to this view ──
 	for (const e of inp.ents) {
