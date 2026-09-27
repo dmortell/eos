@@ -119,7 +119,8 @@
 </div>
 
 <style>
-	.site { position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; background:var(--bg, #0f172a); }
+	/* under the panes' tab bars (Pane .tabbar: 34 px) — their tabs / + / split controls stay usable */
+	.site { position:absolute; inset:34px 0 0 0; z-index:30; display:flex; flex-direction:column; background:var(--bg, #0f172a); }
 	.site-bar { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--panel); border-bottom:1px solid var(--line); color:var(--text); font-size:12px; }
 	.site-sub { color:var(--muted); font-size:11px; }
 	.site-q { flex:1; display:flex; gap:6px; min-width:0; }

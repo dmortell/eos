@@ -828,6 +828,9 @@
 	// Selecting an entity likewise drops any tree-node selection (was `setSel`'s job pre-R3).
 	$effect(() => { if (idsOfKind(activeSel, 'ent').length) session.treeNode = null })
 	// Selecting a sheet viewport frame likewise shows its Properties.
+	// the SITE view (project selected) closes when a tab is picked / opened — the tab bar stays usable above it
+	let siteTab: string | undefined
+	$effect(() => { const id = active?.id; untrack(() => { if (siteTab !== undefined && id !== siteTab && session.treeNode?.kind === 'project') session.treeNode = null; siteTab = id }) })
 	$effect(() => { if (selFrameIds.length) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
 	// A selected SECTION marker (phase 3): its model + the section, for Properties (name / depth / flip / z band, the
 	// viewports it drives); selecting one shows them.
