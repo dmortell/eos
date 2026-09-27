@@ -56,6 +56,11 @@ type ElevFrame = { o: Pt; t: Pt; n: Pt }   // origin (plan mm), unit along the v
 - **Elevation marker:** `{ kind: 'elev', at: Pt, dir: angle, width, depth, name / number }` — a circle-triangle
   callout (the eltag look) pointing the way it looks; grips: position, rotate (15° with Shift), width / depth box
   (shown when selected). ELEV command + an **Elevation** tool beside Section in the strip (Annotate).
+- **One marker → MANY viewports** (Dave): a section line / elevation marker usually drives several elevation
+  viewports (same or different sheets), each with its OWN annotations (view-scoped shapes), layer freeze / VP lock,
+  scale — e.g. one for conduit details, one for wall openings. Drop-as-sheet can be repeated; every linked frame reads
+  the marker live; the marker lists its viewports (clickable); deleting a marker that still drives viewports asks
+  first (keep them as plain, unlinked elevations).
 - Both link to views the same way sections do today: "Drop as sheet" → a fitted, LINKED frame (`SheetFrame.section`
   = the marker id; the frame's view = the marker's ElevFrame + OClip, read live).
 
