@@ -542,6 +542,13 @@ export const SCRIPTS: Record<string, Script> = {
 		add(c, e); c.t.select([e.id])
 		c.out('Note placed (a wrapped text) — edit its markdown in Properties › TEXT; drag the right-edge grip to resize')
 	},
+	legend: async (c) => {   // D1: a LEGEND (the smart block: a row per visible layer that holds something) from its top-left
+		c.host.tool('Select')
+		const p = await point(c, 'Specify the top-left corner of the legend')
+		const e = c.t.newEnt({ type: 'insert', block: 'legend', a: D(c, p), attrs: {} })
+		add(c, e); c.t.select([e.id])
+		c.out('Legend placed — its rows follow the layers in use; EXCLUDE / COUNTS in Properties')
+	},
 	pen: async (c) => {   // O2: core-drill penetrations — diameter + wall / slab once, then click each; tags count on
 		c.host.tool('Select')
 		penDef.dia = Math.max(1, Math.round(await number(c, 'Diameter (mm)', penDef.dia)))

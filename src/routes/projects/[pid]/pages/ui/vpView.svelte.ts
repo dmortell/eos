@@ -391,12 +391,12 @@ export class VpView {
 	elevDepthSnap = (p: Pt) => elevDepthSnap(this.ctx, p, this.tolMm(12), this.mlayers)
 	/** P4: the iso pick faces, projected once per model / orbit / layer change. */
 	isoFaces = $derived(this.kind === 'iso' ? isoPickFaces(this.ctx, this.mlayers) : [])
-	/** Plan (x,y,0) → iso drawing coords (Model3d's mapping, R7), to lay plan 2D shapes on the ground. */
+	/** Plan (x,y,z) → iso drawing coords (Model3d's mapping, R7), to lay plan 2D shapes on the ground (or at their z). */
 	isoGround = $derived.by(() => {
 		if (this.kind !== 'iso' || !this.mdl) return null
 		const b = isoBounds(this.mdl.objects, this.yaw, this.pitch, CX, CY, this.mlayers.visible, this.persp); if (!b) return null
 		const vm = viewMapOf(this.ctx, b)
-		return (x: number, y: number): Pt => vm.toDraw({ x, y, z: 0 })
+		return (x: number, y: number, z = 0): Pt => vm.toDraw({ x, y, z })   // a shape's height above the floor (Ent.z) lifts it
 	})
 	/** ISO: the screen-facing callout / legend under p (ui/isoAnno.ts), on a shown + unlocked layer. `back` = the
 	 *  background-layer ones, drawn UNDER the model (so the click tries them after its faces); else the front ones,

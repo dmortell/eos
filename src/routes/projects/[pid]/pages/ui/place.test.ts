@@ -187,6 +187,13 @@ describe('moveEnt', () => {
 		const pl = ent({ type: 'polyline', a: undefined, b: undefined, pts: [[0, 0], [10, 10]] })
 		expect(moveEnt(elevCtx('front'), pl, 4, 4).pts).toEqual([[4, 0], [14, 10]])
 	})
+	it('elevation: a flat plan shape dragged UP / down changes its height above the floor (z ≥ 0), not its plan y', () => {
+		const r = ent({ a: [0, 0], b: [200, 100] })
+		const up = moveEnt(elevCtx('front'), r, 0, -600)   // drawing y is down: −600 = 600 up
+		expect(up).toMatchObject({ a: [0, 0], b: [200, 100], z: 600 })
+		expect(moveEnt(elevCtx('front'), up, 0, 200).z).toBe(400)
+		expect('z' in moveEnt(elevCtx('front'), up, 0, 900)).toBe(false)   // not below the floor; 0 isn't stored
+	})
 	it('elevation: non-flat kinds (text, image) translate normally', () => {
 		expect(moveEnt(elevCtx('front'), text, 30, 99)).toMatchObject({ a: [40, 109] })
 		expect(moveEnt(elevCtx('rear'), ent({ type: 'image' }), 30, 99)).toMatchObject({ a: [30, 99], b: [230, 199] })

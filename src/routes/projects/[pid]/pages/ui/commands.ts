@@ -40,6 +40,7 @@ export const COMMANDS: CmdDef[] = [
 	C('elev', 'Elevation marker', 'ELEVATION · ELEV', 'Place an elevation marker: its point, then the way it looks — a point, or an angle (CCW from +X, 90 = up the sheet); Enter = up. Drop it as linked viewports', 'Draw'),
 	C('guide', 'Guide', 'GUIDE · XLINE · XL', 'Drop a construction guide line', 'Draw'),
 	C('note', 'Notes block', 'NOTE · NOTES', 'A wrapped text block: markdown headings, lists and tables (edit in Properties)', 'Draw'),
+	C('legend', 'Legend', 'LEGEND · LEG', 'A legend of the layers in use (colour / line swatch + counts), updating itself', 'Draw'),
 	C('rack','Rack', 'RACK · RA', 'Place racks (a real W × D × U rack object, with devices) — click centres', 'Draw'),
 	C('outlet','Outlet', 'OUTLET · OU', 'Place outlets (the next label each)', 'Draw'),
 	C('blocks', 'Insert block', 'INSERT · I · BLOCK · B', 'Open the Blocks panel to place a block', 'Draw'),

@@ -291,6 +291,11 @@
 		// paper-space marquee / frame placement. Only presses on the bare paper (or an inactive frame) land here.
 		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click
+		// …which also keeps focus where it was: take the keyboard back from a field (command line / Properties) so Ctrl+Z
+		// reaches the page — once the gesture is over (the command line collapses on blur; shifting the sheet mid-drag
+		// would jump the frame)
+		const fe = document.activeElement as HTMLElement | null
+		if (fe && /^(INPUT|TEXTAREA|SELECT)$/.test(fe.tagName)) window.addEventListener('pointerup', () => setTimeout(() => { if (document.activeElement === fe) fe.blur() }), { once: true })
 		if (pickOnPaper(e)) return   // a running command (MOVE / COPY …) wants this point
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		const p = toSheet(e.clientX, e.clientY)

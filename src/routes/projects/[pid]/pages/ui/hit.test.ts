@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel, hitSection, hitGuide, marqueeSelect } from './hit'
+import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel, hitSection, hitGuide, marqueeSelect, flatXSpan, flatY } from './hit'
 import { textBox } from './geometry'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
@@ -39,6 +39,24 @@ describe('inBox', () => {
 		expect(inBox([5, 5], 0, 0, 10, 10, 1, false)).toBe(false)   // deep interior misses
 		expect(inBox([0.5, 5], 0, 0, 10, 10, 1, false)).toBe(true)  // on the left edge band hits
 		expect(inBox([12, 5], 0, 0, 10, 10, 1, false)).toBe(false)  // outside the outer band misses
+	})
+})
+
+describe('flat plan shapes edge-on in an elevation', () => {
+	const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, ground: 1000 }
+	it('a rect turned 90° in plan spans its turned width (not a → b), as a HORIZONTAL line — hit there', () => {
+		const r = ent({ a: [0, 0], b: [200, 40], rot: 90 })   // 200 × 40, turned: 40 wide along x, about its centre (100, 20)
+		const [x0, x1] = flatXSpan(front, r)
+		expect(x1 - x0).toBeCloseTo(40)
+		const b = bbox(front, r); expect(b[3] - b[1]).toBe(4)   // a thin horizontal band, not a tall vertical line
+		expect(hitEnt(front, r, [(x0 + x1) / 2, 1000], 1)).toBe(true)
+	})
+	it('sits at its height above the floor (z)', () => {
+		const r = ent({ a: [0, 0], b: [200, 40], z: 2400 })
+		expect(flatY(front, r)).toBe(1000 - 2400)
+		const [x0, x1] = flatXSpan(front, r)
+		expect(hitEnt(front, r, [(x0 + x1) / 2, -1400], 1)).toBe(true)
+		expect(hitEnt(front, r, [(x0 + x1) / 2, 1000], 1)).toBe(false)
 	})
 })
 

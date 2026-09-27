@@ -183,15 +183,15 @@ export function imageScaled(img: Ent, measured: number, real: number): Ent {
 	return { ...img, a: na, b: nb }
 }
 
-/** Move an entity by a drawing-space delta. In an ELEVATION the horizontal drag of a FLAT kind maps to the
- *  view's footprint axis (x for front/rear, y for left/right, mirrored by the dir's sign) and the vertical
- *  drag is dropped (a ground-line flat has no height to move). Everything else translates normally.
- *  (Ported as-is: the flat test is by KIND only, not `isFlatElev`, so a rect drawn natively in an elevation
- *  also takes this branch — see the pinned test.) */
+/** Move an entity by a drawing-space delta. In an ELEVATION the horizontal drag of a FLAT plan shape maps to the
+ *  view's footprint axis (x for front/rear, y for left/right, mirrored by the dir's sign) and the vertical drag
+ *  changes its HEIGHT above the floor (`z`, ≥ 0). Everything else translates normally. */
 export function moveEnt(ctx: ViewCtx, en: Ent, dx: number, dy: number): Ent {
 	if (isFlatElev(ctx, en)) {   // B24: only a PLAN-plane flat is edge-on here; an elevation-native shape translates freely
 		const [sx, sy] = frameStep(ctxFrame(ctx), dx)   // the drag along the view's horizontal, as a plan step
-		return translate(en, sx, sy)
+		const moved = translate(en, sx, sy), z = Math.max(0, Math.round(((en.z ?? 0) - dy) * 1e6) / 1e6)   // drawing y is down: up = higher
+		if (z) moved.z = z; else delete moved.z
+		return moved
 	}
 	return translate(en, dx, dy)
 }

@@ -28,6 +28,16 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   section lines; W × H for boxes; the measured value for H / V dims; the applied Δ while moving or grip-dragging shapes /
   3D objects; from the base point in MOVE / COPY picks; Δ from the selected guide when placing a guide. It flips to the
   cursor's other side near the viewport's edge.
+- **Legend tool**: Text fly-out › Legend, Insert › Legend (+ Callout, Note there too), LEGEND command — places the
+  layer-legend smart block.
+- **Plan shapes have a height** (`Ent.z`, mm above the floor): an elevation draws a flat plan shape edge-on AT that height
+  — drag it up / down there, or Properties › POSITION › Z; the 3D view lifts it (a callout's leader + box at its z).
+- Fix: a flat plan shape TURNED in plan (rot) drew as a vertical line in elevations (the view rotated its edge-on
+  line); its span now comes from its turned outline and the line stays horizontal.
+- Fix: a press on the drawing left the keyboard in the command line / a Properties field (the press is
+  preventDefault-ed) — Ctrl mid-drag never reached the drag and Ctrl+Z undid the command line's text. The field is
+  blurred when the gesture ends, and the command line passes bare modifier keys on.
+- Properties: the "Editing writes straight to…" hints are gone.
 - Fix: the ViewCube / 3D popout / PERSPECTIVE / export on a sheet acted on the FIRST viewport when none was active,
   even with another one selected. They now act on the active viewport, else the selected one(s), else the sheet's only
   one; with several and none picked they ask (`targetFramesOf`).

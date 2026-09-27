@@ -13,7 +13,7 @@
 	import type { ViewCtx } from '../view'
 	import { STYLE_DEFAULTS, textBox, arcPath, isNote, dimExtLines, dimGeom, dimTextAt } from '../geometry'
 	import { PT_MM } from '../../constants'
-	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom, bbox } from '../hit'
+	import { isFlatElev, flatXSpan, flatY, rotCenter, rotatePt, groundInIso, noteGeom, bbox } from '../hit'
 	import { isoFacing, isoAnnoEnt } from '../isoAnno'
 	import { noteRuns } from '../noteLayout'
 	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, hatchLines, type HeadGeom } from '../annotations'
@@ -54,7 +54,7 @@
 		}
 		/** Iso view only: projects a plan point onto the ground plane (drawing coords). Null elsewhere. Lays plan
 		 *  shapes on the ground, and anchors the screen-facing callouts / legends (ui/isoAnno.ts). */
-		isoGround?: ((x: number, y: number) => Pt) | null
+		isoGround?: ((x: number, y: number, z?: number) => Pt) | null
 		/** The id of the image currently in CROP calibration (shows the full image faint + the crop window), or null. */
 		imgCrop?: string | null
 		/** Per-viewport-instance namespace for <clipPath> ids (a sheet renders the same image in several viewports). */
@@ -101,20 +101,21 @@
 	     isoGround. Text places at its projected anchor; other types draw as a (foreshortened) poly. -->
 	{#if isoGround}
 		{#if e.type === 'text'}
-			{@const tp = isoGround(e.a![0], e.a![1])}
+			{@const tp = isoGround(e.a![0], e.a![1], e.z)}
 			<text class="anno" x={tp[0]} y={tp[1]} font-size={style.gripSize * 2} fill={ink} text-anchor="start">{(e.text ?? '').split('\n')[0]}</text>
 		{:else}
 			{@const g = groundPts(e)}
 			{@const c = e.rot ? rotCenter(ctx, e) : null}
-			{@const pr = g.pts.map((p) => { const q = e.rot && c ? rotatePt(p, c, e.rot) : p; return isoGround!(q[0], q[1]) })}
+			{@const pr = g.pts.map((p) => { const q = e.rot && c ? rotatePt(p, c, e.rot) : p; return isoGround!(q[0], q[1], e.z) })}
 			{#if pr.length >= 2}
 				{#if g.closed}<polygon points={pr.map((p) => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 				{:else}<polyline points={pr.map((p) => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />{/if}
 			{/if}
 		{/if}
 	{/if}
-{:else if e.rot}
+{:else if e.rot && !isFlatElev(ctx, e)}
 	{@const c = rotCenter(ctx, e)}
+	<!-- (a flat plan shape edge-on in an elevation isn't turned in the view: its plan turn is already in its span) -->
 	<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn()}</g>
 {:else}
 	{@render drawn()}
@@ -130,9 +131,10 @@
 	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
 	     lineweight edits are visible live while the object stays selected. -->
 	{#if isFlatElev(ctx, e)}
-		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
+		<!-- any flat plan object seen in elevation is an edge-on line at its height above the floor (z; 0 = the ground) -->
 		{@const sp = flatXSpan(ctx, e)}
-		<line x1={sp[0]} y1={ctx.ground} x2={sp[1]} y2={ctx.ground} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
+		{@const fy = flatY(ctx, e)}
+		<line x1={sp[0]} y1={fy} x2={sp[1]} y2={fy} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'image'}
 		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
 		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->

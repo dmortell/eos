@@ -62,6 +62,9 @@ export const groundInIso = (ctx: ViewCtx, e: Ent): boolean => ctx.isIso && onPla
 /** A flat (z=0) plan object collapses to the ground line in an elevation view. */
 export const isFlatElev = (ctx: ViewCtx, e: Ent): boolean => ctx.isElev && FLAT.has(e.type) && onPlanPlane(e)
 
+/** The drawing Y of a flat plan shape's edge-on line in an elevation: the ground, raised by its height `z`. */
+export const flatY = (ctx: ViewCtx, e: Ent): number => ctx.ground - (e.z ?? 0)
+
 /** Horizontal drawing span of a flat object projected onto the ground line for the current side view. */
 export function flatXSpan(ctx: ViewCtx, e: Ent): [number, number] { return flatSpanOf(e, ctxFrame(ctx)) }
 
@@ -82,7 +85,7 @@ export function bbox(ctx: ViewCtx, e: Ent): BBox {
 	return b
 }
 function bboxRaw(ctx: ViewCtx, e: Ent): BBox {
-	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
+	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e), y = flatY(ctx, e); return [x0, y - 2, x1, y + 2] }
 	if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 	if (isNote(e)) { const n = noteGeom(e, ctx.paperMm); return [e.a![0], e.a![1], e.a![0] + n.w, e.a![1] + n.h] }
 	if (e.type === 'text') return textBox(e, PT_MM * ctx.paperMm)
@@ -113,9 +116,10 @@ export const rotCenter = (ctx: ViewCtx, e: Ent): Pt => { const [x0, y0, x1, y1] 
 /** Is point `p` within `thr` (drawing units) of entity `e`? Tests in the entity's un-rotated frame; a
  *  closed unfilled shape hits on its outline only, a filled one anywhere inside. */
 export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
-	if (e.rot) p = rotatePt(p, rotCenter(ctx, e), -e.rot)   // test in the entity's un-rotated frame
+	const flat = isFlatElev(ctx, e)   // edge-on in an elevation: its plan turn is already in the span (not a view rotation)
+	if (e.rot && !flat) p = rotatePt(p, rotCenter(ctx, e), -e.rot)   // test in the entity's un-rotated frame
 	{ const [x0, y0, x1, y1] = bbox(ctx, e); if (p[0] < x0 - thr || p[0] > x1 + thr || p[1] < y0 - thr || p[1] > y1 + thr) return false }   // §5: the cached box rejects most shapes at once
-	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return segDist(p, [x0, ctx.ground], [x1, ctx.ground]) < thr }
+	if (flat) { const [x0, x1] = flatXSpan(ctx, e), y = flatY(ctx, e); return segDist(p, [x0, y], [x1, y]) < thr }
 	if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 	if (e.type === 'dim') { const g = dimGeom(e); return segDist(p, g.A, g.B) < thr || segDist(p, g.M1, g.A) < thr || segDist(p, g.M2, g.B) < thr }   // the dim line or an extension line
 	if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent

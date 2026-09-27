@@ -121,6 +121,11 @@
 		if (sh?.number && blockDef(ins.block)?.attributes.some((a) => a.tag === 'SHEET') && (!attrs.SHEET || attrs.SHEET === '—')) attrs.SHEET = sh.number
 		onupdate?.({ ...ins, attrs })
 	}
+	/** Height above the floor (Ent.z, mm ≥ 0; 0 = none stored) for every selected plan shape — one step. */
+	function setZ(n: number) {
+		const z = Math.max(0, Math.round(n))
+		onupdate?.(ents.map((e) => { const o = { ...e }; if (z) o.z = z; else delete o.z; return o }))
+	}
 	// ALIGN / DISTRIBUTE: props/AlignBar (the Properties panel shows it for any 2+ shapes / objects)
 	// E5: several block inserts edited together — their shared category (null = mixed → no swap), the attributes
 	// every one of them has (not LABEL / LINK), and a value common to all (undefined = mixed)
@@ -151,6 +156,9 @@
 <div class="vecrow">
 	<NumCell k="X" v={r1(gb.x)} set={setX} />
 	<NumCell k="Y" v={r1(gb.y)} set={setY} />
+	<!-- Z = a PLAN shape's height above the floor (mm): where an elevation draws it edge-on (drag it up / down there
+	     too) and the 3D view lifts it -->
+	{#if ents.every((e) => !e.plane || e.plane === 'plan')}<NumCell k="Z" v={r1((cc('z') as number | undefined) ?? 0)} set={setZ} />{/if}
 </div>
 <div class="prop-sec">SIZE</div>
 <div class="vecrow">
@@ -454,7 +462,6 @@
 			<button class="pp-mini" disabled={!blockName.trim()} onclick={() => { onsaveblock(blockName!.trim()); blockName = null }}>Save</button></span></div>
 	{/if}
 {/if}
-<div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
 
 
 {#snippet arrow(down: boolean, bar: boolean)}

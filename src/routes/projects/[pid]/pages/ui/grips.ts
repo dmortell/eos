@@ -9,7 +9,7 @@ import { lineSectionGrips, applyLineGrip } from './sectionLine'
 import { elevMarkerGrips, applyElevGrip } from './elevMarker'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
-import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
+import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, flatY, noteGeom, type GN } from './hit'
 import { frameAxis, frameU, frameSetU, uToAlong, textBox, STYLE_DEFAULTS, isNote, dimGeom, dimTextAt, dimSetLine } from './geometry'
 import { ctxFrame } from './view'
 import { doorGeom } from '../3dview/projection'
@@ -241,7 +241,11 @@ export function setFlatX(ctx: ViewCtx, e: Ent, edge: 'min' | 'max', u: number): 
 
 /** The entity's grips in its LOCAL (un-rotated) frame; gripsFor then rotates them for a rotated shape. */
 export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
-	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [{ x: x0, y: ctx.ground, apply: (p) => setFlatX(ctx, e, 'min', p[0]) }, { x: x1, y: ctx.ground, apply: (p) => setFlatX(ctx, e, 'max', p[0]) }] }
+	if (isFlatElev(ctx, e)) {
+		const [x0, x1] = flatXSpan(ctx, e), y = flatY(ctx, e)
+		if (e.rot) return []   // a shape turned in plan: its ends aren't a / b any more — move / lift it here, reshape it in plan
+		return [{ x: x0, y, apply: (p) => setFlatX(ctx, e, 'min', p[0]) }, { x: x1, y, apply: (p) => setFlatX(ctx, e, 'max', p[0]) }]
+	}
 	if (is2PtPolyline(e)) {   // a migrated 'line' (or a 2-click Line-tool polyline): the SAME endpoint grips 'line' used to get
 		const [p0, p1] = e.pts!
 		return [

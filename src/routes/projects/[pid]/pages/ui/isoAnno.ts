@@ -13,7 +13,7 @@ import { hitEnt, inThisView } from './hit'
 import type { ViewCtx } from './view'
 
 /** Plan point → iso drawing coords (vpView `isoGround`: the model's viewMap at z = 0). */
-export type IsoProj = (x: number, y: number) => Pt
+export type IsoProj = (x: number, y: number, z?: number) => Pt
 
 /** Drawn screen-facing in the iso view (not laid on the ground): a callout text or a legend insert. */
 export const isoFacing = (e: Ent): boolean => (e.type === 'text' && !!e.callout) || isLegend(e)
@@ -24,8 +24,8 @@ export const isoFacing = (e: Ent): boolean => (e.type === 'text' && !!e.callout)
  *  used by either kind (text's box comes from `a` + its size; an insert from `a` + its scale). */
 export function isoAnnoEnt(e: Ent, proj: IsoProj): Ent {
 	const out: Ent = { ...e }
-	if (e.a) out.a = proj(e.a[0], e.a[1])
-	if (e.leader) out.leader = proj(e.leader[0], e.leader[1])
+	if (e.a) out.a = proj(e.a[0], e.a[1], e.z)   // at the shape's height above the floor (a callout to a ceiling TV)
+	if (e.leader) out.leader = proj(e.leader[0], e.leader[1], e.z)
 	delete out.rot
 	return out
 }

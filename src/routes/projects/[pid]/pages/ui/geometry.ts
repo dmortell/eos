@@ -17,6 +17,9 @@ export type Dash = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 // can reuse that shape directly rather than inventing its own DXF-side entity type.
 export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'arc' | 'image' | 'insert'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
+	// `z` = a PLAN-plane shape's height above the floor (mm; absent = 0): an elevation draws a flat one edge-on AT that
+	// height (drag it up / down there to set it), the 3D view lifts it (a callout's leader points up at a ceiling TV).
+	z?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
 	// w,h = size); undefined = whole image. `opacity` 0..1 for tracing. Firestore-stable field names.
@@ -312,7 +315,14 @@ export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [num
 }
 /** `flatSpan` in any view frame (an oblique one too — the ground line is the shape's along-t extent). */
 export function flatSpanOf(e: Ent, f: ElevFrame): [number, number] {
-	const pts = e.type === 'polyline' || e.type === 'arc' ? (e.type === 'arc' ? arcPts(e) : e.pts ?? []) : [e.a!, e.b ?? e.a!]   // a point (insert / text) → its a
+	let pts = e.type === 'polyline' || e.type === 'arc' ? (e.type === 'arc' ? arcPts(e) : e.pts ?? []) : !e.b ? [e.a!]   // a point (insert / text) → its a
+		: (e.type === 'rect' || e.type === 'ellipse') ? [e.a!, [e.b[0], e.a![1]], e.b, [e.a![0], e.b[1]]] as Pt[]   // a box: all four corners (they matter once it's turned / seen obliquely)
+		: [e.a!, e.b]
+	if (e.rot && pts.length) {   // turned in plan: the span of its turned outline (about its box centre, as drawn in plan)
+		const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), c: Pt = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+		const r = (e.rot * Math.PI) / 180, co = Math.cos(r), s = Math.sin(r)
+		pts = pts.map(([x, y]) => [c[0] + (x - c[0]) * co - (y - c[1]) * s, c[1] + (x - c[0]) * s + (y - c[1]) * co])
+	}
 	return frameSpan(f, pts)
 }
 

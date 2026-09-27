@@ -208,4 +208,3 @@
 	{#if cables.some((c) => c.qty > 0)}<div class="fill-prev"><FillSection conduit={obj} name={obj.label} /></div>{/if}
 {/if}
 <button class="pp-del" onclick={() => ondelete?.()}>Delete object</button>
-<div class="pp-hint">Editing writes straight to the 3D model. Reshape geometry by dragging its grips.</div>

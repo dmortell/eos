@@ -8,7 +8,7 @@ import { ctxFrame, frameKey, type ViewCtx, type MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
 import { frameAxis, frameAlong, frameSetU, uToAlong, arcPts, arc3, dimGeom } from './geometry'
-import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
+import { bbox, graphNodeDraw, isFlatElev, flatXSpan, flatY, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
 export const SNAP_STEP = 100   // grid snap spacing (mm)
@@ -22,9 +22,9 @@ export const rndTo = (v: number, step: number): number => (step ? Math.round(Mat
 
 /** Grid-snap a MOVE delta so the entity's defining point (a / centre / first vertex) lands on the grid,
  *  keeping its shape. `step` = grid spacing, or 0 to disable (SNAP off). */
-export function snapDelta(dx: number, dy: number, base: Ent, step: number): [number, number] {
+export function snapDelta(dx: number, dy: number, base: Ent, step: number, anchor?: Pt): [number, number] {
 	if (!step) return [dx, dy]
-	const A = base.a ?? base.pts?.[0]
+	const A = anchor ?? base.a ?? base.pts?.[0]   // `anchor`: where the shape is DRAWN when that isn't its a (a flat one edge-on in an elevation)
 	if (!A) return [Math.round(dx / step) * step, Math.round(dy / step) * step]
 	const g = snapToGrid([A[0] + dx, A[1] + dy], step)
 	return [g[0] - A[0], g[1] - A[1]]
@@ -40,8 +40,8 @@ export type EntSnap = { point: Pt; type: string }
 export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 	const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 	if (isFlatElev(ctx, e)) {
-		const [x0, x1] = flatXSpan(ctx, e)
-		return [{ point: [x0, ctx.ground], type: 'end' }, { point: [x1, ctx.ground], type: 'end' }, { point: [(x0 + x1) / 2, ctx.ground], type: 'mid' }]
+		const [x0, x1] = flatXSpan(ctx, e), y = flatY(ctx, e)
+		return [{ point: [x0, y], type: 'end' }, { point: [x1, y], type: 'end' }, { point: [(x0 + x1) / 2, y], type: 'mid' }]
 	}
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map((p) => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
 	if (e.type === 'arc') {   // its ends, the middle of the curve and the centre

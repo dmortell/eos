@@ -28,7 +28,7 @@ import { auditGraph, fixGraph } from '../3dview/graphAudit'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, translateObj, objSnapDelta, applyObjMoves, endObjMove, moveModelGrip, dropNodeJoin, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, rotatePt, prismOutline, bbox, hitIsoFaces, marqueeSelect, marqueeModel, graphSegAt, viewMapOf, type GN } from './hit'
+import { rotCenter, rotatePt, prismOutline, bbox, hitIsoFaces, marqueeSelect, marqueeModel, graphSegAt, viewMapOf, isFlatElev, flatXSpan, flatY, type GN } from './hit'
 import { arrangeMoves, type AlignOp } from './arrange'
 import { newId } from '../ids'
 import { constrainPt, lineLabelAt } from './annotations'
@@ -123,7 +123,7 @@ export class VpInteraction {
 			const v = this.v, cp = constrainGrip(v.ctx, t.e, gi, p, shift, v.gripOpts()); return v.snap && !free ? snapToGrid(cp, v.snapStep) : cp
 		},
 		// Alt held while dragging (`free`) = no grid snap (and no object snap for a grip) — a precise free placement
-		snapDelta: (dx, dy, base, free) => (free ? [dx, dy] : base.k === 'ent' ? snapDelta(dx, dy, base.e, this.v.snap ? this.v.snapStep : 0) : objSnapDelta(this.v, base.o, dx, dy)),
+		snapDelta: (dx, dy, base, free) => (free ? [dx, dy] : base.k === 'ent' ? snapDelta(dx, dy, base.e, this.v.snap ? this.v.snapStep : 0, isFlatElev(this.v.ctx, base.e) ? [flatXSpan(this.v.ctx, base.e)[0], flatY(this.v.ctx, base.e)] : undefined) : objSnapDelta(this.v, base.o, dx, dy)),   // a flat plan shape edge-on: its drawn left end + height land on the grid
 		duplicate: (ts) => [
 			...relabelCopies(pasteCopies(ts.flatMap((t) => (t.k === 'ent' ? [t.e] : [])), 0, uid), this.v.entities).map((e): DItem => ({ k: 'ent', e })),   // own ids + group ids; outlets get the next free label (E12)
 			...pasteObjCopies(ts.flatMap((t) => (t.k === 'obj' ? [t.o] : [])), 0, newId).map((o): DItem => ({ k: 'obj', o })),
@@ -1025,9 +1025,9 @@ export class VpInteraction {
 	onKey = (e: KeyboardEvent) => {
 		const v = this.v, sel = v.sel, ents = v.editor.ents
 		if (!v.active || !v.focused || this.editText) return   // in split view only the focused pane handles keys
+		if ((e.key === 'Control' || e.key === 'Meta') && this.items.drag) { this.items.setDup(true); return }   // copy, live (a drag owns Ctrl wherever focus is)
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { v.shiftDown = true; this.reconstrain(true); this.updateGuidePreview(true); return }
-		if ((e.key === 'Control' || e.key === 'Meta') && this.items.drag) { this.items.setDup(true); return }   // copy, live
 		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
 		if (e.key === 'Enter' && this.finishElev()) { e.preventDefault(); return }   // Elevation: its point placed → look up the sheet
@@ -1084,6 +1084,13 @@ export class VpInteraction {
 	onDown = (e: PointerEvent) => {
 		const v = this.v, ed = v.editor.edit, reg = this.reg
 		if (this.editText || !v.active || e.button !== 0) return
+		// a press on the drawing takes the keyboard back from a field (the command line, a Properties input): the press
+		// is preventDefault-ed below, so focus would otherwise STAY there — and Ctrl+Z after it would go to the field.
+		// Blurred once the gesture is OVER (after its click): the command line collapses its log on blur, and shifting
+		// the canvas mid-press would lose the click (a command's point pick). Ctrl during the drag still gets through
+		// (the command line passes bare modifier keys on).
+		const fe = isTypingTarget(document.activeElement) ? (document.activeElement as HTMLElement) : null
+		if (fe) window.addEventListener('pointerup', () => setTimeout(() => { if (document.activeElement === fe) fe.blur() }), { once: true })
 		if (this.myPick) return   // a command pick: the click (onClick) delivers the point — no drags
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click drops a direction
 		this.suppressClick = false   // clear any stale flag from a drag that never got its click

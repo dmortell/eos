@@ -27,6 +27,7 @@
 	function submit(line: string) { runner.run(line); text = ''; pick = 0; histIdx = -1; input?.blur() }
 	function complete() { const s = sugg[pick]; if (s) { text = primaryName(s) + ' '; pick = 0 } }
 	function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') return   // a bare modifier types nothing: let it reach the page (Ctrl mid-drag = copy)
 		e.stopPropagation()   // the viewport / page keys stay out of the typing
 		if (e.key === 'Enter' || (e.key === ' ' && spaceIsEnter && !runner.want?.text)) {   // an unknown word with a suggestion showing → run the highlighted suggestion
 			e.preventDefault(); const s = sugg[pick]
