@@ -25,6 +25,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import SiteView from './parts/SiteView.svelte'
 	import { activeLayerIn, isLayerHidden, addLayer, layerUI } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
@@ -1557,6 +1558,11 @@
 					<div class="vsplitter" title="Drag to resize" onpointerdown={startSplitDrag}></div>
 				{/if}
 			{/each}
+			<!-- the PROJECT selected above the tree → its SITE: the address on OpenStreetMap, the building in 3D (a test) -->
+			{#if session.treeNode?.kind === 'project'}
+				{@const addr = proj.nodeInfo?.sections.flatMap((s) => s.fields).find((f) => f.key === 'address')?.value ?? ''}
+				<SiteView projectName={session.treeNode.label} address={addr} onsaveaddress={(a) => proj.setNodeField('address', a)} onclose={() => (session.treeNode = null)} />
+			{/if}
 		</div>
 
 		<!-- Right sidebar -->
@@ -1709,7 +1715,7 @@
 
 	/* Editor area — 1 pane, or 2 split vertically with a draggable divider. Each pane's own layout
 	   (tab bar / canvas / tool strip / …) is scoped inside parts/Pane.svelte (R9). */
-	.editor-area { flex:1 1 auto; display:flex; min-width:0; }
+	.editor-area { flex:1 1 auto; display:flex; min-width:0; position:relative; }
 	.vsplitter { flex:0 0 auto; width:5px; cursor:col-resize; background:var(--line); }
 	.vsplitter:hover { background:var(--accent-dim); }
 

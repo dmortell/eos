@@ -21,6 +21,7 @@
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.1.18",
+		"@types/three": "^0.186.0",
 		"@vitest/browser-playwright": "^4.0.18",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
@@ -52,6 +53,7 @@
 		"firebase-admin": "^13.7.0",
 		"jspdf": "^4.2.1",
 		"jszip": "^3.10.1",
+		"three": "^0.185.1",
 		"uploadthing": "^7.7.4"
 	}
 }

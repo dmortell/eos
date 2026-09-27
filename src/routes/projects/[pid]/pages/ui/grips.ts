@@ -82,7 +82,12 @@ export function handleAngle(c: Pt, p: Pt, shift: boolean, signed = false): numbe
 
 /** A model-object grip. `apply(p, origin)` mutates the store object; `node`/`obj` ride wall/conduit node
  *  grips so an Alt-press can branch a new segment. */
-export type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj; /** F9: a conduit corner's bend handle */ bend?: boolean }
+export type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt, mods?: GripMods) => void; node?: GN; obj?: Obj; /** F9: a conduit corner's bend handle */ bend?: boolean
+	/** A segment's WIDTH handle (plan): its width at press, the side normal it drags along (the hover cursor) and a live
+	 *  getter of the width now (the drag readout). */
+	width?: { w0: number; n: Pt; get: () => number } }
+/** The pointer's modifiers during a grip drag (read from the move event): Alt = no grid snap, Shift = coarse steps. */
+export type GripMods = { alt?: boolean; shift?: boolean }
 
 /** The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face/footprint;
  *  in a rotated plan view they follow the rotation). */
@@ -155,7 +160,9 @@ export function obliqueResize(f: ElevFrame, o: Extract<Obj, { type: 'prism' }>, 
  *  reshape via `opts.applyNode`, i.e. the caller's graphNodeApply). `opts.rnd` grid-snaps prism edits;
  *  `opts.shift` is the live Shift getter — every angle handle snaps to 15° with it (`handleAngle`), the
  *  same rule as an entity's rotate handle. */
-export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void; shift?: () => boolean; gripMm?: number }): MGrip[] {
+export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void; shift?: () => boolean; gripMm?: number
+	/** The selected SEGMENT of this wall / conduit: it gets a width handle (plan). */
+	segId?: string }): MGrip[] {
 	const shift = () => !!opts.shift?.()
 	if (o.type === 'prism') {
 		const cs = prismTilted(o) ? [] : prismCorners(ctx, o)   // a tilted prism drops its axis-aligned corners (B10)
@@ -190,6 +197,8 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 	if (o.type === 'wall' || o.type === 'conduit') {
 		const grips: MGrip[] = (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(ctx, n); return { x: d[0], y: d[1], node: n, obj: o, apply: (p: Pt, origin?: Pt) => opts.applyNode(n, p, origin) } })
 		if (o.type === 'conduit' && ctx.isPlan) grips.push(...bendGrips(ctx, o, opts.gripMm ?? 200))
+		const wg = opts.segId ? segWidthGrip(ctx, o, opts.segId, opts.rnd, shift, opts.gripMm ?? 200) : null
+		if (wg) grips.push(wg)
 		return grips
 	}
 	return []
@@ -212,6 +221,62 @@ export function bendGrips(ctx: ViewCtx, o: Extract<Obj, { type: 'conduit' }>, gr
 		} })
 	}
 	return out
+}
+
+// ── a wall / conduit SEGMENT's width handle (plan) ──
+/** The narrowest width a segment's width handle sets (mm). */
+export const SEG_W_MIN = 10
+/** Shift on the width handle → catalogue-ish steps (mm). */
+export const SEG_W_STEP = 50
+
+/** Where a segment's WIDTH handle sits (plan, drawing coords): on its side edge at the midpoint — `w / 2` out along the
+ *  side normal `n` (the side facing up the screen; a vertical run's right side), but never nearer the centreline than
+ *  `minOff` (so a thin run's handle stays clear of the segment highlight). `off` = the offset used. null = zero length
+ *  in this view (a vertical riser in plan). */
+export function segWidthHandle(a: Pt, b: Pt, w: number, minOff = 0): { p: Pt; n: Pt; off: number } | null {
+	const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy)
+	if (L < 1e-6) return null
+	let n: Pt = [-dy / L, dx / L]
+	if (n[1] > 1e-9 || (Math.abs(n[1]) <= 1e-9 && n[0] < 0)) n = [-n[0], -n[1]]
+	n = [n[0] || 0, n[1] || 0]   // (no −0)
+	const off = Math.max(w / 2, minOff)
+	return { p: [(a[0] + b[0]) / 2 + n[0] * off, (a[1] + b[1]) / 2 + n[1] * off], n, off }
+}
+
+/** The width a drag of that handle to `p` sets — symmetric about the centreline: twice the pointer's distance from it
+ *  (measured from where the handle was held, `off`, so a handle held out at `minOff` doesn't jump on press). Shift →
+ *  SEG_W_STEP steps, else `rnd` (the grid when SNAP is on; the caller drops it with Alt); whole mm, ≥ SEG_W_MIN. */
+export function segWidthFromDrag(a: Pt, b: Pt, p: Pt, w0: number, off: number, step: { rnd?: (v: number) => number; shift?: boolean } = {}): number {
+	const h = segWidthHandle(a, b, w0, off); if (!h) return w0
+	const m: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], d = (p[0] - m[0]) * h.n[0] + (p[1] - m[1]) * h.n[1]
+	const raw = w0 + 2 * (d - off)
+	const v = step.shift ? Math.round(raw / SEG_W_STEP) * SEG_W_STEP : step.rnd ? step.rnd(raw) : raw
+	return Math.max(SEG_W_MIN, Math.round(v))
+}
+
+/** The resize cursor for a handle dragged along `n` (drawing / screen coords, y down). */
+export function resizeCursor(n: Pt): string {
+	const deg = (((Math.atan2(n[1], n[0]) * 180) / Math.PI) % 180 + 180) % 180
+	return deg < 22.5 || deg >= 157.5 ? 'ew-resize' : deg < 67.5 ? 'nwse-resize' : deg < 112.5 ? 'ns-resize' : 'nesw-resize'
+}
+
+/** The selected segment's width handle (plan only): dragging it sets that segment's own width — a conduit's `w`, a
+ *  wall's `thickness` — symmetric about the centreline; back at the object's default the override is dropped. Mutates
+ *  the store segment (the model-grip contract). null = not a plan view / no such segment / zero length here. */
+export function segWidthGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit' }>, segId: string, rnd: (v: number) => number, shift: () => boolean, gripMm: number): MGrip | null {
+	if (!ctx.isPlan) return null
+	const s = (o.segments as { id: string; a: string; b: string; w?: number; thickness?: number }[]).find((x) => x.id === segId)
+	const nodes = o.nodes as GN[], na = s && nodes.find((n) => n.id === s.a), nb = s && nodes.find((n) => n.id === s.b)
+	if (!s || !na || !nb) return null
+	const def = () => (o.type === 'wall' ? o.thickness : o.w)
+	const get = () => (o.type === 'wall' ? s.thickness : s.w) ?? def()
+	const a = graphNodeDraw(ctx, na), b = graphNodeDraw(ctx, nb), w0 = get()
+	const h = segWidthHandle(a, b, w0, gripMm * 1.5); if (!h) return null
+	return { x: h.p[0], y: h.p[1], obj: o, width: { w0, n: h.n, get }, apply: (p: Pt, _origin?: Pt, mods?: GripMods) => {
+		const w = segWidthFromDrag(a, b, p, w0, h.off, { rnd: mods?.alt ? undefined : rnd, shift: mods?.shift ?? shift() })
+		const v = w === def() ? undefined : w
+		if (o.type === 'wall') s.thickness = v; else s.w = v
+	} }
 }
 
 /** Which grip of the selected object a press grabs (14px screen tol). One layout read for the whole pass

@@ -515,7 +515,11 @@ export class VpView {
 		return it && o?.id === it.id && o.nodes?.some((n) => n.id === it.sub) ? { obj: it.id, node: it.sub! } : null
 	})
 	/** P6: the selected model object's grips, once per object / view change — shared by render and pick. */
-	mGrips = $derived(this.mSelObj ? modelGrips(this.ctx, this.mSelObj, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown, gripMm: this.gripSize }) : [])
+	// (the selected SEGMENT of the run also gets its width handle — ui/grips segWidthGrip)
+	mGrips = $derived.by(() => {
+		const o = this.mSelObj, ss = this.segSel; if (!o) return []
+		return modelGrips(this.ctx, o, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown, gripMm: this.gripSize, segId: ss && ss.obj === o.id ? ss.seg : undefined })
+	})
 	gripOpts = (): GripOpts => ({ gripMm: this.gripSize, shift: () => this.shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	gripsFor = (e: Ent): Grip[] => gripsFor(this.ctx, e, this.gripOpts())
 	/** A connection point you can SEE and use here: its box / wall / conduit / outlet is on a shown, unlocked layer (not

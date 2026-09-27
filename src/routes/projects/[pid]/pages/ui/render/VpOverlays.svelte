@@ -7,6 +7,7 @@
 	// selection marquee. Tool UI only — no document content.
 	import Handle from '../../parts/Handle.svelte'
 	import { rotCenter, rotatePt, groundInIso } from '../hit'
+	import { resizeCursor } from '../grips'
 	import { dimGeom, type Pt } from '../geometry'
 	import { dimSpec, resolveDimMode } from '../dimSpec.svelte'
 	import { SEL, type VpView } from '../vpView.svelte'
@@ -106,7 +107,17 @@
 		{#each v.mGrips as g, i (g.node?.id ?? i)}
 			{#if g.node && v.nodeSelValid && g.node.id === v.nodeSelValid.node}<circle cx={g.x} cy={g.y} r={gs * 0.95} fill={SEL} opacity="0.85" />{/if}
 			{#if g.node?.conn}<circle cx={g.x} cy={g.y} r={gs * 1.5} fill="none" stroke="#22c55e" stroke-width={2 * sw}><title>Connected — follows its box / outlet</title></circle>{/if}
-			{#if g.bend}
+			{#if g.width}
+				<!-- the selected segment's WIDTH handle on its side edge: a tick from the centreline + a bar along the edge
+				     (drag across the run = its width, symmetric about the centreline) -->
+				{@const n = g.width.n}
+				{@const t = [-n[1], n[0]]}
+				{@const ss = v.segSel}
+				{@const off = ss ? (g.x - (ss.a[0] + ss.b[0]) / 2) * n[0] + (g.y - (ss.a[1] + ss.b[1]) / 2) * n[1] : 0}
+				<line x1={g.x - n[0] * off} y1={g.y - n[1] * off} x2={g.x} y2={g.y} stroke={SEL} stroke-width={sw} stroke-dasharray="{2 * sw} {2 * sw}" opacity="0.7" pointer-events="none" />
+				<polygon points="{g.x + t[0] * gs * 0.9 + n[0] * gs * 0.35},{g.y + t[1] * gs * 0.9 + n[1] * gs * 0.35} {g.x - t[0] * gs * 0.9 + n[0] * gs * 0.35},{g.y - t[1] * gs * 0.9 + n[1] * gs * 0.35} {g.x - t[0] * gs * 0.9 - n[0] * gs * 0.35},{g.y - t[1] * gs * 0.9 - n[1] * gs * 0.35} {g.x + t[0] * gs * 0.9 - n[0] * gs * 0.35},{g.y + t[1] * gs * 0.9 - n[1] * gs * 0.35}"
+					fill="white" stroke={SEL} stroke-width={1.2 * sw} style="cursor:{resizeCursor(n)}"><title>Segment width — drag (Shift: 50 mm steps, Alt: no grid snap)</title></polygon>
+			{:else if g.bend}
 				<!-- F9: a corner's bend handle (drag along the bisector = its radius) -->
 				<polygon points="{g.x},{g.y - gs * 0.8} {g.x + gs * 0.8},{g.y} {g.x},{g.y + gs * 0.8} {g.x - gs * 0.8},{g.y}" fill="white" stroke={SEL} stroke-width={1.2 * sw} style="cursor:move"><title>Bend radius — drag</title></polygon>
 			{:else}

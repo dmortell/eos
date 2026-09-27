@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, handleAngle, modelGrips, bendGrips, type GripOpts } from './grips'
+import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, handleAngle, modelGrips, bendGrips, segWidthHandle, segWidthFromDrag, resizeCursor, type GripOpts } from './grips'
 import { graphNodeDraw } from './hit'
 import { doorGeom } from '../3dview/projection'
 import type { Mapper } from './mapper'
@@ -156,6 +156,59 @@ describe('bendGrips (F9)', () => {
 		expect(o.nodes[1].bend).toBe(100)
 		g.apply([b[0] - ux * 50, b[1] - uy * 50])   // dragged past the corner → sharp
 		expect(o.nodes[1].bend).toBe(0)
+	})
+})
+
+describe('segment width handle', () => {
+	it('sits on the side edge at the midpoint (up-screen side; a vertical run\'s right side), held out to minOff', () => {
+		expect(segWidthHandle([0, 0], [1000, 0], 100)).toEqual({ p: [500, -50], n: [0, -1], off: 50 })
+		expect(segWidthHandle([1000, 0], [0, 0], 100)!.p).toEqual([500, -50])   // same side whichever way the segment runs
+		expect(segWidthHandle([0, 0], [0, 1000], 100)!.p).toEqual([50, 500])
+		expect(segWidthHandle([0, 0], [1000, 0], 10, 30)!.off).toBe(30)
+		expect(segWidthHandle([5, 5], [5, 5], 100)).toBe(null)   // zero length (a riser in plan)
+	})
+	it('width = twice the perpendicular distance from the centreline, whole mm, ≥ 10, Shift 50s, rnd = the grid', () => {
+		const a: [number, number] = [0, 0], b: [number, number] = [1000, 0]
+		expect(segWidthFromDrag(a, b, [300, -80.4], 100, 50)).toBe(161)   // along the segment doesn't matter
+		expect(segWidthFromDrag(a, b, [500, 20], 100, 50)).toBe(10)        // across the centreline → the minimum
+		expect(segWidthFromDrag(a, b, [500, -80], 100, 50, { shift: true })).toBe(150)
+		expect(segWidthFromDrag(a, b, [500, -80], 100, 50, { rnd: (v) => Math.round(v / 100) * 100 })).toBe(200)
+		// a handle held out at minOff (30 > w/2 = 5) is relative: no jump on press, then 2 mm per mm
+		expect(segWidthFromDrag(a, b, [500, -30], 10, 30)).toBe(10)
+		expect(segWidthFromDrag(a, b, [500, -50], 10, 30)).toBe(50)
+	})
+	it('resizeCursor follows the drag direction', () => {
+		expect(resizeCursor([0, -1])).toBe('ns-resize')
+		expect(resizeCursor([1, 0])).toBe('ew-resize')
+		expect(resizeCursor([Math.SQRT1_2, Math.SQRT1_2])).toBe('nwse-resize')
+		expect(resizeCursor([Math.SQRT1_2, -Math.SQRT1_2])).toBe('nesw-resize')
+	})
+	it('modelGrips adds it for the selected segment (plan only); dragging sets that segment\'s w, back at the default drops it', () => {
+		const o = { id: 'c', type: 'conduit', w: 100, h: 100, edges: 4, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }, { id: 'c', x: 1000, y: 1000, z: 0 }],
+			segments: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }] } as Extract<Obj, { type: 'conduit' }>
+		const noop = { rnd: (v: number) => v, applyNode: () => {}, gripMm: 10 }
+		expect(modelGrips(planCtx, o, noop).some((g) => g.width)).toBe(false)
+		const g = modelGrips(planCtx, o, { ...noop, segId: 's2' }).find((x) => x.width)!
+		const a = graphNodeDraw(planCtx, o.nodes[1]), b = graphNodeDraw(planCtx, o.nodes[2]), h = segWidthHandle(a, b, 100, 15)!
+		expect([g.x, g.y]).toEqual(h.p)
+		g.apply([h.p[0] + h.n[0] * 50, h.p[1] + h.n[1] * 50])
+		expect(o.segments[1].w).toBe(200); expect(o.segments[0].w).toBeUndefined(); expect(g.width!.get()).toBe(200)
+		g.apply([h.p[0] + h.n[0] * 23, h.p[1] + h.n[1] * 23], undefined, { shift: true })
+		expect(o.segments[1].w).toBe(150)
+		g.apply(h.p)
+		expect(o.segments[1].w).toBeUndefined()   // = the default → no override
+		const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true }
+		expect(modelGrips(front, o, { ...noop, segId: 's2' }).some((x) => x.width)).toBe(false)
+	})
+	it('a wall\'s handle sets the segment\'s thickness; Alt drops the grid rounding', () => {
+		const o = { id: 'w', type: 'wall', h: 2700, thickness: 100, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }],
+			segments: [{ id: 's1', a: 'a', b: 'b' }] } as Extract<Obj, { type: 'wall' }>
+		const g = modelGrips(planCtx, o, { rnd: (v) => Math.round(v / 100) * 100, applyNode: () => {}, gripMm: 10, segId: 's1' }).find((x) => x.width)!
+		const n = g.width!.n, p: [number, number] = [g.x + n[0] * 20, g.y + n[1] * 20]   // 70 mm off the centreline → 140
+		g.apply(p)
+		expect(o.segments[0].thickness).toBeUndefined()   // 140 → the 100 grid = the default → no override
+		g.apply(p, undefined, { alt: true })
+		expect(o.segments[0].thickness).toBe(140)
 	})
 })
 

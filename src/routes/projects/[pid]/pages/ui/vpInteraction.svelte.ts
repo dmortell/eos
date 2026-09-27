@@ -279,8 +279,17 @@ export class VpInteraction {
 		const x0 = this.drawnBox(b0), x1 = this.drawnBox(cur)
 		this.dragRO = { from: [x0[0], x0[1]], to: [x1[0], x1[1]], at: d.last }
 	}
+	/** A segment WIDTH-handle drag: the width it sets (+ the change), shown by the cursor instead of the travel. */
+	private widthRO = $state<{ at: Pt; lines: string[] } | null>(null)
+	/** Drawing coords → .vp-LOCAL px (pre canvas CSS transform), as the in-place editor's. */
+	private roPx(at: Pt): { x: number; y: number } | null {
+		const { vpW, vpH, vbW, vbH, minX, minY, view, dscale, cx: CX, cy: CY } = this.v; if (!vpW || !vpH) return null
+		const vbx = view.x + view.zoom * (CX + dscale * (at[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (at[1] - CY))
+		return { x: ((vbx - minX) / vbW) * vpW, y: ((vby - minY) / vbH) * vpH }
+	}
 	readout = $derived.by((): { x: number; y: number; lines: string[] } | null => {
 		const v = this.v; if (!v.active || this.editText) return null
+		if (this.widthRO) { const q = this.roPx(this.widthRO.at); return q && { ...q, lines: this.widthRO.lines } }
 		const tool = v.tool, f = (n: number) => String(Math.round(n) || 0)
 		let from: Pt, to: Pt, at: Pt, kind: 'line' | 'box' | 'delta' | 'dim' | 'guide' = 'delta'
 		if (this.pickCur && this.pickBase) { from = this.pickBase; to = at = this.pickCur; if (this.pickBox) kind = 'box' }
@@ -302,10 +311,8 @@ export class VpInteraction {
 			: kind === 'guide' ? [`Δ ${f(L)} mm`]
 			: kind === 'dim' ? (() => { const m = resolveDimMode(dimSpec.mode, from, to); return [`${f(m === 'h' ? Math.abs(dx) : Math.abs(dy))} mm`, m === 'h' ? 'horizontal' : 'vertical'] })()
 			: [`${kind === 'delta' ? 'Δ ' : ''}${f(L)} mm  ∠ ${ang}°`, `Δx ${f(dx)}  Δy ${f(dy)}`]
-		// .vp-LOCAL px (pre canvas CSS transform), as the in-place editor's
-		const { vpW, vpH, vbW, vbH, minX, minY, view, dscale, cx: CX, cy: CY } = v; if (!vpW || !vpH) return null
-		const vbx = view.x + view.zoom * (CX + dscale * (at[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (at[1] - CY))
-		return { x: ((vbx - minX) / vbW) * vpW, y: ((vby - minY) / vbH) * vpH, lines }
+		const q = this.roPx(at)
+		return q && { ...q, lines }
 	})
 
 	// ── object snap (osnap, Kestrel-style) + the draw point: they RETURN the mark; the view shows it ──
@@ -1237,8 +1244,10 @@ export class VpInteraction {
 	// (opened at press, marked per move, closed at release) and the trailing click ──
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		moveModelGrip(this.v, s, p)
+		moveModelGrip(this.v, s, p, { alt: e.altKey, shift: e.shiftKey })   // (a segment's width handle: Alt = no grid, Shift = 50 mm steps)
 		this.v.editor.edit.mark()
+		const wd = s.grip.width
+		if (wd) { const w = wd.get(), dw = w - wd.w0; this.widthRO = { at: p, lines: [`W ${w} mm`, `Δ ${dw > 0 ? '+' : ''}${dw}`] } }
 	}
 	private onModelGripUp = (_e: PointerEvent, s: MGripDrag, moved: boolean) => {
 		const g = s.grip
@@ -1251,7 +1260,7 @@ export class VpInteraction {
 		}
 		this.onModelGripCancel()
 	}
-	private onModelGripCancel = () => { this.v.snapMark = null; this.v.editor.edit.end() }
+	private onModelGripCancel = () => { this.v.snapMark = null; this.widthRO = null; this.v.editor.edit.end() }
 
 	// ── section marker move (drag a box's border / a line's cut line) / reshape (a grip of the SELECTED one: a box corner,
 	// a line's end or depth handle); every linked elevation follows live. Each opens its undo step at press and ALWAYS

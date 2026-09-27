@@ -18,6 +18,19 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   (under floor = on the slab below FL; plenum / below ceiling from FL), a new section box (slab top → ceiling slab)
   and the default conduit height. Objects move / draw down to the slab top (z below 0). No data changes: everything
   drawn from z 0 now stands on the raised floor. (A building model's storeys keep their slab-top datum.)
+- **Site view (a test)**: select the PROJECT above the tree → its site. It asks for the address (Properties'
+  Address; "Save as project address"), finds it on OpenStreetMap (Nominatim), fetches the buildings around it
+  (Overpass) and renders THE building in 3D with three.js (`site/osm.ts` tested, `site/siteScene.ts`,
+  `parts/SiteView.svelte`): its building:part pieces with heights from the OSM tags (height / levels × 3.2 m,
+  min_height, roofs), facades with a window grid per storey, roof / wall colours, crisp edges, its outline on the
+  ground; the neighbours as grey massing; the OSM map on the ground (toggle); sun + shadows; orbit / pan / zoom; an info
+  card (name, address, use, height, levels, year, architect …) and the other address matches. three.js added (0.185).
+- **Segment width grip**: select a wall / trunk / pipe, click a segment again, and drag the bar on its side edge
+  (plan) to set THAT segment's width / thickness — symmetric about the centreline, whole mm, ≥ 10 mm; SNAP steps by the
+  grid, Alt = free, Shift = 50 mm steps; back to the run's default removes the override; one undo step; the readout shows
+  `W … mm` (model-grip drags had no readout before). Trunks & conduits todo closed.
+- todo closed: the review leftovers (§2.3 B11, §4.1 R1, §4.3 R5, §2.8 B18 / B19, §6 R4 / B13 — the z0 clamp and
+  unused CSS → LOW); #39 (tall buildings look right at 33 floors, riser room boxes, imported layers).
 - todo closed: VSCode slowness, 33F as a full-floor model, one model per floor (models are per floor / place, detail
   views have their own), model tabs as an infinite canvas (done in B31: dark model space, one zoom layer), "layer /
   colour / lineweight editing" (round 19). F4 context-menu split and the grid snap base point → LOW.

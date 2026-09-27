@@ -75,7 +75,20 @@ We can't infer "this sheet shows high-level outlets" from its viewports, so draw
 - A custom folder can also be a SMART folder: a saved filter (tags / kind / discipline / floor) that fills itself.
 - Stored in the project's Pages doc (`pages.treeViews`), so the whole team sees them; the chosen view is per user.
 
-### 3.5 What stays the same
+### 3.5 Models vs paper drawings — obvious at a glance (Dave 2026-09-27: a requirement)
+In EVERY view (places, grouped, custom) a MODEL row must be visually distinct from a PAPER drawing (sheet) row, so the
+user never has to guess which one opens model space and which opens a sheet:
+- **Icon**: models use a 3D / cube-style icon (a model: `box`; a building model: the building icon), sheets a paper
+  icon with a folded corner (`fileText`) — never the same glyph family.
+- **Colour + weight**: model rows get a model accent (e.g. teal text / icon, like the model-space UI) and their name in
+  regular weight; sheet rows stay neutral with the drawing number in a monospace prefix (`A-201 · Outlets 33F`).
+- **A tag / chip**: a small "MODEL" pill (or the sheet's number) at the row's end; in a grouped folder, models are
+  listed first under a thin "Models" sub-heading, then "Sheets".
+- **Hover + tooltip**: "Model — opens in model space" vs "Sheet A-201 — opens the paper layout".
+- The open tab mirrors it: model tabs already render dark model space; their tab gets the same model icon.
+Phase 1 includes this (it's cheap and it's what makes grouped views readable).
+
+### 3.6 What stays the same
 Opening, previewing, the ⋮ menus, multi-select, rename, delete — the same rows in any view. Only "By place" re-files
 on drag; in a group view, dragging onto a group SETS that field (drop on "High level" → adds the tag) — optional,
 phase 3.
@@ -89,7 +102,8 @@ phase 3.
 | 3 | Custom views: folders, drag in / out / reorder, smart folders; drop-on-group sets the field | M–L |
 
 ## 5. Questions for Dave
-1. Should models appear in the grouped views (e.g. "33F model" under Floors), or sheets only?
+1. Should models appear in the grouped views (e.g. "33F model" under Floors), or sheets only? (Wherever they appear
+   they must look clearly different from sheets — §3.5, Dave 2026-09-27.)
 2. Custom views shared with the team (recommended) or personal?
 3. A fixed tag vocabulary per project (admin-defined) or free tags with suggestions (recommended)?
 

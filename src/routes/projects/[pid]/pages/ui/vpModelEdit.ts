@@ -8,7 +8,7 @@ import { frameStep, dotT } from './geometry'
 import { ctxFrame, type ViewCtx } from './view'
 import { flOffset } from './levels'
 import type { GN } from './hit'
-import type { MGrip } from './grips'
+import type { MGrip, GripMods } from './grips'
 import type { VpView } from './vpView.svelte'
 import type { Obj } from '../3dview/types'
 import { newId } from '../ids'
@@ -98,7 +98,7 @@ export function endObjMove(v: VpView, ids: string[]) {
 
 /** A model grip drag step: the grip applies; F5 riders take the dragged node's position; a resized / rotated box
  *  brings its attached conduit ends (F6). */
-export function moveModelGrip(v: VpView, s: MGripDrag, p: Pt) {
+export function moveModelGrip(v: VpView, s: MGripDrag, p: Pt, mods?: GripMods) {
 	if (s.split) {   // the first move of an Alt-drag inside one run: split the node, then drag the copy
 		const g = s.grip, o = g.obj, dir: [number, number] = [p[0] - s.origin[0], p[1] - s.origin[1]]
 		if (Math.hypot(...dir) < 1e-6) return
@@ -109,7 +109,7 @@ export function moveModelGrip(v: VpView, s: MGripDrag, p: Pt) {
 			if (nn) s.grip = { ...g, node: nn, apply: (q: Pt, org?: Pt) => v.graphNodeApply(nn, q, org) }
 		}
 	}
-	s.grip.apply(p, s.origin)
+	s.grip.apply(p, s.origin, mods)
 	const go = s.grip.obj, n = s.grip.node && go && (go.type === 'wall' || go.type === 'conduit') ? (go.nodes as GN[]).find((x) => x.id === s.grip.node!.id) : undefined
 	if (n && s.peers?.length) for (const q of s.peers) { q.x = n.x; q.y = n.y; q.z = n.z }
 	const o = go ?? v.mSelObj
