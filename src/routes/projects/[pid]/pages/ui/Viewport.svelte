@@ -12,13 +12,14 @@
 	import { untrack } from 'svelte'
 	import { Icon } from '$lib'
 	import { panzoom } from './panzoom'
+	import { wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 	import EntRender from './render/EntRender.svelte'
 	import VpMarks from './render/VpMarks.svelte'
 	import VpOverlays from './render/VpOverlays.svelte'
 	import VpWidgets from './render/VpWidgets.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { GROUND, MMPU } from './geometry'
-	import { HANDLE_PX, stepScale, effScale } from '../constants'
+	import { HANDLE_PX, effScale } from '../constants'
 	import { onDark } from './modelSpace'
 	import { imgEdit } from '../imageEdit.svelte'
 	import { VpView } from './vpView.svelte'
@@ -68,7 +69,10 @@
 	style:border-style={v.active ? 'solid' : v.border === 'none' ? 'dotted' : v.border}
 	style:border-color={v.border === 'none' && !v.active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, leftPans: () => v.navMode === 'pan', onpan: v.onPan, onzoom: v.onZoom,
-		altWheel: v.modelSpace ? undefined : (d: 1 | -1) => v.on.scale?.(stepScale(v.scale, d)), altDrag: () => !v.modelSpace && !v.active }}
+		// Alt+wheel / Alt+drag = zoom / pan the CONTENT of any sheet viewport — inactive, selected or active — without
+		// "Pan content"; in the ACTIVE one an Alt-press ON a shape stays "move without snap"
+		altWheel: v.modelSpace ? undefined : (e: WheelEvent) => v.onZoom(wheelZoomFactorFromEvent(e, 0.0015), e.clientX, e.clientY),
+		altDrag: (e: PointerEvent) => { if (v.modelSpace) return false; if (!v.active) return true; const p = v.toModel(e.clientX, e.clientY); return !p || v.pickAt(e.clientX, e.clientY, p) === null } }}
 	onpointerdowncapture={x.noteRightDown} onwheelcapture={x.noteWheel}
 	ondragover={x.onDragOver} ondrop={x.onDrop}
 	onclick={x.onClick} ondblclick={x.onDblclick} oncontextmenu={x.onContext} onpointerdown={x.onDown} onpointermove={x.onMove} onpointerleave={x.onLeave}

@@ -16,11 +16,12 @@ export type PanZoomOpts = {
 	leftPans?: () => boolean
 	onpan: (dx: number, dy: number, node: HTMLElement) => void            // screen-px delta
 	onzoom: (factor: number, clientX: number, clientY: number, node: HTMLElement) => void
-	/** Alt+wheel (OpenCad, a SHEET viewport): step something (its scale) instead of zooming — +1 = up, −1 = down. Works
-	 *  even when `enabled` is false (an inactive viewport). */
-	altWheel?: (dir: 1 | -1) => void
-	/** Alt+LEFT drag pans this node even when `enabled` is false (a sheet viewport's contents, without entering it). */
-	altDrag?: () => boolean
+	/** Alt+wheel (a SHEET viewport): zoom its CONTENT at the cursor — even when `enabled` is false (an inactive / selected
+	 *  viewport, "Pan content" off). */
+	altWheel?: (e: WheelEvent) => void
+	/** Alt+LEFT drag pans this node even when `enabled` is false (a sheet viewport's contents, without entering it) —
+	 *  when this says so for the press (e.g. not on a shape of the ACTIVE viewport, where Alt = move without snap). */
+	altDrag?: (e: PointerEvent) => boolean
 }
 
 export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
@@ -28,7 +29,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	const on = () => (opts.enabled ? opts.enabled() : true)
 
 	function wheel(e: WheelEvent) {
-		if (e.altKey && opts.altWheel) { e.preventDefault(); e.stopPropagation(); if (e.deltaY) opts.altWheel(e.deltaY < 0 ? 1 : -1); return }
+		if (e.altKey && opts.altWheel) { e.preventDefault(); e.stopPropagation(); if (e.deltaY) opts.altWheel(e); return }
 		if (!on()) return
 		e.preventDefault()
 		e.stopPropagation()   // don't also act on an enabled panzoom ancestor (canvas under a viewport)
@@ -49,7 +50,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	// right/middle-button drag → pan (window move/up so it survives leaving the node)
 	let panning = false, lastX = 0, lastY = 0
 	function down(e: PointerEvent) {
-		const altPan = e.altKey && e.button === 0 && !!opts.altDrag?.()
+		const altPan = e.altKey && e.button === 0 && !!opts.altDrag?.(e)
 		if (!altPan && (!on() || (e.button !== 2 && e.button !== 1 && !(e.button === 0 && opts.leftPans?.())))) return
 		if ((e.target as Element)?.closest?.('button, .glass-bar, .floattools')) return   // the on-canvas toolbars stay clickable
 		panning = true; lastX = e.clientX; lastY = e.clientY

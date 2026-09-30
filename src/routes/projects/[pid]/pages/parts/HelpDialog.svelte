@@ -23,7 +23,7 @@
 		['Big text editor for a note / text', 'Double-click a note · Shift+double-click a text'], ['Orbit the 3D view (about the view middle)', 'Drag (3D view)'],
 		['Repeat the last command', 'Enter / Space on an empty line'], ['Drag out a copy of shapes / 3D objects / viewports', 'Ctrl+drag — press / release Ctrl mid-drag to switch copy ↔ move'],
 		['Select shapes and 3D objects together', 'Drag a box · Shift / Ctrl+click (they move, copy, nudge and delete together)'],
-		['Sheet viewport: step its scale / pan its contents', 'Alt+wheel / Alt+drag over it'],
+		['Sheet viewport: zoom / pan its contents (no need for Pan content — inactive, selected or active; in the active one Alt-drag on empty space)', 'Alt+wheel / Alt+drag over it'],
 		['Sheet viewports: select several / nudge them', 'Shift+click borders or drag a box · arrows (Shift = 10 mm)'],
 		['Sheet viewports: MOVE / COPY / ARRAY / ALIGN / ERASE (paper mm, e.g. M, 0,0, @20,0)', 'Type the command with no viewport active'],
 		['Drag / resize without snapping (free, exact spot)', 'Hold Alt while dragging (F9 / SNAP and OSNAP in the status bar turn snapping off for good)'],
