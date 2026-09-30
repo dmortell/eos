@@ -6,7 +6,7 @@
 // The pure geometry/hit/grip/snap logic stays in hit.ts / grips.ts / snap.ts / mapper.ts — this class only
 // injects the view (`ctx`, tolerances, layer predicates) into them.
 import { untrack } from 'svelte'
-import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom } from '../constants'
+import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom, scaleDenom } from '../constants'
 import { type Pt, type Ent, type View, type ElevDir, type ElevFrame, GROUND, PLAN_CX, PLAN_CY, frameOf, frameAxis, frameAngle, frameU, frameSpan, rectPts } from './geometry'
 import { devObliqueFrame } from './devOblique'
 import { makeMapper, type Mapper } from './mapper'
@@ -72,7 +72,26 @@ export class VpView {
 			if (!this.modelSpace || this.kind !== 'plan' || !e || !measured || v.zoom !== 1 || v.x !== 0 || v.y !== 0) return
 			untrack(() => this.zoomToBox(e.x0, e.y0, e.x1, e.y1, 0.92))
 		})
+		// SHEET VIEWPORT scale changed from outside a wheel fold (the scale dropdown, Undo, another user): keep the model
+		// point under the viewport centre fixed, so it zooms about the middle instead of drifting off (the content scales
+		// about C, which is not the centre once the view has been panned).
+		$effect(() => {
+			const key = `${this.frameId}|${this.scale}`
+			untrack(() => {
+				const prev = this.#seenScale; this.#seenScale = key
+				if (this.modelSpace || !prev || prev === key || prev.split('|')[0] !== String(this.frameId)) return
+				if (this.#folded === this.scale) { this.#folded = undefined; return }
+				const n0 = scaleDenom(prev.split('|')[1]), n1 = scaleDenom(this.scale)
+				if (!n0 || !n1) return
+				// centre C = v + z·(C + (P − C)/N) → v' = C − zC − (N0/N1)·(C − v − zC)
+				const v = this.view, k = n0 / n1
+				this.on.view?.({ zoom: v.zoom, x: CX - v.zoom * CX - k * (CX - v.x - v.zoom * CX), y: CY - v.zoom * CY - k * (CY - v.y - v.zoom * CY) })
+			})
+		})
 	}
+	#seenScale: string | undefined
+	/** The scale onZoom just set — its view is already right, so the effect above leaves it alone. */
+	#folded: string | undefined
 	/** Zoom + centre the content view on a drawing-coords box (ZOOM W, extents). */
 	zoomToBox(x0: number, y0: number, x1: number, y1: number, margin = 1) {
 		const ds = this.dscale, bw = (x1 - x0) * ds, bh = (y1 - y0) * ds
@@ -278,13 +297,30 @@ export class VpView {
 		const v = this.view
 		this.on.view?.({ zoom: v.zoom, x: v.x + dx / m.scale, y: v.y + dy / m.scale })
 	}
-	/** Wheel-zoom FREE-zooms this viewport's own content view (keyed per pane+tab), so zooming one split pane
-	 *  never touches the other; the drawing scale changes only via the scale selector. */
+	/** Zoom at the cursor. MODEL SPACE free-zooms its own content view (keyed per pane+tab). A SHEET VIEWPORT has no
+	 *  zoom of its own (Dave 2026-09-30): zooming changes its SCALE — any whole 1:N, like the Sheets tool — so what is
+	 *  shown is what prints at the scale in its title block. The content view keeps zoom 1: a zoom z folds into the scale
+	 *  (N' = N / z, view += (z − 1)·C — the content maps as view + z·(C + (P − C)/N)), which also absorbs an older
+	 *  viewport's leftover content zoom the first time it is zoomed. */
 	onZoom = (f: number, clientX: number, clientY: number) => {
 		const m = this.vbMap(); if (!m) return
 		const vx = this.minX + (clientX - m.left) / m.scale, vy = this.minY + (clientY - m.top) / m.scale   // cursor in viewBox coords
-		const v = this.view, nz = clampViewZoom(v.zoom * f), r = nz / v.zoom
-		this.on.view?.({ zoom: nz, x: vx - (vx - v.x) * r, y: vy - (vy - v.y) * r })
+		const v = this.view
+		if (this.modelSpace || !this.on.scale || !this.scale) {
+			const nz = clampViewZoom(v.zoom * f), r = nz / v.zoom
+			this.on.view?.({ zoom: nz, x: vx - (vx - v.x) * r, y: vy - (vy - v.y) * r })
+			return
+		}
+		const n0 = scaleDenom(this.scale), want = n0 / (v.zoom * f)
+		// a whole 1:N, moving at least one step the way the wheel went (1:5 × 1.05 would round back to 1:5)
+		let n1 = Math.max(1, Math.round(want))
+		if (f > 1 && n1 >= n0 / v.zoom) n1 = Math.max(1, Math.ceil(n0 / v.zoom) - 1)
+		if (f < 1 && n1 <= n0 / v.zoom) n1 = Math.floor(n0 / v.zoom) + 1
+		const zEff = n0 / n1, r = zEff / v.zoom   // the zoom this scale amounts to, relative to now
+		const x1 = vx - (vx - v.x) * r, y1 = vy - (vy - v.y) * r
+		if (`1:${n1}` !== this.scale) this.#folded = `1:${n1}`
+		this.on.scale(`1:${n1}`)
+		this.on.view?.({ zoom: 1, x: x1 + (zEff - 1) * CX, y: y1 + (zEff - 1) * CY })
 	}
 
 	// ── BACKGROUND shapes: shapes on a layer in the 'Background' group (a floor's calibrated floorplan PDF is an

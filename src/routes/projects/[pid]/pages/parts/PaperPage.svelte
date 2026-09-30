@@ -166,6 +166,24 @@
 	}
 	const items = new ItemEditor<SheetFrame>(frameSource, { ortho: () => false })
 	const toPt = (e: PointerEvent | MouseEvent): Pt => { const s = toSheet(e.clientX, e.clientY); return [s.x, s.y] }
+	/** An inactive frame's overlay (`.vp-band`) sits over its Viewport, so Alt+wheel (zoom = scale) and an Alt+drag in the
+	 *  interior (pan the content) would never reach the Viewport's panzoom — hand them to its `.vp` (non-bubbling, so the
+	 *  sheet handlers don't see them twice); if it took the gesture, the original stops here. */
+	function altToVp(node: HTMLElement) {
+		const fwd = (e: WheelEvent | PointerEvent) => {
+			if (!e.altKey || tool === 'Viewport') return
+			if (e.type === 'pointerdown' && (e.button !== 0 || !(e.target as Element).classList.contains('vp-interior'))) return   // the border band = move the frame
+			const vp = node.closest('.vp-frame')?.querySelector<HTMLElement>('.vp'); if (!vp) return
+			const init = { clientX: e.clientX, clientY: e.clientY, altKey: true, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, button: e.button, buttons: e.buttons, cancelable: true }
+			const ev = e instanceof WheelEvent ? new WheelEvent('wheel', { ...init, deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode })
+				: new PointerEvent('pointerdown', { ...init, pointerId: e.pointerId, pointerType: e.pointerType, isPrimary: e.isPrimary })
+			vp.dispatchEvent(ev)
+			if (ev.defaultPrevented) { e.preventDefault(); e.stopPropagation() }
+		}
+		node.addEventListener('wheel', fwd, { passive: false })
+		node.addEventListener('pointerdown', fwd)
+		return { destroy() { node.removeEventListener('wheel', fwd); node.removeEventListener('pointerdown', fwd) } }
+	}
 	/** A press on a frame's border band (move) or a corner grip: the engine drags it (Ctrl = drag a copy, Alt = no snap). */
 	function startFrameDrag(e: PointerEvent, id: string, kind: 'move' | 'grip', gi: number) {
 		e.stopPropagation()
@@ -381,7 +399,7 @@
 						<!-- Purely visual now (R8-lite): cursor/outline only, no handlers of their own — picking
 						     (border band vs interior vs corner grip) is centralized in onSheetDown/onWrapDblclick
 						     above via hit.ts's inBox, so a press/dblclick anywhere on these just bubbles there. -->
-						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined}>
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} use:altToVp>
 							<div class="vp-interior"></div>
 						</div>
 						{#if selFrame === f.id && !f.locked}

@@ -57,6 +57,15 @@
 	// no canvas transform — pan/zoom act on the Viewport's own view — and dark, like AutoCAD. Only the
 	// paper layout keeps the canvas pan/zoom + activation. Same test as +page's `isModelLayout`.
 	const modelLayout = $derived(!!a && !(a.kind === 'sheet' && p.layout === 'sheet'))
+	// the active-viewport bar's scale: a standard one from the list, or Custom… → any typed 1:N (null = not typing)
+	let customScale = $state<string | null>(null)
+	/** "1:137", "1 : 137" or "137" → 137 (a whole number ≥ 1), else null. */
+	const parseScale = (v: string): number | null => { const m = /^\s*(?:1\s*:\s*)?(\d+)\s*$/.exec(v); const n = m ? Number(m[1]) : NaN; return n >= 1 ? n : null }
+	/** Set the active viewport's scale — a sheet frame (one undo step) or a model tab's own. */
+	function setAvScale(tabId: string, frameId: string | null, s: string) {
+		if (frameId) { ws.updateFrame(tabId, frameId, { scale: s }); ws.commitFrame(tabId, `Viewport scale ${s}`) } else ws.setScale(tabId, s)
+	}
+	function focusSelect(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 	let rDown: { x: number; y: number } | null = null   // a right-CLICK (not a right-drag pan) drops a latched Pan / Orbit
 </script>
 
@@ -127,11 +136,19 @@
 					</button>
 				{/if}
 				<!-- viewport scale (like the Sheets tool's per-view scale) — the primary's tab scale, or the active extra frame's own scale -->
-				<label class="vab-scale" title="Drawing scale">
-					<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) ws.updateFrame(a.id, avId, { scale: s }); else ws.setScale(a.id, s); }}>
-						{#if !SCALES.includes(avScale)}<option value={avScale}>{avScale}</option>{/if}
-						{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
-					</select>
+				<!-- the standard scales, or Custom… → type any 1:N (a sheet viewport's zoom IS its scale — wheel / Alt+wheel too) -->
+				<label class="vab-scale" title="Drawing scale — pick a standard one, or Custom… to type any 1:N">
+					{#if customScale !== null}
+						<input class="vab-custom" bind:value={customScale} placeholder="1:N" aria-label="Custom scale" use:focusSelect
+							onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { const n = parseScale(customScale ?? ''); if (n) setAvScale(a.id, avFrame ? avId : null, `1:${n}`); customScale = null } else if (e.key === 'Escape') customScale = null }}
+							onblur={() => (customScale = null)} />
+					{:else}
+						<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (s === 'custom') { customScale = avScale; (e.currentTarget as HTMLSelectElement).value = avScale; return } setAvScale(a.id, avFrame ? avId : null, s) }}>
+							{#if !SCALES.includes(avScale)}<option value={avScale}>{avScale}</option>{/if}
+							{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
+							<option value="custom">Custom…</option>
+						</select>
+					{/if}
 				</label>
 				<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
 				{#if !avFrame && a.kind === 'sheet'}
@@ -282,6 +299,8 @@
 	.vab-btn.on { background:var(--active); color:var(--accent); }
 	.vab-scale select { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:3px 6px; font-size:12px; font-weight:600; }
 	.vab-scale select:focus { outline:none; border-color:var(--accent); }
+	.vab-custom { width:76px; background:var(--panel2); color:var(--text); border:1px solid var(--accent); border-radius:5px; padding:3px 6px; font-size:12px; font-weight:600; font-family:Consolas, monospace; }
+	.vab-custom:focus { outline:none; }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }

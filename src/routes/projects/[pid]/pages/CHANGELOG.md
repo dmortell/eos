@@ -29,9 +29,15 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 
 - **"Rendering PDF…"**: while a PDF page rasterises, its image shows a dashed placeholder with a spinner (each image on
   a page its own; screen only).
-- **Alt+wheel / Alt+drag = zoom / pan a sheet viewport's CONTENT** — inactive, selected or active (in the active one on
-  empty space; Alt-press on a shape stays "move without snap") — no need for Pan content. (Alt+wheel stepped the
-  viewport's printed scale before, and Alt+drag worked only on inactive viewports.)
+- **Alt+drag = pan a sheet viewport's CONTENT** — inactive, selected or active (in the active one on empty space;
+  Alt-press on a shape stays "move without snap") — no need for Pan content.
+- **A sheet viewport's zoom IS its scale** (Dave 2026-09-30): model space keeps free zoom, but zooming a sheet viewport
+  (Alt+wheel anywhere over it, or the wheel inside it with Pan content) changes its scale to a whole 1:N — like the
+  Sheets tool — about the cursor, so what you see is what prints. One undo step per burst ("Viewport scale 1:N"). An
+  older viewport's leftover content zoom folds into its scale the first time it is zoomed. The active-viewport bar's
+  scale list gains **Custom…** (type 1:37 or 37, Enter). A scale set from the list, Undo or another user keeps the
+  model point at the viewport centre fixed. Alt gestures now reach an INACTIVE viewport too (its overlay swallowed
+  them — they only worked on an active one).
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

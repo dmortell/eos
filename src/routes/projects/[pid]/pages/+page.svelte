@@ -414,12 +414,14 @@
 	// A per-frame VIEW bundle: entity editing keeps the TAB id (vpEditor is unchanged per frame — same
 	// document, same editor); view / activation / scale / orbit use the FRAME id, so each viewport pans,
 	// activates and re-aims independently.
+	let scaleCommitT: ReturnType<typeof setTimeout> | undefined
 	const vpFrameView = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame): VpOn => ({
 		...vpView(a, pane),
 		view: (v: View) => setView(pane.id, frame.id, frame.proj, v),
 		activate: () => activateFrame(a.id, frame.id),
 		deactivate: () => deactivateVp(frame.id),
-		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
+		// a wheel burst changes the scale many times: ONE undo step, ~0.6 s after the last change
+		scale: (s: string) => { updateFrame(a.id, frame.id, { scale: s }); clearTimeout(scaleCommitT); scaleCommitT = setTimeout(() => commitFrame(a.id, `Viewport scale ${s}`), 600) },
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, frame.proj, yaw, pitch),
 		dropFiles: (fs, at) => { activateFrame(a.id, frame.id); void tick().then(() => insertFiles(fs, at)) },   // into THIS viewport's model
 	})
