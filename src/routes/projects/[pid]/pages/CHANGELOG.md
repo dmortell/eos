@@ -27,6 +27,12 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   Overpass best-effort (15 s; else its outline + a note); Neighbours on = everything within 180 m via Overpass
   (bbox query, 3 servers, timeouts).
 
+- **"Rendering PDF…"**: while a PDF page rasterises, its image shows a dashed placeholder with a spinner (each image on
+  a page its own; screen only).
+- **Alt+wheel / Alt+drag = zoom / pan a sheet viewport's CONTENT** — inactive, selected or active (in the active one on
+  empty space; Alt-press on a shape stays "move without snap") — no need for Pan content. (Alt+wheel stepped the
+  viewport's printed scale before, and Alt+drag worked only on inactive viewports.)
+
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor
   (A-FLOR), ceiling = the plenum's bottom (A-CLNG, dashed) and NEW the ceiling slab's underside = the plenum's top
