@@ -23,6 +23,8 @@
 	import type { VpOn, NavMode } from './ui/vpTypes'
 	import type { Editor } from './ui/editor'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
+	import ItemsPanel from './parts/ItemsPanel.svelte'
+	import type { ItemRow } from './ui/itemList'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import SiteView from './parts/SiteView.svelte'
@@ -913,6 +915,32 @@
 
 	// Sidebars
 	let leftOpen = $state(true)
+	// left sidebar tabs: the drawing tree / the active view's items (remembered per browser)
+	let leftTab = $state<'drawings' | 'items'>((() => { try { return localStorage.getItem('pages.leftTab') === 'items' ? 'items' : 'drawings' } catch { return 'drawings' } })())
+	$effect(() => { const t = leftTab; try { localStorage.setItem('pages.leftTab', t) } catch { /* private mode */ } })
+	// ITEMS: "In this view" = the active viewport (else the sheet's target frame; model space = the tab): its hidden +
+	// frozen layers, its frame id (view-scoped notes) and direction.
+	const itemsView = $derived.by(() => {
+		const a = active, p = session.panes[session.focused]; if (!a || !p) return null
+		const ls = modelById(activeMid())?.layers ?? []
+		const f = isModelLayout(p) ? null : activeFrame ?? targetFrameOf(a.id)
+		if (!isModelLayout(p) && !f) return null
+		const frozen = new Set(f?.frozen ?? [])
+		return { hidden: (id?: string) => isLayerHidden(ls, id) || (!!id && frozen.has(id)), frameId: f?.id ?? a.id, dir: (f ? f.proj ?? 'plan' : projOf(p, a)) as string }
+	})
+	const itemsSel = $derived(activeSel.filter((s) => s.kind === 'ent' || s.kind === 'obj').map((s) => `${s.kind}:${s.id}`))
+	/** The Items list picked rows: select them in the active viewport (a sheet with none active enters the one the list
+	 *  shows — its target frame, else the first). */
+	function selectItems(rows: ItemRow[]) {
+		const a = active, p = session.panes[session.focused]; if (!a || !p) return
+		if (!isModelLayout(p) && !activeVpOf(a.id)) {
+			const f = targetFrameOf(a.id) ?? framesOf(a.id)[0]
+			if (!f) { toast('This sheet has no viewport to select in'); return }
+			activateFrame(a.id, f.id)
+		}
+		selStore.set(activeSelViewId(), selOnly(rows.map((r): SelItem => ({ kind: r.kind, id: r.id }))))
+	}
+	const showItems = () => void tick().then(() => { const err = cmdBus.target?.showSelection?.(); if (err) toast(err) })
 	let rightOpen = $state(true)
 	let rightTab = $state<'layers' | 'props' | 'history' | 'blocks'>('layers')   // right sidebar tabs
 	// D5: the block armed for placement (the Blocks panel); the focused pane's tool becomes 'Block' while armed
@@ -1528,9 +1556,20 @@
 	<div class="body">
 
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
-		{#if leftOpen}
+		{#snippet leftTabs()}
+			<div class="left-tabs" role="tablist">
+				<button role="tab" aria-selected={leftTab === 'drawings'} class:on={leftTab === 'drawings'} onclick={() => (leftTab = 'drawings')}>Drawings</button>
+				<button role="tab" aria-selected={leftTab === 'items'} class:on={leftTab === 'items'} onclick={() => (leftTab = 'items')} title="The shapes and objects in the active view — outlets, trunks, racks …">Items</button>
+			</div>
+		{/snippet}
+		{#if leftOpen && leftTab === 'items'}
+			<aside class="side left wide">
+				<ItemsPanel model={active ? modelById(activeMid()) ?? null : null} view={itemsView} selected={itemsSel} onselect={selectItems} onshow={showItems}
+					oncollapse={() => (leftOpen = false)} head={leftTabs} />
+			</aside>
+		{:else if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator tree={proj.shownTree} project={proj.realTree?.project ?? null} status={proj.navStatus}
+				<DrawingNavigator head={leftTabs} tree={proj.shownTree} project={proj.realTree?.project ?? null} status={proj.navStatus}
 					placesMode={proj.hasPlaces} onseedplaces={proj.canSeedPlaces ? proj.seedPlaces : undefined}
 					views={proj.navViews} onopenmodel={(id, preview) => { restoredFor = page.params.pid ?? ''; proj.openModelRow(id, preview) }}
 					onplaceadd={proj.onPlaceAdd} onplacerename={proj.onPlaceRename} onplacemove={proj.onPlaceMove} onplacedelete={proj.onPlaceDelete}
@@ -1731,6 +1770,11 @@
 	/* Sidebars */
 	.side { flex:0 0 auto; display:flex; flex-direction:column; background:var(--panel); min-height:0; }
 	.side.left { width:220px; border-right:1px solid var(--line); }
+	.side.left.wide { width:260px; }
+	.left-tabs { display:flex; gap:2px; }
+	.left-tabs button { font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--faint); background:none; border:none; border-radius:4px; padding:3px 6px; cursor:pointer; }
+	.left-tabs button:hover { color:var(--text); }
+	.left-tabs button.on { color:var(--text); background:var(--active); }
 	.side.right { width:250px; border-left:1px solid var(--line); }
 	.side-head { display:flex; align-items:center; gap:6px; height:30px; padding:0 6px; border-bottom:1px solid var(--line-soft); }
 	.side-tabs { display:flex; gap:2px; flex:1; }

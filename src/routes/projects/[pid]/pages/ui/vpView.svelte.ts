@@ -83,9 +83,10 @@ export class VpView {
 				if (this.#folded === this.scale) { this.#folded = undefined; return }
 				const n0 = scaleDenom(prev.split('|')[1]), n1 = scaleDenom(this.scale)
 				if (!n0 || !n1) return
-				// centre C = v + z·(C + (P − C)/N) → v' = C − zC − (N0/N1)·(C − v − zC)
-				const v = this.view, k = n0 / n1
-				this.on.view?.({ zoom: v.zoom, x: CX - v.zoom * CX - k * (CX - v.x - v.zoom * CX), y: CY - v.zoom * CY - k * (CY - v.y - v.zoom * CY) })
+				// centre C = v + z·(C + (P − C)/N), so P − C = N0·((C − v)/z − C); at zoom 1 (an older viewport's leftover
+				// content zoom goes too — the scale picked IS what shows) and 1:N1: v' = −(P − C)/N1
+				const v = this.view, k = n0 / n1, z = v.zoom || 1
+				this.on.view?.({ zoom: 1, x: -k * ((CX - v.x) / z - CX), y: -k * ((CY - v.y) / z - CY) })
 			})
 		})
 	}
@@ -99,7 +100,19 @@ export class VpView {
 		// the Viewport draws P at view + zoom·(C + dscale·(P − C)); centre the box's mid-point on C
 		const zoom = clampViewZoom(Math.min(this.vbW / bw, this.vbH / bh) * margin)
 		const mx = (x0 + x1) / 2, my = (y0 + y1) / 2
+		if (!this.modelSpace && this.on.scale && this.p.scale) {   // a SHEET viewport: the zoom becomes its scale (the whole 1:N that fits)
+			const n1 = Math.max(1, Math.ceil(scaleDenom(this.scale) / zoom - 1e-9))
+			if (`1:${n1}` !== this.scale) this.#folded = `1:${n1}`
+			this.on.scale(`1:${n1}`)
+			this.on.view?.({ zoom: 1, x: -(mx - CX) / n1, y: -(my - CY) / n1 })   // P = m lands on C at zoom 1, 1:n1
+			return
+		}
 		this.on.view?.({ zoom, x: CX - zoom * (CX + ds * (mx - CX)), y: CY - zoom * (CY + ds * (my - CY)) })
+	}
+	/** Pan (keeping zoom and scale) so the drawing-coords box's middle sits in the viewport's middle. */
+	centreOnBox(x0: number, y0: number, x1: number, y1: number) {
+		const ds = this.dscale, z = this.view.zoom, mx = (x0 + x1) / 2, my = (y0 + y1) / 2
+		this.on.view?.({ zoom: z, x: CX - z * (CX + ds * (mx - CX)), y: CY - z * (CY + ds * (my - CY)) })
 	}
 
 	// ── props (with their defaults) ──

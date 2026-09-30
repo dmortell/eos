@@ -467,6 +467,20 @@ export class VpInteraction {
 		this.placeElev(a, userDeg == null ? ELEV_DEFAULT_ANGLE : userToPlanAngle(userDeg))
 		return true
 	}
+	/** The selected shapes + model objects' box in drawing coords (as drawn in this view), or null. */
+	private selBox(): [number, number, number, number] | null {
+		const v = this.v, boxes: [number, number, number, number][] = v.entities.filter((e) => v.selSet.has(e.id)).map((e) => bbox(v.ctx, e))
+		const objIds = new Set(idsOfKind(v.selection, 'obj'))
+		if (objIds.size && v.mdl) {
+			const ib = v.kind === 'iso' ? isoBounds(v.mdl.objects, v.yaw, v.pitch, v.cx, v.cy, v.mlayers.visible, v.persp) : null, vm = viewMapOf(v.ctx, ib)
+			for (const o of v.mdl.objects) if (o.id && objIds.has(o.id)) {
+				const b = objBounds(o), ps = [b.x0, b.x1].flatMap((x) => [b.y0, b.y1].flatMap((y) => [b.z0, b.z1].map((z) => vm.toDraw({ x, y, z }))))
+				boxes.push([Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))])
+			}
+		}
+		if (!boxes.length) return null
+		return [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))]
+	}
 	readonly cmdTarget: VpCommandTarget = {
 		drawing: () => this.v.tool !== 'Select',
 		lastPoint: () => { const d = this.draft.at(-1); return d ? this.toUser(d) : this.lastUser },
@@ -539,19 +553,17 @@ export class VpInteraction {
 		select: (ids) => this.v.selectEnts(ids),
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
 		zoomSelection: () => {   // ZOOM Object / Z with a selection: frame the selected shapes + model objects
-			const v = this.v, boxes: [number, number, number, number][] = v.entities.filter((e) => v.selSet.has(e.id)).map((e) => bbox(v.ctx, e))
-			const objIds = new Set(idsOfKind(v.selection, 'obj'))
-			if (objIds.size && v.mdl) {
-				const ib = v.kind === 'iso' ? isoBounds(v.mdl.objects, v.yaw, v.pitch, v.cx, v.cy, v.mlayers.visible, v.persp) : null, vm = viewMapOf(v.ctx, ib)
-				for (const o of v.mdl.objects) if (o.id && objIds.has(o.id)) {
-					const b = objBounds(o), ps = [b.x0, b.x1].flatMap((x) => [b.y0, b.y1].flatMap((y) => [b.z0, b.z1].map((z) => vm.toDraw({ x, y, z }))))
-					boxes.push([Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))])
-				}
-			}
-			if (!boxes.length) return 'Nothing selected to zoom to'
-			const x0 = Math.min(...boxes.map((b) => b[0])), y0 = Math.min(...boxes.map((b) => b[1])), x1 = Math.max(...boxes.map((b) => b[2])), y1 = Math.max(...boxes.map((b) => b[3]))
-			const pad = Math.max(x1 - x0, y1 - y0, 200) * 0.1
-			v.zoomToBox(x0 - pad, y0 - pad, x1 + pad, y1 + pad)
+			const b = this.selBox(); if (!b) return 'Nothing selected to zoom to'
+			const [x0, y0, x1, y1] = b, pad = Math.max(x1 - x0, y1 - y0, 200) * 0.1
+			this.v.zoomToBox(x0 - pad, y0 - pad, x1 + pad, y1 + pad)
+			return null
+		},
+		showSelection: () => {   // the Items list's double-click: bring the selection into view without jumping to a huge zoom
+			const b = this.selBox(); if (!b) return 'Nothing selected'
+			const v = this.v, [x0, y0, x1, y1] = b
+			if (!v.modelSpace) { v.centreOnBox(x0, y0, x1, y1); return null }   // a sheet viewport keeps its scale — it only pans
+			const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, r = Math.max(x1 - x0, y1 - y0, 5000) * 0.6   // at least ~6 m around it
+			v.zoomToBox(mx - r, my - r, mx + r, my + r)
 			return null
 		},
 		cursor: () => this.lastPtr,

@@ -38,6 +38,17 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   scale list gains **Custom…** (type 1:37 or 37, Enter). A scale set from the list, Undo or another user keeps the
   model point at the viewport centre fixed. Alt gestures now reach an INACTIVE viewport too (its overlay swallowed
   them — they only worked on an active one).
+  - Follow-ups: the bar's scale list shows the EFFECTIVE scale (what the tag shows), and picking one also clears an
+    older viewport's leftover content zoom; ZOOM Extents / Window / Object in a sheet viewport set the whole 1:N that
+    fits (they zoomed the content before).
+- **Left panel › ITEMS tab** (beside DRAWINGS, `parts/ItemsPanel.svelte`, `ui/itemList.ts` tested): the shapes + 3D
+  objects of the active view's model as a list — outlets (label, ports · High/Low · usage), trunks, racks, devices,
+  walls, doors / windows, boxes, blocks, text, dimensions, lines, images. Filters: category (with counts), layer,
+  search, and for outlets level + usage; "In this view" = only what the viewport shows (visible / unfrozen layers,
+  its own notes, its plane). Multi-select like a file list (click, Ctrl+click, Shift+click range, Select all) —
+  selects in the view (a sheet with no active viewport enters its target one), so Properties edits them together;
+  a selection made in the view highlights + scrolls to its rows. Double-click = bring into view (model space zooms
+  to it with ~6 m around; a sheet viewport only pans). The unused Filter cog left the DRAWINGS header.
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

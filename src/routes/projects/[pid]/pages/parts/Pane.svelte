@@ -30,7 +30,7 @@
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
 	import { FLOOR_MODEL_ID, modelById } from '../3dview/models.svelte'
-	import { DEFAULT_MARGIN_MM } from '../constants'
+	import { DEFAULT_MARGIN_MM, effScale } from '../constants'
 	import { tick } from 'svelte'
 
 	let {
@@ -121,7 +121,7 @@
 		{#if a && ws.activeVpOf(a.id)}
 			{@const avId = ws.activeVpOf(a.id)!}
 			{@const avFrame = avId === a.id ? null : ws.framesOf(a.id).find((f) => f.id === avId)}
-			{@const avScale = avFrame ? avFrame.scale : ws.scaleOf(a.id)}
+			{@const avScale = avFrame ? effScale(avFrame.scale, ws.viewOf(p.id, avFrame.id, avFrame.proj as Proj).zoom) : ws.scaleOf(a.id)}
 			<div class="vp-active-bar glass-bar">
 				<!-- B31: model space is always active and has no sheet to pan — Exit / Pan content are paper-only -->
 				{#if modelLayout}

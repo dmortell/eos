@@ -15,13 +15,15 @@
 	import { LINK_TOOLS, type SheetLink } from '../store/schema'
 	import { KIND_LABELS, type TreeViewsApi, type TreeView, type TreeFilter } from '../store/treeViews'
 	import { mergeTags, withoutTags, hasTag } from '../store/tags'
-	import { tick, untrack } from 'svelte'
+	import { tick, untrack, type Snippet } from 'svelte'
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
 		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onsheetcopy, onsheetpaste, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser,
-		views = null, onopenmodel }:
+		views = null, onopenmodel, head }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
+			/** The sidebar's tab strip (Drawings | Items), drawn in place of the DRAWINGS title. */
+			head?: Snippet;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
 			onselectnode?: (n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) => void;
@@ -413,11 +415,10 @@
 
 <div class="dn">
 	<div class="dn-head">
-		<span class="dn-title">DRAWINGS</span>
+		{#if head}{@render head()}{:else}<span class="dn-title">DRAWINGS</span>{/if}
 		<div class="dn-acts">
 			{#if ondrawings}<button title="Manage drawings (File › Drawings…)" aria-label="Manage drawings" onclick={() => ondrawings?.()}><Icon name="list" size={14} /></button>{/if}
 			<button title="New drawing" aria-label="New drawing"><Icon name="plus" size={14} /></button>
-			<button title="Filter" aria-label="Filter"><Icon name="settings" size={14} /></button>
 			<button title="Collapse" aria-label="Collapse panel" onclick={() => oncollapse?.()}><Icon name="chevronLeft" size={14} /></button>
 		</div>
 	</div>

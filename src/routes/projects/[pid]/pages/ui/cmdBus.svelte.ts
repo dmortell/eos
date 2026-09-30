@@ -81,6 +81,9 @@ export type VpCommandTarget = {
 	cursor(): Pt | null
 	/** ZOOM Object: frame the selection (error text when nothing's selected); whether anything is selected. */
 	zoomSelection(): string | null
+	/** The Items list's double-click: centre the selection (model space also zooms to it, with room around; a sheet
+	 *  viewport keeps its scale). Error text when nothing's selected. */
+	showSelection?(): string | null
 	hasSelection(): boolean
 	/** ALIGN / DISTRIBUTE the selection (shapes + 3D objects, as drawn) — one undo step; an error to show, or null. */
 	arrangeSel?(op: import('./arrange').AlignOp): string | null
