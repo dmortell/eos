@@ -19,7 +19,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onsheetcopy, onsheetpaste, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser,
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onsheetcopy, onsheetpaste, onlinksheet, onplaceimport, onplaceracks, onimportdrawing, onimportriser,
 		views = null, onopenmodel, head }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** The sidebar's tab strip (Drawings | Items), drawn in place of the DRAWINGS title. */
@@ -68,8 +68,6 @@
 			onplaceimport?: (placeId: string) => void
 			/** G4: rebuild a rack-row place's model from the Racks tool (places with `racksRow`). */
 			onplaceracks?: (placeId: string) => void
-			/** Open the drawing management dialog (drawings-plan phase 6). */
-			ondrawings?: () => void
 			/** Phase 8: make a Pages sheet from another tool's register drawing (a `d:<id>` leaf). */
 			onimportdrawing?: (leafId: string) => void
 			/** Phase 8: import a Risers-tool doc into the building model (a `riser:<id>` leaf). */
@@ -417,8 +415,6 @@
 	<div class="dn-head">
 		{#if head}{@render head()}{:else}<span class="dn-title">DRAWINGS</span>{/if}
 		<div class="dn-acts">
-			{#if ondrawings}<button title="Manage drawings (File › Drawings…)" aria-label="Manage drawings" onclick={() => ondrawings?.()}><Icon name="list" size={14} /></button>{/if}
-			<button title="New drawing" aria-label="New drawing"><Icon name="plus" size={14} /></button>
 			<button title="Collapse" aria-label="Collapse panel" onclick={() => oncollapse?.()}><Icon name="chevronLeft" size={14} /></button>
 		</div>
 	</div>

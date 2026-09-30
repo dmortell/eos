@@ -3,6 +3,9 @@
 import type { Model, Obj } from '../3dview/types'
 import { dimGeom, type Ent } from './geometry'
 import { isOutletEnt } from '../store/allocate'
+import { hiLoOf } from './hiLo'
+
+const LEVEL: Record<string, 'High' | 'Low' | undefined> = { high: 'High', low: 'Low' }
 
 export type ItemCat = 'outlet' | 'block' | 'text' | 'dim' | 'shape' | 'image' | 'trunk' | 'rack' | 'device' | 'wall' | 'opening' | 'box'
 export const ITEM_CATS: { id: ItemCat; label: string }[] = [
@@ -19,8 +22,8 @@ export type ItemRow = {
 	/** A short second column (ports · level · usage, a size, a length). */
 	detail: string
 	layerId?: string; layer: string
-	/** Outlets: 'High' / 'Low' (filled symbol = low), usage (TYPE), ports. */
-	level?: 'High' | 'Low'; usage?: string; ports?: number
+	/** High / low level (ui/hiLo.ts — an outlet without one: filled = low) and height above FL; outlets: usage (TYPE), ports. */
+	level?: 'High' | 'Low'; z?: number; usage?: string; ports?: number
 	/** Shapes: their drawing plane + scope (for "in this view"). */
 	plane?: string; space?: string
 }
@@ -31,10 +34,10 @@ const mm = (n: number) => `${Math.round(n)}`
 const firstLine = (s: string, max = 48) => { const l = (s.split('\n').find((x) => x.trim()) ?? '').replace(/[#*_`>|]/g, '').trim(); return l.length > max ? l.slice(0, max - 1) + '…' : l }
 
 function entRow(e: Ent, layer: (id?: string) => string): ItemRow {
-	const base = { kind: 'ent' as const, id: e.id, layerId: e.layer, layer: layer(e.layer), plane: e.plane ?? 'plan', space: e.space }
+	const hl = hiLoOf(e), base = { kind: 'ent' as const, id: e.id, layerId: e.layer, layer: layer(e.layer), plane: e.plane ?? 'plan', space: e.space, level: LEVEL[hl ?? ''], z: e.z ?? 0 }
 	if (isOutletEnt(e)) {
-		const ports = Math.max(1, parseInt(e.attrs?.PORTS ?? '1', 10) || 1), level = e.fill && e.fill !== 'none' ? 'Low' as const : 'High' as const, usage = e.attrs?.TYPE ?? ''
-		return { ...base, cat: 'outlet', name: e.attrs?.LABEL || '(no label)', detail: [`${ports}p`, level, usage].filter(Boolean).join(' · '), level, usage, ports }
+		const ports = Math.max(1, parseInt(e.attrs?.PORTS ?? '1', 10) || 1), usage = e.attrs?.TYPE ?? ''
+		return { ...base, cat: 'outlet', name: e.attrs?.LABEL || '(no label)', detail: [`${ports}p`, base.level, usage].filter(Boolean).join(' · '), usage, ports }
 	}
 	switch (e.type) {
 		case 'insert': return { ...base, cat: 'block', name: e.attrs?.LABEL || e.block || 'Block', detail: e.attrs?.LABEL ? e.block ?? '' : '' }
@@ -50,7 +53,7 @@ function entRow(e: Ent, layer: (id?: string) => string): ItemRow {
 
 function objRow(o: Obj, layer: (id?: string) => string): ItemRow | null {
 	if (!o.id) return null
-	const base = { kind: 'obj' as const, id: o.id, layerId: o.layer, layer: layer(o.layer) }
+	const base = { kind: 'obj' as const, id: o.id, layerId: o.layer, layer: layer(o.layer), level: LEVEL[o.level ?? ''], z: o.type === 'prism' ? o.z : undefined }
 	if (o.type === 'wall') return { ...base, cat: 'wall', name: o.label || 'Wall', detail: `${o.segments.length} seg · ${mm(o.thickness)} thk` }
 	if (o.type === 'conduit') return { ...base, cat: 'trunk', name: o.label || (o.edges >= 12 ? 'Pipe' : 'Trunk'), detail: `${mm(o.w)}×${mm(o.h)} · ${o.segments.length} seg` }
 	if (o.rack) return { ...base, cat: 'rack', name: o.label || 'Rack', detail: `${o.rack.u}U` }

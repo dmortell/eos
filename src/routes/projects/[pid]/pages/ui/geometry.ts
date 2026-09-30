@@ -23,6 +23,9 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// `z` = a PLAN-plane shape's height above the floor (mm; absent = 0): an elevation draws a flat one edge-on AT that
 	// height (drag it up / down there to set it), the 3D view lifts it (a callout's leader points up at a ceiling TV).
 	z?: number;
+	// HIGH / LOW level (ui/hiLo.ts): picking one sets z to its default (plenum / raised floor); z overrides it. z's datum is
+	// a 3D object's (mm above FL±0). An outlet without `level` reads it from its fill (filled = low). Firestore-stable.
+	level?: 'high' | 'low';
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
 	// w,h = size); undefined = whole image. `opacity` 0..1 for tracing. Firestore-stable field names.

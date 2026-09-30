@@ -16,10 +16,10 @@ describe('Outlets tool import', () => {
 		expect(outletsDocIdFor('P', undefined, floors)).toBeNull()
 	})
 	it('an outlet becomes an insert: block by mount type, attributes, usage colour, filled + layer by level', () => {
-		expect(outletToInsert(outlet())).toEqual({ id: 'out-o1', type: 'insert', block: 'outlet-box', a: [1200, 3400], layer: 'data', color: '#2563eb', fill: '#3b82f6',
+		expect(outletToInsert(outlet())).toEqual({ id: 'out-o1', type: 'insert', block: 'outlet-box', a: [1200, 3400], layer: 'data', color: '#2563eb', fill: '#3b82f6', level: 'low',
 			attrs: { LABEL: '33.3.012', PORTS: '2', TYPE: 'network', NOTE: 'Mtg Rm' } })
 		const hi = outletToInsert(outlet({ level: 'high', mountType: 'wall', rotation: 90 }))
-		expect([hi.block, hi.layer, hi.fill, hi.rot]).toEqual(['outlet-wall', 'data', undefined, 90])
+		expect([hi.block, hi.layer, hi.fill, hi.rot, hi.level]).toEqual(['outlet-wall', 'data', undefined, 90, 'high'])
 		expect(outletToInsert(outlet({ mountType: 'floor' })).block).toBe('outlet-floor')
 	})
 	it('a trunk becomes a conduit (rect = 4 edges at w×h, pipe = 16 at its outer diameter), same nodes + segments', () => {
@@ -38,5 +38,13 @@ describe('Outlets tool import', () => {
 		expect(r2.model.shapes![1].attrs!.LABEL).toBe('renamed')
 		expect(r2.model.objects).toHaveLength(1); expect(r2.model.layers).toHaveLength(2)
 		expect(m.shapes).toHaveLength(1)   // input not mutated
+	})
+	it('imported outlets get their level\'s default height; a re-import keeps a height set in Pages while the level is unchanged', () => {
+		const m: Model = { id: 'm', name: '33F', objects: [], shapes: [], layers: [], levels: { raisedFloor: 100, ceilingTile: 2800, ceilingSlab: 3700 } }
+		const r1 = importOutletsInto(m, { outlets: [outlet({ level: 'high' }), outlet({ id: 'w', mountType: 'wall' }), outlet({ id: 'f' })] })
+		expect(r1.model.shapes!.map((s) => s.z)).toEqual([3150, 300, undefined])
+		const moved = { ...r1.model, shapes: r1.model.shapes!.map((s) => (s.id === 'out-o1' ? { ...s, z: 2900 } : s)) }
+		expect(importOutletsInto(moved, { outlets: [outlet({ level: 'high' })] }).model.shapes![0].z).toBe(2900)
+		expect(importOutletsInto(moved, { outlets: [outlet({ level: 'low' })] }).model.shapes![0].z).toBeUndefined()   // level changed: its default
 	})
 })

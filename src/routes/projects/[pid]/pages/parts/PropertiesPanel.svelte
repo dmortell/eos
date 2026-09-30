@@ -102,9 +102,9 @@
 	{:else}
 		<!-- shapes and / or 3D objects — a MIXED selection shows both parts, each editing its own kind -->
 		{#if ents.length && nObjs}<div class="pp-mixed">{ents.length} shape{ents.length > 1 ? 's' : ''} + {nObjs} 3D object{nObjs > 1 ? 's' : ''} — each part below edits its own kind</div>{/if}
-		{#if ents.length}<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />{/if}
+		{#if ents.length}<EntProps {ents} {onupdate} {onarrange} levels={model?.levels ?? null} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />{/if}
 		{#if modelObjs.length > 1 && onmodelsupdate}
-			<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
+			<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} levels={model?.levels ?? null} />
 		{:else if modelObj}
 			<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} {outletsFor} {allocated} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} nodeId={modelNode} segId={modelSeg} />
 		{/if}

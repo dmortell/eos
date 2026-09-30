@@ -12,6 +12,7 @@ import type { Model, Obj, Layer } from '../3dview/types'
 import type { OutletConfig } from '../../outlets/parts/types'
 import type { TrunkConfig, PipeSpec, RectSpec } from '../../outlets/trunks/types'
 import { USAGE_COLORS } from '../../outlets/parts/constants'
+import { hiLoOf, defaultZ } from '../ui/hiLo'
 
 export type OutletsDoc = { outlets?: OutletConfig[]; trunks?: TrunkConfig[]; selectedFileId?: string; selectedPage?: number }
 
@@ -43,6 +44,7 @@ export function outletToInsert(o: OutletConfig): Ent {
 		attrs: { LABEL: o.label ?? '', PORTS: String(o.portCount ?? 1), TYPE: o.usage ?? 'network', NOTE: o.roomNumber ?? '' },
 	}
 	if (o.level !== 'high') e.fill = c.fill
+	e.level = o.level === 'high' ? 'high' : 'low'
 	if (o.rotation) e.rot = o.rotation
 	return e
 }
@@ -64,7 +66,13 @@ export function importOutletsInto(m: Model, doc: OutletsDoc): { model: Model; ad
 	const conduits = (doc.trunks ?? []).filter((t) => t.nodes?.length && t.segments?.length).map(trunkToConduit)
 	const shapes = [...(m.shapes ?? [])], objects = [...m.objects]
 	let added = 0, updated = 0
-	for (const e of inserts) { const i = shapes.findIndex((x) => x.id === e.id); if (i >= 0) { shapes[i] = e; updated++ } else { shapes.push(e); added++ } }
+	for (const e of inserts) {
+		// its height: the level's default (ui/hiLo.ts) — a re-import keeps a height set here while the level is unchanged
+		const i = shapes.findIndex((x) => x.id === e.id), old = i >= 0 ? shapes[i] : null
+		const z = old && hiLoOf(old) === e.level ? old.z : defaultZ(e.level!, m.levels, { wall: e.block === 'outlet-wall' })
+		if (z) e.z = z
+		if (i >= 0) { shapes[i] = e; updated++ } else { shapes.push(e); added++ }
+	}
 	for (const o of conduits) { const i = objects.findIndex((x) => x.id === o.id); if (i >= 0) objects[i] = o; else objects.push(o) }
 	const layers = [...(m.layers ?? [])]
 	for (const l of [...(inserts.length ? OUTLET_LAYERS : []), ...(conduits.length ? [TRUNKS_LAYER] : [])]) if (!layers.some((x) => x.id === l.id)) layers.push({ ...l })

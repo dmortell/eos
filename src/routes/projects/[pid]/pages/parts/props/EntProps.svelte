@@ -13,7 +13,8 @@
 	import { translate, textBox, arcPts, STYLE_DEFAULTS, isNote, dimGeom, dimSetMode, dimTextOffMm, isLinearDim, dimDirDeg, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash, type DimMode } from '../../ui/geometry'
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
-	import type { Layer as MLayer } from '../../3dview/types'
+	import type { Layer as MLayer, Levels } from '../../3dview/types'
+	import { hiLoOf, withHiLo, zPresets, type HiLo } from '../../ui/hiLo'
 	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
 	import { noteGeom } from '../../ui/hit'
 	import { hatchOutline } from '../../ui/annotations'
@@ -25,7 +26,9 @@
 	import { srcMissing } from '../../ui/render/fileWatch.svelte'
 	import { LINEWEIGHTS, LW_BYLAYER, LW_DEFAULT, lwLabel, ownLw } from '../../ui/lineweight'
 
-	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
+	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk, levels = null }: {
+		/** The model's floor levels (the High / Low default heights, ui/hiLo.ts). */
+		levels?: Levels | null
 		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
 		/** D4: the project's sheets (a symbol's LINK picker) + open a link (a sheet id or a URL). */
 		sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void
@@ -133,6 +136,16 @@
 		const z = Math.max(0, Math.round(n))
 		onupdate?.(ents.map((e) => { const o = { ...e }; if (z) o.z = z; else delete o.z; return o }))
 	}
+	// HIGH / LOW LEVEL (ui/hiLo.ts): the selection's common level (undefined = mixed / none); picking one sets each
+	// shape's default height (and an outlet's fill) — one step; the Z field / the presets then override the height
+	const planOnly = $derived(ents.every((e) => !e.plane || e.plane === 'plan'))
+	const hiLo = $derived.by(() => { const s = new Set(ents.map((e) => hiLoOf(e))); return s.size === 1 ? [...s][0] : undefined })
+	const anyOutlet = $derived(ents.some(isOutletEnt))
+	function setHiLo(l: HiLo | null) {
+		onupdate?.(ents.map((e) => { if (l) return withHiLo(e, l, levels); const o = { ...e }; delete o.level; return o }))
+	}
+	const presets = $derived(zPresets(hiLo, levels))
+	const zCommon = $derived(cc('z') as number | undefined)
 	// ALIGN / DISTRIBUTE: props/AlignBar (the Properties panel shows it for any 2+ shapes / objects)
 	// E5: several block inserts edited together — their shared category (null = mixed → no swap), the attributes
 	// every one of them has (not LABEL / LINK), and a value common to all (undefined = mixed)
@@ -165,8 +178,23 @@
 	<NumCell k="Y" v={r1(gb.y)} set={setY} />
 	<!-- Z = a PLAN shape's height above the floor (mm): where an elevation draws it edge-on (drag it up / down there
 	     too) and the 3D view lifts it -->
-	{#if ents.every((e) => !e.plane || e.plane === 'plan')}<NumCell k="Z" v={r1((cc('z') as number | undefined) ?? 0)} set={setZ} />{/if}
+	{#if planOnly}<NumCell k="Z" v={r1(zCommon ?? 0)} set={setZ} />{/if}
 </div>
+{#if planOnly}
+	<!-- HIGH / LOW level: sets the default height (Z, mm above FL±0 — the same datum as 3D objects); Z overrides it -->
+	<div class="prop"><span title="High level = in the ceiling plenum (WiFi APs, ceiling TVs); low = on the raised floor. Sets the height — Z overrides it">Level</span>
+		<span class="pp-seg">
+			<button class:on={hiLo === 'high'} onclick={() => setHiLo('high')} title="High level — in the ceiling plenum (sets Z)">High</button>
+			<button class:on={hiLo === 'low'} onclick={() => setHiLo('low')} title="Low level — on the raised floor (sets Z){anyOutlet ? '; outlets are drawn filled' : ''}">Low</button>
+			{#if !anyOutlet && ents.some((e) => e.level)}<button onclick={() => setHiLo(null)} title="No level (keeps the height)">—</button>{/if}
+		</span>
+	</div>
+	<div class="prop"><span title="Quick heights above FL (mm)">Height</span>
+		<span class="pp-seg">
+			{#each presets as p (p.label)}<button class:on={zCommon === p.z || (!zCommon && !p.z)} onclick={() => setZ(p.z)} title="{p.title} — Z {p.z}">{p.label}</button>{/each}
+		</span>
+	</div>
+{/if}
 <div class="prop-sec">SIZE</div>
 <div class="vecrow">
 	{#if boxKind(single)}

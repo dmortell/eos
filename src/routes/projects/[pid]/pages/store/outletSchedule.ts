@@ -3,8 +3,11 @@
 // pure (tested); exceljs loads on demand, like drawingListExport.ts.
 import type { Model } from '../3dview/types'
 import { isOutletEnt, portLabel } from './allocate'
+import { hiLoOf } from '../ui/hiLo'
 
-export type OutletRow = { label: string; ports: number; mount: string; usage: string; level: string; room: string; x: number; y: number; layer: string; patch: string; portLabels: string }
+export type OutletRow = { label: string; ports: number; mount: string; usage: string; level: string; room: string; x: number; y: number
+	/** Height above FL (mm) — the level's default unless set (ui/hiLo.ts). */
+	z: number; layer: string; patch: string; portLabels: string }
 const MOUNT: Record<string, string> = { 'outlet-box': 'Rosette / box', 'outlet-wall': 'Wall mount', 'outlet-floor': 'Floorbox' }
 
 /** The model's outlets, sorted by label (natural order: 4A2 before 4A10). `allocated` = outlet id → patch location. */
@@ -14,8 +17,8 @@ export function outletRows(model: Model, allocated?: Map<string, string>): Outle
 		const ports = Math.max(1, parseInt(e.attrs?.PORTS ?? '1', 10) || 1), label = e.attrs?.LABEL ?? ''
 		return {
 			label, ports, mount: MOUNT[e.block ?? ''] ?? e.block ?? '', usage: e.attrs?.TYPE ?? '',
-			level: e.fill && e.fill !== 'none' ? 'Low' : 'High', room: e.attrs?.NOTE ?? '',
-			x: Math.round(e.a?.[0] ?? 0), y: Math.round(e.a?.[1] ?? 0), layer: layer.get(e.layer ?? '') ?? '',
+			level: hiLoOf(e) === 'low' ? 'Low' : 'High', room: e.attrs?.NOTE ?? '',
+			x: Math.round(e.a?.[0] ?? 0), y: Math.round(e.a?.[1] ?? 0), z: Math.round(e.z ?? 0), layer: layer.get(e.layer ?? '') ?? '',
 			patch: allocated?.get(e.id) ?? '', portLabels: label ? Array.from({ length: ports }, (_, i) => portLabel(label, i + 1, ports)).join(', ') : '',
 		}
 	}).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
@@ -30,6 +33,7 @@ const COLS: { head: string; width: number; get: (r: OutletRow) => string | numbe
 	{ head: 'Room', width: 14, get: (r) => r.room },
 	{ head: 'X (mm)', width: 10, get: (r) => r.x },
 	{ head: 'Y (mm)', width: 10, get: (r) => r.y },
+	{ head: 'Height FL+ (mm)', width: 14, get: (r) => r.z },
 	{ head: 'Layer', width: 16, get: (r) => r.layer },
 	{ head: 'Patch panel', width: 22, get: (r) => r.patch },
 	{ head: 'Port labels', width: 30, get: (r) => r.portLabels },
@@ -47,7 +51,7 @@ export async function exportOutletSchedule(rows: OutletRow[], name: string): Pro
 	})
 	COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width))
 	for (const r of rows) ws.addRow(COLS.map((c) => c.get(r)))
-	const tot = ws.addRow([`${rows.length} outlets`, rows.reduce((s, r) => s + r.ports, 0), '', '', '', '', '', '', '', `${rows.filter((r) => r.patch).length} allocated`, ''])
+	const tot = ws.addRow([`${rows.length} outlets`, rows.reduce((s, r) => s + r.ports, 0), '', '', '', '', '', '', '', '', `${rows.filter((r) => r.patch).length} allocated`, ''])
 	tot.font = { bold: true }
 	tot.eachCell((cell) => (cell.border = { top: { style: 'thin' } }))
 	ws.views = [{ state: 'frozen', ySplit: 1 }]

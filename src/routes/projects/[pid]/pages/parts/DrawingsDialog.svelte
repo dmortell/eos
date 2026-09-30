@@ -1,5 +1,5 @@
 <script lang="ts">
-	// DRAWING MANAGEMENT (drawings-plan §5, phase 6) — File › Drawings… or the navigator's list button.
+	// DRAWING MANAGEMENT (drawings-plan §5, phase 6) — File › Drawings… (or the DRAWINGS command).
 	// Three tabs:
 	//   Sheets   — the live sheets as a register: search, filter (kind / discipline / tag), group, sort by any
 	//              column, inline edit (number, title, kind, discipline, tags), bulk edit / renumber / archive,

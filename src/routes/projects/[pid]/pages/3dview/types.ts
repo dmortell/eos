@@ -82,6 +82,8 @@ export type Obj = (Prism | Wall | Conduit) & { layer?: string; id?: string; grou
 	label?: string
 	/** Its own line colour, over its layer's (e.g. an imported riser cable's colour). */
 	color?: string
+	/** HIGH / LOW level (ui/hiLo.ts) — a box's: picking one sets its z (plenum / raised floor), Z overrides it. */
+	level?: 'high' | 'low'
 	/** G4: a RACK (a box on a rack-row model): its height in U, and the Racks-tool rack it came from. */
 	rack?: RackMeta
 	/** G4: a DEVICE mounted in a rack: its U position / height, which face it's on, ports, type. */

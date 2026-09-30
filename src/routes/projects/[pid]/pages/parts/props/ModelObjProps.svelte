@@ -16,6 +16,7 @@
 	import { cptUV, DEFAULT_CPTS, type CPt } from '../../3dview/connect'
 	import { cptPick } from '../../ui/cptPick.svelte'
 	import { resizeKeepCorner } from '../../ui/resizeKeep'
+	import { boxZ, zPresets } from '../../ui/hiLo'
 
 	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId, segId }: {
 		obj: Obj; layers?: MLayer[]
@@ -89,6 +90,22 @@
 		<NumCell k="Y" v={Math.round(obj.y)} set={(n) => onupdate?.({ y: n })} />
 		<NumCell k="Z" v={Math.round(obj.z)} set={(n) => onupdate?.({ z: Math.max(0, n) })} />
 	</div>
+	{#if !obj.rack && !obj.device}
+		{@const lv = model?.levels ?? null}
+		<!-- HIGH / LOW level (ui/hiLo.ts): sets the box's underside Z (plenum / raised floor) — Z above overrides it -->
+		<div class="prop"><span title="High level = in the ceiling plenum; low = on the raised floor. Sets Z — Z overrides it">Level</span>
+			<span class="pp-seg">
+				<button class:on={obj.level === 'high'} onclick={() => onupdate?.({ level: 'high', z: boxZ('high', lv, obj.h) })} title="High level — centred in the ceiling plenum (sets Z)">High</button>
+				<button class:on={obj.level === 'low'} onclick={() => onupdate?.({ level: 'low', z: boxZ('low', lv, obj.h) })} title="Low level — on the raised floor (sets Z)">Low</button>
+				{#if obj.level}<button onclick={() => onupdate?.({ level: undefined })} title="No level (keeps Z)">—</button>{/if}
+			</span>
+		</div>
+		<div class="prop"><span title="Quick underside heights above FL (mm)">Height</span>
+			<span class="pp-seg">
+				{#each zPresets(obj.level, lv) as p (p.label)}<button class:on={Math.round(obj.z) === p.z} onclick={() => onupdate?.({ z: p.z })} title="{p.title} — Z {p.z}">{p.label}</button>{/each}
+			</span>
+		</div>
+	{/if}
 	<div class="prop-sec">SIZE</div>
 	<div class="vecrow">
 		<!-- a ROTATED box keeps its drawn top-left corner (it turns about its centre — growing from the unrotated corner slid it) -->

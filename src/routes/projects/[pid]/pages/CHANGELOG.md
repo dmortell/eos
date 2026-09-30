@@ -48,7 +48,16 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   its own notes, its plane). Multi-select like a file list (click, Ctrl+click, Shift+click range, Select all) —
   selects in the view (a sheet with no active viewport enters its target one), so Properties edits them together;
   a selection made in the view highlights + scrolls to its rows. Double-click = bring into view (model space zooms
-  to it with ~6 m around; a sheet viewport only pans). The unused Filter cog left the DRAWINGS header.
+  to it with ~6 m around; a sheet viewport only pans). The unused Filter cog left the DRAWINGS header, then its + (no-op)
+  and Manage drawings (= File › Drawings…) buttons, to make room for the tabs.
+- **High / low level** (`ui/hiLo.ts`, tested): a stored `level: 'high' | 'low'` on shapes AND 3D boxes (Firestore-stable).
+  Properties › Level High / Low (one step, multi-selection too) sets the default HEIGHT — low = on the raised floor (0;
+  a wall-mount outlet +300), high = the middle of the ceiling plenum from the model's levels (a box centred in it, never
+  below the ceiling; no ceiling known → 2800) — and an outlet's look (low filled in its usage colour, high outline).
+  Z (and Height presets Floor / +300 / +1200 / Plenum / Ceiling) overrides it. z is the same datum as a 3D object's
+  (mm above FL±0), so a shape and a box line up in elevations + 3D. Older outlets without `level` read it from their fill.
+  The Outlets import stores the level and the default height (a re-import keeps a height set in Pages while the level is
+  unchanged); the Items list filters any category by level and shows height; the Outlet Schedule gains Height FL+.
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

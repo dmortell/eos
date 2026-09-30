@@ -39,7 +39,9 @@
 	const inCat = $derived(cat ? all.filter((r) => r.cat === cat) : all)
 	const layers = $derived.by(() => { const m = new Map<string, string>(); for (const r of inCat) if (r.layerId) m.set(r.layerId, r.layer || r.layerId); return [...m].sort((a, b) => a[1].localeCompare(b[1])) })
 	const usages = $derived([...new Set(inCat.map((r) => r.usage).filter((u): u is string => !!u))].sort())
-	const rows = $derived(filterItems(all, { cat, layer, q, level: cat === 'outlet' || !cat ? level : '', usage: cat === 'outlet' || !cat ? usage : '', view: inView && view ? view : undefined }))
+	// the level filter shows where anything in the category has a level (outlets always; other shapes once given one)
+	const hasLevels = $derived(inCat.some((r) => r.level))
+	const rows = $derived(filterItems(all, { cat, layer, q, level: hasLevels ? level : '', usage: cat === 'outlet' || !cat ? usage : '', view: inView && view ? view : undefined }))
 	const keys = $derived(rows.map(rowKey))
 	const selSet = $derived(new Set(selected))
 	const nSel = $derived(keys.filter((k) => selSet.has(k)).length)
@@ -94,10 +96,12 @@
 				<option value="">All layers</option>
 				{#each layers as [id, name] (id)}<option value={id}>{name}</option>{/each}
 			</select>
-			{#if cat === 'outlet'}
-				<select bind:value={level} title="High- / low-level outlets" aria-label="Level">
+			{#if hasLevels}
+				<select bind:value={level} title="High / low level (Properties › LEVEL)" aria-label="Level">
 					<option value="">High + low</option><option value="High">High level</option><option value="Low">Low level</option>
 				</select>
+			{/if}
+			{#if cat === 'outlet'}
 				<select bind:value={usage} title="Outlet usage (its TYPE)" aria-label="Usage" disabled={!usages.length}>
 					<option value="">All usages</option>
 					{#each usages as u (u)}<option value={u}>{u}</option>{/each}
@@ -117,9 +121,10 @@
 		<div class="it-list" bind:this={listEl} role="listbox" aria-multiselectable="true" aria-label="Items">
 			{#each rows.slice(0, LIMIT) as r (rowKey(r))}
 				<button class="it-row" class:sel={selSet.has(rowKey(r))} data-key={rowKey(r)} role="option" aria-selected={selSet.has(rowKey(r))}
-					title="{r.name}{r.detail ? ` — ${r.detail}` : ''}{r.layer ? `\nLayer: ${r.layer}` : ''}\nClick to select · Ctrl / Shift+click for several · double-click to show it"
+					title={[r.name + (r.detail ? ` — ${r.detail}` : ''), r.level ? `${r.level} level` : '', r.z ? `Height FL+${Math.round(r.z)}` : '', r.layer ? `Layer: ${r.layer}` : '',
+						'Click to select · Ctrl / Shift+click for several · double-click to show it'].filter(Boolean).join('\n')}
 					onclick={(e) => click(e, r)} ondblclick={() => onshow?.()}>
-					{#if r.cat === 'outlet'}<span class="it-dot" class:low={r.level === 'Low'}></span>{/if}
+					{#if r.level}<span class="it-dot" class:low={r.level === 'Low'} title="{r.level} level"></span>{/if}
 					<span class="it-name" class:mono={r.cat === 'outlet' || r.cat === 'rack'}>{r.name}</span>
 					<span class="it-detail">{r.detail}</span>
 				</button>

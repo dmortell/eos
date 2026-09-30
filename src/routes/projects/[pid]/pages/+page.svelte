@@ -1574,7 +1574,6 @@
 					views={proj.navViews} onopenmodel={(id, preview) => { restoredFor = page.params.pid ?? ''; proj.openModelRow(id, preview) }}
 					onplaceadd={proj.onPlaceAdd} onplacerename={proj.onPlaceRename} onplacemove={proj.onPlaceMove} onplacedelete={proj.onPlaceDelete}
 					onopenplace={proj.hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; proj.openPlaceModel(id, preview) } : undefined}
-					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
 					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onimportriser={proj.hasPlaces ? (id) => void proj.importRisers(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined} onplaceracks={proj.hasPlaces ? proj.imports.importPlaceRacks : undefined}
