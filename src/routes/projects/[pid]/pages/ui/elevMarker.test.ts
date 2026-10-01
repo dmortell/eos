@@ -58,14 +58,14 @@ describe('marker → its view (a line section through its point)', () => {
 		for (const o of probes) expect(inOClip(o, oc)).toBe(inClip(o, clip))
 		expect(elevMarkerDir(m)).toBe('front')
 	})
-	it('the other three axes: down → rear, east → right, west → left (the line sections’ frames)', () => {
+	it('the other three axes: down → rear, east (seen from the left) → left, west (seen from the right) → right (the line sections’ frames)', () => {
 		const down = mk({ at: [3000, 2000], angle: 90, z0: 0, z1: 3000 })
 		expect(oclipFrame(elevMarkerOClip(down), C)).toEqual(frameOf('rear')); expect(elevMarkerDir(down)).toBe('rear')
-		const east = mk({ at: [1000, 3000], angle: 0, width: 2000, depth: 4000, z0: 0, z1: 3000 })
+		const east = mk({ at: [1000, 3000], angle: 0, width: 2000, depth: 4000, z0: 0, z1: 3000 })   // at the box's LEFT edge, looking +x
 		expect(elevMarkerOClip(east)).toEqual(lineSectionOClip({ id: 'x', kind: 'line', a: [1000, 2000], b: [1000, 4000], depth: 4000, z0: 0, z1: 3000 }))
-		expect(oclipFrame(elevMarkerOClip(east), C)).toEqual(frameOf('right')); expect(elevMarkerDir(east)).toBe('right')
-		const west = mk({ at: [5000, 3000], angle: 180, width: 2000, depth: 4000, z0: 0, z1: 3000 })
-		expect(oclipFrame(elevMarkerOClip(west), C)).toEqual(frameOf('left')); expect(elevMarkerDir(west)).toBe('left')
+		expect(oclipFrame(elevMarkerOClip(east), C)).toEqual(frameOf('left')); expect(elevMarkerDir(east)).toBe('left')
+		const west = mk({ at: [5000, 3000], angle: 180, width: 2000, depth: 4000, z0: 0, z1: 3000 })   // at its RIGHT edge, looking −x
+		expect(oclipFrame(elevMarkerOClip(west), C)).toEqual(frameOf('right')); expect(elevMarkerDir(west)).toBe('right')
 		for (const m of [down, east, west]) for (const o of probes) expect(inOClip(o, elevMarkerOClip(m))).toBe(inClip(o, clip))
 	})
 	it('behind the marker is not seen; turning it round (180°) sees that side instead', () => {
@@ -82,7 +82,7 @@ describe('marker → its view (a line section through its point)', () => {
 		expect(r[2][0] - r[1][0]).toBeCloseTo(L[0] * 1000, 6); expect(r[2][1] - r[1][1]).toBeCloseTo(L[1] * 1000, 6)
 		expect(inOClip(prism(L[0] * 500 - 200, L[1] * 500 - 150, { h: 100 }), oc)).toBe(true)     // 500 ahead (the prism's centre)
 		expect(inOClip(prism(L[0] * 1500 - 200, L[1] * 1500 - 150, { h: 100 }), oc)).toBe(false)  // past the depth
-		expect(elevMarkerDir(m)).toBe('right')   // nearest dir: t mostly +y
+		expect(elevMarkerDir(m)).toBe('left')   // nearest dir: t mostly +y (looking mostly +x — seen from the left)
 	})
 	it('no z band = every height; the covering Clip', () => {
 		const oc = elevMarkerOClip(mk()); expect([oc.z0, oc.z1]).toEqual([-ALL_Z, ALL_Z])

@@ -1,6 +1,6 @@
 // Phase 1 of elevation-section-plan.md: the horizontal VIEW FRAME (geometry ElevFrame). The four ElevDirs become
 // axis-aligned frames that must reproduce the pre-frame formulas (ELEV_BASIS / elevU / elevUInv, the 3dview BASIS
-// table, Model3d's hidden-line `far`) EXACTLY — `toBe`, not close-to — so every existing view keeps its numbers.
+// table, the hidden-line depth x·n) EXACTLY — `toBe`, not close-to — so every existing view keeps its numbers.
 // An oblique frame (30°) round-trips u / depth ↔ plan point.
 import { describe, it, expect } from 'vitest'
 import { type Pt, type ElevDir, type Ent, ELEV_BASIS, elevU, elevUInv, flatSpan, PLAN_CX, PLAN_CY, GROUND,
@@ -12,12 +12,14 @@ const DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']
 // awkward values on purpose: fractions, negatives, far from the centre, the centre itself
 const PTS: Pt[] = [[0, 0], [12345.678, 6789.01], [-3210.5, 20000.25], [PLAN_CX, PLAN_CY], [0.1, -0.3], [99999.9, -12345.6]]
 const CENTRES: [number, number][] = [[PLAN_CX, PLAN_CY], [1234.5, -987.25]]
-// the depth each dir had before frames: Model3d's `far` direction, measured from the plan centre
-const oldDepth = (d: ElevDir, p: Pt, cx: number, cy: number) => d === 'front' ? p[1] - cy : d === 'rear' ? cy - p[1] : d === 'right' ? cx - p[0] : p[0] - cx
-const oldFar = (d: ElevDir, p: Pt) => d === 'front' ? p[1] : d === 'rear' ? -p[1] : d === 'right' ? -p[0] : p[0]
+// each dir's depth (x·n, measured from the plan centre): n = (−t.y, t.x) = front +y, rear −y, right +x, left −x. Every
+// view looks along −n, so a LARGER depth is NEARER the viewer (front's viewer is at the bottom of the sheet, right's at
+// its right edge, left's at its left edge, rear's at the top).
+const oldDepth = (d: ElevDir, p: Pt, cx: number, cy: number) => d === 'front' ? p[1] - cy : d === 'rear' ? cy - p[1] : d === 'right' ? p[0] - cx : cx - p[0]
+const oldFar = (d: ElevDir, p: Pt) => d === 'front' ? p[1] : d === 'rear' ? -p[1] : d === 'right' ? p[0] : -p[0]
 
 describe('frameOf(dir) reproduces the four axis-aligned views exactly', () => {
-	it('frameU = elevU of the on-axis coord; uToAlong / alongToU = elevUInv / elevU; frameDepth = the old depth', () => {
+	it('frameU = elevU of the on-axis coord; uToAlong / alongToU = elevUInv / elevU; frameDepth = x·n from the centre (right +x, left −x)', () => {
 		for (const [cx, cy] of CENTRES) for (const d of DIRS) {
 			const f = frameOf(d, cx, cy), ax = ELEV_BASIS[d].axis
 			expect(frameAxis(f)).toBe(ax)
@@ -30,13 +32,13 @@ describe('frameOf(dir) reproduces the four axis-aligned views exactly', () => {
 			}
 		}
 	})
-	it('frameInv: the on-axis coord is elevUInv; the depth lands on the other axis', () => {
+	it('frameInv: the on-axis coord is elevUInv; the depth lands on the other axis (along n: front +y, rear −y, right +x, left −x)', () => {
 		for (const [cx, cy] of CENTRES) for (const d of DIRS) {
 			const f = frameOf(d, cx, cy), ax = ELEV_BASIS[d].axis
 			for (const p of PTS) {
 				const q = frameInv(f, p[0], p[1])
 				expect(q[ax]).toBe(elevUInv(d, p[0], cx, cy))
-				expect(q[1 - ax]).toBeCloseTo((ax === 0 ? cy : cx) + (d === 'front' || d === 'left' ? 1 : -1) * p[1], 6)
+				expect(q[1 - ax]).toBeCloseTo((ax === 0 ? cy : cx) + (d === 'front' || d === 'right' ? 1 : -1) * p[1], 6)
 				expect(frameDepth(f, q)).toBeCloseTo(p[1], 6)
 			}
 		}
@@ -52,7 +54,7 @@ describe('frameOf(dir) reproduces the four axis-aligned views exactly', () => {
 			expect(s[ax]).toBe(sign * 37.5); expect(s[1 - ax]).toBe(0)
 		}
 	})
-	it('engine coords: dotT = the 3dview BASIS hs · p[h], dotN = Model3d `far`, frameShift = viewMap’s old centring', () => {
+	it('engine coords: dotT = the 3dview BASIS hs · p[h] (right −y, left +y), dotN = x·n (right +x, left −x), frameShift = viewMap’s centring', () => {
 		for (const [cx, cy] of CENTRES) for (const d of DIRS) {
 			const f = frameOf(d, cx, cy), b = BASIS[d]
 			for (const p of PTS) {
@@ -92,7 +94,7 @@ describe('frameOf(dir) reproduces the four axis-aligned views exactly', () => {
 
 describe('an oblique frame (30°)', () => {
 	const o: Pt = [5000, 3000], f = frameAt(o, 30)
-	it('is a unit, right-handed pair looking along 30°', () => {
+	it('is a unit, right-handed pair, n at 30° (the view looks along −n)', () => {
 		expect(frameAxis(f)).toBe(null)
 		expect(Math.hypot(...f.t)).toBeCloseTo(1, 12); expect(f.t[0] * f.n[0] + f.t[1] * f.n[1]).toBeCloseTo(0, 12)
 		expect(f.n[0]).toBeCloseTo(Math.cos(Math.PI / 6), 12); expect(f.n[1]).toBeCloseTo(0.5, 12)
@@ -122,11 +124,11 @@ describe('an oblique frame (30°)', () => {
 			expect(dotN(f, p[0], p[1]) - dotN(f, o[0], o[1])).toBeCloseTo(frameDepth(f, p), 6)
 		}
 	})
-	it('multiples of 90° come out exactly axis-aligned (90° = front, 0° = left, 180° = right, 270° = rear)', () => {
+	it('multiples of 90° come out exactly axis-aligned (90° = front, 0° = right, 180° = left, 270° = rear)', () => {
 		const c: Pt = [PLAN_CX, PLAN_CY]
 		expect(frameAt(c, 90)).toEqual(frameOf('front'))
-		expect(frameAt(c, 0)).toEqual(frameOf('left'))
-		expect(frameAt(c, 180)).toEqual(frameOf('right'))
+		expect(frameAt(c, 0)).toEqual(frameOf('right'))    // t = (0, −1): up the sheet, seen from the right
+		expect(frameAt(c, 180)).toEqual(frameOf('left'))   // t = (0, +1): down the sheet, seen from the left
 		expect(frameAt(c, 270)).toEqual(frameOf('rear'))
 	})
 })

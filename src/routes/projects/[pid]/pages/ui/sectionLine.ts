@@ -47,7 +47,7 @@ export function lineSectionOClip(s: LineSection): OClip {
  *  keeps the dir as the plane shapes drawn in it land on (as the phase-2 dev hook does). */
 export function lineSectionDir(s: LineSection): ElevDir {
 	const oc = lineSectionOClip(s), { t } = frameOnLine(oc.a, oc.b)
-	return Math.abs(t[0]) >= Math.abs(t[1]) ? (t[0] > 0 ? 'front' : 'rear') : t[1] > 0 ? 'right' : 'left'
+	return Math.abs(t[0]) >= Math.abs(t[1]) ? (t[0] > 0 ? 'front' : 'rear') : t[1] > 0 ? 'left' : 'right'   // geometry DIR_T
 }
 
 /** The plan rectangle it cuts: a, b, then the far side (b, a + look · depth). */

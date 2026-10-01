@@ -220,8 +220,11 @@ export type ElevDir = 'front' | 'rear' | 'left' | 'right'
 export const ELEV_BASIS: Record<ElevDir, { axis: 0 | 1; sign: 1 | -1 }> = {
 	front: { axis: 0, sign:  1 },
 	rear:  { axis: 0, sign: -1 },
-	right: { axis: 1, sign:  1 },
-	left:  { axis: 1, sign: -1 },
+	// the plan's y runs DOWN the sheet: the RIGHT elevation is seen from the right, looking left, so its "right" is up the
+	// sheet (u = −y); the LEFT one from the left, so the sheet's bottom is on its right (u = +y). (Swapped before
+	// 2026-10-01 — Kestrel's y-up convention ported as-is mirrored the two side views.)
+	right: { axis: 1, sign: -1 },
+	left:  { axis: 1, sign:  1 },
 }
 // Project a scalar footprint coordinate (along the dir's axis) to the elevation's horizontal drawing
 // coord, mirrored per dir and re-centred about the plan centre so every view sits centred in the viewBox.
@@ -241,14 +244,16 @@ export function elevUInv(dir: ElevDir, u: number, cx = PLAN_CX, cy = PLAN_CY): n
 // An elevation / section looks horizontally along `n` (unit, plan mm, y down) and its drawing's horizontal runs
 // along `t` (unit, the view's "right": n = (−t.y, t.x)), about the origin `o`. Drawing coords: u = o.x + (p − o)·t
 // (the origin draws at its own plan x, so the four ElevDir frames — origin = the plan centre — keep elevU's
-// centring) and v = GROUND − z as before; depth (sorting / clipping) d = (p − o)·n, larger = farther. The four
-// ElevDirs are the axis-aligned frames (`frameOf`): front t +x / n +y, rear −x / −y, right +y / −x, left −y / +x
-// (= Model3d's hidden-line `far`). An AXIS-ALIGNED frame (t = ±x or ±y) takes a fast path through the exact
+// centring) and v = GROUND − z as before; depth d = (p − o)·n — the viewer looks along −n, so a LARGER d is NEARER
+// (3dview/hiddenLines). The four ElevDirs are the axis-aligned frames (`frameOf`): front t +x / n +y (seen from the
+// bottom of the sheet), rear −x / −y, right −y / +x (seen from the right), left +y / −x. An AXIS-ALIGNED frame (t = ±x or ±y) takes a fast path through the exact
 // ELEV_BASIS arithmetic, so every existing view keeps its numbers bit for bit; an oblique one (frameAt) is the
 // general dot product.
 export type ElevFrame = { o: Pt; t: Pt; n: Pt }
 const mkFrame = (o: Pt, t: Pt): ElevFrame => ({ o, t, n: [0 - t[1], t[0]] })   // 0 − t.y: no −0 in n
-const DIR_T: Record<ElevDir, Pt> = { front: [1, 0], rear: [-1, 0], right: [0, 1], left: [0, -1] }
+// t = the view's right; it looks along −n (n = (−t.y, t.x)): front from the bottom of the sheet looking up, rear from the
+// top, RIGHT from the right looking left (t up the sheet), LEFT from the left looking right (t down the sheet)
+const DIR_T: Record<ElevDir, Pt> = { front: [1, 0], rear: [-1, 0], right: [0, -1], left: [0, 1] }
 const DIR_FRAMES = Object.fromEntries((Object.keys(DIR_T) as ElevDir[]).map((d) => [d, mkFrame([PLAN_CX, PLAN_CY], DIR_T[d])])) as Record<ElevDir, ElevFrame>
 /** The frame of an ElevDir about the plan centre (cx, cy). The default-centre frames are SHARED — don't mutate. */
 export const frameOf = (dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): ElevFrame =>
@@ -276,7 +281,7 @@ export function frameU(f: ElevFrame, p: Pt): number {
 	if (t[0] === 0) return o[0] + t[1] * (p[1] - o[1])
 	return o[0] + (p[0] - o[0]) * t[0] + (p[1] - o[1]) * t[1]
 }
-/** A plan point's depth along the look direction from the origin (larger = farther from the viewer). */
+/** A plan point's depth (p − o)·n from the origin — the viewer looks along −n, so larger = NEARER the viewer. */
 export function frameDepth(f: ElevFrame, p: Pt): number {
 	const { o, n } = f
 	if (n[1] === 0) return n[0] * (p[0] - o[0])

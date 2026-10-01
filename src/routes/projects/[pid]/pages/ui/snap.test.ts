@@ -173,8 +173,8 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 			{ point: [0, planCtx.ground], type: 'end' }, { point: [200, planCtx.ground], type: 'end' }, { point: [100, planCtx.ground], type: 'mid' },
 		])
 	})
-	it('in a RIGHT elevation the span comes from the plan y-extent, re-centred about the plan centre', () => {
-		const u0 = planCtx.cx + (0 - planCtx.cy), u1 = planCtx.cx + (100 - planCtx.cy)   // elevU('right', y)
+	it('in a RIGHT elevation the span comes from the plan y-extent (u = −y), re-centred about the plan centre', () => {
+		const u0 = planCtx.cx - (100 - planCtx.cy), u1 = planCtx.cx - (0 - planCtx.cy)   // elevU('right', y): the larger y is the smaller u
 		expect(entSnaps(elevCtx('right'), rect)).toEqual([
 			{ point: [u0, planCtx.ground], type: 'end' }, { point: [u1, planCtx.ground], type: 'end' }, { point: [(u0 + u1) / 2, planCtx.ground], type: 'mid' },
 		])
@@ -210,7 +210,7 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 			{ point: [100, planCtx.ground], type: 'end' }, { point: [300, planCtx.ground], type: 'end' }, { point: [200, planCtx.ground], type: 'mid' },
 		])
 		const pl = ent({ type: 'polyline', a: undefined, b: undefined, pts: [[0, 0], [100, 0], [100, 100]] })
-		const u0 = planCtx.cx + (0 - planCtx.cy), u1 = planCtx.cx + (100 - planCtx.cy)   // right: on-axis = plan y
+		const u0 = planCtx.cx - (100 - planCtx.cy), u1 = planCtx.cx - (0 - planCtx.cy)   // right: on-axis = plan y, u = −y (its span's low u = the larger y)
 		expect(entSnaps(elevCtx('right'), pl)).toEqual([
 			{ point: [u0, planCtx.ground], type: 'end' }, { point: [u1, planCtx.ground], type: 'end' }, { point: [(u0 + u1) / 2, planCtx.ground], type: 'mid' },
 		])
@@ -271,11 +271,11 @@ describe('graphNodeApply', () => {
 		graphNodeApply(frontCtx, n, [14100, 10500], noSnap)   // below ground → z clamps to 0
 		expect(n.z).toBe(0)
 	})
-	it('elevation (right): the on-axis coord is y', () => {
+	it('elevation (right): the on-axis coord is y, mirrored (u = −y)', () => {
 		const rctx: ViewCtx = { ...frontCtx, dir: 'right', elevDir: 'right' }
 		const n: GN = { id: 'n', x: 555, y: 0, z: 0 }
-		graphNodeApply(rctx, n, [14100, 10250], noSnap)   // right: u = cx + (y − cy) → y = cy + 100 = 8850
-		expect([n.x, n.y, n.z]).toEqual([555, 8850, 0])
+		graphNodeApply(rctx, n, [14100, 10250], noSnap)   // right: u = cx − (y − cy) → y = cy − 100 = 8650 (up the sheet)
+		expect([n.x, n.y, n.z]).toEqual([555, 8650, 0])
 	})
 })
 
@@ -296,10 +296,11 @@ describe('elevDepthSnap', () => {
 	it('near the vertical wall post (x=13000) → the wall depth, clamped to the segment', () => {
 		expect(elevDepthSnap(ctx, [13005, 9000], 12, shown)).toEqual({ off: 8000, a: [13000, 10250], b: [13000, 7450] })
 	})
-	it('right elevation: on-axis = y, depth = x', () => {
+	it('right elevation: on-axis = y (u = −y), depth = x', () => {
 		const rctx: ViewCtx = withObjs({ ...frontCtx, dir: 'right', elevDir: 'right' }, [trunk])
-		// right: u = cx + (y − cy) = 14000 + 250 = 14250 for both trunk nodes; the segment is a point on-axis
-		expect(elevDepthSnap(rctx, [14250, 7750], 12, shown)?.off).toBe(13000)
+		// right: u = cx − (y − cy) = 14000 − 250 = 13750 for both trunk nodes; the segment is a point on-axis
+		expect(elevDepthSnap(rctx, [13750, 7750], 12, shown)?.off).toBe(13000)
+		expect(elevDepthSnap(rctx, [14250, 7750], 12, shown)).toBe(null)   // the old (mirrored) spot: nothing there
 	})
 })
 

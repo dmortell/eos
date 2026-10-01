@@ -17,7 +17,7 @@ import { DxfDoc, sanitizeLayer } from '../sheets/dxf/dxf'
 import type { Model, Obj, Clip, Dir, OClip } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, trimToOClip, oclipFrame, openingCuts, objBounds, type ProjDir } from './3dview/projection'
-import { hiddenLines, lookNegOf, type HLSeg } from './3dview/hiddenLines'
+import { hiddenLines, type HLSeg } from './3dview/hiddenLines'
 import { flOffset } from './ui/levels'
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, isNote, dimExtLines, dimGeom, dimTextAt, frameOf, rectPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
@@ -123,7 +123,7 @@ export function viewToDxf(inp: DxfViewInput): DxfResult {
 		const src = model.objects.filter((o) => shown(o.layer) && !isOpening(o) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()))
 		const tos = src.map(trim), keepI = tos.flatMap((t, i) => (t ? [i] : []))
 		const cuts = openingCuts(model.objects, (o) => isOpening(o) && shown(o.layer))
-		hiddenLines(keepI.map((i) => tos[i]!), frame ?? frameOf(dir as ElevDir), cuts, lookNegOf(oclip)).forEach((r, k) => hl.set(src[keepI[k]], r.segs))
+		hiddenLines(keepI.map((i) => tos[i]!), frame ?? frameOf(dir as ElevDir), cuts).forEach((r, k) => hl.set(src[keepI[k]], r.segs))
 	}
 	for (const o of model.objects) {
 		if (!shown(o.layer)) continue

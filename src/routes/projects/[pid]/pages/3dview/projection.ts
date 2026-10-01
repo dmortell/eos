@@ -388,14 +388,16 @@ export function inClip(o: Obj, c: Clip): boolean {
 }
 
 // ── ORIENTED clips (elevation-section-plan.md §3.2 — a section at any angle) ──
-// An OClip is a rectangle in plan standing on its cut line a→b, reaching `depth` along the view's look direction n
-// (frameOnLine(a, b).n), over z0..z1. Its LOCAL coords: s = (p − a)·t along the line, d = (p − a)·n behind it — the
+// An OClip is a rectangle in plan standing on its line a→b, reaching `depth` along the frame's n (frameOnLine(a, b).n),
+// over z0..z1. Every view looks along −n (3dview/hiddenLines): a line section's / marker's OClip has a NEGATIVE depth
+// (a→b is its near cut line, the region ahead of the viewer); a box section's (`oclipOf`) a positive one (a→b on the
+// FAR side, the region reaching back toward the viewer). The region is the same either way. Its LOCAL coords: s = (p − a)·t along the line, d = (p − a)·n behind it — the
 // clip is then the axis box [0, |b − a|] × [0, depth] × [z0, z1] in (s, d, z), so the oriented trim is today's
 // axis trim on transformed nodes (`trimSegs`) and a box's overlap is a separating-axis test. For an axis-aligned
 // Clip converted with `oclipOf` (the four dirs) the transform is exact (±1 / 0 components), so the result equals
 // `trimToClip` (the elevFrame tests pin it); existing views still call `trimToClip` itself.
 /** An axis-aligned Clip seen through view frame `f` → the OClip covering it: the frame-aligned bounds of its four
- *  plan corners, the cut line on the near side (min depth) running along t. For the four dirs it IS the clip (front:
+ *  plan corners, a→b on the min-depth side (the FAR side — the viewer looks along −n) running along t. For the four dirs it IS the clip (front:
  *  a = (x0, y0) → b = (x1, y0), depth y1 − y0); for an oblique frame, the smallest frame-aligned rect around it. */
 export function oclipOf(c: Clip, f: ElevFrame): OClip {
 	let s0 = Infinity, s1 = -Infinity, d0 = Infinity, d1 = -Infinity

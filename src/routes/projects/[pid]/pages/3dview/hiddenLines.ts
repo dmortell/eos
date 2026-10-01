@@ -21,10 +21,10 @@ import type { Obj } from './types'
 import { faces3d, objBounds, type Cut } from './projection'
 import { dotT, dotN, type ElevFrame } from '../ui/geometry'
 
-/** Does a view with this OClip look along −n of its frame? (a negative depth: the clip lies behind the line's normal) */
-export const lookNegOf = (oc: { depth: number } | null | undefined): boolean => !!oc && oc.depth < 0
-
-/** A point in the view's coords: [u along the drawing (engine x·t), v = z up, d = x·n away from the viewer]. */
+/** A point in the view's coords: [u along the drawing (engine x·t), v = z up, d = −x·n away from the viewer]. EVERY view
+ *  looks along −n of its frame (t = the drawing's right, n = (−t.y, t.x) in the plan's y-down coords — the viewer's right
+ *  hand is t only when looking along −n). Before 2026-10-01 the four plain elevations (and box sections) looked along +n:
+ *  their occlusion was mirrored — the box NEAREST the viewer was hidden behind the one behind it. */
 type V3 = [number, number, number]
 /** A visible segment in ENGINE coords (u, v up — what `project()` gives; viewMap turns it into drawing coords). */
 export type HLSeg = [number, number, number, number]
@@ -133,11 +133,9 @@ function drawsEdge(cov: Face[], D: V3, X: V3): boolean {
 
 /** Hidden-line segments of `objs` (already trimmed to the view's clip, openings left out) seen through frame `f`;
  *  `cuts` = the model's opening holes (openingCuts), so walls are panels with real holes. One result per object.
- *  `lookNeg`: the viewer looks along −n, not +n — a section line's / elevation marker's view (its OClip has a NEGATIVE
- *  depth: the region lies on the −n side of the cut line, `lookNegOf`); nearer then means a LARGER x·n. */
-export function hiddenLines(objs: Obj[], f: ElevFrame, cuts: Cut[] = [], lookNeg = false): HLObj[] {
-	const sd = lookNeg ? -1 : 1
-	const P = (p: { x: number; y: number; z: number }): V3 => [dotT(f, p.x, p.y), p.z, sd * dotN(f, p.x, p.y)]
+ *  The viewer looks along −n (see V3): nearer = a LARGER x·n. */
+export function hiddenLines(objs: Obj[], f: ElevFrame, cuts: Cut[] = []): HLObj[] {
+	const P = (p: { x: number; y: number; z: number }): V3 => [dotT(f, p.x, p.y), p.z, 0 - dotN(f, p.x, p.y)]
 	// each object gets only the cuts near it (faces3d tests every cut against every panel / box — the bulk of the time)
 	const cb = cuts.map((c) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const p of c.pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y) } return { c, x0, x1, y0, y1 } })
 	const near = (o: Obj): Cut[] => {

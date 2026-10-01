@@ -93,14 +93,14 @@ describe('sectionArrowFor', () => {
 		expect(b1).toEqual([42, 9]); expect(b2).toEqual([58, 9])
 		expect(tip[1]).toBeGreaterThan(b1[1])
 	})
-	it('right: tail inside the LEFT edge, tip points RIGHT (toward larger x)', () => {
-		const [tip, b1, b2] = parse(sectionArrowFor(c, 'right', 10))
+	it('left (seen from the left): tail inside the LEFT edge, tip points RIGHT (toward larger x)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'left', 10))
 		expect(tip).toEqual([27, 100])
 		expect(b1).toEqual([9, 108]); expect(b2).toEqual([9, 92])
 		expect(tip[0]).toBeGreaterThan(b1[0])
 	})
-	it('left: tail inside the RIGHT edge, tip points LEFT (toward smaller x)', () => {
-		const [tip, b1, b2] = parse(sectionArrowFor(c, 'left', 10))
+	it('right (seen from the right): tail inside the RIGHT edge, tip points LEFT (toward smaller x)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'right', 10))
 		expect(tip).toEqual([73, 100])
 		expect(b1).toEqual([91, 92]); expect(b2).toEqual([91, 108])
 		expect(tip[0]).toBeLessThan(b1[0])

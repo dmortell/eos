@@ -157,17 +157,10 @@
 			<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="#ef444414" stroke="#ef4444" stroke-width={1.5 / (canvasZoom || 1)} stroke-dasharray="{6 / (canvasZoom || 1)} {4 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />
 			<text x={rx + (cr.x + cr.w / 2) * rw} y={ry + (cr.y + cr.h / 2) * rh} text-anchor="middle" dominant-baseline="middle" fill="#ef4444" font-size={Math.min(cr.w * rw, cr.h * rh) / 12}>Missing file: {srcName(e.src ?? '')}</text>
 		{:else if !href && e.src?.startsWith(PDF_SRC)}
-			{@const vx = rx + cr.x * rw}{@const vy = ry + cr.y * rh}{@const vw = cr.w * rw}{@const vh = cr.h * rh}
-			{@const cx = vx + vw / 2}{@const cy = vy + vh / 2}{@const sr = Math.min(vw, vh) / 16}
-			<!-- the PDF page is still rendering (a few seconds, once per session): a placeholder with a spinner where it will
-			     appear — each image on a page shows its own; screen only (vp-screen: not printed / exported) -->
-			<g class="vp-screen pdf-loading" pointer-events="none">
-				<rect x={vx} y={vy} width={vw} height={vh} fill="#94a3b81a" stroke="#94a3b8" stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{6 / (canvasZoom || 1)} {4 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />
-				<circle cx={cx} cy={cy - sr * 0.8} r={sr} fill="none" stroke="#0e7490" stroke-width={sr / 4} stroke-linecap="round" stroke-dasharray="{sr * 4} {sr * 2.4}">
-					<animateTransform attributeName="transform" type="rotate" from="0 {cx} {cy - sr * 0.8}" to="360 {cx} {cy - sr * 0.8}" dur="0.9s" repeatCount="indefinite" />
-				</circle>
-				<text x={cx} y={cy + sr * 1.4} text-anchor="middle" dominant-baseline="hanging" fill="#475569" font-size={sr * 0.9}>Rendering PDF…</text>
-			</g>
+			<!-- the PDF page is still rendering (a few seconds, once per session): just a faint dashed outline where it will
+			     appear — the small spinner sits in the view's scale tag / bar (Dave: the big one was obtrusive); screen only -->
+			<rect class="vp-screen pdf-loading" pointer-events="none" x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke="#94a3b8" stroke-opacity="0.6"
+				stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{6 / (canvasZoom || 1)} {4 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />
 		{:else}
 			{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={imgFilter} />{/if}
 			<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={imgFilter} />

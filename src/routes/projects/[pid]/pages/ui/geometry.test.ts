@@ -33,14 +33,14 @@ describe('textBox', () => {
 })
 
 describe('elevU — per-direction horizontal projection (Kestrel/Sheets BASIS)', () => {
-	it('front is identity, rear mirrors x, right/left use y (mirrored) about the plan centre', () => {
+	it('front is identity, rear mirrors x; right uses −y (seen from the right), left +y (seen from the left), about the plan centre', () => {
 		expect(elevU('front', 100)).toBe(100)          // +x, centred at CX=200 → identity
 		expect(elevU('rear', 100)).toBe(2 * PLAN_CX - 100)   // −x mirror about CX
-		expect(elevU('right', 50)).toBe(PLAN_CX + (50 - PLAN_CY))    // +y re-centred about the plan centre
-		expect(elevU('left', 50)).toBe(PLAN_CX - (50 - PLAN_CY))     // −y mirror
-		// mirror is symmetric: rear/left applied twice returns the original
+		expect(elevU('right', 50)).toBe(PLAN_CX - (50 - PLAN_CY))    // −y: up the sheet (small y) is the right view's right
+		expect(elevU('left', 50)).toBe(PLAN_CX + (50 - PLAN_CY))     // +y re-centred: the sheet's top (small y) is on the left view's left
+		// mirror is symmetric: rear/right applied twice returns the original
 		expect(elevU('rear', elevU('rear', 137))).toBe(137)
-		expect(elevU('left', elevU('left', 88))).toBe(88)
+		expect(elevU('right', elevU('right', 88))).toBe(88)
 	})
 })
 
@@ -48,7 +48,8 @@ describe('flatSpan — flat objects collapse to a ground line on the view axis',
 	it('a 2-point polyline (a migrated line) spans its x in front and its y in right', () => {
 		const line: Ent = { id: 'l', type: 'polyline', pts: [[120, 60], [180, 140]] }
 		expect(flatSpan(line, 'front')).toEqual([120, 180])          // x-extent
-		expect(flatSpan(line, 'right')).toEqual([elevU('right', 60), elevU('right', 140)])   // y-extent
+		expect(flatSpan(line, 'right')).toEqual([elevU('right', 140), elevU('right', 60)])   // y-extent, u = −y: the larger y is the smaller u
+		expect(flatSpan(line, 'left')).toEqual([elevU('left', 60), elevU('left', 140)])     // u = +y
 	})
 })
 

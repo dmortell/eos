@@ -29,8 +29,9 @@ import { setSectionDir, deleteSection, setSectionClip, patchSection, flipSection
 import { isLineSection, lineSectionDir, lineSectionGrips, lineSectionRegion, sectionTitle } from './sectionLine'
 import { isElevMarker, elevMarkerDir, elevMarkerGrips, elevMarkerRegion, elevMarkerLine, ELEV_R } from './elevMarker'
 import { imgEdit } from '../imageEdit.svelte'
-import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
-import { BASIS, type Obj, type Clip, type OClip, type Storey } from '../3dview/types'
+import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, modelZRange, type Persp } from '../3dview/projection'
+import { sectionBand, hitBand, bandGrips, applyBandGrip, type SecBand } from './sectionElev'
+import { BASIS, type Obj, type Clip, type OClip, type Storey, type Section } from '../3dview/types'
 import { sectionLayer } from '../3dview/migrate'
 import { flOffset } from './levels'
 import { storeyMap } from '../3dview/storeyMap'
@@ -480,6 +481,26 @@ export class VpView {
 	/** The plan's markers on a shown layer (hidden / frozen here = not drawn, not picked); `pickSections` = also unlocked. */
 	sections = $derived(this.isPlan ? (this.mdl?.sections ?? []).filter((s) => !this.isLayerHidden(sectionLayer(s))) : [])
 	pickSections = $derived(this.sections.filter((s) => !this.isLayerLocked(sectionLayer(s))))
+	/** In an ELEVATION: every other section seen from the side — a dashed band (its width along the view × its Z↓..Z↑),
+	 *  selectable, the selected one with Z handles (ui/sectionElev.ts). Not over its own view, not in a riser drawing's
+	 *  collapsed heights (they don't map back to z). */
+	elevBands = $derived.by((): SecBand[] => {
+		const ss = this.mdl?.sections; if (!this.isElev || !ss?.length || this.collapse) return []
+		const vm = viewMapOf(this.ctx), zr = modelZRange(this.mdl!.objects)
+		return ss.filter((s) => s.id !== this.p.section && !this.isLayerHidden(sectionLayer(s))).map((s) => sectionBand(s, vm.toDraw, zr))
+	})
+	selBand = $derived(this.isElev && this.selSection ? this.elevBands.find((b) => b.id === this.selSection) ?? null : null)
+	/** A Z handle of the selected band under the pointer → the section's patch for a pointer at drawing y (z = ground − y). */
+	pickBandGrip(m: Mapper, clientX: number, clientY: number): { id: string; apply: (p: Pt) => SectionPatch } | null {
+		const b = this.selBand, s = b && this.mdl?.sections?.find((x) => x.id === b.id); if (!b || !s) return null
+		if (this.isLayerLocked(sectionLayer(s))) return null
+		const s0 = $state.snapshot(s) as Section
+		for (const g of bandGrips(b)) {
+			const sp = m.toClient(g.p[0], g.p[1])
+			if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id: b.id, apply: (p: Pt) => applyBandGrip(s0, b, g.key, this.ctx.ground - p[1]) }
+		}
+		return null
+	}
 	/** The building STRUCTURE in an elevation, from the storeys: each floor's slab (a band) + raised floor (a line) on
 	 *  layer A-FLOR, its ceiling (a line) on A-CLNG — only while those layers are on. Spans the model's footprint
 	 *  along this view's axis; a riser frame's collapsed floors are skipped / remapped like everything else. */
@@ -529,7 +550,14 @@ export class VpView {
 		if (this.editor.sections.askDelete(id)) return
 		if (this.mdl && deleteSection(this.mdl, this.editor.edit, id) && this.selSection === id) this.clearSel()
 	}
-	hitSection = (p: Pt) => hitSection(this.ctx, this.pickSections, p, this.tolMm(6), this.markU)
+	hitSection = (p: Pt) => {
+		if (this.isElev) {   // a band's outline (its layer not locked)
+			const tol = this.tolMm(6), b = [...this.elevBands].reverse().find((x) => hitBand(x, p, tol))
+			const s = b && this.mdl?.sections?.find((x) => x.id === b.id)
+			return s && !this.isLayerLocked(sectionLayer(s)) ? s.id : null
+		}
+		return hitSection(this.ctx, this.pickSections, p, this.tolMm(6), this.markU)
+	}
 	hitGuide = (p: Pt) => hitGuide(this.viewGuides, p, this.tolMm(6))
 	/** The selected section's floating toolbar position (.vp-local px), tracking pan/zoom/resize — at a box's top-left, a
 	 *  line's top-left bounds, a marker's callout + region bounds — plus what it shows: a box's sight dir, a line's flip / a
@@ -620,6 +648,7 @@ export class VpView {
 		if (ss && isLineSection(ss)) { const sg = pickLineSectionGrip(m, ss, clientX, clientY, () => this.shiftDown); if (sg) return { kind: 'sgrip', sg } }
 		else if (ss && isElevMarker(ss)) { const sg = pickElevGrip(m, ss, clientX, clientY, this.markU, () => this.shiftDown); if (sg) return { kind: 'sgrip', sg } }
 		else if (ss) { const sg = pickSectionGrip(m, ss, clientX, clientY); if (sg) return { kind: 'sgrip', sg: { id: sg.id, apply: (p: Pt) => ({ clip: sg.apply(p) }) } } }
+		if (this.selBand) { const sg = this.pickBandGrip(m, clientX, clientY); if (sg) return { kind: 'sgrip', sg } }   // an elevation band's Z handle
 		const gx = this.groupXf
 		if (gx) {
 			const near = (q: Pt) => { const sp = m.toClient(q[0], q[1]); return Math.hypot(sp.x - clientX, sp.y - clientY) < 14 }

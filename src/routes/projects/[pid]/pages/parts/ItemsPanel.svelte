@@ -44,6 +44,8 @@
 	const rows = $derived(filterItems(all, { cat, layer, q, level: hasLevels ? level : '', usage: cat === 'outlet' || !cat ? usage : '', view: inView && view ? view : undefined }))
 	const keys = $derived(rows.map(rowKey))
 	const selSet = $derived(new Set(selected))
+	// rows on a LOCKED layer show a lock: listed + selectable here (to find them), but not editable in the view until unlocked
+	const lockedLayers = $derived(new Set((model?.layers ?? []).filter((l) => l.locked).map((l) => l.id)))
 	const nSel = $derived(keys.filter((k) => selSet.has(k)).length)
 	const ports = $derived(rows.reduce((s, r) => s + (r.ports ?? 0), 0))
 	const LIMIT = 2000
@@ -127,6 +129,7 @@
 					{#if r.level}<span class="it-dot" class:low={r.level === 'Low'} title="{r.level} level"></span>{/if}
 					<span class="it-name" class:mono={r.cat === 'outlet' || r.cat === 'rack'}>{r.name}</span>
 					<span class="it-detail">{r.detail}</span>
+					{#if r.layerId && lockedLayers.has(r.layerId)}<span class="it-lock" title="Its layer “{r.layer}” is locked — unlock it in Layers to select / edit it in the view"><Icon name="lock" size={10} /></span>{/if}
 				</button>
 			{:else}
 				<div class="it-hint">{all.length ? 'Nothing matches — widen the filters (or untick “In this view”).' : 'This model has no shapes or objects yet.'}</div>
@@ -163,6 +166,7 @@
 	.it-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 	.it-name.mono { font-family:Consolas, monospace; font-size:11.5px; }
 	.it-detail { flex:none; max-width:55%; font-size:10.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.it-lock { flex:none; display:inline-flex; color:var(--faint); }
 	.it-dot { flex:none; width:8px; height:8px; border-radius:50%; border:1.5px solid var(--muted); }
 	.it-dot.low { background:var(--muted); }
 	.it-hint { font-size:11px; color:var(--faint); padding:8px; line-height:1.45; }

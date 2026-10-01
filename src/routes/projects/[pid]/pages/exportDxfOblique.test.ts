@@ -54,24 +54,29 @@ describe('DXF of an OBLIQUE section view (phase 5)', () => {
 
 describe('DXF with hidden lines (phase 6)', () => {
 	const on = (objs: Obj[], extra = {}) => ents(viewToDxf({ model: mk(objs), ents: [], dir: 'front', hideHidden: true, scaleN: 50, ...extra }).text)
+	// the front view looks along −n = −y (its viewer at the BOTTOM of the sheet): a box at y −1000..−600 is BEHIND the
+	// wall (y 0); the plain `box` (y 1000..1400) is in front of it
+	const back: Obj = { ...box, y: -1000 } as Obj
 	it('a box behind a wall exports nothing; the wall its outline as LINEs', () => {
-		const rs = on([wall, box])
+		const rs = on([wall, back])
 		expect(rs.filter((r) => layerOf(r) === 'Boxes')).toHaveLength(0)
 		expect(rs.filter((r) => layerOf(r) === 'Walls' && r.type === 'LINE').length).toBeGreaterThanOrEqual(4)
+		expect(on([wall, box]).filter((r) => layerOf(r) === 'Boxes' && r.type === 'LINE')).toHaveLength(4)   // in front of it: all there
 	})
 	it('seen through the door it exports; the opening itself draws no outline (the wall’s hole edges do)', () => {
-		const rs = on([wall, door, box])
+		const rs = on([wall, door, back])
 		expect(rs.filter((r) => layerOf(r) === 'Boxes' && r.type === 'LINE')).toHaveLength(4)
 		expect(rs.filter((r) => layerOf(r) === 'Openings')).toHaveLength(0)
 	})
 	it('in an oblique view too', () => {
+		// 60°: n = (½, √3/2), looking along −n — from the wall's +y side, so −y is behind it
 		const g = frameAt([PLAN_CX, PLAN_CY], 60), oc = oclipOf({ x0: -5000, y0: -5000, x1: 8000, y1: 8000, z0: 0, z1: 3000 }, g)
-		const behind: Obj = { ...box, x: 1200, y: 300, w: 300, d: 300, h: 1000 } as Obj
+		const behind: Obj = { ...box, x: 1200, y: -600, w: 300, d: 300, h: 1000 } as Obj
 		expect(on([wall, behind], { oclip: oc }).filter((r) => layerOf(r) === 'Boxes')).toHaveLength(0)
 		expect(on([wall, door, behind], { oclip: oc }).filter((r) => layerOf(r) === 'Boxes').length).toBeGreaterThan(0)
 	})
 	it('Hidden lines off: every object as before (the box’s outline behind the wall too)', () => {
-		const rs = ents(viewToDxf({ model: mk([wall, box]), ents: [], dir: 'front', scaleN: 50 }).text)
+		const rs = ents(viewToDxf({ model: mk([wall, back]), ents: [], dir: 'front', scaleN: 50 }).text)
 		expect(rs.filter((r) => layerOf(r) === 'Boxes')).toHaveLength(1)
 	})
 })

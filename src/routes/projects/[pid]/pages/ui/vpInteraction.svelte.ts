@@ -375,10 +375,20 @@ export class VpInteraction {
 		else if (MODEL_GRAPH.has(v.tool) && (v.isPlan || (v.isElev && !v.oblique))) this.placeGraph(trimTail(this.draft))
 		this.endDraft()
 	}
-	private addModelObj(o: Obj) {
-		const v = this.v; if (!v.mdl) return
+	/** A new 3D object never lands on a hidden / locked layer (like shapes, J5): it would vanish, or be stuck — unselectable,
+	 *  uneditable (a box added on Hibiya's locked Furniture layer, 2026-10-01). Refused with a note → true. */
+	private layerRefuses(o: Obj): boolean {
+		const v = this.v; if (!o.layer || !(v.isLayerHidden(o.layer) || v.isLayerLocked(o.layer))) return false
+		const l = v.mls.find((x) => x.id === o.layer), locked = v.isLayerLocked(o.layer)
+		const what = o.type === 'prism' ? (o.rack ? 'racks' : o.open ? 'openings' : 'boxes') : o.type === 'wall' ? 'walls' : 'trunks / pipes'
+		toast.warning(`The “${l?.name ?? o.layer}” layer is ${locked ? 'locked' : 'hidden'} — ${locked ? 'unlock' : 'show'} it in Layers to add ${what} there`, { id: 'layer-refused' })
+		return true
+	}
+	private addModelObj(o: Obj): boolean {
+		const v = this.v; if (!v.mdl || this.layerRefuses(o)) return false
 		const id = addModelObj(v.mdl, v.editor.edit, o)
 		if (id) v.selectObj(id)
+		return true
 	}
 	/** A clicked run → a wall or conduit graph. In an ELEVATION the depth comes from the SELECTED plan guide,
 	 *  else the depth-snap, else the plan centre — with a nudge to select a guide when there is none. */
@@ -390,7 +400,8 @@ export class VpInteraction {
 		if (v.isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId, profile: (() => { const s = trunkSpecs.of(v.tool); return s ? specProfile(s, v.mdl?.levels) : undefined })() })
 		if (!o) return
-		if (o.type !== 'conduit') return this.addModelObj(o)
+		if (o.type !== 'conduit') { this.addModelObj(o); return }
+		if (this.layerRefuses(o)) return
 		const into = commitConduit(v, o)   // F6 attach + F3 join (ui/vpModelEdit.ts)
 		if (into?.id) v.selectObj(into.id)
 	}
@@ -585,7 +596,7 @@ export class VpInteraction {
 			const c = this.toDraw(at)!, n = v.mdl.objects.filter((o) => o.type === 'prism' && o.rack).length
 			let label = ''; for (let k = n + 1; ; k++) { label = 'R' + String(k).padStart(2, '0'); if (!v.mdl.objects.some((o) => o.label === label)) break }
 			const o = prismObj(v.ctx, [c[0] - w / 2, c[1] - d / 2], [c[0] + w / 2, c[1] + d / 2], 'racks', rackHeightMm(u), () => newId('rk'), { rack: { u }, label, ...(rot ? { rot } : {}) })
-			this.addModelObj(o)
+			if (!this.addModelObj(o)) return { err: 'The Racks layer is hidden or locked' }
 			return { label }
 		},
 		placeText: (kind, text) => {
@@ -1175,9 +1186,10 @@ export class VpInteraction {
 			ed.begin()
 			beginPointerDrag<string>(e, pk.id, { onMove: this.onGuideDragMove, onUp: this.onGuideDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'section') {   // a section border / cut line → select + move (a no-move press just selects)
-			const sm = v.sections.find((s) => s.id === pk.id); if (!sm) return
+			const sm = (v.isElev ? v.mdl?.sections ?? [] : v.sections).find((s) => s.id === pk.id); if (!sm) return
 			if (v.selSection !== pk.id) v.selectSection(pk.id)
 			this.pressedSection = pk.id   // a no-move click keeps it (onClick), even over a model object
+			if (v.isElev) return   // a band seen from the side: select only — it moves on the plan, its Z by its handles
 			ed.begin()
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, s0: $state.snapshot(sm) as Section }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move, on the same engine as shapes (Shift = toggle on release, Ctrl-drag = copy)

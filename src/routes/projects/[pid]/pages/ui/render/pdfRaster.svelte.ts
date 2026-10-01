@@ -24,6 +24,11 @@ let db: Firestore | null = null
 const fileDocs = new Map<string, Promise<FileDoc | null>>()
 const jobs = new Map<string, Promise<Raster>>()
 const ready = $state<Record<string, Raster>>({})
+/** How many PDF pages are rendering right now (the small spinner beside a view's scale). */
+const busy = $state({ n: 0 })
+export const pdfRendering = () => busy.n > 0
+/** Reactive: is this `pdf:` src rendered yet? */
+export const pdfReady = (src: string) => !!ready[src]
 
 function fileDoc(fileId: string): Promise<FileDoc | null> {
 	let p = fileDocs.get(fileId)
@@ -45,7 +50,10 @@ export function renderPdfPage(fileId: string, page: number): Promise<Raster> {
 			finally { pdf.destroy() }
 		})()
 		jobs.set(key, job)
-		job.then((r) => { ready[key] = r }, () => jobs.delete(key))   // a failed render may be retried later
+		// the count is $state and this runs inside the image's $derived href (pdfImageUrl) — bump it after, not during
+		// (state_unsafe_mutation); the job can't settle before the microtask
+		queueMicrotask(() => { busy.n++ })
+		job.then((r) => { ready[key] = r }, () => jobs.delete(key)).finally(() => { busy.n-- })   // a failed render may be retried later
 	}
 	return job
 }

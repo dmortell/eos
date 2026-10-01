@@ -14,7 +14,7 @@
 	import { BASIS } from './types'
 	import { frameOf, frameAxis, dotT, dotN, type ElevDir, type ElevFrame } from '../ui/geometry'
 	import { storeyMap } from './storeyMap'
-	import { hiddenLines, lookNegOf } from './hiddenLines'
+	import { hiddenLines } from './hiddenLines'
 	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
 	import { strokePx, resolveLw, SCREEN_PX_PER_MM } from '../ui/lineweight'
@@ -232,8 +232,8 @@
 	}
 	// I2: plan / elevation HIDDEN-LINE removal — every face projected orthographically, painted farthest first in the
 	// paper colour, so a nearer face hides the lines behind it (the iso solid render's painter's algorithm, flat).
-	// `far` = distance away from the viewer: plan looks down (−z), front along +y, rear −y, right −x, left +x.
-	// (an elevation's = the view frame's origin-free depth x·n — an oblique frame's too)
+	// `far` = distance away from the viewer. Only the PLAN paints this way (it looks down: −z); an elevation's hidden lines
+	// are exact (hiddenLines — every view looks along −n of its frame).
 	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' || !fr ? -p.z : dotN(fr, p.x, p.y)
 	const hlFaces = $derived.by(() => {
 		if (!hideHidden || dir !== 'plan') return []   // (an elevation: exact hidden lines, `hlLines` below)
@@ -259,7 +259,7 @@
 		if (!hideHidden || !fr) return []
 		const objs: Obj[] = [], src: Obj[] = []
 		for (const o of model.objects) { if (!visible(o) || isOpening(o) || inHiddenFloors(o)) continue; const to = trim(o); if (to) { objs.push(to); src.push(o) } }
-		return hiddenLines(objs, fr, allCuts, lookNegOf(oclip)).map((r, i) => ({ o: src[i], d: r.segs.map((s) => mv([{ u: s[0], v: s[1] }, { u: s[2], v: s[3] }])).map(([a, b]) => `M${a.u},${a.v}L${b.u},${b.v}`).join(''),
+		return hiddenLines(objs, fr, allCuts).map((r, i) => ({ o: src[i], d: r.segs.map((s) => mv([{ u: s[0], v: s[1] }, { u: s[2], v: s[3] }])).map(([a, b]) => `M${a.u},${a.v}L${b.u},${b.v}`).join(''),
 			fill: r.fills.map((pts) => `M${mv(pts).map((p) => `${p.u},${p.v}`).join('L')}Z`).join('') }))
 	})
 	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.

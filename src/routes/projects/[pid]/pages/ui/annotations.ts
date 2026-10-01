@@ -176,8 +176,8 @@ export function sectionArrowFor(c: Clip, dir: ElevDir, size: number): string {
 	let tail: Pt, d: Pt
 	if (dir === 'front') { tail = [cx, y1 - pad]; d = [0, -1] }        // bottom edge, look up
 	else if (dir === 'rear') { tail = [cx, y0 + pad]; d = [0, 1] }     // top edge, look down
-	else if (dir === 'right') { tail = [x0 + pad, cy]; d = [1, 0] }    // left edge, look right
-	else { tail = [x1 - pad, cy]; d = [-1, 0] }                        // right edge, look left
+	else if (dir === 'left') { tail = [x0 + pad, cy]; d = [1, 0] }     // left edge, look right (the LEFT elevation, seen from the left)
+	else { tail = [x1 - pad, cy]; d = [-1, 0] }                        // right edge, look left (the RIGHT one)
 	const perp: Pt = [-d[1], d[0]], w = a * 0.8
 	const tip: Pt = [tail[0] + d[0] * a * 1.8, tail[1] + d[1] * a * 1.8]
 	const b1: Pt = [tail[0] + perp[0] * w, tail[1] + perp[1] * w], b2: Pt = [tail[0] - perp[0] * w, tail[1] - perp[1] * w]

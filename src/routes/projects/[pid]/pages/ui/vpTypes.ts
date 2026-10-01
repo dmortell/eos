@@ -42,6 +42,8 @@ export type VpProps = {
 	frozen?: string[]
 	/** J1: layers locked in this viewport only (SheetFrame.vpLocked). */
 	vpLocked?: string[]
+	/** The section / elevation marker this frame shows (SheetFrame.section) — its own band isn't drawn over it. */
+	section?: string
 	tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor
 	frameId?: string; modelId?: import('../3dview/types').ModelId
 	/** An imported frame's unmapped Sheets source (SheetFrame.source) — shown instead of any model. */

@@ -194,7 +194,7 @@ export const BASIS: Record<Dir, { h: Axis; hs: number; v: Axis; vs: number }> = 
 	plan:  { h: 'x', hs: 1,  v: 'y', vs: 1 },
 	front: { h: 'x', hs: 1,  v: 'z', vs: 1 },
 	rear:  { h: 'x', hs: -1, v: 'z', vs: 1 },
-	right: { h: 'y', hs: 1,  v: 'z', vs: 1 },
-	left:  { h: 'y', hs: -1, v: 'z', vs: 1 },
+	right: { h: 'y', hs: -1, v: 'z', vs: 1 },   // plan y runs down the sheet: seen from the right, up the sheet is its right
+	left:  { h: 'y', hs: 1,  v: 'z', vs: 1 },
 	iso:   { h: 'x', hs: 1,  v: 'z', vs: 1 }, // placeholder; iso is not edited in-plane
 }

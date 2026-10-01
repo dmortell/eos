@@ -43,6 +43,20 @@
 	{/each}
 	{#if v.active && v.tool === 'Guide' && x.guideCur}{@render guide(x.guideCur.orient, x.guideCur.pos, 'preview')}{/if}
 {/if}
+{#if v.isElev && v.elevBands.length}
+	<!-- SECTIONS SEEN FROM THE SIDE (ui/sectionElev.ts): each other section's band — its width along this view × its Z↓..Z↑
+	     (every height = the model's); click its outline to select, then drag its top / bottom handle for Z↑ / Z↓ -->
+	{#each v.elevBands as b (b.id)}
+		{@const sel = b.id === v.selSection}
+		<rect class="section-band" class:sel class:all={b.all} x={b.u0} y={b.top} width={Math.max(0, b.u1 - b.u0)} height={Math.max(0, b.bot - b.top)} />
+		<text class="section-label" x={b.u0 + 1.5 * v.paperMm} y={b.top - 1.5 * v.paperMm} font-size={2.5 * v.paperMm}>{b.label}{b.all ? '' : ` · Z ${Math.round(b.z0)}–${Math.round(b.z1)}`}</text>
+		{#if sel && v.active}
+			<!-- Z↑ (top) / Z↓ (bottom) of the band it sees -->
+			<Handle cx={(b.u0 + b.u1) / 2} cy={b.top} size={v.gripSize} cursor="ns-resize" strokeWidth={1.2 * sw} />
+			<Handle cx={(b.u0 + b.u1) / 2} cy={b.bot} size={v.gripSize} cursor="ns-resize" strokeWidth={1.2 * sw} />
+		{/if}
+	{/each}
+{/if}
 {#if v.isPlan}
 	{#each v.sections as s (s.id)}
 		{#if s.kind === 'line'}
@@ -142,4 +156,8 @@
 	.section-line.sel { stroke-dasharray:none; }
 	.section-region { fill:#0e749012; stroke:#0e749066; stroke-width:1; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-depth { fill:#fff; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
+	/* A section seen in an elevation: its band (dashed; faint when it sees every height), solid when selected. */
+	.section-band { fill:#0e749008; stroke:#0e7490; stroke-width:1; stroke-dasharray:8 4; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-band.all { stroke-opacity:0.5; }
+	.section-band.sel { fill:#0e749018; stroke-dasharray:none; stroke-opacity:1; }
 </style>

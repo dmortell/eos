@@ -112,10 +112,10 @@ describe('graphObj — elevation (vertical runs, depth from guide / snap / centr
 		expect(t.nodes.map((n) => n.y)).toEqual([1234, 1234, planCtx.cy])
 		expect(t.nodes.map((n) => n.z)).toEqual([0, 3000, 3000])   // NOT the ceiling-tile default: z comes from the drawing
 	})
-	it('in a RIGHT elevation the on-axis coord is y (re-centred) and the depth fills x (cx fallback)', () => {
+	it('in a RIGHT elevation the on-axis coord is −y (re-centred) and the depth fills x (cx fallback)', () => {
 		const p = graphObj(right, 'Pipe', [[14000, 10250], [14500, 8250]], { guide: null, depthSnap: () => null, uid: ids() }) as Conduit
-		// elevUInv('right', u) = cy + (u − cx)
-		expect(p.nodes.map((n) => [n.x, n.y, n.z])).toEqual([[planCtx.cx, 8750, 0], [planCtx.cx, 9250, 2000]])
+		// elevUInv('right', u) = cy − (u − cx): further right in the drawing = further UP the sheet (smaller y)
+		expect(p.nodes.map((n) => [n.x, n.y, n.z])).toEqual([[planCtx.cx, 8750, 0], [planCtx.cx, 8250, 2000]])
 		const g = graphObj(right, 'Pipe', [[14000, 10250], [14500, 8250]], { guide: { id: 'g', plane: 'plan', orient: 'v', pos: 777 }, depthSnap: () => null, uid: ids() }) as Conduit
 		expect(g.nodes.every((n) => n.x === 777)).toBe(true)
 	})
@@ -179,11 +179,11 @@ describe('moveEnt', () => {
 		expect(moveEnt(planCtx, rect, 5, -7)).toMatchObject({ a: [5, -7], b: [205, 93] })
 		expect(moveEnt(isoCtx, text, 5, -7)).toMatchObject({ a: [15, 3] })
 	})
-	it('elevation: a flat kind moves only along the view axis — x for front, mirrored for rear, y for right/left; dy is dropped', () => {
+	it('elevation: a flat kind moves only along the view axis — x for front, mirrored for rear, −y for right, +y for left; dy is dropped', () => {
 		expect(moveEnt(elevCtx('front'), rect, 30, 99)).toMatchObject({ a: [30, 0], b: [230, 100] })
 		expect(moveEnt(elevCtx('rear'), rect, 30, 99)).toMatchObject({ a: [-30, 0], b: [170, 100] })
-		expect(moveEnt(elevCtx('right'), rect, 30, 99)).toMatchObject({ a: [0, 30], b: [200, 130] })
-		expect(moveEnt(elevCtx('left'), rect, 30, 99)).toMatchObject({ a: [0, -30], b: [200, 70] })
+		expect(moveEnt(elevCtx('right'), rect, 30, 99)).toMatchObject({ a: [0, -30], b: [200, 70] })   // drag right = up the sheet
+		expect(moveEnt(elevCtx('left'), rect, 30, 99)).toMatchObject({ a: [0, 30], b: [200, 130] })    // drag right = down the sheet
 		const pl = ent({ type: 'polyline', a: undefined, b: undefined, pts: [[0, 0], [10, 10]] })
 		expect(moveEnt(elevCtx('front'), pl, 4, 4).pts).toEqual([[4, 0], [14, 10]])
 	})

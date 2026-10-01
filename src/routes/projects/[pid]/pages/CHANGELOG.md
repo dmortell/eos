@@ -76,6 +76,21 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   ViewCube's new direction (the sheet's — both show it, by design) is now centred in every pane showing it, not just
   the one clicked. Plan TEXT (labels, notes, callouts, legends) no longer shows in elevations — it was drawn at its plan
   coords, high above (an elevation's own text still shows; 3D still lifts plan callouts).
+- **Elevations now match the plan as drawn** (Dave 2026-10-01: "are left & right swapped?"). The engine came from a y-up
+  world; Pages draws plans y-down, so (1) LEFT / RIGHT were mirrored — now LEFT is seen from the left (the plan's top on
+  its left), RIGHT from the right (`geometry` DIR_T / ELEV_BASIS, 3dview BASIS, `lineSectionDir`, the box-section
+  arrows) — and (2) hidden lines in every plain / box-section elevation were back to front: the object NEAREST the viewer
+  was hidden behind the one behind it (a probe: front view, the near box 0 mm visible). `hiddenLines` now always looks
+  along −n (section lines / markers already did). Existing Left / Right viewports show the other side now: Fit them
+  once (Properties › Fit) — their saved pan points at the mirrored spot.
+- **Sections seen from the side** (`ui/sectionElev.ts`, tested): in an elevation every other section / elevation marker /
+  box section shows as a dashed band — its width along the view × its Z↓..Z↑ (faint = every height: the model's range)
+  with its name; click its outline to select it, then drag the top / bottom handle to set Z↑ / Z↓ (one undo step;
+  the plan keeps the depth handle). Not over its own viewport, not in a riser drawing's collapsed heights.
+- A new box / wall / trunk / rack on a HIDDEN or LOCKED layer is refused with a note (like shapes): it was created on
+  Hibiya's locked Furniture layer — invisible to picking, uneditable. Items rows on a locked layer show a lock.
+- PDF rendering: no big spinner over the drawing — a faint dashed outline where the page will appear, a small spinner in
+  the view's scale tag, and one beside the scale list in the active / model-space bar.
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

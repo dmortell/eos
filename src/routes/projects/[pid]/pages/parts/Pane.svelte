@@ -31,6 +31,7 @@
 	import { selClear } from '../ui/selection'
 	import { FLOOR_MODEL_ID, modelById } from '../3dview/models.svelte'
 	import { DEFAULT_MARGIN_MM, effScale } from '../constants'
+	import { pdfRendering } from '../ui/render/pdfRaster.svelte'
 	import { tick } from 'svelte'
 
 	let {
@@ -150,6 +151,7 @@
 						</select>
 					{/if}
 				</label>
+				{#if pdfRendering()}<span class="vab-pdf-spin" title="Rendering PDF…"></span>{/if}
 				<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
 				{#if !avFrame && a.kind === 'sheet'}
 					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { ws.toggleLayout(pane); tick().then(() => ws.fitPane(pi)) }}
@@ -301,6 +303,9 @@
 	.vab-scale select:focus { outline:none; border-color:var(--accent); }
 	.vab-custom { width:76px; background:var(--panel2); color:var(--text); border:1px solid var(--accent); border-radius:5px; padding:3px 6px; font-size:12px; font-weight:600; font-family:Consolas, monospace; }
 	.vab-custom:focus { outline:none; }
+	/* a PDF page rendering: a small spinner beside the scale list */
+	.vab-pdf-spin { width:10px; height:10px; flex:0 0 auto; border:2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color:var(--accent); border-radius:50%; animation:vab-spin 0.8s linear infinite; }
+	@keyframes vab-spin { to { transform:rotate(360deg); } }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }

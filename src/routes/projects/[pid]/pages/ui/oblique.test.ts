@@ -43,9 +43,9 @@ describe('a box projected through a 30° frame', () => {
 			const [dx, dy] = vm.toDraw({ x, y, z: 300 })
 			expect(dx).toBeCloseTo(o[0] + (x - o[0]) * S30 - (y - o[1]) * C30, 6); expect(dx).toBeCloseTo(frameU(f, [x, y]), 6)
 			expect(dy).toBe(GROUND - 300)
-			expect(dotN(f, x, y) - dotN(f, o[0], o[1])).toBeCloseTo(frameDepth(f, [x, y]), 6)   // Model3d's `far` sorts by this
+			expect(dotN(f, x, y) - dotN(f, o[0], o[1])).toBeCloseTo(frameDepth(f, [x, y]), 6)   // hiddenLines' depth is −x·n
 		}
-		expect(frameDepth(f, [b.x + b.w, b.y + b.d])).toBeGreaterThan(frameDepth(f, [b.x, b.y]))   // the far corner is deeper
+		expect(frameDepth(f, [b.x + b.w, b.y + b.d])).toBeGreaterThan(frameDepth(f, [b.x, b.y]))   // the +x +y corner has the larger x·n — the NEARER one (the view looks along −n)
 		expect(projectPt(f, { x: 1000, y: 2000, z: 7 })).toEqual({ u: dotT(f, 1000, 2000), v: 7 })
 	})
 	it('an explicit AXIS frame equal to a dir’s draws exactly like the dir (ProjDir)', () => {
@@ -104,10 +104,11 @@ describe('an ORIENTED clip (OClip)', () => {
 describe('Clip → OClip for the four dirs reproduces the axis clip exactly', () => {
 	const c: Clip = { x0: 1000, y0: 2000, x1: 5000, y1: 4000, z0: 0, z1: 3000 }
 	const want: Record<ElevDir, OClip> = {
-		front: { a: [1000, 2000], b: [5000, 2000], depth: 2000, z0: 0, z1: 3000 },   // cut on the near (y0) side, looking +y
-		rear: { a: [5000, 4000], b: [1000, 4000], depth: 2000, z0: 0, z1: 3000 },    // near side y1, looking −y
-		right: { a: [5000, 2000], b: [5000, 4000], depth: 4000, z0: 0, z1: 3000 },   // near side x1, looking −x
-		left: { a: [1000, 4000], b: [1000, 2000], depth: 4000, z0: 0, z1: 3000 },    // near side x0, looking +x
+		// a → b on the min-x·n side (the side AWAY from the viewer, who looks along −n), the region reaching +depth along n
+		front: { a: [1000, 2000], b: [5000, 2000], depth: 2000, z0: 0, z1: 3000 },   // line on y0, viewer below (y1) looking up (−y)
+		rear: { a: [5000, 4000], b: [1000, 4000], depth: 2000, z0: 0, z1: 3000 },    // line on y1, viewer above (y0) looking down (+y)
+		right: { a: [1000, 4000], b: [1000, 2000], depth: 4000, z0: 0, z1: 3000 },   // line on x0 running up the sheet (t −y), viewer on the right looking −x
+		left: { a: [5000, 2000], b: [5000, 4000], depth: 4000, z0: 0, z1: 3000 },    // line on x1 running down the sheet (t +y), viewer on the left looking +x
 	}
 	const objs: Obj[] = [
 		{ type: 'wall', id: 'w1', h: 2700, thickness: 100, nodes: [{ id: 'a', x: 0, y: 3000, z: 0 }, { id: 'b', x: 6000, y: 3000, z: 0 }, { id: 'c', x: 6000, y: 6000, z: 0 },
@@ -122,7 +123,7 @@ describe('Clip → OClip for the four dirs reproduces the axis clip exactly', ()
 		box({ id: 'p4', x: 2000, y: 2500, z: 3000 }),                  // standing on z1
 		box({ id: 'p5', x: 2000, y: 2500, z: 3001 }),                  // just above
 	]
-	it('oclipOf(clip, frameOf(dir)) is the clip itself: the near side as the cut line, the far side as the depth', () => {
+	it('oclipOf(clip, frameOf(dir)) is the clip itself: a → b along t on its min-x·n side, the depth reaching back toward the viewer', () => {
 		for (const d of DIRS) {
 			const oc = oclipOf(c, frameOf(d))
 			expect(oc).toEqual(want[d])

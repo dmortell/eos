@@ -58,14 +58,15 @@ describe('line section → its view (OClip + frame), agreeing with the box secti
 		for (const o of probes) expect(inOClip(o, oc)).toBe(inClip(o, clip))
 		expect(lineSectionDir(s)).toBe('rear')
 	})
-	it('up the RIGHT edge = the box’s LEFT elevation; down the LEFT edge = its RIGHT one', () => {
+	it('up the RIGHT edge (seen from the right, looking −x) = the box’s RIGHT elevation; down the LEFT edge = its LEFT one', () => {
 		const up = line({ a: [5000, 4000], b: [5000, 2000], depth: 4000, z0: 0, z1: 3000 })
-		expect(oclipFrame(lineSectionOClip(up), C)).toEqual(frameOf('left')); expect(lineSectionDir(up)).toBe('left')
+		expect(oclipFrame(lineSectionOClip(up), C)).toEqual(frameOf('right')); expect(lineSectionDir(up)).toBe('right')
 		const down = line({ a: [1000, 2000], b: [1000, 4000], depth: 4000, z0: 0, z1: 3000 })
-		expect(oclipFrame(lineSectionOClip(down), C)).toEqual(frameOf('right')); expect(lineSectionDir(down)).toBe('right')
+		expect(oclipFrame(lineSectionOClip(down), C)).toEqual(frameOf('left')); expect(lineSectionDir(down)).toBe('left')
 		for (const s of [up, down]) for (const o of probes) expect(inOClip(o, lineSectionOClip(s))).toBe(inClip(o, clip))
 		// … and the same frames the box sections' own oclipOf gives
 		expect(oclipFrame(oclipOf(clip, frameOf('left')), C)).toEqual(frameOf('left'))
+		expect(oclipFrame(oclipOf(clip, frameOf('right')), C)).toEqual(frameOf('right'))
 	})
 	it('a flip turns the view round: the other side of the line, the horizontal reversed', () => {
 		const s = line(), f0 = oclipFrame(lineSectionOClip(s), C), f1 = oclipFrame(lineSectionOClip({ ...s, flip: true }), C)

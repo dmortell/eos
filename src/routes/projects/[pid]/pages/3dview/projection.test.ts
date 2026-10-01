@@ -207,7 +207,7 @@ describe('doorGeom', () => {
 })
 
 describe('project — orthographic outlines', () => {
-	it('prism plan = its footprint; front = an upright rectangle x × z; rear mirrors x; right uses y', () => {
+	it('prism plan = its footprint; front = an upright rectangle x × z; rear mirrors x; right uses −y, left +y', () => {
 		const p = prism()
 		const [plan] = project(p, 'plan')
 		expect(plan.closed).toBe(true); near(span(us(plan.pts)), [100, 500]); near(span(vs(plan.pts)), [200, 500])
@@ -215,8 +215,10 @@ describe('project — orthographic outlines', () => {
 		expect(front.pts).toHaveLength(4); near(span(us(front.pts)), [100, 500]); near(span(vs(front.pts)), [0, 1000])
 		const [rear] = project(p, 'rear')
 		near(span(us(rear.pts)), [-500, -100])
-		const [right] = project(p, 'right')
-		near(span(us(right.pts)), [200, 500]); near(span(vs(right.pts)), [0, 1000])
+		const [right] = project(p, 'right')   // seen from the right: up the sheet (small y) is its right
+		near(span(us(right.pts)), [-500, -200]); near(span(vs(right.pts)), [0, 1000])
+		const [left] = project(p, 'left')     // seen from the left: down the sheet (large y) is its right
+		near(span(us(left.pts)), [200, 500]); near(span(vs(left.pts)), [0, 1000])
 	})
 	it('a tilted prism projects as the convex hull of its corners (wider than the upright box)', () => {
 		const [tilted] = project(prism({ rotY: 45 }), 'front')
