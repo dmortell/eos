@@ -66,6 +66,11 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
 - **Section markers on a layer**: boxes, lines and elevation markers carry `layer` (unset = the new "Sections" layer,
   added to a model with markers on load and when the first is drawn) — hidden / frozen = not drawn or picked on the
   plan (its viewports still work), locked = not pickable; Properties › SECTION › Layer moves one to another layer.
+- **Walls / trunks / pipes: X / Y / Z in Properties** (`ui/graphPos.ts`, tested) like a box's — Z = the run's lowest
+  node (mm above FL±0); setting X / Y / Z shifts every node (slopes / drops kept; a plan move detaches nodes attached to a
+  box). A selected node (walls too now) has NODE X / Y / Z. Multi-select Base Z covers walls / conduits (their lowest
+  point) as well as boxes.
+- Tool strip order: Boxes, then Walls · trunks · pipes, then Openings.
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

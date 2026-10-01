@@ -17,6 +17,8 @@
 	import { cptPick } from '../../ui/cptPick.svelte'
 	import { resizeKeepCorner } from '../../ui/resizeKeep'
 	import { boxZ, zPresets } from '../../ui/hiLo'
+	import { graphPos, setGraphPos, setNodePos } from '../../ui/graphPos'
+	import type { GNode } from '../../3dview/graph'
 
 	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId, segId }: {
 		obj: Obj; layers?: MLayer[]
@@ -44,7 +46,7 @@
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const isOpening = $derived(obj.type === 'prism' && !!layers.find((l) => l.id === obj.layer)?.opening)
 	const typeLabel = $derived(obj.rack ? 'Rack' : obj.device ? 'Device' : isOpening ? 'Opening' : TYPE_LABEL[obj.type] ?? 'Object')
-	const selNode = $derived(nodeId && obj.type === 'conduit' ? obj.nodes.find((n) => n.id === nodeId) ?? null : null)
+	const selNode = $derived(nodeId && (obj.type === 'conduit' || obj.type === 'wall') ? obj.nodes.find((n) => n.id === nodeId) ?? null : null)
 	const setCables = (c: CableRun[]) => onupdate?.({ cables: c.length ? c : undefined })
 	// F10 "advanced": the cables this conduit would carry if every outlet runs to its nearest conduit
 	function countFromOutlets() {
@@ -67,6 +69,26 @@
 		return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0
 	}
 </script>
+
+<!-- A WALL / CONDUIT's position like a box's (ui/graphPos.ts): X / Y = its plan bounds' corner, Z = its lowest node (mm
+     above FL±0) — setting one shifts the whole run (slopes / drops kept); a selected NODE has its own X / Y / Z -->
+{#snippet graphXYZ(nodes: GNode[])}
+	{@const p = graphPos(nodes)}
+	<div class="prop-sec">POSITION<span class="sec-hint" title="Z = the lowest point; changing it lifts / lowers the whole run">Z = lowest point</span></div>
+	<div class="vecrow">
+		<NumCell k="X" v={Math.round(p.x)} set={(n) => onupdate?.({ nodes: setGraphPos(nodes, 'x', n) })} />
+		<NumCell k="Y" v={Math.round(p.y)} set={(n) => onupdate?.({ nodes: setGraphPos(nodes, 'y', n) })} />
+		<NumCell k="Z" v={Math.round(p.z)} set={(n) => onupdate?.({ nodes: setGraphPos(nodes, 'z', n) })} />
+	</div>
+	{#if selNode}
+		<div class="prop-sec">NODE<span class="sec-hint">the selected corner</span></div>
+		<div class="vecrow">
+			<NumCell k="X" v={Math.round(selNode.x)} set={(n) => onupdate?.({ nodes: setNodePos(nodes, selNode!.id, 'x', n) })} />
+			<NumCell k="Y" v={Math.round(selNode.y)} set={(n) => onupdate?.({ nodes: setNodePos(nodes, selNode!.id, 'y', n) })} />
+			<NumCell k="Z" v={Math.round(selNode.z ?? 0)} set={(n) => onupdate?.({ nodes: setNodePos(nodes, selNode!.id, 'z', n) })} />
+		</div>
+	{/if}
+{/snippet}
 
 <div class="prop-sec">{typeLabel}</div>
 <!-- a name drawn with the object in plan / elevations (e.g. an imported riser room "IDF01-A") -->
@@ -166,6 +188,7 @@
 		</span></div>
 	{/if}
 {:else if obj.type === 'wall'}
+	{@render graphXYZ(obj.nodes)}
 	<div class="prop-sec">DEFAULTS</div>
 	<div class="prop"><span>Height</span><input type="number" value={obj.h} onchange={(e) => onupdate?.({ h: Math.max(1, num(e)) })} /></div>
 	<div class="prop"><span>Thickness</span><input type="number" value={obj.thickness} onchange={(e) => onupdate?.({ thickness: Math.max(1, num(e)) })} /></div>
@@ -178,6 +201,7 @@
 		</div>
 	{/each}
 {:else if obj.type === 'conduit'}
+	{@render graphXYZ(obj.nodes)}
 	<div class="prop-sec">DEFAULTS</div>
 	<div class="prop"><span>Width</span><input type="number" value={obj.w} onchange={(e) => onupdate?.({ w: Math.max(1, num(e)) })} /></div>
 	<div class="prop"><span>Height</span><input type="number" value={obj.h} onchange={(e) => onupdate?.({ h: Math.max(1, num(e)) })} /></div>

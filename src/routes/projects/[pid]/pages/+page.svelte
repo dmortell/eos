@@ -1357,9 +1357,10 @@
 		{ tool: 'Line' },
 		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D draws
 		{ sep: 'building' },
+		// Boxes · Walls · Openings (Dave 2026-10-01)
+		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
 		{ group: 'conduits', label: 'Walls · trunks · pipes', members: ['Wall', 'Trunk', 'Pipe'] },   // node / segment graph tools
 		{ group: 'openings', label: 'Openings', members: ['Door', 'Window', 'Hole'] },
-		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
 		{ sep: 'annotate' },
 		{ group: 'measure', label: 'Dimension · measure · guides', members: ['Dimension', 'Measure', 'Guide H', 'Guide V'] },
 		{ group: 'sections', label: 'Sections · box / line', members: ['Section box', 'Section line'] },

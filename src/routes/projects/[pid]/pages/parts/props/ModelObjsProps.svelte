@@ -1,12 +1,13 @@
 <script lang="ts">
 	// SEVERAL model objects selected (Ctrl/Shift-click, I4 / F8): the edits that make sense across them — layer,
-	// colour (ByLayer = none), base Z (boxes) and height (boxes / walls / conduits). A field whose values differ
+	// colour (ByLayer = none), base Z (boxes; walls / conduits: their lowest node, the run shifts) and height (boxes / walls / conduits). A field whose values differ
 	// shows "— mixed —" / empty; setting it applies to every object that has it, as ONE undo step (onpatch).
 	import { ColorPicker } from '$lib'
 	import { COLORS } from '../../palette'
 	import { num, strVal, blurOnEnter } from './fields'
 	import type { Obj, Layer as MLayer, Levels } from '../../3dview/types'
 	import { boxZ, type HiLo } from '../../ui/hiLo'
+	import { graphPos, setGraphPos } from '../../ui/graphPos'
 
 	let { objs, layers, onpatch, levels = null }: {
 		objs: Obj[]; layers: MLayer[]
@@ -25,7 +26,9 @@
 	const color = $derived(common((o) => o.color))
 	const mixedColor = $derived(new Set(objs.map((o) => o.color)).size > 1)
 	const boxes = $derived(objs.filter((o) => o.type === 'prism'))
-	const baseZ = $derived(boxes.length ? common((o) => (o.type === 'prism' ? Math.round(o.z) : undefined)) : undefined)
+	// BASE Z: a box's underside; a wall's / conduit's LOWEST node (ui/graphPos.ts — the whole run shifts, slopes kept)
+	const zOf = (o: Obj) => Math.round(o.type === 'prism' ? o.z : graphPos(o.nodes).z)
+	const baseZ = $derived(common(zOf))
 	const height = $derived(common((o) => ('h' in o ? Math.round(o.h as number) : undefined)))
 	// HIGH / LOW for the plain boxes (not racks / devices): each gets its level's underside Z (ui/hiLo.ts boxZ)
 	const lvBoxes = $derived(boxes.filter((o) => !o.rack && !o.device))
@@ -43,9 +46,9 @@
 <div class="prop"><span>Colour</span>
 	<ColorPicker value={color} colors={COLORS} allowByLayer mixed={mixedColor} onchange={(v) => onpatch(() => ({ color: v }))} />
 </div>
-{#if boxes.length}
-	<div class="prop"><span>Base Z</span><input type="number" value={baseZ ?? ''} placeholder="— mixed —" title="Boxes only: the underside's height above the floor (mm)"
-		onchange={(e) => { if (!strVal(e).trim()) return; const v = Math.max(0, num(e)); onpatch((o) => (o.type === 'prism' ? { z: v } : null)) }} onkeydown={blurOnEnter} /></div>
+{#if objs.length}
+	<div class="prop"><span>Base Z</span><input type="number" value={baseZ ?? ''} placeholder="— mixed —" title="Height above FL (mm): a box's underside; a wall's / trunk's lowest point (the whole run moves, slopes and drops kept)"
+		onchange={(e) => { if (!strVal(e).trim()) return; const v = Math.max(0, num(e)); onpatch((o) => (o.type === 'prism' ? { z: v } : { nodes: setGraphPos(o.nodes, 'z', v) })) }} onkeydown={blurOnEnter} /></div>
 {/if}
 {#if lvBoxes.length}
 	<div class="prop"><span title="Boxes: high = centred in the ceiling plenum, low = on the raised floor (sets Base Z)">Level</span>
