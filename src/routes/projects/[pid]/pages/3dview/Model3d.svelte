@@ -1,15 +1,13 @@
 <script lang="ts">
-	// Renders a 3D MODEL into a Pages viewport using the ported model3d projection.
-	// model3d's project() returns {u, v} with v = height/depth UP (origin bottom-left). Pages draws in
-	// model mm with y DOWN, elevations measured DOWN from GROUND and horizontally re-centred (elevU).
-	// We reconcile with ONE per-direction affine group transform (computed here) instead of touching
-	// the pure engine:
-	//   • plan: (u,v) = (x,y) already matches Pages' y-down plan → identity.
-	//   • elevation: v-up → GROUND−v (scale(1,-1)+translate y=GROUND); horizontal shifted so it lands on
-	//     Pages' elevU centring (front 0, rear 2·cx, right cx−cy, left cx+cy).
-	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
-	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
-	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
+	// Renders a MODEL's 3D objects into a Pages viewport (plan, the four elevations / any oblique frame, iso / 3D).
+	// project() returns {u, v} with v UP; Pages draws in model mm with y DOWN, elevations measured down from
+	// GROUND. ONE affine group transform per view reconciles them (projection `viewMap`), the engine stays pure:
+	//   • plan: (u, v) = (x, y), already Pages' y-down plan → identity.
+	//   • elevation: v-up → GROUND − v, horizontally the frame's t (ui/geometry ElevFrame: front u = +x, rear −x,
+	//     right −y, left +y — each seen from its own side; the viewer looks along −n).
+	//   • iso: the orbit camera (yaw / pitch, optional perspective), painted far-first.
+	// Hidden lines: plan = a painter's sort by −z; elevations = exact (hiddenLines.ts). Lineweights are paper mm
+	// (ui/lineweight: the layer's `lw`, ByLayer), drawn non-scaling, so they don't change with the scale / zoom.
 	import { project, objBounds, faces3d, openingCuts, prismPanels, cutsAWall, isoR, isoDepthR, trimToClip, trimToOClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH, type Persp, type ProjDir } from './projection'
 	import { BASIS } from './types'
 	import { frameOf, frameAxis, dotT, dotN, type ElevDir, type ElevFrame } from '../ui/geometry'

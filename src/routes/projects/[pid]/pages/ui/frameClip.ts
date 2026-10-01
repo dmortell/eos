@@ -12,13 +12,15 @@ export type FrameClip = { frames: SheetFrame[]; shapes: { modelId: string; ent: 
 const KEY = 'eos.pages.frameClip'
 
 /** The frames + the annotations scoped to them (`shapesOf(modelId)` = a model's shapes). */
-export function clipOf(frames: SheetFrame[], shapesOf: (mid: string) => Ent[], defaultModel: string): FrameClip {
+export function clipOf(frames: SheetFrame[], shapesOf: (mid: string) => Ent[], defaultModel: string | undefined): FrameClip {
 	const ids = new Set(frames.map((f) => f.id)), shapes: FrameClip['shapes'] = []
-	for (const mid of new Set(frames.map((f) => f.modelId ?? defaultModel)))
+	for (const mid of new Set(frames.map((f) => f.modelId ?? defaultModel))) {
+		if (mid == null) continue   // a frame with no model (and no sheet default): nothing scoped to it
 		for (const e of shapesOf(mid)) if (e.space?.startsWith('view:') && ids.has(e.space.slice(5))) shapes.push({ modelId: mid, ent: e })
+	}
 	// each frame carries the model it shows EXPLICITLY — pasted onto a sheet whose default model differs, it must
 	// keep showing the model its annotations went into
-	return { frames: frames.map((f) => (f.modelId ? f : { ...f, modelId: defaultModel })), shapes }
+	return { frames: frames.map((f) => (f.modelId || !defaultModel ? f : { ...f, modelId: defaultModel })), shapes }
 }
 /** The clip's copies for a sheet: new frame ids, numbered on from `nextSeq`, offset by `off` paper px; each
  *  annotation re-scoped to its frame's copy with a new id (groups kept together under new group ids). */

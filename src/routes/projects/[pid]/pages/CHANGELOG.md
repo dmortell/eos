@@ -4,6 +4,23 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps only the open items (its old done-log was
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
+## Bug-fix round (2026-10-02) — the code review's correctness items (`docs/pages-analysis.md` §4A)
+Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-start plan proceeds in `src/lib/cad/`.
+- **No demo models**: the registry starts empty — `m1`–`m4` (33F / Rack A / 30F / 18F) and the `FLOOR_MODEL_ID`
+  fallback (15 places) are gone. A tab / viewport with no model shows nothing; drawing there is refused with a note.
+- **Layer changes are undo steps**: every Layers-panel change (show / hide, lock, colour, rename, reorder, presets,
+  new / delete, the VP tag) and the LAYER commands record a step — a toggle used to live in the model but in no step,
+  so the next unrelated undo silently reverted it. (Per-user layer visibility is left to the new kernel.)
+- **Saving touches only the changed model**: one save effect per model instead of one over all models (each edit
+  re-snapshotted and re-serialised every model of the project). A model's content is adopted when it's first seen —
+  loaded or changed remotely — without writing, so load-time migrations stay in memory until the next real edit (they
+  used to be written back as soon as a project opened).
+- **No session-only images in models**: a failed upload adds nothing ("not added — insert it again"; it used to keep an
+  `img:` copy that pointed at nothing after a reload), `addImage` refuses a data-URL, and pasting a never-uploaded image
+  leaves it out with a note.
+- **Stale comments fixed**: README (it said "Mock — no Firestore yet"), the model types (y-north → y down the sheet),
+  `frameAt` / `devOblique` angles (0° = right), the Model3d header, and the depth / OClip comments.
+
 ## Round 21 (2026-09-27) — tree views, tags, site view by OSM API
 - **Tree views** (`tree-views-plan.md`, all 3 phases; `store/treeViews.ts` tested):
   - A switcher "By place ▾" (per user, per project) with templates — By place (the only one where a drag re-files),

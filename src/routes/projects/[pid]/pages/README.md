@@ -1,8 +1,12 @@
 # Pages tool — file map
 
 An AutoCAD / Kestrel-style paper-space workspace: sheets with draggable viewport frames onto a shared
-3D-ish model, plus 2D annotations, a drawing navigator, split panes and a title block. **Mock** — state
-is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
+3D-ish model, plus 2D annotations, a drawing navigator, split panes and a title block. Data is LIVE in Firestore:
+the project's places / title block / settings in `projects/{pid}.pages`, sheets in `projects/{pid}/drawings`
+(`toolType: 'pages'`), one doc per model in `projects/{pid}/models` (+ versions / revisions under them) — see
+`store/schema.ts`. The in-memory registry (`3dview/models.svelte.ts`) holds the open project's models; it starts
+empty (no demo models). `mock/` now only supplies templates (a new floor's layers, nav types), not data.
+Bug-fix only for now — see `docs/pages-analysis.md` (2026-10-02).
 
 ## Where things live
 

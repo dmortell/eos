@@ -1,10 +1,9 @@
-// Ported verbatim from sheets/tools/model3d (the mature 3D engine) for the Pages 3D model — see model-plan.md.
-// 3D model data model for the `model3d` viewport source. Ported from the `edit3d`
-// tool, trimmed to model space only — paper-space (View/frame/scale) is owned by
-// the sheets viewport, so a projection direction is just a source parameter.
+// The Pages MODEL data (walls / boxes / conduits, 2D shapes, layers, sections, levels) — the engine came from
+// sheets/tools/model3d (model-plan.md) and has since been extended here.
 //
-// Coordinates are model mm. Axes: x = width (east), y = depth (north),
-// z = height (up). Object sizes: w along x, d along y, h along z.
+// Coordinates are model mm, the SAME as the plan drawing: x to the right, y DOWN the sheet (the top of the plan =
+// small y), z up from FL±0 (the raised floor's top; ui/levels.ts). Object sizes: w along x, d along y, h along z.
+// (The engine's original y-up "north" convention is gone — elevations follow the plan as drawn: ui/geometry DIR_T.)
 import type { Ent, ElevDir } from '../ui/geometry'   // 2D annotation entity + elevation direction (geometry.ts imports nothing from 3dview → no cycle)
 export type Pt = { x: number; y: number }
 export type Axis = 'x' | 'y' | 'z'

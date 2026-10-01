@@ -62,7 +62,7 @@
 	import { PLAN_CX, PLAN_CY, GROUND, frameOf, frameAxis, frameU, frameSetU } from './ui/geometry'
 	import type { ViewCtx } from './ui/view'
 	import { bbox as entBBox, onPlanPlane } from './ui/hit'
-	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
+	import { models, modelById, floorModelId } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack, flushSync } from 'svelte'
 	import type { Firestore, Session as AuthSession } from '$lib'
@@ -276,7 +276,7 @@
 	/** The section a frame is linked to (its model's), else null (none / deleted / another model's). */
 	function frameSection(f: SheetFrame, tabId?: string): Section | null {
 		if (!f.section) return null
-		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : FLOOR_MODEL_ID))
+		const m = modelById(f.modelId ?? (tabId ? modelIdOf(tabId) : undefined))
 		return m?.sections?.find((x) => x.id === f.section) ?? null
 	}
 	/** A frame's clip: a frame dropped from a SECTION follows that marker live (a line section / an elevation marker: the
@@ -431,7 +431,7 @@
 	// this is the page's baseline, so it's not a recorded edit.
 	/** A NEW viewport's frozen layers: its model's layers marked "Hide in new viewports" (AutoCAD New VP Freeze). */
 	function newVpFrozen(mid?: string): { frozen?: string[] } {
-		const ids = (modelById(mid ?? FLOOR_MODEL_ID)?.layers ?? []).filter((l) => l.newVpFrz).map((l) => l.id)
+		const ids = (modelById(mid)?.layers ?? []).filter((l) => l.newVpFrz).map((l) => l.id)
 		return ids.length ? { frozen: ids } : {}
 	}
 	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
@@ -439,7 +439,7 @@
 		const id = newFrameId(), modelId = proj.newFrameModel(tabId)
 		// fit the plan to the new viewport — its 3D objects AND its plan shapes / floorplan image (a zone's content
 		// is often far from the drawing centre, so the sheet's default view would show it half off the frame)
-		const mdl = modelById(modelId ?? modelIdOf(tabId) ?? FLOOR_MODEL_ID), ls = mdl?.layers ?? []
+		const mdl = modelById(modelId ?? modelIdOf(tabId)), ls = mdl?.layers ?? []
 		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: id, paperMm: scaleDenom(scaleOf(tabId)), mdl, yaw: 0, pitch: 0 }
 		const extra = (mdl?.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model') && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e))
 		const fit = mdl ? fitFrame(mdl.objects, 'plan', { w: w / PAPER_PX_PER_MM, h: h / PAPER_PX_PER_MM }, { visible: (o) => !isLayerHidden(ls, o.layer), extra }) : null
@@ -471,7 +471,7 @@
 	// centre it — the frame's scale is document state (undoable), its content view is the focused pane's.
 	function fitSelectedFrame() {
 		const a2 = active, p = session.panes[session.focused], f = selFrameObj; if (!a2 || !p || !f) return
-		const mdl = modelById(f.modelId ?? a2.modelId ?? FLOOR_MODEL_ID); if (!mdl) return
+		const mdl = modelById(f.modelId ?? a2.modelId); if (!mdl) return
 		const ls = mdl.layers ?? [], frozen = new Set(f.frozen ?? [])
 		const orb = orbitOf(p.id, f.id, f.proj)
 		// a riser drawing with hidden floors fits its COLLAPSED extent (as drawn)
@@ -692,17 +692,17 @@
 	// carries `modelId`, defaulting to the floor. Editing targets the ACTIVE viewport's model — so the CRUD
 	// takes a tab id (the history key) and resolves the model from whatever viewport is active in it.
 	// a view of a model that's missing (archived / unknown) shows no shapes — never another model's
-	const entsForModel = (mid?: ModelId): Ent[] => (mid != null ? (modelById(mid)?.archived ? [] : modelById(mid)?.shapes ?? []) : modelById(FLOOR_MODEL_ID)?.shapes ?? [])
+	const entsForModel = (mid?: ModelId): Ent[] => (mid != null && !modelById(mid)?.archived ? modelById(mid)?.shapes ?? [] : [])   // no model → nothing
 	// The model a tab's ACTIVE viewport edits: the active sheet frame's model; else (no active frame, e.g.
 	// an image imported without entering a viewport) the SELECTED (or only) frame's, else the first frame's model; else
 	// the tab's own model; else the floor. Drawing needs an active viewport, so the fallbacks only bite for
 	// viewport-less actions.
-	function modelIdOf(tabId: string): ModelId {
-		return targetFrameOf(tabId)?.modelId ?? framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
+	function modelIdOf(tabId: string): ModelId | undefined {
+		return targetFrameOf(tabId)?.modelId ?? framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId   // none: undefined (no demo fallback)
 	}
-	const mdlEntsOf = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
+	const mdlEntsOf = (mid: ModelId | undefined): Ent[] => modelById(mid)?.shapes ?? []
 	/** F12: a conduit of a model by id (a fill-rate frame's content). */
-	const conduitOf = (mid: ModelId | undefined, id: string) => { const o = modelById(mid ?? FLOOR_MODEL_ID)?.objects.find((x) => x.id === id); return o?.type === 'conduit' ? o : null }
+	const conduitOf = (mid: ModelId | undefined, id: string) => { const o = modelById(mid)?.objects.find((x) => x.id === id); return o?.type === 'conduit' ? o : null }
 	// The focused doc's active model (for selection / revisions / properties).
 	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
@@ -763,6 +763,7 @@
 		const data = fromClipData(plain) ?? (html ? fromClipHtmlData(html) : null), ents = data && (data.ents.length || data.objs.length) ? data.ents : null
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
+		if (data?.droppedImages) toast.warning(`${data.droppedImages === 1 ? 'An image' : `${data.droppedImages} images`} in the copy ${data.droppedImages === 1 ? 'was' : 'were'} never uploaded — left out (insert the file again)`, { id: 'paste-img' })
 		if (img) { void insertFiles([img], cmdBus.target?.cursor() ?? null); return }   // at the cursor, on the active layer
 		if (data && ents) { docEdit.clipboard.load(data.ents, data.objs, data.layers); menuAction('Paste'); return }   // shapes and / or 3D objects
 		// text from another app (Word / Excel / Notepad …): a text shape, or a NOTE keeping headings / bold / lists / tables
@@ -805,9 +806,9 @@
 				toast.dismiss('ins-file')
 				await addUpload({ id: name, name, kind: pdf ? 'pdf' : 'image', url, pages: 1, projectId: pid, projectName: '', mine: true }, 1, at)
 			} catch (err) {
-				if (pdf) { toast.error(`Couldn't upload ${raw} (${err instanceof Error ? err.message : 'error'})`, { id: 'ins-file' }); continue }
-				toast.warning(`Couldn't upload ${raw} (${err instanceof Error ? err.message : 'error'}) — kept in this page only`, { id: 'ins-file' })
-				const fr = new FileReader(); fr.onload = () => addImage(String(fr.result)); fr.readAsDataURL(file)
+				// NOT added: a model may only hold uploaded images — the old fallback kept a session-only `img:` copy, which
+				// was saved with the model and pointed at nothing after a reload (2026-10-02)
+				toast.error(`Couldn't upload ${raw} (${err instanceof Error ? err.message : 'error'}) — not added. Check the connection and insert it again.`, { id: 'ins-file' })
 			}
 		}
 	}
@@ -1034,6 +1035,14 @@
 	let helpOpen = $state(false)   // the ? button / F1 / HELP (parts/HelpDialog)
 	const namedViewKey = () => `eos.pages.views:${page.params.pid}:${active ? didOf(active.id) : ''}:${active ? (activeVpOf(active.id) ?? '') : ''}`
 	let layIsoSaved: [string, boolean][] | null = null   // LAYISO → LAYUNISO: the visibility before isolating
+	/** A layer change from a command as ONE undo step (the Layers panel does the same via onbeforeedit / onedit) — a
+	 *  layer toggle that lived in the model but in no step was silently reverted by the next, unrelated undo. */
+	function layerEdit(label: string, fn: () => void) {
+		const t = session.panes[session.focused]?.activeId
+		if (t) ensureHist(t)
+		fn()
+		if (t) recordEdit(t, label)
+	}
 	const cmdRunner = new CommandRunner({
 		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; const tv = TOOL_VARIANT[t]; if (tv) tv.set(); focusTool(tv?.tool ?? t) },   // DOOR / WINDOW = the Opening tool with that type
 		run: (id) => {
@@ -1076,8 +1085,9 @@
 		},
 		newLayer: (name) => {
 			const ls = modelById(activeMid())?.layers; if (!ls) return 'No model is open'
-			const l = addLayer(ls, undefined, activeFrame?.id); l.name = name.trim() || l.name   // made in a viewport: shown only there
-			return { name: l.name }
+			let made = ''
+			layerEdit('New layer', () => { const l = addLayer(ls, undefined, activeFrame?.id); l.name = name.trim() || l.name; made = l.name })   // made in a viewport: shown only there
+			return { name: made }
 		},
 		layerOp: (op, ids) => {
 			const ls = modelById(activeMid())?.layers; if (!ls) return { err: 'No model is open' }
@@ -1085,13 +1095,13 @@
 			const names = named.map((l) => `“${l.name}”`).join(', ')
 			const bg = (l: { group?: string }) => l.group === 'Background'
 			switch (op) {
-				case 'off': named.forEach((l) => (l.visible = false)); return `Layer ${names} is off${named.some((l) => l.id === layerUI.active) ? ' (it is the current layer)' : ''}`
+				case 'off': layerEdit('Layer off', () => named.forEach((l) => (l.visible = false))); return `Layer ${names} is off${named.some((l) => l.id === layerUI.active) ? ' (it is the current layer)' : ''}`
 				case 'frz':
 					if (activeFrame) { for (const l of named) if (!(activeFrame.frozen ?? []).includes(l.id)) toggleVpFreeze(l.id); return `Layer ${names} frozen in this viewport` }
-					named.forEach((l) => (l.visible = false)); return `Layer ${names} is off (no viewport is active — VP Freeze needs one)`
-				case 'iso': layIsoSaved = ls.map((l) => [l.id, l.visible] as [string, boolean]); for (const l of ls) if (!bg(l)) l.visible = ids.includes(l.id); return `Isolated ${names} — LAYUNISO brings the others back`
-				case 'uniso': { const s = layIsoSaved; if (!s) return { err: 'Nothing is isolated' }; for (const [id, v] of s) { const l = ls.find((x) => x.id === id); if (l) l.visible = v }; layIsoSaved = null; return 'Layers restored' }
-				case 'on': ls.forEach((l) => (l.visible = true)); return 'Every layer is on'
+					layerEdit('Layer off', () => named.forEach((l) => (l.visible = false))); return `Layer ${names} is off (no viewport is active — VP Freeze needs one)`
+				case 'iso': layIsoSaved = ls.map((l) => [l.id, l.visible] as [string, boolean]); layerEdit('Isolate layers', () => { for (const l of ls) if (!bg(l)) l.visible = ids.includes(l.id) }); return `Isolated ${names} — LAYUNISO brings the others back`
+				case 'uniso': { const s = layIsoSaved; if (!s) return { err: 'Nothing is isolated' }; layerEdit('Restore layers', () => { for (const [id, v] of s) { const l = ls.find((x) => x.id === id); if (l) l.visible = v } }); layIsoSaved = null; return 'Layers restored' }
+				case 'on': layerEdit('Every layer on', () => ls.forEach((l) => (l.visible = true))); return 'Every layer is on'
 			}
 		},
 		layers: () => (modelById(activeMid())?.layers ?? []).map((l) => ({ id: l.id, name: l.name })),
@@ -1132,7 +1142,7 @@
 			if (!f) return 'no-frame'
 			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: liveClip(f, a.id), oclip: liveOClip(f, a.id), hideHidden: f.hideHidden, frozen: f.frozen, storeys: f.storeys, frameId: f.id }
 		}
-		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId ?? FLOOR_MODEL_ID, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
+		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
 	}
 	// File › Export… (DXF) and Insert › Image… — pageActions.ts
 	let uploadPick = $state(false), uploadBusy = $state(false)   // Insert › From Uploads… (parts/UploadPicker)
@@ -1153,7 +1163,7 @@
 		if (session.previewId === id) session.previewId = null
 	}
 	// `floor` (the navigator floor the drawing sits under, or a palette item's path) picks the model the
-	// drawing views; without one it falls back to FLOOR_MODEL_ID as before.
+	// drawing views; without one the tab has no model (and shows none).
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string; modelId?: ModelId }) {
@@ -1635,7 +1645,8 @@
 				{#if rightTab === 'blocks'}
 					<BlocksPanel armed={placeBlock} onarm={armBlock} />
 				{:else if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frameId={activeFrame?.id ?? null} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} onpick={() => cmdRunner.run('LAYMCUR')} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frameId={activeFrame?.id ?? null} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} onpick={() => cmdRunner.run('LAYMCUR')}
+						onbeforeedit={() => { const t = session.panes[session.focused]?.activeId; if (t) ensureHist(t) }} onedit={(label) => { const t = session.panes[session.focused]?.activeId; if (t) recordEdit(t, label) }} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) { rememberOutlet(es[0]); if (es[0].live) proj.resyncCalib(es[0].src) } }} onwalk={startWalk} modelNode={singleOfKind(activeSel, 'node')?.sub} modelSeg={singleOfKind(activeSel, 'seg')?.sub}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

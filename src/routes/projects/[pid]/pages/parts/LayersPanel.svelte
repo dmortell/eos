@@ -14,7 +14,11 @@
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
 	// J1 VP Lock: `vpLocked` (the active frame's locked layer ids; null = no frame active) + `onvplock` — the same idea.
-	let { layers = [], frameId = null, frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete, onpick }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+	let { layers = [], frameId = null, frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete, onpick, onbeforeedit, onedit }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+		/** UNDO: every change here (show / hide, lock, colour, rename, order, presets, new layer…) is one history step —
+		 *  `onbeforeedit` before it (the timeline's baseline), `onedit(label)` after. Without them a later, unrelated undo
+		 *  silently reverted a layer toggle (it lived in the model but in no step). */
+		onbeforeedit?: () => void; onedit?: (label: string) => void
 		/** The ACTIVE sheet frame (null = model space / paper): a layer added now shows ONLY in it (Layer.onlyIn). */
 		frameId?: string | null
 		/** Pick a shape → its layer becomes current (runs LAYMCUR). */ onpick?: () => void
@@ -22,6 +26,8 @@
 		/** J2: how many shapes / model objects sit on a layer, and delete a layer WITH its items (one undo step). */
 		countOf?: (id: string) => number; ondelete?: (id: string) => void } = $props()
 	const swatchOf = (l: Layer) => l.swatch ?? 'color'
+	/** One undoable layer change. */
+	function edit(label: string, fn: () => void) { onbeforeedit?.(); fn(); onedit?.(label) }
 
 	let search = $state('')
 	// View-preset manage menu + inline rename.
@@ -35,10 +41,12 @@
 	let openGroups = $state<Record<string, boolean>>({})
 	const isOpen = (g: string) => openGroups[g] !== false
 	const groupOn = (g: string) => layers.filter((l) => layerGroup(l) === g).every((l) => l.visible)
-	function setGroup(g: string, on: boolean) { for (const l of layers) if (layerGroup(l) === g) l.visible = on }
+	function setGroup(g: string, on: boolean) { edit(on ? `Show ${g}` : `Hide ${g}`, () => { for (const l of layers) if (layerGroup(l) === g) l.visible = on }) }
 
 	let editing = $state<string | null>(null)   // layer id being renamed
-	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
+	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') endRename() }
+	/** A new layer (one step), then its name is edited in place (another step if it's renamed). */
+	function newLayer(group?: string) { let id = ''; edit('New layer', () => { id = addLayer(layers, group, frameId).id }); if (group) openGroups = { ...openGroups, [group]: true }; startRename(id) }
 
 	// MULTI-SELECT ($lib listClick): Ctrl/⌘-click toggles a layer, Shift-click takes the range from the last one (in the
 	// order shown); a plain click makes the layer active (and the only one selected). With several selected, the eye /
@@ -60,12 +68,12 @@
 	const elsewhere = (l: Layer) => onlyElsewhere(l, frameId)
 	function showHere(l: Layer) { if (frameId && l.onlyIn) l.onlyIn = [...l.onlyIn, frameId]; else delete l.onlyIn }
 	function eyeClick(e: MouseEvent, l: Layer) {
-		if (elsewhere(l)) { for (const x of actOn(l.id)) if (elsewhere(x)) showHere(x); return }
+		if (elsewhere(l)) { edit('Show layer here', () => { for (const x of actOn(l.id)) if (elsewhere(x)) showHere(x) }); return }
 		// the clicked row's NEW state applies to all of them: frozen in this viewport (paper), else visible everywhere
 		if (frozen && !e.shiftKey) { const fz = !frozen.includes(l.id); for (const x of actOn(l.id)) if (frozen.includes(x.id) !== fz) onfreeze?.(x.id) }
-		else { const on = !l.visible; for (const x of actOn(l.id)) x.visible = on }
+		else { const on = !l.visible; edit(on ? 'Show layer' : 'Hide layer', () => { for (const x of actOn(l.id)) x.visible = on }) }
 	}
-	function lockClick(l: Layer) { const on = !l.locked; for (const x of actOn(l.id)) x.locked = on }
+	function lockClick(l: Layer) { const on = !l.locked; edit(on ? 'Lock layer' : 'Unlock layer', () => { for (const x of actOn(l.id)) x.locked = on }) }
 	// bulk delete (the active layer stays — new shapes land on it); click-again when any holds items
 	let bulkDelArm = $state(false)
 	const bulkDelIds = $derived(selLayers.filter((id) => id !== layerUI.active))
@@ -73,7 +81,8 @@
 	function bulkDelete() {
 		if (!bulkDelIds.length) return
 		if (bulkDelCount && !bulkDelArm) { bulkDelArm = true; return }
-		for (const id of bulkDelIds) { if (ondelete) ondelete(id); else removeLayer(layers, id) }
+		if (ondelete) for (const id of bulkDelIds) ondelete(id)   // (records its own step)
+		else edit('Delete layers', () => { for (const id of bulkDelIds) removeLayer(layers, id) })
 		selLayers = selLayers.filter((id) => id === layerUI.active); bulkDelArm = false
 	}
 
@@ -82,7 +91,7 @@
 	// (after the target: the last goes first, so each lands right after it and the block keeps its order).
 	const dr = new DragReorder((id, t, after) => {
 		const block = selBlock(layers.map((l) => l.id), selLayers, id); if (block.includes(t)) return
-		for (const x of after ? [...block].reverse() : block) moveLayer(layers, x, t, after)
+		edit('Reorder layers', () => { for (const x of after ? [...block].reverse() : block) moveLayer(layers, x, t, after) })
 	}, (id) => layers.findIndex((l) => l.id === id))
 
 	// Layer-settings dialog (opened from a layer's swatch button).
@@ -96,9 +105,19 @@
 	function del() {
 		if (!dlgId || dlgId === layerUI.active) return
 		if (delCount && !delConfirm) { delConfirm = true; return }
-		if (ondelete) ondelete(dlgId); else removeLayer(layers, dlgId)
+		const id = dlgId
+		if (ondelete) ondelete(id); else edit('Delete layer', () => removeLayer(layers, id))
 		dlgId = null
 	}
+	// the settings dialog is ONE undo step: its fields are bound live, so compare the layer at close with it at open
+	let dlgBefore = ''
+	const layerJson = (id: string | null) => { const l = id ? layers.find((x) => x.id === id) : null; return l ? JSON.stringify($state.snapshot(l)) : '' }
+	function openDlg(id: string) { onbeforeedit?.(); dlgBefore = layerJson(id); dlgId = id }
+	function closeDlg() { if (dlgId && layerJson(dlgId) !== dlgBefore) onedit?.('Layer settings'); dlgId = null }
+	// the inline rename (double-click a name / a new layer): one step when it ends, if the name changed
+	let renameFrom = ''
+	function startRename(id: string) { onbeforeedit?.(); renameFrom = layers.find((l) => l.id === id)?.name ?? ''; editing = id }
+	function endRename() { const l = editing ? layers.find((x) => x.id === editing) : null; if (l && l.name !== renameFrom) onedit?.('Rename layer'); editing = null }
 </script>
 
 <div class="lp">
@@ -111,7 +130,7 @@
 					onchange={(e) => renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value)}
 					onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value); renamingPreset = null } }} />
 			{:else}
-				<select value={presetUI.active} onchange={(e) => applyPreset(layers, (e.currentTarget as HTMLSelectElement).value)}>
+				<select value={presetUI.active} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; edit('View preset', () => applyPreset(layers, v)) }}>
 					{#each presets as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
 				</select>
 			{/if}
@@ -121,7 +140,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 					<div class="lp-menu-back" onclick={() => (presetMenu = false)}></div>
 					<div class="lp-menu">
-						<button onclick={() => { applyPreset(layers, presetUI.active); presetMenu = false }}>Re-apply</button>
+						<button onclick={() => { edit('View preset', () => applyPreset(layers, presetUI.active)); presetMenu = false }}>Re-apply</button>
 						<button disabled={!modified} onclick={() => { updatePreset(layers, presetUI.active); presetMenu = false }}>Update ‹{activePreset?.name ?? '—'}›</button>
 						<button onclick={() => { const p = savePreset(layers, 'New view'); presetMenu = false; renamingPreset = p.id }}>Save current as new…</button>
 						<button onclick={() => { renamingPreset = presetUI.active; presetMenu = false }}>Rename…</button>
@@ -146,7 +165,7 @@
 						<Icon name={isOpen(g) ? 'chevronDown' : 'chevronRight'} size={12} />
 					</button>
 					<span class="lg-name">{g}</span>
-					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(layers, g, frameId); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
+					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => newLayer(g)}><Icon name="plus" size={12} /></button>
 					<button class="lp-check" class:on={groupOn(g)} aria-label="Toggle {g}" onclick={() => setGroup(g, !groupOn(g))}></button>
 				</div>
 				{#if isOpen(g)}
@@ -178,19 +197,19 @@
 									</button>
 								{/if}
 								{#if editing === l.id}
-									<input class="ly-edit" bind:value={l.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} onclick={(e) => e.stopPropagation()} />
+									<input class="ly-edit" bind:value={l.name} use:focusEdit onblur={endRename} onkeydown={commit} onclick={(e) => e.stopPropagation()} />
 								{:else}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
-									<span class="ly-name" title="Click to make active · double-click to rename" ondblclick={() => (editing = l.id)}>{l.name}</span>
+									<span class="ly-name" title="Click to make active · double-click to rename" ondblclick={() => startRename(l.id)}>{l.name}</span>
 								{/if}
 								{#if l.onlyIn}
 									<!-- a viewport-only layer: shown in its viewport(s) only — click shows it everywhere -->
 									<button class="ly-only" title="Viewport-only layer: shown in {l.onlyIn.length === 1 ? 'the viewport it was made in' : `${l.onlyIn.length} viewports`}{away ? '' : ' (this one)'}, hidden in the model and other viewports — click to show it everywhere"
-										onclick={(e) => { e.stopPropagation(); delete l.onlyIn }}>VP</button>
+										onclick={(e) => { e.stopPropagation(); edit('Show layer everywhere', () => { delete l.onlyIn }) }}>VP</button>
 								{/if}
 								{#if l.id === layerUI.active}<span class="ly-active" title="Active layer">●</span>{/if}
 								<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
-								<button class="sw-btn" title="Layer settings" aria-label="Edit {l.name}" onclick={(e) => { e.stopPropagation(); dlgId = l.id }}
+								<button class="sw-btn" title="Layer settings" aria-label="Edit {l.name}" onclick={(e) => { e.stopPropagation(); openDlg(l.id) }}
 									style:background={swatchOf(l) === 'color' ? l.color : 'var(--input)'}>
 									{#if swatchOf(l) === 'line'}<span class="sw-btn-line" style:border-bottom-color={l.color} style:border-bottom-style={l.dash} style:border-bottom-width="{Math.min(4, Math.max(1, l.weight ?? 1))}px"></span>{/if}
 								</button>
@@ -206,11 +225,11 @@
 		<!-- several layers selected: act on them all -->
 		<div class="lp-bulk">
 			<b>{selLayers.length} layers</b>
-			<button title="Show them" onclick={() => { for (const x of selObjs()) x.visible = true }}><Icon name="eye" size={12} /></button>
-			<button title="Hide them" onclick={() => { for (const x of selObjs()) x.visible = false }}><Icon name="eyeSlash" size={12} /></button>
-			<button title="Lock them" onclick={() => { for (const x of selObjs()) x.locked = true }}><Icon name="lock" size={12} /></button>
-			<button title="Unlock them" onclick={() => { for (const x of selObjs()) x.locked = false }}><Icon name="lockOpen" size={12} /></button>
-			<span class="lp-bulk-col" title="Colour them"><ColorPicker value={selObjs()[0]?.color ?? ''} colors={COLORS} onchange={(v) => { if (v) for (const x of selObjs()) x.color = v }} /></span>
+			<button title="Show them" onclick={() => edit('Show layers', () => { for (const x of selObjs()) x.visible = true })}><Icon name="eye" size={12} /></button>
+			<button title="Hide them" onclick={() => edit('Hide layers', () => { for (const x of selObjs()) x.visible = false })}><Icon name="eyeSlash" size={12} /></button>
+			<button title="Lock them" onclick={() => edit('Lock layers', () => { for (const x of selObjs()) x.locked = true })}><Icon name="lock" size={12} /></button>
+			<button title="Unlock them" onclick={() => edit('Unlock layers', () => { for (const x of selObjs()) x.locked = false })}><Icon name="lockOpen" size={12} /></button>
+			<span class="lp-bulk-col" title="Colour them"><ColorPicker value={selObjs()[0]?.color ?? ''} colors={COLORS} onchange={(v) => { if (v) edit('Layer colour', () => { for (const x of selObjs()) x.color = v }) }} /></span>
 			<button class="danger" disabled={!bulkDelIds.length} onblur={() => (bulkDelArm = false)} onclick={bulkDelete}
 				title={bulkDelIds.length < selLayers.length ? 'Delete them (the active layer stays)' : 'Delete them'}>
 				<Icon name="trash" size={12} />{#if bulkDelArm} Delete + {bulkDelCount} items?{/if}</button>
@@ -218,13 +237,13 @@
 		</div>
 	{/if}
 
-	<button class="lp-new" onclick={() => { const l = addLayer(layers, undefined, frameId); editing = l.id }}
+	<button class="lp-new" onclick={() => newLayer()}
 		title={frameId ? 'A new layer shown only in this viewport (hidden in the model and other viewports — its VP tag shows it everywhere)' : 'A new layer'}><Icon name="plus" size={13} /> New Layer</button>
 </div>
 
 {#if dlg}
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-	<div class="lp-dlg-back" onclick={() => (dlgId = null)}>
+	<div class="lp-dlg-back" onclick={closeDlg}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="lp-dlg" onclick={(e) => e.stopPropagation()}>
 			<div class="lp-dlg-head">Layer settings</div>
@@ -254,7 +273,7 @@
 				<button class="lp-del" onclick={del} disabled={dlgId === layerUI.active}
 					title={dlgId === layerUI.active ? 'This is the active layer — make another layer active first' : delCount ? `${delCount} item${delCount === 1 ? '' : 's'} on this layer are deleted with it` : 'Delete this empty layer'}>
 					<Icon name="close" size={12} /> {delConfirm ? `Delete layer + ${delCount} item${delCount === 1 ? '' : 's'}?` : delCount ? `Delete layer (${delCount} items)` : 'Delete layer'}</button>
-				<button class="lp-done" onclick={() => (dlgId = null)}>Done</button>
+				<button class="lp-done" onclick={closeDlg}>Done</button>
 			</div>
 		</div>
 	</div>

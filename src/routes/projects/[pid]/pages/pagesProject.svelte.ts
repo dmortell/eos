@@ -28,6 +28,7 @@ import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/out
 import { normFloors, findNodePath } from './projectTree'
 import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
+import { stableJson } from './store/saver'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import { storeyLevels, floorLabel, stackFloors, restack, storeyHeights, setStoreyHeights, type FloorHeights } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
@@ -85,6 +86,8 @@ const fmtDate = (iso?: string) => (iso ? new Date(iso) : new Date()).toLocaleDat
 
 export class PagesProject {
 	#h: ProjectHost
+	/** Per stored model: the content (stable JSON) last saved or adopted — the save effect writes only a change from it. */
+	#seen = new Map<ModelId, string>()
 	/** The other tools' data for this project (read-only) — the old tree, floorplans, Properties of old nodes. */
 	src = $state<ProjectSource | null>(null)
 	/** Pages' own data: places, sheets, models. */
@@ -123,6 +126,7 @@ export class PagesProject {
 				onModels: (changed, removed) => {
 					for (const d of changed) {
 						const isNew = !modelById(d.id), m = docToModel(d)
+						this.#seen.delete(m.id)   // a remote change (or the load): adopted when its save effect sees it, not written back
 						upsertModel(m, owner); if (isNew) this.#h.addModelToHistory(m); if (m.underlays?.length) this.floorplans.convertUnderlays(m.id)
 					}
 					removeModels(removed)
@@ -137,7 +141,7 @@ export class PagesProject {
 				},
 			})
 			ps.start()
-			untrack(() => { this.src = src; this.store = ps })
+			untrack(() => { this.#seen.clear(); this.src = src; this.store = ps })
 			return () => {
 				stop()
 				const ids = ps.models.map((m) => m.id)
@@ -172,13 +176,26 @@ export class PagesProject {
 			untrack(() => (this.sheetRevisions = []))
 			if (ps && sid) return ps.subscribeRevisions(sid, (r) => (this.sheetRevisions = r))
 		})
-		// Save every STORED model when it changes (edits, undo/redo, floorplan attach). The saver debounces and skips
-		// content it already has, so re-queueing unchanged models (or a remote change just applied) writes nothing.
-		// The stored-id set is read untracked: saveModel updates the store's list, which must not re-run this.
+		// Save a STORED model when IT changes (edits, undo / redo, floorplan attach) — ONE nested effect per model, so an
+		// edit re-snapshots only its own model (it used to re-snapshot + re-serialise every model of the project per
+		// edit). The outer effect tracks only the registry's membership (which models, by identity); each inner one
+		// deep-tracks its model. A model's content is ADOPTED the first time it's seen here (loaded, created, or a
+		// remote change — `adoptModel`) without writing: load-time migrations stay in memory until the next real edit
+		// (they used to be written back the moment a project opened). The saver still skips content it already has.
 		$effect(() => {
 			const ps = this.store; if (!ps) return
-			const stored = untrack(() => new Set(ps.models.map((m) => m.id)))
-			for (const m of models) if (stored.has(m.id)) { const snap = $state.snapshot(m) as Model; untrack(() => ps.saveModel(snap)) }
+			for (const m of models) {
+				const id = m.id
+				$effect(() => {
+					const snap = $state.snapshot(m) as Model
+					untrack(() => {
+						if (!ps.models.some((x) => x.id === id)) return   // not a stored model (an in-memory floor of the old tree)
+						const j = stableJson(snap), prev = this.#seen.get(id)
+						this.#seen.set(id, j)
+						if (prev !== undefined && prev !== j) ps.saveModel(snap)
+					})
+				})
+			}
 		})
 	}
 

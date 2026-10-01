@@ -258,8 +258,9 @@ const DIR_FRAMES = Object.fromEntries((Object.keys(DIR_T) as ElevDir[]).map((d) 
 /** The frame of an ElevDir about the plan centre (cx, cy). The default-centre frames are SHARED — don't mutate. */
 export const frameOf = (dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): ElevFrame =>
 	cx === PLAN_CX && cy === PLAN_CY ? DIR_FRAMES[dir] : mkFrame([cx, cy], DIR_T[dir])
-/** An oblique frame about `o` looking along plan angle `deg` (from +x toward +y, the plan's rotation sense).
- *  Multiples of 90° come out exactly axis-aligned (90° = front), so they take the fast path. */
+/** An oblique frame about `o` for a viewer standing at plan angle `deg` from the subject (from +x toward +y, the plan's
+ *  rotation sense, y down) — n points at the viewer, who looks along −n. Multiples of 90° come out exactly
+ *  axis-aligned: 90° = front (viewer below on the sheet), 0° = right, 180° = left, 270° = rear. */
 export function frameAt(o: Pt, deg: number): ElevFrame {
 	const r = (deg * Math.PI) / 180, z = (x: number) => (Math.abs(x) < 1e-12 ? 0 : x)
 	return mkFrame(o, [z(Math.sin(r)), z(-Math.cos(r))])

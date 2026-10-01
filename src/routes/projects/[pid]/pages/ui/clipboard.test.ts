@@ -24,12 +24,13 @@ const ids = (a: Ent[] | null) => a?.map((e) => e.id)
 const counter = () => { let n = 0; return () => `n${++n}` }
 
 describe('clipboard: images across tabs', () => {
-	it('an in-memory image (img: key) travels as its data-URL and is interned again on paste', () => {
+	it('a never-uploaded image (an old session-only img: key) is LEFT OUT on paste and counted — a model holds only uploaded images', () => {
 		const key = internImage('data:image/png;base64,AAAA')
-		const text = clipText([{ id: 'i', type: 'image', a: [0, 0], b: [10, 10], src: key }])
-		expect(text).toContain('data:image/png;base64,AAAA'); expect(text).not.toContain(key)
-		const back = fromClipData(text)!.ents[0]
-		expect(back.src?.startsWith('img:')).toBe(true); expect(imageSrc(back.src)).toBe('data:image/png;base64,AAAA')
+		const text = clipText([{ id: 'i', type: 'image', a: [0, 0], b: [10, 10], src: key }, { id: 'u', type: 'image', a: [0, 0], b: [10, 10], src: 'https://x/plan.png' }])
+		expect(text).toContain('data:image/png;base64,AAAA'); expect(text).not.toContain(key)   // (copy still carries its bytes)
+		const back = fromClipData(text)!
+		expect(back.ents.map((e) => e.id)).toEqual(['u']); expect(back.droppedImages).toBe(1)
+		expect(imageSrc(key)).toBe('data:image/png;base64,AAAA')   // an old key still renders this session
 	})
 })
 

@@ -1,7 +1,7 @@
 // DEV-ONLY: look at an elevation from ANY plan angle before the section-line / elevation markers exist
 // (elevation-section-plan.md phase 2; phases 3–4 add the real, user-facing markers that hand a view its frame).
 // No UI and nothing persisted — from the browser console in `pnpm dev`:
-//   __pagesOblique(30)          every elevation viewport looks along plan 30° (frameAt: 90 = front, 0 = left, 180 = right)
+//   __pagesOblique(30)          every elevation viewport is seen from plan 30° (frameAt: 90 = front, 0 = right, 180 = left)
 //   __pagesOblique(30, 'vf…')   only that sheet frame (its id — a frame's Properties / the DOM)
 //   __pagesOblique(null)        back to normal (null with an id clears just that frame)
 //   __pagesOblique()            lists what is set

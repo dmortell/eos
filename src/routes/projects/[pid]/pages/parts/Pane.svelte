@@ -29,7 +29,7 @@
 	import { type Proj, type WorkPane, type Workspace, SCALES } from '../types'
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
-	import { FLOOR_MODEL_ID, modelById } from '../3dview/models.svelte'
+	import { modelById } from '../3dview/models.svelte'
 	import { DEFAULT_MARGIN_MM, effScale } from '../constants'
 	import { pdfRendering } from '../ui/render/pdfRaster.svelte'
 	import { tick } from 'svelte'
@@ -169,7 +169,7 @@
 					<PaperPage title={a.title} tool={p.tool} scale={ws.framesOf(a.id)[0]?.scale ?? ws.scaleOf(a.id)} env={ws.envFor(p)} pw={ws.paperDimsOf(a.id).w} ph={ws.paperDimsOf(a.id).h}
 						sizeLabel="{ws.paperOf(a.id).size} {ws.paperOf(a.id).landscape ? 'L' : 'P'}" marginMm={ws.paperOf(a.id).margin ?? DEFAULT_MARGIN_MM} tb={ws.titleBlockOf(a.id)}
 						entities={ws.entsOf(a.id)} {focused}
-						entsForModel={ws.entsForModel} conduitOf={ws.conduitOf} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
+						entsForModel={ws.entsForModel} conduitOf={ws.conduitOf} tabModelId={a.modelId}
 						frames={ws.framesOf(a.id)} editor={ws.paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}
 						isFrameActive={(id) => ws.isVpActive(id)} frameView={(id, proj) => ws.viewOf(p.id, id, proj as Proj)} frameEnv={ws.envFor(p)}
 						frameOrbit={(id, proj) => ws.orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => ws.vpFrameView(a, p, f)} makeFrameEditor={(f) => ws.vpEditor(a, f.id)}
@@ -180,7 +180,7 @@
 						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
 					<div class="vp-fill">
-						<Viewport modelSpace kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
+						<Viewport modelSpace kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId}
 							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} persp={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).persp} wire={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).wire} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
 					</div>
 				{:else}
@@ -222,7 +222,7 @@
 			{/if}
 		{/if}
 		<!-- F1: the Trunk / Pipe spec bar (what the next run is drawn as) -->
-		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId ?? FLOOR_MODEL_ID)?.levels} />{/if}
+		{#if focused && a && (p.tool === 'Trunk' || p.tool === 'Pipe')}<TrunkSpecBar tool={p.tool} levels={modelById(a.modelId)?.levels} />{/if}
 		{#if focused && a && p.tool === 'Opening'}<OpeningSpecBar />{/if}
 		{#if focused && a && p.tool === 'Section'}<SectionSpecBar />{/if}
 		{#if focused && a && p.tool === 'Elevation'}<ElevationSpecBar />{/if}

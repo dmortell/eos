@@ -1,14 +1,12 @@
-// Pages 3D model registry (P1 — in-memory; Firestore `models3d/{pid}` comes in P6, see model-plan.md).
-// A MODEL is a floor's 3D (walls / prisms / conduits, real mm). A page's viewport references a model by
-// id + view config. The demo seed models (floor + rack) live in `mock/models.ts` (R10) so this store is
-// just the reactive registry + mutators; the backend swap replaces `demoModels()`, not this file.
+// Pages model registry: the models of the open project, loaded from Firestore (`projects/{pid}/models/{id}`) by the
+// project store (store/pagesStore + pagesProject upsertModel / removeModels). A MODEL is a floor's / zone's / rack
+// row's content (walls / boxes / conduits + 2D shapes, real mm); a viewport references one by id. It starts EMPTY —
+// a tab or viewport without a model shows nothing (there's no default / demo model any more, 2026-10-02).
 import type { Model, ModelId } from './types'
-import { migrateModels } from './migrate'
-import { demoModels, emptyFloor } from '../mock/models'
+import { emptyFloor } from '../mock/models'
 import { newId } from '../ids'
 
-export const FLOOR_MODEL_ID: ModelId = 'm1'   // the default model a new viewport / tab points at
-export const models = $state<Model[]>(migrateModels(demoModels()))
+export const models = $state<Model[]>([])
 export const modelById = (id?: ModelId) => (id == null ? undefined : models.find((m) => m.id === id))
 /** The model of a floor, by the floor's name in the navigator ('33F'); undefined if there is none. */
 export const floorModelId = (floor?: string) => (floor ? models.find((m) => m.name === floor)?.id : undefined)

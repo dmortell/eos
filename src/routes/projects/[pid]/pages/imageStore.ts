@@ -1,10 +1,9 @@
-// P3 short term (review.md §P3): imported image DATA lives here, not inside the model. An image entity's
-// `src` holds a short key (`img:<id>`) instead of a multi-megabyte data-URL, so model snapshots (undo
-// history, revisions, and — when §12 / X7 land — the Firestore model doc with its 1 MB limit) carry a
-// key, not the bytes. The long-term replacement is X7: upload the file and store its `files/{id}` id;
-// this map is the stand-in, one per browser session (not persisted — a reload keeps only URL sources).
+// SESSION-ONLY image keys (`img:<id>` → a data-URL in this map, never persisted). Since 2026-10-02 NOTHING creates
+// them for a model: images are uploaded files (their URL / `pdf:` src) — a failed upload adds nothing, `addImage`
+// refuses a data-URL, a pasted never-uploaded image is left out (ui/clipboard.ts). This map stays to RENDER keys an
+// older session saved (they show nothing after a reload — re-insert those images) and for tests.
 //
-// Plain URLs ('/plan.jpg', 'https://…') are already small and pass through untouched.
+// Plain URLs ('/plan.jpg', 'https://…') pass through untouched.
 import { newId } from './ids'
 
 const KEY = 'img:'

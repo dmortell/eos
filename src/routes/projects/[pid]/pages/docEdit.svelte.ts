@@ -21,11 +21,11 @@ export type EditScope = { begin(): void; mark(label?: string): void; end(debounc
 
 export type DocEditHost = {
 	timeline: WorkspaceHistory
-	/** The model a tab's ACTIVE viewport edits. */
-	modelIdOf: (tabId: string) => ModelId
+	/** The model a tab's ACTIVE viewport edits (undefined: it has none — edits are refused / no-ops). */
+	modelIdOf: (tabId: string) => ModelId | undefined
 	/** The focused pane's tab id / its active model / its active viewport (the selection key). */
 	focusedTabId: () => string | undefined
-	activeMid: () => ModelId
+	activeMid: () => ModelId | undefined
 	activeSelViewId: () => string | undefined
 	/** A tab's model's shapes (for fresh labels on paste). */
 	entsOf: (tabId: string) => Ent[]
@@ -48,8 +48,8 @@ export class DocEdit {
 	readonly clipboard = new Clipboard()   // plain snapshots; persists across tabs
 	constructor(host: DocEditHost) { this.#h = host }
 
-	#ents = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
-	#setEnts = (mid: ModelId, next: Ent[]) => { const m = modelById(mid); if (m) m.shapes = next }
+	#ents = (mid: ModelId | undefined): Ent[] => modelById(mid)?.shapes ?? []
+	#setEnts = (mid: ModelId | undefined, next: Ent[]) => { const m = modelById(mid); if (m) m.shapes = next }
 	/** A 3D-model edit (the store was mutated in place) → one step on this doc's timeline, gesture-folded. */
 	modelEdit = (tabId: string, label = 'Edit model') => this.#h.timeline.record(tabId, label)
 
@@ -58,6 +58,7 @@ export class DocEdit {
 	 *  with a note. Returns whether it was added. `fresh` (a NEW drawing, not a paste) → D10 drawing defaults fill its unset style. */
 	addEnt = (tabId: string, e: Ent, fresh = true): boolean => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
+		if (!modelById(mid)) { toast.warning('This view shows no model — open a place’s model (or set the viewport’s model) to draw', { id: 'no-model' }); return false }
 		if (al && onlyElsewhere(al, this.#h.activeSelViewId())) { toast.warning(`The active layer “${al.name}” shows only in the viewport it was made in — pick another layer (or click its eye to show it here) to draw`, { id: 'layer-refused' }); return false }
 		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`, { id: 'layer-refused' }); return false }
 		if (fresh) e = withDefaults(e, this.#h.drawingDefaults())
@@ -66,7 +67,7 @@ export class DocEdit {
 	}
 	/** F6: conduit ends attached to these shapes / objects move onto their points — BEFORE the step is recorded, so
 	 *  every way of moving them (drag, nudge, Properties, group transform) carries its conduits in the same step. */
-	#follow = (mid: ModelId, ids: string[]) => { const m = modelById(mid); if (m) followConnections(m, new Set(ids)) }
+	#follow = (mid: ModelId | undefined, ids: string[]) => { const m = modelById(mid); if (m) followConnections(m, new Set(ids)) }
 	updateEnt = (tabId: string, e: Ent) => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId)
 		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? unlinkIfMoved(x, e) : x))); this.#follow(mid, [e.id]); t.record(tabId, 'Edit ' + e.type)

@@ -12,12 +12,12 @@ import type { ModelId } from './3dview/types'
 import { viewToDxfBundle, dxfImageEnts, type DxfViewInput } from './exportDxf'
 import { rasterForDxf, zipDxf, downloadBytes } from './dxfImages'
 import { downloadDxf } from '../sheets/dxf/dxf'
-import { internImage } from './imageStore'
 import { uploadShape, type UploadFile } from './ui/pdfFiles'
 
 /** What the focused pane shows, resolved: the model + direction + the frame's view settings (a sheet) or the tab's. */
 export type ActiveView = {
-	tabId: string; title: string; paneId: string; viewId: string; mid: ModelId; dir: Proj; scale: string
+	/** `mid` undefined: the view has no model (a tab / frame not pointing at one — there is no default model). */
+	tabId: string; title: string; paneId: string; viewId: string; mid: ModelId | undefined; dir: Proj; scale: string
 	clip: SheetFrame['clip']; frozen?: string[]; storeys?: string[]; frameId?: string
 	/** A section line / elevation marker frame's live oriented clip (its view, maybe oblique) + the frame's hidden lines. */
 	oclip?: SheetFrame['oclip'] | null; hideHidden?: boolean
@@ -26,9 +26,9 @@ export type PageActionsHost = {
 	/** null (with the reason toasted by the caller's wording) when no drawing is open / a sheet has no frame. */
 	activeView: () => ActiveView | null | 'no-frame'
 	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number; persp?: boolean; wire?: boolean }
-	entsForModel: (mid: ModelId) => Ent[]
+	entsForModel: (mid?: ModelId) => Ent[]
 	addEnt: (tabId: string, e: Ent) => boolean
-	activeLayerName: (mid: ModelId) => string
+	activeLayerName: (mid?: ModelId) => string
 }
 
 const ELEV = new Set(['front', 'rear', 'left', 'right'])
@@ -80,16 +80,18 @@ export class PageActions {
 		return true
 	}
 
-	/** Place an image (a data-URL or URL) on the active layer, sized to its aspect ratio, aspect-locked. The data-URL
-	 *  is interned (imageStore.ts) so the bytes never enter the model / undo snapshots. I5: in an ELEVATION it lives
-	 *  on that elevation's plane, standing on the ground line; otherwise on the plan, centred. */
+	/** Place an image BY URL (an uploaded file's, or a site path) on the active layer, sized to its aspect ratio,
+	 *  aspect-locked. A data-URL is refused: a model may only hold uploaded images (a session-only `img:` copy pointed
+	 *  at nothing after a reload — 2026-10-02); files go through upload (insertFiles → addUpload). I5: in an ELEVATION
+	 *  it lives on that elevation's plane, standing on the ground line; otherwise on the plan, centred. */
 	addImage = (src: string): boolean => {
 		const v = this.#h.activeView()
 		if (!v || v === 'no-frame') { toast('Open a drawing first, then Insert › Image…'); return false }
+		if (src.startsWith('data:')) { toast.error('Only an uploaded image can be added — insert the file (Insert › Image…)'); return false }
 		const elev = ELEV.has(v.dir), img = new Image()
 		const place = (aspect: number) => {
 			const w = elev ? 4000 : 9000, h = w * aspect, cx = 14000, cy = elev ? GROUND - h / 2 : 8750
-			if (!this.#h.addEnt(v.tabId, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: elev ? (v.dir as ElevDir) : 'plan', lockAspect: true })) return
+			if (!this.#h.addEnt(v.tabId, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: elev ? (v.dir as ElevDir) : 'plan', lockAspect: true })) return
 			toast(`Image added to ${modelById(v.mid)?.name ?? 'the model'} on layer “${this.#h.activeLayerName(v.mid)}”. Set its scale/crop in Properties.`)
 		}
 		img.onload = () => place((img.naturalHeight || 700) / (img.naturalWidth || 1000))

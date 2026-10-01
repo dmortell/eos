@@ -6,7 +6,7 @@
 //   setGroup    put shapes in one new group, or ungroup them.
 import { translate, isNote, migrateNote, type Ent, type Pt } from './geometry'
 import type { Obj } from '../3dview/types'
-import { imageSrc, internImage } from '../imageStore'
+import { imageSrc } from '../imageStore'
 
 export class Clipboard {
 	#items: Ent[] = []
@@ -89,15 +89,18 @@ export const clipText = (ents: readonly Ent[], objs: readonly Obj[] = [], layers
 }
 /** Clipboard text → shapes, or null when it isn't ours. */
 export function fromClipText(text: string): Ent[] | null { return fromClipData(text)?.ents ?? null }
-/** Clipboard text → shapes + 3D objects (+ their layer names), or null when it isn't ours. */
-export function fromClipData(text: string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers } | null {
+/** Clipboard text → shapes + 3D objects (+ their layer names), or null when it isn't ours. An image that was never
+ *  uploaded (its bytes ride as a data-URL — only an old, session-only `img:` image) is LEFT OUT and counted in
+ *  `droppedImages`: a model may only hold uploaded images, or it points at nothing after a reload (2026-10-02). */
+export function fromClipData(text: string): { ents: Ent[]; objs: Obj[]; layers: ClipLayers; droppedImages: number } | null {
 	if (!text.includes(CLIP_MARK)) return null
 	try {
 		const o = JSON.parse(text); if (!o?.[CLIP_MARK] || !Array.isArray(o.ents)) return null
-		const ents = (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote)
-			.map((e) => (e.type === 'image' && e.src?.startsWith('data:') ? { ...e, src: internImage(e.src) } : e))   // the bytes back out of the model
+		const all = (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string').map(migrateNote)
+		const unsaved = (e: Ent) => e.type === 'image' && (!!e.src?.startsWith('data:') || !!e.src?.startsWith('img:'))
+		const ents = all.filter((e) => !unsaved(e))
 		const objs = Array.isArray(o.objs) ? (o.objs as Obj[]).filter((x) => x && ['prism', 'wall', 'conduit'].includes(x.type)) : []
-		return { ents, objs, layers: o.layers && typeof o.layers === 'object' ? o.layers : {} }
+		return { ents, objs, layers: o.layers && typeof o.layers === 'object' ? o.layers : {}, droppedImages: all.length - ents.length }
 	} catch { return null }
 }
 
