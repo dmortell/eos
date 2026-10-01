@@ -108,6 +108,13 @@ describe('inThisView / pickable', () => {
 		expect(inThisView(planCtx, ent({ space: 'view:other' }))).toBe(false)
 		expect(inThisView(planCtx, ent({ space: 'view:f1' }))).toBe(true)
 	})
+	it('plan TEXT stays out of elevations (it was drawn at its plan coords, far above); an elevation\'s own text shows', () => {
+		const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true }
+		expect(inThisView(front, { id: 't', type: 'text', a: [0, 0], text: 'Room 1' })).toBe(false)
+		expect(inThisView(front, { id: 't', type: 'text', a: [0, 0], text: 'Rack A', plane: 'front' })).toBe(true)
+		expect(inThisView(front, ent({}))).toBe(true)   // a flat plan shape still shows edge-on
+		expect(inThisView({ ...planCtx, dir: 'iso', isPlan: false, isIso: true }, { id: 't', type: 'text', a: [0, 0], text: 'TV' })).toBe(true)   // 3D lifts callouts
+	})
 	it('pickable gates on layer hidden/locked', () => {
 		const shown = { hidden: () => false, locked: () => false }
 		expect(pickable(planCtx, ent({}), shown)).toBe(true)

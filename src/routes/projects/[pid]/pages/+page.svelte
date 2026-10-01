@@ -608,7 +608,9 @@
 				const av = f.id
 				// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
 				// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
-				if (proj !== 'iso' && !viewState.hasView(pane.id, didOf(av), proj)) centreFrameContent(pane.id, a.id, f, proj)
+				// …in EVERY pane showing this sheet (the direction is the sheet's — the other pane would open the new one at
+				// its default view, off on empty space)
+				if (proj !== 'iso') for (const q of session.panes) if ((q.id === pane.id || didOf(q.activeId) === didOf(a.id)) && !viewState.hasView(q.id, didOf(av), proj)) centreFrameContent(q.id, a.id, f, proj)
 				if (!viewPreview[av]) viewPreview = { ...viewPreview, [av]: { tab: a.id, orig: f.proj as Proj, label: f.label, wasActive: isVpActive(av) } }
 				updateFrame(a.id, av, f.seq != null ? { proj } : { proj, label: PROJ_LABEL[proj] })   // a numbered frame keeps its label
 				if (viewPreview[av]?.orig === proj) { const { [av]: _, ...rest } = viewPreview; viewPreview = rest }   // back where it started
@@ -634,6 +636,11 @@
 	// elevation). Iso keeps its own view. Drawing coords: plan = the model footprint (x, y); an elevation = (elevU of
 	// its axis, GROUND − z). The view maps P to  view + zoom · (C + (P − C) / N)  about the plan centre C.
 	const focusOf = new Map<string, { x?: number; y?: number; z?: number }>()
+	/** The middle of a model's height (its objects' z range), else 1500 (a storey's eye level). */
+	function modelMidZ(m: Model | null | undefined): number {
+		if (!m?.objects.length) return 1500
+		const r = modelZRange(m.objects); return (r.z0 + r.z1) / 2
+	}
 	function carryFocus(paneId: string, vid: string, from: Proj, to: Proj, n: number) {
 		if (from === to || from === 'iso' || to === 'iso') return
 		const d = 1 / (n || 1), v0 = viewOf(paneId, vid, from)
@@ -645,6 +652,9 @@
 			const fr = frameOf(from as ElevDir), ax = frameAxis(fr), q = frameSetU(fr, [f.x ?? PLAN_CX, f.y ?? PLAN_CY], px)
 			if (ax !== 1) f.x = q[0]; if (ax !== 0) f.y = q[1]; f.z = GROUND - py
 		}
+		// no height known yet (the first plan → elevation): the model's mid-height, else 1500 — keeping the elevation's
+		// old y at the plan's zoom put its content far off the bottom of the window
+		if (from === 'plan' && f.z == null) f.z = modelMidZ(modelById(modelIdOf(vid)))
 		focusOf.set(key, f)
 		const v1 = viewOf(paneId, vid, to), put = (P: number | undefined, c: number, keep: number) => (P == null ? keep : c - v0.zoom * (c + d * (P - c)))
 		if (to === 'plan') setView(paneId, vid, 'plan', { zoom: v0.zoom, x: put(f.x, PLAN_CX, v1.x), y: put(f.y, PLAN_CY, v1.y) })

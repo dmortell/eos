@@ -71,6 +71,11 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   box). A selected node (walls too now) has NODE X / Y / Z. Multi-select Base Z covers walls / conduits (their lowest
   point) as well as boxes.
 - Tool strip order: Boxes, then Walls · trunks · pipes, then Openings.
+- Fixes: MODEL SPACE plan → front / side the first time opened far off the bottom (the plan's zoom with the elevation's
+  stale offset) — with no height to carry it now centres on the model's mid-height. A sheet open in BOTH panes: the
+  ViewCube's new direction (the sheet's — both show it, by design) is now centred in every pane showing it, not just
+  the one clicked. Plan TEXT (labels, notes, callouts, legends) no longer shows in elevations — it was drawn at its plan
+  coords, high above (an elevation's own text still shows; 3D still lifts plan callouts).
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor
