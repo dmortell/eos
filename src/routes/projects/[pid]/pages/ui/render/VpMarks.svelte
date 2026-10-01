@@ -154,10 +154,12 @@
 	/* A section LINE: the dashed cut (solid when selected), the region it sees (selected only), its depth handle. */
 	.section-line { stroke:#0e7490; stroke-dasharray:12 4 2 4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-line.sel { stroke-dasharray:none; }
-	.section-region { fill:#0e749012; stroke:#0e749066; stroke-width:1; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; pointer-events:none; }
+	/* the region it sees (only while selected): the SELECTION look of any shape (SEL teal, full strength, dashed) — the
+	   old 40 % stroke / 7 % fill was hard to see (Dave 2026-10-01) */
+	.section-region { fill:#0e74901f; stroke:#0e7490; stroke-width:1.5; stroke-dasharray:6 3; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-depth { fill:#fff; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
 	/* A section seen in an elevation: its band (dashed; faint when it sees every height), solid when selected. */
 	.section-band { fill:#0e749008; stroke:#0e7490; stroke-width:1; stroke-dasharray:8 4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-band.all { stroke-opacity:0.5; }
-	.section-band.sel { fill:#0e749018; stroke-dasharray:none; stroke-opacity:1; }
+	.section-band.sel { fill:#0e74901f; stroke-width:1.5; stroke-dasharray:6 3; stroke-opacity:1; }
 </style>
