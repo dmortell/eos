@@ -67,6 +67,15 @@ export function migrateModels(models: Model[]): Model[] {
 			if (!n.id) { n = { ...n, id: newId('o') }; mc = true } // stable per-object id (id-based selection)
 			return n
 		})
+		// a RACK'S FRONT is its +y face (2026-10-01; store/racksImport deviceY): a device is placed by its mount, so re-derive
+		// its y — front / both flush with +y, rear with −y — in an unrotated rack (rotated ones were never placed by mount)
+		const racks = new Map(objects.filter((o) => o.type === 'prism' && o.rack && o.id).map((o) => [o.id!, o as Extract<Obj, { type: 'prism' }>]))
+		for (let i = 0; i < objects.length; i++) {
+			const o = objects[i], r = o.type === 'prism' && o.device ? racks.get(o.device.rackId) : undefined
+			if (!r || o.type !== 'prism' || r.rot) continue
+			const y = o.device!.mount === 'rear' ? r.y : r.y + r.d - o.d
+			if (Math.abs(o.y - y) > 0.5) { objects[i] = { ...o, y }; mc = true }
+		}
 		let layers = m.layers ?? []
 		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
 		// section markers sit on a layer (default "Sections") — a model with markers gets it, so they can be hidden

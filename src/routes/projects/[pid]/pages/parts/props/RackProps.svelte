@@ -5,7 +5,7 @@
 	import { num } from './fields'
 	import { newId } from '../../ids'
 	import { toast } from 'svelte-sonner'
-	import { RU_MM, rackHeightMm, uToZ, freeU, DEVICE_W, DEVICE_COLORS } from '../../store/racksImport'
+	import { RU_MM, rackHeightMm, uToZ, freeU, DEVICE_W, DEVICE_COLORS, deviceY } from '../../store/racksImport'
 	import type { Obj, Model } from '../../3dview/types'
 	import type { OutletRef } from '../../store/allocate'
 	import AllocateDialog from '../AllocateDialog.svelte'
@@ -34,7 +34,7 @@
 		if (obj.type !== 'prism' || !obj.rack || !obj.id || !model) return
 		const u = freeU(model.objects, obj.id, obj.rack.u, 1); if (u == null) { toast('This rack is full'); return }
 		const w = Math.min(obj.w, DEVICE_W), d = Math.min(obj.d, obj.d - 100)
-		onadd?.({ type: 'prism', id: newId('dv'), layer: 'devices', edges: 4, x: obj.x + (obj.w - w) / 2, y: obj.y, z: uToZ(obj.z, u), w, d, h: RU_MM,
+		onadd?.({ type: 'prism', id: newId('dv'), layer: 'devices', edges: 4, x: obj.x + (obj.w - w) / 2, y: deviceY(obj.y, obj.d, d, 'both'), z: uToZ(obj.z, u), w, d, h: RU_MM,
 			label: 'Device', color: DEVICE_COLORS.other, device: { rackId: obj.id, u, hU: 1, mount: 'both', kind: 'other' } } as Obj)
 	}
 	function setDevice(patch: Partial<NonNullable<Obj['device']>>) {
@@ -45,7 +45,7 @@
 		const out: Record<string, unknown> = { device: dv }
 		if (r?.type === 'prism') {
 			if (patch.u != null || patch.hU != null) { dv.u = Math.max(1, Math.min(maxU - dv.hU + 1, dv.u)); out.z = uToZ(r.z, dv.u); out.h = dv.hU * RU_MM }
-			if (patch.mount) out.y = patch.mount === 'rear' ? r.y + r.d - obj.d : r.y
+			if (patch.mount) out.y = deviceY(r.y, r.d, obj.d, patch.mount)   // flush with the face it's mounted on
 		}
 		if (patch.kind && (!obj.color || obj.color === DEVICE_COLORS[obj.device.kind ?? 'other'])) out.color = DEVICE_COLORS[patch.kind] ?? DEVICE_COLORS.other
 		onupdate?.(out)

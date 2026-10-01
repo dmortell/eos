@@ -15,6 +15,12 @@ export const rackHeightMm = (u: number) => u * RU_MM + 2 * RAIL_MM
 export const uToZ = (z0: number, u: number) => z0 + RAIL_MM + (u - 1) * RU_MM
 /** The U whose bottom is nearest `z` (clamped to 1 … maxU). */
 export const zToU = (z0: number, z: number, maxU = 99) => Math.max(1, Math.min(maxU, Math.round((z - z0 - RAIL_MM) / RU_MM) + 1))
+/** A RACK'S FRONT is its +y side (the plan's y runs down the sheet): the side the Front elevation is seen from, where
+ *  rackPlan draws its front line (projection.ts). A device on the front rails (or both) sits flush with that face, a
+ *  rear one with the −y face. Returns the device box's y. (Was −y until 2026-10-01 — the Front elevation then saw the
+ *  racks' backs once elevations were made to match the plan as drawn, commit 7c589c65.) */
+export const deviceY = (rackY: number, rackD: number, devD: number, mount: 'front' | 'rear' | 'both' | undefined) =>
+	mount === 'rear' ? rackY : rackY + rackD - devD
 
 export type RackIn = { id: string; label?: string; rowId?: string; order?: number; heightU?: number; heightMm?: number; widthMm?: number; depthMm?: number; type?: string; color?: string }
 export type DeviceIn = { id: string; rackId: string; label?: string; type?: string; heightU?: number; positionU?: number; portCount?: number; color?: string; widthMm?: number; depthMm?: number; mounting?: 'front' | 'rear' | 'both' | 'none'; offsetX?: number }
@@ -44,7 +50,7 @@ export function rowToObjects(doc: RacksDocIn, rowId: string): Obj[] {
 			const mount = dv.mounting ?? 'both'
 			out.push({
 				type: 'prism', id: `dv-${dv.id}`, layer: 'devices', edges: 4,
-				x: Math.round(x + (w - dw) / 2 + (dv.offsetX ?? 0)), y: mount === 'rear' ? y0 + d - dd : y0, z: uToZ(0, dv.positionU ?? 1),
+				x: Math.round(x + (w - dw) / 2 + (dv.offsetX ?? 0)), y: deviceY(y0, d, dd, mount), z: uToZ(0, dv.positionU ?? 1),
 				w: dw, d: dd, h: hU * RU_MM, label: dv.label || dv.type || 'Device', color: dv.color ?? DEVICE_COLORS[dv.type ?? 'other'] ?? DEVICE_COLORS.other,
 				device: { rackId: rid, u: dv.positionU ?? 1, hU, mount, ports: dv.portCount, kind: dv.type, src: dv.id },
 			} as Obj)

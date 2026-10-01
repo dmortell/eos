@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { rowToObjects, mergeRackRow, freeU, uToZ, zToU, rackHeightMm } from './racksImport'
+import { rowToObjects, mergeRackRow, freeU, uToZ, zToU, rackHeightMm, deviceY } from './racksImport'
 import type { Model, Obj } from '../3dview/types'
+import { hiddenLines } from '../3dview/hiddenLines'
+import { frameOf } from '../ui/geometry'
 
 const doc = {
 	rows: [{ id: 'r1' }],
@@ -41,5 +43,17 @@ describe('racks → a rack-row model (G4)', () => {
 		const alloc = { 1: { outlet: 'o', model: 'f', port: 1, label: 'X' } }
 		const withAlloc = { ...m, objects: m.objects.map((x) => (x.id === 'dv-d1' ? { ...x, device: { ...x.device!, alloc } } : x)) }
 		expect(mergeRackRow(withAlloc, rowToObjects(doc, 'r1')).objects.find((x) => x.id === 'dv-d1')?.device?.alloc).toEqual(alloc)
+	})
+	// SEMANTIC (not a snapshot of today's numbers): the Front elevation must see the face front-mounted devices sit on,
+	// the Rear one the rear devices — with hidden lines on, a device on the far face is hidden behind the rack's near one.
+	// (Commit 7c589c65 made elevations match the plan as drawn and the Front view then saw the racks' backs.)
+	it('the FRONT elevation shows the front-mounted devices, the REAR one the rear-mounted', () => {
+		const one = (mounting: 'front' | 'rear') => rowToObjects({ racks: [{ id: 'R', rowId: 'r', widthMm: 600, depthMm: 1000, heightU: 42 }],
+			devices: [{ id: 'd', rackId: 'R', positionU: 20, heightU: 2, mounting }] }, 'r')
+		const seen = (objs: Obj[], dir: 'front' | 'rear') => hiddenLines(objs, frameOf(dir))[1].segs.length > 0
+		expect(seen(one('front'), 'front')).toBe(true); expect(seen(one('front'), 'rear')).toBe(false)
+		expect(seen(one('rear'), 'rear')).toBe(true); expect(seen(one('rear'), 'front')).toBe(false)
+		// a rear device sits flush with the −y face, a front / both one with the +y (front) face
+		expect(deviceY(0, 1000, 900, 'rear')).toBe(0); expect(deviceY(0, 1000, 900, 'front')).toBe(100); expect(deviceY(0, 1000, 900, 'both')).toBe(100)
 	})
 })

@@ -711,13 +711,14 @@ export function doorGeom(o: Prism) {
 // Project an object to one or more drawing-plane outlines for the direction.
 // For iso, `yaw`/`cx`/`cy` orbit the model around the vertical axis.
 /** A RACK in plan, like OpenCad's: its footprint, an X corner to corner, and a FRONT line (60 % of the width) just
- *  outside the front face — the −y side of the unrotated box, the face the Front elevation sees — RACK_FRONT_GAP mm
+ *  outside the front face — the +y side of the unrotated box (the plan's y runs down the sheet), the face the Front
+ *  elevation sees and front-mounted devices sit flush with (racksImport deviceY) — RACK_FRONT_GAP mm
  *  off it (OpenCad puts it ⅛ of the depth out; Dave: closer). Rotates with the rack. Plan points (x, y, z). */
 export const RACK_FRONT_GAP = 40
 export function rackPlan(o: Extract<Obj, { type: 'prism' }>): { closed: boolean; pts: P3[] }[] {
 	const cx = o.x + o.w / 2, cy = o.y + o.d / 2, a = ((o.rot ?? 0) * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)
 	const at = (u: number, v: number): P3 => ({ x: cx + u * c - v * s, y: cy + u * s + v * c, z: o.z })   // box-local (u across, v back) → plan
-	const hw = o.w / 2, hd = o.d / 2, fy = -hd - RACK_FRONT_GAP
+	const hw = o.w / 2, hd = o.d / 2, fy = hd + RACK_FRONT_GAP
 	return [
 		{ closed: true, pts: [at(-hw, -hd), at(hw, -hd), at(hw, hd), at(-hw, hd)] },
 		{ closed: false, pts: [at(-hw, -hd), at(hw, hd)] },

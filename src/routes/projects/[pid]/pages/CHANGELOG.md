@@ -89,6 +89,12 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   the plan keeps the depth handle). Not over its own viewport, not in a riser drawing's collapsed heights.
 - A new box / wall / trunk / rack on a HIDDEN or LOCKED layer is refused with a note (like shapes): it was created on
   Hibiya's locked Furniture layer — invisible to picking, uneditable. Items rows on a locked layer show a lock.
+- **Rack front fixed** (a regression from the elevation fix, caught by the code review `docs/pages-analysis.md`): a
+  rack's FRONT is now its +y face — the side the Front elevation is seen from. The plan's front line moved there,
+  front / both-mounted devices sit flush with it (imported, added, or re-mounted in Properties — one helper,
+  `racksImport` `deviceY`), and on load existing devices in unrotated racks are re-placed by their mount (in memory;
+  saved with the next edit). A semantic test pins it: the Front elevation shows the front-mounted devices, Rear the
+  rear ones (hidden lines on, a probe had the front device 0 mm visible in Front).
 - PDF rendering: no big spinner over the drawing — a faint dashed outline where the page will appear, a small spinner in
   the view's scale tag, and one beside the scale list in the active / model-space bar.
 

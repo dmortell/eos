@@ -126,3 +126,16 @@ describe('section markers sit on a layer', () => {
 		expect(sectionLayer(sec)).toBe('sections'); expect(sectionLayer({ layer: 'x' })).toBe('x')
 	})
 })
+
+describe('rack devices sit on their mount face (a rack\'s front = its +y face, 2026-10-01)', () => {
+	it('re-derives a device\'s y from its mount in an unrotated rack (once — then nothing to do); a rotated rack is left alone', () => {
+		const rack = { type: 'prism', id: 'rk', x: 0, y: 0, z: 0, w: 600, d: 1000, h: 2000, edges: 4, rack: { u: 42 }, layer: 'racks' }
+		const dev = (id: string, mount: 'front' | 'rear' | 'both', y = 0) => ({ type: 'prism', id, x: 77, y, z: 500, w: 445, d: 900, h: 45, edges: 4, device: { rackId: 'rk', u: 10, hU: 1, mount } })
+		const m = { id: 'm', name: 'Row', layers: [{ ...BACKGROUND_LAYER }], objects: [rack, dev('f', 'front'), dev('r', 'rear', 100), dev('b', 'both')] } as never as Model
+		const [out] = migrateModels([m])
+		expect(out.objects.map((o) => (o.type === 'prism' ? o.y : null))).toEqual([0, 100, 0, 100])   // front / both flush with +y, rear with −y
+		expect(migrateModels([out])[0]).toBe(out)
+		const turned = { ...m, objects: [{ ...rack, rot: 90 }, dev('f', 'front')] } as never as Model
+		expect(migrateModels([turned])[0]).toBe(turned)
+	})
+})
