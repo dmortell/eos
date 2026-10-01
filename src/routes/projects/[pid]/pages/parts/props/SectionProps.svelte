@@ -9,11 +9,14 @@
 	import { blurOnEnter, strVal } from './fields'
 	import { isLineSection, sectionTitle, type SectionLink } from '../../ui/sectionLine'
 	import { isElevMarker, planToUserAngle, userToPlanAngle } from '../../ui/elevMarker'
-	import type { Section } from '../../3dview/types'
+	import type { Section, Layer } from '../../3dview/types'
+	import { SECTIONS_LAYER, sectionLayer } from '../../3dview/migrate'
 	import type { ElevDir } from '../../ui/geometry'
 
-	let { sec, links = [], onupdate, ondrop, ondelete, onopen }: {
+	let { sec, links = [], layers = [], onupdate, ondrop, ondelete, onopen }: {
 		sec: Section; links?: SectionLink[]
+		/** The model's layers (the marker's Layer picker). */
+		layers?: Layer[]
 		/** A field changed: its patch (a key set to undefined is removed), one undo step. */
 		onupdate?: (patch: Record<string, unknown>, label?: string) => void
 		/** Drop its view as another linked viewport on the current sheet (a box: its primary direction). */
@@ -42,6 +45,14 @@
 {/snippet}
 
 <div class="prop-sec">{em ? 'ELEVATION MARKER' : 'SECTION'}<span class="sec-hint">{sectionTitle(sec)}</span></div>
+<!-- its LAYER (default "Sections"): hide / freeze / lock the markers with it — their viewports keep working -->
+<div class="prop"><span>Layer</span>
+	<select value={sectionLayer(sec)} title="The marker's layer — hide it there to hide the marker on the plan (its viewports still show the view)"
+		onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; onupdate?.({ layer: v === SECTIONS_LAYER.id ? undefined : v }, 'Section layer') }}>
+		{#if !layers.some((l) => l.id === SECTIONS_LAYER.id)}<option value={SECTIONS_LAYER.id}>{SECTIONS_LAYER.name}</option>{/if}
+		{#each layers.filter((l) => l.group !== 'Background') as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+	</select>
+</div>
 {#if em}
 	<div class="prop"><span>Number</span><input value={em.number ?? ''} placeholder="1"
 		title="Its callout number while no viewport shows it (linked, it shows the first viewport’s number / sheet)"

@@ -5,7 +5,7 @@
 import { toast } from 'svelte-sonner'
 import { newId } from './ids'
 import { modelById } from './3dview/models.svelte'
-import { activeLayerIn, removeLayer } from './layers.svelte'
+import { activeLayerIn, removeLayer, onlyElsewhere } from './layers.svelte'
 import { selStore } from './selStore.svelte'
 import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
 import { deleteModelSel, deleteGraphNode, deleteGraphSeg, deleteSection } from './ui/modelEdit'
@@ -58,6 +58,7 @@ export class DocEdit {
 	 *  with a note. Returns whether it was added. `fresh` (a NEW drawing, not a paste) → D10 drawing defaults fill its unset style. */
 	addEnt = (tabId: string, e: Ent, fresh = true): boolean => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
+		if (al && onlyElsewhere(al, this.#h.activeSelViewId())) { toast.warning(`The active layer “${al.name}” shows only in the viewport it was made in — pick another layer (or click its eye to show it here) to draw`, { id: 'layer-refused' }); return false }
 		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`, { id: 'layer-refused' }); return false }
 		if (fresh) e = withDefaults(e, this.#h.drawingDefaults())
 		t.ensure(tabId); const en = e.layer ? e : { ...e, layer: al?.id }; this.#setEnts(mid, [...this.#ents(mid), en]); t.record(tabId, 'Add ' + en.type)

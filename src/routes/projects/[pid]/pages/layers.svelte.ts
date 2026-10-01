@@ -24,6 +24,11 @@ const isBackground = (l: Layer) => l.group === 'Background'
 export const layerById = (ls: Layer[], id?: string): Layer | undefined => (id ? ls.find((l) => l.id === id) : undefined)
 // An item with no layer (or an unknown one) is always shown/editable in the tool's default ink.
 export const isLayerHidden = (ls: Layer[], id?: string): boolean => { const l = layerById(ls, id); return !!l && !l.visible }
+/** A layer made inside a sheet viewport shows ONLY in the viewports listed in its `onlyIn` (Dave 2026-10-01) — hidden in
+ *  model space (no frame), in every other viewport and in viewports made later. */
+export const onlyElsewhere = (l: Layer | undefined, frameId?: string | null): boolean => !!l?.onlyIn && !(frameId && l.onlyIn.includes(frameId))
+/** Hidden in the view `frameId` (a sheet frame id; none = model space): off, or a viewport-only layer of another view. */
+export const isLayerHiddenIn = (ls: Layer[], id: string | undefined, frameId?: string | null): boolean => { const l = layerById(ls, id); return !!l && (!l.visible || onlyElsewhere(l, frameId)) }
 export const isLayerLocked = (ls: Layer[], id?: string): boolean => { const l = layerById(ls, id); return !!l && l.locked }
 export const layerColor = (ls: Layer[], id?: string): string | undefined => layerById(ls, id)?.color
 // A layer's DRAW order index (position in the list). Lower = painted first (underneath). Unknown → -1.
@@ -66,8 +71,9 @@ export function renamePreset(id: string, name: string) { const p = presets.find(
 export function deletePreset(id: string) { const i = presets.findIndex((x) => x.id === id); if (i >= 0) presets.splice(i, 1); if (presetUI.active === id) presetUI.active = presets[0]?.id ?? '' }
 
 // ── mutators over a model's list (the caller passes the model's reactive `layers` array) ──
-export function addLayer(ls: Layer[], group = 'General'): Layer {
-	const l: Layer = { id: newId('ly'), name: 'New Layer', color: '#64748b', swatch: 'color', visible: true, locked: false, ...(group === MODEL_GROUP ? {} : { group }) }
+/** A new layer; `onlyIn` = the sheet frame it was made in (it then shows only there — `onlyElsewhere`). */
+export function addLayer(ls: Layer[], group = 'General', onlyIn?: string | null): Layer {
+	const l: Layer = { id: newId('ly'), name: 'New Layer', color: '#64748b', swatch: 'color', visible: true, locked: false, ...(group === MODEL_GROUP ? {} : { group }), ...(onlyIn ? { onlyIn: [onlyIn] } : {}) }
 	ls.push(l); layerUI.active = l.id
 	return ls[ls.length - 1]   // the stored proxy, not the literal (reference_svelte_state_proxy)
 }

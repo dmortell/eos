@@ -96,7 +96,7 @@
 					{#if v.grid.major}<path class="major" d={v.grid.major} />{/if}
 				</g>
 			{/if}
-			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} frame={v.obFrame} oclip={v.oclip} yaw={v.yaw} pitch={v.pitch} persp={v.persp} wire={!!v.p.wire} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} lwt={v.lwt} lwPxPerMm={v.lwPxPerMm} />{/if}
+			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozenAll} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} frame={v.obFrame} oclip={v.oclip} yaw={v.yaw} pitch={v.pitch} persp={v.persp} wire={!!v.p.wire} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} lwt={v.lwt} lwPxPerMm={v.lwPxPerMm} />{/if}
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
 			{#each v.frontEnts as e (e.id)}{#if !(e.id === x.editText?.id && x.editText.field === 'text') && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}

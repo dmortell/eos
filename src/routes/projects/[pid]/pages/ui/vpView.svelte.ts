@@ -20,7 +20,7 @@ import { barycentre, groupBox } from './groupXf'
 import { connPoints, objPoints, type ConnPt } from '../3dview/connect'
 import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDraw, hitModel, isoPickFaces, viewMapOf, hitSection, hitGuide, type GN } from './hit'
 import { hitIsoAnno } from './isoAnno'
-import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
+import { isLayerHidden, isLayerLocked, layerColor, layerOrder, onlyElsewhere } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { ownLw, SCREEN_PX_PER_MM } from './lineweight'
 import { gridPaths } from './grid'
@@ -31,6 +31,7 @@ import { isElevMarker, elevMarkerDir, elevMarkerGrips, elevMarkerRegion, elevMar
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds, perspCam, objBounds, oclipOf, oclipFrame, type Persp } from '../3dview/projection'
 import { BASIS, type Obj, type Clip, type OClip, type Storey } from '../3dview/types'
+import { sectionLayer } from '../3dview/migrate'
 import { flOffset } from './levels'
 import { storeyMap } from '../3dview/storeyMap'
 
@@ -223,7 +224,10 @@ export class VpView {
 	// is off, OR it is frozen in this viewport (VP Freeze) — everything that hides (paint, grips, picking,
 	// snapping, Model3d) goes through this. ──
 	mls = $derived(this.mdl?.layers ?? [])
-	frozenSet = $derived(new Set(this.frozen))
+	/** Frozen here: this viewport's VP Freeze list + the viewport-only layers of OTHER views (`onlyIn`; model space has no
+	 *  frame, so it hides them all) — Model3d gets this as its `frozen`. */
+	frozenAll = $derived([...this.frozen, ...this.mls.filter((l) => onlyElsewhere(l, this.frameId)).map((l) => l.id)])
+	frozenSet = $derived(new Set(this.frozenAll))
 	isLayerHidden = (id?: string) => isLayerHidden(this.mls, id) || (!!id && this.frozenSet.has(id))
 	// J1 VP Lock: locked in the model OR in this viewport only (picking / grips / snapping all ask this)
 	vpLockedSet = $derived(new Set(this.vpLocked))
@@ -473,7 +477,9 @@ export class VpView {
 		(e) => !this.isLayerHidden(e.layer) && !this.isLayerLocked(e.layer))
 
 	// ── section markers (B5: they live in the MODEL; edits mutate it in place, bracketed on its history) ──
-	sections = $derived(this.isPlan ? (this.mdl?.sections ?? []) : [])
+	/** The plan's markers on a shown layer (hidden / frozen here = not drawn, not picked); `pickSections` = also unlocked. */
+	sections = $derived(this.isPlan ? (this.mdl?.sections ?? []).filter((s) => !this.isLayerHidden(sectionLayer(s))) : [])
+	pickSections = $derived(this.sections.filter((s) => !this.isLayerLocked(sectionLayer(s))))
 	/** The building STRUCTURE in an elevation, from the storeys: each floor's slab (a band) + raised floor (a line) on
 	 *  layer A-FLOR, its ceiling (a line) on A-CLNG — only while those layers are on. Spans the model's footprint
 	 *  along this view's axis; a riser frame's collapsed floors are skipped / remapped like everything else. */
@@ -523,7 +529,7 @@ export class VpView {
 		if (this.editor.sections.askDelete(id)) return
 		if (this.mdl && deleteSection(this.mdl, this.editor.edit, id) && this.selSection === id) this.clearSel()
 	}
-	hitSection = (p: Pt) => hitSection(this.ctx, this.sections, p, this.tolMm(6), this.markU)
+	hitSection = (p: Pt) => hitSection(this.ctx, this.pickSections, p, this.tolMm(6), this.markU)
 	hitGuide = (p: Pt) => hitGuide(this.viewGuides, p, this.tolMm(6))
 	/** The selected section's floating toolbar position (.vp-local px), tracking pan/zoom/resize — at a box's top-left, a
 	 *  line's top-left bounds, a marker's callout + region bounds — plus what it shows: a box's sight dir, a line's flip / a

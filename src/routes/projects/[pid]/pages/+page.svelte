@@ -28,7 +28,7 @@
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import SiteView from './parts/SiteView.svelte'
-	import { activeLayerIn, isLayerHidden, addLayer, layerUI } from './layers.svelte'
+	import { activeLayerIn, isLayerHidden, isLayerHiddenIn, addLayer, layerUI } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
@@ -483,7 +483,7 @@
 		const dfr = loc ? oclipFrame(loc, [PLAN_CX, PLAN_CY]) : elev ? devObliqueFrame(f.id) : null
 		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
 			{ yaw: orb.yaw, pitch: orb.pitch, clip, frame: dfr, oclip: loc ?? (dfr && clip ? oclipOf(clip, dfr) : null), mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
-				visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
+				visible: (o) => !isLayerHiddenIn(ls, o.layer, f.id) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
 		setView(p.id, f.id, f.proj, fit.view)
@@ -622,9 +622,9 @@
 		const mdl = modelById(f.modelId ?? modelIdOf(tabId)); if (!mdl) return
 		const ls = mdl.layers ?? [], n = scaleDenom(f.scale ?? scaleOf(tabId))
 		const ctx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: f.id, paperMm: n, mdl, yaw: 0, pitch: 0 }
-		const extra = proj === 'plan' ? (mdl.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model' || e.space === 'view:' + f.id) && !isLayerHidden(ls, e.layer)).map((e) => entBBox(ctx, e)) : []
+		const extra = proj === 'plan' ? (mdl.shapes ?? []).filter((e) => onPlanPlane(e) && (!e.space || e.space === 'model' || e.space === 'view:' + f.id) && !isLayerHiddenIn(ls, e.layer, f.id)).map((e) => entBBox(ctx, e)) : []
 		const loc = proj !== 'plan' && proj !== 'iso' ? liveOClip(f, tabId) : null   // a section line's view: as the Viewport draws it
-		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: liveClip(f, tabId), frame: loc ? oclipFrame(loc, [PLAN_CX, PLAN_CY]) : null, oclip: loc, visible: (o) => !isLayerHidden(ls, o.layer), extra }); if (!fit) return
+		const fit = fitFrame(mdl.objects, proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM }, { clip: liveClip(f, tabId), frame: loc ? oclipFrame(loc, [PLAN_CX, PLAN_CY]) : null, oclip: loc, visible: (o) => !isLayerHiddenIn(ls, o.layer, f.id), extra }); if (!fit) return
 		const z = viewOf(paneId, f.id, f.proj as Proj).zoom || 1, k = (z * fit.n) / n   // fit's view is at 1:fit.n, zoom 1 → this frame's scale + zoom
 		setView(paneId, f.id, proj, { zoom: z, x: PLAN_CX * (1 - z) + fit.view.x * k, y: PLAN_CY * (1 - z) + fit.view.y * k })   // view + z·(C + (P − C)/N) = C at the content's middle
 	}
@@ -926,7 +926,7 @@
 		const f = isModelLayout(p) ? null : activeFrame ?? targetFrameOf(a.id)
 		if (!isModelLayout(p) && !f) return null
 		const frozen = new Set(f?.frozen ?? [])
-		return { hidden: (id?: string) => isLayerHidden(ls, id) || (!!id && frozen.has(id)), frameId: f?.id ?? a.id, dir: (f ? f.proj ?? 'plan' : projOf(p, a)) as string }
+		return { hidden: (id?: string) => isLayerHiddenIn(ls, id, f?.id) || (!!id && frozen.has(id)), frameId: f?.id ?? a.id, dir: (f ? f.proj ?? 'plan' : projOf(p, a)) as string }
 	})
 	const itemsSel = $derived(activeSel.filter((s) => s.kind === 'ent' || s.kind === 'obj').map((s) => `${s.kind}:${s.id}`))
 	/** The Items list picked rows: select them in the active viewport (a sheet with none active enters the one the list
@@ -1066,7 +1066,7 @@
 		},
 		newLayer: (name) => {
 			const ls = modelById(activeMid())?.layers; if (!ls) return 'No model is open'
-			const l = addLayer(ls); l.name = name.trim() || l.name
+			const l = addLayer(ls, undefined, activeFrame?.id); l.name = name.trim() || l.name   // made in a viewport: shown only there
 			return { name: l.name }
 		},
 		layerOp: (op, ids) => {
@@ -1624,7 +1624,7 @@
 				{#if rightTab === 'blocks'}
 					<BlocksPanel armed={placeBlock} onarm={armBlock} />
 				{:else if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} onpick={() => cmdRunner.run('LAYMCUR')} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frameId={activeFrame?.id ?? null} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} vpLocked={activeFrame?.vpLocked ?? (activeFrame ? [] : null)} onvplock={toggleVpLock} countOf={layerItemCount} ondelete={deleteLayerWithItems} onpick={() => cmdRunner.run('LAYMCUR')} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) { rememberOutlet(es[0]); if (es[0].live) proj.resyncCalib(es[0].src) } }} onwalk={startWalk} modelNode={singleOfKind(activeSel, 'node')?.sub} modelSeg={singleOfKind(activeSel, 'seg')?.sub}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

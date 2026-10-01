@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { polyToGraph, migrateModels, BACKGROUND_LAYER } from './migrate'
-import type { Model, Wall, Conduit } from './types'
+import { polyToGraph, migrateModels, BACKGROUND_LAYER, SECTIONS_LAYER, sectionLayer } from './migrate'
+import type { Model, Wall, Conduit, LineSection } from './types'
 
 const P = (x: number, y: number, z = 0) => ({ x, y, z })
 
@@ -112,5 +112,17 @@ describe('migrateModels — R4 line→polyline shape migration', () => {
 		const [m] = migrateModels([{ id: 'm1', name: 'm', objects: [], ents: [legacyLine] } as never])
 		expect('ents' in m).toBe(false)
 		expect(m.shapes?.[0]).toMatchObject({ id: 'l1', type: 'polyline' })
+	})
+})
+
+describe('section markers sit on a layer', () => {
+	it('a model with section markers gets the Sections layer (once); one without none', () => {
+		const sec: LineSection = { id: 's1', kind: 'line', a: [0, 0], b: [1000, 0], depth: 2000 }
+		const [m] = migrateModels([{ id: 'm', name: 'm', objects: [], layers: [], sections: [sec] } as never])
+		expect(m.layers!.filter((l) => l.id === SECTIONS_LAYER.id)).toHaveLength(1)
+		expect(migrateModels([m])[0]).toBe(m)   // nothing more to do
+		const [n] = migrateModels([{ id: 'n', name: 'n', objects: [], layers: [] } as never])
+		expect(n.layers!.some((l) => l.id === SECTIONS_LAYER.id)).toBe(false)
+		expect(sectionLayer(sec)).toBe('sections'); expect(sectionLayer({ layer: 'x' })).toBe('x')
 	})
 })

@@ -34,6 +34,10 @@ function migrateObj(o: any): Obj {
 // The reserved layer that PDF/image underlays sit on, so they can be hidden /
 // locked per viewport from the Layers window like any other layer.
 export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '#9ca3af', visible: true, locked: false, group: 'Background' }
+/** The default layer of section / elevation markers (Section.layer unset = this). */
+export const SECTIONS_LAYER = { id: 'sections', name: 'Sections', color: '#dc2626', swatch: 'color' as const, visible: true, locked: false, group: 'General' }
+/** A section marker's layer id (its own, else the default "Sections"). */
+export const sectionLayer = (s: { layer?: string }): string => s.layer ?? SECTIONS_LAYER.id
 
 // R4 (review.md §R4): a legacy `'line'` entity → a 2-point `'polyline'` (the type is retired; a straight
 // entity is now just a polyline with exactly 2 points). Keeps every other field (color/weight/layer/arrow/
@@ -65,6 +69,8 @@ export function migrateModels(models: Model[]): Model[] {
 		})
 		let layers = m.layers ?? []
 		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
+		// section markers sit on a layer (default "Sections") — a model with markers gets it, so they can be hidden
+		if (m.sections?.length && !layers.some((l) => l.id === SECTIONS_LAYER.id)) { layers = [...layers, { ...SECTIONS_LAYER }]; mc = true }
 		// `ents` → `shapes` (2026-09-24 rename; a stored model may still carry the old field)
 		const legacy = (m as { ents?: Model['shapes'] }).ents
 		let shapes = m.shapes ?? legacy

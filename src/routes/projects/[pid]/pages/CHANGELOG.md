@@ -58,6 +58,14 @@ condensed into "Earlier work" at the end); `review.md §0a` tracks which review 
   (mm above FL±0), so a shape and a box line up in elevations + 3D. Older outlets without `level` read it from their fill.
   The Outlets import stores the level and the default height (a re-import keeps a height set in Pages while the level is
   unchanged); the Items list filters any category by level and shows height; the Outlet Schedule gains Height FL+.
+- **Viewport-only layers**: a layer added while a sheet viewport is active (Layers › New Layer / + per group, the LAYER
+  command) shows ONLY there — `Layer.onlyIn` = its frame ids; hidden in model space, the other viewports and viewports
+  made later (VP rendering + Model3d via `frozenAll`, picking, DXF export, Fit, Items "In this view"). The Layers panel
+  marks it with a VP tag (click = show everywhere); elsewhere its eye is crossed (click = show it in that viewport too;
+  in model space = everywhere). Drawing onto it where it's hidden is refused with a note.
+- **Section markers on a layer**: boxes, lines and elevation markers carry `layer` (unset = the new "Sections" layer,
+  added to a model with markers on load and when the first is drawn) — hidden / frozen = not drawn or picked on the
+  plan (its viewports still work), locked = not pickable; Properties › SECTION › Layer moves one to another layer.
 
 ## Round 20 (2026-09-27) — structure lines, lineweights in 3D + print
 - **Elevation structure lines**: a FLOOR model (no storeys, just its `levels`) now draws them too — raised floor

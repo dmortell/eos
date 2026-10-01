@@ -66,7 +66,8 @@ function viewScope(inp: DxfViewInput) {
 	const isPlan = dir === 'plan', isIso = dir === 'iso', isElev = !isPlan && !isIso
 	const layers = model.layers ?? [], frozen = new Set(inp.frozen ?? [])
 	const layerOf = (id?: string) => layers.find((l) => l.id === id)
-	const shown = (id?: string) => { const l = layerOf(id); return (!l || l.visible) && !(id && frozen.has(id)) }
+	// hidden: off, frozen in this viewport, or a viewport-only layer of another view (Layer.onlyIn — layers.svelte onlyElsewhere)
+	const shown = (id?: string) => { const l = layerOf(id); return (!l || (l.visible && !(l.onlyIn && !(inp.frameId && l.onlyIn.includes(inp.frameId))))) && !(id && frozen.has(id)) }
 	// an elevation with an oriented clip draws through that clip's frame about the plan centre (vpView.obFrame)
 	const oclip = isElev ? inp.oclip ?? null : null, frame = oclip ? oclipFrame(oclip, [PLAN_CX, PLAN_CY]) : null
 	const ctx: ViewCtx = { dir, isPlan, isElev, isIso, elevDir: (isElev ? dir : 'front') as ElevDir, cx: PLAN_CX, cy: PLAN_CY, ground: GROUND, frameId: inp.frameId, paperMm: N, mdl: model, yaw, pitch,

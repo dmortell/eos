@@ -94,7 +94,7 @@
 	{:else if frameObj}
 		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} conduits={frameConduits} section={frameSection} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
 	{:else if section}
-		<SectionProps sec={section} links={sectionLinks} onupdate={onsectionupdate} ondrop={onsectiondrop} ondelete={onsectiondelete} onopen={onsectionopen} />
+		<SectionProps sec={section} links={sectionLinks} layers={modelLayers} onupdate={onsectionupdate} ondrop={onsectiondrop} ondelete={onsectiondelete} onopen={onsectionopen} />
 	{:else if ents.length === 0 && !nObjs && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
 	{:else if ents.length === 0 && !nObjs}

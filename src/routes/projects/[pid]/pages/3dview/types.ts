@@ -71,7 +71,10 @@ export type CableRun = { type: string; qty: number; d?: number }
 export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number; lw?: number; opening?: boolean;
 	group?: string; swatch?: 'color' | 'line'; dash?: 'solid' | 'dashed' | 'dotted'
 	/** AutoCAD "New VP Freeze": a sheet viewport CREATED later starts with this layer frozen (its `frozen` list). */
-	newVpFrz?: boolean }
+	newVpFrz?: boolean
+	/** Made inside a sheet viewport: shown ONLY in these viewports (frame ids) — hidden in model space, other viewports
+	 *  and later ones (layers.svelte.ts onlyElsewhere). Absent = everywhere. */
+	onlyIn?: string[] }
 
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.
@@ -141,9 +144,11 @@ export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number 
 //    linking / live updates / the delete ask are the line's. `number` = its own callout number while no viewport shows
 //    it ("1", "2" … per model; a linked one shows its first viewport's per-sheet number + sheet instead, like eltags);
 //    `name` = an optional title ("North wall") — the frame's ground line then reads it, else "ELEVATION 1".
-export type BoxSection = { id: string; kind?: 'box'; clip: Clip; dir: ElevDir; name?: string }
-export type LineSection = { id: string; kind: 'line'; a: [number, number]; b: [number, number]; depth: number; flip?: boolean; z0?: number; z1?: number; name?: string }
-export type ElevMarker = { id: string; kind: 'elev'; at: [number, number]; angle: number; width: number; depth: number; z0?: number; z1?: number; number?: string; name?: string }
+//  · every form sits on a LAYER (`layer`; unset = 'sections', the "Sections" layer — ui/sectionLine.ts sectionLayer), so
+//    markers hide / freeze / lock like anything else (hidden = not drawn or picked on the plan; its viewports still work).
+export type BoxSection = { id: string; kind?: 'box'; clip: Clip; dir: ElevDir; name?: string; layer?: string }
+export type LineSection = { id: string; kind: 'line'; a: [number, number]; b: [number, number]; depth: number; flip?: boolean; z0?: number; z1?: number; name?: string; layer?: string }
+export type ElevMarker = { id: string; kind: 'elev'; at: [number, number]; angle: number; width: number; depth: number; z0?: number; z1?: number; number?: string; name?: string; layer?: string }
 export type Section = BoxSection | LineSection | ElevMarker
 
 // `objects` = 3D geometry (walls/prisms/conduits). `shapes` = 2D annotations/shapes/text/dims (the drawn

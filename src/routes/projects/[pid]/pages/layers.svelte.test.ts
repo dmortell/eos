@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { Layer } from './3dview/types'
 import { layerGroup, layerGroups, isLayerHidden, isLayerLocked, layerOrder, activeLayerIn, layerUI,
-	presets, presetUI, applyPreset, presetMatches, savePreset, moveLayer, addLayer, removeLayer } from './layers.svelte'
+	presets, presetUI, applyPreset, presetMatches, savePreset, moveLayer, addLayer, removeLayer, isLayerHiddenIn, onlyElsewhere } from './layers.svelte'
 import { layerStack, DEFAULT_PRESETS } from './mock/layers'
 
 const L = (id: string, extra: Partial<Layer> = {}): Layer => ({ id, name: id, color: '#888', visible: true, locked: false, ...extra })
@@ -72,5 +72,17 @@ describe('mock layerStack', () => {
 		expect(ls.findIndex((l) => l.id === 'anno')).toBeGreaterThan(walls)
 		expect(presetMatches(ls, DEFAULT_PRESETS[0].id)).toBe(true)
 		expect(ls.find((l) => l.id === 'walls')!.visible).toBe(true)
+	})
+})
+
+describe('viewport-only layers (made inside a sheet viewport)', () => {
+	it('show only in their viewport(s): hidden in model space and other viewports', () => {
+		const ls = stack(), l = addLayer(ls, 'General', 'f1')
+		expect(l.onlyIn).toEqual(['f1'])
+		expect(isLayerHiddenIn(ls, l.id, 'f1')).toBe(false)
+		expect(isLayerHiddenIn(ls, l.id, 'f2')).toBe(true)
+		expect(isLayerHiddenIn(ls, l.id, null)).toBe(true)   // model space
+		expect(onlyElsewhere(ls.find((x) => x.id === 'walls'), null)).toBe(false)
+		expect(addLayer(ls).onlyIn).toBeUndefined()   // made outside a viewport: everywhere
 	})
 })

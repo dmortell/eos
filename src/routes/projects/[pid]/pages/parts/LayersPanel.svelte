@@ -6,7 +6,7 @@
 	// reactive list (layers.svelte.ts helpers).
 	import { Icon, ColorPicker, DragReorder, listClick, selBlock } from '$lib'
 	import { COLORS } from '../palette'
-	import { type Layer, layerUI, layerGroup, layerGroups, addLayer, removeLayer, moveLayer,
+	import { type Layer, layerUI, layerGroup, layerGroups, addLayer, removeLayer, moveLayer, onlyElsewhere,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
 	import { tick } from 'svelte'
 	import { LINEWEIGHTS, lwLabel, resolveLw } from '../ui/lineweight'
@@ -14,7 +14,9 @@
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
 	// J1 VP Lock: `vpLocked` (the active frame's locked layer ids; null = no frame active) + `onvplock` — the same idea.
-	let { layers = [], frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete, onpick }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+	let { layers = [], frameId = null, frozen = null, onfreeze, vpLocked = null, onvplock, countOf, ondelete, onpick }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+		/** The ACTIVE sheet frame (null = model space / paper): a layer added now shows ONLY in it (Layer.onlyIn). */
+		frameId?: string | null
 		/** Pick a shape → its layer becomes current (runs LAYMCUR). */ onpick?: () => void
 		vpLocked?: string[] | null; onvplock?: (id: string) => void
 		/** J2: how many shapes / model objects sit on a layer, and delete a layer WITH its items (one undo step). */
@@ -53,7 +55,12 @@
 		selLayers = r.sel; lAnchor = r.anchor
 		if (!r.multi) layerUI.active = id
 	}
+	// VIEWPORT-ONLY layers (`onlyIn`, made inside a sheet viewport): hidden in model space + the other viewports. There the
+	// eye shows it crossed; a click shows it in THIS viewport too (model space: everywhere). The "VP" tag shows it everywhere.
+	const elsewhere = (l: Layer) => onlyElsewhere(l, frameId)
+	function showHere(l: Layer) { if (frameId && l.onlyIn) l.onlyIn = [...l.onlyIn, frameId]; else delete l.onlyIn }
 	function eyeClick(e: MouseEvent, l: Layer) {
+		if (elsewhere(l)) { for (const x of actOn(l.id)) if (elsewhere(x)) showHere(x); return }
 		// the clicked row's NEW state applies to all of them: frozen in this viewport (paper), else visible everywhere
 		if (frozen && !e.shiftKey) { const fz = !frozen.includes(l.id); for (const x of actOn(l.id)) if (frozen.includes(x.id) !== fz) onfreeze?.(x.id) }
 		else { const on = !l.visible; for (const x of actOn(l.id)) x.visible = on }
@@ -139,25 +146,26 @@
 						<Icon name={isOpen(g) ? 'chevronDown' : 'chevronRight'} size={12} />
 					</button>
 					<span class="lg-name">{g}</span>
-					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(layers, g); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
+					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(layers, g, frameId); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
 					<button class="lp-check" class:on={groupOn(g)} aria-label="Toggle {g}" onclick={() => setGroup(g, !groupOn(g))}></button>
 				</div>
 				{#if isOpen(g)}
 					{#each kids as l (l.id)}
 						{#if matches(l.name) || matches(g)}
 							{@const vpHidden = !!frozen?.includes(l.id)}
+							{@const away = elsewhere(l)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} class:multi={inMulti(l.id)}
+							<div class="ly-row" class:off={!l.visible || away} class:active={l.id === layerUI.active} class:multi={inMulti(l.id)}
 								class:dragbefore={dr.isBefore(l.id)} class:dragafter={dr.isAfter(l.id)}
 								title={inMulti(l.id) ? `${selLayers.length} layers selected — drag to move them together` : 'Drag to reorder (sets draw z-order) · Ctrl / Shift+click: select several'}
 								{...dr.row(l.id)} onclick={(e) => rowClick(e, l.id)}>
 								<!-- in a sheet viewport (paper) the eye hides the layer in THAT viewport only (VP Freeze) — hiding it
 								     everywhere by accident is too easy; Shift+click hides it globally (Dave 2026-09-26) -->
 								<button class="ly-eye" class:vp={!!frozen} aria-label="Show/hide {l.name}"
-									title={frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
+									title={away ? `Shown only in the viewport it was made in — click to show it ${frameId ? 'in this viewport too' : 'everywhere'}` : frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
 									onclick={(e) => { e.stopPropagation(); eyeClick(e, l) }}>
 									<!-- hidden everywhere = crossed eye; frozen in this viewport only = a snowflake (VP Freeze — the eye does it now) -->
-									<Icon name={!l.visible ? 'eyeSlash' : vpHidden ? 'snowflake' : 'eye'} size={13} />
+									<Icon name={!l.visible || away ? 'eyeSlash' : vpHidden ? 'snowflake' : 'eye'} size={13} />
 								</button>
 								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); lockClick(l) }}>
 									<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
@@ -174,6 +182,11 @@
 								{:else}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
 									<span class="ly-name" title="Click to make active · double-click to rename" ondblclick={() => (editing = l.id)}>{l.name}</span>
+								{/if}
+								{#if l.onlyIn}
+									<!-- a viewport-only layer: shown in its viewport(s) only — click shows it everywhere -->
+									<button class="ly-only" title="Viewport-only layer: shown in {l.onlyIn.length === 1 ? 'the viewport it was made in' : `${l.onlyIn.length} viewports`}{away ? '' : ' (this one)'}, hidden in the model and other viewports — click to show it everywhere"
+										onclick={(e) => { e.stopPropagation(); delete l.onlyIn }}>VP</button>
 								{/if}
 								{#if l.id === layerUI.active}<span class="ly-active" title="Active layer">●</span>{/if}
 								<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
@@ -205,7 +218,8 @@
 		</div>
 	{/if}
 
-	<button class="lp-new" onclick={() => { const l = addLayer(layers); editing = l.id }}><Icon name="plus" size={13} /> New Layer</button>
+	<button class="lp-new" onclick={() => { const l = addLayer(layers, undefined, frameId); editing = l.id }}
+		title={frameId ? 'A new layer shown only in this viewport (hidden in the model and other viewports — its VP tag shows it everywhere)' : 'A new layer'}><Icon name="plus" size={13} /> New Layer</button>
 </div>
 
 {#if dlg}
@@ -313,6 +327,8 @@
 	.ly-row.active .ly-name { color:var(--accent); font-weight:600; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
 	.ly-active { color:var(--accent); font-size:9px; flex:0 0 auto; }
+	.ly-only { flex:0 0 auto; font-size:8.5px; font-weight:700; letter-spacing:.04em; padding:0 3px; border-radius:3px; border:1px solid var(--accent-dim, var(--line)); color:var(--accent); background:none; cursor:pointer; line-height:13px; }
+	.ly-only:hover { background:var(--active); }
 	/* one coloured swatch button (with a line inside for line layers) → opens the dialog */
 	.sw-btn { width:26px; height:15px; flex:0 0 auto; border:1px solid #0003; border-radius:3px; padding:0;
 		display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; }

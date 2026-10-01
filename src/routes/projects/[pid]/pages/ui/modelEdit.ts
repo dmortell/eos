@@ -9,6 +9,7 @@ import type { Model, Obj, Guide, Section, Clip } from '../3dview/types'
 import { segDist } from './geometry'
 import { slideRnd } from './snap'
 import { graphNodeDraw, type GN } from './hit'
+import { SECTIONS_LAYER, sectionLayer } from '../3dview/migrate'
 
 export type { GN }
 
@@ -168,6 +169,9 @@ export function addSection(mdl: Model, edit: EditScope, sec: Section): void {
 	edit.begin()
 	if (!mdl.sections) mdl.sections = []
 	mdl.sections.push(sec)
+	// its layer ("Sections" by default) exists in the model, so the marker can be hidden / locked
+	const lid = sectionLayer(sec)
+	if (lid === SECTIONS_LAYER.id && !mdl.layers?.some((l) => l.id === lid)) { if (!mdl.layers) mdl.layers = []; mdl.layers.push({ ...SECTIONS_LAYER }) }
 	edit.mark('Add section'); edit.end()
 }
 
