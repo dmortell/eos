@@ -4,6 +4,7 @@ import type { EntityStore, Gesture } from '../store/store'
 import type { ProjectIndex } from '../domain/project'
 import type { Id, Pt, Outlet, ProjectSettings, Rack, Device } from '../domain/types'
 import type { Shape } from '../domain/shapes'
+import type { Sheet } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
 import type { Snap } from './snap'
 import { pickPrim, pickInside } from './pick'
@@ -42,6 +43,8 @@ export interface ToolCtx {
 	ask(label: string, value: number, apply: (v: number) => void): void
 	/** Rack-row views only: the rack and U under a view point. */
 	rowHit?(p: Pt): { rack: Rack; u: number } | null
+	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself). */
+	selectViewport?(id: Id | null): void
 	/** Rack-row views only: the selected ports (of one device). */
 	portSel?(): PortSel | null
 	selectPorts?(s: PortSel | null): void
@@ -93,6 +96,8 @@ export class SelectTool implements Tool {
 	#snap: Snap | null = null
 	/** Devices as they were when a rack-row drag started (each move is computed from these). */
 	#base = new Map<Id, Device>()
+	/** A viewport being dragged on a sheet (the sheet as it was at the press). */
+	#vp: { sheet: Sheet; vpId: Id } | null = null
 
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
@@ -106,6 +111,16 @@ export class SelectTool implements Tool {
 		if (g) { this.#grip = { shape: c.selection[0], grip: g, ...(e.ctrl ? { branch: newId() } : {}) }; return }
 		if ((e.count ?? 1) >= 2 && this.#insertNode(e, c)) return
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
+		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
+		if (c.space.spec.kind === 'sheet' && c.selectViewport) {
+			const sheet = id ? c.store.get(id) : undefined
+			if (sheet?.type !== 'sheet') { c.select([]); c.selectViewport(null); return }
+			c.select([sheet.id])
+			const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
+			c.selectViewport(vp ? vp.id : null)
+			if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id }; this.#start = e.p }
+			return
+		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
@@ -134,6 +149,14 @@ export class SelectTool implements Tool {
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
+		if (this.#vp && this.#start) {
+			const { sheet, vpId } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
+			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
+			this.#gesture ??= c.store.begin('Move viewport')
+			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? { ...v, rect: { ...v.rect, x: v.rect.x + d.x, y: v.rect.y + d.y } } : v)) }))
+			return
+		}
 		if (this.#grip) {
 			const { shape, grip, branch } = this.#grip
 			const sn = c.snap(e.p, e.alt, shape)
@@ -226,7 +249,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear()
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null
 		c.setMarquee(null)
 	}
 }

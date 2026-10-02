@@ -2,6 +2,9 @@
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte'
+	import { page } from '$app/state'
+	import { replaceState } from '$app/navigation'
+	import { readViewState, writeViewState } from '../app/urlState'
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
@@ -14,6 +17,7 @@
 	import { exportBom } from '../render/exports'
 	import Properties from './Properties.svelte'
 	import ImportNotes from './ImportNotes.svelte'
+	import SheetList from './SheetList.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
@@ -31,9 +35,13 @@
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	onDestroy(() => project.destroy())
 
+	// the view state comes back from the URL on a refresh (Dave): level, the panes' views, the active pane
+	const fromUrl = readViewState(page.url.searchParams)
+	if (fromUrl.levelId) ws.levelId = fromUrl.levelId
+
 	/** One or two panes side by side, each a plan or an elevation of the open level; the active one takes keys. */
-	let panes = $state<ViewSpec[]>([PLAN])
-	let activePane = $state(0)
+	let panes = $state<ViewSpec[]>(fromUrl.panes ?? [PLAN])
+	let activePane = $state(fromUrl.active ?? 0)
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
@@ -44,10 +52,20 @@
 		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
 	}
 	function setPane(i: number, s: ViewSpec) { canvases[i]?.cancel(); panes[i] = s }
+	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
 	// switching to a view the current tool doesn't work in drops back to Select
 	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind)) untrack(() => setTool('select')) })
+
+	// ...and goes back into it on every change (replaceState: no history entries, SvelteKit's router stays in charge)
+	$effect(() => {
+		const next = writeViewState(page.url.searchParams, { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane })
+		if (next.toString() === untrack(() => page.url.searchParams.toString())) return
+		const url = new URL(untrack(() => page.url))
+		url.search = next.toString()
+		try { replaceState(url, untrack(() => page.state)) } catch { /* the router isn't ready on the very first run */ }
+	})
 
 	/** Open the first level once levels arrive (and if the open one disappears). */
 	$effect(() => {
@@ -255,6 +273,7 @@
 				<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
 			</div>
 		{/each}
+		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
 		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
 	</nav>
 

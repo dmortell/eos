@@ -9,6 +9,7 @@
 	import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, portRanges, setPortCount } from '../domain/ports'
 	import PortProps from './PortProps.svelte'
 	import CordProps from './CordProps.svelte'
+	import SheetProps from './SheetProps.svelte'
 	import Trace from './Trace.svelte'
 	import { traceCircuit } from '../domain/cords'
 	import { newId } from '../domain/ids'
@@ -380,6 +381,8 @@
 		{/if}
 		<button class="btn" disabled={busy} title="Save this device's size, ports and kind as a GLOBAL template (every project)" onclick={() => saveTemplate(d)}>Save as template…</button>
 		{#if ws.portSel?.on === d.id}<PortProps {project} {ws} sel={ws.portSel} />{/if}
+	{:else if one.type === 'sheet'}
+		<SheetProps {project} {ws} s={one} />
 	{:else if one.type === 'cord'}
 		<CordProps {project} {ws} c={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}

@@ -64,7 +64,8 @@ export class PathTool implements Tool {
 	 *  from that node on the other level's plan with Ctrl-drag). Unknown level numbers do nothing. */
 	riserTo(levelNumber: number, c: ToolCtx): void {
 		const last = this.pts.at(-1)
-		const lv = c.index.levels.find((l) => l.number === levelNumber && l.id !== c.levelId)
+		// a floor with area plans (33F 3303 / 33F 3307) has several levels of one number: the main plan wins, then by order
+		const lv = c.index.levels.filter((l) => l.number === levelNumber && l.id !== c.levelId).sort((a, b) => Number(!!a.area) - Number(!!b.area) || a.order - b.order)[0]
 		if (!last || !lv) return
 		this.pts.push({ x: last.x, y: last.y, z: 0, levelId: lv.id })
 		this.finish(c)

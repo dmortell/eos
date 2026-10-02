@@ -2,7 +2,7 @@
 // elevations, rack fronts, risers and schedules are GENERATED from the data by a ViewDef; only view configuration,
 // per-viewport overrides and drawn shapes (./shapes.ts) are stored (ADR 0001).
 import type { Id, Pt, DomainEntity } from './types'
-import type { ElevFrame } from './conventions'
+import type { ElevFrame, ElevDir } from './conventions'
 import type { Shape, ShapeCore } from './shapes'
 
 /** What a view shows. Each kind has one generator; `params` are that generator's inputs. */
@@ -46,10 +46,22 @@ export interface Sheet {
 	status: 'active' | 'archived'
 }
 
+/** What a pane or a viewport shows: the plan, a named elevation, or a server room's racks (front / rear). The same
+ *  generators draw it in both (views/space.ts re-exports this). A sheet itself opens in a pane as `sheet`. */
+export type ViewSpec =
+	| { kind: 'plan' }
+	| { kind: 'elevation'; dir: ElevDir }
+	/** The racks of a server room (optionally one row) side by side, front or rear (Phase 3, views/rackRow.ts). */
+	| { kind: 'row'; spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
+	/** A drawing sheet's paper (Phase 4, views/sheet.ts). */
+	| { kind: 'sheet'; sheetId: Id }
+
 /** A window on a sheet onto one view, at a true scale. */
 export interface Viewport {
 	id: Id
-	viewId: Id
+	/** The level and the view drawn in it (plan / elevation / rack row — not another sheet). The view lives on the
+	 *  viewport itself: ViewDef records come back if one view ever needs to be shared by several sheets. */
+	view: { levelId: Id; spec: Exclude<ViewSpec, { kind: 'sheet' }> }
 	/** Paper mm, from the sheet's top-left. */
 	rect: { x: number; y: number; w: number; h: number }
 	/** 1:N. */

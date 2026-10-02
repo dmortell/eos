@@ -9,28 +9,40 @@
 
 	const ptsOf = (p: { pts: { x: number; y: number }[] }) => p.pts.map((q) => `${q.x},${q.y}`).join(' ')
 	const shown = (p: Prim) => p.k !== 'text' || !k || ((p.minPx === undefined || p.size * k >= p.minPx) && (p.maxPx === undefined || p.size * k < p.maxPx))
+
+	// clip windows (sheet viewports): one <clipPath> per distinct rect; ids unique per instance
+	const uid = Math.random().toString(36).slice(2, 8)
+	const clipKey = (b: NonNullable<Prim['clip']>) => `${b.x0},${b.y0},${b.x1},${b.y1}`
+	const clips = $derived([...new Map(prims.filter((p) => p.clip).map((p) => [clipKey(p.clip!), p.clip!])).entries()])
+	const clipIds = $derived(new Map(clips.map(([key], i) => [key, `clip-${uid}-${i}`])))
+	const clipOf = (p: Prim) => (p.clip ? `url(#${clipIds.get(clipKey(p.clip))})` : undefined)
 </script>
 
+{#if clips.length}
+	<defs>
+		{#each clips as [key, b] (key)}<clipPath id={clipIds.get(key)}><rect x={b.x0} y={b.y0} width={b.x1 - b.x0} height={b.y1 - b.y0} /></clipPath>{/each}
+	</defs>
+{/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
 	{#if shown(p)}
 	{#if p.k === 'image'}
-		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio="none" />
+		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio="none" clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
-			<polyline points={ptsOf(p)} class="{p.cls} band" class:sel style:stroke-width={p.w} />
-			<polyline points={ptsOf(p)} class="{p.cls} centre" class:sel vector-effect="non-scaling-stroke" />
+			<polyline points={ptsOf(p)} class="{p.cls} band" class:sel style:stroke-width={p.w} clip-path={clipOf(p)} />
+			<polyline points={ptsOf(p)} class="{p.cls} centre" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
 		{:else}
-			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={p.color} />
+			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={p.color} clip-path={clipOf(p)} />
 		{/if}
 	{:else if p.k === 'circle'}
-		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" />
+		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
 	{:else if p.k === 'text'}
-		<text x={p.at.x} y={p.at.y} font-size={p.size} text-anchor={p.anchor ?? 'start'} class={p.cls} class:sel
+		<text x={p.at.x} y={p.at.y} font-size={p.size} text-anchor={p.anchor ?? 'start'} class={p.cls} class:sel clip-path={clipOf(p)}
 			transform={p.rot ? `rotate(${p.rot} ${p.at.x} ${p.at.y})` : undefined}>{p.text}</text>
 	{/if}
 	{/if}
@@ -48,6 +60,14 @@
 	.riser { stroke: #be185d; fill: #fce7f3; }
 	.rack { stroke: #1e293b; fill: #f1f5f9; }
 	.rack-x { stroke: #94a3b8; }
+	.paper { fill: #ffffff; stroke: #a1a1aa; }
+	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
+	.viewport-bg.filled { fill: #ffffff; stroke: none; }
+	.viewport { stroke: #2563eb; stroke-dasharray: 6 3; }
+	.viewport.filled { fill: none; }
+	.viewport.sel { stroke: #f97316; stroke-width: 2; }
+	.viewport-hidden { stroke-opacity: 0.25; }
+	text.viewport-label { fill: #334155; }
 	.rack-rails { stroke: #64748b; stroke-width: 1.25; fill: none; }
 	.rack-front { stroke: #1e293b; stroke-width: 2; }
 	.outlet { stroke: #1d4ed8; }

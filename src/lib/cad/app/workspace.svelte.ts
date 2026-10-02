@@ -16,7 +16,7 @@ export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord'
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
-	select: ['plan', 'elevation', 'row'],
+	select: ['plan', 'elevation', 'row', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -86,8 +86,12 @@ export class Workspace {
 	select = (ids: Id[]): void => {
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
+		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet
 	}
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
+	/** The viewport selected on the selected sheet (null = the sheet itself). */
+	viewportId = $state<Id | null>(null)
+	selectViewport = (id: Id | null): void => { this.viewportId = id }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void } | null>(null)
 	ask2 = (msg: string, yes: string, apply: () => void): void => { this.confirm = { msg, yes, apply } }

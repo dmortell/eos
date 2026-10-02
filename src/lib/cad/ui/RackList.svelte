@@ -46,7 +46,11 @@
 		<div class="room">
 			<button class="roomname" title="Rename this room (e.g. IDF 2)" onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
-				<button class="place" title="This room's panel port labels as Excel, for the label printer — then mark them printed" onclick={() => labels(g.space, g.name)}>Labels</button>
+				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
+				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name) }}>
+					<option value="" disabled>⋯</option>
+					<option value="labels">Export panel labels (Excel)…</option>
+				</select>
 				{#if onview}<button class="place" title="Open this room's racks as an elevation (front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Elevation</button>{/if}
 			</span>
 		</div>
@@ -62,6 +66,8 @@
 {/if}
 
 <style>
+	.acts { width: 1.6rem; border: 0; background: transparent; color: #71717a; font-size: 12px; cursor: pointer; appearance: none; text-align: center; }
+	.acts:hover { color: #2563eb; }
 	.roomname { color: inherit; font-size: inherit; }
 	.roomname:hover { color: #2563eb; text-decoration: underline; }
 	.frame { margin-left: 6px; font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 3px; }

@@ -2,7 +2,7 @@
 // data in the view's drawing mm (a plan: model mm, y down). `src` names the entity a prim draws, for picking.
 import type { Id, Pt } from '../domain/types'
 
-export type Prim =
+export type Prim = (
 	/** A polyline or polygon. `w` = a real width in drawing mm (a trunk, a wall); absent = a hairline. `color` overrides
 	 *  the class colour (a patch cord's colour). `sub` = a part of the source entity (a port number). */
 	| { k: 'line'; pts: Pt[]; closed?: boolean; fill?: boolean; w?: number; cls: string; src?: Id; sub?: string; color?: string }
@@ -11,6 +11,10 @@ export type Prim =
 	 *  least `minPx` and at most `maxPx` screen px tall (port labels: short form when small, full form when big). */
 	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id; sub?: string; minPx?: number; maxPx?: number }
 	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id }
+) & {
+	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
+	clip?: Bounds
+}
 
 export interface Bounds { x0: number; y0: number; x1: number; y1: number }
 

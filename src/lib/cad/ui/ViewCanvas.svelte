@@ -15,6 +15,8 @@
 	import { untrack } from 'svelte'
 	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
+	import { sheetDisplayList } from '../views/sheet'
+	import type { Sheet } from '../domain/drawing'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds } from '../views/display'
 	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
@@ -45,12 +47,20 @@
 	let fittedFor: string | null = null
 
 	const space = $derived(spaceOf(spec))
+	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
 	const prims = $derived(spec.kind === 'plan'
 		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec)
-			: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
-	const selected = $derived(new Set(ws.selection))
+			: spec.kind === 'sheet'
+				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf }) : [])
+				: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
+	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
+	const vpHighlight = $derived.by((): Prim[] => {
+		if (spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId)) return []
+		return prims.flatMap((p) => (p.k === 'line' && p.sub === ws.viewportId && p.cls.startsWith('viewport') ? [{ ...p, cls: 'viewport sel', src: undefined }] : []))
+	})
 
 	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
 	const centre = $derived.by((): Pt => {
@@ -138,6 +148,7 @@
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
 			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, say: ws.say,
+			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport } : {}),
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}
@@ -238,6 +249,7 @@
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={traceHighlight} selected={new Set()} />
+			<Prims prims={vpHighlight} selected={new Set()} />
 			<Prims prims={portHighlight} selected={new Set()} />
 			<Prims prims={preview} selected={new Set()} />
 			{#if marquee}
@@ -258,8 +270,12 @@
 				<button class:on={row.face === f} onclick={() => { onfocus?.(); onspec({ ...row, face: f }) }}>Racks {f}</button>
 			{/each}
 		{/if}
+		{#if sheet}
+			<span class="sep"></span>
+			<span class="room">{sheet.number} {sheet.title} · {sheet.paper.size} {sheet.paper.orientation}</span>
+		{/if}
 	</div>
-	<div class="scale">1:{PLOT_SCALE} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}</div>
+	<div class="scale">{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}</div>
 </div>
 
 <style>
