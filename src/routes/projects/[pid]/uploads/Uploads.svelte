@@ -5,7 +5,7 @@
 	import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 	import { nanoid } from 'nanoid'
 	import { toast } from 'svelte-sonner'
-	import { CAD_FILE, CAD_UPLOAD_MAX_MB } from '../pages/constants'
+	import { CAD_FILE, CAD_UPLOAD_MAX_MB } from '$lib/files/cadFiles'
 	import { createUploadThing } from './uploader'
 	import { providerLabel, inferProvider, type FileProvider } from './provider'
 	import { fileProjectIds, fileInProject, fileIsShared, membershipPayload } from '$lib/files'
@@ -175,7 +175,7 @@
 			setTimeout(() => { uploadError = '' }, 5000)
 			return
 		}
-		// DXF / DWG are accepted up to CAD_UPLOAD_MAX_MB (pages/constants.ts) for now; bigger ones are skipped with a message
+		// DXF / DWG are accepted up to CAD_UPLOAD_MAX_MB ($lib/files/cadFiles.ts) for now; bigger ones are skipped with a message
 		const tooBig = Array.from(fileList).filter((f) => CAD_FILE.test(f.name) && f.size > CAD_UPLOAD_MAX_MB * 1024 * 1024)
 		if (tooBig.length) {
 			uploadError = `${tooBig.map((f) => f.name).join(', ')}: DXF / DWG files are limited to ${CAD_UPLOAD_MAX_MB} MB for now`

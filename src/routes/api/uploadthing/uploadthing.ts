@@ -27,8 +27,8 @@ export const ourFileRouter = {
   floorplanUploader: f({
     pdf: { maxFileSize: "32MB", maxFileCount: 10, },
     image: { maxFileSize: "16MB", maxFileCount: 10, },
-    // DXF / DWG (no mime category of their own): the client limits them to CAD_UPLOAD_MAX_MB (pages/constants.ts, 5 MB
-    // for now); UploadThing only takes power-of-2 sizes, so the server ceiling is the next one up
+    // DXF / DWG (no mime category of their own): the client limits them to CAD_UPLOAD_MAX_MB ($lib/files/cadFiles.ts,
+    // 8 MB for now); UploadThing only takes power-of-2 sizes, so this is the server ceiling
     blob: { maxFileSize: "8MB", maxFileCount: 10, },
   })
   .middleware(async ({ req }) => {

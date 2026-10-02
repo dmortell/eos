@@ -1,5 +1,5 @@
 import type { SnapshotAdapter, ViewPreset } from '$lib/types/versioning'
-import type { ZoneConfig, FrameConfig } from '../../../routes/projects/[pid]/frames/parts/types'
+import type { ZoneConfig, FrameConfig } from '../../elevation/frames/types'
 
 interface FramesDocData {
   floor: number

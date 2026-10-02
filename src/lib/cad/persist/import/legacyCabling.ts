@@ -6,7 +6,7 @@ import type { Outlet, Device, Rack, RackRow, Link, Cord, ProjectSettings, PortRe
 import { portLabelsFor } from '../../domain/labels'
 import { buildPortInfoMap, repairLocationIds } from '../../../elevation/portmap'
 import { renderLabel, templateForLegacyFormat } from '../../../elevation/labelTemplate'
-import { generatePortLabels } from '../../../../routes/projects/[pid]/frames/parts/engine'
+import { generatePortLabels } from '../../../elevation/frames/engine'
 import { floorOfDocId, type ImportCtx } from './ctx'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy docs are untyped Firestore data */

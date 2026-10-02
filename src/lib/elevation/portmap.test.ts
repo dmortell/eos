@@ -3,7 +3,7 @@ import {
 	buildReservationMap, deriveServerRoomCount, deriveFramesFromRacks, buildPortInfoMap, matchesFace,
 	repairLocationIds, locationIdFor,
 } from './portmap'
-import type { PortReservation } from '../../routes/projects/[pid]/frames/parts/types'
+import type { PortReservation } from './frames/types'
 
 // ── Fixtures: one room-A rack with a 24-port floor panel at U10 ──
 

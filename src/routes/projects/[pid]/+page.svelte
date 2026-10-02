@@ -3,8 +3,7 @@
 	import { Titlebar } from '$lib'
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { type Project } from './racks/parts/types';
-	import { fmtFloor, migrateFloors } from '$lib/utils/floor'
+	import { migrateFloors } from '$lib/utils/floor'
 	import ProjectSettingsDialog from '../ProjectSettingsDialog.svelte'
 	let {params, ...other} = $props()
 	let project: Record<string, any> = $state({})
@@ -17,7 +16,15 @@
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);	// let floorFormat = $state('01');
 	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
-	let tools = $derived([
+	type Tool = { detail: number; primary?: boolean; href: string; icon: string; label: string; description: string; absolute?: boolean }
+	// The tools in use: cad (the rebuild), Uploads and Surveys. The older tools stay reachable in a closed section
+	// until cad has everything they do (cad/docs/phase7.md — nothing is deleted yet).
+	let tools: Tool[] = $derived([
+		{ detail:0, primary: true, href: 'cad', icon: 'pencilRuler', label: 'CAD', description: 'Outlets, racks, ports, patching, containment, sheets and issues — one model, every drawing generated from it.', },
+		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
+		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
+	])
+	let older: Tool[] = $derived([
 		{ detail:0, primary: false, href: 'sheets', icon: 'list', label: 'Sheets', description: 'Drawing sheets', },
 		{ detail:0, primary: false, href: 'workspace', icon: 'panels', label: 'Workspace', description: 'Unified tree navigator, view switcher, and live patch list. Tabs, library drag-to-canvas, inline edits — all five tools in one surface.', },
 		{ detail:0, href: 'drawings', icon: 'list',  label: 'Drawing List', description: 'Master drawing register with revision history and Excel export.', },
@@ -29,11 +36,8 @@
 		{ detail:0, href: 'patching?legacy=1', icon: 'cable', label: 'Patching (legacy)', description: 'Superseded by Elevations (patch mode + live patch list).', },
 		{ detail:1, href: 'risers',  icon: 'rectVertical', label: 'Risers', description: 'Building elevation with inter-floor cable routing.', },
 		{ detail:0, href: 'fillrate', icon: 'pile',  label: 'Fill Rates', description: 'Containment fill rates with cross-section diagrams.', },
-		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
-		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
 		{ detail:0, href: 'edit3d', icon: 'panels', label: 'Edit 3D test', description: 'Testing 3d editor.', },
 		{ detail:0, href: 'pages', icon: 'panels', label: 'Pages test', description: 'Testing new look and feel.', },
-		{ detail:0, href: 'cad', icon: 'pencilRuler', label: 'CAD (new)', description: 'The domain-first rebuild: outlets, ports, racks and runs as project data, drawings generated from it (src/lib/cad).', },
 	])
 
 
@@ -63,7 +67,19 @@
 		<section class="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
 			<div class="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Project Tools</div>
 			<ul class="space-y-2">
-				{#each tools as tool}
+				{#each tools as tool}{@render toolLink(tool)}{/each}
+			</ul>
+			<details class="mt-3">
+				<summary class="cursor-pointer select-none px-2 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-500 hover:text-zinc-700 dark:text-zinc-400">Older tools ({older.length}) — being replaced by CAD</summary>
+				<ul class="mt-2 space-y-2 opacity-80">
+					{#each older as tool}{@render toolLink(tool)}{/each}
+				</ul>
+			</details>
+		</section>
+	</div>
+</div>
+
+{#snippet toolLink(tool: Tool)}
 					<li>
 						<a href={tool.absolute ? tool.href : `${path}/${tool.href}`} class="group grid grid-cols-[auto_1fr] md:grid-cols-[auto_180px_1fr] items-start gap-x-3 gap-y-1 rounded-xl border px-3 py-3 transition-all
 							{tool.primary
@@ -90,10 +106,6 @@
 							<span class="col-start-2 row-start-2 md:col-start-3 md:row-start-1 block pt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{tool.description}</span>
 						</a>
 					</li>
-				{/each}
-			</ul>
-		</section>
-	</div>
-</div>
+{/snippet}
 
 <ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={project as any} onarchived={() => goto('/projects')} />

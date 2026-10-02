@@ -1,0 +1,180 @@
+// ── Location types (extensible via settings) ──
+
+export const DEFAULT_LOC_TYPES = ['N/A', 'desk', 'AP', 'PR', 'RS', 'FR', 'WC', 'TV', 'LK'] as const
+export type LocType = (typeof DEFAULT_LOC_TYPES)[number] | (string & {})
+
+// Labels + colors moved to $lib/elevation/loc-colors.ts (shared with the
+// patching tool's hex variants); re-exported here so existing imports keep working.
+export { LOC_TYPE_LABELS, LOC_TYPE_COLORS } from '$lib/elevation/loc-colors'
+
+// ── Location config ──
+
+export interface LocationConfig {
+	/** Stable identity (labels v2, elevations-plan §11). locationNumber/zone are
+	 *  mutable display attributes; links (pins, outlets) reference this id.
+	 *  Optional only for legacy docs — repaired on load (repairLocationIds). */
+	id?: string
+	locationNumber: number
+	portCount: number // 1–99
+	serverRoomAssignment: string[] // per-port: 'A', 'B', 'C', 'D'
+	locationType: LocType
+	roomNumber?: string // optional 4-digit room ref
+	isHighLevel?: boolean // ceiling port → appends "-H"
+}
+
+// ── Zone config ──
+
+export interface ZoneConfig {
+	floor: number // 1–20
+	zone: string // A–Z
+	serverRoomCount: number // 1–4
+	locations: LocationConfig[]
+}
+
+// ── Frame config ──
+
+export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt' | 'device' | 'enclosure' | 'panel' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'other'
+
+export interface FrameSlot {
+	ru: number
+	type: SlotType
+	label?: string
+	height: number // RU height (1-10)
+}
+
+/** Describes a physical patch panel device in the rack */
+export interface PanelDevice {
+	ru: number        // RU position in rack (1-based from bottom)
+	portCount: number // 24 or 48
+	isHighLevel: boolean
+}
+
+export interface FrameConfig {
+	id: string
+	name: string // e.g. "Frame A1"
+	serverRoom: string // A, B, C, D
+	totalRU: number // default 45
+	panelStartRU: number
+	panelEndRU: number
+	hlPanelStartRU?: number // high-level panel range (optional, defaults to panelStartRU)
+	hlPanelEndRU?: number   // high-level panel range (optional, defaults to panelEndRU)
+	slots: FrameSlot[]
+	panelDevices?: PanelDevice[] // actual panel devices with positions + port counts
+}
+
+// ── Generated output ──
+
+export interface PortLabel {
+	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H (format may vary per LabelFormat settings)
+	/** Stable id of the source location (absent only pre-repair). */
+	locationId?: string
+	zone: string // zone letter
+	serverRoom: string
+	locationNumber: number
+	portNumber: number
+	locationType: LocType
+	isHighLevel: boolean
+}
+
+// ── Label format settings (per-project, varies by client) ──
+
+/** Separator preset for port labels.
+ *  - `legacy`: matches the historical hybrid format `L01.A.001-A01[-H]` (periods between
+ *    floor/zone/location, hyphen before server room, hyphen before high-level suffix).
+ *  - `period`: all components separated by `.` → `L01.A.001.A01[.H]`
+ *  - `hyphen`: all components separated by `-` → `L01-A-001-A01[-H]` */
+export type LabelSeparator = 'legacy' | 'period' | 'hyphen'
+
+export interface LabelFormat {
+	separator: LabelSeparator
+	includeZone: boolean
+	/** Include the location's `roomNumber` (if set) as a component between zone and location. */
+	includeRoom: boolean
+	/** Excel-style template ($lib/elevation/labelTemplate). When set it takes
+	 *  precedence over the separator/include options above. */
+	template?: string
+	/** Template for OUTLET display labels on floorplans (port tokens unused);
+	 *  null/absent → the legacy `Z.NNN` convention. */
+	outletTemplate?: string | null
+}
+
+export const DEFAULT_LABEL_FORMAT: LabelFormat = {
+	separator: 'legacy',
+	includeZone: true,
+	includeRoom: false,
+}
+
+export interface PanelData {
+	panelNumber: number
+	ru: number
+	topRow: (PortLabel | null)[] // up to 24 slots
+	bottomRow: (PortLabel | null)[] // up to 24 slots (empty for 24-port panels)
+	isHighLevel: boolean
+	portCount: number // 24 or 48 — total ports on this physical panel
+}
+
+export interface RackData {
+	frame: FrameConfig
+	panels: PanelData[]
+}
+
+// ── Port reservations (block assign) ──
+
+/** A single port position on a physical panel */
+export interface PortPosition {
+	frameId: string
+	ru: number
+	row: 'top' | 'bottom'  // 'bottom' only for 48-port panels
+	col: number             // 0–23
+}
+
+/** A block reservation: a set of port positions sharing a usage type */
+export interface PortReservation {
+	id: string              // unique ID
+	type: LocType           // 'AP', 'desk', 'PR', etc.
+	ports: PortPosition[]   // the reserved port positions
+	label?: string          // optional user note
+}
+
+/** Key for a port position: "frameId:ru:row:col" */
+export function portPosKey(p: PortPosition): string {
+	return `${p.frameId}:${p.ru}:${p.row}:${p.col}`
+}
+
+/** Parse a port position key back into a PortPosition */
+export function parsePortPosKey(key: string): PortPosition {
+	const [frameId, ru, row, col] = key.split(':')
+	return { frameId, ru: Number(ru), row: row as 'top' | 'bottom', col: Number(col) }
+}
+
+// ── Defaults ──
+
+export function defaultZoneConfig(): ZoneConfig {
+	return {
+		floor: 1,
+		zone: 'A',
+		serverRoomCount: 1,
+		locations: [],
+	}
+}
+
+export function defaultFrameConfig(serverRoom: string = 'A', index = 1): FrameConfig {
+	return {
+		id: `frame-${serverRoom}${index}`,
+		name: `Frame ${serverRoom}${index}`,
+		serverRoom,
+		totalRU: 45,
+		panelStartRU: 1,
+		panelEndRU: 45,
+		slots: [],
+	}
+}
+
+export function defaultLocations(count: number, serverRoomCount: number): LocationConfig[] {
+	return Array.from({ length: count }, (_, i) => ({
+		locationNumber: i + 1,
+		portCount: 2,
+		serverRoomAssignment: Array.from({ length: 2 }, () => 'A' as const),
+		locationType: 'desk' as LocType,
+	}))
+}

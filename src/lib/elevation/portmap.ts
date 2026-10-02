@@ -7,16 +7,14 @@
  * previously existed in three drifting copies (Frames.svelte, frames engine,
  * patching elevationUtils) — this module is now the only implementation.
  *
- * Note: types and the label engine still live under
- * `routes/projects/[pid]/frames/parts/` — they migrate to `$lib` with the
- * Elevations tool (see elevations-plan.md); this module is the seam.
+ * The frames types and label engine moved here (`./frames/`) in cad Phase 7.1; the legacy route re-exports them.
  */
 import type {
 	FrameConfig, PanelDevice, FrameSlot, PortLabel, LocType, PortReservation,
 	LocationConfig,
-} from '../../routes/projects/[pid]/frames/parts/types'
-import { portPosKey } from '../../routes/projects/[pid]/frames/parts/types'
-import { generatePortLabels, generateRacks } from '../../routes/projects/[pid]/frames/parts/engine'
+} from './frames/types'
+import { portPosKey } from './frames/types'
+import { generatePortLabels, generateRacks } from './frames/engine'
 
 /** Does a device's mounting setting include the given face? */
 export function matchesFace(dev: { mounting?: string }, face: 'front' | 'rear'): boolean {

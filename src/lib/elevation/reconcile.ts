@@ -8,7 +8,7 @@
  */
 import { repairLocationIds, type BakedLabel } from './portmap'
 import { renderLabel, templateForLegacyFormat } from './labelTemplate'
-import type { LocationConfig, LabelFormat } from '../../routes/projects/[pid]/frames/parts/types'
+import type { LocationConfig, LabelFormat } from './frames/types'
 
 export interface SyncRow {
 	/** bakedLabels key: `deviceId:portIndex` */
