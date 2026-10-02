@@ -6,12 +6,13 @@ import { PathTool, type PathKind } from '../editor/pathTool'
 import { DeviceTool } from '../editor/deviceTool'
 import { AssignTool } from '../editor/assignTool'
 import { CordTool, type BulkFrom } from '../editor/cordTool'
+import { NoteTool, type NoteKind } from '../editor/noteTool'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
 import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 
-export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | PathKind
+export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
@@ -20,6 +21,7 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'],
 	device: ['row'], cord: ['row'], assign: ['row'],
+	text: ['sheet'], leader: ['sheet'], cloud: ['sheet'],
 }
 export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
@@ -50,6 +52,7 @@ export class Workspace {
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), outlet: new OutletTool(), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
+		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 

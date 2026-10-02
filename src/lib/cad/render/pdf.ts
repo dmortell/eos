@@ -48,6 +48,7 @@ const STYLES: Record<string, Style> = {
 	'tb-label': { text: '#94a3b8' }, 'tb-value': { text: '#1f2937', bold: true }, 'tb-logo': { text: '#1f2937', bold: true },
 	'tb-company-name': { text: '#1f2937', bold: true }, 'tb-company': { text: '#475569' },
 	label: { text: '#0f172a' },
+	note: { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 
 export function styleOf(cls: string): Style {

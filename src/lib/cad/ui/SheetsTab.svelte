@@ -10,6 +10,10 @@
 	import { sheetRows, filterRows, sortRows, groupRows, renumber, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
+	import type { Issue } from '../domain/drawing'
+	import { reprintIssue } from '../app/issue'
+	import { exportTransmittal } from '../render/transmittal'
+	import IssuePanel from './IssuePanel.svelte'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -64,11 +68,30 @@
 		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
+
+	// issuing (4.6): the selection, frozen when the panel opens
+	let issuing = $state.raw<Sheet[] | null>(null), show = $state<'register' | 'issues'>('register')
+	function startIssue() {
+		if (!picked.length) { ws.say('Select the sheets for the package'); return }
+		issuing = picked.map((r) => sheetOf(r.id))
+	}
+	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
+	async function reprint(i: Issue) {
+		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
+	}
+	async function transmittal(i: Issue) {
+		try { await exportTransmittal(i, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+	}
 </script>
 
 <div class="h-full overflow-auto text-xs">
 	<div class="actions">
-		<span class="font-semibold text-zinc-600">Sheets</span>
+		<span class="seg">
+			<button class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
+			<button class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issues.length || ''}</button>
+		</span>
+	{#if show === 'register'}
 		<input class="find" placeholder="Find…" bind:value={q} />
 		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
 		<label class="text-zinc-500">Group <select bind:value={by}>{#each ['none', 'place', 'kind', 'discipline', 'tag', 'size'] as g (g)}<option value={g}>{g}</option>{/each}</select></label>
@@ -78,7 +101,35 @@
 		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
 		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
 		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
+		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
+	{/if}
 	</div>
+	{#if issuing}<IssuePanel {project} {ws} sheets={issuing} onclose={() => { issuing = null; show = 'issues' }} />{/if}
+	{#if show === 'issues'}
+		<table class="w-full border-collapse">
+			<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+				<tr><th class="px-2 py-1">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
+			</thead>
+			<tbody>
+				{#each issues as i (i.id)}
+					<tr class="border-b border-zinc-100 align-top">
+						<td class="px-2 font-mono">{i.date}</td>
+						<td class="px-2">{i.name}</td>
+						<td class="px-2">{i.purpose}</td>
+						<td class="px-2">{i.to ?? ''}</td>
+						<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
+						<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}</td>
+						<td class="px-2 whitespace-nowrap">
+							<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
+							<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
+						</td>
+					</tr>
+				{:else}
+					<tr><td colspan="7" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
+				{/each}
+			</tbody>
+		</table>
+	{:else}
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
@@ -109,9 +160,13 @@
 			{/each}
 		</tbody>
 	</table>
+	{/if}
 </div>
 
 <style>
+	.seg { display: inline-flex; border: 1px solid #d4d4d8; border-radius: 4px; overflow: hidden; }
+	.seg button { padding: 0 8px; font-weight: 600; color: #71717a; }
+	.seg button.on { background: #e4e4e7; color: #18181b; }
 	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e4e4e7; background: white; }
 	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
 	.btn:hover:not(:disabled) { background: #f4f4f5; }

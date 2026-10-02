@@ -152,7 +152,7 @@
 			snap: (p, alt, skip) => spec.kind === 'plan'
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
-			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, say: ws.say,
+			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}

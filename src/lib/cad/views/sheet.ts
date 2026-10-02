@@ -4,9 +4,10 @@
 // sheet (only the viewport is); editing happens in the views themselves.
 import type { Id } from '../domain/types'
 import type { Sheet, Viewport } from '../domain/drawing'
+import type { Shape } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim, Bounds } from './display'
-import { planDisplayList, type PlanOpts } from './plan'
+import { planDisplayList, shapePrims, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
 import { spaceOf } from './space'
@@ -73,14 +74,32 @@ export function toPaper(vp: Viewport): (p: { x: number; y: number }) => { x: num
 	return (p) => ({ x: mx + (p.x - vp.centre.x) * k, y: my + (p.y - vp.centre.y) * k })
 }
 
-/** One prim moved onto the paper: points through `t`, sizes by 1/N, clipped to the window, no longer pickable. */
-function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, clip: Bounds): Prim {
+/** Paper mm → view mm for one viewport (the inverse of toPaper). */
+export function fromPaper(vp: Viewport): (p: { x: number; y: number }) => { x: number; y: number } {
+	const mx = vp.rect.x + vp.rect.w / 2, my = vp.rect.y + vp.rect.h / 2
+	return (p) => ({ x: vp.centre.x + (p.x - mx) * vp.scale, y: vp.centre.y + (p.y - my) * vp.scale })
+}
+/** The topmost viewport under a paper point. */
+export const viewportAt = (sheet: Sheet, p: { x: number; y: number }): Viewport | undefined =>
+	sheet.viewports.findLast((v) => p.x >= v.rect.x && p.x <= v.rect.x + v.rect.w && p.y >= v.rect.y && p.y <= v.rect.y + v.rect.h)
+
+/** One prim moved onto the paper: points through `t`, sizes by 1/N, clipped to the window (none = unclipped);
+ *  viewport content is no longer pickable, a tied note keeps its `src`. */
+function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, clip?: Bounds, src?: Id): Prim {
 	switch (p.k) {
-		case 'line': return { ...p, pts: p.pts.map(t), ...(p.w ? { w: p.w * k } : {}), src: undefined, clip }
-		case 'circle': return { ...p, c: t(p.c), r: p.r * k, src: undefined, clip }
-		case 'text': return { ...p, at: t(p.at), size: p.size * k, src: undefined, clip }
-		case 'image': { const a = t({ x: p.x, y: p.y }); return { ...p, x: a.x, y: a.y, w: p.w * k, h: p.h * k, src: undefined, clip } }
+		case 'line': return { ...p, pts: p.pts.map(t), ...(p.w ? { w: p.w * k } : {}), src, clip }
+		case 'circle': return { ...p, c: t(p.c), r: p.r * k, src, clip }
+		case 'text': return { ...p, at: t(p.at), size: p.size * k, src, clip }
+		case 'image': { const a = t({ x: p.x, y: p.y }); return { ...p, x: a.x, y: a.y, w: p.w * k, h: p.h * k, src, clip } }
 	}
+}
+
+/** A note on a sheet as paper prims: tied to a viewport → drawn in its view mm at 1:N, then onto the paper. */
+function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] {
+	const vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined
+	if (!vp) return shapePrims(s, 1, blocks)
+	const t = toPaper(vp), k = 1 / vp.scale
+	return shapePrims(s, vp.scale, blocks).map((p) => placePrim(p, t, k, undefined, p.src))
 }
 
 export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = {}): Prim[] {
@@ -100,8 +119,10 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
 		if (vp.label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${vp.label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}
-	// the title block on top (a window that strays under it is covered, as in Pages)
+	// the title block over the viewports (a window that strays under it is covered, as in Pages)
 	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
+	// paper notes (text, leaders, clouds — shapes owned by this sheet) over everything: a cloud may mark the title block
+	for (const s of ix.shapes) if (s.sheetId === sheet.id) out.push(...notePrims(s, sheet, o.blocks))
 	return out
 }
 

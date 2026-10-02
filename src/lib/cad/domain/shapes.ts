@@ -16,9 +16,11 @@ import type { Id, Tier } from './types'
  * Who a shape belongs to — exactly one. A LEVEL's model (seen by every view of that level), ONE view (e.g. a note
  * that only belongs on one elevation), or a SHEET's paper. Stored as flat fields so Firestore can query by them.
  */
-export type Owner = { levelId: Id; viewId?: never; sheetId?: never }
-	| { viewId: Id; levelId?: never; sheetId?: never }
-	| { sheetId: Id; levelId?: never; viewId?: never }
+export type Owner = { levelId: Id; viewId?: never; sheetId?: never; vpId?: never }
+	| { viewId: Id; levelId?: never; sheetId?: never; vpId?: never }
+	/** On a sheet's paper. With `vpId` (a note drawn inside a viewport), its points are in THAT viewport's view mm, so
+	 *  it follows the viewport's move / scale / pan; its text and arrow / arc sizes stay paper mm. */
+	| { sheetId: Id; vpId?: Id; levelId?: never; viewId?: never }
 
 /** Where a non-path shape lies: horizontal at height z, or the vertical plane of an elevation frame at a depth. */
 export type Plane =

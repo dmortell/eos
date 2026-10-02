@@ -63,6 +63,10 @@
 	.paper { fill: #ffffff; stroke: #a1a1aa; }
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
 	.viewport-bg.filled { fill: #ffffff; stroke: none; }
+	text.note { fill: #0f172a; }
+	.leader { stroke: #0f172a; }
+	.leader-head.filled { fill: #0f172a; }
+	.cloud { stroke: #dc2626; stroke-width: 1.25; }
 	.tb-frame { stroke: #64748b; }
 	.tb-frame.filled { fill: #ffffff; }
 	.tb-rule { stroke: #cbd5e1; }

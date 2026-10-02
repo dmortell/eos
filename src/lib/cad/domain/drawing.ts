@@ -41,8 +41,9 @@ export interface Sheet {
 	/** This sheet's own title-block settings: hide it, or override auto fields (`drawn`, …). */
 	titleBlock?: { hidden?: boolean; fields?: Record<string, string> }
 	viewports: Viewport[]
-	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. */
-	revisions?: { code: string; date: string; note?: string; issueId?: Id }[]
+	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. `hash` =
+	 *  the fingerprint of what the sheet showed at that issue (a sheet is "changed" when it no longer matches). */
+	revisions?: { code: string; date: string; note?: string; issueId?: Id; hash?: string }[]
 	kind?: string
 	discipline?: string
 	tags?: string[]
@@ -115,6 +116,24 @@ export interface BlockDef {
 	attrs?: { tag: string; label: string; default?: string }[]
 }
 
-export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef
+/** An ISSUE = one package that went out (Phase 4.6): the sheets at the revisions they went at (bumped if changed
+ *  since their last issue, else as last issued, so a package mixes revisions), and the package PDF in file storage.
+ *  What each (sheet, rev) showed is frozen in `cadIssued` (app/issue.ts), outside the entity store. */
+export interface Issue {
+	type: 'issue'
+	id: Id
+	name: string
+	/** "For construction" … */
+	purpose: string
+	/** YYYY-MM-DD. */
+	date: string
+	to?: string
+	note?: string
+	sheets: { sheetId: Id; number: string; title: string; rev: string; size: string; changed: boolean }[]
+	/** The package PDF in file storage (`files/{id}`, listed in Uploads). */
+	file?: { id: string; url: string; name: string }
+}
+
+export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue
 export type Entity = DomainEntity | DrawingEntity
 export type EntityType = Entity['type']

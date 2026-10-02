@@ -48,7 +48,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	return out
 }
 
-function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
+/** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). */
+export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 	const g = s.geom, cls = s.role?.kind === 'wall' ? 'wall' : 'shape'
 	switch (g.kind) {
 		case 'insert': {
@@ -72,6 +73,8 @@ function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]
 		case 'polygon': return [{ k: 'line', pts: g.pts, closed: true, fill: !!s.extent, cls, src: s.id }]
 		case 'text': return [{ k: 'text', at: g.at, text: g.text, size: g.sizeMm * k, rot: g.rot, cls: 'note', src: s.id }]
+		case 'leader': return leaderPrims(s.id, g.pts, g.text, k)
+		case 'cloud': return [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
 		default: return []
 	}
 }
@@ -133,5 +136,37 @@ function outletPrims(o: Outlet, k: number, blocks?: PlanOpts['blocks']): Prim[] 
 }
 
 const add = (a: Pt, b: Pt): Pt => ({ x: a.x + b.x, y: a.y + b.y })
+
+/** A leader: the line (tip first), a filled arrowhead at the tip, its text beside the last point. Paper-mm sizes × k. */
+function leaderPrims(id: string, pts: Pt[], text: string | undefined, k: number): Prim[] {
+	if (pts.length < 2) return []
+	const [tip, next] = pts, len = Math.hypot(next.x - tip.x, next.y - tip.y) || 1
+	const ux = (next.x - tip.x) / len, uy = (next.y - tip.y) / len, a = 3 * k, b = 1 * k
+	const head = [tip, { x: tip.x + ux * a - uy * b, y: tip.y + uy * a + ux * b }, { x: tip.x + ux * a + uy * b, y: tip.y + uy * a - ux * b }]
+	const out: Prim[] = [{ k: 'line', pts, cls: 'leader', src: id }, { k: 'line', pts: head, closed: true, fill: true, cls: 'leader leader-head', src: id }]
+	if (text) {
+		const end = pts[pts.length - 1], prev = pts[pts.length - 2], right = end.x >= prev.x
+		out.push({ k: 'text', at: { x: end.x + (right ? 1 : -1) * k, y: end.y + 0.9 * k }, text, size: 2.5 * k, anchor: right ? 'start' : 'end', cls: 'note', src: id })
+	}
+	return out
+}
+
+/** A revision cloud: each edge of the outline as a row of outward bumps about `arc` long (polyline points). */
+function cloudPts(pts: Pt[], arc: number): Pt[] {
+	if (pts.length < 2) return pts
+	// clockwise or not decides which side is "out"
+	const area = pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y }, 0), side = area > 0 ? -1 : 1
+	const out: Pt[] = []
+	for (let i = 0; i < pts.length; i++) {
+		const a = pts[i], b = pts[(i + 1) % pts.length], len = Math.hypot(b.x - a.x, b.y - a.y)
+		if (len < 1e-6) continue
+		const n = Math.max(1, Math.round(len / arc)), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len, step = len / n
+		for (let j = 0; j < n; j++) for (let t = 0; t < 8; t++) {
+			const f = t / 8, along = (j + f) * step, bulge = Math.sin(Math.PI * f) * step * 0.45 * side
+			out.push({ x: a.x + ux * along - uy * bulge, y: a.y + uy * along + ux * bulge })
+		}
+	}
+	return out
+}
 const square = (c: Pt, w: number): Pt[] => [{ x: c.x - w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y + w / 2 }, { x: c.x - w / 2, y: c.y + w / 2 }]
 const fmtZ = (z: number) => `${z >= 0 ? '+' : '−'}${Math.abs(Math.round(z))}`

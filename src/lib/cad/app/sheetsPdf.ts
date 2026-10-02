@@ -4,8 +4,10 @@ import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
 import { sheetPages, pagesToPdf, browserImageLoader, browserTextRaster } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
+import { placeUnderlays } from './issue'
 
 export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[]): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
+	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
 	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock })
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, browserImageLoader, { rasterText: browserTextRaster })
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }

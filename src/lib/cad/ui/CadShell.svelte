@@ -94,6 +94,9 @@
 		{ id: 'rack', label: 'Rack', key: 'K' },
 		{ id: 'device', label: 'Device', key: 'D' },
 		{ id: 'cord', label: 'Cord', key: 'P' },
+		{ id: 'text', label: 'Text', key: 'X' },
+		{ id: 'leader', label: 'Leader', key: 'E' },
+		{ id: 'cloud', label: 'Cloud', key: 'U' },
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
@@ -107,6 +110,9 @@
 		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
 		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
 		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
+		text: 'On a sheet: click where the text goes, then type it',
+		leader: 'On a sheet: click the tip, then the bend / end points · Enter or right-click → its text · Backspace undoes a point',
+		cloud: 'On a sheet: click round the area to mark · Enter or right-click closes the cloud · Backspace undoes a point',
 	}
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 

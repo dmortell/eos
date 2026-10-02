@@ -7,6 +7,7 @@
 	import type { Sheet, Viewport } from '../domain/drawing'
 	import { defaultViewport, contentCentre } from '../views/sheet'
 	import { newId } from '../domain/ids'
+	import { untie } from '../editor/noteTool'
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
@@ -19,6 +20,14 @@
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
+	/** Notes tied to it go back on the paper where they showed. */
+	function deleteViewport(v: Viewport) {
+		project.store.transact('Delete viewport', (tx) => {
+			tx.put({ ...s, viewports: s.viewports.filter((x) => x.id !== v.id) })
+			for (const n of project.index.shapes) if (n.sheetId === s.id && n.vpId === v.id) tx.put(untie(n, v))
+		})
+		ws.selectViewport(null)
+	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
 	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : `elev:${v.view.spec.dir}`)
@@ -95,7 +104,7 @@
 	<label class="row">Label <input class="inp" value={vp.label ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport label', { label: e.currentTarget.value.trim() || undefined })} /></label>
 	<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>
 	<label class="row">Locked <span><input type="checkbox" checked={!!vp.locked} onchange={(e) => putVp(e.currentTarget.checked ? 'Lock viewport' : 'Unlock viewport', { locked: e.currentTarget.checked || undefined })} /> can't be moved</span></label>
-	<button class="btn" onclick={() => { putSheet('Delete viewport', { viewports: s.viewports.filter((v) => v.id !== vp.id) }); ws.selectViewport(null) }}>Delete viewport</button>
+	<button class="btn" onclick={() => deleteViewport(vp)}>Delete viewport</button>
 {:else}
 	<p class="font-semibold">Sheet</p>
 	<label class="row">Number <input class="inp font-mono" value={s.number} onchange={(e) => putSheet('Sheet number', { number: e.currentTarget.value.trim() })} /></label>

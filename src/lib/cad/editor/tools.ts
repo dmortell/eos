@@ -16,6 +16,14 @@ import { insertNode, branchFrom } from '../domain/pathEdit'
 import { placementProblem } from '../domain/devices'
 import { RU_MM } from '../views/rackRow'
 import { newId } from '../domain/ids'
+import type { Entity } from '../domain/drawing'
+
+/** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
+function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
+	if (e.type !== 'shape' || !e.vpId || !e.sheetId) return 1
+	const sheet = get(e.sheetId)
+	return (sheet?.type === 'sheet' && sheet.viewports.find((v) => v.id === e.vpId)?.scale) || 1
+}
 
 export interface PointerIn { p: Pt; shift: boolean; ctrl: boolean; alt: boolean; /** 2 = double click */ count?: number }
 
@@ -43,6 +51,8 @@ export interface ToolCtx {
 	ask(label: string, value: number, apply: (v: number) => void): void
 	/** Rack-row views only: the rack and U under a view point. */
 	rowHit?(p: Pt): { rack: Rack; u: number } | null
+	/** Ask for text (the tool-bar prompt); `apply` runs on Enter. */
+	askText?(label: string, value: string, apply: (t: string) => void): void
 	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
 	selectViewport?(id: Id | null): void
 	viewportId?(): Id | null
@@ -81,7 +91,8 @@ export interface PortSel { on: Id; face: 'front' | 'rear'; ports: number[]; anch
 export const TOL_PX = 6
 
 /** Snap to a 10 mm grid (Alt = no snap). */
-export const snapPt = (p: Pt, alt: boolean): Pt => (alt ? p : { x: Math.round(p.x / 10) * 10, y: Math.round(p.y / 10) * 10 })
+/** Moves snap to 10 mm (model), 0.5 mm on a sheet's paper; Alt = free. */
+export const snapPt = (p: Pt, alt: boolean, step = 10): Pt => (alt ? p : { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step })
 
 /** Select: click picks (Shift / Ctrl toggles), press-drag moves the selection as ONE undo step (attached nodes
  *  follow), drag on empty space draws a window, and a selected path shows node grips to drag. Selection happens on
@@ -126,12 +137,16 @@ export class SelectTool implements Tool {
 				if (inside && e.ctrl) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; return }
 			}
 			const sheet = id ? c.store.get(id) : undefined
-			if (sheet?.type !== 'sheet') { c.select([]); c.selectViewport(null); return }
-			c.select([sheet.id])
-			const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
-			c.selectViewport(vp ? vp.id : null)
-			if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
-			return
+			if (sheet?.type === 'sheet') {
+				c.select([sheet.id])
+				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
+				c.selectViewport(vp ? vp.id : null)
+				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
+				return
+			}
+			c.selectViewport(null)
+			// a paper note (a shape on the sheet) is picked and dragged like any shape, below; empty paper clears
+			if (sheet?.type !== 'shape') { c.select([]); return }
 		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
@@ -217,11 +232,16 @@ export class SelectTool implements Tool {
 		} else if (this.#start && this.#ids.length) {
 			const d = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
-			const s = c.space.deltaToWorld(snapPt(d, e.alt))
+			const s = c.space.deltaToWorld(snapPt(d, e.alt, c.space.spec.kind === 'sheet' ? 0.5 : 10))
 			const moved = new Set(this.#ids)
 			this.#gesture ??= c.store.begin(this.#ids.length === 1 ? 'Move' : `Move ${this.#ids.length} items`)
 			this.#gesture.update((tx) => {
-				for (const id of this.#ids) { const en = tx.get(id); if (en) tx.put(moveBy(en, s)) }
+				for (const id of this.#ids) {
+					const en = tx.get(id)
+					if (!en) continue
+					const k = tiedScale(en, (sid) => tx.get(sid))   // a note tied to a viewport moves in its view mm
+					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }))
+				}
 				for (const sh of followAttached(c.store.ofType('shape'), moved, s)) tx.put(sh)
 			})
 		} else if (this.#marquee) {

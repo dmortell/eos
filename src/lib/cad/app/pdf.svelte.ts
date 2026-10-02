@@ -19,18 +19,25 @@ export function placementFromCalib(c: PageCalib | undefined, w: number, h: numbe
 
 export class PdfCache {
 	#ready = $state<Record<string, Placed>>({})
-	#jobs = new Set<string>()
+	#jobs = new Map<string, Promise<void>>()
 	/** Files whose page could not be placed (no url, not calibrated, render failed): key → reason. */
 	problems = $state<Record<string, string>>({})
 
 	constructor(private db: Firestore) {}
 
 	/** Reactive: the placed image for an underlay, or undefined while it renders / when it can't be placed. */
-	placement = (u: Underlay): Placed | undefined => {
+	placement = (u: Pick<Underlay, 'fileId' | 'page'>): Placed | undefined => {
 		const page = u.page ?? 1, key = `${u.fileId}#${page}`
 		const r = this.#ready[key]
-		if (!r && !this.#jobs.has(key)) { this.#jobs.add(key); void this.#render(u.fileId, page, key) }
+		if (!r && !this.#jobs.has(key)) this.#jobs.set(key, this.#render(u.fileId, page, key))
 		return r
+	}
+	/** The same, waiting for the render (PDFs of sheets that aren't on screen; reprints of issued sheets). */
+	placed = async (u: Pick<Underlay, 'fileId' | 'page'>): Promise<Placed | undefined> => {
+		this.placement(u)
+		const key = `${u.fileId}#${u.page ?? 1}`
+		await this.#jobs.get(key)
+		return this.#ready[key]
 	}
 
 	async #render(fileId: string, page: number, key: string): Promise<void> {

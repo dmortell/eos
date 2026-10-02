@@ -218,6 +218,87 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
 - **Live check on Test Project:** two more test sheets made. The register showed S-001 / S-002 / S-003. Selected
   all three and renumbered S{n:3} from 1 → S001, S002, S003. The Excel download is for Dave.
 
+### Slice 4.5 — paper notes (built 2026-10-02)
+- **Tools** (sheet views only): **Text** (X), **Leader** (E) and **Cloud** (U), in `editor/noteTool.ts`.
+  - Notes are shapes owned by the sheet (`sheetId`), in paper mm, snapped to 0.5 mm.
+  - **Text:** click, then type. The prompt opens on release; opened on press, the rest of the click took the focus
+    back.
+  - **Leader:** click the tip, then the bend / end points; Enter or right-click asks for its (optional) text.
+  - **Cloud:** a polyline — click round the area, any number of points; Enter or right-click closes it.
+  - Backspace drops the last point; Esc cancels; typed points work.
+- **Drawing** (`views/plan.ts` `shapePrims`, now exported):
+  - A leader gets a filled arrowhead and its text beside the last point.
+  - A cloud is drawn as outward scallops about `arcMm` (6 mm) long.
+  - Notes are drawn over the title block (a cloud may mark a revision there), so they reach the PDF too.
+- **Editing:** Select picks and drags notes on paper. Properties edits text / size, leader text and cloud arc
+  size. Delete removes a note.
+- **Fix:** sheet scopes (`sheet:<id>`) were never subscribed, so notes vanished on reload. The project now watches
+  every sheet's scope, as it does levels.
+- **Tests:** 234 (`editor/notes.test.ts`).
+- **Live check on S001:**
+  - Added a rectangle cloud on R311, a free polyline cloud, a leader to P3C and a Japanese + English text.
+  - All four reload.
+  - The PDF has them; the Japanese text is rasterised.
+
+### Notes tied to viewports (Dave, 2026-10-02: "tie vp notes to vp coordinates")
+- **What tying means:** a note drawn inside a viewport (its first point / tip decides) gets `vpId`, and its points
+  are stored in that viewport's view mm.
+  - It follows the viewport's move, rescale and pan.
+  - Text, arrowheads and cloud arcs stay paper size: drawn at 1:N, then placed like viewport content, but still
+    pickable.
+- **Dragging:** a tied note moves N view mm per paper mm.
+- **Deleting a viewport:** its notes are untied back onto the paper where they showed (`untie`).
+- **Paper-only notes:** notes outside any viewport stay in paper mm.
+- **Snap fix:** moves on a sheet snap to 0.5 mm. The model's 10 mm step had turned a 5 mm paper drag into 10.
+- **Existing notes:** the four notes drawn on S001 before this are paper notes, not tied.
+
+### Slice 4.6 — issue + packages (built 2026-10-02)
+- **`domain/issue.ts`** (pure, tested):
+  - `nextRev`: A → B … Z → AA; P01 → P02; 9 → 10; first rev settable.
+  - `freeze`: a display list rounded to 0.01 mm, pick ids dropped, floorplans as `underlay:<fileId>#<page>`
+    references, not the local rendered blob.
+  - `fingerprint`: FNV-1a + length.
+  - `planIssue`: a sheet never issued, or whose fingerprint differs from its last revision's `hash`, gets the next
+    revision; the rest go as last issued.
+  - `transmittalRows`.
+- **`domain/drawing.ts`:** an `Issue` entity (project scope): name, purpose, date, to, note, sheets
+  `{sheetId, number, title, rev, size, changed}`, and `file` (the package PDF). `Sheet.revisions[].hash` added.
+- **`app/issue.ts`:**
+  - **Frozen copies:** each issued (sheet, rev) is frozen once in `projects/{pid}/cadIssued`. It sits outside the
+    entity store, so opening a project doesn't load it. It is split into 300k-character parts, under the 1 MB doc
+    limit even for all-Japanese text. S001 is 209 KB.
+  - **Issuing a package:**
+    1. Floorplans are rendered first (`PdfCache.placed`, new).
+    2. Changed sheets are frozen as they show with their new revision; unchanged ones are loaded from their frozen
+       copy.
+    3. The package PDF is drawn from the frozen lists (floorplan references rendered from their files again).
+    4. The PDF is uploaded through UploadThing (`genUploader`, the floorplan route) and a `files/{issue-…}` doc is
+       written, so it lists in Uploads.
+    5. Then, in one undo step, the bumped sheets and the Issue are recorded.
+  - **If the upload fails,** nothing is recorded.
+  - **Reprint** draws the package again from the frozen lists.
+- **UI** (Sheets tab):
+  - **Issue…** on the selection opens a panel: package, purpose (list + free text), date, to, first rev, note. It
+    shows what happens to each sheet ("S002 A → B", "S001 stays A (unchanged)").
+  - An **Issues** view lists each package: date, purpose, sheets at their revs (new revs in bold), the PDF link,
+    **Transmittal** (Excel, `render/transmittal.ts`) and **Reprint**.
+- **Also:** the plain PDF button now waits for floorplans to render (a sheet not on screen could miss its floorplan).
+- **Tests:** 239.
+- **Exit check on Test Project:**
+  1. Issued S001 + S002 as "Test issue 1": both at A.
+  2. An immediate re-check showed both unchanged, so the fingerprint is stable.
+  3. Renamed S002's title.
+  4. "Test issue 2": S001 stays A, S002 A → B.
+  - Three frozen copies are stored. Both PDFs are in file storage (389 KB each, floorplan included).
+  - Read back from the uploaded issue-2 PDF: page 1 is S001 rev A, page 2 is "Test sheet 2 (changed)" rev B.
+  - Transmittal / Reprint downloads are for Dave to try.
+
+### Todo (later)
+- **Issue only saved sheets** (Dave, 2026-10-02): consider blocking Issue until edited sheets are saved as a
+  revision / version, so each issued sheet shows its latest revision date. Today Issue bumps changed sheets itself,
+  so a sheet can go out with edits never reviewed as a version. Decide with versions (`pages/drawings-plan.md`
+  model versions + sheet revisions).
+
 ## 6a. The original questions (answered above)
 
 1. **Title block:** keep Pages' model (one template per project; layouts vertical / horizontal / compact; logo,

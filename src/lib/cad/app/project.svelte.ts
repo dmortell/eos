@@ -4,7 +4,7 @@ import type { Firestore } from 'firebase/firestore'
 import { EntityStore } from '../store/store'
 import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
-import { PROJECT_SCOPE, levelScope } from '../persist/docs'
+import { PROJECT_SCOPE, levelScope, sheetScope } from '../persist/docs'
 import { ProjectIndex } from '../domain/project'
 import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
@@ -76,12 +76,10 @@ export class CadProject {
 		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true })
 	}
 
-	/** A level's plan data loads with its level (ADR 0003 scopes). */
+	/** A level's plan data loads with its level, a sheet's paper notes with its sheet (ADR 0003 scopes). */
 	#watchLevels(): void {
-		for (const l of this.store.ofType('level')) {
-			const s = levelScope(l.id)
-			if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s]) }
-		}
+		const scopes = [...this.store.ofType('level').map((l) => levelScope(l.id)), ...this.store.ofType('sheet').map((s) => sheetScope(s.id))]
+		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s]) }
 	}
 
 	/** Writes not yet confirmed by the server (kept current by Sync — a write can finish with no store change). */
