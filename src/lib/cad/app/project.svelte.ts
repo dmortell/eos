@@ -96,7 +96,9 @@ export class CadProject {
 	/** Write an import into this project (one undo step). Refuses if the project already has cad data. */
 	applyImport(res: ImportResult): void {
 		if (this.store.ofType('level').length) throw new Error('This project already has cad data — import is only for an empty project')
-		this.store.transact(`Import ${res.entities.length} items from the legacy tools`, (tx) => { for (const e of res.entities) tx.put(e) })
+		// the import's "things to check" are kept on the settings record (right sidebar → Import notes)
+		const keep = (e: Entity): Entity => (e.type === 'settings' && res.issues.length ? { ...e, importNotes: { at: Date.now(), notes: res.issues.map((i) => ({ ...i })) } } : e)
+		this.store.transact(`Import ${res.entities.length} items from the legacy tools`, (tx) => { for (const e of res.entities) tx.put(keep(e)) })
 	}
 
 	/** Make a global block from shapes and put ONE insert in their place (one undo step for the drawing; the block

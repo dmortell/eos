@@ -256,6 +256,9 @@ export interface ProjectSettings {
 	portSuffix: 'alpha' | 'numeric'
 	/** Between the outlet label and the suffix: '.' (default) 201.A, '' 201A, '-' 201-A. */
 	portSeparator?: '.' | '-' | ''
+	/** What the legacy import said to check, kept for reference (right sidebar → Import notes). `id` = the item it's
+	 *  about, when it still exists. */
+	importNotes?: { at: number; notes: { id: Id; code: string; message: string; severity: 'error' | 'warning' }[] }
 	/** Optional patterns ($lib/elevation/labelTemplate syntax) for Relabel (a later tool) and for new labels, e.g.
 	 *  outlet `Z.NNN`, port `"L"FF.Z.NNN-SPP[-H]`. Absent = new labels come from "next number" only. */
 	labelPatterns?: { outlet?: string; port?: string }

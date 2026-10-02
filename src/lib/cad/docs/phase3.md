@@ -560,3 +560,24 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   4. 30F Find/replace "A." → "".
 
   200F (a copy of 3307) and L10 (3307 outlets) stay as they are.
+- **Done (Dave cleared the cad data):**
+  - Re-imported (1458 items). **33F 3307** is a level of its own: its 68 outlets, 5 trunks, Plan_L3307.
+  - Deleted 1F and 3307F (✕); renamed 33F → **33F 3303**.
+  - 30F Find/replace "A." → "": 184 outlets are now 001, 002 … (their Frames port labels L30.A.001-A01 … are
+    unchanged).
+- **Import notes are kept** (Dave): applying an import stores its "things to check" on the settings record
+  (`ProjectSettings.importNotes`). The right sidebar shows them at the bottom under **Import notes (81)**, grouped
+  by kind; a note about an item that still exists selects it.
+  - Journey's notes were stored afterwards from a fresh preview, so they are text only: ids are made fresh on every
+    run, and only an applied import's own notes can point at items.
+- **Still on Journey (for Dave):**
+  - IDF3307 (33F room C) and its racks 3307-R1 / R2 stay on 33F 3303. They aren't placed on any plan, and a rack
+    can't change level in the UI yet.
+  - 33F 3303's 123 drawn outlets (306, 305 …) aren't linked to its 177 Frames locations (009, 058 …); the legacy
+    data doesn't connect them.
+  - A stray second `building` doc from the first import is left (nothing references it).
+
+## Todo (Phase 3 follow-ups)
+- [ ] **Find/replace** (outlets grid) is a stop-gap for Journey 30F. Fold it into the Renumber / Relabel tool
+  (ADR 0002) rather than growing it: outlet labels only today; no port-label or regex mode.
+- [ ] A way to move racks (and their room) to another level, for IDF3307 above (or re-import with a placement).

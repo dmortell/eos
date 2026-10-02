@@ -13,6 +13,7 @@
 	import PatchList from './PatchList.svelte'
 	import { exportBom } from '../render/exports'
 	import Properties from './Properties.svelte'
+	import ImportNotes from './ImportNotes.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
@@ -276,8 +277,9 @@
 	</main>
 
 	<!-- properties -->
-	<aside class="props overflow-auto border-l border-zinc-200 bg-white">
-		<Properties {project} {ws} />
+	<aside class="props border-l border-zinc-200 bg-white">
+		<div class="props-body"><Properties {project} {ws} /></div>
+		<ImportNotes {project} {ws} />
 	</aside>
 
 	<!-- tables: outlets (this level) | patch list (the project) -->
@@ -305,7 +307,8 @@
 	.bar { grid-area: bar; }
 	.levels { grid-area: levels; min-height: 0; }
 	.plan { grid-area: plan; min-height: 0; min-width: 0; }
-	.props { grid-area: props; min-height: 0; }
+	.props { grid-area: props; min-height: 0; display: flex; flex-direction: column; }
+	.props-body { flex: 1; min-height: 0; overflow: auto; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
 	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: #71717a; }
 	.lvl:hover .act { visibility: visible; }
