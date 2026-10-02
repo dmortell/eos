@@ -117,6 +117,7 @@
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 
 	let notice = $state<string | null>(null)
+	let exportMenu: HTMLDetailsElement
 
 	async function exportExcel(all: boolean) {
 		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }) }
@@ -125,7 +126,7 @@
 	async function exportBomXlsx() {
 		try {
 			const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
-			const n = await exportBom(project.index, projectName, PANDUIT_SEED)
+			const n = await exportBom(project.index, projectName, PANDUIT_SEED, project.routes)
 			notice = `BOM: ${n} lines`
 			setTimeout(() => (notice = null), 5000)
 		} catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
@@ -206,10 +207,11 @@
 <div class="shell bg-zinc-50 text-sm">
 	<!-- toolbar -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
+		<!-- only the tools that work in this view (Dave: the bar got too wide) -->
 		{#each TOOLS as t (t.id)}
-			{@const ok = toolWorksIn(t.id, activeKind)}
-			<button class="rounded px-2 py-0.5 disabled:opacity-35 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" disabled={!ok}
-				title={ok ? `${t.label} (${t.key})` : `${t.label} — not in this view`} onclick={() => setTool(t.id)}>{t.label}</button>
+			{#if toolWorksIn(t.id, activeKind)}
+				<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title="{t.label} ({t.key})" onclick={() => setTool(t.id)}>{t.label}</button>
+			{/if}
 		{/each}
 		{#if DRAWS.has(ws.toolId)}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
@@ -237,8 +239,8 @@
 					{#each project.settings?.cableTypes ?? [] as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 					{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
 				</select></label>
-			<label class="opt">Colour <input type="color" class="colour" bind:value={ws.cordDefaults.colour} /></label>
-			{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">Bulk: {ws.bulkFrom.ports.length} port(s) — click the first port to patch them to</span>{/if}
+			{#if ws.bulkFrom?.kind !== 'link'}<label class="opt">Colour <input type="color" class="colour" bind:value={ws.cordDefaults.colour} /></label>{/if}
+			{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Interconnect ${ws.bulkFrom.ports.length} port(s) from ${project.index.nameOf(ws.bulkFrom.on)} — open the other room's rack elevation (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
 		{/if}
 		{#if ws.confirm}
 			{@const q = ws.confirm}
@@ -259,10 +261,15 @@
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => canvas?.zoomExtents()} title="Zoom to fit (Home)">Fit</button>
 		<button class="rounded px-2 py-0.5 {panes.length === 2 ? 'bg-blue-100' : 'hover:bg-zinc-100'}" onclick={toggleSplit} title="Two views side by side (plan + elevation)">Split</button>
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => exportExcel(false)} title="Outlet schedule of this level (Excel)">Schedule</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => exportExcel(true)} title="Outlet schedule of every level (Excel)">All levels</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={exportDxf} title="This plan as DXF">DXF</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={exportBomXlsx} title="Bill of materials for the whole project (quantities): outlets, panels, devices, racks + accessories (Panduit), cable, cords, containment">BOM</button>
+		<details class="menu" bind:this={exportMenu}>
+			<summary class="rounded px-2 py-0.5 hover:bg-zinc-100">Export ▾</summary>
+			<div class="menu-list">
+				<button onclick={() => { exportMenu.open = false; exportExcel(false) }}>Outlet schedule — this level (Excel)</button>
+				<button onclick={() => { exportMenu.open = false; exportExcel(true) }}>Outlet schedule — all levels (Excel)</button>
+				<button onclick={() => { exportMenu.open = false; exportDxf() }}>This plan (DXF)</button>
+				<button title="Material quantities for the whole project: outlets, panels, devices, racks + accessories (Panduit), cable (routed metres + waste), cords, containment" onclick={() => { exportMenu.open = false; exportBomXlsx() }}>Bill of materials (Excel)</button>
+			</div>
+		</details>
 		{#if notice}<span class="ml-1 text-xs text-emerald-700">{notice}</span>{/if}
 		<span class="ml-auto text-xs text-zinc-500">
 			{#if project.error}<span class="text-red-600">{project.error}</span>
@@ -352,6 +359,12 @@
 	/* one or two views side by side */
 	.panes { display: flex; height: 100%; gap: 2px; background: #e4e4e7; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
+	.menu { position: relative; }
+	.menu summary { list-style: none; cursor: pointer; }
+	.menu summary::-webkit-details-marker { display: none; }
+	.menu-list { position: absolute; z-index: 30; top: 100%; left: 0; min-width: 16rem; display: flex; flex-direction: column; background: white; border: 1px solid #e4e4e7; border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.1); padding: 4px 0; }
+	.menu-list button { text-align: left; padding: 3px 10px; white-space: nowrap; }
+	.menu-list button:hover { background: #f4f4f5; }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52525b; margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; }
 	.opt input.colour { width: 2rem; height: 1.25rem; padding: 0; }

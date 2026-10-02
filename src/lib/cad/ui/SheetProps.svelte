@@ -30,11 +30,11 @@
 	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : `elev:${v.view.spec.dir}`)
+	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? 'riser' : `elev:${v.view.spec.dir}`)
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
 	function setView(v: Viewport, key: string) {
 		const [kind, a, b] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
+		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser' } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
 		const next = { ...v, view: { ...v.view, spec } }
 		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
 	}
@@ -76,6 +76,7 @@
 			<option value="plan">Plan</option>
 			{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value="elev:{d}">Elevation {d}</option>{/each}
 			{#each rooms as r (r.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}{/each}
+			<option value="riser">Risers (building)</option>
 		</select>
 	</label>
 	<label class="row">Scale 1:

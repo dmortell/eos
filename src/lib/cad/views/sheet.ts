@@ -10,6 +10,7 @@ import type { Prim, Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
+import { riserDisplayList, type RiserOpts } from './riser'
 import { spaceOf } from './space'
 import { titleBlockPrims } from './titleBlock'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
@@ -27,6 +28,8 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** Cable routes for a riser viewport (else routed here). */
+	routes?: RiserOpts['routes']
 }
 
 /** What the title block's auto fields show for a sheet (ADR: values are filled at render time, never stored). The
@@ -64,6 +67,7 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
+	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes })
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale })
 }

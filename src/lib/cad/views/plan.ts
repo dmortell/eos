@@ -31,7 +31,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		const pl = o.underlay?.(u)
 		if (pl) out.push({ k: 'image', ...pl, opacity: u.opacity ?? 0.6, src: u.id })
 	}
-	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)))
+	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
 	for (const s of shapes) if (s.role?.kind !== 'containment') out.push(...shapePrims(s, k, o.blocks))
 	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
@@ -77,6 +77,22 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 		case 'cloud': return [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
 		default: return []
 	}
+}
+
+/** A riser that passes THROUGH a level (L33 down to L12 shows on L30 too): a vertical segment whose ends lie above
+ *  and below the level's floor. Drawn once, it appears on every floor it crosses. */
+function passesThrough(ix: ProjectIndex, s: Shape, levelId: Id): boolean {
+	if (s.geom.kind !== 'path' || s.role?.kind !== 'containment') return false
+	const lv = ix.get(levelId), at = lv?.type === 'level' ? lv.elevationMm : null
+	if (at == null) return false
+	const elev = (id: Id | undefined) => { const l = ix.get(id); return l?.type === 'level' ? l.elevationMm : 0 }
+	const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
+	return s.geom.segs.some((sg) => {
+		const a = nodes.get(sg.a), b = nodes.get(sg.b)
+		if (!a || !b || !isVertical(a, b)) return false
+		const za = a.z + elev(a.levelId ?? s.levelId), zb = b.z + elev(b.levelId ?? s.levelId)
+		return Math.min(za, zb) < at && at < Math.max(za, zb)
+	})
 }
 
 /** Containment: horizontal segments as bands of their real width; vertical ones as a riser symbol + z range. */

@@ -16,6 +16,7 @@
 	import type { Shape } from '../domain/shapes'
 	import { defaultOutletBlock } from '../domain/blocks'
 	import PathProps from './PathProps.svelte'
+	import RunFill from './RunFill.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -400,6 +401,7 @@
 		<p class="text-zinc-500">Drag to move · Delete removes it</p>
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
+		{#if one.role?.kind === 'containment'}<RunFill {project} s={one} />{/if}
 		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
 		{@const g = one.geom}

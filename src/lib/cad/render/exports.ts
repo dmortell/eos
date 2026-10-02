@@ -5,6 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Cord, Device, Id, PortRef, Rack } from '../domain/types'
 import type { CatalogProduct } from '$lib/catalog/types'
 import { bom } from '../domain/reports'
+import type { Route } from '../domain/routing'
 import { rackBom } from '../domain/rackBom'
 import { racksInOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
@@ -156,17 +157,17 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[]): Promise<number> {
-	const lines = bom(ix, catalog), racks = rackBom(ix, catalog)
+export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>): Promise<number> {
+	const lines = bom(ix, catalog, routes), racks = rackBom(ix, catalog)
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('BOM')
-	ws.addRow([`${projectName} - bill of materials (quantities, no prices)`]).font = { bold: true, size: 12 }
-	const head = ws.addRow(['Category', 'Item', 'Unit', 'Qty'])
+	ws.addRow([`${projectName} - bill of materials (material, quantities)`]).font = { bold: true, size: 12 }
+	const head = ws.addRow(['Category', 'Item', 'Unit', 'Qty', 'Note'])
 	head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
 	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
-	;[18, 60, 6, 8].forEach((w, i) => (ws.getColumn(i + 1).width = w))
-	for (const l of lines) ws.addRow([l.category, l.item, l.unit, l.qty])
+	;[18, 60, 6, 8, 28].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+	for (const l of lines) ws.addRow([l.category, l.item, l.unit, l.qty, l.note ?? ''])
 	ws.views = [{ state: 'frozen', ySplit: 2 }]
 	const r = wb.addWorksheet('Rack BOM')
 	const rh = r.addRow(['Group', 'SKU', 'Description', 'Role', 'Qty', 'Link'])

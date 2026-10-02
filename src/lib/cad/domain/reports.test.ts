@@ -58,8 +58,9 @@ describe('BOM', () => {
 		expect(q('2-port outlet (floor)')).toBe(2)
 		expect(q('Jack / module cat6a')).toBe(4)
 		expect(q('Patch panel 24-port RJ45 1U')).toBe(1)
-		expect(q('cat6a (horizontal)')).toBe(85)                       // 2 × 42.5 m
-		expect(q('cat6a (horizontal) — length unknown')).toBe(2)
+		expect(q('cat6a (incl. 10% waste)')).toBe(94)                   // 2 × 42.5 m hand-set, + 10 % → 93.5 → 94
+		expect(lines.find((l) => l.item === 'cat6a (incl. 10% waste)')?.note).toBe('≈ 1 box(es) of 305 m')
+		expect(q('cat6a — no route, length unknown')).toBe(2)
 		expect(q('trunk 100×50')).toBe(9)                             // 6 + 2.6 → 9
 		expect(q('Core drill Ø100 through slab')).toBe(1)
 		expect(q('cat6a 1 m')).toBe(2)

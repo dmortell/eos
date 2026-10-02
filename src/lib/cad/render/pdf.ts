@@ -48,6 +48,9 @@ const STYLES: Record<string, Style> = {
 	'tb-label': { text: '#94a3b8' }, 'tb-value': { text: '#1f2937', bold: true }, 'tb-logo': { text: '#1f2937', bold: true },
 	'tb-company-name': { text: '#1f2937', bold: true }, 'tb-company': { text: '#475569' },
 	label: { text: '#0f172a' },
+	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
+	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
+	backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
 	note: { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 

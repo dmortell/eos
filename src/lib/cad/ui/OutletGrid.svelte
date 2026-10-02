@@ -8,6 +8,7 @@
 	import { naturalCompare } from '../domain/labels'
 	import { renameOutlet } from '../domain/ports'
 	import { allocate } from '../domain/allocate'
+	import { cableSettings, type CableSettings } from '../domain/routing'
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
@@ -41,6 +42,19 @@
 		const pp = l.a.on === o.id ? l.b.port : l.a.port
 		return { text: `${project.index.nameOf(d.rackId)} U${d.u}:${pp}`, pinned: !!l.pinned }
 	}
+
+	// ── cable lengths (Phase 5.2): the project's routes; slack / waste are project settings ──
+	const cable = $derived(cableSettings(project.index))
+	const routeOf = (o: Outlet, port: number) => { const l = project.index.linkAt({ on: o.id, port }); return l ? project.routes.get(l.id) : undefined }
+	function setCable(patch: Partial<CableSettings>) {
+		const s = project.settings
+		if (!s) return
+		project.store.transact('Cable settings', (tx) => tx.put({ ...s, cable: { ...cable, ...patch } }))
+	}
+	const routed = $derived.by(() => {
+		const rs = project.index.outlets.filter((o) => o.levelId === levelId).flatMap((o) => o.ports.map((p) => routeOf(o, p.port))).filter((r) => !!r)
+		return { n: rs.length, none: rs.filter((r) => r.problem).length, over: rs.filter((r) => r.over90).length }
+	})
 
 	// ── allocation (Phase 3.4): preview in the tool bar, apply as one undo step ──
 	let issues = $state<string[]>([])
@@ -118,6 +132,9 @@
 				{#each PORT_FORMATS as f (f.style + f.sep)}<option value="{f.style}|{f.sep}">{portLabelsFor('201', 1, f.style, f.sep)[0]}</option>{/each}
 			</select>
 		</label>
+		<label class="fmt" title="Cable slack at the outlet, added to each routed length">Slack <input class="num" type="number" min="0" step="0.1" value={cable.slackM} onchange={(e) => setCable({ slackM: Math.max(0, Number(e.currentTarget.value) || 0) })} /> m</label>
+		<label class="fmt" title="Waste added to the cable metres in the BOM">Waste <input class="num" type="number" min="0" step="1" value={cable.wastePct} onchange={(e) => setCable({ wastePct: Math.max(0, Number(e.currentTarget.value) || 0) })} /> %</label>
+		{#if routed.n}<span class="text-zinc-500" title="Cabled ports on this level">{routed.n - routed.none} routed{routed.none ? ` · ` : ''}{#if routed.none}<b class="text-red-600">{routed.none} no route</b>{/if}{#if routed.over} · <b class="text-red-600">{routed.over} over 90 m</b>{/if}</span>{/if}
 		{#if issues.length}
 			<details class="issues"><summary>{issues.length} allocation issue{issues.length > 1 ? 's' : ''}</summary><ul>{#each issues as t, i (i)}<li>{t}</li>{/each}</ul></details>
 		{/if}
@@ -126,7 +143,7 @@
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
 				<th class="px-2 py-1">Label</th><th class="px-2">Usage</th><th class="px-2">Tier</th><th class="px-2">Mount</th>
-				<th class="px-2">Ports</th><th class="px-2">Server room</th><th class="px-2">Panel (◆ pinned)</th><th class="px-2">Placed</th>
+				<th class="px-2">Ports</th><th class="px-2">Server room</th><th class="px-2">Panel (◆ pinned)</th><th class="px-2" title="Cable length per port: the route over the drawn containment + slack, rounded up (red = over 90 m, ? = no route)">Length</th><th class="px-2">Placed</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -161,10 +178,14 @@
 					<td class="px-2 font-mono text-zinc-600">
 						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
 					</td>
+					<td class="px-2 font-mono">
+						{#each o.ports as p (p.port)}{@const r = routeOf(o, p.port)}<span class="pp" class:none={!r} class:over={r?.over90} class:bad={r?.problem}
+							title={!r ? 'Not cabled' : r.problem ? `No route: ${r.problem}` : `${r.handSet ? 'Set by hand' : `Routed ${((r.routeMm ?? 0) / 1000).toFixed(1)} m + ${cable.slackM} m slack`}${r.over90 ? ' — over the 90 m permanent-link limit' : ''}`}>{!r ? '—' : r.problem ? '?' : `${r.lengthM}m`}</span>{/each}
+					</td>
 					<td class="px-2">{o.at ? '✓' : ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="px-2 py-3 text-zinc-400">No outlets on this level yet — use the Outlet tool on the plan.</td></tr>
+				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No outlets on this level yet — use the Outlet tool on the plan.</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -181,4 +202,6 @@
 	.fmt { display: inline-flex; gap: 4px; align-items: center; color: #52525b; }
 	.fmt select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-family: ui-monospace, monospace; }
 	.pp.none { color: #d4d4d8; }
+	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
+	.num { width: 3.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 3px; }
 </style>

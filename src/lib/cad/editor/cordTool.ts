@@ -7,8 +7,10 @@ import type { Prim } from '../views/display'
 import type { Cord, Id, PortRef } from '../domain/types'
 import { pickPrim } from './pick'
 import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
+import { bulkInterconnect } from '../domain/interconnect'
 
-export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear' }
+/** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
+export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link' }
 
 export class CordTool implements Tool {
 	readonly id = 'cord'
@@ -32,6 +34,17 @@ export class CordTool implements Tool {
 	down(e: PointerIn, c: ToolCtx): void {
 		const r = this.#portAt(e, c)
 		if (!r) { c.say?.('Click a port in a rack elevation'); return }
+		if (this.bulk?.kind === 'link') {
+			// permanent cabling lands on the panels' REAR, whichever face is being viewed
+			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: this.defaults().cableType })
+			if (res.links.length) {
+				const kind = res.links[0].kind === 'tie' ? 'tie' : 'backbone'
+				c.store.transact(`Interconnect ${res.links.length} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
+			}
+			c.say?.(`${res.links.length} interconnect cable(s) added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
+			this.bulk = null
+			return
+		}
 		if (this.bulk) {
 			const res = bulkPatch(c.index, this.bulk, { on: r.on, start: r.port, face: r.face }, this.defaults())
 			if (res.cords.length) {
@@ -58,9 +71,11 @@ export class CordTool implements Tool {
 	move(e: PointerIn): void { this.#hover = e.p }
 	up(): void {}
 	hover(e: PointerIn): void { this.#hover = e.p }
-	cancel(): void { this.#first = null; this.bulk = null; this.#hover = null }
+	/** A view change cancels the half-made cord but KEEPS a bulk selection: an interconnect goes to another room /
+	 *  floor, so the user switches views between picking the ports and clicking the target. Esc drops both. */
+	cancel(): void { this.#first = null; this.#hover = null }
 	key(e: KeyboardEvent): boolean {
-		if (e.key === 'Escape' && (this.#first || this.bulk)) { this.cancel(); return true }
+		if (e.key === 'Escape' && (this.#first || this.bulk)) { this.cancel(); this.bulk = null; return true }
 		return false
 	}
 

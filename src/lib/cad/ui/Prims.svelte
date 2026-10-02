@@ -100,6 +100,24 @@
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
+	.riser-slab { fill: #e7e5e4; stroke: none; }
+	.riser-ffl { stroke: #57534e; stroke-width: 1.5; }
+	.riser-ceiling { stroke: #a8a29e; stroke-dasharray: 6 4; }
+	.riser-room { fill: #eff6ff; stroke: #2563eb; }
+	.riser-shaft { fill: #fef3c7; stroke: #b45309; }
+	text.rv-label { fill: #44403c; }
+	.backbone { stroke: #7c3aed; stroke-width: 2; fill: none; }
+	.backbone-none { stroke: #dc2626; stroke-dasharray: 5 4; }
+	text.backbone-label { fill: #5b21b6; }
+	.fill-band { opacity: 0.6; }
+	.fill-band.fill-ok { stroke: #16a34a; }
+	.fill-band.fill-warn { stroke: #f59e0b; }
+	.fill-band.fill-over { stroke: #dc2626; }
+	text.fill-label { font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
+	text.fill-label.fill-ok { fill: #166534; }
+	text.fill-label.fill-warn { fill: #92400e; }
+	text.fill-label.fill-over { fill: #b91c1c; }
+	.trace-route { stroke: #f59e0b; stroke-width: 5; opacity: 0.8; fill: none; stroke-linecap: round; }
 	.trace-port { fill: #fde68a; stroke: #d97706; stroke-width: 2; }
 	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
 	.cord-change { stroke-dasharray: 8 2 2 2; }

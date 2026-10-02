@@ -9,6 +9,7 @@ import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { isVertical } from './shapes'
 import { rackBom } from './rackBom'
+import { routeLinks, cableMetres, cableSettings, boxNote, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
 // ── Outlet schedule ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -118,14 +119,15 @@ function levelElevation(p: ProjectIndex, levelId: Id | undefined): number {
 
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty: number }
+export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty: number; note?: string }
 
 /**
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
- * are rounded UP to whole metres per line. Links without a length are counted (unit 'ea') so they're not missed.
+ * are rounded UP to whole metres per line. Cable comes from the routes (Phase 5); links with no route are counted
+ * (unit 'ea') so they're not missed. `routes` = already computed ones (else routed here).
  */
-export function bom(p: ProjectIndex, catalog: CatalogProduct[] = []): BomLine[] {
-	const lines = new Map<string, BomLine>()
+export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>): BomLine[] {
+	const lines = new Map<string, BomLine>(), notes = new Map<string, string>()
 	const add = (category: string, item: string, unit: BomLine['unit'], qty: number) => {
 		const k = `${category}|${item}|${unit}`
 		const l = lines.get(k)
@@ -145,10 +147,14 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = []): BomLine[] 
 		const item = d.catalogId ?? (d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`)
 		add(d.kind === 'panel' ? 'Panels' : 'Devices', item, 'ea', 1)
 	}
-	for (const l of p.links) {
-		const type = l.cableType ?? 'cable'
-		if (l.lengthM) add('Cable', `${type} (${l.kind})`, 'm', l.lengthM)
-		else add('Cable', `${type} (${l.kind}) — length unknown`, 'ea', 1)
+	// cable: routed (or hand-set) lengths + waste %, in metres with a box estimate; links with no route counted apart
+	const cable = cableSettings(p)
+	const settings = p.get('settings')
+	const media = (type: string) => (settings?.type === 'settings' ? settings.cableTypes.find((t) => t.id === type)?.media : undefined) ?? (/fib|om\d|os\d|sm|mm/i.test(type) ? 'fibre' : 'copper')
+	for (const m of cableMetres(p, routes ?? routeLinks(p, cable), cable)) {
+		const item = `${m.type} (incl. ${cable.wastePct}% waste)`
+		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
+		if (m.unrouted) add('Cable', `${m.type} — no route, length unknown`, 'ea', m.unrouted)
 	}
 	for (const c of p.cords) if (c.status !== 'remove') add('Patch cords', `${c.cableType} ${c.lengthM} m`, 'ea', 1)
 	for (const r of runLengths(p)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM)
@@ -157,8 +163,8 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = []): BomLine[] 
 		else if (s.catalogId && s.role?.kind !== 'containment') add('Items', s.catalogId, 'ea', 1)
 	}
 
-	return [...lines.values()]
-		.map((l) => (l.unit === 'm' ? { ...l, qty: Math.ceil(l.qty) } : l))
+	return [...lines.entries()]
+		.map(([k, l]) => ({ ...(l.unit === 'm' ? { ...l, qty: Math.ceil(l.qty) } : l), ...(notes.has(k) ? { note: notes.get(k) } : {}) }))
 		.sort((a, b) => naturalCompare(a.category, b.category) || naturalCompare(a.item, b.item))
 }
 

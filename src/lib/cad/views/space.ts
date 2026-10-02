@@ -26,11 +26,11 @@ export interface ViewSpace {
 }
 
 export const PLAN: ViewSpec = { kind: 'plan' }
-export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.kind === 'sheet' ? `sheet:${s.sheetId}` : s.dir)
-export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'row' ? `Racks ${s.face}` : s.kind === 'sheet' ? 'Sheet' : s.dir[0].toUpperCase() + s.dir.slice(1))
+export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'riser' ? 'riser' : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.kind === 'sheet' ? `sheet:${s.sheetId}` : s.dir)
+export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'riser' ? 'Riser' : s.kind === 'row' ? `Racks ${s.face}` : s.kind === 'sheet' ? 'Sheet' : s.dir[0].toUpperCase() + s.dir.slice(1))
 
 export function spaceOf(spec: ViewSpec, origin: Pt = { x: 0, y: 0 }): ViewSpace {
-	if (spec.kind === 'row') {
+	if (spec.kind === 'row' || spec.kind === 'riser') {
 		// A rack row is laid out along the view, not at plan positions: there is no model x / y to give back yet.
 		// Dragging maps to no model movement (devices move by U in the device tool, slice 3.2).
 		return {

@@ -16,6 +16,7 @@
 	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList } from '../views/sheet'
+	import { riserDisplayList } from '../views/riser'
 	import type { Sheet } from '../domain/drawing'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds } from '../views/display'
@@ -24,6 +25,7 @@
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, type Camera } from '../editor/camera'
 	import Prims from './Prims.svelte'
+	import { fillTone, FILL_LIMIT_PCT } from '../domain/fill'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus }: {
 		project: CadProject; ws: Workspace; levelId: string; spec: ViewSpec
@@ -36,7 +38,7 @@
 
 	const PLOT_SCALE = 100
 	const FACES = ['front', 'rear'] as const
-	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }]
+	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 
 	let svg: SVGSVGElement | undefined = $state()
 	let w = $state(800), h = $state(600)
@@ -53,8 +55,10 @@
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec)
 			: spec.kind === 'sheet'
-				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock }) : [])
-				: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes }) : [])
+				: spec.kind === 'riser'
+					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes })
+					: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
 	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
 	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
 	const vpHighlight = $derived.by((): Prim[] => {
@@ -97,6 +101,41 @@
 			p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline colour: the trace look wins
 			p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
 	})
+	/** Fill overlay (Phase 5.3, plan): each run segment with cables in it as a band in its fill tone, with its %. */
+	const fillOverlay = $derived.by((): Prim[] => {
+		if (spec.kind !== 'plan' || !ws.showFill) return []
+		const out: Prim[] = []
+		for (const f of project.fills.values()) {
+			const s = project.index.get(f.shape)
+			if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
+			const g = s.geom, sg = g.segs.find((x) => x.id === f.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
+			if (!a || !b || (a.levelId ?? s.levelId) !== levelId || Math.hypot(b.x - a.x, b.y - a.y) < 0.5) continue
+			const tone = fillTone(f.pct), w = (sg?.section ?? s.section)?.w ?? 100
+			out.push({ k: 'line', pts: [a, b], w: Math.max(w, 150), cls: `fill-band fill-${tone}` })
+			out.push({ k: 'text', at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, text: Number.isFinite(f.pct) ? `${Math.round(f.pct)}%` : 'no size', size: 2.2 * PLOT_SCALE, anchor: 'middle', cls: `fill-label fill-${tone}` })
+		}
+		return out
+	})
+	/** The cable routes (Phase 5) of the selected outlets / links / panel ports, drawn over the runs they use (plan). */
+	const routeHighlight = $derived.by((): Prim[] => {
+		if (spec.kind !== 'plan') return []
+		const ix = project.index, links = new Set<string>()
+		for (const id of ws.selection) {
+			const e = ix.get(id)
+			if (e?.type === 'outlet') for (const p of e.ports) { const l = ix.linkAt({ on: e.id, port: p.port }); if (l) links.add(l.id) }
+			else if (e?.type === 'link') links.add(e.id)
+		}
+		if (ws.portSel) for (const n of ws.portSel.ports) { const l = ix.linkAt({ on: ws.portSel.on, port: n }); if (l) links.add(l.id) }
+		const out: Prim[] = []
+		for (const id of links) for (const r of project.routes.get(id)?.segs ?? []) {
+			const s = ix.get(r.shape)
+			if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
+			const g = s.geom, sg = g.segs.find((x) => x.id === r.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
+			if (!a || !b || ![a.levelId ?? s.levelId, b.levelId ?? s.levelId].includes(levelId)) continue
+			out.push(Math.hypot(b.x - a.x, b.y - a.y) < 0.5 ? { k: 'circle', c: a, r: 150, cls: 'trace-route' } : { k: 'line', pts: [a, b], cls: 'trace-route' })
+		}
+		return out
+	})
 	const linked = $derived.by((): Prim[] => {
 		if (!other || !prims.length) return []
 		const b = unionBounds(prims.map(primBounds))!
@@ -112,12 +151,22 @@
 
 	/** Each view (level + plan / elevation / rack row) keeps its own pan and zoom: switching away and back restores it. */
 	const cams = new Map<string, { cam: Camera; fitted: string | null }>()
+	let hiddenUntilFit = $state(false)
 	let viewKey = ''
+
+	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
+	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
+	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
+		[...project.index.byId.values()].some((u) => u.type === 'underlay' && u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
 
 	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the
 	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */
 	$effect(() => {
 		const ps = prims, vk = `${levelId}:${specKey(spec)}`, key = `${vk}:${ps.some((p) => p.k === 'image')}:${Math.round(w / 200)}`
+		// a view not fitted yet stays hidden until its floorplan is in, then fits once
+		const seen = untrack(() => cams.has(vk) || (viewKey === vk && fittedFor !== null))
+		if (floorplanPending && !seen) { hiddenUntilFit = true; return }
+		hiddenUntilFit = false
 		untrack(() => {
 			if (vk !== viewKey) {
 				if (viewKey) cams.set(viewKey, { cam, fitted: fittedFor })
@@ -250,10 +299,12 @@
 		style:cursor={panning?.moved ? 'grabbing' : ws.tool.cursor}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}
 		oncontextmenu={(e) => e.preventDefault()}>
-		<g transform="translate({cam.x} {cam.y}) scale({cam.k})">
+		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={traceHighlight} selected={new Set()} />
+			<Prims prims={fillOverlay} selected={new Set()} />
+			<Prims prims={routeHighlight} selected={new Set()} />
 			<Prims prims={vpHighlight} selected={new Set()} />
 			<Prims prims={portHighlight} selected={new Set()} />
 			<Prims prims={preview} selected={new Set()} />
@@ -267,6 +318,10 @@
 		{#each VIEWS as v (specKey(v))}
 			<button class:on={specKey(v) === specKey(spec)} onclick={() => { onfocus?.(); onspec(v) }}>{specLabel(v)}</button>
 		{/each}
+		{#if spec.kind === 'plan'}
+			<span class="sep"></span>
+			<button class:on={ws.showFill} title="Colour runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
+		{/if}
 		{#if spec.kind === 'row'}
 			{@const row = spec}
 			<span class="sep"></span>
@@ -280,6 +335,7 @@
 			<span class="room">{sheet.number} {sheet.title} · {sheet.paper.size} {sheet.paper.orientation}</span>
 		{/if}
 	</div>
+	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
 	<div class="scale">{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}</div>
 </div>
 
@@ -291,6 +347,7 @@
 	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
 	.views .sep { width: 1px; background: #d4d4d8; margin: 0 4px; }
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
+	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }
 	.scale { position: absolute; bottom: 4px; left: 8px; font-size: 10px; color: #a1a1aa; pointer-events: none; }
 	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; stroke-dasharray: 4 3; }
 </style>

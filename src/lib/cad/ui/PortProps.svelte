@@ -9,6 +9,7 @@
 	import { newId } from '../domain/ids'
 	import { traceCircuit } from '../domain/cords'
 	import Trace from './Trace.svelte'
+	import { riserRuns } from '../domain/interconnect'
 	import type { Device, Link } from '../domain/types'
 
 	let { project, ws, sel }: { project: CadProject; ws: Workspace; sel: PortSel } = $props()
@@ -49,6 +50,27 @@
 		project.store.transact(usage ? `Reserve ports for ${usage}` : 'Clear reservation', (tx) => tx.put({ ...d, panel: { ...d.panel!, reservations: reservations.length ? reservations : undefined } }))
 	}
 
+	// ── the permanent cables on these ports (Phase 5): any kind, one per port ──
+	const cables = $derived([...new Map(sel.ports.map((n) => project.index.linkAt({ on: sel.on, port: n })).filter((l): l is Link => !!l).map((l) => [l.id, l])).values()])
+	const lengthText = $derived.by(() => {
+		const ls = cables.map((l) => project.routes.get(l.id)?.lengthM).filter((m): m is number => m != null)
+		const none = cables.length - ls.length
+		if (!ls.length) return 'no route'
+		const lo = Math.min(...ls), hi = Math.max(...ls)
+		return `${lo === hi ? `${lo}m` : `${lo}–${hi}m`}${cables.length > 1 ? ` · total ${ls.reduce((a, b) => a + b, 0)}m` : ''}${none ? ` · ${none} no route` : ''}`
+	})
+	const same = <T,>(xs: T[]) => (xs.every((x) => x === xs[0]) ? xs[0] : '*')
+	const viaShown = $derived(same(cables.map((l) => l.via ?? '')))
+	const handShown = $derived.by(() => { const h = same(cables.map((l) => l.lengthM ?? '')); return h === '*' ? '' : h })
+	function setVia(v: string) {
+		project.store.transact(v ? `Route ${cables.length} cable(s) via ${project.index.nameOf(v)}` : 'Route by the shortest way', (tx) => { for (const l of cables) tx.put({ ...l, via: v || undefined }) })
+	}
+	function setHand(v: string) {
+		const m = v.trim() === '' ? undefined : Math.max(0, Number(v))
+		if (m != null && !Number.isFinite(m)) return
+		project.store.transact(m == null ? 'Cable length: routed' : `Cable length ${m} m by hand`, (tx) => { for (const l of cables) tx.put({ ...l, lengthM: m }) })
+	}
+
 	function edit(n: number, input: HTMLInputElement) {
 		const text = input.value
 		input.value = project.index.portLabel({ on: sel.on, port: n, face: sel.face })   // shows the new text once written
@@ -61,7 +83,25 @@
 <p class="text-zinc-500">Click a port · Shift-click a range · Ctrl-click to add or drop one</p>
 <div class="acts">
 	<button title="Patch these ports to another device: click its first port next (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}>Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to…</button>
+	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack elevation and click its first port" onclick={() => ws.interconnectFrom(sel)}>Interconnect to…</button>{/if}
 </div>
+{#if cables.length}
+	<!-- the permanent cables on the selected ports (Phase 5): routed length, the riser a backbone takes, a hand length -->
+	{@const r0 = project.routes.get(cables[0].id)}
+	<p class="pt-1 font-semibold">Cable{cables.length > 1 ? `s (${cables.length})` : ''} <span class="font-normal text-zinc-500">{[...new Set(cables.map((l) => l.kind))].join(' / ')} · {cables[0].cableType ?? ''}</span></p>
+	<div class="row"><span>Length</span><span class="font-mono" class:text-red-600={cables.some((l) => project.routes.get(l.id)?.problem || project.routes.get(l.id)?.over90)}>{lengthText}</span></div>
+	{#if cables.length === 1 && r0?.problem}<p class="text-red-600">No route: {r0.problem}</p>{/if}
+	{#if cables.some((l) => l.kind !== 'horizontal')}
+		<label class="row" title="The riser (a run between floors) these cables must use — e.g. a second riser for diversity. Shortest = whichever routing finds.">Riser
+			<select value={viaShown} onchange={(e) => setVia(e.currentTarget.value)}>
+				<option value="">Shortest</option>
+				{#if viaShown === '*'}<option value="*">(mixed)</option>{/if}
+				{#each riserRuns(project.index) as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
+			</select></label>
+	{/if}
+	<label class="row" title="A length typed by hand (as-built, or where the containment isn't drawn); blank = the routed length">By hand (m)
+		<input class="inp w-16" type="number" min="0" step="1" value={handShown} placeholder="routed" onchange={(e) => setHand(e.currentTarget.value)} /></label>
+{/if}
 {#if sel.ports.length === 1}
 	<Trace {project} steps={traceCircuit(project.index, { on: sel.on, port: sel.ports[0] })} />
 {/if}
@@ -95,4 +135,6 @@
 	.acts button:hover { background: #f4f4f5; }
 	.from { color: #71717a; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
+	.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }
+	.row select, .row .inp { max-width: 9rem; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; }
 </style>

@@ -1,0 +1,114 @@
+// The RISER view (Phase 5.5): the building's backbone as a schematic elevation, generated from the data — nothing is
+// drawn by hand (Dave: "risers from data only is ok for now"). Looking at the building from the front: x = plan x,
+// up = true elevation (view y = −z, y down like every view). It shows:
+//   · a band per floor: the slab under FFL, FFL, and the ceiling line (Level.heights); floors with area plans (33F
+//     3303 / 3307) share one band;
+//   · the server rooms, at the x of their placed racks;
+//   · the riser runs (containment between levels) at their real x, with their labels;
+//   · the BACKBONE cables, grouped per panel pair + cable type + the risers their routes use, each group as one
+//     line room → riser → room labelled "24 × cat6a · 12m". Groups sharing a riser are laid side by side in lanes.
+// Positions are real where the data has them; the view is a schematic (cable lengths come from the plans' routes).
+import type { Id, Level, Rack, Device, Link } from '../domain/types'
+import type { Shape, PathNode } from '../domain/shapes'
+import type { ProjectIndex } from '../domain/project'
+import type { Route } from '../domain/routing'
+import { routeLinks, levelElevation } from '../domain/routing'
+import { isVertical } from '../domain/shapes'
+import type { Prim } from './display'
+
+const ROOM_H = 2200, LANE = 180, MARGIN = 3000
+
+export interface RiserOpts { scale?: number; routes?: Map<Id, Route> }
+
+/** The risers: containment with a vertical segment between two levels. */
+export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number; z0: number; z1: number; w: number }[] {
+	const out: { s: Shape; x: number; y: number; z0: number; z1: number; w: number }[] = []
+	for (const s of ix.shapes) {
+		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
+		const z = (n: PathNode) => n.z + levelElevation(ix, n.levelId ?? s.levelId)
+		for (const g of s.geom.segs) {
+			const a = nodes.get(g.a), b = nodes.get(g.b)
+			if (!a || !b || !isVertical(a, b) || (a.levelId ?? s.levelId) === (b.levelId ?? s.levelId)) continue
+			out.push({ s, x: a.x, y: a.y, z0: Math.min(z(a), z(b)), z1: Math.max(z(a), z(b)), w: Math.max(s.section?.w ?? 150, 150) })
+		}
+	}
+	return out
+}
+
+export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
+	const k = o.scale ?? 100, txt = 2.5 * k, small = 2 * k
+	const routes = o.routes ?? routeLinks(ix)
+	const shafts = riserShafts(ix)
+	// rooms at the x of their placed racks
+	const rooms = ix.spaces.filter((sp) => sp.kind === 'server room').flatMap((sp) => {
+		const racks = ix.racks.filter((r) => r.spaceId === sp.id && r.at)
+		if (!racks.length) return []
+		const xs = racks.flatMap((r) => [r.at!.x - r.widthMm / 2, r.at!.x + r.widthMm / 2])
+		return [{ sp, x0: Math.min(...xs) - 300, x1: Math.max(...xs) + 300, z: levelElevation(ix, sp.levelId) }]
+	})
+	const xs = [...rooms.flatMap((r) => [r.x0, r.x1]), ...shafts.map((s) => s.x)]
+	if (!xs.length) return [{ k: 'text', at: { x: 0, y: 0 }, text: 'No risers or placed server rooms yet', size: txt, cls: 'label' }]
+	const x0 = Math.min(...xs) - MARGIN, x1 = Math.max(...xs) + MARGIN
+	const out: Prim[] = []
+
+	// floors: one band per elevation (area plans share it)
+	const byElev = new Map<number, Level[]>()
+	for (const l of ix.levels) byElev.set(l.elevationMm, [...(byElev.get(l.elevationMm) ?? []), l])
+	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
+		const h = ls[0].heights, slab = h?.slabMm ?? 200, ceil = h?.clearHeightMm ?? 2600
+		out.push({ k: 'line', pts: [{ x: x0, y: -e }, { x: x1, y: -e }, { x: x1, y: -(e - slab) }, { x: x0, y: -(e - slab) }], closed: true, fill: true, cls: 'riser-slab' })
+		out.push({ k: 'line', pts: [{ x: x0, y: -e }, { x: x1, y: -e }], cls: 'riser-ffl' })
+		out.push({ k: 'line', pts: [{ x: x0, y: -(e + ceil) }, { x: x1, y: -(e + ceil) }], cls: 'riser-ceiling' })
+		const names = [...new Set(ls.map((l) => l.name))].join(' / ')
+		out.push({ k: 'text', at: { x: x0 + 200, y: -e - 300 }, text: `${names}  FFL ${(e / 1000).toFixed(2)}`, size: txt, cls: 'rv-label' })
+	}
+	for (const r of rooms) {
+		out.push({ k: 'line', pts: [{ x: r.x0, y: -r.z }, { x: r.x1, y: -r.z }, { x: r.x1, y: -(r.z + ROOM_H) }, { x: r.x0, y: -(r.z + ROOM_H) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
+		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(r.z + ROOM_H) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
+	}
+	for (const sh of shafts) {
+		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -sh.z0 }, { x: sh.x + sh.w / 2, y: -sh.z0 }, { x: sh.x + sh.w / 2, y: -sh.z1 }, { x: sh.x - sh.w / 2, y: -sh.z1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
+		out.push({ k: 'text', at: { x: sh.x, y: -sh.z1 - small * 0.6 }, text: sh.s.label || 'Riser', size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
+	}
+
+	// backbone groups
+	const rackOf = (on: Id) => { const d = ix.get<Device>(on); return d?.type === 'device' ? ix.get<Rack>(d.rackId) : undefined }
+	const roomBox = (rack: Rack | undefined) => rooms.find((r) => r.sp.id === rack?.spaceId)
+	const shaftIds = new Set(shafts.map((s) => s.s.id))
+	type Group = { a: Id; b: Id; type: string; risers: Id[]; links: Link[]; lengths: number[]; unrouted: number }
+	const groups = new Map<string, Group>()
+	for (const l of ix.links) {
+		if (l.kind !== 'backbone') continue
+		const ra = rackOf(l.a.on), rb = rackOf(l.b.on)
+		if (!ra || !rb) continue
+		const r = routes.get(l.id), risers = [...new Set((r?.segs ?? []).map((s) => s.shape).filter((id) => shaftIds.has(id)))]
+		const [a, b] = ra.id < rb.id ? [ra.id, rb.id] : [rb.id, ra.id]
+		const key = `${a}|${b}|${l.cableType ?? ''}|${risers.join(',')}`
+		const g = groups.get(key) ?? { a, b, type: l.cableType ?? 'cable', risers, links: [], lengths: [], unrouted: 0 }
+		g.links.push(l)
+		if (r?.lengthM != null && !r.problem) g.lengths.push(r.lengthM)
+		else g.unrouted++
+		groups.set(key, g)
+	}
+	const lanesAt = new Map<Id, number>()   // per riser: lanes used so far
+	let n = 0
+	for (const g of groups.values()) {
+		const ra = ix.get<Rack>(g.a)!, rb = ix.get<Rack>(g.b)!, A = roomBox(ra), B = roomBox(rb)
+		if (!A || !B) continue
+		const lo = A.z <= B.z ? { rack: ra, box: A } : { rack: rb, box: B }, hi = lo.rack === ra ? { rack: rb, box: B } : { rack: ra, box: A }
+		const yA = -(lo.box.z + 600 + (n % 6) * 120), yB = -(hi.box.z + 600 + (n % 6) * 120)
+		const xa = lo.rack.at!.x, xb = hi.rack.at!.x
+		const sh = shafts.find((s) => s.s.id === g.risers[0])
+		const lane = sh ? (lanesAt.get(sh.s.id) ?? 0) : 0
+		if (sh) lanesAt.set(sh.s.id, lane + 1)
+		const xr = sh ? sh.x + (lane - 0.5) * LANE : (xa + xb) / 2
+		const pts = sh || lo.box.z !== hi.box.z ? [{ x: xa, y: yA }, { x: xr, y: yA }, { x: xr, y: yB }, { x: xb, y: yB }] : [{ x: xa, y: yA }, { x: xb, y: yB }]
+		const len = g.lengths.length ? (Math.min(...g.lengths) === Math.max(...g.lengths) ? `${g.lengths[0]}m` : `${Math.min(...g.lengths)}–${Math.max(...g.lengths)}m`) : ''
+		const label = `${g.links.length} × ${g.type}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
+		out.push({ k: 'line', pts, cls: g.unrouted === g.links.length ? 'backbone backbone-none' : 'backbone', src: g.links[0].id })
+		out.push({ k: 'text', at: { x: xr + small * 0.4, y: (yA + yB) / 2 }, text: label, size: small, cls: 'backbone-label', src: g.links[0].id })
+		n++
+	}
+	return out
+}

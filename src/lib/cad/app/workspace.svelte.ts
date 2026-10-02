@@ -17,7 +17,7 @@ export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord'
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
-	select: ['plan', 'elevation', 'row', 'sheet'],
+	select: ['plan', 'elevation', 'row', 'sheet', 'riser'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -39,6 +39,8 @@ export class Workspace {
 	prompt = $state<Prompt | null>(null)
 	/** The template the device tool adds (chosen in the tool bar). */
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
+	/** The plan's Fill overlay (Phase 5.3). */
+	showFill = $state(false)
 	/** A short status message (why a click was refused …); clears itself. */
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined
@@ -72,6 +74,12 @@ export class Workspace {
 	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
 	patchFrom(sel: PortSel): void {
 		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face }
+		this.toolId = 'cord'
+	}
+	/** Arm an interconnect from these ports (backbone / tie cables, Phase 5): the next port clicked — in any room, on
+	 *  any floor — is where they start on the other panel. */
+	interconnectFrom(sel: PortSel): void {
+		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }
 		this.toolId = 'cord'
 	}
 	/** Arm "assign by hand" with these outlets; the next panel-port click places them. */

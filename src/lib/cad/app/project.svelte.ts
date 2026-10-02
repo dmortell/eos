@@ -6,6 +6,8 @@ import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
 import { PROJECT_SCOPE, levelScope, sheetScope } from '../persist/docs'
 import { ProjectIndex } from '../domain/project'
+import { routeLinks, cableSettings } from '../domain/routing'
+import { fillBySegment } from '../domain/fill'
 import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
 import { PdfCache } from './pdf.svelte'
@@ -46,6 +48,10 @@ export class CadProject {
 	index = $derived.by(() => { void this.rev; return new ProjectIndex(this.store.all()) })
 	levels = $derived.by((): Level[] => [...this.index.levels].sort((a, b) => a.order - b.order))
 	settings = $derived.by(() => { void this.rev; return this.store.get('settings') as ProjectSettings | undefined })
+	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data. */
+	routes = $derived.by(() => routeLinks(this.index, cableSettings(this.index)))
+	/** How full each run segment is from those routes (Phase 5.3). */
+	fills = $derived.by(() => fillBySegment(this.index, this.routes))
 	canUndo = $derived.by(() => { void this.rev; return this.store.canUndo })
 	canRedo = $derived.by(() => { void this.rev; return this.store.canRedo })
 
@@ -76,10 +82,14 @@ export class CadProject {
 		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true })
 	}
 
+	/** Scopes whose first snapshot has arrived (a plan waits for its level's before fitting the view). */
+	loadedScopes = $state<Record<string, true>>({})
+	levelLoaded = (levelId: Id) => !!this.loadedScopes[levelScope(levelId)]
+
 	/** A level's plan data loads with its level, a sheet's paper notes with its sheet (ADR 0003 scopes). */
 	#watchLevels(): void {
 		const scopes = [...this.store.ofType('level').map((l) => levelScope(l.id)), ...this.store.ofType('sheet').map((s) => sheetScope(s.id))]
-		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s]) }
+		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s], () => { this.loadedScopes[s] = true }) }
 	}
 
 	/** Writes not yet confirmed by the server (kept current by Sync — a write can finish with no store change). */

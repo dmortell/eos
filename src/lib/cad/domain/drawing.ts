@@ -59,6 +59,8 @@ export type ViewSpec =
 	| { kind: 'row'; spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
 	/** A drawing sheet's paper (Phase 4, views/sheet.ts). */
 	| { kind: 'sheet'; sheetId: Id }
+	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts). */
+	| { kind: 'riser' }
 
 /** A window on a sheet onto one view, at a true scale. */
 export interface Viewport {

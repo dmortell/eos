@@ -224,6 +224,9 @@ export interface Link {
 	lengthM?: number
 	/** The containment-shape segments the cable runs through, in order (set by routing or by hand). */
 	route?: { shape: Id; seg: Id }[]
+	/** A run the route must use — which riser a backbone takes (two risers for diversity). Routing still finds the
+	 *  shortest way to and from it (Phase 5). */
+	via?: Id
 	/** Re-allocation never moves a pinned link. */
 	pinned?: boolean
 	status: 'design' | 'installed'
@@ -265,6 +268,8 @@ export interface ProjectSettings {
 	/** Optional patterns ($lib/elevation/labelTemplate syntax) for Relabel (a later tool) and for new labels, e.g.
 	 *  outlet `Z.NNN`, port `"L"FF.Z.NNN-SPP[-H]`. Absent = new labels come from "next number" only. */
 	labelPatterns?: { outlet?: string; port?: string }
+	/** Cable lengths (Phase 5): slack at the outlet (m, added to each routed length) and waste % (on BOM metres). */
+	cable?: { slackM?: number; wastePct?: number }
 	usages: { id: string; label: string; color: string }[]
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number }[]
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }
