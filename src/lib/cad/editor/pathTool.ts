@@ -1,0 +1,118 @@
+// The path tool (ADR 0006 / 0007): one tool, four presets — a plain LINE, a TRUNK, a CONDUIT or a WALL are the same
+// path with a different section and role. Click points at work Z; R = Rise / drop (a vertical segment at the last
+// point, the run carries on at the new Z); Enter / double-click / right-click finishes; Backspace drops the last point;
+// Esc finishes (or cancels with < 2 points). Snapping onto an outlet or rack ATTACHES the node so it follows it.
+import type { Id, Pt } from '../domain/types'
+import type { Prim } from '../views/display'
+import type { Section } from '../domain/shapes'
+import type { Tool, ToolCtx, PointerIn } from './tools'
+import { snapMark } from './tools'
+import type { Snap } from './snap'
+import { makePath, toWall, toContainment } from '../domain/make'
+
+export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
+
+interface Pick { x: number; y: number; z: number; attach?: Id; levelId?: Id }
+
+export class PathTool implements Tool {
+	readonly cursor = 'crosshair'
+	pts: Pick[] = []
+	#hover: Snap | null = null
+
+	constructor(readonly id: PathKind) {}
+
+	/** Picks are MODEL points: a plan click lands at the work Z, an elevation click on the work plane (its height is the
+	 *  click), so the same tool draws runs in either view — on an elevation a drop is simply drawn. */
+	down(e: PointerIn, c: ToolCtx): void {
+		const s = c.snap(e.p, e.alt)
+		this.#add(s.p, c, s.attach)
+		if ((e.count ?? 1) >= 2) this.finish(c)
+	}
+
+	/** A typed point (no snap) — like a click there. */
+	typed(p: Pt, c: ToolCtx): void { this.#add(p, c) }
+	lastPoint(c: ToolCtx): Pt | null { const l = this.pts.at(-1); return l ? c.space.fromWorld(l) : null }
+
+	#add(view: Pt, c: ToolCtx, attach?: Id): void {
+		const w = c.space.toWorld(view, c.work)
+		const p = { x: round(w.x), y: round(w.y), z: round(w.z) }
+		const last = this.pts.at(-1)
+		if (!last || last.x !== p.x || last.y !== p.y || last.z !== p.z) this.pts.push({ ...p, ...(attach ? { attach } : {}) })
+	}
+	move(e: PointerIn, c: ToolCtx): void { this.hover(e, c) }
+	up(): void {}
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = c.snap(e.p, e.alt) }
+
+	key(e: KeyboardEvent, c: ToolCtx): boolean {
+		if (e.key === 'Enter') { this.finish(c); return true }
+		if (e.key === 'Backspace') { this.pts.pop(); return true }
+		if (e.key.toLowerCase() === 'r' && this.pts.length) {
+			c.ask('Rise / drop to Z (mm above FFL)', c.opts.z, (z) => this.riseTo(z, c))
+			return true
+		}
+		if (e.key.toLowerCase() === 'v' && this.pts.length && this.id !== 'wall') {
+			const here = c.index.get(c.levelId)
+			c.ask('Riser to level number', here?.type === 'level' ? here.number + 1 : 0, (n) => this.riserTo(n, c))
+			return true
+		}
+		// Esc with nothing drawn yet is not ours: the shell then goes back to Select
+		if (e.key === 'Escape') { if (!this.pts.length) return false; if (this.pts.length >= 2) this.finish(c); else this.cancel(); return true }
+		return false
+	}
+
+	/** A riser: a vertical segment from the last point to FFL of another level, then the run ends there (carry on
+	 *  from that node on the other level's plan with Ctrl-drag). Unknown level numbers do nothing. */
+	riserTo(levelNumber: number, c: ToolCtx): void {
+		const last = this.pts.at(-1)
+		const lv = c.index.levels.find((l) => l.number === levelNumber && l.id !== c.levelId)
+		if (!last || !lv) return
+		this.pts.push({ x: last.x, y: last.y, z: 0, levelId: lv.id })
+		this.finish(c)
+	}
+
+	/** A vertical segment at the last point; the run carries on at the new Z. */
+	riseTo(z: number, c: ToolCtx): void {
+		const last = this.pts.at(-1)
+		if (!last || z === last.z) return
+		this.pts.push({ x: last.x, y: last.y, z })
+		c.opts.z = z
+	}
+
+	finish(c: ToolCtx): void {
+		if (this.pts.length < 2) { this.cancel(); return }
+		const pts = this.pts
+		this.pts = []
+		const line = makePath({ levelId: c.levelId }, pts)
+		// carry each pick's attachment onto its node
+		if (line.geom.kind === 'path') line.geom.nodes.forEach((n, i) => { if (pts[i].attach) n.attach = pts[i].attach; if (pts[i].levelId) n.levelId = pts[i].levelId })
+		const shape = this.id === 'line' ? line
+			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
+			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
+		c.store.transact(`Draw ${this.id}`, (tx) => tx.put(shape))
+		c.select([shape.id])
+	}
+
+	cancel(): void { this.pts = []; this.#hover = null }
+
+	#section(c: ToolCtx): Section {
+		return this.id === 'conduit' ? { w: c.opts.w, h: c.opts.w, round: true, anchor: 'centre' } : { w: c.opts.w, h: c.opts.h }
+	}
+
+	/** Drawn in the VIEW: the picks projected into it, plus the rubber band to the cursor. */
+	preview(c: ToolCtx): Prim[] {
+		const out: Prim[] = []
+		const view = this.pts.map((p) => c.space.fromWorld(p))
+		const pts: Pt[] = [...view]
+		if (this.#hover && pts.length) pts.push(this.#hover.p)
+		const w = this.id === 'line' ? undefined : c.opts.w
+		if (pts.length >= 2) out.push({ k: 'line', pts, ...(w ? { w } : {}), cls: `draft ${this.id}` })
+		for (let i = 1; i < view.length; i++) {
+			const a = view[i - 1], b = view[i]
+			if (a.x === b.x && a.y === b.y) out.push({ k: 'circle', c: a, r: (w ?? 100) / 2, cls: 'draft riser' })
+		}
+		if (this.#hover && this.#hover.kind !== 'grid') out.push(snapMark(this.#hover, c.tol()))
+		return out
+	}
+}
+
+const round = (v: number) => Math.round(v * 10) / 10

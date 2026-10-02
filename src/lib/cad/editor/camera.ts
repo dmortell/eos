@@ -1,0 +1,27 @@
+// A surface's camera: screen px = (drawing mm) × k + (x, y). Pure functions over a plain record, so the Svelte layer
+// keeps it in $state and tests need nothing.
+import type { Pt } from '../domain/types'
+import type { Bounds } from '../views/display'
+
+export interface Camera { x: number; y: number; k: number }
+
+export const MIN_K = 0.001, MAX_K = 50
+
+export const toModel = (c: Camera, s: Pt): Pt => ({ x: (s.x - c.x) / c.k, y: (s.y - c.y) / c.k })
+export const toScreen = (c: Camera, p: Pt): Pt => ({ x: p.x * c.k + c.x, y: p.y * c.k + c.y })
+
+/** Zoom by `factor` keeping the model point under the screen point `s` fixed. */
+export function zoomAt(c: Camera, s: Pt, factor: number): Camera {
+	const k = Math.min(MAX_K, Math.max(MIN_K, c.k * factor))
+	const m = toModel(c, s)
+	return { k, x: s.x - m.x * k, y: s.y - m.y * k }
+}
+
+export const panBy = (c: Camera, dx: number, dy: number): Camera => ({ ...c, x: c.x + dx, y: c.y + dy })
+
+/** Fit bounds into a w × h viewport with `pad` px around. */
+export function fit(b: Bounds, w: number, h: number, pad = 24): Camera {
+	const bw = Math.max(1, b.x1 - b.x0), bh = Math.max(1, b.y1 - b.y0)
+	const k = Math.min(MAX_K, Math.max(MIN_K, Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh)))
+	return { k, x: (w - bw * k) / 2 - b.x0 * k, y: (h - bh * k) / 2 - b.y0 * k }
+}

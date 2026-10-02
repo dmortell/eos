@@ -33,6 +33,7 @@
 		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
 		{ detail:0, href: 'edit3d', icon: 'panels', label: 'Edit 3D test', description: 'Testing 3d editor.', },
 		{ detail:0, href: 'pages', icon: 'panels', label: 'Pages test', description: 'Testing new look and feel.', },
+		{ detail:0, href: 'cad', icon: 'pencilRuler', label: 'CAD (new)', description: 'The domain-first rebuild: outlets, ports, racks and runs as project data, drawings generated from it (src/lib/cad).', },
 	])
 
 

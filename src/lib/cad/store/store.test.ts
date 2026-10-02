@@ -1,0 +1,102 @@
+import { describe, it, expect } from 'vitest'
+import { EntityStore, type Change } from './store'
+import { makeBox, makeText } from '../domain/make'
+import type { Shape } from '../domain/shapes'
+
+const box = (id: string, x = 0): Shape => ({ ...makeBox('L', { x, y: 0 }, 600, 600, 0, 720), id })
+const xOf = (s: EntityStore, id: string) => {
+	const e = s.get(id) as Shape | undefined
+	return e?.geom.kind === 'rect' ? e.geom.centre.x : undefined
+}
+const moved = (e: Shape, x: number): Shape => (e.geom.kind === 'rect' ? { ...e, geom: { ...e.geom, centre: { ...e.geom.centre, x } } } : e)
+
+describe('transactions and undo', () => {
+	it('an edit is one undo step; undo and redo restore exactly', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => { tx.put(box('a')); tx.put(box('b', 100)) })
+		s.transact('Move', (tx) => tx.put(moved(tx.get('a') as Shape, 500)))
+		expect(xOf(s, 'a')).toBe(500)
+		s.undo()
+		expect(xOf(s, 'a')).toBe(0)
+		s.undo()
+		expect(s.size).toBe(0)
+		s.redo(); s.redo()
+		expect(xOf(s, 'a')).toBe(500)
+		expect(xOf(s, 'b')).toBe(100)
+	})
+	it('a transaction that changes nothing records nothing', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		expect(s.transact('Nothing', (tx) => tx.put(tx.get('a')!))).toBeNull()
+		expect(s.undoLabels).toEqual(['Add'])
+	})
+	it('a new edit clears redo', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		s.undo()
+		s.transact('Other', (tx) => tx.put(box('b')))
+		expect(s.canRedo).toBe(false)
+	})
+	it('records are frozen: editing one in place throws instead of silently desyncing', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		const a = s.get('a') as Shape
+		expect(() => { (a.geom as { centre: { x: number } }).centre.x = 9 }).toThrow()
+	})
+})
+
+describe('gestures', () => {
+	it('a drag shows live, commits as ONE step, and Esc restores the start', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		const g = s.begin('Drag')
+		for (const x of [10, 20, 30]) g.update((tx) => tx.put(moved(tx.get('a') as Shape, x)))
+		expect(xOf(s, 'a')).toBe(30)
+		g.commit()
+		expect(s.undoLabels).toEqual(['Add', 'Drag'])
+		s.undo()
+		expect(xOf(s, 'a')).toBe(0)
+
+		const g2 = s.begin('Drag')
+		g2.update((tx) => tx.put(moved(tx.get('a') as Shape, 99)))
+		g2.rollback()
+		expect(xOf(s, 'a')).toBe(0)
+		expect(s.undoLabels).toEqual(['Add'])
+	})
+	it('each update starts from the gesture start, so a drag never accumulates', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a', 100)))
+		const g = s.begin('Drag')
+		for (const d of [10, 20]) g.update((tx) => { const e = tx.get('a') as Shape; tx.put(moved(e, (e.geom as { centre: { x: number } }).centre.x + d)) })
+		expect(xOf(s, 'a')).toBe(120)
+		g.commit()
+	})
+	it('only the committed result is final (what persistence writes)', () => {
+		const s = new EntityStore(), seen: Change[] = []
+		s.subscribe((c) => seen.push(c))
+		s.transact('Add', (tx) => tx.put(box('a')))
+		const g = s.begin('Drag')
+		g.update((tx) => tx.put(moved(tx.get('a') as Shape, 5)))
+		g.update((tx) => tx.put(moved(tx.get('a') as Shape, 7)))
+		g.commit()
+		expect(seen.filter((c) => c.final).map((c) => c.label)).toEqual(['Add', 'Drag'])
+	})
+})
+
+describe('other people', () => {
+	it("undo never overwrites someone else's newer edit of the same entity", () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => { tx.put(box('a')); tx.put(box('b')) })
+		s.transact('Move both', (tx) => { tx.put(moved(tx.get('a') as Shape, 50)); tx.put(moved(tx.get('b') as Shape, 50)) })
+		s.applyRemote([moved(s.get('b') as Shape, 777)])        // a colleague moves b
+		const res = s.undo()!
+		expect(xOf(s, 'a')).toBe(0)                             // ours: undone
+		expect(xOf(s, 'b')).toBe(777)                           // theirs: kept
+		expect(res.skipped.map((o) => o.id)).toEqual(['b'])
+	})
+	it('remote changes are not in my undo history', () => {
+		const s = new EntityStore()
+		s.applyRemote([makeText({ sheetId: 'S' }, { x: 0, y: 0 }, 'theirs')])
+		expect(s.canUndo).toBe(false)
+	})
+})
