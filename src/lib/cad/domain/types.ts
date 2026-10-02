@@ -10,6 +10,7 @@
 //  - Field names are Firestore-stable: no nested arrays (graphs use arrays of objects), no `undefined` (omit instead).
 //  - Persistence metadata (rev, updatedAt, updatedBy) is NOT here — see ADR 0003.
 import type { Pt } from './conventions'
+import type { TitleBlockTemplate } from './titleBlock'
 
 export type Id = string
 export type { Pt, Pt3 } from './conventions'
@@ -256,6 +257,8 @@ export interface ProjectSettings {
 	portSuffix: 'alpha' | 'numeric'
 	/** Between the outlet label and the suffix: '.' (default) 201.A, '' 201A, '-' 201-A. */
 	portSeparator?: '.' | '-' | ''
+	/** The project's title-block template (Pages' model, domain/titleBlock.ts); absent = the default. */
+	titleBlock?: TitleBlockTemplate
 	/** What the legacy import said to check, kept for reference (right sidebar → Import notes). `id` = the item it's
 	 *  about, when it still exists. */
 	importNotes?: { at: number; notes: { id: Id; code: string; message: string; severity: 'error' | 'warning' }[] }

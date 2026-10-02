@@ -1,0 +1,126 @@
+// The TITLE BLOCK drawn on a sheet (Phase 4.2): Pages' three layouts as display-list prims in paper mm, so the
+// screen and the PDF draw the same thing — a STRIP down the right (default), a BAND along the bottom, or a COMPACT box
+// in the bottom-right corner. Sections as in Pages: logo (images + text), the drawing office's lines, the full-width
+// fields, the revision table, then the half-width fields as a grid. Returns the prims and the area it takes.
+import type { TbShown } from '../domain/titleBlock'
+import type { Prim, Bounds } from './display'
+
+const CELL_H = 8, LABEL = 1.8, VALUE = 2.6, PAD = 1.5
+const REV_HEAD = 3.5, REV_ROW = 3.8
+const COMPANY_NAME = 3, COMPANY_LINE = 2
+
+/** Text cut to fit a width (≈ 0.6 em per character), with an ellipsis. */
+const fit = (t: string, width: number, size: number) => {
+	const n = Math.max(1, Math.floor(width / (size * 0.6)))
+	return t.length <= n ? t : t.slice(0, Math.max(1, n - 1)) + '…'
+}
+const box = (x0: number, y0: number, x1: number, y1: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls })
+const rule = (x0: number, y0: number, x1: number, y1: number): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y1 }], cls: 'tb-rule' })
+
+/** One cell: a small grey label over its value. */
+function cell(out: Prim[], x: number, y: number, w: number, label: string, value: string): void {
+	out.push({ k: 'text', at: { x: x + PAD, y: y + PAD + LABEL }, text: fit(label.toUpperCase(), w - 2 * PAD, LABEL), size: LABEL, cls: 'tb-label' })
+	out.push({ k: 'text', at: { x: x + PAD, y: y + CELL_H - PAD - 0.4 }, text: fit(value, w - 2 * PAD, VALUE), size: VALUE, cls: 'tb-value' })
+}
+
+const logoH = (s: TbShown) => (s.logos?.length || s.logo ? Math.max(12, ...(s.logos ?? []).map((l) => l.h ?? 10)) + 4 : 0)
+const companyH = (s: TbShown) => (s.company?.length ? 2 * PAD + COMPANY_NAME * 1.4 + (s.company.length - 1) * COMPANY_LINE * 1.5 : 0)
+const revsH = (s: TbShown) => (s.revisions?.length ? REV_HEAD + s.revisions.length * REV_ROW : 0)
+
+/** The logo section in a box: images left to right (each `h` mm high, up to ~3:1 wide), then the logo text. */
+function logoSection(out: Prim[], s: TbShown, x: number, y: number, w: number, h: number): void {
+	let cx = x + PAD
+	for (const l of s.logos ?? []) {
+		const lh = l.h ?? 10, lw = Math.min(lh * 3, (w - 2 * PAD) / Math.max(1, (s.logos?.length ?? 1) + (s.logo ? 1 : 0)))
+		out.push({ k: 'image', url: l.src, x: cx, y: y + (h - lh) / 2, w: lw, h: lh, fit: 'contain' })
+		cx += lw + PAD
+	}
+	if (s.logo) out.push({ k: 'text', at: { x: cx + 0.5, y: y + h / 2 + 2.4 }, text: fit(s.logo, x + w - cx - PAD, 7), size: 7, cls: 'tb-logo' })
+}
+
+function companySection(out: Prim[], s: TbShown, x: number, y: number, w: number): void {
+	let cy = y + PAD + COMPANY_NAME
+	s.company!.forEach((line, i) => {
+		const size = i === 0 ? COMPANY_NAME : COMPANY_LINE
+		out.push({ k: 'text', at: { x: x + PAD, y: cy }, text: fit(line, w - 2 * PAD, size), size, cls: i === 0 ? 'tb-company-name' : 'tb-company' })
+		cy += i === 0 ? COMPANY_NAME * 1.4 : COMPANY_LINE * 1.5
+	})
+}
+
+function revisionTable(out: Prim[], s: TbShown, x: number, y: number, w: number): void {
+	const cols = [0, 0.2, 0.54].map((f) => x + f * w), heads = ['REV', 'DATE', 'NOTE']
+	heads.forEach((t, i) => out.push({ k: 'text', at: { x: cols[i] + PAD, y: y + REV_HEAD - 0.9 }, text: t, size: 1.6, cls: 'tb-label' }))
+	out.push(rule(x, y + REV_HEAD, x + w, y + REV_HEAD))
+	s.revisions!.forEach((r, j) => {
+		const ry = y + REV_HEAD + (j + 1) * REV_ROW
+		;[r.code, r.date, r.note ?? ''].forEach((t, i) => {
+			const cw = (i < 2 ? cols[i + 1] : x + w) - cols[i]
+			out.push({ k: 'text', at: { x: cols[i] + PAD, y: ry - 1 }, text: fit(t, cw - 2 * PAD, 2), size: 2, cls: 'tb-value' })
+		})
+		out.push(rule(x, ry, x + w, ry))
+	})
+}
+
+/** Half-width cells `perRow` across, rows of CELL_H, from (x, y). */
+function grid(out: Prim[], cells: TbShown['cells'], x: number, y: number, w: number, perRow: number): void {
+	const cw = w / perRow
+	cells.forEach((c, i) => {
+		const cx = x + (i % perRow) * cw, cy = y + Math.floor(i / perRow) * CELL_H
+		cell(out, cx, cy, cw, c.label, c.value)
+		if (i % perRow) out.push(rule(cx, cy, cx, cy + CELL_H))
+		out.push(rule(x, cy + CELL_H, x + w, cy + CELL_H))
+	})
+}
+
+/**
+ * The block for a paper `w × h` with margin `m`. Nothing is drawn (and no area taken) when the sheet hides it; the
+ * template's `border` prints a hairline along the margin either way.
+ */
+export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { prims: Prim[]; area?: Bounds } {
+	const out: Prim[] = []
+	if (s.border) out.push(box(m, m, w - m, h - m, 'tb-border'))
+	if (s.hidden) return { prims: out }
+	const wide = s.cells.filter((c) => c.wide), half = s.cells.filter((c) => !c.wide)
+	const innerW = w - 2 * m
+
+	if (s.layout === 'horizontal') {
+		// a band along the bottom: logo | company | each full-width field | revisions | the grid (4 across)
+		const gridRows = Math.ceil(half.length / 4)
+		const bandH = Math.max(24, gridRows * CELL_H, logoH(s), companyH(s), revsH(s))
+		const y0 = h - m - bandH, cols: { w: number; draw: (x: number, cw: number) => void }[] = []
+		if (logoH(s)) cols.push({ w: Math.min(60, 8 + (s.logos?.length ?? 0) * 25 + (s.logo ? s.logo.length * 4.5 : 0)), draw: (x, cw) => logoSection(out, s, x, y0, cw, bandH) })
+		if (s.company) cols.push({ w: 55, draw: (x, cw) => companySection(out, s, x, y0, cw) })
+		for (const c of wide) cols.push({ w: 50, draw: (x, cw) => cell(out, x, y0, cw, c.label, c.value) })
+		if (s.revisions) cols.push({ w: 60, draw: (x, cw) => revisionTable(out, s, x, y0, cw) })
+		const used = cols.reduce((a, c) => a + c.w, 0)
+		if (half.length) cols.push({ w: Math.max(80, innerW - used), draw: (x, cw) => grid(out, half, x, y0, cw, 4) })
+		let x = m
+		const scale = Math.min(1, innerW / cols.reduce((a, c) => a + c.w, 0))
+		for (const [i, c] of cols.entries()) {
+			const cw = c.w * scale
+			c.draw(x, cw)
+			if (i < cols.length - 1) out.push(rule(x + cw, y0, x + cw, h - m))
+			x += cw
+		}
+		out.unshift({ k: 'line', pts: [{ x: m, y: y0 }, { x: w - m, y: y0 }, { x: w - m, y: h - m }, { x: m, y: h - m }], closed: true, fill: true, cls: 'tb-frame' })
+		return { prims: out, area: { x0: m, y0, x1: w - m, y1: h - m } }
+	}
+
+	// a strip down the right, or (compact) a box in the bottom-right corner; same sections top to bottom
+	const compact = s.layout === 'compact'
+	const W = compact ? Math.max(70, innerW * 0.34) : Math.min(80, Math.max(50, innerW * 0.16))
+	const x0 = w - m - W, x1 = w - m
+	const topH = logoH(s) + companyH(s) + wide.length * CELL_H
+	const bottomH = revsH(s) + Math.ceil(half.length / 2) * CELL_H
+	const y0 = compact ? h - m - topH - bottomH : m, y1 = h - m
+	let y = y0
+	if (logoH(s)) { logoSection(out, s, x0, y, W, logoH(s)); y += logoH(s); out.push(rule(x0, y, x1, y)) }
+	if (s.company) { companySection(out, s, x0, y, W); y += companyH(s); out.push(rule(x0, y, x1, y)) }
+	for (const c of wide) { cell(out, x0, y, W, c.label, c.value); y += CELL_H; out.push(rule(x0, y, x1, y)) }
+	// the revisions and the grid sit at the bottom (the strip's free space is above them)
+	let yb = y1 - Math.ceil(half.length / 2) * CELL_H
+	if (half.length) { out.push(rule(x0, yb, x1, yb)); grid(out, half, x0, yb, W, 2) }
+	if (s.revisions) { yb -= revsH(s); out.push(rule(x0, yb, x1, yb)); revisionTable(out, s, x0, yb, W) }
+	out.unshift({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, fill: true, cls: 'tb-frame' })
+	return { prims: out, area: { x0, y0, x1, y1 } }
+}

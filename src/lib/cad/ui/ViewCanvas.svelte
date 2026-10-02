@@ -53,13 +53,18 @@
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec)
 			: spec.kind === 'sheet'
-				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf }) : [])
+				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock }) : [])
 				: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
 	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
 	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
 	const vpHighlight = $derived.by((): Prim[] => {
 		if (spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId)) return []
-		return prims.flatMap((p) => (p.k === 'line' && p.sub === ws.viewportId && p.cls.startsWith('viewport') ? [{ ...p, cls: 'viewport sel', src: undefined }] : []))
+		const frame = prims.find((p) => p.k === 'line' && p.sub === ws.viewportId && p.cls.startsWith('viewport'))
+		if (!frame || frame.k !== 'line') return []
+		// corner grips (resize) on an unlocked viewport, a constant size on screen
+		const locked = sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, g = 4 / cam.k
+		const grips: Prim[] = locked ? [] : frame.pts.map((q) => ({ k: 'line', pts: [{ x: q.x - g, y: q.y - g }, { x: q.x + g, y: q.y - g }, { x: q.x + g, y: q.y + g }, { x: q.x - g, y: q.y + g }], closed: true, fill: true, cls: 'grip' }))
+		return [{ ...frame, cls: 'viewport sel', src: undefined }, ...grips]
 	})
 
 	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
@@ -148,7 +153,7 @@
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
 			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, say: ws.say,
-			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport } : {}),
+			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}

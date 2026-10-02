@@ -125,6 +125,72 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
   - A refresh reopened the sheet on 1F.
   - The test sheet stays for 4.2–4.6.
 
+### Fixes after 4.1 (Dave)
+- The URL sometimes kept `v=plan` after opening a sheet: `page.url` lags after `replaceState`, so the change looked
+  like nothing. It now compares with the address bar.
+- U numbers in narrow frames (P3C, 17 mm beside the rails) moved just outside the frame's left edge, where panels
+  can't cover them.
+- Port cells are at most 18 × 30 mm (a 24-port panel's spacing), so a 2-port server or a tower PC no longer draws
+  huge ports.
+- New sheets are numbered S001 (no hyphen) with a 5 mm margin.
+
+### Slice 4.2 — title block (built 2026-10-02)
+- **Model ported unchanged** from Pages (`domain/titleBlock.ts` + its tests): the template on
+  `ProjectSettings.titleBlock`, auto fields, custom fields, company lines, logo text + images, revision table, the
+  three layouts.
+- **Drawn as prims** (`views/titleBlock.ts`) so the screen and the PDF (4.3) draw the same thing:
+  - **strip** down the right (default) or **band** along the bottom (4 across), or a **compact** box bottom-right;
+  - sections as in Pages: logo, company, full-width fields, then revisions and the half-width grid at the bottom;
+  - values cut to fit with an ellipsis; logo images keep their proportions (`fit: 'contain'` on image prims);
+  - drawn over the viewports (a window that strays under it is covered); the template's border prints along the
+    margin.
+- **Values** (`titleBlockContext`):
+  - project name; sheet title and number; size ("A3 L");
+  - scale ("1:N", or "As shown" when the viewports differ); location (the viewports' levels);
+  - rev / date from `Sheet.revisions` (filled by 4.6);
+  - the sheet's own `titleBlock.fields` override any of them ("Drawn").
+- **New viewports** fill the drawing area: left of the strip, or above the band.
+- **Properties (sheet):**
+  - Drawn; Title block "on this sheet";
+  - **the template editor** (Pages' `TitleBlockEditor`, its imports changed and cad's colours): sections, border,
+    layout, logo text, logos uploaded to file storage, company, fields (relabel / width / drag to reorder / remove /
+    add).
+- **Tests:** 219 (the ported title-block tests; strip / band / compact, filled values, hidden, viewports clear of
+  the block).
+- **Live check on Test Project S-001:**
+  - The strip shows J / EIRE Systems K.K. / 03-1234-5678 / Test Project / Test sheet (cad 4.1) and the grid (As
+    shown, A3 L, DM, S-001).
+  - Switching Plan ↔ sheet three times kept the URL in step.
+
+### Fixes after 4.2 (Dave)
+- **PDU over R311's U numbers:** a PDU strip now hugs the outside of the 19″ rails (it was 20 mm in from the rack
+  edge, on the numbers), and the U scale draws after the rack's devices so nothing covers it. Test in
+  `rackRow.test.ts`.
+- **Viewport resize** (owed from 4.1's plan):
+  - a selected, unlocked viewport shows corner grips (constant size on screen); dragging one resizes the window
+    (≥ 10 mm), the view staying where it is on the paper;
+  - **Ctrl-drag inside** pans the view (its centre).
+  - Tests in `editor/sheet.test.ts`.
+- Title-block editor rows are tighter (no row padding, 18 px inputs).
+
+### Slice 4.3 — PDF (built 2026-10-02)
+- **`render/pdf.ts`:**
+  - `sheetPages` (each sheet's display list at its paper size) → `pagesToPdf` (jspdf, mm units).
+  - Vector paths and text; bands at their real width.
+  - Fills, dashes and opacity from a class → style table that mirrors `Prims.svelte`.
+  - Viewport windows clip.
+  - Images (floorplan renders as JPEG, logos as PNG at their own proportions) loaded through a canvas.
+  - Screen-only things skipped: paper edge, margin guide, hidden frames; text LOD at print resolution.
+- **Fonts:** symbols the standard fonts lack become plain text (№ → No., … → ..., → → ->). Anything else outside
+  Latin-1 is left out and REPORTED in the status line. Both projects' names and labels (Journey 3,088, Test
+  Project 324) are all Latin-1, so **no Japanese font for now**; embed one if a sheet ever needs it.
+- **UI:** sheet Properties → **PDF** (this sheet); Sheets header → **PDF all** (every sheet, one file). Both are
+  downloads; issuing (4.6) builds the same PDF and uploads it instead.
+- **Tests:** 226 (`render/pdf.test.ts`: a page per sheet at its own size, real text in the file, symbol swaps,
+  unsupported reported, screen-only skipped).
+- **Checked in the page** (Test Project, no download): S-001 → 1 page 420 mm wide, 23 KB, 31 ms, nothing
+  unsupported. The downloaded file is for Dave to look at.
+
 ## 6a. The original questions (answered above)
 
 1. **Title block:** keep Pages' model (one template per project; layouts vertical / horizontal / compact; logo,

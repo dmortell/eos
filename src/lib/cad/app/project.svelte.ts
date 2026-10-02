@@ -36,6 +36,8 @@ const TEMPLATES_DOC = ['settings', 'cadDeviceTemplates'] as const
 
 export class CadProject {
 	readonly store = new EntityStore()
+	/** The project's display name (title blocks, export file names); set by the shell. */
+	name = $state('')
 	readonly pdf: PdfCache
 	/** Bumped on every store change; everything derived reads it. */
 	rev = $state(0)

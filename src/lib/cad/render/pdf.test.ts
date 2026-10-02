@@ -1,0 +1,44 @@
+// Sheets → PDF (Phase 4.3): one page per sheet at its paper size, vector text, images embedded, unsupported text
+// reported. Runs jspdf headless (no images: the loader is a stub).
+import { describe, it, expect } from 'vitest'
+import { pagesToPdf, sheetPages, pdfText, styleOf } from './pdf'
+import { ProjectIndex } from '../domain/project'
+import { demoProject } from '../domain/fixtures'
+import type { Sheet } from '../domain/drawing'
+
+const sheet = (id: string, size: Sheet['paper']['size'], orientation: Sheet['paper']['orientation']): Sheet => ({
+	type: 'sheet', id, number: id, title: `Title ${id}`, order: 1, paper: { size, orientation, marginMm: 5 }, status: 'active',
+	viewports: [{ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 10, y: 10, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 } }],
+})
+const noImages = async () => null
+
+describe('sheets to PDF', () => {
+	it('one page per sheet, each at its own paper size; the text is real text', async () => {
+		const ix = new ProjectIndex(demoProject())
+		const pages = sheetPages(ix, [sheet('S001', 'A3', 'landscape'), sheet('S002', 'A4', 'portrait')], { projectName: 'Tower' })
+		const { pdf, unsupported } = await pagesToPdf(pages, noImages, { compress: false })   // readable streams for the test
+		expect(pdf.getNumberOfPages()).toBe(2)
+		pdf.setPage(1)
+		expect(Math.round(pdf.internal.pageSize.getWidth())).toBe(420)
+		pdf.setPage(2)
+		expect(Math.round(pdf.internal.pageSize.getWidth())).toBe(210)
+		const raw = pdf.output()
+		expect(raw).toContain('(S001)')
+		expect(raw).toContain('(Tower)')
+		expect(raw).toContain('(33-001)')   // an outlet's label from the plan viewport
+		expect(unsupported).toEqual([])
+	})
+	it('symbols the standard fonts lack become plain text; anything else is reported', async () => {
+		expect(pdfText('Dwg №')).toEqual({ text: 'Dwg No.', ok: true })
+		expect(pdfText('↕ +2105 → +2600')).toEqual({ text: ' +2105 -> +2600', ok: true })
+		expect(pdfText('サーバー室').ok).toBe(false)
+		const { unsupported } = await pagesToPdf([{ w: 100, h: 100, prims: [{ k: 'text', at: { x: 10, y: 10 }, text: 'サーバー室', size: 3, cls: 'label' }] }], noImages)
+		expect(unsupported).toEqual(['サーバー室'])
+	})
+	it('screen-only things stay off the paper', () => {
+		expect(styleOf('paper').skip).toBe(true)
+		expect(styleOf('paper-margin').skip).toBe(true)
+		expect(styleOf('viewport viewport-hidden').skip).toBe(true)
+		expect(styleOf('viewport').skip).toBeUndefined()
+	})
+})

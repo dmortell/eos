@@ -31,6 +31,7 @@
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
 	const project = new CadProject(pid, firestore, user)
+	$effect(() => { project.name = projectName })
 	const ws = new Workspace()
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	onDestroy(() => project.destroy())
@@ -59,10 +60,13 @@
 	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind)) untrack(() => setTool('select')) })
 
 	// ...and goes back into it on every change (replaceState: no history entries, SvelteKit's router stays in charge)
+	// Compared with the ADDRESS BAR (location), not page.url: after a replaceState page.url can lag, and a switch back
+	// to what the stale copy said was skipped (Dave: plan → sheet sometimes left v=plan).
 	$effect(() => {
-		const next = writeViewState(page.url.searchParams, { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane })
-		if (next.toString() === untrack(() => page.url.searchParams.toString())) return
-		const url = new URL(untrack(() => page.url))
+		const state = { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane }
+		const url = new URL(location.href)
+		const next = writeViewState(url.searchParams, state)
+		if (next.toString() === url.searchParams.toString()) return
 		url.search = next.toString()
 		try { replaceState(url, untrack(() => page.state)) } catch { /* the router isn't ready on the very first run */ }
 	})

@@ -55,6 +55,19 @@ describe('0U devices', () => {
 	})
 })
 
+describe('the U scale stays readable (Dave: a PDU covered R311’s numbers)', () => {
+	it('U numbers draw after the rack’s devices, and a PDU hugs the outside of the rails', () => {
+		const wide: Rack = { type: 'rack', id: 'RW', levelId: 'L33', spaceId: 'SR-A', order: 2, name: 'W', kind: 'cabinet', heightU: 42, widthMm: 750, depthMm: 1000 }
+		const pdu: Device = { type: 'device', id: 'PDU9', rackId: 'RW', name: 'PDU', kind: 'pdu', u: 1, heightU: 30, face: 'front', portCount: 0 }
+		const prims = view('front', [wide, pdu])
+		const strip = prims.findIndex((p) => p.src === 'PDU9'), lastNumber = prims.map((p) => p.k === 'text' && p.cls === 'u-label').lastIndexOf(true)
+		expect(lastNumber).toBeGreaterThan(strip)
+		const s = prims[strip]
+		const x0 = rackLayout(ix([wide]), { spaceId: 'SR-A', face: 'front' }).find((l) => l.rack.id === 'RW')!.x0
+		expect(s.k === 'line' && Math.min(...s.pts.map((q) => q.x)) - x0).toBeGreaterThan(60)   // clear of the numbers (≈ x0+18…48)
+	})
+})
+
 describe('row order comes from the plan', () => {
 	it('racks drawn on the plan run left to right as seen from their front', () => {
 		const mk = (id: string, x: number, rot = 0): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y: 0 }, rot })
@@ -81,6 +94,14 @@ describe('port cells and labels', () => {
 		expect(at('row', 2).x).toBeGreaterThan(at('row', 1).x)
 		expect(at('column', 2).x).toBe(at('column', 1).x)
 		expect(at('column', 2).y).toBeGreaterThan(at('column', 1).y)
+	})
+	it('a device with few ports keeps port-sized cells (Dave: a server / tower PC drew huge ports)', () => {
+		const server: Device = { type: 'device', id: 'SV', rackId: 'R1', name: 'SV', kind: 'server', u: 10, heightU: 2, face: 'front', portCount: 2 }
+		const c = portCell(server, 1, 0, 0)!
+		expect(c.w).toBeLessThanOrEqual(18)
+		expect(c.h).toBeLessThanOrEqual(30)
+		const panel: Device = { ...server, kind: 'panel', heightU: 1, portCount: 24 }
+		expect(portCell(panel, 1, 0, 0)!.w).toBeCloseTo(430 / 24)          // panels are unchanged
 	})
 	it('labels stack: full form in up to three lines, short form = the last two parts', () => {
 		expect(labelLines('L01.A.001-A01')).toEqual({ full: ['L01.A', '001', 'A01'], short: ['001', 'A01'] })

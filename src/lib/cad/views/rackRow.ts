@@ -12,6 +12,7 @@ import { racksInOrder } from '../domain/devices'
 export const RU_MM = 44.45
 const RAIL_W = 482.6          // 19" device width
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
+const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
 const ROW_GAP = 800           // between rows in a room view
 const LABEL_MIN_PX = 7        // port labels start showing at this screen height
 const FULL_MIN_PX = 9         // and switch to the full stacked form here
@@ -56,7 +57,8 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	if (!d.portCount || d.kind === 'pdu') return null
 	const rows = d.portCount > 24 && d.heightU <= 2 ? 2 : 1
 	const cols = Math.ceil(d.portCount / rows)
-	const w = PORT_AREA_W / cols, hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6)
+	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
+	const w = Math.min(PORT_AREA_W / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
 	const i = n - 1
 	const [row, col] = d.portNumbering === 'column' ? [i % rows, Math.floor(i / rows)] : [Math.floor(i / cols), i % cols]
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
@@ -77,6 +79,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 	const layout = rackLayout(ix, spec)
 	for (const { rack, x0 } of layout) {
 		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
+		const uScale: Prim[] = []
 		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', src: rack.id })
 		// U ticks (every U) and numbers (every 5 U, and the top one) INSIDE the rack's own left edge — racks narrower
 		// than 19" rails (cable managers, desks) have no U scale (theirs would land on the neighbours)
@@ -84,18 +87,24 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			// the 19" mounting frame: rail to rail, U1 to the top U
 			const top = base + rack.heightU * RU_MM
 			out.push({ k: 'line', pts: [{ x: mid - RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -top }, { x: mid - RAIL_W / 2, y: -top }], closed: true, cls: 'rack-rails' })
-			const tx = x0 + 6
+			// numbers sit in the margin beside the rails when it's wide enough; a narrow frame (P3C: 17 mm) puts them
+			// just outside its left edge, where panels can't cover them
+			const roomy = (rack.widthMm - RAIL_W) / 2 >= 48
+			const tx = x0 + (roomy ? 6 : 2)
 			for (let u = 1; u <= rack.heightU; u++) {
 				const z = base + (u - 1) * RU_MM
-				out.push({ k: 'line', pts: [{ x: tx, y: -z }, { x: tx + 10, y: -z }], cls: 'rack-x' })
-				if (u === 1 || u % 5 === 0 || u === rack.heightU) out.push({ k: 'text', at: { x: tx + 12, y: -(z + RU_MM * 0.25) }, text: String(u), size: RU_MM * 0.55, anchor: 'start', cls: 'u-label', minPx: 5 })
+				uScale.push({ k: 'line', pts: [{ x: tx, y: -z }, { x: tx + 10, y: -z }], cls: 'rack-x' })
+				if (u === 1 || u % 5 === 0 || u === rack.heightU) {
+					uScale.push({ k: 'text', at: { x: roomy ? tx + 12 : x0 - 4, y: -(z + RU_MM * 0.25) }, text: String(u), size: RU_MM * 0.55, anchor: roomy ? 'start' : 'end', cls: 'u-label', minPx: 5 })
+				}
 			}
 		}
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
 		for (const d of ix.devicesIn(rack.id)) {
 			if (d.face === 'none' || (d.face !== 'both' && d.face !== spec.face && d.kind !== 'pdu')) continue
-			if (d.kind === 'pdu') {   // a 0U strip beside the rails
-				const x = spec.face === 'rear' ? x0 + rack.widthMm - 60 : x0 + 20, z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
+			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
+				const x = spec.face === 'rear' ? Math.min(x0 + rack.widthMm - 42, mid + RAIL_W / 2 + 4) : Math.max(x0 + 2, mid - RAIL_W / 2 - 44)
+				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
 				// its network ports (a metered / switched PDU's management port …), stacked from the top — patchable
 				for (let n = 1; n <= d.portCount; n++) {
@@ -130,6 +139,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
 		}
+		// the U scale last: nothing in the rack (a PDU, a deep device) covers it
+		out.push(...uScale)
 	}
 	// patch cords whose both ends are drawn on this face (ones marked `remove` too, faded — they still have to come out)
 	for (const c of ix.cords) {

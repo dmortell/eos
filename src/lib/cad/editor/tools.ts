@@ -43,8 +43,9 @@ export interface ToolCtx {
 	ask(label: string, value: number, apply: (v: number) => void): void
 	/** Rack-row views only: the rack and U under a view point. */
 	rowHit?(p: Pt): { rack: Rack; u: number } | null
-	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself). */
+	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
 	selectViewport?(id: Id | null): void
+	viewportId?(): Id | null
 	/** Rack-row views only: the selected ports (of one device). */
 	portSel?(): PortSel | null
 	selectPorts?(s: PortSel | null): void
@@ -96,8 +97,9 @@ export class SelectTool implements Tool {
 	#snap: Snap | null = null
 	/** Devices as they were when a rack-row drag started (each move is computed from these). */
 	#base = new Map<Id, Device>()
-	/** A viewport being dragged on a sheet (the sheet as it was at the press). */
-	#vp: { sheet: Sheet; vpId: Id } | null = null
+	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
+	 *  panned (Ctrl). */
+	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
 
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
@@ -113,12 +115,22 @@ export class SelectTool implements Tool {
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
 		if (c.space.spec.kind === 'sheet' && c.selectViewport) {
+			// the selected viewport first: a corner grip resizes it, Ctrl-drag inside pans its view
+			const cur = c.viewportId?.(), curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+			const sel = curSheet?.type === 'sheet' && cur ? curSheet.viewports.find((v) => v.id === cur) : undefined
+			if (curSheet?.type === 'sheet' && sel && !sel.locked) {
+				const r = sel.rect, corners = [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }]
+				const ci = corners.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5)
+				if (ci >= 0) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'resize', corner: ci }; this.#start = e.p; return }
+				const inside = e.p.x > r.x && e.p.x < r.x + r.w && e.p.y > r.y && e.p.y < r.y + r.h
+				if (inside && e.ctrl) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; return }
+			}
 			const sheet = id ? c.store.get(id) : undefined
 			if (sheet?.type !== 'sheet') { c.select([]); c.selectViewport(null); return }
 			c.select([sheet.id])
 			const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
 			c.selectViewport(vp ? vp.id : null)
-			if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id }; this.#start = e.p }
+			if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
 			return
 		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
@@ -151,10 +163,22 @@ export class SelectTool implements Tool {
 	move(e: PointerIn, c: ToolCtx): void {
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
 		if (this.#vp && this.#start) {
-			const { sheet, vpId } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
+			const { sheet, vpId, mode, corner } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
-			this.#gesture ??= c.store.begin('Move viewport')
-			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? { ...v, rect: { ...v.rect, x: v.rect.x + d.x, y: v.rect.y + d.y } } : v)) }))
+			this.#gesture ??= c.store.begin(mode === 'resize' ? 'Resize viewport' : mode === 'pan' ? 'Pan viewport' : 'Move viewport')
+			const next = (v: Sheet['viewports'][number]) => {
+				const r = v.rect
+				if (mode === 'pan') return { ...v, centre: { x: v.centre.x - d.x * v.scale, y: v.centre.y - d.y * v.scale } }
+				if (mode === 'move') return { ...v, rect: { ...r, x: r.x + d.x, y: r.y + d.y } }
+				// resize from a corner (0 TL, 1 TR, 2 BR, 3 BL), the opposite corner fixed; at least 10 mm
+				const left = corner === 0 || corner === 3, top = corner === 0 || corner === 1
+				const x0 = left ? Math.min(r.x + d.x, r.x + r.w - 10) : r.x, x1 = left ? r.x + r.w : Math.max(r.x + r.w + d.x, r.x + 10)
+				const y0 = top ? Math.min(r.y + d.y, r.y + r.h - 10) : r.y, y1 = top ? r.y + r.h : Math.max(r.y + r.h + d.y, r.y + 10)
+				// the view stays put on the paper: the centre moves with the window's middle
+				const cx = v.centre.x + ((x0 + x1) / 2 - (r.x + r.w / 2)) * v.scale, cy = v.centre.y + ((y0 + y1) / 2 - (r.y + r.h / 2)) * v.scale
+				return { ...v, rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, centre: { x: cx, y: cy } }
+			}
+			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? next(v) : v)) }))
 			return
 		}
 		if (this.#grip) {

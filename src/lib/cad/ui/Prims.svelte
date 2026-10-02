@@ -27,7 +27,7 @@
 	{@const sel = !!p.src && selected.has(p.src)}
 	{#if shown(p)}
 	{#if p.k === 'image'}
-		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio="none" clip-path={clipOf(p)} />
+		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
 			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
@@ -63,6 +63,15 @@
 	.paper { fill: #ffffff; stroke: #a1a1aa; }
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
 	.viewport-bg.filled { fill: #ffffff; stroke: none; }
+	.tb-frame { stroke: #64748b; }
+	.tb-frame.filled { fill: #ffffff; }
+	.tb-rule { stroke: #cbd5e1; }
+	.tb-border { stroke: #64748b; }
+	text.tb-label { fill: #94a3b8; letter-spacing: 0.05em; }
+	text.tb-value { fill: #1f2937; font-weight: 600; }
+	text.tb-logo { fill: #1f2937; font-weight: 700; }
+	text.tb-company-name { fill: #1f2937; font-weight: 700; }
+	text.tb-company { fill: #475569; }
 	.viewport { stroke: #2563eb; stroke-dasharray: 6 3; }
 	.viewport.filled { fill: none; }
 	.viewport.sel { stroke: #f97316; stroke-width: 2; }

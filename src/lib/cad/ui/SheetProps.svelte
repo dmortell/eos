@@ -7,6 +7,9 @@
 	import type { Sheet, Viewport } from '../domain/drawing'
 	import { defaultViewport, contentCentre } from '../views/sheet'
 	import { newId } from '../domain/ids'
+	import type { TitleBlockTemplate } from '../domain/titleBlock'
+	import TitleBlockEditor from './TitleBlockEditor.svelte'
+	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -31,10 +34,22 @@
 		const next = { ...v, view: { levelId, spec } }
 		putVp('Viewport level', { view: next.view, centre: contentCentre(project.index, next) })
 	}
+	let busy = $state(false)
+	async function pdf() {
+		busy = true
+		try { const r = await downloadSheetsPdf(project, [s]); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported)}`) }
+		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+		finally { busy = false }
+	}
+	/** The project's template lives on the settings record: one undo step per edit, shared by every sheet. */
+	function setTemplate(t: TitleBlockTemplate) {
+		const st = project.settings
+		if (st) project.store.transact('Title block template', (tx) => tx.put({ ...st, titleBlock: t }))
+	}
 	function addViewport() {
 		const lv = ws.levelId ?? levels[0]?.id
 		if (!lv) return
-		const v = defaultViewport(project.index, s, lv, newId())
+		const v = defaultViewport(project.index, s, lv, newId(), { projectName: project.name, template: project.settings?.titleBlock })
 		putSheet('Add viewport', { viewports: [...s.viewports, v] })
 		ws.selectViewport(v.id)
 	}
@@ -96,8 +111,15 @@
 		</span>
 	</label>
 	<label class="row">Margin (mm) <input class="inp" type="number" min="0" value={s.paper.marginMm} onchange={(e) => putSheet('Paper margin', { paper: { ...s.paper, marginMm: Math.max(0, num(e.currentTarget.value)) } })} /></label>
-	<button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button>
+	<div class="flex gap-1">
+		<button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button>
+		<button class="btn" disabled={busy} title="This sheet as a PDF at true scale (download)" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
+	</div>
 	<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click one on the paper to edit it, drag to move it</p>
+	<!-- this sheet's own title-block settings; the template below is the project's -->
+	<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
+	<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
+	<TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} />
 {/if}
 
 <style>

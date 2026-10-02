@@ -7,18 +7,26 @@
 	import type { ViewSpec } from '../views/space'
 	import { naturalCompare, nextLabel } from '../domain/labels'
 	import { newId } from '../domain/ids'
+	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 
 	let { project, ws, open, onview }: { project: CadProject; ws: Workspace; open?: string; onview: (s: ViewSpec) => void } = $props()
 
 	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet').sort((a, b) => a.order - b.order || naturalCompare(a.number, b.number)))
 
+	let busy = $state(false)
+	async function pdfAll() {
+		busy = true
+		try { const r = await downloadSheetsPdf(project, sheets); ws.say(`PDF: ${r.pages} pages${unsupportedNote(r.unsupported)}`) }
+		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+		finally { busy = false }
+	}
 	function add() {
 		ws.askText('New sheet title', 'Plan', (title) => {
 			if (!title.trim()) return
 			const last = sheets.at(-1)
 			const s: Sheet = {
-				type: 'sheet', id: newId(), number: last ? nextLabel(last.number) : 'S-001', title: title.trim(), order: (last?.order ?? 0) + 1,
-				paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [], status: 'active',
+				type: 'sheet', id: newId(), number: last ? nextLabel(last.number) : 'S001', title: title.trim(), order: (last?.order ?? 0) + 1,
+				paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active',
 			}
 			project.store.transact(`New sheet ${s.number}`, (tx) => tx.put(s))
 			onview({ kind: 'sheet', sheetId: s.id })
@@ -29,7 +37,10 @@
 
 <div class="head">
 	<p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Sheets</p>
-	<button class="place" title="A new A3 landscape sheet, opened in the active pane" onclick={add}>+ New</button>
+	<span>
+		{#if sheets.length}<button class="place" disabled={busy} title="Every sheet in one PDF (download)" onclick={pdfAll}>{busy ? 'PDF…' : 'PDF all'}</button>{/if}
+		<button class="place" title="A new A3 landscape sheet, opened in the active pane" onclick={add}>+ New</button>
+	</span>
 </div>
 {#each sheets as s (s.id)}
 	<button class="sheet" class:on={open === s.id} title="Open in the active pane" onclick={() => { onview({ kind: 'sheet', sheetId: s.id }); ws.select([s.id]) }}>

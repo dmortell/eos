@@ -10,6 +10,8 @@ import { planDisplayList, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
 import { spaceOf } from './space'
+import { titleBlockPrims } from './titleBlock'
+import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
 export const PAPER: Record<Sheet['paper']['size'], [number, number]> = { A0: [841, 1189], A1: [594, 841], A2: [420, 594], A3: [297, 420], A4: [210, 297] }
@@ -20,7 +22,42 @@ export function paperSize(s: Sheet): { w: number; h: number } {
 	return s.paper.orientation === 'landscape' ? { w: b, h: a } : { w: a, h: b }
 }
 
-export interface SheetOpts { underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks'] }
+export interface SheetOpts {
+	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
+	/** For the title block: the project's name and template (absent = the default template). */
+	projectName?: string; template?: TitleBlockTemplate
+}
+
+/** What the title block's auto fields show for a sheet (ADR: values are filled at render time, never stored). The
+ *  sheet's own `titleBlock.fields` override any of them ("Drawn" is usually set there). */
+export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''): TbContext {
+	const scales = [...new Set(s.viewports.map((v) => v.scale))]
+	const places = [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))]
+	const last = s.revisions?.at(-1)
+	return {
+		project: projectName, title: s.title, number: s.number,
+		size: `${s.paper.size} ${s.paper.orientation === 'landscape' ? 'L' : 'P'}`,
+		scale: scales.length === 1 ? `1:${scales[0]}` : scales.length ? 'As shown' : '',
+		place: places.join(' / '),
+		...(last ? { rev: last.code, date: last.date } : {}),
+		...s.titleBlock?.fields,
+	}
+}
+
+/** The title block as this sheet shows it (template + values + revisions + the sheet's own hide). */
+export function sheetTitleBlock(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): TbShown {
+	const shown = shownTitleBlock(o.template, fillTitleBlock(o.template, titleBlockContext(ix, s, o.projectName)), s.revisions ?? [])
+	return s.titleBlock?.hidden ? { ...shown, hidden: true } : shown
+}
+
+/** The paper inside the margin that the title block leaves for drawing (new viewports go here). */
+export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x: number; y: number; w: number; h: number } {
+	const { w, h } = paperSize(s), m = s.paper.marginMm
+	const area = titleBlockPrims(sheetTitleBlock(ix, s, o), w, h, m).area
+	const layout = o.template?.layout ?? 'vertical'
+	const x1 = area && layout === 'vertical' ? area.x0 : w - m, y1 = area && layout === 'horizontal' ? area.y0 : h - m
+	return { x: m, y: m, w: x1 - m, h: y1 - m }
+}
 
 /** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale). */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
@@ -63,14 +100,17 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
 		if (vp.label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${vp.label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}
+	// the title block on top (a window that strays under it is covered, as in Pages)
+	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
 	return out
 }
 
-/** A sensible first viewport: the middle half of the paper, at 1:100, centred on the level's content. */
-export function defaultViewport(ix: ProjectIndex, sheet: Sheet, levelId: Id, id: Id): Viewport {
-	const { w, h } = paperSize(sheet)
-	const vp: Viewport = { id, view: { levelId, spec: { kind: 'plan' } }, rect: { x: w * 0.1, y: h * 0.1, w: w * 0.6, h: h * 0.75 }, scale: 100, centre: { x: 0, y: 0 } }
-	return { ...vp, centre: contentCentre(ix, vp) }
+/** A sensible first viewport: most of the drawing area (left of / above the title block), at 1:100, centred on the
+ *  level's content. */
+export function defaultViewport(ix: ProjectIndex, sheet: Sheet, levelId: Id, id: Id, o: SheetOpts = {}): Viewport {
+	const a = drawingArea(ix, sheet, o), inset = 5
+	const vp: Viewport = { id, view: { levelId, spec: { kind: 'plan' } }, rect: { x: a.x + inset, y: a.y + inset, w: a.w - 2 * inset, h: a.h - 2 * inset }, scale: 100, centre: { x: 0, y: 0 } }
+	return { ...vp, centre: contentCentre(ix, vp, o) }
 }
 
 /** The middle of what a viewport's view shows (for "Fit" and new viewports). */

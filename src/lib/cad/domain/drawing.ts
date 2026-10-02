@@ -38,8 +38,11 @@ export interface Sheet {
 	title: string
 	order: number
 	paper: { size: 'A0' | 'A1' | 'A2' | 'A3' | 'A4'; orientation: 'landscape' | 'portrait'; marginMm: number }
+	/** This sheet's own title-block settings: hide it, or override auto fields (`drawn`, …). */
 	titleBlock?: { hidden?: boolean; fields?: Record<string, string> }
 	viewports: Viewport[]
+	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. */
+	revisions?: { code: string; date: string; note?: string; issueId?: Id }[]
 	kind?: string
 	discipline?: string
 	tags?: string[]
