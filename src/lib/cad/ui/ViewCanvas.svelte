@@ -12,6 +12,8 @@
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
+	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
+	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds } from '../views/display'
 	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims } from '../editor/snap'
@@ -29,6 +31,7 @@
 	} = $props()
 
 	const PLOT_SCALE = 100
+	const FACES = ['front', 'rear'] as const
 	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }]
 
 	let svg: SVGSVGElement | undefined = $state()
@@ -41,8 +44,10 @@
 
 	const space = $derived(spaceOf(spec))
 	const prims = $derived(spec.kind === 'plan'
-		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement })
-		: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
+		: spec.kind === 'row'
+			? rackRowDisplayList(project.index, spec)
+			: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
 	const selected = $derived(new Set(ws.selection))
 
 	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
@@ -54,6 +59,13 @@
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
 
 	/** The OTHER pane's work plane, drawn here: a depth line in plan, a height line in an elevation. */
+	/** The selected ports (rack rows), drawn over their cells. */
+	const portHighlight = $derived.by((): Prim[] => {
+		const s = ws.portSel
+		if (spec.kind !== 'row' || !s) return []
+		const want = new Set(s.ports.map(String))
+		return prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	})
 	const linked = $derived.by((): Prim[] => {
 		if (!other || !prims.length) return []
 		const b = unionBounds(prims.map(primBounds))!
@@ -76,6 +88,14 @@
 		if (b) { cam = fit(b, w, h); fittedFor = key }
 	})
 
+	function focusRack(p: Pt): void {
+		const racks = prims.filter((x) => x.k === 'line' && x.cls === 'rack')
+		const id = pickAt(racks, p, TOL_PX / cam.k)
+		const b = id ? unionBounds(prims.filter((x) => x.src === id).map(primBounds)) : null
+		if (b) cam = fit(b, w, h)
+		else zoomExtents()
+	}
+
 	export function zoomExtents(): void {
 		const b = unionBounds(prims.map(primBounds))
 		if (b) cam = fit(b, w, h)
@@ -89,7 +109,8 @@
 			snap: (p, alt, skip) => spec.kind === 'plan'
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
-			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask,
+			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, say: ws.say,
+			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}
 
@@ -119,8 +140,11 @@
 		svg!.setPointerCapture(e.pointerId)
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
+		const count = pressCount(e)
+		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
+		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
 		toolDown = true
-		ws.tool.down(input(e, pressCount(e)), ctx()); tick++
+		ws.tool.down(input(e, count), ctx()); tick++
 	}
 	function onMove(e: PointerEvent) {
 		if (panning) {
@@ -181,8 +205,9 @@
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}
 		oncontextmenu={(e) => e.preventDefault()}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})">
-			<Prims {prims} {selected} />
+			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
+			<Prims prims={portHighlight} selected={new Set()} />
 			<Prims prims={preview} selected={new Set()} />
 			{#if marquee}
 				<rect x={marquee.x0} y={marquee.y0} width={marquee.x1 - marquee.x0} height={marquee.y1 - marquee.y0}
@@ -194,6 +219,14 @@
 		{#each VIEWS as v (specKey(v))}
 			<button class:on={specKey(v) === specKey(spec)} onclick={() => { onfocus?.(); onspec(v) }}>{specLabel(v)}</button>
 		{/each}
+		{#if spec.kind === 'row'}
+			{@const row = spec}
+			<span class="sep"></span>
+			<span class="room">{project.index.nameOf(row.spaceId)}</span>
+			{#each FACES as f (f)}
+				<button class:on={row.face === f} onclick={() => { onfocus?.(); onspec({ ...row, face: f }) }}>Racks {f}</button>
+			{/each}
+		{/if}
 	</div>
 	<div class="scale">1:{PLOT_SCALE} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}</div>
 </div>
@@ -204,6 +237,8 @@
 	.views { position: absolute; top: 4px; left: 6px; display: flex; gap: 2px; }
 	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
 	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.views .sep { width: 1px; background: #d4d4d8; margin: 0 4px; }
+	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
 	.scale { position: absolute; bottom: 4px; left: 8px; font-size: 10px; color: #a1a1aa; pointer-events: none; }
 	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; stroke-dasharray: 4 3; }
 </style>

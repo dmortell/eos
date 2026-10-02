@@ -6,6 +6,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
+	import { renameOutlet } from '../domain/ports'
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
 
@@ -17,11 +18,13 @@
 	function edit(o: Outlet, label: string, patch: Partial<Outlet>) {
 		project.store.transact(label, (tx) => tx.put({ ...o, ...patch }))
 	}
-	function rename(o: Outlet, next: string) {
-		next = next.trim()
+	/** The input goes back to the stored label at once; it shows the new one when (if) the rename is written — a
+	 *  rename that would change printed panel labels asks first. */
+	function rename(o: Outlet, input: HTMLInputElement) {
+		const next = input.value.trim()
+		input.value = o.label
 		if (!next || next === o.label) return
-		const ports = o.ports.map((p) => (p.label.startsWith(o.label) ? { ...p, label: next + p.label.slice(o.label.length) } : p))
-		edit(o, `Rename ${o.label} → ${next}`, { label: next, ports })
+		project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
 	}
 	function pick(o: Outlet, e: MouseEvent) {
 		ws.select(e.shiftKey || e.ctrlKey ? (selected.has(o.id) ? ws.selection.filter((x) => x !== o.id) : [...ws.selection, o.id]) : [o.id])
@@ -41,7 +44,7 @@
 				<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(o.id)} onclick={(e) => pick(o, e)}>
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
-							value={o.label} onchange={(e) => rename(o, e.currentTarget.value)} onclick={(e) => e.stopPropagation()} />
+							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
 					</td>
 					<td class="px-2">
 						<select class="bg-transparent" value={o.usage} onchange={(e) => edit(o, 'Usage', { usage: e.currentTarget.value })} onclick={(e) => e.stopPropagation()}>

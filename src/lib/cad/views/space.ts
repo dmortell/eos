@@ -3,10 +3,14 @@
 //  - plan:      view (x, y) = plan (x, y); clicks land at the work Z.
 //  - elevation: view x = u along the frame, view y = −z (y down on screen, z up in the model); clicks land on the
 //               work plane at the work depth (conventions.unproject).
-import type { Pt, Pt3 } from '../domain/types'
+import type { Id, Pt, Pt3 } from '../domain/types'
 import { namedFrame, project, unproject, type ElevDir, type ElevFrame } from '../domain/conventions'
 
-export type ViewSpec = { kind: 'plan' } | { kind: 'elevation'; dir: ElevDir }
+export type ViewSpec =
+	| { kind: 'plan' }
+	| { kind: 'elevation'; dir: ElevDir }
+	/** The racks of a server room (optionally one row) side by side, front or rear (Phase 3, views/rackRow.ts). */
+	| { kind: 'row'; spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
 
 /** Where clicks land: the plan's work Z, an elevation's work depth (along the frame's n, from its origin). */
 export interface WorkPlane { z: number; depth: number }
@@ -25,10 +29,21 @@ export interface ViewSpace {
 }
 
 export const PLAN: ViewSpec = { kind: 'plan' }
-export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.dir)
-export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.dir[0].toUpperCase() + s.dir.slice(1))
+export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.dir)
+export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'row' ? `Racks ${s.face}` : s.dir[0].toUpperCase() + s.dir.slice(1))
 
 export function spaceOf(spec: ViewSpec, origin: Pt = { x: 0, y: 0 }): ViewSpace {
+	if (spec.kind === 'row') {
+		// A rack row is laid out along the view, not at plan positions: there is no model x / y to give back yet.
+		// Dragging maps to no model movement (devices move by U in the device tool, slice 3.2).
+		return {
+			spec,
+			toWorld: (p) => ({ x: p.x, y: 0, z: -p.y }),
+			deltaToWorld: () => ({ x: 0, y: 0, z: 0 }),
+			fromWorld: (p) => ({ x: p.x, y: -p.z }),
+			depthOf: () => 0,
+		}
+	}
 	if (spec.kind === 'plan') {
 		return {
 			spec,

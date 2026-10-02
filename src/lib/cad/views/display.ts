@@ -3,11 +3,13 @@
 import type { Id, Pt } from '../domain/types'
 
 export type Prim =
-	/** A polyline or polygon. `w` = a real width in drawing mm (a trunk, a wall); absent = a hairline. */
-	| { k: 'line'; pts: Pt[]; closed?: boolean; fill?: boolean; w?: number; cls: string; src?: Id }
-	| { k: 'circle'; c: Pt; r: number; fill?: boolean; cls: string; src?: Id }
-	/** Text: `size` in drawing mm (already scaled from paper mm by the generator). */
-	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id }
+	/** A polyline or polygon. `w` = a real width in drawing mm (a trunk, a wall); absent = a hairline. `color` overrides
+	 *  the class colour (a patch cord's colour). `sub` = a part of the source entity (a port number). */
+	| { k: 'line'; pts: Pt[]; closed?: boolean; fill?: boolean; w?: number; cls: string; src?: Id; sub?: string; color?: string }
+	| { k: 'circle'; c: Pt; r: number; fill?: boolean; cls: string; src?: Id; sub?: string }
+	/** Text: `size` in drawing mm (already scaled from paper mm by the generator). LOD: drawn only while the text is at
+	 *  least `minPx` and at most `maxPx` screen px tall (port labels: short form when small, full form when big). */
+	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id; sub?: string; minPx?: number; maxPx?: number }
 	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id }
 
 export interface Bounds { x0: number; y0: number; x1: number; y1: number }

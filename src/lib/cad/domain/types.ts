@@ -167,6 +167,9 @@ export interface Device {
 	face: 'front' | 'rear' | 'both' | 'none'
 	portCount: number
 	portType?: 'RJ45' | 'LC' | 'SC' | 'SFP'
+	/** How ports are numbered on the face: row-major (panels: 1–24 top, 25–48 bottom) or column-major (switches: 1
+	 *  above 2). Presentation only — the port number stays the identity (elevations-plan §3.3). */
+	portNumbering?: 'row' | 'column'
 	catalogId?: Id
 	widthMm?: number
 	depthMm?: number
@@ -187,6 +190,8 @@ export interface PanelInfo {
 	/** When the port labels were printed and stuck on. Editing or renumbering a label linked to this panel then asks
 	 *  first (ADR 0002); the issued sheets record what was printed. */
 	labelsPrintedAt?: number
+	/** What was printed, by port number (non-empty labels only) — a later difference is flagged on the panel. */
+	printedLabels?: Record<string, string>
 }
 
 // ── Cabling ───────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 // Entity ⇄ Firestore doc (ADR 0003). One doc per entity in `projects/{pid}/cadEntities/{id}`, plus:
 //  - `scope`: what a client subscribes by — `level:<id>`, `view:<id>`, `sheet:<id>` or `project`;
-//  - `rev` / `updatedAt` / `updatedBy`: echo detection and audit. These never enter the store's records.
+//  - `rev` / `updatedAt` / `updatedBy` / `client`: echo detection and audit. These never enter the store's records.
+//    `client` names the browser tab that wrote it (one user can have several tabs / sessions open), so a change can
+//    be traced to where it came from.
 import type { Entity } from '../domain/drawing'
 import type { Id } from '../domain/types'
 
-export interface Meta { rev: number; updatedAt: number; updatedBy: string }
+export interface Meta { rev: number; updatedAt: number; updatedBy: string; client?: string }
 export type StoredDoc = Record<string, unknown> & { id: Id; type: string; scope: string } & Meta
 
 export const PROJECT_SCOPE = 'project'
@@ -28,7 +30,7 @@ export function scopeOf(e: Entity): string {
 	}
 }
 
-const META_KEYS = new Set(['scope', 'rev', 'updatedAt', 'updatedBy'])
+const META_KEYS = new Set(['scope', 'rev', 'updatedAt', 'updatedBy', 'client'])
 
 /** Firestore rejects `undefined`; drop it at every depth. (Arrays of arrays are already ruled out by the schema.) */
 export function stripUndefined<T>(v: T): T {
@@ -48,5 +50,5 @@ export function toDoc(e: Entity, meta: Meta): StoredDoc {
 export function fromDoc(d: StoredDoc): { entity: Entity; meta: Meta } {
 	const entity: Record<string, unknown> = {}
 	for (const [k, v] of Object.entries(d)) if (!META_KEYS.has(k)) entity[k] = v
-	return { entity: entity as unknown as Entity, meta: { rev: d.rev, updatedAt: d.updatedAt, updatedBy: d.updatedBy } }
+	return { entity: entity as unknown as Entity, meta: { rev: d.rev, updatedAt: d.updatedAt, updatedBy: d.updatedBy, ...(d.client ? { client: String(d.client) } : {}) } }
 }

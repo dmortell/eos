@@ -12,6 +12,7 @@
 	import Properties from './Properties.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import RackList from './RackList.svelte'
+	import Legend from './Legend.svelte'
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
 	import { exportOutletSchedule } from '../render/outletSchedule'
@@ -58,6 +59,8 @@
 		{ id: 'trunk', label: 'Trunk', key: 'T' },
 		{ id: 'conduit', label: 'Conduit', key: 'C' },
 		{ id: 'wall', label: 'Wall', key: 'W' },
+		{ id: 'rack', label: 'Rack', key: 'K' },
+		{ id: 'device', label: 'Device', key: 'D' },
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
@@ -67,8 +70,10 @@
 		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes · snap onto an outlet or rack to attach',
 		conduit: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes',
 		wall: 'Click or type points · Enter / right-click finishes',
-		rack: 'Click on the plan to place the rack (its centre) · Esc cancels',
+		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
+		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
 	}
+	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 
 	let notice = $state<string | null>(null)
 
@@ -79,7 +84,7 @@
 	/** The open plan as DXF — the same display list as the screen (floorplan images are left out). */
 	function exportDxf() {
 		if (!level) return
-		const r = displayListToDxf(planDisplayList(project.index, level.id, { scale: 100 }))
+		const r = displayListToDxf(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }))
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
 		notice = `DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`
 		setTimeout(() => (notice = null), 5000)
@@ -87,6 +92,8 @@
 
 	function setTool(id: ToolId) {
 		canvas?.cancel()
+		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
+		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
 		ws.setTool(id, level)
 	}
 
@@ -120,7 +127,7 @@
 		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); project.undo() }
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); project.redo() }
 		else if (e.key === 'Delete' || e.key === 'Backspace') { if (ws.selection.length) { deleteEntities(project.store, ws.selection); ws.select([]) } }
-		else if (e.key === 'Escape') { if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
+		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t) setTool(t.id) }
 	}
@@ -146,10 +153,24 @@
 				{#if ws.toolId !== 'conduit'}<label class="opt">{ws.toolId === 'wall' ? 'Height' : 'H'} <input type="number" bind:value={ws.opts.h} /></label>{/if}
 			{/if}
 		{/if}
-		{#if ws.prompt}
+		{#if ws.toolId === 'device'}
+			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
+			<label class="opt">Template
+				<select class="tpl" value={ws.deviceTemplate?.id ?? ''} onchange={(e) => (ws.deviceTemplate = project.deviceTemplates.find((t) => t.id === e.currentTarget.value) ?? null)}>
+					{#each project.deviceTemplates as t (t.id)}<option value={t.id}>{t.name}{t.builtin ? '' : ' ★'}</option>{/each}
+				</select></label>
+		{/if}
+		{#if ws.confirm}
+			{@const q = ws.confirm}
+			<span class="ml-2 truncate text-xs text-amber-800">{q.msg}</span>
+			<button class="ask yes" onclick={() => { ws.confirm = null; q.apply() }}>{q.yes}</button>
+			<button class="ask" onclick={() => (ws.confirm = null)}>Cancel</button>
+		{:else if ws.prompt}
 			<label class="opt prompt">{ws.prompt.label} <input bind:this={promptInput} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={answer} /></label>
+		{:else if ws.message}
+			<span class="ml-2 truncate text-xs text-amber-700">{ws.message}</span>
 		{:else if HINT[ws.toolId]}
-			<span class="ml-2 truncate text-xs text-zinc-500">{HINT[ws.toolId]}</span>
+			<span class="ml-2 truncate text-xs text-zinc-500">{ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId]}</span>
 		{/if}
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => project.undo()} title="Undo (Ctrl+Z)">Undo</button>
@@ -177,7 +198,7 @@
 				<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
 			</button>
 		{/each}
-		{#if level}<RackList {project} {ws} levelId={level.id} />{/if}
+		{#if level}<RackList {project} {ws} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
 	</nav>
 
 	<!-- plan -->
@@ -228,6 +249,9 @@
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52525b; margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; }
+	.ask { margin-left: 4px; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; font-size: 12px; background: white; }
+	.ask.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
+	.opt select.tpl { max-width: 13rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-size: 12px; }
 	.prompt { background: #fef3c7; padding: 1px 6px; border-radius: 4px; color: #78350f; }
 	.prompt input.wide { width: 9rem; font-family: ui-monospace, monospace; }
 </style>

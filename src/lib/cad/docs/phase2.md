@@ -167,21 +167,49 @@
 - **Insert and delete a point:** double-click inserted point 4 on the segment; ✕ deleted it and healed the run.
 - **Cleanup:** Delete removed the trunk. Test Project is back to 328 items.
 
+## Slice 6 (done 2026-10-02): blocks — outlet symbols, make block, explode, legend
+
+- **Blocks are GLOBAL only** (Dave). A library browser comes when there are enough blocks to need one.
+  - Built-ins live in code (`domain/blocks.ts`): outlet floor box, wall, desk / box, ceiling, Wireless AP. They are
+    annotative (paper mm, constant printed size).
+  - Blocks people make live in ONE global doc, `settings/cadBlocks`, next to `settings/pagesTags`. That avoids a new
+    top-level collection the deployed Firestore rules might refuse.
+- **Outlets draw by block:**
+  - Their own `blockId`, or the default by usage → tier → mount (AP, ceiling, wall, floor box, desk).
+  - `{LABEL}` / `{PORTS}` / `{USAGE}` are filled in.
+  - Properties › **Symbol** picks one (Auto shows which default applies).
+- **Make block** (Properties, one or more drawn shapes): name it, and the shapes become a global block (origin = the
+  middle of their extent) with ONE insert in their place, as an undo step for the drawing.
+- **Inserts:** rotation, scale, **Explode** (back to ordinary shapes in place).
+- **Legend** (left panel, "Symbols"): every block used on the level, with a preview and a count.
+- **DXF** exports the block symbols as drawn.
+- **Tests:** 133 (defaults, attributes, paper-size scaling, plan drawing, make block / explode round trip).
+
+### Checked live on Test Project
+- **Symbols and legend:** outlets show their symbols and labels; the legend lists ceiling 4, desk / box 4, floor box 2,
+  wall 2, AP 1.
+- **Symbol picker:** switching outlet A001 to "wall" redrew it and updated the legend; Auto put it back. Saved, and
+  `blockId` is cleared again.
+- **Not tried live:** Make block, because it writes to the GLOBAL library doc (it would leave a test block for every
+  project). Covered by tests.
+
 ## What "retire Outlets" still needs
-- **Outlet symbols as blocks** (ADR 0007), the legend, and print. Outlets prints scaled plans; cad gets sheets in
-  Phase 4, so Outlets stays until then for printing.
+- ~~Outlet symbols as blocks, the legend~~ — done (slice 6).
+- **Print:** Outlets prints scaled plans; cad gets sheets in Phase 4, so Outlets stays until then for printing.
 - **Calibrating floorplans:** done in Uploads today (cad reads it) — fine to keep.
 - **Secondary routes and per-node fill:** Phase 5.
 
-## Next slices
-1. **Renumber** (deferred by Dave 2026-10-02, still high priority): the function is in `domain/labels.ts`.
-2. **Containment, still to do:**
-   - typed points / lengths (command runner)
-   - Level (a riser to another level)
-   - inserting a node on a segment, branching from a node
-   - Delete on a single node
-3. ~~**Plane inset + work Z / guides**~~ — dropped (Dave, 2026-10-02): the split view is enough.
-4. **More snaps:** intersection, perpendicular, nearest.
-5. **Racks:** place / rotate on the plan; unplaced racks listed by room.
-6. **Exports:** the outlet schedule to Excel; DXF from the display list.
-7. **Help panel:** keys and tools.
+## Remaining Phase 2 items (status 2026-10-02)
+1. [ ] **Renumber UI** (deferred by Dave, still high priority): the function is in `domain/labels.ts`.
+2. [x] **Containment:**
+   - typed points / lengths (slice 5)
+   - Level = riser to another level (slice 5, key V)
+   - insert a node on a segment / branch from a node (slice 5)
+   - delete a single node (slice 5, ✕ in Properties)
+3. [x] ~~Plane inset + guides~~ — dropped (Dave): the split view is enough (slice 4).
+4. [ ] **More snaps:** intersection, perpendicular, nearest.
+5. [x] **Racks:** place / rotate / unplace on the plan; unplaced racks listed by room (slice 3).
+6. [x] **Exports:** outlet schedule to Excel; DXF from the display list (slice 3, checked by Dave).
+7. [x] **Outlet symbols as blocks, make block / explode, legend** (slice 6).
+8. [ ] **Help panel:** keys and tools.
+9. [ ] **Print:** Phase 4 (sheets). Outlets stays for printing until then.

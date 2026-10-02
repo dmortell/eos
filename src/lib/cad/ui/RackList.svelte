@@ -5,14 +5,16 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Rack } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
+	import type { ViewSpec } from '../views/space'
 
-	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
+	let { project, ws, levelId, onview }: { project: CadProject; ws: Workspace; levelId: string; onview?: (s: ViewSpec) => void } = $props()
 
 	const groups = $derived.by(() => {
 		const racks = project.index.racks.filter((r) => r.levelId === levelId)
 		const by = new Map<string, Rack[]>()
 		for (const r of racks) by.set(r.spaceId, [...(by.get(r.spaceId) ?? []), r])
 		return [...by].map(([space, rs]) => ({
+			space,
 			name: project.index.nameOf(space) || 'No room',
 			racks: rs.sort((a, b) => Number(!!a.at) - Number(!!b.at) || a.order - b.order || naturalCompare(a.name, b.name)),
 		})).sort((a, b) => naturalCompare(a.name, b.name))
@@ -23,7 +25,10 @@
 {#if groups.length}
 	<p class="mt-3 px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Racks</p>
 	{#each groups as g (g.name)}
-		<p class="px-1 pt-1 text-[11px] text-zinc-400">{g.name}</p>
+		<div class="room">
+			<span>{g.name}</span>
+			{#if onview}<button class="place" title="Open this room's racks as an elevation (front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Elevation</button>{/if}
+		</div>
 		{#each g.racks as r (r.id)}
 			<div class="rack" class:sel={selected.has(r.id)}>
 				<button class="name" onclick={() => ws.select([r.id])} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U">{r.name}</button>
@@ -36,6 +41,7 @@
 {/if}
 
 <style>
+	.room { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; color: #a1a1aa; }
 	.rack { display: flex; align-items: center; justify-content: space-between; border-radius: 4px; padding: 0 4px; font-size: 12px; }
 	.rack:hover { background: #f4f4f5; }
 	.rack.sel { background: #fef3c7; }

@@ -68,6 +68,17 @@ describe('two people, one project', () => {
 		await A.sync.flush(); await tick()
 		for (const s of [A.store, B.store]) { expect(xOf(s, 'a')).toBe(0); expect(xOf(s, 'b')).toBe(999) }
 	})
+	it('the saving indicator hears when writes settle, even with no store change (add, then delete)', async () => {
+		const server = new MemoryBackend(), store = new EntityStore(), seen: number[] = []
+		const sync = new Sync(store, server, { user: 'alice', onPending: (n) => seen.push(n) })
+		sync.watch([levelScope('L1')])
+		store.transact('Add', (tx) => tx.put(box('a')))
+		await sync.flush(); await tick()
+		store.transact('Delete', (tx) => tx.del('a'))
+		await sync.flush(); await tick()
+		expect(seen[0]).toBe(1)
+		expect(seen.at(-1)).toBe(0)
+	})
 	it('deletes propagate', async () => {
 		const server = new MemoryBackend(), A = client(server, 'alice'), B = client(server, 'bob')
 		A.store.transact('Add', (tx) => tx.put(box('a')))

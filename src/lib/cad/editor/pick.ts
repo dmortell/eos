@@ -42,10 +42,15 @@ export function primDist(prim: Prim, p: Pt): number {
 
 /** The entity under `p`: the TOPMOST prim within `tol` (later prims draw on top). */
 export function pickAt(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean): Id | undefined {
+	return pickPrim(prims, p, tol, skip)?.src
+}
+
+/** The topmost prim under `p` with a source — for its `sub` (a port number on a device …). */
+export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean): Prim | undefined {
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const pr = prims[i]
 		if (!pr.src || skip?.(pr.src)) continue
-		if (primDist(pr, p) <= tol) return pr.src
+		if (primDist(pr, p) <= tol) return pr
 	}
 	return undefined
 }

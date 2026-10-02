@@ -13,9 +13,13 @@ import type { Id } from '../domain/types'
 
 export interface SyncOpts {
 	user: string
+	/** This tab / session, recorded on every write so changes can be traced (several tabs share one user). */
+	client?: string
 	now?: () => number
 	/** Called when a write fails (the store keeps the edit; the caller should warn and retry or reload). */
 	onError?: (e: unknown) => void
+	/** Called whenever the number of unconfirmed writes changes (a "Saving… / Saved" indicator). */
+	onPending?: (n: number) => void
 }
 
 export class Sync {
@@ -54,16 +58,20 @@ export class Sync {
 			const rev = (this.#revs.get(op.id) ?? 0) + 1
 			this.#revs.set(op.id, rev)
 			this.#pending.set(op.id, rev)
-			return { id: op.id, data: op.after ? toDoc(op.after, { rev, updatedAt: now, updatedBy: this.opts.user }) : null }
+			return { id: op.id, data: op.after ? toDoc(op.after, { rev, updatedAt: now, updatedBy: this.opts.user, ...(this.opts.client ? { client: this.opts.client } : {}) }) : null }
 		})
+		this.#notify()
 		const p = this.backend.write(docs)
 			.catch((e) => this.opts.onError?.(e))
 			.finally(() => {
 				this.#inflight.delete(p)
 				for (const d of docs) if (d.data === null && this.#pending.get(d.id) === this.#revs.get(d.id)) this.#pending.delete(d.id)
+				this.#notify()
 			})
 		this.#inflight.add(p)
 	}
+
+	#notify(): void { this.opts.onPending?.(this.#pending.size) }
 
 	#onRemote(docs: RemoteDoc[]): void {
 		const puts: Entity[] = [], dels: Id[] = []
@@ -82,5 +90,6 @@ export class Sync {
 			}
 		}
 		if (puts.length || dels.length) this.store.applyRemote(puts, dels)
+		this.#notify()
 	}
 }
