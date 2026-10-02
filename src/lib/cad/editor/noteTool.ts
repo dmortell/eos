@@ -86,7 +86,8 @@ export class NoteTool implements Tool {
 	key(e: KeyboardEvent, c: ToolCtx): boolean {
 		if (e.key === 'Enter' && this.#pts.length) { this.finish(c); return true }
 		if (e.key === 'Backspace' && this.#pts.length) { this.#pts.pop(); return true }
-		if (e.key === 'Escape' && this.#pts.length) { this.cancel(); return true }
+		// Esc (and a right-click) ends it like a run: kept when there are enough points, else dropped
+		if (e.key === 'Escape' && this.#pts.length) { if (this.#pts.length >= (this.id === 'cloud' ? 3 : 2)) this.finish(c); else this.cancel(); return true }
 		return false
 	}
 

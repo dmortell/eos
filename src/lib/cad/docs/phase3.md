@@ -581,3 +581,16 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
 - [ ] **Find/replace** (outlets grid) is a stop-gap for Journey 30F. Fold it into the Renumber / Relabel tool
   (ADR 0002) rather than growing it: outlet labels only today; no port-label or regex mode.
 - [ ] A way to move racks (and their room) to another level, for IDF3307 above (or re-import with a placement).
+- **Plan the rack-view interactions before adding more** (Dave, 2026-10-02: "need to plan how to move devices and
+  select blocks of ports and other functions"):
+  - **Today:** click / Shift-click (range) / Ctrl-click (toggle) select ports; a drag window selects whole devices /
+    racks, never ports; dragging a device moves it by U (or into another rack).
+  - **To design together:**
+    - a window inside one panel selecting a block of ports (rows × columns);
+    - moving devices (drag vs. keys, between racks, several at once);
+    - what Ctrl-drag does there (duplicate?);
+    - how Shift constraints fit in;
+    - port actions on a block (patch, interconnect, reserve, label).
+  - Not built until that plan is agreed.
+  - **Ctrl-drag a device = a duplicate device** (Dave, 2026-10-02), for consistency with Ctrl-drag duplicating shapes
+    (phase6.md todo).

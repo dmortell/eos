@@ -1,6 +1,6 @@
 <!-- One view surface: a plan or an elevation of the open level (switch with the buttons at the top left). It generates
      the view's display list, draws it, and routes input — left button → the active tool (points in VIEW mm; the view
-     space turns them into model points), right / middle drag → pan, a right CLICK → the tool's finish, wheel → zoom.
+     space turns them into model points), right / middle drag → pan, a right CLICK → the same as Esc, wheel → zoom.
      With a second pane open, each shows the other's work plane (ADR 0006): the plan shows the elevation's work depth
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
@@ -160,6 +160,25 @@
 	let hiddenUntilFit = $state(false)
 	let viewKey = ''
 
+	// Cameras survive a refresh (Dave): every view's pan / zoom is kept in localStorage per project. A restored view is
+	// never auto-fitted again (Fit / Home still fits it). Storage that's blocked or full just means fitting as before.
+	const camsKey = () => `cad-cams:${project.pid}`
+	const RESTORED = 'restored'
+	const readCams = (): Record<string, Camera> => { try { return JSON.parse(localStorage.getItem(camsKey()) ?? '{}') } catch { return {} } }
+	for (const [k, c] of Object.entries(readCams())) if (c && Number.isFinite(c.k)) cams.set(k, { cam: c, fitted: RESTORED })
+	let saveTimer: ReturnType<typeof setTimeout> | undefined
+	$effect(() => {
+		const c = cam
+		untrack(() => {
+			if (!viewKey || hiddenUntilFit) return
+			const vk = viewKey
+			clearTimeout(saveTimer)
+			saveTimer = setTimeout(() => {
+				try { localStorage.setItem(camsKey(), JSON.stringify({ ...readCams(), [vk]: { x: c.x, y: c.y, k: c.k } })) } catch { /* storage blocked / full */ }
+			}, 400)
+		})
+	})
+
 	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
 	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
@@ -180,7 +199,7 @@
 				const saved = cams.get(vk)
 				if (saved) { cam = saved.cam; fittedFor = saved.fitted }
 			}
-			if (fittedFor === key || !ps.length || !w) return
+			if (fittedFor === key || fittedFor === RESTORED || !ps.length || !w) return
 			const b = unionBounds(ps.map(primBounds))
 			if (b) { cam = fit(b, w, h); fittedFor = key }
 		})
@@ -209,6 +228,7 @@
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
 			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
+			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}
@@ -263,7 +283,17 @@
 		if (panning) {
 			const click = !panning.moved && panning.button === 2
 			panning = null
-			if (click) { ws.tool.finish?.(ctx()); tick++ }   // a right CLICK (no drag) finishes what's being drawn
+			// a right CLICK (no drag) = Esc (Dave): the first ends what's being drawn (a run with 2+ points is kept, a
+			// half-made one dropped, an armed bulk patch / interconnect let go) and stays in the tool; the next, with
+			// nothing in progress, goes back to Select; in Select it clears the selection
+			if (click) {
+				const handled = ws.tool.key?.({ key: 'Escape' } as KeyboardEvent, ctx()) ?? false
+				if (!handled) {
+					if (ws.toolId === 'select') ws.select([])
+					else { ws.tool.cancel(ctx()); ws.toolId = 'select' }
+				}
+				tick++
+			}
 			return
 		}
 		if (toolDown) { toolDown = false; ws.tool.up(input(e), ctx()); tick++ }

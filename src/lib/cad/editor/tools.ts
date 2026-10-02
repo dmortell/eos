@@ -17,6 +17,7 @@ import { placementProblem } from '../domain/devices'
 import { RU_MM } from '../views/rackRow'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
+import { handlesFor, handleAt, type Handle } from './handles'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -51,6 +52,9 @@ export interface ToolCtx {
 	ask(label: string, value: number, apply: (v: number) => void): void
 	/** Rack-row views only: the rack and U under a view point. */
 	rowHit?(p: Pt): { rack: Rack; u: number } | null
+	/** One opening of a wall selected (null = none) and which one is (Phase 6: holes are selectable). */
+	selectOpening?(wallId: Id, openingId: string | null): void
+	openingId?(): string | null
 	/** Ask for text (the tool-bar prompt); `apply` runs on Enter. */
 	askText?(label: string, value: string, apply: (t: string) => void): void
 	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
@@ -94,7 +98,7 @@ export const TOL_PX = 6
 /** Moves snap to 10 mm (model), 0.5 mm on a sheet's paper; Alt = free. */
 export const snapPt = (p: Pt, alt: boolean, step = 10): Pt => (alt ? p : { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step })
 
-/** Select: click picks (Shift / Ctrl toggles), press-drag moves the selection as ONE undo step (attached nodes
+/** Select: click picks (Ctrl toggles; Shift is kept for constraints — ports in racks still take Shift ranges), press-drag moves the selection as ONE undo step (attached nodes
  *  follow), drag on empty space draws a window, and a selected path shows node grips to drag. Selection happens on
  *  press, so there is no click / press split to reconcile. */
 export class SelectTool implements Tool {
@@ -112,13 +116,24 @@ export class SelectTool implements Tool {
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
 
+	/** A handle being used (an opening's / a section's, editor/handles.ts) and its entity as it was at the press. */
+	#handle: { h: Handle; base: Entity } | null = null
+
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		return s?.type === 'shape' ? pathGrips(s, c.space) : []
 	}
+	/** The single selected thing's handles — on the plan only. */
+	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
+		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+		return one && c.space.spec.kind === 'plan' ? handlesFor(one) : { handles: [], decor: [] }
+	}
 
 	down(e: PointerIn, c: ToolCtx): void {
+		// handles first (they sit on a wall / a cut line, where a node grip or a click would also land)
+		const hBest = handleAt(this.#handles(c).handles, e.p, c.tol() * 1.5)
+		if (hBest) { this.#handle = { h: hBest, base: c.store.get(c.selection[0])! }; this.#start = e.p; return }
 		const g = gripAt(this.grips(c), e.p, c.tol() * 1.5)
 		// Ctrl on a grip = BRANCH: a new segment from that node, dragged out
 		if (g) { this.#grip = { shape: c.selection[0], grip: g, ...(e.ctrl ? { branch: newId() } : {}) }; return }
@@ -148,6 +163,15 @@ export class SelectTool implements Tool {
 			// a paper note (a shape on the sheet) is picked and dragged like any shape, below; empty paper clears
 			if (sheet?.type !== 'shape') { c.select([]); return }
 		}
+		// a hole in a wall (plan): select the wall and that opening; dragging slides the hole at once
+		const hitEnt = id ? c.store.get(id) : undefined
+		if (id && sub && hitEnt?.type === 'shape' && hitEnt.role?.kind === 'wall' && c.space.spec.kind === 'plan' && !e.shift && !e.ctrl) {
+			c.select([id])
+			c.selectOpening?.(id, sub)
+			const bar = handlesFor(hitEnt).handles.find((h) => h.selects === sub)
+			if (bar) { this.#handle = { h: { ...bar, selects: undefined }, base: hitEnt }; this.#start = e.p }
+			return
+		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
@@ -163,7 +187,8 @@ export class SelectTool implements Tool {
 			c.selectPorts({ on: id, face, ports: [n], anchor: n })
 		} else if (c.selectPorts && !(e.shift || e.ctrl)) c.selectPorts(null)
 		if (id) {
-			if (e.shift || e.ctrl) { c.select(c.selection.includes(id) ? c.selection.filter((x) => x !== id) : [...c.selection, id]); return }
+			// Ctrl toggles (Dave: Shift is kept for constraints while dragging; port ranges in racks still use Shift)
+			if (e.ctrl) { c.select(c.selection.includes(id) ? c.selection.filter((x) => x !== id) : [...c.selection, id]); return }
 			const sel = c.selection.includes(id) ? c.selection : [id]
 			if (sel !== c.selection) c.select(sel)
 			// in a rack row, devices move (by U / into another rack); elsewhere what has a plan position moves
@@ -171,11 +196,21 @@ export class SelectTool implements Tool {
 			this.#start = e.p
 		} else {
 			this.#marquee = e.p
-			if (!e.shift && !e.ctrl) c.select([])
+			if (!e.ctrl) c.select([])
 		}
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		if (this.#handle) {
+			const { h } = this.#handle, start = this.#start
+			if (!h.drag || !start || (!this.#gesture && Math.hypot(e.p.x - start.x, e.p.y - start.y) < c.tol())) return
+			const drag = h.drag
+			// a bar keeps the press point's offset along it (no jump to the pointer)
+			const q = h.shape === 'bar' ? { x: h.at.x + e.p.x - start.x, y: h.at.y + e.p.y - start.y } : e.p
+			this.#gesture ??= c.store.begin(this.#handle.base.type === 'section' ? 'Edit section' : 'Edit opening')
+			this.#gesture.update((tx) => tx.put(drag(q, e.alt)))
+			return
+		}
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
 		if (this.#vp && this.#start) {
 			const { sheet, vpId, mode, corner } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
@@ -250,10 +285,15 @@ export class SelectTool implements Tool {
 	}
 
 	up(e: PointerIn, c: ToolCtx): void {
+		if (!this.#gesture && this.#handle) {
+			const { h, base } = this.#handle
+			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
+			else if (h.click) { const click = h.click; c.store.transact('Door swing', (tx) => tx.put(click())) }
+		}
 		if (this.#gesture) this.#gesture.commit()
 		else if (this.#marquee && Math.hypot(e.p.x - this.#marquee.x, e.p.y - this.#marquee.y) > c.tol()) {
 			const ids = pickInside(c.prims(), box(this.#marquee, e.p))
-			c.select(e.shift || e.ctrl ? [...new Set([...c.selection, ...ids])] : ids)
+			c.select(e.ctrl ? [...new Set([...c.selection, ...ids])] : ids)
 		}
 		this.#reset(c)
 	}
@@ -265,7 +305,15 @@ export class SelectTool implements Tool {
 
 	preview(c: ToolCtx): Prim[] {
 		const px = c.tol() / TOL_PX   // one screen px in model mm
-		const out: Prim[] = this.grips(c).map((g) => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' }))
+		const { handles, decor } = this.#handles(c)
+		const out: Prim[] = [...decor, ...this.grips(c).map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' }))]
+		const opSel = c.openingId?.()
+		// bars under the point grips
+		for (const h of handles) if (h.span) out.push({ k: 'line', pts: h.span, cls: `grip-bar${h.selects === opSel ? ' grip-bar-sel' : ''}` })
+		for (const h of handles) {
+			if (h.shape === 'round') out.push({ k: 'circle', c: h.at, r: 7 * px, fill: true, cls: 'grip grip-round' })
+			else if (h.shape === 'square') out.push({ k: 'line', pts: sq(h.at, 11 * px), closed: true, fill: true, cls: 'grip grip-handle' })
+		}
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
 		return out
 	}
@@ -293,7 +341,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null; this.#handle = null
 		c.setMarquee(null)
 	}
 }

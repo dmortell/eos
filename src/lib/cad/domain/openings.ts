@@ -9,7 +9,8 @@ import { newId } from './ids'
 const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, y: a.y - b.y })
 const along = (a: Pt, t: Pt, d: number): Pt => ({ x: a.x + t.x * d, y: a.y + t.y * d })
 
-function segEnds(s: Shape, segId: string): { a: PathNode; b: PathNode; len: number; t: Pt; n: Pt } | null {
+/** A wall segment's ends, length, direction `t` and normal `n` (plan). */
+export function segEnds(s: Shape, segId: string): { a: PathNode; b: PathNode; len: number; t: Pt; n: Pt } | null {
 	if (s.geom.kind !== 'path') return null
 	const sg = s.geom.segs.find((x) => x.id === segId)
 	const a = s.geom.nodes.find((x) => x.id === sg?.a), b = s.geom.nodes.find((x) => x.id === sg?.b)
@@ -51,9 +52,11 @@ export function wallPieces(len: number, openings: Opening[]): [number, number][]
 
 /** Plan prims of a wall segment with openings: its solid pieces (as bands), each opening's jambs, and a door's leaf +
  *  quarter arc (from the hinge jamb, on the swing face). Points in plan mm. */
-export function planOpenings(s: Shape, segId: string, w: number): { pieces: [Pt, Pt][]; jambs: [Pt, Pt][]; swings: Pt[][] } {
+export function planOpenings(s: Shape, segId: string, w: number): { pieces: [Pt, Pt][]; jambs: [Pt, Pt][]; swings: Pt[][]; holes: { id: string; a: Pt; b: Pt }[] } {
 	const e = segEnds(s, segId), ops = s.role?.kind === 'wall' ? s.role.openings.filter((o) => o.segId === segId) : []
-	if (!e) return { pieces: [], jambs: [], swings: [] }
+	if (!e) return { pieces: [], jambs: [], swings: [], holes: [] }
+	// each hole's centreline (what a click on the gap picks)
+	const holes = ops.map((o) => ({ id: o.id, a: along(e.a, e.t, o.at - o.width / 2), b: along(e.a, e.t, o.at + o.width / 2) }))
 	const pieces = wallPieces(e.len, ops).map(([p0, p1]) => [along(e.a, e.t, p0), along(e.a, e.t, p1)] as [Pt, Pt])
 	const jambs: [Pt, Pt][] = [], swings: Pt[][] = []
 	for (const o of ops) {
@@ -72,7 +75,7 @@ export function planOpenings(s: Shape, segId: string, w: number): { pieces: [Pt,
 		})
 		swings.push([hinge, open], arc)
 	}
-	return { pieces, jambs, swings }
+	return { pieces, jambs, swings, holes }
 }
 
 /** A SLAB-TO-SLAB wall's height range above its level's FFL (Dave: walls round IDF / UPS rooms go full height): from

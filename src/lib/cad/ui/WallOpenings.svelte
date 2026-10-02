@@ -1,9 +1,12 @@
-<!-- A wall's openings (Phase 6.1): width, Z (bottom), H (height), swing / flip, delete. -->
+<!-- A wall's "slab to slab" switch and its openings (Phase 6.1): per opening two short lines that fit the sidebar —
+     W / Z / H, then swing / flip / delete. The plan's handles do the same by dragging. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Opening, Shape } from '../domain/shapes'
+	import type { Workspace } from '../app/workspace.svelte'
 
-	let { project, s }: { project: CadProject; s: Shape } = $props()
+	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
+	const selId = $derived(ws.openingSel?.wallId === s.id ? ws.openingSel.openingId : null)
 	const ops = $derived(s.role?.kind === 'wall' ? s.role.openings : [])
 	const segNo = (o: Opening) => (s.geom.kind === 'path' ? s.geom.segs.findIndex((x) => x.id === o.segId) + 1 : 0)
 
@@ -23,34 +26,37 @@
 		Slab to slab</label>
 {/if}
 {#if ops.length}
-	<p class="pt-1 font-semibold">Openings <span class="font-normal text-zinc-500">({ops.length})</span></p>
-	<table class="w-full">
-		<thead><tr class="text-zinc-500"><th>seg</th><th>W</th><th>Z</th><th>H</th><th>Swing</th><th></th></tr></thead>
-		<tbody>
-			{#each ops as o (o.id)}
-				<tr>
-					<td class="text-zinc-400">{segNo(o)}</td>
-					<td><input class="inp" type="number" value={o.width} onchange={(e) => edit(o, { width: num(e.currentTarget.value, 100) })} /></td>
-					<td><input class="inp" type="number" value={o.z} onchange={(e) => edit(o, { z: num(e.currentTarget.value) })} /></td>
-					<td><input class="inp" type="number" value={o.h} onchange={(e) => edit(o, { h: num(e.currentTarget.value, 50) })} /></td>
-					<td class="whitespace-nowrap">
-						<select class="inp" value={o.swing ?? ''} onchange={(e) => edit(o, { swing: (e.currentTarget.value || undefined) as Opening['swing'] })}>
-							<option value="">—</option><option value="left">left</option><option value="right">right</option>
-						</select>
-						{#if o.swing}<button class="x" title="Open to the other face" onclick={() => edit(o, { flip: !o.flip || undefined })}>⇅</button>{/if}
-					</td>
-					<td><button class="x" title="Delete this opening" onclick={() => put('Delete opening', ops.filter((x) => x.id !== o.id))}>✕</button></td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<p class="pt-1 font-semibold">Openings <span class="font-normal text-zinc-500">({ops.length}) · drag their grips on the plan</span></p>
+	{#each ops as o, i (o.id)}
+		<!-- the selected hole (clicked on the plan) is highlighted; a click on a row selects that hole -->
+		<div class="op" class:on={o.id === selId} role="presentation" onmousedown={() => ws.selectOpening(s.id, o.id)}>
+			<div class="line">
+				<span class="n" title="Segment {segNo(o)}">{i + 1}</span>
+				<label>W <input class="inp" type="number" value={o.width} onchange={(e) => edit(o, { width: num(e.currentTarget.value, 100) })} /></label>
+				<label title="Bottom above FFL">Z <input class="inp" type="number" value={o.z} onchange={(e) => edit(o, { z: num(e.currentTarget.value) })} /></label>
+				<label title="Height">H <input class="inp" type="number" value={o.h} onchange={(e) => edit(o, { h: num(e.currentTarget.value, 50) })} /></label>
+			</div>
+			<div class="line">
+				<span class="n"></span>
+				<label>Swing
+					<select class="inp sel" value={o.swing ?? ''} onchange={(e) => edit(o, { swing: (e.currentTarget.value || undefined) as Opening['swing'] })}>
+						<option value="">none</option><option value="left">left</option><option value="right">right</option>
+					</select></label>
+				{#if o.swing}<button class="btn" title="Open to the other face" onclick={() => edit(o, { flip: !o.flip || undefined })}>Flip</button>{/if}
+				<button class="btn del" title="Delete this opening" onclick={() => put('Delete opening', ops.filter((x) => x.id !== o.id))}>Delete</button>
+			</div>
+		</div>
+	{/each}
 {/if}
 
 <style>
-	th { font-weight: 400; text-align: left; font-size: 10px; padding: 0 2px; }
-	td { padding: 1px 2px; }
-	.inp { width: 3.6rem; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; font-size: 11px; }
-	select.inp { width: 3.8rem; }
-	.x { color: #71717a; padding: 0 3px; }
-	.x:hover { color: #dc2626; }
+	.op { border-top: 1px solid #f4f4f5; padding: 2px 0; }
+	.op.on { background: #fff7ed; box-shadow: inset 3px 0 0 #ea580c; }
+	.line { display: flex; align-items: center; gap: 4px; margin: 1px 0; font-size: 11px; color: #52525b; }
+	.n { width: 0.9rem; color: #a1a1aa; text-align: right; }
+	.inp { width: 3.3rem; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; font-size: 11px; }
+	.sel { width: 4rem; }
+	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 5px; background: white; font-size: 11px; }
+	.btn:hover { background: #f4f4f5; }
+	.del:hover { color: #dc2626; }
 </style>

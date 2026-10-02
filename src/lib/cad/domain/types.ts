@@ -154,6 +154,9 @@ export interface Rack {
 	rot?: number
 	catalogId?: Id
 	frontProtrusionMm?: number
+	/** A cabinet's doors, drawn as swings on the plan (aisle clearance): single or split (two leaves) on the front /
+	 *  rear; `hinge` = the side a single door hangs on, as seen standing at that face. */
+	doors?: { front?: 'single' | 'split'; rear?: 'single' | 'split'; hinge?: 'left' | 'right' }
 	color?: string
 	notes?: string
 	/** A designated PATCH FRAME: outlets are allocated to its panels. When a server room has any, only those take

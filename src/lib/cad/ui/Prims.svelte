@@ -100,6 +100,13 @@
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
+	/* handles (openings / sections): blue + white so they show on an orange selection */
+	.opening-pick { stroke: transparent; }
+	.grip-bar { stroke: #1d4ed8; stroke-width: 6; stroke-opacity: 0.35; stroke-linecap: butt; }
+	.grip-bar.grip-bar-sel { stroke: #ea580c; stroke-opacity: 0.8; }
+	.grip.grip-handle.filled { fill: #ffffff; stroke: #1d4ed8; stroke-width: 2; }
+	.grip.grip-round.filled { fill: #1d4ed8; stroke: #ffffff; stroke-width: 2; }
+	.section-extent { stroke: #0f766e; stroke-dasharray: 4 4; fill: rgba(15, 118, 110, 0.05); }
 	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }
 	.section-arrow.filled { fill: #0f766e; }
 	.section-arrow { stroke: #0f766e; }
@@ -107,7 +114,8 @@
 	.cut.filled { fill: #334155; }
 	.cut { stroke: #0f172a; }
 	.opening { stroke: #475569; }
-	.opening-swing { stroke: #64748b; stroke-dasharray: 4 3; fill: none; }
+	.opening-swing { stroke: #475569; fill: none; }
+	.rack-door { stroke: #475569; fill: none; }
 	.opening-hole { fill: #ffffff; stroke: #475569; }
 	.riser-slab { fill: #e7e5e4; stroke: none; }
 	.riser-ffl { stroke: #57534e; stroke-width: 1.5; }
@@ -144,6 +152,7 @@
 	.grip { fill: #f59e0b; stroke: white; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
 	.sel { stroke: #f59e0b !important; }
+	.opening-pick.sel { stroke: transparent !important; }   /* a selected wall's gaps stay open */
 	.band.sel { opacity: 0.9; }
 	text.sel { fill: #b45309; font-weight: 600; }
 	circle.sel, polygon.sel { stroke-width: 2.5; }

@@ -26,3 +26,18 @@ describe('plan draw order', () => {
 		expect(first('HI')).toBeGreaterThan(first('RK'))  // ceiling tray: over it
 	})
 })
+
+describe('rack doors on the plan', async () => {
+	const { rackDoorPrims } = await import('./plan')
+	const p = (x: number, y: number) => ({ x, y })   // not rotated, at 0,0
+	const rack = (doors: object) => ({ type: 'rack', id: 'R', levelId: 'L', spaceId: 'S', order: 1, name: 'R', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x: 0, y: 0 }, doors }) as never
+	it('a single front door hinged left (as seen facing the front) opens outward to +y; split = two leaves', () => {
+		const [leaf, arc] = rackDoorPrims(rack({ front: 'single' }), p, 300, 500)
+		expect(leaf.k === 'line' && leaf.pts).toEqual([{ x: -300, y: 500 }, { x: -300, y: 1100 }])
+		expect(arc.k === 'line' && arc.pts.at(-1)!.x).toBeCloseTo(300)   // swings back to the closed position across the face
+		expect(rackDoorPrims(rack({ front: 'split' }), p, 300, 500)).toHaveLength(4)
+		const [rear] = rackDoorPrims(rack({ rear: 'single' }), p, 300, 500)
+		expect(rear.k === 'line' && rear.pts).toEqual([{ x: 300, y: -500 }, { x: 300, y: -1100 }])   // the rear's left is +x
+		expect(rackDoorPrims(rack({}), p, 300, 500)).toEqual([])
+	})
+})

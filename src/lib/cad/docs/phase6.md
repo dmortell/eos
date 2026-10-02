@@ -134,3 +134,68 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
   - the cut wall is solid only above the door (2100 → 2600);
   - R301–R303 are seen end-on, with TR1 at the ceiling;
   - P3A (east, behind the viewer) is left out.
+
+### After 6.2 (Dave, 2026-10-02)
+- **Openings in Properties fit the sidebar:** two short lines per opening (W / Z / H, then Swing / Flip /
+  Delete). The Flip button had been cut off.
+- **Handles** (`editor/handles.ts`, tests). Grips that edit a property of the selected thing on the plan:
+  - **A wall's openings:**
+    - the middle square slides the hole along its segment (10 mm steps, Alt = free, kept inside);
+    - the end squares resize it with the other end fixed (≥ 100 mm);
+    - the round grip off the face it opens to steps the swing: none → left → right → left (other face) → right
+      (other face) → none.
+  - **A section:** the end squares move the cut line's ends; the round grip on the far edge sets the depth (100 mm
+    steps). The depth outline shows while it's selected.
+  - Handles take priority over node grips. They're blue / white (`.grip.grip-handle` / `.grip.grip-round`), so
+    they show on the orange selection; an equal-specificity `.grip` rule had made them white-on-white.
+- **Right-click = Esc, then Select:**
+  - A run with 2+ points is kept, a half-made one is dropped, and an armed bulk patch / interconnect is let go.
+  - Leader / cloud Esc now also keeps enough points instead of discarding them.
+  - The tool hints say "Esc / right-click ends it and goes back to Select".
+- **Pan / zoom survive a refresh:**
+  - Every view's camera is saved in localStorage (`cad-cams:<pid>`, debounced) and restored.
+  - A restored view is never auto-fitted again (Fit still works). Blocked storage just means fitting as before.
+- **Live checks:** wall handles slide a door; the swing grip stepped none → left → right with the arc drawn; a
+  right-click mid-section went back to Select without making one; the camera came back identical after a reload.
+
+### More on openings / right-click (Dave, 2026-10-02)
+- **Swing by drag:** besides a click (which steps the swing), DRAG the round grip to where the door leaf should be.
+  The side of the wall picks the face, the half of the hole picks the hinge; back over the wall = no swing.
+- **Holes are selectable:**
+  - The middle grip is now a BAR the full width of the hole: drag anywhere along it to slide (it keeps the press
+    point's offset), click to select that hole.
+  - On the plan, a hole's gap carries an invisible pick band (`opening-pick`, sub = the opening id), so a click on
+    the gap of an UNSELECTED wall selects the wall and that hole, and a drag slides it at once.
+  - **Feedback:** the selected hole's row in the wall's Properties is highlighted (click a row to select it), and its
+    bar turns orange.
+  - **Delete** with a hole selected removes just that opening (`ws.openingSel`).
+- **Right-click = Esc, exactly:**
+  - The first ends what's in progress and stays in the tool. A run with 2+ points is kept (as Esc always did), a
+    half-made one is dropped, an armed bulk patch / interconnect is let go.
+  - The next (nothing in progress) goes back to Select. In Select it clears the selection.
+- **Grip shapes:** squares move / stretch a position (like node grips); round = sets a property (swing, depth);
+  bar = a whole hole.
+
+### Todo
+- **Shift constraints during drags:** pressing / releasing Shift mid-drag should constrain (H / V / along the
+  host, 15° steps) live — for node grips, handles and moves (Dave, 2026-10-02).
+- **Fix the drag marquee:** selecting shapes by window doesn't pick them up (Dave, 2026-10-02).
+
+### Door swings solid; rack doors (Dave, 2026-10-02)
+- **Door swing arcs** are solid thin lines now (the dashes were hard to see), on screen and in PDFs.
+- **Rack doors:**
+  - `Rack.doors { front?, rear?: 'single' | 'split', hinge? }`, offered in Properties for `cabinet` racks.
+  - The plan draws each leaf open at 90° from its hinge, with its swing arc, so aisle clearance shows
+    (`rackDoorPrims`, tested). "Left" hinge = the left of someone standing at that face; a split door has a leaf at
+    each side.
+  - No 3D: elevations already draw the devices on the face being viewed. The Pages "rack as a prism hides its
+    devices" problem doesn't arise; a door need not hide anything.
+- **Grip shapes, for later:** a round grip will also suit ROTATE.
+
+### Shift is for constraints (Dave, 2026-10-02)
+- **On the canvas Shift no longer adds to / removes from the selection** (it clashed with Shift-to-constrain).
+  Ctrl-click toggles shapes and Ctrl+marquee adds to the selection.
+- **Shift ranges stay** where Shift isn't a constraint: panel ports in rack views, and the grids (Outlets / Sheets).
+- **Todo — Ctrl-drag duplicates** the dragged shapes, as in Pages. To settle when it's built: Ctrl-drag on a node
+  grip already BRANCHES a run, and Ctrl-drag inside a selected sheet viewport pans its view; Ctrl-drag on a
+  selection elsewhere would duplicate.

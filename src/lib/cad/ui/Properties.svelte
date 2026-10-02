@@ -324,6 +324,27 @@
 		<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
 			<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 		</label>
+		{#if r.kind === 'cabinet'}
+			<!-- doors: their swings show on the plan (aisle clearance) -->
+			{@const doors = r.doors ?? {}}
+			{@const setDoors = (patch: NonNullable<Rack['doors']>) => { const next = { ...doors, ...patch }; put(r, 'Rack doors', { doors: next.front || next.rear ? next : undefined }) }}
+			<label class="row">Doors
+				<span class="flex gap-1">
+					<select class="inp" title="Front door" value={doors.front ?? ''} onchange={(e) => setDoors({ front: (e.currentTarget.value || undefined) as 'single' | 'split' | undefined })}>
+						<option value="">front: none</option><option value="single">front: single</option><option value="split">front: split</option>
+					</select>
+					<select class="inp" title="Rear door" value={doors.rear ?? ''} onchange={(e) => setDoors({ rear: (e.currentTarget.value || undefined) as 'single' | 'split' | undefined })}>
+						<option value="">rear: none</option><option value="single">rear: single</option><option value="split">rear: split</option>
+					</select>
+				</span>
+			</label>
+			{#if doors.front === 'single' || doors.rear === 'single'}
+				<label class="row" title="The side a single door hangs on, as seen standing at that face">Hinge
+					<select class="inp" value={doors.hinge ?? 'left'} onchange={(e) => setDoors({ hinge: e.currentTarget.value === 'right' ? 'right' : undefined })}>
+						<option value="left">left</option><option value="right">right</option>
+					</select></label>
+			{/if}
+		{/if}
 		<p class="text-zinc-500">{project.index.devicesIn(r.id).length} devices · front faces the +y side when not rotated</p>
 	{:else if one.type === 'device'}
 		{@const d = one as Device}
@@ -411,7 +432,7 @@
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
 		{#if one.role?.kind === 'containment'}<RunFill {project} s={one} />{/if}
-		{#if one.role?.kind === 'wall'}<WallOpenings {project} s={one} />{/if}
+		{#if one.role?.kind === 'wall'}<WallOpenings {project} {ws} s={one} />{/if}
 		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
 		{@const g = one.geom}

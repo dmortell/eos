@@ -75,6 +75,8 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 						...op.pieces.map(([p, q]): Prim => ({ k: 'line', pts: [p, q], w, cls, src: s.id })),
 						...op.jambs.map(([p, q]): Prim => ({ k: 'line', pts: [p, q], cls: 'opening', src: s.id })),
 						...op.swings.map((pts): Prim => ({ k: 'line', pts, cls: 'opening opening-swing', src: s.id })),
+						// the gap itself, invisible but pickable: a click selects that opening
+						...op.holes.map((h): Prim => ({ k: 'line', pts: [h.a, h.b], w, cls: 'opening-pick', src: s.id, sub: h.id })),
 					]
 				}
 				return [{ k: 'line', pts: [a, b], ...(w ? { w } : {}), cls, src: s.id }]
@@ -151,7 +153,31 @@ function rackPrims(r: Rack, k: number): Prim[] {
 		{ k: 'line', pts: [corners[1], corners[3]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [p(-hw * 0.6, fy), p(hw * 0.6, fy)], cls: 'rack-front', src: r.id },
 		{ k: 'text', at, text: r.name, size: RACK_LABEL * k, anchor: 'middle', cls: 'label', src: r.id },
+		...rackDoorPrims(r, p, hw, hd),
 	]
+}
+
+/** A cabinet's doors on the plan: each leaf drawn open at 90° from its hinge, with its swing arc back to the closed
+ *  position — so a cramped aisle shows. Front = the rack's local +y; "left" = the left of someone facing that face. */
+export function rackDoorPrims(r: Rack, p: (x: number, y: number) => Pt, hw: number, hd: number): Prim[] {
+	const d = r.doors
+	if (!d) return []
+	const out: Prim[] = []
+	for (const face of ['front', 'rear'] as const) {
+		const kind = d[face]
+		if (!kind) continue
+		const s = face === 'front' ? 1 : -1, y = s * hd
+		// facing the front you look along −y, so your left is −x; facing the rear, +x
+		const left = face === 'front' ? -hw : hw
+		const hingeX = (d.hinge ?? 'left') === 'left' ? left : -left
+		const leaves = kind === 'split' ? [{ h: -hw, len: hw }, { h: hw, len: hw }] : [{ h: hingeX, len: 2 * hw }]
+		for (const { h, len } of leaves) {
+			const dir = h < 0 ? 1 : -1   // the closed leaf runs from the hinge across the face
+			out.push({ k: 'line', pts: [p(h, y), p(h, y + s * len)], cls: 'rack-door', src: r.id })
+			out.push({ k: 'line', pts: Array.from({ length: 13 }, (_, i) => { const a = ((i / 12) * Math.PI) / 2; return p(h + dir * len * Math.sin(a), y + s * len * Math.cos(a)) }), cls: 'rack-door', src: r.id })
+		}
+	}
+	return out
 }
 
 /** An outlet: its block (its own, else the default for its usage / tier / mount) with {LABEL} filled in — or, with no

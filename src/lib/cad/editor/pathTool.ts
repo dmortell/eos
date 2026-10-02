@@ -1,7 +1,7 @@
 // The path tool (ADR 0006 / 0007): one tool, four presets — a plain LINE, a TRUNK, a CONDUIT or a WALL are the same
 // path with a different section and role. Click points at work Z; R = Rise / drop (a vertical segment at the last
-// point, the run carries on at the new Z); Enter / double-click / right-click finishes; Backspace drops the last point;
-// Esc finishes (or cancels with < 2 points). Snapping onto an outlet or rack ATTACHES the node so it follows it.
+// point, the run carries on at the new Z); Enter / double-click finishes; Backspace drops the last point; Esc finishes
+// (or cancels with < 2 points) and stays in the tool; a second Esc goes back to Select. A right-click = Esc. Snapping onto an outlet or rack ATTACHES the node so it follows it.
 import type { Id, Pt } from '../domain/types'
 import type { Prim } from '../views/display'
 import type { Section } from '../domain/shapes'

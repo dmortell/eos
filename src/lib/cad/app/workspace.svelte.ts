@@ -102,7 +102,11 @@ export class Workspace {
 	}
 	/** Ports selected on one device in a rack row; dropped when that device leaves the selection. */
 	portSel = $state.raw<PortSel | null>(null)
+	/** One opening of the selected wall (Phase 6: holes are selectable; Delete removes just it). */
+	openingSel = $state.raw<{ wallId: Id; openingId: string } | null>(null)
+	selectOpening = (wallId: Id, openingId: string | null): void => { this.openingSel = openingId ? { wallId, openingId } : null }
 	select = (ids: Id[]): void => {
+		if (this.openingSel && !(ids.length === 1 && ids[0] === this.openingSel.wallId)) this.openingSel = null
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
 		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet

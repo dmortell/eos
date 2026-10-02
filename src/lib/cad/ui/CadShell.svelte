@@ -114,10 +114,10 @@
 	const HINT: Partial<Record<ToolId, string>> = {
 		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch',
 		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
-		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Enter / right-click finishes · Backspace undoes a point',
-		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes · snap onto an outlet or rack to attach',
-		conduit: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes',
-		wall: 'Click or type points · Enter / right-click finishes',
+		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Enter finishes · Esc / right-click ends it, again → Select · Backspace undoes a point',
+		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter finishes · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
+		conduit: 'Click or type points · R = rise / drop · V = riser to another level · Enter finishes · Esc / right-click ends it, again → Select',
+		wall: 'Click or type points · Enter finishes · Esc / right-click ends it, again → Select',
 		section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
 		opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
@@ -125,8 +125,8 @@
 		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
 		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
 		text: 'On a sheet: click where the text goes, then type it',
-		leader: 'On a sheet: click the tip, then the bend / end points · Enter or right-click → its text · Backspace undoes a point',
-		cloud: 'On a sheet: click round the area to mark · Enter or right-click closes the cloud · Backspace undoes a point',
+		leader: 'On a sheet: click the tip, then the bend / end points · Enter → its text · Esc / right-click ends it, again → Select · Backspace undoes a point',
+		cloud: 'On a sheet: click round the area to mark · Enter closes the cloud · Esc / right-click ends it, again → Select · Backspace undoes a point',
 	}
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 
@@ -209,7 +209,15 @@
 		const k = e.key.toLowerCase()
 		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); project.undo() }
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); project.redo() }
-		else if (e.key === 'Delete' || e.key === 'Backspace') { if (ws.selection.length) { deleteEntities(project.store, ws.selection); ws.select([]) } }
+		else if (e.key === 'Delete' || e.key === 'Backspace') {
+			// a selected hole: just that opening, the wall stays
+			const op = ws.openingSel, wall = op ? project.store.get(op.wallId) : undefined
+			if (op && wall?.type === 'shape' && wall.role?.kind === 'wall') {
+				const role = wall.role
+				project.store.transact('Delete opening', (tx) => tx.put({ ...wall, role: { ...role, openings: role.openings.filter((o) => o.id !== op.openingId) } }))
+				ws.selectOpening(op.wallId, null)
+			} else if (ws.selection.length) { deleteEntities(project.store, ws.selection); ws.select([]) }
+		}
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t && toolWorksIn(t.id, activeKind)) setTool(t.id) }
