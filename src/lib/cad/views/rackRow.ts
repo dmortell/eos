@@ -6,9 +6,8 @@
 import type { Id, Rack, Device } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
-import { naturalCompare } from '../domain/labels'
-import { rotate } from '../domain/conventions'
 import { changedSincePrinted } from '../domain/ports'
+import { racksInOrder } from '../domain/devices'
 
 export const RU_MM = 44.45
 const RAIL_W = 482.6          // 19" device width
@@ -25,13 +24,7 @@ export interface RowSpec { spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
  * to rows — no row builder); racks not on the plan follow, by their order field.
  */
 export function rackLayout(ix: ProjectIndex, spec: RowSpec): { rack: Rack; x0: number }[] {
-	const racks = ix.racks.filter((r) => r.spaceId === spec.spaceId && (!spec.rowId || r.rowId === spec.rowId))
-	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }
-	// the viewer's right for each row, from its first placed rack's front
-	const right = new Map<string, { x: number; y: number }>()
-	for (const r of racks) if (r.at && !right.has(r.rowId ?? '')) right.set(r.rowId ?? '', rotate({ x: 1, y: 0 }, r.rot ?? 0))
-	const along = (r: Rack) => { const t = right.get(r.rowId ?? ''); return r.at && t ? r.at.x * t.x + r.at.y * t.y : Infinity }
-	racks.sort((a, b) => rowOrder(a) - rowOrder(b) || (a.rowId ?? '').localeCompare(b.rowId ?? '') || along(a) - along(b) || a.order - b.order || naturalCompare(a.name, b.name))
+	const racks = racksInOrder(ix, spec.spaceId, spec.rowId)
 	const out: { rack: Rack; x0: number }[] = []
 	let x = 0, prevRow: Id | undefined | null = null
 	for (const r of racks) {
@@ -85,19 +78,32 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 	for (const { rack, x0 } of layout) {
 		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
 		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', src: rack.id })
-		// rails + U ticks (every U), numbers every 5 U (and the top one)
-		const railL = mid - RAIL_W / 2 - 8
-		for (let u = 1; u <= rack.heightU; u++) {
-			const z = base + (u - 1) * RU_MM
-			out.push({ k: 'line', pts: [{ x: railL, y: -z }, { x: railL + 8, y: -z }], cls: 'rack-x' })
-			if (u === 1 || u % 5 === 0 || u === rack.heightU) out.push({ k: 'text', at: { x: railL - 4, y: -(z + RU_MM * 0.3) }, text: String(u), size: RU_MM * 0.6, anchor: 'end', cls: 'u-label', minPx: 5 })
+		// U ticks (every U) and numbers (every 5 U, and the top one) INSIDE the rack's own left edge — racks narrower
+		// than 19" rails (cable managers, desks) have no U scale (theirs would land on the neighbours)
+		if (rack.widthMm >= RAIL_W && rack.kind !== 'vcm' && rack.kind !== 'desk') {
+			// the 19" mounting frame: rail to rail, U1 to the top U
+			const top = base + rack.heightU * RU_MM
+			out.push({ k: 'line', pts: [{ x: mid - RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -top }, { x: mid - RAIL_W / 2, y: -top }], closed: true, cls: 'rack-rails' })
+			const tx = x0 + 6
+			for (let u = 1; u <= rack.heightU; u++) {
+				const z = base + (u - 1) * RU_MM
+				out.push({ k: 'line', pts: [{ x: tx, y: -z }, { x: tx + 10, y: -z }], cls: 'rack-x' })
+				if (u === 1 || u % 5 === 0 || u === rack.heightU) out.push({ k: 'text', at: { x: tx + 12, y: -(z + RU_MM * 0.25) }, text: String(u), size: RU_MM * 0.55, anchor: 'start', cls: 'u-label', minPx: 5 })
+			}
 		}
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
 		for (const d of ix.devicesIn(rack.id)) {
 			if (d.face === 'none' || (d.face !== 'both' && d.face !== spec.face && d.kind !== 'pdu')) continue
 			if (d.kind === 'pdu') {   // a 0U strip beside the rails
-				const x = spec.face === 'rear' ? x0 + rack.widthMm - 60 : x0 + 20, z0 = base + (d.u - 1) * RU_MM
-				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -(z0 + d.heightU * RU_MM) }, { x, y: -(z0 + d.heightU * RU_MM) }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
+				const x = spec.face === 'rear' ? x0 + rack.widthMm - 60 : x0 + 20, z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
+				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
+				// its network ports (a metered / switched PDU's management port …), stacked from the top — patchable
+				for (let n = 1; n <= d.portCount; n++) {
+					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }
+					const ref = { on: d.id, port: n, face: spec.face }, linked = !!ix.linkAt(ref)
+					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: linked ? 'port port-linked' : 'port', src: d.id, sub: String(n) })
+					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
+				}
 				continue
 			}
 			const w = Math.min(rack.widthMm, d.widthMm ?? RAIL_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
@@ -112,7 +118,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				if (!c) break
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
-				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (stale.has(n) ? ' port-stale' : '')
+				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
+				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
 				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
 				if (!label) continue
@@ -124,9 +131,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			}
 		}
 	}
-	// patch cords whose both ends are drawn on this face
+	// patch cords whose both ends are drawn on this face (ones marked `remove` too, faded — they still have to come out)
 	for (const c of ix.cords) {
-		if (c.status === 'remove') continue
 		const a = portAt.get(`${c.a.on}:${c.a.port}`), b = portAt.get(`${c.b.on}:${c.b.port}`)
 		if (!a || !b || (c.a.face && c.a.face !== spec.face) || (c.b.face && c.b.face !== spec.face)) continue
 		const sag = Math.min(200, Math.abs(a.x - b.x) * 0.15 + Math.abs(a.y - b.y) * 0.05)

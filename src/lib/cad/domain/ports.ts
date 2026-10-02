@@ -5,6 +5,7 @@
 import type { Entity } from './drawing'
 import type { Id, Device, Outlet, PortRef } from './types'
 import { ProjectIndex } from './project'
+import { portLabelsFor, type PortSep } from './labels'
 
 /** The entity to write so that `ref` shows `text`: the linked outlet (its port label) or the device (its own label). */
 export function setPortLabel(ix: ProjectIndex, ref: PortRef, text: string): Entity | null {
@@ -26,6 +27,39 @@ function withOutletPort(o: Outlet, port: number, text: string): Outlet {
 /** Rename an outlet: its own label, and every port label that starts with the old one (A.001A → A.002A). */
 export function renameOutlet(o: Outlet, next: string): Outlet {
 	return { ...o, label: next, ports: o.ports.map((p) => (p.label.startsWith(o.label) ? { ...p, label: next + p.label.slice(o.label.length) } : p)) }
+}
+
+/**
+ * Change an outlet's number of ports. New ports continue the existing labels' pattern (…201B → …201C, …-01 → …-02),
+ * the server room and cable type of the last port. Removed ports take their links with them — `dropLinks` lists
+ * those for the caller to delete (and to ask about first).
+ */
+export function setPortCount(ix: ProjectIndex, o: Outlet, n: number, defaultCable = 'cat6a', fmt: { style: 'alpha' | 'numeric'; sep: PortSep } = { style: 'alpha', sep: '.' }): { outlet: Outlet; dropLinks: Id[] } {
+	n = Math.max(1, Math.min(48, Math.round(n)))
+	const ports = o.ports.slice(0, n)
+	const fallback = portLabelsFor(o.label, n, fmt.style, fmt.sep)
+	while (ports.length < n) {
+		const prev = ports[ports.length - 1]
+		ports.push({ port: ports.length + 1, label: prev ? nextPortLabel(prev.label) : fallback[ports.length], serverRoomId: prev?.serverRoomId, cableType: prev?.cableType ?? defaultCable })
+	}
+	const dropLinks = o.ports.slice(n).flatMap((p) => { const l = ix.linkAt({ on: o.id, port: p.port }); return l ? [l.id] : [] })
+	return { outlet: { ...o, ports }, dropLinks }
+}
+
+/** The label after a port label: a trailing letter goes up (A → B, Z → AA), a trailing number counts up keeping its
+ *  width (01 → 02), anything else gets ".2". */
+export function nextPortLabel(prev: string): string {
+	const letters = prev.match(/^(.*?)([A-Z]+)$/)
+	if (letters && !/\d$/.test(prev)) {
+		const s = letters[2].split('')
+		let i = s.length - 1
+		while (i >= 0 && s[i] === 'Z') { s[i] = 'A'; i-- }
+		if (i < 0) s.unshift('A'); else s[i] = String.fromCharCode(s[i].charCodeAt(0) + 1)
+		return letters[1] + s.join('')
+	}
+	const num = prev.match(/^(.*?)(\d+)$/)
+	if (num) return num[1] + String(Number(num[2]) + 1).padStart(num[2].length, '0')
+	return `${prev}.2`
 }
 
 /** What a panel shows on each port now (non-empty only), by port number. */

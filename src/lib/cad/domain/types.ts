@@ -37,6 +37,10 @@ export interface Level {
 	elevationMm: number
 	/** Structure around FFL: slab top is at −raisedFloorMm, ceiling at clearHeightMm, slab above at clear + plenum. */
 	heights: { slabMm: number; raisedFloorMm: number; clearHeightMm: number; plenumMm: number }
+	/** A separate PLAN of part of a floor (a tenant office: Journey's 33F has 3303 and 3307 in opposite corners, each
+	 *  drawn on its own floorplan with its own coordinates). Same number and elevation as the floor; its own plan,
+	 *  elevations and racks. Unset = the floor's main plan. */
+	area?: string
 }
 
 /**
@@ -151,6 +155,9 @@ export interface Rack {
 	frontProtrusionMm?: number
 	color?: string
 	notes?: string
+	/** A designated PATCH FRAME: outlets are allocated to its panels. When a server room has any, only those take
+	 *  outlets (equipment racks' panels — uplinks, ties — don't); with none, every rack's panels do. */
+	patchFrame?: boolean
 }
 
 export type DeviceKind = 'panel' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'enclosure' | 'other'
@@ -185,6 +192,9 @@ export interface Device {
 export interface PanelInfo {
 	tier: Tier
 	serverRoomId?: Id
+	/** The outlet usages this panel takes (desk, AP, printer …). Unset = a general panel: any usage without a panel
+	 *  of its own. Allocation puts an outlet on a panel of its usage first, then on a general panel. */
+	usages?: string[]
 	/** Ports held for a usage type before allocation (block reservations). */
 	reservations?: { id: Id; usage: string; ports: number[]; note?: string }[]
 	/** When the port labels were printed and stuck on. Editing or renumbering a label linked to this panel then asks
@@ -244,6 +254,8 @@ export interface ProjectSettings {
 	id: 'settings'
 	/** How a new outlet's port labels are made from its label: "33-001" → 33-001.A / .B, or .1 / .2 (ADR 0002). */
 	portSuffix: 'alpha' | 'numeric'
+	/** Between the outlet label and the suffix: '.' (default) 201.A, '' 201A, '-' 201-A. */
+	portSeparator?: '.' | '-' | ''
 	/** Optional patterns ($lib/elevation/labelTemplate syntax) for Relabel (a later tool) and for new labels, e.g.
 	 *  outlet `Z.NNN`, port `"L"FF.Z.NNN-SPP[-H]`. Absent = new labels come from "next number" only. */
 	labelPatterns?: { outlet?: string; port?: string }

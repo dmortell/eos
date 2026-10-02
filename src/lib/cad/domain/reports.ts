@@ -8,6 +8,8 @@ import type { Id, Outlet, Cord } from './types'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { isVertical } from './shapes'
+import { rackBom } from './rackBom'
+import type { CatalogProduct } from '$lib/catalog/types'
 
 // ── Outlet schedule ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -122,7 +124,7 @@ export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
  * are rounded UP to whole metres per line. Links without a length are counted (unit 'ea') so they're not missed.
  */
-export function bom(p: ProjectIndex): BomLine[] {
+export function bom(p: ProjectIndex, catalog: CatalogProduct[] = []): BomLine[] {
 	const lines = new Map<string, BomLine>()
 	const add = (category: string, item: string, unit: BomLine['unit'], qty: number) => {
 		const k = `${category}|${item}|${unit}`
@@ -135,7 +137,10 @@ export function bom(p: ProjectIndex): BomLine[] {
 		add('Outlets', `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
 		for (const pt of o.ports) add('Outlets', `Jack / module ${pt.cableType}`, 'ea', 1)
 	}
-	for (const r of p.racks) add('Racks', r.catalogId ?? `${r.kind} ${r.heightU}U ${r.widthMm}×${r.depthMm}`, 'ea', 1)
+	// racks, VCMs and their containment accessories by SKU (the Racks tool's rules, rackBom)
+	for (const l of rackBom(p, catalog)) {
+		add(l.group === 'Rack' || l.group === 'VCM' ? 'Racks' : 'Rack accessories', l.description !== l.sku ? `${l.sku} - ${l.description}` : l.sku, 'ea', l.qty)
+	}
 	for (const d of p.devices) {
 		const item = d.catalogId ?? (d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`)
 		add(d.kind === 'panel' ? 'Panels' : 'Devices', item, 'ea', 1)

@@ -28,7 +28,8 @@ export class ImportCtx {
 	get<T extends Entity>(id: Id): T | undefined { return this.entities.find((e) => e.id === id) as T | undefined }
 	issue(id: Id, code: string, message: string, severity: Issue['severity'] = 'warning'): void { this.issues.push({ id, code, message, severity }) }
 
-	levelId(floor: number): Id { return this.id(`level:${floor}`) }
+	/** A floor's level — or, with `area`, the level of that area's own plan (an `{pid}_F33__3307` Outlets doc). */
+	levelId(floor: number, area?: string): Id { return this.id(area ? `level:${floor}:${area}` : `level:${floor}`) }
 
 	/** A server room space on a floor, by its letter. Created on first use. */
 	serverRoom(floor: number, letter: string): Id {

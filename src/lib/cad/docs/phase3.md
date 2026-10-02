@@ -306,3 +306,257 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     (the top of the frame) to 2600 (the ceiling).
   - A 300 × 100 under-floor trunk on the slab (z −300) from under P3C to the IDF 2 entrance door in the right wall,
     (−3450, −7008) → (−733, −7008).
+- **Fixed after Dave's check:** the vertical trunk didn't show on the plan. Risers drew before the racks, so P3C's
+  filled footprint covered it. Risers now draw over racks; horizontal runs still go under (test in
+  `views/plan.test.ts`).
+
+### Slice 3.4 — allocation (built 2026-10-02; the panel strip and allocation grid are deferred)
+- **Engine** (`domain/allocate.ts`, a pure `allocate(ix, { levelId | serverRoomId | outletIds, reallocate })` that
+  writes nothing):
+  - It returns the links to add and to drop, the ports that can't be placed (with reasons), issues, and per-room
+    stats.
+  - Ports go to panels of their own server room. A panel's room is its `serverRoomId`, else its rack's room.
+  - Outlets in natural label order, then port.
+  - Racks in **row order** (`racksInOrder`, now shared with the rack-row view), **one after another**; panels from
+    the **top U down**; ports 1…n.
+  - **High-level ports** go to high panels first. Only when those are full do they take floor-panel ports left over
+    after the low ports, never reserved ones, and this is reported.
+  - **Reserved ports** take outlets of their usage first (the Frames rule).
+  - Re-running is additive. **Re-allocate** drops unpinned links first but keeps pinned ones and any whose panel
+    port is patched (reported).
+  - What doesn't fit is reported, never squeezed in. Usage `N/A` is not cabled (legacy rule).
+  - Also reported: ports with no server room, rooms with no panels, and links to a panel of another room than the
+    port's.
+- **By hand** (`assignFrom`, `editor/assignTool.ts`): select outlets in the grid, click **Assign → port…**, then click
+  a panel port in a rack view. Their ports move onto consecutive free ports from there, **pinned**. Crossing a tier
+  is allowed, with a note.
+- **Outlets grid:**
+  - **Allocate** acts on the selection, else the level. It shows a preview in the toolbar ("Allocate this level:
+    15 port(s) to panels · 11 can't be placed") with **Apply** / **Cancel**, as one undo step.
+  - **Re-allocate…** works the same way.
+  - The **issue list** drops down from the grid's action bar.
+  - **Server room** is now editable per outlet ("mixed" when the ports differ).
+  - The **Panel** column shows each port's rack, U and port, with ◆ when pinned.
+- **Port Properties** (selected panel ports): **Unallocate** keeps patched ports and says so; **Pin / Unpin**;
+  **Reserve for…** a usage, or clear the reservation. Reserved ports are dashed purple in the rack view, and ◆ marks
+  pinned links.
+- **Fixed:** the toolbar's yes button (Apply / Change anyway) did nothing. It cleared the question before running
+  it, and the `{@const}` it ran then read null. This also affected the printed-labels **Change anyway**.
+- **Tests:** 173 (`domain/allocate.test.ts`: order, natural sort, plan row order, tiers + overflow, reservations,
+  additive, re-allocate with pinned and patched, full / no room / no panels, N/A, room mismatch, assign by hand).
+- **Compared with the legacy engine.** The real projects were imported in memory only; nothing was written.
+  - **Test Project:** with the same panels and rack order, **138 / 138 links are identical** and 15 new ports fill
+    free ports (outlets added in cad). In the real data two things differ:
+    1. **Rack order:** row order on the plan puts R312 and R311 before P3C, where legacy used the stored rack
+       order with P3C first.
+    2. Legacy skipped the **rear-mounted panel** at P3C U42, because it allocated on the front face only.
+  - **Project Journey:** **396 / 396 existing links kept** (336 pinned stickers), 0 moved, 0 lost. 422 more 33F,
+    3307 and 30F ports are now placed (R301, R303, 3307-R1/R2, RACK 5). Legacy left them unlinked, most likely
+    because its engine output clashed with the baked sticker labels on P3A and the import kept the stickers. This is
+    not verified port by port.
+  - **LR:** floor 10 is now filled Rack1 → Rack2 → Rack3, 272 ports. Legacy put the same labels in every rack
+    (phase1.md finding 1), so only 80 survived import. That accounts for the 80 "moved" and the 192 "added".
+  - **Not allocated, as in legacy:** 5F (244 ports, no server room) and 3F (188 ports, the server rooms have no
+    panels).
+- **Live check on Test Project:**
+  - The level preview gave 15 to panels and 11 unplaceable. The issues are genuine: A001 and A004–A007 have no
+    server room, and Server room B has no panels.
+  - Allocating A.007 put it on P3C U34 ports 14–15, which are reserved for TV/AV. Undo removed it.
+  - Assign put A.007 on U30 ports 18–19, pinned. Undo removed it. Firestore is back to 330 items and 138 links.
+- **Dave's rule (later the same day):** "outlets should be allocated to panels with matching usage type in their
+  designated frame(s), left to right". Built as:
+  - **`Rack.patchFrame`** ("Patch frame — takes outlets" in rack Properties, a `frame` tag in the racks list): when
+    a server room has any, only those racks' panels take outlets. With none marked, every rack's panels do.
+  - **`PanelInfo.usages`** ("Takes" checkboxes in panel Properties): an outlet takes, in order, a port reserved for
+    its usage, a port on a panel set to its usage, or a port on a general panel (no usages set). A usage panel or a
+    reserved port never takes another usage.
+  - Frames fill left to right in row order, each top U down.
+  - Tests: designated frames, usage panels.
+  - Live: with P3C ticked, re-allocating Test Project 1F puts all 55 ports on P3C. 34 of the 40 re-made links match
+    Elevations exactly. The other 6 move to the rear-mounted panel at U42 (the top U), which Elevations skipped
+    because it only looked at the front face. **Open: should rear-mounted panels take outlets?** P3C was unticked
+    again afterwards.
+- **Outlet port count** is editable in outlet Properties (`setPortCount`). New ports continue the label pattern
+  (201.B → 201.C, …01A → …01B, -09 → -10) and take the last port's server room and cable. Removing allocated ports
+  asks first and removes their links. Dave's outlet 201 now has 6 ports.
+- **Plan draw order by height:** low / under-floor runs go under racks and furniture. High runs (tier high, or
+  wholly above the floor) and risers draw over them.
+- **Each view keeps its own pan and zoom** (per level + view, per pane). Switching Plan → Front → Plan restores the
+  exact camera.
+
+### Slice 3.5 — patching (built 2026-10-02)
+- **Domain** (`domain/cords.ts`):
+  - **The gate** (`patchProblem`): a patch-panel port needs a label (allocated, or labelled by hand) before it takes
+    a cord; any port must exist and be free (one cord per port).
+  - **Length** (`cordLength`), ported from the Patching tool: vertical U run, the run to the side channel, a detour
+    through the nearest horizontal manager when the cord crosses sides, rack to rack (plan distance when both racks
+    are placed, else widths in row order + a 200 mm gap), the rack depth for front ↔ rear, and 2 U / 5 U slack. The
+    total is snapped **up** to stock lengths (0.3 … 30 m).
+  - **Workflow:**
+    - `removeCord`: a planned cord is deleted, an installed one is marked `remove`.
+    - `repatch`: moving an end of an installed cord makes it a `change` that remembers the old ends.
+    - `revertCord` restores those ends; `installCord` confirms the cord (a removal is then deleted).
+  - **`bulkPatch`:** ports a… onto a device from a start port, skipping refused ports with the reason.
+  - **`traceCircuit`:** across links and cords, a panel's front and rear counting as one port. It reads from the
+    outlet end.
+- **Cord tool (P)** in a rack view: click port A, then port B, with a rubber band in between. The gate is checked at
+  each click and the reason shown. Type and colour are **sticky** (toolbar; they start from the project defaults).
+  The tool stays on for the next cord, and Esc drops the first end.
+- **Bulk:** select ports, then Port Properties → **Patch N ports to…**, then click the first port on the other
+  device.
+- **Delete** on a selected cord follows the workflow (planned → gone, installed → marked `remove`). Cords marked for
+  removal are drawn faded and dotted; changes are drawn dash-dot.
+- **Cord Properties:** both ends with their labels, the old ends when changed, type, colour, length (stock list;
+  picking one locks it; unlock = auto), cord ID, notes. Buttons: **Installed / Removed on site**, **Remove /
+  Delete**, **Revert**.
+- **Circuit trace:** shown in Cord Properties, in Port Properties for a single port, and per port in outlet
+  Properties. In the rack view, the circuit's cords and ports are highlighted orange.
+- **Patch list tab** (bottom panel, beside Outlets): every cord with the labels at each end, type and colour, length,
+  ID and status. Status chips with counts filter the list, and there is a find box. Clicking a row selects the cord.
+- **Tests:** 193 (`domain/cords.test.ts`: gate, stock lengths, U / depth / plan distance, workflow, bulk, trace; the
+  cord tool and Delete on cords in `editor/racks.test.ts`).
+- **Live check on Test Project:**
+  - A cord from P3C 24-port panel port 24 to the R311 switch port 86 was refused nowhere, and saved as ADD, 5 m.
+  - Its trace read "A.036:1 │ cable │ P3C … : 24 ║ cord ║ R311 … : 86", and the patch list showed 45 cords (ADD 42,
+    CHANGE 3).
+  - Delete removed it (it was planned). Back to 331 items, 44 cords, 138 links.
+- **Not yet:** re-routing an end by hand (the `repatch` function exists, but there's no UI to drag an end yet).
+
+### Dave's round of fixes (2026-10-02, before 3.6)
+- **0U PDUs (and any device with network ports)** can be patched.
+  - A PDU's ports are drawn on its strip, from the top.
+  - The built-in vertical-PDU template has 1 RJ45 management port.
+  - Servers and other devices show their port cells as before.
+- **Port label format** (a project setting: `portSuffix` + the new `portSeparator`): Outlets grid → **Port labels**
+  201.A / 201A / 201-A / 201.1 / 201-1.
+  - New outlets and added ports follow it.
+  - Changing it offers to relabel existing outlets. Only labels that are the outlet label plus a generated suffix
+    change (`reformatPorts`); imported or hand-made labels stay. The printed-panel guard applies.
+- **Symbol names** use a plain hyphen ("Outlet - desk/box").
+- **Racks → rooms:**
+  - A **Room** picker in rack Properties, also for several racks, with **New server room…**.
+  - A server room is renamed by clicking its name in the racks list.
+  - The Row picker (with **New row…**) was already there.
+  - Where a rack physically stands is set by dragging it on the plan.
+- **U scale** sits inside each rack's left edge. Racks narrower than 19″ rails (VCMs, desks) have none; their scale
+  used to land on the neighbouring racks.
+- **Row order round a corner:** each run of racks with the same rotation is ordered along its own left-to-right; the
+  runs are ordered along the first run. IDF 2 now reads R313 R312 R311 V06 P3C V05. The racks list uses the same
+  order.
+- **Rear-mounted panels take outlets** (Dave): already the case.
+- **Multi-select in the outlets grid and patch list:** Shift-click a range, Ctrl-click to add / drop one, with no
+  text selection.
+
+### Slice 3.6 — exports and BOM (built 2026-10-02)
+- **Patch schedule (Excel)**, Patch list → **Excel**. It follows the Patching tool's layout:
+  - Rows grouped by status in work order (remove → change → add → installed), each with a coloured header.
+    Removals are struck through.
+  - Both ends carry their **label**, rack, device, U / face and port, plus "was from / to" for changes.
+  - A **hidden Key column** holds the cord's id.
+  - A second sheet is the cord BOM (type × length × status).
+- **Import cord IDs…** (Patch list): reads the returned sheet. Rows match by **Key**, so a vendor re-sorting the
+  sheet doesn't matter. An old sheet without Key falls back to "#" in export order, with a warning. The IDs are
+  confirmed, then set as one undo step.
+- **Panel labels (Excel)**: the racks list → **Labels** per room exports every panel port's label (room, rack,
+  panel, U, port, label, outlet) in fill order, then offers **Mark printed** for those panels.
+- **BOM (Excel)**, toolbar → **BOM**: the project BOM by category (outlets, panels, devices, racks, rack
+  accessories, cable, patch cords, containment, penetrations), plus a **Rack BOM** sheet.
+  - The rack BOM (`domain/rackBom.ts`) is the Racks tool's Panduit rules on cad records: SKU per rack / VCM; with
+    row containment, top caps, the family + colour containment kit, PatchRunner blanking, and end-panel kits per
+    row.
+  - Racks without a catalogue product are listed and flagged. The catalogue is the Panduit seed; custom products
+    aren't included yet.
+- **Tests:** 205 (`render/exports.test.ts` including a real-workbook cord-ID round trip, `domain/rackBom.test.ts`).
+- **Checked on Test Project** (in-page, no download): 43 schedule rows with labels, 648 panel-label rows, 41 BOM
+  lines. The rack BOM reads AR4P × 6, AR4P-AC-KIT × 2 (containment kit), AR4PATCBL × 2 (HAC top cap), PE2VD06 × 2,
+  and 15 racks with no product. The buttons themselves are for Dave to try; they download files.
+
+### Dave's round of fixes (2026-10-02, before 3.7)
+- **19″ frame drawn** in each rack / frame in the rack view: a rectangle rail to rail, U1 to the top U. VCMs and
+  desks have none.
+- **Common properties for a multiple selection:**
+  - **Racks:** room, row, width, depth, height (U / mm), rotation, patch frame.
+  - **Outlets:** tier, usage, mount, server room (all ports), height.
+  - **Devices:** face, panel tier.
+
+  A field shows the shared value, or "mixed" when they differ; an edit sets them all as one undo step. Devices
+  must still fit or nothing changes. The racks list takes Ctrl / Shift-click to build a selection.
+- **Rack Properties:** a **Kind** picker (2-post, 4-post, cabinet, VCM, desk, shelf) and **X / Y** for exact
+  placement.
+- **Tools by view** (`TOOL_VIEWS`):
+  - Outlet / Line / Trunk / Conduit / Wall: plan and elevations.
+  - Rack: plan.
+  - Device / Cord / Assign: rack views.
+
+  The toolbar greys out the others for the active pane, and their keys do nothing. Switching to a view the tool
+  doesn't work in drops back to Select. A pane refuses a click from a tool that isn't for it (split view shares
+  one tool), and says so.
+- **Test Project edits, made through the cad UI as Dave asked:**
+  - 1F "Server room A" renamed **IDF2** (racks list → click the name).
+  - R301–R303 (Dave renamed R01 / R02 …) selected together → Room → **New server room… IDF1** → Row → **New row…
+    IDF1 Row 1**.
+  - **P3A** drawn with the Rack tool where the floorplan shows it: 2-post, 600 × 520, 45 U, rotation 90 (front
+    west), at (10495, −2727), patch frame.
+  - **V03 / V04** placed from the racks list at (10495, −3104) and (10495, −2351), turned 90°, moved to IDF1
+    Row 1.
+  - IDF1 now reads R303 R302 R301 V03 P3A V04.
+  - 1F still has an unused "Server room B" (one outlet port points to it) and an unplaced duplicate V05 in IDF2,
+    left for Dave.
+
+### Slice 3.7 — Project Journey: import and comparison (2026-10-02; LR not needed now — Dave)
+- **Imported** via the import panel, with Dave's OK: **1457 items**. 721 outlets, 396 links, 214 devices, 27 racks,
+  8 rows, 50 spaces, 7 levels, 7 underlays, 25 shapes, the building and settings. Journey has no patch cords. All
+  saved; the legacy tools' docs are untouched.
+- **Import notes (81, all informational):**
+  - 34 drawn outlets matched to Frames locations by label.
+  - 34 port counts differed between plan and Frames; Frames' were kept.
+  - 11 unlabelled F10 outlets got placeholder names.
+  - 1 rack placement pointed at a missing rack.
+  - Level heights use defaults.
+- **Compared with Elevations, room by room** (the legacy engine `buildPortInfoMap` on the legacy docs, against cad's
+  panel port labels; key = rack, U, port):
+
+  | Room | Elevations labels | cad labels | Same |
+  |---|---|---|---|
+  | 200F A (3307-R2) | 60 | 60 | **60** |
+  | 33F A (IDF1, P3A) | 336 | 336 | **336** |
+  | 33F B (IDF2), 33F C, 30F A, 30F B, 12F A | 0 | 0 | — (no allocation yet in either) |
+
+  **No differences.**
+- **Findings for Dave:**
+  1. **33F has two floorplans:** "L3303 Plan Clean-EIRE.pdf", which the outlets and trunks match, and
+     "Plan_L3307.pdf", placed lower and overlapping it. Plan_L3307 is also the floorplan of L10 WeWork and 200F.
+     Most likely an older Outlets plan for 33F used the L3307 sheet. Delete or hide the wrong one.
+  2. **Most Journey outlet ports have no server room** (30F 713, 33F 778, L10 176, 200F 101, 3307F 10, 12F 8
+     ports — from the allocation dry run). Allocation can't place them until rooms are set (Outlets grid → select
+     → Server room).
+  3. **Unplaced racks:** IDF1 has 3307-R1 / R2 (from the 33F room-C doc, which says room A) and VCMs R06 / R07;
+     IDF2 has VCM1 / VCM2. P3A / P3C are not marked as patch frames yet.
+  4. **Level 1F** exists (from the project's floor list) with no outlets.
+- **Not done:** LR (Dave: not needed now); retiring Elevations (printing waits for Phase 4).
+
+### Journey, Dave's notes after the import (2026-10-02)
+- **The 33F mix-up:** 33F holds two offices in opposite corners, 3303 and 3307, each with its own plan.
+  - Legacy keeps them as separate Outlets docs: `_F33` (L3303 floorplan, 123 outlets, 9 trunks) and `_F33__3307`
+    (Plan_L3307, 68 outlets, 5 trunks).
+  - The first import merged both into one 33F, so the two plans' coordinates overlap.
+- **Areas = separate levels:** a level can be an AREA of a floor (`Level.area`): same number and elevation, its own
+  plan, elevations and racks. The import makes one per `_F{n}__{area}` Outlets doc, named "33F 3307" (order n + 0.5).
+  - The doc's outlets, trunks, floorplan and rack placements go to that level.
+  - A Frames location drawn there moves there; label matching also looks at the floor's main level.
+  - A server room whose racks were all placed there follows them.
+  - Test: `legacy.test.ts` "an AREA Outlets doc …".
+- **Levels list:** ✎ renames a level (e.g. "33F" → "33F 3303"). ✕ deletes it and everything on it (`levelContents`
+  + `deleteEntities`): outlets, racks + devices, links, cords, shapes, floorplans, rooms, rows. It asks first; one
+  undo step.
+- **Outlets grid → Find/replace…** on outlet labels (the selection, else the level); ports follow; clashes and empty
+  labels are refused. For 30F: "A." → "".
+- **Pending Dave:** the Journey cad data must be cleared before the re-import can split 33F. All 1457 docs are
+  unedited since the import (one timestamp, rev 1), but the mass delete was blocked by the permission check. Once
+  cleared:
+  1. Re-import (33F + 33F 3307 come out separate).
+  2. Delete 1F and 3307F with ✕.
+  3. Rename 33F → "33F 3303".
+  4. 30F Find/replace "A." → "".
+
+  200F (a copy of 3307) and L10 (3307 outlets) stay as they are.

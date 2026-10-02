@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges } from './ports'
+import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel } from './ports'
 import type { Entity } from './drawing'
 import type { Device, Outlet } from './types'
 
@@ -33,6 +33,24 @@ describe('editing a port label', () => {
 		const renamed = renameOutlet(outlet, 'B.123')
 		expect(renamed.label).toBe('B.123')
 		expect(ix(replace(ents, renamed)).portLabel({ on: 'P1', port: 1 })).toMatch(/^B\.123/)
+	})
+})
+
+describe('port count', () => {
+	it('new ports continue the label pattern, room and cable of the last port', () => {
+		expect(['01A.201B', 'X-09', 'Z', 'A.1Z', 'odd.'].map(nextPortLabel)).toEqual(['01A.201C', 'X-10', 'AA', 'A.1AA', 'odd..2'])
+		const ents = base(), { outlet } = linkedOutlet(ents)
+		const r = setPortCount(ix(ents), outlet, 6)
+		expect(r.outlet.ports).toHaveLength(6)
+		expect(r.outlet.ports[5]).toMatchObject({ port: 6, serverRoomId: outlet.ports[1].serverRoomId, cableType: outlet.ports[1].cableType })
+		expect(r.outlet.ports[2].label).toBe(nextPortLabel(outlet.ports[1].label))
+		expect(r.dropLinks).toEqual([])
+	})
+	it('fewer ports: the removed ones take their links with them', () => {
+		const ents = base(), o1 = ix(ents).get('O1') as Outlet   // O1 ports 1 and 2 are linked (K1, K2)
+		const r = setPortCount(ix(ents), o1, 1)
+		expect(r.outlet.ports.map((p) => p.port)).toEqual([1])
+		expect(r.dropLinks).toEqual(['K2'])
 	})
 })
 

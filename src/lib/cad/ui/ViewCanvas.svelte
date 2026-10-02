@@ -5,13 +5,15 @@
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import type { Workspace } from '../app/workspace.svelte'
+	import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
 	import type { Pt } from '../domain/types'
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
+	import { untrack } from 'svelte'
+	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds } from '../views/display'
@@ -66,6 +68,20 @@
 		const want = new Set(s.ports.map(String))
 		return prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
 	})
+	/** The circuit of a selected cord or single port (rack rows): its cords and ports drawn highlighted. */
+	const traceHighlight = $derived.by((): Prim[] => {
+		if (spec.kind !== 'row') return []
+		const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined
+		const start = one?.type === 'cord' ? { on: one.a.on, port: one.a.port } : ws.portSel?.ports.length === 1 ? { on: ws.portSel.on, port: ws.portSel.ports[0] } : null
+		if (!start) return []
+		const steps = traceCircuit(project.index, start)
+		if (steps.length < 2) return []
+		const cords = new Set(steps.flatMap((s) => (s.via?.kind === 'cord' ? [s.via.id] : [])))
+		const ports = new Set(steps.map((s) => `${s.ref.on}:${s.ref.port}`))
+		return prims.flatMap((p) => p.k !== 'line' ? [] :
+			p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline colour: the trace look wins
+			p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
+	})
 	const linked = $derived.by((): Prim[] => {
 		if (!other || !prims.length) return []
 		const b = unionBounds(prims.map(primBounds))!
@@ -79,13 +95,25 @@
 	})
 	const preview = $derived.by((): Prim[] => { void tick; void ws.selection; void project.rev; void cam.k; return active ? (ws.tool.preview?.(ctx()) ?? []) : [] })
 
-	/** Fit the view the first time it has something to show — again when the floorplan image arrives, and when the
-	 *  pane changes size a lot (split / unsplit). */
+	/** Each view (level + plan / elevation / rack row) keeps its own pan and zoom: switching away and back restores it. */
+	const cams = new Map<string, { cam: Camera; fitted: string | null }>()
+	let viewKey = ''
+
+	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the
+	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */
 	$effect(() => {
-		const ps = prims, key = `${levelId}:${specKey(spec)}:${ps.some((p) => p.k === 'image')}:${Math.round(w / 200)}`
-		if (fittedFor === key || !ps.length || !w) return
-		const b = unionBounds(ps.map(primBounds))
-		if (b) { cam = fit(b, w, h); fittedFor = key }
+		const ps = prims, vk = `${levelId}:${specKey(spec)}`, key = `${vk}:${ps.some((p) => p.k === 'image')}:${Math.round(w / 200)}`
+		untrack(() => {
+			if (vk !== viewKey) {
+				if (viewKey) cams.set(viewKey, { cam, fitted: fittedFor })
+				viewKey = vk
+				const saved = cams.get(vk)
+				if (saved) { cam = saved.cam; fittedFor = saved.fitted }
+			}
+			if (fittedFor === key || !ps.length || !w) return
+			const b = unionBounds(ps.map(primBounds))
+			if (b) { cam = fit(b, w, h); fittedFor = key }
+		})
 	})
 
 	function focusRack(p: Pt): void {
@@ -140,6 +168,8 @@
 		svg!.setPointerCapture(e.pointerId)
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
+		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
+		if (!toolWorksIn(ws.toolId, spec.kind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }
 		const count = pressCount(e)
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
@@ -207,6 +237,7 @@
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})">
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
+			<Prims prims={traceHighlight} selected={new Set()} />
 			<Prims prims={portHighlight} selected={new Set()} />
 			<Prims prims={preview} selected={new Set()} />
 			{#if marquee}

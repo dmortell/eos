@@ -4,10 +4,13 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity } from '../domain/drawing'
-	import type { Id, Outlet, Rack, RackRow, Device } from '../domain/types'
+	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
 	import { placementProblem } from '../domain/devices'
-	import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
+	import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, portRanges, setPortCount } from '../domain/ports'
 	import PortProps from './PortProps.svelte'
+	import CordProps from './CordProps.svelte'
+	import Trace from './Trace.svelte'
+	import { traceCircuit } from '../domain/cords'
 	import { newId } from '../domain/ids'
 	import type { Shape } from '../domain/shapes'
 	import { defaultOutletBlock } from '../domain/blocks'
@@ -31,6 +34,36 @@
 	const blockable = $derived(items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'insert' && !!e.levelId))
 	let busy = $state(false)
 
+	const RACK_KINDS: Rack['kind'][] = ['2-post', '4-post', 'cabinet', 'vcm', 'desk', 'shelf']
+
+	// ── several selected: common fields ──
+	const outlets = $derived(items.filter((e): e is Outlet => e.type === 'outlet'))
+	const devices = $derived(items.filter((e): e is Device => e.type === 'device'))
+	/** The value they all share, or undefined when it differs (shown as "mixed"). */
+	function same<T, V>(list: T[], get: (t: T) => V): V | undefined {
+		const v = list.length ? get(list[0]) : undefined
+		return list.every((t) => get(t) === v) ? v : undefined
+	}
+	function setRacks(label: string, patch: Partial<Rack>) {
+		const v = Object.values(patch)[0]
+		if (typeof v === 'number' && !Number.isFinite(v)) return
+		project.store.transact(`${label} (${racks.length} racks)`, (tx) => { for (const r of racks) tx.put({ ...r, ...patch }) })
+	}
+	function setOutlets(label: string, patch: (o: Outlet) => Partial<Outlet>) {
+		project.store.transact(`${label} (${outlets.length} outlets)`, (tx) => { for (const o of outlets) tx.put({ ...o, ...patch(o) }) })
+	}
+	/** Every device must still fit (overlap rules) or nothing changes. */
+	function setDevices(label: string, patch: Partial<Device>) {
+		const next = devices.map((d) => ({ ...d, ...patch }))
+		const others = project.index.devices.filter((d) => !devices.some((x) => x.id === d.id))
+		for (const n of next) {
+			const rack = project.index.get(n.rackId)
+			const problem = rack?.type === 'rack' ? placementProblem(n, rack, [...others, ...next.filter((x) => x.id !== n.id)]) : null
+			if (problem) { ws.say(problem); return }
+		}
+		project.store.transact(`${label} (${devices.length} devices)`, (tx) => { for (const n of next) tx.put(n) })
+	}
+
 	// ── racks → rows ──
 	const NEW_ROW = '__new'
 	const racks = $derived(items.filter((e): e is Rack => e.type === 'rack'))
@@ -38,6 +71,24 @@
 	const sameRow = $derived(racks.every((r) => r.rowId === racks[0]?.rowId) ? racks[0]?.rowId : undefined)
 	// via the index (reactive); rows are few, so a scan is fine
 	const rowsIn = (spaceId: Id) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	/** Rooms a rack can stand in: the server rooms of its level (and wherever it is now). */
+	const roomsFor = (r: Rack) => project.index.spaces.filter((s) => (s.levelId === r.levelId && s.kind === 'server room') || s.id === r.spaceId)
+	/** Move racks to another room; their row is dropped (rows belong to a room) — pick one there next. */
+	const NEW_ROOM = '__newroom'
+	function setRoom(rs: Rack[], spaceId: string) {
+		if (spaceId === NEW_ROOM) {
+			const lv = rs[0].levelId, n = project.index.spaces.filter((s) => s.levelId === lv && s.kind === 'server room').length
+			ws.askText('New server room name', `IDF ${n + 1}`, (name) => {
+				if (!name.trim()) return
+				const room: Space = { type: 'space', id: newId(), levelId: lv, kind: 'server room', name: name.trim(), code: String.fromCharCode(65 + n), order: n + 1 }
+				project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const r of rs) tx.put({ ...r, spaceId: room.id, rowId: undefined }) })
+			})
+			return
+		}
+		const moving = rs.filter((r) => r.spaceId !== spaceId)
+		if (!moving.length) return
+		project.store.transact(`${moving.length > 1 ? `${moving.length} racks` : moving[0].name} → ${project.index.nameOf(spaceId)}`, (tx) => { for (const r of moving) tx.put({ ...r, spaceId, rowId: undefined }) })
+	}
 	function setRow(rs: Rack[], value: string) {
 		if (value !== NEW_ROW) { project.store.transact('Rack row', (tx) => { for (const r of rs) tx.put({ ...r, rowId: value || undefined }) }); return }
 		const existing = rowsIn(rs[0].spaceId)
@@ -55,6 +106,17 @@
 		if (next && next !== o.label) project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
 	}
 
+	/** More / fewer ports. Fewer drops the removed ports' links — asked first when there are any. */
+	function portCount(o: Outlet, input: HTMLInputElement) {
+		const n = Number(input.value)
+		input.value = String(o.ports.length)
+		if (!Number.isFinite(n) || n < 1 || n === o.ports.length) return
+		const r = setPortCount(project.index, o, n, project.settings?.defaults.outletCableType, { style: project.settings?.portSuffix ?? 'alpha', sep: project.settings?.portSeparator ?? '.' })
+		const apply = () => project.store.transact(`${o.label}: ${r.outlet.ports.length} ports`, (tx) => { for (const id of r.dropLinks) tx.del(id); tx.put(r.outlet) })
+		if (r.dropLinks.length) ws.ask2(`${o.label}: the removed port(s) are allocated — ${r.dropLinks.length} link(s) to panels will be removed.`, 'Remove ports', apply)
+		else apply()
+	}
+
 	/** Rack sizes: a rack that would collide on the plan is still allowed (it's a drawing), but sizes must be real. */
 	function putSize(r: Rack, label: string, patch: Partial<Rack>) {
 		const v = Object.values(patch)[0]
@@ -70,6 +132,10 @@
 		const problem = rack?.type === 'rack' ? placementProblem(next, rack, project.index.devices) : null
 		if (problem) { ws.say(problem); return }
 		put(d, label, patch)
+	}
+	function setUsage(d: Device, usage: string, on: boolean) {
+		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
+		put(d, `${d.name} takes ${usages.join(', ') || 'any usage'}`, { panel: { tier: 'low', ...d.panel, usages: usages.length ? usages : undefined } })
 	}
 	function saveTemplate(d: Device) {
 		ws.askText('Template name (global)', d.name, async (name) => {
@@ -95,6 +161,15 @@
 		<p class="text-zinc-400">Nothing selected.</p>
 	{:else if !one}
 		<p class="font-semibold">{items.length} items selected</p>
+		{#if racks.length > 1}
+			<label class="row">Room of {racks.length} racks
+				<select class="inp" value={sameRoom ? racks[0].spaceId : ''} onchange={(e) => e.currentTarget.value && setRoom(racks, e.currentTarget.value)}>
+					{#if !sameRoom}<option value="">mixed</option>{/if}
+					{#each roomsFor(racks[0]) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+					<option value={NEW_ROOM}>New server room…</option>
+				</select>
+			</label>
+		{/if}
 		{#if racks.length > 1 && sameRoom}
 			<!-- racks drawn on the plan, then put in a row together (Dave: no row builder) -->
 			<label class="row">Row of {racks.length} racks
@@ -104,6 +179,62 @@
 					<option value={NEW_ROW}>New row…</option>
 				</select>
 			</label>
+		{/if}
+		{#if racks.length > 1}
+			<!-- common rack fields: a value shown when they all share it, blank ("mixed") when they don't; an edit sets all -->
+			<label class="row">Width (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.widthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.depthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Height (U) <input class="inp" type="number" min="1" value={same(racks, (r) => r.heightU) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Height (mm) <input class="inp" type="number" value={same(racks, (r) => r.heightMm) ?? ''} placeholder="mixed / from U" onchange={(e) => setRacks('Rack height', { heightMm: num(e.currentTarget.value) })} /></label>
+			<label class="row">Rotation <input class="inp" type="number" value={same(racks, (r) => r.rot ?? 0) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rotate racks', { rot: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Patch frame
+				<span><input type="checkbox" checked={racks.every((r) => r.patchFrame)} indeterminate={racks.some((r) => r.patchFrame) && !racks.every((r) => r.patchFrame)}
+					onchange={(e) => setRacks(e.currentTarget.checked ? 'Patch frames' : 'Not patch frames', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
+			</label>
+		{/if}
+		{#if outlets.length > 1}
+			<p class="pt-1 font-semibold">{outlets.length} outlets</p>
+			<label class="row">Tier
+				<select class="inp" value={same(outlets, (o) => o.tier) ?? ''} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
+					{#if !same(outlets, (o) => o.tier)}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
+				</select>
+			</label>
+			<label class="row">Usage
+				<select class="inp" value={same(outlets, (o) => o.usage) ?? ''} onchange={(e) => setOutlets('Usage', () => ({ usage: e.currentTarget.value }))}>
+					{#if !same(outlets, (o) => o.usage)}<option value="">mixed</option>{/if}
+					{#each project.settings?.usages ?? [] as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
+				</select>
+			</label>
+			<label class="row">Mount
+				<select class="inp" value={same(outlets, (o) => o.mount) ?? ''} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
+					{#if !same(outlets, (o) => o.mount)}<option value="">mixed</option>{/if}
+					{#each ['floor', 'wall', 'box', 'desk', 'ceiling'] as m (m)}<option value={m}>{m}</option>{/each}
+				</select>
+			</label>
+			<label class="row">Server room
+				<select class="inp" value={same(outlets, (o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?')) ?? '?'}
+					onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
+					<option value="?" disabled>mixed</option><option value="">—</option>
+					{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+				</select>
+			</label>
+			<label class="row">Height (Z, mm) <input class="inp" type="number" value={same(outlets, (o) => o.z) ?? ''} placeholder="mixed" onchange={(e) => setOutlets('Height', () => ({ z: num(e.currentTarget.value) }))} /></label>
+		{/if}
+		{#if devices.length > 1}
+			<p class="pt-1 font-semibold">{devices.length} devices</p>
+			<label class="row">Face
+				<select class="inp" value={same(devices, (d) => d.face) ?? ''} onchange={(e) => setDevices('Device face', { face: e.currentTarget.value as Device['face'] })}>
+					{#if !same(devices, (d) => d.face)}<option value="">mixed</option>{/if}
+					{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
+				</select>
+			</label>
+			{#if devices.every((d) => d.kind === 'panel')}
+				<label class="row">Tier
+					<select class="inp" value={same(devices, (d) => d.panel?.tier ?? 'low') ?? ''} onchange={(e) => { const tier = e.currentTarget.value as 'low' | 'high'; project.store.transact('Panel tier', (tx) => { for (const d of devices) tx.put({ ...d, panel: { ...d.panel, tier } }) }) }}>
+						{#if !same(devices, (d) => d.panel?.tier ?? 'low')}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
+					</select>
+				</label>
+			{/if}
 		{/if}
 		{#if blockable.length}
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
@@ -122,7 +253,7 @@
 		</label>
 		<label class="row">Symbol
 			<select class="inp" value={o.blockId ?? ''} onchange={(e) => put(o, 'Symbol', { blockId: e.currentTarget.value || undefined })}>
-				<option value="">Auto — {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage / mount'}</option>
+				<option value="">Auto: {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage/mount'}</option>
 				{#each outletBlocks as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
 			</select>
 		</label>
@@ -131,6 +262,7 @@
 			<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
 			<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
 		{/if}
+		<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount(o, e.currentTarget)} /></label>
 		<p class="pt-1 font-semibold">Ports</p>
 		{#each o.ports as p, i (p.port)}
 			<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
@@ -142,10 +274,23 @@
 				</select>
 			</div>
 		{/each}
+		{#each o.ports as p (p.port)}
+			{@const steps = traceCircuit(project.index, { on: o.id, port: p.port })}
+			{#if steps.length > 1}<Trace {project} {steps} />{/if}
+		{/each}
 	{:else if one.type === 'rack'}
 		{@const r = one as Rack}
 		<p class="font-semibold">Rack</p>
 		<label class="row">Name <input class="inp" value={r.name} onchange={(e) => put(r, 'Rename rack', { name: e.currentTarget.value })} /></label>
+		<label class="row">Kind
+			<select class="inp" value={r.kind} onchange={(e) => put(r, 'Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
+				{#each RACK_KINDS as k (k)}<option value={k}>{k === 'vcm' ? 'VCM (vertical cable manager)' : k}</option>{/each}
+			</select>
+		</label>
+		{#if r.at}
+			<label class="row">X <input class="inp" type="number" value={Math.round(r.at.x)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, x: Number(e.currentTarget.value) } })} /></label>
+			<label class="row">Y <input class="inp" type="number" value={Math.round(r.at.y)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, y: Number(e.currentTarget.value) } })} /></label>
+		{/if}
 		<label class="row">Height (U) <input class="inp" type="number" value={r.heightU} onchange={(e) => put(r, 'Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
 		<label class="row">Width (mm) <input class="inp" type="number" min="100" value={r.widthMm} onchange={(e) => putSize(r, 'Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
 		<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={r.depthMm} onchange={(e) => putSize(r, 'Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
@@ -160,12 +305,21 @@
 		{:else}
 			<button class="btn" onclick={() => ws.placeRack(r.id)}>Place on plan</button>
 		{/if}
+		<label class="row">Room
+			<select class="inp" value={r.spaceId} onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = r.spaceId; setRoom([r], v) }}>
+				{#each roomsFor(r) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+				<option value={NEW_ROOM}>New server room…</option>
+			</select>
+		</label>
 		<label class="row">Row
 			<select class="inp" value={r.rowId ?? ''} onchange={(e) => setRow([r], e.currentTarget.value)}>
 				<option value="">—</option>
 				{#each rowsIn(r.spaceId) as row (row.id)}<option value={row.id}>{row.name}</option>{/each}
 				<option value={NEW_ROW}>New row…</option>
 			</select>
+		</label>
+		<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
+			<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 		</label>
 		<p class="text-zinc-500">{project.index.devicesIn(r.id).length} devices · front faces the +y side when not rotated</p>
 	{:else if one.type === 'device'}
@@ -198,6 +352,17 @@
 				<select class="inp" value={d.panel?.tier ?? 'low'} onchange={(e) => putDevice(d, 'Panel tier', { panel: { ...d.panel, tier: e.currentTarget.value as 'low' | 'high' } })}><option value="low">Low</option><option value="high">High</option></select>
 			</label>
 		{/if}
+		{#if d.kind === 'panel'}
+			<div class="row" title="Allocation puts an outlet on a panel of its usage first; a panel with none ticked is general (takes any usage without a panel of its own)">
+				<span>Takes</span>
+				<span class="usages">
+					{#each project.settings?.usages ?? [] as u (u.id)}
+						<label><input type="checkbox" checked={!!d.panel?.usages?.includes(u.id)} onchange={(e) => setUsage(d, u.id, e.currentTarget.checked)} /> {u.label}</label>
+					{/each}
+					{#if !d.panel?.usages?.length}<span class="text-zinc-400">any usage (general)</span>{/if}
+				</span>
+			</div>
+		{/if}
 		{#if d.kind === 'panel' && d.portCount}
 			{@const stale = changedSincePrinted(project.index, d)}
 			<div class="row">
@@ -215,6 +380,8 @@
 		{/if}
 		<button class="btn" disabled={busy} title="Save this device's size, ports and kind as a GLOBAL template (every project)" onclick={() => saveTemplate(d)}>Save as template…</button>
 		{#if ws.portSel?.on === d.id}<PortProps {project} {ws} sel={ws.portSel} />{/if}
+	{:else if one.type === 'cord'}
+		<CordProps {project} {ws} c={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
 		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
@@ -235,6 +402,8 @@
 </div>
 
 <style>
+	.usages { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+	.usages label { white-space: nowrap; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
 	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }

@@ -33,8 +33,17 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)))
 	for (const s of shapes) if (s.role?.kind !== 'containment') out.push(...shapePrims(s, k, o.blocks))
-	for (const s of shapes) if (s.role?.kind === 'containment') out.push(...runPrims(s, levelId, k, (id) => ix.nameOf(id)))
+	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
+	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
+	// and a rack's filled footprint would hide it.
+	const over: Prim[] = []
+	for (const s of shapes) {
+		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		const high = s.role.tier === 'high' || s.geom.nodes.every((n) => n.z > 0)
+		for (const p of runPrims(s, levelId, k, (id) => ix.nameOf(id))) (high || (p.k !== 'image' && p.cls.startsWith('riser')) ? over : out).push(p)
+	}
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
+	out.push(...over)
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) out.push(...outletPrims(ot, k, o.blocks))
 	return out
 }

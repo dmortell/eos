@@ -4,7 +4,7 @@ import { importLegacy, type LegacySource } from './legacy'
 import { ProjectIndex } from '../../domain/project'
 import { validateProject } from '../../domain/validate'
 import { outletSchedule, patchList, bom } from '../../domain/reports'
-import type { Outlet, Rack, Underlay } from '../../domain/types'
+import type { Outlet, Rack, Underlay, Level, Space } from '../../domain/types'
 import type { Shape } from '../../domain/shapes'
 import { repairLocationIds } from '../../../elevation/portmap'
 
@@ -147,6 +147,27 @@ describe('legacy import', () => {
 		const twins = entities.filter((e): e is Outlet => e.type === 'outlet' && e.label === 'A.002')
 		expect(twins.map((o) => o.at)).toEqual([{ x: 9, y: 9 }])
 		expect(issues.some((i) => i.code === 'matched-by-label')).toBe(true)
+	})
+	it("an AREA Outlets doc (_F33__3307 — Journey's second office on 33F) is its own plan: a level of its own", () => {
+		const s = src()
+		// the rack is placed on the area's plan, and a Frames location is drawn there (matched by label)
+		s.outlets.P_F33.rackPlacements = []
+		s.outlets.P_F33__3307 = {
+			outlets: [{ id: 'q1', position: { x: 50, y: 60 }, portCount: 2, label: 'A.002' }],
+			rackPlacements: [{ rackId: 'r1', room: 'A', position: { x: 100, y: 100 } }],
+			selectedFileId: 'Plan_L3307.pdf',
+		}
+		const { entities } = importLegacy(s)
+		const levels = entities.filter((e): e is Level => e.type === 'level')
+		expect(levels.map((l) => [l.number, l.name, l.area])).toEqual([[33, '33F', undefined], [33, '33F 3307', '3307']])
+		const area = levels[1]
+		expect(outletBy(entities, 'A.002')?.levelId).toBe(area.id)          // drawn there → lives there
+		expect(outletBy(entities, 'A.001')?.levelId).toBe(levels[0].id)     // drawn on the main plan → stays
+		const rack = entities.find((e): e is Rack => e.type === 'rack')!
+		expect(rack.levelId).toBe(area.id)
+		const room = entities.find((e): e is Space => e.type === 'space' && e.id === rack.spaceId)
+		expect(room?.levelId).toBe(area.id)   // its room follows
+		expect(entities.filter((e): e is Underlay => e.type === 'underlay').map((u) => [u.fileId, u.levelId])).toContainEqual(['Plan_L3307.pdf', area.id])
 	})
 	it('the reports run on the imported project', () => {
 		const ix = new ProjectIndex(run().entities)

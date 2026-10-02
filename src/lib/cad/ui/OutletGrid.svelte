@@ -7,6 +7,8 @@
 	import type { Outlet } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
 	import { renameOutlet } from '../domain/ports'
+	import { allocate } from '../domain/allocate'
+	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
 
@@ -26,22 +28,111 @@
 		if (!next || next === o.label) return
 		project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
 	}
+	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
+	/** Every port of the outlet to one server room ('' = none). */
+	function setRoom(o: Outlet, id: string) {
+		edit(o, `${o.label} → ${roomName(id) || 'no server room'}`, { ports: o.ports.map((p) => ({ ...p, serverRoomId: id || undefined })) })
+	}
+	/** Where each port is cabled: "P3C U37:3" (pinned ◆), or "—". */
+	function panelOf(o: Outlet, port: number): { text: string; pinned: boolean } {
+		const l = project.index.linkAt({ on: o.id, port })
+		const d = l ? project.index.get(l.a.on === o.id ? l.b.on : l.a.on) : undefined
+		if (!l || d?.type !== 'device') return { text: '—', pinned: false }
+		const pp = l.a.on === o.id ? l.b.port : l.a.port
+		return { text: `${project.index.nameOf(d.rackId)} U${d.u}:${pp}`, pinned: !!l.pinned }
+	}
+
+	// ── allocation (Phase 3.4): preview in the tool bar, apply as one undo step ──
+	let issues = $state<string[]>([])
+	function runAllocate(reallocate: boolean) {
+		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
+		const scope = ids.length ? { outletIds: ids } : { levelId }
+		const r = allocate(project.index, { ...scope, reallocate })
+		issues = r.issues.map((i) => i.text)
+		const what = ids.length ? `${ids.length} selected outlet(s)` : 'this level'
+		const n = r.add.length, left = r.unallocated.length
+		if (!n && !r.remove.length) { ws.say(left ? `Nothing to allocate — ${left} port(s) can't be placed (see the list)` : `Everything on ${what} is already allocated`); return }
+		const msg = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} unpinned link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}.`
+		ws.ask2(msg, 'Apply', () => project.applyLinks(`${reallocate ? 'Re-allocate' : 'Allocate'} ${what}`, r.add, r.remove))
+	}
+	function assign() {
+		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
+		if (!ids.length) { ws.say('Select outlets in the grid (Shift / Ctrl for more), then Assign'); return }
+		ws.assignOutlets(ids)
+	}
+	const selectedOutlets = $derived(ws.selection.filter((id) => project.index.get(id)?.type === 'outlet').length)
+
+	// ── selection: click = one, Shift-click = the range from the last clicked, Ctrl-click = add / drop one ──
+	let anchor: string | null = null
 	function pick(o: Outlet, e: MouseEvent) {
-		ws.select(e.shiftKey || e.ctrlKey ? (selected.has(o.id) ? ws.selection.filter((x) => x !== o.id) : [...ws.selection, o.id]) : [o.id])
+		const others = ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet')
+		if (e.shiftKey && anchor) {
+			const i = rows.findIndex((r) => r.id === anchor), j = rows.findIndex((r) => r.id === o.id)
+			if (i >= 0 && j >= 0) { ws.select([...(e.ctrlKey ? ws.selection : others), ...rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id)]); return }
+		}
+		anchor = o.id
+		if (e.ctrlKey || e.metaKey) ws.select(selected.has(o.id) ? ws.selection.filter((x) => x !== o.id) : [...ws.selection, o.id])
+		else ws.select([o.id])
+	}
+
+	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001") ──
+	function findReplace() {
+		const ids = new Set(ws.selection.filter((id) => project.index.get(id)?.type === 'outlet'))
+		const scope = ids.size ? rows.filter((o) => ids.has(o.id)) : rows
+		ws.askText(`Find in ${ids.size ? `${ids.size} selected` : 'this level’s'} outlet labels`, '', (find) => {
+			if (!find) return
+			const hits = scope.filter((o) => o.label.includes(find))
+			if (!hits.length) { ws.say(`No outlet label contains "${find}"`); return }
+			ws.askText(`Replace "${find}" (${hits.length} outlets) with`, '', (repl) => {
+				const taken = new Set(project.index.outlets.filter((o) => o.levelId === levelId && !hits.includes(o)).map((o) => o.label))
+				const edits = hits.map((o) => renameOutlet(o, o.label.replace(find, repl)))
+				const clash = edits.find((o) => taken.has(o.label) || !o.label.trim())
+				if (clash) { ws.say(`"${clash.label || '(empty)'}" would clash or be empty — nothing changed`); return }
+				project.relabel(`Labels: "${find}" → "${repl}" (${edits.length})`, edits, ws.ask2)
+			})
+		})
+	}
+
+	// ── port label format (project setting) ──
+	const fmtKey = $derived(`${project.settings?.portSuffix ?? 'alpha'}|${project.settings?.portSeparator ?? '.'}`)
+	function setFormat(key: string) {
+		const s = project.settings
+		if (!s) return
+		const [style, sep] = key.split('|') as ['alpha' | 'numeric', PortSep]
+		project.store.transact(`Port labels like ${portLabelsFor('201', 1, style, sep)[0]}`, (tx) => tx.put({ ...s, portSuffix: style, portSeparator: sep }))
+		const edits = project.index.outlets.map((o) => reformatPorts(o, style, sep)).filter((o): o is Outlet => !!o)
+		if (edits.length) ws.ask2(`New outlets will be labelled like ${portLabelsFor('201', 1, style, sep)[0]}. Relabel the ports of ${edits.length} existing outlet(s) too? (imported / hand-made labels are left as they are)`, 'Relabel',
+			() => project.relabel(`Relabel ports of ${edits.length} outlets`, edits, ws.ask2))
 	}
 </script>
 
 <div class="h-full overflow-auto text-xs">
+	<div class="actions">
+		<span class="font-semibold text-zinc-600">Outlets</span>
+		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
+		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
+		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack elevation. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
+		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
+		<label class="fmt" title="How port labels follow the outlet label (new outlets; existing ones can be relabelled)">Port labels
+			<select value={fmtKey} onchange={(e) => setFormat(e.currentTarget.value)}>
+				{#each PORT_FORMATS as f (f.style + f.sep)}<option value="{f.style}|{f.sep}">{portLabelsFor('201', 1, f.style, f.sep)[0]}</option>{/each}
+			</select>
+		</label>
+		{#if issues.length}
+			<details class="issues"><summary>{issues.length} allocation issue{issues.length > 1 ? 's' : ''}</summary><ul>{#each issues as t, i (i)}<li>{t}</li>{/each}</ul></details>
+		{/if}
+	</div>
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
 				<th class="px-2 py-1">Label</th><th class="px-2">Usage</th><th class="px-2">Tier</th><th class="px-2">Mount</th>
-				<th class="px-2">Ports</th><th class="px-2">Server room</th><th class="px-2">Placed</th>
+				<th class="px-2">Ports</th><th class="px-2">Server room</th><th class="px-2">Panel (◆ pinned)</th><th class="px-2">Placed</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each rows as o (o.id)}
-				<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(o.id)} onclick={(e) => pick(o, e)}>
+				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
+				<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
@@ -59,12 +150,35 @@
 					</td>
 					<td class="px-2">{o.mount}</td>
 					<td class="px-2 font-mono text-zinc-600">{o.ports.map((p) => p.label).join('  ')}</td>
-					<td class="px-2">{roomName(o.ports[0]?.serverRoomId)}</td>
+					<td class="px-2">
+						{#if o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId)}
+							<select class="bg-transparent" value={o.ports[0]?.serverRoomId ?? ''} onchange={(e) => setRoom(o, e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+								<option value="">—</option>
+								{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}{s.levelId !== levelId ? ` (${project.index.nameOf(s.levelId)})` : ''}</option>{/each}
+							</select>
+						{:else}<span title="Ports go to different server rooms — set them per port in Properties">mixed</span>{/if}
+					</td>
+					<td class="px-2 font-mono text-zinc-600">
+						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
+					</td>
 					<td class="px-2">{o.at ? '✓' : ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="7" class="px-2 py-3 text-zinc-400">No outlets on this level yet — use the Outlet tool on the plan.</td></tr>
+				<tr><td colspan="8" class="px-2 py-3 text-zinc-400">No outlets on this level yet — use the Outlet tool on the plan.</td></tr>
 			{/each}
 		</tbody>
 	</table>
 </div>
+
+<style>
+	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e4e4e7; background: white; }
+	.actions button { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
+	.actions button:hover { background: #f4f4f5; }
+	.issues { color: #b45309; }
+	.issues summary { cursor: pointer; }
+	.issues ul { position: absolute; z-index: 5; max-height: 10rem; overflow: auto; background: white; border: 1px solid #e4e4e7; border-radius: 4px; padding: 4px 8px; color: #78350f; }
+	.pp { margin-right: 10px; white-space: nowrap; }
+	.fmt { display: inline-flex; gap: 4px; align-items: center; color: #52525b; }
+	.fmt select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-family: ui-monospace, monospace; }
+	.pp.none { color: #d4d4d8; }
+</style>

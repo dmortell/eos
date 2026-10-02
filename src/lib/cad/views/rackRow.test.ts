@@ -45,6 +45,16 @@ describe('the rack row', () => {
 	})
 })
 
+describe('0U devices', () => {
+	it("a PDU's network ports are drawn (on its strip) and can carry a cord to a switch", () => {
+		const pdu: Device = { type: 'device', id: 'PDU1', rackId: 'R1', name: 'PDU A', kind: 'pdu', u: 1, heightU: 24, face: 'rear', portCount: 1 }
+		const cord = { type: 'cord' as const, id: 'CP', kind: 'patch' as const, a: { on: 'PDU1', port: 1 }, b: { on: 'SW1', port: 40 }, cableType: 'cat6a', colour: '#000', lengthM: 2, lengthLocked: false, status: 'add' as const }
+		const prims = view('front', [pdu, cord])
+		expect(prims.some((p) => p.src === 'PDU1' && p.k === 'line' && p.sub === '1')).toBe(true)
+		expect(prims.some((p) => p.src === 'CP')).toBe(true)
+	})
+})
+
 describe('row order comes from the plan', () => {
 	it('racks drawn on the plan run left to right as seen from their front', () => {
 		const mk = (id: string, x: number, rot = 0): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y: 0 }, rot })
@@ -53,6 +63,13 @@ describe('row order comes from the plan', () => {
 		expect(names([mk('C', 3000), mk('A', 1000), mk('B', 2000)])).toEqual(['A', 'B', 'C'])
 		// turned 180° (front faces up the sheet), the viewer's left-to-right runs the other way along x
 		expect(names([mk('C', 3000, 180), mk('A', 1000, 180), mk('B', 2000, 180)])).toEqual(['C', 'B', 'A'])
+	})
+	it('a row that turns a corner: each run by its own direction, the runs along the first (Dave: V06, P3C, V05)', () => {
+		const mk = (id: string, x: number, y: number, rot = 0): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y }, rot })
+		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row A', order: 0 }
+		// Test Project IDF 2: three racks along the wall (turned 90°), then the frame flanked by its managers
+		const ents = [mk('R313', -2242, -10808, 90), mk('R312', -2242, -10208, 90), mk('R311', -2225, -9308, 90), mk('V05', -3124, -7059), mk('V06', -3824, -7059), mk('P3C', -3450, -7008)]
+		expect(rackLayout(ix([row, ...ents]), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)).toEqual(['R313', 'R312', 'R311', 'V06', 'P3C', 'V05'])
 	})
 })
 

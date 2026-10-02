@@ -42,9 +42,34 @@ export function nextLabel(label: string, step = 1): string {
 	return n === undefined ? `${label}1` : setNumber(label, n + step)
 }
 
-/** Port labels for an outlet label: alpha (.A .B …) or numeric (.1 .2 …). */
-export function portLabelsFor(outletLabel: string, count: number, style: 'alpha' | 'numeric' = 'alpha'): string[] {
-	return Array.from({ length: count }, (_, i) => `${outletLabel}.${style === 'numeric' ? i + 1 : alpha(i + 1)}`)
+/** How port labels follow the outlet label: letters or numbers, after a separator ('.', '-' or none): 201.A, 201A,
+ *  201-A, 201.1, 201-1. A project setting (ProjectSettings.portSuffix / portSeparator). */
+export type PortSep = '.' | '-' | ''
+export const PORT_FORMATS: { style: 'alpha' | 'numeric'; sep: PortSep }[] = [
+	{ style: 'alpha', sep: '.' }, { style: 'alpha', sep: '' }, { style: 'alpha', sep: '-' },
+	{ style: 'numeric', sep: '.' }, { style: 'numeric', sep: '-' },
+]
+const suffix = (style: 'alpha' | 'numeric', n: number) => (style === 'numeric' ? String(n) : alpha(n))
+
+/** Port labels for an outlet label: alpha (.A .B …) or numeric (.1 .2 …), after `sep`. */
+export function portLabelsFor(outletLabel: string, count: number, style: 'alpha' | 'numeric' = 'alpha', sep: PortSep = '.'): string[] {
+	return Array.from({ length: count }, (_, i) => `${outletLabel}${sep}${suffix(style, i + 1)}`)
+}
+
+/**
+ * Port labels in a new format. Only labels that are the outlet label + a generated suffix (in ANY of the formats) are
+ * rewritten — imported or hand-made labels (01A.024A, L01.A.001-A01 …) are left as they are. Null = nothing changes.
+ */
+export function reformatPorts<T extends { label: string; ports: { port: number; label: string }[] }>(o: T, style: 'alpha' | 'numeric', sep: PortSep): T | null {
+	let changed = false
+	const ports = o.ports.map((p) => {
+		const generated = PORT_FORMATS.some((f) => p.label === `${o.label}${f.sep}${suffix(f.style, p.port)}`)
+		const next = `${o.label}${sep}${suffix(style, p.port)}`
+		if (!generated || p.label === next) return p
+		changed = true
+		return { ...p, label: next }
+	})
+	return changed ? { ...o, ports } : null
 }
 
 function alpha(n: number): string {

@@ -254,7 +254,7 @@ export class OutletTool implements Tool {
 			// in plan the height is sticky; on an elevation the click IS the height (an outlet placed on a wall elevation)
 			...placeAt(c, e, prev?.z ?? 0),
 			...(prev?.zoneId ? { zoneId: prev.zoneId } : {}),
-			ports: portLabelsFor(label, count, c.settings?.portSuffix ?? 'alpha').map((l, i) => ({
+			ports: portLabelsFor(label, count, c.settings?.portSuffix ?? 'alpha', c.settings?.portSeparator ?? '.').map((l, i) => ({
 				port: i + 1, label: l, cableType: prev?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
 				...(prev?.ports[i]?.serverRoomId ? { serverRoomId: prev.ports[i].serverRoomId } : {}),
 			})),

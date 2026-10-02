@@ -48,6 +48,7 @@
 	.riser { stroke: #be185d; fill: #fce7f3; }
 	.rack { stroke: #1e293b; fill: #f1f5f9; }
 	.rack-x { stroke: #94a3b8; }
+	.rack-rails { stroke: #64748b; stroke-width: 1.25; fill: none; }
 	.rack-front { stroke: #1e293b; stroke-width: 2; }
 	.outlet { stroke: #1d4ed8; }
 	.outlet.filled { fill: #3b82f6; }
@@ -65,6 +66,11 @@
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
+	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
+	.trace-port { fill: #fde68a; stroke: #d97706; stroke-width: 2; }
+	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
+	.cord-change { stroke-dasharray: 8 2 2 2; }
+	.port-reserved { fill: #f5f3ff; stroke: #8b5cf6; stroke-dasharray: 3 2; }
 	.port-sel { fill: #2563eb; fill-opacity: 0.35; stroke: #1d4ed8; stroke-width: 2; }
 	text.device-stale { fill: #b91c1c; }
 	text.port-label { fill: #0c4a6e; font-family: ui-monospace, monospace; }

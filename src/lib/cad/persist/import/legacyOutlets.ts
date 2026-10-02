@@ -15,10 +15,11 @@ export function importOutletsDocs(c: ImportCtx): void {
 	for (const [docId, od] of Object.entries(c.src.outlets)) {
 		const f = floorOfDocId(c.src.pid, docId)
 		if (!f || !od) continue
-		const levelId = c.levelId(f.floor)
+		// an area doc (`_F33__3307`) is its own plan → its own level (legacy.ts importPlaces made it)
+		const levelId = c.levelId(f.floor, f.area)
 		for (const o of od.outlets ?? []) importOutlet(c, docId, f.floor, levelId, o, merged)
 		for (const t of od.trunks ?? []) importTrunk(c, docId, f.floor, levelId, t)
-		for (const p of od.rackPlacements ?? []) placeRack(c, f.floor, p)
+		for (const p of od.rackPlacements ?? []) placeRack(c, f.floor, levelId, p)
 		if (od.selectedFileId) c.add({ type: 'underlay', id: c.id(`underlay:${docId}`), levelId, fileId: od.selectedFileId, page: od.selectedPage ?? 1 })
 		if (od.routes?.length) c.issue(levelId, 'routes-skipped', `${od.routes.length} hand-drawn outlet routes on ${docId} were not imported (routing is rebuilt from links in Phase 5)`)
 	}
@@ -35,7 +36,9 @@ function importOutlet(c: ImportCtx, docId: string, floor: number, levelId: strin
 	let locId = o.locationId && c.known(`location:${locKey}`)
 	// Never linked in the Outlets tool, but labelled like a Frames location on the same floor → the same outlet.
 	if (!locId && o.label) {
-		const twin = c.entities.find((e): e is Outlet => e.type === 'outlet' && e.levelId === levelId && e.label === o.label && !e.at)
+		// Frames locations start on the floor's main level, whichever of its plans draws them
+		const floorLevel = c.levelId(floor)
+		const twin = c.entities.find((e): e is Outlet => e.type === 'outlet' && (e.levelId === levelId || e.levelId === floorLevel) && e.label === o.label && !e.at)
 		const key = twin && Object.keys(c.ids).find((k) => k.startsWith(`location:${floor}:`) && c.ids[k] === twin.id)
 		if (twin && key) {
 			locKey = key.slice('location:'.length)
@@ -50,7 +53,8 @@ function importOutlet(c: ImportCtx, docId: string, floor: number, levelId: strin
 		}
 		merged.set(locKey, o.label ?? o.id)
 		const out = c.get<Outlet>(locId)!
-		Object.assign(out, placed, { tier: o.level === 'high' ? 'high' : out.tier })
+		// drawn on an area's plan → it lives on that plan
+		Object.assign(out, placed, { levelId, tier: o.level === 'high' ? 'high' : out.tier })
 		if (o.cableType) for (const p of out.ports) p.cableType = o.cableType
 		c.ids[`outlet:${docId}:${o.id}`] = out.id
 		if (o.label && o.label !== out.label) c.issue(out.id, 'outlet-label-differs', `The plan said "${o.label}"; the Frames location gives "${out.label}" — kept "${out.label}"`)
@@ -109,10 +113,12 @@ function rackIdOn(c: ImportCtx, floor: number, legacyRackId: string): string | u
 }
 
 /** Outlets stores a rack's top-left corner and turns it about its centre; cad stores the centre. */
-function placeRack(c: ImportCtx, floor: number, p: any): void {
+function placeRack(c: ImportCtx, floor: number, levelId: string, p: any): void {
 	const id = rackIdOn(c, floor, p.rackId)
 	const rack = id ? c.get<Rack>(id) : undefined
-	if (!rack) { c.issue(c.levelId(floor), 'placement-orphan', `A rack placement points at missing rack ${p.rackId}`); return }
+	if (!rack) { c.issue(levelId, 'placement-orphan', `A rack placement points at missing rack ${p.rackId}`); return }
+	// placed on an area's plan → it stands on that plan (its room follows if all its racks do — legacy.ts)
+	rack.levelId = levelId
 	rack.at = { x: p.position.x + rack.widthMm / 2, y: p.position.y + rack.depthMm / 2 }
 	if (p.rotation) rack.rot = p.rotation
 }

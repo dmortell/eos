@@ -1,14 +1,17 @@
 <!-- The cad workspace for one project: levels on the left, the plan in the middle, Properties on the right, the
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
-	import { onDestroy } from 'svelte'
+	import { onDestroy, untrack } from 'svelte'
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
-	import { Workspace, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities } from '../editor/commands'
+	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
+	import { deleteEntities, levelContents } from '../editor/commands'
+	import type { Level } from '../domain/types'
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, type ViewSpec } from '../views/space'
 	import OutletGrid from './OutletGrid.svelte'
+	import PatchList from './PatchList.svelte'
+	import { exportBom } from '../render/exports'
 	import Properties from './Properties.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import RackList from './RackList.svelte'
@@ -24,6 +27,7 @@
 	// svelte-ignore state_referenced_locally
 	const project = new CadProject(pid, firestore, user)
 	const ws = new Workspace()
+	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	onDestroy(() => project.destroy())
 
 	/** One or two panes side by side, each a plan or an elevation of the open level; the active one takes keys. */
@@ -39,6 +43,10 @@
 		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
 	}
 	function setPane(i: number, s: ViewSpec) { canvases[i]?.cancel(); panes[i] = s }
+	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
+	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
+	// switching to a view the current tool doesn't work in drops back to Select
+	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind)) untrack(() => setTool('select')) })
 
 	/** Open the first level once levels arrive (and if the open one disappears). */
 	$effect(() => {
@@ -61,6 +69,7 @@
 		{ id: 'wall', label: 'Wall', key: 'W' },
 		{ id: 'rack', label: 'Rack', key: 'K' },
 		{ id: 'device', label: 'Device', key: 'D' },
+		{ id: 'cord', label: 'Cord', key: 'P' },
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
@@ -72,6 +81,8 @@
 		wall: 'Click or type points · Enter / right-click finishes',
 		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
 		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
+		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
+		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
 	}
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 
@@ -80,6 +91,14 @@
 	async function exportExcel(all: boolean) {
 		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
+	}
+	async function exportBomXlsx() {
+		try {
+			const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
+			const n = await exportBom(project.index, projectName, PANDUIT_SEED)
+			notice = `BOM: ${n} lines`
+			setTimeout(() => (notice = null), 5000)
+		} catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 	}
 	/** The open plan as DXF — the same display list as the screen (floorplan images are left out). */
 	function exportDxf() {
@@ -90,10 +109,29 @@
 		setTimeout(() => (notice = null), 5000)
 	}
 
+	let bottom = $state<'outlets' | 'patch'>('outlets')
+
+	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
+	function renameLevel(l: Level) {
+		ws.askText('Level name', l.name, (t) => { if (t.trim() && t.trim() !== l.name) project.store.transact(`Rename level ${l.name} → ${t.trim()}`, (tx) => tx.put({ ...l, name: t.trim() })) })
+	}
+	function deleteLevel(l: Level) {
+		const on = levelContents(project.store.all(), l.id)
+		ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms)? Undo brings it back.`, 'Delete level', () => {
+			deleteEntities(project.store, [l.id, ...on])
+			if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
+		})
+	}
+	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
+	let cordDefaultsSet = false
 	function setTool(id: ToolId) {
 		canvas?.cancel()
 		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
+		if (id === 'cord' && !cordDefaultsSet && project.settings) {
+			ws.cordDefaults = { cableType: project.settings.defaults.cordCableType, colour: project.settings.defaults.cordColour }
+			cordDefaultsSet = true
+		}
 		ws.setTool(id, level)
 	}
 
@@ -129,7 +167,7 @@
 		else if (e.key === 'Delete' || e.key === 'Backspace') { if (ws.selection.length) { deleteEntities(project.store, ws.selection); ws.select([]) } }
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
-		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t) setTool(t.id) }
+		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t && toolWorksIn(t.id, activeKind)) setTool(t.id) }
 	}
 </script>
 
@@ -139,7 +177,9 @@
 	<!-- toolbar -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
 		{#each TOOLS as t (t.id)}
-			<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title="{t.label} ({t.key})" onclick={() => setTool(t.id)}>{t.label}</button>
+			{@const ok = toolWorksIn(t.id, activeKind)}
+			<button class="rounded px-2 py-0.5 disabled:opacity-35 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" disabled={!ok}
+				title={ok ? `${t.label} (${t.key})` : `${t.label} — not in this view`} onclick={() => setTool(t.id)}>{t.label}</button>
 		{/each}
 		{#if DRAWS.has(ws.toolId)}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
@@ -160,10 +200,21 @@
 					{#each project.deviceTemplates as t (t.id)}<option value={t.id}>{t.name}{t.builtin ? '' : ' ★'}</option>{/each}
 				</select></label>
 		{/if}
+		{#if ws.toolId === 'cord'}
+			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
+			<label class="opt">Type
+				<select class="tpl" bind:value={ws.cordDefaults.cableType}>
+					{#each project.settings?.cableTypes ?? [] as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+					{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
+				</select></label>
+			<label class="opt">Colour <input type="color" class="colour" bind:value={ws.cordDefaults.colour} /></label>
+			{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">Bulk: {ws.bulkFrom.ports.length} port(s) — click the first port to patch them to</span>{/if}
+		{/if}
 		{#if ws.confirm}
 			{@const q = ws.confirm}
 			<span class="ml-2 truncate text-xs text-amber-800">{q.msg}</span>
-			<button class="ask yes" onclick={() => { ws.confirm = null; q.apply() }}>{q.yes}</button>
+			<!-- take apply BEFORE clearing: q is a {@const} of ws.confirm and reads null once it's cleared -->
+			<button class="ask yes" onclick={() => { const apply = q.apply; ws.confirm = null; apply() }}>{q.yes}</button>
 			<button class="ask" onclick={() => (ws.confirm = null)}>Cancel</button>
 		{:else if ws.prompt}
 			<label class="opt prompt">{ws.prompt.label} <input bind:this={promptInput} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={answer} /></label>
@@ -181,6 +232,7 @@
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => exportExcel(false)} title="Outlet schedule of this level (Excel)">Schedule</button>
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => exportExcel(true)} title="Outlet schedule of every level (Excel)">All levels</button>
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={exportDxf} title="This plan as DXF">DXF</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={exportBomXlsx} title="Bill of materials for the whole project (quantities): outlets, panels, devices, racks + accessories (Panduit), cable, cords, containment">BOM</button>
 		{#if notice}<span class="ml-1 text-xs text-emerald-700">{notice}</span>{/if}
 		<span class="ml-auto text-xs text-zinc-500">
 			{#if project.error}<span class="text-red-600">{project.error}</span>
@@ -193,12 +245,16 @@
 	<nav class="levels overflow-auto border-r border-zinc-200 bg-white p-2">
 		<p class="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Levels</p>
 		{#each project.levels as l (l.id)}
-			<button class="flex w-full justify-between rounded px-2 py-0.5 text-left {ws.levelId === l.id ? 'bg-blue-100 text-blue-900' : 'hover:bg-zinc-100'}"
-				onclick={() => { ws.levelId = l.id; ws.select([]) }}>
-				<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
-			</button>
+			<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'bg-blue-100 text-blue-900' : 'hover:bg-zinc-100'}">
+				<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
+					onclick={() => { ws.levelId = l.id; ws.select([]) }}>
+					<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
+				</button>
+				<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>
+				<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
+			</div>
 		{/each}
-		{#if level}<RackList {project} {ws} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
+		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
 	</nav>
 
 	<!-- plan -->
@@ -224,9 +280,16 @@
 		<Properties {project} {ws} />
 	</aside>
 
-	<!-- outlets grid -->
+	<!-- tables: outlets (this level) | patch list (the project) -->
 	<section class="grid-panel border-t border-zinc-200 bg-white">
-		{#if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
+		<div class="tabs">
+			<button class:on={bottom === 'outlets'} onclick={() => (bottom = 'outlets')}>Outlets</button>
+			<button class:on={bottom === 'patch'} onclick={() => (bottom = 'patch')}>Patch list</button>
+		</div>
+		<div class="tab-body">
+			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} />
+			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
+		</div>
 	</section>
 </div>
 
@@ -243,12 +306,20 @@
 	.levels { grid-area: levels; min-height: 0; }
 	.plan { grid-area: plan; min-height: 0; min-width: 0; }
 	.props { grid-area: props; min-height: 0; }
-	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; }
+	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
+	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: #71717a; }
+	.lvl:hover .act { visibility: visible; }
+	.lvl .act:hover { color: #dc2626; }
+	.tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px; border-right: 1px solid #e4e4e7; background: #fafafa; }
+	.tabs button { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 6px 2px; border-radius: 4px; color: #52525b; }
+	.tabs button.on { background: #2563eb; color: white; }
+	.tab-body { flex: 1; min-width: 0; min-height: 0; }
 	/* one or two views side by side */
 	.panes { display: flex; height: 100%; gap: 2px; background: #e4e4e7; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52525b; margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; }
+	.opt input.colour { width: 2rem; height: 1.25rem; padding: 0; }
 	.ask { margin-left: 4px; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; font-size: 12px; background: white; }
 	.ask.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
 	.opt select.tpl { max-width: 13rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-size: 12px; }

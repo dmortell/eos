@@ -9,7 +9,7 @@ import { ProjectIndex } from '../domain/project'
 import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
 import { PdfCache } from './pdf.svelte'
-import type { Id, Level, ProjectSettings } from '../domain/types'
+import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
@@ -131,6 +131,12 @@ export class CadProject {
 		if (!hit.length) { apply(); return }
 		const which = hit.map((h) => `${h.device.name} port${h.ports.length > 1 ? 's' : ''} ${portRanges(h.ports)}`).join('; ')
 		ask(`Already printed: ${which} would change — reprint them after.`, 'Change anyway', apply)
+	}
+
+	/** Write an allocation (or a hand assignment) as ONE undo step: the links it drops, then the ones it adds. */
+	applyLinks(label: string, add: Link[], remove: Id[]): void {
+		if (!add.length && !remove.length) return
+		this.store.transact(label, (tx) => { for (const id of remove) tx.del(id); for (const l of add) tx.put(l) })
 	}
 
 	/** Save a device's shape as a global template ("Save as template"). */

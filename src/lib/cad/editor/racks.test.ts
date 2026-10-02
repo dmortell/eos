@@ -7,11 +7,13 @@ import { demoProject } from '../domain/fixtures'
 import { SelectTool, RackTool, type ToolCtx, type PortSel } from './tools'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
+import { CordTool } from './cordTool'
+import { deleteEntities } from './commands'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
 import type { Entity } from '../domain/drawing'
-import type { Device, Rack } from '../domain/types'
+import type { Device, Rack, Cord } from '../domain/types'
 
 const ROW: ViewSpec = { kind: 'row', spaceId: 'SR-A', face: 'front' }
 const R2: Rack = { type: 'rack', id: 'R2', levelId: 'L33', spaceId: 'SR-A', order: 1, name: 'A02', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 }
@@ -103,6 +105,26 @@ describe('devices in the rack row', () => {
 		expect(h.ports()?.ports).toEqual([3, 5, 6, 10])
 		sel.down(at(-5000, 5000), h.ctx()); sel.up(at(-5000, 5000), h.ctx())
 		expect(h.ports()).toBeNull()
+	})
+	it('the cord tool: port A then port B makes a cord; an unlabelled panel port refuses with the reason', () => {
+		const h = harness(ROW)
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => null, set: () => {} })
+		tool.down(portOf('P1', 10), h.ctx())
+		expect(h.said.at(-1)).toMatch(/no label yet/)
+		tool.down(portOf('P1', 3), h.ctx()); tool.down(portOf('SW1', 5), h.ctx())
+		const cord = h.store.ofType('cord').find((c) => c.a.on === 'P1' && c.a.port === 3)
+		expect(cord).toMatchObject({ status: 'add', colour: '#ef4444', a: { face: 'front' }, b: { on: 'SW1', port: 5 } })
+		expect(h.sel()).toEqual([cord!.id])
+	})
+	it('Delete on cords: a planned one goes, an installed one is only marked `remove`', () => {
+		const h = harness(ROW)
+		h.store.transact('installed', (tx) => tx.put({ ...(h.store.get('C2') as Cord), status: 'installed' }))
+		deleteEntities(h.store, ['C1', 'C2'])
+		expect(h.store.get('C1')).toBeUndefined()
+		expect(h.store.get('C2')).toMatchObject({ status: 'remove' })
 	})
 	it('a drag onto an occupied U stops at the last good place', () => {
 		const h = harness(ROW)

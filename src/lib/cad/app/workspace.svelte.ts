@@ -4,9 +4,24 @@ import type { Id, Level } from '../domain/types'
 import { SelectTool, OutletTool, RackTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { PathTool, type PathKind } from '../editor/pathTool'
 import { DeviceTool } from '../editor/deviceTool'
+import { AssignTool } from '../editor/assignTool'
+import { CordTool, type BulkFrom } from '../editor/cordTool'
+import type { CordDefaults } from '../domain/cords'
+import type { Link } from '../domain/types'
+import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 
-export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | PathKind
+export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | PathKind
+
+/** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
+ *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
+export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
+	select: ['plan', 'elevation', 'row'],
+	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
+	rack: ['plan'],
+	device: ['row'], cord: ['row'], assign: ['row'],
+}
+export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
 /** The tool-bar prompt: a number (rise to Z, riser level) or a typed point (text). `apply` gets the raw text. */
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
@@ -26,8 +41,15 @@ export class Workspace {
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
+	/** Set by the app (it owns the store): how the assign tool writes. */
+	applyLinks: (label: string, add: Link[], remove: Id[]) => void = () => {}
+	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
+	/** Sticky cord defaults: the last type / colour chosen stays for the next cord (the Patching tool's habit). */
+	cordDefaults = $state<CordDefaults>({ cableType: 'cat6a', colour: '#3b82f6' })
+	bulkFrom = $state.raw<BulkFrom | null>(null)
+	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), outlet: new OutletTool(), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate),
+		select: new SelectTool(), outlet: new OutletTool(), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 
@@ -43,6 +65,16 @@ export class Workspace {
 	placeRack(id: Id): void {
 		this.rackTool.target = id
 		this.toolId = 'rack'
+	}
+	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
+	patchFrom(sel: PortSel): void {
+		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face }
+		this.toolId = 'cord'
+	}
+	/** Arm "assign by hand" with these outlets; the next panel-port click places them. */
+	assignOutlets(ids: Id[]): void {
+		this.assignTool.outlets = ids
+		this.toolId = 'assign'
 	}
 	/** The Rack tool button: draw new racks (like the last one) with each click. */
 	drawRacks(): void {

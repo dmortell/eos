@@ -1,6 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { nextLabel, numberAt, setNumber, portLabelsFor, renumber, renumberOutlets, naturalCompare, readingOrder } from './labels'
+import { nextLabel, numberAt, setNumber, portLabelsFor, renumber, renumberOutlets, naturalCompare, readingOrder, reformatPorts } from './labels'
 import type { Outlet } from './types'
+
+describe('port label formats (Dave: 201.A → 201A, or numeric 201.1)', () => {
+	it('new labels in each format', () => {
+		expect(portLabelsFor('201', 2, 'alpha', '')).toEqual(['201A', '201B'])
+		expect(portLabelsFor('201', 2, 'numeric', '.')).toEqual(['201.1', '201.2'])
+		expect(portLabelsFor('201', 2, 'alpha', '-')).toEqual(['201-A', '201-B'])
+	})
+	it('reformat rewrites generated labels only — imported / hand-made ones stay', () => {
+		const o = { label: '201', ports: [{ port: 1, label: '201.A' }, { port: 2, label: '201-2' }, { port: 3, label: 'SPECIAL' }] }
+		expect(reformatPorts(o, 'alpha', '')!.ports.map((p) => p.label)).toEqual(['201A', '201B', 'SPECIAL'])
+		expect(reformatPorts({ label: 'A.024', ports: [{ port: 1, label: '01A.024A' }] }, 'alpha', '')).toBeNull()
+		expect(reformatPorts({ label: '201', ports: [{ port: 1, label: '201A' }] }, 'alpha', '')).toBeNull()   // already so
+	})
+})
 
 const outlet = (label: string, ports: string[], at?: { x: number; y: number }): Outlet => ({
 	type: 'outlet', id: label, levelId: 'L', label, tier: 'low', usage: 'desk', mount: 'floor', ...(at ? { at } : {}),

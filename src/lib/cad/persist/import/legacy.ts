@@ -11,7 +11,7 @@
 //   outlets/{pid}_F{NN}[__{areaId}]      outlets, trunks, rackPlacements, file   → outlet positions, runs, rack placement,
 //                                                                                   underlay
 import type { Entity } from '../../domain/drawing'
-import type { Id, Level, Space, ProjectSettings, Building } from '../../domain/types'
+import type { Id, Level, Space, ProjectSettings, Building, Rack } from '../../domain/types'
 import type { Issue } from '../../domain/validate'
 import { ImportCtx, floorOfDocId, type LegacySource } from './ctx'
 import { importCabling } from './legacyCabling'
@@ -36,7 +36,18 @@ export function importLegacy(src: LegacySource, makeId?: () => string): ImportRe
 	importPlaces(c)
 	importCabling(c)
 	importOutletsDocs(c)
+	followRacksToAreas(c)
 	return { entities: c.entities, issues: c.issues, ids: c.ids }
+}
+
+/** A server room whose racks were all placed on an area's plan belongs to that area's level. */
+function followRacksToAreas(c: ImportCtx): void {
+	for (const s of c.entities) {
+		if (s.type !== 'space' || s.kind !== 'server room') continue
+		const racks = c.entities.filter((r): r is Rack => r.type === 'rack' && r.spaceId === s.id)
+		const lv = new Set(racks.map((r) => r.levelId))
+		if (racks.length && lv.size === 1 && !lv.has(s.levelId)) s.levelId = [...lv][0]
+	}
 }
 
 function importPlaces(c: ImportCtx): void {
@@ -64,6 +75,12 @@ function importPlaces(c: ImportCtx): void {
 		}
 		const count = cfg?.serverRoomCount ?? 0
 		for (let i = 0; i < count; i++) c.serverRoom(n, String.fromCharCode(65 + i))
+		// each AREA Outlets doc (`_F33__3307`) is a separate plan of this floor → its own level, same height
+		for (const id of Object.keys(c.src.outlets).sort()) {
+			const f = floorOfDocId(c.src.pid, id)
+			if (f?.floor !== n || !f.area) continue
+			c.add({ ...level, id: c.levelId(n, f.area), name: `${level.name} ${f.area}`, order: n + 0.5, area: f.area })
+		}
 	}
 	if (floors.size) c.issue(building.id, 'heights-defaulted', 'Level heights and elevations use defaults (no riser data imported yet) — check them in Properties')
 

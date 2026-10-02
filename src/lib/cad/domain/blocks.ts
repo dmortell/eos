@@ -22,13 +22,13 @@ const label: BlockShape = sh({ kind: 'text', at: { x: 2.2, y: 0.7 }, text: '{LAB
 
 /** The built-in outlet symbols (paper mm, centred on the outlet). */
 export const BUILTIN_BLOCKS: Block[] = [
-	{ type: 'block', id: 'builtin:outlet-floor', name: 'Outlet — floor box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
+	{ type: 'block', id: 'builtin:outlet-floor', name: 'Outlet - floor box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label] },
-	{ type: 'block', id: 'builtin:outlet-wall', name: 'Outlet — wall', scope: 'global', category: 'outlet', annotative: true, builtin: true,
+	{ type: 'block', id: 'builtin:outlet-wall', name: 'Outlet - wall', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label] },
-	{ type: 'block', id: 'builtin:outlet-box', name: 'Outlet — desk / box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
+	{ type: 'block', id: 'builtin:outlet-box', name: 'Outlet - desk/box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label] },
-	{ type: 'block', id: 'builtin:outlet-ceiling', name: 'Outlet — ceiling', scope: 'global', category: 'outlet', annotative: true, builtin: true,
+	{ type: 'block', id: 'builtin:outlet-ceiling', name: 'Outlet - ceiling', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }), seg(-1.06, -1.06, 1.06, 1.06), seg(1.06, -1.06, -1.06, 1.06), label] },
 	{ type: 'block', id: 'builtin:ap', name: 'Wireless AP', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'text', at: { x: 0, y: 0.6 }, text: 'AP', sizeMm: 1.4, align: 'centre' }), { ...label, geom: { kind: 'text', at: { x: 2.5, y: 0.7 }, text: '{LABEL}', sizeMm: 1.8 } }] },
