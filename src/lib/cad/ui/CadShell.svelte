@@ -18,6 +18,7 @@
 	import Properties from './Properties.svelte'
 	import ImportNotes from './ImportNotes.svelte'
 	import SheetList from './SheetList.svelte'
+	import SheetsTab from './SheetsTab.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
@@ -132,7 +133,7 @@
 		setTimeout(() => (notice = null), 5000)
 	}
 
-	let bottom = $state<'outlets' | 'patch'>('outlets')
+	let bottom = $state<'outlets' | 'patch' | 'sheets'>('outlets')
 
 	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
 	function renameLevel(l: Level) {
@@ -310,9 +311,11 @@
 		<div class="tabs">
 			<button class:on={bottom === 'outlets'} onclick={() => (bottom = 'outlets')}>Outlets</button>
 			<button class:on={bottom === 'patch'} onclick={() => (bottom = 'patch')}>Patch list</button>
+			<button class:on={bottom === 'sheets'} onclick={() => (bottom = 'sheets')}>Sheets</button>
 		</div>
 		<div class="tab-body">
 			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} />
+			{:else if bottom === 'sheets'}<SheetsTab {project} {ws} onview={(s) => setPane(activePane, s)} />
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
 	</section>

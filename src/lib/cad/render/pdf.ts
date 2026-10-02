@@ -4,8 +4,9 @@
 // frames, LOD that hides small text) follow the paper, not the screen.
 //
 // Fonts: jspdf's built-in fonts are Latin only. A few symbols are swapped for plain text (№ → No., … → ...); anything
-// else outside Latin-1 (Japanese, …) can't be shown yet and is REPORTED in `unsupported` — embedding a CJK font is
-// the fix if Dave's sheets need it (a large file; decided in 4.3).
+// else outside Latin-1 (a Japanese address …) is drawn by the BROWSER's fonts as a ~300 dpi picture in its place
+// (`rasterText`) — crisp on paper, not selectable. Embedding a CJK font instead would add 5–9 MB to every PDF; that's
+// the upgrade if searchable Japanese text is ever needed. Without a rasteriser (tests) such text is reported.
 import type { Prim, Bounds } from '../views/display'
 import type { ProjectIndex } from '../domain/project'
 import type { Sheet } from '../domain/drawing'
@@ -20,6 +21,9 @@ export function sheetPages(ix: ProjectIndex, sheets: Sheet[], o: SheetOpts = {})
 }
 /** An image URL → a data URL jspdf can embed, with its natural size (null = skip it). */
 export type ImageLoader = (url: string, kind: 'photo' | 'logo') => Promise<{ data: string; format: 'PNG' | 'JPEG'; w: number; h: number } | null>
+/** Text the PDF's fonts can't show (Japanese …) drawn as a picture by the browser's fonts: a PNG and its size in mm,
+ *  `ascent` = mm from the top of the picture to the baseline. */
+export type TextRaster = (text: string, sizeMm: number, color: string, bold: boolean) => Promise<{ data: string; w: number; h: number; ascent: number } | null>
 
 interface Style { stroke?: string; fill?: string; text?: string; width?: number; dash?: number[]; bold?: boolean; skip?: boolean; opacity?: number }
 
@@ -64,12 +68,20 @@ const shownOnPaper = (p: Prim) => p.k !== 'text' || ((p.minPx === undefined || p
 const PT_PER_MM = 72 / 25.4
 
 /** Draw pages into a new PDF. Returns the PDF and the texts that couldn't be shown (fonts). */
-export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean } = {}): Promise<{ pdf: jsPDF; unsupported: string[] }> {
+export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
 	const first = pages[0] ?? { w: 420, h: 297, prims: [] }
 	const pdf = new jsPDF({ unit: 'mm', format: [first.w, first.h], orientation: first.w > first.h ? 'landscape' : 'portrait', compress: o.compress ?? true })
-	const unsupported = new Set<string>()
+	const unsupported = new Set<string>(), rasterised = new Set<string>()
 	const images = new Map<string, Awaited<ReturnType<ImageLoader>>>()
 	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(q.url)) images.set(q.url, await loadImage(q.url, q.fit === 'contain' ? 'logo' : 'photo'))
+	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
+	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
+	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
+	if (o.rasterText) for (const page of pages) for (const p of page.prims) {
+		if (p.k !== 'text' || pdfText(p.text).ok || !shownOnPaper(p)) continue
+		const st = styleOf(p.cls), key = rasterKey(p, st)
+		if (!rasters.has(key)) rasters.set(key, await o.rasterText(p.text, p.size, st.text ?? '#0f172a', !!st.bold))
+	}
 
 	pages.forEach((page, i) => {
 		if (i > 0) pdf.addPage([page.w, page.h], page.w > page.h ? 'landscape' : 'portrait')
@@ -101,7 +113,14 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 			}
 			if (p.k === 'text') {
 				const t = pdfText(p.text)
-				if (!t.ok) { unsupported.add(p.text); continue }
+				if (!t.ok) {
+					const r = rasters.get(rasterKey(p, st))
+					if (!r) { unsupported.add(p.text); continue }
+					const x = p.anchor === 'middle' ? p.at.x - r.w / 2 : p.anchor === 'end' ? p.at.x - r.w : p.at.x
+					pdf.addImage(r.data, 'PNG', x, p.at.y - r.ascent, r.w, r.h, undefined, 'FAST')
+					rasterised.add(p.text)
+					continue
+				}
 				pdf.setFont('helvetica', st.bold ? 'bold' : 'normal')
 				pdf.setFontSize(p.size * PT_PER_MM)
 				pdf.setTextColor(st.text ?? '#0f172a')
@@ -132,7 +151,22 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		}
 		setClip(undefined)
 	})
-	return { pdf, unsupported: [...unsupported] }
+	return { pdf, unsupported: [...unsupported], rasterised: [...rasterised] }
+}
+
+/** The browser's text pictures: ~12 px per mm (≈ 300 dpi), the page's sans-serif (which has Japanese glyphs). */
+export const browserTextRaster: TextRaster = async (text, sizeMm, color, bold) => {
+	const PX = 12, px = Math.max(8, sizeMm * PX)
+	const font = `${bold ? '600 ' : ''}${px}px ui-sans-serif, system-ui, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif`
+	const c = document.createElement('canvas'), g = c.getContext('2d')!
+	g.font = font
+	const m = g.measureText(text)
+	const ascent = Math.ceil(m.actualBoundingBoxAscent || px * 0.88), descent = Math.ceil(m.actualBoundingBoxDescent || px * 0.22)
+	c.width = Math.max(1, Math.ceil(m.width)); c.height = ascent + descent
+	g.font = font; g.fillStyle = color; g.textBaseline = 'alphabetic'
+	g.fillText(text, 0, ascent)
+	const mm = sizeMm / px   // the font is `px` tall for `sizeMm` on paper
+	return { data: c.toDataURL('image/png'), w: c.width * mm, h: c.height * mm, ascent: ascent * mm }
 }
 
 /** The browser's image loader: any URL (blob:, data:, file storage) → PNG / JPEG data through a canvas, so SVG logos

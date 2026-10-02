@@ -1,0 +1,126 @@
+<!-- The SHEET REGISTER (Phase 4.4), a bottom-panel tab: every sheet with its number, title, place, kind, discipline,
+     tags, revision, size, scale and status. Find, active / archived, group, click a heading to sort. Number, title,
+     kind, discipline and tags are edited in place. Click selects (Shift / Ctrl for more), double-click opens the sheet
+     in the active pane. Renumber, PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown). -->
+<script lang="ts">
+	import type { CadProject } from '../app/project.svelte'
+	import type { Workspace } from '../app/workspace.svelte'
+	import type { Sheet } from '../domain/drawing'
+	import type { ViewSpec } from '../views/space'
+	import { sheetRows, filterRows, sortRows, groupRows, renumber, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
+	import { exportSheetRows } from '../render/sheetList'
+	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
+
+	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
+
+	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
+	let q = $state(''), status = $state<'active' | 'archived' | ''>('active'), by = $state<GroupBy>('none')
+	let sort = $state<{ key: SortKey; dir: 1 | -1 }>({ key: 'number', dir: 1 })
+	const rows = $derived(sortRows(filterRows(sheetRows(project.index, sheets), { q, status: status || undefined }), sort.key, sort.dir))
+	const groups = $derived(groupRows(rows, by))
+	const selected = $derived(new Set(ws.selection))
+	const picked = $derived(rows.filter((r) => selected.has(r.id)))
+	const sheetOf = (id: string) => project.index.get(id) as Sheet
+
+	const COLS: [SortKey, string][] = [['number', 'No.'], ['title', 'Title'], ['place', 'Place'], ['kind', 'Kind'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
+	const sortBy = (key: SortKey) => (sort = { key, dir: sort.key === key ? (-sort.dir as 1 | -1) : 1 })
+
+	// click / Shift-range / Ctrl-toggle, as in the other grids
+	let anchor: string | null = null
+	function pick(id: string, e: MouseEvent) {
+		if (e.shiftKey && anchor) {
+			const i = rows.findIndex((r) => r.id === anchor), j = rows.findIndex((r) => r.id === id)
+			if (i >= 0 && j >= 0) { ws.select(rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id)); return }
+		}
+		anchor = id
+		ws.select(e.ctrlKey || e.metaKey ? (selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id]) : [id])
+	}
+	const put = (r: SheetRow, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
+
+	function renumberPicked() {
+		const list = picked
+		if (!list.length) { ws.say('Select the sheets to renumber (in the order shown)'); return }
+		ws.askText(`Number pattern for ${list.length} sheet(s) — {n} or {n:3}`, 'S{n:3}', (pattern) => {
+			if (!pattern.trim()) return
+			ws.ask('Start at', 1, (start) => {
+				const nums = renumber(list.length, start, pattern.trim())
+				project.store.transact(`Renumber ${list.length} sheets`, (tx) => list.forEach((r, i) => tx.put({ ...sheetOf(r.id), number: nums[i] })))
+			})
+		})
+	}
+	function setStatus(s: Sheet['status']) {
+		if (!picked.length) return
+		project.store.transact(`${s === 'archived' ? 'Archive' : 'Restore'} ${picked.length} sheet(s)`, (tx) => { for (const r of picked) tx.put({ ...sheetOf(r.id), status: s }) })
+	}
+	let busy = $state(false)
+	async function pdf() {
+		const list = picked.length ? picked : rows
+		busy = true
+		try { const r = await downloadSheetsPdf(project, list.map((x) => sheetOf(x.id))); ws.say(`PDF: ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+		finally { busy = false }
+	}
+	async function excel() {
+		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+	}
+	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
+</script>
+
+<div class="h-full overflow-auto text-xs">
+	<div class="actions">
+		<span class="font-semibold text-zinc-600">Sheets</span>
+		<input class="find" placeholder="Find…" bind:value={q} />
+		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
+		<label class="text-zinc-500">Group <select bind:value={by}>{#each ['none', 'place', 'kind', 'discipline', 'tag', 'size'] as g (g)}<option value={g}>{g}</option>{/each}</select></label>
+		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
+		<button class="btn" title="Number the selected sheets in the order shown, by a pattern (S{'{'}n:3{'}'} → S001, S002 …)" onclick={renumberPicked}>Renumber…</button>
+		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
+		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
+		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
+		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
+	</div>
+	<table class="w-full border-collapse">
+		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+			<tr>
+				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
+				<th class="px-2">Tags</th><th class="px-2">Status</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#each groups as g (g.key)}
+				{#if by !== 'none'}<tr class="grp"><td colspan="10">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
+				{#each g.rows as r (g.key + r.id)}
+					<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(r.id)}
+						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
+						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell w-56" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2">{r.place}</td>
+						<td class="px-2"><input class="cell w-20" value={r.kind} placeholder="—" onchange={(e) => put(r, 'Sheet kind', { kind: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell w-20" value={r.discipline} placeholder="—" onchange={(e) => put(r, 'Sheet discipline', { discipline: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2 font-mono">{r.rev || '—'}</td>
+						<td class="px-2">{r.size}</td>
+						<td class="px-2">{r.scale}</td>
+						<td class="px-2"><input class="cell w-28" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2 text-zinc-500">{r.status}</td>
+					</tr>
+				{/each}
+			{:else}
+				<tr><td colspan="10" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
+			{/each}
+		</tbody>
+	</table>
+</div>
+
+<style>
+	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e4e4e7; background: white; }
+	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
+	.btn:hover:not(:disabled) { background: #f4f4f5; }
+	.btn:disabled { opacity: 0.4; }
+	.find { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; width: 10rem; }
+	select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; }
+	.th { font-weight: 600; color: inherit; }
+	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; }
+	.cell:hover { border-color: #d4d4d8; }
+	.cell:focus { border-color: #60a5fa; background: white; outline: none; }
+	.grp td { background: #f4f4f5; font-weight: 600; padding: 2px 8px; color: #52525b; }
+</style>

@@ -35,6 +35,16 @@ describe('sheets to PDF', () => {
 		const { unsupported } = await pagesToPdf([{ w: 100, h: 100, prims: [{ k: 'text', at: { x: 10, y: 10 }, text: 'サーバー室', size: 3, cls: 'label' }] }], noImages)
 		expect(unsupported).toEqual(['サーバー室'])
 	})
+	it('with a rasteriser, Japanese text goes in as a picture where the text was (nothing left out)', async () => {
+		const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+		const asked: string[] = []
+		const raster = async (t: string) => { asked.push(t); return { data: PNG, w: 20, h: 3, ascent: 2.4 } }
+		const page = { w: 100, h: 100, prims: [{ k: 'text' as const, at: { x: 10, y: 10 }, text: '東京都港区', size: 2, cls: 'tb-company' }, { k: 'text' as const, at: { x: 10, y: 20 }, text: 'Plain', size: 2, cls: 'label' }] }
+		const r = await pagesToPdf([page], noImages, { rasterText: raster })
+		expect(asked).toEqual(['東京都港区'])                  // only the text the fonts can't show
+		expect(r.rasterised).toEqual(['東京都港区'])
+		expect(r.unsupported).toEqual([])
+	})
 	it('screen-only things stay off the paper', () => {
 		expect(styleOf('paper').skip).toBe(true)
 		expect(styleOf('paper-margin').skip).toBe(true)

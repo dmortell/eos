@@ -191,6 +191,33 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
 - **Checked in the page** (Test Project, no download): S-001 → 1 page 420 mm wide, 23 KB, 31 ms, nothing
   unsupported. The downloaded file is for Dave to look at.
 
+### Japanese text in PDFs (Dave added a Japanese address to the title block)
+- **Approach:** text the PDF fonts can't show is drawn by the BROWSER's fonts as a ~300 dpi PNG at its place
+  (`browserTextRaster`): same anchor, colour and weight.
+  - Crisp on paper and small (S001 with the address: 33 KB).
+  - Not selectable / searchable — that's the trade-off.
+  - An embedded CJK font (5–9 MB per PDF, fetched from outside) is the upgrade if searchable Japanese is ever
+    needed.
+- **Status line:** "N Japanese text(s) drawn as pictures"; anything still unrenderable is listed.
+- **Title block:** text fitting counts full-width characters as 1 em, so a Japanese line is cut with an ellipsis
+  instead of overflowing.
+- **Dave:** "pdf looks fine".
+
+### Slice 4.4 — sheet register (built 2026-10-02)
+- **`domain/sheetList.ts`** (ported from Pages' `drawingList.ts` + tests): rows (number, title, place = filed
+  place or the viewports' levels, kind, discipline, tags, rev, size, scale, status), text / status filter, natural
+  sort with blanks last, grouping (place / kind / discipline / tag / size), renumber patterns (`S{n:3}`).
+  Model-usage functions dropped: cad viewports show live views, not models.
+- **Sheets tab** in the bottom panel (beside Outlets / Patch list):
+  - Find, Active / Archived / All, group; click a heading to sort.
+  - Number, title, kind, discipline and tags edited in place.
+  - Click / Shift / Ctrl select; double-click opens the sheet in the active pane.
+  - **Renumber…** (the selection, in the order shown: pattern, then start); **PDF** (the selection, else the rows
+    shown); **Archive / Restore**; **Excel** (`render/sheetList.ts`, ported from Pages' export).
+- **Tests:** 230.
+- **Live check on Test Project:** two more test sheets made. The register showed S-001 / S-002 / S-003. Selected
+  all three and renumbered S{n:3} from 1 → S001, S002, S003. The Excel download is for Dave.
+
 ## 6a. The original questions (answered above)
 
 1. **Title block:** keep Pages' model (one template per project; layouts vertical / horizontal / compact; logo,

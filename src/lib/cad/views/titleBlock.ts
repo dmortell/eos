@@ -9,10 +9,13 @@ const CELL_H = 8, LABEL = 1.8, VALUE = 2.6, PAD = 1.5
 const REV_HEAD = 3.5, REV_ROW = 3.8
 const COMPANY_NAME = 3, COMPANY_LINE = 2
 
-/** Text cut to fit a width (≈ 0.6 em per character), with an ellipsis. */
+/** Text cut to fit a width, with an ellipsis: ≈ 0.6 em per Latin character, 1 em per full-width one (Japanese). */
+const em = (ch: string) => (ch.charCodeAt(0) >= 0x2e80 ? 1 : 0.6)
 const fit = (t: string, width: number, size: number) => {
-	const n = Math.max(1, Math.floor(width / (size * 0.6)))
-	return t.length <= n ? t : t.slice(0, Math.max(1, n - 1)) + '…'
+	const chars = [...t]
+	let w = 0, n = 0
+	for (const ch of chars) { if ((w += em(ch) * size) > width) break; n++ }
+	return n >= chars.length ? t : chars.slice(0, Math.max(1, n - 1)).join('') + '…'
 }
 const box = (x0: number, y0: number, x1: number, y1: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls })
 const rule = (x0: number, y0: number, x1: number, y1: number): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y1 }], cls: 'tb-rule' })
