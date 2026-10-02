@@ -35,6 +35,7 @@
 	$effect(() => { project.name = projectName })
 	const ws = new Workspace()
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
+	ws.openView = (s) => setPane(activePane, s)
 	onDestroy(() => project.destroy())
 
 	// the view state comes back from the URL on a refresh (Dave): level, the panes' views, the active pane
@@ -54,6 +55,15 @@
 		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
 	}
 	function setPane(i: number, s: ViewSpec) { canvases[i]?.cancel(); panes[i] = s }
+	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
+	 *  another floor's racks) goes to the level's plan (Dave: clicking a level with S001 open did nothing visible). */
+	function openLevel(id: string) {
+		ws.levelId = id
+		ws.select([])
+		const p = panes[activePane]
+		const elsewhere = p.kind === 'sheet' || p.kind === 'riser' || (p.kind === 'row' && project.index.get(p.spaceId)?.type === 'space' && (project.index.get(p.spaceId) as { levelId: string }).levelId !== id)
+		if (elsewhere) setPane(activePane, PLAN)
+	}
 	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
@@ -91,6 +101,8 @@
 		{ id: 'trunk', label: 'Trunk', key: 'T' },
 		{ id: 'conduit', label: 'Conduit', key: 'C' },
 		{ id: 'wall', label: 'Wall', key: 'W' },
+		{ id: 'opening', label: 'Opening', key: 'H' },
+		{ id: 'section', label: 'Section', key: 'Q' },
 		{ id: 'rack', label: 'Rack', key: 'K' },
 		{ id: 'device', label: 'Device', key: 'D' },
 		{ id: 'cord', label: 'Cord', key: 'P' },
@@ -106,6 +118,8 @@
 		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes · snap onto an outlet or rack to attach',
 		conduit: 'Click or type points · R = rise / drop · V = riser to another level · Enter / right-click finishes',
 		wall: 'Click or type points · Enter / right-click finishes',
+		section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
+		opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
 		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
 		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
@@ -225,6 +239,16 @@
 				{#if ws.toolId !== 'conduit'}<label class="opt">{ws.toolId === 'wall' ? 'Height' : 'H'} <input type="number" bind:value={ws.opts.h} /></label>{/if}
 			{/if}
 		{/if}
+		{#if ws.toolId === 'opening'}
+			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
+			<label class="opt" title="Width (mm)">W <input type="number" bind:value={ws.opts.w} /></label>
+			<label class="opt" title="Bottom of the hole above FFL (mm)">Z <input type="number" bind:value={ws.opts.z} /></label>
+			<label class="opt" title="Height of the hole (mm)">H <input type="number" bind:value={ws.opts.h} /></label>
+			<label class="opt">Swing
+				<select class="tpl" value={ws.openingSwing ?? ''} onchange={(e) => (ws.openingSwing = (e.currentTarget.value || undefined) as 'left' | 'right' | undefined)}>
+					<option value="">none</option><option value="left">left</option><option value="right">right</option>
+				</select></label>
+		{/if}
 		{#if ws.toolId === 'device'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 			<label class="opt">Template
@@ -284,7 +308,7 @@
 		{#each project.levels as l (l.id)}
 			<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'bg-blue-100 text-blue-900' : 'hover:bg-zinc-100'}">
 				<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
-					onclick={() => { ws.levelId = l.id; ws.select([]) }}>
+					onclick={() => openLevel(l.id)}>
 					<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
 				</button>
 				<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>

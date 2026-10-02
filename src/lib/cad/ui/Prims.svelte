@@ -100,6 +100,15 @@
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
+	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }
+	.section-arrow.filled { fill: #0f766e; }
+	.section-arrow { stroke: #0f766e; }
+	text.section-label { fill: #0f766e; font-weight: 700; }
+	.cut.filled { fill: #334155; }
+	.cut { stroke: #0f172a; }
+	.opening { stroke: #475569; }
+	.opening-swing { stroke: #64748b; stroke-dasharray: 4 3; fill: none; }
+	.opening-hole { fill: #ffffff; stroke: #475569; }
 	.riser-slab { fill: #e7e5e4; stroke: none; }
 	.riser-ffl { stroke: #57534e; stroke-width: 1.5; }
 	.riser-ceiling { stroke: #a8a29e; stroke-dasharray: 6 4; }

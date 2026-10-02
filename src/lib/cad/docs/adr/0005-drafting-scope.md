@@ -39,6 +39,10 @@ Every drawing tool is a command script, so typed and clicked input share one pat
 | a bare number, e.g. `1200` | **direct distance entry**: that far from the last point, towards the cursor. With Shift-constrain or a snap it gives exact horizontal / vertical runs. |
 | `Z` / `Depth` values | sets the work plane (ADR 0006) |
 
+Typed x,y are the model's own coordinates, the ones Properties show (Dave, 2026-10-02: "typed y-points must be
+consistent with the rest of the model"). In a plan or on a sheet, y is the stored y, which runs down the sheet. In an
+elevation, y is height. This replaces the first AutoCAD-style y-up reading.
+
 **The readout by the cursor** (length, angle, Δx / Δy while drawing; the work plane) also stays. Pages has it
 (`vpInteraction` "spacing readout").
 

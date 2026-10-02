@@ -3,7 +3,7 @@
 // paper mm = (p − centre) / N + the window's middle, clipped to the window. Viewport content isn't pickable on the
 // sheet (only the viewport is); editing happens in the views themselves.
 import type { Id } from '../domain/types'
-import type { Sheet, Viewport } from '../domain/drawing'
+import type { Sheet, Viewport, SectionCut } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim, Bounds } from './display'
@@ -11,6 +11,7 @@ import { planDisplayList, shapePrims, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
 import { riserDisplayList, type RiserOpts } from './riser'
+import { sectionDisplayList } from './section'
 import { spaceOf } from './space'
 import { titleBlockPrims } from './titleBlock'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
@@ -68,6 +69,7 @@ export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes })
+	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale })
 }

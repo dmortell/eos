@@ -96,3 +96,31 @@ describe('drawing and moving in an elevation (ADR 0006)', () => {
 		expect([o.at?.x, o.at?.y, o.z]).toEqual([1100, 4000, 1200])
 	})
 })
+
+describe('risers in floor elevations', () => {
+	const lv = (id: string, e: number) => ({ type: 'level', id, name: id, number: e / 4000, order: e, elevationMm: e, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } })
+	const riser = { type: 'shape', id: 'RA', levelId: 'L33', label: 'Riser A', section: { w: 150, h: 150 }, role: { kind: 'containment', form: 'trunk', tier: 'low' },
+		geom: { kind: 'path', nodes: [{ id: 'a', x: 1000, y: -2000, z: 0 }, { id: 'b', x: 1000, y: -2000, z: 0, levelId: 'L12' }], segs: [{ id: 's', a: 'a', b: 'b' }] } }
+	const ix = new ProjectIndex([lv('L12', 48000), lv('L30', 120000), lv('L33', 132000), riser] as Entity[])
+	it('a riser from L33 down to L12 shows in L30\'s elevation, cut to that floor (slab underside → top of plenum)', () => {
+		const ps = elevationDisplayList(ix, 'L30', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100 }).filter((p) => p.src === 'RA')
+		expect(ps.length).toBeGreaterThan(0)
+		expect(ps[0].clip).toEqual({ x0: -1e6, x1: 1e6, y0: -3300, y1: 500 })
+		expect(elevationDisplayList(ix, 'L12', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100 }).some((p) => p.src === 'RA')).toBe(true)   // its end floor too
+	})
+})
+
+describe('openings in elevations', () => {
+	it('a wall face is solid around a door: beside it and above it, nothing in the hole; the hole is outlined', async () => {
+		const { makeWall } = await import('../domain/make')
+		const { makeOpening } = await import('../domain/openings')
+		const w = makeWall('L1', [{ x: 0, y: 0 }, { x: 4000, y: 0 }], 100, 2600)
+		const seg = w.geom.kind === 'path' ? w.geom.segs[0].id : ''
+		const wall = { ...w, id: 'W', role: { kind: 'wall', openings: [makeOpening(seg, 1500, { width: 900, z: 0, h: 2100 })] } }
+		const ix = new ProjectIndex([{ type: 'level', id: 'L1', name: '1F', number: 1, order: 1, elevationMm: 0, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } }, wall] as Entity[])
+		const ps = elevationDisplayList(ix, 'L1', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100 }).filter((p) => p.src === 'W')
+		const box = (p: (typeof ps)[number]) => (p.k === 'line' ? [Math.min(...p.pts.map((q) => q.x)), Math.max(...p.pts.map((q) => q.x)), Math.min(...p.pts.map((q) => q.y)), Math.max(...p.pts.map((q) => q.y))] : []).map((v) => v || 0)   // −0 → 0
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'wall').map(box)).toEqual([[0, 1050, -2600, 0], [1050, 1950, -2600, -2100], [1950, 4000, -2600, 0]])
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'opening').map(box)).toEqual([[1050, 1950, -2100, 0]])
+	})
+})

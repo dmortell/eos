@@ -42,7 +42,7 @@ export function validateShape(s: Shape): Issue[] {
 		const segs = new Set(g.segs.map((x) => x.id))
 		for (const o of r.openings) {
 			if (!segs.has(o.segId)) out.push(err(s.id, 'opening-seg', `Opening ${o.id} is on a missing segment`))
-			if (o.head <= o.sill) out.push(err(s.id, 'opening-size', `Opening ${o.id} has its head below its sill`))
+			if (!(o.h > 0) || !(o.width > 0)) out.push(err(s.id, 'opening-size', `Opening ${o.id} needs a width and a height`))
 		}
 	}
 	if (r && (r.kind === 'wall' || r.kind === 'containment') && ownerOf(s).kind !== 'level') out.push(err(s.id, 'role-owner', `A ${r.kind} belongs in a level's model`))

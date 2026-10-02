@@ -6,6 +6,8 @@ import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import { isVertical } from '../domain/shapes'
+import { passesThrough } from './plan'
+import { openingCorners, wallSpan } from '../domain/openings'
 import { rotate, rackFrontNormal } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
@@ -13,9 +15,11 @@ import type { Prim } from './display'
 export const RU_MM = 44.45
 const OUTLET_W = 1.2, OUTLET_H = 0.8, LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
 
-interface Item { depth: number; prims: Prim[] }
+export interface Item { depth: number; prims: Prim[] }
 
-export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number }): Prim[] {
+/** `range` (a section): only what lies between depth `far` and `near` (view depth: larger = nearer), clipped to u0..u1
+ *  across; `extra` = more items (a section's cut walls), drawn in depth order with the rest. */
+export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; extra?: Item[] }): Prim[] {
 	const k = o.scale, level = ix.get(levelId) as Level | undefined
 	const items: Item[] = []
 	const rect = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill = true): Prim =>
@@ -28,10 +32,31 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	const elev = (id?: Id) => { const l = id ? ix.get(id) : undefined; return l?.type === 'level' ? l.elevationMm : 0 }
 	const here = elev(levelId)
 	const zOf = (n: { z: number; levelId?: Id }, s: Shape) => n.z + elev(n.levelId ?? s.levelId) - here
-	for (const s of ix.shapes) if (s.levelId === levelId) items.push(...shapeItems(s, sp, rect, uSpan, zOf))
+	// Shapes on this level, plus risers that END here or pass THROUGH it from another level. Anything reaching another
+	// level is cut to this floor's height (slab underside → top of the plenum), so a 30-floor riser is one storey here.
+	const h = level?.heights, floor = { y0: -((h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700)), y1: (h?.raisedFloorMm ?? 300) + (h?.slabMm ?? 200) }
+	for (const s of ix.shapes) {
+		const reaches = s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
+		if (s.levelId !== levelId && !(s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) && !passesThrough(ix, s, levelId)) continue
+		const its = shapeItems(s, sp, rect, uSpan, zOf, wallSpan(ix, s))
+		// ±1 km across: wide enough for any building. (±1e9 broke Chrome's clipping in some view directions — the
+		// riser vanished from the front / right elevations.)
+		items.push(...(reaches ? its.map((it) => ({ ...it, prims: it.prims.map((p) => ({ ...p, clip: { x0: -1e6, x1: 1e6, ...floor } })) })) : its))
+	}
 
-	items.sort((a, b) => a.depth - b.depth)   // far first, near last (larger depth = nearer)
-	const out = items.flatMap((i) => i.prims)
+	let kept = items
+	if (o.range) {
+		const r = o.range
+		const across = (p: Prim) => (p.k === 'line' ? p.pts.map((q) => q.x) : p.k === 'circle' ? [p.c.x - p.r, p.c.x + p.r] : p.k === 'text' ? [p.at.x] : [p.x, p.x + p.w])
+		kept = items.filter((it) => {
+			if (it.depth > r.near || it.depth < r.far) return false
+			const xs = it.prims.flatMap(across)
+			return xs.length > 0 && Math.max(...xs) >= r.u0 && Math.min(...xs) <= r.u1
+		}).map((it) => ({ ...it, prims: it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })) }))
+	}
+	kept = [...kept, ...(o.extra ?? [])]
+	kept.sort((a, b) => a.depth - b.depth)   // far first, near last (larger depth = nearer)
+	const out = kept.flatMap((i) => i.prims)
 	return [...datums(out, level, k), ...out]
 }
 
@@ -72,7 +97,7 @@ function outletItem(ot: Outlet, level: Level | undefined, sp: ViewSpace, rect: R
 	}
 }
 
-function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number): Item[] {
+function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, span?: { z0: number; z1: number }): Item[] {
 	const g = s.geom
 	if (g.kind === 'path') {
 		const nodes = new Map(g.nodes.map((n) => [n.id, { ...n, z: zOf(n, s) }]))
@@ -82,7 +107,29 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			const pa = sp.fromWorld(a), pb = sp.fromWorld(b), depth = (sp.depthOf(a) + sp.depthOf(b)) / 2
 			const sec = sg.section ?? s.section
 			if (s.role?.kind === 'wall' && sec) {
-				return [{ depth, prims: [{ k: 'line', pts: [pa, pb, { x: pb.x, y: pb.y - sec.h }, { x: pa.x, y: pa.y - sec.h }], closed: true, fill: true, cls: 'wall', src: s.id }] }]
+				// the wall face as solid pieces AROUND its openings (beside, below, above each), so what's behind shows
+				// through the holes; each hole outlined
+				const lift = zOf({ z: 0 }, s)   // the wall's floor relative to this view's level
+				const holes = s.role.openings.filter((o) => o.segId === sg.id).map((o) => {
+					const c = openingCorners(s, o).map((p) => sp.fromWorld({ ...p, z: p.z + lift }))
+					const xs = c.map((q) => q.x)
+					return { u0: Math.min(...xs), u1: Math.max(...xs), y0: Math.min(...c.map((q) => q.y)), y1: Math.max(...c.map((q) => q.y)), c }
+				}).sort((x, y) => x.u0 - y.u0)
+				// a slab-to-slab wall spans its level's slab → slab above, whatever its own height says
+				const ua = Math.min(pa.x, pb.x), ub = Math.max(pa.x, pb.x)
+				const top = span ? -(span.z1 + lift) : Math.min(pa.y, pb.y) - sec.h, bot = span ? -(span.z0 + lift) : Math.max(pa.y, pb.y)
+				const box = (x0: number, x1: number, y0: number, y1: number): Prim => ({ k: 'line', pts: [{ x: x0, y: y1 }, { x: x1, y: y1 }, { x: x1, y: y0 }, { x: x0, y: y0 }], closed: true, fill: true, cls: 'wall', src: s.id })
+				if (!holes.length) return [{ depth, prims: [span ? box(ua, ub, top, bot) : { k: 'line', pts: [pa, pb, { x: pb.x, y: pb.y - sec.h }, { x: pa.x, y: pa.y - sec.h }], closed: true, fill: true, cls: 'wall', src: s.id }] }]
+				const face: Prim[] = []
+				let from = ua
+				for (const h of holes) {
+					if (h.u0 > from) face.push(box(from, h.u0, top, bot))
+					if (h.y1 < bot) face.push(box(h.u0, h.u1, h.y1, bot))   // below the hole
+					if (h.y0 > top) face.push(box(h.u0, h.u1, top, h.y0))   // above it
+					from = Math.max(from, h.u1)
+				}
+				if (from < ub) face.push(box(from, ub, top, bot))
+				return [{ depth, prims: [...face, ...holes.map((h): Prim => ({ k: 'line', pts: h.c, closed: true, cls: 'opening', src: s.id }))] }]
 			}
 			if (s.role?.kind === 'containment' && sec) {
 				const lift = sec.anchor === 'centre' || sec.round ? 0 : sec.h / 2

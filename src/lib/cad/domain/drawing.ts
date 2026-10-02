@@ -61,6 +61,8 @@ export type ViewSpec =
 	| { kind: 'sheet'; sheetId: Id }
 	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts). */
 	| { kind: 'riser' }
+	/** A section through a level along a cut line drawn on its plan (Phase 6.2, views/section.ts). */
+	| { kind: 'section'; sectionId: Id }
 
 /** A window on a sheet onto one view, at a true scale. */
 export interface Viewport {
@@ -136,6 +138,20 @@ export interface Issue {
 	file?: { id: string; url: string; name: string }
 }
 
-export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue
+/** A SECTION (Phase 6.2): a cut line `a → b` on a level's plan. The view stands on the line and looks to its LEFT
+ *  as drawn on the sheet (a → b left to right looks up the sheet, like the Front elevation); `flip` looks the other
+ *  way. It shows what lies within `depth` mm beyond the cut, between the line's ends. */
+export interface SectionCut {
+	type: 'section'
+	id: Id
+	levelId: Id
+	name: string
+	a: Pt
+	b: Pt
+	depth: number
+	flip?: boolean
+}
+
+export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SectionCut
 export type Entity = DomainEntity | DrawingEntity
 export type EntityType = Entity['type']

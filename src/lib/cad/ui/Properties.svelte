@@ -17,6 +17,7 @@
 	import { defaultOutletBlock } from '../domain/blocks'
 	import PathProps from './PathProps.svelte'
 	import RunFill from './RunFill.svelte'
+	import WallOpenings from './WallOpenings.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -386,6 +387,14 @@
 		<SheetProps {project} {ws} s={one} />
 	{:else if one.type === 'cord'}
 		<CordProps {project} {ws} c={one} />
+	{:else if one.type === 'section'}
+		<!-- a section cut line (Phase 6.2): name, how deep it sees, which way it looks; open it in the pane -->
+		<p class="font-semibold">Section {one.name}</p>
+		<label class="row">Name <input class="inp" value={one.name} onchange={(e) => e.currentTarget.value.trim() && put(one, 'Section name', { name: e.currentTarget.value.trim() })} /></label>
+		<label class="row">Depth (mm) <input class="inp" type="number" min="100" step="100" value={one.depth} onchange={(e) => num(e.currentTarget.value) && put(one, 'Section depth', { depth: Math.max(100, Number(e.currentTarget.value)) })} /></label>
+		<label class="row">Looks <span><button class="btn" title="Look the other way" onclick={() => put(one, 'Flip section', { flip: !one.flip || undefined })}>Flip</button></span></label>
+		<button class="btn" onclick={() => ws.openView({ kind: 'section', sectionId: one.id })}>Open section {one.name}</button>
+		<p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
 	{:else if one.type === 'shape' && (one.geom.kind === 'text' || one.geom.kind === 'leader' || one.geom.kind === 'cloud')}
 		<!-- a note (on a sheet's paper, or a plan's text): its words and size -->
 		{@const g = one.geom}
@@ -402,6 +411,7 @@
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
 		{#if one.role?.kind === 'containment'}<RunFill {project} s={one} />{/if}
+		{#if one.role?.kind === 'wall'}<WallOpenings {project} s={one} />{/if}
 		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
 		{@const g = one.geom}

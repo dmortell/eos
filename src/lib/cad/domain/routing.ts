@@ -13,6 +13,10 @@ import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 
 export const JOIN_MM = 50
+/** The furthest an outlet reaches (plan + height) to join a run (Dave: 10 m); beyond it the port has no route. */
+export const MAX_OUTLET_DROP_MM = 10_000
+/** How far above / below a riser's end its shaft reaches to meet a run on that floor (a storey). */
+export const RISER_REACH_MM = 4_500
 export const MAX_PERMANENT_LINK_M = 90
 const U_MM = 44.45
 
@@ -89,6 +93,16 @@ export function buildGraph(ix: ProjectIndex): Graph {
 		}
 		piecesOf.set(segKey(s.shape.id, s.seg), list)
 	})
+	// A riser ends at the other level's FFL, but the shaft carries on to that floor's trays: its ends also meet any node
+	// straight above / below them (same plan point) within a storey (RISER_REACH_MM), counted as more of the riser.
+	segs.forEach((s, i) => {
+		if (s.levelIds.size < 2 || Math.abs(s.p.x - s.q.x) >= 0.5 || Math.abs(s.p.y - s.q.y) >= 0.5) return
+		for (const n of ends[i]) nodes.forEach((x, m) => {
+			if (m === n || Math.hypot(x.x - nodes[n].x, x.y - nodes[n].y) > JOIN_MM || Math.abs(x.z - nodes[n].z) > RISER_REACH_MM || adj[n].some((e) => e.to === m)) return
+			const piece = pieces.push({ shape: s.shape.id, seg: s.seg, a: n, b: m, t0: 0, t1: 0, len: Math.abs(x.z - nodes[n].z) }) - 1
+			adj[n].push({ to: m, piece }); adj[m].push({ to: n, piece })
+		})
+	})
 	return { nodes, adj, pieces, segs, piecesOf }
 }
 
@@ -125,7 +139,7 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !s.levelIds.has(o.levelId) || !serves(s.shape, roomId)) return
 		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
 		const t = tapOn(g, i, x)
-		if (!best || t.dropMm < best.dropMm) best = t
+		if (t.dropMm <= MAX_OUTLET_DROP_MM && (!best || t.dropMm < best.dropMm)) best = t
 	})
 	return best
 }
@@ -240,7 +254,7 @@ export function routeLinks(ix: ProjectIndex, cable: CableSettings = DEFAULT_CABL
 			if (!outlet.at) { finish({ segs: [], problem: 'the outlet is not placed' }); continue }
 			const port = outlet.ports.find((p) => p.port === l.b.port)
 			const t = outletTap(g, ix, outlet, port?.serverRoomId ?? rack.spaceId)
-			if (!t) { finish({ segs: [], problem: `no ${outlet.tier} run near the outlet serving its room` }); continue }
+			if (!t) { finish({ segs: [], problem: `no ${outlet.tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room` }); continue }
 			ends = [t]
 		} else {
 			const d2 = deviceOf(l.b.on), r2 = rackOfDevice(d2)

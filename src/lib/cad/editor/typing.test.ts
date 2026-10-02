@@ -37,10 +37,10 @@ const typeIn = (tool: PathTool | OutletTool, text: string, c: ToolCtx) => {
 }
 
 describe('typed points while drawing', () => {
-	it('a trunk typed as 0,-6000 then @3000,0 then @0,2000 (Y up)', () => {
+	it('a trunk typed as 0,6000 then @3000,0 then @0,-2000 (the stored coordinates)', () => {
 		const h = harness()
 		const t = new PathTool('trunk')
-		for (const s of ['0,-6000', '@3000,0', '@0,2000']) typeIn(t, s, h.ctx())
+		for (const s of ['0,6000', '@3000,0', '@0,-2000']) typeIn(t, s, h.ctx())
 		t.finish(h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape
 		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.x, n.y])).toEqual([[0, 6000], [3000, 6000], [3000, 4000]])

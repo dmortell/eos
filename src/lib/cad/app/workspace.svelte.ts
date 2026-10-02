@@ -7,19 +7,22 @@ import { DeviceTool } from '../editor/deviceTool'
 import { AssignTool } from '../editor/assignTool'
 import { CordTool, type BulkFrom } from '../editor/cordTool'
 import { NoteTool, type NoteKind } from '../editor/noteTool'
+import { OpeningTool } from '../editor/openingTool'
+import { SectionTool } from '../editor/sectionTool'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
 import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 
-export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | NoteKind | PathKind
+export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
-	select: ['plan', 'elevation', 'row', 'sheet', 'riser'],
+	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section'],
+	section: ['plan'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
-	rack: ['plan'],
+	rack: ['plan'], opening: ['plan'],
 	device: ['row'], cord: ['row'], assign: ['row'],
 	text: ['sheet'], leader: ['sheet'], cloud: ['sheet'],
 }
@@ -39,12 +42,16 @@ export class Workspace {
 	prompt = $state<Prompt | null>(null)
 	/** The template the device tool adds (chosen in the tool bar). */
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
+	/** The Opening tool's swing (none / left / right), sticky like the cord defaults. */
+	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
 	/** A short status message (why a click was refused …); clears itself. */
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
+	/** Set by the app: show a view in the active pane (a section's Open button). */
+	openView: (s: ViewSpec) => void = () => {}
 	/** Set by the app (it owns the store): how the assign tool writes. */
 	applyLinks: (label: string, add: Link[], remove: Id[]) => void = () => {}
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
@@ -55,6 +62,7 @@ export class Workspace {
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), outlet: new OutletTool(), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
+		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 
@@ -119,5 +127,6 @@ export class Workspace {
 		if (id === 'trunk' || id === 'conduit') this.opts = { z: h ? h.clearHeightMm + h.plenumMm / 2 : 2900, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
 		else if (id === 'wall') this.opts = { z: 0, w: 100, h: h?.clearHeightMm ?? 2700 }
 		else if (id === 'line') this.opts = { ...this.opts, z: 0 }
+		else if (id === 'opening') this.opts = { z: 0, w: 900, h: 2100 }
 	}
 }

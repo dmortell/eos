@@ -85,6 +85,8 @@ export type GeometryKind = Geometry['kind']
 export interface WallRole {
 	kind: 'wall'
 	openings: Opening[]
+	/** Full height, slab to slab (IDF / UPS rooms): its height follows its level's floor heights, not its section. */
+	slabToSlab?: boolean
 }
 
 /** Trunking, conduit, tray, ladder, riser: carries cables, so it routes links and counts towards fill and the BOM. */
@@ -118,16 +120,17 @@ export interface PenetrationRole {
 
 export type Role = WallRole | ContainmentRole | ObjectRole | PenetrationRole
 
-/** Hosted on a wall segment: it moves with the wall (ADR 0004). */
+/** A hole in a wall — a door or a window is just a hole (Dave) — hosted on a wall segment: it moves with the wall
+ *  (ADR 0004). `z` = its bottom above FFL, `h` = its height. A `swing` draws a door leaf + arc on the plan, hinged on
+ *  that side as seen from the segment's `a` end; `flip` opens it to the other face. */
 export interface Opening {
 	id: Id
 	segId: Id
 	/** Centre, mm along the segment from its `a` node. */
 	at: number
 	width: number
-	sill: number
-	head: number
-	kind: 'door' | 'window' | 'hole'
+	z: number
+	h: number
 	swing?: 'left' | 'right'
 	flip?: boolean
 }

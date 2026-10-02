@@ -13,6 +13,7 @@ export function encodeSpec(s: ViewSpec): string {
 		case 'row': return ['row', s.spaceId, s.face, ...(s.rowId ? [s.rowId] : [])].join('.')
 		case 'sheet': return `sheet.${s.sheetId}`
 		case 'riser': return 'riser'
+		case 'section': return `section.${s.sectionId}`
 	}
 }
 
@@ -23,6 +24,7 @@ export function decodeSpec(t: string): ViewSpec | null {
 	const [k, a, b, c] = t.split('.')
 	if (k === 'row' && a && (b === 'front' || b === 'rear')) return { kind: 'row', spaceId: a, face: b, ...(c ? { rowId: c } : {}) }
 	if (k === 'sheet' && a) return { kind: 'sheet', sheetId: a }
+	if (k === 'section' && a) return { kind: 'section', sectionId: a }
 	return null
 }
 

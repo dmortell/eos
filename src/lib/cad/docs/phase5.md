@@ -293,3 +293,25 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
   and floor compression for tall buildings (the legacy Risers tool hid floors; Pages had `storeyMap`).
 
 **Phase 5 is complete except 5.4 (prices), which is a todo.**
+
+### After Phase 5 (Dave, 2026-10-02)
+- **Typed points use the model's coordinates** (Dave: "typed y-points must be consistent with the rest of the
+  model"). In a plan / on a sheet x,y are the stored values Properties show (y down the sheet). In an elevation y is
+  height. Polar angles stay anticlockwise as seen. ADR 0005 updated. The Phase 5 how-to typed `10210,2600` for
+  stored y −2600; now you type `10210,-2600`.
+- **`MAX_OUTLET_DROP_MM = 10_000`** (routing.ts): an outlet joins a run of its tier only within 10 m (plan +
+  height). Beyond it: "no low run within 10 m of the outlet serving its room".
+- **Risers in floor elevations:** a riser that ends on, or passes through, a floor now shows in that floor's
+  elevations, cut (`clip`) to the floor: slab underside → top of the plenum. Before, only shapes owned by the level
+  showed, and an own-level riser drew its full height.
+- **A riser's end meets the trays above / below it** (`RISER_REACH_MM = 4_500`). The riser ends at the other
+  floor's FFL; its end now also joins any run node straight above / below it within a storey, counted as more of
+  the riser. A ceiling run starting over the riser connects without drawing the riser up to the tray height.
+- **Test Project data:** after Dave moved 4AR01 to (3205, 13580) and redrew the 4F run (from (3190, 17750) at Z
+  2770), that run no longer reaches Riser A at (10210, −2600). The 24 backbones say "the runs at the two ends are not
+  connected" until the riser is moved under the 4F run (or the run drawn to it).
+- **Tests:** 258.
+- **Fix: a level click with a sheet open** did nothing visible: the handler only ever set the level. Now (`openLevel`)
+  a pane showing a sheet, the riser view, or another floor's racks goes to the clicked level's plan.
+- **Fix: the riser was missing from the front / right elevations.** Its floor clip was ±1e9 mm wide, and Chrome
+  dropped the clipped element in some view directions (rear / left drew it). The clip is now ±1 km across.

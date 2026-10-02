@@ -4,6 +4,8 @@ import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical } from '../domain/shapes'
+import { planOpenings } from '../domain/openings'
+import { sectionMarks, sectionsOn } from './section'
 import { rotate } from '../domain/conventions'
 import type { Prim } from './display'
 import { blockPrims } from './blocks'
@@ -45,6 +47,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
 	out.push(...over)
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) out.push(...outletPrims(ot, k, o.blocks))
+	// section cut lines (Phase 6.2) on top
+	for (const sec of sectionsOn(ix, levelId)) out.push(...sectionMarks(sec, k))
 	return out
 }
 
@@ -62,7 +66,18 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 			const nodes = new Map(g.nodes.map((n) => [n.id, n]))
 			return g.segs.flatMap((sg): Prim[] => {
 				const a = nodes.get(sg.a), b = nodes.get(sg.b)
-				return a && b ? [{ k: 'line', pts: [a, b], ...(s.section ? { w: (sg.section ?? s.section).w } : {}), cls, src: s.id }] : []
+				if (!a || !b) return []
+				const w = s.section ? (sg.section ?? s.section).w : undefined
+				// a wall with openings: solid pieces around the holes, jambs, door leaves + arcs (Phase 6.1)
+				if (s.role?.kind === 'wall' && w && s.role.openings.some((o) => o.segId === sg.id)) {
+					const op = planOpenings(s, sg.id, w)
+					return [
+						...op.pieces.map(([p, q]): Prim => ({ k: 'line', pts: [p, q], w, cls, src: s.id })),
+						...op.jambs.map(([p, q]): Prim => ({ k: 'line', pts: [p, q], cls: 'opening', src: s.id })),
+						...op.swings.map((pts): Prim => ({ k: 'line', pts, cls: 'opening opening-swing', src: s.id })),
+					]
+				}
+				return [{ k: 'line', pts: [a, b], ...(w ? { w } : {}), cls, src: s.id }]
 			})
 		}
 		case 'rect': {
@@ -81,7 +96,7 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 
 /** A riser that passes THROUGH a level (L33 down to L12 shows on L30 too): a vertical segment whose ends lie above
  *  and below the level's floor. Drawn once, it appears on every floor it crosses. */
-function passesThrough(ix: ProjectIndex, s: Shape, levelId: Id): boolean {
+export function passesThrough(ix: ProjectIndex, s: Shape, levelId: Id): boolean {
 	if (s.geom.kind !== 'path' || s.role?.kind !== 'containment') return false
 	const lv = ix.get(levelId), at = lv?.type === 'level' ? lv.elevationMm : null
 	if (at == null) return false

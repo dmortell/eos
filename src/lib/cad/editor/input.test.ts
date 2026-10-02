@@ -6,13 +6,16 @@ import type { Shape } from '../domain/shapes'
 
 const pt = (r: ReturnType<typeof parseTyped>) => (r.kind === 'point' ? { x: Math.round(r.p.x * 1000) / 1000, y: Math.round(r.p.y * 1000) / 1000 } : r.message)
 
-describe('typed points (Y up, like AutoCAD)', () => {
-	it('x,y is absolute; a positive Y goes UP the sheet (view y down)', () => {
-		expect(pt(parseTyped('1000,500', null, null))).toEqual({ x: 1000, y: -500 })
+describe('typed points (the model\'s coordinates, as Properties show them)', () => {
+	it('x,y is absolute: in a plan the stored y (down the sheet); in an elevation y is height', () => {
+		expect(pt(parseTyped('1000,500', null, null))).toEqual({ x: 1000, y: 500 })
+		expect(pt(parseTyped('1000,-2600', null, null))).toEqual({ x: 1000, y: -2600 })
+		expect(pt(parseTyped('1000,2600', null, null, true))).toEqual({ x: 1000, y: -2600 })   // 2.6 m up = view y −2600
 	})
 	it('@dx,dy is relative to the last point', () => {
 		expect(pt(parseTyped('@600,0', { x: 100, y: 200 }, null))).toEqual({ x: 700, y: 200 })
-		expect(pt(parseTyped('@0,300', { x: 100, y: 200 }, null))).toEqual({ x: 100, y: -100 })
+		expect(pt(parseTyped('@0,300', { x: 100, y: 200 }, null))).toEqual({ x: 100, y: 500 })
+		expect(pt(parseTyped('@0,300', { x: 100, y: 200 }, null, true))).toEqual({ x: 100, y: -100 })
 	})
 	it('@d<a is polar, anticlockwise from +x', () => {
 		expect(pt(parseTyped('@1000<90', { x: 0, y: 0 }, null))).toEqual({ x: 0, y: -1000 })
@@ -56,7 +59,7 @@ describe('editing a path graph', () => {
 	it("removing a wall node drops openings on segments that no longer exist", () => {
 		const w = makeWall('L', [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 2000, y: 0 }])
 		const seg2 = g(w).segs[1].id
-		const withDoor: Shape = { ...w, role: { kind: 'wall', openings: [{ id: 'd', segId: seg2, at: 500, width: 900, sill: 0, head: 2100, kind: 'door' }] } }
+		const withDoor: Shape = { ...w, role: { kind: 'wall', openings: [{ id: 'd', segId: seg2, at: 500, width: 900, z: 0, h: 2100 }] } }
 		const r = removeNode(withDoor, g(w).nodes[2].id)!
 		expect(r.role?.kind === 'wall' && r.role.openings).toEqual([])
 	})

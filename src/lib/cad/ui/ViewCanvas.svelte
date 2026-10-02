@@ -17,6 +17,8 @@
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList } from '../views/sheet'
 	import { riserDisplayList } from '../views/riser'
+	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
+	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet } from '../domain/drawing'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds } from '../views/display'
@@ -48,7 +50,9 @@
 	let tick = $state(0)
 	let fittedFor: string | null = null
 
-	const space = $derived(spaceOf(spec))
+	const section = $derived(spec.kind === 'section' ? (project.index.get(spec.sectionId) as SectionCut | undefined) : undefined)
+	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
+	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
 	const prims = $derived(spec.kind === 'plan'
 		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
@@ -58,7 +62,9 @@
 				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes }) : [])
 				: spec.kind === 'riser'
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes })
-					: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+					: spec.kind === 'section'
+						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE }) : [])
+						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
 	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
 	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
 	const vpHighlight = $derived.by((): Prim[] => {
@@ -282,7 +288,7 @@
 	export function typed(text: string): string | null {
 		const tool = ws.tool
 		if (!tool.typed) return 'This tool takes no typed points'
-		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor)
+		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor, spec.kind === 'elevation')
 		if (r.kind === 'error') return r.message
 		tool.typed(r.p, ctx()); tick++
 		return null
@@ -318,6 +324,14 @@
 		{#each VIEWS as v (specKey(v))}
 			<button class:on={specKey(v) === specKey(spec)} onclick={() => { onfocus?.(); onspec(v) }}>{specLabel(v)}</button>
 		{/each}
+		{#if sections.length || section}
+			<span class="sep"></span>
+			<select class="secs" class:on={!!section} value={section?.id ?? ''} title="Sections on this level (draw one with the Section tool on the plan)"
+				onchange={(e) => { onfocus?.(); if (e.currentTarget.value) onspec({ kind: 'section', sectionId: e.currentTarget.value }) }}>
+				<option value="">Section…</option>
+				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
+			</select>
+		{/if}
 		{#if spec.kind === 'plan'}
 			<span class="sep"></span>
 			<button class:on={ws.showFill} title="Colour runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
@@ -345,6 +359,8 @@
 	.views { position: absolute; top: 4px; left: 6px; display: flex; gap: 2px; }
 	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
 	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
+	.views .secs.on { background: #2563eb; border-color: #2563eb; color: white; }
 	.views .sep { width: 1px; background: #d4d4d8; margin: 0 4px; }
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
 	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }

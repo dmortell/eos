@@ -58,6 +58,17 @@ describe('routing', () => {
 		expect(r.routeMm).toBeCloseTo(RACK_DROP + 2000 + 4000 + 5500 + 500)
 		expect(r.segs.map((s) => s.shape)).toEqual(['T2', 'V1', 'T1'])
 	})
+	it('a riser ending at FFL meets a ceiling run straight above its end (the shaft carries on to the tray)', () => {
+		const ix = project([
+			run('V1', 'L1', [[2000, 500, 0], [2000, 500, 0]], 'low', { toLevel: 'L2' }),
+			run('H2', 'L2', [[2000, 500, 2800], [2000, 6000, 2800]], 'high'),
+			outlet('O2', 'L2', 2500, 6000, 'high'), link('K2', 'O2'),
+		])
+		const r = routeLinks(ix).get('K2')!
+		expect(r.problem).toBeUndefined()
+		expect(r.routeMm).toBeCloseTo(RACK_DROP + 2000 + 4000 + 2800 + 5500 + 500 + 2800)   // up the riser to L2 FFL, on to 2.8 m, along; the outlet drop is 2.8 m down
+		expect(r.segs.map((s) => s.shape)).toEqual(['H2', 'V1', 'T1'])
+	})
 	it('the tier and the room filter which run an outlet joins; no route says why', () => {
 		const ix = project([
 			run('H1', 'L1', [[0, 2000, 2800], [10000, 2000, 2800]], 'high'),   // nearer, but high: a low outlet skips it
@@ -69,7 +80,12 @@ describe('routing', () => {
 		const routes = routeLinks(ix)
 		expect(routes.get('K1')!.segs[0].shape).toBe('T1')
 		expect(routes.get('K3')!.segs).toEqual([{ shape: 'H1', seg: 'H1s0' }])   // the high run passes within reach of the rack
-		expect(routes.get('K4')!.problem).toBe('no low run near the outlet serving its room')
+		expect(routes.get('K4')!.problem).toBe('no low run within 10 m of the outlet serving its room')
+	})
+	it('an outlet more than 10 m (MAX_OUTLET_DROP_MM) from any run of its tier has no route', () => {
+		const routes = routeLinks(project([outlet('O1', 'L1', 5000, 10400), link('K1', 'O1'), outlet('O2', 'L1', 5000, 10600), link('K2', 'O2', 2)]))
+		expect(routes.get('K1')!.problem).toBeUndefined()   // 9.9 m from T1 (y 500)
+		expect(routes.get('K2')!.problem).toMatch(/within 10 m/)   // 10.1 m
 	})
 	it('a rack joins only runs within reach, not one across the floor', () => {
 		// F1 tees off T1 at (6000, 500) — runs that merely cross are NOT joined; a tee needs a node on the other run

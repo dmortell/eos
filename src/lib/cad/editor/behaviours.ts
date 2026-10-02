@@ -12,7 +12,7 @@ export interface Delta { x: number; y: number; z?: number }
 const add = (p: Pt, d: Delta): Pt => ({ x: p.x + d.x, y: p.y + d.y })
 
 export function canMove(e: Entity): boolean {
-	return e.type === 'shape' || ((e.type === 'outlet' || e.type === 'rack') && !!e.at && !(e.type === 'outlet' && e.locked))
+	return e.type === 'shape' || e.type === 'section' || ((e.type === 'outlet' || e.type === 'rack') && !!e.at && !(e.type === 'outlet' && e.locked))
 }
 
 /** The entity moved by `d` (a new record; the input is never changed). */
@@ -26,6 +26,7 @@ export function moveBy<T extends Entity>(e: T, d: Delta): T {
 	}
 	if (e.type === 'outlet' && e.at) return { ...e, at: add(e.at, d), ...(dz ? { z: (e.z ?? 0) + dz } : {}) } as T
 	if (e.type === 'rack' && e.at) return { ...e, at: add(e.at, d) } as T
+	if (e.type === 'section') return { ...e, a: add(e.a, d), b: add(e.b, d) } as T
 	return e
 }
 

@@ -8,6 +8,7 @@
 	import { defaultViewport, contentCentre } from '../views/sheet'
 	import { newId } from '../domain/ids'
 	import { untie } from '../editor/noteTool'
+	import { sectionsOn } from '../views/section'
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
@@ -30,16 +31,16 @@
 	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? 'riser' : `elev:${v.view.spec.dir}`)
+	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? 'riser' : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
 	function setView(v: Viewport, key: string) {
 		const [kind, a, b] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser' } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
+		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser' } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
 		const next = { ...v, view: { ...v.view, spec } }
 		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
 	}
 	function setLevel(v: Viewport, levelId: string) {
-		const spec = v.view.spec.kind === 'row' ? { kind: 'plan' as const } : v.view.spec   // a room's racks belong to its level
+		const spec = v.view.spec.kind === 'row' || v.view.spec.kind === 'section' ? { kind: 'plan' as const } : v.view.spec   // a room's racks / a section belong to their level
 		const next = { ...v, view: { levelId, spec } }
 		putVp('Viewport level', { view: next.view, centre: contentCentre(project.index, next) })
 	}
@@ -76,6 +77,7 @@
 			<option value="plan">Plan</option>
 			{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value="elev:{d}">Elevation {d}</option>{/each}
 			{#each rooms as r (r.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}{/each}
+			{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}
 			<option value="riser">Risers (building)</option>
 		</select>
 	</label>

@@ -26,8 +26,8 @@ export interface ViewSpace {
 }
 
 export const PLAN: ViewSpec = { kind: 'plan' }
-export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'riser' ? 'riser' : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.kind === 'sheet' ? `sheet:${s.sheetId}` : s.dir)
-export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'riser' ? 'Riser' : s.kind === 'row' ? `Racks ${s.face}` : s.kind === 'sheet' ? 'Sheet' : s.dir[0].toUpperCase() + s.dir.slice(1))
+export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'riser' ? 'riser' : s.kind === 'section' ? `section:${s.sectionId}` : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.kind === 'sheet' ? `sheet:${s.sheetId}` : s.dir)
+export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'riser' ? 'Riser' : s.kind === 'section' ? 'Section' : s.kind === 'row' ? `Racks ${s.face}` : s.kind === 'sheet' ? 'Sheet' : s.dir[0].toUpperCase() + s.dir.slice(1))
 
 export function spaceOf(spec: ViewSpec, origin: Pt = { x: 0, y: 0 }): ViewSpace {
 	if (spec.kind === 'row' || spec.kind === 'riser') {
@@ -51,7 +51,8 @@ export function spaceOf(spec: ViewSpec, origin: Pt = { x: 0, y: 0 }): ViewSpace 
 			depthOf: () => 0,
 		}
 	}
-	const f = namedFrame(spec.dir, origin)
+	// a section's frame comes from its record (views/section.ts sectionSpace); without it, look like the Front
+	const f = namedFrame(spec.kind === 'section' ? 'front' : spec.dir, origin)
 	return {
 		spec, frame: f,
 		toWorld: (p, w) => unproject(f, { u: p.x, v: -p.y }, w.depth),
