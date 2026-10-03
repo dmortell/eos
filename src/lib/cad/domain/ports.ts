@@ -101,6 +101,17 @@ export function printedPanelsAffected(ix: ProjectIndex, edits: Entity[]): { devi
 	return out
 }
 
+/** The panel with `ports` reserved for `usage` ('' = their reservation cleared): a port is in at most one reservation.
+ *  Null when nothing would change (not a panel, or clearing ports that weren't reserved). */
+export function reservePorts(d: Device, ports: number[], usage: string, id: Id): Device | null {
+	if (!d.panel) return null
+	const had = d.panel.reservations ?? []
+	if (!usage && !had.some((r) => r.ports.some((p) => ports.includes(p)))) return null
+	const without = had.map((r) => ({ ...r, ports: r.ports.filter((p) => !ports.includes(p)) })).filter((r) => r.ports.length)
+	const reservations = usage ? [...without, { id, usage, ports: [...ports] }] : without
+	return { ...d, panel: { ...d.panel, reservations: reservations.length ? reservations : undefined } }
+}
+
 /** "3–7, 12" for a list of port numbers. */
 export function portRanges(ports: number[]): string {
 	const s = [...new Set(ports)].sort((a, b) => a - b), out: string[] = []

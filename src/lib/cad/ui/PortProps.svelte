@@ -5,7 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { PortSel } from '../editor/tools'
-	import { setPortLabel, portRanges } from '../domain/ports'
+	import { setPortLabel, portRanges, reservePorts } from '../domain/ports'
 	import { newId } from '../domain/ids'
 	import { traceCircuit } from '../domain/cords'
 	import Trace from './Trace.svelte'
@@ -43,11 +43,8 @@
 	}
 	/** Reserve the selected ports for a usage ('' = clear): reserved ports only take outlets of that usage. */
 	function reserve(usage: string) {
-		const d = device
-		if (!d?.panel) return
-		const without = (d.panel.reservations ?? []).map((r) => ({ ...r, ports: r.ports.filter((p) => !sel.ports.includes(p)) })).filter((r) => r.ports.length)
-		const reservations = usage ? [...without, { id: newId(), usage, ports: [...sel.ports] }] : without
-		project.store.transact(usage ? `Reserve ports for ${usage}` : 'Clear reservation', (tx) => tx.put({ ...d, panel: { ...d.panel!, reservations: reservations.length ? reservations : undefined } }))
+		const next = device && reservePorts(device, sel.ports, usage, newId())
+		if (next) project.store.transact(usage ? `Reserve ports for ${usage}` : 'Clear reservation', (tx) => tx.put(next))
 	}
 
 	// ── the permanent cables on these ports (Phase 5): any kind, one per port ──

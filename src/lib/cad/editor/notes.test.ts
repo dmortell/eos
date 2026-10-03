@@ -6,6 +6,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { SelectTool, type ToolCtx } from './tools'
 import { NoteTool, untie } from './noteTool'
+import { deleteEntities, deleteViewport } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
@@ -86,6 +87,22 @@ describe('paper notes', () => {
 		const shown = untie(h.store.get(c.id) as Shape, (h.store.get('SH') as Sheet).viewports[0])
 		expect(shown.vpId).toBeUndefined()
 		expect((shown.geom as { pts: unknown[] }).pts[0]).toEqual({ x: 165, y: 125 })
+	})
+	it('deleting a viewport keeps the sheet and unties its notes; deleting the sheet takes its notes', () => {
+		const h = harness()
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 50, y: 50, w: 200, h: 150 }, scale: 100, centre: { x: 1000, y: 2000 } }
+		h.store.transact('vp', (tx) => tx.put({ ...SHEET, viewports: [vp] }))
+		const tool = new NoteTool('cloud')
+		for (const [x, y] of [[150, 125], [160, 125], [160, 135]]) tool.down(h.at(x, y), h.ctx())
+		tool.finish(h.ctx())
+		deleteViewport(h.store, h.store.get('SH') as Sheet, vp)
+		expect((h.store.get('SH') as Sheet).viewports).toEqual([])
+		const [c] = h.notes()
+		expect(c.vpId).toBeUndefined()
+		expect((c.geom as { pts: unknown[] }).pts[0]).toEqual({ x: 150, y: 125 })
+		deleteEntities(h.store, ['SH'])
+		expect(h.notes()).toEqual([])
+		expect(h.store.ofType('outlet').length).toBeGreaterThan(0)   // nothing else went
 	})
 	it('Select picks a note on the paper and drags it', () => {
 		const h = harness()

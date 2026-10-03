@@ -1,8 +1,9 @@
 // Edits that touch more than the selected records: deleting cascades to what can't exist without them.
 import type { EntityStore } from '../store/store'
 import type { Id, Cord } from '../domain/types'
-import type { Entity } from '../domain/drawing'
+import type { Entity, Sheet, Viewport } from '../domain/drawing'
 import { removeCord } from '../domain/cords'
+import { untie } from './noteTool'
 
 /** Everything that lives on a level: its outlets, racks, shapes, floorplans, rooms / zones, and the rack rows of those
  *  rooms (devices, links and cords follow through deleteEntities). For deleting a level. */
@@ -39,6 +40,8 @@ export function deleteEntities(store: EntityStore, ids: Id[]): number {
 	for (const e of store.all()) {
 		if ((e.type === 'link' || e.type === 'cord') && (gone.has(e.a.on) || gone.has(e.b.on))) gone.add(e.id)
 		if (e.type === 'device' && gone.has(e.rackId)) gone.add(e.id)
+		// a sheet's paper notes (and a view's own shapes) belong to it alone
+		if (e.type === 'shape' && ((e.sheetId && gone.has(e.sheetId)) || (e.viewId && gone.has(e.viewId)))) gone.add(e.id)
 	}
 	// Devices removed with their rack take their links / cords too.
 	for (const e of store.all()) if ((e.type === 'link' || e.type === 'cord') && (gone.has(e.a.on) || gone.has(e.b.on))) gone.add(e.id)
@@ -47,4 +50,19 @@ export function deleteEntities(store: EntityStore, ids: Id[]): number {
 		for (const c of marked) if (!gone.has(c.id)) tx.put(c)
 	})
 	return gone.size + marked.length
+}
+
+/** Take one viewport off its sheet; the notes tied to it go back on the paper where they showed. One undo step. */
+export function deleteViewport(store: EntityStore, sheet: Sheet, vp: Viewport): void {
+	store.transact('Delete viewport', (tx) => {
+		tx.put({ ...sheet, viewports: sheet.viewports.filter((x) => x.id !== vp.id) })
+		for (const n of store.ofType('shape')) if (n.sheetId === sheet.id && n.vpId === vp.id) tx.put(untie(n, vp))
+	})
+}
+
+/** The racks among `ids` that hold devices — deleting them takes the devices, links and cords too, so ask first. */
+export function racksWithDevices(store: EntityStore, ids: Id[]): { racks: number; devices: number } {
+	const racks = new Set(ids.filter((id) => store.get(id)?.type === 'rack'))
+	const devices = store.ofType('device').filter((d) => racks.has(d.rackId))
+	return { racks: new Set(devices.map((d) => d.rackId)).size, devices: devices.length }
 }

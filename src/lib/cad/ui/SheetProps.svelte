@@ -7,7 +7,7 @@
 	import type { Sheet, Viewport } from '../domain/drawing'
 	import { defaultViewport, contentCentre } from '../views/sheet'
 	import { newId } from '../domain/ids'
-	import { untie } from '../editor/noteTool'
+	import { deleteViewport } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
@@ -22,11 +22,8 @@
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
 	/** Notes tied to it go back on the paper where they showed. */
-	function deleteViewport(v: Viewport) {
-		project.store.transact('Delete viewport', (tx) => {
-			tx.put({ ...s, viewports: s.viewports.filter((x) => x.id !== v.id) })
-			for (const n of project.index.shapes) if (n.sheetId === s.id && n.vpId === v.id) tx.put(untie(n, v))
-		})
+	function removeViewport(v: Viewport) {
+		deleteViewport(project.store, s, v)
 		ws.selectViewport(null)
 	}
 
@@ -107,7 +104,7 @@
 	<label class="row">Label <input class="inp" value={vp.label ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport label', { label: e.currentTarget.value.trim() || undefined })} /></label>
 	<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>
 	<label class="row">Locked <span><input type="checkbox" checked={!!vp.locked} onchange={(e) => putVp(e.currentTarget.checked ? 'Lock viewport' : 'Unlock viewport', { locked: e.currentTarget.checked || undefined })} /> can't be moved</span></label>
-	<button class="btn" onclick={() => deleteViewport(vp)}>Delete viewport</button>
+	<button class="btn" onclick={() => removeViewport(vp)}>Delete viewport</button>
 {:else}
 	<p class="font-semibold">Sheet</p>
 	<label class="row">Number <input class="inp font-mono" value={s.number} onchange={(e) => putSheet('Sheet number', { number: e.currentTarget.value.trim() })} /></label>

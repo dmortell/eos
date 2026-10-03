@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel } from './ports'
+import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel, reservePorts } from './ports'
 import type { Entity } from './drawing'
 import type { Device, Outlet } from './types'
 
@@ -72,5 +72,14 @@ describe('printed panels', () => {
 	})
 	it('port lists read as ranges', () => {
 		expect(portRanges([5, 3, 4, 12, 1])).toBe('1, 3–5, 12')
+	})
+	it('reserving ports moves them out of any other reservation; clearing un-reserved ports changes nothing', () => {
+		const p1 = base().find((e) => e.id === 'P1') as Device
+		const a = reservePorts(p1, [1, 2, 3], 'AP', 'r1')!
+		const b = reservePorts(a, [3, 4], 'PR', 'r2')!
+		expect(b.panel?.reservations).toEqual([{ id: 'r1', usage: 'AP', ports: [1, 2] }, { id: 'r2', usage: 'PR', ports: [3, 4] }])
+		expect(reservePorts(b, [10], '', '')).toBeNull()
+		expect(reservePorts(b, [1, 2, 3, 4], '', '')!.panel?.reservations).toBeUndefined()
+		expect(reservePorts(base().find((e) => e.id === 'SW1') as Device, [1], 'AP', 'r3')).toBeNull()   // not a panel
 	})
 })

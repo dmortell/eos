@@ -8,7 +8,8 @@
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities, levelContents } from '../editor/commands'
+	import { deleteEntities, deleteViewport, levelContents, racksWithDevices } from '../editor/commands'
+	import { reservePorts } from '../domain/ports'
 	import type { Level } from '../domain/types'
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, type ViewSpec } from '../views/space'
@@ -201,6 +202,33 @@
 		})
 	}
 
+	/** Delete acts on the smallest thing picked: a hole (the wall stays), a viewport (the sheet stays), ports (their
+	 *  reservation; the device stays). Racks holding devices ask first — the devices, links and cords go too. */
+	function deleteSelected() {
+		const op = ws.openingSel, wall = op ? project.store.get(op.wallId) : undefined
+		if (op && wall?.type === 'shape' && wall.role?.kind === 'wall') {
+			const role = wall.role
+			project.store.transact('Delete opening', (tx) => tx.put({ ...wall, role: { ...role, openings: role.openings.filter((o) => o.id !== op.openingId) } }))
+			ws.selectOpening(op.wallId, null)
+			return
+		}
+		const sheet = ws.viewportId && ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
+		const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined
+		if (sheet?.type === 'sheet' && vp) { deleteViewport(project.store, sheet, vp); ws.selectViewport(null); return }
+		const ps = ws.portSel, dev = ps ? project.store.get(ps.on) : undefined
+		if (ps) {
+			const next = dev?.type === 'device' ? reservePorts(dev, ps.ports, '', '') : null
+			if (next) project.store.transact('Clear reservation', (tx) => tx.put(next))
+			else ws.say('Delete on ports clears their reservation — none here. Click the device body to delete the device.')
+			return
+		}
+		if (!ws.selection.length) return
+		const ids = ws.selection, held = racksWithDevices(project.store, ids)
+		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
+		if (!held.racks) return go()
+		ws.ask2(`Delete ${held.racks === 1 ? 'a rack' : `${held.racks} racks`} with ${held.devices} device${held.devices === 1 ? '' : 's'} and their links and cords? Undo brings them back.`, 'Delete', go)
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
 		const mod = e.ctrlKey || e.metaKey
@@ -209,15 +237,7 @@
 		const k = e.key.toLowerCase()
 		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); project.undo() }
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); project.redo() }
-		else if (e.key === 'Delete' || e.key === 'Backspace') {
-			// a selected hole: just that opening, the wall stays
-			const op = ws.openingSel, wall = op ? project.store.get(op.wallId) : undefined
-			if (op && wall?.type === 'shape' && wall.role?.kind === 'wall') {
-				const role = wall.role
-				project.store.transact('Delete opening', (tx) => tx.put({ ...wall, role: { ...role, openings: role.openings.filter((o) => o.id !== op.openingId) } }))
-				ws.selectOpening(op.wallId, null)
-			} else if (ws.selection.length) { deleteEntities(project.store, ws.selection); ws.select([]) }
-		}
+		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t && toolWorksIn(t.id, activeKind)) setTool(t.id) }

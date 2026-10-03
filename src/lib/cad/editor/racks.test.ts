@@ -8,7 +8,7 @@ import { SelectTool, RackTool, type ToolCtx, type PortSel } from './tools'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
 import { CordTool } from './cordTool'
-import { deleteEntities } from './commands'
+import { deleteEntities, racksWithDevices } from './commands'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
@@ -125,6 +125,12 @@ describe('devices in the rack row', () => {
 		deleteEntities(h.store, ['C1', 'C2'])
 		expect(h.store.get('C1')).toBeUndefined()
 		expect(h.store.get('C2')).toMatchObject({ status: 'remove' })
+	})
+	it('racks with devices are found before Delete (to ask first); an empty rack is not', () => {
+		const h = harness(ROW, [R2])
+		const inR1 = h.store.ofType('device').filter((d) => d.rackId === 'R1').length
+		expect(racksWithDevices(h.store, ['R1', 'R2', 'C1'])).toEqual({ racks: 1, devices: inR1 })
+		expect(racksWithDevices(h.store, ['R2'])).toEqual({ racks: 0, devices: 0 })
 	})
 	it('a drag onto an occupied U stops at the last good place', () => {
 		const h = harness(ROW)
