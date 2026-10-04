@@ -13,6 +13,7 @@ import { rackRowDisplayList } from './rackRow'
 import { riserDisplayList, type RiserOpts } from './riser'
 import { sectionDisplayList } from './section'
 import { spaceOf } from './space'
+import { applyLayers } from './layers'
 import { titleBlockPrims } from './titleBlock'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
@@ -64,8 +65,13 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 	return { x: m, y: m, w: x1 - m, h: y1 - m }
 }
 
-/** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale). */
+/** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale), with
+ *  the layers frozen in it left out and layer colours applied (the user's own eye doesn't reach paper). */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
+	return applyLayers(viewContent(ix, vp, o), ix, { hidden: new Set(vp.frozen), sort: vp.view.spec.kind === 'plan' }).draw
+}
+
+function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })

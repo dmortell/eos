@@ -84,9 +84,16 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
 	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
+	// the prim's own / layer colour over its class style, as on screen: outline, text, a filled circle or outlet symbol
+	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => {
+		const st = styleOf(p.cls)
+		if (!p.color) return st
+		const fill = (p.k === 'circle' || (p.k === 'line' && p.cls.startsWith('outlet'))) && p.fill
+		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.color, ...(fill ? { fill: p.color } : {}) }
+	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {
 		if (p.k !== 'text' || pdfText(p.text).ok || !shownOnPaper(p)) continue
-		const st = styleOf(p.cls), key = rasterKey(p, st)
+		const st = styleFor(p), key = rasterKey(p, st)
 		if (!rasters.has(key)) rasters.set(key, await o.rasterText(p.text, p.size, st.text ?? '#0f172a', !!st.bold))
 	}
 
@@ -105,7 +112,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		}
 		for (const p of page.prims) {
 			if (!shownOnPaper(p)) continue
-			const st = p.k === 'image' ? {} : styleOf(p.cls)
+			const st = p.k === 'image' ? {} : styleFor(p)
 			if (st.skip) continue
 			setClip(p.clip)
 			pdf.setGState(new GState({ opacity: st.opacity ?? 1, 'stroke-opacity': st.opacity ?? 1 }))
@@ -134,7 +141,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 				pdf.text(t.text, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left', ...(p.rot ? { angle: -p.rot } : {}) })
 				continue
 			}
-			const stroke = (p.k === 'line' && p.color) || st.stroke || INK
+			const stroke = st.stroke || INK
 			pdf.setDrawColor(stroke === 'none' ? '#ffffff' : stroke)
 			pdf.setLineDashPattern(st.dash ?? [], 0)
 			if (p.k === 'circle') {

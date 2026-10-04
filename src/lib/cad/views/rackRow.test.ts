@@ -11,6 +11,10 @@ const view = (face: 'front' | 'rear', extra: Entity[] = []) => rackRowDisplayLis
 const has = (prims: ReturnType<typeof view>, src: string) => prims.some((p) => p.src === src)
 
 describe('the rack row', () => {
+	it('a room with no racks says so', () => {
+		const ps = rackRowDisplayList(ix([{ type: 'space', id: 'EMPTY', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9 } as Entity]), { spaceId: 'EMPTY', face: 'front' })
+		expect(ps).toMatchObject([{ k: 'text', text: expect.stringMatching(/No racks in this room yet/) }])
+	})
 	it('front shows front and both-face devices; rear shows rear and both-face ones', () => {
 		expect(has(view('front'), 'SW1')).toBe(true)
 		expect(has(view('front'), 'P1')).toBe(true)

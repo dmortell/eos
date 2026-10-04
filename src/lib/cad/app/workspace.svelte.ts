@@ -14,6 +14,7 @@ import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
 import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
+import { LayerPrefs } from './layerPrefs.svelte'
 
 export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
 
@@ -47,6 +48,8 @@ export class Workspace {
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
+	/** The user's hidden / locked / current layers (loaded by the app with the project id). */
+	readonly layers = new LayerPrefs()
 	/** A short status message (why a click was refused …); clears itself. */
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined

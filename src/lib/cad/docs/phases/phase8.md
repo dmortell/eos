@@ -214,3 +214,90 @@ above; every test edit undone.
 G074, G167, P038, T085, T105 (built, removed from the backlog); T014 (cord part; the interconnect run stays); G021 …
 T076 (Riser view control: hide floors built, the rest stays). G030, G100,
 G125 and G018 … G290 are partly built: their remainder is in the backlog.
+
+## Quick fixes (2026-10-04, after commit 4d122ada)
+
+Dave's next-5 list, item 1 (the two live checks — interconnect run, Make block — left for later).
+
+- **Delete a sheet:**
+  - a "Delete sheet" button in Sheet Properties, and "Delete" for the selected rows in the Sheets tab;
+  - asks first with what goes too, e.g. "Delete sheet S001 … with 3 viewports and 6 notes?";
+  - a pane showing a deleted sheet (or section) goes back to the plan.
+- **Room dropdown in Rack Properties:** natural name order.
+- **Port count on outlet symbols:** a small number to the right of every built-in outlet symbol (`{PORTS}`).
+- **Wireless AP symbol:** a ring with a centre dot, usage below and port count like the others; no more "AP" in the
+  middle.
+- **An empty room's rack view** says "No racks in this room yet — draw them on the plan with the Rack tool".
+
+**Checks:**
+- 310 cad tests pass (new: symbol texts incl. the AP, the empty-room message).
+- svelte-check: no warnings in cad.
+- Live: port counts on the plan; Delete sheet asks (cancelled).
+
+## Layers, Slices 1–4 (2026-10-04)
+
+Plan and Dave's answers: `docs/plan/layers.md`.
+
+**One list of layers:**
+- System layers in code (`domain/layers.ts`), in drawing order: Floorplans, Walls, Drawing, Racks, Trunks, Trunks
+  high, Risers, Backbone, Patch cords, Outlets, Outlets high, Notes, Sections.
+  - Pairs sit together (Dave), so trunks draw over racks.
+  - The panel lists them in this order: the first row draws at the bottom.
+  - **Default colours** (Dave): each system layer's default is the colour its items already draw in, shown as a round
+    dot.
+    - The default isn't forced on the items: that would turn an unrouted backbone's red, or a rack's ports and U
+      numbers, all one colour.
+    - A colour you set shows as a square and does recolour; right-click goes back to the default.
+    - New project layers take the next unused colour from a 10-colour palette, applied straight away (IDF layers come
+      out different).
+- Project layers are `Layer` records. A record with a system id restyles that layer (colour, order).
+- Every item is on its own `layerId` if that layer exists, else its kind's default. No data migration.
+- A trunk's drop sits on Risers. Labels go with their item.
+
+**One filter after the drawing** (`views/layers.ts` `applyLayers`):
+- Hidden layers drop out.
+- A layer's colour applies where the item has no colour of its own (outline and text; the fill of circles and outlet
+  symbols, never rack bodies).
+- Locked layers are drawn and snap, but can't be picked.
+- Plans paint in layer order. Elevations keep their depth order.
+- Used in every pane and in the plan DXF. Riser and rack views obey it too (Dave, Q7).
+
+**Per user** (`app/layerPrefs.svelte.ts`, this browser, per project):
+- Eye, lock and current layer. Nobody else's view changes, and none of it is undoable.
+- Hiding or locking a layer drops its items from the selection (Dave).
+- Drawing a line, wall, trunk or rack onto a hidden or locked layer is refused, with a message.
+
+**Stored:** `Viewport.frozen`. A frozen layer is left out of that viewport and its PDF; Shift = every viewport on the
+sheet. The dead `ViewDef.hiddenLayers` field is removed.
+
+**UI:**
+- Layers list in the left sidebar (`ui/LayersPanel.svelte`): swatch (right-click clears), name, count, eye, lock, and
+  snowflake while a viewport is picked.
+  - Click a name to make it current; double-click to rename.
+  - Delete only when the layer is empty.
+  - Drag a row to change the paint order.
+  - "+ Layer"; a search box once there are more than 16 layers.
+- Properties → Layer moves shapes, outlets and racks (`ui/LayerPick.svelte`). Picking an item's default layer clears
+  its `layerId`.
+- New lines go on the current layer.
+- DXF: items on a project layer go on a DXF layer of its name.
+
+**Not done:**
+- Hidden layers still snap on the plan.
+- Tied sheet notes ignore freeze.
+- Presets, groups and multi-select: a P3 backlog entry.
+- Copy / paste must keep layers (Dave). This is written into the clipboard backlog entry; copy / paste isn't built
+  yet.
+
+**Checks:**
+- 324 cad tests pass (+14: `views/layers.test.ts`).
+- svelte-check: no warnings in cad.
+- Live on Test Project:
+  - hide Trunks high / Trunks / Outlets (labels go too; the riser stays);
+  - a layer colour, then undone;
+  - lock Outlets: A.001 can't be picked; unlocked, it can;
+  - a hidden layer drops A.001 from the selection;
+  - freeze Floorplans in S001's plan viewport, then undone.
+
+**Sources:** G010, G039, G175, G176, G178, G179, G213, G217, G218, G219, G275, G279, G281, G282, G291, G302, G303,
+T058, T113, T156 (built, removed from the backlog); G174, G177, P051 (presets / groups remain).

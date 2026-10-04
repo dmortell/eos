@@ -77,6 +77,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 	const out: Prim[] = [], cords: Prim[] = []
 	const portAt = new Map<string, { x: number; y: number }>()   // "deviceId:port" → cell centre, for cords
 	const layout = rackLayout(ix, spec)
+	if (!layout.length) return [{ k: 'text', at: { x: 0, y: 0 }, text: 'No racks in this room yet — draw them on the plan with the Rack tool', size: 120, cls: 'datum-label' }]
 	for (const { rack, x0 } of layout) {
 		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
 		const uScale: Prim[] = []

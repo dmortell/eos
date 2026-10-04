@@ -26,6 +26,14 @@ describe('outlet symbols', () => {
 		expect(Math.max(...box.pts.map((p) => p.x)) - Math.min(...box.pts.map((p) => p.x))).toBeCloseTo(300)   // 3 paper mm × 100
 		expect(prims.some((p) => p.k === 'text' && p.text === '33-001')).toBe(true)
 	})
+	it('an outlet shows its label above, usage below and its port count; the AP too (no "AP" in the middle)', () => {
+		const prims = planDisplayList(new ProjectIndex(demoProject()), 'L33', { scale: 100, blocks: (id) => lib.get(id) }).filter((p) => p.src === 'O1')
+		expect(prims.filter((p) => p.k === 'text').map((p) => p.k === 'text' && p.text)).toEqual(expect.arrayContaining(['33-001', 'desk', '2']))
+		const ap = blockPrims(lib.get('builtin:ap')!, { at: { x: 0, y: 0 } }, 1, { LABEL: 'AP-1', USAGE: 'AP', PORTS: '1' }, 'A', 'outlet')
+		const usage = ap.find((p) => p.k === 'text' && p.text === 'AP')
+		expect(usage?.k === 'text' && usage.at.y).toBeGreaterThan(1.8)   // below the ring, not in its middle
+		expect(ap.some((p) => p.k === 'text' && p.text === '1')).toBe(true)
+	})
 	it('an annotative block scales with the drawing; a model block does not', () => {
 		const b = lib.get('builtin:outlet-box')!
 		const r = (k: number, annotative: boolean) => (blockPrims({ ...b, annotative }, { at: { x: 0, y: 0 } }, k, {}, 's', 'x').find((p) => p.k === 'circle') as { r: number }).r

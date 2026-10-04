@@ -7,7 +7,7 @@
 	import type { Sheet, Viewport } from '../domain/drawing'
 	import { defaultViewport, contentCentre } from '../views/sheet'
 	import { newId } from '../domain/ids'
-	import { deleteViewport } from '../editor/commands'
+	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
@@ -22,6 +22,11 @@
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
 	/** Notes tied to it go back on the paper where they showed. */
+	/** Delete this sheet, after saying what goes with it (its viewports and notes). */
+	function deleteSheet() {
+		const also = impactText(deleteImpact(project.store, [s.id]))
+		ws.ask2(`Delete sheet ${s.number} ${s.title}${also ? ` with ${also}` : ''}? Undo brings it back.`, 'Delete sheet', () => { deleteEntities(project.store, [s.id]); ws.select([]) })
+	}
 	function removeViewport(v: Viewport) {
 		deleteViewport(project.store, s, v)
 		ws.selectViewport(null)
@@ -124,6 +129,7 @@
 	<div class="flex gap-1">
 		<button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button>
 		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
+		<button class="btn del" title="Delete this sheet (asks first; Undo brings it back)" onclick={deleteSheet}>Delete sheet</button>
 	</div>
 	<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click one on the paper to edit it, drag to move it</p>
 	<!-- this sheet's own title-block settings; the template below is the project's -->
@@ -139,4 +145,5 @@
 	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
+	.btn.del:hover { color: #dc2626; }
 </style>

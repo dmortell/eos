@@ -10,7 +10,7 @@ progress are in `docs/phases/`. What comes next is in `docs/plan/`.
 
 | Folder / file | What |
 |---|---|
-| `docs/plan/` | The plan from here on: `backlog.md` (decided, ready to build), `decisions.md` (open questions), `later.md` (postponed) |
+| `docs/plan/` | The plan from here on: `backlog.md` (decided, ready to build), `decisions.md` (open questions), `later.md` (postponed); feature plans such as `layers.md` |
 | `docs/phases/` | `phase1.md` … `phase7.md`: each phase's plan, Dave's decisions and the build log; `phase8.md`: the backlog batches as they're built |
 | `docs/adr/` | The architecture decisions (below) |
 | `docs/glossary.md` | The terms, and their names in the old tools |

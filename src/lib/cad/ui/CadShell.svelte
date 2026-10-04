@@ -24,8 +24,10 @@
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
+	import LayersPanel from './LayersPanel.svelte'
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
+	import { applyLayers } from '../views/layers'
 	import { exportOutletSchedule } from '../render/outletSchedule'
 	import { download, fileSafe } from '../render/download'
 
@@ -36,6 +38,8 @@
 	const project = new CadProject(pid, firestore, user)
 	$effect(() => { project.name = projectName })
 	const ws = new Workspace()
+	// svelte-ignore state_referenced_locally
+	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
 	onDestroy(() => project.destroy())
@@ -57,6 +61,14 @@
 		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
 	}
 	function setPane(i: number, s: ViewSpec) { canvases[i]?.cancel(); panes[i] = s }
+	/** A pane showing a sheet (or section) that was deleted goes back to the plan. */
+	$effect(() => {
+		void project.rev
+		panes.forEach((s, i) => {
+			const gone = s.kind === 'sheet' ? !project.store.get(s.sheetId) : s.kind === 'section' ? !project.store.get(s.sectionId) : false
+			if (gone && project.loaded) untrack(() => setPane(i, PLAN))
+		})
+	})
 	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
 	 *  another floor's racks) goes to the level's plan (Dave: clicking a level with S001 open did nothing visible). */
 	function openLevel(id: string) {
@@ -139,10 +151,11 @@
 			setTimeout(() => (notice = null), 5000)
 		} catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 	}
-	/** The open plan as DXF — the same display list as the screen (floorplan images are left out). */
+	/** The open plan as DXF — the same display list as the screen, your hidden layers left out (floorplan images too). */
 	function exportDxf() {
 		if (!level) return
-		const r = displayListToDxf(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }))
+		const plan = applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw
+		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])))
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
 		notice = `DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`
 		setTimeout(() => (notice = null), 5000)
@@ -343,6 +356,7 @@
 		{/each}
 		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
 		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
+		<LayersPanel {project} {ws} />
 	</nav>
 
 	<!-- plan -->

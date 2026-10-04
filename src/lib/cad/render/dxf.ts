@@ -27,12 +27,15 @@ export function layerOf(cls: string): { name: string; aci: number } {
 
 export interface DxfResult { text: string; entities: number; skippedImages: number }
 
-export function displayListToDxf(prims: Prim[]): DxfResult {
+/** `names` = the project's own layers (id → name): their items go on a DXF layer of that name; everything else keeps
+ *  the discipline layer of its class. */
+export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, string>): DxfResult {
 	const w = new DxfWriter()
 	w.setUnits(Units.Millimeters)
 	const made = new Set<string>()
-	const layer = (cls: string) => {
-		const l = layerOf(cls)
+	const layer = (p: Exclude<Prim, { k: 'image' }>) => {
+		const own = p.layer ? names?.get(p.layer) : undefined
+		const l = own ? { name: own, aci: 7 } : layerOf(p.cls)
 		if (l.name !== '0' && !made.has(l.name)) { made.add(l.name); w.addLayer(l.name, l.aci, 'CONTINUOUS') }
 		return l.name
 	}
@@ -42,7 +45,7 @@ export function displayListToDxf(prims: Prim[]): DxfResult {
 			case 'line': {
 				if (p.pts.length < 2) break
 				w.addLWPolyline(p.pts.map((q) => ({ point: point2d(q.x, -q.y) })), {
-					layerName: layer(p.cls),
+					layerName: layer(p),
 					...(p.closed ? { flags: LWPolylineFlags.Closed } : {}),
 					...(p.w ? { constantWidth: p.w } : {}),
 				})
@@ -50,7 +53,7 @@ export function displayListToDxf(prims: Prim[]): DxfResult {
 				break
 			}
 			case 'circle':
-				w.addCircle(point3d(p.c.x, -p.c.y, 0), Math.max(0.01, p.r), { layerName: layer(p.cls) })
+				w.addCircle(point3d(p.c.x, -p.c.y, 0), Math.max(0.01, p.r), { layerName: layer(p) })
 				entities++
 				break
 			case 'text': {
@@ -58,7 +61,7 @@ export function displayListToDxf(prims: Prim[]): DxfResult {
 				const at = point3d(p.at.x, -p.at.y, 0)
 				const centred = p.anchor === 'middle' || p.anchor === 'end'
 				w.addText(at, Math.max(1, p.size), p.text, {
-					layerName: layer(p.cls),
+					layerName: layer(p),
 					...(p.rot ? { rotation: -p.rot } : {}),
 					...(centred ? {
 						horizontalAlignment: p.anchor === 'middle' ? TextHorizontalAlignment.Center : TextHorizontalAlignment.Right,

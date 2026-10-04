@@ -37,6 +37,8 @@ export interface ToolCtx {
 	index: ProjectIndex
 	levelId: Id
 	settings?: ProjectSettings
+	/** The user's current layer: new lines and notes go on it (walls, trunks, outlets, racks keep their own). */
+	layerId?: Id | null
 	opts: DrawOpts
 	/** The view the tool works in (plan or an elevation) and where its clicks land. Points in PointerIn are VIEW mm. */
 	space: ViewSpace

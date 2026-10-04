@@ -22,8 +22,6 @@ interface ViewBase<K extends string, P> {
 	params: P
 	/** Entity types / categories shown (empty = the generator's default set). */
 	show?: string[]
-	/** Layers hidden in this view (layer visibility is per view and per user, never on the data — ADR 0003). */
-	hiddenLayers?: Id[]
 }
 
 export type ViewKind = ViewDef['kind']
@@ -82,9 +80,12 @@ export interface Viewport {
 	border?: boolean
 	/** Per-viewport tweaks to generated content, keyed by entity id: hide it, nudge its label. */
 	overrides?: Record<string, { hidden?: boolean; labelOffset?: Pt }>
+	/** Layers frozen (hidden) in this viewport — stored, so it prints the same for everyone (docs/plan/layers.md). */
+	frozen?: Id[]
 }
 
-/** Layers organise shapes. Visibility is NOT stored here (it is per view — ViewDef.hiddenLayers — and per user). */
+/** A project layer, or a restyle of a system layer (same id, `sys:…`; domain/layers.ts). Show / lock are NOT stored
+ *  here: they're per user (the workspace); a viewport's freeze is on the viewport. */
 export interface Layer {
 	type: 'layer'
 	id: Id

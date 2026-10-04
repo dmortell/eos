@@ -113,6 +113,8 @@ export interface Outlet {
 	/** The block that draws it (a symbol, a block, or the user's own grouped shapes made into one); absent = the
 	 *  default block for its usage / mount. */
 	blockId?: Id
+	/** Its layer when not the default (Outlets / Outlets high by tier) — domain/layers.ts. */
+	layerId?: Id
 	ports: OutletPort[]
 	locked?: boolean
 	notes?: string
@@ -160,6 +162,8 @@ export interface Rack {
 	catalogId?: Id
 	maker?: string
 	model?: string
+	/** Its layer when not the default (Racks) — domain/layers.ts. */
+	layerId?: Id
 	frontProtrusionMm?: number
 	/** A cabinet's doors, drawn as swings on the plan (aisle clearance): single or split (two leaves) on the front /
 	 *  rear; `hinge` = the side a single door hangs on, as seen standing at that face. */

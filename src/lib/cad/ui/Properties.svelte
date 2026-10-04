@@ -7,11 +7,13 @@
 	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
 	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
+	import { naturalCompare } from '../domain/labels'
 	import PortProps from './PortProps.svelte'
 	import CordProps from './CordProps.svelte'
 	import SheetProps from './SheetProps.svelte'
 	import OutletProps from './OutletProps.svelte'
 	import RenumberPanel from './RenumberPanel.svelte'
+	import LayerPick from './LayerPick.svelte'
 	import { renumberable } from '../domain/renumber'
 	import { newId } from '../domain/ids'
 	import type { Shape } from '../domain/shapes'
@@ -66,7 +68,7 @@
 	// via the index (reactive); rows are few, so a scan is fine
 	const rowsIn = (spaceId: Id) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	/** Rooms a rack can stand in: the server rooms of its level (and wherever it is now). */
-	const roomsFor = (r: Rack) => project.index.spaces.filter((s) => (s.levelId === r.levelId && s.kind === 'server room') || s.id === r.spaceId)
+	const roomsFor = (r: Rack) => project.index.spaces.filter((s) => (s.levelId === r.levelId && s.kind === 'server room') || s.id === r.spaceId).sort((a, b) => naturalCompare(a.name, b.name))
 	/** Move racks to another room; their row is dropped (rows belong to a room) — pick one there next. */
 	const NEW_ROOM = '__newroom'
 	function setRoom(rs: Rack[], spaceId: string) {
@@ -391,6 +393,7 @@
 	{:else}
 		<p class="font-semibold">{one.type}</p>
 	{/if}
+	<LayerPick {project} ids={ws.selection} />
 </div>
 
 <style>

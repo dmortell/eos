@@ -1,6 +1,6 @@
 // A read-only index over a project's entities, for reports, grids and generators: lookups by id and type, which link
 // reaches each port, and the label a port shows. Build it from the store's records; it never changes them.
-import type { Entity } from './drawing'
+import type { Entity, Layer } from './drawing'
 import type { Id, Outlet, Device, Rack, Link, Cord, Level, Space, PortRef } from './types'
 import type { Shape } from './shapes'
 
@@ -17,6 +17,7 @@ export class ProjectIndex {
 	readonly levels: Level[] = []
 	readonly spaces: Space[] = []
 	readonly shapes: Shape[] = []
+	readonly layers: Layer[] = []
 	#linkAt = new Map<string, Link>()
 
 	constructor(entities: Iterable<Entity>) {
@@ -31,6 +32,7 @@ export class ProjectIndex {
 				case 'level': this.levels.push(e); break
 				case 'space': this.spaces.push(e); break
 				case 'shape': this.shapes.push(e); break
+				case 'layer': this.layers.push(e); break
 			}
 		}
 		for (const l of this.links) for (const end of [l.a, l.b]) {

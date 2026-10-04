@@ -16,6 +16,8 @@
 	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList } from '../views/sheet'
+	import { applyLayers, layerMap } from '../views/layers'
+	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
 	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
 	import type { SectionCut } from '../domain/drawing'
@@ -54,7 +56,7 @@
 	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
 	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
-	const prims = $derived(spec.kind === 'plan'
+	const raw = $derived(spec.kind === 'plan'
 		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec)
@@ -65,6 +67,9 @@
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
+	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
+	const prims = $derived(layered.draw)
 	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
 	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
 	const vpHighlight = $derived.by((): Prim[] => {
@@ -228,7 +233,8 @@
 		const tol = TOL_PX / cam.k
 		return {
 			store: project.store, index: project.index, levelId, settings: project.settings, opts: ws.opts, space, work,
-			prims: () => prims, tol: () => tol,
+			layerId: ws.layers.current && project.index.get(ws.layers.current)?.type === 'layer' && !ws.layers.current.startsWith('sys:') ? ws.layers.current : null,
+			prims: () => layered.pick, tol: () => tol,
 			snap: (p, alt, skip) => spec.kind === 'plan'
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
@@ -270,6 +276,8 @@
 		const count = pressCount(e)
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
+		const why = spec.kind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
+		if (why) { ws.say(why); return }
 		toolDown = true
 		ws.tool.down(input(e, count), ctx()); tick++
 	}

@@ -14,6 +14,7 @@
 	import { reprintIssue } from '../app/issue'
 	import { exportTransmittal } from '../render/transmittal'
 	import IssuePanel from './IssuePanel.svelte'
+	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -57,6 +58,11 @@
 		project.store.transact(`${s === 'archived' ? 'Archive' : 'Restore'} ${picked.length} sheet(s)`, (tx) => { for (const r of picked) tx.put({ ...sheetOf(r.id), status: s }) })
 	}
 	let busy = $state(false)
+	/** Delete the selected sheets, after saying what goes with them (viewports, notes). */
+	function deletePicked() {
+		const ids = picked.map((r) => r.id), also = impactText(deleteImpact(project.store, ids))
+		ws.ask2(`Delete ${ids.length === 1 ? `sheet ${sheetOf(ids[0]).number}` : `${ids.length} sheets`}${also ? ` with ${also}` : ''}? Undo brings them back.`, 'Delete', () => { deleteEntities(project.store, ids); ws.select([]) })
+	}
 	async function pdf() {
 		const list = picked.length ? picked : rows
 		busy = true
@@ -99,6 +105,7 @@
 		<button class="btn" title="Number the selected sheets in the order shown, by a pattern (S{'{'}n:3{'}'} → S001, S002 …)" onclick={renumberPicked}>Renumber…</button>
 		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
 		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
+		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
 		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
 		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
 		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>

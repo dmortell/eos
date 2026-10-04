@@ -21,20 +21,22 @@ const solid = { style: { fill: 'solid' } }
 // the label above the symbol, the usage below it (y down, `at` = the text's baseline; symbols reach ±1.8)
 const label: BlockShape = sh({ kind: 'text', at: { x: 0, y: -2.2 }, text: '{LABEL}', sizeMm: 1.8, align: 'centre' })
 const usage: BlockShape = sh({ kind: 'text', at: { x: 0, y: 3.6 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' })
+// the number of ports, small, to the right of the symbol (Dave: port quantities shown on outlets)
+const ports = (x = 2.1): BlockShape => sh({ kind: 'text', at: { x, y: 0.5 }, text: '{PORTS}', sizeMm: 1.4 })
 
 /** The built-in outlet symbols (paper mm, centred on the outlet). */
 export const BUILTIN_BLOCKS: Block[] = [
 	{ type: 'block', id: 'builtin:outlet-floor', name: 'Outlet - floor box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label, usage] },
+		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label, usage, ports()] },
 	{ type: 'block', id: 'builtin:outlet-wall', name: 'Outlet - wall', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label, usage] },
+		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label, usage, ports()] },
 	{ type: 'block', id: 'builtin:outlet-box', name: 'Outlet - desk/box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label, usage] },
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label, usage, ports()] },
 	{ type: 'block', id: 'builtin:outlet-ceiling', name: 'Outlet - ceiling', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }), seg(-1.06, -1.06, 1.06, 1.06), seg(1.06, -1.06, -1.06, 1.06), label, usage] },
-	// the AP symbol already reads "AP", so no usage line
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }), seg(-1.06, -1.06, 1.06, 1.06), seg(1.06, -1.06, -1.06, 1.06), label, usage, ports()] },
+	// the AP: a ring with a dot; its usage reads below like every other outlet (it used to say "AP" in the middle)
 	{ type: 'block', id: 'builtin:ap', name: 'Wireless AP', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'text', at: { x: 0, y: 0.6 }, text: 'AP', sizeMm: 1.4, align: 'centre' }), label] },
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.5 }, solid), label, { ...usage, geom: { kind: 'text', at: { x: 0, y: 3.9 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' } }, ports(2.4)] },
 ]
 
 /** The block that draws an outlet when it names none: by usage, then tier, then mount. */

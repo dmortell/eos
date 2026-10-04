@@ -25,24 +25,27 @@
 {/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
+	{@const col = sel ? undefined : p.color}
+	<!-- col = the item's / its layer's colour; the selection look wins. Polygons take it as their outline, and as their
+	     fill only in outlet symbols (a coloured Racks layer mustn't fill rack bodies solid over their devices). -->
 	{#if shown(p)}
 	{#if p.k === 'image'}
 		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill && p.cls.startsWith('outlet') ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
-			<polyline points={ptsOf(p)} class="{p.cls} band" class:sel style:stroke-width={p.w} clip-path={clipOf(p)} />
-			<polyline points={ptsOf(p)} class="{p.cls} centre" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			<polyline points={ptsOf(p)} class="{p.cls} band" class:sel style:stroke-width={p.w} style:stroke={col} clip-path={clipOf(p)} />
+			<polyline points={ptsOf(p)} class="{p.cls} centre" class:sel vector-effect="non-scaling-stroke" style:stroke={col} clip-path={clipOf(p)} />
 		{:else}
-			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={p.color} clip-path={clipOf(p)} />
+			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={col} clip-path={clipOf(p)} />
 		{/if}
 	{:else if p.k === 'circle'}
-		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill ? col : undefined} clip-path={clipOf(p)} />
 	{:else if p.k === 'text'}
-		<text x={p.at.x} y={p.at.y} font-size={p.size} text-anchor={p.anchor ?? 'start'} class={p.cls} class:sel clip-path={clipOf(p)}
+		<text x={p.at.x} y={p.at.y} font-size={p.size} text-anchor={p.anchor ?? 'start'} class={p.cls} class:sel style:fill={col} clip-path={clipOf(p)}
 			transform={p.rot ? `rotate(${p.rot} ${p.at.x} ${p.at.y})` : undefined}>{p.text}</text>
 	{/if}
 	{/if}

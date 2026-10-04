@@ -86,7 +86,7 @@ export class PathTool implements Tool {
 		const line = makePath({ levelId: c.levelId }, pts)
 		// carry each pick's attachment onto its node
 		if (line.geom.kind === 'path') line.geom.nodes.forEach((n, i) => { if (pts[i].attach) n.attach = pts[i].attach; if (pts[i].levelId) n.levelId = pts[i].levelId })
-		const shape = this.id === 'line' ? line
+		const shape = this.id === 'line' ? (c.layerId ? { ...line, layerId: c.layerId } : line)
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
 			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
 		c.store.transact(`Draw ${this.id}`, (tx) => tx.put(shape))
