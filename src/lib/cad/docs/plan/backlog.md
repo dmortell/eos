@@ -29,7 +29,7 @@ real seam first (e.g. outlet / rack / device Properties into their own files).
 | [Ports, panels and allocation](#ports-panels-and-allocation) | 10 | 1 | 9 | 0 | 6 | 6 | 1 |
 | [Patching and cords](#patching-and-cords) | 13 | 2 | 11 | 0 | 6 | 5 | 0 |
 | [Containment, routing, risers and fill](#containment-routing-risers-and-fill) | 17 | 0 | 13 | 4 | 5 | 8 | 2 |
-| [Selection and editing](#selection-and-editing) | 24 | 0 | 18 | 6 | 8 | 2 | 5 |
+| [Selection and editing](#selection-and-editing) | 24 | 0 | 17 | 7 | 8 | 2 | 5 |
 | [Drafting commands and input](#drafting-commands-and-input) | 23 | 0 | 15 | 8 | 6 | 6 | 1 |
 | [Layers, styles, blocks and symbols](#layers-styles-blocks-and-symbols) | 14 | 1 | 12 | 1 | 5 | 2 | 1 |
 | [Sheets and viewports](#sheets-and-viewports) | 17 | 2 | 15 | 0 | 6 | 9 | 3 |
@@ -37,7 +37,7 @@ real seam first (e.g. outlet / rack / device Properties into their own files).
 | [Print and export](#print-and-export) | 11 | 0 | 11 | 0 | 6 | 7 | 2 |
 | [Shell, navigation and touch](#shell-navigation-and-touch) | 16 | 0 | 13 | 3 | 4 | 5 | 1 |
 | [3D, elevations and sections](#3d-elevations-and-sections) | 9 | 0 | 9 | 0 | 1 | 3 | 3 |
-| **Total** | **207** | **9** | **172** | **26** | **77** | **77** | **23** |
+| **Total** | **207** | **9** | **171** | **27** | **77** | **77** | **23** |
 
 ## Suggested order
 
@@ -184,12 +184,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Group / ungroup** — Ctrl+G / Ctrl+Shift+G; a click or window on one member selects the group; groups move as one. **P2 · M** (~120 lines). *cad today:* the `Group` record exists with no UI (`cad/domain/drawing.ts:98`). *From:* G171, G235
 - [ ] **Edit several at once** — Common fields (layer, colour, text size, Z, height) for any multi-selection of shapes, "mixed" where they differ. **P2 · M** (~120 lines). *cad today:* common fields for racks, outlets and devices only (`cad/ui/Properties.svelte:187`); Properties is 460 lines, so put this in a new component. *From:* G172, G237, G199
 - [ ] **Split and join runs at a node** — Split a trunk / wall / line into two shapes at a node (Alt-drag or a Properties button; no context menu). A node dropped on another run's node joins the two shapes. **P2 · M** (~150 lines). *cad today:* `pathEdit.ts` has insert / branch / remove node only (`cad/domain/pathEdit.ts:13`). *From:* G196, G252, T001, T003
-- [ ] **Ctrl-drag copy, select all, nudge** — the rest of the clipboard work; copy / cut / paste is built (`cad/domain/clipboard.ts`: new ids, next free labels, layers kept), and Ctrl-drag copy should reuse its `pasteClip`. **P2 · M** (~200 lines). *cad today:* Ctrl-click toggles (`cad/editor/tools.ts:190`), Ctrl on a grip branches (`:139`), Ctrl-drag in a viewport pans. Parts:
-  1. Ctrl+A select all on visible, unlocked layers (S) and arrow nudge 1 mm / Shift 10 mm, one undo step per burst (S).
-  2. Ctrl-drag copy for shapes, outlets, racks, devices (rack elevations) and trunk segments; Ctrl pressed / released mid-drag switches copy ↔ move; must not clash with branch / pan (M).
-  3. Drag several selected devices into another rack (today only a single device changes rack, `cad/editor/tools.ts:263`) (S).
-  4. Copy / paste devices on their own in rack views (copy / paste today takes plan items and sheet notes; a rack brings its devices) (S).
-  *From:* G009, G033, G064, G082, G112, G168, G170, G189, G193, G225, G227, G229, G230, G231, T039, P024
+- [ ] **Copy one segment of a run** — Ctrl-drag one segment of a trunk / conduit copies just that segment as a new run. **P3 · S** (~40 lines). *cad today:* Ctrl-drag copies whole items (`cad/editor/tools.ts`, `cad/domain/clipboard.ts`); Ctrl on a node grip branches; inside a picked sheet viewport Ctrl-drag still pans its view (Alt-drag is decided, T126, not built). *From:* G064 (part)
 - [ ] **Select similar** — Select every shape of the same type and layer (or block) as the selected one. **P3 · S** (~25 lines). *cad today:* missing. *From:* G226
 - [ ] **Paste at the cursor** — Ctrl+Shift+V centres the paste on the cursor. Build after the clipboard. **P3 · S** (~15 lines after that). *cad today:* missing. *From:* G232
 - [ ] **Join runs on draw** — A run drawn from another run's node is stored as joined and follows it. "Joined nodes move together" and "Split and join runs" may cover this; check after them. **P3 · M** (~80 lines). *cad today:* routing joins runs whose nodes touch, without storing a join (`cad/domain/routing.ts:2`). *From:* G271

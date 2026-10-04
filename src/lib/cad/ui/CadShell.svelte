@@ -240,23 +240,28 @@
 		const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
 		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
-	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget() })
+	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
 
+	/** Arrow keys nudge the selection (view directions: y down). */
+	const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
 		const mod = e.ctrlKey || e.metaKey
 		if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
 		if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); typePoint(e.key); return }
-		const k = e.key.toLowerCase()
+		const k = e.key.toLowerCase(), arrow = ARROWS[e.key]
+		if (mod && (k === 'z' || k === 'y')) canvas?.endNudge()   // a nudge burst is its own undo step
 		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); ws.select(project.undo()) }
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); ws.select(project.redo()) }
+		else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }
+		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
 </script>
 
-<svelte:window onkeydown={onKey} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
+<svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
 <div class="shell bg-zinc-50 text-sm">
 	<!-- toolbar -->

@@ -2,7 +2,7 @@
 // tool with the point already in model mm. No `tool === '…'` chains anywhere else.
 import type { EntityStore, Gesture } from '../store/store'
 import type { ProjectIndex } from '../domain/project'
-import type { Id, Pt, Outlet, ProjectSettings, Rack, Device, Space } from '../domain/types'
+import type { Id, Pt, Outlet, ProjectSettings, Rack, Device } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
@@ -13,7 +13,8 @@ import { pathGrips, gripAt, moveNodes, moveNodesBy, type Grip } from './grips'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import { nextLabel, portLabelsFor, naturalCompare } from '../domain/labels'
 import { insertNode, branchFrom } from '../domain/pathEdit'
-import { placementProblem, newServerRoom, nextRoomName } from '../domain/devices'
+import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
+import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
@@ -21,7 +22,7 @@ import { handlesFor, handleAt, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
-function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
+export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
 	if (e.type !== 'shape' || !e.vpId || !e.sheetId) return 1
 	const sheet = get(e.sheetId)
 	return (sheet?.type === 'sheet' && sheet.viewports.find((v) => v.id === e.vpId)?.scale) || 1
@@ -113,8 +114,14 @@ export class SelectTool implements Tool {
 	#marquee: Pt | null = null
 	#grip: { shape: Id; grip: Grip; branch?: Id } | null = null
 	#snap: Snap | null = null
-	/** Devices as they were when a rack-row drag started (each move is computed from these). */
-	#base = new Map<Id, Device>()
+	/** A rack-row device drag (editor/deviceDrag.ts). */
+	#dev: DeviceDrag | null = null
+	/** The pressed items as a clip, for Ctrl-drag copy (taken at the press, before anything moves). */
+	#clip: Clip | null = null
+	/** Ctrl-pressed on this: a click (no drag) toggles it in the selection. */
+	#toggle: Id | null = null
+	/** The copies a Ctrl-drag made (selected when it ends). */
+	#copied: Id[] = []
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
@@ -203,12 +210,14 @@ export class SelectTool implements Tool {
 			c.selectPorts({ on: id, face, ports: [n], anchor: n })
 		} else if (c.selectPorts && !(e.shift || e.ctrl)) c.selectPorts(null)
 		if (id) {
-			// Ctrl toggles (Dave: Shift is kept for constraints while dragging; port ranges in racks still use Shift)
-			if (e.ctrl) { c.select(c.selection.includes(id) ? c.selection.filter((x) => x !== id) : [...c.selection, id]); return }
-			const sel = c.selection.includes(id) ? c.selection : [id]
-			if (sel !== c.selection) c.select(sel)
+			// Ctrl: a click toggles it (Dave: Shift is kept for constraints while dragging; port ranges in racks still use
+			// Shift); a Ctrl-DRAG copies the selection with it — let go of Ctrl mid-drag and it moves instead
+			if (e.ctrl) this.#toggle = id
+			const sel = c.selection.includes(id) ? c.selection : e.ctrl ? [...c.selection, id] : [id]
+			if (sel !== c.selection && !e.ctrl) c.select(sel)
 			// in a rack row, devices move (by U / into another rack); elsewhere what has a plan position moves
-			this.#ids = sel.filter((x) => { const en = c.store.get(x); return !!en && (c.rowHit ? en.type === 'device' : canMove(en)) })
+			this.#ids = sel.filter((x) => { const en = c.store.get(x); return !!en && (c.rowHit ? en.type === 'device' : canMove(en) || e.ctrl) })
+			if (!c.rowHit) this.#clip = makeClip(c.index, sel, '')
 			this.#start = e.p
 		} else {
 			this.#marquee = e.p
@@ -276,23 +285,26 @@ export class SelectTool implements Tool {
 			// run off the rack is refused (the device stays at its last good place).
 			const d = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
-			const dU = Math.round(-d.y / RU_MM), target = c.rowHit(e.p)?.rack
-			this.#gesture ??= c.store.begin('Move device')
-			const all = c.store.ofType('device')
-			const moved = this.#ids.map((id) => c.store.get(id)).filter((x): x is Device => x?.type === 'device')
-			const base = new Map(moved.map((m) => [m.id, this.#base.get(m.id) ?? m]))
-			for (const m of moved) this.#base.set(m.id, base.get(m.id)!)
-			const next = moved.map((m) => { const b = base.get(m.id)!; return { ...b, u: b.u + dU, rackId: target && moved.length === 1 ? target.id : b.rackId } })
-			const problem = next.map((n) => { const rack = c.store.get(n.rackId) as Rack; return placementProblem(n, rack, all.filter((o) => !this.#ids.includes(o.id))) }).find(Boolean)
-			if (problem) { c.say?.(problem); return }
-			this.#gesture.update((tx) => { for (const n of next) tx.put(n) })
+			this.#dev ??= startDeviceDrag(this.#ids.map((id) => c.store.get(id)).filter((x): x is Device => x?.type === 'device'))
+			const r = dragDevices(this.#dev, Math.round(-d.y / RU_MM), c.rowHit(e.p)?.rack, e.ctrl, c.store.ofType('device'), (id) => c.store.get(id) as Rack | undefined)
+			if ('problem' in r) { c.say?.(r.problem); return }
+			this.#gesture ??= c.store.begin(e.ctrl ? 'Copy devices' : 'Move device')
+			this.#gesture.update((tx) => { for (const n of r.put) tx.put(n) })
+			this.#copied = e.ctrl ? r.put.map((n) => n.id) : []
 		} else if (this.#start && this.#ids.length) {
 			const d = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			const s = c.space.deltaToWorld(snapPt(d, e.alt, c.space.spec.kind === 'sheet' ? 0.5 : 10))
-			const moved = new Set(this.#ids)
-			this.#gesture ??= c.store.begin(this.#ids.length === 1 ? 'Move' : `Move ${this.#ids.length} items`)
+			const moved = new Set(this.#ids), clip = e.ctrl ? this.#clip : null
+			this.#gesture ??= c.store.begin(clip ? 'Copy' : this.#ids.length === 1 ? 'Move' : `Move ${this.#ids.length} items`)
+			this.#copied = []
 			this.#gesture.update((tx) => {
+				if (clip && clip.from.kind !== 'rack') {   // Ctrl held: copies (as-is, moved by the drag); the originals stay
+					const r = pasteClip(clip, { pid: '', ix: c.index, to: { kind: clip.from.kind, id: clip.from.id }, d: s })
+					for (const x of r.put) tx.put(x)
+					this.#copied = r.select
+					return
+				}
 				for (const id of this.#ids) {
 					const en = tx.get(id)
 					if (!en) continue
@@ -312,7 +324,8 @@ export class SelectTool implements Tool {
 			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
 			else if (h.click) { const click = h.click; c.store.transact('Door swing', (tx) => tx.put(click())) }
 		}
-		if (this.#gesture) this.#gesture.commit()
+		if (this.#gesture) { this.#gesture.commit(); if (this.#copied.length) c.select(this.#copied) }
+		else if (this.#toggle) { const t = this.#toggle; c.select(c.selection.includes(t) ? c.selection.filter((x) => x !== t) : [...c.selection, t]) }
 		else if (this.#marquee && Math.hypot(e.p.x - this.#marquee.x, e.p.y - this.#marquee.y) > c.tol()) {
 			const ids = pickInside(c.prims(), box(this.#marquee, e.p))
 			c.select(e.ctrl ? [...new Set([...c.selection, ...ids])] : ids)
@@ -363,7 +376,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null; this.#handle = null; this.#note = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#vp = null; this.#handle = null; this.#note = null
 		c.setMarquee(null)
 	}
 }
@@ -405,72 +418,9 @@ export class OutletTool implements Tool {
 	cancel(): void {}
 }
 
-/**
- * Rack, on the plan (Dave: racks are drawn on the floor plan, then assigned to rows).
- *  - With a `target` (Place from the racks list): put that rack where you click, then back to Select.
- *  - Without: each click draws a NEW rack, like the last one drawn (room, row, size, kind, rotation), named after it
- *    (A01 → A02). The tool stays on, so a row is just clicks in a line.
- */
-export class RackTool implements Tool {
-	readonly id = 'rack'
-	readonly cursor = 'crosshair'
-	target: Id | null = null
-	last: Rack | null = null
-	#hover: Pt | null = null
-
-	constructor(private done: () => void) {}
-
-	down(e: PointerIn, c: ToolCtx): void {
-		const { at } = placeAt(c, e, 0)
-		if (this.target) {
-			const r = c.store.get(this.target)
-			if (r?.type === 'rack') { c.store.transact(`Place rack ${r.name}`, (tx) => tx.put({ ...r, levelId: c.levelId, at })); c.select([r.id]) }
-			this.target = null; this.#hover = null
-			this.done()
-			return
-		}
-		const onLevel = c.index.racks.filter((r) => r.levelId === c.levelId)
-		const like = this.last?.levelId === c.levelId ? this.last : onLevel.at(-1)   // the last one drawn ON THIS level
-		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
-		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
-		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, at, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
-		this.#draw(c, at, like, room)
-	}
-	#draw(c: ToolCtx, at: Pt, like: Rack | undefined, room: Id | Space): void {
-		const taken = new Set(c.index.racks.map((r) => r.name))
-		let name = like ? nextLabel(like.name) : 'R01'
-		while (taken.has(name)) name = nextLabel(name)
-		const r: Rack = {
-			type: 'rack', id: newId(), levelId: c.levelId, spaceId: typeof room === 'string' ? room : room.id, order: c.index.racks.filter((x) => x.levelId === c.levelId).length, name,
-			kind: like?.kind ?? 'cabinet', heightU: like?.heightU ?? 42, widthMm: like?.widthMm ?? 600, depthMm: like?.depthMm ?? 1000,
-			...(like?.heightMm ? { heightMm: like.heightMm } : {}), ...(like?.rowId ? { rowId: like.rowId } : {}), ...(like?.rot ? { rot: like.rot } : {}),
-			at,
-		}
-		c.store.transact(typeof room === 'string' ? `Draw rack ${name}` : `New room ${room.name} + rack ${name}`, (tx) => { if (typeof room !== 'string') tx.put(room); tx.put(r) })
-		this.last = r
-		c.select([r.id])
-	}
-	move(): void {}
-	up(): void {}
-	hover(e: PointerIn): void { this.#hover = snapPt(e.p, e.alt) }
-	cancel(): void { this.target = null; this.#hover = null }
-
-	/** The footprint of the rack about to be placed or drawn, under the cursor. */
-	preview(c: ToolCtx): Prim[] {
-		const t = this.target ? c.store.get(this.target) : undefined
-		const r = t?.type === 'rack' ? t : this.last ?? c.index.racks.filter((x) => x.levelId === c.levelId).at(-1)
-		if (!r || !this.#hover) return []
-		const hw = (r.widthMm ?? 600) / 2, hd = (r.depthMm ?? 1000) / 2, h = this.#hover, rot = r.rot ?? 0
-		const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, y]) => { const q = rotateBy({ x, y }, rot); return { x: h.x + q.x, y: h.y + q.y } })
-		return [{ k: 'line', pts, closed: true, cls: 'draft' }]
-	}
-}
-
-const rotateBy = (p: Pt, deg: number): Pt => { const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); return { x: p.x * c - p.y * s, y: p.x * s + p.y * c } }
-
 /** A click → plan position (+ height). Plan: the click is x / y, the height is `planZ`. Elevation: the click on the
  *  work plane gives x / y AND the height. */
-function placeAt(c: ToolCtx, e: PointerIn, planZ: number): { at: Pt; z: number } {
+export function placeAt(c: ToolCtx, e: PointerIn, planZ: number): { at: Pt; z: number } {
 	const w = c.space.toWorld(snapPt(e.p, e.alt), c.work)
 	return { at: { x: w.x, y: w.y }, z: c.space.spec.kind === 'plan' ? planZ : Math.round(w.z) }
 }

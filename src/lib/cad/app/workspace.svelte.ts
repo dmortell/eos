@@ -1,7 +1,8 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level } from '../domain/types'
-import { SelectTool, OutletTool, RackTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { SelectTool, OutletTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
 import { DeviceTool } from '../editor/deviceTool'
 import { AssignTool } from '../editor/assignTool'

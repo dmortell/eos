@@ -7,15 +7,15 @@ import type { Entity, Layer, Sheet } from './drawing'
 import { moveGeometry, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
-import { newServerRoom } from './devices'
+import { newServerRoom, placementProblem } from './devices'
 
 export const CLIP_MARK = 'eos-cad-clip/1'
 
 export interface Clip {
 	mark: typeof CLIP_MARK
 	pid: string
-	/** Where it was copied from: a level's plan or a sheet's paper. */
-	from: { kind: 'level' | 'sheet'; id: Id }
+	/** Where it was copied from: a level's plan, a sheet's paper, or a rack (devices on their own). */
+	from: { kind: 'level' | 'sheet' | 'rack'; id: Id }
 	items: Entity[]
 	/** The project layers the items are on (system layers need no record). */
 	layers: Layer[]
@@ -43,7 +43,8 @@ function untie(s: Shape, ix: ProjectIndex): Shape {
 	return { ...rest, geom: mapPts(s.geom, (p) => ({ x: mx + (p.x - vp.centre.x) * k, y: my + (p.y - vp.centre.y) * k })) } as Shape
 }
 
-/** The selection as a clip: plan items (shapes, outlets, racks with their devices) or sheet notes. Null = nothing. */
+/** The selection as a clip: plan items (shapes, outlets, racks with their devices), sheet notes, or devices on their
+ *  own (from any racks). Null = nothing. */
 export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null {
 	const items: Entity[] = []
 	let from: Clip['from'] | null = null
@@ -51,8 +52,8 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 		const e = ix.get(id)
 		if (!e) continue
 		const at: Clip['from'] | null = e.type === 'shape' ? (e.levelId ? { kind: 'level', id: e.levelId } : e.sheetId ? { kind: 'sheet', id: e.sheetId } : null)
-			: e.type === 'outlet' || e.type === 'rack' ? { kind: 'level', id: e.levelId } : null
-		if (!at || (from && (from.kind !== at.kind || from.id !== at.id))) continue
+			: e.type === 'outlet' || e.type === 'rack' ? { kind: 'level', id: e.levelId } : e.type === 'device' ? { kind: 'rack', id: e.rackId } : null
+		if (!at || (from && (from.kind !== at.kind || (from.kind !== 'rack' && from.id !== at.id)))) continue
 		from = at
 		items.push(e.type === 'shape' ? untie(e, ix) : e)
 		if (e.type === 'rack') items.push(...ix.devices.filter((d) => d.rackId === e.id))
@@ -72,18 +73,21 @@ export function parseClip(text: string): Clip | null {
 export interface PasteTarget {
 	pid: string
 	ix: ProjectIndex
-	/** A plan pastes plan items; a sheet pastes notes. */
-	to: { kind: 'level' | 'sheet'; id: Id }
+	/** A plan pastes plan items; a sheet pastes notes; a rack (in a rack view) pastes devices. */
+	to: { kind: 'level' | 'sheet' | 'rack'; id: Id }
 	/** Moved by this much (Ctrl-drag copy); a paste is in place. */
 	d?: { x: number; y: number; z?: number }
 }
 
-export interface Pasted { put: Entity[]; select: Id[]; skipped: number }
+/** `problem` = why nothing was pasted (devices that don't fit the rack). */
+export interface Pasted { put: Entity[]; select: Id[]; skipped: number; problem?: string }
 
 /** What a paste writes (new records only) and selects. */
 export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const { ix, to } = t, toLevel = to.kind === 'level'
-	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || e.type === 'device' || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
+	if (to.kind === 'rack') return pasteDevices(clip, ix, to.id)
+	const racks = new Set(clip.items.filter((e) => e.type === 'rack').map((e) => e.id))
+	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || (e.type === 'device' && racks.has(e.rackId)) || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
 	const kept = clip.items.filter(fits)
 	const skipped = clip.items.length - kept.length
 	if (!kept.length) return { put: [], select: [], skipped }
@@ -158,4 +162,21 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	})
 	const select = items.filter((e) => e.type !== 'device').map((e) => e.id)
 	return { put: [...extra, ...made, ...items], select, skipped }
+}
+
+/** Devices into a rack, each at its own U (as-is); refused if any would overlap or not fit. A copied rack's devices
+ *  come too (its contents into this rack). Links / cords never come. */
+function pasteDevices(clip: Clip, ix: ProjectIndex, rackId: Id): Pasted {
+	const rack = ix.get<Rack>(rackId)
+	const devs = clip.items.filter((e): e is Device => e.type === 'device')
+	const skipped = clip.items.length - devs.length
+	if (!rack || !devs.length) return { put: [], select: [], skipped }
+	const put = devs.map((dv): Device => {
+		const { panel, ...rest } = dv
+		const room = panel?.serverRoomId === undefined || ix.get(panel.serverRoomId) ? panel : { ...panel, serverRoomId: rack.spaceId }
+		return { ...rest, id: newId(), rackId, ...(room ? { panel: room } : {}) }
+	})
+	const others = ix.devices.filter((x) => x.rackId === rackId)
+	const problem = put.map((n) => placementProblem(n, rack, [...others, ...put.filter((p) => p.id !== n.id)])).find(Boolean)
+	return problem ? { put: [], select: [], skipped, problem } : { put, select: put.map((n) => n.id), skipped }
 }

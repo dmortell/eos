@@ -17,6 +17,7 @@
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList } from '../views/sheet'
 	import { applyLayers, layerMap } from '../views/layers'
+	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
 	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
@@ -229,10 +230,31 @@
 		if (b) cam = fit(b, w, h)
 	}
 
-	/** Where a paste goes (domain/clipboard): a plan takes plan items, a sheet notes. Null = this view takes none. */
-	export function pasteTarget(): { kind: 'level' | 'sheet'; id: string } | null {
+	/** Where a paste goes (domain/clipboard): a plan takes plan items, a sheet notes, a rack row devices (into the rack
+	 *  under the mouse). Null = this view takes none (or no rack under the mouse). */
+	export function pasteTarget(): { kind: 'level' | 'sheet' | 'rack'; id: string } | null {
+		if (spec.kind === 'row') { const r = cursor && rowHit(project.index, spec, cursor)?.rack; return r ? { kind: 'rack', id: r.id } : null }
 		return spec.kind === 'plan' ? { kind: 'level', id: levelId } : spec.kind === 'sheet' ? { kind: 'sheet', id: spec.sheetId } : null
 	}
+	/** Ctrl+A: everything this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes
+	 *  on a sheet (not the sheet itself). */
+	export function selectAll(): void {
+		const ids = new Set<string>()
+		for (const p of layered.pick) {
+			const e = p.src && p.k !== 'image' ? project.index.get(p.src) : undefined
+			if (e && (spec.kind === 'row' ? e.type === 'device' : spec.kind === 'sheet' ? e.type === 'shape' : e.type !== 'sheet')) ids.add(e.id)
+		}
+		ws.select([...ids])
+	}
+	const nudger = new Nudge()
+	/** An arrow key: the selection moves 50 mm (`big`: 500 mm; Dave: 1 mm was too small) in this view; on a sheet's
+	 *  paper 1 / 10 mm; a rack row moves devices 1 U. */
+	export function nudge(dx: number, dy: number, big: boolean): void {
+		const step = spec.kind === 'row' ? 1 : spec.kind === 'sheet' ? (big ? 10 : 1) : big ? 500 : 50
+		const why = nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, space)
+		if (why) ws.say(why)
+	}
+	export function endNudge(): void { nudger.end() }
 
 	function ctx(): ToolCtx {
 		const tol = TOL_PX / cam.k
@@ -273,7 +295,7 @@
 
 	function onDown(e: PointerEvent) {
 		onfocus?.()
-		svg!.setPointerCapture(e.pointerId)
+		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)

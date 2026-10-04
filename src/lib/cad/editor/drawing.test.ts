@@ -109,7 +109,7 @@ describe('grips', () => {
 
 describe('placing a rack', () => {
 	it('puts the chosen rack where you click (its centre), selects it, and hands back to Select', async () => {
-		const { RackTool } = await import('./tools')
+		const { RackTool } = await import('./rackTool')
 		const h = harness()
 		let done = false
 		const tool = new RackTool(() => { done = true })

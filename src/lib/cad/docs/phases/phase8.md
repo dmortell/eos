@@ -342,3 +342,44 @@ copy / cut / paste events.
 
 **Sources:** G009 (part), G229, G230, G231, G256, T142, T039 (part). Ctrl-drag copy, select all / nudge,
 multi-device drag and device-only copy remain in the backlog.
+
+## Ctrl-drag copy, select all, nudge, rack devices (2026-10-04, after commit 8ed47b96)
+
+- **Ctrl-drag copy:**
+  - Ctrl-press on an item, then drag: copies of the selection (with that item) follow the mouse; the originals stay.
+    It's the same as-is paste (`pasteClip` with a `d` offset), so it has the same labels, layers and references.
+  - Letting go of Ctrl mid-drag moves instead.
+  - A Ctrl click (no drag) still toggles the item in the selection.
+  - The copies are selected; it's one undo step.
+  - Works in plans, elevations (with height) and on sheets (notes).
+- **Ctrl+A:** selects everything the active view shows that can be picked — visible, unlocked layers. In a rack row
+  that's its devices; on a sheet, its notes.
+- **Nudge** (`editor/nudge.ts`):
+  - Arrow keys move the selection 50 mm, Shift 500 mm (Dave: 1 mm was too small), in the view's directions. On a
+    sheet's paper it's 1 / 10 mm. In a rack row, Up / Down moves devices 1 U; off the rack is refused, with the reason.
+  - Holding a key is one undo step; separate presses are separate steps.
+- **Rack devices** (`editor/deviceDrag.ts`, split out of `tools.ts`):
+  - Several selected devices dragged onto another rack all go into it, keeping their spacing. Devices from several
+    racks only change U.
+  - Ctrl-drag copies devices.
+  - Ctrl+C on devices copies them on their own. Ctrl+V in a rack view puts them in the rack under the mouse, at their
+    own U, refused if they'd overlap.
+  - A copied rack pasted into a rack view puts its devices there.
+- **Code splits:**
+  - `editor/rackTool.ts` split out of `tools.ts`, unchanged (504 → 440 lines).
+  - ViewCanvas's pointer capture is in try / catch, so synthetic pointers in tests and automation work.
+
+**Checks:**
+- 343 cad tests pass (+8: `editor/copyNudge.test.ts`).
+- svelte-check: no warnings in cad.
+- Live on Test Project:
+  - Ctrl+A selected 24 items;
+  - nudged A001 ×3 right and Shift+Up, at the first 1 / 10 mm steps (X −6391 → −6388, Y −2400 → −2410), undone
+    back to the start;
+  - Ctrl-drag copied A001 (original stayed), undone.
+- Not tried live: device drags and pastes in a rack view (unit tests cover them).
+
+**Not done:** copying one segment of a run (a P3 backlog entry). Inside a picked sheet viewport, Ctrl-drag still pans
+its view (T126's Alt-drag isn't built).
+
+**Sources:** G009, G033, G064 (most), G082, G112, G168, G170, G189, G193, G225, G227, T039, P024.
