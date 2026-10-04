@@ -8,6 +8,7 @@
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
 	import { removeNode } from '../domain/pathEdit'
+	import { deletePicked, disconnectPicked } from '../editor/pathSel'
 	import { deleteEntities } from '../editor/commands'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
@@ -46,6 +47,17 @@
 	const setZ = (id: string, z: number) => setNodes('Node height', (ns) => ns.map((n) => (n.id === id ? { ...n, z } : n)))
 	const setAllZ = (z: number) => setNodes('Run height', (ns) => ns.map((n) => ({ ...n, z })))
 	/** Delete a point; when the path would be left with fewer than two, the whole shape goes (one undo step). */
+	// ── a node / segments picked in the view (editor/pathSel.ts) ──
+	const picked = $derived(ws.pathSel?.shape === s.id ? ws.pathSel : null)
+	function putPieces(label: string, out: Shape[]) {
+		project.store.transact(label, (tx) => { if (!out.length) tx.del(s.id); for (const p of out) tx.put(p) })
+		ws.selectPath(null)
+		ws.select(out.some((p) => p.id === s.id) ? [s.id] : [])
+		if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)
+	}
+	const disconnect = () => picked && putPieces('Disconnect', disconnectPicked(s, picked.nodes))
+	const delPicked = () => picked && putPieces(picked.nodes.length ? 'Delete node' : 'Delete segments', deletePicked(s, picked))
+
 	function removePoint(id: string) {
 		const next = removeNode(s, id)
 		if (next) save('Delete point', next)
@@ -85,6 +97,18 @@
 </script>
 
 <p class="font-semibold">{kind === 'line' ? 'Line' : kind[0].toUpperCase() + kind.slice(1)}</p>
+{#if picked}
+	<!-- a node (click its grip) or segments (click the run again; Ctrl adds) picked in the view -->
+	<div class="picked">
+		{#if picked.nodes.length}
+			<span>Node picked</span>
+			<button class="btn" title="Separate the segments that meet at this node: the run splits into separate runs there" onclick={disconnect}>Disconnect</button>
+		{:else}
+			<span>{picked.segs.length} segment{picked.segs.length === 1 ? '' : 's'} picked <span class="text-zinc-400">· drag to move</span></span>
+		{/if}
+		<button class="btn" title="Delete key: {picked.nodes.length ? 'the node goes, its two segments join' : 'just these segments (the run may split)'}" onclick={delPicked}>Delete</button>
+	</div>
+{/if}
 <label class="row">Is a
 	<select class="inp" value={kind} onchange={(e) => convert(e.currentTarget.value as Kind)}>
 		<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option>
@@ -127,5 +151,8 @@
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	/* one node per row: index, x, y, z, drop */
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:hover { background: var(--cad-hover); }
+	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; }
 	.node { display: grid; grid-template-columns: 1.5rem 1fr 1fr 4.5rem 1.6rem 1.6rem; align-items: center; gap: 0.25rem; font-size: 11px; }
 </style>

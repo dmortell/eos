@@ -4,7 +4,7 @@ import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { snapAt, gridSnap } from './snap'
-import { pathGrips, moveNodes } from './grips'
+import { pathGrips, moveNodes, joinDropped } from './grips'
 import { followAttached } from './behaviours'
 import { PathTool } from './pathTool'
 import { SelectTool, type ToolCtx, type DrawOpts } from './tools'
@@ -38,6 +38,18 @@ describe('snapping', () => {
 		expect(snapAt(ix, 'L33', { x: 1004, y: 3996 }, 15)).toMatchObject({ kind: 'outlet', attach: 'O1', p: { x: 1000, y: 4000 } })
 		expect(snapAt(ix, 'L33', { x: 5004, y: 7996 }, 15)).toEqual({ p: { x: 5000, y: 8000 }, kind: 'grid' })
 		expect(gridSnap({ x: 14, y: 16 })).toEqual({ x: 10, y: 20 })
+	})
+	it('snaps to the centre of a circle, a box and a polygon, and a block\'s insertion point', () => {
+		const sh = (id: string, geom: Shape['geom']) => ({ type: 'shape', id, levelId: 'L33', geom }) as Shape
+		const ix = new ProjectIndex([...demoProject(),
+			sh('C', { kind: 'circle', centre: { x: 20000, y: 20000 }, r: 500 }),
+			sh('R', { kind: 'rect', centre: { x: 22000, y: 20000 }, size: { x: 800, y: 400 } }),
+			sh('P', { kind: 'polygon', pts: [{ x: 24000, y: 20000 }, { x: 25000, y: 20000 }, { x: 24500, y: 21000 }] }),
+			sh('I', { kind: 'insert', blockId: 'b', at: { x: 26000, y: 20000 } })])
+		expect(snapAt(ix, 'L33', { x: 20005, y: 19996 }, 15)).toMatchObject({ kind: 'centre', p: { x: 20000, y: 20000 } })
+		expect(snapAt(ix, 'L33', { x: 22004, y: 20004 }, 15)).toMatchObject({ kind: 'centre', p: { x: 22000, y: 20000 } })
+		expect(snapAt(ix, 'L33', { x: 24500, y: 20330 }, 15)).toMatchObject({ kind: 'centre' })
+		expect(snapAt(ix, 'L33', { x: 26003, y: 20002 }, 15)).toMatchObject({ kind: 'centre', p: { x: 26000, y: 20000 } })
 	})
 })
 
@@ -91,6 +103,27 @@ describe('grips', () => {
 		expect(grips.map((g) => g.nodeIds.length)).toEqual([1, 2])
 		const moved = moveNodes(t1, grips[1].nodeIds, { x: 6500, y: 3200 })
 		expect(moved.geom.kind === 'path' && moved.geom.nodes.slice(1).map((n) => [n.x, n.y, n.z])).toEqual([[6500, 3200, 2900], [6500, 3200, 300]])
+	})
+	it('a node dropped on another node of its path joins it; a segment between the two collapses (Dave)', () => {
+		const n = (id: string, x: number, y: number) => ({ id, x, y, z: 0 })
+		const seg = (id: string, a: string, b: string) => ({ id, a, b })
+		const path = (segs: ReturnType<typeof seg>[]) => ({ type: 'shape', id: 'P', levelId: 'L33', geom: { kind: 'path', nodes: [n('A', 0, 0), n('B', 1000, 0), n('C', 1000, 1000), n('D', 0, 1000)], segs } }) as Shape
+		const run = path([seg('s1', 'A', 'B'), seg('s2', 'B', 'C'), seg('s3', 'C', 'D')])
+		const shape = (s: Shape) => (s.geom.kind === 'path' ? { nodes: s.geom.nodes.map((x) => x.id), segs: s.geom.segs.map((x) => `${x.a}${x.b}`) } : null)
+		// D dropped on A: the run closes
+		const closed = joinDropped(moveNodes(run, ['D'], { x: 0, y: 0 }), ['D'])
+		expect(closed.joined).toBe(1)
+		expect(shape(closed.shape)).toEqual({ nodes: ['A', 'B', 'C'], segs: ['AB', 'BC', 'CA'] })
+		// A dropped on B, its neighbour: segment A–B goes, the run starts at B
+		const shorter = joinDropped(moveNodes(run, ['A'], { x: 1000, y: 0 }), ['A'])
+		expect(shape(shorter.shape)).toEqual({ nodes: ['B', 'C', 'D'], segs: ['BC', 'CD'] })
+		// a lone segment: joining would leave nothing, so the node just moves
+		const lone = path([seg('s1', 'A', 'B')])
+		const kept = joinDropped(moveNodes(lone, ['A'], { x: 1000, y: 0 }), ['A'])
+		expect(kept.joined).toBe(0)
+		expect(kept.shape.geom.kind === 'path' && kept.shape.geom.nodes.length).toBe(4)
+		// not on a node: nothing joins
+		expect(joinDropped(moveNodes(run, ['D'], { x: 10, y: 10 }), ['D']).joined).toBe(0)
 	})
 	it('the select tool drags a grip of the selected run as one undo step', () => {
 		const h = harness()

@@ -134,9 +134,13 @@ describe('port cells and labels', () => {
 		const texts = prims.filter((p) => p.k === 'text' && p.src === 'P48' && p.sub === '1') as { text: string; size: number }[]
 		expect(texts.map((t) => t.text)).toEqual(['01A', '014A'])
 		expect(texts[0].size).toBeGreaterThan(6)   // one line of 8 characters was ~3.4 mm
-		// and its name over the ports gives way once the port labels can be read (it covered them)
-		const name = prims.find((p) => p.k === 'text' && p.cls.includes('on-ports') && p.text.startsWith('P48')) as { maxPx?: number } | undefined
-		expect(name?.maxPx).toBeGreaterThan(0)
+		// its name over the ports: normal size until the port labels show, then no bigger than them (it covered them)
+		const names = prims.filter((p) => p.k === 'text' && p.cls.includes('on-ports') && p.text.startsWith('P48')) as { size: number; minPx?: number; maxPx?: number }[]
+		expect(names).toHaveLength(2)
+		const [big, small] = names, k = 7 / texts[0].size   // px per mm where the labels appear (LABEL_MIN_PX)
+		expect(big.maxPx! / big.size).toBeCloseTo(k)
+		expect(small.minPx! / small.size).toBeCloseTo(k)
+		expect(small.size).toBeLessThanOrEqual(texts[0].size + 0.01)
 	})
 	it('labels stack: full form in up to three lines, short form = the last two parts', () => {
 		expect(labelLines('L01.A.001-A01')).toEqual({ full: ['L01.A', '001', 'A01'], short: ['001', 'A01'] })

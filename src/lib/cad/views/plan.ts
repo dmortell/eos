@@ -7,15 +7,15 @@ import { isVertical } from '../domain/shapes'
 import { planOpenings } from '../domain/openings'
 import { sectionMarks, sectionsOn } from './section'
 import { rotate } from '../domain/conventions'
-import type { Prim } from './display'
+import type { Bounds, Prim } from './display'
 import { blockPrims } from './blocks'
-import { defaultOutletBlock, outletAttrs, type Block } from '../domain/blocks'
+import { defaultOutletBlock, outletAttrs, insertAttrs, type Block } from '../domain/blocks'
 
 export interface PlanOpts {
 	/** 1:N — text and symbols are drawn at a constant paper size, so they scale with N. */
 	scale: number
 	/** Where an underlay sits (from its file's calibration); undefined = not ready / not calibrated. */
-	underlay?: (u: Underlay) => { url: string; x: number; y: number; w: number; h: number } | undefined
+	underlay?: (u: Underlay) => { url: string; x: number; y: number; w: number; h: number; clip?: Bounds } | undefined
 	/** The block library (built-ins + global). Without it outlets draw as plain circles. */
 	blocks?: (id: Id) => Block | undefined
 }
@@ -30,7 +30,10 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	for (const u of ix.byId.values()) {
 		if (u.type !== 'underlay' || u.levelId !== levelId) continue
 		const pl = o.underlay?.(u)
-		if (pl) out.push({ k: 'image', ...pl, opacity: u.opacity ?? 0.6, src: u.id })
+		if (!pl) continue
+		// a level can have several floorplans (zones, Dave: 33F = 3303 + 3307); `origin` moves one off the others
+		const dx = u.origin?.x ?? 0, dy = u.origin?.y ?? 0, c = pl.clip
+		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
 	for (const s of shapes) if (s.role?.kind !== 'containment') out.push(...shapePrims(s, k, o.blocks))
@@ -57,7 +60,7 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 	switch (g.kind) {
 		case 'insert': {
 			const b = blocks?.(g.blockId)
-			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, g.attrs ?? {}, s.id, 'shape')
+			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]
 		}

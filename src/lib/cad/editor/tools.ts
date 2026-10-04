@@ -9,10 +9,10 @@ import type { Prim, Bounds } from '../views/display'
 import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
-import { pathGrips, gripAt, moveNodes, moveNodesBy, type Grip } from './grips'
+import { pathGrips, gripAt, moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import { nextLabel, portLabelsFor, naturalCompare } from '../domain/labels'
-import { insertNode, branchFrom } from '../domain/pathEdit'
+import { insertNode, branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
@@ -20,6 +20,7 @@ import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
+import { segAt, segNodes, followersOf, joinAcross, type PathSel } from './pathSel'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -48,7 +49,12 @@ export interface ToolCtx {
 	/** Pick tolerance in model mm (a few screen px at the current zoom). */
 	tol(): number
 	/** Object snap / grid at a point (Alt = none). */
-	snap(p: Pt, alt: boolean, skip?: Id): Snap
+	/** `skip` = shapes left out (the ones being edited); `dragged` = their nodes being dragged: their OTHER nodes still
+	 *  snap (so a node can be dropped on one to join them). */
+	snap(p: Pt, alt: boolean, skip?: Id | Id[], dragged?: Id[]): Snap
+	/** Nodes / segments picked within the selected run (Delete removes them; Properties acts on them). */
+	pathSel?(): PathSel | null
+	selectPath?(s: PathSel | null): void
 	selection: Id[]
 	select(ids: Id[]): void
 	/** The selection box being dragged; `crossing` = dragged right → left (selects what it touches). */
@@ -91,6 +97,8 @@ export interface Tool {
 	typed?(p: Pt, c: ToolCtx): void
 	/** The point typed input is relative to (@dx,dy, direct distance), in view mm. */
 	lastPoint?(c: ToolCtx): Pt | null
+	/** While dragging: where the drag started (view mm) — the status bar shows the move's length / angle / Δ. */
+	dragFrom?(): Pt | null
 }
 
 /** Ports selected on one device (rack rows): click one, Shift-click a range from `anchor`, Ctrl-click toggles. */
@@ -114,6 +122,15 @@ export class SelectTool implements Tool {
 	#gesture: Gesture | null = null
 	#marquee: Pt | null = null
 	#grip: { shape: Id; grip: Grip; branch?: Id } | null = null
+	/** Nodes the grip drag has joined into another node (said on release). */
+	#joined = 0
+	/** Other runs' nodes sitting on the dragged ones (they move along): shape → node ids; a run the drop joined in. */
+	#followers = new Map<Id, Id[]>()
+	#absorbed = 0
+	/** A selected segment being dragged whole: its run and end nodes. */
+	#segDrag: { shape: Id; nodes: Id[] } | null = null
+	/** Pressed on a segment of the selected run: a click (no drag) picks that segment. */
+	#segPick: { shape: Id; seg: Id } | null = null
 	#snap: Snap | null = null
 	/** A rack-row device drag (editor/deviceDrag.ts). */
 	#dev: DeviceDrag | null = null
@@ -135,6 +152,8 @@ export class SelectTool implements Tool {
 	#handle: { h: Handle; base: Entity } | null = null
 	/** A note's grip being dragged: the note as it was at the press, and the viewport it's tied to. */
 	#note: { base: Shape; vp?: Sheet['viewports'][number]; index: number } | null = null
+
+	dragFrom(): Pt | null { return this.#gesture ? (this.#grip?.grip.at ?? this.#start) : null }
 
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
@@ -161,7 +180,13 @@ export class SelectTool implements Tool {
 		if (hBest) { this.#handle = { h: hBest, base: c.store.get(c.selection[0])! }; this.#start = e.p; return }
 		const g = gripAt(this.grips(c), e.p, c.tol() * 1.5)
 		// Ctrl on a grip = BRANCH: a new segment from that node, dragged out
-		if (g) { this.#grip = { shape: c.selection[0], grip: g, ...(e.ctrl ? { branch: newId() } : {}) }; return }
+		if (g) {
+			this.#grip = { shape: c.selection[0], grip: g, ...(e.ctrl ? { branch: newId() } : {}) }
+			const s = c.store.get(c.selection[0])
+			// other runs' nodes on this one move along; Alt-drag moves it alone (pulls apart runs that only touch there)
+			if (!e.ctrl && !e.alt && s?.type === 'shape') this.#followers = followersOf(c.store.ofType('shape'), s, g.nodeIds)
+			return
+		}
 		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
 		const ng = this.#noteGrips(c), np = ng?.grips.find((q) => q.index >= 0 && Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= c.tol() * 1.5)
 		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }
@@ -203,6 +228,19 @@ export class SelectTool implements Tool {
 			if (bar) { this.#handle = { h: { ...bar, selects: undefined }, base: hitEnt }; this.#start = e.p }
 			return
 		}
+		// the selected run, pressed again: on a picked segment, drag those segments whole; elsewhere a click picks the
+		// segment under the cursor (a drag still moves the whole run)
+		if (id && c.selectPath && hitEnt?.type === 'shape' && hitEnt.geom.kind === 'path' && c.selection.length === 1 && c.selection[0] === id && !e.shift) {
+			const seg = segAt(hitEnt, c.space, e.p, c.tol()), ps = c.pathSel?.()
+			if (seg && !e.ctrl && ps?.shape === id && ps.segs.includes(seg)) {
+				const nodes = segNodes(hitEnt, ps.segs)
+				this.#segDrag = { shape: id, nodes }
+				this.#followers = followersOf(c.store.ofType('shape'), hitEnt, nodes)
+				this.#start = e.p
+				return
+			}
+			if (seg) this.#segPick = { shape: id, seg }
+		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
@@ -221,7 +259,7 @@ export class SelectTool implements Tool {
 		// the current one)
 		const again = !e.ctrl && c.selection.length === 1 && !!this.#last && Math.hypot(e.p.x - this.#last.x, e.p.y - this.#last.y) <= c.tol()
 		const stack = again ? pickStack(c.prims(), e.p, c.tol()) : [], at = stack.indexOf(c.selection[0])
-		this.#cycle = at >= 0 && stack.length > 1 ? stack[(at + 1) % stack.length] : null
+		this.#cycle = at >= 0 && stack.length > 1 && !this.#segPick ? stack[(at + 1) % stack.length] : null
 		this.#last = e.p
 		const pid = this.#cycle ? c.selection[0] : id
 		if (pid) {
@@ -285,8 +323,12 @@ export class SelectTool implements Tool {
 			return
 		}
 		if (this.#grip) {
-			const { shape, grip, branch } = this.#grip
-			const sn = c.snap(e.p, e.alt, shape)
+			const { shape, grip, branch } = this.#grip, fol = this.#followers
+			// a click wobbles a pixel or two: not a drag (it picks the node instead)
+			if (!this.#gesture && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) < c.tol() / 2) return
+			// back where it started → exactly there (not the nearest grid point), so a drag-and-return changes nothing
+			const home = !branch && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) <= c.tol()
+			const sn: Snap = home ? { p: grip.at, kind: 'node' } : c.snap(e.p, e.alt, [shape, ...fol.keys()], branch ? undefined : [...grip.nodeIds, ...[...fol.values()].flat()])
 			this.#snap = sn.kind === 'grid' ? null : sn
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')
 			this.#gesture.update((tx) => {
@@ -298,9 +340,46 @@ export class SelectTool implements Tool {
 					return
 				}
 				// plan: put the stack ON the snapped point (and attach to what it lands on); elevation: shift by the drag
-				tx.put(c.space.spec.kind === 'plan'
-					? moveNodes(s, grip.nodeIds, sn.p, sn.attach ?? null)
-					: moveNodesBy(s, grip.nodeIds, c.space.deltaToWorld({ x: sn.p.x - grip.at.x, y: sn.p.y - grip.at.y })))
+				const plan = c.space.spec.kind === 'plan', d = c.space.deltaToWorld({ x: sn.p.x - grip.at.x, y: sn.p.y - grip.at.y })
+				// a run of the same kind whose node sits on this one is already connected here: it becomes part of this run
+				// (Dave: two trunks touching at a point move as one); other runs' nodes there just move along
+				const absorbed: Id[] = []
+				let base = s
+				for (const [fid, ids] of fol) {
+					const f = tx.get(fid) as Shape | undefined
+					if (!f || !canJoin(base, f) || base.geom.kind !== 'path') continue
+					const mine = base.geom.nodes.filter((n) => grip.nodeIds.includes(n.id)), theirs = f.geom.kind === 'path' ? f.geom.nodes.filter((n) => ids.includes(n.id)) : []
+					const m = joinShapes(base, f, theirs.map((n): [Id, Id] => [n.id, [...mine].sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0].id]))
+					if (m) { base = m; absorbed.push(fid); tx.del(fid) }
+				}
+				const moved = plan ? moveNodes(base, grip.nodeIds, sn.p, sn.attach ?? (home ? undefined : null)) : moveNodesBy(base, grip.nodeIds, d)
+				for (const [fid, ids] of fol) {
+					if (absorbed.includes(fid)) continue
+					const f = tx.get(fid) as Shape | undefined
+					if (f) tx.put(plan ? moveNodes(f, ids, sn.p) : moveNodesBy(f, ids, d))
+				}
+				// dropped on another node of the path (snapped onto it): JOIN them — shows while dragging, undone by dragging on
+				const j = joinDropped(moved, grip.nodeIds, c.space)
+				this.#joined = j.joined
+				// …or on a node of ANOTHER run of the same kind: the two runs become one (cables choosing that run follow)
+				const across = j.joined ? null : joinAcross(j.shape, grip.nodeIds, c.store.ofType('shape').filter((o) => o.id !== shape && !fol.has(o.id)), c.space)
+				if (across) { tx.del(across.absorbed); absorbed.push(across.absorbed) }
+				this.#absorbed = absorbed.length
+				tx.put(across?.shape ?? j.shape)
+				// a cable that chose a joined-in run (a backbone's riser) now uses this one
+				if (absorbed.length) for (const l of c.store.ofType('link')) if (l.via && absorbed.includes(l.via)) tx.put({ ...l, via: shape })
+			})
+		} else if (this.#segDrag && this.#start) {
+			// a selected segment (or several) dragged whole: their end nodes move by the drag; other runs' nodes on them too
+			const { shape, nodes } = this.#segDrag, fol = this.#followers
+			const dv = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
+			if (!this.#gesture && Math.hypot(dv.x, dv.y) < c.tol()) return
+			const d = c.space.deltaToWorld(snapPt(dv, e.alt, 10))
+			this.#gesture ??= c.store.begin('Move segment')
+			this.#gesture.update((tx) => {
+				const s = tx.get(shape) as Shape | undefined
+				if (s) tx.put(moveNodesBy(s, nodes, d))
+				for (const [fid, ids] of fol) { const f = tx.get(fid) as Shape | undefined; if (f) tx.put(moveNodesBy(f, ids, d)) }
 			})
 		} else if (this.#start && this.#ids.length && c.rowHit) {
 			// Rack rows: devices move by whole U, and into another rack when dropped on it; a move that would overlap or
@@ -347,7 +426,19 @@ export class SelectTool implements Tool {
 			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
 			else if (h.click) { const click = h.click; c.store.transact('Door swing', (tx) => tx.put(click())) }
 		}
-		if (this.#gesture) { this.#gesture.commit(this.#before); if (this.#copied.length) c.select(this.#copied) }
+		if (this.#gesture) {
+			this.#gesture.commit(this.#before)
+			if (this.#copied.length) c.select(this.#copied)
+			if (this.#grip) c.selectPath?.(null)   // its nodes may have joined others
+			if (this.#joined) c.say?.(`Joined ${this.#joined === 1 ? "the node" : `${this.#joined} nodes`} to the one it was dropped on · Ctrl+Z undoes`)
+			else if (this.#absorbed) c.say?.(`Joined ${this.#absorbed === 1 ? 'the two runs' : `${this.#absorbed + 1} runs`} into one · Ctrl+Z undoes · click the node, then Disconnect (Properties) to separate them`)
+		}
+		// a click on a grip picks that node; a click on a segment of the selected run picks it (Ctrl: adds / drops it)
+		else if (this.#grip && !this.#grip.branch) c.selectPath?.({ shape: this.#grip.shape, nodes: this.#grip.grip.nodeIds, segs: [] })
+		else if (this.#segPick) {
+			const { shape, seg } = this.#segPick, ps = c.pathSel?.(), had = ps?.shape === shape ? ps.segs : []
+			c.selectPath?.({ shape, nodes: [], segs: e.ctrl ? (had.includes(seg) ? had.filter((x) => x !== seg) : [...had, seg]) : [seg] })
+		}
 		else if (this.#toggle) { const t = this.#toggle; c.select(c.selection.includes(t) ? c.selection.filter((x) => x !== t) : [...c.selection, t]) }
 		else if (this.#cycle) c.select([this.#cycle])
 		else if (this.#marquee && Math.hypot(e.p.x - this.#marquee.x, e.p.y - this.#marquee.y) > c.tol()) {
@@ -366,7 +457,14 @@ export class SelectTool implements Tool {
 	preview(c: ToolCtx): Prim[] {
 		const px = c.tol() / TOL_PX   // one screen px in model mm
 		const { handles, decor } = this.#handles(c)
-		const out: Prim[] = [...decor, ...[...this.grips(c), ...(this.#noteGrips(c)?.grips ?? [])].map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' }))]
+		// picked segments of the run (under the grips), then the grips — a picked node's grip filled blue
+		const ps = c.pathSel?.(), run = ps ? c.store.get(ps.shape) : undefined, out: Prim[] = [...decor]
+		if (ps && run?.type === 'shape' && run.geom.kind === 'path') {
+			const at = new Map(run.geom.nodes.map((n) => [n.id, c.space.fromWorld(n)]))
+			for (const g of run.geom.segs) if (ps.segs.includes(g.id) && at.get(g.a) && at.get(g.b)) out.push({ k: 'line', pts: [at.get(g.a)!, at.get(g.b)!], cls: 'seg-sel' })
+		}
+		const picked = new Set(ps?.nodes ?? [])
+		out.push(...[...this.grips(c), ...(this.#noteGrips(c)?.grips ?? [])].map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'nodeIds' in g && g.nodeIds.some((n) => picked.has(n)) ? 'grip grip-sel' : 'grip' })))
 		const opSel = c.openingId?.()
 		// bars under the point grips
 		for (const h of handles) if (h.span) out.push({ k: 'line', pts: h.span, cls: `grip-bar${h.selects === opSel ? ' grip-bar-sel' : ''}` })
@@ -401,7 +499,8 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#joined = 0
+		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
 		c.setMarquee(null)
 	}
 }
@@ -464,5 +563,6 @@ export const sq = (c: Pt, s: number): Pt[] => [{ x: c.x - s / 2, y: c.y - s / 2 
 export function snapMark(s: Snap, tol: number): Prim {
 	const r = (tol / TOL_PX) * 6   // 6 screen px
 	if (s.kind === 'mid') return { k: 'line', pts: [{ x: s.p.x, y: s.p.y - r }, { x: s.p.x + r, y: s.p.y + r }, { x: s.p.x - r, y: s.p.y + r }], closed: true, cls: 'snap' }
+	if (s.kind === 'centre') return { k: 'circle', c: s.p, r, cls: 'snap' }   // a circle = a centre
 	return { k: 'line', pts: sq(s.p, r * 2), closed: true, cls: 'snap' }
 }

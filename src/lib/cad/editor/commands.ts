@@ -1,5 +1,9 @@
 // Edits that touch more than the selected records: deleting cascades to what can't exist without them.
-import type { EntityStore } from '../store/store'
+import type { EntityStore, Txn } from '../store/store'
+import type { ProjectIndex } from '../domain/project'
+import { namedFrame, type ElevDir } from '../domain/conventions'
+import { sectionFrame } from '../views/section'
+import { contentCentre } from '../views/sheet'
 import type { Id, Cord } from '../domain/types'
 import type { Entity, Sheet, Viewport } from '../domain/drawing'
 import { removeCord } from '../domain/cords'
@@ -23,7 +27,7 @@ export function levelContents(all: Iterable<Entity>, levelId: Id): Id[] {
  * A SELECTED cord follows the install workflow instead (removeCord): a planned one goes, an installed one is only
  * marked `remove` — it still has to come out on site. Cords on a deleted device go with it.
  */
-export function deleteEntities(store: EntityStore, ids: Id[]): number {
+export function deleteEntities(store: EntityStore, ids: Id[], also?: (tx: Txn) => void): number {
 	const marked: Cord[] = []
 	const gone = new Set(ids.filter((id) => {
 		const e = store.get(id)
@@ -46,10 +50,42 @@ export function deleteEntities(store: EntityStore, ids: Id[]): number {
 	// Devices removed with their rack take their links / cords too.
 	for (const e of store.all()) if ((e.type === 'link' || e.type === 'cord') && (gone.has(e.a.on) || gone.has(e.b.on))) gone.add(e.id)
 	store.transact(gone.size === 1 ? 'Delete' : `Delete ${gone.size} items`, (tx) => {
+		also?.(tx)   // e.g. a deleted section's viewports kept as elevations or taken off (one undo step with the delete)
 		for (const id of gone) tx.del(id)
 		for (const c of marked) if (!gone.has(c.id)) tx.put(c)
 	})
 	return gone.size + marked.length
+}
+
+/** The sheet viewports showing any of these sections. */
+export function sectionViewports(store: EntityStore, sectionIds: Id[]): { sheet: Sheet; vp: Viewport }[] {
+	return store.ofType('sheet').flatMap((sheet) => sheet.viewports.filter((v) => v.view.spec.kind === 'section' && sectionIds.includes(v.view.spec.sectionId)).map((vp) => ({ sheet, vp })))
+}
+
+/**
+ * What a deleted section's viewports become (backlog "Deleting a section asks about its views"): `keep` = a plain
+ * elevation looking the same way (the named direction nearest the section's), same window and scale, centred on its
+ * content; else they come off their sheets (notes tied to them go back on the paper). Runs inside the delete's step.
+ */
+export function retargetSectionViewports(store: EntityStore, ix: ProjectIndex, sectionIds: Id[], keep: boolean): (tx: Txn) => void {
+	return (tx) => {
+		const hits = sectionViewports(store, sectionIds)
+		for (const sheet of new Set(hits.map((h) => h.sheet))) {
+			const viewports = sheet.viewports.flatMap((vp): Viewport[] => {
+				if (vp.view.spec.kind !== 'section' || !sectionIds.includes(vp.view.spec.sectionId)) return [vp]
+				const sec = store.get(vp.view.spec.sectionId)
+				if (!keep || sec?.type !== 'section') {
+					for (const n of store.ofType('shape')) if (n.sheetId === sheet.id && n.vpId === vp.id) tx.put(untie(n, vp))
+					return []
+				}
+				const n = sectionFrame(sec).f.n
+				const dir = (['front', 'rear', 'left', 'right'] as const).reduce((best, d) => { const m = namedFrame(d).n, b = namedFrame(best).n; return m.x * n.x + m.y * n.y > b.x * n.x + b.y * n.y ? d : best }, 'front' as ElevDir)
+				const next: Viewport = { ...vp, view: { levelId: vp.view.levelId, spec: { kind: 'elevation', dir } } }
+				return [{ ...next, centre: contentCentre(ix, next) }]
+			})
+			tx.put({ ...sheet, viewports })
+		}
+	}
 }
 
 /** Take one viewport off its sheet; the notes tied to it go back on the paper where they showed. One undo step. */

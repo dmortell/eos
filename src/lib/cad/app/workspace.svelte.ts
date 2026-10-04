@@ -2,6 +2,7 @@
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level, Outlet } from '../domain/types'
 import { SelectTool, OutletTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import type { PathSel } from '../editor/pathSel'
 import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
 import { DeviceTool } from '../editor/deviceTool'
@@ -11,19 +12,22 @@ import { NoteTool, type NoteKind } from '../editor/noteTool'
 import { OpeningTool } from '../editor/openingTool'
 import { SectionTool } from '../editor/sectionTool'
 import { RenumberTool } from '../editor/renumberTool'
+import { InsertTool } from '../editor/insertTool'
+import type { Block } from '../domain/blocks'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
 import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 
-export type ToolId = 'select' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
+export type ToolId = 'select' | 'insert' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section'],
 	section: ['plan'],
+	insert: ['plan', 'elevation', 'section'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -45,6 +49,10 @@ export class Workspace {
 	prompt = $state<Prompt | null>(null)
 	/** The template the device tool adds (chosen in the tool bar). */
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
+	/** The device tool's Mount: a both-face device (a panel) fixed to the front or rear only (shares its U). */
+	deviceMount = $state<'front' | 'rear' | undefined>(undefined)
+	/** The block the Insert tool places (picked in the Blocks list). */
+	insertBlock = $state.raw<Block | null>(null)
 	/** The Opening tool's swing (none / left / right), sticky like the cord defaults. */
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
@@ -71,7 +79,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), insert: new InsertTool(() => this.insertBlock), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
@@ -116,8 +124,12 @@ export class Workspace {
 	/** One opening of the selected wall (Phase 6: holes are selectable; Delete removes just it). */
 	openingSel = $state.raw<{ wallId: Id; openingId: string } | null>(null)
 	selectOpening = (wallId: Id, openingId: string | null): void => { this.openingSel = openingId ? { wallId, openingId } : null }
+	/** Nodes or segments of the selected run (a click on a grip / a second click on a segment); Delete removes them. */
+	pathSel = $state.raw<PathSel | null>(null)
+	selectPath = (s: PathSel | null): void => { this.pathSel = s && (s.nodes.length || s.segs.length) ? s : null }
 	select = (ids: Id[]): void => {
 		if (this.openingSel && !(ids.length === 1 && ids[0] === this.openingSel.wallId)) this.openingSel = null
+		if (this.pathSel && !(ids.length === 1 && ids[0] === this.pathSel.shape)) this.pathSel = null
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
 		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet
@@ -127,8 +139,9 @@ export class Workspace {
 	viewportId = $state<Id | null>(null)
 	selectViewport = (id: Id | null): void => { this.viewportId = id }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
-	confirm = $state<{ msg: string; yes: string; apply: () => void } | null>(null)
-	ask2 = (msg: string, yes: string, apply: () => void): void => { this.confirm = { msg, yes, apply } }
+	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)
+	/** `alt` = a second answer (two ways to go on, e.g. keep a section's viewports as elevations, or delete them). */
+	ask2 = (msg: string, yes: string, apply: () => void, alt?: { label: string; apply: () => void }): void => { this.confirm = { msg, yes, apply, ...(alt ? { alt } : {}) } }
 	ask = (label: string, value: number, apply: (v: number) => void): void => {
 		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
 	}

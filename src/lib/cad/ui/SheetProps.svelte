@@ -140,7 +140,7 @@
 	<!-- this sheet's own title-block settings; the template below is the project's -->
 	<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 	<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
-	<TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} />
+	<TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid }} />
 {/if}
 
 <style>

@@ -8,6 +8,7 @@
 	import { naturalCompare, nextLabel } from '../domain/labels'
 	import { newId } from '../domain/ids'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
+	import SideSection from './SideSection.svelte'
 
 	let { project, ws, open, onview }: { project: CadProject; ws: Workspace; open?: string; onview: (s: ViewSpec) => void } = $props()
 
@@ -33,22 +34,19 @@
 	}
 </script>
 
-<div class="head">
-	<p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Sheets</p>
-	<span>
-		{#if sheets.length}<button class="place" disabled={busy} title="Every sheet in one PDF (download)" onclick={pdfAll}>{busy ? 'PDF…' : 'PDF all'}</button>{/if}
-		<button class="place" title="A new A3 landscape sheet, opened in the active pane" onclick={add}>+ New</button>
-	</span>
-</div>
-{#each sheets as s (s.id)}
-	<button class="sheet" class:on={open === s.id} title="Open in the active pane" onclick={() => { onview({ kind: 'sheet', sheetId: s.id }); ws.select([s.id]) }}>
-		<span class="font-mono">{s.number}</span> {s.title}
-	</button>
-{/each}
+<SideSection key="sheets" title="Sheets">
+	{#snippet actions()}
+		{#if sheets.length}<button disabled={busy} title="Every sheet in one PDF (download)" onclick={pdfAll}>{busy ? 'PDF…' : 'PDF all'}</button>{/if}
+		<button title="A new A3 landscape sheet, opened in the active pane" onclick={add}>+ New</button>
+	{/snippet}
+	{#each sheets as s (s.id)}
+		<button class="sheet" class:on={open === s.id} title="Open in the active pane" onclick={() => { onview({ kind: 'sheet', sheetId: s.id }); ws.select([s.id]) }}>
+			<span class="font-mono">{s.number}</span> {s.title}
+		</button>
+	{/each}
+</SideSection>
 
 <style>
-	.head { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding: 0 4px 4px; }
-	.place { font-size: 11px; color: #2563eb; }
 	.sheet { display: block; width: 100%; text-align: left; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
 	.sheet:hover { background: var(--cad-hover); }
 	.sheet.on { background: var(--cad-sel); }

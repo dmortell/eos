@@ -24,9 +24,9 @@
 	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet } from '../domain/drawing'
 	import { pickAt } from '../editor/pick'
-	import { primBounds, unionBounds } from '../views/display'
+	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
-	import { snapAt, snapToPrims } from '../editor/snap'
+	import { snapAt, snapToPrims, type Snap } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, MIN_K, type Camera } from '../editor/camera'
 	import Prims from './Prims.svelte'
@@ -41,7 +41,7 @@
 		onfocus?: () => void
 	} = $props()
 
-	const PLOT_SCALE = 100
+	const PLOT_SCALE = PLOT
 	/** Screen mm per CSS px (96 dpi): zoom 100% = the drawing at its printed size (1:100, or the paper itself). */
 	const PX_MM = 25.4 / 96
 	const FACES = ['front', 'rear'] as const
@@ -70,8 +70,8 @@
 				: spec.kind === 'riser'
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
-						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE }) : [])
-						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
+						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
+						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf }))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
@@ -270,12 +270,31 @@
 			// the current layer for new lines: a project layer that exists, or a system one other than Drawing (their default)
 			layerId: ws.layers.current && ws.layers.current !== 'sys:drawing' && (ws.layers.current.startsWith('sys:') || project.index.get(ws.layers.current)?.type === 'layer') ? ws.layers.current : null,
 			prims: () => layered.pick, tol: () => tol,
-			snap: (p, alt, skip) => spec.kind === 'plan'
-				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
-				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
+			snap: (p, alt, skip, dragged) => {
+				const sn = spec.kind === 'plan' ? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt }) : snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt })
+				// nodes being dragged snap onto the skipped runs' OTHER nodes too (dropped there, they join them); the dragged
+				// nodes themselves, and the midpoints of segments they move, would snap to the cursor
+				if (!dragged || !skip) return sn
+				let best = sn, bestD = sn.kind === 'grid' ? tol * 1.5 : Math.hypot(sn.p.x - p.x, sn.p.y - p.y)
+				const offer = (q: Pt, s: Snap) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bestD) { best = s; bestD = d } }
+				for (const id of Array.isArray(skip) ? skip : [skip]) {
+					const own = project.index.get(id)
+					if (own?.type !== 'shape' || own.geom.kind !== 'path') continue
+					const byId = new Map(own.geom.nodes.map((n) => [n.id, n]))
+					for (const n of own.geom.nodes) if (!dragged.includes(n.id)) { const q = space.fromWorld(n); offer(q, { p: q, kind: 'node', z: n.z }) }
+					for (const g of own.geom.segs) {
+						const a = byId.get(g.a), b = byId.get(g.b)
+						if (!a || !b || dragged.includes(a.id) || dragged.includes(b.id)) continue
+						const qa = space.fromWorld(a), qb = space.fromWorld(b), q = { x: (qa.x + qb.x) / 2, y: (qa.y + qb.y) / 2 }
+						if (qa.x !== qb.x || qa.y !== qb.y) offer(q, { p: q, kind: 'mid' })
+					}
+				}
+				return best
+			},
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
+			pathSel: () => ws.pathSel, selectPath: ws.selectPath,
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}
@@ -300,6 +319,17 @@
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
 	let cursor = $state<Pt | null>(null)
 	let toolDown = false
+	/** Length · angle · Δ in the status bar while drawing a run / line (from its last point) or dragging (from where the
+	 *  drag started) — backlog "Length / angle readout" (Dave: in the status bar, not at the cursor). */
+	const readout = $derived.by(() => {
+		void tick
+		const t = ws.tool, from = t.dragFrom?.() ?? (['line', 'trunk', 'conduit', 'wall'].includes(ws.toolId) ? t.lastPoint?.(ctx()) : null)
+		if (!cursor || !from) return null
+		const dx = cursor.x - from.x, dy = cursor.y - from.y, up = spec.kind !== 'plan' && spec.kind !== 'sheet'
+		const deg = Math.round(((Math.atan2(-dy, dx) * 180) / Math.PI + 360) % 360 * 10) / 10   // anticlockwise from →, up the screen positive
+		const r = (v: number) => (spec.kind === 'sheet' ? Math.round(v * 10) / 10 : Math.round(v))
+		return `L ${r(Math.hypot(dx, dy))} · ∠ ${deg}° · ΔX ${r(dx)} · ${up ? 'ΔZ' : 'ΔY'} ${r(up ? -dy : dy)}`
+	})
 
 	function onDown(e: PointerEvent) {
 		onfocus?.()
@@ -458,6 +488,7 @@
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
 	<div class="scale">
 		<!-- the cursor in the view's own terms: plan / sheet x, y (y down); elevations, sections and rack rows x, z (up) -->
+		{#if readout}<b class="ro">{readout}</b> · {/if}
 		{#if cursor}{@const up = spec.kind === 'elevation' || spec.kind === 'section' || spec.kind === 'row'}X {Math.round(cursor.x)} · {up ? 'Z' : 'Y'} {Math.round(up ? -cursor.y : cursor.y)} · {/if}
 		{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · zoom {Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100)}% · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}
 	</div>
@@ -478,6 +509,7 @@
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
 	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }
 	.scale { position: absolute; bottom: 4px; left: 8px; font-size: 10px; color: #a1a1aa; pointer-events: none; }
+	.scale .ro { font-weight: 600; color: #1d4ed8; }
 	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; }
 	.marquee.crossing { fill: rgba(16, 185, 129, 0.08); stroke: #10b981; stroke-dasharray: 4 3; }
 </style>

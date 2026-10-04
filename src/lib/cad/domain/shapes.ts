@@ -77,7 +77,7 @@ export type Geometry =
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
-	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string> }
+	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number }
 
 export type GeometryKind = Geometry['kind']
 

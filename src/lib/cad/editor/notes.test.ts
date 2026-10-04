@@ -6,7 +6,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { SelectTool, type ToolCtx } from './tools'
 import { NoteTool, untie } from './noteTool'
-import { deleteEntities, deleteViewport } from './commands'
+import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
@@ -137,5 +137,28 @@ describe('paper notes', () => {
 		t.down(h.at(51, 59.5), h.ctx()); t.move(h.at(61, 69.5), h.ctx()); t.up(h.at(61, 69.5), h.ctx())
 		expect(h.sel()).toEqual([id])
 		expect((h.store.get(id) as Shape).geom).toMatchObject({ at: { x: 60, y: 70 } })
+	})
+})
+
+describe('deleting a section that sheets show (backlog: asks about its viewports)', () => {
+	const cut = { type: 'section', id: 'X', levelId: 'L33', name: 'B', a: { x: 0, y: 0 }, b: { x: 5000, y: 0 }, depth: 3000 } as const
+	const sheet: Sheet = { ...SHEET, viewports: [{ id: 'V', view: { levelId: 'L33', spec: { kind: 'section', sectionId: 'X' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 50, centre: { x: 0, y: 0 } }] }
+	const load = () => { const s = new EntityStore(); s.load([...demoProject(), cut, sheet]); return s }
+	it('kept: the viewport becomes a plain elevation looking the same way (a → b along x looks up the sheet = Front), one undo step', () => {
+		const store = load()
+		expect(sectionViewports(store, ['X'])).toHaveLength(1)
+		deleteEntities(store, ['X'], retargetSectionViewports(store, new ProjectIndex(store.all()), ['X'], true))
+		expect(store.get('X')).toBeUndefined()
+		const vp = (store.get('SH') as Sheet).viewports[0]
+		expect(vp.view.spec).toEqual({ kind: 'elevation', dir: 'front' })
+		expect(vp).toMatchObject({ scale: 50, rect: { x: 20, y: 20, w: 200, h: 150 } })
+		expect(store.undoLabels).toEqual(['Delete'])
+		store.undo()
+		expect((store.get('SH') as Sheet).viewports[0].view.spec).toEqual({ kind: 'section', sectionId: 'X' })
+	})
+	it('not kept: the viewport comes off the sheet with the section', () => {
+		const store = load()
+		deleteEntities(store, ['X'], retargetSectionViewports(store, new ProjectIndex(store.all()), ['X'], false))
+		expect((store.get('SH') as Sheet).viewports).toEqual([])
 	})
 })

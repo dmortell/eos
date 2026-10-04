@@ -49,6 +49,101 @@ export function removeNode(s: Shape, nodeId: Id): Shape | null {
 	return { ...withGeom(s, { ...g, nodes, segs }), ...openings }
 }
 
+/**
+ * JOIN node `fromId` into node `intoId` (a node dropped on another): `from`'s segments now end at `into`, and `from`
+ * goes. A segment between the two collapses and goes (Dave's edge case: A dropped on B when A–B is a segment);
+ * two segments left joining the same pair become one. Null when nothing would be left (a single segment).
+ */
+export function mergeNode(s: Shape, fromId: Id, intoId: Id): Shape | null {
+	const g = geomOf(s)
+	if (fromId === intoId || !g.nodes.some((n) => n.id === intoId)) return s
+	const seen = new Set<string>()
+	const segs = g.segs
+		.map((x) => ({ ...x, a: x.a === fromId ? intoId : x.a, b: x.b === fromId ? intoId : x.b }))
+		.filter((x) => {
+			if (x.a === x.b) return false
+			const k = [x.a, x.b].sort().join('|')
+			if (seen.has(k)) return false
+			seen.add(k)
+			return true
+		})
+	if (!segs.length) return null
+	const used = new Set(segs.flatMap((x) => [x.a, x.b]))
+	const nodes = g.nodes.filter((n) => n.id !== fromId && used.has(n.id))
+	const openings = s.role?.kind === 'wall' ? { role: { ...s.role, openings: s.role.openings.filter((o) => segs.some((x) => x.id === o.segId)) } } : {}
+	return { ...withGeom(s, { ...g, nodes, segs }), ...openings }
+}
+
+/** Two paths can become one when they are the same kind of thing: two trunks, two walls, two lines. */
+export function canJoin(a: Shape, b: Shape): boolean {
+	if (a.geom.kind !== 'path' || b.geom.kind !== 'path' || a.id === b.id) return false
+	const ra = a.role, rb = b.role
+	if (!ra || !rb) return !ra && !rb
+	if (ra.kind !== rb.kind) return false
+	return ra.kind !== 'containment' || rb.kind !== 'containment' || ra.form === rb.form
+}
+
+/**
+ * JOIN path `b` into path `a` (Dave: a trunk's node dropped on another trunk's node): one shape (a's id, role, label)
+ * with both graphs, each `[from, into]` node pair (one node from each run, either way round) merged into `into`.
+ * b's segments keep b's section as their own where it differs; a wall's openings come along.
+ */
+export function joinShapes(a: Shape, b: Shape, pairs: [Id, Id][]): Shape | null {
+	const ga = geomOf(a), gb = geomOf(b)
+	const own = (x: PathSeg) => (x.section || !b.section || JSON.stringify(b.section) === JSON.stringify(a.section) ? x : { ...x, section: b.section })
+	let out: Shape | null = { ...withGeom(a, { ...ga, nodes: [...ga.nodes, ...gb.nodes], segs: [...ga.segs, ...gb.segs.map(own)] }) }
+	if (a.role?.kind === 'wall' && b.role?.kind === 'wall') out = { ...out, role: { ...a.role, openings: [...a.role.openings, ...b.role.openings] } }
+	for (const [from, into] of pairs) { out = out && mergeNode(out, from, into); if (!out) return null }
+	return out
+}
+
+/** The path's CONNECTED pieces as shapes: the piece holding the first segment keeps the id, the others get new ids
+ *  (a wall's openings go with their segment). One piece = the shape as it is. */
+export function pieces(s: Shape): Shape[] {
+	const g = geomOf(s)
+	const next = new Map<Id, Id[]>()
+	for (const x of g.segs) { next.set(x.a, [...(next.get(x.a) ?? []), x.b]); next.set(x.b, [...(next.get(x.b) ?? []), x.a]) }
+	const seen = new Set<Id>(), groups: Set<Id>[] = []
+	for (const x of g.segs) {
+		if (seen.has(x.a)) continue
+		const group = new Set<Id>(), todo = [x.a]
+		while (todo.length) { const n = todo.pop()!; if (group.has(n)) continue; group.add(n); seen.add(n); todo.push(...(next.get(n) ?? [])) }
+		groups.push(group)
+	}
+	if (groups.length <= 1) return [s]
+	return groups.map((group, i) => {
+		const segs = g.segs.filter((x) => group.has(x.a))
+		const role = s.role?.kind === 'wall' ? { role: { ...s.role, openings: s.role.openings.filter((o) => segs.some((x) => x.id === o.segId)) } } : {}
+		return { ...withGeom(s, { ...g, nodes: g.nodes.filter((n) => group.has(n.id)), segs }), ...role, id: i === 0 ? s.id : newId(), ...(i > 0 && s.label ? { label: undefined } : {}) }
+	})
+}
+
+/** DISCONNECT at a node (Dave: separate the segments joined there): each segment after the first gets its own copy of
+ *  the node, then the path splits into its pieces (a run cut in two, a junction in three). */
+export function splitAtNode(s: Shape, nodeId: Id): Shape[] {
+	const g = geomOf(s), n = g.nodes.find((x) => x.id === nodeId)
+	const touching = g.segs.filter((x) => x.a === nodeId || x.b === nodeId)
+	if (!n || touching.length < 2) return [s]
+	const copies: PathNode[] = []
+	const segs = g.segs.map((x) => {
+		if (!touching.includes(x) || x === touching[0]) return x
+		const c = { ...n, id: newId() }
+		copies.push(c)
+		return { ...x, a: x.a === nodeId ? c.id : x.a, b: x.b === nodeId ? c.id : x.b }
+	})
+	return pieces(withGeom(s, { ...g, nodes: [...g.nodes, ...copies], segs }))
+}
+
+/** Delete segments: nodes left with none go, and what remains splits into its pieces ([] = nothing left). */
+export function removeSegs(s: Shape, segIds: Id[]): Shape[] {
+	const g = geomOf(s)
+	const segs = g.segs.filter((x) => !segIds.includes(x.id))
+	if (!segs.length) return []
+	const used = new Set(segs.flatMap((x) => [x.a, x.b]))
+	const role = s.role?.kind === 'wall' ? { role: { ...s.role, openings: s.role.openings.filter((o) => segs.some((x) => x.id === o.segId)) } } : {}
+	return pieces({ ...withGeom(s, { ...g, nodes: g.nodes.filter((n) => used.has(n.id)), segs }), ...role })
+}
+
 /** How many segments meet at each node (1 = an end, 2 = a run, 3+ = a junction). */
 export function degree(s: Shape): Map<Id, number> {
 	const m = new Map<Id, number>()

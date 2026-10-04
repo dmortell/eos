@@ -15,15 +15,22 @@ export class DeviceTool implements Tool {
 	readonly cursor = 'copy'
 	#hover: { rack: Id; u: number } | null = null
 
-	constructor(private templateOf: () => DeviceTemplate | null) {}
+	constructor(private templateOf: () => DeviceTemplate | null, private mountOf: () => Device['mount'] = () => undefined) {}
+
+	/** The device to add: on a view of one face a one-face template goes on that face; a both-face one (a panel) stays
+	 *  'both', fixed to one side when the toolbar's Mount says so. */
+	#make(t: DeviceTemplate, rackId: Id, u: number, name: string, c: ToolCtx): Device {
+		const face = c.space.spec.kind === 'row' && t.face !== 'both' ? c.space.spec.face : t.face
+		const d = deviceFromTemplate(t, rackId, t.kind === 'pdu' ? 1 : u, name, face), mount = this.mountOf()
+		return mount && d.face === 'both' && d.kind !== 'pdu' ? { ...d, mount } : d
+	}
 
 	down(e: PointerIn, c: ToolCtx): void {
 		const t = this.templateOf(), hit = c.rowHit?.(e.p)
 		if (!t) { c.say?.('Choose a device template first'); return }
 		if (!hit) { c.say?.('Click inside a rack, at the U where the device should sit'); return }
 		const all = c.store.ofType('device')
-		const face = c.space.spec.kind === 'row' && t.face !== 'both' ? c.space.spec.face : t.face
-		const d = deviceFromTemplate(t, hit.rack.id, t.kind === 'pdu' ? 1 : hit.u, nextName(t, all), face)
+		const d = this.#make(t, hit.rack.id, hit.u, nextName(t, all), c)
 		const problem = placementProblem(d, hit.rack, all)
 		if (problem) { c.say?.(problem); return }
 		c.store.transact(`Add ${d.name} to ${hit.rack.name}`, (tx) => tx.put(d))
@@ -45,7 +52,7 @@ export class DeviceTool implements Tool {
 		const u = t.kind === 'pdu' ? 1 : h.u, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2
 		const w = Math.min(t.widthMm ?? RACK_DEVICE_W, l.rack.widthMm), x0 = l.x0 + (l.rack.widthMm - w) / 2, x1 = x0 + w
 		const y0 = -(base + (u - 1) * RU_MM), y1 = -(base + (u - 1 + t.heightU) * RU_MM)
-		const d = deviceFromTemplate(t, l.rack.id, u, t.name, t.face)
+		const d = this.#make(t, l.rack.id, u, t.name, c)
 		const bad = !!placementProblem(d, l.rack, c.store.ofType('device'))
 		return [{ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls: bad ? 'draft draft-bad' : 'draft' }]
 	}

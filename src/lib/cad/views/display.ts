@@ -2,6 +2,9 @@
 // data in the view's drawing mm (a plan: model mm, y down). `src` names the entity a prim draws, for picking.
 import type { Id, Pt } from '../domain/types'
 
+/** The scale plans and elevations are drawn at on screen (1:N): annotation (text, symbols) is sized for it. */
+export const PLOT_SCALE = 100
+
 export type Prim = (
 	/** A polyline or polygon. `w` = a real width in drawing mm (a trunk, a wall); absent = a hairline. `sub` = a part of
 	 *  the source entity (a port number). */

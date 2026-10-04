@@ -14,6 +14,8 @@
 	import OutletProps from './OutletProps.svelte'
 	import DeviceMultiProps from './DeviceMultiProps.svelte'
 	import RowProps from './RowProps.svelte'
+	import RackDoors from './RackDoors.svelte'
+	import SectionProps from './SectionProps.svelte'
 	import RenumberPanel from './RenumberPanel.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { renumberable } from '../domain/renumber'
@@ -196,6 +198,7 @@
 				<span><input type="checkbox" checked={racks.every((r) => r.patchFrame)} indeterminate={racks.some((r) => r.patchFrame) && !racks.every((r) => r.patchFrame)}
 					onchange={(e) => setRacks(e.currentTarget.checked ? 'Patch frames' : 'Not patch frames', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 			</label>
+			<RackDoors {project} {racks} />
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
 		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
@@ -249,27 +252,7 @@
 		<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
 			<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 		</label>
-		{#if r.kind === 'cabinet'}
-			<!-- doors: their swings show on the plan (aisle clearance) -->
-			{@const doors = r.doors ?? {}}
-			{@const setDoors = (patch: NonNullable<Rack['doors']>) => { const next = { ...doors, ...patch }; put(r, 'Rack doors', { doors: next.front || next.rear ? next : undefined }) }}
-			<label class="row">Doors
-				<span class="flex gap-1">
-					<select class="inp" title="Front door" value={doors.front ?? ''} onchange={(e) => setDoors({ front: (e.currentTarget.value || undefined) as 'single' | 'split' | undefined })}>
-						<option value="">front: none</option><option value="single">front: single</option><option value="split">front: split</option>
-					</select>
-					<select class="inp" title="Rear door" value={doors.rear ?? ''} onchange={(e) => setDoors({ rear: (e.currentTarget.value || undefined) as 'single' | 'split' | undefined })}>
-						<option value="">rear: none</option><option value="single">rear: single</option><option value="split">rear: split</option>
-					</select>
-				</span>
-			</label>
-			{#if doors.front === 'single' || doors.rear === 'single'}
-				<label class="row" title="The side a single door hangs on, as seen standing at that face">Hinge
-					<select class="inp" value={doors.hinge ?? 'left'} onchange={(e) => setDoors({ hinge: e.currentTarget.value === 'right' ? 'right' : undefined })}>
-						<option value="left">left</option><option value="right">right</option>
-					</select></label>
-			{/if}
-		{/if}
+		<RackDoors {project} racks={[r]} />
 		<label class="row">Level
 			<select class="inp" value={r.levelId} title="Move the rack (with its devices) to another level — it comes off the plan there" onchange={(e) => moveToLevel([r], e.currentTarget.value)}>
 				{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
@@ -298,6 +281,12 @@
 				{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
 			</select>
 		</label>
+		{#if d.face === 'both' && d.kind !== 'pdu'}
+			<label class="row" title="Fixed to one side only: it then shares its U with a device on the other side (when their depths fit)">Mount
+				<select class="inp" value={d.mount ?? ''} onchange={(e) => putDevice(d, 'Device mount', { mount: (e.currentTarget.value || undefined) as Device['mount'] })}>
+					<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
+				</select></label>
+		{/if}
 		<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
@@ -352,13 +341,7 @@
 	{:else if one.type === 'cord'}
 		<CordProps {project} {ws} c={one} />
 	{:else if one.type === 'section'}
-		<!-- a section cut line (Phase 6.2): name, how deep it sees, which way it looks; open it in the pane -->
-		<p class="font-semibold">Section {one.name}</p>
-		<label class="row">Name <input class="inp" value={one.name} onchange={(e) => e.currentTarget.value.trim() && put(one, 'Section name', { name: e.currentTarget.value.trim() })} /></label>
-		<label class="row">Depth (mm) <input class="inp" type="number" min="100" step="100" value={one.depth} onchange={(e) => num(e.currentTarget.value) && put(one, 'Section depth', { depth: Math.max(100, Number(e.currentTarget.value)) })} /></label>
-		<label class="row">Looks <span><button class="btn" title="Look the other way" onclick={() => put(one, 'Flip section', { flip: !one.flip || undefined })}>Flip</button></span></label>
-		<button class="btn" onclick={() => ws.openView({ kind: 'section', sectionId: one.id })}>Open section {one.name}</button>
-		<p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
+		<SectionProps {project} {ws} s={one} />
 	{:else if one.type === 'shape' && (one.geom.kind === 'text' || one.geom.kind === 'leader' || one.geom.kind === 'cloud')}
 		<!-- a note (on a sheet's paper, or a plan's text): its words and size -->
 		{@const g = one.geom}
@@ -383,6 +366,7 @@
 		<p class="font-semibold">Block: {b?.name ?? 'missing block'}</p>
 		<label class="row">Rotation <input class="inp" type="number" value={g.rot ?? 0} onchange={(e) => put(one, 'Rotate', { geom: { ...g, rot: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row">Scale <input class="inp" type="number" step="0.1" value={g.scale ?? 1} onchange={(e) => put(one, 'Scale', { geom: { ...g, scale: Number(e.currentTarget.value) || undefined } })} /></label>
+		<label class="row" title="Height above FFL: where it shows in elevations and sections">Height (Z) <input class="inp" type="number" step="50" value={g.z ?? 0} onchange={(e) => put(one, 'Block height', { geom: { ...g, z: Number(e.currentTarget.value) || undefined } })} /></label>
 		{#if b}<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(one.id))}>Explode</button>{/if}
 		{#if b && !b.builtin && !b.retired}
 			<button class="btn del" title="Delete the block from the library (all projects): it can't be picked any more, but drawings that use it keep it"

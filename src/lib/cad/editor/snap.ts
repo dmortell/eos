@@ -3,8 +3,9 @@
 import type { Id, Pt } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from '../views/display'
+import type { Shape } from '../domain/shapes'
 
-export type SnapKind = 'node' | 'mid' | 'outlet' | 'rack' | 'grid'
+export type SnapKind = 'node' | 'mid' | 'centre' | 'outlet' | 'rack' | 'grid'
 export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
 
 export const GRID_MM = 10
@@ -17,19 +18,31 @@ export function gridSnap(p: Pt, step = GRID_MM): Pt {
  * Snaps in any view, from what is DRAWN: line vertices and circle centres of the display list (an elevation's run
  * ends, rack corners, outlet faceplates), else the grid. No attach — attaching is done in plan.
  */
-export function snapToPrims(prims: Prim[], p: Pt, tol: number, opts: { skip?: Id; noGrid?: boolean } = {}): Snap {
+export function snapToPrims(prims: Prim[], p: Pt, tol: number, opts: { skip?: Id | Id[]; noGrid?: boolean } = {}): Snap {
+	const skips = new Set(Array.isArray(opts.skip) ? opts.skip : opts.skip ? [opts.skip] : [])
 	let best: Snap | undefined, bestD = tol
 	const offer = (q: Pt) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bestD) { best = { p: q, kind: 'node' }; bestD = d } }
 	for (const pr of prims) {
-		if (!pr.src || pr.src === opts.skip) continue
+		if (!pr.src || skips.has(pr.src)) continue
 		if (pr.k === 'line') pr.pts.forEach(offer)
 		else if (pr.k === 'circle') offer(pr.c)
 	}
 	return best ?? (opts.noGrid ? { p, kind: 'grid' } : { p: gridSnap(p), kind: 'grid' })
 }
 
+/** A shape's centre point, if it has one (a polygon: the average of its corners). */
+export function centreOf(g: Shape['geom']): Pt | null {
+	switch (g.kind) {
+		case 'circle': case 'arc': case 'rect': case 'image': return g.centre
+		case 'insert': return g.at
+		case 'polygon': return g.pts.length ? { x: g.pts.reduce((a, q) => a + q.x, 0) / g.pts.length, y: g.pts.reduce((a, q) => a + q.y, 0) / g.pts.length } : null
+		default: return null
+	}
+}
+
 /** The nearest object snap within `tol`, else the grid point. `skip` excludes a shape (the one being edited). */
-export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: { skip?: Id; noGrid?: boolean } = {}): Snap {
+export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: { skip?: Id | Id[]; noGrid?: boolean } = {}): Snap {
+	const skips = new Set(Array.isArray(opts.skip) ? opts.skip : opts.skip ? [opts.skip] : [])
 	let best: Snap | undefined, bestD = tol
 	const offer = (s: Snap) => {
 		const d = Math.hypot(s.p.x - p.x, s.p.y - p.y)
@@ -38,7 +51,11 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 	for (const o of ix.outlets) if (o.levelId === levelId && o.at) offer({ p: o.at, kind: 'outlet', attach: o.id })
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) offer({ p: r.at, kind: 'rack', attach: r.id })
 	for (const s of ix.shapes) {
-		if (s.levelId !== levelId || s.id === opts.skip || s.geom.kind !== 'path') continue
+		if (s.levelId !== levelId || skips.has(s.id)) continue
+		// the CENTRE of a circle / arc / box / polygon, and a block's insertion point (backlog "Centre snap")
+		const c = centreOf(s.geom)
+		if (c) offer({ p: c, kind: 'centre' })
+		if (s.geom.kind !== 'path') continue
 		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
 		for (const n of s.geom.nodes) offer({ p: n, kind: 'node', z: n.z })
 		for (const g of s.geom.segs) {

@@ -27,7 +27,9 @@ export function containmentKitSku(p: CatalogProduct | undefined, colour: string 
 
 const GROUP_ORDER: Record<RackBomGroup, number> = { Rack: 0, 'Rack accessory': 1, VCM: 2, 'VCM accessory': 3, 'Row accessory': 4, 'Desk / shelf': 5 }
 
-export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackBomLine[] {
+/** `row` = one row only (null = racks in no row): the BOM dialog's "by row" view. */
+export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { row?: Id | null } = {}): RackBomLine[] {
+	const inRow = (r: Rack) => o.row === undefined || (r.rowId ?? null) === o.row
 	const byId = new Map(catalog.map((p) => [p.id, p]))
 	const bySku = new Map(catalog.map((p) => [p.sku, p]))
 	const lines = new Map<string, RackBomLine>()
@@ -44,6 +46,7 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackB
 	const spaces = new Set(ix.racks.map((r) => r.spaceId))
 	for (const sp of spaces) {
 		for (const r of racksInOrder(ix, sp)) {
+			if (!inRow(r)) continue
 			// desks and shelves too (Dave: every rack), and each one's notes on its line
 			if (r.kind === 'desk' || r.kind === 'shelf') { add(describe(r), 'Desk / shelf', ['no catalogue SKU', r.notes].filter(Boolean).join(' · ')); continue }
 			const p = r.catalogId ? byId.get(r.catalogId) ?? bySku.get(r.catalogId) : undefined
@@ -65,6 +68,7 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackB
 		}
 	}
 	for (const row of rows.values()) {
+		if (o.row !== undefined && row.id !== o.row) continue
 		const cont = row.containment ?? 'none'
 		if (cont === 'none') continue
 		const vcm = ix.racks.filter((r) => r.rowId === row.id && r.kind === 'vcm' && r.catalogId)

@@ -11,6 +11,7 @@
 	import { layerCounts } from '../views/layers'
 	import { newId } from '../domain/ids'
 	import { Icon, DragReorder } from '$lib'
+	import SideSection from './SideSection.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -78,10 +79,8 @@
 	}, (id) => all.findIndex((l) => l.id === id))
 </script>
 
-<div class="head">
-	<p class="hdr">Layers</p>
-	<button class="lnk" title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={add}>+ Layer</button>
-</div>
+<SideSection key="layers" title="Layers">
+{#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={add}>+ Layer</button>{/snippet}
 {#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
 {#if vp}<p class="note">❄ = frozen in the picked viewport (prints) · Shift = every viewport on the sheet</p>{/if}
 {#each rows as l (l.id)}
@@ -112,11 +111,9 @@
 		<button class="ic" class:on={locked} title={locked ? 'Unlock' : 'Lock: still drawn and snapped to, but can’t be picked (only for you)'} onclick={() => lock(l)}><Icon name={locked ? 'lock' : 'lockOpen'} size={12} /></button>
 	</div>
 {/each}
+</SideSection>
 
 <style>
-	.head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 0.75rem; padding: 0 0.25rem 0.25rem; }
-	.hdr { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; color: var(--cad-muted); }
-	.lnk { font-size: 11px; color: var(--cad-link); }
 	.search { width: 100%; margin-bottom: 0.25rem; padding: 1px 4px; font-size: 12px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 	.note { padding: 0 0.25rem 0.25rem; font-size: 10px; color: var(--cad-faint); }
 	.row { display: flex; align-items: center; gap: 0.2rem; padding: 0 2px; font-size: 12px; border-radius: 3px; }

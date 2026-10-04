@@ -10,6 +10,7 @@
 	import { exportPanelLabels } from '../render/exports'
 	import type { Device } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
+	import SideSection from './SideSection.svelte'
 
 	let { project, ws, levelId, projectName, onview }: { project: CadProject; ws: Workspace; levelId: string; projectName: string; onview?: (s: ViewSpec) => void } = $props()
 
@@ -66,8 +67,8 @@
 	}
 </script>
 
-	<p class="mt-3 flex justify-between px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Racks
-		<button class="font-normal normal-case text-blue-600 hover:underline" title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button></p>
+<SideSection key="racks" title="Racks">
+	{#snippet actions()}<button title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button>{/snippet}
 	{#each groups as g (g.space)}
 		<div class="room">
 			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
@@ -91,6 +92,7 @@
 			<p class="px-2 text-[11px] text-zinc-400">No racks yet — draw them with the Rack tool</p>
 		{/each}
 	{/each}
+</SideSection>
 
 <style>
 	.acts { width: 1.6rem; border: 0; background: transparent; color: var(--cad-muted); font-size: 12px; cursor: pointer; appearance: none; text-align: center; }

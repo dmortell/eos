@@ -7,9 +7,14 @@
 	import { Icon, DragReorder } from '$lib'
 	import { toast } from 'svelte-sonner'
 	import { createUploadThing } from '../../../routes/projects/[pid]/uploads/uploader'
+	import type { Firestore } from 'firebase/firestore'
+	import { saveProjectImage } from '../app/projectFiles'
+	import LogoPicker from './LogoPicker.svelte'
 	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
 
-	let { template, onchange }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void } = $props()
+	// `files` = the project's Uploads: logos are picked from its images, and new ones are added to it
+	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string } } = $props()
+	let picking = $state<'company' | 'client' | null>(null)
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
 	const set = (patch: Partial<TitleBlockTemplate>) => onchange({ ...t, logo: t.logo ?? '', fields: t.fields.map((f) => ({ ...f })), ...patch })
 	const setCompany = (patch: Partial<TbCompany>) => set({ company: { ...t.company, ...patch } })
@@ -41,6 +46,9 @@
 		onClientUploadComplete: (res) => {
 			const f = Array.isArray(res) ? res[0] : null, p = pending; pending = null; uploading = null
 			if (p && f?.ufsUrl) setLogo(p.k, { src: f.ufsUrl, key: f.key, h: p.h })
+			// listed in the project's Uploads too, so it can be picked again (another sheet, another logo slot)
+			if (f?.ufsUrl && files) saveProjectImage(files.db, files.pid, { name: f.name, url: f.ufsUrl, key: f.key, size: f.size, type: f.type ?? 'image/png' })
+				.catch((e) => toast.error(`The logo is set, but it couldn't be added to Uploads: ${e instanceof Error ? e.message : String(e)}`))
 		},
 		onUploadError: (e) => {
 			const p = pending; pending = null; uploading = null
@@ -74,7 +82,9 @@
 		return out
 	}
 	function pickLogo(k: 'company' | 'client', e: Event) {
-		const input = e.currentTarget as HTMLInputElement, f = input.files?.[0]; input.value = ''; if (!f) return
+		const input = e.currentTarget as HTMLInputElement, f = input.files?.[0]; input.value = ''; if (f) uploadLogo(k, f)
+	}
+	function uploadLogo(k: 'company' | 'client', f: File) {
 		const img = new Image(), url = URL.createObjectURL(f), h = t.logos?.[k]?.h ?? 10
 		img.onload = async () => {
 			URL.revokeObjectURL(url)
@@ -115,9 +125,15 @@
 				{#if uploading === k}<em>uploading…</em>
 				{:else if lg.src.startsWith('data:')}<button class="logo-up" title="This logo is stored inside the project document — upload it to file storage" onclick={() => moveToStorage(k, lg)}>Move to storage</button>{/if}
 			{:else if uploading === k}<em>uploading…</em>
+			{:else if files}<button class="logo-up" title="Pick one of the project's images (Uploads), or upload a new one" onclick={() => (picking = k)}>Choose…</button>
 			{:else}<label class="logo-up">Choose image…<input type="file" accept="image/*" onchange={(e) => pickLogo(k, e)} /></label>{/if}
 		</span></div>
 {/each}
+{#if picking && files}
+	{@const k = picking}
+	<LogoPicker db={files.db} pid={files.pid} title={k === 'company' ? 'Our logo' : 'Client logo'} onclose={() => (picking = null)}
+		onpick={(f) => setLogo(k, { src: f.url, ...(f.key ? { key: f.key } : {}), h: t.logos?.[k]?.h ?? 10 })} onupload={(f) => uploadLogo(k, f)} />
+{/if}
 <div class="prop"><span>Company</span><input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} /></div>

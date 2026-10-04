@@ -77,8 +77,11 @@ export interface Underlay {
 	levelId: Id
 	fileId: string
 	page?: number
-	/** Where the page's calibrated origin sits in the plan, and mm per page unit. Read from the file's calibration
-	 *  unless overridden here. */
+	/** A level can have several floorplans, one per zone (Dave: 33F = the 3303 and 3307 PDFs); its name in the Floor
+	 *  manager. */
+	name?: string
+	/** Where the page's calibrated origin sits in the plan (default 0, 0): moves a zone's floorplan off the others when
+	 *  their calibrated origins don't line up. */
 	origin?: Pt
 	mmPerUnit?: number
 	crop?: { x: number; y: number; w: number; h: number }
@@ -187,6 +190,9 @@ export interface Device {
 	u: number
 	heightU: number
 	face: 'front' | 'rear' | 'both' | 'none'
+	/** Fixed to one side of the rack only (Dave: a front panel sharing a U with a rear one): it then takes only that side
+	 *  of its Us, and shares them with a device on the other side when their depths fit. Unset = by `face` (full depth). */
+	mount?: 'front' | 'rear'
 	portCount: number
 	portType?: 'RJ45' | 'LC' | 'SC' | 'SFP'
 	/** How ports are numbered on the face: row-major (panels: 1–24 top, 25–48 bottom) or column-major (switches: 1

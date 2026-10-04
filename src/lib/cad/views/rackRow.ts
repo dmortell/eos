@@ -7,12 +7,13 @@ import type { Id, Rack, Device, Level } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU } from '../domain/devices'
 
 export const RU_MM = 44.45
 const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
 const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
+const ON_PORTS_NAME_MM = 6.85 // a device name drawn over its ports: a 1U 48-port panel's stacked port label size
 const ROW_GAP = 800           // between rows in a room view
 const LABEL_MIN_PX = 7        // port labels start showing at this screen height
 const FULL_MIN_PX = 9         // and switch to the full stacked form here
@@ -119,15 +120,19 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 		}
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
 		out.push({ k: 'text', at: { x: mid, y: -h - 14 }, text: rackCaption(rack, spec.face), size: 40, anchor: 'middle', cls: 'datum-label' })
-		for (const d of ix.devicesIn(rack.id)) {
+		const inRack = ix.devicesIn(rack.id)
+		for (const d of inRack) {
 			if (d.face === 'none') continue
 			// a device on the other face only: a faint outline, "(rear)" / "(front)" — what takes the U from behind (Dave);
-			// not pickable, so clicks reach this face's devices
-			if (d.face !== 'both' && d.face !== spec.face && d.kind !== 'pdu') {
+			// not pickable, so clicks reach this face's devices. A both-face device MOUNTED on the other side is drawn so
+			// too where a device on this side shares its U (else it shows as usual: its ports on this face stay usable).
+			const behind = d.kind !== 'pdu' && ((d.face !== 'both' && d.face !== spec.face)
+				|| (!!d.mount && d.mount !== spec.face && inRack.some((o) => o.id !== d.id && sidesOf(o).includes(spec.face) && sharesU(o, d))))
+			if (behind) {
 				const w = Math.min(rack.widthMm, d.widthMm ?? RAIL_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 				out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, cls: 'device-other' })
-				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', minPx: 6 })
+				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.mount ?? d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', minPx: 6 })
 				continue
 			}
 			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
@@ -159,7 +164,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, minPx: 6 }
 				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
 			if (!grid) out.push(nameText)
-			let minLabel = Infinity   // the smallest port label's size: the name over the ports gives way once those can be read
+			let minLabel = Infinity   // the smallest port label: once it can be read, the name over the ports shrinks
 			for (let n = 1; n <= d.portCount; n++) {
 				const c = portCell(d, n, dx, z0)
 				if (!c) break
@@ -177,9 +182,17 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
-			// over the ports, the name shows while the port labels are too small to read and hides once they show (Dave: P3C
-			// U32 / U37's name covered its ports)
-			if (grid) out.push(minLabel < Infinity && nameText.k === 'text' ? { ...nameText, maxPx: LABEL_MIN_PX * (nameText.size / minLabel) } : nameText)
+			// over the ports (Dave: P3C U32 / U37's name covered them): the name is normal size until the port labels can be
+			// read, then small (a 1U 48-port panel's port label size) and see-through, in the top-left corner
+			if (grid && nameText.k === 'text') {
+				if (minLabel === Infinity) out.push(nameText)
+				else {
+					const k = LABEL_MIN_PX / minLabel   // px per mm where the port labels appear
+					const small = Math.min(ON_PORTS_NAME_MM, nameSize)
+					out.push({ ...nameText, maxPx: nameSize * k })
+					out.push({ ...nameText, at: { x: nameText.at.x, y: -(z1 - small * 0.95) }, size: small, cls: `${nameCls} on-ports on-ports-small`, minPx: small * k })
+				}
+			}
 		}
 		// the U scale last: nothing in the rack (a PDU, a deep device) covers it
 		out.push(...uScale)

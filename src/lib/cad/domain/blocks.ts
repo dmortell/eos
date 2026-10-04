@@ -74,6 +74,14 @@ export function fillAttrs(text: string, attrs: Record<string, string>): string {
 
 export const outletAttrs = (o: Outlet): Record<string, string> => ({ LABEL: o.label, PORTS: String(o.ports.length), USAGE: o.usage })
 
+/** An INSERT's attributes: every `{TAG}` in the block blank unless the insert sets it (an outlet symbol placed as a
+ *  plain block — a power faceplate — has no label / ports / usage to show; Dave, A009). */
+export function insertAttrs(b: Block, attrs: Record<string, string> = {}): Record<string, string> {
+	const out: Record<string, string> = {}
+	for (const s of b.shapes) if (s.geom.kind === 'text') for (const m of s.geom.text.matchAll(/\{([A-Z_]+)\}/g)) out[m[1]] = ''
+	return { ...out, ...attrs }
+}
+
 // ── Make a block from shapes ─────────────────────────────────────────────────────────────────────────────────────
 
 function pointsOf(g: Geometry): Pt[] {

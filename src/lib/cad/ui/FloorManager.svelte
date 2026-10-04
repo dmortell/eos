@@ -5,7 +5,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Building, Level, Id } from '../domain/types'
+	import type { Building, Level, Id, Underlay } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
 	import { floorName, floorNumbers, restack, planFloors, renameFloors, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
 	import { levelContents } from '../editor/commands'
@@ -39,13 +39,20 @@
 	// ── each level's floorplan: a calibrated page of a project PDF (Uploads); picking another replaces it ──
 	let pdfs = $state<PdfFile[]>([])
 	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }))
-	const underlayOf = (l: Level) => project.store.ofType('underlay').find((u) => u.levelId === l.id)
-	function setFloorplan(l: Level, value: string) {
-		const u = underlayOf(l)
-		if (!value) { if (u) project.store.transact(`${l.name}: no floorplan`, (tx) => tx.del(u.id)); return }
-		const [fileId, page] = value.split('#'), name = pdfs.find((f) => f.id === fileId)?.name ?? fileId
-		const next = { ...(u ?? { type: 'underlay' as const, id: newId(), levelId: l.id }), fileId, page: Number(page) }
-		project.store.transact(`${l.name}: floorplan ${name} p.${page}`, (tx) => tx.put(next))
+	// a level can have several floorplans, one per zone (Dave: 33F = 3303 + 3307), each moved by its own X / Y offset
+	const underlaysOf = (l: Level) => { void project.rev; return project.store.ofType('underlay').filter((u) => u.levelId === l.id) }
+	const fileName = (id: string) => pdfs.find((f) => f.id === id)?.name ?? id
+	/** `u` = the zone to change, or none to add one. */
+	function setFloorplan(l: Level, value: string, u?: Underlay) {
+		if (!value) return
+		const [fileId, page] = value.split('#'), n = underlaysOf(l).length
+		const next: Underlay = { ...(u ?? { type: 'underlay', id: newId(), levelId: l.id, ...(n ? { name: `Zone ${n + 1}` } : {}) }), fileId, page: Number(page) }
+		project.store.transact(`${l.name}: floorplan ${fileName(fileId)} p.${page}`, (tx) => tx.put(next))
+	}
+	const putZone = (l: Level, u: Underlay, label: string, patch: Partial<Underlay>) => project.store.transact(`${l.name}: ${label}`, (tx) => tx.put({ ...u, ...patch }))
+	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
+		const o = { x: 0, y: 0, ...u.origin, [k]: Number(v) || 0 }
+		putZone(l, u, 'floorplan offset', { origin: o.x || o.y ? o : undefined })
 	}
 
 	const range = $derived(floorNumbers(lowest, top).reverse())
@@ -117,6 +124,14 @@
 	const HKEYS: [keyof Heights, string][] = [['slabMm', 'Slab'], ['raisedFloorMm', 'Raised floor'], ['clearHeightMm', 'Clear height'], ['plenumMm', 'Plenum']]
 </script>
 
+{#snippet pages()}
+	{#each pdfs as f (f.id)}
+		{#each Array.from({ length: f.pageCount }, (_, i) => i + 1) as n (n)}
+			<option value="{f.id}#{n}" disabled={!f.calibrated[n]}>{f.name}{f.pageCount > 1 ? ` p.${n}` : ""}{f.calibrated[n] ? "" : " (calibrate in Uploads)"}</option>
+		{/each}
+	{/each}
+{/snippet}
+
 <div class="backdrop" role="presentation" onclick={onclose}>
 	<div class="dlg" role="dialog" aria-label="Floors" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Floors</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
@@ -145,7 +160,7 @@
 		<section>
 			<p class="h">Heights (mm) <span class="hint">· FFL is stacked from them, floor 1 stays where it is</span></p>
 			<table>
-				<thead><tr><th>Floor</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th><th title="The floorplan under this level's plan: a page of a project PDF, calibrated in Uploads (its crop is applied)">Floorplan</th></tr></thead>
+				<thead><tr><th>Floor</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th><th title="The floorplan under this level's plan: a page of a project PDF, calibrated in Uploads (its crop is applied)">Floorplan <span class="hint">· X / Y offset (mm) per zone</span></th></tr></thead>
 				<tbody>
 					<tr class="typ">
 						<td>Typical</td>
@@ -154,20 +169,28 @@
 						<td></td>
 					</tr>
 					{#each main as l (l.id)}
-						{@const u = underlayOf(l)}
+						{@const zones = underlaysOf(l)}
 						<tr>
 							<td><input class="name" value={l.name} onchange={(e) => { const t = e.currentTarget.value.trim(); if (t && t !== l.name) project.store.transact(`Rename ${l.name} → ${t}`, (tx) => tx.put({ ...l, name: t })) }} /></td>
 							{#each HKEYS as [k] (k)}<td><input type="number" min="0" value={l.heights[k]} onchange={(e) => setHeight(l, k, e.currentTarget.value)} /></td>{/each}
 							<td class="ffl">{(l.elevationMm / 1000).toFixed(3)}</td>
 							<td>
-								<select class="fp" value={u ? `${u.fileId}#${u.page ?? 1}` : ''} onchange={(e) => setFloorplan(l, e.currentTarget.value)}>
-									<option value="">—</option>
-									{#if u && !pdfs.some((f) => f.id === u.fileId)}<option value="{u.fileId}#{u.page ?? 1}">{u.fileId} p.{u.page ?? 1}</option>{/if}
-									{#each pdfs as f (f.id)}
-										{#each Array.from({ length: f.pageCount }, (_, i) => i + 1) as n (n)}
-											<option value="{f.id}#{n}" disabled={!f.calibrated[n]}>{f.name}{f.pageCount > 1 ? ` p.${n}` : ''}{f.calibrated[n] ? '' : ' (calibrate in Uploads)'}</option>
-										{/each}
-									{/each}
+								{#each zones as z (z.id)}
+									<div class="zone">
+										{#if zones.length > 1}<input class="zn" value={z.name ?? ''} placeholder="zone" title="Zone name" onchange={(e) => putZone(l, z, 'zone name', { name: e.currentTarget.value.trim() || undefined })} />{/if}
+										<select class="fp" value="{z.fileId}#{z.page ?? 1}" onchange={(e) => setFloorplan(l, e.currentTarget.value, z)}>
+											{#if !pdfs.some((f) => f.id === z.fileId)}<option value="{z.fileId}#{z.page ?? 1}">{z.fileId} p.{z.page ?? 1}</option>{/if}
+											{@render pages()}
+										</select>
+										<input class="off" type="number" step="100" value={z.origin?.x ?? 0} title="Move this floorplan right (mm)" onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} />
+										<input class="off" type="number" step="100" value={z.origin?.y ?? 0} title="Move this floorplan down (mm)" onchange={(e) => setOffset(l, z, 'y', e.currentTarget.value)} />
+										<button class="x" title="Remove this floorplan" onclick={() => project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))}>✕</button>
+									</div>
+								{/each}
+								<!-- picking a page here adds it: the first floorplan, or another zone -->
+								<select class="fp add" value="" onchange={(e) => { setFloorplan(l, e.currentTarget.value); e.currentTarget.value = '' }}>
+									<option value="">{zones.length ? '+ Add zone…' : '—'}</option>
+									{@render pages()}
 								</select>
 							</td>
 						</tr>
@@ -181,7 +204,7 @@
 
 <style>
 	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; }
-	.dlg { width: min(46rem, 94vw); max-height: 86vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
+	.dlg { width: min(66rem, 96vw); max-height: 86vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
 	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.x { color: var(--cad-muted, #71717a); }
 	section { padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); display: flex; flex-direction: column; gap: 6px; }
@@ -191,7 +214,13 @@
 	input { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	input.pat { width: 5.5rem; font-family: ui-monospace, monospace; }
 	input.name { width: 7rem; }
-	select.fp { max-width: 14rem; font-size: 11px; }
+	select.fp { max-width: 14rem; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
+	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
+	.zone { display: flex; gap: 2px; align-items: center; margin-bottom: 2px; }
+	input.zn { width: 5rem; font-size: 11px; }
+	input.off { width: 4.5rem; font-size: 11px; }
+	button.x { color: var(--cad-muted, #71717a); padding: 0 4px; }
+	button.x:hover { color: #b91c1c; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }
 	.chip { font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--cad-line, #d4d4d8); background: var(--cad-input, white); }
 	.chip.has { border-color: #2563eb; color: #1d4ed8; }

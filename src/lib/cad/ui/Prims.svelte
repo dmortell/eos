@@ -113,6 +113,9 @@
 	.grip-bar.grip-bar-sel { stroke: #ea580c; stroke-opacity: 0.8; }
 	.grip.grip-handle.filled { fill: #ffffff; stroke: #1d4ed8; stroke-width: 2; }
 	.grip.grip-round.filled { fill: #1d4ed8; stroke: #ffffff; stroke-width: 2; }
+	/* a picked node / segment of the selected run (Delete removes it; Properties: Disconnect) */
+	.grip.grip-sel.filled { fill: #2563eb; stroke: #ffffff; stroke-width: 2; }
+	.seg-sel { stroke: #2563eb; stroke-width: 7; stroke-opacity: 0.45; stroke-linecap: round; fill: none; }
 	.section-extent { stroke: #0f766e; stroke-dasharray: 4 4; fill: rgba(15, 118, 110, 0.05); }
 	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }
 	.section-arrow.filled { fill: #0f766e; }
@@ -155,6 +158,7 @@
 	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
 	text.device-label.on-ports { paint-order: stroke; stroke: white; stroke-width: 3px; stroke-opacity: 0.9; }
+	text.device-label.on-ports-small { fill-opacity: 0.45; font-weight: 500; stroke: none; }
 	.cord { stroke-width: 2; opacity: 0.85; }
 	.cord-installed { stroke-dasharray: none; }
 	.cord-add { stroke-dasharray: 6 3; }

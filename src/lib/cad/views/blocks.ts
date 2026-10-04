@@ -1,7 +1,7 @@
 // Drawing a block (an outlet's symbol or an insert shape) into display-list prims: each block shape transformed by the
 // insert's position / rotation / scale (× the drawing scale for annotative blocks), `{LABEL}` attributes filled in.
 import type { Id, Pt } from '../domain/types'
-import type { Prim } from './display'
+import { primBounds, unionBounds, type Prim } from './display'
 import { fillAttrs, type Block } from '../domain/blocks'
 import { rotate } from '../domain/conventions'
 
@@ -40,4 +40,12 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 		}
 	}
 	return out
+}
+
+/** A block drawn small for a list (the legend, the Blocks panel): its prims at 1:1 and a padded viewBox round them. */
+export function blockPreview(b: Block): { prims: Prim[]; viewBox: string } {
+	const prims = blockPrims(b, { at: { x: 0, y: 0 } }, 1, { LABEL: '' }, b.id, b.category === 'outlet' ? 'outlet outlet-low' : 'shape')
+	const bb = unionBounds(prims.map(primBounds)) ?? { x0: -1, y0: -1, x1: 1, y1: 1 }
+	const pad = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0) * 0.15 || 0.5
+	return { prims, viewBox: `${bb.x0 - pad} ${bb.y0 - pad} ${bb.x1 - bb.x0 + 2 * pad} ${bb.y1 - bb.y0 + 2 * pad}` }
 }

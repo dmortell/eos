@@ -5,6 +5,7 @@ import type { Id, Pt } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ViewSpace } from '../views/space'
 import type { Delta } from './behaviours'
+import { mergeNode } from '../domain/pathEdit'
 
 export interface Grip { at: Pt; nodeIds: Id[] }
 
@@ -24,6 +25,30 @@ export function gripAt(grips: Grip[], p: Pt, tol: number): Grip | undefined {
 	let best: Grip | undefined, bestD = tol
 	for (const g of grips) { const d = Math.hypot(g.at.x - p.x, g.at.y - p.y); if (d <= bestD) { best = g; bestD = d } }
 	return best
+}
+
+/**
+ * After a grip drag: the dragged nodes that now sit on another node of the same path (same view point) are JOINED
+ * into it (`mergeNode`), each into the one nearest in height (a plan point can be a vertical stack). Returns the shape
+ * unchanged when nothing lands on a node, or `joined: 0` and the moved shape when joining would leave nothing.
+ */
+export function joinDropped(s: Shape, nodeIds: Id[], sp?: ViewSpace): { shape: Shape; joined: number } {
+	if (s.geom.kind !== 'path') return { shape: s, joined: 0 }
+	const at = (n: PathNode) => (sp ? sp.fromWorld(n) : { x: n.x, y: n.y })
+	const mine = s.geom.nodes.filter((n) => nodeIds.includes(n.id))
+	if (!mine.length) return { shape: s, joined: 0 }
+	const p = at(mine[0])
+	const targets = s.geom.nodes.filter((n) => !nodeIds.includes(n.id) && Math.hypot(at(n).x - p.x, at(n).y - p.y) < 0.5)
+	let out: Shape = s, joined = 0
+	const taken = new Set<Id>()
+	for (const n of mine) {
+		const t = targets.filter((x) => !taken.has(x.id)).sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0]
+		if (!t) continue
+		const m = mergeNode(out, n.id, t.id)
+		if (!m) return { shape: s, joined: 0 }
+		out = m; taken.add(t.id); joined++
+	}
+	return { shape: out, joined }
 }
 
 /** The shape with the given nodes moved to plan point `to` (z kept). `attach` set / cleared on them when given. */

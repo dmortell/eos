@@ -6,7 +6,7 @@ import type { Cord, Device, Id, PortRef, Rack } from '../domain/types'
 import type { CatalogProduct } from '$lib/catalog/types'
 import { bom } from '../domain/reports'
 import type { Route } from '../domain/routing'
-import { rackBom } from '../domain/rackBom'
+import { rackBom, type RackBomLine } from '../domain/rackBom'
 import { racksInOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
 import { download, fileSafe } from './download'
@@ -158,24 +158,39 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>): Promise<number> {
-	const lines = bom(ix, catalog, routes), racks = rackBom(ix, catalog)
+/** What the BOM workbook holds (the BOM dialog's settings): the materials sheet, and the rack BOM all together or
+ *  one block per row (`rows` = [row id | null, its heading]). */
+export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][] }
+
+export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }): Promise<number> {
+	const lines = o.materials ? bom(ix, catalog, routes) : []
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
-	const ws = wb.addWorksheet('BOM')
-	ws.addRow([`${projectName} - bill of materials (material, quantities)`]).font = { bold: true, size: 12 }
-	const head = ws.addRow(['Category', 'Item', 'Unit', 'Qty', 'Note'])
-	head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
-	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
-	;[18, 60, 6, 8, 28].forEach((w, i) => (ws.getColumn(i + 1).width = w))
-	for (const l of lines) ws.addRow([l.category, l.item, l.unit, l.qty, l.note ?? ''])
-	ws.views = [{ state: 'frozen', ySplit: 2 }]
-	const r = wb.addWorksheet('Rack BOM')
-	const rh = r.addRow(['Group', 'SKU', 'Description', 'Role', 'Qty', 'Link'])
-	rh.font = { bold: true, size: 10 }
-	rh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
-	;[16, 20, 50, 28, 6, 30].forEach((w, i) => (r.getColumn(i + 1).width = w))
-	for (const l of racks) r.addRow([l.group, l.sku, l.description, l.note ?? '', l.qty, l.url ?? ''])
+	if (o.materials) {
+		const ws = wb.addWorksheet('BOM')
+		ws.addRow([`${projectName} - bill of materials (material, quantities)`]).font = { bold: true, size: 12 }
+		const head = ws.addRow(['Category', 'Item', 'Unit', 'Qty', 'Note'])
+		head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+		head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
+		;[18, 60, 6, 8, 28].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+		for (const l of lines) ws.addRow([l.category, l.item, l.unit, l.qty, l.note ?? ''])
+		ws.views = [{ state: 'frozen', ySplit: 2 }]
+	}
+	let rackLines = 0
+	if (o.rack !== 'none') {
+		const r = wb.addWorksheet('Rack BOM')
+		const rh = r.addRow(['Group', 'SKU', 'Description', 'Role', 'Qty', 'Link'])
+		rh.font = { bold: true, size: 10 }
+		rh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+		;[16, 20, 50, 28, 6, 30].forEach((w, i) => (r.getColumn(i + 1).width = w))
+		const blocks: [string | null, RackBomLine[]][] = o.rack === 'byRow' ? (o.rows ?? []).map(([id, name]) => [name, rackBom(ix, catalog, { row: id })]) : [[null, rackBom(ix, catalog)]]
+		for (const [name, ls] of blocks) {
+			if (!ls.length) continue
+			if (name) r.addRow([name]).font = { bold: true, size: 11 }
+			for (const l of ls) r.addRow([l.group, l.sku, l.description, l.note ?? '', l.qty, l.url ?? ''])
+			rackLines += ls.length
+		}
+	}
 	download(await wb.xlsx.writeBuffer(), `BOM-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
-	return lines.length
+	return lines.length + rackLines
 }

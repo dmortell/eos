@@ -1,6 +1,6 @@
 // Sheets (Phase 4.1): paper at true size, viewports drawing their view at 1:N into a clipped window.
 import { describe, it, expect } from 'vitest'
-import { sheetDisplayList, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea } from './sheet'
+import { sheetDisplayList, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport } from './sheet'
 import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -16,13 +16,26 @@ describe('sheets', () => {
 		expect(paperSize(sheet({ paper: { size: 'A1', orientation: 'portrait', marginMm: 10 } }))).toEqual({ w: 594, h: 841 })
 		expect(sheetDisplayList(ix(), sheet()).slice(0, 2).map((p) => p.k === 'line' && p.cls)).toEqual(['paper', 'paper-margin'])
 	})
-	it('a section viewport is titled "SECTION A–A′" by itself; a typed label wins', () => {
+	it('a section viewport is titled "SECTION A-A" by itself (plain hyphen); a typed label wins', () => {
 		const cut = { type: 'section', id: 'X', levelId: 'L33', name: 'B', a: { x: 0, y: 0 }, b: { x: 5000, y: 0 }, depth: 3000 } as const
 		const i = new ProjectIndex([...demoProject(), cut])
 		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'section' as const, sectionId: 'X' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 50, centre: { x: 0, y: 0 } }
 		const label = (v: typeof vp & { label?: string }) => sheetDisplayList(i, sheet({ viewports: [v] })).find((p) => p.k === 'text' && p.cls === 'viewport-label')
-		expect(label(vp)).toMatchObject({ text: 'SECTION B–B′  1:50' })
+		expect(label(vp)).toMatchObject({ text: 'SECTION B-B  1:50' })
 		expect(label({ ...vp, label: 'Riser cut' })).toMatchObject({ text: 'Riser cut  1:50' })
+	})
+	it('a section dropped on a sheet: the largest scale that fits the drawing area, sized to the cut, centred on it', () => {
+		const cut = { type: 'section', id: 'X', levelId: 'L33', name: 'B', a: { x: 0, y: 0 }, b: { x: 5000, y: 0 }, depth: 3000 } as const
+		const i = new ProjectIndex([...demoProject(), cut])
+		const s = sheet(), a = drawingArea(i, s)
+		const vp = sectionViewport(i, s, 'X', 'L33', 'V')
+		expect(vp.view.spec).toEqual({ kind: 'section', sectionId: 'X' })
+		expect(vp.scale).toBeGreaterThanOrEqual(20)
+		expect(vp.rect.w).toBeLessThanOrEqual(a.w - 10)
+		expect(vp.rect.h).toBeLessThanOrEqual(a.h - 10)
+		// one step closer in would not fit (else it would have been taken)
+		const closer = [20, 25, 50, 100, 200].filter((n) => n < vp.scale).at(-1)
+		if (closer) expect(vp.rect.w * vp.scale / closer > a.w - 10 || vp.rect.h * vp.scale / closer > a.h - 10).toBe(true)
 	})
 	it('a cloud tied to a viewport scales with its content (Alt+wheel); its bumps stay paper-sized', () => {
 		const vp = (scale: number) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale, centre: { x: 3000, y: 4000 } })

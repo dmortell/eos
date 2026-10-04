@@ -11,6 +11,7 @@ import { wallSpan } from '../domain/openings'
 import { elevationDisplayList, type Item } from './elevation'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
+import type { Block } from '../domain/blocks'
 
 /** The section's frame: u runs along the cut as seen (from 0), depth is negative beyond the cut. */
 export function sectionFrame(sec: SectionCut): { f: ElevFrame; len: number } {
@@ -31,9 +32,9 @@ export function sectionSpace(sec: SectionCut): ViewSpace {
 	}
 }
 
-export function sectionDisplayList(ix: ProjectIndex, sec: SectionCut, o: { scale: number }): Prim[] {
+export function sectionDisplayList(ix: ProjectIndex, sec: SectionCut, o: { scale: number; blocks?: (id: Id) => Block | undefined }): Prim[] {
 	const sp = sectionSpace(sec), { f, len } = sectionFrame(sec)
-	return elevationDisplayList(ix, sec.levelId, sp, { scale: o.scale, range: { near: 50, far: -sec.depth, u0: 0, u1: len }, extra: cutWalls(ix, sec, f, len) })
+	return elevationDisplayList(ix, sec.levelId, sp, { scale: o.scale, range: { near: 50, far: -sec.depth, u0: 0, u1: len }, extra: cutWalls(ix, sec, f, len), blocks: o.blocks })
 }
 
 /** Walls crossing the cut line: their cut faces, solid, full wall height (or slab to slab), with a gap at openings. */

@@ -82,9 +82,9 @@ function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
-	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale }) : [] }
+	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })
-	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale })
+	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale, blocks: o.blocks })
 }
 
 /** View mm → paper mm for one viewport. */
@@ -154,11 +154,11 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 	return out
 }
 
-/** The title a viewport gets when none is typed: a section reads "SECTION A–A′". */
+/** The title a viewport gets when none is typed: a section reads "SECTION A-A". */
 function autoLabel(ix: ProjectIndex, vp: Viewport): string | undefined {
 	if (vp.view.spec.kind !== 'section') return undefined
 	const s = ix.get(vp.view.spec.sectionId)
-	return s?.type === 'section' ? `SECTION ${s.name}–${s.name}′` : undefined
+	return s?.type === 'section' ? `SECTION ${s.name}-${s.name}` : undefined   // plain hyphen (Dave): PDF fonts have no ′
 }
 
 /** A sensible first viewport: most of the drawing area (left of / above the title block), at 1:100, centred on the
@@ -167,6 +167,24 @@ export function defaultViewport(ix: ProjectIndex, sheet: Sheet, levelId: Id, id:
 	const a = drawingArea(ix, sheet, o), inset = 5
 	const vp: Viewport = { id, view: { levelId, spec: { kind: 'plan' } }, rect: { x: a.x + inset, y: a.y + inset, w: a.w - 2 * inset, h: a.h - 2 * inset }, scale: 100, centre: { x: 0, y: 0 } }
 	return { ...vp, centre: contentCentre(ix, vp, o) }
+}
+
+/** A section put on a sheet (backlog "Drop a section as a viewport"): at the largest standard scale (1:20 or
+ *  further out) at which the cut fits the sheet's drawing area, sized to it (+ 10 mm round it), in the area's top-left
+ *  corner, centred on the cut. */
+export function sectionViewport(ix: ProjectIndex, sheet: Sheet, sectionId: Id, levelId: Id, id: Id, o: SheetOpts = {}): Viewport {
+	const a = drawingArea(ix, sheet, o), pad = 10, inset = 5
+	const probe: Viewport = { id, view: { levelId, spec: { kind: 'section', sectionId } }, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 1, centre: { x: 0, y: 0 } }
+	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+	for (const p of viewportContent(ix, probe, o)) {
+		const pts = p.k === 'line' ? p.pts : p.k === 'circle' ? [p.c] : p.k === 'text' ? [p.at] : []
+		for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y) }
+	}
+	const w = x1 > x0 ? x1 - x0 : 1000, h = y1 > y0 ? y1 - y0 : 1000
+	const fits = (n: number) => w / n + 2 * pad <= a.w - 2 * inset && h / n + 2 * pad <= a.h - 2 * inset
+	const scale = SCALES.find((n) => n >= 20 && fits(n)) ?? SCALES.at(-1)!
+	const rect = { x: a.x + inset, y: a.y + inset, w: Math.min(a.w - 2 * inset, Math.ceil(w / scale + 2 * pad)), h: Math.min(a.h - 2 * inset, Math.ceil(h / scale + 2 * pad)) }
+	return { ...probe, rect, scale, centre: x1 > x0 ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 } : { x: 0, y: 0 } }
 }
 
 /** The middle of what a viewport's view shows (for "Fit" and new viewports). */

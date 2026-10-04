@@ -8,7 +8,8 @@
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText } from '../editor/commands'
+	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText, sectionViewports, retargetSectionViewports } from '../editor/commands'
+	import { deletePicked } from '../editor/pathSel'
 	import { reservePorts } from '../domain/ports'
 	import type { Level } from '../domain/types'
 	import ViewCanvas from './ViewCanvas.svelte'
@@ -23,6 +24,8 @@
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
+	import BlockManager from './BlockManager.svelte'
+	import SideSection from './SideSection.svelte'
 	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -142,13 +145,14 @@
 
 	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
 	const TOOLS: { id: ToolId; label: string }[] = [
-		{ id: 'select', label: 'Select' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
+		{ id: 'select', label: 'Select' }, { id: 'insert', label: 'Block' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
 		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
 		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
 		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
+		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy',
 		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
 		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Enter finishes · Esc / right-click ends it, again → Select · Backspace undoes a point',
@@ -239,9 +243,27 @@
 			else ws.say('Delete on ports clears their reservation — none here. Click the device body to delete the device.')
 			return
 		}
+		// picked nodes / segments of the selected run: just those (a node heals the run; segments may split it)
+		const pth = ws.pathSel, run = pth ? project.store.get(pth.shape) : undefined
+		if (pth && run?.type === 'shape') {
+			const out = deletePicked(run, pth)
+			project.store.transact(pth.nodes.length ? 'Delete node' : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p) })
+			ws.selectPath(null)
+			ws.select(out.some((p) => p.id === run.id) ? [run.id] : [])
+			if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)
+			return
+		}
 		if (!ws.selection.length) return
 		// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
 		const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
+		// a section shown in viewports: keep them as plain elevations (same view direction), or take them off too
+		const shown = sectionViewports(project.store, ids)
+		if (shown.length) {
+			const del = (keep: boolean) => () => { deleteEntities(project.store, ids, retargetSectionViewports(project.store, project.index, ids, keep)); ws.select([]) }
+			const where = [...new Set(shown.map((h) => h.sheet.number))].join(', ')
+			ws.ask2(`The section is shown in ${shown.length} viewport${shown.length === 1 ? '' : 's'} (${where})${also ? `; ${also} go too` : ''}.`, 'Delete, keep viewports as elevations', del(true), { label: 'Delete with its viewports', apply: del(false) })
+			return
+		}
 		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
 		if (!also) return go()
 		const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
@@ -303,12 +325,22 @@
 					<option value="">none</option><option value="left">left</option><option value="right">right</option>
 				</select></label>
 		{/if}
+		{#if ws.toolId === 'insert'}
+			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
+			<span class="text-xs {ws.insertBlock ? '' : 'text-amber-700'}">{ws.insertBlock ? `Block: ${ws.insertBlock.name}` : 'Pick a block in the Blocks list (left)'}</span>
+		{/if}
 		{#if ws.toolId === 'device'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 			<label class="opt">Template
 				<select class="tpl" value={ws.deviceTemplate?.id ?? ''} onchange={(e) => (ws.deviceTemplate = project.deviceTemplates.find((t) => t.id === e.currentTarget.value) ?? null)}>
 					{#each project.deviceTemplates as t (t.id)}<option value={t.id}>{t.name}{t.builtin ? '' : ' ★'}</option>{/each}
 				</select></label>
+			{#if ws.deviceTemplate?.face === 'both'}
+				<label class="opt" title="Fix a front-and-rear device (a panel) to one side only, so it can share its U with a device on the other side">Mount
+					<select class="tpl" value={ws.deviceMount ?? ''} onchange={(e) => (ws.deviceMount = (e.currentTarget.value || undefined) as 'front' | 'rear' | undefined)}>
+						<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
+					</select></label>
+			{/if}
 		{/if}
 		{#if ws.toolId === 'cord'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
@@ -325,6 +357,7 @@
 			<span class="ml-2 truncate text-xs text-amber-800">{q.msg}</span>
 			<!-- take apply BEFORE clearing: q is a {@const} of ws.confirm and reads null once it's cleared -->
 			<button class="ask yes" onclick={() => { const apply = q.apply; ws.confirm = null; apply() }}>{q.yes}</button>
+			{#if q.alt}{@const alt = q.alt}<button class="ask yes" onclick={() => { const apply = alt.apply; ws.confirm = null; apply() }}>{alt.label}</button>{/if}
 			<button class="ask" onclick={() => (ws.confirm = null)}>Cancel</button>
 		{:else if ws.prompt}
 			<label class="opt prompt">{ws.prompt.label} <input bind:this={promptInput} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={answer} /></label>
@@ -355,20 +388,22 @@
 	<!-- levels -->
 	<nav class="levels relative overflow-auto border-r border-zinc-200 bg-white p-2" class:gone={!panels.shown.left}>
 		<ResizeHandle bind:value={panels.size.left} side="right" min={150} max={480} onend={panels.save} />
-		<p class="flex justify-between px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Levels
-			<button class="font-normal normal-case text-blue-600 hover:underline" title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button></p>
-		{#each project.levels as l (l.id)}
-			<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'on' : 'hover:bg-zinc-100'}">
-				<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
-					onclick={() => openLevel(l.id)}>
-					<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
-				</button>
-				<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>
-				<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
-			</div>
-		{/each}
+		<SideSection key="levels" title="Levels" first>
+			{#snippet actions()}<button title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button>{/snippet}
+			{#each project.levels as l (l.id)}
+				<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'on' : 'hover:bg-zinc-100'}">
+					<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
+						onclick={() => openLevel(l.id)}>
+						<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
+					</button>
+					<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>
+					<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
+				</div>
+			{/each}
+		</SideSection>
 		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
 		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} {ws} levelId={level.id} />{/if}
+		<BlockManager {project} {ws} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} />
 		<LayersPanel {project} {ws} />
 	</nav>
 

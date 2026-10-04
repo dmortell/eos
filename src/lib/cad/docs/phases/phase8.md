@@ -601,3 +601,88 @@ Z each gives on this level. It moves the run's main height (drops keep their end
 
 **Checks:** 359 cad tests pass; svelte-check clean in cad; live: slab / ceiling lines, faint P3C U42, stacked P3C labels,
 1F floorplan cropped, Floor manager Floorplan column.
+
+**After commit 3a370697:**
+- **Panel names over ports** (Dave): normal size until zoomed in far enough to read the port labels, then small (a 1U
+  48-port panel's label size) and see-through in the top-left corner. Same switch in the PDF. Test updated.
+- **Doors on several racks:** the Doors / Hinge fields show for a multi-selection (`ui/RackDoors.svelte`, shared with the
+  single-rack Properties): the shared value or "mixed"; an edit sets that field on every cabinet in the selection.
+- **Plain hyphens** (Dave): a section viewport's automatic title is "SECTION A-A" (was an en dash and a prime, which the
+  PDF fonts lack).
+- **Front / rear mounting** (backlog, Dave: P3C U42): a device has an optional `mount` (front / rear). A front-and-rear
+  device (a panel) mounted on one side takes only that side of its Us, so it shares them with a device on the other
+  side, unless both depths are known and add up to more than the rack's. Set it in Properties (Mount, for 'both'
+  devices) or in the Device tool's toolbar before placing. The overlap message says which Mount to set. In the rack
+  view a device mounted on the far side is drawn faint where a device on this side shares its U. Test added.
+- **Section → sheet** (backlog "Drop a section as a viewport"): the section's Properties (now `ui/SectionProps.svelte`)
+  have a Sheet select + "Put on sheet": a new viewport at the largest standard scale (1:20 or further out) that fits
+  the drawing area, sized to the cut, top-left; the sheet opens with it selected. Test added.
+- **Floorplan zones** (Dave): the Floor manager's Floorplan cell is a list: each floorplan has a zone name (when there
+  are several), its page, an X / Y offset (`Underlay.origin`) and ✕; "+ Add zone…" adds another. Several floorplans
+  on ONE level — whether zones should rather be separate area levels (as Journey's 33F 3307 is) is in decisions.md.
+- **VCMs have doors** too (Dave).
+- Backlog: P3 (Dave): review the device template picker, dim the other cords, set any cord status, line grid. Added:
+  floorplan zones rotate / drag, blocks in elevations and sections, outlet → block, protect issued uploads.
+  Decisions added: zones one model or separate; racks vs cabinets.
+
+**Blocks, node joining, sidebar (Dave):**
+- **Blocks panel + Insert tool** (`ui/BlockManager.svelte`, `editor/insertTool.ts`): the block library by category
+  with search and previews; click a block, then click in a view to place it (the "Block" tool; stays on, Esc
+  stops). Plan: at the click. Elevation / section: the click gives the height (`insert.z`, new), and the block goes
+  on the face of the nearest wall behind the click (within a section's depth), turned to face the viewer — a wall
+  faceplate; no wall → on the work plane. Inserts draw in elevations / sections at their height, facing you (the
+  plan symbol; a separate front drawing is backlog). Insert Properties get Height (Z). An outlet symbol placed as a
+  block shows no `{LABEL}` / `{PORTS}` / `{USAGE}` placeholders (`insertAttrs`). Tests added. Live: a power
+  faceplate on the IDF1 wall in 1F Section B at Z 900 (Test Project).
+- **Join nodes:** a path node dragged onto another node of the same path joins it (`mergeNode` / `joinDropped`):
+  dropping a run's end on its start closes it (a triangle / polygon); a node dropped on its neighbour removes the
+  segment between them. Shows while dragging; one undo step. The dragged node now snaps to the path's OTHER nodes
+  and to the midpoints of segments it doesn't move (it used to skip the whole path, so it couldn't land on one).
+  Tests added.
+- **Sidebar sections fold:** Levels, Sheets, Racks, Symbols, Blocks and Layers each have a ▾ / ▸ title
+  (`ui/SideSection.svelte`), remembered per browser.
+- **Checks:** 364 cad tests pass; svelte-check clean in cad.
+
+## 2026-10-05 — editing runs, BOM dialog, logos, issued uploads
+
+**Editing runs** (`editor/pathSel.ts`, `domain/pathEdit.ts`; Dave: a trunk's node dropped on another trunk's node did
+not connect them):
+- **Two runs join** when a node is dropped on a node of another run of the same kind (trunk + trunk, wall + wall,
+  line + line): one run, the dragged one's id; a backbone that chose the other run as its riser (`via`) follows.
+  Runs that already TOUCH at the dragged node join as soon as it is dragged (Dave's two trunks near R311, now one
+  trunk with three segments). Unlike runs (a wall and a trunk) don't join; their nodes just move together.
+- **Joined nodes move together:** other runs' nodes on the dragged point (same x / y and height) move with it;
+  Alt-drag moves the node alone. A drag that comes back to its start lands exactly there (no grid shift); a click
+  on a grip no longer counts as a tiny drag.
+- **Pick a node / segments:** click a node grip → the node is picked; click the selected run again → the segment
+  under the cursor (Ctrl adds / drops one). Picked ones show blue. Delete removes just them (a node heals the run;
+  segments may split it into separate runs). Dragging a picked segment moves it whole (with other runs' nodes on it).
+- **Disconnect** (Properties, a picked node): the segments meeting there separate — the run splits into separate
+  runs at that node.
+- Tests (`editor/pathSel.test.ts`). Live: the R311 trunks joined; Disconnect split them in three; undone.
+
+**Snaps and readout:**
+- **Centre snap** on the plan: circles, arcs, boxes, polygons (corner average), images and blocks (insertion
+  point); shown as a small circle. Test added.
+- **Length · angle · ΔX / ΔY (ΔZ)** in the status bar (Dave: not at the cursor) while drawing a run / line (from its
+  last point) and while dragging (from where the drag started).
+
+**Deleting a section shown on sheets** asks: "Delete, keep viewports as elevations" (the named direction nearest the
+section's, same window and scale, recentred) or "Delete with its viewports" — one undo step either way. The question
+bar can now offer two answers. Tests added.
+
+**BOM dialog** (`ui/BomDialog.svelte`; Export → "Bill of materials…"): the materials list and the rack BOM — all racks
+together or row by row (`rackBom` takes a row) — with totals and product links; tick what goes in the workbook, then
+"Export to Excel". Test added (row by row).
+
+**Logos from Uploads** (`ui/LogoPicker.svelte`): a logo slot's "Choose…" opens the project's images to pick from, and
+"Upload…" — a new image is also listed in the project's Uploads (under a free name), so it can be picked again.
+
+**Protect issued uploads** (`app/issueGuard.ts`, Uploads): a file an issue uses — a floorplan in a frozen sheet, or
+the package PDF — can't be deleted (the toast names the issues); a same-name upload of such a file is kept beside it
+("plan (2).pdf") instead of replacing it. Other same-name uploads still replace (keeping their calibration).
+Checked live, read-only: L3303's plan is used by "Test issue 1" and "Tender1".
+
+**Backlog:** low priority (Dave): title block approvals / site, Tabs, Help. Not required (Dave): "Outlet → block".
+
+**Checks:** 376 cad tests pass; svelte-check clean.

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Titlebar, Firestore } from '$lib'
 	import { Icon } from '$lib'
-	import { storage } from '$lib/db.svelte'
+	import { storage, firestore } from '$lib/db.svelte'
+	import { issuesUsingFile, uploadId } from '$lib/cad/app/issueGuard'
 	import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 	import { nanoid } from 'nanoid'
 	import { toast } from 'svelte-sonner'
@@ -131,12 +132,15 @@
 
 	// UploadThing
 	const { startUpload } = createUploadThing('floorplanUploader', {
-		onClientUploadComplete: (res) => {
+		onClientUploadComplete: async (res) => {
 			if (Array.isArray(res)) {
 				for (const file of res) {
+					// a file of that name used by issued drawings stays as it is: this one goes beside it
+					const { id, kept } = await uploadId(firestore, file.name)
+					if (kept) toast(`${file.name} is used by issued drawings (${kept.join(', ')}) — the new upload is kept as ${id}`)
 					db.save('files', {
-						id: file.name,
-						name: file.name,
+						id,
+						name: id,
 						url: file.ufsUrl,
 						key: file.key,
 						path: file.key,
@@ -222,9 +226,11 @@
 				async () => {
 					try {
 						const url = await getDownloadURL(task.snapshot.ref)
+						const { id, kept } = await uploadId(firestore, file.name)   // see the UploadThing path
+						if (kept) toast(`${file.name} is used by issued drawings (${kept.join(', ')}) — the new upload is kept as ${id}`)
 						await db.save('files', {
-							id: file.name,
-							name: file.name,
+							id,
+							name: id,
 							url,
 							path,
 							type: file.type,
@@ -315,6 +321,12 @@
 				toast.error(e?.message ?? 'Remove failed')
 			}
 		} else {
+			// issued drawings keep only a reference to their floorplan file (and their package PDF is a file): never delete
+			// one an issue uses, or old issues would reprint without it
+			try {
+				const used = await issuesUsingFile(firestore, file.id, members.length ? members : [groupPid])
+				if (used.length) { toast.error(`${file.name ?? file.id} can't be deleted: issued drawings use it (${used.join(', ')})`); return }
+			} catch (e: any) { toast.error(`Couldn't check whether issues use ${file.name ?? file.id}: ${e?.message ?? e} — not deleted`); return }
 			ondelete?.(file)
 		}
 	}

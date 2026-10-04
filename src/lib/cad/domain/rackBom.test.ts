@@ -30,6 +30,13 @@ describe('rack BOM', () => {
 		expect(lines.find((l) => l.group === 'Desk / shelf')).toMatchObject({ sku: 'desk 1600×800', qty: 1, note: 'no catalogue SKU · by the window' })
 		expect(lines.find((l) => l.group === 'Rack')?.note).toMatch(/spare/)
 	})
+	it('row by row (the BOM dialog): only that row\'s racks and its own row accessories; null = racks in no row', () => {
+		const ents = [row('hac'), rack('A', 0, { catalogId: ar4p.id }), rack('V', 600, { kind: 'vcm', widthMm: 250, catalogId: vcm.id }), rack('X', 2000, { rowId: undefined, catalogId: ar4p.id })]
+		const inRow = rackBom(ix(ents), PANDUIT_SEED, { row: 'ROW' }), loose = rackBom(ix(ents), PANDUIT_SEED, { row: null })
+		expect(inRow.find((l) => l.sku === ar4p.sku)?.qty).toBe(1)
+		expect(inRow.some((l) => l.group === 'Row accessory')).toBe(true)
+		expect(loose.map((l) => [l.sku, l.qty])).toEqual([[ar4p.sku, 1]])
+	})
 	it('white racks get the white kit', () => {
 		expect(containmentKitSku(ar4p, 'White')).toBe('AR4P-AC-KITWH')
 	})

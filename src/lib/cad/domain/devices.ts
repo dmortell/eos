@@ -109,17 +109,27 @@ export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] 
 	return racks.sort((a, b) => rowOrder(a) - rowOrder(b) || (a.rowId ?? '').localeCompare(b.rowId ?? '') || cmp(a, b) || a.order - b.order || naturalCompare(a.name, b.name))
 }
 
-const faces = (d: Pick<Device, 'face' | 'kind'>) => (d.kind === 'pdu' || d.face === 'none' ? [] : d.face === 'both' ? ['front', 'rear'] : [d.face])
+/** The sides of the rack a device takes at its Us: its mount if set, else the faces it shows (PDUs: none, 0U). */
+export const sidesOf = (d: Pick<Device, 'face' | 'kind' | 'mount'>): ('front' | 'rear')[] =>
+	d.kind === 'pdu' || d.face === 'none' ? [] : d.mount ? [d.mount] : d.face === 'both' ? ['front', 'rear'] : [d.face]
+export const sharesU = (a: Pick<Device, 'u' | 'heightU'>, b: Pick<Device, 'u' | 'heightU'>) => a.u <= b.u + b.heightU - 1 && b.u <= a.u + a.heightU - 1
 
 /**
  * Can `d` sit where it says (its rack, U, height) beside the rack's other devices? Null = yes, else why not. PDUs are
- * 0U strips and never collide; front-only and rear-only devices can share a U.
+ * 0U strips and never collide; devices on opposite sides (front / rear face or mount) can share a U, unless their
+ * depths (when both are known) add up to more than the rack's.
  */
 export function placementProblem(d: Device, rack: Rack, others: Device[]): string | null {
 	if (d.kind !== 'pdu' && (d.u < 1 || d.u + d.heightU - 1 > rack.heightU)) return `${d.name} (${d.heightU}U at U${d.u}) does not fit a ${rack.heightU}U rack`
+	const mine = sidesOf(d)
 	for (const o of others) {
-		if (o.id === d.id || o.rackId !== d.rackId || !faces(d).some((f) => faces(o).includes(f))) continue
-		if (d.u <= o.u + o.heightU - 1 && o.u <= d.u + d.heightU - 1) return `${d.name} would overlap ${o.name} at U${Math.max(d.u, o.u)}`
+		if (o.id === d.id || o.rackId !== d.rackId || !mine.length || !sidesOf(o).length || !sharesU(d, o)) continue
+		const at = `U${Math.max(d.u, o.u)}`
+		if (mine.some((f) => sidesOf(o).includes(f))) {
+			const behind = !d.mount && d.face === 'both' && sidesOf(o).length === 1 ? ` (${o.name} is on the ${sidesOf(o)[0]}: set this one's Mount to ${sidesOf(o)[0] === 'rear' ? 'front' : 'rear'} to share the U)` : ''
+			return `${d.name} would overlap ${o.name} at ${at}${behind}`
+		}
+		if (d.depthMm && o.depthMm && d.depthMm + o.depthMm > rack.depthMm) return `${d.name} (${d.depthMm} mm) and ${o.name} (${o.depthMm} mm) at ${at} are deeper together than ${rack.name} (${rack.depthMm} mm)`
 	}
 	return null
 }

@@ -4,7 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Level } from '../domain/types'
-	import { exportBom } from '../render/exports'
+	import BomDialog from './BomDialog.svelte'
 	import { exportOutletSchedule } from '../render/outletSchedule'
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
@@ -29,12 +29,7 @@
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
 		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`)
 	}
-	async function bom() {
-		try {
-			const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
-			tell(`BOM: ${await exportBom(project.index, projectName, PANDUIT_SEED, project.routes)} lines`)
-		} catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
-	}
+	let bomOpen = $state(false)
 	const run = (f: () => void) => () => { menu.open = false; f() }
 </script>
 
@@ -44,10 +39,11 @@
 		<button onclick={run(() => outletSchedule(false))}>Outlet schedule — this level (Excel)</button>
 		<button onclick={run(() => outletSchedule(true))}>Outlet schedule — all levels (Excel)</button>
 		<button onclick={run(dxf)}>This plan (DXF)</button>
-		<button title="Material quantities for the whole project: outlets, panels, devices, racks + accessories (Panduit), cable (routed metres + waste), cords, containment" onclick={run(bom)}>Bill of materials (Excel)</button>
+		<button title="Material quantities for the whole project (outlets, panels, devices, racks + accessories, cable, cords, containment) and the rack BOM by row — on screen, then Excel" onclick={run(() => (bomOpen = true))}>Bill of materials…</button>
 	</div>
 </details>
 {#if notice}<span class="ml-1 text-xs text-emerald-700">{notice}</span>{/if}
+{#if bomOpen}<BomDialog {project} {projectName} onclose={() => (bomOpen = false)} ondone={tell} />{/if}
 
 <style>
 	.menu { position: relative; }

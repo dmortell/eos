@@ -12,6 +12,8 @@ import { RACK_DEVICE_W } from '../domain/devices'
 import { rotate, rackFrontNormal } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
+import { insertAttrs, type Block } from '../domain/blocks'
+import { blockPrims } from './blocks'
 
 export const RU_MM = 44.45
 const LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
@@ -22,7 +24,7 @@ export interface Item { depth: number; prims: Prim[] }
 
 /** `range` (a section): only what lies between depth `far` and `near` (view depth: larger = nearer), clipped to u0..u1
  *  across; `extra` = more items (a section's cut walls), drawn in depth order with the rest. */
-export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; extra?: Item[] }): Prim[] {
+export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; extra?: Item[]; blocks?: (id: Id) => Block | undefined }): Prim[] {
 	const k = o.scale, level = ix.get(levelId) as Level | undefined
 	const items: Item[] = []
 	const rect = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill = true): Prim =>
@@ -39,7 +41,14 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	// level is cut to this floor's height (slab underside → top of the plenum), so a 30-floor riser is one storey here.
 	const h = level?.heights, floor = { y0: -((h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700)), y1: (h?.raisedFloorMm ?? 300) + (h?.slabMm ?? 200) }
 	for (const s of ix.shapes) {
-		const reaches = s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
+		// a block insert (a wall faceplate): its symbol at its height, facing the viewer
+		if (s.geom.kind === 'insert') {
+			if (s.levelId !== levelId) continue
+			const g = s.geom, b = o.blocks?.(g.blockId), p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, v = sp.fromWorld(p)
+			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(b, { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs), s.id, 'shape') })
+			continue
+		}
+		const reaches =s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
 		if (s.levelId !== levelId && !(s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) && !passesThrough(ix, s, levelId)) continue
 		const its = shapeItems(s, sp, rect, uSpan, zOf, wallSpan(ix, s))
 		// ±1 km across: wide enough for any building. (±1e9 broke Chrome's clipping in some view directions — the
