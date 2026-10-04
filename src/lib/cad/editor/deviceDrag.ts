@@ -2,7 +2,7 @@
 // at once too, keeping their spacing. With Ctrl the drag copies them (new devices; links and cords stay behind).
 // A move or copy that would overlap or run off a rack is refused: the caller keeps the last good place.
 import type { Id, Device, Rack } from '../domain/types'
-import { placementProblem } from '../domain/devices'
+import { placementProblem, narrowDevice } from '../domain/devices'
 import { newId } from '../domain/ids'
 
 export interface DeviceDrag {
@@ -19,9 +19,13 @@ export const startDeviceDrag = (base: Device[]): DeviceDrag => ({ base, copyIds:
  * several racks just change U). `copy` = new devices instead (the originals stay). `others` = every device in the
  * project (the originals included). Returns what to write, or why not.
  */
-export function dragDevices(g: DeviceDrag, dU: number, target: Rack | undefined, copy: boolean, others: Device[], rackOf: (id: Id) => Rack | undefined): { put: Device[] } | { problem: string } {
+export function dragDevices(g: DeviceDrag, dU: number, target: Rack | undefined, copy: boolean, others: Device[], rackOf: (id: Id) => Rack | undefined, side?: { dx: number; face: 'front' | 'rear' }): { put: Device[] } | { problem: string } {
 	const oneRack = new Set(g.base.map((d) => d.rackId)).size === 1
-	const put = g.base.map((b): Device => ({ ...b, ...(copy ? { id: g.copyIds.get(b.id)! } : {}), u: b.u + dU, rackId: target && oneRack ? target.id : b.rackId }))
+	const put = g.base.map((b): Device => {
+		const rackId = target && oneRack ? target.id : b.rackId
+		// sideways only within its own rack (a drop into another rack keeps the offset it had)
+		return { ...b, ...(copy ? { id: g.copyIds.get(b.id)! } : {}), u: b.u + dU, rackId, ...(rackId === b.rackId ? sideways(b, rackOf(rackId), side) : {}) }
+	})
 	const moving = new Set(copy ? [] : g.base.map((d) => d.id))
 	const rest = others.filter((o) => !moving.has(o.id))
 	for (const n of put) {
@@ -31,4 +35,15 @@ export function dragDevices(g: DeviceDrag, dU: number, target: Rack | undefined,
 		if (p) return { problem: p }
 	}
 	return { put }
+}
+
+/** A device narrower than a 19" one (a tower PC, a monitor — `narrowDevice`) also slides sideways with the drag, in
+ *  25 mm steps, kept inside the rack; seen from the rear, sideways is mirrored. 19" devices don't move sideways. */
+function sideways(b: Device, rack: Rack | undefined, side?: { dx: number; face: 'front' | 'rear' }): Partial<Device> {
+	const w = b.widthMm ?? 0
+	if (!side || !rack || !narrowDevice(b) || w >= rack.widthMm) return {}
+	const room = (rack.widthMm - w) / 2
+	const off = Math.round(((b.offsetX ?? 0) + (side.face === 'rear' ? -side.dx : side.dx)) / 25) * 25
+	const x = Math.max(-room, Math.min(room, off))
+	return x ? { offsetX: x } : { offsetX: undefined }
 }

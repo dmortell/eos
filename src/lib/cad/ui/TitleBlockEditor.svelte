@@ -163,7 +163,7 @@
 	.tbf button { flex: none; width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 3px; background: none; color: var(--cad-muted); cursor: pointer; font-size: 11px; }
 	.tbf button:hover { border-color: var(--cad-line); color: var(--cad-text); }
 	.tbf button.on { color: #2563eb; }
-	.prop { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 4px; padding: 2px 0; }
+	.prop { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 4px; padding: 0; }
 	.prop span { color: var(--cad-muted); font-size: 11px; }
 	.prop input, .prop select { background: var(--cad-input); color: var(--cad-text); border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 11px; min-width: 0; }
 	.logo-row { display: flex; align-items: center; gap: 4px; min-width: 0; }

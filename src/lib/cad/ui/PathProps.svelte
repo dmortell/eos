@@ -52,6 +52,29 @@
 		else { deleteEntities(project.store, [s.id]); ws.select([]) }
 	}
 
+	// ── where a run runs (backlog "Run location presets"): a height from the level's heights, and its tier ──
+	const heights = $derived((project.index.get(s.levelId ?? '') as { heights?: { raisedFloorMm: number; clearHeightMm: number; plenumMm: number } } | undefined)?.heights)
+	const PLACES = { floor: 'under floor', plenum: 'ceiling plenum', below: 'below ceiling', wall: 'on wall' } as const
+	type Place = keyof typeof PLACES
+	/** The Z (mm above FFL) and tier a place means on this level. */
+	function placeOf(p: Place): { z: number; tier: 'low' | 'high' | 'wall' } | null {
+		const h = heights, half = (s.section?.h ?? 50) / 2
+		if (!h) return null
+		if (p === 'floor') return { z: -Math.max(h.raisedFloorMm / 2, half), tier: 'low' }
+		if (p === 'plenum') return { z: h.clearHeightMm + h.plenumMm / 2, tier: 'high' }
+		if (p === 'below') return { z: h.clearHeightMm - half - 50, tier: 'high' }
+		return { z: 300, tier: 'wall' }
+	}
+	/** The run's main height: the Z most of its nodes share (drops to outlets end elsewhere). */
+	const mainZ = $derived.by(() => { const n = new Map<number, number>(); for (const x of nodes) n.set(x.z, (n.get(x.z) ?? 0) + 1); return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] })
+	const place = $derived((Object.keys(PLACES) as Place[]).find((p) => { const q = placeOf(p); return q && q.z === mainZ && s.role?.kind === 'containment' && s.role.tier === q.tier }) ?? '')
+	function setPlace(p: Place) {
+		const q = placeOf(p), role = s.role
+		if (!q || role?.kind !== 'containment' || s.geom.kind !== 'path') return
+		const was = mainZ
+		save(`Run ${PLACES[p]}`, { ...s, role: { ...role, tier: q.tier }, geom: { ...s.geom, nodes: s.geom.nodes.map((n) => (n.z === was ? { ...n, z: q.z } : n)) } })
+	}
+
 	function drop(n: PathNode) {
 		ws.ask(`Drop / rise from ${Math.round(n.z)} to Z (mm above FFL)`, n.z > 0 ? 300 : 2900, (z) => {
 			if (z === n.z || s.geom.kind !== 'path') return
@@ -74,6 +97,13 @@
 	{#if !s.section.round}
 		<label class="row">Height <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
 	{/if}
+{/if}
+{#if s.role?.kind === 'containment'}
+	<label class="row" title="Where it runs: sets its height from the level's heights (the nodes at its main height; drops keep their ends) and its tier">Location
+		<select class="inp" value={place} disabled={!heights} onchange={(e) => e.currentTarget.value && setPlace(e.currentTarget.value as Place)}>
+			<option value="">{heights ? `custom (Z ${mainZ ?? '—'})` : 'no level heights'}</option>
+			{#each Object.entries(PLACES) as [k, label] (k)}<option value={k}>{label}{placeOf(k as Place) ? ` (Z ${placeOf(k as Place)!.z})` : ''}</option>{/each}
+		</select></label>
 {/if}
 <label class="row">Label <input class="inp" value={s.label ?? ''} onchange={(e) => save('Label', { ...s, label: e.currentTarget.value || undefined })} /></label>
 <label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>

@@ -5,13 +5,15 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity } from '../domain/drawing'
 	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
-	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel } from '../domain/devices'
+	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { naturalCompare } from '../domain/labels'
 	import PortProps from './PortProps.svelte'
 	import CordProps from './CordProps.svelte'
 	import SheetProps from './SheetProps.svelte'
 	import OutletProps from './OutletProps.svelte'
+	import DeviceMultiProps from './DeviceMultiProps.svelte'
+	import RowProps from './RowProps.svelte'
 	import RenumberPanel from './RenumberPanel.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { renumberable } from '../domain/renumber'
@@ -47,17 +49,6 @@
 		const v = Object.values(patch)[0]
 		if (typeof v === 'number' && !Number.isFinite(v)) return
 		project.store.transact(`${label} (${racks.length} racks)`, (tx) => { for (const r of racks) tx.put({ ...r, ...patch }) })
-	}
-	/** Every device must still fit (overlap rules) or nothing changes. */
-	function setDevices(label: string, patch: Partial<Device>) {
-		const next = devices.map((d) => ({ ...d, ...patch }))
-		const others = project.index.devices.filter((d) => !devices.some((x) => x.id === d.id))
-		for (const n of next) {
-			const rack = project.index.get(n.rackId)
-			const problem = rack?.type === 'rack' ? placementProblem(n, rack, [...others, ...next.filter((x) => x.id !== n.id)]) : null
-			if (problem) { ws.say(problem); return }
-		}
-		project.store.transact(`${label} (${devices.length} devices)`, (tx) => { for (const n of next) tx.put(n) })
 	}
 
 	// ── racks → rows ──
@@ -111,13 +102,19 @@
 	}
 
 	// ── devices ──
-	const KINDS: Device['kind'][] = ['panel', 'switch', 'manager', 'server', 'shelf', 'pdu', 'other']
+	const KINDS: Device['kind'][] = ['panel', 'switch', 'manager', 'server', 'shelf', 'pdu', 'enclosure', 'other']
 	/** A device edit that would overlap another or run off the rack is refused, with the reason. */
 	function putDevice(d: Device, label: string, patch: Partial<Device>) {
 		const next = { ...d, ...patch }, rack = project.index.get(d.rackId)
 		const problem = rack?.type === 'rack' ? placementProblem(next, rack, project.index.devices) : null
 		if (problem) { ws.say(problem); return }
 		put(d, label, patch)
+	}
+	/** `…/cad?rack=<id>`: opens the rack's room in the rack view, zoomed to the rack (CadShell). */
+	function copyRackLink(r: Rack) {
+		const url = new URL(location.pathname, location.origin)
+		url.searchParams.set('rack', r.id)
+		navigator.clipboard.writeText(url.toString()).then(() => ws.say(`Link to ${r.name} copied`), () => ws.say(url.toString()))
 	}
 	function setUsage(d: Device, usage: string, on: boolean) {
 		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
@@ -142,7 +139,7 @@
 	}
 </script>
 
-<div class="space-y-3 p-3 text-xs">
+<div class="space-y-1 p-3 text-xs">
 	{#if ws.toolId === 'renumber'}
 		<RenumberPanel {project} {ws} open />
 	{:else if items.filter(renumberable).length > 1}
@@ -170,6 +167,7 @@
 					<option value={NEW_ROW}>New row…</option>
 				</select>
 			</label>
+			{#if sameRow}<RowProps {project} {ws} rowId={sameRow} />{/if}
 		{/if}
 		{#if racks.length > 1}
 			<p class="text-zinc-500">{deviceCounts(racks.flatMap((r) => project.index.devicesIn(r.id)))} in {racks.length} racks</p>
@@ -180,6 +178,15 @@
 				</select>
 			</label>
 			<!-- common rack fields: a value shown when they all share it, blank ("mixed") when they don't; an edit sets all -->
+			<label class="row">Kind
+				<select class="inp" value={same(racks, (r) => r.kind) ?? ''} onchange={(e) => e.currentTarget.value && setRacks('Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
+					{#if !same(racks, (r) => r.kind)}<option value="">mixed</option>{/if}
+					{#each RACK_KINDS as k (k)}<option value={k}>{k}</option>{/each}
+				</select>
+			</label>
+			<label class="row">Maker <input class="inp" value={same(racks, (r) => r.maker ?? '') ?? ''} placeholder={same(racks, (r) => r.maker ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Model <input class="inp" value={same(racks, (r) => r.model ?? '') ?? ''} placeholder={same(racks, (r) => r.model ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Notes <input class="inp" value={same(racks, (r) => r.notes ?? '') ?? ''} placeholder={same(racks, (r) => r.notes ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack notes', { notes: e.currentTarget.value.trim() || undefined })} /></label>
 			<label class="row">Width (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.widthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
 			<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.depthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
 			<label class="row">Height (U) <input class="inp" type="number" min="1" value={same(racks, (r) => r.heightU) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
@@ -191,22 +198,7 @@
 			</label>
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
-		{#if devices.length > 1}
-			<p class="pt-1 font-semibold">{devices.length} devices</p>
-			<label class="row">Face
-				<select class="inp" value={same(devices, (d) => d.face) ?? ''} onchange={(e) => setDevices('Device face', { face: e.currentTarget.value as Device['face'] })}>
-					{#if !same(devices, (d) => d.face)}<option value="">mixed</option>{/if}
-					{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
-				</select>
-			</label>
-			{#if devices.every((d) => d.kind === 'panel')}
-				<label class="row">Tier
-					<select class="inp" value={same(devices, (d) => d.panel?.tier ?? 'low') ?? ''} onchange={(e) => { const tier = e.currentTarget.value as 'low' | 'high'; project.store.transact('Panel tier', (tx) => { for (const d of devices) tx.put({ ...d, panel: { ...d.panel, tier } }) }) }}>
-						{#if !same(devices, (d) => d.panel?.tier ?? 'low')}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
-					</select>
-				</label>
-			{/if}
-		{/if}
+		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
 		{#if blockable.length}
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
 		{/if}
@@ -214,7 +206,8 @@
 		<OutletProps {project} {ws} outlets={[one]} />
 	{:else if one.type === 'rack'}
 		{@const r = one as Rack}
-		<p class="font-semibold">Rack</p>
+		<p class="flex items-center justify-between font-semibold">Rack
+			<button class="btn font-normal" title="A link that opens this rack's room in the rack view, zoomed to this rack (?rack=)" onclick={() => copyRackLink(r)}>Copy link</button></p>
 		<label class="row">Name <input class="inp" value={r.name} onchange={(e) => put(r, 'Rename rack', { name: e.currentTarget.value })} /></label>
 		<label class="row">Kind
 			<select class="inp" value={r.kind} onchange={(e) => put(r, 'Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
@@ -252,6 +245,7 @@
 				<option value={NEW_ROW}>New row…</option>
 			</select>
 		</label>
+		{#if r.rowId}<RowProps {project} {ws} rowId={r.rowId} />{/if}
 		<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
 			<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 		</label>
@@ -308,6 +302,10 @@
 		<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
 		<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={d.depthMm ?? ''} onchange={(e) => putDevice(d, 'Device depth', { depthMm: num(e.currentTarget.value) })} /></label>
+		{#if rack && narrowDevice(d) && d.widthMm! < rack.widthMm}
+			<label class="row" title="Sideways from the rack's centre, seen from the front (+ = right). Dragging it in the rack view moves it in 25 mm steps.">Offset X (mm)
+				<input class="inp" type="number" step="25" value={d.offsetX ?? 0} onchange={(e) => { const room = (rack.widthMm - (d.widthMm ?? 0)) / 2, v = Math.max(-room, Math.min(room, Number(e.currentTarget.value) || 0)); putDevice(d, 'Device offset', { offsetX: v || undefined }) }} /></label>
+		{/if}
 		<label class="row">Ports <input class="inp" type="number" min="0" value={d.portCount} onchange={(e) => putDevice(d, 'Port count', { portCount: Number(e.currentTarget.value) })} /></label>
 		{#if d.portCount}
 			<label class="row">Numbering
@@ -386,14 +384,25 @@
 		<label class="row">Rotation <input class="inp" type="number" value={g.rot ?? 0} onchange={(e) => put(one, 'Rotate', { geom: { ...g, rot: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row">Scale <input class="inp" type="number" step="0.1" value={g.scale ?? 1} onchange={(e) => put(one, 'Scale', { geom: { ...g, scale: Number(e.currentTarget.value) || undefined } })} /></label>
 		{#if b}<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(one.id))}>Explode</button>{/if}
+		{#if b && !b.builtin && !b.retired}
+			<button class="btn del" title="Delete the block from the library (all projects): it can't be picked any more, but drawings that use it keep it"
+				onclick={() => ws.ask2(`Delete block ${b.name} from the library (every project)? Inserts already placed keep drawing it. This can't be undone.`, 'Delete block', () => project.retireBlock(b.id))}>Delete block…</button>
+		{:else if b?.retired}<p class="text-zinc-500">Deleted from the library (kept here)</p>{/if}
 	{:else if one.type === 'shape'}
 		<p class="font-semibold">{one.role?.kind ?? one.geom.kind}</p>
 		<label class="row">Label <input class="inp" value={one.label ?? ''} onchange={(e) => put(one, 'Label', { label: e.currentTarget.value || undefined })} /></label>
+		{#if one.geom.kind === 'rect'}
+			<label class="row" title="A thick line on the box's back edge (its local −y side), like racks — which way a desk or cabinet faces">Back line
+				<span><input type="checkbox" checked={!!one.backLine} onchange={(e) => put(one, e.currentTarget.checked ? 'Back line' : 'No back line', { backLine: e.currentTarget.checked || undefined })} /> on the back edge</span></label>
+		{/if}
 		{#if blockable.length}<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>{/if}
 	{:else}
 		<p class="font-semibold">{one.type}</p>
 	{/if}
 	<LayerPick {project} ids={ws.selection} />
+	{#if items.length}
+		<button class="btn del" title="The same as the Delete key — asks first when more goes with it; Undo brings it back" onclick={ws.remove}>Delete{items.length > 1 ? ` ${items.length}` : ''}</button>
+	{/if}
 </div>
 
 <style>
@@ -403,4 +412,5 @@
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
+	.btn.del:hover { color: #dc2626; }
 </style>

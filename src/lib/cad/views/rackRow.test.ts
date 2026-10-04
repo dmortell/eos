@@ -1,6 +1,6 @@
 // What the rack-row view shows (Phase 3.1), as behaviour.
 import { describe, it, expect } from 'vitest'
-import { rackRowDisplayList, rackLayout, labelLines, portCell, RU_MM } from './rackRow'
+import { rackRowDisplayList, rackLayout, labelLines, portCell, rackCaption, RU_MM } from './rackRow'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Entity } from '../domain/drawing'
@@ -11,6 +11,19 @@ const view = (face: 'front' | 'rear', extra: Entity[] = []) => rackRowDisplayLis
 const has = (prims: ReturnType<typeof view>, src: string) => prims.some((p) => p.src === src)
 
 describe('the rack row', () => {
+	it('each rack has a caption under its name, and the elevation a title: level — room · face', () => {
+		const texts = view('rear').filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
+		expect(texts).toContain('42U cabinet · REAR')
+		expect(texts).toContain('33F — IDF-A · rear')
+		expect(rackCaption({ kind: 'desk', widthMm: 1600, heightU: 0 } as Rack, 'front')).toBe('1600 mm desk')
+	})
+	it('the storey around the racks: the floor slab’s top, the ceiling and the slab above, as lines (the level’s heights)', () => {
+		const ps = view('front')
+		const texts = ps.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
+		expect(texts).toEqual(expect.arrayContaining(['CEILING FFL+2700', 'SLAB FFL+3500', 'SLAB FFL-300']))
+		const slabs = ps.filter((p) => p.k === 'line' && p.cls.includes('datum-slab')).map((p) => (p as { pts: { y: number }[] }).pts[0].y)
+		expect(slabs.sort((a, b) => a - b)).toEqual([-3500, 300])   // under the 300 floor void; above 2700 + 800 plenum
+	})
 	it('a room with no racks says so', () => {
 		const ps = rackRowDisplayList(ix([{ type: 'space', id: 'EMPTY', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9 } as Entity]), { spaceId: 'EMPTY', face: 'front' })
 		expect(ps).toMatchObject([{ k: 'text', text: expect.stringMatching(/No racks in this room yet/) }])
@@ -99,6 +112,12 @@ describe('port cells and labels', () => {
 		expect(at('column', 2).x).toBe(at('column', 1).x)
 		expect(at('column', 2).y).toBeGreaterThan(at('column', 1).y)
 	})
+	it('a 96-port 2U switch is 4 rows of 24 (Dave: its 2 rows of 48 tiny cells read as 48 ports)', () => {
+		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96 }
+		const ys = new Set(Array.from({ length: 96 }, (_, i) => Math.round(portCell(big, i + 1, 0, 0)!.y)))
+		expect(ys.size).toBe(4)
+		expect(portCell(big, 1, 0, 0)!.w).toBeCloseTo(430 / 24)
+	})
 	it('a device with few ports keeps port-sized cells (Dave: a server / tower PC drew huge ports)', () => {
 		const server: Device = { type: 'device', id: 'SV', rackId: 'R1', name: 'SV', kind: 'server', u: 10, heightU: 2, face: 'front', portCount: 2 }
 		const c = portCell(server, 1, 0, 0)!
@@ -106,10 +125,23 @@ describe('port cells and labels', () => {
 		expect(c.h).toBeLessThanOrEqual(30)
 		const panel: Device = { ...server, kind: 'panel', heightU: 1, portCount: 24 }
 		expect(portCell(panel, 1, 0, 0)!.w).toBeCloseTo(430 / 24)          // panels are unchanged
+		// a 200 mm tower PC's ports sit on the PC (Dave: R311's were drawn off to the left of it)
+		const tower: Device = { ...server, widthMm: 200, portCount: 4 }
+		for (let n = 1; n <= 4; n++) { const c = portCell(tower, n, 0, 0)!; expect(c.x).toBeGreaterThanOrEqual(-100); expect(c.x + c.w).toBeLessThanOrEqual(100) }
+	})
+	it('a two-part label in a 48-port panel is stacked, about twice the size of one line (Dave: P3C U37 unreadable)', () => {
+		const prims = view('front', [{ type: 'device', id: 'P48', rackId: 'R1', name: 'P48', kind: 'panel', u: 10, heightU: 1, face: 'both', portCount: 48, portLabels: { '1': '01A.014A' } } as Device])
+		const texts = prims.filter((p) => p.k === 'text' && p.src === 'P48' && p.sub === '1') as { text: string; size: number }[]
+		expect(texts.map((t) => t.text)).toEqual(['01A', '014A'])
+		expect(texts[0].size).toBeGreaterThan(6)   // one line of 8 characters was ~3.4 mm
+		// and its name over the ports gives way once the port labels can be read (it covered them)
+		const name = prims.find((p) => p.k === 'text' && p.cls.includes('on-ports') && p.text.startsWith('P48')) as { maxPx?: number } | undefined
+		expect(name?.maxPx).toBeGreaterThan(0)
 	})
 	it('labels stack: full form in up to three lines, short form = the last two parts', () => {
 		expect(labelLines('L01.A.001-A01')).toEqual({ full: ['L01.A', '001', 'A01'], short: ['001', 'A01'] })
 		expect(labelLines('33-001.A')).toEqual({ full: ['33', '001', 'A'], short: ['001', 'A'] })
-		expect(labelLines('SW1-01')).toEqual({ full: ['SW1-01'], short: ['SW1-01'] })
+		expect(labelLines('SW1-01')).toEqual({ full: ['SW1', '01'], short: ['SW1', '01'] })
+		expect(labelLines('UPLINK')).toEqual({ full: ['UPLINK'], short: ['UPLINK'] })
 	})
 })

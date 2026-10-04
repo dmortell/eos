@@ -44,8 +44,9 @@ export function patchScheduleRows(ix: ProjectIndex, spaceId?: Id, typeLabel: (id
 	}))
 }
 
-export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, typeLabel?: (id: string) => string): Promise<number> {
-	const rows = patchScheduleRows(ix, room?.id, typeLabel)
+/** `changesOnly` = just the work (add / change / remove), not the cords already installed. */
+export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, typeLabel?: (id: string) => string, changesOnly = false): Promise<number> {
+	const rows = patchScheduleRows(ix, room?.id, typeLabel).filter((r) => !changesOnly || r.status !== 'installed')
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Patch Schedule')

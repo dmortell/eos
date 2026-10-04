@@ -3,6 +3,7 @@
 import type { Entity, Layer } from './drawing'
 import type { Id, Outlet, Device, Rack, Link, Cord, Level, Space, PortRef } from './types'
 import type { Shape } from './shapes'
+import { naturalCompare } from './labels'
 
 export const portKey = (r: PortRef) => `${r.on}:${r.port}:${r.face ?? ''}`
 const portKeyAnyFace = (r: PortRef) => `${r.on}:${r.port}:`
@@ -64,7 +65,32 @@ export class ProjectIndex {
 		if (e?.type !== 'device') return ''
 		const far = this.farEnd(r), fe = far && this.byId.get(far.on)
 		if (fe?.type === 'outlet') return fe.ports[far!.port - 1]?.label ?? ''
-		return e.portLabels?.[String(r.port)] ?? ''
+		const own = e.portLabels?.[String(r.port)]
+		if (own) return own
+		const l = this.linkAt(r)
+		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
+	}
+
+	/** A tie with no labels of its own: "RackA~RackB:NN" at both ends — the racks in name order, numbered per pair by
+	 *  the first rack's device and port. Made once per index (it never changes). */
+	#ties: Map<Id, string> | null = null
+	#tieLabel(l: Link): string {
+		if (!this.#ties) {
+			this.#ties = new Map()
+			const rackOf = (on: Id) => { const d = this.byId.get(on); return d?.type === 'device' ? this.byId.get(d.rackId) : undefined }
+			const pairs = new Map<string, { id: Id; key: string; a: string; b: string }[]>()
+			for (const t of this.links) {
+				if (t.kind !== 'tie') continue
+				const ra = rackOf(t.a.on), rb = rackOf(t.b.on)
+				if (ra?.type !== 'rack' || rb?.type !== 'rack') continue
+				const first = naturalCompare(ra.name, rb.name) <= 0, [A, B] = first ? [ra.name, rb.name] : [rb.name, ra.name], end = first ? t.a : t.b
+				const k = `${A}~${B}`
+				if (!pairs.has(k)) pairs.set(k, [])
+				pairs.get(k)!.push({ id: t.id, key: `${this.nameOf(end.on)}\u0000${String(end.port).padStart(4, '0')}`, a: A, b: B })
+			}
+			for (const list of pairs.values()) list.sort((x, y) => naturalCompare(x.key, y.key)).forEach((x, i) => this.#ties!.set(x.id, `${x.a}~${x.b}:${String(i + 1).padStart(2, '0')}`))
+		}
+		return this.#ties.get(l.id) ?? ''
 	}
 
 	/** "Rack A01 · Panel 3 : 17" — where a device port is, for schedules. */

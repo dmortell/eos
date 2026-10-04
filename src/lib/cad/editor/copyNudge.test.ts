@@ -34,12 +34,12 @@ function harness(spec: ViewSpec, extra: Entity[] = []) {
 	return { store, ctx, sel: () => sel, setSel: (ids: string[]) => { sel = ids }, said }
 }
 const at = (x: number, y: number, o: Partial<{ ctrl: boolean; shift: boolean }> = {}) => ({ p: { x, y }, shift: false, ctrl: false, alt: false, ...o })
-/** A point on a device's body in the front row (its left edge, clear of the port cells). */
+/** A point on a device's body in the front row (its middle; the test devices have no ports). */
 function uPoint(store: EntityStore, rackId: string, u: number) {
 	const ix = new ProjectIndex(store.all())
 	const l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' }).find((x) => x.rack.id === rackId)!
 	const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2
-	return { x: l.x0 + 60, y: -(base + (u - 0.5) * RU_MM) }
+	return { x: l.x0 + l.rack.widthMm / 2, y: -(base + (u - 0.5) * RU_MM) }
 }
 
 describe('Ctrl-drag copy (plan)', () => {
@@ -54,8 +54,17 @@ describe('Ctrl-drag copy (plan)', () => {
 		const copy = outlets.find((o) => !['O1', 'O2'].includes(o.id))!
 		expect(copy).toMatchObject({ label: '33-001', at: { x: 1500, y: 4000 } })
 		expect(h.sel()).toEqual([copy.id])
-		h.store.undo()
+		const undone = h.store.undo()
 		expect(h.store.ofType('outlet')).toHaveLength(2)
+		expect(undone?.sel).toEqual([])   // the selection before the press (nothing), for the app to give back
+	})
+	it('undoing a copy gives back the selection from before it', () => {
+		const h = harness(PLAN), t = new SelectTool()
+		h.setSel(['O1', 'O2'])
+		t.down(at(1000, 4000, { ctrl: true }), h.ctx())
+		t.move(at(1500, 4000, { ctrl: true }), h.ctx())
+		t.up(at(1500, 4000, { ctrl: true }), h.ctx())
+		expect(h.store.undo()?.sel).toEqual(['O1', 'O2'])
 	})
 	it('letting go of Ctrl mid-drag moves instead (no copy)', () => {
 		const h = harness(PLAN), t = new SelectTool()
@@ -72,6 +81,21 @@ describe('Ctrl-drag copy (plan)', () => {
 		t.down(at(1000, 4000, { ctrl: true }), h.ctx())
 		t.up(at(1000, 4000, { ctrl: true }), h.ctx())
 		expect(h.sel()).toEqual(['O2', 'O1'])
+	})
+})
+
+describe('click-cycle', () => {
+	it('clicking the same spot again selects the next thing stacked under it, then round again', () => {
+		const shape = (id: string) => ({ type: 'shape', id, levelId: 'L33', geom: { kind: 'circle', centre: { x: 1000, y: 4000 }, r: 300 } }) as Entity
+		const h = harness(PLAN, [shape('S1')]), t = new SelectTool()
+		const click = () => { t.down(at(1000, 4000), h.ctx()); t.up(at(1000, 4000), h.ctx()) }
+		click()
+		const first = h.sel()[0]
+		click()
+		expect(h.sel()).toHaveLength(1)
+		expect(h.sel()[0]).not.toBe(first)
+		click()
+		expect(h.sel()[0]).toBe(first)
 	})
 })
 

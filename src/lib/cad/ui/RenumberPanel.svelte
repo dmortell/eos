@@ -36,7 +36,7 @@
 <details class="rn" {open}>
 	<summary class="font-semibold">Renumber {items.length}</summary>
 	{#if !items.length}
-		<p class="text-zinc-400">Click outlets, racks or labelled shapes in order (Renumber tool), or select several.</p>
+		<p class="text-zinc-400">Click outlets, racks or labelled shapes in order (Renumber tool), or select several (sheets too, in the Sheets tab).</p>
 	{:else}
 		<label class="row">Order
 			<select class="inp" bind:value={order}>

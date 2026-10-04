@@ -160,6 +160,8 @@ export interface ShapeCore {
 	order?: number
 	catalogId?: Id
 	style?: { stroke?: string; fill?: string; weightMm?: number; dash?: string }
+	/** A box (rect): draw a thick line on its back edge (local −y), as racks have — which way a desk / box faces. */
+	backLine?: boolean
 }
 
 export type Shape = ShapeCore & Owner

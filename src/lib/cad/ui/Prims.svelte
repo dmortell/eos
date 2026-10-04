@@ -61,7 +61,7 @@
 	.run-high { stroke: #f97316; }
 	.wall { stroke: #475569; opacity: 0.8; }
 	.riser { stroke: #be185d; fill: #fce7f3; }
-	.rack { stroke: #1e293b; fill: #f1f5f9; }
+	.rack { stroke: #1e293b; fill: none; }   /* no shading (Dave); still picked by its whole body */
 	.rack-x { stroke: #94a3b8; }
 	.paper { fill: #ffffff; stroke: #a1a1aa; }
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
@@ -85,7 +85,7 @@
 	.viewport-hidden { stroke-opacity: 0.25; }
 	text.viewport-label { fill: #334155; }
 	.rack-rails { stroke: #64748b; stroke-width: 1.25; fill: none; }
-	.rack-front { stroke: #1e293b; stroke-width: 2; }
+	.rack-back { stroke: #1e293b; stroke-width: 3.5; }   /* a rack's / box's rear edge, heavy */
 	.outlet { stroke: #1d4ed8; }
 	.outlet.filled { fill: #3b82f6; }
 	.outlet-high { stroke-dasharray: 3 2; }
@@ -96,6 +96,10 @@
 	.device-switch { fill: #dcfce7; }
 	.datum { stroke: #a1a1aa; stroke-dasharray: 6 4; }
 	.datum-ffl { stroke: #52525b; stroke-dasharray: none; }
+	/* a device on the rack's other face: faint, behind this face's devices */
+	.device-other { stroke: #a1a1aa; stroke-dasharray: 3 2; fill: none; }
+	text.device-other-label { fill: #a1a1aa; font-style: italic; }
+	.datum-slab { stroke: #3f3f46; stroke-dasharray: none; stroke-width: 2; }   /* a slab face: a little heavier than FFL */
 	text.datum-label { fill: #71717a; }
 	.workplane { stroke: #16a34a; stroke-dasharray: 8 4; stroke-width: 1.5; }
 	.port { stroke: #94a3b8; fill: #f8fafc; }
@@ -137,7 +141,8 @@
 	text.fill-label.fill-ok { fill: #166534; }
 	text.fill-label.fill-warn { fill: #92400e; }
 	text.fill-label.fill-over { fill: #b91c1c; }
-	.trace-route { stroke: #f59e0b; stroke-width: 5; opacity: 0.8; fill: none; stroke-linecap: round; }
+	/* the route a selected outlet's cables take: green dashes, so it doesn't read as selected (selection is amber) */
+	.trace-route { stroke: #10b981; stroke-width: 4; stroke-dasharray: 8 5; opacity: 0.85; fill: none; stroke-linecap: round; }
 	.trace-port { fill: #fde68a; stroke: #d97706; stroke-width: 2; }
 	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
 	.cord-change { stroke-dasharray: 8 2 2 2; }
@@ -155,6 +160,8 @@
 	.cord-add { stroke-dasharray: 6 3; }
 	.draft { stroke: #2563eb; opacity: 0.5; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
+	/* the Device tool's drop ghost; red = it can't go there */
+	.draft-bad { stroke: #dc2626; opacity: 0.8; stroke-dasharray: 4 3; }
 	.grip { fill: #f59e0b; stroke: white; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
 	.sel { stroke: #f59e0b !important; }

@@ -6,7 +6,8 @@ import type { Id } from '../domain/types'
 
 /** One change to one entity. `before` null = created, `after` null = deleted. */
 export interface Op { id: Id; before: Entity | null; after: Entity | null }
-export interface Step { label: string; ops: Op[] }
+/** `sel` = the selection before the edit (undo gives it back when nothing the step touched is left). */
+export interface Step { label: string; ops: Op[]; sel?: Id[] }
 
 export type ChangeSource = 'local' | 'gesture' | 'undo' | 'redo' | 'remote' | 'load'
 /** `final` = the ops are settled and should be persisted (false while a gesture is still moving). */
@@ -21,11 +22,12 @@ export interface Txn {
 export interface Gesture {
 	/** Re-run the gesture's edit from its starting state (e.g. on every pointer move). */
 	update(fn: (tx: Txn) => void): void
-	commit(): Step | null
+	/** `sel` = the selection before the gesture (see Step). */
+	commit(sel?: Id[]): Step | null
 	rollback(): void
 }
 
-export interface UndoResult { label: string; applied: Op[]; skipped: Op[] }
+export interface UndoResult { label: string; applied: Op[]; skipped: Op[]; sel?: Id[] }
 
 export class EntityStore {
 	#map = new Map<Id, Entity>()
@@ -67,14 +69,15 @@ export class EntityStore {
 		this.#emit({ source: 'load', ops, final: true })
 	}
 
-	/** One undoable edit. Returns the recorded step, or null when nothing changed. */
-	transact(label: string, fn: (tx: Txn) => void): Step | null {
+	/** One undoable edit. Returns the recorded step, or null when nothing changed. `sel` = the selection before it, for
+	 *  undo to give back when nothing it touched is left (undoing a paste / copy). */
+	transact(label: string, fn: (tx: Txn) => void, sel?: Id[]): Step | null {
 		if (this.#gesture) throw new Error(`"${label}" started while the gesture "${this.#gesture.label}" is open`)
 		const base = new Map<Id, Entity | null>()
 		fn(this.#txn(base))
 		const ops = this.#settle(base)
 		if (!ops.length) return null
-		const step = { label, ops }
+		const step = { label, ops, ...(sel ? { sel } : {}) }
 		this.#push(step)
 		this.#emit({ source: 'local', label, ops, final: true })
 		return step
@@ -100,12 +103,12 @@ export class EntityStore {
 				fn(this.#txn(g.base))
 				this.#emit({ source: 'gesture', label, ops: this.#settle(g.base, false), final: false })
 			},
-			commit: () => {
+			commit: (sel) => {
 				if (this.#gesture !== g) return null
 				this.#gesture = null
 				const ops = this.#settle(g.base)
 				if (!ops.length) return null
-				const step = { label, ops }
+				const step = { label, ops, ...(sel ? { sel } : {}) }
 				this.#push(step)
 				this.#emit({ source: 'local', label, ops, final: true })
 				return step
@@ -125,7 +128,7 @@ export class EntityStore {
 		if (!step) return null
 		const res = this.#replay(step, 'undo')
 		if (res.applied.length) this.#redo.push({ label: step.label, ops: res.applied })
-		return res
+		return step.sel ? { ...res, sel: step.sel } : res
 	}
 
 	redo(): UndoResult | null {

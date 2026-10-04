@@ -12,7 +12,7 @@ const LAYERS: Record<string, { name: string; aci: number }> = {
 	'riser-label': { name: 'E-RISERS', aci: 6 },
 	rack: { name: 'E-RACKS', aci: 7 },
 	'rack-x': { name: 'E-RACKS', aci: 8 },
-	'rack-front': { name: 'E-RACKS', aci: 7 },
+	'rack-back': { name: 'E-RACKS', aci: 7 },
 	wall: { name: 'A-WALL', aci: 8 },
 	shape: { name: 'A-DETAIL', aci: 7 },
 	label: { name: 'ANNO-LABELS', aci: 7 },

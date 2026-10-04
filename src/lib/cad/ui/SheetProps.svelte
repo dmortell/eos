@@ -5,7 +5,8 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, Viewport } from '../domain/drawing'
-	import { defaultViewport, contentCentre } from '../views/sheet'
+	import type { RackRow } from '../domain/types'
+	import { defaultViewport, contentCentre, SCALES } from '../views/sheet'
 	import { newId } from '../domain/ids'
 	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
@@ -16,7 +17,6 @@
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
 	const vp = $derived(s.viewports.find((v) => v.id === ws.viewportId))
-	const SCALES = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
 	const levels = $derived(project.levels)
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
@@ -33,11 +33,12 @@
 	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
+	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}${v.view.spec.rowId ? `:${v.view.spec.rowId}` : ''}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
+	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	function setView(v: Viewport, key: string) {
-		const [kind, a, b] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
+		const [kind, a, b, c] = key.split(':')
+		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
 		const next = { ...v, view: { ...v.view, spec } }
 		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
 	}
@@ -78,7 +79,11 @@
 		<select class="inp" value={viewKey(vp)} onchange={(e) => setView(vp, e.currentTarget.value)}>
 			<option value="plan">Plan</option>
 			{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value="elev:{d}">Elevation {d}</option>{/each}
-			{#each rooms as r (r.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}{/each}
+			{#each rooms as r (r.id)}
+				{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}
+				<!-- one row of the room's racks (Dave: a sheet of 4AR01 … r6 only) -->
+				{#each rowsOf(r.id) as row (row.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}:{row.id}">{r.name} · {row.name} racks {f}</option>{/each}{/each}
+			{/each}
 			{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}
 			<option value="riser">Risers (building)</option>
 			<option value="riser:compact">Risers (floors with server rooms)</option>

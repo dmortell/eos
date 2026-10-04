@@ -5,12 +5,13 @@ import type { Id, Pt } from './types'
 import type { Entity } from './drawing'
 import { setNumber, splitGroups, readingOrder, naturalCompare, numberAt, type RenumberOpts } from './labels'
 
-/** The text Renumber changes: an outlet's label, a rack's name, a shape's label. */
+/** The text Renumber changes: an outlet's label, a rack's name, a shape's label, a sheet's number. */
 export function labelOf(e: Entity | undefined): string | undefined {
 	if (!e) return undefined
 	if (e.type === 'outlet') return e.label
 	if (e.type === 'rack') return e.name
 	if (e.type === 'shape') return e.label || undefined
+	if (e.type === 'sheet') return e.number
 	return undefined
 }
 export const renumberable = (e: Entity | undefined): boolean => labelOf(e) !== undefined
@@ -58,6 +59,7 @@ export function renumberEntities(items: Entity[], o: RenumberOpts): Entity[] {
 		if (label === old) return []
 		if (e.type === 'outlet') return [{ ...e, label, ports: e.ports.map((p) => ({ ...p, label: portFollows(p.label, old, label, group) })) }]
 		if (e.type === 'rack') return [{ ...e, name: label }]
+		if (e.type === 'sheet') return [{ ...e, number: label }]
 		return e.type === 'shape' ? [{ ...e, label }] : []
 	})
 }

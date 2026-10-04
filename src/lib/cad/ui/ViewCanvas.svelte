@@ -8,14 +8,14 @@
 	import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
-	import type { Pt } from '../domain/types'
+	import type { Pt, RackRow } from '../domain/types'
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
 	import { untrack } from 'svelte'
 	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
-	import { sheetDisplayList } from '../views/sheet'
+	import { sheetDisplayList, nextScale } from '../views/sheet'
 	import { applyLayers, layerMap } from '../views/layers'
 	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
@@ -42,6 +42,8 @@
 	} = $props()
 
 	const PLOT_SCALE = 100
+	/** Screen mm per CSS px (96 dpi): zoom 100% = the drawing at its printed size (1:100, or the paper itself). */
+	const PX_MM = 25.4 / 96
 	const FACES = ['front', 'rear'] as const
 	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 
@@ -49,6 +51,8 @@
 	let w = $state(800), h = $state(600)
 	let cam = $state<Camera>({ x: 0, y: 0, k: 0.05 })
 	let marquee = $state<Bounds | null>(null)
+	/** The box is dragged right → left: a crossing selection (dashed green, like other CAD). */
+	let crossing = $state(false)
 	/** Bumped after every tool event, so the preview (which reads the tool's own fields) is recomputed. */
 	let tick = $state(0)
 	let fittedFor: string | null = null
@@ -211,6 +215,9 @@
 			}
 			// no fit before the pane has BOTH sizes: a fit into a 0-high pane clamps to the smallest zoom (a new sheet
 			// came up as a speck in the corner, and that camera was then saved and restored)
+			// asked to show one thing (a `?rack=` link): fit to it instead, once it's drawn here
+			const want = ws.focus, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
+			if (fb) { cam = fit(fb, w, h); fittedFor = RESTORED; ws.focus = null; return }   // RESTORED: no re-fit over it
 			if (fittedFor === key || fittedFor === RESTORED || !ps.length || !w || !h) return
 			const b = unionBounds(ps.map(primBounds))
 			if (b) { cam = fit(b, w, h); fittedFor = key }
@@ -260,12 +267,13 @@
 		const tol = TOL_PX / cam.k
 		return {
 			store: project.store, index: project.index, levelId, settings: project.settings, opts: ws.opts, space, work,
-			layerId: ws.layers.current && project.index.get(ws.layers.current)?.type === 'layer' && !ws.layers.current.startsWith('sys:') ? ws.layers.current : null,
+			// the current layer for new lines: a project layer that exists, or a system one other than Drawing (their default)
+			layerId: ws.layers.current && ws.layers.current !== 'sys:drawing' && (ws.layers.current.startsWith('sys:') || project.index.get(ws.layers.current)?.type === 'layer') ? ws.layers.current : null,
 			prims: () => layered.pick, tol: () => tol,
 			snap: (p, alt, skip) => spec.kind === 'plan'
 				? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt })
 				: snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt }),
-			selection: ws.selection, select: ws.select, setMarquee: (b) => { marquee = b }, ask: ws.ask, askText: ws.askText, say: ws.say,
+			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
@@ -340,11 +348,23 @@
 		if (toolDown) { toolDown = false; ws.tool.up(input(e), ctx()); tick++ }
 	}
 
+	/** Alt+wheel over the selected, unlocked viewport: the next standard scale (T126). False = not over one. */
+	function rescaleViewport(dir: 1 | -1, p: Pt): boolean {
+		const vp = sheet?.viewports.find((v) => v.id === ws.viewportId)
+		if (!sheet || !vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return false
+		const scale = nextScale(vp.scale, dir), s = sheet
+		if (scale !== vp.scale) project.store.transact(`Viewport scale 1:${scale}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
+		ws.say(`1:${scale} — Alt+wheel changes the viewport's scale, Alt-drag pans its view`)
+		return true
+	}
 	/** The wheel needs a non-passive listener to stop the page scrolling. */
 	$effect(() => {
 		const el = svg
 		if (!el) return
-		const onWheel = (e: WheelEvent) => { e.preventDefault(); cam = zoomAt(cam, local(e), Math.exp(-e.deltaY * 0.0015)) }
+		const onWheel = (e: WheelEvent) => {
+			e.preventDefault()
+			if (!(e.altKey && rescaleViewport(e.deltaY < 0 ? -1 : 1, toModel(cam, local(e))))) cam = zoomAt(cam, local(e), Math.exp(-e.deltaY * 0.0015))
+		}
 		el.addEventListener('wheel', onWheel, { passive: false })
 		return () => el.removeEventListener('wheel', onWheel)
 	})
@@ -391,7 +411,7 @@
 			<Prims prims={preview} selected={new Set()} />
 			{#if marquee}
 				<rect x={marquee.x0} y={marquee.y0} width={marquee.x1 - marquee.x0} height={marquee.y1 - marquee.y0}
-					class="marquee" vector-effect="non-scaling-stroke" />
+					class="marquee" class:crossing vector-effect="non-scaling-stroke" />
 			{/if}
 		</g>
 	</svg>
@@ -422,6 +442,13 @@
 			{#each FACES as f (f)}
 				<button class:on={row.face === f} onclick={() => { onfocus?.(); onspec({ ...row, face: f }) }}>Racks {f}</button>
 			{/each}
+			{@const rows = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === row.spaceId).sort((a, b) => a.order - b.order)}
+			{#if rows.length}
+				<select class="secs" class:on={!!row.rowId} title="Show one row of racks, or the whole room" value={row.rowId ?? ''} onchange={(e) => { onfocus?.(); const { rowId: _, ...rest } = row; onspec(e.currentTarget.value ? { ...rest, rowId: e.currentTarget.value } : rest) }}>
+					<option value="">All rows</option>
+					{#each rows as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+				</select>
+			{/if}
 		{/if}
 		{#if sheet}
 			<span class="sep"></span>
@@ -432,21 +459,25 @@
 	<div class="scale">
 		<!-- the cursor in the view's own terms: plan / sheet x, y (y down); elevations, sections and rack rows x, z (up) -->
 		{#if cursor}{@const up = spec.kind === 'elevation' || spec.kind === 'section' || spec.kind === 'row'}X {Math.round(cursor.x)} · {up ? 'Z' : 'Y'} {Math.round(up ? -cursor.y : cursor.y)} · {/if}
-		{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}
+		{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · zoom {Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100)}% · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}
 	</div>
 </div>
 
 <style>
 	.surface { position: relative; width: 100%; height: 100%; overflow: hidden; background: white; }
 	.surface.active { box-shadow: inset 0 0 0 1px #93c5fd; }
-	.views { position: absolute; top: 4px; left: 6px; display: flex; gap: 2px; }
+	/* a strip over the top of the pane, above the drawing (Dave: rack labels showed through the buttons) */
+	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
 	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
 	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
 	.views .secs.on { background: #2563eb; border-color: #2563eb; color: white; }
+	/* the open list keeps plain options (they inherited the blue "on" look: every row looked picked) */
+	.views .secs option { background: white; color: #18181b; }
 	.views .sep { width: 1px; background: #d4d4d8; margin: 0 4px; }
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
 	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }
 	.scale { position: absolute; bottom: 4px; left: 8px; font-size: 10px; color: #a1a1aa; pointer-events: none; }
-	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; stroke-dasharray: 4 3; }
+	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; }
+	.marquee.crossing { fill: rgba(16, 185, 129, 0.08); stroke: #10b981; stroke-dasharray: 4 3; }
 </style>

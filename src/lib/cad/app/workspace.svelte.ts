@@ -1,6 +1,6 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
-import type { Id, Level } from '../domain/types'
+import type { Id, Level, Outlet } from '../domain/types'
 import { SelectTool, OutletTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
@@ -49,12 +49,18 @@ export class Workspace {
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
+	/** Show this one thing when the view next fits (a `?rack=` link); cleared once done. Not reactive. */
+	focus: Id | null = null
+	/** The Outlet tool's settings for the next outlet (tool bar); unset = like the last one placed. */
+	outletNext = $state.raw<{ ports?: number; tier?: Outlet['tier']; usage?: string; mount?: Outlet['mount']; cableType?: string }>({})
 	/** The user's hidden / locked / current layers (loaded by the app with the project id). */
 	readonly layers = new LayerPrefs()
 	/** A short status message (why a click was refused …); clears itself. */
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
+	/** Set by the app: the Delete key's action (with its confirms) — for the Delete buttons. */
+	remove: () => void = () => {}
 	/** Set by the app: show a view in the active pane (a section's Open button). */
 	openView: (s: ViewSpec) => void = () => {}
 	/** Set by the app (it owns the store): how the assign tool writes. */
@@ -65,7 +71,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), outlet: new OutletTool(), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),

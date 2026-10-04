@@ -5,6 +5,7 @@ import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Sheet } from '../domain/drawing'
+import type { Shape } from '../domain/shapes'
 
 const sheet = (extra: Partial<Sheet> = {}): Sheet => ({ type: 'sheet', id: 'SH', number: 'S-001', title: 'Plan', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [], status: 'active', ...extra })
 const ix = () => new ProjectIndex(demoProject())
@@ -22,6 +23,24 @@ describe('sheets', () => {
 		const label = (v: typeof vp & { label?: string }) => sheetDisplayList(i, sheet({ viewports: [v] })).find((p) => p.k === 'text' && p.cls === 'viewport-label')
 		expect(label(vp)).toMatchObject({ text: 'SECTION B–B′  1:50' })
 		expect(label({ ...vp, label: 'Riser cut' })).toMatchObject({ text: 'Riser cut  1:50' })
+	})
+	it('a cloud tied to a viewport scales with its content (Alt+wheel); its bumps stay paper-sized', () => {
+		const vp = (scale: number) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale, centre: { x: 3000, y: 4000 } })
+		const cloud: Shape = { type: 'shape', id: 'C', sheetId: 'SH', vpId: 'V', geom: { kind: 'cloud', pts: [{ x: 3000, y: 4000 }, { x: 5000, y: 4000 }, { x: 5000, y: 6000 }, { x: 3000, y: 6000 }] } }
+		const box = (scale: number) => {
+			const sh = sheet({ viewports: [vp(scale)] })
+			const pts = sheetDisplayList(new ProjectIndex([...demoProject(), sh, cloud]), sh).flatMap((p) => (p.src === 'C' && p.k === 'line' ? p.pts : []))
+			const xs = pts.map((q) => q.x)
+			return { w: Math.max(...xs) - Math.min(...xs), n: pts.length }
+		}
+		const a = box(100), b = box(200)
+		expect(a.w).toBeCloseTo(20 + 2 * 3, 0)         // 2 m at 1:100 = 20 mm, + 3 mm bumps each side
+		expect(b.w).toBeLessThan(a.w * 0.6)            // at 1:200 about half
+		expect(b.n).toBeLessThan(a.n)                  // fewer 6 mm bumps round a smaller outline
+		// and it's clipped to the viewport's window like the view (zoomed in, it mustn't fly off the page)
+		const sh = sheet({ viewports: [vp(10)] })
+		const c = sheetDisplayList(new ProjectIndex([...demoProject(), sh, cloud]), sh).find((p) => p.src === 'C')
+		expect(c?.clip).toEqual({ x0: 20, y0: 20, x1: 220, y1: 170 })
 	})
 })
 

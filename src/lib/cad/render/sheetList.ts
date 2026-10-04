@@ -1,6 +1,6 @@
 // Excel of the sheet register (Phase 4.4 — ported from Pages' drawingListExport.ts): the rows as shown (filtered,
 // sorted), or just the selection. exceljs is loaded on demand.
-import type { SheetRow } from '../domain/sheetList'
+import { revisionColumns, type SheetRow } from '../domain/sheetList'
 import { download, fileSafe } from './download'
 
 const COLS: { head: string; width: number; get: (r: SheetRow) => string | number }[] = [
@@ -20,13 +20,16 @@ export async function exportSheetRows(rows: SheetRow[], projectName: string): Pr
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Sheets')
-	const head = ws.addRow(COLS.map((c) => c.head))
+	// then a date column per revision issued (P1, P2, C1 …): when each sheet got it
+	const revs = revisionColumns(rows)
+	const head = ws.addRow([...COLS.map((c) => c.head), ...revs.map((v) => v.code)])
 	head.eachCell((cell) => {
 		cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
 		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
 	})
 	COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width))
-	for (const r of rows) ws.addRow(COLS.map((c) => c.get(r)))
+	revs.forEach((_, i) => (ws.getColumn(COLS.length + i + 1).width = 11))
+	for (const r of rows) ws.addRow([...COLS.map((c) => c.get(r)), ...revs.map((v) => v.dateOf(r))])
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
 	download(await wb.xlsx.writeBuffer(), `Sheets_${fileSafe(projectName)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 }

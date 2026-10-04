@@ -68,6 +68,13 @@
 		project.store.transact(m == null ? 'Cable length: routed' : `Cable length ${m} m by hand`, (tx) => { for (const l of cables) tx.put({ ...l, lengthM: m }) })
 	}
 
+	// ── take the cables / cords off these ports (any kind of link: outlet, tie, backbone); Undo brings them back ──
+	const cordsHere = $derived(project.index.cords.filter((c) => (c.a.on === sel.on && sel.ports.includes(c.a.port)) || (c.b.on === sel.on && sel.ports.includes(c.b.port))))
+	function removeAll(label: string, ids: string[]) {
+		project.store.transact(label, (tx) => { for (const id of ids) tx.del(id) })
+		ws.say(`${label} — Undo brings them back`)
+	}
+
 	function edit(n: number, input: HTMLInputElement) {
 		const text = input.value
 		input.value = project.index.portLabel({ on: sel.on, port: n, face: sel.face })   // shows the new text once written
@@ -81,6 +88,8 @@
 <div class="acts">
 	<button title="Patch these ports to another device: click its first port next (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}>Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to…</button>
 	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack elevation and click its first port" onclick={() => ws.interconnectFrom(sel)}>Interconnect to…</button>{/if}
+	{#if cables.length}<button title="Remove the permanent cables on these ports — outlet links, ties and backbone, patched or not" onclick={() => removeAll(`Remove ${cables.length} link${cables.length === 1 ? '' : 's'}`, cables.map((l) => l.id))}>Remove links ({cables.length})</button>{/if}
+	{#if cordsHere.length}<button title="Remove the patch cords on these ports" onclick={() => removeAll(`Remove ${cordsHere.length} cord${cordsHere.length === 1 ? '' : 's'}`, cordsHere.map((c) => c.id))}>Remove cords ({cordsHere.length})</button>{/if}
 </div>
 {#if cables.length}
 	<!-- the permanent cables on the selected ports (Phase 5): routed length, the riser a backbone takes, a hand length -->

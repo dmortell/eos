@@ -120,6 +120,8 @@ export interface BlockDef {
 	category?: string
 	shapes: Omit<ShapeCore, 'type' | 'groupId'>[]
 	attrs?: { tag: string; label: string; default?: string }[]
+	/** Deleted from the library: hidden from pickers, but inserts / outlets already using it keep drawing it. */
+	retired?: boolean
 }
 
 /** An ISSUE = one package that went out (Phase 4.6): the sheets at the revisions they went at (bumped if changed

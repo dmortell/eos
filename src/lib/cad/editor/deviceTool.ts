@@ -3,8 +3,10 @@
 // overlap or run off the rack is refused with the reason. The tool stays on for the next device.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Device, Id } from '../domain/types'
-import { deviceFromTemplate, placementProblem, type DeviceTemplate } from '../domain/devices'
+import { deviceFromTemplate, placementProblem, RACK_DEVICE_W, type DeviceTemplate } from '../domain/devices'
 import { nextLabel, naturalCompare } from '../domain/labels'
+import { rackLayout, rackHeight, RU_MM } from '../views/rackRow'
+import type { Prim } from '../views/display'
 
 const PREFIX: Partial<Record<Device['kind'], string>> = { panel: 'PP', switch: 'SW', manager: 'CM', server: 'SV', shelf: 'SH', pdu: 'PDU' }
 
@@ -33,6 +35,20 @@ export class DeviceTool implements Tool {
 	cancel(): void { this.#hover = null }
 	/** The rack and U under the cursor (shown in the status line). */
 	get hovering() { return this.#hover }
+
+	/** The drop ghost: a dashed outline where the device will land (red when it can't — overlap / off the rack). */
+	preview(c: ToolCtx): Prim[] {
+		const t = this.templateOf(), h = this.#hover, spec = c.space.spec
+		if (!t || !h || spec.kind !== 'row') return []
+		const l = rackLayout(c.index, spec).find((x) => x.rack.id === h.rack)
+		if (!l) return []
+		const u = t.kind === 'pdu' ? 1 : h.u, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2
+		const w = Math.min(t.widthMm ?? RACK_DEVICE_W, l.rack.widthMm), x0 = l.x0 + (l.rack.widthMm - w) / 2, x1 = x0 + w
+		const y0 = -(base + (u - 1) * RU_MM), y1 = -(base + (u - 1 + t.heightU) * RU_MM)
+		const d = deviceFromTemplate(t, l.rack.id, u, t.name, t.face)
+		const bad = !!placementProblem(d, l.rack, c.store.ofType('device'))
+		return [{ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls: bad ? 'draft draft-bad' : 'draft' }]
+	}
 }
 
 /** PP1, PP2 … per kind across the project (or the template name for kinds without a prefix). */

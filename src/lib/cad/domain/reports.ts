@@ -146,7 +146,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	}
 	// racks, VCMs and their containment accessories by SKU (the Racks tool's rules, rackBom)
 	for (const l of rackBom(p, catalog)) {
-		add(l.group === 'Rack' || l.group === 'VCM' ? 'Racks' : 'Rack accessories', l.description !== l.sku ? `${l.sku} - ${l.description}` : l.sku, 'ea', l.qty)
+		add(l.group === 'Rack' || l.group === 'VCM' ? 'Racks' : l.group === 'Desk / shelf' ? 'Desks & shelves' : 'Rack accessories', l.description !== l.sku ? `${l.sku} - ${l.description}` : l.sku, 'ea', l.qty)
 	}
 	for (const d of p.devices) {
 		const item = d.catalogId ?? (d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`)

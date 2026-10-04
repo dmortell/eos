@@ -49,7 +49,7 @@ export function clipboardEvents({ project, ws, target, inRow }: ClipboardDeps) {
 		if (r.problem) { ws.say(r.problem); return }
 		const elsewhere = to.kind === 'sheet' ? 'only notes paste onto a sheet' : to.kind === 'rack' ? 'only devices paste into a rack' : 'notes paste onto a sheet, devices into a rack'
 		if (!r.put.length) { ws.say(`Nothing here takes these — ${elsewhere}`); return }
-		project.store.transact(`Paste ${items(r.select.length)}`, (tx) => r.put.forEach((x) => tx.put(x)))
+		project.store.transact(`Paste ${items(r.select.length)}`, (tx) => r.put.forEach((x) => tx.put(x)), ws.selection)
 		ws.select(r.select)
 		if (r.skipped) ws.say(`${items(r.skipped)} left out — ${elsewhere}`)
 	}

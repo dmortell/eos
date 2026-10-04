@@ -1,4 +1,4 @@
-// Viewports on a sheet through the Select tool: pick, move, resize by a corner, Ctrl-drag to pan the view.
+// Viewports on a sheet through the Select tool: pick, move, resize by a corner, Alt-drag to pan the view.
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
@@ -24,8 +24,8 @@ function harness() {
 			selectViewport: (id) => { vp = id }, viewportId: () => vp,
 		}
 	}
-	const drag = (t: SelectTool, a: { x: number; y: number }, b: { x: number; y: number }, ctrl = false) => {
-		const ev = (p: { x: number; y: number }) => ({ p, shift: false, ctrl, alt: false })
+	const drag = (t: SelectTool, a: { x: number; y: number }, b: { x: number; y: number }, alt = false, ctrl = false) => {
+		const ev = (p: { x: number; y: number }) => ({ p, shift: false, ctrl, alt })
 		t.down(ev(a), ctx()); t.move(ev(b), ctx()); t.up(ev(b), ctx())
 	}
 	const vpNow = () => (store.get('SH') as Sheet).viewports[0]
@@ -46,11 +46,26 @@ describe('viewports on a sheet', () => {
 		expect(h.vpNow().rect).toEqual({ x: 20, y: 20, w: 240, h: 170 })
 		expect(h.vpNow().centre).toEqual({ x: 3000 + 20 * 100, y: 4000 + 10 * 100 })
 	})
-	it('Ctrl-drag inside pans the view (the centre), not the window', () => {
+	it('Alt-drag inside pans the view (the centre), not the window (T126); Ctrl-drag no longer pans', () => {
 		const h = harness(), t = new SelectTool()
 		h.drag(t, { x: 100, y: 100 }, { x: 100, y: 100 })
 		h.drag(t, { x: 100, y: 100 }, { x: 110, y: 100 }, true)
 		expect(h.vpNow().rect.x).toBe(20)
 		expect(h.vpNow().centre.x).toBe(3000 - 10 * 100)
+		h.drag(t, { x: 100, y: 100 }, { x: 120, y: 100 }, false, true)
+		expect(h.vpNow().centre.x).toBe(3000 - 10 * 100)
+	})
+	it('Shift keeps a viewport square while a corner is dragged', () => {
+		const h = harness(), t = new SelectTool()
+		h.drag(t, { x: 100, y: 100 }, { x: 100, y: 100 })   // select it
+		const ev = (p: { x: number; y: number }) => ({ p, shift: true, ctrl: false, alt: false })
+		t.down(ev({ x: 220, y: 170 }), h.ctx()); t.move(ev({ x: 260, y: 180 }), h.ctx()); t.up(ev({ x: 260, y: 180 }), h.ctx())
+		expect(h.vpNow().rect).toEqual({ x: 20, y: 20, w: 240, h: 240 })
+	})
+	it('a locked viewport says so when picked', () => {
+		const h = harness(), t = new SelectTool(), said: string[] = []
+		h.ctx().store.transact('lock', (tx) => tx.put({ ...SHEET, viewports: [{ ...VP, locked: true }] }))
+		t.down({ p: { x: 100, y: 100 }, shift: false, ctrl: false, alt: false }, { ...h.ctx(), say: (m) => said.push(m) })
+		expect(said.at(-1)).toMatch(/locked/)
 	})
 })

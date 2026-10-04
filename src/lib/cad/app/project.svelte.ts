@@ -100,7 +100,9 @@ export class CadProject {
 	redo(): Id[] { return this.#touched(this.store.redo()) }
 	#touched(r: UndoResult | null): Id[] {
 		const keep = (e: Entity | undefined) => !!e && e.type !== 'settings' && e.type !== 'level' && e.type !== 'building'
-		return (r?.applied ?? []).map((op) => op.id).filter((id) => keep(this.store.get(id)))
+		const ids = (r?.applied ?? []).map((op) => op.id).filter((id) => keep(this.store.get(id)))
+		// nothing it touched is left (an undone paste / copy): the selection from before it
+		return ids.length ? ids : (r?.sel ?? []).filter((id) => keep(this.store.get(id)))
 	}
 
 	/** Read the legacy tools' docs and build the import — nothing is written. */
@@ -125,6 +127,13 @@ export class CadProject {
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
 		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(insert) })
 		return insert.id
+	}
+
+	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /
+	 *  outlet already using it keeps drawing it. Built-ins can't be retired. Not undoable (it isn't project data). */
+	async retireBlock(id: Id): Promise<void> {
+		if (this.blocks.get(id)?.builtin) return
+		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [id]: { retired: true } } }, { merge: true })
 	}
 
 	/** An insert → ordinary shapes in place (the copied-block case). */
@@ -170,5 +179,6 @@ export class CadProject {
 		this.#off()
 		this.#offBlocks()
 		this.#offTemplates()
+		this.pdf.destroy()
 	}
 }

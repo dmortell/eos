@@ -34,6 +34,16 @@ describe('outlet symbols', () => {
 		expect(usage?.k === 'text' && usage.at.y).toBeGreaterThan(1.8)   // below the ring, not in its middle
 		expect(ap.some((p) => p.k === 'text' && p.text === '1')).toBe(true)
 	})
+	it('faceplates: data / power, single / dual gang — outlet symbols with label, usage and ports; dual is wider', () => {
+		const fp = BUILTIN_BLOCKS.filter((b) => b.id.startsWith('builtin:faceplate-'))
+		expect(fp.map((b) => b.name)).toEqual(['Faceplate - data, single', 'Faceplate - data, dual', 'Faceplate - power, single', 'Faceplate - power, dual'])
+		for (const b of fp) {
+			expect(b.category).toBe('outlet')
+			expect(b.shapes.filter((s) => s.geom.kind === 'text').map((s) => (s.geom as { text: string }).text)).toEqual(['{LABEL}', '{USAGE}', '{PORTS}'])
+		}
+		const width = (b: Block) => (b.shapes[0].geom as { size: { x: number } }).size.x
+		expect(width(fp[1])).toBeGreaterThan(width(fp[0]))
+	})
 	it('an annotative block scales with the drawing; a model block does not', () => {
 		const b = lib.get('builtin:outlet-box')!
 		const r = (k: number, annotative: boolean) => (blockPrims({ ...b, annotative }, { at: { x: 0, y: 0 } }, k, {}, 's', 'x').find((p) => p.k === 'circle') as { r: number }).r

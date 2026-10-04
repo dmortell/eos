@@ -15,7 +15,6 @@
 	import { PLAN, type ViewSpec } from '../views/space'
 	import OutletGrid from './OutletGrid.svelte'
 	import PatchList from './PatchList.svelte'
-	import { exportBom } from '../render/exports'
 	import Properties from './Properties.svelte'
 	import ImportNotes from './ImportNotes.svelte'
 	import SheetList from './SheetList.svelte'
@@ -25,12 +24,12 @@
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
 	import LayersPanel from './LayersPanel.svelte'
-	import { planDisplayList } from '../views/plan'
-	import { displayListToDxf } from '../render/dxf'
-	import { applyLayers } from '../views/layers'
+	import ResizeHandle from './ResizeHandle.svelte'
+	import { Panels } from '../app/panels.svelte'
+	import { Icon } from '$lib'
 	import { clipboardEvents } from '../app/clipboardEvents'
-	import { exportOutletSchedule } from '../render/outletSchedule'
-	import { download, fileSafe } from '../render/download'
+	import ExportMenu from './ExportMenu.svelte'
+	import OutletOptions from './OutletOptions.svelte'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -39,10 +38,12 @@
 	const project = new CadProject(pid, firestore, user)
 	$effect(() => { project.name = projectName })
 	const ws = new Workspace()
+	const panels = new Panels()
 	// svelte-ignore state_referenced_locally
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
+	ws.remove = () => deleteSelected()
 	onDestroy(() => project.destroy())
 
 	// the view state comes back from the URL on a refresh (Dave): level, the panes' views, the active pane
@@ -79,6 +80,22 @@
 		const elsewhere = p.kind === 'sheet' || p.kind === 'riser' || (p.kind === 'row' && project.index.get(p.spaceId)?.type === 'space' && (project.index.get(p.spaceId) as { levelId: string }).levelId !== id)
 		if (elsewhere) setPane(activePane, PLAN)
 	}
+	/** After undo / redo: select what changed; an edit on another level opens that level first (Dave), unless a sheet
+	 *  or the riser view (no one level) is showing. */
+	function showHistory(ids: string[]) {
+		const e = ids.length ? project.store.get(ids[0]) : undefined
+		const on = e?.type === 'device' ? (project.store.get(e.rackId) as { levelId?: string } | undefined)?.levelId : (e as { levelId?: string } | undefined)?.levelId
+		if (on && on !== ws.levelId && activeKind !== 'sheet' && activeKind !== 'riser' && project.levels.some((l) => l.id === on)) openLevel(on)
+		ws.select(ids)
+	}
+	/** The room the patch list's "This room" means: the open rack view's, else the selected rack's / device's / cord's. */
+	const patchRoom = $derived.by(() => {
+		const p = panes[activePane]
+		if (p?.kind === 'row') return p.spaceId
+		const s = project.index.get(ws.selection[0]), e = s?.type === 'cord' ? project.index.get(s.a.on) : s   // a cord picked in the list keeps its room
+		const r = e?.type === 'device' ? project.index.get(e.rackId) : e
+		return r?.type === 'rack' ? r.spaceId : undefined
+	})
 	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
@@ -95,6 +112,20 @@
 		if (next.toString() === url.searchParams.toString()) return
 		url.search = next.toString()
 		try { replaceState(url, untrack(() => page.state)) } catch { /* the router isn't ready on the very first run */ }
+	})
+
+	// `?rack=<id>` (a link to one rack): once loaded, its room's rack view, zoomed to it and selected; the link's
+	// param is then dropped so a refresh keeps whatever you did next
+	let rackLink = page.url.searchParams.get('rack')
+	$effect(() => {
+		if (!rackLink || !project.loaded) return
+		const r = project.store.get(rackLink)
+		rackLink = null
+		const url = new URL(location.href)
+		url.searchParams.delete('rack')
+		try { replaceState(url, untrack(() => page.state)) } catch { /* the router isn't ready */ }
+		if (r?.type !== 'rack') { ws.say('The rack in that link is not in this project'); return }
+		untrack(() => { ws.focus = r.id; ws.levelId = r.levelId; setPane(activePane, { kind: 'row', spaceId: r.spaceId, face: 'front' }); ws.select([r.id]) })
 	})
 
 	/** Open the first level once levels arrive (and if the open one disappears). */
@@ -118,7 +149,7 @@
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
-		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch',
+		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy',
 		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
 		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Enter finishes · Esc / right-click ends it, again → Select · Backspace undoes a point',
 		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter finishes · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
@@ -138,29 +169,6 @@
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 
 	let notice = $state<string | null>(null)
-	let exportMenu: HTMLDetailsElement
-
-	async function exportExcel(all: boolean) {
-		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }) }
-		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
-	}
-	async function exportBomXlsx() {
-		try {
-			const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
-			const n = await exportBom(project.index, projectName, PANDUIT_SEED, project.routes)
-			notice = `BOM: ${n} lines`
-			setTimeout(() => (notice = null), 5000)
-		} catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
-	}
-	/** The open plan as DXF — the same display list as the screen, your hidden layers left out (floorplan images too). */
-	function exportDxf() {
-		if (!level) return
-		const plan = applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw
-		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])))
-		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
-		notice = `DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`
-		setTimeout(() => (notice = null), 5000)
-	}
 
 	let bottom = $state<'outlets' | 'patch' | 'sheets'>('outlets')
 	let floorsOpen = $state(false)
@@ -251,8 +259,8 @@
 		if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); typePoint(e.key); return }
 		const k = e.key.toLowerCase(), arrow = ARROWS[e.key]
 		if (mod && (k === 'z' || k === 'y')) canvas?.endNudge()   // a nudge burst is its own undo step
-		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); ws.select(project.undo()) }
-		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); ws.select(project.redo()) }
+		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); showHistory(project.undo()) }
+		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); showHistory(project.redo()) }
 		else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
@@ -263,7 +271,7 @@
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
-<div class="shell bg-zinc-50 text-sm">
+<div class="shell bg-zinc-50 text-sm" style:grid-template-columns={panels.columns} style:grid-template-rows={panels.rows}>
 	<!-- toolbar -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
 		<!-- only the tools that work in this view (Dave: the bar got too wide) -->
@@ -284,6 +292,7 @@
 				{#if ws.toolId !== 'conduit'}<label class="opt">{ws.toolId === 'wall' ? 'Height' : 'H'} <input type="number" bind:value={ws.opts.h} /></label>{/if}
 			{/if}
 		{/if}
+		{#if ws.toolId === 'outlet'}<OutletOptions {project} {ws} />{/if}
 		{#if ws.toolId === 'opening'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 			<label class="opt" title="Width (mm)">W <input type="number" bind:value={ws.opts.w} /></label>
@@ -325,20 +334,16 @@
 			<span class="ml-2 truncate text-xs text-zinc-500">{ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId]}</span>
 		{/if}
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => ws.select(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed">Undo</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canRedo} onclick={() => ws.select(project.redo())} title="Redo (Ctrl+Y) — selects what it changed">Redo</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)">Undo</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)">Redo</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back">Delete</button>
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => canvas?.zoomExtents()} title="Zoom to fit (Home)">Fit</button>
 		<button class="rounded px-2 py-0.5 {panes.length === 2 ? 'bg-blue-100' : 'hover:bg-zinc-100'}" onclick={toggleSplit} title="Two views side by side (plan + elevation)">Split</button>
+		{#each [['left', 'panelLeft', 'the left panel (levels, sheets, racks, layers)'], ['bottom', 'panelBottom', 'the tables (outlets, patch list, sheets)'], ['right', 'sidebar', 'Properties']] as const as [side, icon, what] (side)}
+			<button class="rounded px-1 py-0.5 {panels.shown[side] ? 'text-zinc-600 hover:bg-zinc-100' : 'text-zinc-300 hover:bg-zinc-100'}" onclick={() => panels.toggle(side)} title="{panels.shown[side] ? 'Hide' : 'Show'} {what} — drag a panel's edge to resize it"><Icon name={icon} size={15} /></button>
+		{/each}
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-		<details class="menu" bind:this={exportMenu}>
-			<summary class="rounded px-2 py-0.5 hover:bg-zinc-100">Export ▾</summary>
-			<div class="menu-list">
-				<button onclick={() => { exportMenu.open = false; exportExcel(false) }}>Outlet schedule — this level (Excel)</button>
-				<button onclick={() => { exportMenu.open = false; exportExcel(true) }}>Outlet schedule — all levels (Excel)</button>
-				<button onclick={() => { exportMenu.open = false; exportDxf() }}>This plan (DXF)</button>
-				<button title="Material quantities for the whole project: outlets, panels, devices, racks + accessories (Panduit), cable (routed metres + waste), cords, containment" onclick={() => { exportMenu.open = false; exportBomXlsx() }}>Bill of materials (Excel)</button>
-			</div>
-		</details>
+		<ExportMenu {project} {ws} {level} {projectName} />
 		{#if notice}<span class="ml-1 text-xs text-emerald-700">{notice}</span>{/if}
 		<span class="ml-auto text-xs text-zinc-500">
 			{#if project.error}<span class="text-red-600">{project.error}</span>
@@ -348,7 +353,8 @@
 	</div>
 
 	<!-- levels -->
-	<nav class="levels overflow-auto border-r border-zinc-200 bg-white p-2">
+	<nav class="levels relative overflow-auto border-r border-zinc-200 bg-white p-2" class:gone={!panels.shown.left}>
+		<ResizeHandle bind:value={panels.size.left} side="right" min={150} max={480} onend={panels.save} />
 		<p class="flex justify-between px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Levels
 			<button class="font-normal normal-case text-blue-600 hover:underline" title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button></p>
 		{#each project.levels as l (l.id)}
@@ -362,7 +368,7 @@
 			</div>
 		{/each}
 		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
-		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} levelId={level.id} />{/if}
+		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} {ws} levelId={level.id} />{/if}
 		<LayersPanel {project} {ws} />
 	</nav>
 
@@ -385,7 +391,8 @@
 	</main>
 
 	<!-- properties -->
-	<aside class="props border-l border-zinc-200 bg-white">
+	<aside class="props relative border-l border-zinc-200 bg-white" class:gone={!panels.shown.right}>
+		<ResizeHandle bind:value={panels.size.right} side="left" min={200} max={560} onend={panels.save} />
 		<div class="props-body"><Properties {project} {ws} /></div>
 		<ImportNotes {project} {ws} />
 	</aside>
@@ -393,14 +400,15 @@
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
 
 	<!-- tables: outlets (this level) | patch list (the project) -->
-	<section class="grid-panel border-t border-zinc-200 bg-white">
+	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!panels.shown.bottom}>
+		<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
 		<div class="tabs">
 			<button class:on={bottom === 'outlets'} onclick={() => (bottom = 'outlets')}>Outlets</button>
 			<button class:on={bottom === 'patch'} onclick={() => (bottom = 'patch')}>Patch list</button>
 			<button class:on={bottom === 'sheets'} onclick={() => (bottom = 'sheets')}>Sheets</button>
 		</div>
 		<div class="tab-body">
-			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} />
+			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} roomId={patchRoom} />
 			{:else if bottom === 'sheets'}<SheetsTab {project} {ws} onview={(s) => setPane(activePane, s)} />
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
@@ -429,8 +437,7 @@
 	.shell {
 		display: grid;
 		height: calc(100vh - 3rem);
-		grid-template-columns: 13rem minmax(0, 1fr) 17rem;
-		grid-template-rows: 2.25rem minmax(0, 1fr) 14rem;
+		/* column / row sizes come from Panels (resizable, hideable) */
 		grid-template-areas: 'bar bar bar' 'levels plan props' 'levels grid props';
 	}
 	.bar { grid-area: bar; }
@@ -439,6 +446,7 @@
 	.props { grid-area: props; min-height: 0; display: flex; flex-direction: column; }
 	.props-body { flex: 1; min-height: 0; overflow: auto; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
+	.gone { display: none !important; }
 	.lvl.on { background: var(--cad-sel); }
 	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
 	.lvl:hover .act { visibility: visible; }
@@ -450,12 +458,6 @@
 	/* one or two views side by side */
 	.panes { display: flex; height: 100%; gap: 2px; background: var(--cad-line); }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
-	.menu { position: relative; }
-	.menu summary { list-style: none; cursor: pointer; }
-	.menu summary::-webkit-details-marker { display: none; }
-	.menu-list { position: absolute; z-index: 30; top: 100%; left: 0; min-width: 16rem; display: flex; flex-direction: column; background: var(--cad-panel); border: 1px solid var(--cad-line); border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.1); padding: 4px 0; }
-	.menu-list button { text-align: left; padding: 3px 10px; white-space: nowrap; }
-	.menu-list button:hover { background: var(--cad-hover); }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--cad-muted); margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.opt input.colour { width: 2rem; height: 1.25rem; padding: 0; }

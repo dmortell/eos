@@ -37,7 +37,26 @@ export const BUILTIN_BLOCKS: Block[] = [
 	// the AP: a ring with a dot; its usage reads below like every other outlet (it used to say "AP" in the middle)
 	{ type: 'block', id: 'builtin:ap', name: 'Wireless AP', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.5 }, solid), label, { ...usage, geom: { kind: 'text', at: { x: 0, y: 3.9 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' } }, ports(2.4)] },
+	// wall faceplates, seen on the plan against the wall: a plate (one or two gangs) with a data triangle or power pins
+	...faceplates(),
 ]
+
+/** Data / power faceplates, single / dual gang (paper mm, the plate's back on the wall line y = −0.75). */
+function faceplates(): Block[] {
+	const data = (x: number) => sh({ kind: 'polygon', pts: [{ x: x - 0.7, y: -0.45 }, { x: x + 0.7, y: -0.45 }, { x, y: 0.55 }] }, solid)
+	const pins = (x: number): BlockShape[] => [seg(x - 0.35, -0.4, x - 0.35, 0.4), seg(x + 0.35, -0.4, x + 0.35, 0.4)]
+	const make = (id: string, name: string, gangs: 1 | 2, mark: (x: number) => BlockShape[]): Block => {
+		const w = gangs === 1 ? 2.6 : 4.8, xs = gangs === 1 ? [0] : [-1.15, 1.15]
+		return { type: 'block', id, name, scope: 'global', category: 'outlet', annotative: true, builtin: true,
+			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(w / 2 + 0.5)] }
+	}
+	return [
+		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)]),
+		make('builtin:faceplate-data-2', 'Faceplate - data, dual', 2, (x) => [data(x)]),
+		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins),
+		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins),
+	]
+}
 
 /** The block that draws an outlet when it names none: by usage, then tier, then mount. */
 export function defaultOutletBlock(o: Pick<Outlet, 'mount' | 'tier' | 'usage'>): Id {

@@ -13,7 +13,10 @@
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
 
-	const rows = $derived(project.index.outlets.filter((o) => o.levelId === levelId).sort((a, b) => naturalCompare(a.label, b.label)))
+	/** "No panel yet": only outlets with a port not on a panel port (e.g. added after install). */
+	let unassigned = $state(false)
+	const all = $derived(project.index.outlets.filter((o) => o.levelId === levelId).sort((a, b) => naturalCompare(a.label, b.label)))
+	const rows = $derived(unassigned ? all.filter((o) => o.ports.some((p) => !project.index.linkAt({ on: o.id, port: p.port }))) : all)
 	const usages = $derived(project.settings?.usages ?? [])
 	const selected = $derived(new Set(ws.selection))
 	const roomName = (id?: string) => (id ? project.index.nameOf(id) : '')
@@ -127,6 +130,7 @@
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
 		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack elevation. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
 		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
+		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
 		<label class="fmt" title="How port labels follow the outlet label (new outlets; existing ones can be relabelled)">Port labels
 			<select value={fmtKey} onchange={(e) => setFormat(e.currentTarget.value)}>
 				{#each PORT_FORMATS as f (f.style + f.sep)}<option value="{f.style}|{f.sep}">{portLabelsFor('201', 1, f.style, f.sep)[0]}</option>{/each}

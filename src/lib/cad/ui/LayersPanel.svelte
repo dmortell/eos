@@ -20,8 +20,8 @@
 	const counts = $derived(layerCounts(project.index))
 	const sheet = $derived(ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
 	const vp = $derived(sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined)
-	/** Only lines take the current layer, so it's offered on the project's own layers and Drawing (= none). */
-	const canBeCurrent = (l: LayerInfo) => !l.system || l.id === 'sys:drawing'
+	/** Any layer can be current (Dave: clicking a name did nothing on most); new lines go on it. */
+	const canBeCurrent = (_l: LayerInfo) => true
 
 	/** The layer's record with a change (a system layer gets one the first time it's restyled). */
 	const record = (l: LayerInfo, change: Partial<Layer>): Layer => {

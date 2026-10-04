@@ -1,12 +1,14 @@
 // The SHEET REGISTER (Phase 4.4 — ported from Pages' store/drawingList.ts): register rows for the project's sheets,
-// text / status filters, natural sorting, grouping, and RENUMBER patterns. Pure; tested in sheetList.test.ts. The UI
-// is ui/SheetsTab.svelte; the Excel export is render/sheetList.ts.
+// text / status filters, natural sorting, grouping (renumbering is the shared Renumber, domain/renumber.ts). Pure;
+// tested in sheetList.test.ts. The UI is ui/SheetsTab.svelte; the Excel export is render/sheetList.ts.
 import type { Sheet } from './drawing'
 import type { ProjectIndex } from './project'
 
 export type SheetRow = {
 	id: string; number: string; title: string; place: string; kind: string; discipline: string; tags: string[]
 	status: Sheet['status']; rev: string; size: string; scale: string; viewports: number
+	/** Every issued revision, oldest first (the Excel's date-per-revision columns). */
+	revisions: { code: string; date: string }[]
 }
 
 export function sheetRows(ix: ProjectIndex, sheets: Sheet[]): SheetRow[] {
@@ -18,11 +20,20 @@ export function sheetRows(ix: ProjectIndex, sheets: Sheet[]): SheetRow[] {
 			id: s.id, number: s.number, title: s.title, place, kind: s.kind ?? '', discipline: s.discipline ?? '', tags: s.tags ?? [], status: s.status,
 			rev: s.revisions?.at(-1)?.code ?? '', size: `${s.paper.size} ${s.paper.orientation === 'landscape' ? 'L' : 'P'}`,
 			scale: scales.length === 1 ? `1:${scales[0]}` : scales.length ? 'As shown' : '', viewports: s.viewports.length,
+			revisions: (s.revisions ?? []).map((r) => ({ code: r.code, date: r.date })),
 		}
 	})
 }
 
-export type ListFilter = { q?: string; status?: Sheet['status'] }
+/** The register's revision columns: every code issued on these sheets, in the order first issued (P1, P2, C1 …),
+ *  each with the date that sheet got it ('' = not issued at that revision). */
+export function revisionColumns(rows: SheetRow[]): { code: string; dateOf: (r: SheetRow) => string }[] {
+	const first = new Map<string, string>()
+	for (const r of rows) for (const v of r.revisions) if (!first.has(v.code) || v.date < first.get(v.code)!) first.set(v.code, v.date)
+	return [...first].sort((a, b) => a[1].localeCompare(b[1])).map(([code]) => ({ code, dateOf: (r) => r.revisions.findLast((v) => v.code === code)?.date ?? '' }))
+}
+
+export type ListFilter ={ q?: string; status?: Sheet['status'] }
 export function filterRows(rows: SheetRow[], f: ListFilter): SheetRow[] {
 	const q = f.q?.trim().toLowerCase()
 	return rows.filter((r) => (!f.status || r.status === f.status)
@@ -53,11 +64,4 @@ export function groupRows(rows: SheetRow[], by: GroupBy): RowGroup[] {
 		put(v, v || `(no ${by})`, r)
 	}
 	return [...out.values()].sort((a, b) => (!a.key !== !b.key ? (a.key ? -1 : 1) : 0))   // the "(no …)" group last
-}
-
-/** `count` sheet numbers from `start` by `pattern`: `{n}` = the number, `{n:3}` = zero-padded to 3 ("S{n:3}" from 7 →
- *  S007, S008 …). A pattern without `{n…}` gets the number appended. */
-export function renumber(count: number, start: number, pattern: string): string[] {
-	const p = /\{n(?::(\d+))?\}/.test(pattern) ? pattern : `${pattern}{n}`
-	return Array.from({ length: count }, (_, i) => p.replace(/\{n(?::(\d+))?\}/g, (_m, w) => String(start + i).padStart(w ? +w : 0, '0')))
 }

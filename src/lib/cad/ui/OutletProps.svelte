@@ -4,7 +4,9 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Outlet } from '../domain/types'
+	import type { Outlet, Space } from '../domain/types'
+	import { naturalCompare } from '../domain/labels'
+	import { newId } from '../domain/ids'
 	import { setPortLabel, renameOutlet, setPortCount } from '../domain/ports'
 	import { traceCircuit } from '../domain/cords'
 	import { defaultOutletBlock } from '../domain/blocks'
@@ -14,7 +16,7 @@
 
 	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
 	const usages = $derived(project.settings?.usages ?? [])
-	const outletBlocks = $derived([...project.blocks.values()].filter((b) => b.category === 'outlet' || !b.builtin))
+	const outletBlocks = $derived([...project.blocks.values()].filter((b) => (b.category === 'outlet' || !b.builtin) && !b.retired))
 	const MOUNTS: Outlet['mount'][] = ['floor', 'wall', 'box', 'desk', 'ceiling']
 
 	const put = (o: Outlet, label: string, patch: Partial<Outlet>) => project.store.transact(label, (tx) => tx.put({ ...o, ...patch }))
@@ -38,15 +40,31 @@
 		if (next && next !== o.label) project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
 	}
 
-	/** More / fewer ports. Fewer drops the removed ports' links — asked first when there are any. */
-	function portCount(o: Outlet, input: HTMLInputElement) {
+	/** More / fewer ports, on one outlet or several. Fewer drops the removed ports' links — asked first when there are any. */
+	function portCount(list: Outlet[], input: HTMLInputElement) {
 		const n = Number(input.value)
-		input.value = String(o.ports.length)
-		if (!Number.isFinite(n) || n < 1 || n === o.ports.length) return
-		const r = setPortCount(project.index, o, n, project.settings?.defaults.outletCableType, { style: project.settings?.portSuffix ?? 'alpha', sep: project.settings?.portSeparator ?? '.' })
-		const apply = () => project.store.transact(`${o.label}: ${r.outlet.ports.length} ports`, (tx) => { for (const id of r.dropLinks) tx.del(id); tx.put(r.outlet) })
-		if (r.dropLinks.length) ws.ask2(`${o.label}: the removed port(s) are allocated — ${r.dropLinks.length} link(s) to panels will be removed.`, 'Remove ports', apply)
+		input.value = String(list.every((o) => o.ports.length === list[0].ports.length) ? list[0].ports.length : '')
+		if (!Number.isFinite(n) || n < 1) return
+		const style = { style: project.settings?.portSuffix ?? 'alpha', sep: project.settings?.portSeparator ?? '.' }
+		const rs = list.filter((o) => o.ports.length !== n).map((o) => setPortCount(project.index, o, n, project.settings?.defaults.outletCableType, style))
+		if (!rs.length) return
+		const drops = rs.flatMap((r) => r.dropLinks), name = rs.length === 1 ? rs[0].outlet.label : `${rs.length} outlets`
+		const apply = () => project.store.transact(`${name}: ${n} ports`, (tx) => { for (const id of drops) tx.del(id); for (const r of rs) tx.put(r.outlet) })
+		if (drops.length) ws.ask2(`${name}: the removed port(s) are allocated — ${drops.length} link(s) to panels will be removed.`, 'Remove ports', apply)
 		else apply()
+	}
+
+	/** The rooms (numbered office rooms, not server rooms / zones) on the outlets' level; "+" makes a new one. */
+	const rooms = $derived(project.index.spaces.filter((s) => s.kind === 'room' && s.levelId === outlets[0]?.levelId).sort((a, b) => naturalCompare(a.name, b.name)))
+	function setRoom(value: string, select: HTMLSelectElement) {
+		if (value !== '+') { setOutlets('Room', () => ({ roomId: value || undefined })); return }
+		select.value = same((o) => o.roomId ?? '') ?? '?'
+		ws.askText('New room (number or name)', '', (t) => {
+			const name = t.trim(), levelId = outlets[0]?.levelId
+			if (!name || !levelId) return
+			const room: Space = { type: 'space', id: newId(), levelId, kind: 'room', name, code: name, order: rooms.length }
+			project.store.transact(`Room ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(room); for (const o of outlets) tx.put({ ...o, roomId: room.id }) })
+		})
 	}
 </script>
 
@@ -77,6 +95,8 @@
 		</select>
 	</label>
 	<label class="row">Height (Z, mm) <input class="inp" type="number" value={same((o) => o.z) ?? ''} placeholder="mixed" onchange={(e) => setOutlets('Height', () => ({ z: num(e.currentTarget.value) }))} /></label>
+	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={same((o) => o.ports.length) ?? ''} placeholder="mixed" onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
+	{@render roomField()}
 {:else if outlets.length === 1}
 	{@const o = outlets[0]}
 	<p class="font-semibold">Outlet</p>
@@ -99,6 +119,7 @@
 		<select class="inp" value={o.blockId ?? ''} onchange={(e) => put(o, 'Symbol', { blockId: e.currentTarget.value || undefined })}>
 			<option value="">Auto: {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage/mount'}</option>
 			{#each outletBlocks as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+			{#if o.blockId && project.blockOf(o.blockId)?.retired}<option value={o.blockId}>{project.blockOf(o.blockId)?.name} (retired)</option>{/if}
 		</select>
 	</label>
 	<label class="row">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
@@ -106,7 +127,8 @@
 		<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
 		<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
 	{/if}
-	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount(o, e.currentTarget)} /></label>
+	{@render roomField()}
+	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount([o], e.currentTarget)} /></label>
 	<p class="pt-1 font-semibold">Ports</p>
 	{#each o.ports as p, i (p.port)}
 		<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
@@ -123,6 +145,16 @@
 		{#if steps.length > 1}<Trace {project} {steps} />{/if}
 	{/each}
 {/if}
+
+{#snippet roomField()}
+	<label class="row" title="The room it's in (a numbered office room — not its server room)">Room
+		<select class="inp" value={same((o) => o.roomId ?? '') ?? '?'} onchange={(e) => setRoom(e.currentTarget.value, e.currentTarget)}>
+			<option value="?" disabled>mixed</option><option value="">—</option>
+			{#each rooms as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+			<option value="+">New room…</option>
+		</select>
+	</label>
+{/snippet}
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }

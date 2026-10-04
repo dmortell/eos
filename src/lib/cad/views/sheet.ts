@@ -18,6 +18,13 @@ import { titleBlockPrims } from './titleBlock'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
+/** The viewport scales offered (1:N): Sheet Properties' list, and Alt+wheel's steps. */
+export const SCALES = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+/** The next scale from `n` — `dir` −1 = closer in (a smaller N), +1 = further out. */
+export function nextScale(n: number, dir: 1 | -1): number {
+	return dir < 0 ? [...SCALES].reverse().find((s) => s < n) ?? SCALES[0] : SCALES.find((s) => s > n) ?? SCALES.at(-1)!
+}
+
 export const PAPER: Record<Sheet['paper']['size'], [number, number]> = { A0: [841, 1189], A1: [594, 841], A2: [420, 594], A3: [297, 420], A4: [210, 297] }
 
 /** The sheet's paper size in mm, as oriented. */
@@ -97,7 +104,14 @@ export const viewportAt = (sheet: Sheet, p: { x: number; y: number }): Viewport 
 
 /** One prim moved onto the paper: points through `t`, sizes by 1/N, clipped to the window (none = unclipped);
  *  viewport content is no longer pickable, a tied note keeps its `src`. */
-function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, clip?: Bounds, src?: Id): Prim {
+function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, window?: Bounds, src?: Id): Prim {
+	// a prim's own clip (a floorplan's crop) goes onto the paper too, inside the viewport's window
+	let clip = window
+	if (p.clip) {
+		const a = t({ x: p.clip.x0, y: p.clip.y0 }), b = t({ x: p.clip.x1, y: p.clip.y1 })
+		const own = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
+		clip = window ? { x0: Math.max(own.x0, window.x0), y0: Math.max(own.y0, window.y0), x1: Math.min(own.x1, window.x1), y1: Math.min(own.y1, window.y1) } : own
+	}
 	switch (p.k) {
 		case 'line': return { ...p, pts: p.pts.map(t), ...(p.w ? { w: p.w * k } : {}), src, clip }
 		case 'circle': return { ...p, c: t(p.c), r: p.r * k, src, clip }
@@ -110,8 +124,9 @@ function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, clip?: Bou
 function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] {
 	const vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined
 	if (!vp) return shapePrims(s, 1, blocks)
-	const t = toPaper(vp), k = 1 / vp.scale
-	return shapePrims(s, vp.scale, blocks).map((p) => placePrim(p, t, k, undefined, p.src))
+	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
+	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
+	return shapePrims(s, vp.scale, blocks).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
 export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = {}): Prim[] {

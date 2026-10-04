@@ -8,6 +8,7 @@ import type { Shape } from '../domain/shapes'
 import { isVertical } from '../domain/shapes'
 import { passesThrough } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
+import { RACK_DEVICE_W } from '../domain/devices'
 import { rotate, rackFrontNormal } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
@@ -80,7 +81,7 @@ function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan:
 		const base = (h - r.heightU * RU_MM) / 2, mid = (u0 + u1) / 2
 		for (const d of ix.devicesIn(r.id)) {
 			if (d.kind === 'pdu' || d.face === 'none' || (d.face !== 'both' && d.face !== face)) continue
-			const hw = Math.min(r.widthMm, d.widthMm ?? 482.6) / 2, z0 = base + (d.u - 1) * RU_MM
+			const hw = Math.min(r.widthMm, d.widthMm ?? RACK_DEVICE_W) / 2, z0 = base + (d.u - 1) * RU_MM
 			prims.push(rect(mid - hw, mid + hw, z0, z0 + d.heightU * RU_MM, `device device-${d.kind}`, d.id))
 			if (d.heightU * RU_MM * 0.8 >= LABEL * k * 0.6) prims.push({ k: 'text', at: { x: mid, y: -(z0 + d.heightU * RU_MM / 2) + LABEL * k * 0.35 }, text: d.name, size: Math.min(LABEL * k, d.heightU * RU_MM * 0.7), anchor: 'middle', cls: 'label', src: d.id })
 		}

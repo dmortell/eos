@@ -7,7 +7,7 @@ import type { Shape } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
 import type { Snap } from './snap'
-import { pickPrim, pickInside } from './pick'
+import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodes, moveNodesBy, type Grip } from './grips'
 import type { ViewSpace, WorkPlane } from '../views/space'
@@ -51,7 +51,8 @@ export interface ToolCtx {
 	snap(p: Pt, alt: boolean, skip?: Id): Snap
 	selection: Id[]
 	select(ids: Id[]): void
-	setMarquee(b: Bounds | null): void
+	/** The selection box being dragged; `crossing` = dragged right → left (selects what it touches). */
+	setMarquee(b: Bounds | null, crossing?: boolean): void
 	/** Ask the user for a number (the tool bar prompt); `apply` runs on Enter. */
 	ask(label: string, value: number, apply: (v: number) => void): void
 	/** Rack-row views only: the rack and U under a view point. */
@@ -120,8 +121,12 @@ export class SelectTool implements Tool {
 	#clip: Clip | null = null
 	/** Ctrl-pressed on this: a click (no drag) toggles it in the selection. */
 	#toggle: Id | null = null
-	/** The copies a Ctrl-drag made (selected when it ends). */
+	/** The copies a Ctrl-drag made (selected when it ends); the selection before the press (undoing the copy gives it back). */
 	#copied: Id[] = []
+	#before: Id[] = []
+	/** The last press point, and what a click there now steps to (stacked items). */
+	#last: Pt | null = null
+	#cycle: Id | null = null
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
@@ -150,6 +155,7 @@ export class SelectTool implements Tool {
 	}
 
 	down(e: PointerIn, c: ToolCtx): void {
+		this.#before = c.selection
 		// handles first (they sit on a wall / a cut line, where a node grip or a click would also land)
 		const hBest = handleAt(this.#handles(c).handles, e.p, c.tol() * 1.5)
 		if (hBest) { this.#handle = { h: hBest, base: c.store.get(c.selection[0])! }; this.#start = e.p; return }
@@ -163,7 +169,7 @@ export class SelectTool implements Tool {
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
 		if (c.space.spec.kind === 'sheet' && c.selectViewport) {
-			// the selected viewport first: a corner grip resizes it, Ctrl-drag inside pans its view
+			// the selected viewport first: a corner grip resizes it, Alt-drag inside pans its view (T126: Ctrl-drag copies)
 			const cur = c.viewportId?.(), curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 			const sel = curSheet?.type === 'sheet' && cur ? curSheet.viewports.find((v) => v.id === cur) : undefined
 			if (curSheet?.type === 'sheet' && sel && !sel.locked) {
@@ -171,13 +177,15 @@ export class SelectTool implements Tool {
 				const ci = corners.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5)
 				if (ci >= 0) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'resize', corner: ci }; this.#start = e.p; return }
 				const inside = e.p.x > r.x && e.p.x < r.x + r.w && e.p.y > r.y && e.p.y < r.y + r.h
-				if (inside && e.ctrl) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; return }
+				if (inside && e.alt) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; c.say?.('Panning the view — Alt+wheel changes its scale'); return }
 			}
 			const sheet = id ? c.store.get(id) : undefined
 			if (sheet?.type === 'sheet') {
 				c.select([sheet.id])
 				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
 				c.selectViewport(vp ? vp.id : null)
+				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked)'
+					: 'Viewport: drag to move · drag a corner to resize · Alt-drag pans its view · Alt+wheel changes its scale')
 				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
 				else if (!vp) this.#marquee = e.p   // the bare paper: a click selects the sheet, a drag windows its notes
 				return
@@ -209,7 +217,15 @@ export class SelectTool implements Tool {
 			c.select([id])
 			c.selectPorts({ on: id, face, ports: [n], anchor: n })
 		} else if (c.selectPorts && !(e.shift || e.ctrl)) c.selectPorts(null)
-		if (id) {
+		// clicking the same spot again steps down through what's stacked there (the release picks the next; a drag moves
+		// the current one)
+		const again = !e.ctrl && c.selection.length === 1 && !!this.#last && Math.hypot(e.p.x - this.#last.x, e.p.y - this.#last.y) <= c.tol()
+		const stack = again ? pickStack(c.prims(), e.p, c.tol()) : [], at = stack.indexOf(c.selection[0])
+		this.#cycle = at >= 0 && stack.length > 1 ? stack[(at + 1) % stack.length] : null
+		this.#last = e.p
+		const pid = this.#cycle ? c.selection[0] : id
+		if (pid) {
+			const id = pid
 			// Ctrl: a click toggles it (Dave: Shift is kept for constraints while dragging; port ranges in racks still use
 			// Shift); a Ctrl-DRAG copies the selection with it — let go of Ctrl mid-drag and it moves instead
 			if (e.ctrl) this.#toggle = id
@@ -253,8 +269,14 @@ export class SelectTool implements Tool {
 				if (mode === 'move') return { ...v, rect: { ...r, x: r.x + d.x, y: r.y + d.y } }
 				// resize from a corner (0 TL, 1 TR, 2 BR, 3 BL), the opposite corner fixed; at least 10 mm
 				const left = corner === 0 || corner === 3, top = corner === 0 || corner === 1
-				const x0 = left ? Math.min(r.x + d.x, r.x + r.w - 10) : r.x, x1 = left ? r.x + r.w : Math.max(r.x + r.w + d.x, r.x + 10)
-				const y0 = top ? Math.min(r.y + d.y, r.y + r.h - 10) : r.y, y1 = top ? r.y + r.h : Math.max(r.y + r.h + d.y, r.y + 10)
+				let x0 = left ? Math.min(r.x + d.x, r.x + r.w - 10) : r.x, x1 = left ? r.x + r.w : Math.max(r.x + r.w + d.x, r.x + 10)
+				let y0 = top ? Math.min(r.y + d.y, r.y + r.h - 10) : r.y, y1 = top ? r.y + r.h : Math.max(r.y + r.h + d.y, r.y + 10)
+				// Shift: square (the longer side wins; the opposite corner stays put)
+				if (e.shift) {
+					const s = Math.max(x1 - x0, y1 - y0)
+					if (left) x0 = x1 - s; else x1 = x0 + s
+					if (top) y0 = y1 - s; else y1 = y0 + s
+				}
 				// the view stays put on the paper: the centre moves with the window's middle
 				const cx = v.centre.x + ((x0 + x1) / 2 - (r.x + r.w / 2)) * v.scale, cy = v.centre.y + ((y0 + y1) / 2 - (r.y + r.h / 2)) * v.scale
 				return { ...v, rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, centre: { x: cx, y: cy } }
@@ -286,7 +308,8 @@ export class SelectTool implements Tool {
 			const d = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			this.#dev ??= startDeviceDrag(this.#ids.map((id) => c.store.get(id)).filter((x): x is Device => x?.type === 'device'))
-			const r = dragDevices(this.#dev, Math.round(-d.y / RU_MM), c.rowHit(e.p)?.rack, e.ctrl, c.store.ofType('device'), (id) => c.store.get(id) as Rack | undefined)
+			const face = c.space.spec.kind === 'row' ? c.space.spec.face : 'front'
+			const r = dragDevices(this.#dev, Math.round(-d.y / RU_MM), c.rowHit(e.p)?.rack, e.ctrl, c.store.ofType('device'), (id) => c.store.get(id) as Rack | undefined, { dx: d.x, face })
 			if ('problem' in r) { c.say?.(r.problem); return }
 			this.#gesture ??= c.store.begin(e.ctrl ? 'Copy devices' : 'Move device')
 			this.#gesture.update((tx) => { for (const n of r.put) tx.put(n) })
@@ -314,7 +337,7 @@ export class SelectTool implements Tool {
 				for (const sh of followAttached(c.store.ofType('shape'), moved, s)) tx.put(sh)
 			})
 		} else if (this.#marquee) {
-			c.setMarquee(box(this.#marquee, e.p))
+			c.setMarquee(box(this.#marquee, e.p), e.p.x < this.#marquee.x)
 		}
 	}
 
@@ -324,10 +347,12 @@ export class SelectTool implements Tool {
 			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
 			else if (h.click) { const click = h.click; c.store.transact('Door swing', (tx) => tx.put(click())) }
 		}
-		if (this.#gesture) { this.#gesture.commit(); if (this.#copied.length) c.select(this.#copied) }
+		if (this.#gesture) { this.#gesture.commit(this.#before); if (this.#copied.length) c.select(this.#copied) }
 		else if (this.#toggle) { const t = this.#toggle; c.select(c.selection.includes(t) ? c.selection.filter((x) => x !== t) : [...c.selection, t]) }
+		else if (this.#cycle) c.select([this.#cycle])
 		else if (this.#marquee && Math.hypot(e.p.x - this.#marquee.x, e.p.y - this.#marquee.y) > c.tol()) {
-			const ids = pickInside(c.prims(), box(this.#marquee, e.p))
+			// left → right: what it encloses (window); right → left: what it touches (crossing)
+			const b = box(this.#marquee, e.p), ids = e.p.x < this.#marquee.x ? pickTouching(c.prims(), b) : pickInside(c.prims(), b)
 			c.select(e.ctrl ? [...new Set([...c.selection, ...ids])] : ids)
 		}
 		this.#reset(c)
@@ -376,7 +401,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#vp = null; this.#handle = null; this.#note = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null
 		c.setMarquee(null)
 	}
 }
@@ -386,6 +411,9 @@ export class OutletTool implements Tool {
 	readonly id = 'outlet'
 	readonly cursor = 'crosshair'
 	last: Outlet | null = null
+
+	/** `next` = what the tool bar set for the next outlet (unset = like the last one). */
+	constructor(private next: () => { ports?: number; tier?: Outlet['tier']; usage?: string; mount?: Outlet['mount']; cableType?: string } = () => ({})) {}
 
 	/** A typed point: `@1200,0` places the next outlet 1.2 m along from the last one. */
 	typed(p: Pt, c: ToolCtx): void { this.down({ p, shift: false, ctrl: false, alt: true }, c) }
@@ -397,15 +425,15 @@ export class OutletTool implements Tool {
 		const used = new Set(c.index.outlets.filter((o) => o.levelId === c.levelId).map((o) => o.label))
 		let label = prev ? nextLabel(prev.label) : `${level?.type === 'level' ? level.number : ''}-001`
 		while (used.has(label)) label = nextLabel(label)   // never reuse a label already on this level
-		const count = prev?.ports.length ?? 2
+		const nx = this.next(), count = nx.ports ?? prev?.ports.length ?? 2
 		const o: Outlet = {
 			type: 'outlet', id: newId(), levelId: c.levelId, label,
-			tier: prev?.tier ?? 'low', usage: prev?.usage ?? 'desk', mount: prev?.mount ?? 'floor',
+			tier: nx.tier ?? prev?.tier ?? 'low', usage: nx.usage ?? prev?.usage ?? 'desk', mount: nx.mount ?? prev?.mount ?? 'floor',
 			// in plan the height is sticky; on an elevation the click IS the height (an outlet placed on a wall elevation)
 			...placeAt(c, e, prev?.z ?? 0),
 			...(prev?.zoneId ? { zoneId: prev.zoneId } : {}),
 			ports: portLabelsFor(label, count, c.settings?.portSuffix ?? 'alpha', c.settings?.portSeparator ?? '.').map((l, i) => ({
-				port: i + 1, label: l, cableType: prev?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
+				port: i + 1, label: l, cableType: nx.cableType ?? prev?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
 				...(prev?.ports[i]?.serverRoomId ? { serverRoomId: prev.ports[i].serverRoomId } : {}),
 			})),
 		}

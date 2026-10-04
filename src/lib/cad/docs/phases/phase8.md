@@ -383,3 +383,221 @@ multi-device drag and device-only copy remain in the backlog.
 its view (T126's Alt-drag isn't built).
 
 **Sources:** G009, G033, G064 (most), G082, G112, G168, G170, G189, G193, G225, G227, T039, P024.
+
+## Viewport Alt-drag / Alt+wheel, route highlight, undo selection (2026-10-04, after commit df504ee0)
+
+- **Viewport content with Alt** (T126, decided earlier):
+  - Alt-drag inside the selected viewport pans its view; Ctrl-drag there now copies, like everywhere else.
+  - Alt+wheel over the selected viewport steps through the standard scales (1:50 → 1:100 → 1:200 …), one undo step
+    per notch.
+  - The status bar says what happened, e.g. "1:200 — Alt+wheel changes the viewport's scale, Alt-drag pans its
+    view".
+  - `SCALES` moved to `views/sheet.ts` and is shared with Sheet Properties.
+- **Picking a viewport says** "Viewport locked — it can't be moved, resized or panned (Properties → Locked)" or, when
+  unlocked, how to move / resize / pan / scale it (Dave).
+- **"Clicking A.008 also selects a trunk"** (Dave): it didn't. Only the outlet was selected. The trunk showed the
+  outlet's cable ROUTE (to its IDF), drawn in the same amber as the selection. The route is now green dashes, so it no
+  longer reads as selected. Hitboxes are unchanged.
+- **Undoing a copy or paste gives back the selection from before it** (Dave). An undo step can carry the selection
+  from before the edit (`Step.sel`, passed to `transact` / `commit`); the app uses it when nothing the undo touched is
+  left.
+- **The Select tool's hint mentions Ctrl-drag copy.**
+- **Undo / redo open the level they changed** (Dave). If what came back is on another level (an item's own level, or
+  a device's rack's level), that level opens first, then it's selected. Sheets and the riser view stay put.
+- **Notes tied to a viewport are clipped to its window** (Dave: zoomed in, S001's cloud flew off the top of the
+  page). The cloud already scaled with the content (tested); it just wasn't clipped like the view.
+
+**Checks:**
+- 346 cad tests pass (+3: Ctrl-drag no longer pans and a locked viewport says so; undoing a copy returns the earlier
+  selection; a tied cloud scales and is clipped).
+- Live: nudge on 1F, open 4F, Ctrl+Z → back on 1F with A001 selected and restored.
+- svelte-check: no warnings in cad.
+- Live on S001:
+  - the locked plan viewport says so and ignores Alt-drag / Alt+wheel;
+  - the unlocked section viewport pans (centre 2488, −1712 → 488, −2112) and goes 1:100 → 1:200;
+  - both undone.
+
+## Backlog batch: Dave's picks 1 4 7 9 14 16 18 20 30 33 34 35 37 (2026-10-04)
+
+**Outlets:**
+- **Several outlets:** Ports (removed ports' links asked about first, as for one) and Room.
+- **Room field, one or several outlets:** the level's numbered rooms, with "New room…". Rooms are `room` spaces; the
+  importers make them from room numbers. Until now there was no UI for an outlet's room. (`ui/OutletProps.svelte`)
+- **Next-outlet defaults:** with the Outlet tool on, the tool bar sets Ports / Tier / Usage / Mount / Cable for the
+  next outlet. Blank = as the last one placed, as before; a set value sticks. (`ui/OutletOptions.svelte`,
+  `ws.outletNext`)
+- **"No panel yet" filter** in the outlet grid: only outlets with a port not on a panel port.
+
+**Racks and devices:**
+- **Several devices** (`ui/DeviceMultiProps.svelte`): name, face, height, ports, numbering, width, depth, maker,
+  model, and tier for panels. An edit that would overlap is refused, with the reason.
+- **Drop ghost:** the Device tool draws a dashed outline where the device will land (red where it can't).
+- **Racks have no grey fill** (Dave), on screen and in the PDF. They're still picked by their whole body.
+- **Rack doors live check:** R303 is now a cabinet (Dave: leave it) with a split front and a single rear door. Both
+  swings show on the plan. The PDF check is left in the backlog (a download).
+
+**Ports and patching:**
+- **Port Properties:** "Remove links (n)" (any kind) and "Remove cords (n)" for the selected ports. One undo step,
+  no question.
+- **Patch list "All rooms / <room>":** the room is the open rack view's, else the selected rack's / device's /
+  cord's. The Excel follows the choice, with a "changes only" tick (add / change / remove).
+
+**Selection:**
+- **Click-cycle:** clicking the same spot again selects the next item stacked under it, round and round
+  (`pickStack`). A drag still moves the current one.
+
+**Sheets:**
+- **Sheets renumber with the shared Renumber:** select several in the Sheets tab, then Properties → Renumber. The
+  register's own pattern renumber is gone, so a prefix change ("S" → "EL-") is now a find / replace by hand.
+
+**Shell:**
+- **Panels** (`app/panels.svelte.ts`, `ui/ResizeHandle.svelte` copied from the workspace tool):
+  - The left, right and bottom panels hide / show from three tool-bar buttons.
+  - They resize by dragging their edge.
+  - Sizes and visibility are kept per user in this browser.
+  - The split bar between two views isn't resizable yet (backlog).
+- **`?rack=<id>`** opens the rack's room in the rack view, selected and zoomed to it (`ws.focus` in the view's fit
+  step). The param is then dropped from the URL. Rack Properties has "Copy link".
+
+**Blocks:**
+- **Make block, live:** it adds the block to the global `settings/cadBlocks` (merge, by id) with its shapes relative
+  to their centre, and puts one insert in their place. The test block was then removed from the global doc and the
+  drawing undone; the existing "Test block (cad)" was left alone.
+
+**Code splits:** the Export menu moved out of CadShell (`ui/ExportMenu.svelte`; CadShell 493 → ~455 lines).
+`$lib` Icon gained `panelLeft` / `panelBottom`.
+
+**Checks:**
+- 348 cad tests pass (new: click-cycle, sheets in the shared Renumber, next-outlet defaults).
+- svelte-check: no warnings in cad.
+- Live on Test Project: panels hide / show / resize (then reset); the Outlet tool bar; `?rack=` to R312; doors;
+  Make block.
+
+## Backlog batch: Dave's picks 4 6 7 8 10 11 13 23 24 25 30 31 (2026-10-04)
+
+**Floorplans and racks:**
+- **Live recalibration:** each floorplan file is watched (`onSnapshot` on `files/{id}`). A new origin / scale /
+  crop / layers in Uploads redraws its pages at once; the old image stays up until the new one is ready.
+  (`app/pdf.svelte.ts`, stopped with the project)
+- **Rack view:**
+  - a caption under each rack name: "42U 4-post", "1200 mm desk"; "· REAR" from behind;
+  - a title over the elevation: "4F — IDF2 · front", and "· Row A" for one row.
+- **Several racks:** kind, maker, model and notes join the shared fields.
+- **Server room summary:** the room name's tooltip in the racks list, e.g. "4F · 2 rows · 13 racks · 13 devices —
+  click to rename".
+- **Open one row:** an "All rows / Row …" picker in the rack view's header (only when the room has rows).
+- **Sideways device offset:**
+  - "Offset X (mm)" in Device Properties, for devices narrower than their rack;
+  - dragging moves them sideways in 25 mm steps, kept inside the rack, mirrored from the rear;
+  - dropped into another rack, a device keeps its offset;
+  - two narrow devices side by side at one U are still refused as an overlap (the check is by U).
+- **Rack BOM:** desks and shelves are listed too ("no catalogue SKU"), with their own "Desks & shelves" category in
+  the project BOM. Every rack's notes show on its line.
+
+**Selection and editing:**
+- **Crossing window:** a box dragged right → left selects whatever it touches (real geometry: segments, filled
+  shapes, circles), drawn as a dashed green box. Left → right still selects what it encloses (solid blue).
+  (`pickTouching`)
+- **Range select in the racks list:** Shift-click selects every rack from the last one clicked; Ctrl adds / drops one.
+- **Delete buttons:** "Delete" in the tool bar and "Delete N" at the foot of Properties. Both are the Delete key's
+  own action (`ws.remove`), so the same confirms apply.
+
+**Sheets:**
+- **Shift = square viewport:** Shift while dragging a viewport corner keeps it square (the longer side wins; the
+  opposite corner stays put).
+- **Sheet register Excel:** a date column per revision code, in the order first issued (P1, P2, C1 …), giving when
+  each sheet got it (`revisionColumns`).
+
+**Backlog housekeeping:**
+- Lowered to P3 (Dave): "Zones and server rooms when placing outlets" and "Grayscale floorplan toggle".
+- Closed (Dave): "Outlets / Trunks toggles per viewport" — per-viewport layer freeze covers it.
+- The backlog's per-theme counts table is replaced by one "Remaining" line (Dave).
+
+**Checks:**
+- 353 cad tests pass (+5: captions / title, desks in the BOM, crossing box, square viewport, revision columns).
+- svelte-check: no warnings in cad.
+- Live on 4F: the IDF2 desk is captioned "1200 mm desk" under the title "4F — IDF2 · front"; Server room A shows the
+  rows picker; the room tooltip shows its summary.
+- Not tried live: recalibration (needs an Uploads edit), the Excel files (downloads).
+
+## 19" = 450 mm, rack view header, tower PC ports, a row on a sheet (2026-10-04)
+
+**A 19" device is 450 mm** (Dave: servers ~430–451 mm, patch panels 462 mm without ears) — `RACK_DEVICE_W` in
+`domain/devices.ts`:
+- Devices with no width are drawn 450 mm wide.
+- The rack's mounting frame is drawn 450 mm wide, leaving more room beside it for 0U PDUs and U numbers.
+- Anything narrower (`narrowDevice`) can be offset sideways (Properties, and the drag); 19" devices can't.
+- The cord-length estimate keeps the physical 482.6 mm rail spacing.
+
+**Stored data moved to 450** (a one-off migration, written as remote edits — `updatedBy: migration:19in-450`):
+- devices of 440–490 mm: 23 in Test Project (20 × 445, 3 × 460) and 68 in Journey (all 445);
+- all 9 global device templates (480 / 460 / 445).
+- LR's 154 devices have no width and were left as they are; narrow devices (200, 377 mm, PDU strips) too.
+
+**Fixes:**
+- **Ports on narrow devices:** the port grid now sits on the device's own front. A 200 mm tower PC's ports were
+  drawn left of the PC, from a 19" panel's port area (Dave: R311). Test added.
+- **Rack view header:** a solid strip over the pane, above the drawing — labels no longer show through the buttons.
+- **The row picker's open list** no longer shows every option highlighted (the options inherited the blue "on" look).
+- **Properties fields are closer together:** 0.25 rem between fields instead of 0.75 rem; the title block's rows have
+  no extra padding.
+
+**Sheets:** a viewport's View picker lists each room's rows ("Server room A · Row A racks front"). Sheet **S004
+"4F Server room A — Row A racks"** was made on Test Project (Dave): 4AR01–4AR06 front, at 1:20.
+
+**Backlog:** "Logos picked from Uploads" now includes uploading a new image in the same dialog (Dave).
+
+**Rack views show the storey** (Dave), from the level's heights, drawn under the racks:
+- the slab under the raised-floor void;
+- the ceiling line ("CEILING +2600");
+- the plenum ("PLENUM 700");
+- the next floor's slab above.
+
+They're in the PDF too. Per-server-room heights (rooms often differ) stay in the backlog's "Rack elevation context".
+Test added (354 pass).
+
+**Checks:**
+- 353 cad tests pass (+1: a narrow device's ports stay on it).
+- svelte-check: no warnings in cad.
+- Live: R311's tower PC ports on the PC; the header strip; S004.
+
+## 2026-10-04 — rack view polish, floorplans, runs, blocks
+
+**Rack views:**
+- **Storey as lines** (Dave): a thin dashed ceiling line "CEILING FFL+2700"; the slab is a slightly thicker solid line,
+  top of the floor slab ("SLAB FFL-300") and underside of the slab above ("SLAB FFL+3500"). No more grey rects.
+- **The other face's devices** are drawn faint (dashed, no fill) and named "(rear)" / "(front)", e.g. P3C U42 on the front.
+- **96-port switches** show all their ports: a 2U device gets up to 4 rows of 24 (it showed 48).
+- **Readable panel labels** (P1): a two-part label ("01A.014A") is stacked on two lines, about twice the size of one
+  line; the device's name over its ports hides once the port labels can be read (it covered them, P3C U32 / U37).
+- **Minus signs** are plain ASCII "-" (the Unicode minus was swapped in the PDF only; now there's nothing to swap).
+
+**Plans:**
+- **Back line on any box** (Dave changed "front line"): a box shape has a "Back line" checkbox, a thick line on its
+  back edge. Racks draw the same thick line on their REAR edge instead of the thin line near the front.
+- **Floorplan per level** (P1): the Floor manager has a Floorplan column: any page of a project PDF; pages not
+  calibrated in Uploads are listed but disabled ("calibrate in Uploads"). Picking another replaces it, "—" removes it,
+  one undo step each.
+- **The Uploads crop is applied:** the floorplan is clipped to it, on the plan and in sheet viewports.
+
+**Runs:** a **Location** select in a run's Properties: under floor / ceiling plenum / below ceiling / on wall, with the
+Z each gives on this level. It moves the run's main height (drops keep their ends) and sets the tier, one undo step.
+
+**Racks / devices:**
+- **Row properties:** the rack's Row line shows the row's name, rack count, Rename… and Containment
+  (none / HAC / CAC / combined; the rack BOM uses it).
+- **More default devices:** 48-port 2U switch, 1U server, fibre enclosure (24 LC), tower PC (200 mm, 9U), 27"
+  monitor; "enclosure" is in the Kind list.
+- **Tie labels:** a tie port with no label of its own shows "RackA~RackB:NN", numbered per rack pair. Tests added.
+
+**Blocks:** four built-in faceplates (data / power, single / dual gang). **Delete block…** in an insert's Properties
+(or the ✕ in the legend) retires a custom block: hidden from pickers, inserts already placed keep drawing.
+
+**Other:**
+- Clicking a layer name makes it current (any layer, not only drawing layers).
+- The status bar shows the zoom level.
+- Backlog: marked P3 (Dave): cable type per outlet, segment lengths, cord BOM on screen, grid size setting. Added:
+  front / rear mounting on purpose, review the device template picker.
+
+**Checks:** 359 cad tests pass; svelte-check clean in cad; live: slab / ceiling lines, faint P3C U42, stacked P3C labels,
+1F floorplan cropped, Floor manager Floorplan column.

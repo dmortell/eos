@@ -24,6 +24,13 @@ export interface DeviceTemplate {
 	model?: string
 	builtin?: boolean
 }
+/** A 19" rack device's width WITHOUT its mounting ears (Dave: servers are ~430–451 mm, patch panels 462 mm without ears,
+ *  482 mm with): devices with no width of their own are drawn this wide, the rack's mounting frame too (leaving room
+ *  beside it for 0U PDUs and U numbers), and anything narrower can slide sideways (a tower PC, a monitor). */
+export const RACK_DEVICE_W = 450
+/** A device that can be offset sideways in its rack (narrower than a 19" device). */
+export const narrowDevice = (d: Pick<Device, 'widthMm'>): boolean => !!d.widthMm && d.widthMm < RACK_DEVICE_W
+
 /** Maker / model travel between a device and its template. */
 const makerModel = (x: { maker?: string; model?: string }) => ({ ...(x.maker ? { maker: x.maker } : {}), ...(x.model ? { model: x.model } : {}) })
 
@@ -39,6 +46,13 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 	{ id: 'builtin:shelf-2u', name: 'Shelf 2U', kind: 'shelf', heightU: 2, portCount: 0, face: 'front', builtin: true },
 	{ id: 'builtin:server-2u', name: 'Server 2U', kind: 'server', heightU: 2, portCount: 2, portType: 'RJ45', face: 'front', builtin: true },
 	{ id: 'builtin:pdu-v', name: 'PDU (vertical, 0U, 1 network port)', kind: 'pdu', heightU: 24, portCount: 1, portType: 'RJ45', face: 'rear', builtin: true },
+	{ id: 'builtin:switch-48-2u', name: 'Switch 48-port 2U', kind: 'switch', heightU: 2, portCount: 48, portType: 'RJ45', portNumbering: 'column', face: 'front', builtin: true },
+	{ id: 'builtin:server-1u', name: 'Server 1U', kind: 'server', heightU: 1, portCount: 2, portType: 'RJ45', face: 'front', builtin: true },
+	{ id: 'builtin:fibre-enclosure', name: 'Fibre enclosure 1U (24 LC)', kind: 'enclosure', heightU: 1, portCount: 24, portType: 'LC', face: 'both', builtin: true },
+	// not 19": a tower PC is narrower than RACK_DEVICE_W (it can slide sideways on a shelf); a 27" monitor is about
+	// 615 mm wide (drawn no wider than its rack)
+	{ id: 'builtin:tower-pc', name: 'Tower PC (200 mm)', kind: 'other', heightU: 9, portCount: 2, portType: 'RJ45', face: 'both', widthMm: 200, depthMm: 450, builtin: true },
+	{ id: 'builtin:monitor-27', name: 'Monitor 27"', kind: 'other', heightU: 9, portCount: 0, face: 'front', widthMm: 615, depthMm: 200, builtin: true },
 ]
 
 /** A new device from a template, in a rack at U `u` (its lowest U). `face` overrides the template's (a device placed

@@ -1,13 +1,14 @@
 <!-- The SHEET REGISTER (Phase 4.4), a bottom-panel tab: every sheet with its number, title, place, kind, discipline,
      tags, revision, size, scale and status. Find, active / archived, group, click a heading to sort. Number, title,
      kind, discipline and tags are edited in place. Click selects (Shift / Ctrl for more), double-click opens the sheet
-     in the active pane. Renumber, PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown). -->
+     in the active pane. PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown); select
+     several sheets (in order) and Properties → Renumber numbers them, like outlets and racks. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
-	import { sheetRows, filterRows, sortRows, groupRows, renumber, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
+	import { sheetRows, filterRows, sortRows, groupRows, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import type { Issue } from '../domain/drawing'
@@ -42,17 +43,6 @@
 	}
 	const put = (r: SheetRow, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
 
-	function renumberPicked() {
-		const list = picked
-		if (!list.length) { ws.say('Select the sheets to renumber (in the order shown)'); return }
-		ws.askText(`Number pattern for ${list.length} sheet(s) — {n} or {n:3}`, 'S{n:3}', (pattern) => {
-			if (!pattern.trim()) return
-			ws.ask('Start at', 1, (start) => {
-				const nums = renumber(list.length, start, pattern.trim())
-				project.store.transact(`Renumber ${list.length} sheets`, (tx) => list.forEach((r, i) => tx.put({ ...sheetOf(r.id), number: nums[i] })))
-			})
-		})
-	}
 	function setStatus(s: Sheet['status']) {
 		if (!picked.length) return
 		project.store.transact(`${s === 'archived' ? 'Archive' : 'Restore'} ${picked.length} sheet(s)`, (tx) => { for (const r of picked) tx.put({ ...sheetOf(r.id), status: s }) })
@@ -102,7 +92,6 @@
 		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
 		<label class="text-zinc-500">Group <select bind:value={by}>{#each ['none', 'place', 'kind', 'discipline', 'tag', 'size'] as g (g)}<option value={g}>{g}</option>{/each}</select></label>
 		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
-		<button class="btn" title="Number the selected sheets in the order shown, by a pattern (S{'{'}n:3{'}'} → S001, S002 …)" onclick={renumberPicked}>Renumber…</button>
 		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
 		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
 		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>

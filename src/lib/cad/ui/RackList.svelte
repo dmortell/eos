@@ -42,6 +42,23 @@
 			project.store.transact(`New server room ${room.name}`, (tx) => tx.put(room))
 		})
 	}
+	/** The room at a glance (its name's tooltip): "4F · 2 rows · 6 racks · 48 devices". */
+	function summary(spaceId: string, racks: Rack[]): string {
+		const room = project.index.get(spaceId) as { levelId?: string } | undefined
+		const rows = new Set(racks.map((r) => r.rowId).filter(Boolean)).size, devs = racks.reduce((n, r) => n + project.index.devicesIn(r.id).length, 0)
+		return `${project.index.nameOf(room?.levelId)} · ${rows} row${rows === 1 ? '' : 's'} · ${racks.length} rack${racks.length === 1 ? '' : 's'} · ${devs} device${devs === 1 ? '' : 's'} — click to rename`
+	}
+	// click = one rack, Shift-click = every rack from the last one clicked (down the list), Ctrl-click = add / drop one
+	let anchor: string | null = null
+	function pick(r: Rack, e: MouseEvent) {
+		const flat = groups.flatMap((g) => g.racks)
+		if (e.shiftKey && anchor) {
+			const i = flat.findIndex((x) => x.id === anchor), j = flat.findIndex((x) => x.id === r.id)
+			if (i >= 0 && j >= 0) { ws.select(flat.slice(Math.min(i, j), Math.max(i, j) + 1).map((x) => x.id)); return }
+		}
+		anchor = r.id
+		ws.select(e.ctrlKey || e.metaKey ? (selected.has(r.id) ? ws.selection.filter((x) => x !== r.id) : [...ws.selection, r.id]) : [r.id])
+	}
 	function rename(spaceId: string, name: string) {
 		const s = project.index.get(spaceId)
 		if (s?.type !== 'space') return
@@ -53,7 +70,7 @@
 		<button class="font-normal normal-case text-blue-600 hover:underline" title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button></p>
 	{#each groups as g (g.space)}
 		<div class="room">
-			<button class="roomname" title="Rename this room (e.g. IDF 2)" onclick={() => rename(g.space, g.name)}>{g.name}</button>
+			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
 				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name) }}>
@@ -65,7 +82,7 @@
 		</div>
 		{#each g.racks as r (r.id)}
 			<div class="rack" class:sel={selected.has(r.id)}>
-				<button class="name" onclick={(e) => ws.select(e.shiftKey || e.ctrlKey || e.metaKey ? (selected.has(r.id) ? ws.selection.filter((x) => x !== r.id) : [...ws.selection, r.id]) : [r.id])} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{r.name}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
+				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{r.name}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
 				{#if !r.at}
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}

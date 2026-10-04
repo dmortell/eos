@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { toModel, toScreen, zoomAt, fit } from './camera'
-import { pickAt, pickInside } from './pick'
+import { pickAt, pickInside, pickTouching } from './pick'
 import { moveBy, canMove } from './behaviours'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from '../domain/project'
@@ -60,6 +60,12 @@ describe('picking uses what is drawn', () => {
 		expect(riserLabel).toBeDefined()   // the label reaches past x 6100 …
 		expect(pickInside(prims, { x0: -100, y0: 2900, x1: 6100, y1: 3100 })).toContain('T1')   // … the window doesn't
 	})
+	it('a crossing box (dragged right → left) takes what it touches: a small box on the trunk picks it, not the outlets', () => {
+		const touched = pickTouching(prims, { x0: 2900, y0: 2950, x1: 3100, y1: 3050 })
+		expect(touched).toContain('T1')
+		expect(touched).not.toContain('O1')
+		expect(pickInside(prims, { x0: 2900, y0: 2950, x1: 3100, y1: 3050 })).not.toContain('T1')
+	})
 })
 
 describe('moving', () => {
@@ -92,5 +98,24 @@ describe('the outlet tool', () => {
 		const placed = store.get(sel[0]) as Outlet
 		expect(placed.label).toBe('33-003')
 		expect(placed.ports.map((p) => p.label)).toEqual(['33-003.A', '33-003.B'])
+	})
+	it('what the tool bar sets for the next outlet wins over the last one; the rest still follows the last', async () => {
+		const { EntityStore } = await import('../store/store')
+		const { OutletTool } = await import('./tools')
+		const store = new EntityStore()
+		store.load(demoProject())
+		let sel: string[] = []
+		const tool = new OutletTool(() => ({ ports: 4, tier: 'high', cableType: 'cat6' }))
+		const c: ToolCtx = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 },
+			snap: (p) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		}
+		tool.last = { ...(store.get('O1') as Outlet) }
+		tool.down({ p: { x: 5000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		const placed = store.get(sel[0]) as Outlet
+		expect(placed).toMatchObject({ tier: 'high', usage: 'desk', mount: 'floor' })
+		expect(placed.ports).toHaveLength(4)
+		expect(placed.ports.every((p) => p.cableType === 'cat6')).toBe(true)
 	})
 })

@@ -3,14 +3,14 @@
 // Devices on that face at their U, port cells with level-of-detail labels (short form when small, full stacked form
 // when big — elevations-plan §3.3), patch cords between ports on this face. Labels come from ProjectIndex.portLabel:
 // a panel port shows the label of the outlet port it is linked to (ADR 0002).
-import type { Id, Rack, Device } from '../domain/types'
+import type { Id, Rack, Device, Level } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W } from '../domain/devices'
 
 export const RU_MM = 44.45
-const RAIL_W = 482.6          // 19" device width
+const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
 const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
 const ROW_GAP = 800           // between rows in a room view
@@ -55,22 +55,33 @@ export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: numbe
 /** The cell of port `n` (1-based) on a device, in view mm, or null if the device shows no ports. */
 export function portCell(d: Device, n: number, devX: number, devZ0: number): { x: number; y: number; w: number; h: number } | null {
 	if (!d.portCount || d.kind === 'pdu') return null
-	const rows = d.portCount > 24 && d.heightU <= 2 ? 2 : 1
+	// ~24 ports a row, up to two rows a U: a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24 (Dave: it read as
+	// 48 — its two rows of 48 tiny cells looked like one)
+	const rows = d.portCount > 24 ? Math.min(d.heightU * 2, Math.ceil(d.portCount / 24)) : 1
 	const cols = Math.ceil(d.portCount / rows)
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
-	const w = Math.min(PORT_AREA_W / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
+	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
+	const area = Math.min(PORT_AREA_W, (d.widthMm ?? RAIL_W) - 20)
+	const w = Math.min(area / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
 	const i = n - 1
 	const [row, col] = d.portNumbering === 'column' ? [i % rows, Math.floor(i / rows)] : [Math.floor(i / cols), i % cols]
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
-	return { x: devX - PORT_AREA_W / 2 + col * w, y: -(top - row * h), w, h }
+	return { x: devX - area / 2 + col * w, y: -(top - row * h), w, h }
 }
 
 /** A label split for stacking: "L01.A.001-A01" → ["L01.A", "001", "A01"]; short form = the last two parts. */
 export function labelLines(label: string): { full: string[]; short: string[] } {
 	const parts = label.split(/[.\-]/).filter(Boolean)
-	if (parts.length <= 2) return { full: [label], short: [label] }
+	if (parts.length <= 1) return { full: [label], short: [label] }
+	// two parts stack too (Dave: "01A.014A" on one line was ~3 mm in an 18 mm port — unreadable; stacked it's twice the size)
+	if (parts.length === 2) return { full: parts, short: parts }
 	const full = parts.length > 3 ? [parts.slice(0, parts.length - 2).join('.'), ...parts.slice(-2)] : parts
 	return { full, short: parts.slice(-2) }
+}
+
+/** Under a rack's name: "42U 4-post" ("1600 mm desk" for desks and shelves, which have no U scale), "· REAR" from behind. */
+export function rackCaption(r: Rack, face: 'front' | 'rear'): string {
+	return `${r.kind === 'desk' || r.kind === 'shelf' ? `${r.widthMm} mm` : `${r.heightU}U`} ${r.kind}${face === 'rear' ? ' · REAR' : ''}`
 }
 
 export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
@@ -78,6 +89,10 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 	const portAt = new Map<string, { x: number; y: number }>()   // "deviceId:port" → cell centre, for cords
 	const layout = rackLayout(ix, spec)
 	if (!layout.length) return [{ k: 'text', at: { x: 0, y: 0 }, text: 'No racks in this room yet — draw them on the plan with the Rack tool', size: 120, cls: 'datum-label' }]
+	// the title over the elevation: "4F — IDF 2 · front" (one row: "… · Row A")
+	const room = ix.get(spec.spaceId) as { name?: string; levelId?: string } | undefined, top = Math.max(...layout.map((l) => rackHeight(l.rack)))
+	const title = [ix.nameOf(room?.levelId), room?.name].filter(Boolean).join(' — ') + (spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : '') + ` · ${spec.face}`
+	out.push({ k: 'text', at: { x: layout[0].x0, y: -top - 230 }, text: title, size: 110, cls: 'label' })
 	for (const { rack, x0 } of layout) {
 		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
 		const uScale: Prim[] = []
@@ -103,8 +118,18 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			}
 		}
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
+		out.push({ k: 'text', at: { x: mid, y: -h - 14 }, text: rackCaption(rack, spec.face), size: 40, anchor: 'middle', cls: 'datum-label' })
 		for (const d of ix.devicesIn(rack.id)) {
-			if (d.face === 'none' || (d.face !== 'both' && d.face !== spec.face && d.kind !== 'pdu')) continue
+			if (d.face === 'none') continue
+			// a device on the other face only: a faint outline, "(rear)" / "(front)" — what takes the U from behind (Dave);
+			// not pickable, so clicks reach this face's devices
+			if (d.face !== 'both' && d.face !== spec.face && d.kind !== 'pdu') {
+				const w = Math.min(rack.widthMm, d.widthMm ?? RAIL_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
+				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
+				out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, cls: 'device-other' })
+				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', minPx: 6 })
+				continue
+			}
 			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
 				const x = spec.face === 'rear' ? Math.min(x0 + rack.widthMm - 42, mid + RAIL_W / 2 + 4) : Math.max(x0 + 2, mid - RAIL_W / 2 - 44)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
@@ -134,6 +159,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, minPx: 6 }
 				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
 			if (!grid) out.push(nameText)
+			let minLabel = Infinity   // the smallest port label's size: the name over the ports gives way once those can be read
 			for (let n = 1; n <= d.portCount; n++) {
 				const c = portCell(d, n, dx, z0)
 				if (!c) break
@@ -147,10 +173,13 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				const { full, short } = labelLines(label)
 				const sizeFor = (lines: string[]) => Math.min((c.h * 0.85) / lines.length, (c.w * 0.92) / (Math.max(...lines.map((l) => l.length)) * 0.6))
 				const sS = sizeFor(short), sF = sizeFor(full)
+				minLabel = Math.min(minLabel, sS)
 				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
-			if (grid) out.push(nameText)
+			// over the ports, the name shows while the port labels are too small to read and hides once they show (Dave: P3C
+			// U32 / U37's name covered its ports)
+			if (grid) out.push(minLabel < Infinity && nameText.k === 'text' ? { ...nameText, maxPx: LABEL_MIN_PX * (nameText.size / minLabel) } : nameText)
 		}
 		// the U scale last: nothing in the rack (a PDU, a deep device) covers it
 		out.push(...uScale)
@@ -164,7 +193,25 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 	}
 	if (layout.length) {
 		const x1 = Math.max(...layout.map((l) => l.x0 + l.rack.widthMm))
-		out.unshift({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl' }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label' })
+		out.unshift({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl' }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label' },
+			...storeyPrims(ix.get<Level>((ix.get(spec.spaceId) as { levelId?: Id } | undefined)?.levelId), -400, x1 + 400))
 	}
 	return [...out, ...cords]
+}
+
+/** The storey around the racks (Dave): the top of the floor slab under the raised floor, the ceiling and the
+ *  underside of the slab above, as lines (the slab ones a little heavier than FFL), from the level's heights (y up
+ *  from FFL = negative). Drawn under the racks; nothing when the level has no heights. */
+function storeyPrims(lv: Level | undefined, xa: number, xb: number): Prim[] {
+	const h = lv?.type === 'level' ? lv.heights : undefined
+	if (!h) return []
+	const line = (y: number, cls: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls })
+	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label' })
+	const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
+	const out: Prim[] = [
+		line(-ceil, 'riser-ceiling'), label(-ceil - 30, `CEILING FFL+${ceil}`),
+		line(-soffit, 'datum datum-slab'), label(-soffit - 30, `SLAB FFL+${soffit}`),
+	]
+	if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `SLAB FFL-${floor}`))
+	return out
 }

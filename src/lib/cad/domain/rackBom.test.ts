@@ -25,6 +25,11 @@ describe('rack BOM', () => {
 		expect(lines.find((l) => l.sku === ar4p.hacTopCap && l.group === 'Rack accessory')?.qty).toBe(2)
 		expect(lines.find((l) => l.group === 'Row accessory')).toMatchObject({ sku: vcm.hacEndPanel, qty: 1 })
 	})
+	it('desks and shelves are listed too ("no catalogue SKU"), and a rack’s notes show on its line', () => {
+		const lines = rackBom(ix([row('none'), rack('D', 0, { kind: 'desk', widthMm: 1600, depthMm: 800, notes: 'by the window' }), rack('A', 1600, { notes: 'spare' })]), PANDUIT_SEED)
+		expect(lines.find((l) => l.group === 'Desk / shelf')).toMatchObject({ sku: 'desk 1600×800', qty: 1, note: 'no catalogue SKU · by the window' })
+		expect(lines.find((l) => l.group === 'Rack')?.note).toMatch(/spare/)
+	})
 	it('white racks get the white kit', () => {
 		expect(containmentKitSku(ar4p, 'White')).toBe('AR4P-AC-KITWH')
 	})

@@ -9,12 +9,18 @@
 	import { patchList } from '../domain/reports'
 	import { exportPatchSchedule, importCordIds } from '../render/exports'
 
-	let { project, ws, projectName }: { project: CadProject; ws: Workspace; projectName: string } = $props()
+	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
+	let { project, ws, projectName, roomId }: { project: CadProject; ws: Workspace; projectName: string; roomId?: string } = $props()
+
+	// ── This room / All; the Excel export follows it, all cords or only the changes (add / change / remove) ──
+	let here = $state(false)
+	let changesOnly = $state(false)
+	const room = $derived(here && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
 
 	// ── Excel out (the patch schedule + cord BOM) and cord IDs back in (Phase 3.6) ──
 	let fileInput: HTMLInputElement | undefined = $state()
 	async function exportExcel() {
-		try { const n = await exportPatchSchedule(project.index, projectName, undefined, typeLabel); ws.say(`Patch schedule: ${n} cords`) }
+		try { const n = await exportPatchSchedule(project.index, projectName, room, typeLabel, changesOnly); ws.say(`Patch schedule${room ? ` (${room.name})` : ''}: ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`) }
 		catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 	}
 	async function importIds(file: File | undefined) {
@@ -32,7 +38,7 @@
 	const STATUSES: Cord['status'][] = ['add', 'change', 'remove', 'installed']
 	let show = $state<Record<Cord['status'], boolean>>({ add: true, change: true, remove: true, installed: true })
 	let q = $state('')
-	const all = $derived(patchList(project.index))
+	const all = $derived(patchList(project.index, room ? { rackIds: project.index.racks.filter((r) => r.spaceId === room.id).map((r) => r.id) } : {}))
 	const count = $derived(Object.fromEntries(STATUSES.map((s) => [s, all.filter((r) => r.status === s).length])) as Record<Cord['status'], number>)
 	const rows = $derived(all.filter((r) => show[r.status] && (!q || `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.cordId} ${r.notes}`.toLowerCase().includes(q.toLowerCase()))))
 	const selected = $derived(new Set(ws.selection))
@@ -68,12 +74,17 @@
 <div class="h-full overflow-auto text-xs">
 	<div class="actions">
 		<span class="font-semibold text-zinc-600">Patch list</span>
+		<select class="btn" title="Every cord, or only this room's (the open rack view's, else the selected rack's)" value={room ? 'room' : 'all'} onchange={(e) => (here = e.currentTarget.value === 'room')}>
+			<option value="all">All rooms</option>
+			<option value="room" disabled={!roomId}>{roomId ? project.index.nameOf(roomId) : 'This room (open a rack view)'}</option>
+		</select>
 		{#each STATUSES as s (s)}
 			<button class="chip s-{s}" class:off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords">{s} {count[s]}</button>
 		{/each}
 		<input class="find" placeholder="Find…" bind:value={q} />
 		<span class="text-zinc-400">{rows.length} of {all.length}</span>
-		<button class="btn" title="The patch schedule (work order: remove → change → add → installed) and a cord BOM, as Excel" onclick={exportExcel}>Excel</button>
+		<button class="btn" title="The patch schedule (work order: remove → change → add → installed) and a cord BOM, as Excel — this room or all, as shown" onclick={exportExcel}>Excel</button>
+		<label title="The Excel has only the work (add / change / remove), not the cords already installed"><input type="checkbox" bind:checked={changesOnly} /> changes only</label>
 		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 	</div>

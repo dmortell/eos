@@ -22,7 +22,6 @@ export interface PlanOpts {
 
 /** Paper sizes (mm) of plan symbols. */
 const OUTLET_R = 1.5, LABEL = 1.8, RACK_LABEL = 2.2, RISER_LABEL = 1.6
-export const RACK_FRONT_GAP = 40
 
 export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Prim[] {
 	const out: Prim[] = []
@@ -85,7 +84,8 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 		case 'rect': {
 			const hx = g.size.x / 2, hy = g.size.y / 2
 			const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => add(g.centre, rotate({ x, y }, g.rot ?? 0)))
-			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }]
+			// a box / desk can show which side is its back, like racks (a thick line on its local −y edge)
+			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : [])]
 		}
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]
 		case 'polygon': return [{ k: 'line', pts: g.pts, closed: true, fill: !!s.extent, cls, src: s.id }]
@@ -141,17 +141,17 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 	return out
 }
 
-/** A rack: footprint, an X, and the FRONT line just outside its local +y face (ADR 0004). */
+/** A rack: footprint, an X, and a thick BACK line on its rear edge (local −y; the front is +y, ADR 0004 — Dave: a back
+ *  line on the edge reads better than a front line outside it). */
 function rackPrims(r: Rack, k: number): Prim[] {
 	const at = r.at!, rot = r.rot ?? 0, hw = r.widthMm / 2, hd = r.depthMm / 2
 	const p = (x: number, y: number) => add(at, rotate({ x, y }, rot))
 	const corners = [p(-hw, -hd), p(hw, -hd), p(hw, hd), p(-hw, hd)]
-	const fy = hd + RACK_FRONT_GAP
 	return [
 		{ k: 'line', pts: corners, closed: true, fill: true, cls: 'rack', src: r.id },
 		{ k: 'line', pts: [corners[0], corners[2]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [corners[1], corners[3]], cls: 'rack-x', src: r.id },
-		{ k: 'line', pts: [p(-hw * 0.6, fy), p(hw * 0.6, fy)], cls: 'rack-front', src: r.id },
+		{ k: 'line', pts: [corners[0], corners[1]], cls: 'rack-back', src: r.id },
 		{ k: 'text', at, text: r.name, size: RACK_LABEL * k, anchor: 'middle', cls: 'label', src: r.id },
 		...rackDoorPrims(r, p, hw, hd),
 	]
@@ -226,4 +226,4 @@ function cloudPts(pts: Pt[], arc: number): Pt[] {
 	return out
 }
 const square = (c: Pt, w: number): Pt[] => [{ x: c.x - w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y + w / 2 }, { x: c.x - w / 2, y: c.y + w / 2 }]
-const fmtZ = (z: number) => `${z >= 0 ? '+' : '−'}${Math.abs(Math.round(z))}`
+const fmtZ = (z: number) => `${z >= 0 ? '+' : '-'}${Math.abs(Math.round(z))}`

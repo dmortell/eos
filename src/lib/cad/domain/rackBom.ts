@@ -10,7 +10,7 @@ import type { ProjectIndex } from './project'
 import type { CatalogProduct } from '$lib/catalog/types'
 import { racksInOrder } from './devices'
 
-export type RackBomGroup = 'Rack' | 'Rack accessory' | 'VCM' | 'VCM accessory' | 'Row accessory'
+export type RackBomGroup = 'Rack' | 'Rack accessory' | 'VCM' | 'VCM accessory' | 'Row accessory' | 'Desk / shelf'
 export interface RackBomLine { sku: string; group: RackBomGroup; description: string; qty: number; note?: string; url?: string }
 
 /** The family + colour containment kit of a rack product (AR4P / R4P; 96-in R4P racks have their own). */
@@ -25,7 +25,7 @@ export function containmentKitSku(p: CatalogProduct | undefined, colour: string 
 	return null
 }
 
-const GROUP_ORDER: Record<RackBomGroup, number> = { Rack: 0, 'Rack accessory': 1, VCM: 2, 'VCM accessory': 3, 'Row accessory': 4 }
+const GROUP_ORDER: Record<RackBomGroup, number> = { Rack: 0, 'Rack accessory': 1, VCM: 2, 'VCM accessory': 3, 'Row accessory': 4, 'Desk / shelf': 5 }
 
 export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackBomLine[] {
 	const byId = new Map(catalog.map((p) => [p.id, p]))
@@ -44,10 +44,11 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackB
 	const spaces = new Set(ix.racks.map((r) => r.spaceId))
 	for (const sp of spaces) {
 		for (const r of racksInOrder(ix, sp)) {
-			if (r.kind === 'desk' || r.kind === 'shelf') continue
+			// desks and shelves too (Dave: every rack), and each one's notes on its line
+			if (r.kind === 'desk' || r.kind === 'shelf') { add(describe(r), 'Desk / shelf', ['no catalogue SKU', r.notes].filter(Boolean).join(' · ')); continue }
 			const p = r.catalogId ? byId.get(r.catalogId) ?? bySku.get(r.catalogId) : undefined
 			const vcm = r.kind === 'vcm'
-			add(p?.sku ?? r.catalogId ?? describe(r), vcm ? 'VCM' : 'Rack', p ? undefined : 'no catalogue product — link one for accessories', p?.description ?? describe(r))
+			add(p?.sku ?? r.catalogId ?? describe(r), vcm ? 'VCM' : 'Rack', [p ? '' : 'no catalogue product — link one for accessories', r.notes].filter(Boolean).join(' · ') || undefined, p?.description ?? describe(r))
 			const cont = (r.rowId && rows.get(r.rowId)?.containment) || 'none'
 			if (cont === 'none' || !p) continue
 			const hac = cont === 'hac' || cont === 'combined', cac = cont === 'cac' || cont === 'combined'
@@ -75,4 +76,4 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = []): RackB
 	return [...lines.values()].sort((a, b) => GROUP_ORDER[a.group] - GROUP_ORDER[b.group] || a.sku.localeCompare(b.sku))
 }
 
-const describe = (r: Rack) => `${r.kind === 'vcm' ? 'VCM' : r.kind} ${r.heightU}U ${r.widthMm}×${r.depthMm}`
+const describe = (r: Rack) => r.kind === 'desk' || r.kind === 'shelf' ? `${r.kind} ${r.widthMm}×${r.depthMm}` : `${r.kind === 'vcm' ? 'VCM' : r.kind} ${r.heightU}U ${r.widthMm}×${r.depthMm}`

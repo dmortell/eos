@@ -12,6 +12,7 @@
 	import { loadRiserHeights } from '../persist/import/legacyHeights'
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
+	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
 
 	let { project, ws, onclose }: { project: CadProject; ws: Workspace; onclose: () => void } = $props()
 
@@ -34,6 +35,18 @@
 	let ground = $state(init.ground)
 	let typical = $state<Heights>({ ...init.heights })
 	let busy = $state(false)
+
+	// ── each level's floorplan: a calibrated page of a project PDF (Uploads); picking another replaces it ──
+	let pdfs = $state<PdfFile[]>([])
+	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }))
+	const underlayOf = (l: Level) => project.store.ofType('underlay').find((u) => u.levelId === l.id)
+	function setFloorplan(l: Level, value: string) {
+		const u = underlayOf(l)
+		if (!value) { if (u) project.store.transact(`${l.name}: no floorplan`, (tx) => tx.del(u.id)); return }
+		const [fileId, page] = value.split('#'), name = pdfs.find((f) => f.id === fileId)?.name ?? fileId
+		const next = { ...(u ?? { type: 'underlay' as const, id: newId(), levelId: l.id }), fileId, page: Number(page) }
+		project.store.transact(`${l.name}: floorplan ${name} p.${page}`, (tx) => tx.put(next))
+	}
 
 	const range = $derived(floorNumbers(lowest, top).reverse())
 	const names = $derived({ above, below, ground })
@@ -132,18 +145,31 @@
 		<section>
 			<p class="h">Heights (mm) <span class="hint">· FFL is stacked from them, floor 1 stays where it is</span></p>
 			<table>
-				<thead><tr><th>Floor</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th></tr></thead>
+				<thead><tr><th>Floor</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th><th title="The floorplan under this level's plan: a page of a project PDF, calibrated in Uploads (its crop is applied)">Floorplan</th></tr></thead>
 				<tbody>
 					<tr class="typ">
 						<td>Typical</td>
 						{#each HKEYS as [k] (k)}<td><input type="number" bind:value={typical[k]} /></td>{/each}
 						<td><button class="btn" onclick={applyTypical}>Apply to all</button></td>
+						<td></td>
 					</tr>
 					{#each main as l (l.id)}
+						{@const u = underlayOf(l)}
 						<tr>
 							<td><input class="name" value={l.name} onchange={(e) => { const t = e.currentTarget.value.trim(); if (t && t !== l.name) project.store.transact(`Rename ${l.name} → ${t}`, (tx) => tx.put({ ...l, name: t })) }} /></td>
 							{#each HKEYS as [k] (k)}<td><input type="number" min="0" value={l.heights[k]} onchange={(e) => setHeight(l, k, e.currentTarget.value)} /></td>{/each}
 							<td class="ffl">{(l.elevationMm / 1000).toFixed(3)}</td>
+							<td>
+								<select class="fp" value={u ? `${u.fileId}#${u.page ?? 1}` : ''} onchange={(e) => setFloorplan(l, e.currentTarget.value)}>
+									<option value="">—</option>
+									{#if u && !pdfs.some((f) => f.id === u.fileId)}<option value="{u.fileId}#{u.page ?? 1}">{u.fileId} p.{u.page ?? 1}</option>{/if}
+									{#each pdfs as f (f.id)}
+										{#each Array.from({ length: f.pageCount }, (_, i) => i + 1) as n (n)}
+											<option value="{f.id}#{n}" disabled={!f.calibrated[n]}>{f.name}{f.pageCount > 1 ? ` p.${n}` : ''}{f.calibrated[n] ? '' : ' (calibrate in Uploads)'}</option>
+										{/each}
+									{/each}
+								</select>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -165,6 +191,7 @@
 	input { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	input.pat { width: 5.5rem; font-family: ui-monospace, monospace; }
 	input.name { width: 7rem; }
+	select.fp { max-width: 14rem; font-size: 11px; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }
 	.chip { font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--cad-line, #d4d4d8); background: var(--cad-input, white); }
 	.chip.has { border-color: #2563eb; color: #1d4ed8; }
