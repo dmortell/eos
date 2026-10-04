@@ -64,15 +64,15 @@
 
 <style>
 	.ends { display: grid; grid-template-columns: 2.5rem 1fr; gap: 2px 6px; }
-	.k { color: #71717a; }
+	.k { color: var(--cad-muted); }
 	.status { margin-left: 4px; font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 4px; text-transform: uppercase; }
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }
 	.s-remove { background: #fee2e2; color: #991b1b; }
 	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
+	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; }
-	.acts button { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
-	.acts button:hover { background: #f4f4f5; }
+	.acts button { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.acts button:hover { background: var(--cad-hover); }
 </style>

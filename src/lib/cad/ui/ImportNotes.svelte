@@ -41,14 +41,14 @@
 {/if}
 
 <style>
-	.notes { border-top: 1px solid #e4e4e7; padding: 6px 12px; font-size: 11px; color: #52525b; }
+	.notes { border-top: 1px solid var(--cad-line); padding: 6px 12px; font-size: 11px; color: var(--cad-muted); }
 	.notes > summary { cursor: pointer; font-weight: 600; }
-	.when { font-weight: 400; color: #a1a1aa; }
+	.when { font-weight: 400; color: var(--cad-faint); }
 	.group summary { cursor: pointer; margin-top: 4px; }
-	.n { color: #a1a1aa; }
+	.n { color: var(--cad-faint); }
 	ul { margin: 2px 0 0 10px; padding: 0; list-style: disc; max-height: 14rem; overflow: auto; }
 	li { margin: 1px 0; }
 	li.err { color: #b91c1c; }
-	li button { text-align: left; color: #1d4ed8; }
+	li button { text-align: left; color: var(--cad-link); }
 	li button:hover { text-decoration: underline; }
 </style>

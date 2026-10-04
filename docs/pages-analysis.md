@@ -245,7 +245,7 @@ Nothing in the cabling domain is a first-class entity:
 | Patch list / cords | **does not exist** (only placeholder links to the old Patching tool) |
 
 **Pages also bypasses the agreed label model.**
-- **What `ux-plan.md` and `elevations-plan.md` decided:**
+- **What `archive/ux-plan.md` and `elevations-plan.md` decided:**
   - Frames port labels are canonical.
   - Outlets and Patching read them.
   - Everything links by id (`locationId`, `structuredLinks`, cords by `PortRef`).

@@ -104,6 +104,31 @@ describe('paper notes', () => {
 		expect(h.notes()).toEqual([])
 		expect(h.store.ofType('outlet').length).toBeGreaterThan(0)   // nothing else went
 	})
+	it('a drag on the bare paper windows the notes inside it; a click there selects the sheet', () => {
+		const h = harness()
+		h.setAnswer('Note')
+		{ const n = new NoteTool('text'); n.down(h.at(50, 60), h.ctx()); n.up(h.at(50, 60), h.ctx()) }
+		const id = h.notes()[0].id, t = new SelectTool()
+		t.down(h.at(30, 40), h.ctx()); t.move(h.at(120, 70), h.ctx()); t.up(h.at(120, 70), h.ctx())
+		expect(h.sel()).toEqual([id])
+		t.down(h.at(200, 150), h.ctx()); t.up(h.at(200, 150), h.ctx())
+		expect(h.sel()).toEqual(['SH'])
+	})
+	it('a selected leader shows a grip per point; dragging one moves just that point (in view mm when tied)', () => {
+		const h = harness()
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 50, y: 50, w: 200, h: 150 }, scale: 100, centre: { x: 1000, y: 2000 } }
+		h.store.transact('vp', (tx) => tx.put({ ...SHEET, viewports: [vp] }))
+		h.setAnswer('Tip')
+		const tool = new NoteTool('leader')
+		for (const [x, y] of [[150, 125], [170, 110]]) tool.down(h.at(x, y), h.ctx())
+		tool.finish(h.ctx())
+		const [l] = h.notes(), t = new SelectTool()
+		expect(t.preview(h.ctx()).filter((p) => p.k !== 'image' && p.cls === 'grip')).toHaveLength(2)
+		t.down(h.at(150, 125), h.ctx()); t.move(h.at(160, 130), h.ctx()); t.up(h.at(160, 130), h.ctx())
+		const g = (h.store.get(l.id) as Shape).geom as { pts: { x: number; y: number }[] }
+		expect(g.pts[0]).toEqual({ x: 2000, y: 2500 })   // paper (160, 130) in the 1:100 view
+		expect(g.pts[1]).toEqual({ x: 3000, y: 500 })     // the other point stays: paper (170, 110)
+	})
 	it('Select picks a note on the paper and drags it', () => {
 		const h = harness()
 		h.setAnswer('Note')

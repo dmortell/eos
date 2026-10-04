@@ -1,7 +1,7 @@
 // One open project: the entity store, its Firestore sync, and reactive reads for the UI. Created by the route per
 // project and destroyed with it (no module-level state — the Pages singletons leaked across projects).
 import type { Firestore } from 'firebase/firestore'
-import { EntityStore } from '../store/store'
+import { EntityStore, type UndoResult } from '../store/store'
 import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
 import { PROJECT_SCOPE, levelScope, sheetScope } from '../persist/docs'
@@ -95,8 +95,13 @@ export class CadProject {
 	/** Writes not yet confirmed by the server (kept current by Sync — a write can finish with no store change). */
 	pendingWrites = $state(0)
 
-	undo(): void { const r = this.store.undo(); if (r?.skipped.length) this.error = `Undo skipped ${r.skipped.length} item(s) someone else changed since` }
-	redo(): void { this.store.redo() }
+	/** Undo / redo return what they brought back or changed (still there afterwards), for the caller to select. */
+	undo(): Id[] { const r = this.store.undo(); if (r?.skipped.length) this.error = `Undo skipped ${r.skipped.length} item(s) someone else changed since`; return this.#touched(r) }
+	redo(): Id[] { return this.#touched(this.store.redo()) }
+	#touched(r: UndoResult | null): Id[] {
+		const keep = (e: Entity | undefined) => !!e && e.type !== 'settings' && e.type !== 'level' && e.type !== 'building'
+		return (r?.applied ?? []).map((op) => op.id).filter((id) => keep(this.store.get(id)))
+	}
 
 	/** Read the legacy tools' docs and build the import — nothing is written. */
 	async previewImport(): Promise<ImportResult> {

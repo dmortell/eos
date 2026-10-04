@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU } from './devices'
+import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU, deviceCounts, moveRacksToLevel } from './devices'
+import { ProjectIndex } from './project'
 import type { Device, Rack } from './types'
+import type { Entity } from './drawing'
 
 const rack: Rack = { type: 'rack', id: 'R', levelId: 'L', spaceId: 'S', order: 0, name: 'A01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 }
 const tpl = (id: string) => BUILTIN_DEVICE_TEMPLATES.find((t) => t.id === id)!
@@ -40,5 +42,23 @@ describe('rack placement rules', () => {
 		const top = at('builtin:panel-24', 42)
 		expect(firstFreeU(rack, [top], 1, 'front')).toBe(41)
 		expect(firstFreeU(rack, [], 2, 'front')).toBe(41)
+	})
+	it('racks moved to another level leave the plan; a room whose racks all move goes too, else they join one by name', () => {
+		const L = (id: string) => ({ type: 'level', id, buildingId: 'B', number: 1, name: id, order: 1, elevationMm: 0, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } }) as const
+		const room = (id: string, levelId: string, name: string) => ({ type: 'space', id, levelId, kind: 'server room', name, order: 1 }) as const
+		const r = (id: string, spaceId: string) => ({ ...rack, id, levelId: 'L1', spaceId, at: { x: 1, y: 1 }, rowId: 'ROW' })
+		const ix = new ProjectIndex([L('L1'), L('L2'), room('S1', 'L1', 'IDF 3307'), room('S2', 'L1', 'IDF 1'), room('S2B', 'L2', 'IDF 1'), r('A', 'S1'), r('B', 'S1'), r('C', 'S2'), r('D', 'S2')] as Entity[])
+		// both racks of IDF 3307 move: the room goes with them, and they keep their row
+		const all = moveRacksToLevel(ix, [ix.get('A') as Rack, ix.get('B') as Rack], 'L2')
+		expect(all.find((e) => e.id === 'S1')).toMatchObject({ levelId: 'L2' })
+		expect(all.filter((e) => e.type === 'rack')).toMatchObject([{ levelId: 'L2', spaceId: 'S1', at: undefined, rowId: 'ROW' }, { levelId: 'L2', spaceId: 'S1' }])
+		// one of IDF 1's two racks moves: it joins L2's "IDF 1", off its row
+		const one = moveRacksToLevel(ix, [ix.get('C') as Rack], 'L2')
+		expect(one).toMatchObject([{ id: 'C', levelId: 'L2', spaceId: 'S2B', rowId: undefined }])
+	})
+	it('device counts read by kind, most first, singular for one', () => {
+		const ds = [at('builtin:panel-24', 42), at('builtin:panel-24', 41), at('builtin:switch-48', 39)]
+		expect(deviceCounts(ds)).toBe('2 panels · 1 switch')
+		expect(deviceCounts([])).toBe('no devices')
 	})
 })

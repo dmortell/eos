@@ -20,18 +20,16 @@
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
+	/** A new sheet straight away, titled "New sheet" (Dave: no name prompt — rename it in Properties). */
 	function add() {
-		ws.askText('New sheet title', 'Plan', (title) => {
-			if (!title.trim()) return
-			const last = sheets.at(-1)
-			const s: Sheet = {
-				type: 'sheet', id: newId(), number: last ? nextLabel(last.number) : 'S001', title: title.trim(), order: (last?.order ?? 0) + 1,
-				paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active',
-			}
-			project.store.transact(`New sheet ${s.number}`, (tx) => tx.put(s))
-			onview({ kind: 'sheet', sheetId: s.id })
-			ws.select([s.id])
-		})
+		const last = sheets.at(-1)
+		const s: Sheet = {
+			type: 'sheet', id: newId(), number: last ? nextLabel(last.number) : 'S001', title: 'New sheet', order: (last?.order ?? 0) + 1,
+			paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active',
+		}
+		project.store.transact(`New sheet ${s.number}`, (tx) => tx.put(s))
+		onview({ kind: 'sheet', sheetId: s.id })
+		ws.select([s.id])
 	}
 </script>
 
@@ -52,6 +50,6 @@
 	.head { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding: 0 4px 4px; }
 	.place { font-size: 11px; color: #2563eb; }
 	.sheet { display: block; width: 100%; text-align: left; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
-	.sheet:hover { background: #f4f4f5; }
-	.sheet.on { background: #dbeafe; color: #1e3a8a; }
+	.sheet:hover { background: var(--cad-hover); }
+	.sheet.on { background: var(--cad-sel); }
 </style>

@@ -55,14 +55,16 @@ export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => 
 	return undefined
 }
 
-/** Entities whose every prim lies inside the box (window selection). */
+/** Entities whose drawing lies inside the box (window selection). Their LABELS don't count (a trunk's riser label
+ *  sticks out past its line, so a window round the trunk missed it) — unless the thing is only text (a note). */
 export function pickInside(prims: Prim[], box: Bounds): Id[] {
-	const ok = new Map<Id, boolean>()
+	const shape = new Map<Id, boolean>(), text = new Map<Id, boolean>()
 	for (const pr of prims) {
 		if (!pr.src || pr.k === 'image') continue
-		const b = primBounds(pr)
+		const b = primBounds(pr), m = pr.k === 'text' ? text : shape
 		const inside = b.x0 >= box.x0 && b.y0 >= box.y0 && b.x1 <= box.x1 && b.y1 <= box.y1
-		ok.set(pr.src, (ok.get(pr.src) ?? true) && inside)
+		m.set(pr.src, (m.get(pr.src) ?? true) && inside)
 	}
-	return [...ok].filter(([, v]) => v).map(([id]) => id)
+	const ids = new Set([...shape.keys(), ...text.keys()])
+	return [...ids].filter((id) => (shape.has(id) ? shape.get(id) : text.get(id)))
 }

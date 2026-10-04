@@ -1,7 +1,7 @@
 # cad todos
 
-Open work that isn't a phase slice yet. Items from Dave's gap review (`gap-analysis.md`) land here; when a batch is
-built, move it into that phase's Progress section.
+**Frozen 2026-10-03:** Dave's eight todo batches from the gap review, as dictated. Every item (T001–T168) has been merged
+into `../plan/` (backlog, decisions or later; `plan-sources.md` maps the T ids). Add new todos there, not here.
 
 **Already open in the phase docs:** Shift constraints during drags and the drag marquee fix (phase6.md, Todo);
 Ctrl-drag duplicates shapes and devices (phase6.md, phase3.md); plan the rack-view interactions before building

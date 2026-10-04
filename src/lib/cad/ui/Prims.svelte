@@ -143,7 +143,10 @@
 	text.device-stale { fill: #b91c1c; }
 	text.port-label { fill: #0c4a6e; font-family: ui-monospace, monospace; }
 	text.u-label { fill: #94a3b8; }
+	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
+	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
+	text.device-label.on-ports { paint-order: stroke; stroke: white; stroke-width: 3px; stroke-opacity: 0.9; }
 	.cord { stroke-width: 2; opacity: 0.85; }
 	.cord-installed { stroke-dasharray: none; }
 	.cord-add { stroke-dasharray: 6 3; }

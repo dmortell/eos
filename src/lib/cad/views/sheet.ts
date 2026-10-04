@@ -68,7 +68,7 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
-	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes })
+	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale })
@@ -123,13 +123,21 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 		for (const p of viewportContent(ix, vp, o)) out.push(placePrim(p, t, k, clip))
 		// the window itself: what you pick and drag on the sheet
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
-		if (vp.label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${vp.label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
+		const label = vp.label ?? autoLabel(ix, vp)
+		if (label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}
 	// the title block over the viewports (a window that strays under it is covered, as in Pages)
 	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
 	// paper notes (text, leaders, clouds — shapes owned by this sheet) over everything: a cloud may mark the title block
 	for (const s of ix.shapes) if (s.sheetId === sheet.id) out.push(...notePrims(s, sheet, o.blocks))
 	return out
+}
+
+/** The title a viewport gets when none is typed: a section reads "SECTION A–A′". */
+function autoLabel(ix: ProjectIndex, vp: Viewport): string | undefined {
+	if (vp.view.spec.kind !== 'section') return undefined
+	const s = ix.get(vp.view.spec.sectionId)
+	return s?.type === 'section' ? `SECTION ${s.name}–${s.name}′` : undefined
 }
 
 /** A sensible first viewport: most of the drawing area (left of / above the title block), at 1:100, centred on the

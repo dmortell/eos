@@ -59,10 +59,10 @@
 </div>
 
 <style>
-	.panel { padding: 4px 8px 6px; border-bottom: 1px solid #e4e4e7; background: #fffbeb; }
-	.inp { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; background: white; }
-	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 8px; background: white; }
+	.panel { padding: 4px 8px 6px; border-bottom: 1px solid var(--cad-line); background: var(--cad-pick); }
+	.inp { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 8px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }
 	.primary { background: #2563eb; border-color: #2563eb; color: white; }
-	label { color: #52525b; }
+	label { color: var(--cad-muted); }
 </style>

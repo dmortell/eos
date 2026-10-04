@@ -16,9 +16,46 @@ import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
 import type { Prim } from './display'
 
-const ROOM_H = 2200, LANE = 180, MARGIN = 3000
+const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200
 
-export interface RiserOpts { scale?: number; routes?: Map<Id, Route> }
+export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean }
+
+/**
+ * True elevation → the view's height, with floors left out squeezed: each run of hidden floors becomes one break band
+ * BREAK_H tall; everything in a shown floor keeps its true size. With `storey` (a floor's own height), the space
+ * above a floor's storey up to the next level — floors with no level at all, e.g. Journey's 13F–29F — is squeezed
+ * the same way. `bands` = the squeezed runs, for their break marks (`from` / `to` = the hidden levels, if any).
+ */
+export function squeeze(floors: number[], shown: (e: number) => boolean, storey?: (e: number) => number): { z: (z: number) => number; bands: { z0: number; z1: number; from?: number; to?: number }[] } {
+	const fs = [...new Set(floors)].sort((a, b) => a - b)
+	if (!fs.length) return { z: (z) => z, bands: [] }
+	// the true bands, bottom up: each floor's storey (shown or hidden), then any gap to the next level (hidden)
+	const segs: { lo: number; hi: number; shown: boolean; level?: number }[] = []
+	fs.forEach((e, i) => {
+		const next = fs[i + 1] ?? e + (storey?.(e) ?? 4000), own = storey ? Math.min(next, e + storey(e)) : next   // nothing above the top floor
+		segs.push({ lo: e, hi: own, shown: shown(e), level: e })
+		if (own < next) segs.push({ lo: own, hi: next, shown: false })
+	})
+	const at: { lo: number; hi: number; v: number; h: number }[] = []   // true lo..hi → view v..v+h
+	const bands: { z0: number; z1: number; from?: number; to?: number }[] = []
+	let v = fs[0]
+	for (let i = 0; i < segs.length; i++) {
+		if (segs[i].shown) { at.push({ lo: segs[i].lo, hi: segs[i].hi, v, h: segs[i].hi - segs[i].lo }); v += segs[i].hi - segs[i].lo; continue }
+		let j = i
+		while (j + 1 < segs.length && !segs[j + 1].shown) j++
+		const run = segs.slice(i, j + 1), levels = run.flatMap((s) => (s.level !== undefined ? [s.level] : []))
+		run.forEach((s, q) => at.push({ lo: s.lo, hi: s.hi, v: v + (q * BREAK_H) / run.length, h: BREAK_H / run.length }))
+		bands.push({ z0: v, z1: v + BREAK_H, ...(levels.length ? { from: levels[0], to: levels.at(-1) } : {}) })
+		v += BREAK_H
+		i = j
+	}
+	const z = (t: number): number => {
+		if (t < fs[0]) return at[0].v - (fs[0] - t)
+		const b = at.findLast((x) => t >= x.lo) ?? at[0]
+		return t >= b.hi ? b.v + b.h + (t - b.hi) : b.v + ((t - b.lo) / (b.hi - b.lo)) * b.h
+	}
+	return { z, bands }
+}
 
 /** The risers: containment with a vertical segment between two levels. */
 export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number; z0: number; z1: number; w: number }[] {
@@ -52,24 +89,38 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const x0 = Math.min(...xs) - MARGIN, x1 = Math.max(...xs) + MARGIN
 	const out: Prim[] = []
 
-	// floors: one band per elevation (area plans share it)
+	// floors: one band per elevation (area plans share it); floors with no server room can be squeezed into breaks
 	const byElev = new Map<number, Level[]>()
 	for (const l of ix.levels) byElev.set(l.elevationMm, [...(byElev.get(l.elevationMm) ?? []), l])
+	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e)
+	const storeyOf = (e: number) => { const h = byElev.get(e)?.[0]?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
+	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
 	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
-		const h = ls[0].heights, slab = h?.slabMm ?? 200, ceil = h?.clearHeightMm ?? 2600
-		out.push({ k: 'line', pts: [{ x: x0, y: -e }, { x: x1, y: -e }, { x: x1, y: -(e - slab) }, { x: x0, y: -(e - slab) }], closed: true, fill: true, cls: 'riser-slab' })
-		out.push({ k: 'line', pts: [{ x: x0, y: -e }, { x: x1, y: -e }], cls: 'riser-ffl' })
-		out.push({ k: 'line', pts: [{ x: x0, y: -(e + ceil) }, { x: x1, y: -(e + ceil) }], cls: 'riser-ceiling' })
+		if (!shown(e)) continue
+		const h = ls[0].heights, slab = h?.slabMm ?? 200, ceil = h?.clearHeightMm ?? 2600, v = zv(e)
+		out.push({ k: 'line', pts: [{ x: x0, y: -v }, { x: x1, y: -v }, { x: x1, y: -(v - slab) }, { x: x0, y: -(v - slab) }], closed: true, fill: true, cls: 'riser-slab' })
+		out.push({ k: 'line', pts: [{ x: x0, y: -v }, { x: x1, y: -v }], cls: 'riser-ffl' })
+		out.push({ k: 'line', pts: [{ x: x0, y: -(v + ceil) }, { x: x1, y: -(v + ceil) }], cls: 'riser-ceiling' })
 		const names = [...new Set(ls.map((l) => l.name))].join(' / ')
-		out.push({ k: 'text', at: { x: x0 + 200, y: -e - 300 }, text: `${names}  FFL ${(e / 1000).toFixed(2)}`, size: txt, cls: 'rv-label' })
+		out.push({ k: 'text', at: { x: x0 + 200, y: -v - 300 }, text: `${names}  FFL ${(e / 1000).toFixed(2)}`, size: txt, cls: 'rv-label' })
+	}
+	// a break mark across each run of left-out floors, naming them
+	const nameAt = (e: number) => [...new Set((byElev.get(e) ?? []).map((l) => l.name))].join(' / ')
+	for (const b of bands) {
+		const ym = -(b.z0 + b.z1) / 2, step = (x1 - x0) / 24, amp = BREAK_H * 0.15
+		out.push({ k: 'line', pts: Array.from({ length: 25 }, (_, i) => ({ x: x0 + i * step, y: ym + (i % 2 ? amp : -amp) })), cls: 'riser-break' })
+		const what = b.from === undefined ? 'floors with no level' : b.from === b.to ? `${nameAt(b.from)} not shown` : `${nameAt(b.from)} – ${nameAt(b.to!)} not shown`
+		out.push({ k: 'text', at: { x: x0 + 200, y: ym - amp - small * 0.3 }, text: what, size: small, cls: 'datum-label' })
 	}
 	for (const r of rooms) {
-		out.push({ k: 'line', pts: [{ x: r.x0, y: -r.z }, { x: r.x1, y: -r.z }, { x: r.x1, y: -(r.z + ROOM_H) }, { x: r.x0, y: -(r.z + ROOM_H) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
-		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(r.z + ROOM_H) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
+		const v = zv(r.z)
+		out.push({ k: 'line', pts: [{ x: r.x0, y: -v }, { x: r.x1, y: -v }, { x: r.x1, y: -(v + ROOM_H) }, { x: r.x0, y: -(v + ROOM_H) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
+		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(v + ROOM_H) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
 	}
 	for (const sh of shafts) {
-		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -sh.z0 }, { x: sh.x + sh.w / 2, y: -sh.z0 }, { x: sh.x + sh.w / 2, y: -sh.z1 }, { x: sh.x - sh.w / 2, y: -sh.z1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
-		out.push({ k: 'text', at: { x: sh.x, y: -sh.z1 - small * 0.6 }, text: sh.s.label || 'Riser', size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
+		const v0 = zv(sh.z0), v1 = zv(sh.z1)
+		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v1 }, { x: sh.x - sh.w / 2, y: -v1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
+		out.push({ k: 'text', at: { x: sh.x, y: -v1 - small * 0.6 }, text: sh.s.label || 'Riser', size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
 	}
 
 	// backbone groups
@@ -97,7 +148,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		const ra = ix.get<Rack>(g.a)!, rb = ix.get<Rack>(g.b)!, A = roomBox(ra), B = roomBox(rb)
 		if (!A || !B) continue
 		const lo = A.z <= B.z ? { rack: ra, box: A } : { rack: rb, box: B }, hi = lo.rack === ra ? { rack: rb, box: B } : { rack: ra, box: A }
-		const yA = -(lo.box.z + 600 + (n % 6) * 120), yB = -(hi.box.z + 600 + (n % 6) * 120)
+		const yA = -(zv(lo.box.z) + 600 + (n % 6) * 120), yB = -(zv(hi.box.z) + 600 + (n % 6) * 120)
 		const xa = lo.rack.at!.x, xb = hi.rack.at!.x
 		const sh = shafts.find((s) => s.s.id === g.risers[0])
 		const lane = sh ? (lanesAt.get(sh.s.id) ?? 0) : 0

@@ -25,7 +25,7 @@
 	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
-	import { toModel, zoomAt, panBy, fit, type Camera } from '../editor/camera'
+	import { toModel, zoomAt, panBy, fit, MIN_K, type Camera } from '../editor/camera'
 	import Prims from './Prims.svelte'
 	import { fillTone, FILL_LIMIT_PCT } from '../domain/fill'
 
@@ -61,7 +61,7 @@
 			: spec.kind === 'sheet'
 				? (sheet ? sheetDisplayList(project.index, sheet, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes }) : [])
 				: spec.kind === 'riser'
-					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes })
+					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE }))
@@ -165,7 +165,8 @@
 	const camsKey = () => `cad-cams:${project.pid}`
 	const RESTORED = 'restored'
 	const readCams = (): Record<string, Camera> => { try { return JSON.parse(localStorage.getItem(camsKey()) ?? '{}') } catch { return {} } }
-	for (const [k, c] of Object.entries(readCams())) if (c && Number.isFinite(c.k)) cams.set(k, { cam: c, fitted: RESTORED })
+	// a camera stuck at the smallest zoom is a bad saved fit, not a choice: that view fits again
+	for (const [k, c] of Object.entries(readCams())) if (c && Number.isFinite(c.k) && c.k > MIN_K * 1.5) cams.set(k, { cam: c, fitted: RESTORED })
 	let saveTimer: ReturnType<typeof setTimeout> | undefined
 	$effect(() => {
 		const c = cam
@@ -197,9 +198,14 @@
 				if (viewKey) cams.set(viewKey, { cam, fitted: fittedFor })
 				viewKey = vk
 				const saved = cams.get(vk)
+				// a view with no camera of its own starts unfitted — not with the last view's flag (a new sheet opened from a
+				// plan whose camera was RESTORED kept that flag, never fitted, and showed the paper as a speck)
 				if (saved) { cam = saved.cam; fittedFor = saved.fitted }
+				else fittedFor = null
 			}
-			if (fittedFor === key || fittedFor === RESTORED || !ps.length || !w) return
+			// no fit before the pane has BOTH sizes: a fit into a 0-high pane clamps to the smallest zoom (a new sheet
+			// came up as a speck in the corner, and that camera was then saved and restored)
+			if (fittedFor === key || fittedFor === RESTORED || !ps.length || !w || !h) return
 			const b = unionBounds(ps.map(primBounds))
 			if (b) { cam = fit(b, w, h); fittedFor = key }
 		})
@@ -250,8 +256,8 @@
 	}
 
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
-	/** The last pointer position in view mm — where a typed distance points. */
-	let cursor: Pt | null = null
+	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
+	let cursor = $state<Pt | null>(null)
 	let toolDown = false
 
 	function onDown(e: PointerEvent) {
@@ -273,8 +279,8 @@
 			if (panning.moved || Math.hypot(s.x - panning.x, s.y - panning.y) > 3) { cam = panBy(cam, s.x - panning.x, s.y - panning.y); panning = { ...panning, ...s, moved: true } }
 			return
 		}
-		if (!active) return
 		cursor = input(e).p
+		if (!active) return
 		if (toolDown) ws.tool.move(input(e), ctx())
 		else ws.tool.hover?.(input(e), ctx())
 		tick++
@@ -325,6 +331,10 @@
 	}
 	export const takesTyping = () => !!ws.tool.typed
 
+	/** Page Up / Down: one screen up or down (sideways = left / right), with a little overlap. */
+	export function page(dir: 1 | -1, sideways: boolean): void {
+		cam = sideways ? panBy(cam, -dir * w * 0.9, 0) : panBy(cam, 0, -dir * h * 0.9)
+	}
 	export function cancel(): void { ws.tool.cancel(ctx()); toolDown = false; tick++ }
 	export function refresh(): void { tick++ }
 	export const isElevation = () => spec.kind === 'elevation'
@@ -362,6 +372,10 @@
 				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
 			</select>
 		{/if}
+		{#if spec.kind === 'riser'}
+			<span class="sep"></span>
+			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => { onfocus?.(); onspec({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) }) }}>Hide empty floors</button>
+		{/if}
 		{#if spec.kind === 'plan'}
 			<span class="sep"></span>
 			<button class:on={ws.showFill} title="Colour runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
@@ -380,7 +394,11 @@
 		{/if}
 	</div>
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
-	<div class="scale">{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}</div>
+	<div class="scale">
+		<!-- the cursor in the view's own terms: plan / sheet x, y (y down); elevations, sections and rack rows x, z (up) -->
+		{#if cursor}{@const up = spec.kind === 'elevation' || spec.kind === 'section' || spec.kind === 'row'}X {Math.round(cursor.x)} · {up ? 'Z' : 'Y'} {Math.round(up ? -cursor.y : cursor.y)} · {/if}
+		{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}
+	</div>
 </div>
 
 <style>

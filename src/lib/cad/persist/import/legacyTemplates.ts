@@ -7,7 +7,7 @@ import type { DeviceTemplate } from '../../domain/devices'
 
 export interface LegacyLibraryTemplate {
 	id: string; label?: string; type?: string; heightU?: number; portCount?: number
-	portType?: string | null; widthMm?: number; depthMm?: number; maker?: string
+	portType?: string | null; widthMm?: number; depthMm?: number; maker?: string; model?: string
 }
 
 const KINDS: DeviceKind[] = ['panel', 'switch', 'server', 'manager', 'shelf', 'pdu', 'enclosure', 'other']
@@ -26,6 +26,7 @@ export function templateFromLibrary(t: LegacyLibraryTemplate): DeviceTemplate | 
 		...(kind === 'switch' ? { portNumbering: 'column' as const } : {}),
 		face: kind === 'panel' ? 'both' : kind === 'pdu' ? 'rear' : 'front',
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}),
+		...(t.maker ? { maker: t.maker } : {}), ...(t.model ? { model: t.model } : {}),
 	}
 }
 

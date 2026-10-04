@@ -10,6 +10,22 @@ const D = { cableType: 'cat6a', colour: '#22c55e' }
 const ix = (extra: Entity[] = []) => new ProjectIndex([...demoProject(), ...extra])
 const sw2: Device = { type: 'device', id: 'SW2', rackId: 'R1', name: 'Switch 2', kind: 'switch', u: 20, heightU: 1, face: 'front', portCount: 24 }
 
+describe('one room per cord', () => {
+	it('a cord, a re-route or a bulk patch into another room is refused: that takes an interconnect', () => {
+		const other: Entity[] = [
+			{ type: 'space', id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', code: 'B', order: 2 },
+			{ type: 'rack', id: 'RB', levelId: 'L33', spaceId: 'SR-B', order: 0, name: 'B01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 } as Rack,
+			{ ...sw2, id: 'SWB', rackId: 'RB' },
+		]
+		const i = ix(other)
+		expect(makeCord(i, { on: 'SW1', port: 30 }, { on: 'SWB', port: 1 }, D).problem).toMatch(/one room/)
+		expect(makeCord(i, { on: 'SW1', port: 30 }, { on: 'SW1', port: 31 }, D).cord).toBeDefined()   // same room: fine
+		const c = i.cords[0]
+		expect(repatch(i, c, 'b', { on: 'SWB', port: 2 }).problem).toMatch(/one room/)
+		expect(bulkPatch(i, { on: 'SW1', ports: [30, 31] }, { on: 'SWB', start: 1 }, D)).toMatchObject({ cords: [], skipped: [expect.stringMatching(/one room/)] })
+	})
+})
+
 describe('the gate', () => {
 	it('a panel port with no label (unallocated) refuses a cord, and says why', () => {
 		expect(patchProblem(ix(), { on: 'P1', port: 10 })).toMatch(/no label yet/)
@@ -90,6 +106,20 @@ describe('circuit trace', () => {
 		expect(fromSwitch.map((s) => `${s.ref.on}:${s.ref.port}`)).toEqual(['O1:1', 'P1:1', 'SW1:1'])
 		expect(fromSwitch.map((s) => s.via?.kind)).toEqual([undefined, 'link', 'cord'])
 		expect(traceCircuit(ix(), { on: 'P1', port: 1 })).toEqual(fromSwitch)
+	})
+	it('through an interconnect: outlet → panel → cord → tie panel → tie cable → panel in another room → cord → switch', () => {
+		const tp = (id: string, rackId: string): Device => ({ type: 'device', id, rackId, name: id, kind: 'panel', u: 30, heightU: 1, face: 'both', portCount: 24, portLabels: { '1': `${id}-01` } })
+		const ents: Entity[] = [
+			{ type: 'space', id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', code: 'B', order: 2 },
+			{ type: 'rack', id: 'RB', levelId: 'L33', spaceId: 'SR-B', order: 0, name: 'B01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 } as Rack,
+			tp('TPA', 'R1'), tp('TPB', 'RB'), { ...sw2, id: 'SWB', rackId: 'RB' },
+			{ type: 'cord', id: 'CA', kind: 'patch', a: { on: 'P1', port: 3, face: 'front' }, b: { on: 'TPA', port: 1, face: 'front' }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'add' },
+			{ type: 'link', id: 'TIE', kind: 'tie', a: { on: 'TPA', port: 1, face: 'rear' }, b: { on: 'TPB', port: 1, face: 'rear' }, cableType: 'cat6a', status: 'design' },
+			{ type: 'cord', id: 'CB', kind: 'patch', a: { on: 'TPB', port: 1, face: 'front' }, b: { on: 'SWB', port: 5 }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'add' },
+		]
+		const t = traceCircuit(ix(ents), { on: 'SWB', port: 5 })
+		expect(t.map((s) => `${s.ref.on}:${s.ref.port}`)).toEqual(['O2:1', 'P1:3', 'TPA:1', 'TPB:1', 'SWB:5'])   // reads from the outlet
+		expect(t.map((s) => s.via?.kind)).toEqual([undefined, 'link', 'cord', 'link', 'cord'])
 	})
 	it('a removed cord is not part of the circuit', () => {
 		const ents = demoProject().map((e) => (e.id === 'C1' ? { ...(e as Cord), status: 'remove' as const } : e))

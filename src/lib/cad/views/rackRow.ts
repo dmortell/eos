@@ -81,7 +81,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
 		const uScale: Prim[] = []
 		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', src: rack.id })
-		// U ticks (every U) and numbers (every 5 U, and the top one) INSIDE the rack's own left edge — racks narrower
+		// U ticks and numbers (every U) INSIDE the rack's own edges — racks narrower
 		// than 19" rails (cable managers, desks) have no U scale (theirs would land on the neighbours)
 		if (rack.widthMm >= RAIL_W && rack.kind !== 'vcm' && rack.kind !== 'desk') {
 			// the 19" mounting frame: rail to rail, U1 to the top U
@@ -90,13 +90,15 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			// numbers sit in the margin beside the rails when it's wide enough; a narrow frame (P3C: 17 mm) puts them
 			// just outside its left edge, where panels can't cover them
 			const roomy = (rack.widthMm - RAIL_W) / 2 >= 48
-			const tx = x0 + (roomy ? 6 : 2)
+			// a tick and a number on every U, on both rails (left: reading out from the left edge; right: mirrored)
+			const tl = x0 + (roomy ? 6 : 2), tr = x0 + rack.widthMm - (roomy ? 6 : 2)
 			for (let u = 1; u <= rack.heightU; u++) {
-				const z = base + (u - 1) * RU_MM
-				uScale.push({ k: 'line', pts: [{ x: tx, y: -z }, { x: tx + 10, y: -z }], cls: 'rack-x' })
-				if (u === 1 || u % 5 === 0 || u === rack.heightU) {
-					uScale.push({ k: 'text', at: { x: roomy ? tx + 12 : x0 - 4, y: -(z + RU_MM * 0.25) }, text: String(u), size: RU_MM * 0.55, anchor: roomy ? 'start' : 'end', cls: 'u-label', minPx: 5 })
-				}
+				const z = base + (u - 1) * RU_MM, y = -(z + RU_MM * 0.25), num = { text: String(u), size: RU_MM * 0.55, cls: 'u-label', minPx: 5 } as const
+				uScale.push({ k: 'line', pts: [{ x: tl, y: -z }, { x: tl + 10, y: -z }], cls: 'rack-x' })
+				uScale.push({ k: 'line', pts: [{ x: tr - 10, y: -z }, { x: tr, y: -z }], cls: 'rack-x' })
+				uScale.push({ k: 'text', at: { x: roomy ? tl + 12 : x0 - 4, y }, anchor: roomy ? 'start' : 'end', ...num })
+				// a narrow frame numbers its left side only: outside its right edge the numbers would land on the next rack
+				if (roomy) uScale.push({ k: 'text', at: { x: tr - 12, y }, anchor: 'end', ...num })
 			}
 		}
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
@@ -121,7 +123,16 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			const stale = new Set(changedSincePrinted(ix, d))
 			const note = d.panel?.labelsPrintedAt ? (stale.size ? `  ⚠ ${stale.size} label${stale.size > 1 ? 's' : ''} changed since printed` : '  · printed') : ''
 			out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, fill: true, cls: `device device-${d.kind}`, src: d.id })
-			out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: stale.size ? 'device-label device-stale' : 'device-label', src: d.id, minPx: 6 })
+			const nameCls = stale.size ? 'device-label device-stale' : 'device-label'
+			// with ports, the name is drawn AFTER them, at the top left with a halo (Dave: the panel's own label was hidden
+			// behind its ports; the strip above a 1U panel's ports is only ~8 mm, too small to read); without, it sits in
+			// the device as before
+			const grid = portCell(d, 1, dx, z0), nameSize = Math.min(RU_MM * 0.35, (z1 - z0) * 0.4)
+			const nameText: Prim = grid
+				// no src: drawn over the ports, it must not take their clicks (the device is picked by its body)
+				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, minPx: 6 }
+				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
+			if (!grid) out.push(nameText)
 			for (let n = 1; n <= d.portCount; n++) {
 				const c = portCell(d, n, dx, z0)
 				if (!c) break
@@ -138,6 +149,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
+			if (grid) out.push(nameText)
 		}
 		// the U scale last: nothing in the rack (a PDU, a deep device) covers it
 		out.push(...uScale)

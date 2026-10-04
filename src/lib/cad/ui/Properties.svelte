@@ -5,16 +5,16 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity } from '../domain/drawing'
 	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
-	import { placementProblem } from '../domain/devices'
-	import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, portRanges, setPortCount } from '../domain/ports'
+	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel } from '../domain/devices'
+	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import PortProps from './PortProps.svelte'
 	import CordProps from './CordProps.svelte'
 	import SheetProps from './SheetProps.svelte'
-	import Trace from './Trace.svelte'
-	import { traceCircuit } from '../domain/cords'
+	import OutletProps from './OutletProps.svelte'
+	import RenumberPanel from './RenumberPanel.svelte'
+	import { renumberable } from '../domain/renumber'
 	import { newId } from '../domain/ids'
 	import type { Shape } from '../domain/shapes'
-	import { defaultOutletBlock } from '../domain/blocks'
 	import PathProps from './PathProps.svelte'
 	import RunFill from './RunFill.svelte'
 	import WallOpenings from './WallOpenings.svelte'
@@ -23,16 +23,10 @@
 
 	const items = $derived(ws.selection.map((id) => project.index.get(id)).filter((e): e is Entity => !!e))
 	const one = $derived(items.length === 1 ? items[0] : undefined)
-	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
 
 	const put = <T extends Entity>(e: T, label: string, patch: Partial<T>) => project.store.transact(label, (tx) => tx.put({ ...e, ...patch }))
 	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
 
-	function setPort(o: Outlet, i: number, patch: Partial<Outlet['ports'][number]>) {
-		put(o, `Port ${o.ports[i].label}`, { ports: o.ports.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
-	}
-
-	const outletBlocks = $derived([...project.blocks.values()].filter((b) => b.category === 'outlet' || !b.builtin))
 	/** Drawn shapes in the selection (not inserts) — what "Make block" can take. */
 	const blockable = $derived(items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'insert' && !!e.levelId))
 	let busy = $state(false)
@@ -51,9 +45,6 @@
 		const v = Object.values(patch)[0]
 		if (typeof v === 'number' && !Number.isFinite(v)) return
 		project.store.transact(`${label} (${racks.length} racks)`, (tx) => { for (const r of racks) tx.put({ ...r, ...patch }) })
-	}
-	function setOutlets(label: string, patch: (o: Outlet) => Partial<Outlet>) {
-		project.store.transact(`${label} (${outlets.length} outlets)`, (tx) => { for (const o of outlets) tx.put({ ...o, ...patch(o) }) })
 	}
 	/** Every device must still fit (overlap rules) or nothing changes. */
 	function setDevices(label: string, patch: Partial<Device>) {
@@ -80,10 +71,10 @@
 	const NEW_ROOM = '__newroom'
 	function setRoom(rs: Rack[], spaceId: string) {
 		if (spaceId === NEW_ROOM) {
-			const lv = rs[0].levelId, n = project.index.spaces.filter((s) => s.levelId === lv && s.kind === 'server room').length
-			ws.askText('New server room name', `IDF ${n + 1}`, (name) => {
+			const lv = rs[0].levelId
+			ws.askText('New server room name', nextRoomName(project.index, lv), (name) => {
 				if (!name.trim()) return
-				const room: Space = { type: 'space', id: newId(), levelId: lv, kind: 'server room', name: name.trim(), code: String.fromCharCode(65 + n), order: n + 1 }
+				const room = newServerRoom(project.index, lv, name.trim())
 				project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const r of rs) tx.put({ ...r, spaceId: room.id, rowId: undefined }) })
 			})
 			return
@@ -102,22 +93,12 @@
 		})
 	}
 
-	/** Rename an outlet (its ports follow); asks first if a printed panel would change. */
-	function renameIt(o: Outlet, input: HTMLInputElement) {
-		const next = input.value.trim()
-		input.value = o.label
-		if (next && next !== o.label) project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
-	}
-
-	/** More / fewer ports. Fewer drops the removed ports' links — asked first when there are any. */
-	function portCount(o: Outlet, input: HTMLInputElement) {
-		const n = Number(input.value)
-		input.value = String(o.ports.length)
-		if (!Number.isFinite(n) || n < 1 || n === o.ports.length) return
-		const r = setPortCount(project.index, o, n, project.settings?.defaults.outletCableType, { style: project.settings?.portSuffix ?? 'alpha', sep: project.settings?.portSeparator ?? '.' })
-		const apply = () => project.store.transact(`${o.label}: ${r.outlet.ports.length} ports`, (tx) => { for (const id of r.dropLinks) tx.del(id); tx.put(r.outlet) })
-		if (r.dropLinks.length) ws.ask2(`${o.label}: the removed port(s) are allocated — ${r.dropLinks.length} link(s) to panels will be removed.`, 'Remove ports', apply)
-		else apply()
+	/** Racks to another level: devices, links and cords go with them; they come off that level's plan. */
+	function moveToLevel(rs: Rack[], levelId: string) {
+		const out = moveRacksToLevel(project.index, rs, levelId)
+		if (!out.length) return
+		project.store.transact(`${rs.length > 1 ? `${rs.length} racks` : rs[0].name} → ${project.index.nameOf(levelId)}`, (tx) => { for (const e of out) tx.put(e) })
+		ws.say(`Moved to ${project.index.nameOf(levelId)} — open that level and use Place in the racks list to put them on its plan`)
 	}
 
 	/** Rack sizes: a rack that would collide on the plan is still allowed (it's a drawing), but sizes must be real. */
@@ -160,6 +141,11 @@
 </script>
 
 <div class="space-y-3 p-3 text-xs">
+	{#if ws.toolId === 'renumber'}
+		<RenumberPanel {project} {ws} open />
+	{:else if items.filter(renumberable).length > 1}
+		<RenumberPanel {project} {ws} />
+	{/if}
 	{#if !items.length}
 		<p class="text-zinc-400">Nothing selected.</p>
 	{:else if !one}
@@ -184,6 +170,13 @@
 			</label>
 		{/if}
 		{#if racks.length > 1}
+			<p class="text-zinc-500">{deviceCounts(racks.flatMap((r) => project.index.devicesIn(r.id)))} in {racks.length} racks</p>
+			<label class="row">Level
+				<select class="inp" value={same(racks, (r) => r.levelId) ?? ''} onchange={(e) => e.currentTarget.value && moveToLevel(racks, e.currentTarget.value)}>
+					{#if !same(racks, (r) => r.levelId)}<option value="">mixed</option>{/if}
+					{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</select>
+			</label>
 			<!-- common rack fields: a value shown when they all share it, blank ("mixed") when they don't; an edit sets all -->
 			<label class="row">Width (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.widthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
 			<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.depthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
@@ -195,34 +188,7 @@
 					onchange={(e) => setRacks(e.currentTarget.checked ? 'Patch frames' : 'Not patch frames', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 			</label>
 		{/if}
-		{#if outlets.length > 1}
-			<p class="pt-1 font-semibold">{outlets.length} outlets</p>
-			<label class="row">Tier
-				<select class="inp" value={same(outlets, (o) => o.tier) ?? ''} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
-					{#if !same(outlets, (o) => o.tier)}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
-				</select>
-			</label>
-			<label class="row">Usage
-				<select class="inp" value={same(outlets, (o) => o.usage) ?? ''} onchange={(e) => setOutlets('Usage', () => ({ usage: e.currentTarget.value }))}>
-					{#if !same(outlets, (o) => o.usage)}<option value="">mixed</option>{/if}
-					{#each project.settings?.usages ?? [] as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
-				</select>
-			</label>
-			<label class="row">Mount
-				<select class="inp" value={same(outlets, (o) => o.mount) ?? ''} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
-					{#if !same(outlets, (o) => o.mount)}<option value="">mixed</option>{/if}
-					{#each ['floor', 'wall', 'box', 'desk', 'ceiling'] as m (m)}<option value={m}>{m}</option>{/each}
-				</select>
-			</label>
-			<label class="row">Server room
-				<select class="inp" value={same(outlets, (o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?')) ?? '?'}
-					onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
-					<option value="?" disabled>mixed</option><option value="">—</option>
-					{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-				</select>
-			</label>
-			<label class="row">Height (Z, mm) <input class="inp" type="number" value={same(outlets, (o) => o.z) ?? ''} placeholder="mixed" onchange={(e) => setOutlets('Height', () => ({ z: num(e.currentTarget.value) }))} /></label>
-		{/if}
+		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
 		{#if devices.length > 1}
 			<p class="pt-1 font-semibold">{devices.length} devices</p>
 			<label class="row">Face
@@ -243,44 +209,7 @@
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
 		{/if}
 	{:else if one.type === 'outlet'}
-		{@const o = one}
-		<p class="font-semibold">Outlet</p>
-		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
-		<label class="row">Tier
-			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
-		</label>
-		<label class="row">Mount
-			<select class="inp" value={o.mount} onchange={(e) => put(o, 'Mount', { mount: e.currentTarget.value as Outlet['mount'] })}>
-				{#each ['floor', 'wall', 'box', 'desk', 'ceiling'] as m (m)}<option value={m}>{m}</option>{/each}
-			</select>
-		</label>
-		<label class="row">Symbol
-			<select class="inp" value={o.blockId ?? ''} onchange={(e) => put(o, 'Symbol', { blockId: e.currentTarget.value || undefined })}>
-				<option value="">Auto: {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage/mount'}</option>
-				{#each outletBlocks as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-			</select>
-		</label>
-		<label class="row">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
-		{#if o.at}
-			<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
-			<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
-		{/if}
-		<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount(o, e.currentTarget)} /></label>
-		<p class="pt-1 font-semibold">Ports</p>
-		{#each o.ports as p, i (p.port)}
-			<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
-				<span class="text-zinc-400">{p.port}</span>
-				<input class="inp font-mono" value={p.label} onchange={(e) => { const t = e.currentTarget.value; e.currentTarget.value = p.label; const n = setPortLabel(project.index, { on: o.id, port: p.port }, t); if (n) project.relabel(`Port ${p.label}`, [n], ws.ask2) }} />
-				<select class="inp" value={p.serverRoomId ?? ''} onchange={(e) => setPort(o, i, { serverRoomId: e.currentTarget.value || undefined })}>
-					<option value="">—</option>
-					{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-				</select>
-			</div>
-		{/each}
-		{#each o.ports as p (p.port)}
-			{@const steps = traceCircuit(project.index, { on: o.id, port: p.port })}
-			{#if steps.length > 1}<Trace {project} {steps} />{/if}
-		{/each}
+		<OutletProps {project} {ws} outlets={[one]} />
 	{:else if one.type === 'rack'}
 		{@const r = one as Rack}
 		<p class="font-semibold">Rack</p>
@@ -345,7 +274,17 @@
 					</select></label>
 			{/if}
 		{/if}
-		<p class="text-zinc-500">{project.index.devicesIn(r.id).length} devices · front faces the +y side when not rotated</p>
+		<label class="row">Level
+			<select class="inp" value={r.levelId} title="Move the rack (with its devices) to another level — it comes off the plan there" onchange={(e) => moveToLevel([r], e.currentTarget.value)}>
+				{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</select>
+		</label>
+		<label class="row">Maker <input class="inp" value={r.maker ?? ''} onchange={(e) => put(r, 'Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row">Model <input class="inp" value={r.model ?? ''} onchange={(e) => put(r, 'Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row" title="The catalogue product (SKU) — the rack BOM adds its accessories">Product <input class="inp font-mono" value={r.catalogId ?? ''} onchange={(e) => put(r, 'Rack product', { catalogId: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row">Colour <span><input type="color" value={r.color ?? '#cccccc'} onchange={(e) => put(r, 'Rack colour', { color: e.currentTarget.value })} />{#if r.color} <button class="btn" onclick={() => put(r, 'Rack colour', { color: undefined })}>Clear</button>{/if}</span></label>
+		<label class="row">Notes <textarea class="inp" rows="2" value={r.notes ?? ''} onchange={(e) => put(r, 'Rack notes', { notes: e.currentTarget.value.trim() || undefined })}></textarea></label>
+		<p class="text-zinc-500">{deviceCounts(project.index.devicesIn(r.id))} · front faces the +y side when not rotated</p>
 	{:else if one.type === 'device'}
 		{@const d = one as Device}
 		{@const rack = project.index.get(d.rackId) as Rack | undefined}
@@ -363,6 +302,10 @@
 				{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
 			</select>
 		</label>
+		<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
+		<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={d.depthMm ?? ''} onchange={(e) => putDevice(d, 'Device depth', { depthMm: num(e.currentTarget.value) })} /></label>
 		<label class="row">Ports <input class="inp" type="number" min="0" value={d.portCount} onchange={(e) => putDevice(d, 'Port count', { portCount: Number(e.currentTarget.value) })} /></label>
 		{#if d.portCount}
 			<label class="row">Numbering
@@ -454,7 +397,7 @@
 	.usages { display: flex; flex-wrap: wrap; gap: 2px 8px; }
 	.usages label { white-space: nowrap; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
-	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
-	.btn:hover { background: #f4f4f5; }
+	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:hover { background: var(--cad-hover); }
 </style>

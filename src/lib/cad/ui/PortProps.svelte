@@ -126,12 +126,12 @@
 
 <style>
 	.ports { display: grid; grid-template-columns: 1.75rem 1fr 7.5rem; gap: 2px 4px; align-items: center; max-height: 40vh; overflow: auto; }
-	.n { color: #a1a1aa; text-align: right; }
+	.n { color: var(--cad-faint); text-align: right; }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
-	.acts button, .acts select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; font-size: 12px; }
-	.acts button:hover { background: #f4f4f5; }
-	.from { color: #71717a; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
+	.acts button, .acts select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); font-size: 12px; }
+	.acts button:hover { background: var(--cad-hover); }
+	.from { color: var(--cad-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }
-	.row select, .row .inp { max-width: 9rem; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; }
+	.row select, .row .inp { max-width: 9rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); }
 </style>

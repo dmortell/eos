@@ -36,9 +36,9 @@
 {/if}
 
 <style>
-	.hdr { margin-top: 0.75rem; padding: 0 0.25rem 0.25rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; color: #71717a; }
+	.hdr { margin-top: 0.75rem; padding: 0 0.25rem 0.25rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; color: var(--cad-muted); }
 	.row { display: grid; grid-template-columns: 1.4rem 1fr auto; align-items: center; gap: 0.35rem; padding: 1px 4px; font-size: 12px; }
 	.pv { width: 1.3rem; height: 1.3rem; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.ct { font-size: 11px; color: #a1a1aa; }
+	.ct { font-size: 11px; color: var(--cad-faint); }
 </style>

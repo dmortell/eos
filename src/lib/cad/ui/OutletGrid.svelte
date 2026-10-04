@@ -149,7 +149,7 @@
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+				<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
@@ -192,16 +192,17 @@
 </div>
 
 <style>
-	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e4e4e7; background: white; }
-	.actions button { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
-	.actions button:hover { background: #f4f4f5; }
+	.hov:hover { background: var(--cad-hover); }
+	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
+	.actions button { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.actions button:hover { background: var(--cad-hover); }
 	.issues { color: #b45309; }
 	.issues summary { cursor: pointer; }
-	.issues ul { position: absolute; z-index: 5; max-height: 10rem; overflow: auto; background: white; border: 1px solid #e4e4e7; border-radius: 4px; padding: 4px 8px; color: #78350f; }
+	.issues ul { position: absolute; z-index: 5; max-height: 10rem; overflow: auto; background: var(--cad-pick); border: 1px solid var(--cad-line); border-radius: 4px; padding: 4px 8px; color: var(--cad-text); }
 	.pp { margin-right: 10px; white-space: nowrap; }
-	.fmt { display: inline-flex; gap: 4px; align-items: center; color: #52525b; }
-	.fmt select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-family: ui-monospace, monospace; }
-	.pp.none { color: #d4d4d8; }
+	.fmt { display: inline-flex; gap: 4px; align-items: center; color: var(--cad-muted); }
+	.fmt select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-family: ui-monospace, monospace; background: var(--cad-input); color: var(--cad-text); }
+	.pp.none { color: var(--cad-faint); }
 	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
-	.num { width: 3.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 3px; }
+	.num { width: 3.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); }
 </style>

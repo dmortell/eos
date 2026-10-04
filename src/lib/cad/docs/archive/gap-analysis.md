@@ -1,6 +1,7 @@
 # Gap analysis: legacy tools → cad
 
-**Status:** for Dave to tick (2026-10-02). Read-only survey; nothing has been built from it.
+**Status:** frozen 2026-10-03, with Dave's ticks (329 of 859 rows). Every ticked row has been merged into `../plan/`
+(backlog, decisions or later); `plan-sources.md` maps the plan's G ids to rows here.
 
 **What this is:** every legacy tool, and every viewport type of the Sheets tool, Drawings and Pages, compared feature by
 feature with cad as of commit 930b8843. Eight read-only passes (one per tool group), merged here.

@@ -50,7 +50,7 @@
 	.tone-ok { color: #15803d; }
 	.tone-warn { color: #b45309; font-weight: 600; }
 	.tone-over { color: #dc2626; font-weight: 700; }
-	.worst td { background: #f4f4f5; }
+	.worst td { background: var(--cad-hover); }
 	td { padding: 0 4px; font-size: 11px; }
 	.section { width: 100%; max-height: 140px; margin-top: 4px; }
 	.wall { fill: #f8fafc; stroke: #64748b; stroke-width: 1; }

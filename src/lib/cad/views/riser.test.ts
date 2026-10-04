@@ -37,6 +37,21 @@ describe('riser view', () => {
 		const label = ps.find((p) => p.k === 'text' && p.cls === 'backbone-label')
 		expect(label?.k === 'text' && label.text).toMatch(/^2 × cat6a · \d+m$/)
 	})
+	it('hide empty floors: floors with no server room squeeze into one break band; the riser and rooms follow', () => {
+		const more = [...ents, level('L2', '2F', 3800), level('L3', '3F', 7600)] as Entity[]
+		const ps = riserDisplayList(new ProjectIndex(more), { hideEmpty: true })
+		const ffl = ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))
+		expect(ffl).toEqual([0, 3800 + 1200])                                      // 1F, then 4F right after one 1200 break (2F + 3F)
+		expect(ps.some((p) => p.k === 'text' && p.text === '2F – 3F not shown')).toBe(true)
+		const shaft = ps.find((p) => p.k === 'line' && p.cls === 'riser-shaft')
+		expect(shaft?.k === 'line' && Math.min(...shaft.pts.map((q) => q.y))).toBe(-(3800 + 1200))   // the riser now ends at 4F's squeezed FFL
+		expect(riserDisplayList(new ProjectIndex(more)).filter((p) => p.k === 'line' && p.cls === 'riser-ffl')).toHaveLength(4)   // off: all floors
+	})
+	it('hide empty floors also squeezes floors that have no level at all (1F → 4F with nothing between)', () => {
+		const ps = riserDisplayList(new ProjectIndex(ents), { hideEmpty: true })
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))).toEqual([0, 3800 + 1200])
+		expect(ps.some((p) => p.k === 'text' && p.text === 'floors with no level')).toBe(true)
+	})
 	it('says so when there is nothing to show', () => {
 		const ps = riserDisplayList(new ProjectIndex([level('L1', '1F', 0)] as Entity[]))
 		expect(ps[0]).toMatchObject({ k: 'text', text: 'No risers or placed server rooms yet' })

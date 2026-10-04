@@ -19,7 +19,7 @@ The legacy tools hold the real domain model, split across four stores that don't
 - Racks / Elevations devices
 - Patching cords
 
-`ux-plan.md` already decided that one label is canonical and that everything links by id.
+`docs/archive/ux-plan.md` already decided that one label is canonical and that everything links by id.
 
 ## Decision
 

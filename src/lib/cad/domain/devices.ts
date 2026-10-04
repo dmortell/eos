@@ -1,7 +1,8 @@
 // Devices in racks (Phase 3.2): GLOBAL device templates (Dave: global, like blocks — built-ins here, the rest in
 // `settings/cadDeviceTemplates`), making a device from a template, and the placement rules a rack enforces.
-import type { Id, Device, DeviceKind, Rack, Pt } from './types'
+import type { Id, Device, DeviceKind, Rack, Pt, Space } from './types'
 import type { ProjectIndex } from './project'
+import type { Entity } from './drawing'
 import { newId } from './ids'
 import { rotate } from './conventions'
 import { naturalCompare } from './labels'
@@ -19,8 +20,12 @@ export interface DeviceTemplate {
 	widthMm?: number
 	depthMm?: number
 	catalogId?: Id
+	maker?: string
+	model?: string
 	builtin?: boolean
 }
+/** Maker / model travel between a device and its template. */
+const makerModel = (x: { maker?: string; model?: string }) => ({ ...(x.maker ? { maker: x.maker } : {}), ...(x.model ? { model: x.model } : {}) })
 
 export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 	{ id: 'builtin:panel-24', name: 'Patch panel 24-port 1U', kind: 'panel', heightU: 1, portCount: 24, portType: 'RJ45', face: 'both', builtin: true },
@@ -43,7 +48,7 @@ export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, nam
 		type: 'device', id: newId(), rackId, name, kind: t.kind, u, heightU: t.heightU, face: face ?? t.face ?? 'front', portCount: t.portCount,
 		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}),
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}), ...(t.catalogId ? { catalogId: t.catalogId } : {}),
-		...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
+		...makerModel(t), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
 	}
 }
 
@@ -53,6 +58,7 @@ export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 		id: newId(), name, kind: d.kind, heightU: d.heightU, portCount: d.portCount,
 		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}),
 		face: d.face, ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}), ...(d.catalogId ? { catalogId: d.catalogId } : {}),
+		...makerModel(d),
 	}
 }
 
@@ -102,6 +108,51 @@ export function placementProblem(d: Device, rack: Rack, others: Device[]): strin
 		if (d.u <= o.u + o.heightU - 1 && o.u <= d.u + d.heightU - 1) return `${d.name} would overlap ${o.name} at U${Math.max(d.u, o.u)}`
 	}
 	return null
+}
+
+/** A new server room on a level: the next letter as its code ("A", "B" …), after the level's other rooms. */
+export function newServerRoom(ix: ProjectIndex, levelId: Id, name: string): Space {
+	const n = ix.spaces.filter((s) => s.levelId === levelId && s.kind === 'server room').length
+	return { type: 'space', id: newId(), levelId, kind: 'server room', name, code: String.fromCharCode(65 + n), order: n + 1 }
+}
+/**
+ * Racks moved to another level (with their devices, links and cords — those hang off the rack). They come off the
+ * plan, since each level's plan has its own coordinates. A room whose racks ALL move goes with them (rows too);
+ * otherwise the racks join the target level's room of the same name, or a new room with that name. Returns what to
+ * write.
+ */
+export function moveRacksToLevel(ix: ProjectIndex, racks: Rack[], levelId: Id): Entity[] {
+	const moving = racks.filter((r) => r.levelId !== levelId)
+	const out: Entity[] = [], made = new Map<string, Space>()
+	for (const spaceId of new Set(moving.map((r) => r.spaceId))) {
+		const room = ix.get(spaceId) as Space | undefined, mine = moving.filter((r) => r.spaceId === spaceId)
+		const all = ix.racks.filter((r) => r.spaceId === spaceId).every((r) => mine.includes(r))
+		let to = spaceId
+		if (room && all) out.push({ ...room, levelId })
+		else {
+			const name = room?.name ?? 'Server room'
+			const there = ix.spaces.find((s) => s.levelId === levelId && s.kind === 'server room' && s.name === name) ?? made.get(name)
+			const target = there ?? { ...newServerRoom(ix, levelId, name), order: ix.spaces.filter((s) => s.levelId === levelId).length + made.size + 1 }
+			if (!there) { made.set(name, target); out.push(target) }
+			to = target.id
+		}
+		for (const r of mine) out.push({ ...r, levelId, spaceId: to, at: undefined, ...(to === spaceId ? {} : { rowId: undefined }) })
+	}
+	return out
+}
+
+/** The name a new server room is offered: "IDF 1", "IDF 2" … */
+export const nextRoomName = (ix: ProjectIndex, levelId: Id): string => `IDF ${ix.spaces.filter((s) => s.levelId === levelId && s.kind === 'server room').length + 1}`
+
+const KIND_NAMES: Record<DeviceKind, [string, string]> = {
+	panel: ['panel', 'panels'], switch: ['switch', 'switches'], server: ['server', 'servers'], manager: ['cable manager', 'cable managers'],
+	shelf: ['shelf', 'shelves'], pdu: ['PDU', 'PDUs'], enclosure: ['enclosure', 'enclosures'], other: ['other', 'other'],
+}
+/** "12 panels · 2 switches · 1 PDU": devices counted by kind, most first. */
+export function deviceCounts(devices: Device[]): string {
+	const n = new Map<DeviceKind, number>()
+	for (const d of devices) n.set(d.kind, (n.get(d.kind) ?? 0) + 1)
+	return [...n].sort((a, b) => b[1] - a[1]).map(([k, c]) => `${c} ${KIND_NAMES[k][c === 1 ? 0 : 1]}`).join(' · ') || 'no devices'
 }
 
 /** The lowest free U where a `heightU` device fits on `face`, scanning from the TOP down (the allocation order too). */

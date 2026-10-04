@@ -23,7 +23,12 @@ export type Tier = 'low' | 'high'
 
 // ── Places ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface Building { type: 'building'; id: Id; name: string; order: number }
+export interface Building {
+	type: 'building'; id: Id; name: string; order: number
+	/** The Floor manager's settings: the floors the building has (lowest … top, without `skip`, e.g. no GF) and how
+	 *  they're named (`{n}` / `{nn}`; basements without the minus). Levels are what exists; this is how they were set. */
+	floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string }
+}
 
 /** One storey. All heights in mm; z inside the level is measured from FFL (ADR 0004). */
 export interface Level {
@@ -153,6 +158,8 @@ export interface Rack {
 	at?: Pt
 	rot?: number
 	catalogId?: Id
+	maker?: string
+	model?: string
 	frontProtrusionMm?: number
 	/** A cabinet's doors, drawn as swings on the plan (aisle clearance): single or split (two leaves) on the front /
 	 *  rear; `hinge` = the side a single door hangs on, as seen standing at that face. */
@@ -182,6 +189,8 @@ export interface Device {
 	 *  above 2). Presentation only — the port number stays the identity (elevations-plan §3.3). */
 	portNumbering?: 'row' | 'column'
 	catalogId?: Id
+	maker?: string
+	model?: string
 	widthMm?: number
 	depthMm?: number
 	offsetX?: number

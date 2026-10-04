@@ -22,6 +22,8 @@ const COLS: Col[] = [
 	{ head: 'Server room', width: 12, get: (r) => [...new Set(r.ports.map((p) => p.serverRoom).filter(Boolean))].join(', ') },
 	{ head: 'Patched to', width: 34, get: (r) => r.ports.map((p) => p.patchedTo).join('\n') },
 	{ head: 'On plan', width: 7, get: (r) => (r.placed ? 'Yes' : '') },
+	{ head: 'X (mm)', width: 9, get: (r) => r.x ?? '' },
+	{ head: 'Y (mm)', width: 9, get: (r) => r.y ?? '' },
 ]
 
 export function scheduleTable(ix: ProjectIndex, levelId?: Id): { head: string[]; widths: number[]; body: (string | number)[][]; totals: string } {

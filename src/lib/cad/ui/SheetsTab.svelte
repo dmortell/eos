@@ -141,7 +141,7 @@
 			{#each groups as g (g.key)}
 				{#if by !== 'none'}<tr class="grp"><td colspan="10">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
-					<tr class="border-b border-zinc-100 hover:bg-blue-50" class:bg-amber-50={selected.has(r.id)}
+					<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2"><input class="cell w-56" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
@@ -164,18 +164,19 @@
 </div>
 
 <style>
-	.seg { display: inline-flex; border: 1px solid #d4d4d8; border-radius: 4px; overflow: hidden; }
-	.seg button { padding: 0 8px; font-weight: 600; color: #71717a; }
-	.seg button.on { background: #e4e4e7; color: #18181b; }
-	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e4e4e7; background: white; }
-	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
-	.btn:hover:not(:disabled) { background: #f4f4f5; }
+	.hov:hover { background: var(--cad-hover); }
+	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; }
+	.seg button { padding: 0 8px; font-weight: 600; color: var(--cad-muted); }
+	.seg button.on { background: var(--cad-strong); color: var(--cad-text); }
+	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.btn:disabled { opacity: 0.4; }
-	.find { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; width: 10rem; }
-	select { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; }
+	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
+	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
 	.th { font-weight: 600; color: inherit; }
-	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; }
-	.cell:hover { border-color: #d4d4d8; }
-	.cell:focus { border-color: #60a5fa; background: white; outline: none; }
-	.grp td { background: #f4f4f5; font-weight: 600; padding: 2px 8px; color: #52525b; }
+	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }
+	.cell:hover { border-color: var(--cad-line); }
+	.cell:focus { border-color: #60a5fa; background: var(--cad-input); outline: none; }
+	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 </style>

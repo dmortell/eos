@@ -7,7 +7,7 @@
 2. **Rack focus** — zoom into one rack; detailed edits, readable port labels, port allocation.
 3. **Patching** — select one or two racks and patch port-to-port; live patch list below.
 
-This is the rack-side half of `ux-plan.md` taken to its conclusion: instead of three view
+This is the rack-side half of `docs/archive/ux-plan.md` taken to its conclusion: instead of three view
 modes that each mount a different legacy tool, one canvas with one renderer and one data
 pipeline, where zoom level and mode determine what is visible and editable.
 
@@ -305,7 +305,7 @@ tools"**); format template can ride along in Phase 4 or later.
 
 ### 3.8 UI consistency
 
-- Adopt `improvement-plan.md` tokens: toolbar h-8, status bar h-7, one `$lib` Button/Input/Select
+- Adopt `docs/archive/improvement-plan.md` tokens: toolbar h-8, status bar h-7, one `$lib` Button/Input/Select
   set, standard hover/selected/active states. This tool is the flagship for the design system —
   build it clean rather than migrating later.
 - Colors: devices by `DEVICE_TYPE_COLORS`, ports by shared `LOC_TYPE_COLORS`, cords by cable

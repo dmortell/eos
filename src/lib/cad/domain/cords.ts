@@ -37,6 +37,14 @@ export function patchProblem(ix: ProjectIndex, r: PortRef, skip?: Id): string | 
 	return null
 }
 
+/** A patch cord stays in one room: between rooms (or floors) it's an interconnect cable, not a cord. Null = same room. */
+export function roomProblem(ix: ProjectIndex, a: { on: Id }, b: { on: Id }): string | null {
+	const room = (on: Id) => { const d = ix.get(on); const r = d?.type === 'device' ? ix.get(d.rackId) : undefined; return r?.type === 'rack' ? r.spaceId : undefined }
+	const ra = room(a.on), rb = room(b.on)
+	if (!ra || !rb || ra === rb) return null
+	return `A patch cord stays in one room (${ix.nameOf(ra)} ≠ ${ix.nameOf(rb)}) — use Interconnect for cables between rooms`
+}
+
 /**
  * Estimated cord length in metres, snapped up to stock (the Patching tool's model, on real mm geometry): down/up the
  * rack between the two U positions; across to the side channel from each port; through the nearest horizontal
@@ -94,7 +102,7 @@ function rackApart(ix: ProjectIndex, ra: Rack, rb: Rack): { dist: number; aIsLef
 /** A new cord (status `add`), checked against the gate at both ends. */
 export function makeCord(ix: ProjectIndex, a: PortRef, b: PortRef, d: CordDefaults): { cord?: Cord; problem?: string } {
 	if (a.on === b.on && a.port === b.port) return { problem: 'Both ends are the same port' }
-	const p = patchProblem(ix, a) ?? patchProblem(ix, b)
+	const p = patchProblem(ix, a) ?? patchProblem(ix, b) ?? roomProblem(ix, a, b)
 	if (p) return { problem: p }
 	return { cord: { type: 'cord', id: newId(), kind: 'patch', a, b, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, a, b), lengthLocked: false, status: 'add' } }
 }
@@ -111,7 +119,7 @@ export function removeCord(c: Cord): Cord | null {
 
 /** Move one end of a cord. An installed cord becomes a `change` (remembering where it was); a planned one just moves. */
 export function repatch(ix: ProjectIndex, c: Cord, end: 'a' | 'b', to: PortRef): { cord?: Cord; problem?: string } {
-	const p = patchProblem(ix, to, c.id)
+	const p = patchProblem(ix, to, c.id) ?? roomProblem(ix, to, end === 'a' ? c.b : c.a)
 	if (p) return { problem: p }
 	const moved = { ...c, [end]: to }
 	const next: Cord = c.status === 'installed' || c.status === 'change'
@@ -142,6 +150,8 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 	const devB = ix.get(b.on)
 	const cords: Cord[] = [], skipped: string[] = []
 	if (devB?.type !== 'device') return { cords, skipped: ['Not a device'] }
+	const room = roomProblem(ix, a, b)
+	if (room) return { cords, skipped: [room] }
 	let nb = b.start
 	const usedB = new Set<number>()
 	for (const pa of a.ports) {

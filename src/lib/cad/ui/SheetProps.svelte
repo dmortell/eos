@@ -28,11 +28,11 @@
 	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? 'riser' : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
+	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
 	function setView(v: Viewport, key: string) {
 		const [kind, a, b] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser' } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
+		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear' }
 		const next = { ...v, view: { ...v.view, spec } }
 		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
 	}
@@ -76,6 +76,7 @@
 			{#each rooms as r (r.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}{/each}
 			{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}
 			<option value="riser">Risers (building)</option>
+			<option value="riser:compact">Risers (floors with server rooms)</option>
 		</select>
 	</label>
 	<label class="row">Scale 1:
@@ -122,7 +123,7 @@
 	<label class="row">Margin (mm) <input class="inp" type="number" min="0" value={s.paper.marginMm} onchange={(e) => putSheet('Paper margin', { paper: { ...s.paper, marginMm: Math.max(0, num(e.currentTarget.value)) } })} /></label>
 	<div class="flex gap-1">
 		<button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button>
-		<button class="btn" disabled={busy} title="This sheet as a PDF at true scale (download)" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
+		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
 	</div>
 	<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click one on the paper to edit it, drag to move it</p>
 	<!-- this sheet's own title-block settings; the template below is the project's -->
@@ -133,9 +134,9 @@
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; background: white; }
+	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.win { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
-	.win label { display: flex; align-items: center; gap: 3px; color: #71717a; }
-	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; background: white; }
-	.btn:hover { background: #f4f4f5; }
+	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:hover { background: var(--cad-hover); }
 </style>

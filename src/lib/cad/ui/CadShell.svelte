@@ -8,7 +8,7 @@
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities, deleteViewport, levelContents, racksWithDevices } from '../editor/commands'
+	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText } from '../editor/commands'
 	import { reservePorts } from '../domain/ports'
 	import type { Level } from '../domain/types'
 	import ViewCanvas from './ViewCanvas.svelte'
@@ -21,6 +21,7 @@
 	import SheetList from './SheetList.svelte'
 	import SheetsTab from './SheetsTab.svelte'
 	import ImportPanel from './ImportPanel.svelte'
+	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
 	import Legend from './Legend.svelte'
 	import { planDisplayList } from '../views/plan'
@@ -95,21 +96,12 @@
 		return m
 	})
 
-	const TOOLS: { id: ToolId; label: string; key: string }[] = [
-		{ id: 'select', label: 'Select', key: 'Esc' },
-		{ id: 'outlet', label: 'Outlet', key: 'O' },
-		{ id: 'line', label: 'Line', key: 'L' },
-		{ id: 'trunk', label: 'Trunk', key: 'T' },
-		{ id: 'conduit', label: 'Conduit', key: 'C' },
-		{ id: 'wall', label: 'Wall', key: 'W' },
-		{ id: 'opening', label: 'Opening', key: 'H' },
-		{ id: 'section', label: 'Section', key: 'Q' },
-		{ id: 'rack', label: 'Rack', key: 'K' },
-		{ id: 'device', label: 'Device', key: 'D' },
-		{ id: 'cord', label: 'Cord', key: 'P' },
-		{ id: 'text', label: 'Text', key: 'X' },
-		{ id: 'leader', label: 'Leader', key: 'E' },
-		{ id: 'cloud', label: 'Cloud', key: 'U' },
+	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
+	const TOOLS: { id: ToolId; label: string }[] = [
+		{ id: 'select', label: 'Select' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
+		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
+		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
+		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
 	]
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
@@ -125,6 +117,7 @@
 		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
 		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
 		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
+		renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
 		text: 'On a sheet: click where the text goes, then type it',
 		leader: 'On a sheet: click the tip, then the bend / end points · Enter → its text · Esc / right-click ends it, again → Select · Backspace undoes a point',
 		cloud: 'On a sheet: click round the area to mark · Enter closes the cloud · Esc / right-click ends it, again → Select · Backspace undoes a point',
@@ -156,6 +149,7 @@
 	}
 
 	let bottom = $state<'outlets' | 'patch' | 'sheets'>('outlets')
+	let floorsOpen = $state(false)
 
 	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
 	function renameLevel(l: Level) {
@@ -172,6 +166,7 @@
 	let cordDefaultsSet = false
 	function setTool(id: ToolId) {
 		canvas?.cancel()
+		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order
 		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
 		if (id === 'cord' && !cordDefaultsSet && project.settings) {
@@ -223,10 +218,13 @@
 			return
 		}
 		if (!ws.selection.length) return
-		const ids = ws.selection, held = racksWithDevices(project.store, ids)
+		// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
+		const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
 		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
-		if (!held.racks) return go()
-		ws.ask2(`Delete ${held.racks === 1 ? 'a rack' : `${held.racks} racks`} with ${held.devices} device${held.devices === 1 ? '' : 's'} and their links and cords? Undo brings them back.`, 'Delete', go)
+		if (!also) return go()
+		const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
+		const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
+		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
 
 	function onKey(e: KeyboardEvent) {
@@ -235,13 +233,12 @@
 		if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
 		if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); typePoint(e.key); return }
 		const k = e.key.toLowerCase()
-		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); project.undo() }
-		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); project.redo() }
+		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); ws.select(project.undo()) }
+		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); ws.select(project.redo()) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
-		else if (!mod) { const t = TOOLS.find((x) => x.key.toLowerCase() === k); if (t && toolWorksIn(t.id, activeKind)) setTool(t.id) }
-	}
+		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -252,7 +249,7 @@
 		<!-- only the tools that work in this view (Dave: the bar got too wide) -->
 		{#each TOOLS as t (t.id)}
 			{#if toolWorksIn(t.id, activeKind)}
-				<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title="{t.label} ({t.key})" onclick={() => setTool(t.id)}>{t.label}</button>
+				<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title={t.id === 'select' ? 'Select (Esc)' : t.label} onclick={() => setTool(t.id)}>{t.label}</button>
 			{/if}
 		{/each}
 		{#if DRAWS.has(ws.toolId)}
@@ -308,8 +305,8 @@
 			<span class="ml-2 truncate text-xs text-zinc-500">{ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId]}</span>
 		{/if}
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => project.undo()} title="Undo (Ctrl+Z)">Undo</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canRedo} onclick={() => project.redo()} title="Redo (Ctrl+Y)">Redo</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => ws.select(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed">Undo</button>
+		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canRedo} onclick={() => ws.select(project.redo())} title="Redo (Ctrl+Y) — selects what it changed">Redo</button>
 		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => canvas?.zoomExtents()} title="Zoom to fit (Home)">Fit</button>
 		<button class="rounded px-2 py-0.5 {panes.length === 2 ? 'bg-blue-100' : 'hover:bg-zinc-100'}" onclick={toggleSplit} title="Two views side by side (plan + elevation)">Split</button>
 		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
@@ -332,9 +329,10 @@
 
 	<!-- levels -->
 	<nav class="levels overflow-auto border-r border-zinc-200 bg-white p-2">
-		<p class="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Levels</p>
+		<p class="flex justify-between px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Levels
+			<button class="font-normal normal-case text-blue-600 hover:underline" title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button></p>
 		{#each project.levels as l (l.id)}
-			<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'bg-blue-100 text-blue-900' : 'hover:bg-zinc-100'}">
+			<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'on' : 'hover:bg-zinc-100'}">
 				<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
 					onclick={() => openLevel(l.id)}>
 					<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
@@ -371,6 +369,8 @@
 		<ImportNotes {project} {ws} />
 	</aside>
 
+	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
+
 	<!-- tables: outlets (this level) | patch list (the project) -->
 	<section class="grid-panel border-t border-zinc-200 bg-white">
 		<div class="tabs">
@@ -387,6 +387,23 @@
 </div>
 
 <style>
+	/* Colour tokens for cad's panels, lists and dialogs: today's light colours, or the app theme's when one is set
+	   (kestrel.css --t-*), so Kestrel Dark stays readable. The drawing canvas keeps its own (white, like paper). */
+	.shell {
+		--cad-panel: var(--t-surface, white);
+		--cad-subtle: var(--t-surface2, #fafafa);
+		--cad-hover: var(--t-hover, #f4f4f5);
+		--cad-strong: var(--t-surface3, #e4e4e7);
+		--cad-line: var(--t-edge, #e4e4e7);
+		--cad-input: var(--t-input, white);
+		--cad-text: var(--t-ink, #18181b);
+		--cad-muted: var(--t-ink2, #71717a);
+		--cad-faint: var(--t-ink3, #a1a1aa);
+		--cad-sel: var(--t-sel, #dbeafe);
+		--cad-pick: #fef3c7;
+		--cad-link: #1d4ed8;
+	}
+	:global(:root[data-theme='kestrel-dark']) .shell { --cad-pick: #3a3320; --cad-link: #79b8ff; }
 	/* Layout lives here, not in Tailwind arbitrary classes: the panel sizes belong to the component. */
 	.shell {
 		display: grid;
@@ -401,28 +418,29 @@
 	.props { grid-area: props; min-height: 0; display: flex; flex-direction: column; }
 	.props-body { flex: 1; min-height: 0; overflow: auto; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
-	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: #71717a; }
+	.lvl.on { background: var(--cad-sel); }
+	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
 	.lvl:hover .act { visibility: visible; }
 	.lvl .act:hover { color: #dc2626; }
-	.tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px; border-right: 1px solid #e4e4e7; background: #fafafa; }
-	.tabs button { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 6px 2px; border-radius: 4px; color: #52525b; }
+	.tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px; border-right: 1px solid var(--cad-line); background: var(--cad-subtle); }
+	.tabs button { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 6px 2px; border-radius: 4px; color: var(--cad-muted); }
 	.tabs button.on { background: #2563eb; color: white; }
 	.tab-body { flex: 1; min-width: 0; min-height: 0; }
 	/* one or two views side by side */
-	.panes { display: flex; height: 100%; gap: 2px; background: #e4e4e7; }
+	.panes { display: flex; height: 100%; gap: 2px; background: var(--cad-line); }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 	.menu { position: relative; }
 	.menu summary { list-style: none; cursor: pointer; }
 	.menu summary::-webkit-details-marker { display: none; }
-	.menu-list { position: absolute; z-index: 30; top: 100%; left: 0; min-width: 16rem; display: flex; flex-direction: column; background: white; border: 1px solid #e4e4e7; border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.1); padding: 4px 0; }
+	.menu-list { position: absolute; z-index: 30; top: 100%; left: 0; min-width: 16rem; display: flex; flex-direction: column; background: var(--cad-panel); border: 1px solid var(--cad-line); border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.1); padding: 4px 0; }
 	.menu-list button { text-align: left; padding: 3px 10px; white-space: nowrap; }
-	.menu-list button:hover { background: #f4f4f5; }
-	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52525b; margin-left: 6px; }
-	.opt input { width: 4.5rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 4px; }
+	.menu-list button:hover { background: var(--cad-hover); }
+	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--cad-muted); margin-left: 6px; }
+	.opt input { width: 4.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.opt input.colour { width: 2rem; height: 1.25rem; padding: 0; }
-	.ask { margin-left: 4px; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 6px; font-size: 12px; background: white; }
+	.ask { margin-left: 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.ask.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
-	.opt select.tpl { max-width: 13rem; border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 2px; font-size: 12px; }
+	.opt select.tpl { max-width: 13rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.prompt { background: #fef3c7; padding: 1px 6px; border-radius: 4px; color: #78350f; }
 	.prompt input.wide { width: 9rem; font-family: ui-monospace, monospace; }
 </style>

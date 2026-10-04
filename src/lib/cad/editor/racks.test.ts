@@ -8,7 +8,8 @@ import { SelectTool, RackTool, type ToolCtx, type PortSel } from './tools'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
 import { CordTool } from './cordTool'
-import { deleteEntities, racksWithDevices } from './commands'
+import { deleteEntities, deleteImpact, impactText } from './commands'
+import { patchList } from '../domain/reports'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
@@ -126,11 +127,28 @@ describe('devices in the rack row', () => {
 		expect(h.store.get('C1')).toBeUndefined()
 		expect(h.store.get('C2')).toMatchObject({ status: 'remove' })
 	})
-	it('racks with devices are found before Delete (to ask first); an empty rack is not', () => {
+	it('Delete says what goes with it (to ask first): a rack\'s devices, a device\'s links and cords; an empty rack nothing', () => {
 		const h = harness(ROW, [R2])
-		const inR1 = h.store.ofType('device').filter((d) => d.rackId === 'R1').length
-		expect(racksWithDevices(h.store, ['R1', 'R2', 'C1'])).toEqual({ racks: 1, devices: inR1 })
-		expect(racksWithDevices(h.store, ['R2'])).toEqual({ racks: 0, devices: 0 })
+		const count = (t: 'link' | 'cord', on: string[]) => h.store.ofType(t).filter((x) => on.includes(x.a.on) || on.includes(x.b.on)).length
+		const inR1 = h.store.ofType('device').filter((d) => d.rackId === 'R1')
+		const r1 = deleteImpact(h.store, ['R1'])
+		expect(r1).toMatchObject({ devices: inR1.length, links: count('link', inR1.map((d) => d.id)), cords: count('cord', inR1.map((d) => d.id)) })
+		expect(impactText(deleteImpact(h.store, ['R2']))).toBeNull()
+		const p1 = deleteImpact(h.store, ['P1'])
+		expect([p1.devices, p1.links, p1.cords]).toEqual([0, count('link', ['P1']), count('cord', ['P1'])])
+		expect(impactText({ devices: 0, links: 3, cords: 1, viewports: 0, notes: 0 })).toBe('3 links and 1 cord')
+		expect(deleteImpact(h.store, ['P1', 'C1']).cords).toBe(count('cord', ['P1']) - 1)   // a selected cord isn't "with it"
+	})
+	it('a panel moved to another U and another rack keeps the labels its cords show', () => {
+		const h = harness(ROW, [R2])
+		const labels = () => patchList(new ProjectIndex(h.store.all())).map((r) => [r.id, r.fromLabel, r.toLabel].join(' '))
+		const before = labels()
+		const p1 = h.store.get('P1') as Device
+		h.store.transact('move', (tx) => tx.put({ ...p1, u: 10 }))
+		expect(labels()).toEqual(before)
+		h.store.transact('move', (tx) => tx.put({ ...p1, rackId: 'R2', u: 20 }))
+		expect(labels()).toEqual(before)
+		expect(patchList(new ProjectIndex(h.store.all()))[0].from).toContain('A02')   // the place follows the move
 	})
 	it('a drag onto an occupied U stops at the last good place', () => {
 		const h = harness(ROW)

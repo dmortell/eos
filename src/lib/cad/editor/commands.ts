@@ -60,9 +60,28 @@ export function deleteViewport(store: EntityStore, sheet: Sheet, vp: Viewport): 
 	})
 }
 
-/** The racks among `ids` that hold devices — deleting them takes the devices, links and cords too, so ask first. */
-export function racksWithDevices(store: EntityStore, ids: Id[]): { racks: number; devices: number } {
+/** What deleting `ids` takes WITH it (beyond the selected things): devices in deleted racks, links and cords on
+ *  deleted devices, a deleted sheet's viewports and notes. Ask first when any of it is non-zero. */
+export interface DeleteImpact { devices: number; links: number; cords: number; viewports: number; notes: number }
+export function deleteImpact(store: EntityStore, ids: Id[]): DeleteImpact {
+	const sel = new Set(ids)
 	const racks = new Set(ids.filter((id) => store.get(id)?.type === 'rack'))
-	const devices = store.ofType('device').filter((d) => racks.has(d.rackId))
-	return { racks: new Set(devices.map((d) => d.rackId)).size, devices: devices.length }
+	const inRacks = store.ofType('device').filter((d) => racks.has(d.rackId) && !sel.has(d.id))
+	const devs = new Set([...inRacks.map((d) => d.id), ...ids.filter((id) => store.get(id)?.type === 'device')])
+	const on = (e: { id: Id; a: { on: Id }; b: { on: Id } }) => !sel.has(e.id) && (devs.has(e.a.on) || devs.has(e.b.on))
+	const sheets = store.ofType('sheet').filter((s) => sel.has(s.id))
+	const sheetIds = new Set(sheets.map((s) => s.id))
+	return {
+		devices: inRacks.length,
+		links: store.ofType('link').filter(on).length,
+		cords: store.ofType('cord').filter(on).length,
+		viewports: sheets.reduce((n, s) => n + s.viewports.length, 0),
+		notes: store.ofType('shape').filter((s) => s.sheetId && sheetIds.has(s.sheetId)).length,
+	}
+}
+/** "14 devices, 30 links and 12 cords" — or null when nothing else goes. */
+export function impactText(i: DeleteImpact): string | null {
+	const parts = (Object.entries(i) as [keyof DeleteImpact, number][]).filter(([, n]) => n > 0)
+		.map(([k, n]) => `${n} ${n === 1 ? k.slice(0, -1) : k}`)
+	return parts.length ? parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : null
 }

@@ -5,7 +5,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Rack } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
-	import { racksInOrder } from '../domain/devices'
+	import { racksInOrder, newServerRoom, nextRoomName } from '../domain/devices'
 	import { markPrinted } from '../domain/ports'
 	import { exportPanelLabels } from '../render/exports'
 	import type { Device } from '../domain/types'
@@ -16,6 +16,8 @@
 	const groups = $derived.by(() => {
 		const racks = project.index.racks.filter((r) => r.levelId === levelId)
 		const by = new Map<string, Rack[]>()
+		// every server room of the level shows, even with no racks yet (a new room, before its first rack)
+		for (const s of project.index.spaces) if (s.levelId === levelId && s.kind === 'server room') by.set(s.id, [])
 		for (const r of racks) by.set(r.spaceId, [...(by.get(r.spaceId) ?? []), r])
 		return [...by].map(([space, rs]) => {
 			// unplaced racks first (they need "Place"), then the room's row order — the rack elevation's order
@@ -33,6 +35,13 @@
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 	}
+	function addRoom() {
+		ws.askText('New server room name', nextRoomName(project.index, levelId), (t) => {
+			if (!t.trim()) return
+			const room = newServerRoom(project.index, levelId, t.trim())
+			project.store.transact(`New server room ${room.name}`, (tx) => tx.put(room))
+		})
+	}
 	function rename(spaceId: string, name: string) {
 		const s = project.index.get(spaceId)
 		if (s?.type !== 'space') return
@@ -40,9 +49,9 @@
 	}
 </script>
 
-{#if groups.length}
-	<p class="mt-3 px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Racks</p>
-	{#each groups as g (g.name)}
+	<p class="mt-3 flex justify-between px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Racks
+		<button class="font-normal normal-case text-blue-600 hover:underline" title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button></p>
+	{#each groups as g (g.space)}
 		<div class="room">
 			<button class="roomname" title="Rename this room (e.g. IDF 2)" onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
@@ -61,21 +70,24 @@
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}
 			</div>
+		{:else}
+			<p class="px-2 text-[11px] text-zinc-400">No racks yet — draw them with the Rack tool</p>
 		{/each}
 	{/each}
-{/if}
 
 <style>
-	.acts { width: 1.6rem; border: 0; background: transparent; color: #71717a; font-size: 12px; cursor: pointer; appearance: none; text-align: center; }
+	.acts { width: 1.6rem; border: 0; background: transparent; color: var(--cad-muted); font-size: 12px; cursor: pointer; appearance: none; text-align: center; }
 	.acts:hover { color: #2563eb; }
+	/* the open list: a transparent select would show its options in the theme's text colour on the browser's own list */
+	.acts option { background: var(--cad-panel); color: var(--cad-text); }
 	.roomname { color: inherit; font-size: inherit; }
 	.roomname:hover { color: #2563eb; text-decoration: underline; }
 	.frame { margin-left: 6px; font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 3px; }
-	.room { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; color: #a1a1aa; }
+	.room { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; color: var(--cad-faint); }
 	.rack { display: flex; align-items: center; justify-content: space-between; border-radius: 4px; padding: 0 4px; font-size: 12px; }
-	.rack:hover { background: #f4f4f5; }
-	.rack.sel { background: #fef3c7; }
+	.rack:hover { background: var(--cad-hover); }
+	.rack.sel { background: var(--cad-pick); }
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
 	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
-	.place:hover, .place.armed { background: #dbeafe; }
+	.place:hover, .place.armed { background: var(--cad-sel); }
 </style>

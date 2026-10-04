@@ -153,29 +153,29 @@
 	.tbf.drag-before { box-shadow: inset 0 2px 0 #2563eb; }
 	.tbf.drag-after { box-shadow: inset 0 -2px 0 #2563eb; }
 	.tbf.dragging { opacity: 0.45; }
-	.grip { flex: none; width: 12px; color: #a1a1aa; cursor: grab; font-size: 10px; letter-spacing: -2px; user-select: none; text-align: center; }
-	.grip:hover { color: #1f2937; }
-	.tbf input { background: white; color: #1f2937; border: 1px solid #e4e4e7; border-radius: 3px; padding: 0 4px; height: 18px; font-size: 11px; min-width: 0; }
+	.grip { flex: none; width: 12px; color: var(--cad-faint); cursor: grab; font-size: 10px; letter-spacing: -2px; user-select: none; text-align: center; }
+	.grip:hover { color: var(--cad-text); }
+	.tbf input { background: var(--cad-input); color: var(--cad-text); border: 1px solid var(--cad-line); border-radius: 3px; padding: 0 4px; height: 18px; font-size: 11px; min-width: 0; }
 	.tbf input:focus { outline: none; border-color: #2563eb; }
 	.tbf .lbl { width: 64px; flex: none; }
 	.tbf .txt { flex: 1; }
-	.tbf em { flex: 1; min-width: 0; font-style: normal; font-size: 10px; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.tbf button { flex: none; width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 3px; background: none; color: #71717a; cursor: pointer; font-size: 11px; }
-	.tbf button:hover { border-color: #e4e4e7; color: #1f2937; }
+	.tbf em { flex: 1; min-width: 0; font-style: normal; font-size: 10px; color: var(--cad-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.tbf button { flex: none; width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 3px; background: none; color: var(--cad-muted); cursor: pointer; font-size: 11px; }
+	.tbf button:hover { border-color: var(--cad-line); color: var(--cad-text); }
 	.tbf button.on { color: #2563eb; }
 	.prop { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 4px; padding: 2px 0; }
-	.prop span { color: #71717a; font-size: 11px; }
-	.prop input, .prop select { background: white; color: #1f2937; border: 1px solid #e4e4e7; border-radius: 4px; padding: 1px 4px; font-size: 11px; min-width: 0; }
+	.prop span { color: var(--cad-muted); font-size: 11px; }
+	.prop input, .prop select { background: var(--cad-input); color: var(--cad-text); border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 11px; min-width: 0; }
 	.logo-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
 	.logo-row img { height: 22px; max-width: 90px; object-fit: contain; background: #fff; border-radius: 2px; }
 	.logo-row input { width: 44px; }
-	.logo-row em { font-style: normal; font-size: 10px; color: #a1a1aa; }
-	.logo-row button { background: none; border: none; color: #71717a; cursor: pointer; display: grid; place-items: center; }
+	.logo-row em { font-style: normal; font-size: 10px; color: var(--cad-faint); }
+	.logo-row button { background: none; border: none; color: var(--cad-muted); cursor: pointer; display: grid; place-items: center; }
 	.logo-up { font-size: 10px; color: #2563eb; cursor: pointer; }
 	.logo-up input { display: none; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }
-	.chips button { padding: 0 6px; font-size: 10px; border: 1px solid #e4e4e7; border-radius: 9px; background: none; color: #a1a1aa; cursor: pointer; }
-	.chips button.on { color: #2563eb; border-color: #93c5fd; background: #eff6ff; }
-	.prop-sec { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #71717a; padding: 10px 0 4px; }
-	.hint { font-size: 10px; color: #a1a1aa; padding: 4px 0 8px; line-height: 1.4; }
+	.chips button { padding: 0 6px; font-size: 10px; border: 1px solid var(--cad-line); border-radius: 9px; background: none; color: var(--cad-faint); cursor: pointer; }
+	.chips button.on { color: var(--cad-link); border-color: #93c5fd; background: var(--cad-sel); }
+	.prop-sec { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cad-muted); padding: 10px 0 4px; }
+	.hint { font-size: 10px; color: var(--cad-faint); padding: 4px 0 8px; line-height: 1.4; }
 </style>

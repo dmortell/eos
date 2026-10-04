@@ -43,5 +43,7 @@ describe('outlet schedule sheet', () => {
 		expect(t.body[0][col('Port labels')]).toBe('33-001.A\n33-001.B')
 		expect(t.body[0][col('Patched to')]).toBe('A01 · Panel 1 : 1 (rear)\nA01 · Panel 1 : 2 (rear)')
 		expect(t.totals).toBe('2 outlets, 4 ports (desk 2)')
+		const o = ix().outlets.find((x) => x.label === '33-001')!
+		expect([t.body[0][col('X (mm)')], t.body[0][col('Y (mm)')]]).toEqual([Math.round(o.at!.x), Math.round(o.at!.y)])
 	})
 })

@@ -19,6 +19,25 @@ export function untie(s: Shape, vp: Viewport): Shape {
 	return { ...rest, geom } as Shape
 }
 
+/** A note's grips (Dave: notes need grips when selected): the text's anchor (index -1), or each leader / cloud point,
+ *  where they show — on the paper through the viewport a note is tied to. */
+export function noteGrips(s: Shape, vp?: Viewport): { at: Pt; index: number }[] {
+	const t = vp ? toPaper(vp) : (p: Pt) => p, g = s.geom
+	if (g.kind === 'text') return [{ at: t(g.at), index: -1 }]
+	if (g.kind === 'leader' || g.kind === 'cloud') return g.pts.map((p, index) => ({ at: t(p), index }))
+	return []
+}
+/** The note with one grip moved to `to` (where it shows; back into the viewport's view mm when tied). */
+export function moveNotePoint(s: Shape, index: number, to: Pt, vp?: Viewport): Shape {
+	const p = vp ? fromPaper(vp)(to) : to, g = s.geom
+	if (g.kind === 'text' && index < 0) return { ...s, geom: { ...g, at: p } }
+	if ((g.kind === 'leader' || g.kind === 'cloud') && index >= 0) return { ...s, geom: { ...g, pts: g.pts.map((q, i) => (i === index ? p : q)) } }
+	return s
+}
+/** The viewport a sheet note is tied to, if any. */
+export const tiedViewport = (s: Shape, get: (id: string) => unknown): Viewport | undefined =>
+	s.vpId ? (get(s.sheetId!) as Sheet | undefined)?.viewports.find((v) => v.id === s.vpId) : undefined
+
 export type NoteKind = 'text' | 'leader' | 'cloud'
 const snap = (p: Pt): Pt => ({ x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 })   // 0.5 mm on paper
 

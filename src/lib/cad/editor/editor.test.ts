@@ -55,6 +55,11 @@ describe('picking uses what is drawn', () => {
 	it('a window around both outlets selects exactly them', () => {
 		expect(pickInside(prims, { x0: 500, y0: 3500, x1: 3000, y1: 4500 }).sort()).toEqual(['O1', 'O2'])
 	})
+	it('a window around a trunk selects it even though its riser label sticks out past it', () => {
+		const riserLabel = prims.find((p) => p.src === 'T1' && p.k === 'text' && p.cls === 'riser-label')
+		expect(riserLabel).toBeDefined()   // the label reaches past x 6100 …
+		expect(pickInside(prims, { x0: -100, y0: 2900, x1: 6100, y1: 3100 })).toContain('T1')   // … the window doesn't
+	})
 })
 
 describe('moving', () => {

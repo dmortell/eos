@@ -15,6 +15,14 @@ describe('sheets', () => {
 		expect(paperSize(sheet({ paper: { size: 'A1', orientation: 'portrait', marginMm: 10 } }))).toEqual({ w: 594, h: 841 })
 		expect(sheetDisplayList(ix(), sheet()).slice(0, 2).map((p) => p.k === 'line' && p.cls)).toEqual(['paper', 'paper-margin'])
 	})
+	it('a section viewport is titled "SECTION A–A′" by itself; a typed label wins', () => {
+		const cut = { type: 'section', id: 'X', levelId: 'L33', name: 'B', a: { x: 0, y: 0 }, b: { x: 5000, y: 0 }, depth: 3000 } as const
+		const i = new ProjectIndex([...demoProject(), cut])
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'section' as const, sectionId: 'X' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 50, centre: { x: 0, y: 0 } }
+		const label = (v: typeof vp & { label?: string }) => sheetDisplayList(i, sheet({ viewports: [v] })).find((p) => p.k === 'text' && p.cls === 'viewport-label')
+		expect(label(vp)).toMatchObject({ text: 'SECTION B–B′  1:50' })
+		expect(label({ ...vp, label: 'Riser cut' })).toMatchObject({ text: 'Riser cut  1:50' })
+	})
 })
 
 describe('title block on a sheet (Pages model)', () => {

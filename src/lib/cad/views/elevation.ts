@@ -13,7 +13,9 @@ import type { ViewSpace } from './space'
 import type { Prim } from './display'
 
 export const RU_MM = 44.45
-const OUTLET_W = 1.2, OUTLET_H = 0.8, LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
+const LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
+/** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
+const FACEPLATE_MM = 86
 
 export interface Item { depth: number; prims: Prim[] }
 
@@ -90,7 +92,7 @@ function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan:
 /** An outlet: a faceplate at its height (low outlets on the floor unless a height is set; high ones at the ceiling). */
 function outletItem(ot: Outlet, level: Level | undefined, sp: ViewSpace, rect: RectFn, k: number): Item {
 	const z = ot.z ?? (ot.tier === 'high' ? level?.heights.clearHeightMm ?? 2700 : 0)
-	const u = sp.fromWorld({ ...ot.at!, z }).x, w = OUTLET_W * k, h = OUTLET_H * k
+	const u = sp.fromWorld({ ...ot.at!, z }).x, w = FACEPLATE_MM, h = FACEPLATE_MM
 	return {
 		depth: sp.depthOf({ ...ot.at!, z }),
 		prims: [rect(u - w / 2, u + w / 2, z, z + h, `outlet outlet-${ot.tier}`, ot.id), { k: 'text', at: { x: u, y: -(z + h) - LABEL * k * 0.3 }, text: ot.label, size: LABEL * k, anchor: 'middle', cls: 'label', src: ot.id }],

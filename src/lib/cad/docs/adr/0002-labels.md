@@ -24,7 +24,7 @@ must not change by surprise.
    - `Device.portLabels`: only for ports **not** linked to an outlet (ties, uplinks, switch ports).
 2. **A panel port shows the label of the outlet port its link reaches.** There is no copy on the panel, so renaming an
    outlet port updates the panel, the patch list and the plan together. Unlinked ports show their `portLabels` text
-   or `—`, and cords to an unlabelled port are refused (the port-level gate from `ux-plan.md`).
+   or `—`, and cords to an unlabelled port are refused (the port-level gate from `docs/archive/ux-plan.md`).
 3. **New labels:**
    - A new outlet takes **next number** from the last one placed (`nextLabel`: `33-009` → `33-010`, keeping prefix
      and padding).

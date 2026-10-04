@@ -50,13 +50,13 @@
 {/if}
 
 <style>
-	.op { border-top: 1px solid #f4f4f5; padding: 2px 0; }
-	.op.on { background: #fff7ed; box-shadow: inset 3px 0 0 #ea580c; }
-	.line { display: flex; align-items: center; gap: 4px; margin: 1px 0; font-size: 11px; color: #52525b; }
-	.n { width: 0.9rem; color: #a1a1aa; text-align: right; }
-	.inp { width: 3.3rem; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; font-size: 11px; }
+	.op { border-top: 1px solid var(--cad-hover); padding: 2px 0; }
+	.op.on { background: var(--cad-pick); box-shadow: inset 3px 0 0 #ea580c; }
+	.line { display: flex; align-items: center; gap: 4px; margin: 1px 0; font-size: 11px; color: var(--cad-muted); }
+	.n { width: 0.9rem; color: var(--cad-faint); text-align: right; }
+	.inp { width: 3.3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
 	.sel { width: 4rem; }
-	.btn { border: 1px solid #d4d4d8; border-radius: 4px; padding: 0 5px; background: white; font-size: 11px; }
-	.btn:hover { background: #f4f4f5; }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 5px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
+	.btn:hover { background: var(--cad-hover); }
 	.del:hover { color: #dc2626; }
 </style>

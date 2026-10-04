@@ -2,7 +2,7 @@
 // tool with the point already in model mm. No `tool === '…'` chains anywhere else.
 import type { EntityStore, Gesture } from '../store/store'
 import type { ProjectIndex } from '../domain/project'
-import type { Id, Pt, Outlet, ProjectSettings, Rack, Device } from '../domain/types'
+import type { Id, Pt, Outlet, ProjectSettings, Rack, Device, Space } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
@@ -13,11 +13,12 @@ import { pathGrips, gripAt, moveNodes, moveNodesBy, type Grip } from './grips'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import { nextLabel, portLabelsFor, naturalCompare } from '../domain/labels'
 import { insertNode, branchFrom } from '../domain/pathEdit'
-import { placementProblem } from '../domain/devices'
+import { placementProblem, newServerRoom, nextRoomName } from '../domain/devices'
 import { RU_MM } from '../views/rackRow'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, type Handle } from './handles'
+import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -118,11 +119,20 @@ export class SelectTool implements Tool {
 
 	/** A handle being used (an opening's / a section's, editor/handles.ts) and its entity as it was at the press. */
 	#handle: { h: Handle; base: Entity } | null = null
+	/** A note's grip being dragged: the note as it was at the press, and the viewport it's tied to. */
+	#note: { base: Shape; vp?: Sheet['viewports'][number]; index: number } | null = null
 
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		return s?.type === 'shape' ? pathGrips(s, c.space) : []
+	}
+	/** A note's point grips (text anchor, leader / cloud points): on its sheet, or a plan's own text. */
+	#noteGrips(c: ToolCtx): { s: Shape; vp?: Sheet['viewports'][number]; grips: ReturnType<typeof noteGrips> } | null {
+		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+		if (s?.type !== 'shape' || !(s.sheetId ? c.space.spec.kind === 'sheet' : s.levelId && c.space.spec.kind === 'plan')) return null
+		const vp = tiedViewport(s, (id) => c.store.get(id))
+		return { s, vp, grips: noteGrips(s, vp) }
 	}
 	/** The single selected thing's handles — on the plan only. */
 	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
@@ -137,6 +147,9 @@ export class SelectTool implements Tool {
 		const g = gripAt(this.grips(c), e.p, c.tol() * 1.5)
 		// Ctrl on a grip = BRANCH: a new segment from that node, dragged out
 		if (g) { this.#grip = { shape: c.selection[0], grip: g, ...(e.ctrl ? { branch: newId() } : {}) }; return }
+		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
+		const ng = this.#noteGrips(c), np = ng?.grips.find((q) => q.index >= 0 && Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= c.tol() * 1.5)
+		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }
 		if ((e.count ?? 1) >= 2 && this.#insertNode(e, c)) return
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
@@ -157,11 +170,12 @@ export class SelectTool implements Tool {
 				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
 				c.selectViewport(vp ? vp.id : null)
 				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
+				else if (!vp) this.#marquee = e.p   // the bare paper: a click selects the sheet, a drag windows its notes
 				return
 			}
 			c.selectViewport(null)
-			// a paper note (a shape on the sheet) is picked and dragged like any shape, below; empty paper clears
-			if (sheet?.type !== 'shape') { c.select([]); return }
+			// a paper note (a shape on the sheet) is picked and dragged like any shape, below; off the paper: a window
+			if (sheet?.type !== 'shape') { c.select([]); this.#marquee = e.p; return }
 		}
 		// a hole in a wall (plan): select the wall and that opening; dragging slides the hole at once
 		const hitEnt = id ? c.store.get(id) : undefined
@@ -201,6 +215,12 @@ export class SelectTool implements Tool {
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		if (this.#note) {
+			const { base, vp, index } = this.#note, to = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, base.id).p
+			this.#gesture ??= c.store.begin('Move note point')
+			this.#gesture.update((tx) => tx.put(moveNotePoint(base, index, to, vp)))
+			return
+		}
 		if (this.#handle) {
 			const { h } = this.#handle, start = this.#start
 			if (!h.drag || !start || (!this.#gesture && Math.hypot(e.p.x - start.x, e.p.y - start.y) < c.tol())) return
@@ -306,7 +326,7 @@ export class SelectTool implements Tool {
 	preview(c: ToolCtx): Prim[] {
 		const px = c.tol() / TOL_PX   // one screen px in model mm
 		const { handles, decor } = this.#handles(c)
-		const out: Prim[] = [...decor, ...this.grips(c).map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' }))]
+		const out: Prim[] = [...decor, ...[...this.grips(c), ...(this.#noteGrips(c)?.grips ?? [])].map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' }))]
 		const opSel = c.openingId?.()
 		// bars under the point grips
 		for (const h of handles) if (h.span) out.push({ k: 'line', pts: h.span, cls: `grip-bar${h.selects === opSel ? ' grip-bar-sel' : ''}` })
@@ -341,7 +361,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null; this.#handle = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#base.clear(); this.#vp = null; this.#handle = null; this.#note = null
 		c.setMarquee(null)
 	}
 }
@@ -408,19 +428,23 @@ export class RackTool implements Tool {
 			return
 		}
 		const onLevel = c.index.racks.filter((r) => r.levelId === c.levelId)
-		const like = this.last ?? onLevel.at(-1)
+		const like = this.last?.levelId === c.levelId ? this.last : onLevel.at(-1)   // the last one drawn ON THIS level
 		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
-		if (!room) { c.say?.('Add a server room to this level first (racks belong to a room)'); return }
+		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
+		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, at, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
+		this.#draw(c, at, like, room)
+	}
+	#draw(c: ToolCtx, at: Pt, like: Rack | undefined, room: Id | Space): void {
 		const taken = new Set(c.index.racks.map((r) => r.name))
 		let name = like ? nextLabel(like.name) : 'R01'
 		while (taken.has(name)) name = nextLabel(name)
 		const r: Rack = {
-			type: 'rack', id: newId(), levelId: c.levelId, spaceId: room, order: onLevel.length, name,
+			type: 'rack', id: newId(), levelId: c.levelId, spaceId: typeof room === 'string' ? room : room.id, order: c.index.racks.filter((x) => x.levelId === c.levelId).length, name,
 			kind: like?.kind ?? 'cabinet', heightU: like?.heightU ?? 42, widthMm: like?.widthMm ?? 600, depthMm: like?.depthMm ?? 1000,
 			...(like?.heightMm ? { heightMm: like.heightMm } : {}), ...(like?.rowId ? { rowId: like.rowId } : {}), ...(like?.rot ? { rot: like.rot } : {}),
 			at,
 		}
-		c.store.transact(`Draw rack ${name}`, (tx) => tx.put(r))
+		c.store.transact(typeof room === 'string' ? `Draw rack ${name}` : `New room ${room.name} + rack ${name}`, (tx) => { if (typeof room !== 'string') tx.put(room); tx.put(r) })
 		this.last = r
 		c.select([r.id])
 	}

@@ -24,6 +24,9 @@ export interface OutletRow {
 	tier: Outlet['tier']
 	mount: Outlet['mount']
 	heightMm?: number
+	/** Plan position, mm (unplaced outlets have none). */
+	x?: number
+	y?: number
 	ports: { label: string; cableType: string; serverRoom: string; patchedTo: string }[]
 	placed: boolean
 }
@@ -41,6 +44,7 @@ export function outletSchedule(p: ProjectIndex, levelId?: Id): { rows: OutletRow
 			tier: o.tier,
 			mount: o.mount,
 			...(o.z !== undefined ? { heightMm: o.z } : {}),
+			...(o.at ? { x: Math.round(o.at.x), y: Math.round(o.at.y) } : {}),
 			ports: o.ports.map((pt) => {
 				const far = p.farEnd({ on: o.id, port: pt.port })
 				return { label: pt.label, cableType: pt.cableType, serverRoom: p.nameOf(pt.serverRoomId), patchedTo: far ? p.portPlace(far) : '' }
@@ -66,6 +70,7 @@ export interface PatchRow {
 	colour: string
 	lengthM: number
 	cordId: string
+	notes: string
 }
 
 export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): PatchRow[] {
@@ -80,7 +85,7 @@ export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): Patch
 			id: c.id, status: c.status,
 			from: p.portPlace(c.a), fromLabel: p.portLabel(c.a),
 			to: p.portPlace(c.b), toLabel: p.portLabel(c.b),
-			cableType: c.cableType, colour: c.colour, lengthM: c.lengthM, cordId: c.cordId ?? '',
+			cableType: c.cableType, colour: c.colour, lengthM: c.lengthM, cordId: c.cordId ?? '', notes: c.notes ?? '',
 		}))
 		.sort((a, b) => naturalCompare(a.from, b.from))
 }

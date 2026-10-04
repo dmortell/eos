@@ -19,6 +19,6 @@
 <style>
 	.trace { list-style: none; padding: 0; margin: 0; }
 	.trace li { display: flex; justify-content: space-between; gap: 6px; }
-	.trace .via { color: #a1a1aa; font-size: 10px; padding-left: 6px; }
-	.lbl { font-family: ui-monospace, monospace; color: #0c4a6e; }
+	.trace .via { color: var(--cad-faint); font-size: 10px; padding-left: 6px; }
+	.lbl { font-family: ui-monospace, monospace; color: var(--cad-link); }
 </style>

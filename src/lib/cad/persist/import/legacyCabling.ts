@@ -88,6 +88,7 @@ function importRacks(c: ImportCtx, docId: string, floor: number, room: string, r
 			order: r.order ?? 0, name: r.label ?? r.id, kind: r.type ?? 'cabinet', heightU: r.heightU ?? 42, widthMm: r.widthMm ?? 600, depthMm: r.depthMm ?? 1000,
 			...(r.heightMm ? { heightMm: r.heightMm } : {}), ...(r.productRef ? { catalogId: r.productRef } : {}), ...(r.color ? { color: r.color } : {}),
 			...(r.notes ? { notes: r.notes } : {}), ...(r.frontProtrusionMm ? { frontProtrusionMm: r.frontProtrusionMm } : {}),
+			...(r.maker ? { maker: String(r.maker) } : {}), ...(r.model ? { model: String(r.model) } : {}),
 		}
 		c.add(rack)
 	}
@@ -101,6 +102,7 @@ function importRacks(c: ImportCtx, docId: string, floor: number, room: string, r
 			u: d.positionU ?? 1, heightU: d.heightU ?? 1, face: d.mounting ?? 'both', portCount: d.portCount ?? 0,
 			...(d.portType ? { portType: d.portType } : {}), ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}),
 			...(d.offsetX ? { offsetX: d.offsetX } : {}), ...(d.color ? { color: d.color } : {}), ...(portLabels ? { portLabels } : {}),
+			...(d.maker ? { maker: String(d.maker) } : {}), ...(d.model ? { model: String(d.model) } : {}),
 			...(kind === 'panel' ? { panel: { tier: d.patchLevel === 'high' ? 'high' : 'low', ...(d.serverRoom ? { serverRoomId: c.serverRoom(floor, d.serverRoom) } : {}), ...(d.labelsPrinted ? { labelsPrintedAt: IMPORTED_AT } : {}) } } : {}),
 		}
 		c.add(dev)

@@ -59,8 +59,9 @@ export type ViewSpec =
 	| { kind: 'row'; spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
 	/** A drawing sheet's paper (Phase 4, views/sheet.ts). */
 	| { kind: 'sheet'; sheetId: Id }
-	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts). */
-	| { kind: 'riser' }
+	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts); `hideEmpty` = floors with no server
+	 *  room squeezed into break bands (Dave: like the Midtown risers). */
+	| { kind: 'riser'; hideEmpty?: boolean }
 	/** A section through a level along a cut line drawn on its plan (Phase 6.2, views/section.ts). */
 	| { kind: 'section'; sectionId: Id }
 
