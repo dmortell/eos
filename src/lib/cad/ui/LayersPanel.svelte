@@ -1,7 +1,7 @@
 <!-- The layers list (docs/plan/layers.md) in drawing order: the first row (Floorplans) draws at the bottom. The eye and lock are the user's own (this browser, this
      project — nobody else's view changes); the colour, name and order are the project's (undoable). With a viewport
      picked on a sheet, the snowflake freezes a layer in THAT viewport (stored: it prints); Shift = every viewport on the
-     sheet. Click a name to make it the current layer (bold), where new lines go. -->
+     sheet. Click a name to make it the current layer (highlighted like the open level), where new lines go. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -88,7 +88,7 @@
 	{@const n = counts.get(l.id) ?? 0}
 	{@const off = ws.layers.hidden.has(l.id)}
 	{@const locked = ws.layers.locked.has(l.id)}
-	<div class="row hov" class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
+	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
 		<!-- a square = a colour set on the layer (applied to its items); a round dot = the default, the colour its items
 		     already draw in (not forced on them) -->
 		<label class="sw" title={l.color ? 'Layer colour: its items draw in it (unless they have their own) — right-click to go back to the default'
@@ -98,7 +98,7 @@
 			<span style:background={l.color ?? l.look ?? 'transparent'} class:none={!l.color && !l.look} class:dflt={!l.color}></span>
 		</label>
 		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-		<span class="nm" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id}
+		<span class="nm"
 			title={[l.name, canBeCurrent(l) ? 'click: make it the current layer (new lines go here)' : '', l.system ? '' : 'double-click: rename'].filter(Boolean).join(' — ')}
 			onclick={() => { if (canBeCurrent(l)) ws.layers.setCurrent(l.id === 'sys:drawing' ? null : l.id) }} ondblclick={() => rename(l)}>{l.name}</span>
 		{#if !l.system}
@@ -120,11 +120,12 @@
 	.search { width: 100%; margin-bottom: 0.25rem; padding: 1px 4px; font-size: 12px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 	.note { padding: 0 0.25rem 0.25rem; font-size: 10px; color: var(--cad-faint); }
 	.row { display: flex; align-items: center; gap: 0.2rem; padding: 0 2px; font-size: 12px; border-radius: 3px; }
-	.nm.cur { font-weight: 600; color: var(--cad-link); }
+	/* the current layer is highlighted like the open level in LEVELS */
+	.row.cur { background: var(--cad-sel); }
 	.nm { flex: 1; min-width: 0; }
 	.row.drag-before { box-shadow: inset 0 2px 0 var(--cad-link); }
 	.row.drag-after { box-shadow: inset 0 -2px 0 var(--cad-link); }
-	.hov:hover { background: var(--cad-hover); }
+	.row:not(.cur):hover { background: var(--cad-hover); }
 	.off .nm { color: var(--cad-faint); text-decoration: line-through; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
 	.ct { font-size: 10px; color: var(--cad-faint); min-width: 1.1rem; text-align: right; }

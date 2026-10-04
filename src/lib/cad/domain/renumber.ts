@@ -63,7 +63,7 @@ export function renumberEntities(items: Entity[], o: RenumberOpts): Entity[] {
 }
 
 /** A port label after its outlet went from `old` to `label`. */
-function portFollows(port: string, old: string, label: string, group: number): string {
+export function portFollows(port: string, old: string, label: string, group: number): string {
 	if (port.startsWith(old)) return label + port.slice(old.length)
 	// "01A.024A" for outlet "A.024": the port's group with the outlet's old number changes to the new number
 	const oldNum = numberGroups(old).at(group), newNum = numberGroups(label).at(group)

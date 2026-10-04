@@ -23,7 +23,7 @@ real seam first (e.g. outlet / rack / device Properties into their own files).
 | Theme | Backlog | P1 | P2 | P3 | ⚡ | Decisions | Later |
 |---|---|---|---|---|---|---|---|
 | [Bugs and data safety](#bugs-and-data-safety) | 3 | 2 | 1 | 0 | 2 | 3 | 0 |
-| [Outlets, labels and numbering](#outlets-labels-and-numbering) | 11 | 0 | 9 | 2 | 5 | 2 | 2 |
+| [Outlets, labels and numbering](#outlets-labels-and-numbering) | 10 | 0 | 8 | 2 | 4 | 2 | 2 |
 | [Levels, plans and underlays](#levels-plans-and-underlays) | 7 | 1 | 5 | 1 | 2 | 5 | 2 |
 | [Racks, devices and rack views](#racks-devices-and-rack-views) | 22 | 0 | 21 | 1 | 11 | 8 | 0 |
 | [Ports, panels and allocation](#ports-panels-and-allocation) | 10 | 1 | 9 | 0 | 6 | 6 | 1 |
@@ -37,7 +37,7 @@ real seam first (e.g. outlet / rack / device Properties into their own files).
 | [Print and export](#print-and-export) | 11 | 0 | 11 | 0 | 6 | 7 | 2 |
 | [Shell, navigation and touch](#shell-navigation-and-touch) | 16 | 0 | 13 | 3 | 4 | 5 | 1 |
 | [3D, elevations and sections](#3d-elevations-and-sections) | 9 | 0 | 9 | 0 | 1 | 3 | 3 |
-| **Total** | **208** | **9** | **173** | **26** | **78** | **77** | **23** |
+| **Total** | **207** | **9** | **172** | **26** | **77** | **77** | **23** |
 
 ## Suggested order
 
@@ -74,7 +74,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] ⚡ **Cable type per outlet** — a Cable select (from `settings.cableTypes`) in single and multi outlet Properties; it sets every port of the outlet. **P2 · S** (~25 lines). *cad today:* stored per port (`cad/domain/types.ts:123`), set from the last outlet / project default when placed (`cad/editor/tools.ts:373`), never shown. *From:* G034
 - [ ] ⚡ **Zones and server rooms when placing outlets** — check result: the Outlet tool copies zone and server room from the last outlet, but nothing can set a zone (only the import does), and a first outlet on a level has no server room. Add a Zone select (the level's zone spaces) to outlet Properties and to the next-outlet defaults. **P2 · S** (~30 lines). *cad today:* `zoneId` carried over in `cad/editor/tools.ts:371`, server room per port at `:374`; no zone field in the UI. *From:* T057
 - [ ] ⚡ **Next-outlet defaults** — while the Outlet tool is on, the tool bar shows ports / tier / usage / mount / cable for the NEXT outlet (like the trunk Z / width options). **P2 · S** (~50 lines). *cad today:* the next outlet copies the last one (`cad/editor/tools.ts:360`); no way to change it before placing. *From:* G032
-- [ ] ⚡ ❓ **Copies take the next free label** — pasted / arrayed outlets get unused labels (T142 asked "keep the label or the next number?": suggest the next free number, since duplicate labels are a validation warning; keep a "keep labels" option only if asked). **P2 · S** (~30 lines) once copy / paste exists (Selection theme). *cad today:* no copy yet; `nextLabel` and the "never reuse a label on this level" loop are in `cad/editor/tools.ts:363`. *From:* G256, T142
 - [ ] **Editable usage list** — a small project Settings panel to add / rename / recolour / remove usages (RS, FR, WC, LK, CAM …). Also fix the import: it writes a fixed list of 5 usages, so imported RS / FR / WC / LK and the legacy `customLocationTypes` show as raw codes; add every code the import meets. **P2 · M** (~120 lines). *cad today:* `settings.usages` with id / label / colour exists (`cad/domain/types.ts:276`), hard-coded by the import (`cad/persist/import/legacy.ts:89`); no settings UI in cad. *From:* G017, G129
 - [ ] **Usage colours, port counts and hover tips** — outlets on the plan and panel port cells tinted by usage colour; the port count drawn inside the outlet symbol; an instant tip (no delay) on any outlet / port showing its full label and usage. **P2 · M** (~120 lines). *cad today:* usage colours exist in settings but nothing draws them (`cad/views/plan.ts:185`, `cad/views/rackRow.ts:131`); `{PORTS}` is already an outlet attribute (`cad/domain/blocks.ts:51`) but no built-in block uses it; tools have a `hover` hook (`cad/editor/tools.ts:78`) but no tooltip. *From:* G016, G038, G062, G137, T024
 - [ ] **Edit a label in place** — double-click (or F2) on an outlet label (and rack name, text, run label) opens a small box on the drawing; Enter saves, Tab / Shift+Tab saves and moves to the next item of the same kind in reading order. **P2 · M** (~120 lines). *cad today:* labels are edited in Properties or the grid only; double-clicks are already counted (`cad/ui/ViewCanvas.svelte:245`) and `readingOrder` exists (`cad/domain/labels.ts:130`). *From:* G014, G238, G239
@@ -185,11 +184,11 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Group / ungroup** — Ctrl+G / Ctrl+Shift+G; a click or window on one member selects the group; groups move as one. **P2 · M** (~120 lines). *cad today:* the `Group` record exists with no UI (`cad/domain/drawing.ts:98`). *From:* G171, G235
 - [ ] **Edit several at once** — Common fields (layer, colour, text size, Z, height) for any multi-selection of shapes, "mixed" where they differ. **P2 · M** (~120 lines). *cad today:* common fields for racks, outlets and devices only (`cad/ui/Properties.svelte:187`); Properties is 460 lines, so put this in a new component. *From:* G172, G237, G199
 - [ ] **Split and join runs at a node** — Split a trunk / wall / line into two shapes at a node (Alt-drag or a Properties button; no context menu). A node dropped on another run's node joins the two shapes. **P2 · M** (~150 lines). *cad today:* `pathEdit.ts` has insert / branch / remove node only (`cad/domain/pathEdit.ts:13`). *From:* G196, G252, T001, T003
-- [ ] **Clipboard, Ctrl-drag copy, select all, nudge** — One clone function (new ids, new outlet labels, free U for devices) behind all of these. Build the small parts first. **P2 · L** (~350 lines). *cad today:* none of it; Ctrl-click toggles (`cad/editor/tools.ts:190`), Ctrl on a grip branches (`:139`), Ctrl-drag in a viewport pans. Parts:
+- [ ] **Ctrl-drag copy, select all, nudge** — the rest of the clipboard work; copy / cut / paste is built (`cad/domain/clipboard.ts`: new ids, next free labels, layers kept), and Ctrl-drag copy should reuse its `pasteClip`. **P2 · M** (~200 lines). *cad today:* Ctrl-click toggles (`cad/editor/tools.ts:190`), Ctrl on a grip branches (`:139`), Ctrl-drag in a viewport pans. Parts:
   1. Ctrl+A select all on visible, unlocked layers (S) and arrow nudge 1 mm / Shift 10 mm, one undo step per burst (S).
-  2. Copy / cut / paste via the system clipboard as marked JSON, so it works between sheets, tabs and projects; a paste off-screen lands in the view centre (M). **Copies keep their layer** (Dave 2026-10-04): `layerId` is copied with the item, and a paste into another project brings the project layers it uses (matched by name, else added) so nothing falls back to its default layer.
-  3. Ctrl-drag copy for shapes, outlets, racks, devices (rack elevations) and trunk segments; Ctrl pressed / released mid-drag switches copy ↔ move; must not clash with branch / pan (M).
-  4. Drag several selected devices into another rack (today only a single device changes rack, `cad/editor/tools.ts:263`) (S).
+  2. Ctrl-drag copy for shapes, outlets, racks, devices (rack elevations) and trunk segments; Ctrl pressed / released mid-drag switches copy ↔ move; must not clash with branch / pan (M).
+  3. Drag several selected devices into another rack (today only a single device changes rack, `cad/editor/tools.ts:263`) (S).
+  4. Copy / paste devices on their own in rack views (copy / paste today takes plan items and sheet notes; a rack brings its devices) (S).
   *From:* G009, G033, G064, G082, G112, G168, G170, G189, G193, G225, G227, G229, G230, G231, T039, P024
 - [ ] **Select similar** — Select every shape of the same type and layer (or block) as the selected one. **P3 · S** (~25 lines). *cad today:* missing. *From:* G226
 - [ ] **Paste at the cursor** — Ctrl+Shift+V centres the paste on the cursor. Build after the clipboard. **P3 · S** (~15 lines after that). *cad today:* missing. *From:* G232

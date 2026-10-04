@@ -301,3 +301,44 @@ sheet. The dead `ViewDef.hiddenLayers` field is removed.
 
 **Sources:** G010, G039, G175, G176, G178, G179, G213, G217, G218, G219, G275, G279, G281, G282, G291, G302, G303,
 T058, T113, T156 (built, removed from the backlog); G174, G177, P051 (presets / groups remain).
+
+**After commit b7345cd4:** the current layer is highlighted like the open level (row background), not bold text.
+
+## Copy / cut / paste (2026-10-04)
+
+Backlog "Clipboard", part 2. `domain/clipboard.ts` is pure and tested; `app/clipboardEvents.ts` handles the browser's
+copy / cut / paste events.
+
+- **Ctrl+C / X / V use the system clipboard**, as JSON marked `eos-cad-clip/1`, so a copy pastes on another level, on
+  another sheet, in another tab or in another project.
+  - Text fields and selected page text keep the browser's own copy / paste.
+- **What copies:**
+  - plan items (shapes, outlets, racks with their devices) into a plan;
+  - notes onto a sheet. A note tied to a viewport is copied as plain paper points.
+  - Links and cords stay behind.
+  - Other things, or a paste in the wrong kind of pane, are left out with a message.
+- **A paste is as-is** (Dave, replacing the first build): the same coordinates and the same labels, on any level,
+  sheet or project; you sort out overlaps and duplicate labels. The first build shifted copies 20 px and gave taken
+  labels the next number (T142); both were removed.
+- **References:**
+  - Inside the copy they follow the new ids: a device's rack, a run attached to a copied outlet.
+  - References the target lacks are dropped: zone / room / port server room on another level, an attachment to
+    something not copied.
+  - A rack on another level joins that level's server room of the same name, or a new one is made. Its panels' room
+    follows.
+- **Layers** (Dave): items keep their layer. Into another project, the layer comes along, or joins a layer of the same
+  name.
+- **Cut never asks** (Dave): it deletes straight away. The message says which links / cords a paste won't bring back;
+  Undo does.
+- **The pasted items are selected; a paste is one undo step.**
+
+**Checks:**
+- 335 cad tests pass (+10: `domain/clipboard.test.ts`).
+- svelte-check: no warnings in cad.
+- Live on Test Project:
+  - copy A001 and paste on 1F → A002, shifted, selected;
+  - paste on 4F → A001, in the middle of the view;
+  - every paste undone.
+
+**Sources:** G009 (part), G229, G230, G231, G256, T142, T039 (part). Ctrl-drag copy, select all / nudge,
+multi-device drag and device-only copy remain in the backlog.

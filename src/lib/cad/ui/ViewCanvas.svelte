@@ -229,6 +229,11 @@
 		if (b) cam = fit(b, w, h)
 	}
 
+	/** Where a paste goes (domain/clipboard): a plan takes plan items, a sheet notes. Null = this view takes none. */
+	export function pasteTarget(): { kind: 'level' | 'sheet'; id: string } | null {
+		return spec.kind === 'plan' ? { kind: 'level', id: levelId } : spec.kind === 'sheet' ? { kind: 'sheet', id: spec.sheetId } : null
+	}
+
 	function ctx(): ToolCtx {
 		const tol = TOL_PX / cam.k
 		return {

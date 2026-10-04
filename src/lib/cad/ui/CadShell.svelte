@@ -28,6 +28,7 @@
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
 	import { applyLayers } from '../views/layers'
+	import { clipboardEvents } from '../app/clipboardEvents'
 	import { exportOutletSchedule } from '../render/outletSchedule'
 	import { download, fileSafe } from '../render/download'
 
@@ -239,6 +240,7 @@
 		const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
 		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
+	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget() })
 
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
@@ -254,7 +256,7 @@
 		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
 <div class="shell bg-zinc-50 text-sm">
 	<!-- toolbar -->
