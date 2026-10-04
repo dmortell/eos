@@ -5,7 +5,7 @@
 import type { Id, Pt, Outlet } from './types'
 import type { BlockDef } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
-import { moveGeometry } from './shapes'
+import { moveGeometry, ellipsePts } from './shapes'
 import { newId } from './ids'
 
 export type BlockShape = BlockDef['shapes'][number]
@@ -89,6 +89,7 @@ function pointsOf(g: Geometry): Pt[] {
 		case 'path': return g.nodes
 		case 'rect': return [{ x: g.centre.x - g.size.x / 2, y: g.centre.y - g.size.y / 2 }, { x: g.centre.x + g.size.x / 2, y: g.centre.y + g.size.y / 2 }]
 		case 'circle': case 'arc': return [{ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }]
+		case 'ellipse': return ellipsePts(g)
 		case 'polygon': case 'leader': case 'cloud': return g.pts
 		case 'text': case 'insert': return [g.at]
 		case 'dimension': return [g.a, g.b]

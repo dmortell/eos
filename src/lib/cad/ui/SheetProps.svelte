@@ -13,6 +13,7 @@
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
+	import { printRevision } from '../app/issue'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -52,6 +53,12 @@
 		busy = true
 		try { const r = await downloadSheetsPdf(project, [s]); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+		finally { busy = false }
+	}
+	async function printRev(code: string) {
+		busy = true
+		try { const r = await printRevision(project, s, code); ws.say(`${s.number} rev ${code} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `Print failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
 	/** The project's template lives on the settings record: one undo step per edit, shared by every sheet. */
@@ -137,6 +144,14 @@
 		<button class="btn del" title="Delete this sheet (asks first; Undo brings it back)" onclick={deleteSheet}>Delete sheet</button>
 	</div>
 	<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click one on the paper to edit it, drag to move it</p>
+	{#if s.revisions?.length}
+		<!-- each issued revision, printable exactly as it went out (its frozen copy) -->
+		<p class="pt-1 font-semibold">Issued revisions</p>
+		{#each [...s.revisions].reverse() as r (r.code)}
+			<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={r.note ?? ''}>{r.note ?? ''}</span>
+				<button class="btn" disabled={busy} title="Download this sheet as issued at {r.code} (PDF)" onclick={() => printRev(r.code)}>Print</button></div>
+		{/each}
+	{/if}
 	<!-- this sheet's own title-block settings; the template below is the project's -->
 	<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 	<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
@@ -151,4 +166,6 @@
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.btn.del:hover { color: #dc2626; }
+	.rev { display: grid; grid-template-columns: 2.2rem 5.5rem 1fr auto; align-items: center; gap: 4px; }
+	.rev .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cad-muted); }
 </style>

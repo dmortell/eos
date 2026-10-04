@@ -10,30 +10,38 @@
 	import type { Firestore } from 'firebase/firestore'
 	import { saveProjectImage } from '../app/projectFiles'
 	import LogoPicker from './LogoPicker.svelte'
-	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
+	import { TB_AUTO, DEFAULT_TITLE_BLOCK, LOGO_LABEL, withLogoFields, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
 
 	// `files` = the project's Uploads: logos are picked from its images, and new ones are added to it
 	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string } } = $props()
 	let picking = $state<'company' | 'client' | null>(null)
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
-	const set = (patch: Partial<TitleBlockTemplate>) => onchange({ ...t, logo: t.logo ?? '', fields: t.fields.map((f) => ({ ...f })), ...patch })
+	// the field list WITH the logos as fields (Dave: logos placed and ordered like fields); an edit saves it that way
+	const fields = $derived(withLogoFields(t))
+	const set = (patch: Partial<TitleBlockTemplate>) => onchange({ ...t, logo: t.logo ?? '', fields: fields.map((f) => ({ ...f })), ...patch })
 	const setCompany = (patch: Partial<TbCompany>) => set({ company: { ...t.company, ...patch } })
 	const SECTIONS: [TbSection, string][] = [['logo', 'Logo'], ['company', 'Company'], ['fields', 'Fields'], ['revisions', 'Revisions']]
 	const shows = (s: TbSection) => !t.hidden?.includes(s)
 	const toggle = (s: TbSection) => set({ hidden: shows(s) ? [...(t.hidden ?? []), s] : (t.hidden ?? []).filter((x) => x !== s) })
-	const setField = (i: number, patch: Partial<TbField>) => set({ fields: t.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) })
+	const setField = (i: number, patch: Partial<TbField>) => set({ fields: fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) })
 	// fields reorder by dragging their ⋮⋮ grip ($lib DragReorder; ids = the row index, `f<i>`)
 	const idx = (id: string) => Number(id.slice(1))
 	const dr = new DragReorder((id, targetId, after) => {
-		const fs = [...t.fields], [f] = fs.splice(idx(id), 1)
+		const fs = [...fields], [f] = fs.splice(idx(id), 1)
 		let to = idx(targetId); if (idx(id) < to) to--   // the target shifted up when the dragged one left
 		fs.splice(after ? to + 1 : to, 0, f); set({ fields: fs })
 	}, idx)
-	const remove = (i: number) => set({ fields: t.fields.filter((_, j) => j !== i) })
+	/** A logo field takes its image with it (else it would come back as a field on its own). */
+	function remove(i: number) {
+		const f = fields[i], k = f?.key === 'logo' ? f.logo : undefined
+		set({ fields: fields.filter((_, j) => j !== i), ...(k ? { logos: { ...t.logos, [k]: { src: '' } } } : {}) })
+	}
+	const logoFree = (k: 'company' | 'client') => !fields.some((f) => f.key === 'logo' && f.logo === k)
 	function add(key: string) {
 		if (!key) return
-		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
-		set({ fields: [...t.fields, f] })
+		const lg = key === 'logo:company' ? 'company' : key === 'logo:client' ? 'client' : null
+		const f: TbField = lg ? { key: 'logo', logo: lg, label: LOGO_LABEL[lg], wide: true } : key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
+		set({ fields: [...fields, f] })
 	}
 	// A logo image goes to FILE STORAGE (UploadThing's image route, like Uploads) and the template keeps only its URL +
 	// key. A raster is downscaled first (≤ 1200 × 480 px); an SVG goes as it is. If the upload fails (offline), a small
@@ -116,19 +124,18 @@
 		<option value="vertical">Strip down the right</option><option value="horizontal">Band along the bottom</option><option value="compact">Compact box, bottom right</option>
 	</select></div>
 <div class="prop"><span>Logo text</span><input value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} /></div>
-{#each [['company', 'Our logo'], ['client', 'Client logo']] as const as [k, label] (k)}
+{#snippet logoControls(k: 'company' | 'client', label: string)}
 	{@const lg = t.logos?.[k]}
-	<div class="prop"><span>{label}</span>
-		<span class="logo-row">
-			{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
-				<button title="Remove" onclick={() => setLogo(k, undefined)}><Icon name="x" size={11} /></button>
-				{#if uploading === k}<em>uploading…</em>
-				{:else if lg.src.startsWith('data:')}<button class="logo-up" title="This logo is stored inside the project document — upload it to file storage" onclick={() => moveToStorage(k, lg)}>Move to storage</button>{/if}
-			{:else if uploading === k}<em>uploading…</em>
-			{:else if files}<button class="logo-up" title="Pick one of the project's images (Uploads), or upload a new one" onclick={() => (picking = k)}>Choose…</button>
-			{:else}<label class="logo-up">Choose image…<input type="file" accept="image/*" onchange={(e) => pickLogo(k, e)} /></label>{/if}
-		</span></div>
-{/each}
+	<span class="logo-row">
+		{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
+			{#if files}<button class="logo-up" title="Another image (Uploads)" onclick={() => (picking = k)}>Change…</button>{/if}
+			{#if uploading === k}<em>uploading…</em>
+			{:else if lg.src.startsWith('data:')}<button class="logo-up" title="This logo is stored inside the project document — upload it to file storage" onclick={() => moveToStorage(k, lg)}>Move to storage</button>{/if}
+		{:else if uploading === k}<em>uploading…</em>
+		{:else if files}<button class="logo-up" title="Pick one of the project's images (Uploads), or upload a new one" onclick={() => (picking = k)}>Choose…</button>
+		{:else}<label class="logo-up">Choose image…<input type="file" accept="image/*" onchange={(e) => pickLogo(k, e)} /></label>{/if}
+	</span>
+{/snippet}
 {#if picking && files}
 	{@const k = picking}
 	<LogoPicker db={files.db} pid={files.pid} title={k === 'company' ? 'Our logo' : 'Client logo'} onclose={() => (picking = null)}
@@ -137,18 +144,23 @@
 <div class="prop"><span>Company</span><input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} /></div>
-{#each t.fields as f, i (i)}
+{#each fields as f, i (i)}
 	{@const r = dr.row(`f${i}`)}
 	<!-- the row is the drop target; only the grip starts a drag (so the inputs stay selectable) -->
 	<div class="tbf" class:drag-before={dr.isBefore(`f${i}`)} class:drag-after={dr.isAfter(`f${i}`)} class:dragging={dr.dragId === `f${i}`}
 		ondragover={r.ondragover} ondragleave={r.ondragleave} ondrop={r.ondrop} role="listitem">
 		<span class="grip" draggable="true" ondragstart={r.ondragstart} ondragend={r.ondragend} title="Drag to reorder" role="button" tabindex="-1">⋮⋮</span>
-		<input class="lbl" value={f.label} title={f.key === 'custom' ? 'Label (custom text)' : `Label — filled with the sheet's ${TB_AUTO[f.key].toLowerCase()}`}
-			onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
-		{#if f.key === 'custom'}
+		{#if f.key === 'logo' && f.logo}
+			<!-- a logo field: its image (the label isn't printed) -->
+			<span class="lbl logo-lbl" title="A logo image — drag to place it among the fields">{LOGO_LABEL[f.logo]}</span>
+			{@render logoControls(f.logo, LOGO_LABEL[f.logo])}
+		{:else if f.key === 'custom'}
+			<input class="lbl" value={f.label} title="Label (custom text)" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 			<input class="txt" value={f.value ?? ''} placeholder="text" onchange={(e) => setField(i, { value: val(e) })} onkeydown={blurOnEnter} />
-		{:else}
-			<em title="Filled automatically">{TB_AUTO[f.key]}</em>
+		{:else if f.key !== 'logo'}
+			{@const auto = TB_AUTO[f.key]}
+			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
+			<em title="Filled automatically">{auto}</em>
 		{/if}
 		<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>
 		<button title="Remove" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
@@ -159,6 +171,8 @@
 		<option value="">Add a field…</option>
 		{#each Object.entries(TB_AUTO) as [k, l] (k)}<option value={k}>{l} (auto)</option>{/each}
 		<option value="custom">Custom text</option>
+		{#if logoFree('company')}<option value="logo:company">Our logo (image)</option>{/if}
+		{#if logoFree('client')}<option value="logo:client">Client logo (image)</option>{/if}
 	</select>
 </div>
 <div class="hint">Shared by every sheet in this project. Auto fields fill from the project and each sheet.</div>
@@ -188,6 +202,9 @@
 	.logo-row em { font-style: normal; font-size: 10px; color: var(--cad-faint); }
 	.logo-row button { background: none; border: none; color: var(--cad-muted); cursor: pointer; display: grid; place-items: center; }
 	.logo-up { font-size: 10px; color: #2563eb; cursor: pointer; }
+	.tbf .logo-row { flex: 1; }
+	.tbf .logo-row button.logo-up { width: auto; padding: 0 3px; color: #2563eb; }
+	.tbf .logo-lbl { font-size: 11px; color: var(--cad-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.logo-up input { display: none; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }
 	.chips button { padding: 0 6px; font-size: 10px; border: 1px solid var(--cad-line); border-radius: 9px; background: none; color: var(--cad-faint); cursor: pointer; }

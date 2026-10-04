@@ -82,7 +82,7 @@ describe('moving', () => {
 describe('the outlet tool', () => {
 	it('places the next label, skipping labels already used on the level', async () => {
 		const { EntityStore } = await import('../store/store')
-		const { OutletTool } = await import('./tools')
+		const { OutletTool } = await import('./outletTool')
 		const store = new EntityStore()
 		store.load(demoProject())
 		const index = new ProjectIndex(store.all())
@@ -101,7 +101,7 @@ describe('the outlet tool', () => {
 	})
 	it('what the tool bar sets for the next outlet wins over the last one; the rest still follows the last', async () => {
 		const { EntityStore } = await import('../store/store')
-		const { OutletTool } = await import('./tools')
+		const { OutletTool } = await import('./outletTool')
 		const store = new EntityStore()
 		store.load(demoProject())
 		let sel: string[] = []

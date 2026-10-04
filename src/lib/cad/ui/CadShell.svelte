@@ -8,7 +8,7 @@
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText, sectionViewports, retargetSectionViewports } from '../editor/commands'
+	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 	import { deletePicked } from '../editor/pathSel'
 	import { reservePorts } from '../domain/ports'
 	import type { Level } from '../domain/types'
@@ -26,6 +26,8 @@
 	import Legend from './Legend.svelte'
 	import BlockManager from './BlockManager.svelte'
 	import SideSection from './SideSection.svelte'
+	import CableList from './CableList.svelte'
+	import LinksTable from './LinksTable.svelte'
 	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -33,6 +35,8 @@
 	import { clipboardEvents } from '../app/clipboardEvents'
 	import ExportMenu from './ExportMenu.svelte'
 	import OutletOptions from './OutletOptions.svelte'
+	import ShapeOptions from './ShapeOptions.svelte'
+	import DimOptions from './DimOptions.svelte'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -145,7 +149,7 @@
 
 	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
 	const TOOLS: { id: ToolId; label: string }[] = [
-		{ id: 'select', label: 'Select' }, { id: 'insert', label: 'Block' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
+		{ id: 'select', label: 'Select' }, { id: 'insert', label: 'Block' }, { id: 'shape', label: 'Shape' }, { id: 'dimension', label: 'Dim' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
 		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
 		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
 		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
@@ -153,12 +157,14 @@
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
 		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
-		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy',
+		dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
+		shape: 'Click two points (or drag) · on a plan, on an elevation (at the work depth), on a sheet or inside a viewport · Esc stops',
+		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy · Ctrl+G groups, Ctrl+Shift+G ungroups',
 		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
-		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Enter finishes · Esc / right-click ends it, again → Select · Backspace undoes a point',
-		trunk: 'Click or type points · R = rise / drop · V = riser to another level · Enter finishes · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
-		conduit: 'Click or type points · R = rise / drop · V = riser to another level · Enter finishes · Esc / right-click ends it, again → Select',
-		wall: 'Click or type points · Enter finishes · Esc / right-click ends it, again → Select',
+		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Shift = 15° steps · Enter finishes · C or a click on the first point closes it · Esc / right-click ends it, again → Select · Backspace undoes a point',
+		trunk: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level · Enter finishes · C closes it · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
+		conduit: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level · Enter finishes · C closes it · Esc / right-click ends it, again → Select',
+		wall: 'Click or type points · Shift = 15° steps · Enter finishes · C or a click on the first point closes it (a room) · Esc / right-click ends it, again → Select',
 		section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
 		opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
@@ -174,7 +180,7 @@
 
 	let notice = $state<string | null>(null)
 
-	let bottom = $state<'outlets' | 'patch' | 'sheets'>('outlets')
+	let bottom = $state<'outlets' | 'patch' | 'sheets' | 'links'>('outlets')
 	let floorsOpen = $state(false)
 
 	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
@@ -271,6 +277,12 @@
 		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
+	/** Ctrl+G groups the selected shapes, Ctrl+Shift+G ungroups them (backlog "Group / ungroup"). */
+	function groupKey(ungroup: boolean) {
+		if (ungroup) { const n = ungroupSelection(project.store, ws.selection); ws.say(n ? `Ungrouped ${n} shapes` : 'Nothing selected is in a group'); return }
+		const r = groupSelection(project.store, ws.selection)
+		ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes · a click on one selects them all · Ctrl+Shift+G ungroups`)
+	}
 
 	/** Arrow keys nudge the selection (view directions: y down). */
 	const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
@@ -284,6 +296,7 @@
 		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); showHistory(project.undo()) }
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); showHistory(project.redo()) }
 		else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }
+		else if (mod && k === 'g') { e.preventDefault(); groupKey(e.shiftKey) }
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
@@ -315,6 +328,8 @@
 			{/if}
 		{/if}
 		{#if ws.toolId === 'outlet'}<OutletOptions {project} {ws} />{/if}
+		{#if ws.toolId === 'shape'}<ShapeOptions {ws} />{/if}
+		{#if ws.toolId === 'dimension'}<DimOptions {ws} />{/if}
 		{#if ws.toolId === 'opening'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 			<label class="opt" title="Width (mm)">W <input type="number" bind:value={ws.opts.w} /></label>
@@ -404,6 +419,7 @@
 		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
 		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} {ws} levelId={level.id} />{/if}
 		<BlockManager {project} {ws} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} />
+		<CableList {project} {ws} />
 		<LayersPanel {project} {ws} />
 	</nav>
 
@@ -441,10 +457,12 @@
 			<button class:on={bottom === 'outlets'} onclick={() => (bottom = 'outlets')}>Outlets</button>
 			<button class:on={bottom === 'patch'} onclick={() => (bottom = 'patch')}>Patch list</button>
 			<button class:on={bottom === 'sheets'} onclick={() => (bottom = 'sheets')}>Sheets</button>
+			<button class:on={bottom === 'links'} onclick={() => (bottom = 'links')}>Links</button>
 		</div>
 		<div class="tab-body">
 			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} roomId={patchRoom} />
 			{:else if bottom === 'sheets'}<SheetsTab {project} {ws} onview={(s) => setPane(activePane, s)} />
+			{:else if bottom === 'links'}<LinksTable {project} {ws} />
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
 	</section>
@@ -481,6 +499,9 @@
 	.props { grid-area: props; min-height: 0; display: flex; flex-direction: column; }
 	.props-body { flex: 1; min-height: 0; overflow: auto; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
+	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
+	.levels, .props, .grid-panel { user-select: none; -webkit-user-select: none; }
+	.levels :global(table), .props :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
 	.lvl.on { background: var(--cad-sel); }
 	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }

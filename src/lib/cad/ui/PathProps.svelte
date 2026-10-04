@@ -4,7 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Shape, Section, PathNode } from '../domain/shapes'
-	import { toWall, toContainment, toLine } from '../domain/make'
+	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
 	import { removeNode } from '../domain/pathEdit'
@@ -24,16 +24,7 @@
 
 	const save = (label: string, next: Shape) => project.store.transact(label, (tx) => tx.put(next))
 
-	function convert(to: Kind) {
-		if (to === kind) return
-		const base = toLine(s)
-		const sec: Section = s.section ?? { w: 100, h: 50 }
-		const next = to === 'line' ? base
-			: to === 'wall' ? toWall(base, sec.w || 100, sec.h > 200 ? sec.h : 2700)
-			: toContainment(base, to === 'conduit' ? { w: sec.w, h: sec.w, round: true, anchor: 'centre' } : { w: sec.w, h: sec.h },
-				{ tier: nodes.some((n) => n.z > 0) ? 'high' : 'low', form: to })
-		save(`Convert to ${to}`, next)
-	}
+	function convert(to: Kind) { if (to !== kind) save(`Convert to ${to}`, convertRun(s, to)) }
 	function setSection(patch: Partial<Section>) {
 		if (!s.section) return
 		const sec = { ...s.section, ...patch }
@@ -56,6 +47,20 @@
 		if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)
 	}
 	const disconnect = () => picked && putPieces('Disconnect', disconnectPicked(s, picked.nodes))
+	// picked segments' own size (backlog "Per-segment width / height"); null = back to the run's
+	const pickedSegs = $derived(picked && s.geom.kind === 'path' ? s.geom.segs.filter((g) => picked.segs.includes(g.id)) : [])
+	const segShared = (k: 'w' | 'h') => { const vs = new Set(pickedSegs.map((g) => (g.section ?? s.section)?.[k])); return vs.size === 1 ? [...vs][0] : undefined }
+	function setSegSection(patch: Partial<Section> | null) {
+		if (s.geom.kind !== 'path' || !s.section || (patch && Object.values(patch).some((v) => !(Number(v) > 0)))) return
+		const base = s.section, ids = new Set(pickedSegs.map((g) => g.id))
+		const segs = s.geom.segs.map((g) => {
+			if (!ids.has(g.id)) return g
+			if (!patch) { const { section: _drop, ...rest } = g; return rest }
+			const next = { ...(g.section ?? base), ...patch }
+			return next.w === base.w && next.h === base.h ? (({ section: _drop, ...rest }) => rest)(g) : { ...g, section: next }
+		})
+		save(patch ? `Segment size` : 'Segment size as run', { ...s, geom: { ...s.geom, segs } })
+	}
 	const delPicked = () => picked && putPieces(picked.nodes.length ? 'Delete node' : 'Delete segments', deletePicked(s, picked))
 
 	function removePoint(id: string) {
@@ -66,26 +71,12 @@
 
 	// ── where a run runs (backlog "Run location presets"): a height from the level's heights, and its tier ──
 	const heights = $derived((project.index.get(s.levelId ?? '') as { heights?: { raisedFloorMm: number; clearHeightMm: number; plenumMm: number } } | undefined)?.heights)
-	const PLACES = { floor: 'under floor', plenum: 'ceiling plenum', below: 'below ceiling', wall: 'on wall' } as const
-	type Place = keyof typeof PLACES
-	/** The Z (mm above FFL) and tier a place means on this level. */
-	function placeOf(p: Place): { z: number; tier: 'low' | 'high' | 'wall' } | null {
-		const h = heights, half = (s.section?.h ?? 50) / 2
-		if (!h) return null
-		if (p === 'floor') return { z: -Math.max(h.raisedFloorMm / 2, half), tier: 'low' }
-		if (p === 'plenum') return { z: h.clearHeightMm + h.plenumMm / 2, tier: 'high' }
-		if (p === 'below') return { z: h.clearHeightMm - half - 50, tier: 'high' }
-		return { z: 300, tier: 'wall' }
-	}
-	/** The run's main height: the Z most of its nodes share (drops to outlets end elsewhere). */
-	const mainZ = $derived.by(() => { const n = new Map<number, number>(); for (const x of nodes) n.set(x.z, (n.get(x.z) ?? 0) + 1); return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] })
-	const place = $derived((Object.keys(PLACES) as Place[]).find((p) => { const q = placeOf(p); return q && q.z === mainZ && s.role?.kind === 'containment' && s.role.tier === q.tier }) ?? '')
-	function setPlace(p: Place) {
-		const q = placeOf(p), role = s.role
-		if (!q || role?.kind !== 'containment' || s.geom.kind !== 'path') return
-		const was = mainZ
-		save(`Run ${PLACES[p]}`, { ...s, role: { ...role, tier: q.tier }, geom: { ...s.geom, nodes: s.geom.nodes.map((n) => (n.z === was ? { ...n, z: q.z } : n)) } })
-	}
+	const PLACES = RUN_PLACES
+	type Place = RunPlace
+	const placeOf = (p: Place) => placeOfOn(heights, p, s.section?.h)
+	const mainZ = $derived(mainZOf(s))
+	const place = $derived(placeNow(s, heights))
+	function setPlace(p: Place) { const next = setRunPlace(s, heights, p); if (next) save(`Run ${PLACES[p]}`, next) }
 
 	function drop(n: PathNode) {
 		ws.ask(`Drop / rise from ${Math.round(n.z)} to Z (mm above FFL)`, n.z > 0 ? 300 : 2900, (z) => {
@@ -105,6 +96,14 @@
 			<button class="btn" title="Separate the segments that meet at this node: the run splits into separate runs there" onclick={disconnect}>Disconnect</button>
 		{:else}
 			<span>{picked.segs.length} segment{picked.segs.length === 1 ? '' : 's'} picked <span class="text-zinc-400">· drag to move</span></span>
+			{#if s.section && kind !== 'line'}
+				<!-- their own size (a reducer, a taller wall panel): blank = mixed; "as run" drops it -->
+				<span class="segsize">
+					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" value={segShared('w') ?? ''} placeholder="mixed" onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
+					{#if !s.section.round}<label>H <input type="number" value={segShared('h') ?? ''} placeholder="mixed" onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
+					{#if pickedSegs.some((g) => g.section)}<button class="btn" title="Back to the run's own size" onclick={() => setSegSection(null)}>as run</button>{/if}
+				</span>
+			{/if}
 		{/if}
 		<button class="btn" title="Delete key: {picked.nodes.length ? 'the node goes, its two segments join' : 'just these segments (the run may split)'}" onclick={delPicked}>Delete</button>
 	</div>
@@ -153,6 +152,8 @@
 	/* one node per row: index, x, y, z, drop */
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
+	.segsize { display: inline-flex; gap: 6px; align-items: center; }
+	.segsize input { width: 4rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; }
 	.node { display: grid; grid-template-columns: 1.5rem 1fr 1fr 4.5rem 1.6rem 1.6rem; align-items: center; gap: 0.25rem; font-size: 11px; }
 </style>

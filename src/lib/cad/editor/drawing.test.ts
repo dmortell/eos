@@ -69,6 +69,17 @@ describe('drawing a trunk with the path tool', () => {
 		h.store.undo()
 		expect(h.store.get(s.id)).toBeUndefined()
 	})
+	it('a click back on the first point (3+ points) closes the run; Shift draws in 15° steps', () => {
+		const h = harness()
+		const tool = new PathTool('wall')
+		tool.down(at(0, 6000), h.ctx())
+		tool.down({ ...at(4000, 6300), shift: true }, h.ctx())   // Shift: level (0°), 4000 along
+		tool.down(at(4000, 9000), h.ctx())
+		tool.down(at(3, 6004), h.ctx())                           // on the first point: closes
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.x, n.y])).toEqual([[0, 6000], [4000, 6000], [4000, 9000]])
+		expect(s.geom.kind === 'path' && s.geom.segs.length).toBe(3)
+	})
 	it('ending a run on an outlet attaches the node; moving the outlet carries the node with it', () => {
 		const h = harness()
 		const tool = new PathTool('trunk')

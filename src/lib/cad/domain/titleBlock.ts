@@ -10,7 +10,10 @@ export const TB_AUTO = {
 	scale: 'Scale', size: 'Size', drawn: 'Drawn',
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
-export type TbField = { key: TbAutoKey | 'custom'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean }
+export type TbField = { key: TbAutoKey | 'custom' | 'logo'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
+	/** key 'logo': which logo image this field shows (Dave 2026-10-05: logos are fields, placed and ordered like them) */
+	logo?: 'company' | 'client' }
+export const LOGO_LABEL = { company: 'Our logo', client: 'Client logo' } as const
 /** The block's optional sections — each can be switched off project-wide (`hidden`). */
 export type TbSection = 'logo' | 'company' | 'fields' | 'revisions'
 /** One row of the revision table. */
@@ -53,7 +56,7 @@ export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell
 		cells: off.has('fields') ? [] : cells,
 		border: !!t?.border,
 		...(off.has('revisions') || !revs.length ? {} : { revisions: revs.slice(-5) }),
-		...(off.has('logo') ? {} : (() => { const l = [t?.logos?.company, t?.logos?.client].filter((x): x is TbLogo => !!x?.src); return l.length ? { logos: l } : {} })()),
+		// the logo IMAGES are fields now (withLogoFields): the logo section keeps the logo text only
 		...(t?.layout && t.layout !== 'vertical' ? { layout: t.layout } : {}),
 	}
 }
@@ -71,15 +74,25 @@ export const DEFAULT_TITLE_BLOCK: TitleBlockTemplate = {
 
 /** Everything the auto fields can show, gathered by the caller for one sheet. */
 export type TbContext = Partial<Record<TbAutoKey, string>>
-export type TbCell = { label: string; value: string; wide: boolean }
+export type TbCell = { label: string; value: string; wide: boolean; /** a logo field: its image instead of label + value */ image?: TbLogo }
 
 /** The template's cells for one sheet; an empty value shows as '—'. A missing template → the default. */
 export function fillTitleBlock(t: TitleBlockTemplate | undefined, ctx: TbContext): TbCell[] {
-	return (t?.fields?.length ? t.fields : DEFAULT_TITLE_BLOCK.fields).map((f) => ({
-		label: f.label || (f.key === 'custom' ? '' : TB_AUTO[f.key]),
-		value: (f.key === 'custom' ? f.value : ctx[f.key])?.trim() || '—',
-		wide: !!f.wide,
-	}))
+	return withLogoFields(t).flatMap((f): TbCell[] => {
+		if (f.key === 'logo') {   // its image (no label printed); a logo field with no image set shows nothing
+			const img = f.logo && t?.logos?.[f.logo]
+			return img?.src ? [{ label: f.label, value: '', wide: !!f.wide, image: img }] : []
+		}
+		return [{ label: f.label || (f.key === 'custom' ? '' : TB_AUTO[f.key]), value: (f.key === 'custom' ? f.value : ctx[f.key])?.trim() || '—', wide: !!f.wide }]
+	})
+}
+
+/** The template's fields with its logo images as fields: a logo that's set but not yet in the list (templates from
+ *  before logos were fields) comes first, full width — so old title blocks look the same until a logo is moved. */
+export function withLogoFields(t: TitleBlockTemplate | undefined): TbField[] {
+	const fields = t?.fields?.length ? t.fields : DEFAULT_TITLE_BLOCK.fields
+	const missing = (['company', 'client'] as const).filter((k) => t?.logos?.[k]?.src && !fields.some((f) => f.key === 'logo' && f.logo === k))
+	return [...missing.map((k): TbField => ({ key: 'logo', logo: k, label: LOGO_LABEL[k], wide: true })), ...fields]
 }
 
 /** Initials for "Drawn": "David Mortell" → "DM"; an email → its local part's first 3 letters ("DMO"). */

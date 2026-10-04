@@ -9,6 +9,8 @@ import type { Tool, ToolCtx, PointerIn } from './tools'
 import { snapMark } from './tools'
 import type { Snap } from './snap'
 import { makePath, toWall, toContainment } from '../domain/make'
+import { angleStep } from './constrain'
+import { newId } from '../domain/ids'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
 
@@ -24,9 +26,17 @@ export class PathTool implements Tool {
 	/** Picks are MODEL points: a plan click lands at the work Z, an elevation click on the work plane (its height is the
 	 *  click), so the same tool draws runs in either view — on an elevation a drop is simply drawn. */
 	down(e: PointerIn, c: ToolCtx): void {
-		const s = c.snap(e.p, e.alt)
+		const s = this.#pick(e, c)
+		// back on the first point (3+ points): CLOSE the run (a room's walls, a loop of trunk)
+		const first = this.pts.length >= 3 ? c.space.fromWorld(this.pts[0]) : null
+		if (first && Math.hypot(e.p.x - first.x, e.p.y - first.y) <= c.tol() * 1.5) { this.finish(c, true); return }
 		this.#add(s.p, c, s.attach)
 		if ((e.count ?? 1) >= 2) this.finish(c)
+	}
+	/** The snapped point — or, with Shift, the cursor turned to 15° steps from the last point (no object snap). */
+	#pick(e: PointerIn, c: ToolCtx): Snap {
+		const last = e.shift ? this.lastPoint(c) : null
+		return last ? { p: angleStep(last, e.p), kind: 'grid' } : c.snap(e.p, e.alt)
 	}
 
 	/** A typed point (no snap) — like a click there. */
@@ -41,10 +51,11 @@ export class PathTool implements Tool {
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.hover(e, c) }
 	up(): void {}
-	hover(e: PointerIn, c: ToolCtx): void { this.#hover = c.snap(e.p, e.alt) }
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pick(e, c) }
 
 	key(e: KeyboardEvent, c: ToolCtx): boolean {
 		if (e.key === 'Enter') { this.finish(c); return true }
+		if (e.key.toLowerCase() === 'c' && this.pts.length >= 3) { this.finish(c, true); return true }   // close it
 		if (e.key === 'Backspace') { this.pts.pop(); return true }
 		if (e.key.toLowerCase() === 'r' && this.pts.length) {
 			c.ask('Rise / drop to Z (mm above FFL)', c.opts.z, (z) => this.riseTo(z, c))
@@ -79,13 +90,18 @@ export class PathTool implements Tool {
 		c.opts.z = z
 	}
 
-	finish(c: ToolCtx): void {
+	/** `close` = one more segment back to the first point (3+ points). */
+	finish(c: ToolCtx, close = false): void {
 		if (this.pts.length < 2) { this.cancel(); return }
 		const pts = this.pts
 		this.pts = []
 		const line = makePath({ levelId: c.levelId }, pts)
 		// carry each pick's attachment onto its node
 		if (line.geom.kind === 'path') line.geom.nodes.forEach((n, i) => { if (pts[i].attach) n.attach = pts[i].attach; if (pts[i].levelId) n.levelId = pts[i].levelId })
+		if (close && pts.length >= 3 && line.geom.kind === 'path') {
+			const ns = line.geom.nodes
+			line.geom.segs.push({ id: newId(), a: ns[ns.length - 1].id, b: ns[0].id })
+		}
 		const shape = this.id === 'line' ? (c.layerId ? { ...line, layerId: c.layerId } : line)
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
 			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })

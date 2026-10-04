@@ -10,7 +10,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, type IssuePlanRow } from '../domain/issue'
+import { freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -84,10 +84,11 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
-	const name = `${fileSafe(`${project.name} ${f.name} ${f.date}`)}.pdf`
+	const number = nextIssueNumber(project.store.ofType('issue'))
+	const name = `${fileSafe(`${project.name} ${issueTag(number)} ${f.name} ${f.date}`)}.pdf`
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
-		type: 'issue', id: issueId, name: f.name, purpose: f.purpose, date: f.date,
+		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
 		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
@@ -112,7 +113,16 @@ async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']
 export async function reprintIssue(project: CadProject, issue: Issue): Promise<{ unsupported: string[]; rasterised: string[] }> {
 	const pages = await Promise.all(issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev)))
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
-	download(pdf.output('blob'), `${fileSafe(`${project.name} ${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf')
+	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
+	download(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf')
+	return { unsupported, rasterised }
+}
+
+/** ONE sheet as it was issued at revision `rev` (backlog "Show old issued versions"), downloaded as a PDF. */
+export async function printRevision(project: CadProject, sheet: Sheet, rev: string): Promise<{ unsupported: string[]; rasterised: string[] }> {
+	const page = await loadFrozen(project, sheet.id, rev)
+	const { pdf, unsupported, rasterised } = await pagesToPdf([page], frozenImages(project), { rasterText: browserTextRaster })
+	download(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as issued).pdf`, 'application/pdf')
 	return { unsupported, rasterised }
 }
 

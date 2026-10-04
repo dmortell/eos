@@ -686,3 +686,97 @@ Checked live, read-only: L3303's plan is used by "Test issue 1" and "Tender1".
 **Backlog:** low priority (Dave): title block approvals / site, Tabs, Help. Not required (Dave): "Outlet → block".
 
 **Checks:** 376 cad tests pass; svelte-check clean.
+
+(Committed bc081a29; a stray generated `src/lib/cad/.svelte-kit/` folder went in with it and was removed in 57b77cd5.)
+
+## 2026-10-05 (2) — shapes, Shift, closing runs, issues, cable schedule, logos as fields
+
+**Shape tool** (`editor/shapeTool.ts`, "Shape" in the tool bar): RECTANGLE (corner to corner), ELLIPSE (in that box) or
+regular POLYGON (3–12 sides; centre, then a corner — or an edge's middle when circumscribed). Click-click or
+press-drag-release; Shift = square / circle / 15° steps. On a plan: the level's model (current layer). On an elevation
+/ section: the level's model ON the view's vertical plane at the work depth (points in (u, z)); drawn in elevations /
+sections, not on the plan (shapes on a vertical plane move along it). On a sheet: the paper, or tied to the viewport it
+starts in (follows it; untied back to the paper when the viewport is deleted). New `ellipse` geometry. Tests.
+
+**Shift constraints** (`editor/constrain.ts`): 15° steps drawing runs (from the last point; no object snap while held)
+and dragging a node (about the node at the other end of its segment) or a branch; H / V moving things and segments.
+Junctions keeping all their segments on 15° is left (backlog, P3).
+
+**Runs:** C (or a click back on the first point, 3+ points) CLOSES a run — a room's walls, a loop. A picked
+segment's own width / height (a reducer, a taller wall panel) in the picked box of the run's Properties; "as run" drops
+it. Tests.
+
+**Title block logos are FIELDS** (Dave): "Our logo" / "Client logo" are rows in the field list — dragged into place
+like any field, full or half width; they print only the image (a full-width row is as tall as its logo). "Add a
+field…" offers them; ✕ removes the field and its image. Templates from before keep their logos, as the first rows.
+The Logo section keeps the logo text. Tests.
+
+**Issues:** each issue has a number (1, 2, 3 …; older ones count in date order), editable in the Issues list, in the
+transmittal and in the package PDF's / reprint's file name ("Issue 03"). Sheet Properties list a sheet's issued
+revisions, each with "Print" — that sheet exactly as issued (its frozen copy). Tests.
+
+**Cable schedule** (Export → "Cable schedule…", `ui/CableScheduleDialog.svelte`, `domain/cableSchedule.ts`): one row
+per link — label, kind, from, to, cable, route m, slack, installed length, the 90 m flag / no route — with totals and
+"Problems only"; then Excel. Tests.
+
+**Split:** the Outlet tool moved out of `editor/tools.ts` into `editor/outletTool.ts` (tools.ts was over the size limit).
+
+**Checks done (backlog test tasks):**
+- **Rack doors in the PDF:** S003's sheet PDF, made in the page and viewed without downloading, shows R303's split
+  front door and single rear door swings (and the R31x cabinets' doors).
+- **Patch changes in the patch schedule:** an add, a move (re-patch) and a removal each land in their group in work
+  order (remove → change → add) with "Was From / Was To" for the moved / removed cords — a test.
+- **Live interconnect run:** R311 U39 ports 23–24 (1F IDF2) → 4AR01 U21 ports 1–2 (4F Server room A): two BACKBONE
+  links, ports in step, "choose the riser in Port Properties". To r1 (4F Server room B) only one fitted (port 24 + 1
+  ran off the panel: skipped with the reason) and its route said "the far panel is not in a placed rack". Routes:
+  "the runs at the two ends are not connected" — Test Project's 1F IDF2 trunks and 4F racks aren't joined to Riser A
+  by containment (a data matter). Links undone afterwards.
+- "Rack BOM by row" closed (Dave): the BOM dialog's row-by-row view covers it.
+
+**Checks:** 387 cad tests pass; svelte-check clean. Live: a rectangle drawn on the 1F plan (then undone).
+
+**Resize grips on shapes** (Dave; `editor/shapeGrips.ts`): a selected rectangle shows its 4 corners (the opposite
+one stays; Shift = square) and 4 edge middles (that side moves; a turned rectangle along its own axes); an ellipse its
+4 axis ends (the centre stays; Shift = a circle); a circle 4 radius grips; a polygon its corners. Shown on the plan,
+on the elevation / section a shape was drawn on, and on sheets (also for shapes tied to a viewport); snapped like any
+point. One undo step per drag. Tests (`editor/shapeGrips.test.ts`, 393 pass). Live: a rectangle on 1F resized by its
+corner, then undone.
+
+## Batch: notes everywhere, dimensions, groups, several runs, cable lists (Dave 2026-10-05: "do 4 6 12 15 16 22")
+
+Import Pages sheets (7.2) and import Sheets-tool sheets (7.3) marked P3 (Dave).
+
+**Notes on plans and diagrams:** Text / Leader / Cloud now work on plans (in the level's model, current layer) and
+on elevations / sections (on the view's plane, like the Shape tool), as well as sheets. Note Properties
+(`ui/NoteProps.svelte`, split out of Properties) add Colour (all notes) and Background (text: a filled box behind
+it). The riser view is generated from the data and has no editable model, so notes don't go there.
+`editor/noteTool.ts` exports `placeNote` / `notePoint`, which the Dim tool shares.
+
+**Dimensions** (`editor/dimTool.ts`, "Dim" button; `ui/DimOptions.svelte`): click the two points (snapped), then
+where the dimension line goes. It measures along the points, or only horizontally / vertically. It reads in mm below
+1 m, else m; extension lines, 45° ticks and the text upright. Works on plan, elevation / section and sheet /
+viewport. Properties: what it measures, and a text override. A viewport's dimension that goes back onto the paper
+keeps its real length as text.
+
+**Group / ungroup** (`domain/groups.ts`): Ctrl+G groups the selected shapes (old groups they leave and that end up
+empty go), Ctrl+Shift+G ungroups; Group / Ungroup buttons in Properties. A click, Ctrl-click or window on one member
+selects the whole group, so it moves as one. Deleting all of a group's shapes deletes the group; a copy of a group
+pastes as a new group.
+
+**Several runs at once** (`ui/RunsMultiProps.svelte`; the rules shared with one run's Properties moved to
+`domain/runEdit.ts`): kind, width / height (or diameter), location (each run from its own level's heights), tier and
+colour. A field shows the value the runs share, or "mixed"; each edit is one undo step. Runs now draw in their own
+colour on the plan, and a segment's own size draws (a reducer) — both were stored but not shown before.
+
+**Cables (n)** (sidebar, `ui/CableList.svelte`; `domain/cableList.ts` `cableGroups`): the backbone and tie cables,
+one row per panel pair and cable type, lowest floor first. Each row shows a jacket-colour swatch (OS2 yellow, OM3 /
+OM4 aqua, OM5 lime, OM1 / OM2 orange, copper grey), "n × type" and "1F → 4F (2 transit)". A click selects the links,
+and their routes light up on the plan.
+
+**Links tab** (bottom, `ui/LinksTable.svelte`; `linkRows`): every permanent link with kind (run / tie / backbone
+chips), panel end, other end, label, cable type (editable, suggests the types in use), length, status (design /
+installed, editable) and ✕ remove (undoable). Find, kind and status filters; a click selects (Ctrl / Shift add). The
+first 500 rows show, then "narrow it".
+
+**Checks:** 405 cad tests pass (new: `editor/dimTool.test.ts`, `domain/groups.test.ts`, `domain/runEdit.test.ts`,
+`domain/cableList.test.ts`); svelte-check clean. Live check not done: Chrome stopped responding.

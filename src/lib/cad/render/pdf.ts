@@ -55,7 +55,7 @@ const STYLES: Record<string, Style> = {
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
 	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
 	backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
-	note: { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
+	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 
 export function styleOf(cls: string): Style {
@@ -89,7 +89,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => {
 		const st = styleOf(p.cls)
 		if (!p.color) return st
-		const fill = (p.k === 'circle' || (p.k === 'line' && p.cls.startsWith('outlet'))) && p.fill
+		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls === 'note-bg'))) && p.fill
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {

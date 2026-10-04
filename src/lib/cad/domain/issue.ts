@@ -70,6 +70,19 @@ export function planIssue(sheets: Sheet[], now: (s: Sheet) => string, first = 'A
 /** The sheet with its new revision (what it shows once issued: the title block's rev / date read from it). */
 export const withRevision = (s: Sheet, rev: Required<Sheet>['revisions'][number]): Sheet => ({ ...s, revisions: [...(s.revisions ?? []), rev] })
 
+/** Each issue's number (backlog "Numbers on issues"): its own, else its place in date order (issues from before
+ *  numbers), so the list reads 1, 2, 3 … either way. */
+export function issueNumbers(issues: Issue[]): Map<string, number> {
+	const out = new Map<string, number>()
+	const ordered = [...issues].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+	ordered.forEach((i, n) => out.set(i.id, i.number ?? n + 1))
+	return out
+}
+/** The number the next issue gets: one past the highest. */
+export const nextIssueNumber = (issues: Issue[]): number => Math.max(0, ...issueNumbers(issues).values()) + 1
+/** How an issue's number reads in names: "Issue 03". */
+export const issueTag = (n: number): string => `Issue ${String(n).padStart(2, '0')}`
+
 /** The transmittal's rows: the package's sheets in sheet-number order. */
 export function transmittalRows(issue: Issue): Issue['sheets'] {
 	const cmp = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })

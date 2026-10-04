@@ -33,7 +33,7 @@
 		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill && p.cls.startsWith('outlet') ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg') ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
@@ -67,6 +67,9 @@
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
 	.viewport-bg.filled { fill: #ffffff; stroke: none; }
 	text.note { fill: #0f172a; }
+	.note-bg { stroke: none; fill: #ffffff; }
+	.dim { stroke: #0f172a; stroke-width: 1; fill: none; }
+	text.dim-text { fill: #0f172a; }
 	.leader { stroke: #0f172a; }
 	.leader-head.filled { fill: #0f172a; }
 	.cloud { stroke: #dc2626; stroke-width: 1.25; }

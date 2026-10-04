@@ -66,6 +66,8 @@ export type Geometry =
 	| { kind: 'path'; nodes: PathNode[]; segs: PathSeg[]; closed?: boolean }
 	| { kind: 'rect'; centre: Pt; size: { x: number; y: number }; rot?: number }
 	| { kind: 'circle'; centre: Pt; r: number }
+	/** An ellipse: radii along its own x / y, turned by `rot` (deg, clockwise on screen). */
+	| { kind: 'ellipse'; centre: Pt; rx: number; ry: number; rot?: number }
 	| { kind: 'polygon'; pts: Pt[] }
 	/** Angles in degrees, clockwise on screen (conventions.ts), swept from start to end. */
 	| { kind: 'arc'; centre: Pt; r: number; start: number; end: number }
@@ -171,7 +173,7 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 	const add = (p: Pt): Pt => ({ x: p.x + d.x, y: p.y + d.y })
 	switch (g.kind) {
 		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, x: n.x + d.x, y: n.y + d.y, z: n.z + (d.z ?? 0) })) }
-		case 'rect': case 'circle': case 'arc': return { ...g, centre: add(g.centre) }
+		case 'rect': case 'circle': case 'ellipse': case 'arc': return { ...g, centre: add(g.centre) }
 		case 'polygon': return { ...g, pts: g.pts.map(add) }
 		case 'text': return { ...g, at: add(g.at) }
 		case 'dimension': return { ...g, a: add(g.a), b: add(g.b) }
@@ -179,6 +181,29 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 		case 'image': return { ...g, centre: add(g.centre) }
 		case 'insert': return { ...g, at: add(g.at) }
 	}
+}
+
+/** A closed region's outline in its own 2D space (a box's corners, an ellipse's / circle's points, a polygon). */
+export function outlineOf(g: Geometry): Pt[] | null {
+	switch (g.kind) {
+		case 'rect': {
+			const r = ((g.rot ?? 0) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), hx = g.size.x / 2, hy = g.size.y / 2
+			return [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => ({ x: g.centre.x + x * c - y * s, y: g.centre.y + x * s + y * c }))
+		}
+		case 'circle': return ellipsePts({ centre: g.centre, rx: g.r, ry: g.r })
+		case 'ellipse': return ellipsePts(g)
+		case 'polygon': return g.pts
+		default: return null
+	}
+}
+
+/** An ellipse as a closed outline of `n` points (drawing, PDF, DXF and picking use straight lines). */
+export function ellipsePts(g: { centre: Pt; rx: number; ry: number; rot?: number }, n = 72): Pt[] {
+	const r = ((g.rot ?? 0) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
+	return Array.from({ length: n }, (_, i) => {
+		const a = (i / n) * 2 * Math.PI, x = g.rx * Math.cos(a), y = g.ry * Math.sin(a)
+		return { x: g.centre.x + x * c - y * s, y: g.centre.y + x * s + y * c }
+	})
 }
 
 /** A segment is vertical when both ends share a plan position (to within 0.5 mm). */

@@ -16,6 +16,9 @@
 	import RowProps from './RowProps.svelte'
 	import RackDoors from './RackDoors.svelte'
 	import SectionProps from './SectionProps.svelte'
+	import NoteProps from './NoteProps.svelte'
+	import RunsMultiProps from './RunsMultiProps.svelte'
+	import { groupSelection, ungroupSelection } from '../editor/commands'
 	import RenumberPanel from './RenumberPanel.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { renumberable } from '../domain/renumber'
@@ -202,9 +205,17 @@
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
 		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
+		{@const runs = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind === 'path')}
+		{#if runs.length > 1}<RunsMultiProps {project} {runs} />{/if}
 		{#if blockable.length}
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
 		{/if}
+		<!-- groups: shapes that select and move as one (Ctrl+G / Ctrl+Shift+G) -->
+		{@const drawn = items.filter((e): e is Shape => e.type === 'shape')}
+		<div class="flex gap-1">
+			{#if drawn.length >= 2}<button class="btn" title="Group these shapes: a click on one selects them all (Ctrl+G)" onclick={() => { const r = groupSelection(project.store, ws.selection); ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes`) }}>Group</button>{/if}
+			{#if drawn.some((s) => s.groupId)}<button class="btn" title="Take these shapes out of their group (Ctrl+Shift+G)" onclick={() => ws.say(`Ungrouped ${ungroupSelection(project.store, ws.selection)} shapes`)}>Ungroup</button>{/if}
+		</div>
 	{:else if one.type === 'outlet'}
 		<OutletProps {project} {ws} outlets={[one]} />
 	{:else if one.type === 'rack'}
@@ -342,19 +353,8 @@
 		<CordProps {project} {ws} c={one} />
 	{:else if one.type === 'section'}
 		<SectionProps {project} {ws} s={one} />
-	{:else if one.type === 'shape' && (one.geom.kind === 'text' || one.geom.kind === 'leader' || one.geom.kind === 'cloud')}
-		<!-- a note (on a sheet's paper, or a plan's text): its words and size -->
-		{@const g = one.geom}
-		<p class="font-semibold">{g.kind === 'text' ? 'Text' : g.kind === 'leader' ? 'Leader' : 'Revision cloud'}</p>
-		{#if g.kind === 'text'}
-			<label class="row">Text <input class="inp" value={g.text} onchange={(e) => e.currentTarget.value.trim() && put(one, 'Text', { geom: { ...g, text: e.currentTarget.value.trim() } })} /></label>
-			<label class="row">Size (mm) <input class="inp" type="number" min="1" step="0.5" value={g.sizeMm} onchange={(e) => num(e.currentTarget.value) && put(one, 'Text size', { geom: { ...g, sizeMm: Math.max(1, Number(e.currentTarget.value)) } })} /></label>
-		{:else if g.kind === 'leader'}
-			<label class="row">Text <input class="inp" value={g.text ?? ''} placeholder="(none)" onchange={(e) => put(one, 'Leader text', { geom: { ...g, text: e.currentTarget.value.trim() || undefined } })} /></label>
-		{:else}
-			<label class="row">Arc (mm) <input class="inp" type="number" min="2" step="1" value={g.arcMm ?? 6} onchange={(e) => num(e.currentTarget.value) && put(one, 'Cloud arcs', { geom: { ...g, arcMm: Math.max(2, Number(e.currentTarget.value)) } })} /></label>
-		{/if}
-		<p class="text-zinc-500">Drag to move · Delete removes it</p>
+	{:else if one.type === 'shape' && (one.geom.kind === 'text' || one.geom.kind === 'leader' || one.geom.kind === 'cloud' || one.geom.kind === 'dimension')}
+		<NoteProps {project} s={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
 		{#if one.role?.kind === 'containment'}<RunFill {project} s={one} />{/if}

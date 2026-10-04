@@ -6,15 +6,20 @@ import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Prim } from '../views/display'
 import type { Pt } from '../domain/types'
 import type { Shape } from '../domain/shapes'
-import { makeText } from '../domain/make'
 import { newId } from '../domain/ids'
 import type { Sheet, Viewport } from '../domain/drawing'
 import { fromPaper, toPaper, viewportAt } from '../views/sheet'
+import { dimLine } from '../views/plan'
 
 /** A note tied to a viewport (one being deleted) put back on the paper where it showed. */
 export function untie(s: Shape, vp: Viewport): Shape {
-	const t = toPaper(vp), g = s.geom
-	const geom = g.kind === 'text' ? { ...g, at: t(g.at) } : g.kind === 'leader' || g.kind === 'cloud' ? { ...g, pts: g.pts.map(t) } : g
+	const t = toPaper(vp), g = s.geom, k = 1 / vp.scale   // view mm → paper mm
+	const geom = g.kind === 'text' ? { ...g, at: t(g.at) } : g.kind === 'leader' || g.kind === 'cloud' || g.kind === 'polygon' ? { ...g, pts: g.pts.map(t) }
+		: g.kind === 'rect' ? { ...g, centre: t(g.centre), size: { x: g.size.x * k, y: g.size.y * k } }
+		: g.kind === 'ellipse' ? { ...g, centre: t(g.centre), rx: g.rx * k, ry: g.ry * k }
+		: g.kind === 'circle' ? { ...g, centre: t(g.centre), r: g.r * k }
+		// a dimension keeps the real length it measured in the view (on paper it would measure paper mm)
+		: g.kind === 'dimension' ? { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLine(g).len)}` } : g
 	const { vpId: _drop, ...rest } = s as Shape & { vpId?: string }
 	return { ...rest, geom } as Shape
 }
@@ -39,6 +44,26 @@ export const tiedViewport = (s: Shape, get: (id: string) => unknown): Viewport |
 	s.vpId ? (get(s.sheetId!) as Sheet | undefined)?.viewports.find((v) => v.id === s.vpId) : undefined
 
 export type NoteKind = 'text' | 'leader' | 'cloud'
+
+/** Where a note (or a dimension) drawn here lives (backlog "Notes on plans and diagrams"): a sheet's paper — or, drawn
+ *  inside a viewport (the first point decides), tied to it in its view mm; the level's plan (current layer); or an
+ *  elevation / section's own plane (points in (u, z), like the Shape tool). Null = not in this view. */
+export function placeNote(c: ToolCtx, pts: Pt[]): { owner: Record<string, unknown>; pts: Pt[] } | null {
+	const spec = c.space.spec, layer = c.layerId ? { layerId: c.layerId } : {}
+	if (spec.kind === 'sheet') {
+		const sheet = c.store.get(spec.sheetId) as Sheet | undefined
+		const vp = sheet && pts.length ? viewportAt(sheet, pts[0]) : undefined
+		if (!vp) return { owner: { sheetId: spec.sheetId }, pts }
+		const f = fromPaper(vp)
+		return { owner: { sheetId: spec.sheetId, vpId: vp.id }, pts: pts.map(f) }
+	}
+	if (spec.kind === 'plan') return { owner: { levelId: c.levelId, ...layer }, pts }
+	if ((spec.kind === 'elevation' || spec.kind === 'section') && c.space.frame)
+		return { owner: { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) }, ...layer }, pts: pts.map((p) => ({ x: p.x, y: -p.y })) }
+	return null
+}
+/** A point for a note: paper snaps to 0.5 mm; a drawing to its object snaps / grid. */
+export const notePoint = (e: PointerIn, c: ToolCtx): Pt => (c.space.spec.kind === 'sheet' ? snap(e.p) : c.snap(e.p, e.alt).p)
 const snap = (p: Pt): Pt => ({ x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 })   // 0.5 mm on paper
 
 export class NoteTool implements Tool {
@@ -47,35 +72,26 @@ export class NoteTool implements Tool {
 	#hover: Pt | null = null
 	constructor(readonly id: NoteKind) {}
 
-	#sheetId(c: ToolCtx): string | null { return c.space.spec.kind === 'sheet' ? c.space.spec.sheetId : null }
-
-	/** The note's owner and its points: drawn inside a viewport (the first point decides), tied to it in its view mm. */
-	#place(c: ToolCtx, sheetId: string, pts: Pt[]): { owner: { sheetId: string; vpId?: string }; pts: Pt[] } {
-		const sheet = c.store.get(sheetId) as Sheet | undefined
-		const vp = sheet && viewportAt(sheet, pts[0])
-		if (!vp) return { owner: { sheetId }, pts }
-		const f = fromPaper(vp)
-		return { owner: { sheetId, vpId: vp.id }, pts: pts.map(f) }
-	}
+	#where = (c: ToolCtx, pts: Pt[]) => placeNote(c, pts)
+	#pt = (e: PointerIn, c: ToolCtx) => notePoint(e, c)
 
 	down(e: PointerIn, c: ToolCtx): void {
-		const sheetId = this.#sheetId(c)
-		if (!sheetId) return
-		const p = snap(e.p)
+		const p = this.#pt(e, c)
+		if (!this.#where(c, [p])) { c.say?.('Notes go on plans, elevations, sections and sheets'); return }
 		if (this.id === 'text') { this.#textAt = p; return }
 		this.#pts.push(p)
 	}
-	move(e: PointerIn): void { this.#hover = snap(e.p) }
-	hover(e: PointerIn): void { this.#hover = snap(e.p) }
+	move(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
 	/** Text asks on RELEASE: asked on press, the rest of the click takes the focus back from the prompt. */
 	up(_e: PointerIn, c: ToolCtx): void {
-		const p = this.#textAt, sheetId = this.#sheetId(c)
+		const p = this.#textAt
 		this.#textAt = null
-		if (!p || !sheetId) return
+		if (!p) return
 		c.askText?.('Text', '', (t) => {
-			if (!t.trim()) return
-			const at = this.#place(c, sheetId, [p])
-			const s = makeText(at.owner, at.pts[0], t.trim(), 2.5)
+			const at = this.#where(c, [p])
+			if (!t.trim() || !at) return
+			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.trim(), sizeMm: 2.5 } } as Shape
 			c.store.transact('Text', (tx) => tx.put(s))
 			c.select([s.id])
 		})
@@ -84,16 +100,15 @@ export class NoteTool implements Tool {
 	cancel(): void { this.#pts = []; this.#hover = null }
 
 	finish(c: ToolCtx): void {
-		const sheetId = this.#sheetId(c), pts = this.#pts
+		const pts = this.#pts
 		this.#pts = []
-		if (!sheetId) return
+		const at = this.#where(c, pts)   // on a sheet the first point (a leader's tip) decides the viewport
+		if (!at) return
 		if (this.id === 'cloud' && pts.length >= 3) {
-			const at = this.#place(c, sheetId, pts)
 			const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'cloud', pts: at.pts } } as Shape
 			c.store.transact('Revision cloud', (tx) => tx.put(s))
 			c.select([s.id])
 		} else if (this.id === 'leader' && pts.length >= 2) {
-			const at = this.#place(c, sheetId, pts)   // the tip decides
 			c.askText?.('Leader text (optional)', '', (t) => {
 				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t.trim() ? { text: t.trim() } : {}) } } as Shape
 				c.store.transact('Leader', (tx) => tx.put(s))

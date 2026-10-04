@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { routeLinks, cableMetres, panelZ, boxNote } from './routing'
+import { cableSchedule, scheduleTotals } from './cableSchedule'
 import type { Entity } from './drawing'
 import type { Shape } from './shapes'
 
@@ -124,5 +125,18 @@ describe('routing', () => {
 		const [m] = cableMetres(ix, routes, { slackM: 0.5, wastePct: 10 })
 		expect(m).toMatchObject({ type: 'cat6a', links: 2, unrouted: 0, metres: Math.ceil((routes.get('K1')!.lengthM! + 7) * 1.1) })
 		expect(boxNote(400)).toBe('≈ 2 box(es) of 305 m')
+	})
+})
+
+describe('cable schedule (Dave: on screen, then Excel)', () => {
+	it('one row per link: from the panel, to the outlet port, route + slack = installed length; no route flagged', () => {
+		const ix = project([outlet('O1', 'L1', 8000, 1500), link('K1', 'O1'), outlet('O9', 'L2', 0, 0), link('K9', 'O9', 2)])
+		const rows = cableSchedule(ix, routeLinks(ix, { slackM: 0.5, wastePct: 10 }), { slackM: 0.5, wastePct: 10 })
+		const k1 = rows.find((r) => r.linkId === 'K1')!
+		expect(k1).toMatchObject({ label: 'O1.A', from: 'R1 · P1 : 1', to: 'O1 : 1', type: 'cat6a', slackM: 0.5, lengthM: 12, over90: false })
+		expect(k1.routeM).toBeCloseTo((RACK_DROP + 9000) / 1000, 1)
+		const k9 = rows.find((r) => r.linkId === 'K9')!
+		expect(k9.lengthM).toBeUndefined()
+		expect(scheduleTotals(rows)).toEqual({ links: 2, metres: 12, unrouted: 1, over90: 0 })
 	})
 })

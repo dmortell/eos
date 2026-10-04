@@ -14,6 +14,7 @@
 	import type { Issue } from '../domain/drawing'
 	import { reprintIssue } from '../app/issue'
 	import { exportTransmittal } from '../render/transmittal'
+	import { issueNumbers } from '../domain/issue'
 	import IssuePanel from './IssuePanel.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 
@@ -72,12 +73,13 @@
 		issuing = picked.map((r) => sheetOf(r.id))
 	}
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
+	const numbers = $derived(issueNumbers(issues))
 	async function reprint(i: Issue) {
 		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
 	}
 	async function transmittal(i: Issue) {
-		try { await exportTransmittal(i, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+		try { await exportTransmittal(i, project.name, numbers.get(i.id)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 </script>
 
@@ -104,11 +106,12 @@
 	{#if show === 'issues'}
 		<table class="w-full border-collapse">
 			<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
-				<tr><th class="px-2 py-1">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
+				<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
 			</thead>
 			<tbody>
 				{#each issues as i (i.id)}
 					<tr class="border-b border-zinc-100 align-top">
+						<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
 						<td class="px-2 font-mono">{i.date}</td>
 						<td class="px-2">{i.name}</td>
 						<td class="px-2">{i.purpose}</td>
@@ -121,7 +124,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="7" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
+					<tr><td colspan="8" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
 				{/each}
 			</tbody>
 		</table>
@@ -161,6 +164,7 @@
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
+	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; }
 	.seg button { padding: 0 8px; font-weight: 600; color: var(--cad-muted); }
 	.seg button.on { background: var(--cad-strong); color: var(--cad-text); }

@@ -21,6 +21,11 @@ export function moveBy<T extends Entity>(e: T, d: Delta): T {
 	const dz = d.z ?? 0
 	if (e.type === 'shape') {
 		const s = e as Shape
+		// drawn on an elevation's plane: its points are (u, z) on that plane — a model move goes along it and up
+		if (s.plane?.kind === 'vertical' && s.geom.kind !== 'path') {
+			const t = s.plane.frame.t
+			return { ...s, geom: moveGeometry(s.geom, { x: d.x * t.x + d.y * t.y, y: dz }) } as T
+		}
 		const plane = dz && s.plane?.kind === 'plan' ? { plane: { ...s.plane, z: s.plane.z + dz } } : {}
 		return { ...s, geom: moveGeometry(s.geom, d), ...plane } as T
 	}

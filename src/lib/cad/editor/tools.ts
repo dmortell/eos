@@ -2,7 +2,7 @@
 // tool with the point already in model mm. No `tool === '…'` chains anywhere else.
 import type { EntityStore, Gesture } from '../store/store'
 import type { ProjectIndex } from '../domain/project'
-import type { Id, Pt, Outlet, ProjectSettings, Rack, Device } from '../domain/types'
+import type { Id, Pt, ProjectSettings, Rack, Device } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
@@ -11,7 +11,6 @@ import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
 import type { ViewSpace, WorkPlane } from '../views/space'
-import { nextLabel, portLabelsFor, naturalCompare } from '../domain/labels'
 import { insertNode, branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
@@ -21,6 +20,9 @@ import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf, joinAcross, type PathSel } from './pathSel'
+import { angleStep, axisLock } from './constrain'
+import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
+import { withGroups } from '../domain/groups'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -152,8 +154,27 @@ export class SelectTool implements Tool {
 	#handle: { h: Handle; base: Entity } | null = null
 	/** A note's grip being dragged: the note as it was at the press, and the viewport it's tied to. */
 	#note: { base: Shape; vp?: Sheet['viewports'][number]; index: number } | null = null
+	/** A drawn region's resize grip being dragged (editor/shapeGrips.ts): the shape as it was, which grip, its space. */
+	#region: { base: Shape; index: number; space: GripSpace } | null = null
+
+	/** The single selected region's grips (rect / ellipse / circle / polygon) where they show in this view. */
+	#regionGrips(c: ToolCtx): { s: Shape; space: GripSpace; at: Pt[] } | null {
+		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+		if (s?.type !== 'shape') return null
+		const pts = regionGrips(s.geom), space = pts.length ? gripSpace(s, c.space, (id) => c.store.get(id)) : null
+		return space ? { s, space, at: pts.map(space.to) } : null
+	}
 
 	dragFrom(): Pt | null { return this.#gesture ? (this.#grip?.grip.at ?? this.#start) : null }
+
+	/** Where the node at the other end of a dragged node's (first) segment shows: Shift's 15° steps turn about it. */
+	#neighbour(c: ToolCtx, shape: Id, nodeIds: Id[]): Pt | null {
+		const s = c.store.get(shape)
+		if (s?.type !== 'shape' || s.geom.kind !== 'path') return null
+		const g = s.geom.segs.find((x) => nodeIds.includes(x.a) !== nodeIds.includes(x.b))
+		const other = g && s.geom.nodes.find((n) => n.id === (nodeIds.includes(g.a) ? g.b : g.a))
+		return other ? c.space.fromWorld(other) : null
+	}
 
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
@@ -188,6 +209,9 @@ export class SelectTool implements Tool {
 			return
 		}
 		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
+		// a drawn region's resize grip (corner / edge / axis end / polygon corner)
+		const rg = this.#regionGrips(c), ri = rg ? rg.at.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5) : -1
+		if (rg && ri >= 0) { this.#region = { base: rg.s, index: ri, space: rg.space }; return }
 		const ng = this.#noteGrips(c), np = ng?.grips.find((q) => q.index >= 0 && Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= c.tol() * 1.5)
 		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }
 		if ((e.count ?? 1) >= 2 && this.#insertNode(e, c)) return
@@ -267,7 +291,8 @@ export class SelectTool implements Tool {
 			// Ctrl: a click toggles it (Dave: Shift is kept for constraints while dragging; port ranges in racks still use
 			// Shift); a Ctrl-DRAG copies the selection with it — let go of Ctrl mid-drag and it moves instead
 			if (e.ctrl) this.#toggle = id
-			const sel = c.selection.includes(id) ? c.selection : e.ctrl ? [...c.selection, id] : [id]
+			const grp = withGroups(c.index.shapes, [id])   // a member of a group picks the whole group
+			const sel = c.selection.includes(id) ? c.selection : e.ctrl ? [...new Set([...c.selection, ...grp])] : grp
 			if (sel !== c.selection && !e.ctrl) c.select(sel)
 			// in a rack row, devices move (by U / into another rack); elsewhere what has a plan position moves
 			this.#ids = sel.filter((x) => { const en = c.store.get(x); return !!en && (c.rowHit ? en.type === 'device' : canMove(en) || e.ctrl) })
@@ -280,6 +305,14 @@ export class SelectTool implements Tool {
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		if (this.#region) {
+			const { base, index, space } = this.#region
+			// snapped like any point here (paper: 0.5 mm), then into the shape's own space
+			const p = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, base.id).p
+			this.#gesture ??= c.store.begin('Resize shape')
+			this.#gesture.update((tx) => tx.put(dragRegionGrip(base, index, space.from(p), e.shift)))
+			return
+		}
 		if (this.#note) {
 			const { base, vp, index } = this.#note, to = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, base.id).p
 			this.#gesture ??= c.store.begin('Move note point')
@@ -328,7 +361,10 @@ export class SelectTool implements Tool {
 			if (!this.#gesture && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) < c.tol() / 2) return
 			// back where it started → exactly there (not the nearest grid point), so a drag-and-return changes nothing
 			const home = !branch && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) <= c.tol()
-			const sn: Snap = home ? { p: grip.at, kind: 'node' } : c.snap(e.p, e.alt, [shape, ...fol.keys()], branch ? undefined : [...grip.nodeIds, ...[...fol.values()].flat()])
+			// Shift: 15° steps — a branch from its node, a node from the node at the other end of its segment
+			const pivot = e.shift ? (branch ? grip.at : this.#neighbour(c, shape, grip.nodeIds)) : null
+			const sn: Snap = home ? { p: grip.at, kind: 'node' } : pivot ? { p: angleStep(pivot, e.p), kind: 'grid' }
+				: c.snap(e.p, e.alt, [shape, ...fol.keys()], branch ? undefined : [...grip.nodeIds, ...[...fol.values()].flat()])
 			this.#snap = sn.kind === 'grid' ? null : sn
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')
 			this.#gesture.update((tx) => {
@@ -372,7 +408,7 @@ export class SelectTool implements Tool {
 		} else if (this.#segDrag && this.#start) {
 			// a selected segment (or several) dragged whole: their end nodes move by the drag; other runs' nodes on them too
 			const { shape, nodes } = this.#segDrag, fol = this.#followers
-			const dv = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
+			const dv0 = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }, dv = e.shift ? axisLock(dv0) : dv0   // Shift: H / V
 			if (!this.#gesture && Math.hypot(dv.x, dv.y) < c.tol()) return
 			const d = c.space.deltaToWorld(snapPt(dv, e.alt, 10))
 			this.#gesture ??= c.store.begin('Move segment')
@@ -394,7 +430,7 @@ export class SelectTool implements Tool {
 			this.#gesture.update((tx) => { for (const n of r.put) tx.put(n) })
 			this.#copied = e.ctrl ? r.put.map((n) => n.id) : []
 		} else if (this.#start && this.#ids.length) {
-			const d = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }
+			const d0 = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }, d = e.shift ? axisLock(d0) : d0   // Shift: H / V
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			const s = c.space.deltaToWorld(snapPt(d, e.alt, c.space.spec.kind === 'sheet' ? 0.5 : 10))
 			const moved = new Set(this.#ids), clip = e.ctrl ? this.#clip : null
@@ -439,12 +475,13 @@ export class SelectTool implements Tool {
 			const { shape, seg } = this.#segPick, ps = c.pathSel?.(), had = ps?.shape === shape ? ps.segs : []
 			c.selectPath?.({ shape, nodes: [], segs: e.ctrl ? (had.includes(seg) ? had.filter((x) => x !== seg) : [...had, seg]) : [seg] })
 		}
-		else if (this.#toggle) { const t = this.#toggle; c.select(c.selection.includes(t) ? c.selection.filter((x) => x !== t) : [...c.selection, t]) }
+		else if (this.#toggle) { const t = withGroups(c.index.shapes, [this.#toggle]); c.select(c.selection.includes(t[0]) ? c.selection.filter((x) => !t.includes(x)) : [...new Set([...c.selection, ...t])]) }
 		else if (this.#cycle) c.select([this.#cycle])
 		else if (this.#marquee && Math.hypot(e.p.x - this.#marquee.x, e.p.y - this.#marquee.y) > c.tol()) {
 			// left → right: what it encloses (window); right → left: what it touches (crossing)
 			const b = box(this.#marquee, e.p), ids = e.p.x < this.#marquee.x ? pickTouching(c.prims(), b) : pickInside(c.prims(), b)
-			c.select(e.ctrl ? [...new Set([...c.selection, ...ids])] : ids)
+			const grouped = withGroups(c.index.shapes, ids)
+			c.select(e.ctrl ? [...new Set([...c.selection, ...grouped])] : grouped)
 		}
 		this.#reset(c)
 	}
@@ -465,6 +502,9 @@ export class SelectTool implements Tool {
 		}
 		const picked = new Set(ps?.nodes ?? [])
 		out.push(...[...this.grips(c), ...(this.#noteGrips(c)?.grips ?? [])].map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'nodeIds' in g && g.nodeIds.some((n) => picked.has(n)) ? 'grip grip-sel' : 'grip' })))
+		// a selected region's resize grips (a rectangle's edge middles a little smaller than its corners)
+		const rg = this.#regionGrips(c)
+		if (rg) rg.at.forEach((p, i) => out.push({ k: 'line', pts: sq(p, (rg.s.geom.kind === 'rect' && i >= 4 ? 6 : 8) * px), closed: true, fill: true, cls: 'grip' }))
 		const opSel = c.openingId?.()
 		// bars under the point grips
 		for (const h of handles) if (h.span) out.push({ k: 'line', pts: h.span, cls: `grip-bar${h.selects === opSel ? ' grip-bar-sel' : ''}` })
@@ -499,50 +539,10 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#joined = 0
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0
 		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
 		c.setMarquee(null)
 	}
-}
-
-/** Outlet: each click places the NEXT outlet (label = the last one placed + 1, ADR 0002) with sticky defaults. */
-export class OutletTool implements Tool {
-	readonly id = 'outlet'
-	readonly cursor = 'crosshair'
-	last: Outlet | null = null
-
-	/** `next` = what the tool bar set for the next outlet (unset = like the last one). */
-	constructor(private next: () => { ports?: number; tier?: Outlet['tier']; usage?: string; mount?: Outlet['mount']; cableType?: string } = () => ({})) {}
-
-	/** A typed point: `@1200,0` places the next outlet 1.2 m along from the last one. */
-	typed(p: Pt, c: ToolCtx): void { this.down({ p, shift: false, ctrl: false, alt: true }, c) }
-	lastPoint(c: ToolCtx): Pt | null { return this.last?.at ? c.space.fromWorld({ ...this.last.at, z: this.last.z ?? 0 }) : null }
-
-	down(e: PointerIn, c: ToolCtx): void {
-		const prev = this.last ?? lastOutletOn(c)
-		const level = c.index.get(c.levelId)
-		const used = new Set(c.index.outlets.filter((o) => o.levelId === c.levelId).map((o) => o.label))
-		let label = prev ? nextLabel(prev.label) : `${level?.type === 'level' ? level.number : ''}-001`
-		while (used.has(label)) label = nextLabel(label)   // never reuse a label already on this level
-		const nx = this.next(), count = nx.ports ?? prev?.ports.length ?? 2
-		const o: Outlet = {
-			type: 'outlet', id: newId(), levelId: c.levelId, label,
-			tier: nx.tier ?? prev?.tier ?? 'low', usage: nx.usage ?? prev?.usage ?? 'desk', mount: nx.mount ?? prev?.mount ?? 'floor',
-			// in plan the height is sticky; on an elevation the click IS the height (an outlet placed on a wall elevation)
-			...placeAt(c, e, prev?.z ?? 0),
-			...(prev?.zoneId ? { zoneId: prev.zoneId } : {}),
-			ports: portLabelsFor(label, count, c.settings?.portSuffix ?? 'alpha', c.settings?.portSeparator ?? '.').map((l, i) => ({
-				port: i + 1, label: l, cableType: nx.cableType ?? prev?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
-				...(prev?.ports[i]?.serverRoomId ? { serverRoomId: prev.ports[i].serverRoomId } : {}),
-			})),
-		}
-		c.store.transact(`Place outlet ${label}`, (tx) => tx.put(o))
-		this.last = o
-		c.select([o.id])
-	}
-	move(): void {}
-	up(): void {}
-	cancel(): void {}
 }
 
 /** A click → plan position (+ height). Plan: the click is x / y, the height is `planZ`. Elevation: the click on the
@@ -550,10 +550,6 @@ export class OutletTool implements Tool {
 export function placeAt(c: ToolCtx, e: PointerIn, planZ: number): { at: Pt; z: number } {
 	const w = c.space.toWorld(snapPt(e.p, e.alt), c.work)
 	return { at: { x: w.x, y: w.y }, z: c.space.spec.kind === 'plan' ? planZ : Math.round(w.z) }
-}
-
-function lastOutletOn(c: ToolCtx): Outlet | undefined {
-	return c.index.outlets.filter((o) => o.levelId === c.levelId).sort((a, b) => naturalCompare(a.label, b.label)).at(-1)
 }
 
 export const box = (a: Pt, b: Pt): Bounds => ({ x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) })

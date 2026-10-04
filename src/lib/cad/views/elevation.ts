@@ -5,11 +5,11 @@
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isVertical } from '../domain/shapes'
-import { passesThrough } from './plan'
+import { isVertical, outlineOf } from '../domain/shapes'
+import { passesThrough, shapePrims, dimLine } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W } from '../domain/devices'
-import { rotate, rackFrontNormal } from '../domain/conventions'
+import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
 import { insertAttrs, type Block } from '../domain/blocks'
@@ -41,6 +41,14 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	// level is cut to this floor's height (slab underside → top of the plenum), so a 30-floor riser is one storey here.
 	const h = level?.heights, floor = { y0: -((h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700)), y1: (h?.raisedFloorMm ?? 300) + (h?.slabMm ?? 200) }
 	for (const s of ix.shapes) {
+		// a note or dimension drawn ON an elevation's plane: put into this view's coordinates, drawn as on a plan
+		if (s.plane?.kind === 'vertical' && !outlineOf(s.geom)) {
+			if (s.levelId !== levelId) continue
+			const plane = s.plane, to = (q: Pt) => sp.fromWorld(unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
+			const g = viewGeom(s.geom, to)
+			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1, prims: shapePrims({ ...s, geom: g }, k) })
+			continue
+		}
 		// a block insert (a wall faceplate): its symbol at its height, facing the viewer
 		if (s.geom.kind === 'insert') {
 			if (s.levelId !== levelId) continue
@@ -109,6 +117,23 @@ function outletItem(ot: Outlet, level: Level | undefined, sp: ViewSpace, rect: R
 	}
 }
 
+/** A note's / dimension's geometry put into view coordinates by `to` (from its plane's (u, z)) — a dimension's offset
+ *  measured again there, so its line stays where it was and its text stays above it. Null = not a note. */
+function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
+	switch (g.kind) {
+		case 'text': return { ...g, at: to(g.at) }
+		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(to) }
+		case 'dimension': {
+			const a = to(g.a), b = to(g.b), a2 = to(dimLine(g).a2)
+			if (g.mode === 'horizontal') return { ...g, a, b, offset: a2.y - a.y }
+			if (g.mode === 'vertical') return { ...g, a, b, offset: a2.x - a.x }
+			const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
+			return { ...g, a, b, offset: ((a2.x - a.x) * -(b.y - a.y) + (a2.y - a.y) * (b.x - a.x)) / L }
+		}
+		default: return null
+	}
+}
+
 function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, span?: { z0: number; z1: number }): Item[] {
 	const g = s.geom
 	if (g.kind === 'path') {
@@ -151,16 +176,24 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			return [{ depth, prims: [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }] }]
 		})
 	}
-	if ((g.kind === 'rect' || g.kind === 'circle' || g.kind === 'polygon') && (!s.plane || s.plane.kind === 'plan')) {
+	// a region drawn ON an elevation's plane (the Shape tool there): its (u, z) outline put back in the model, seen here
+	if (s.plane?.kind === 'vertical') {
+		const plane = s.plane, out = outlineOf(g)
+		if (!out?.length) return []
+		const world = out.map((q) => unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
+		const mid = world.reduce((m, p) => ({ x: m.x + p.x / world.length, y: m.y + p.y / world.length, z: m.z + p.z / world.length }), { x: 0, y: 0, z: 0 })
+		return [{ depth: sp.depthOf(mid), prims: [{ k: 'line', pts: world.map((p) => sp.fromWorld(p)), closed: true, cls: 'shape', src: s.id }] }]
+	}
+	if ((g.kind === 'rect' || g.kind === 'circle' || g.kind === 'ellipse' || g.kind === 'polygon') && (!s.plane || s.plane.kind === 'plan')) {
 		const z = s.plane?.z ?? 0, ext = s.extent ?? 0
 		const pts: Pt3[] = g.kind === 'rect' ? footprint(g.centre, g.size.x, g.size.y, g.rot, z)
 			: g.kind === 'circle' ? [{ x: g.centre.x - g.r, y: g.centre.y, z }, { x: g.centre.x + g.r, y: g.centre.y, z }, { x: g.centre.x, y: g.centre.y - g.r, z }, { x: g.centre.x, y: g.centre.y + g.r, z }]
-			: g.pts.map((p) => ({ ...p, z }))
+			: (outlineOf(g) ?? []).map((p) => ({ ...p, z }))
 		const [u0, u1] = uSpan(pts)
 		const c = pts.reduce((m, p) => ({ x: m.x + p.x / pts.length, y: m.y + p.y / pts.length, z }), { x: 0, y: 0, z })
 		return [{ depth: sp.depthOf(c), prims: [ext ? rect(u0, u1, z, z + ext, 'shape', s.id) : { k: 'line', pts: [{ x: u0, y: -z }, { x: u1, y: -z }], cls: 'shape', src: s.id }] }]
 	}
-	return []   // plan text and vertical-plane regions don't show in elevations yet
+	return []   // plan text doesn't show in elevations yet
 }
 
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */

@@ -138,6 +138,9 @@ export interface Issue {
 	to?: string
 	note?: string
 	sheets: { sheetId: Id; number: string; title: string; rev: string; size: string; changed: boolean }[]
+	/** The issue's number (1, 2, 3 …; editable) — in the Issues list, the transmittal and the PDF's name. Issues from
+	 *  before numbers count in date order (`issueNumbers`). */
+	number?: number
 	/** The package PDF in file storage (`files/{id}`, listed in Uploads). */
 	file?: { id: string; url: string; name: string }
 }

@@ -3,7 +3,7 @@
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
 import type { Id, Pt, Rack, Device, Space } from './types'
-import type { Entity, Layer, Sheet } from './drawing'
+import type { Entity, Layer, Sheet, Group } from './drawing'
 import { moveGeometry, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
@@ -160,8 +160,16 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		const plane = dz && s.plane?.kind === 'plan' ? { plane: { ...s.plane, z: s.plane.z + dz } } : {}
 		return { ...rest, ...owner, geom, ...role, ...plane, ...layer(s) } as Shape
 	})
+	// copies of a group's shapes make a NEW group (they don't join the original's)
+	const groups = new Map<Id, Id>()
+	items = items.map((e) => {
+		if (e.type !== 'shape' || !e.groupId) return e
+		if (!groups.has(e.groupId)) groups.set(e.groupId, newId())
+		return { ...e, groupId: groups.get(e.groupId)! }
+	})
+	const newGroups = [...groups.values()].map((id): Group => ({ type: 'group', id }))
 	const select = items.filter((e) => e.type !== 'device').map((e) => e.id)
-	return { put: [...extra, ...made, ...items], select, skipped }
+	return { put: [...extra, ...made, ...newGroups, ...items], select, skipped }
 }
 
 /** Devices into a rack, each at its own U (as-is); refused if any would overlap or not fit. A copied rack's devices

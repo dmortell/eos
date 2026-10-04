@@ -10,6 +10,7 @@ import { rackBom, type RackBomLine } from '../domain/rackBom'
 import { racksInOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
 import { download, fileSafe } from './download'
+import { scheduleTotals, type CableRow } from '../domain/cableSchedule'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` }
@@ -193,4 +194,28 @@ export async function exportBom(ix: ProjectIndex, projectName: string, catalog: 
 	}
 	download(await wb.xlsx.writeBuffer(), `BOM-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
 	return lines.length + rackLines
+}
+
+// ── Cable schedule ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The cable schedule (domain/cableSchedule.ts) as Excel: one row per link, the 90 m ones and those with no route
+ *  marked, totals at the foot. */
+export async function exportCableSchedule(rows: CableRow[], projectName: string): Promise<void> {
+	const ExcelJS = await import('exceljs')
+	const wb = new ExcelJS.Workbook()
+	const ws = wb.addWorksheet('Cable schedule')
+	ws.addRow([`${projectName} - cable schedule`]).font = { bold: true, size: 12 }
+	const head = ws.addRow(['Label', 'Kind', 'From', 'To', 'Cable', 'Route (m)', 'Slack (m)', 'Length (m)', 'Over 90 m', 'Note'])
+	head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
+	;[16, 11, 32, 32, 10, 10, 9, 10, 9, 36].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+	for (const r of rows) {
+		const row = ws.addRow([r.label, r.kind, r.from, r.to, r.type, r.routeM ?? '', r.slackM || '', r.lengthM ?? '', r.over90 ? 'YES' : '', r.problem ? `no route: ${r.problem}` : r.handSet ? 'length set by hand' : ''])
+		if (r.over90 || r.lengthM == null) row.font = { color: { argb: 'FFB91C1C' } }
+	}
+	const t = scheduleTotals(rows)
+	ws.addRow([])
+	ws.addRow([`${t.links} links · ${t.metres} m installed (routed links)${t.unrouted ? ` · ${t.unrouted} without a route` : ''}${t.over90 ? ` · ${t.over90} over 90 m` : ''}`]).font = { bold: true }
+	ws.views = [{ state: 'frozen', ySplit: 2 }]
+	download(await wb.xlsx.writeBuffer(), `Cables-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
 }

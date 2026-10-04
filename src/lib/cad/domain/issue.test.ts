@@ -1,11 +1,22 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
 const sheet = (id: string, revisions?: Sheet['revisions']): Sheet => ({
 	type: 'sheet', id, number: id, title: id, order: 0, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active', ...(revisions ? { revisions } : {}),
+})
+
+describe('issue numbers', () => {
+	const iss = (id: string, date: string, number?: number) => ({ type: 'issue', id, name: id, purpose: '', date, sheets: [], ...(number ? { number } : {}) }) as Issue
+	it('old issues count in date order; a set number wins; the next one is one past the highest', () => {
+		const list = [iss('b', '2026-10-02'), iss('a', '2026-10-01'), iss('c', '2026-10-03', 7)]
+		expect(Object.fromEntries(issueNumbers(list))).toEqual({ a: 1, b: 2, c: 7 })
+		expect(nextIssueNumber(list)).toBe(8)
+		expect(nextIssueNumber([])).toBe(1)
+		expect(issueTag(3)).toBe('Issue 03')
+	})
 })
 
 describe('issue', () => {

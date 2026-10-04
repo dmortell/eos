@@ -3,7 +3,7 @@
 import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical } from '../domain/shapes'
+import { isVertical, ellipsePts } from '../domain/shapes'
 import { planOpenings } from '../domain/openings'
 import { sectionMarks, sectionsOn } from './section'
 import { rotate } from '../domain/conventions'
@@ -36,7 +36,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
-	for (const s of shapes) if (s.role?.kind !== 'containment') out.push(...shapePrims(s, k, o.blocks))
+	// (a shape drawn on an elevation's plane belongs to elevations, not the plan)
+	for (const s of shapes) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical') out.push(...shapePrims(s, k, o.blocks))
 	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
 	// and a rack's filled footprint would hide it.
@@ -91,12 +92,77 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : [])]
 		}
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]
+		case 'ellipse': return [{ k: 'line', pts: ellipsePts(g), closed: true, fill: !!s.extent, cls, src: s.id }]
 		case 'polygon': return [{ k: 'line', pts: g.pts, closed: true, fill: !!s.extent, cls, src: s.id }]
-		case 'text': return [{ k: 'text', at: g.at, text: g.text, size: g.sizeMm * k, rot: g.rot, cls: 'note', src: s.id }]
-		case 'leader': return leaderPrims(s.id, g.pts, g.text, k)
-		case 'cloud': return [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
+		case 'text': {
+			const t: Prim = { k: 'text', at: g.at, text: g.text, size: g.sizeMm * k, rot: g.rot, cls: 'note', src: s.id }
+			return noteColour(s, s.style?.fill ? [textBox(g.at, g.text, g.sizeMm * k, g.rot, s.style.fill, s.id), t] : [t])
+		}
+		case 'leader': return noteColour(s, leaderPrims(s.id, g.pts, g.text, k))
+		case 'cloud': return noteColour(s, [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }])
+		case 'dimension': return noteColour(s, dimensionPrims(g, k, s.id))
 		default: return []
 	}
+}
+
+/** A note's own colour (its style's line colour) on all its prims (backlog "Notes on plans and diagrams"). */
+const noteColour = (s: Shape, ps: Prim[]): Prim[] => (s.style?.stroke ? ps.map((p) => (p.k === 'image' || p.cls === 'note-bg' ? p : { ...p, color: s.style!.stroke })) : ps)
+
+/** A filled box behind a text (its background): the text's width estimated as for title blocks (0.6 em Latin, 1 em
+ *  full-width), turned with it. */
+function textBox(at: Pt, text: string, size: number, rot: number | undefined, fill: string, src: string): Prim {
+	const w = [...text].reduce((a, ch) => a + (ch.charCodeAt(0) >= 0x2e80 ? 1 : 0.6) * size, 0), pad = size * 0.25
+	const r = ((rot ?? 0) * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r)
+	const pts = [[-pad, -size - pad], [w + pad, -size - pad], [w + pad, pad], [-pad, pad]].map(([x, y]) => ({ x: at.x + x * c - y * sn, y: at.y + x * sn + y * c }))
+	return { k: 'line', pts, closed: true, fill: true, cls: 'note-bg', color: fill, src }
+}
+
+/**
+ * A DIMENSION (backlog "Markup kinds" part 3): extension lines from the two points to the dimension line (set off by
+ * `offset`), architectural ticks at its ends, and the length over its middle — mm below a metre, else m (or its own
+ * text). Aligned with the points, or horizontal / vertical. In the shape's own space; `k` = drawing mm per paper mm.
+ */
+type Dim = Extract<Shape['geom'], { kind: 'dimension' }>
+/** A dimension's measured length and the two ends of its dimension line. */
+export function dimLine(g: Dim): { a2: Pt; b2: Pt; len: number } {
+	const { a, b } = g
+	if (g.mode === 'horizontal') return { a2: { x: a.x, y: a.y + g.offset }, b2: { x: b.x, y: a.y + g.offset }, len: Math.abs(b.x - a.x) }
+	if (g.mode === 'vertical') return { a2: { x: a.x + g.offset, y: a.y }, b2: { x: a.x + g.offset, y: b.y }, len: Math.abs(b.y - a.y) }
+	const len = Math.hypot(b.x - a.x, b.y - a.y)
+	const n = len ? { x: -(b.y - a.y) / len, y: (b.x - a.x) / len } : { x: 0, y: -1 }
+	return { a2: { x: a.x + n.x * g.offset, y: a.y + n.y * g.offset }, b2: { x: b.x + n.x * g.offset, y: b.y + n.y * g.offset }, len }
+}
+/** Where a point lands as an offset for this dimension (the third click of the tool). */
+export function dimOffset(g: Pick<Dim, 'a' | 'b' | 'mode'>, p: Pt): number {
+	if (g.mode === 'horizontal') return p.y - g.a.y
+	if (g.mode === 'vertical') return p.x - g.a.x
+	const L = Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y) || 1
+	return ((p.x - g.a.x) * -(g.b.y - g.a.y) + (p.y - g.a.y) * (g.b.x - g.a.x)) / L
+}
+
+export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
+	const { a, b } = g, { a2, b2, len } = dimLine(g)
+	if (len < 1e-6) return []
+	const gap = 1 * k, over = 1.5 * k, tick = 1.2 * k
+	const ext = (p: Pt, q: Pt): Prim | null => {
+		const L = Math.hypot(q.x - p.x, q.y - p.y)
+		if (L < gap) return null
+		const u = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }
+		return { k: 'line', pts: [{ x: p.x + u.x * gap, y: p.y + u.y * gap }, { x: q.x + u.x * over, y: q.y + u.y * over }], cls: 'dim', src }
+	}
+	const d = { x: (b2.x - a2.x) / len, y: (b2.y - a2.y) / len }, dl = Math.hypot(d.x, d.y) || 1, u = { x: d.x / dl, y: d.y / dl }
+	const slash = (p: Pt): Prim => ({ k: 'line', pts: [{ x: p.x - (u.x - u.y) * tick * 0.7, y: p.y - (u.y + u.x) * tick * 0.7 }, { x: p.x + (u.x - u.y) * tick * 0.7, y: p.y + (u.y + u.x) * tick * 0.7 }], cls: 'dim dim-tick', src })
+	// the text reads along the line, never upside down; set just off it (above it on screen)
+	let ang = (Math.atan2(u.y, u.x) * 180) / Math.PI
+	if (ang > 90) ang -= 180; else if (ang <= -90) ang += 180
+	const r = (ang * Math.PI) / 180, up = { x: Math.sin(r), y: -Math.cos(r) }, mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }
+	const text = g.text ?? (len < 1000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(len < 10000 ? 2 : 1)} m`)
+	return [
+		...[ext(a, a2), ext(b, b2)].filter((p): p is Prim => !!p),
+		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', src },
+		slash(a2), slash(b2),
+		{ k: 'text', at: { x: mid.x + up.x * k, y: mid.y + up.y * k }, text, size: 2.5 * k, anchor: 'middle', rot: ang || undefined, cls: 'dim-text', src },
+	]
 }
 
 /** A riser that passes THROUGH a level (L33 down to L12 shows on L30 too): a vertical segment whose ends lie above
@@ -134,7 +200,8 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			const text = la !== lb ? `Riser ${levelName(la)} ↕ ${levelName(lb)}` : `↕ ${fmtZ(lo)} → ${fmtZ(hi)}`
 			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
-			out.push({ k: 'line', pts: [a, b], w, cls, src: s.id })
+			// a segment's own size wins (a reducer); a run's own colour (several runs edited at once) over the tier's
+			out.push({ k: 'line', pts: [a, b], w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...(s.style?.stroke ? { color: s.style.stroke } : {}) })
 		}
 	}
 	if (s.label) {

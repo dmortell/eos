@@ -1,7 +1,8 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level, Outlet } from '../domain/types'
-import { SelectTool, OutletTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { SelectTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { OutletTool } from '../editor/outletTool'
 import type { PathSel } from '../editor/pathSel'
 import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
@@ -13,6 +14,8 @@ import { OpeningTool } from '../editor/openingTool'
 import { SectionTool } from '../editor/sectionTool'
 import { RenumberTool } from '../editor/renumberTool'
 import { InsertTool } from '../editor/insertTool'
+import { ShapeTool, type ShapeOpts } from '../editor/shapeTool'
+import { DimTool, type DimMode } from '../editor/dimTool'
 import type { Block } from '../domain/blocks'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
@@ -20,18 +23,18 @@ import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 
-export type ToolId = 'select' | 'insert' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
+export type ToolId = 'select' | 'insert' | 'shape' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section'],
 	section: ['plan'],
-	insert: ['plan', 'elevation', 'section'],
+	insert: ['plan', 'elevation', 'section'], shape: ['plan', 'elevation', 'section', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'],
 	device: ['row'], cord: ['row'], assign: ['row'],
-	text: ['sheet'], leader: ['sheet'], cloud: ['sheet'],
+	text: ['sheet', 'plan', 'elevation', 'section'], leader: ['sheet', 'plan', 'elevation', 'section'], cloud: ['sheet', 'plan', 'elevation', 'section'],
 }
 export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
@@ -51,6 +54,10 @@ export class Workspace {
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
 	/** The device tool's Mount: a both-face device (a panel) fixed to the front or rear only (shares its U). */
 	deviceMount = $state<'front' | 'rear' | undefined>(undefined)
+	/** The Shape tool's choice: rectangle / ellipse / polygon (its sides, inscribed or circumscribed). */
+	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
+	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
+	dimMode = $state<DimMode>('aligned')
 	/** The block the Insert tool places (picked in the Blocks list). */
 	insertBlock = $state.raw<Block | null>(null)
 	/** The Opening tool's swing (none / left / right), sticky like the cord defaults. */
@@ -79,7 +86,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), insert: new InsertTool(() => this.insertBlock), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),

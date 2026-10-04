@@ -4,6 +4,7 @@ import type { ProjectIndex } from '../domain/project'
 import { namedFrame, type ElevDir } from '../domain/conventions'
 import { sectionFrame } from '../views/section'
 import { contentCentre } from '../views/sheet'
+import { groupShapes, ungroupShapes } from '../domain/groups'
 import type { Id, Cord } from '../domain/types'
 import type { Entity, Sheet, Viewport } from '../domain/drawing'
 import { removeCord } from '../domain/cords'
@@ -49,12 +50,31 @@ export function deleteEntities(store: EntityStore, ids: Id[], also?: (tx: Txn) =
 	}
 	// Devices removed with their rack take their links / cords too.
 	for (const e of store.all()) if ((e.type === 'link' || e.type === 'cord') && (gone.has(e.a.on) || gone.has(e.b.on))) gone.add(e.id)
+	// a group whose shapes all go, goes too
+	for (const g of store.ofType('group')) {
+		const members = store.ofType('shape').filter((s) => s.groupId === g.id)
+		if (members.length && members.every((s) => gone.has(s.id))) gone.add(g.id)
+	}
 	store.transact(gone.size === 1 ? 'Delete' : `Delete ${gone.size} items`, (tx) => {
 		also?.(tx)   // e.g. a deleted section's viewports kept as elevations or taken off (one undo step with the delete)
 		for (const id of gone) tx.del(id)
 		for (const c of marked) if (!gone.has(c.id)) tx.put(c)
 	})
 	return gone.size + marked.length
+}
+
+/** Group the selected shapes (Ctrl+G): one undo step. Returns how many, or a reason it can't. */
+export function groupSelection(store: EntityStore, ids: Id[]): { n: number } | { problem: string } {
+	const r = groupShapes(store.all(), ids)
+	if (!r.group) return { problem: 'Select two or more drawn shapes to group them' }
+	store.transact(`Group ${r.put.length - 1} shapes`, (tx) => { for (const e of r.put) tx.put(e); for (const id of r.del) tx.del(id) })
+	return { n: r.put.length - 1 }
+}
+/** Ungroup the selected shapes (Ctrl+Shift+G): one undo step; how many left a group. */
+export function ungroupSelection(store: EntityStore, ids: Id[]): number {
+	const r = ungroupShapes(store.all(), ids)
+	if (r.put.length) store.transact(`Ungroup ${r.put.length} shapes`, (tx) => { for (const e of r.put) tx.put(e); for (const id of r.del) tx.del(id) })
+	return r.put.length
 }
 
 /** The sheet viewports showing any of these sections. */
