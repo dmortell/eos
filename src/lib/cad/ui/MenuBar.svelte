@@ -7,12 +7,14 @@
 
 	let { menus, right }: { menus: Menu[]; right?: Snippet } = $props()
 	let open = $state<string | null>(null)
-	function pick(it: Exclude<MenuItem, '-'>) { if (it.disabled) return; open = null; it.run() }
+	/** A closed menu gives the keys back to the drawing (UX review: the View button stayed outlined after Esc). */
+	function close() { open = null; if (document.activeElement instanceof HTMLElement) document.activeElement.blur() }
+	function pick(it: Exclude<MenuItem, '-'>) { if (it.disabled) return; close(); it.run() }
 </script>
 
-<svelte:window onkeydowncapture={(e) => { if (open && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); open = null } }} />
+<svelte:window onkeydowncapture={(e) => { if (open && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } }} />
 
-{#if open}<button class="backdrop" aria-label="Close the menu" onclick={() => (open = null)}></button>{/if}
+{#if open}<button class="backdrop" aria-label="Close the menu" onclick={close}></button>{/if}
 <nav class="menubar">
 	{#each menus as m (m.label)}
 		<div class="wrap">

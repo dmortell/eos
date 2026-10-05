@@ -44,7 +44,7 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
 export interface Drafting { snap: boolean; grid: number; osnap: boolean; showGrid: boolean }
-export interface ViewInfo { xy: string | null; readout: string | null; scale: string; zoom: number; mmPerPx: number; extra?: string }
+export interface ViewInfo { loading?: boolean; xy: string | null; readout: string | null; scale: string; zoom: number; mmPerPx: number; extra?: string }
 const DRAFTING_KEY = 'cad-drafting'
 function loadDrafting(): Drafting {
 	const d: Drafting = { snap: true, grid: 10, osnap: true, showGrid: false }

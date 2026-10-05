@@ -12,6 +12,8 @@
 	import { traceCircuit } from '../domain/cords'
 	import { defaultOutletBlock } from '../domain/blocks'
 	import Trace from './Trace.svelte'
+	import PropGroup from './PropGroup.svelte'
+	import { outletZ } from '../domain/routing'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
 
@@ -70,7 +72,6 @@
 </script>
 
 {#if outlets.length > 1}
-	<p class="pt-1 font-semibold">{outlets.length} outlets</p>
 	<label class="row">Tier
 		<select class="inp" value={same((o) => o.tier) ?? ''} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
 			{#if !same((o) => o.tier)}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
@@ -100,51 +101,60 @@
 	{@render roomField()}
 {:else if outlets.length === 1}
 	{@const o = outlets[0]}
-	<p class="font-semibold">Outlet</p>
-	<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
-	<label class="row">Tier
-		<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
-	</label>
-	<label class="row">Usage
-		<select class="inp" value={o.usage} onchange={(e) => put(o, 'Usage', { usage: e.currentTarget.value })}>
-			{#if !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage || '—'}</option>{/if}
-			{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
-		</select>
-	</label>
-	<label class="row">Mount
-		<select class="inp" value={o.mount} onchange={(e) => put(o, 'Mount', { mount: e.currentTarget.value as Outlet['mount'] })}>
-			{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
-		</select>
-	</label>
-	<label class="row">Symbol
-		<select class="inp" value={o.blockId ?? ''} onchange={(e) => put(o, 'Symbol', { blockId: e.currentTarget.value || undefined })}>
-			<option value="">Auto: {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage/mount'}</option>
-			{#each outletBlocks as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-			{#if o.blockId && project.blockOf(o.blockId)?.retired}<option value={o.blockId}>{project.blockOf(o.blockId)?.name} (retired)</option>{/if}
-		</select>
-	</label>
-	<label class="row">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
-	{#if o.at}
-		<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
-		<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
-	{/if}
-	{@render roomField()}
-	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount([o], e.currentTarget)} /></label>
-	<p class="pt-1 font-semibold">Ports</p>
-	{#each o.ports as p, i (p.port)}
-		<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
-			<span class="text-zinc-400">{p.port}</span>
-			<input class="inp font-mono" value={p.label} onchange={(e) => { const t = e.currentTarget.value; e.currentTarget.value = p.label; const n = setPortLabel(project.index, { on: o.id, port: p.port }, t); if (n) project.relabel(`Port ${p.label}`, [n], ws.ask2) }} />
-			<select class="inp" value={p.serverRoomId ?? ''} onchange={(e) => setPort(o, i, { serverRoomId: e.currentTarget.value || undefined })}>
-				<option value="">—</option>
-				{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+	{@const lv = project.index.get(o.levelId)}
+	<!-- groups (UX review "Outlet Properties still flat"): General · Position · Ports · Circuit; the layer is below -->
+	<PropGroup kind="outlet" title="General">
+		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
+		<label class="row">Usage
+			<select class="inp" value={o.usage} onchange={(e) => put(o, 'Usage', { usage: e.currentTarget.value })}>
+				{#if !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage || '—'}</option>{/if}
+				{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 			</select>
-		</div>
-	{/each}
-	{#each o.ports as p (p.port)}
-		{@const steps = traceCircuit(project.index, { on: o.id, port: p.port })}
-		{#if steps.length > 1}<Trace {project} {steps} />{/if}
-	{/each}
+		</label>
+		<label class="row">Tier
+			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
+		</label>
+		<label class="row">Mount
+			<select class="inp" value={o.mount} onchange={(e) => put(o, 'Mount', { mount: e.currentTarget.value as Outlet['mount'] })}>
+				{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
+			</select>
+		</label>
+		<label class="row">Symbol
+			<select class="inp" value={o.blockId ?? ''} onchange={(e) => put(o, 'Symbol', { blockId: e.currentTarget.value || undefined })}>
+				<option value="">Auto: {project.blockOf(defaultOutletBlock(o))?.name ?? 'by usage/mount'}</option>
+				{#each outletBlocks as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+				{#if o.blockId && project.blockOf(o.blockId)?.retired}<option value={o.blockId}>{project.blockOf(o.blockId)?.name} (retired)</option>{/if}
+			</select>
+		</label>
+	</PropGroup>
+	<PropGroup kind="outlet" title="Position">
+		<!-- a blank height shows the default it uses (a floor box 0, a wall outlet 300, a ceiling one the ceiling) -->
+		<label class="row" title="Height above FFL (mm); blank = the default for its mount">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
+		{#if o.at}
+			<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
+			<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
+		{/if}
+		{@render roomField()}
+	</PropGroup>
+	<PropGroup kind="outlet" title="Ports">
+		<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount([o], e.currentTarget)} /></label>
+		{#each o.ports as p, i (p.port)}
+			<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
+				<span class="text-zinc-400">{p.port}</span>
+				<input class="inp font-mono" value={p.label} onchange={(e) => { const t = e.currentTarget.value; e.currentTarget.value = p.label; const n = setPortLabel(project.index, { on: o.id, port: p.port }, t); if (n) project.relabel(`Port ${p.label}`, [n], ws.ask2) }} />
+				<select class="inp" value={p.serverRoomId ?? ''} title="Its server room" onchange={(e) => setPort(o, i, { serverRoomId: e.currentTarget.value || undefined })}>
+					<option value="">—</option>
+					{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+				</select>
+			</div>
+		{/each}
+	</PropGroup>
+	{@const traced = o.ports.map((p) => traceCircuit(project.index, { on: o.id, port: p.port })).filter((st) => st.length > 1)}
+	{#if traced.length}
+		<PropGroup kind="outlet" title="Circuit">
+			{#each traced as steps, k (k)}<Trace {project} {steps} />{/each}
+		</PropGroup>
+	{/if}
 {/if}
 
 {#snippet roomField()}

@@ -138,7 +138,12 @@
 	const RESTORED = 'restored'
 	const readCams = (): Record<string, Camera> => { try { return JSON.parse(localStorage.getItem(camsKey()) ?? '{}') } catch { return {} } }
 	// a camera stuck at the smallest zoom is a bad saved fit, not a choice: that view fits again
-	for (const [k, c] of Object.entries(readCams())) if (c && Number.isFinite(c.k) && c.k > MIN_K * 1.5) cams.set(k, { cam: c, fitted: RESTORED })
+	// a saved camera comes back only for the view this pane opened with — a refresh of the same URL (UX review R2: an old
+	// camera opened S001 at 645 % on one panel); any other view opened later fits its content, then keeps its camera
+	// for the session
+	// svelte-ignore state_referenced_locally
+	const firstKey = `${levelId}:${specKey(spec)}`
+	for (const [k, c] of Object.entries(readCams())) if (k === firstKey && c && Number.isFinite(c.k) && c.k > MIN_K * 1.5) cams.set(k, { cam: c, fitted: RESTORED })
 	let saveTimer: ReturnType<typeof setTimeout> | undefined
 	$effect(() => {
 		const c = cam
@@ -222,6 +227,15 @@
 		else zoomExtents()
 	}
 
+	/** Zoom to the selection (UX review V3; Shift+Home): what this view draws of it, with a margin. False = none here. */
+	export function zoomToSelection(): boolean {
+		const sel = new Set(ws.selection), src = vpe ? onPaper(vpe.prims, vpe.vp) : prims
+		const b = unionBounds(src.filter((p) => p.src && sel.has(p.src)).map(primBounds))
+		if (!b) return false
+		const m = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1) * 0.25
+		cam = fit({ x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }, w, h)
+		return true
+	}
 	export function zoomExtents(): void {
 		const b = contentBounds(prims)
 		if (b) cam = fit(b, w, h)
@@ -380,6 +394,7 @@
 		if (!active) return
 		const up = toolKind === 'elevation' || toolKind === 'section' || toolKind === 'row'
 		ws.viewInfo = {
+			loading: floorplanPending,
 			xy: cursor ? `X ${Math.round(cursor.x)} · ${up ? 'Z' : 'Y'} ${Math.round(up ? -cursor.y : cursor.y)}` : null,
 			readout, scale: spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`,
 			zoom: Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100), mmPerPx: Math.round(1 / cam.k),

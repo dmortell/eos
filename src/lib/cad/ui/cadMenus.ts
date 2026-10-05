@@ -24,6 +24,7 @@ export interface MenuCtx {
 	// View
 	fit(): void
 	find(): void
+	zoomSel(): void
 	split: boolean; toggleSplit(): void
 	tables: boolean; toggleTables(): void
 	hideAll: boolean; toggleHideAll(): void
@@ -81,6 +82,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'View', items: [
 			{ label: 'Find a view, sheet, room, rack…', key: 'Ctrl+K', run: c.find },
 			{ label: 'Fit', key: 'Home', run: c.fit },
+			{ label: 'Zoom to selection', key: 'Shift+Home', disabled: !c.hasSelection, run: c.zoomSel },
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },
 			{ label: 'Forward', key: 'Alt+→', disabled: !c.canFwd, run: c.forward },

@@ -5,7 +5,11 @@
 <script lang="ts">
 	import type { Workspace } from '../app/workspace.svelte'
 
-	let { ws, hint, onfit, onanswer }: { ws: Workspace; hint: string; onfit: () => void; onanswer: () => void } = $props()
+	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
+		ws: Workspace; hint: string; onfit: () => void; onanswer: () => void
+		/** "12 selected (outlets)" (UX review V3); a click zooms to them. */
+		selected: string; onzoomsel: () => void
+	} = $props()
 
 	/** Grid steps (mm); 44.45 = one rack unit. */
 	const STEPS = [1, 5, 10, 25, 50, 100, 250, 500, 1000]
@@ -45,6 +49,8 @@
 			<span class="hint" title={hint}>{hint}</span>
 		{/if}
 	</div>
+	{#if selected}<button class="selc" title="Zoom to the selection (Shift+Home)" onclick={onzoomsel}>{selected}</button>{/if}
+	{#if v?.loading}<span class="load" title="The floorplan is still rendering"><span class="spin"></span> floorplan…</span>{/if}
 	{#if v?.readout}<b class="ro">{v.readout}</b>{/if}
 	<span class="xy">{v?.xy ?? '—'}</span>
 	<div class="toggles">
@@ -78,6 +84,11 @@
 	.toggles button.on { color: #1d4ed8; background: #dbeafe; border-color: #93c5fd; }
 	.toggles select { font-size: 10px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
 	.scale { color: var(--cad-muted); }
+	.selc { padding: 0 6px; border-radius: 4px; color: #1d4ed8; background: #dbeafe; font-weight: 600; }
+	.selc:hover { background: #bfdbfe; }
+	.load { display: inline-flex; align-items: center; gap: 4px; color: var(--cad-muted); }
+	.spin { width: 10px; height: 10px; border: 2px solid #93c5fd; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+	@keyframes spin { to { transform: rotate(360deg); } }
 	.fit { padding: 0 7px; border-radius: 4px; }
 	.fit:hover { background: var(--cad-hover); color: var(--cad-text); }
 </style>

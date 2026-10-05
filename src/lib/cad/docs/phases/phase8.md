@@ -1321,3 +1321,27 @@ Live (Test Project, Outlets): "47 of 47"; Label header sorted A.001… then reve
 click then ↓ selected the next outlet; Selection scope → "1 of 1 · 1 selected". No data written.
 
 Checks: 474 cad tests pass (new: `ui/tableKit.test.ts`); svelte-check: 10 (baseline), no cad warnings.
+
+## Second UX review, group 4: selection count, cameras, loading, labels, outlet Properties, menus
+
+- **V3 How many are selected:** the status bar shows "12 selected (outlets)" (one kind) / "5 selected"; a click on it
+  — or **Shift+Home**, View › Zoom to selection — fits the selection (what this view draws of it, inside an edited
+  viewport too) with a margin.
+- **R2 Old cameras:** a saved camera comes back only for the view a pane opens with (a refresh of the same URL); any
+  other view opened later fits its content, then keeps its camera for the session.
+- **R3 Loading:** while a floorplan is still rendering, the status bar shows a spinner and "floorplan…". (In a hidden
+  browser tab pdf.js pauses, so it can stay on until the tab is seen.)
+- **L3 Labels on the plan:** a run's label sits at the middle of its longest segment on the level (it was at the first
+  node, on top of the racks / risers there); run and riser labels that overlap a label already placed move down a
+  line at a time (up to four); rack and outlet labels stay on their symbols (`declutter` in `views/plan.ts`).
+- **Outlet Properties grouped:** General (label, usage, tier, mount, symbol) · Position (height, X, Y, room) · Ports ·
+  Circuit, remembered per kind. A blank Height shows the default it uses ("300 — wall default").
+- **Menus give the keys back:** a menu closed by Esc, a pick or a click outside blurs its button, so the next keys go
+  to the drawing (the View button stayed outlined).
+- Still open for Dave: the Racks window (keep for its tools, or retire into the Navigator — L2) and dimming the rest
+  while something is selected (V1.3).
+
+Live (Test Project): R311 selected → "1 selected (rack)", 4 halo outlines; the chip zoomed 182 % → 869 % onto it;
+the spinner showed while the floorplan rendered. No data written.
+
+Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline), no cad warnings.

@@ -41,3 +41,15 @@ describe('rack doors on the plan', async () => {
 		expect(rackDoorPrims(rack({}), p, 300, 500)).toEqual([])
 	})
 })
+
+describe('labels that collide (UX review L3)', () => {
+	it('a riser / run label moves down clear of the labels already there; rack and outlet labels stay', async () => {
+		const { declutter } = await import('./plan')
+		const t = (text: string, x: number, y: number, cls: string) => ({ k: 'text' as const, at: { x, y }, text, size: 100, cls })
+		const out = declutter([t('R311', 0, 0, 'label'), t('+2105', 0, 0, 'riser-label'), t('+2600', 0, 0, 'riser-label'), t('TR1', 0, 0, 'label run-label')])
+		const ys = out.map((p) => (p.k === 'text' ? p.at.y : 0))
+		expect(ys[0]).toBe(0)                       // the rack's label stays
+		expect(new Set(ys).size).toBe(4)            // the others each moved to their own line
+		expect(Math.min(...ys.slice(1))).toBeGreaterThan(0)
+	})
+})

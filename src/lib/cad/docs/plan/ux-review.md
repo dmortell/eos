@@ -801,6 +801,58 @@ Dave is right, and the cause is in the colours:
 
   **P2 · S**
 
+- [ ] **L5 Viewports get dragged by accident** (Dave: "Accidentally dragging viewports is a problem").
+  - **Why it happens:**
+    - On a sheet nearly everything is inside a viewport.
+    - A press anywhere inside an **unselected** viewport selects it **and** arms a move in the same press
+      (`editor/selectTool.ts:201`). The move starts after 6 screen px (`c.tol()`).
+    - So all of these move the viewport:
+      - a click to pick it with a small hand movement;
+      - the first click of a double-click (to edit inside);
+      - a press meant to start a window selection over its notes.
+    - Its content can be dragged by accident too: with **Pan / zoom content** left on, a press inside the selected
+      viewport pans its view (`selectTool.ts:187`).
+    - Two earlier decisions assumed this would be fine: "How is a viewport picked?" (T088: keep click-anywhere until
+      model mode) and "Is a click-then-drag guard needed?" (T128: no, the pick tolerance is enough). In use, they
+      aren't.
+  - **Decision (Dave, 2026-10-06): "Do same as Pages and Sheets."** Both pick and move a viewport **by its frame
+    only**, never by its inside:
+    - **Sheets** (`sheets/Viewport.svelte`): four 7 px move strips along the frame edges with a move cursor (`:365`),
+      and a 4 px threshold before a move commits (`THRESHOLD`, `:22`, "anti-nudge"). A plain click on the strip
+      selects; a drag past the threshold moves. Shift / Ctrl add to the selection. The inactive interior is never
+      picked ("AutoCAD-style selection — you pick a viewport by its FRAME or a marquee box, never by clicking the
+      inactive interior", `:9`). Content pan / zoom is off by default and resets when the viewport stops being
+      active (`:162`).
+    - **Pages** (`pages/parts/PaperPage.svelte`): an 11 px band just inside the frame (`.vp-band`, cursor move,
+      `:490`) drags it; corner grips resize the selected frame. A press in the interior **only deselects**, with no
+      marquee and no move ("A frame's interior never selects (Dave: select by the border or a marquee)", `:283`). A
+      double-click in the interior activates it. Alt-drag / Alt+wheel in the interior pan / scale its content. Shift
+      on the band toggles; Ctrl-drag on the band drags a copy. A locked frame is selected but doesn't drag.
+  - **Build in cad** (`editor/selectTool.ts:176–205`):
+    1. **The frame band moves.** About 8 screen px along the inside of the frame line (Pages' band / Sheets' strips),
+       drawn with a move cursor on hover, picks the viewport. A plain click selects it; a drag past 4 px moves it
+       (Sheets' anti-nudge). Shift / Ctrl add or toggle; Ctrl-drag copies; a locked one is selected, not moved.
+    2. **The inside never picks.**
+       - A press inside a viewport (not on its band) deselects, as on bare paper.
+       - A drag there draws a selection window for paper notes and viewports: a viewport is taken when the window
+         holds it (or crosses it, for a right-to-left crossing window).
+       - Notes on top of a viewport are still picked by a click on them.
+    3. **The inside keeps its gestures.**
+       - Double-click → edit inside (S5).
+       - Alt-drag / Alt+wheel → pan / scale its content.
+       - Pan / zoom content (the chip) applies to the selected viewport only. It **resets** when that viewport is
+         deselected or left, as in Sheets.
+    4. **Corner grips** stay on the selected viewport for resizing (already built).
+    5. **Locking:** keep Locked in Properties and add a padlock on the chip. "Lock when issued" waits for a separate
+       decision.
+  - **What it replaces:**
+    - T088 (c) "click-anywhere until model mode" is superseded: it's frame-only now.
+    - T128 is answered "yes, a guard": the frame band plus the 4 px threshold.
+    - The hint on selecting a viewport changes to "drag its frame to move · a corner resizes · double-click edits
+      inside it".
+
+  **P1 · S** (~40 lines: the band test in the press, the interior → deselect / window, the hover cursor)
+
 ### Drawing tabs (Dave: "would drawing tabs work in cad, like we have in Pages?")
 
 **Yes, and cad is better placed for them than Pages was.** In cad a "drawing" is already a small value: a level plus
@@ -944,7 +996,8 @@ sideways and two rows of bars above the data. **Suggest:**
 ### Suggested order
 
 1. **Seeing and space (S each, about a day):** V1 halo + V2 row style · L1 defaults · T1 tables closed / foldable ·
-   R1 right-click menu · R4 patch-list room · L4 Navigator row menus (⋮, right-click, F2).
+   R1 right-click menu · R4 patch-list room · L4 Navigator row menus (⋮, right-click, F2) · L5 viewports by their
+   frame only (as Pages / Sheets).
 2. **D1 drawing tabs** (+ D2).
 3. **Tables:** T2 title bar + maximise · T4 settings out · T6 scope · T5 sort / filter · T3 full width / floating.
 4. **The rest:** V3 · R2 cameras · R3 spinner · L2 · L3 · outlet Properties groups · T7.
@@ -958,3 +1011,5 @@ sideways and two rows of bars above the data. **Suggest:**
   **Dave: float.**
 - [ ] **Racks window:** keep it only for rack tasks (find, place, + server room), or retire it into the Navigator?
 - [ ] **Selection:** halo only (V1.1), or also dim everything else while something is selected (V1.3)?
+- [x] **Viewports (L5):** how should a viewport be picked and moved? **Dave: "Do same as Pages and Sheets"**: by its
+  frame only, with a 4 px anti-nudge threshold; the inside never picks.

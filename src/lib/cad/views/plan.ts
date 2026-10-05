@@ -1,7 +1,7 @@
 // The PLAN generator: one level's data → a display list (plan mm, y down). Pure: underlay placement and the drawing
 // scale come in as inputs. Draw order: underlays, shapes / walls, containment, racks, outlets, labels on top.
 import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
-import type { Shape } from '../domain/shapes'
+import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, byDrawOrder } from '../domain/shapes'
 import { legendShapePrims } from './legend'
@@ -55,7 +55,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) out.push(...outletPrims(ot, k, o.blocks))
 	// section cut lines (Phase 6.2) on top
 	for (const sec of sectionsOn(ix, levelId)) out.push(...sectionMarks(sec, k))
-	return out
+	return declutter(out)
 }
 
 /** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own colour
@@ -239,9 +239,18 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			out.push({ k: 'line', pts: [a, b], w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...(s.style?.stroke ? { color: s.style.stroke } : {}) })
 		}
 	}
+	// the run's label sits along it, by the middle of its longest segment on this level (UX review L3: at the first node
+	// it landed on the racks and risers there)
 	if (s.label) {
-		const first = s.geom.nodes[0]
-		if (first) out.push({ k: 'text', at: { x: first.x, y: first.y - w }, text: s.label, size: LABEL * k, cls: 'label', src: s.id })
+		let best: { a: PathNode; b: PathNode; len: number } | null = null
+		for (const sg of s.geom.segs) {
+			const a = nodes.get(sg.a), b = nodes.get(sg.b)
+			if (!a || !b || isVertical(a, b) || (a.levelId ?? s.levelId) !== levelId) continue
+			const len = Math.hypot(b.x - a.x, b.y - a.y)
+			if (!best || len > best.len) best = { a, b, len }
+		}
+		const at = best ? { x: (best.a.x + best.b.x) / 2, y: (best.a.y + best.b.y) / 2 - w } : s.geom.nodes[0]
+		if (at) out.push({ k: 'text', at, text: s.label, size: LABEL * k, anchor: best ? 'middle' : undefined, cls: 'label run-label', src: s.id })
 	}
 	return out
 }
@@ -362,3 +371,26 @@ function cloudPts(pts: Pt[], arc: number): Pt[] {
 }
 const square = (c: Pt, w: number): Pt[] => [{ x: c.x - w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y - w / 2 }, { x: c.x + w / 2, y: c.y + w / 2 }, { x: c.x - w / 2, y: c.y + w / 2 }]
 const fmtZ = (z: number) => `${z >= 0 ? '+' : '-'}${Math.abs(Math.round(z))}`
+
+/** Labels that collide (UX review L3: TR1, +2105 / +2600, V06 / P3C / TR2 printed on top of each other): run and
+ *  riser labels move down a line at a time (up to four) until they're clear of every label already placed; rack and
+ *  outlet labels stay where they are (they belong on their symbols). Labels scale with the drawing, so a collision
+ *  is the same at every zoom — moving is the only fix. Pure; tested in plan.test.ts. */
+export function declutter(prims: Prim[]): Prim[] {
+	const box = (p: Extract<Prim, { k: 'text' }>) => {
+		const w = p.text.length * p.size * 0.55, x0 = p.anchor === 'middle' ? p.at.x - w / 2 : p.anchor === 'end' ? p.at.x - w : p.at.x
+		return { x0, x1: x0 + w, y0: p.at.y - p.size, y1: p.at.y + p.size * 0.25 }
+	}
+	type B = ReturnType<typeof box>
+	const hit = (a: B, b: B) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1
+	type T = Extract<Prim, { k: 'text' }>
+	const movable = (p: Prim): boolean => p.k === 'text' && !p.rot && (p.cls === 'riser-label' || p.cls.includes('run-label'))
+	const placed: B[] = prims.flatMap((p) => (p.k === 'text' && !movable(p) && (p.cls === 'label' || p.cls.startsWith('label')) && !p.rot ? [box(p)] : []))
+	return prims.map((p) => {
+		if (!movable(p)) return p
+		let q = p as T
+		for (let i = 0; i < 4 && placed.some((b) => hit(box(q), b)); i++) q = { ...q, at: { x: q.at.x, y: q.at.y + q.size * 1.25 } }
+		placed.push(box(q))
+		return q
+	})
+}
