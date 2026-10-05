@@ -11,7 +11,7 @@
 	import type { Level } from '../domain/types'
 	import { specKey, type ViewSpec } from '../views/space'
 	import { navTree, filterTree, pathTo, type NavNode } from '../domain/navTree'
-	import { deleteEntities, levelContents } from '../editor/commands'
+	import { deleteEntities, levelContents, deleteImpact, impactText } from '../editor/commands'
 	import { Icon } from '$lib'
 
 	let { project, ws, current, onopen, onfloors, onsettings, onnewsheet, onpdfall }: {
@@ -69,6 +69,25 @@
 			if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
 		})
 	}
+	// ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
+	function renameRoom(id: string) {
+		const r = project.index.get(id)
+		if (r?.type !== 'space') return
+		ws.askText('Room name', r.name, (t) => { if (t.trim() && t.trim() !== r.name) project.store.transact(`Rename room ${r.name} → ${t.trim()}`, (tx) => tx.put({ ...r, name: t.trim() })) })
+	}
+	/** A room goes with its racks (and their devices, links, cords) and rows; outlet ports and panels that name it as
+	 *  their server room keep the id but show none (said in the question). An empty room just goes (Undo brings it back). */
+	function deleteRoom(id: string) {
+		const r = project.index.get(id)
+		if (r?.type !== 'space') return
+		const racks = project.index.racks.filter((k) => k.spaceId === id).map((k) => k.id)
+		const rows = [...project.index.byId.values()].filter((e) => e.type === 'rackRow' && e.spaceId === id).map((e) => e.id)
+		const ports = project.index.outlets.reduce((n, o) => n + o.ports.filter((pt) => pt.serverRoomId === id).length, 0)
+		const go = () => deleteEntities(project.store, [id, ...rows, ...racks])
+		const also = [racks.length ? `${racks.length} rack${racks.length === 1 ? '' : 's'} (with their devices, links and cords)` : '', impactText(deleteImpact(project.store, racks)) ?? ''].filter(Boolean)[0]
+		if (!racks.length && !ports) return go()
+		ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : ''} Undo brings it back.`, 'Delete room', go)
+	}
 	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
 </script>
 
@@ -96,6 +115,10 @@
 			{@const id = n.id}
 			<button class="act" title="Rename this level" onclick={() => renameLevel(id)}>✎</button>
 			<button class="act del" title="Delete this level and everything on it" onclick={() => deleteLevel(id)}>✕</button>
+		{:else if n.kind === 'room' && n.id}
+			{@const id = n.id}
+			<button class="act" title="Rename this server room" onclick={() => renameRoom(id)}>✎</button>
+			<button class="act del" title="Delete this server room (with its racks)" onclick={() => deleteRoom(id)}>✕</button>
 		{:else if n.kind === 'building'}
 			<button class="act txt" title="The building's floors, their names and heights" onclick={onfloors}>Floors…</button>
 			<button class="act txt" title="The project's outlet usages and cable types" onclick={onsettings}>Settings…</button>

@@ -1265,3 +1265,6 @@ Live (Test Project): tables closed at start (drawing 1708 × 975); Ctrl+, opened
 floated → 975; maximised and Esc back; docked; closed. No data written.
 
 Checks: 467 cad tests pass; svelte-check: nothing in cad.
+- **Delete / rename a server room** (Dave: "how to delete unused items in levels tree, like SER-B?"): the Navigator's
+  room rows have ✎ and ✕ on hover. A room goes with its rows and racks (and their devices, links, cords); it asks
+  first when racks go too or outlet ports name it as their server room, and an empty room just goes. In Help.
