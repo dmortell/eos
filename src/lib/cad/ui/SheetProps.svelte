@@ -10,8 +10,6 @@
 	import { newId } from '../domain/ids'
 	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
-	import type { TitleBlockTemplate } from '../domain/titleBlock'
-	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import { printRevision } from '../app/issue'
 
@@ -60,11 +58,6 @@
 		try { const r = await printRevision(project, s, code); ws.say(`${s.number} rev ${code} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Print failed: ${(e as Error).message}` }
 		finally { busy = false }
-	}
-	/** The project's template lives on the settings record: one undo step per edit, shared by every sheet. */
-	function setTemplate(t: TitleBlockTemplate) {
-		const st = project.settings
-		if (st) project.store.transact('Title block template', (tx) => tx.put({ ...st, titleBlock: t }))
 	}
 	function addViewport() {
 		const lv = ws.levelId ?? levels[0]?.id
@@ -155,7 +148,7 @@
 	<!-- this sheet's own title-block settings; the template below is the project's -->
 	<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 	<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
-	<TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid }} />
+	<button class="btn" title="The project's title block (on every sheet): fields, logos, company, sizes" onclick={() => ws.openTitleBlock()}>Title block template…</button>
 {/if}
 
 <style>

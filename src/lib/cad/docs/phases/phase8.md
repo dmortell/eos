@@ -1116,3 +1116,40 @@ Live check (Test Project): two racks deleted by test clicks (no devices, so no q
 project saved. No other writes.
 
 Checks: 459 cad tests pass; svelte-check: nothing in cad.
+
+## UX remediation, S2 windows + S4 menu bar (+ Help, the title block dialog) (`../plan/ux-review.md`)
+
+- **S2 Windows** (`app/windows.svelte.ts`, `ui/CadWindow.svelte`; Dave: the Sheets tool's floating windows):
+  - Navigator (levels, sheets, sections), Properties, Layers, Blocks, Racks, Cables are windows.
+  - A window is closed, docked in the left / right column (stacked, sharing the height — today's side panels) or
+    floating over the drawing. Drag a floating window by its title; drop it on the drawing's left / right edge (a blue
+    bar shows) to dock it; drag a docked one's title out (or ⇱) to float it. Fold (▴ / double-click the title),
+    resize a floating one by its corner, × closes it; it comes to the front on a press. Esc never closes a window.
+  - Default: Navigator docked left, Properties docked right, the rest closed. Blocks opens with the Insert tool, Racks
+    in a rack view — unless you closed them this session.
+  - Ctrl+. (or the ⤢ button) hides every window and the tables, and brings them back. Window › Reset layout.
+  - Kept per browser. Floating windows stay reachable when the browser or the drawing area shrinks (a resize
+    observer clamps them: the title stays in, at least 120 px of it across; too big ones are cut to fit).
+  - Not `$lib/ui/Window.svelte`: it's the Sheets tool's (bug-fix only), keys its storage by title and has no close,
+    docking columns or front-to-back order; the cad window copies its frosted look.
+  - Limitation: dragging a docked window out pops it out under the pointer; drag it again to place it.
+- **S4 Menu bar** (`ui/MenuBar.svelte`, `ui/cadMenus.ts`): File (exports, PDF of all sheets) · Edit (undo / redo,
+  cut / copy / paste, delete, select all / similar, group, draw order) · View (fit, split, back / forward, the tables
+  Ctrl+,, hide all windows Ctrl+., fill, SNAP / OSNAP / GRID) · Insert · Cabling (tools, the tables, cord BOM, cable
+  schedule, BOM) · Sheets (new, from this view, title block, register, PDF) · Project (Floors, Settings) · Window
+  (each window with its tick, hide all, reset) · Help. Items show their keys and a tick when on; Esc closes a menu.
+  The old Export menu is now `ui/Exports.svelte` (headless: its functions and dialogs), with the cord BOM added.
+  "Saved" sits at the menu bar's right. Paste says to use Ctrl+V (the browser allows paste only from the keyboard).
+- **UX22 Help** (F1, ? for the keys; `ui/HelpDialog.svelte`, `ui/helpContent.ts`): how-to answers — label editing
+  with F2 / Tab first and marked "very useful" — keys and mouse, function keys, typing points, and every tool with
+  its hint (click one to pick it); one search box.
+- **UX11 (part) Title block in a dialog** (`ui/TitleBlockDialog.svelte`, decision (a)): Sheets › Title block…, or the
+  "Title block template…" button in a sheet's Properties (the ~25 template rows left sheet Properties).
+- CadShell back to 500 lines: the Delete / draw order / group actions went to `app/selectionActions.ts`, the tool
+  hints to `ui/toolHints.ts`, the levels list to `ui/Navigator.svelte`.
+
+Live (Test Project): Window › Layers floated; Dock on the left stacked it under the Navigator; hide-all left only the
+drawing; F1 opened Help with the label-editing answer first; Sheets › Title block… opened the dialog; Reset layout
+put the defaults back. No data written.
+
+Checks: 464 cad tests pass (new: `app/windows.test.ts`); svelte-check: nothing in cad.

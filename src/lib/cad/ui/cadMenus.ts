@@ -1,0 +1,130 @@
+// The MENU BAR's contents (UX review S4): File · Edit · View · Insert · Cabling · Sheets · Project · Window · Help.
+// Built from what the shell can do (`MenuCtx`), so the menus never hold state of their own; each item shows its key.
+import type { ToolId } from '../app/workspace.svelte'
+import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
+
+export type MenuItem = { label: string; key?: string; checked?: boolean; disabled?: boolean; title?: string; run: () => void } | '-'
+export interface Menu { label: string; items: MenuItem[] }
+
+export interface MenuCtx {
+	// File
+	outletSchedule(all: boolean): void
+	dxf(): void
+	pdfAllSheets(): void
+	hasSheets: boolean
+	// Edit
+	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
+	copy(): void; cut(): void; paste(): void
+	remove(): void; hasSelection: boolean
+	selectAll(): void; selectSimilar(): void
+	group(): void; ungroup(): void
+	order(how: 'forward' | 'backward' | 'front' | 'back'): void
+	// View
+	fit(): void
+	split: boolean; toggleSplit(): void
+	tables: boolean; toggleTables(): void
+	hideAll: boolean; toggleHideAll(): void
+	back(): void; forward(): void; canBack: boolean; canFwd: boolean
+	fill: boolean; toggleFill(): void; isPlan: boolean
+	drafting: { snap: boolean; osnap: boolean; showGrid: boolean }; toggleDrafting(k: 'snap' | 'osnap' | 'showGrid'): void
+	// tools (Insert, Cabling)
+	tool(id: ToolId): void; toolOk(id: ToolId): boolean
+	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
+	cordBom(): void; cableSchedule(): void; bom(): void
+	// Sheets
+	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
+	// Project
+	floors(): void; settings(): void
+	// Window / Help
+	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
+	help(keys?: boolean): void
+}
+
+export function buildMenus(c: MenuCtx): Menu[] {
+	const tool = (id: ToolId, label: string, key?: string): MenuItem => ({ label, key, disabled: !c.toolOk(id), run: () => c.tool(id), ...(c.toolOk(id) ? {} : { title: 'Not in this view' }) })
+	return [
+		{ label: 'File', items: [
+			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
+			{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
+			{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
+			'-',
+			{ label: 'Bill of materials…', run: c.bom },
+			{ label: 'Cable schedule…', run: c.cableSchedule },
+			{ label: 'Cord BOM / patch schedule…', run: c.cordBom },
+			'-',
+			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
+		] },
+		{ label: 'Edit', items: [
+			{ label: 'Undo', key: 'Ctrl+Z', disabled: !c.canUndo, run: c.undo },
+			{ label: 'Redo', key: 'Ctrl+Y', disabled: !c.canRedo, run: c.redo },
+			'-',
+			{ label: 'Cut', key: 'Ctrl+X', disabled: !c.hasSelection, run: c.cut },
+			{ label: 'Copy', key: 'Ctrl+C', disabled: !c.hasSelection, run: c.copy },
+			{ label: 'Paste', key: 'Ctrl+V', run: c.paste },
+			{ label: 'Delete', key: 'Delete', disabled: !c.hasSelection, run: c.remove },
+			'-',
+			{ label: 'Select all', key: 'Ctrl+A', run: c.selectAll },
+			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
+			'-',
+			{ label: 'Group', key: 'Ctrl+G', disabled: !c.hasSelection, run: c.group },
+			{ label: 'Ungroup', key: 'Ctrl+Shift+G', disabled: !c.hasSelection, run: c.ungroup },
+			'-',
+			{ label: 'Bring to front', key: 'Ctrl+Shift+]', disabled: !c.hasSelection, run: () => c.order('front') },
+			{ label: 'Bring forward', key: 'Ctrl+]', disabled: !c.hasSelection, run: () => c.order('forward') },
+			{ label: 'Send backward', key: 'Ctrl+[', disabled: !c.hasSelection, run: () => c.order('backward') },
+			{ label: 'Send to back', key: 'Ctrl+Shift+[', disabled: !c.hasSelection, run: () => c.order('back') },
+		] },
+		{ label: 'View', items: [
+			{ label: 'Fit', key: 'Home', run: c.fit },
+			{ label: 'Split', checked: c.split, run: c.toggleSplit },
+			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },
+			{ label: 'Forward', key: 'Alt+→', disabled: !c.canFwd, run: c.forward },
+			'-',
+			{ label: 'Tables panel', key: 'Ctrl+,', checked: c.tables, run: c.toggleTables },
+			{ label: 'Hide all windows', key: 'Ctrl+.', checked: c.hideAll, run: c.toggleHideAll },
+			'-',
+			{ label: 'Fill overlay', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
+			{ label: 'Snap to grid (SNAP)', key: 'F9', checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
+			{ label: 'Object snaps (OSNAP)', key: 'F3', checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
+			{ label: 'Show the grid (GRID)', key: 'F7', checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
+		] },
+		{ label: 'Insert', items: [
+			tool('insert', 'Block…'), tool('legend', 'Legend'), '-',
+			tool('text', 'Text'), tool('leader', 'Leader'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'), '-',
+			tool('viewport', 'Viewport'),
+		] },
+		{ label: 'Cabling', items: [
+			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'), tool('renumber', 'Renumber'),
+			'-',
+			{ label: 'Outlets table', run: () => c.openTable('outlets') },
+			{ label: 'Patch list', run: () => c.openTable('patch') },
+			{ label: 'Links table', run: () => c.openTable('links') },
+			'-',
+			{ label: 'Cord BOM…', run: c.cordBom },
+			{ label: 'Cable schedule…', run: c.cableSchedule },
+			{ label: 'Bill of materials…', run: c.bom },
+		] },
+		{ label: 'Sheets', items: [
+			{ label: 'New sheet', run: c.newSheet },
+			{ label: 'New sheet from this view', disabled: !c.canSheetFromView, run: c.sheetFromView },
+			'-',
+			{ label: 'Title block…', run: c.titleBlock },
+			{ label: 'Sheet register', run: () => c.openTable('sheets') },
+			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
+		] },
+		{ label: 'Project', items: [
+			{ label: 'Floors…', title: "The building's floors, their names and heights", run: c.floors },
+			{ label: 'Settings… (usages, cable types)', run: c.settings },
+		] },
+		{ label: 'Window', items: [
+			...WIN_IDS.map((id): MenuItem => ({ label: WIN_TITLES[id], checked: c.win.shown(id), run: () => c.win.toggle(id) })),
+			'-',
+			{ label: 'Hide all windows', key: 'Ctrl+.', checked: c.hideAll, run: c.toggleHideAll },
+			{ label: 'Reset layout', run: c.win.reset },
+		] },
+		{ label: 'Help', items: [
+			{ label: 'Help', key: 'F1', run: () => c.help() },
+			{ label: 'Keys and mouse', key: '?', run: () => c.help(true) },
+		] },
+	]
+}

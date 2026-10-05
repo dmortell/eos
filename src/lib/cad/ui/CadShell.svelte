@@ -8,27 +8,21 @@
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
-	import { deleteEntities, deleteViewport, levelContents, deleteImpact, impactText, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
-	import { deletePicked } from '../editor/pathSel'
-	import { reservePorts } from '../domain/ports'
-	import type { Level } from '../domain/types'
+	import { deleteSelected as deleteSelectedOf, orderKey as orderKeyOf, groupKey as groupKeyOf } from '../app/selectionActions'
+	import { HINT, HINT_PLACE } from './toolHints'
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, specLabel, type ViewSpec } from '../views/space'
 	import OutletGrid from './OutletGrid.svelte'
 	import PatchList from './PatchList.svelte'
 	import Properties from './Properties.svelte'
 	import ImportNotes from './ImportNotes.svelte'
-	import SheetList from './SheetList.svelte'
 	import SheetsTab from './SheetsTab.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
 	import BlockManager from './BlockManager.svelte'
-	import SideSection from './SideSection.svelte'
 	import CableList from './CableList.svelte'
-	import SectionList from './SectionList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
-	import { reorderShapes } from '../domain/shapes'
 	import { labelKind } from '../domain/labelEdit'
 	import LinksTable from './LinksTable.svelte'
 	import LayersPanel from './LayersPanel.svelte'
@@ -36,8 +30,19 @@
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
 	import { clipboardEvents } from '../app/clipboardEvents'
-	import ExportMenu from './ExportMenu.svelte'
 	import ToolOptions from './ToolOptions.svelte'
+	import Exports from './Exports.svelte'
+	import Navigator from './Navigator.svelte'
+	import CadWindow from './CadWindow.svelte'
+	import MenuBar from './MenuBar.svelte'
+	import HelpDialog from './HelpDialog.svelte'
+	import TitleBlockDialog from './TitleBlockDialog.svelte'
+	import { buildMenus } from './cadMenus'
+	import { WindowLayout, type WinId } from '../app/windows.svelte'
+	import { blankSheet } from '../views/sheet'
+	import { newId } from '../domain/ids'
+	import type { Sheet } from '../domain/drawing'
+	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import ToolStrip from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
@@ -50,6 +55,14 @@
 	$effect(() => { project.name = projectName })
 	const ws = new Workspace()
 	const panels = new Panels()
+	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
+	const layout = new WindowLayout()
+	let helpOpen = $state<false | 'help' | 'keys'>(false)
+	let titleBlockOpen = $state(false)
+	let exportsRef: Exports | undefined = $state()
+	/** The drawing area: floating windows sit in it, its edges dock them. */
+	let planEl: HTMLElement | undefined = $state()
+	ws.openTitleBlock = () => (titleBlockOpen = true)
 	// svelte-ignore state_referenced_locally
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
@@ -202,39 +215,7 @@
 		if (lv.length && !lv.some((l) => l.id === ws.levelId)) ws.levelId = lv[0].id
 	})
 
-	const counts = $derived.by(() => {
-		const m = new Map<string, number>()
-		for (const o of project.index.outlets) m.set(o.levelId, (m.get(o.levelId) ?? 0) + 1)
-		return m
-	})
 
-	const HINT: Partial<Record<ToolId, string>> = {
-		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
-		move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
-		copy: 'Select first · click a base point, then each place for a copy (snaps · Shift 15° · type @dx,dy) · Enter / Esc ends',
-		dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
-		legend: 'Click where its top-left corner goes (plan: lists this level · sheet: the levels its viewports show) · rows, title, size in Properties',
-		viewport: 'Drag a box on the paper (or click two corners) · it shows the other pane’s view, else the last plan / elevation / rack view, scaled to fit · at least 20 × 20 mm · Esc stops',
-		box: 'A box / desk on the plan: its footprint corner to corner (or drag) · its height and Z in the tool bar (and Properties) · shows in elevations and sections · Esc stops',
-		shape: 'Click two points (or drag) · on a plan, on an elevation (at the work depth), on a sheet or inside a viewport · Esc stops',
-		select: 'Double-click (or F2) a label / text to edit it, Tab = the next one · double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy · Ctrl+G groups, Ctrl+Shift+G ungroups · Ctrl+] / Ctrl+[ draw order',
-		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
-		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Shift = 15° steps · Enter finishes · C or a click on the first point closes it · Esc / right-click ends it, again → Select · Backspace undoes a point',
-		trunk: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level · Enter finishes · C closes it · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
-		conduit: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level · Enter finishes · C closes it · Esc / right-click ends it, again → Select',
-		wall: 'Click or type points · Shift = 15° steps · Enter finishes · C or a click on the first point closes it (a room) · Esc / right-click ends it, again → Select',
-		section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
-		opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
-		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
-		device: 'In a rack view (Racks list → Rack view): click a rack at the U for the device · drag devices with Select to move them',
-		assign: 'Click a panel port in a rack view — the chosen outlets go on from there (pinned) · Esc cancels',
-		cord: 'In a rack view: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
-		renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
-		text: 'Click where the text goes and type over "Text" · click a text to edit it · Enter saves, Shift+Enter = new line',
-		leader: 'Press at the tip and drag to where the words go (a callout) — or click the tip, then bends, Enter ends · then type its words on the drawing · border in Properties · Backspace undoes a point',
-		cloud: 'On a sheet: click round the area to mark · Enter closes the cloud · Esc / right-click ends it, again → Select · Backspace undoes a point',
-	}
-	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
 	/** The status bar's hint: the tool's, or (Select) the selected viewport's ways of working. */
 	const hint = $derived(ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? '')
 
@@ -250,17 +231,57 @@
 	let floorsOpen = $state(false)
 	let typesOpen = $state(false)
 
-	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
-	function renameLevel(l: Level) {
-		ws.askText('Level name', l.name, (t) => { if (t.trim() && t.trim() !== l.name) project.store.transact(`Rename level ${l.name} → ${t.trim()}`, (tx) => tx.put({ ...l, name: t.trim() })) })
+	// windows open when they're needed, unless you closed them this session: Blocks with the Insert tool, Racks in a rack view
+	$effect(() => { if (ws.toolId === 'insert') untrack(() => layout.open('blocks', false)) })
+	$effect(() => { if (activeKind === 'row') untrack(() => layout.open('racks', false)) })
+	// floating windows stay reachable when the browser window (or the drawing area) shrinks (Dave)
+	$effect(() => {
+		const el = planEl
+		if (!el) return
+		const ro = new ResizeObserver(() => layout.clampAll(el.clientWidth, el.clientHeight))
+		ro.observe(el)
+		return () => ro.disconnect()
+	})
+	const tablesShown = $derived(panels.shown.bottom && !layout.allHidden)
+	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
+	const sheetsAll = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
+	function openTable(t: BottomTab) { panels.shown.bottom = true; panels.save(); pickBottom(t) }
+	function newSheet() {
+		const sh = blankSheet(sheetsAll, newId())
+		project.store.transact(`New sheet ${sh.number}`, (tx) => tx.put(sh))
+		setPane(activePane, { kind: 'sheet', sheetId: sh.id })
+		ws.select([sh.id])
 	}
-	function deleteLevel(l: Level) {
-		const on = levelContents(project.store.all(), l.id)
-		ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms)? Undo brings it back.`, 'Delete level', () => {
-			deleteEntities(project.store, [l.id, ...on])
-			if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
-		})
+	async function pdfAllSheets() {
+		try { const r = await downloadSheetsPdf(project, sheetsAll); ws.say(`PDF: ${r.pages} pages${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 	}
+	function toggleDrafting(k: 'snap' | 'osnap' | 'showGrid') {
+		ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting()
+		ws.say(`${{ snap: 'SNAP', osnap: 'OSNAP', showGrid: 'GRID' }[k]} ${ws.drafting[k] ? 'on' : 'off'}`)
+	}
+	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
+	const menus = $derived(buildMenus({
+		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0,
+		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
+		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
+		paste: () => ws.say('Paste with Ctrl+V (the browser lets a page paste only from the keyboard)'),
+		remove: deleteSelected, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
+		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
+		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
+		fit: () => canvas?.zoomExtents(), split: panes.length === 2, toggleSplit,
+		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
+		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (hist[activePane]?.back.length ?? 0) > 0, canFwd: (hist[activePane]?.fwd.length ?? 0) > 0,
+		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
+		drafting: ws.drafting, toggleDrafting,
+		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind), openTable,
+		cordBom: () => exportsRef?.openCordBom(), cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
+		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true),
+		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
+		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
+		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
+	}))
+
 	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
 	let cordDefaultsSet = false
 	function setTool(id: ToolId) {
@@ -284,67 +305,10 @@
 		})
 	}
 
-	/** Delete acts on the smallest thing picked: a hole (the wall stays), a viewport (the sheet stays), ports (their
-	 *  reservation; the device stays). Racks holding devices ask first — the devices, links and cords go too. */
-	function deleteSelected() {
-		const op = ws.openingSel, wall = op ? project.store.get(op.wallId) : undefined
-		if (op && wall?.type === 'shape' && wall.role?.kind === 'wall') {
-			const role = wall.role
-			project.store.transact('Delete opening', (tx) => tx.put({ ...wall, role: { ...role, openings: role.openings.filter((o) => o.id !== op.openingId) } }))
-			ws.selectOpening(op.wallId, null)
-			return
-		}
-		const sheet = ws.viewportId && ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
-		const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined
-		if (sheet?.type === 'sheet' && vp) { deleteViewport(project.store, sheet, vp); ws.selectViewport(null); return }
-		const ps = ws.portSel, dev = ps ? project.store.get(ps.on) : undefined
-		if (ps) {
-			const next = dev?.type === 'device' ? reservePorts(dev, ps.ports, '', '') : null
-			if (next) project.store.transact('Clear reservation', (tx) => tx.put(next))
-			else ws.say('Delete on ports clears their reservation — none here. Click the device body to delete the device.')
-			return
-		}
-		// picked nodes / segments of the selected run: just those (a node heals the run; segments may split it)
-		const pth = ws.pathSel, run = pth ? project.store.get(pth.shape) : undefined
-		if (pth && run?.type === 'shape') {
-			const out = deletePicked(run, pth)
-			project.store.transact(pth.nodes.length ? (pth.nodes.length === 1 ? 'Delete node' : `Delete ${pth.nodes.length} nodes`) : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p) })
-			ws.selectPath(null)
-			ws.select(out.some((p) => p.id === run.id) ? [run.id] : [])
-			if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)
-			return
-		}
-		if (!ws.selection.length) return
-		// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
-		const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
-		// a section shown in viewports: keep them as plain elevations (same view direction), or take them off too
-		const shown = sectionViewports(project.store, ids)
-		if (shown.length) {
-			const del = (keep: boolean) => () => { deleteEntities(project.store, ids, retargetSectionViewports(project.store, project.index, ids, keep)); ws.select([]) }
-			const where = [...new Set(shown.map((h) => h.sheet.number))].join(', ')
-			ws.ask2(`The section is shown in ${shown.length} viewport${shown.length === 1 ? '' : 's'} (${where})${also ? `; ${also} go too` : ''}.`, 'Delete, keep viewports as elevations', del(true), { label: 'Delete with its viewports', apply: del(false) })
-			return
-		}
-		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
-		if (!also) return go()
-		const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
-		const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
-		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
-	}
+	const deleteSelected = () => deleteSelectedOf(project, ws)
+	const orderKey = (how: 'forward' | 'backward' | 'front' | 'back') => orderKeyOf(project, ws, how)
+	const groupKey = (ungroup: boolean) => groupKeyOf(project, ws, ungroup)
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
-	/** Ctrl+] / Ctrl+[ bring the selected shapes forward / send them back; with Shift to the front / back. */
-	function orderKey(how: 'forward' | 'backward' | 'front' | 'back') {
-		const moved = reorderShapes(project.index.shapes, ws.selection, how)
-		const word = { forward: 'Bring forward', backward: 'Send backward', front: 'Bring to front', back: 'Send to back' }[how]
-		if (!moved.length) { ws.say(ws.selection.length ? `${word}: already there` : 'Select drawn shapes first'); return }
-		project.store.transact(word, (tx) => { for (const s of moved) tx.put(s) })
-	}
-	/** Ctrl+G groups the selected shapes, Ctrl+Shift+G ungroups them (backlog "Group / ungroup"). */
-	function groupKey(ungroup: boolean) {
-		if (ungroup) { const n = ungroupSelection(project.store, ws.selection); ws.say(n ? `Ungrouped ${n} shapes` : 'Nothing selected is in a group'); return }
-		const r = groupSelection(project.store, ws.selection)
-		ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes · a click on one selects them all · Ctrl+Shift+G ungroups`)
-	}
 
 	/** Arrow keys nudge the selection (view directions: y down). */
 	const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
@@ -364,13 +328,15 @@
 			if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
 		}
 		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
+		else if (e.key === 'F1') { e.preventDefault(); helpOpen = 'help' }
+		else if (e.key === '?' && !mod) { e.preventDefault(); helpOpen = 'keys' }
+		else if (mod && e.key === '.') { e.preventDefault(); layout.allHidden = !layout.allHidden }
+		else if (mod && e.key === ',') { e.preventDefault(); panels.toggle('bottom') }
 		else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); navPane(activePane, e.key === 'ArrowLeft' ? -1 : 1) }
 		else if (e.key === 'F9' || e.key === 'F3' || e.key === 'F7') {
 			// the drafting switches (UX05): F9 SNAP, F3 OSNAP, F7 GRID
 			e.preventDefault()
-			const k = e.key === 'F9' ? 'snap' : e.key === 'F3' ? 'osnap' : 'showGrid'
-			ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting()
-			ws.say(`${{ snap: 'SNAP', osnap: 'OSNAP', showGrid: 'GRID' }[k]} ${ws.drafting[k] ? 'on' : 'off'}`)
+			toggleDrafting(e.key === 'F9' ? 'snap' : e.key === 'F3' ? 'osnap' : 'showGrid')
 		}
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
@@ -381,8 +347,19 @@
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
-<div class="shell bg-zinc-50 text-sm" style:grid-template-columns={panels.columns} style:grid-template-rows="{panels.rows} 1.6rem">
-	<!-- toolbar -->
+<div class="shell bg-zinc-50 text-sm" style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
+	style:grid-template-rows="1.75rem 2.25rem minmax(0, 1fr) {tablesShown ? panels.size.bottom : 0}px 1.6rem">
+	<MenuBar {menus}>
+		{#snippet right()}
+			<span class="saved text-xs">
+				{#if project.error}<span class="text-red-600">{project.error}</span>
+				{:else if !project.loaded}Loading…
+				{:else if project.pendingWrites}Saving…{:else}Saved{/if}
+			</span>
+		{/snippet}
+	</MenuBar>
+
+	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
 		<ToolStrip tool={ws.toolId} kind={activeKind} onTool={setTool} />
 		<ToolOptions {project} {ws} {level} kind={activeKind} />
@@ -392,44 +369,37 @@
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation)"><Icon name="panels" size={15} /></button>
-		{#each [['left', 'panelLeft', 'the left panel (levels, sheets, racks, layers)'], ['bottom', 'panelBottom', 'the tables (outlets, patch list, sheets)'], ['right', 'sidebar', 'Properties']] as const as [side, icon, what] (side)}
-			<button class="ib {panels.shown[side] ? '' : 'dim'}" onclick={() => panels.toggle(side)} title="{panels.shown[side] ? 'Hide' : 'Show'} {what} — drag a panel's edge to resize it"><Icon name={icon} size={15} /></button>
-		{/each}
-		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
-		<ExportMenu {project} {ws} {level} {projectName} />
-		<span class="saved text-xs text-zinc-500">
-			{#if project.error}<span class="text-red-600">{project.error}</span>
-			{:else if !project.loaded}Loading…
-			{:else if project.pendingWrites}Saving…{:else}Saved{/if}
-		</span>
+		<button class="ib {tablesShown ? '' : 'dim'}" onclick={() => panels.toggle('bottom')} title="{tablesShown ? 'Hide' : 'Show'} the tables (outlets, patch list, sheets, links) — Ctrl+,"><Icon name="panelBottom" size={15} /></button>
+		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="expand" size={15} /></button>
 	</div>
 
-	<!-- levels -->
-	<nav class="levels relative overflow-auto border-r border-zinc-200 bg-white p-2" class:gone={!panels.shown.left}>
-		<ResizeHandle bind:value={panels.size.left} side="right" min={150} max={480} onend={panels.save} />
-		<SideSection key="levels" title="Levels" first>
-			{#snippet actions()}<button title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button><button title="The project's outlet usages and cable types" onclick={() => (typesOpen = true)}>Settings…</button>{/snippet}
-			{#each project.levels as l (l.id)}
-				<div class="lvl flex items-center rounded {ws.levelId === l.id ? (levelShown ? 'on' : 'on dim') : 'hover:bg-zinc-100'}" title={ws.levelId === l.id && !levelShown ? 'The open level — not showing now: a sheet or the riser view is open' : undefined}>
-					<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
-						onclick={() => openLevel(l.id)}>
-						<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
-					</button>
-					<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>
-					<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
-				</div>
-			{/each}
-		</SideSection>
-		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
-		<SectionList {project} {ws} onview={(s) => setPane(activePane, s)} />
-		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}
-		<BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} />
-		<CableList {project} {ws} />
-		<LayersPanel {project} {ws} />
-	</nav>
+	{#snippet winBody(id: WinId)}
+		{#if id === 'navigator'}
+			<Navigator {project} {ws} {openSheet} {levelShown} onlevel={openLevel} onview={(s) => setPane(activePane, s)} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} />
+		{:else if id === 'properties'}
+			<Properties {project} {ws} />
+			<ImportNotes {project} {ws} />
+		{:else if id === 'layers'}
+			<div class="p-2"><LayersPanel {project} {ws} /></div>
+		{:else if id === 'blocks'}
+			<div class="p-2"><BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} /></div>
+		{:else if id === 'racks'}
+			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}</div>
+		{:else if id === 'cables'}
+			<div class="p-2"><CableList {project} {ws} /></div>
+		{/if}
+	{/snippet}
 
-	<!-- plan -->
-	<main class="plan relative">
+	<!-- docked windows: the left and right columns (today's side panels), stacked -->
+	{#each ['left', 'right'] as const as side (side)}
+		<aside class="dock dock-{side}" class:gone={!layout.docked(side).length}>
+			<ResizeHandle bind:value={panels.size[side]} side={side === 'left' ? 'right' : 'left'} min={170} max={560} onend={panels.save} />
+			{#each layout.docked(side) as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
+		</aside>
+	{/each}
+
+	<!-- the drawing: one or two panes, floating windows over it -->
+	<main class="plan relative" bind:this={planEl}>
 		<AskBox {ws} />
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} />
@@ -447,22 +417,18 @@
 					</div>
 				{/each}
 			</div>
-			<div class="pointer-events-none absolute right-2 top-1 text-xs font-semibold text-zinc-500">{level.name}</div>
 		{/if}
+		{#each layout.floating() as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
 	</main>
-
-	<!-- properties -->
-	<aside class="props relative border-l border-zinc-200 bg-white" class:gone={!panels.shown.right}>
-		<ResizeHandle bind:value={panels.size.right} side="left" min={200} max={560} onend={panels.save} />
-		<div class="props-body"><Properties {project} {ws} /></div>
-		<ImportNotes {project} {ws} />
-	</aside>
 
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
 	{#if typesOpen}<SettingsDialog {project} onclose={() => (typesOpen = false)} />{/if}
+	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
+	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
+	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
-	<!-- tables: outlets (this level) | patch list (the project) -->
-	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!panels.shown.bottom}>
+	<!-- tables: outlets (this level) | patch list (the project) | sheets | links -->
+	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesShown}>
 		<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
 		<div class="tabs">
 			<button class:on={bottom === 'outlets'} onclick={() => pickBottom('outlets')}>Outlets</button>
@@ -504,23 +470,18 @@
 		display: grid;
 		height: calc(100vh - 3rem);
 		/* column / row sizes come from Panels (resizable, hideable) */
-		grid-template-areas: 'bar bar bar' 'levels plan props' 'levels grid props' 'status status status';
+		grid-template-areas: 'menu menu menu' 'bar bar bar' 'dleft plan dright' 'dleft grid dright' 'status status status';
 	}
 	.bar { grid-area: bar; }
-	.levels { grid-area: levels; min-height: 0; }
+	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
+	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }
+	.dock-right { grid-area: dright; border-left: 1px solid var(--cad-line); }
 	.plan { grid-area: plan; min-height: 0; min-width: 0; }
-	.props { grid-area: props; min-height: 0; display: flex; flex-direction: column; }
-	.props-body { flex: 1; min-height: 0; overflow: auto; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
 	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
-	.levels, .props, .grid-panel { user-select: none; -webkit-user-select: none; }
-	.levels :global(table), .props :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
+	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
+	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
-	.lvl.on { background: var(--cad-sel); }
-	.lvl.on.dim { background: none; box-shadow: inset 0 0 0 1px var(--cad-sel); color: var(--cad-muted); }
-	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
-	.lvl:hover .act { visibility: visible; }
-	.lvl .act:hover { color: #dc2626; }
 	.tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px; border-right: 1px solid var(--cad-line); background: var(--cad-subtle); }
 	.tabs button { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 6px 2px; border-radius: 4px; color: var(--cad-muted); }
 	.tabs button.on { background: #2563eb; color: white; }

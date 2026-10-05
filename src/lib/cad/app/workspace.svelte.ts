@@ -100,6 +100,8 @@ export class Workspace {
 	remove: () => void = () => {}
 	/** Set by the app: the view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
 	viewportView: () => Viewport['view'] | null = () => null
+	/** Set by the app: open the project's title block dialog (Sheets › Title block…, sheet Properties). */
+	openTitleBlock: () => void = () => {}
 	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
 	selectSimilar: () => void = () => {}
 	/** Set by the app: show a view in the active pane (a section's Open button). */

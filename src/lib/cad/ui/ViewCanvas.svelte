@@ -243,7 +243,7 @@
 	/** Put this view on a sheet (backlog "A sheet from the current view"): a viewport centred on what the pane shows, at
 	 *  the largest standard scale it fits at, on a new sheet or `sheetId`; one undo step. The sheet opens in this pane
 	 *  with the new viewport selected. */
-	function toSheet(target: string): void {
+	export function toSheet(target: string): void {
 		if (!target || spec.kind === 'sheet' || !w || !h) return
 		const visible = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (w - cam.x) / cam.k, y1: (h - cam.y) / cam.k }
 		const base = target === 'new' ? blankSheet(sheetsList, newId()) : (project.index.get(target) as Sheet | undefined)
