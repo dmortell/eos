@@ -180,7 +180,8 @@ export class SelectTool implements Tool {
 				const ci = corners.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5)
 				if (ci >= 0) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'resize', corner: ci }; this.#start = e.p; return }
 				const inside = e.p.x > r.x && e.p.x < r.x + r.w && e.p.y > r.y && e.p.y < r.y + r.h
-				if (inside && e.alt) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; c.say?.('Panning the view — Alt+wheel changes its scale'); return }
+				if (inside && (e.count ?? 1) >= 2 && c.enterViewport) { c.enterViewport(sel.id); return }   // double-click: edit inside it
+				if (inside && (e.alt || c.contentNav?.())) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; c.say?.('Panning the view — the wheel (with Pan / zoom content on, or Alt+wheel) changes its scale'); return }
 			}
 			const sheet = id ? c.store.get(id) : undefined
 			// a title-block logo: a click picks it (its height grip shows); a press anywhere else drops it
@@ -191,8 +192,9 @@ export class SelectTool implements Tool {
 				c.select([sheet.id])
 				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
 				c.selectViewport(vp ? vp.id : null)
-				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked)'
-					: 'Viewport: drag to move · drag a corner to resize · Alt-drag pans its view · Alt+wheel changes its scale')
+				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.enterViewport(vp.id); return }   // double-click: edit inside it
+				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked) · double-click to edit inside it'
+					: 'Viewport: drag to move · a corner resizes · double-click edits inside it · Pan / zoom content (or Alt) pans / scales its view')
 				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
 				else if (!vp) this.#marquee = e.p   // the bare paper: a click selects the sheet, a drag windows its notes
 				return

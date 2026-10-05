@@ -104,6 +104,7 @@
 	 *  always describes something you can see. */
 	function setPane(i: number, s: ViewSpec, how: 'go' | 'nav' = 'go') {
 		canvases[i]?.cancel()
+		ws.vpEdit = null   // another view: no longer editing inside a viewport
 		const from = panes[i]
 		if (how === 'go' && from && specKey(from) !== specKey(s)) { hist[i].back = [...hist[i].back.slice(-49), $state.snapshot(from) as ViewSpec]; hist[i].fwd = [] }
 		panes[i] = s
@@ -168,7 +169,12 @@
 	})
 	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
-	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
+	/** Editing inside a sheet viewport (UX review S5): the tools are its view's (plan, elevation, rack row …). */
+	const vpEditKind = $derived.by(() => {
+		const e = ws.vpEdit, sh = e ? project.index.get(e.sheetId) : undefined
+		return sh?.type === 'sheet' ? (sh.viewports.find((v) => v.id === e!.vpId)?.view.spec.kind ?? null) : null
+	})
+	const activeKind = $derived(vpEditKind ?? panes[activePane]?.kind ?? 'plan')
 	/** The open level is what the active pane shows (a sheet or the riser view isn't one level's). */
 	const levelShown = $derived(activeKind !== 'sheet' && activeKind !== 'riser')
 	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
@@ -217,7 +223,7 @@
 
 
 	/** The status bar's hint: the tool's, or (Select) the selected viewport's ways of working. */
-	const hint = $derived(ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? '')
+	const hint = $derived((ws.vpEdit ? 'Editing inside the viewport — Esc or a double-click outside it leaves · ' : '') + (ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
 
 
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
@@ -340,7 +346,7 @@
 		}
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
-		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
+		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
 </script>

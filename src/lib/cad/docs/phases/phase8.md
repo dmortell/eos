@@ -1153,3 +1153,31 @@ drawing; F1 opened Help with the label-editing answer first; Sheets › Title bl
 put the defaults back. No data written.
 
 Checks: 464 cad tests pass (new: `app/windows.test.ts`); svelte-check: nothing in cad.
+
+## UX remediation, S5: editing inside viewports (UX17) + the viewport chip (UX18) (`../plan/ux-review.md`)
+
+- **Edit the model through a viewport** (`views/vpFrame.ts`, ViewCanvas; Dave: "editing inside viewports, from both
+  Pages and Sheets"):
+  - Double-click a viewport (or its chip's "Edit inside") to enter it. The paper dims round it, its frame turns blue,
+    the status bar says "editing Plan at 1:50", and the tool strip offers that view's tools (plan, elevation, section,
+    rack row).
+  - Inside, the tools work in the viewport's view: clicks go through `fromPaper` to the view's mm, picking / snapping
+    / hover use the view's own prims (the user's frozen layers left out), tolerances scale with 1:N; previews, grips
+    and the selection are drawn back onto the paper (`onPaper`, clipped to the window). Undo, Delete, Properties,
+    copy / paste (to its level) work as in the view itself.
+  - Leave with Esc (the first Esc clears the selection), a double-click outside the window, Done on the chip, or by
+    showing another view in the pane. Clicks outside the window do nothing while inside (frame-only picking, decided
+    (c)). Entering opens the viewport's level.
+  - Not yet: the in-place label editor (double-click / F2) inside a viewport — edit those labels in the view itself.
+- **The viewport chip** (`ui/ViewportChip.svelte`, UX18; Dave: "Alt is not intuitive, I prefer the pan/zoom content
+  toggle"): on the selected (or edited) viewport's corner, at screen size: its scale (pick 1:N), **Pan / zoom
+  content** (on: a drag inside the viewport pans its view and the wheel steps its scale — no Alt; Alt still works
+  once), and Edit inside / Done.
+- ViewCanvas's overlays (selected ports, circuit trace, fill bands, routes, the other pane's work plane) moved to
+  `views/overlays.ts`.
+
+Live (Test Project, S001): a double-click on empty plan inside the viewport entered it (dimmed paper, blue frame, chip
+"Done", 20 tools); a click picked a dimension in the model (Properties: Dimension, grips drawn on the paper); Esc,
+Esc left it with the viewport selected. No data written.
+
+Checks: 464 cad tests pass; svelte-check: nothing in cad.

@@ -123,6 +123,13 @@ function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, window?: B
 	}
 }
 
+/** A viewport's view prims (view mm) put on the paper, clipped to its window; `src` is KEPT (editing inside a
+ *  viewport, UX review S5: the selection, hover and tool previews draw over the paper). */
+export function onPaper(prims: Prim[], vp: Viewport): Prim[] {
+	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
+	return prims.map((p) => placePrim(p, t, k, clip, p.src))
+}
+
 /** A note on a sheet as paper prims: tied to a viewport → drawn in its view mm at 1:N, then onto the paper. */
 function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] {
 	const vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined

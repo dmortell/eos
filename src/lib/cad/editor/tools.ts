@@ -60,6 +60,10 @@ export interface ToolCtx {
 	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
 	selectViewport?(id: Id | null): void
 	viewportId?(): Id | null
+	/** Sheet views only: edit the model inside this viewport (a double-click on it). */
+	enterViewport?(id: Id): void
+	/** Sheet views only: "Pan / zoom content" is on — a drag inside the selected viewport pans it, no Alt needed. */
+	contentNav?(): boolean
 	/** Rack-row views only: the selected ports (of one device). */
 	portSel?(): PortSel | null
 	selectPorts?(s: PortSel | null): void

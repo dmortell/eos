@@ -172,6 +172,11 @@ export class Workspace {
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
 	/** The viewport selected on the selected sheet (null = the sheet itself). */
 	viewportId = $state<Id | null>(null)
+	/** Editing the model INSIDE a sheet viewport (UX review S5): double-click it; Esc / a double-click outside leaves. */
+	vpEdit = $state<{ sheetId: Id; vpId: Id } | null>(null)
+	/** "Pan / zoom content" (Dave: instead of Alt): a drag inside the selected / edited viewport pans its view and the
+	 *  wheel steps its scale, with no Alt. */
+	vpContentNav = $state(false)
 	selectViewport = (id: Id | null): void => { this.viewportId = id }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)
