@@ -1013,3 +1013,29 @@ sideways and two rows of bars above the data. **Suggest:**
 - [ ] **Selection:** halo only (V1.1), or also dim everything else while something is selected (V1.3)?
 - [x] **Viewports (L5):** how should a viewport be picked and moved? **Dave: "Do same as Pages and Sheets"**: by its
   frame only, with a 4 px anti-nudge threshold; the inside never picks.
+
+---
+
+## Status after the second remediation run (cad session, 2026-10-06)
+
+All built, committed and logged in `../phases/phase8.md` (commits f918741d → 4693a580):
+
+| Item | State |
+|---|---|
+| R1 right-click menu (Windows) · R2 cameras · R3 floorplan spinner · R4 patch-list room | done |
+| V1 selection halo (.1) · V2 one selected-row style · V3 "n selected" + Zoom to selection (Shift+Home) | done |
+| L1 tables closed by default, Racks no longer opens itself · L3 run labels mid-segment + declutter · L4 Navigator ⋮ / right-click menus, F2, Project › level actions | done |
+| D1 drawing tabs (shared, preview tab, per-tab Back / Forward, tab menu, Alt+W / Alt+PgUp/PgDn / Alt+1…9) · D2 Navigator dots, Enter / Ctrl+Enter in its search | done |
+| T1 fold / smaller rows · T2 title bar, horizontal tabs, maximise · T3 float (Dave) · T4 settings → Project › Settings › Lengths & labels, no-route chip · T5 sort / filter · T6 This view / Selection / All · T7 counts, ↑ / ↓, Ctrl+C | done |
+| Outlet Properties groups · default height placeholder · menus release focus | done |
+| Also: rename / delete a server room (Dave: "how to delete … SER-B?") | done |
+
+Notes:
+- Ctrl+W / Ctrl+Tab belong to the browser, so tabs use **Alt+W**, **Alt+PgUp / PgDn**, **Alt+1…9**.
+- The tables can float or dock (not dock left / right like the windows).
+- Labels scale with the drawing, so colliding labels are moved, not hidden by zoom.
+
+Still open for Dave:
+- [ ] **L2 Racks window:** keep it for rack tasks (Find a device, Place, + Server room), or retire it into the
+  Navigator?
+- [ ] **V1.3 Dim the rest** while something is selected?
