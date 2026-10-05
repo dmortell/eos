@@ -177,6 +177,8 @@ export class Workspace {
 	/** "Pan / zoom content" (Dave: instead of Alt): a drag inside the selected / edited viewport pans its view and the
 	 *  wheel steps its scale, with no Alt. */
 	vpContentNav = $state(false)
+	/** Bumped to focus the Navigator's search (Ctrl+K). */
+	navSearch = $state(0)
 	selectViewport = (id: Id | null): void => { this.viewportId = id }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)

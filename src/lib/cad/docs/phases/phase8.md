@@ -1181,3 +1181,23 @@ Live (Test Project, S001): a double-click on empty plan inside the viewport ente
 Esc left it with the viewport selected. No data written.
 
 Checks: 464 cad tests pass; svelte-check: nothing in cad.
+
+## UX remediation, S3: the Navigator tree (`../plan/ux-review.md`)
+
+- **One tree for the model and the sheets** (`domain/navTree.ts`, `ui/Navigator.svelte`; Dave: "Pages' tree is the
+  right idea, but it must make models and drawings easier to find"):
+  - Buildings › levels (with their outlet count) › Plan, Front / Rear / Left / Right elevation, the level's sections,
+    its server rooms (n racks) › rows and racks; then the riser view; then Sheets (n), grouped by place when there's
+    more than one, each sheet unfolding to its viewports (with 1:N).
+  - A click opens the row's view in the active pane (its level first); a rack opens its room's rack view zoomed to it
+    and selected; a sheet, rack or section is selected.
+  - The search box (Ctrl+K, View › Find…) filters as you type: matches with their parents, all unfolded.
+  - The open view's row is marked and its branch unfolds; folds are kept per project in this browser.
+  - Row actions on hover: level ✎ / ✕; Floors… / Settings… on the building; + New / PDF all on Sheets.
+- Replaces the Levels / Sheets / Sections lists (`SheetList.svelte`, `SectionList.svelte` removed). The Racks window
+  stays for room actions (+ Server room, Place, labels, Find a device).
+
+Live (Test Project): "R31" left Test Project › 1F › IDF2 › R311 / R312 / R313; clicking R312 opened the IDF2 rack
+view (marked) with R312 selected. No data written.
+
+Checks: 466 cad tests pass (new: `domain/navTree.test.ts`); svelte-check: nothing in cad.

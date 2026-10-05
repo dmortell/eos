@@ -33,6 +33,7 @@
 	import ToolOptions from './ToolOptions.svelte'
 	import Exports from './Exports.svelte'
 	import Navigator from './Navigator.svelte'
+	import type { NavNode } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
@@ -167,7 +168,6 @@
 		const r = e?.type === 'device' ? project.index.get(e.rackId) : e
 		return r?.type === 'rack' ? r.spaceId : undefined
 	})
-	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	/** Editing inside a sheet viewport (UX review S5): the tools are its view's (plan, elevation, rack row …). */
 	const vpEditKind = $derived.by(() => {
@@ -175,8 +175,6 @@
 		return sh?.type === 'sheet' ? (sh.viewports.find((v) => v.id === e!.vpId)?.view.spec.kind ?? null) : null
 	})
 	const activeKind = $derived(vpEditKind ?? panes[activePane]?.kind ?? 'plan')
-	/** The open level is what the active pane shows (a sheet or the riser view isn't one level's). */
-	const levelShown = $derived(activeKind !== 'sheet' && activeKind !== 'riser')
 	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
 	 *  looked at. Snapshots: the store freezes what it's given, and a $state proxy can't be frozen. */
 	let lastModel: Exclude<ViewSpec, { kind: 'sheet' }> | null = null
@@ -251,6 +249,16 @@
 	const tablesShown = $derived(panels.shown.bottom && !layout.allHidden)
 	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
+	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
+	 *  selected. The spec is copied: the tree's comes from frozen store data. */
+	function navOpen(n: NavNode) {
+		const o = n.open
+		if (!o) return
+		if (o.levelId && o.levelId !== ws.levelId) ws.levelId = o.levelId
+		setPane(activePane, structuredClone(o.spec))
+		if (n.kind === 'rack' && n.id) ws.focus = n.id
+		if (n.select) ws.select([n.select])
+	}
 	function openTable(t: BottomTab) { panels.shown.bottom = true; panels.save(); pickBottom(t) }
 	function newSheet() {
 		const sh = blankSheet(sheetsAll, newId())
@@ -275,7 +283,7 @@
 		remove: deleteSelected, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
 		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
-		fit: () => canvas?.zoomExtents(), split: panes.length === 2, toggleSplit,
+		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), split: panes.length === 2, toggleSplit,
 		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (hist[activePane]?.back.length ?? 0) > 0, canFwd: (hist[activePane]?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
@@ -335,6 +343,7 @@
 		}
 		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
 		else if (e.key === 'F1') { e.preventDefault(); helpOpen = 'help' }
+		else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
 		else if (e.key === '?' && !mod) { e.preventDefault(); helpOpen = 'keys' }
 		else if (mod && e.key === '.') { e.preventDefault(); layout.allHidden = !layout.allHidden }
 		else if (mod && e.key === ',') { e.preventDefault(); panels.toggle('bottom') }
@@ -381,7 +390,7 @@
 
 	{#snippet winBody(id: WinId)}
 		{#if id === 'navigator'}
-			<Navigator {project} {ws} {openSheet} {levelShown} onlevel={openLevel} onview={(s) => setPane(activePane, s)} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} />
+			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} />
 		{:else if id === 'properties'}
 			<Properties {project} {ws} />
 			<ImportNotes {project} {ws} />

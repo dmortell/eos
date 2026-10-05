@@ -21,6 +21,7 @@ export interface MenuCtx {
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void
 	// View
 	fit(): void
+	find(): void
 	split: boolean; toggleSplit(): void
 	tables: boolean; toggleTables(): void
 	hideAll: boolean; toggleHideAll(): void
@@ -75,6 +76,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Send to back', key: 'Ctrl+Shift+[', disabled: !c.hasSelection, run: () => c.order('back') },
 		] },
 		{ label: 'View', items: [
+			{ label: 'Find a view, sheet, room, rack…', key: 'Ctrl+K', run: c.find },
 			{ label: 'Fit', key: 'Home', run: c.fit },
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },

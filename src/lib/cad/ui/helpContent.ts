@@ -11,6 +11,7 @@ export const HOWTO: HowTo[] = [
 	{ q: 'Draw a run (trunk, conduit, wall, line)', a: 'Pick the tool, click each point (or type x,y · @dx,dy · @d<angle · a distance towards the cursor). Shift = 15° steps. Enter or a right-click ends it; C closes it. Trunks / conduits: R = rise / drop, V = a riser to another level; the Location in the tool options sets the height from the level\'s heights.' },
 	{ q: 'Add a point to a run, or pick one segment', a: 'Select the run, then double-click a segment to add a point there. Click the selected run again to pick the segment under the cursor (Ctrl-click: several). Ctrl-drag a node to branch from it; Alt-drag it to pull it off another run.' },
 	{ q: 'Select several things', a: 'Ctrl-click adds / drops one. Drag a box on empty space: left → right takes what it encloses, right → left what it touches. Ctrl+A takes everything this view shows; Edit › Select similar takes everything like the selection.' },
+	{ q: 'Find a level, view, sheet, room or rack', a: 'The Navigator window (Ctrl+K puts you in its search box): type part of a name — matching rows show with their parents. A click opens the row’s view in the active pane; a rack opens its room’s rack view zoomed to it; a sheet unfolds to its viewports, and a click on one opens that view. The open view’s row is marked.' },
 	{ q: 'Go back to the view you were in', a: 'The ‹ › buttons at the left of each pane\'s strip, or Alt+← / Alt+→. Each pane keeps its own history.' },
 	{ q: 'Put a view on a sheet', a: 'In the view, "To sheet…" on its strip: a new sheet or one that\'s there, centred where you\'re looking at a scale that fits. Or on a sheet, the Viewport tool: drag a box — it shows the other pane\'s view (or the last one you looked at), scaled to fit.' },
 	{ q: 'Move, resize or pan a viewport', a: 'Click a viewport on the sheet: drag it to move it, drag a corner to resize it, Alt-drag inside it to pan its view and Alt+wheel to step its scale. Its view, level and scale are in Properties.' },
@@ -22,7 +23,7 @@ export const HOWTO: HowTo[] = [
 ]
 
 export const SHORTCUTS: [string, string][] = [
-	['Undo / Redo', 'Ctrl+Z / Ctrl+Y'], ['Delete the selection', 'Delete'], ['Copy / Cut / Paste', 'Ctrl+C / X / V'],
+	['Find a level, view, sheet, room, rack', 'Ctrl+K'], ['Undo / Redo', 'Ctrl+Z / Ctrl+Y'], ['Delete the selection', 'Delete'], ['Copy / Cut / Paste', 'Ctrl+C / X / V'],
 	['Select all in this view', 'Ctrl+A'], ['Group / Ungroup', 'Ctrl+G / Ctrl+Shift+G'],
 	['Draw order: forward / to front', 'Ctrl+] / Ctrl+Shift+]'], ['Draw order: backward / to back', 'Ctrl+[ / Ctrl+Shift+['],
 	['Edit a label in place', 'Double-click · F2'], ['…save and edit the next / previous', 'Tab / Shift+Tab'],

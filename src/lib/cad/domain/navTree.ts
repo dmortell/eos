@@ -1,0 +1,123 @@
+// The NAVIGATOR's tree (UX review S3; Dave: "Pages' tree is the right idea, but it must make models and drawings
+// easier to find"): the building side is the model — buildings › levels › their views (plan, elevations), sections,
+// server rooms (rack view, rows, racks) — then the riser view; the sheets after it, grouped by place, each unfolding to
+// its viewports. A search filters as you type and keeps each match's parents. Pure; tested in navTree.test.ts.
+import type { ProjectIndex } from './project'
+import type { Id, Level, RackRow, Rack } from './types'
+import type { Sheet, SectionCut, Entity } from './drawing'
+import type { ViewSpec } from '../views/space'
+import { naturalCompare } from './labels'
+
+export interface NavNode {
+	key: string
+	label: string
+	/** A small note on the right (outlet count, scale, "frame"). */
+	detail?: string
+	kind: 'building' | 'level' | 'view' | 'section' | 'room' | 'row' | 'rack' | 'riser' | 'sheets' | 'place' | 'sheet' | 'viewport'
+	/** What a click opens: a view of a level (the riser view has no level). */
+	open?: { levelId?: Id; spec: ViewSpec }
+	/** What a click selects (a rack, a sheet, a section). */
+	select?: Id
+	/** The entity this row is (rename / delete actions). */
+	id?: Id
+	children?: NavNode[]
+}
+
+const ELEV: ['front' | 'rear' | 'left' | 'right', string][] = [['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right']]
+const all = <T extends Entity['type']>(ix: ProjectIndex, t: T) => [...ix.byId.values()].filter((e) => e.type === t) as Extract<Entity, { type: T }>[]
+
+export function navTree(ix: ProjectIndex): NavNode[] {
+	const levels = [...ix.levels].sort((a, b) => a.order - b.order)
+	const buildings = all(ix, 'building').sort((a, b) => a.order - b.order || naturalCompare(a.name, b.name))
+	const outlets = new Map<Id, number>()
+	for (const o of ix.outlets) outlets.set(o.levelId, (outlets.get(o.levelId) ?? 0) + 1)
+	const sections = all(ix, 'section') as SectionCut[], rows = all(ix, 'rackRow') as RackRow[]
+
+	const levelNode = (l: Level): NavNode => {
+		const rooms = ix.spaces.filter((s) => s.levelId === l.id && s.kind === 'server room').sort((a, b) => naturalCompare(a.name, b.name))
+		const secs = sections.filter((s) => s.levelId === l.id).sort((a, b) => naturalCompare(a.name, b.name))
+		const views: NavNode[] = [
+			{ key: `v:${l.id}:plan`, label: 'Plan', kind: 'view', open: { levelId: l.id, spec: { kind: 'plan' } } },
+			...ELEV.map(([dir, label]): NavNode => ({ key: `v:${l.id}:${dir}`, label: `${label} elevation`, kind: 'view', open: { levelId: l.id, spec: { kind: 'elevation', dir } } })),
+			...secs.map((s): NavNode => ({ key: `sec:${s.id}`, label: `Section ${s.name}`, kind: 'section', id: s.id, select: s.id, open: { levelId: l.id, spec: { kind: 'section', sectionId: s.id } } })),
+		]
+		const roomNodes = rooms.map((r): NavNode => {
+			const racks = ix.racks.filter((k) => k.spaceId === r.id).sort((a, b) => naturalCompare(a.name, b.name))
+			const rs = rows.filter((w) => w.spaceId === r.id).sort((a, b) => a.order - b.order)
+			return {
+				key: `room:${r.id}`, label: r.name, detail: `${racks.length} rack${racks.length === 1 ? '' : 's'}`, kind: 'room', id: r.id,
+				open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } },
+				children: [
+					...rs.map((w): NavNode => ({ key: `row:${w.id}`, label: `Row ${w.name}`, kind: 'row', open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front', rowId: w.id } } })),
+					...racks.map((k: Rack): NavNode => ({ key: `rack:${k.id}`, label: k.name, kind: 'rack', id: k.id, select: k.id, detail: k.patchFrame ? 'frame' : undefined, open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } } })),
+				],
+			}
+		})
+		const n = outlets.get(l.id)
+		return { key: `lvl:${l.id}`, label: l.name, detail: n ? `${n} outlets` : undefined, kind: 'level', id: l.id, open: { levelId: l.id, spec: { kind: 'plan' } }, children: [...views, ...roomNodes] }
+	}
+
+	const out: NavNode[] = []
+	const byBuilding = new Map<Id, Level[]>()
+	for (const l of levels) byBuilding.set(l.buildingId, [...(byBuilding.get(l.buildingId) ?? []), l])
+	const known = new Set(buildings.map((b) => b.id))
+	for (const b of buildings) out.push({ key: `bld:${b.id}`, label: b.name, kind: 'building', id: b.id, children: (byBuilding.get(b.id) ?? []).map(levelNode) })
+	const loose = levels.filter((l) => !known.has(l.buildingId))
+	if (loose.length) out.push({ key: 'bld:none', label: buildings.length ? 'Other levels' : 'Levels', kind: 'building', children: loose.map(levelNode) })
+	out.push({ key: 'riser', label: 'Riser view (building)', kind: 'riser', open: { spec: { kind: 'riser' } } })
+
+	// the sheets, grouped by place: its filed place, else the levels its viewports show
+	const sheets = (all(ix, 'sheet') as Sheet[]).filter((s) => s.status !== 'archived').sort((a, b) => a.order - b.order || naturalCompare(a.number, b.number))
+	const placeOf = (s: Sheet) => (s.placeId ? ix.nameOf(s.placeId) : [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))].join(' / ')) || 'No place'
+	const groups = new Map<string, Sheet[]>()
+	for (const s of sheets) groups.set(placeOf(s), [...(groups.get(placeOf(s)) ?? []), s])
+	const sheetNode = (s: Sheet): NavNode => ({
+		key: `sh:${s.id}`, label: `${s.number} ${s.title}`, kind: 'sheet', id: s.id, select: s.id, open: { spec: { kind: 'sheet', sheetId: s.id } },
+		children: s.viewports.map((v): NavNode => ({
+			key: `vp:${s.id}:${v.id}`, label: v.label || viewName(ix, v.view.spec, v.view.levelId), detail: `1:${v.scale}`, kind: 'viewport',
+			open: { levelId: v.view.levelId, spec: v.view.spec },
+		})),
+	})
+	out.push({
+		key: 'sheets', label: `Sheets (${sheets.length})`, kind: 'sheets',
+		children: groups.size <= 1 ? sheets.map(sheetNode) : [...groups].sort((a, b) => naturalCompare(a[0], b[0])).map(([place, ss]): NavNode => ({ key: `place:${place}`, label: place, kind: 'place', children: ss.map(sheetNode) })),
+	})
+	return out
+}
+
+/** A view's name for a row: "1F plan", "1F front elevation", "IDF1 racks", "Section A". */
+export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string {
+	const lv = levelId ? ix.nameOf(levelId) : ''
+	switch (spec.kind) {
+		case 'plan': return `${lv} plan`.trim()
+		case 'elevation': return `${lv} ${spec.dir} elevation`.trim()
+		case 'section': return `Section ${ix.nameOf(spec.sectionId)}`
+		case 'row': return `${ix.nameOf(spec.spaceId)} racks${spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : ''}`
+		case 'riser': return 'Riser view'
+		case 'sheet': return ix.nameOf(spec.sheetId)
+	}
+}
+
+/** The tree filtered by a search: nodes whose label (or detail) matches, with their parents; a match keeps its children. */
+export function filterTree(nodes: NavNode[], q: string): NavNode[] {
+	const w = q.trim().toLowerCase()
+	if (!w) return nodes
+	const out: NavNode[] = []
+	for (const n of nodes) {
+		const hit = `${n.label} ${n.detail ?? ''}`.toLowerCase().includes(w)
+		if (hit) { out.push(n); continue }
+		const kids = n.children ? filterTree(n.children, q) : []
+		if (kids.length) out.push({ ...n, children: kids })
+	}
+	return out
+}
+
+/** The keys of the nodes on the way to the row that opens `spec` (of `levelId`): to unfold its branch and mark it. */
+export function pathTo(nodes: NavNode[], match: (n: NavNode) => boolean, trail: string[] = []): string[] | null {
+	for (const n of nodes) {
+		if (match(n)) return [...trail, n.key]
+		const r = n.children ? pathTo(n.children, match, [...trail, n.key]) : null
+		if (r) return r
+	}
+	return null
+}

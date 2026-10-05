@@ -1,63 +1,131 @@
-<!-- The NAVIGATOR window (UX review S2 / S3): levels, sheets and sections — open one in the active pane. Levels can be
-     renamed / deleted here (Floors… for the rest). -->
+<!-- The NAVIGATOR window (UX review S3): one tree for the model and the sheets (domain/navTree.ts) — buildings ›
+     levels › their views, sections and server rooms (rack view, rows, racks); the riser view; the sheets by place,
+     each unfolding to its viewports. A click opens the row's view in the active pane (a rack: its room's rack view,
+     zoomed to it). The search box (Ctrl+K) filters as you type, keeping each match's parents. The open view's row is
+     marked and its branch unfolded. Levels: rename / delete on hover; Floors…, Settings…, New sheet, PDF all on their
+     headers. -->
 <script lang="ts">
+	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Level } from '../domain/types'
-	import type { ViewSpec } from '../views/space'
+	import { specKey, type ViewSpec } from '../views/space'
+	import { navTree, filterTree, pathTo, type NavNode } from '../domain/navTree'
 	import { deleteEntities, levelContents } from '../editor/commands'
-	import SideSection from './SideSection.svelte'
-	import SheetList from './SheetList.svelte'
-	import SectionList from './SectionList.svelte'
+	import { Icon } from '$lib'
 
-	let { project, ws, openSheet, levelShown, onlevel, onview, onfloors, onsettings }: {
-		project: CadProject; ws: Workspace; openSheet?: string; levelShown: boolean
-		onlevel: (id: string) => void; onview: (s: ViewSpec) => void; onfloors: () => void; onsettings: () => void
+	let { project, ws, current, onopen, onfloors, onsettings, onnewsheet, onpdfall }: {
+		project: CadProject; ws: Workspace
+		/** What the active pane shows (its row is marked). */
+		current: { levelId?: string; spec: ViewSpec }
+		onopen: (n: NavNode) => void
+		onfloors: () => void; onsettings: () => void; onnewsheet: () => void; onpdfall: () => void
 	} = $props()
 
-	const counts = $derived.by(() => {
-		const m = new Map<string, number>()
-		for (const o of project.index.outlets) m.set(o.levelId, (m.get(o.levelId) ?? 0) + 1)
-		return m
+	let q = $state('')
+	let search: HTMLInputElement | undefined = $state()
+	// Ctrl+K (and the menu) ask for the search box
+	$effect(() => { if (ws.navSearch) untrack(() => { search?.focus(); search?.select() }) })
+
+	const tree = $derived.by(() => { void project.rev; return navTree(project.index) })
+	const shown = $derived(filterTree(tree, q))
+
+	// which branches are open: kept per project in this browser; a search opens everything it shows
+	const storeKey = () => `cad-nav:${project.pid}`
+	let open = $state<Set<string>>(read())
+	function read(): Set<string> {
+		try { const v = localStorage.getItem(storeKey()); if (v) return new Set(JSON.parse(v)) } catch { /* storage blocked */ }
+		return new Set(['bld:none', 'sheets'])
+	}
+	function save() { try { localStorage.setItem(storeKey(), JSON.stringify([...open])) } catch { /* storage blocked */ } }
+	function toggle(k: string) { const n = new Set(open); if (n.has(k)) n.delete(k); else n.add(k); open = n; save() }
+
+	/** Is this row the view the active pane shows? (Rooms, not each of their racks; sheets, not their viewports.) */
+	const isCurrent = (n: NavNode) => !!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && specKey(n.open.spec) === specKey(current.spec)
+		&& (!n.open.levelId || current.spec.kind === 'sheet' || n.open.levelId === current.levelId)
+	// the open view's branch unfolds (once per view: folding it again sticks)
+	$effect(() => {
+		const key = `${current.levelId}:${specKey(current.spec)}`
+		untrack(() => {
+			if (key === lastCurrent) return
+			lastCurrent = key
+			const path = pathTo(tree, isCurrent)
+			if (path) { const n = new Set(open); for (const k of path.slice(0, -1)) n.add(k); open = n; save() }
+		})
 	})
-	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
-	function renameLevel(l: Level) {
+	let lastCurrent = ''
+
+	function renameLevel(id: string) {
+		const l = project.index.get(id) as Level | undefined
+		if (l?.type !== 'level') return
 		ws.askText('Level name', l.name, (t) => { if (t.trim() && t.trim() !== l.name) project.store.transact(`Rename level ${l.name} → ${t.trim()}`, (tx) => tx.put({ ...l, name: t.trim() })) })
 	}
-	function deleteLevel(l: Level) {
+	function deleteLevel(id: string) {
+		const l = project.index.get(id) as Level | undefined
+		if (l?.type !== 'level') return
 		const on = levelContents(project.store.all(), l.id)
 		ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms)? Undo brings it back.`, 'Delete level', () => {
 			deleteEntities(project.store, [l.id, ...on])
 			if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
 		})
 	}
+	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
 </script>
 
-<div class="p-2">
-	<SideSection key="levels" title="Levels" first>
-		{#snippet actions()}<button title="The building's floors, their names and heights" onclick={onfloors}>Floors…</button><button title="The project's outlet usages and cable types" onclick={onsettings}>Settings…</button>{/snippet}
-		{#each project.levels as l (l.id)}
-			<div class="lvl" class:on={ws.levelId === l.id} class:dim={ws.levelId === l.id && !levelShown} title={ws.levelId === l.id && !levelShown ? 'The open level — not showing now: a sheet or the riser view is open' : undefined}>
-				<button class="name" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''} onclick={() => onlevel(l.id)}>
-					<span>{l.name}</span><span class="n">{counts.get(l.id) ?? ''}</span>
-				</button>
-				<button class="act" title="Rename this level" onclick={() => renameLevel(l)}>✎</button>
-				<button class="act" title="Delete this level and everything on it" onclick={() => deleteLevel(l)}>✕</button>
-			</div>
-		{/each}
-	</SideSection>
-	<SheetList {project} {ws} open={openSheet} {onview} />
-	<SectionList {project} {ws} {onview} />
+<div class="nav">
+	<div class="find">
+		<Icon name="search" size={12} />
+		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } }} />
+	</div>
+	<div class="tree" role="tree">
+		{#each shown as n (n.key)}{@render row(n, 0)}{/each}
+		{#if q && !shown.length}<p class="none">Nothing matches “{q}”.</p>{/if}
+	</div>
 </div>
 
+{#snippet row(n: NavNode, depth: number)}
+	{@const kids = n.children ?? []}
+	{@const unfolded = !!q || open.has(n.key)}
+	<div class="row k-{n.kind}" class:cur={isCurrent(n)} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
+		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
+		<button class="lbl" title={n.open ? 'Open in the active pane' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))}>
+			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
+		</button>
+		{#if n.detail}<span class="d">{n.detail}</span>{/if}
+		{#if n.kind === 'level' && n.id}
+			{@const id = n.id}
+			<button class="act" title="Rename this level" onclick={() => renameLevel(id)}>✎</button>
+			<button class="act del" title="Delete this level and everything on it" onclick={() => deleteLevel(id)}>✕</button>
+		{:else if n.kind === 'building'}
+			<button class="act txt" title="The building's floors, their names and heights" onclick={onfloors}>Floors…</button>
+			<button class="act txt" title="The project's outlet usages and cable types" onclick={onsettings}>Settings…</button>
+		{:else if n.kind === 'sheets'}
+			<button class="act txt" title="A new A3 landscape sheet, opened in the active pane" onclick={onnewsheet}>+ New</button>
+			<button class="act txt" title="Every sheet in one PDF (download)" onclick={onpdfall}>PDF all</button>
+		{/if}
+	</div>
+	{#if unfolded}{#each kids as c (c.key)}{@render row(c, depth + 1)}{/each}{/if}
+{/snippet}
+
 <style>
-	.lvl { display: flex; align-items: center; border-radius: 4px; }
-	.lvl:hover { background: var(--cad-hover); }
-	.lvl.on { background: var(--cad-sel); }
-	.lvl.on.dim { background: none; box-shadow: inset 0 0 0 1px var(--cad-sel); color: var(--cad-muted); }
-	.name { flex: 1; display: flex; justify-content: space-between; padding: 1px 8px; text-align: left; }
-	.n { font-size: 11px; color: var(--cad-faint); }
+	.nav { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 12px; }
+	.find { display: flex; align-items: center; gap: 4px; margin: 6px; padding: 0 6px; border: 1px solid var(--cad-line); border-radius: 5px; background: var(--cad-input); color: var(--cad-muted); }
+	.find input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 3px 0; background: transparent; color: var(--cad-text); font-size: 12px; }
+	.tree { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
+	.row { display: flex; align-items: center; gap: 2px; padding-right: 4px; border-radius: 4px; }
+	.row:hover { background: var(--cad-hover); }
+	.row.cur { background: var(--cad-sel); }
+	.row.sel .t { color: #1d4ed8; font-weight: 600; }
+	.tw { width: 14px; flex: 0 0 14px; font-size: 9px; color: var(--cad-muted); text-align: center; }
+	.lbl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 1px 0; text-align: left; color: var(--cad-text); }
+	.lbl :global(svg) { flex: 0 0 auto; color: var(--cad-faint); }
+	.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.k-building .t, .k-sheets .t { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.02em; color: var(--cad-muted); }
+	.k-level .t { font-weight: 600; }
+	.d { font-size: 10px; color: var(--cad-faint); white-space: nowrap; }
 	.act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
-	.lvl:hover .act { visibility: visible; }
-	.act:hover { color: #dc2626; }
+	.act.txt { color: var(--cad-link, #2563eb); }
+	.row:hover .act { visibility: visible; }
+	.act.del:hover { color: #dc2626; }
+	.none { padding: 8px; color: var(--cad-faint); }
 </style>
