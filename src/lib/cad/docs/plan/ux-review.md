@@ -595,3 +595,48 @@ sheets feel like Pages without it. Behaviour, as in Pages:
    - **S5 editing in viewports.**
    - **S3 navigator:** it replaces four of the left panel's sections, so it comes after the windows.
 4. **Phase C's other items** (Properties groups, Help, back / forward, right-click menu), then Phase D2.
+
+---
+
+## Status after the remediation run (cad session, 2026-10-06)
+
+Built and committed phase by phase (each logged in `../phases/phase8.md`):
+
+| Item | State | Commit |
+|---|---|---|
+| UX09 selection follows the view · UX13 Fit · UX10 lists follow · UX24 words · UX20 location presets | done | b19c2eec |
+| B0 split · UX05 status bar (SNAP / OSNAP / GRID, F9 / F3 / F7) · UX04 questions box · UX06 hover · UX07 / Q5 blue selection + Sheets grips · UX03 icon tool strip · UX12 back / forward + breadcrumb + strip per view | done | 5f80f81e |
+| S2 windows (dock / float / close, hide all Ctrl+., reset) · S4 menu bar · UX22 Help (F1 / ?) · UX11 title block dialog | done | a0560867 |
+| S5 / UX17 edit inside viewports · UX18 viewport chip (scale, pan / zoom content) | done | 5a50ea46 |
+| S3 Navigator tree + search (Ctrl+K) | done | b392e056 |
+| UX11 Properties header + groups · UX21 right-click menu · UX19 length / Tab / angle · UX07 larger hovered grip | done | a7500e2c |
+| UX14 depth band (a test) | done, for you to try | 99730279 |
+| UX01 per-view panels | replaced by the windows (S2) | — |
+| UX15 3D | stays in `later.md` | — |
+
+### Left to do (not built)
+
+- **Properties groups for the other kinds** (outlets, runs, sheets, cords, notes, sections): they still use their own
+  panels; racks, devices and drawn shapes have groups.
+- **In-place label editing inside a viewport** (double-click / F2 there): edit those labels in the view itself.
+- **Dragging a docked window straight to a new place**: dragging its title out pops it out under the pointer; a
+  second drag places it.
+- **Depth band edges dragged on the plan**: typed for now (at / front / back on the elevation's strip).
+- **F8 ORTHO / F10 POLAR** (backlog "Function keys").
+- **Toolbar fly-outs** (Pages' grouped fly-outs): the strip shows every tool in its group; with 24 tools it fits at
+  1512 px. Fly-outs only if it gets too long.
+- `ui/ViewCanvas.svelte` (≈ 560 lines) and `editor/selectTool.ts` (≈ 525) are still over the ~500-line guide; the
+  next work in them should split them (the camera / fit logic; the hover and grips of the Select tool).
+
+### Decisions for Dave
+
+- [ ] **Depth band vs sections** (Q4): try Band on an elevation (front / back / at; Split with the plan to see it).
+  Keep it (and store it per view, put it on sheets), or drop it in favour of sections?
+- [ ] **Blocks / Racks open docked** under the Navigator when they open by themselves (Insert tool, a rack view) —
+  the review said "the rest floating", but floating they covered the drawing. OK?
+- [ ] **The windows' saved layout was reset once** (`cad-windows:2`) so that change reaches every browser. OK?
+- [ ] **Delete without a question for racks with no devices** — a rack (or anything) with nothing going with it is
+  deleted at once (Undo brings it back). During testing two empty racks went that way. Keep, or ask for every rack?
+- [ ] **Paste in the menus** says "use Ctrl+V": browsers don't let a page paste from a menu click. OK, or hide it?
+- [ ] **`$lib/ui/Window.svelte` not reused** (it's the Sheets tool's, bug-fix only, and lacks close / docking /
+  z-order); cad has its own `CadWindow`. Merge them later, or keep separate?
