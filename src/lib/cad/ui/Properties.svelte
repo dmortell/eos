@@ -27,6 +27,8 @@
 	import { groupSelection, ungroupSelection } from '../editor/commands'
 	import RenumberPanel from './RenumberPanel.svelte'
 	import LayerPick from './LayerPick.svelte'
+	import PropsHeader from './PropsHeader.svelte'
+	import PropGroup from './PropGroup.svelte'
 	import { renumberable } from '../domain/renumber'
 	import { newId } from '../domain/ids'
 	import { withStyle, type Shape } from '../domain/shapes'
@@ -156,13 +158,10 @@
 	{:else if items.filter(renumberable).length > 1}
 		<RenumberPanel {project} {ws} />
 	{/if}
-	{#if items.length}
-		<div class="flex justify-end"><button class="btn" title="Select everything in this view like the selection: the same block, or the same kind of shape on the same layer; racks / devices of the same kind; outlets" onclick={() => ws.selectSimilar()}>Select similar</button></div>
-	{/if}
+	{#if items.length}<PropsHeader {project} {ws} {items} />{/if}
 	{#if !items.length}
 		<p class="text-zinc-400">Nothing selected.</p>
 	{:else if !one}
-		<p class="font-semibold">{items.length} items selected</p>
 		{#if racks.length > 1}
 			<label class="row">Room of {racks.length} racks
 				<select class="inp" value={sameRoom ? racks[0].spaceId : ''} onchange={(e) => e.currentTarget.value && setRoom(racks, e.currentTarget.value)}>
@@ -232,144 +231,159 @@
 		<OutletProps {project} {ws} outlets={[one]} />
 	{:else if one.type === 'rack'}
 		{@const r = one as Rack}
-		<p class="flex items-center justify-between font-semibold">Rack
-			<button class="btn font-normal" title="A link that opens this rack's room in the rack view, zoomed to this rack (?rack=)" onclick={() => copyRackLink(r)}>Copy link</button></p>
-		<label class="row">Name <input class="inp" value={r.name} onchange={(e) => put(r, 'Rename rack', { name: e.currentTarget.value })} /></label>
-		<label class="row">Kind
-			<select class="inp" value={r.kind} onchange={(e) => put(r, 'Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
-				{#each RACK_KINDS as k (k)}<option value={k}>{k === 'vcm' ? 'VCM (vertical cable manager)' : k}</option>{/each}
-			</select>
-		</label>
-		{#if r.at}
-			<label class="row">X <input class="inp" type="number" value={Math.round(r.at.x)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, x: Number(e.currentTarget.value) } })} /></label>
-			<label class="row">Y <input class="inp" type="number" value={Math.round(r.at.y)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, y: Number(e.currentTarget.value) } })} /></label>
-		{/if}
-		<label class="row">Height (U) <input class="inp" type="number" value={r.heightU} onchange={(e) => put(r, 'Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
-		<label class="row">Width (mm) <input class="inp" type="number" min="100" value={r.widthMm} onchange={(e) => putSize(r, 'Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
-		<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={r.depthMm} onchange={(e) => putSize(r, 'Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
-		<label class="row">Height (mm) <input class="inp" type="number" value={r.heightMm ?? ''} placeholder="from U: {Math.round(r.heightU * 44.45 + 150)}" onchange={(e) => putSize(r, 'Rack height', { heightMm: num(e.currentTarget.value) })} /></label>
-		<label class="row">Rotation <input class="inp" type="number" value={r.rot ?? 0} onchange={(e) => put(r, 'Rotate rack', { rot: Number(e.currentTarget.value) })} /></label>
-		{#if r.at}
-			<div class="flex gap-1" style="padding-left: 6.75rem">
-				<button class="btn" title="Turn 90° anticlockwise" onclick={() => put(r, 'Rotate rack', { rot: ((r.rot ?? 0) + 270) % 360 })}>⟲ 90°</button>
-				<button class="btn" title="Turn 90° clockwise" onclick={() => put(r, 'Rotate rack', { rot: ((r.rot ?? 0) + 90) % 360 })}>⟳ 90°</button>
-				<button class="btn" title="Take it off the plan (it stays in the project)" onclick={() => put(r, 'Unplace rack', { at: undefined })}>Unplace</button>
-			</div>
-		{:else}
-			<button class="btn" onclick={() => ws.placeRack(r.id)}>Place on plan</button>
-		{/if}
-		<label class="row">Room
-			<select class="inp" value={r.spaceId} onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = r.spaceId; setRoom([r], v) }}>
-				{#each roomsFor(r) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-				<option value={NEW_ROOM}>New server room…</option>
-			</select>
-		</label>
-		<label class="row">Row
-			<select class="inp" value={r.rowId ?? ''} onchange={(e) => setRow([r], e.currentTarget.value)}>
-				<option value="">—</option>
-				{#each rowsIn(r.spaceId) as row (row.id)}<option value={row.id}>{row.name}</option>{/each}
-				<option value={NEW_ROW}>New row…</option>
-			</select>
-		</label>
-		{#if r.rowId}<RowProps {project} {ws} rowId={r.rowId} />{/if}
-		<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
-			<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
-		</label>
-		<RackDoors {project} racks={[r]} />
-		<label class="row">Level
-			<select class="inp" value={r.levelId} title="Move the rack (with its devices) to another level — it comes off the plan there" onchange={(e) => moveToLevel([r], e.currentTarget.value)}>
-				{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-			</select>
-		</label>
-		<label class="row">Maker <input class="inp" value={r.maker ?? ''} onchange={(e) => put(r, 'Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
-		<label class="row">Model <input class="inp" value={r.model ?? ''} onchange={(e) => put(r, 'Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
-		<label class="row" title="The catalogue product (SKU) — the rack BOM adds its accessories">Product <input class="inp font-mono" value={r.catalogId ?? ''} onchange={(e) => put(r, 'Rack product', { catalogId: e.currentTarget.value.trim() || undefined })} /></label>
-		<div class="row">Color <ColorPick value={r.color} allowByLayer onchange={(v) => put(r, 'Rack color', { color: v })} /></div>
-		<label class="row">Notes <textarea class="inp" rows="2" value={r.notes ?? ''} onchange={(e) => put(r, 'Rack notes', { notes: e.currentTarget.value.trim() || undefined })}></textarea></label>
+		<PropGroup kind="rack" title="General">
+			<label class="row">Name <input class="inp" value={r.name} onchange={(e) => put(r, 'Rename rack', { name: e.currentTarget.value })} /></label>
+			<label class="row">Kind
+				<select class="inp" value={r.kind} onchange={(e) => put(r, 'Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
+					{#each RACK_KINDS as k (k)}<option value={k}>{k === 'vcm' ? 'VCM (vertical cable manager)' : k}</option>{/each}
+				</select>
+			</label>
+			<div class="flex gap-1" style="padding-left: 6.75rem"><button class="btn" title="A link that opens this rack's room in the rack view, zoomed to this rack (?rack=)" onclick={() => copyRackLink(r)}>Copy link</button></div>
+		</PropGroup>
+		<PropGroup kind="rack" title="Position and size">
+			{#if r.at}
+				<label class="row">X <input class="inp" type="number" value={Math.round(r.at.x)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, x: Number(e.currentTarget.value) } })} /></label>
+				<label class="row">Y <input class="inp" type="number" value={Math.round(r.at.y)} onchange={(e) => put(r, 'Move rack', { at: { ...r.at!, y: Number(e.currentTarget.value) } })} /></label>
+			{/if}
+			<label class="row">Height (U) <input class="inp" type="number" value={r.heightU} onchange={(e) => put(r, 'Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Width (mm) <input class="inp" type="number" min="100" value={r.widthMm} onchange={(e) => putSize(r, 'Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={r.depthMm} onchange={(e) => putSize(r, 'Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Height (mm) <input class="inp" type="number" value={r.heightMm ?? ''} placeholder="from U: {Math.round(r.heightU * 44.45 + 150)}" onchange={(e) => putSize(r, 'Rack height', { heightMm: num(e.currentTarget.value) })} /></label>
+			<label class="row">Rotation <input class="inp" type="number" value={r.rot ?? 0} onchange={(e) => put(r, 'Rotate rack', { rot: Number(e.currentTarget.value) })} /></label>
+			{#if r.at}
+				<div class="flex gap-1" style="padding-left: 6.75rem">
+					<button class="btn" title="Turn 90° anticlockwise" onclick={() => put(r, 'Rotate rack', { rot: ((r.rot ?? 0) + 270) % 360 })}>⟲ 90°</button>
+					<button class="btn" title="Turn 90° clockwise" onclick={() => put(r, 'Rotate rack', { rot: ((r.rot ?? 0) + 90) % 360 })}>⟳ 90°</button>
+					<button class="btn" title="Take it off the plan (it stays in the project)" onclick={() => put(r, 'Unplace rack', { at: undefined })}>Unplace</button>
+				</div>
+			{:else}
+				<button class="btn" onclick={() => ws.placeRack(r.id)}>Place on plan</button>
+			{/if}
+		</PropGroup>
+		<PropGroup kind="rack" title="Room, row, level">
+			<label class="row">Room
+				<select class="inp" value={r.spaceId} onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = r.spaceId; setRoom([r], v) }}>
+					{#each roomsFor(r) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+					<option value={NEW_ROOM}>New server room…</option>
+				</select>
+			</label>
+			<label class="row">Row
+				<select class="inp" value={r.rowId ?? ''} onchange={(e) => setRow([r], e.currentTarget.value)}>
+					<option value="">—</option>
+					{#each rowsIn(r.spaceId) as row (row.id)}<option value={row.id}>{row.name}</option>{/each}
+					<option value={NEW_ROW}>New row…</option>
+				</select>
+			</label>
+			{#if r.rowId}<RowProps {project} {ws} rowId={r.rowId} />{/if}
+			<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
+				<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
+			</label>
+			<RackDoors {project} racks={[r]} />
+			<label class="row">Level
+				<select class="inp" value={r.levelId} title="Move the rack (with its devices) to another level — it comes off the plan there" onchange={(e) => moveToLevel([r], e.currentTarget.value)}>
+					{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</select>
+			</label>
+		</PropGroup>
+		<PropGroup kind="rack" title="Product and notes">
+			<label class="row">Maker <input class="inp" value={r.maker ?? ''} onchange={(e) => put(r, 'Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Model <input class="inp" value={r.model ?? ''} onchange={(e) => put(r, 'Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row" title="The catalogue product (SKU) — the rack BOM adds its accessories">Product <input class="inp font-mono" value={r.catalogId ?? ''} onchange={(e) => put(r, 'Rack product', { catalogId: e.currentTarget.value.trim() || undefined })} /></label>
+			<div class="row">Color <ColorPick value={r.color} allowByLayer onchange={(v) => put(r, 'Rack color', { color: v })} /></div>
+			<label class="row">Notes <textarea class="inp" rows="2" value={r.notes ?? ''} onchange={(e) => put(r, 'Rack notes', { notes: e.currentTarget.value.trim() || undefined })}></textarea></label>
+		</PropGroup>
 		<p class="text-zinc-500">{deviceCounts(project.index.devicesIn(r.id))} · front faces the +y side when not rotated</p>
 	{:else if one.type === 'device'}
 		{@const d = one as Device}
 		{@const rack = project.index.get(d.rackId) as Rack | undefined}
-		<p class="font-semibold">Device <span class="font-normal text-zinc-500">in {rack?.name ?? '?'}</span></p>
-		<label class="row">Name <input class="inp" value={d.name} onchange={(e) => putDevice(d, 'Rename device', { name: e.currentTarget.value })} /></label>
-		<label class="row">Kind
-			<select class="inp" value={d.kind} onchange={(e) => putDevice(d, 'Device kind', { kind: e.currentTarget.value as Device['kind'] })}>
-				{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}
-			</select>
-		</label>
-		<label class="row">U (bottom) <input class="inp" type="number" value={d.u} onchange={(e) => putDevice(d, 'Move device', { u: Number(e.currentTarget.value) })} /></label>
-		<label class="row">Height (U) <input class="inp" type="number" min="1" value={d.heightU} onchange={(e) => putDevice(d, 'Device height', { heightU: Number(e.currentTarget.value) })} /></label>
-		<label class="row">Face
-			<select class="inp" value={d.face} onchange={(e) => putDevice(d, 'Device face', { face: e.currentTarget.value as Device['face'] })}>
-				{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
-			</select>
-		</label>
-		{#if d.face === 'both' && d.kind !== 'pdu'}
-			<label class="row" title="Fixed to one side only: it then shares its U with a device on the other side (when their depths fit)">Mount
-				<select class="inp" value={d.mount ?? ''} onchange={(e) => putDevice(d, 'Device mount', { mount: (e.currentTarget.value || undefined) as Device['mount'] })}>
-					<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
-				</select></label>
-		{/if}
-		{#if d.kind === 'pdu'}
-			<!-- a 0U PDU (backlog "0U PDUs"): its side, its power inlets and its sockets — drawn on the strip; drag it across the rack to change sides -->
-			<label class="row" title="The side of the rack it's on, as seen from the front (or drag it across)">Side
-				<select class="inp" value={d.pduSide ?? 'left'} onchange={(e) => put(d, 'PDU side', { pduSide: e.currentTarget.value === 'right' ? 'right' : undefined })}>
-					<option value="left">left</option><option value="right">right</option>
-				</select></label>
-			<label class="row" title="Power inlets (feeds in), drawn at its bottom">Inlets <input class="inp" type="number" min="0" max="4" value={d.inlets ?? 0} onchange={(e) => put(d, 'PDU inlets', { inlets: Math.max(0, Math.min(4, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
-			<label class="row" title="Sockets (outlets) along the strip">Sockets <input class="inp" type="number" min="0" max="48" value={d.outlets ?? 0} onchange={(e) => put(d, 'PDU sockets', { outlets: Math.max(0, Math.min(48, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
-		{/if}
-		{#if d.kind !== 'pdu'}
-			<label class="row" title="Allow it to share Us with another device on the same side (a shelf always may) — the rack view marks the clash: those U numbers bold red with “!”">Overlap
-				<span><input type="checkbox" checked={!!d.overlapOk} onchange={(e) => putDevice(d, e.currentTarget.checked ? 'May overlap' : 'No overlap', { overlapOk: e.currentTarget.checked || undefined })} /> may overlap{d.kind === 'shelf' ? ' (a shelf always may)' : ''}</span></label>
-		{/if}
-		<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
-		<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
-		<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
-		<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={d.depthMm ?? ''} onchange={(e) => putDevice(d, 'Device depth', { depthMm: num(e.currentTarget.value) })} /></label>
-		{#if rack && narrowDevice(d) && d.widthMm! < rack.widthMm}
-			<label class="row" title="Sideways from the rack's centre, seen from the front (+ = right). Dragging it in the rack view moves it in 25 mm steps.">Offset X (mm)
-				<input class="inp" type="number" step="25" value={d.offsetX ?? 0} onchange={(e) => { const room = (rack.widthMm - (d.widthMm ?? 0)) / 2, v = Math.max(-room, Math.min(room, Number(e.currentTarget.value) || 0)); putDevice(d, 'Device offset', { offsetX: v || undefined }) }} /></label>
-		{/if}
-		<label class="row">Ports <input class="inp" type="number" min="0" value={d.portCount} onchange={(e) => putDevice(d, 'Port count', { portCount: Number(e.currentTarget.value) })} /></label>
-		{#if d.portCount}
-			<label class="row">Numbering
-				<select class="inp" value={d.portNumbering ?? 'row'} onchange={(e) => putDevice(d, 'Port numbering', { portNumbering: e.currentTarget.value === 'column' ? 'column' : undefined })}>
-					<option value="row">Across (2 beside 1)</option><option value="column">Down (2 under 1)</option>
+		<p class="text-zinc-500">in {rack?.name ?? '?'}</p>
+		<PropGroup kind="device" title="General">
+			<label class="row">Name <input class="inp" value={d.name} onchange={(e) => putDevice(d, 'Rename device', { name: e.currentTarget.value })} /></label>
+			<label class="row">Kind
+				<select class="inp" value={d.kind} onchange={(e) => putDevice(d, 'Device kind', { kind: e.currentTarget.value as Device['kind'] })}>
+					{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}
 				</select>
 			</label>
-		{/if}
-		{#if d.kind === 'panel'}
-			<label class="row">Tier
-				<select class="inp" value={d.panel?.tier ?? 'low'} onchange={(e) => putDevice(d, 'Panel tier', { panel: { ...d.panel, tier: e.currentTarget.value as 'low' | 'high' } })}><option value="low">Low</option><option value="high">High</option></select>
+		</PropGroup>
+		<PropGroup kind="device" title="Position">
+			<label class="row">U (bottom) <input class="inp" type="number" value={d.u} onchange={(e) => putDevice(d, 'Move device', { u: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Height (U) <input class="inp" type="number" min="1" value={d.heightU} onchange={(e) => putDevice(d, 'Device height', { heightU: Number(e.currentTarget.value) })} /></label>
+			<label class="row">Face
+				<select class="inp" value={d.face} onchange={(e) => putDevice(d, 'Device face', { face: e.currentTarget.value as Device['face'] })}>
+					{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
+				</select>
 			</label>
-		{/if}
-		{#if d.kind === 'panel'}
-			<div class="row" title="Allocation puts an outlet on a panel of its usage first; a panel with none ticked is general (takes any usage without a panel of its own)">
-				<span>Takes</span>
-				<span class="usages">
-					{#each sortedUsages(project.settings) as u (u.id)}
-						<label><input type="checkbox" checked={!!d.panel?.usages?.includes(u.id)} onchange={(e) => setUsage(d, u.id, e.currentTarget.checked)} /> {u.label}</label>
-					{/each}
-					{#if !d.panel?.usages?.length}<span class="text-zinc-400">any usage (general)</span>{/if}
-				</span>
-			</div>
-		{/if}
-		{#if d.kind === 'panel' && d.portCount}
-			{@const stale = changedSincePrinted(project.index, d)}
-			<div class="row">
-				<span>Labels</span>
-				<span>
-					{#if d.panel?.labelsPrintedAt}
-						printed {new Date(d.panel.labelsPrintedAt).toLocaleDateString()}{#if stale.length}<span class="text-red-600"> · {stale.length} changed since ({portRanges(stale)})</span>{/if}
-					{:else}<span class="text-zinc-400">not printed</span>{/if}
-				</span>
-			</div>
-			<div class="flex gap-1" style="padding-left: 6.75rem">
-				<button class="btn" title="Record that this panel's labels are printed and stuck on: later changes to them ask first, and differences are flagged" onclick={() => put(d, `${d.name} labels printed`, markPrinted(project.index, d, Date.now()))}>{d.panel?.labelsPrintedAt ? 'Printed again' : 'Mark printed'}</button>
-				{#if d.panel?.labelsPrintedAt}<button class="btn" title="Forget the printed labels (no more warnings)" onclick={() => put(d, `${d.name} not printed`, { panel: { ...d.panel!, labelsPrintedAt: undefined, printedLabels: undefined } })}>Clear</button>{/if}
-			</div>
-		{/if}
+			{#if d.face === 'both' && d.kind !== 'pdu'}
+				<label class="row" title="Fixed to one side only: it then shares its U with a device on the other side (when their depths fit)">Mount
+					<select class="inp" value={d.mount ?? ''} onchange={(e) => putDevice(d, 'Device mount', { mount: (e.currentTarget.value || undefined) as Device['mount'] })}>
+						<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
+					</select></label>
+			{/if}
+			{#if d.kind === 'pdu'}
+				<!-- a 0U PDU (backlog "0U PDUs"): its side, its power inlets and its sockets — drawn on the strip; drag it across the rack to change sides -->
+				<label class="row" title="The side of the rack it's on, as seen from the front (or drag it across)">Side
+					<select class="inp" value={d.pduSide ?? 'left'} onchange={(e) => put(d, 'PDU side', { pduSide: e.currentTarget.value === 'right' ? 'right' : undefined })}>
+						<option value="left">left</option><option value="right">right</option>
+					</select></label>
+				<label class="row" title="Power inlets (feeds in), drawn at its bottom">Inlets <input class="inp" type="number" min="0" max="4" value={d.inlets ?? 0} onchange={(e) => put(d, 'PDU inlets', { inlets: Math.max(0, Math.min(4, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+				<label class="row" title="Sockets (outlets) along the strip">Sockets <input class="inp" type="number" min="0" max="48" value={d.outlets ?? 0} onchange={(e) => put(d, 'PDU sockets', { outlets: Math.max(0, Math.min(48, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+			{/if}
+			{#if d.kind !== 'pdu'}
+				<label class="row" title="Allow it to share Us with another device on the same side (a shelf always may) — the rack view marks the clash: those U numbers bold red with “!”">Overlap
+					<span><input type="checkbox" checked={!!d.overlapOk} onchange={(e) => putDevice(d, e.currentTarget.checked ? 'May overlap' : 'No overlap', { overlapOk: e.currentTarget.checked || undefined })} /> may overlap{d.kind === 'shelf' ? ' (a shelf always may)' : ''}</span></label>
+			{/if}
+		</PropGroup>
+		<PropGroup kind="device" title="Product and size">
+			<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
+			<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={d.depthMm ?? ''} onchange={(e) => putDevice(d, 'Device depth', { depthMm: num(e.currentTarget.value) })} /></label>
+			{#if rack && narrowDevice(d) && d.widthMm! < rack.widthMm}
+				<label class="row" title="Sideways from the rack's centre, seen from the front (+ = right). Dragging it in the rack view moves it in 25 mm steps.">Offset X (mm)
+					<input class="inp" type="number" step="25" value={d.offsetX ?? 0} onchange={(e) => { const room = (rack.widthMm - (d.widthMm ?? 0)) / 2, v = Math.max(-room, Math.min(room, Number(e.currentTarget.value) || 0)); putDevice(d, 'Device offset', { offsetX: v || undefined }) }} /></label>
+			{/if}
+		</PropGroup>
+		<PropGroup kind="device" title="Ports and labels">
+			<label class="row">Ports <input class="inp" type="number" min="0" value={d.portCount} onchange={(e) => putDevice(d, 'Port count', { portCount: Number(e.currentTarget.value) })} /></label>
+			{#if d.portCount}
+				<label class="row">Numbering
+					<select class="inp" value={d.portNumbering ?? 'row'} onchange={(e) => putDevice(d, 'Port numbering', { portNumbering: e.currentTarget.value === 'column' ? 'column' : undefined })}>
+						<option value="row">Across (2 beside 1)</option><option value="column">Down (2 under 1)</option>
+					</select>
+				</label>
+			{/if}
+			{#if d.kind === 'panel'}
+				<label class="row">Tier
+					<select class="inp" value={d.panel?.tier ?? 'low'} onchange={(e) => putDevice(d, 'Panel tier', { panel: { ...d.panel, tier: e.currentTarget.value as 'low' | 'high' } })}><option value="low">Low</option><option value="high">High</option></select>
+				</label>
+			{/if}
+			{#if d.kind === 'panel'}
+				<div class="row" title="Allocation puts an outlet on a panel of its usage first; a panel with none ticked is general (takes any usage without a panel of its own)">
+					<span>Takes</span>
+					<span class="usages">
+						{#each sortedUsages(project.settings) as u (u.id)}
+							<label><input type="checkbox" checked={!!d.panel?.usages?.includes(u.id)} onchange={(e) => setUsage(d, u.id, e.currentTarget.checked)} /> {u.label}</label>
+						{/each}
+						{#if !d.panel?.usages?.length}<span class="text-zinc-400">any usage (general)</span>{/if}
+					</span>
+				</div>
+			{/if}
+			{#if d.kind === 'panel' && d.portCount}
+				{@const stale = changedSincePrinted(project.index, d)}
+				<div class="row">
+					<span>Labels</span>
+					<span>
+						{#if d.panel?.labelsPrintedAt}
+							printed {new Date(d.panel.labelsPrintedAt).toLocaleDateString()}{#if stale.length}<span class="text-red-600"> · {stale.length} changed since ({portRanges(stale)})</span>{/if}
+						{:else}<span class="text-zinc-400">not printed</span>{/if}
+					</span>
+				</div>
+				<div class="flex gap-1" style="padding-left: 6.75rem">
+					<button class="btn" title="Record that this panel's labels are printed and stuck on: later changes to them ask first, and differences are flagged" onclick={() => put(d, `${d.name} labels printed`, markPrinted(project.index, d, Date.now()))}>{d.panel?.labelsPrintedAt ? 'Printed again' : 'Mark printed'}</button>
+					{#if d.panel?.labelsPrintedAt}<button class="btn" title="Forget the printed labels (no more warnings)" onclick={() => put(d, `${d.name} not printed`, { panel: { ...d.panel!, labelsPrintedAt: undefined, printedLabels: undefined } })}>Clear</button>{/if}
+				</div>
+			{/if}
+		</PropGroup>
 		<button class="btn" disabled={busy} title="Save this device's size, ports and kind as a GLOBAL template (every project)" onclick={() => saveTemplate(d)}>Save as template…</button>
 		{#if ws.portSel?.on === d.id}<PortProps {project} {ws} sel={ws.portSel} />{/if}
 	{:else if one.type === 'sheet'}
@@ -390,7 +404,7 @@
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
 		{@const g = one.geom}
 		{@const b = project.blockOf(g.blockId)}
-		<p class="font-semibold">Block: {b?.name ?? 'missing block'}</p>
+		{#if !b}<p class="text-red-600">The block is missing</p>{/if}
 		<label class="row">Rotation <input class="inp" type="number" value={g.rot ?? 0} onchange={(e) => put(one, 'Rotate', { geom: { ...g, rot: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row">Scale <input class="inp" type="number" step="0.1" value={g.scale ?? 1} onchange={(e) => put(one, 'Scale', { geom: { ...g, scale: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row" title="Height above FFL: where it shows in elevations and sections">Height (Z) <input class="inp" type="number" step="50" value={g.z ?? 0} onchange={(e) => put(one, 'Block height', { geom: { ...g, z: Number(e.currentTarget.value) || undefined } })} /></label>
@@ -401,11 +415,14 @@
 				onclick={() => ws.ask2(`Delete block ${b.name} from the library (every project)? Inserts already placed keep drawing it. This can't be undone.`, 'Delete block', () => project.retireBlock(b.id))}>Delete block…</button>
 		{:else if b?.retired}<p class="text-zinc-500">Deleted from the library (kept here)</p>{/if}
 	{:else if one.type === 'shape'}
-		<p class="font-semibold">{one.role?.kind ?? one.geom.kind}</p>
-		<label class="row">Label <input class="inp" value={one.label ?? ''} onchange={(e) => put(one, 'Label', { label: e.currentTarget.value || undefined })} /></label>
-		<div class="row" title="Its own line color (By layer = its layer's)">Color
-			<ColorPick value={one.style?.stroke} allowByLayer onchange={(v) => project.store.transact(v ? 'Color' : 'Color by layer', (tx) => tx.put(withStyle(one, { stroke: v })))} /></div>
-		<LineStyle {project} shapes={[one]} />
+		<PropGroup kind="shape" title="General">
+			<label class="row">Label <input class="inp" value={one.label ?? ''} onchange={(e) => put(one, 'Label', { label: e.currentTarget.value || undefined })} /></label>
+		</PropGroup>
+		<PropGroup kind="shape" title="Style">
+			<div class="row" title="Its own line color (By layer = its layer's)">Color
+				<ColorPick value={one.style?.stroke} allowByLayer onchange={(v) => project.store.transact(v ? 'Color' : 'Color by layer', (tx) => tx.put(withStyle(one, { stroke: v })))} /></div>
+			<LineStyle {project} shapes={[one]} />
+		</PropGroup>
 		{#if ['rect', 'circle', 'ellipse', 'polygon'].includes(one.geom.kind) && one.levelId && one.plane?.kind !== 'vertical'}
 			<!-- a region on the plan: how tall it is (0 = flat) and where its base is — a box / desk (backlog "Box / desk tool") -->
 			<label class="row" title="How tall it stands (mm); 0 = flat — a box shows in elevations and sections">Height
@@ -427,9 +444,6 @@
 		<p class="font-semibold">{one.type}</p>
 	{/if}
 	<LayerPick {project} ids={ws.selection} />
-	{#if items.length}
-		<button class="btn del" title="The same as the Delete key — asks first when more goes with it; Undo brings it back" onclick={ws.remove}>Delete{items.length > 1 ? ` ${items.length}` : ''}</button>
-	{/if}
 </div>
 
 <style>

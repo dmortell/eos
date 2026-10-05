@@ -20,6 +20,14 @@
 		else input.select()
 	})
 	function key(e: KeyboardEvent) {
+		// a typed point (UX19): a length, then Tab, then the angle — "1200" Tab "45" = @1200<45 from the last point
+		if (e.key === 'Tab' && ws.prompt?.text && ws.prompt.label.startsWith('Point') && input && !input.value.includes('<') && /^@?-?\d+(\.\d+)?$/.test(input.value.trim())) {
+			e.preventDefault()
+			const v = input.value.trim()
+			input.value = `${v.startsWith('@') ? '' : '@'}${v}<`
+			input.setSelectionRange(input.value.length, input.value.length)
+			return
+		}
 		if (e.key === 'Enter' && ws.prompt) { const t = (e.currentTarget as HTMLInputElement).value; const p = ws.prompt; ws.prompt = null; p.apply(t); onanswer() }
 		else if (e.key === 'Escape') ws.prompt = null
 	}

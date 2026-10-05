@@ -128,6 +128,7 @@
 	.grip-bar.grip-bar-sel { stroke: #2563eb; stroke-opacity: 0.8; }
 	/* a round grip sets a property (a door's swing, a section's depth) — the same look, round */
 	/* a picked node / segment of the selected run (Delete removes it; Properties: Disconnect) */
+	.grip.grip-hover.filled { fill: #dbeafe; stroke: #1d4ed8; stroke-width: 2; }
 	.grip.grip-sel.filled { fill: #2563eb; stroke: #ffffff; stroke-width: 1.75; }
 	.seg-sel { stroke: #2563eb; stroke-width: 7; stroke-opacity: 0.45; stroke-linecap: round; fill: none; }
 	.section-extent { stroke: #0f766e; stroke-dasharray: 4 4; fill: rgba(15, 118, 110, 0.05); }

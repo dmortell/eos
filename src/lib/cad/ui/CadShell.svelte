@@ -38,7 +38,8 @@
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import TitleBlockDialog from './TitleBlockDialog.svelte'
-	import { buildMenus } from './cadMenus'
+	import { buildMenus, type MenuItem } from './cadMenus'
+	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
 	import { blankSheet } from '../views/sheet'
 	import { newId } from '../domain/ids'
@@ -296,6 +297,28 @@
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 	}))
 
+	/** The right-click menu on the selection (UX21): its commands, with their keys. */
+	const contextItems = $derived.by((): MenuItem[] => {
+		if (!ws.contextMenu) return []
+		const sel = ws.selection.map((id) => project.index.get(id)), shapes = sel.filter((e) => e?.type === 'shape')
+		const one = sel.length === 1 ? sel[0] : undefined
+		return [
+			...(one && labelKind(one) ? [{ label: 'Edit label', key: 'F2', run: () => ws.editText(one.id) } as MenuItem, '-' as const] : []),
+			{ label: 'Cut', key: 'Ctrl+X', run: () => document.execCommand('cut') },
+			{ label: 'Copy', key: 'Ctrl+C', run: () => document.execCommand('copy') },
+			{ label: 'Delete', key: 'Delete', run: deleteSelected },
+			'-',
+			{ label: 'Select similar', run: () => canvas?.selectSimilar() },
+			...(shapes.length ? ['-' as const,
+				...(shapes.length >= 2 ? [{ label: 'Group', key: 'Ctrl+G', run: () => groupKey(false) } as MenuItem] : []),
+				...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: 'Ctrl+Shift+G', run: () => groupKey(true) } as MenuItem] : []),
+				{ label: 'Bring to front', key: 'Ctrl+Shift+]', run: () => orderKey('front') } as MenuItem,
+				{ label: 'Send to back', key: 'Ctrl+Shift+[', run: () => orderKey('back') } as MenuItem] : []),
+			'-',
+			{ label: 'Properties', run: () => layout.open('properties') },
+		]
+	})
+
 	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
 	let cordDefaultsSet = false
 	function setTool(id: ToolId) {
@@ -313,7 +336,7 @@
 
 	/** Start typing a point while a drawing tool is active: the point box opens with what was typed. */
 	function typePoint(first: string) {
-		ws.askText('Point — x,y · @dx,dy · @d<angle · distance', first, (text) => {
+		ws.askText('Point — x,y · @dx,dy · a length, Tab, an angle', first, (text) => {
 			const err = canvas?.typed(text) ?? null
 			if (err) ws.say(err)
 		})
@@ -440,6 +463,7 @@
 	{#if typesOpen}<SettingsDialog {project} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
+	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
 	<!-- tables: outlets (this level) | patch list (the project) | sheets | links -->

@@ -76,6 +76,8 @@ export class SelectTool implements Tool {
 	#logo: { sheet: Id; key: LogoKey } | null = null
 	/** What a click here would take (UX06): drawn as a thin outline, and the cursor says what a press does. */
 	#hov: { id: Id; sub?: string } | null = null
+	/** The grip under the pointer: drawn larger (UX07). */
+	#hovGrip: Pt | null = null
 	#cursor = 'default'
 	/** A double-clicked text, edited in place when the button comes up. */
 	#editOnUp: Id | null = null
@@ -90,13 +92,14 @@ export class SelectTool implements Tool {
 
 	/** The cursor for what's under the pointer: a grip → crosshair, something that moves → move, else pointer / arrow. */
 	cursorNow(): string { return this.#cursor }
-	unhover(): void { this.#hov = null; this.#cursor = 'default' }
+	unhover(): void { this.#hov = null; this.#hovGrip = null; this.#cursor = 'default' }
 	hover(e: PointerIn, c: ToolCtx): void {
 		const t = c.tol() * 1.5, near = (q: Pt) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= t
 		const rg = this.#regionGrips(c), ng = this.#noteGrips(c)
-		if (handleAt(this.#handles(c).handles, e.p, t) || gripAt(this.grips(c), e.p, t) || rg?.at.some(near) || ng?.grips.some((q) => q.index >= 0 && near(q.at))) {
-			this.#hov = null; this.#cursor = 'crosshair'; return
-		}
+		const h = handleAt(this.#handles(c).handles, e.p, t), g = gripAt(this.grips(c), e.p, t)
+		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at ?? null
+		this.#hovGrip = onGrip
+		if (onGrip || h) { this.#hov = null; this.#cursor = 'crosshair'; return }
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
@@ -144,7 +147,7 @@ export class SelectTool implements Tool {
 	}
 
 	down(e: PointerIn, c: ToolCtx): void {
-		this.#hov = null
+		this.#hov = null; this.#hovGrip = null
 		this.#before = c.selection
 		// handles first (they sit on a wall / a cut line, where a node grip or a click would also land)
 		const hBest = handleAt(this.#handles(c).handles, e.p, c.tol() * 1.5)
@@ -487,6 +490,8 @@ export class SelectTool implements Tool {
 			if (h.shape === 'round') out.push({ k: 'circle', c: h.at, r: 5 * px, fill: true, cls: 'grip grip-round' })
 			else out.push({ k: 'line', pts: sq(h.at, 8 * px), closed: true, fill: true, cls: 'grip' })   // square / grip: one look (Sheets')
 		}
+		// the grip under the pointer, larger (UX07: "larger on hover")
+		if (this.#hovGrip && !this.#gesture) out.push({ k: 'line', pts: sq(this.#hovGrip, 11 * px), closed: true, fill: true, cls: 'grip grip-hover' })
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
 		return out
 	}

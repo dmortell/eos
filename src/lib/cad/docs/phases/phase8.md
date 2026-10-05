@@ -1201,3 +1201,27 @@ Live (Test Project): "R31" left Test Project › 1F › IDF2 › R311 / R312 / R
 view (marked) with R312 selected. No data written.
 
 Checks: 466 cad tests pass (new: `domain/navTree.test.ts`); svelte-check: nothing in cad.
+
+## UX remediation, Phase C: Properties, right-click menu, typed angles, grips (`../plan/ux-review.md`)
+
+- **UX11 Properties header and groups** (`ui/PropsHeader.svelte`, `ui/PropGroup.svelte`): a header with the kind's
+  icon and word (Rack, Trunk, Box, Viewport, n items …), its name / label and layer, and Select similar + Delete as
+  icons (the bottom Delete button and the per-kind title lines are gone). Racks, devices and drawn shapes have
+  folding groups — rack: General · Position and size · Room, row, level · Product and notes; device: General ·
+  Position · Product and size · Ports and labels; shape: General · Style — remembered per kind of thing in this
+  browser. (Outlets, runs, sheets, cords and notes keep their own panels for now.)
+- **UX21 Right-click menu** (`ui/ContextMenu.svelte`; Dave: "ok for context-menu, but keep right-click = Esc while
+  drawing"): a right-click on something SELECTED (Select tool) opens its commands with their keys — Edit label (F2),
+  Cut, Copy, Delete, Select similar, Group / Ungroup and draw order for shapes, Properties. Anywhere else, and while
+  drawing, a right-click is still Esc.
+- **UX19 Length, Tab, angle:** in the typed-point box, a length then Tab gives `@length<` — type the angle, Enter.
+- **UX07 Grips:** the grip under the pointer draws larger (and pale blue), so you see what a press takes.
+- **Windows:** Blocks and Racks now open docked under the Navigator (they open by themselves, and a floating Racks
+  window covered the drawing); the saved layout key moved to `cad-windows:2`, so every browser starts from the defaults.
+- OutletGrid / PatchList: their row maps are `$state` (a dev warning on every row).
+
+Live (Test Project, synthetic pointer events — the automation's clicks landed off target in this tab): R311 selected →
+header "Rack R311" with the four groups; a right-click on it listed Edit label [F2], Cut, Copy, Delete, Select
+similar, Properties. No data written.
+
+Checks: 466 cad tests pass; svelte-check: nothing in cad.

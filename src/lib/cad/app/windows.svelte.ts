@@ -22,13 +22,15 @@ export interface WinState {
 export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', cables: 'Cables' }
 export const WIN_IDS = Object.keys(WIN_TITLES) as WinId[]
 
-const KEY = 'cad-windows'
+const KEY = 'cad-windows:2'   // :2 — Blocks / Racks now open docked (a floating Racks covered the drawing)
 const DEFAULTS: Record<WinId, WinState> = {
 	navigator: { open: true, dock: 'left', order: 0, x: 16, y: 48, w: 240, h: 420, folded: false, z: 1 },
 	properties: { open: true, dock: 'right', order: 0, x: 900, y: 48, w: 280, h: 480, folded: false, z: 1 },
 	layers: { open: false, dock: null, order: 1, x: 260, y: 60, w: 260, h: 380, folded: false, z: 1 },
-	blocks: { open: false, dock: null, order: 2, x: 290, y: 80, w: 260, h: 420, folded: false, z: 1 },
-	racks: { open: false, dock: null, order: 3, x: 320, y: 100, w: 240, h: 420, folded: false, z: 1 },
+	// Blocks and Racks open by themselves (the Insert tool, a rack view): docked under the Navigator, so they never land
+	// on the drawing; drag them out to float them
+	blocks: { open: false, dock: 'left', order: 2, x: 290, y: 80, w: 260, h: 420, folded: false, z: 1 },
+	racks: { open: false, dock: 'left', order: 3, x: 320, y: 100, w: 240, h: 420, folded: false, z: 1 },
 	cables: { open: false, dock: null, order: 4, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
 }
 const clone = (s: Record<WinId, WinState>) => Object.fromEntries(WIN_IDS.map((id) => [id, { ...s[id] }])) as Record<WinId, WinState>

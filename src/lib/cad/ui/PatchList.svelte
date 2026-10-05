@@ -48,7 +48,7 @@
 		return new Set(project.index.cords.filter((c) => on(c.a) || on(c.b)).map((c) => c.id))
 	})
 	// a cord (or a port's cord) picked elsewhere scrolls its row into view
-	const rowEls: Record<string, HTMLTableRowElement> = {}
+	const rowEls: Record<string, HTMLTableRowElement> = $state({})
 	$effect(() => {
 		const want = new Set([...selected, ...onPorts])   // only a new pick scrolls, not every edit of the list
 		untrack(() => {

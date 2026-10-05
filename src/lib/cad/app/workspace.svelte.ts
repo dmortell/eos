@@ -179,6 +179,8 @@ export class Workspace {
 	vpContentNav = $state(false)
 	/** Bumped to focus the Navigator's search (Ctrl+K). */
 	navSearch = $state(0)
+	/** The right-click menu on the selection (UX21), at a screen point; null = closed. */
+	contextMenu = $state<{ x: number; y: number } | null>(null)
 	selectViewport = (id: Id | null): void => { this.viewportId = id }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)

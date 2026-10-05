@@ -22,7 +22,7 @@
 	const usages = $derived(sortedUsages(project.settings))
 	const selected = $derived(new Set(ws.selection))
 	// an outlet picked on the plan scrolls its row into view (UX10; as the patch list does) — only a new pick scrolls
-	const rowEls: Record<string, HTMLTableRowElement> = {}
+	const rowEls: Record<string, HTMLTableRowElement> = $state({})
 	$effect(() => {
 		const want = selected
 		untrack(() => { const id = rows.find((r) => want.has(r.id))?.id; if (id) rowEls[id]?.scrollIntoView({ block: 'nearest' }) })
