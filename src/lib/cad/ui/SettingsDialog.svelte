@@ -1,7 +1,9 @@
-<!-- The project's SETTINGS (Dave 2026-10-05), two tabs:
+<!-- The project's SETTINGS (Dave 2026-10-05), three tabs:
      - USAGES (backlog "Editable usage list"): code, label, color; add, delete (refused while outlets or panels use it).
      - CABLE TYPES (backlog "Cable types editor"): label, media, color, outer diameter (fill uses it), the defaults for new
        outlets / cords; add, delete (refused while an outlet port or a cord uses it, or it's a default).
+     - LENGTHS & LABELS (UX review T4: they were on the Outlets table's bar, looking like a filter): how port labels
+       follow the outlet label (relabel existing ones on request), the cable slack per port and the BOM's waste.
      Every edit is one undo step. -->
 <script lang="ts">
 	import { backdropClose } from './backdrop'
@@ -10,8 +12,13 @@
 	import { cableTypeUses, cantDelete, newCableTypeId, sortedCableTypes, type CableType } from '../domain/cableTypes'
 	import { usageUses, sortedUsages, type Usage } from '../domain/usages'
 	import ColorPick from './ColorPick.svelte'
+	import type { Workspace } from '../app/workspace.svelte'
+	import type { Outlet } from '../domain/types'
+	import { cableSettings, type CableSettings } from '../domain/routing'
+	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 
-	let { project, onclose, tab = $bindable('usages') }: { project: CadProject; onclose: () => void; tab?: 'usages' | 'cables' } = $props()
+	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' } = $props()
+
 
 	const st = $derived(project.settings)
 	const types = $derived(sortedCableTypes(st))
@@ -44,6 +51,17 @@
 	}
 	const removeUsage = (id: string) => save(`Delete usage ${id}`, (s) => ({ ...s, usages: s.usages.filter((u) => u.id !== id) }))
 	const usedText = (u: { outlets: number; panels: number } | undefined) => (u ? [u.outlets && `${u.outlets} outlets`, u.panels && `${u.panels} panels`].filter(Boolean).join(' · ') : '')
+	// ── lengths & labels ──
+	const cable = $derived(cableSettings(project.index))
+	const setCable = (patch: Partial<CableSettings>) => save('Cable settings', (s) => ({ ...s, cable: { ...cable, ...patch } }))
+	const fmtKey = $derived(`${st?.portSuffix ?? 'alpha'}|${st?.portSeparator ?? '.'}`)
+	function setFormat(key: string) {
+		const [style, sep] = key.split('|') as ['alpha' | 'numeric', PortSep]
+		save(`Port labels like ${portLabelsFor('201', 1, style, sep)[0]}`, (s) => ({ ...s, portSuffix: style, portSeparator: sep }))
+		const edits = project.index.outlets.map((o) => reformatPorts(o, style, sep)).filter((o): o is Outlet => !!o)
+		if (edits.length && ws) ws.ask2(`New outlets will be labelled like ${portLabelsFor('201', 1, style, sep)[0]}. Relabel the ports of ${edits.length} existing outlet(s) too? (imported / hand-made labels are left as they are)`, 'Relabel',
+			() => project.relabel(`Relabel ports of ${edits.length} outlets`, edits, ws.ask2))
+	}
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
@@ -53,6 +71,7 @@
 				<b>Settings</b>
 				<button class:on={tab === 'usages'} onclick={() => (tab = 'usages')}>Usages</button>
 				<button class:on={tab === 'cables'} onclick={() => (tab = 'cables')}>Cable types</button>
+				<button class:on={tab === 'lengths'} onclick={() => (tab = 'lengths')}>Lengths &amp; labels</button>
 			</span>
 			<button class="x" title="Close (Esc)" onclick={onclose}>✕</button>
 		</div>
@@ -78,6 +97,17 @@
 			<div class="foot">
 				<input class="code" placeholder="New code (e.g. CAM)" bind:value={newCode} onkeydown={(e) => e.key === 'Enter' && addUsage()} />
 				<button class="btn" disabled={!newCode.trim()} onclick={addUsage}>+ Add usage</button>
+			</div>
+		{:else if tab === 'lengths'}
+			<div class="form">
+				<label title="How port labels follow the outlet label: new outlets get it; existing ones can be relabelled">Port labels
+					<select value={fmtKey} onchange={(e) => setFormat(e.currentTarget.value)}>
+						{#each PORT_FORMATS as f (f.style + f.sep)}<option value="{f.style}|{f.sep}">{portLabelsFor('201', 1, f.style, f.sep)[0]}</option>{/each}
+					</select></label>
+				<label title="Cable slack at the outlet, added to each routed length (the Length column)">Slack per port
+					<span><input class="num" type="number" min="0" step="0.1" value={cable.slackM} onchange={(e) => setCable({ slackM: Math.max(0, Number(e.currentTarget.value) || 0) })} /> m</span></label>
+				<label title="Waste added to the cable metres in the BOM">Waste in the BOM
+					<span><input class="num" type="number" min="0" step="1" value={cable.wastePct} onchange={(e) => setCable({ wastePct: Math.max(0, Number(e.currentTarget.value) || 0) })} /> %</span></label>
 			</div>
 		{:else}
 			<table>
@@ -125,6 +155,8 @@
 	.del { color: var(--cad-muted, #71717a); padding: 0 4px; }
 	.del:hover:not(:disabled) { color: #b91c1c; }
 	.del:disabled { opacity: 0.3; }
+	.form { display: grid; grid-template-columns: 9rem auto; gap: 8px 12px; align-items: center; padding: 12px; }
+	.form label { display: contents; }
 	.foot { display: flex; gap: 12px; align-items: center; padding: 8px 12px; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }

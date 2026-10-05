@@ -1302,3 +1302,22 @@ warnings.
   sheets; the project row — Floors… · Settings…. "+ New" on the Sheets row is always shown. Delete lives only inside
   the menus. Rows are focusable; F2 renames the focused row. Project menu: Rename / Delete this level…. The level /
   room rename and delete moved to `app/navActions.ts`.
+
+## Second UX review, group 3: the tables (T4–T7)
+
+- **T4 Settings out of the Outlets bar:** the port-label format, Slack and Waste moved to Project › Settings… ›
+  **Lengths & labels** (with the "relabel existing ports?" offer); the Length column's title says the slack
+  ("Length (+0.5 m)"). The bar keeps actions and filters; "49 no route" is a chip that lists those outlets.
+- **T5 Sort and filter:** Outlets, Patch list and Links sort by any column (click the header; again reverses; a third
+  time goes back), remembered per table, and each has a Find box (`ui/tableKit.svelte.ts`, `ui/SortTh.svelte`).
+- **T6 One scope rule:** each has **This view · Selection · All** (`ui/ScopeSelect.svelte`): Outlets — this level /
+  the selected outlets (any level, with a Level column) / every level; Patch list — the open rack view's room (else
+  all) / the selected cords and those on selected devices or ports / all; Links — links with an end on this level /
+  selected links or ends / all. Remembered per table.
+- **T7 Counts and keys:** "n of N · m selected"; with the table focused, ↑ / ↓ move the selection (and the drawing's),
+  Ctrl+C copies the shown rows as tab-separated text for Excel.
+
+Live (Test Project, Outlets): "47 of 47"; Label header sorted A.001… then reversed; Find "A.00" → 12 of 47; a row
+click then ↓ selected the next outlet; Selection scope → "1 of 1 · 1 selected". No data written.
+
+Checks: 474 cad tests pass (new: `ui/tableKit.test.ts`); svelte-check: 10 (baseline), no cad warnings.

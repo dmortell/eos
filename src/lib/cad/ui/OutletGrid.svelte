@@ -3,6 +3,9 @@
      (the port labels that start with the old outlet label). -->
 <script lang="ts">
 	import { sortedUsages } from '../domain/usages'
+	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import SortTh from './SortTh.svelte'
+	import ScopeSelect from './ScopeSelect.svelte'
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -10,15 +13,33 @@
 	import { naturalCompare } from '../domain/labels'
 	import { renameOutlet } from '../domain/ports'
 	import { allocate } from '../domain/allocate'
-	import { cableSettings, type CableSettings } from '../domain/routing'
-	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
+	import { cableSettings } from '../domain/routing'
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
 
 	/** "No panel yet": only outlets with a port not on a panel port (e.g. added after install). */
 	let unassigned = $state(false)
-	const all = $derived(project.index.outlets.filter((o) => o.levelId === levelId).sort((a, b) => naturalCompare(a.label, b.label)))
-	const rows = $derived(unassigned ? all.filter((o) => o.ports.some((p) => !project.index.linkAt({ on: o.id, port: p.port }))) : all)
+	/** "no route" (a chip): only outlets with a port that has no route. */
+	let noRoute = $state(false)
+	/** Sort, filter and scope (UX review T5 / T6): This view = this level · Selection = the selected outlets (any level) · All. */
+	const t = new TableState('outlets')
+	const all = $derived.by(() => {
+		const sel = new Set(ws.selection)
+		const base = t.scope === 'all' ? project.index.outlets : t.scope === 'sel' ? project.index.outlets.filter((o) => sel.has(o.id)) : project.index.outlets.filter((o) => o.levelId === levelId)
+		return [...base].sort((a, b) => naturalCompare(project.index.nameOf(a.levelId), project.index.nameOf(b.levelId)) || naturalCompare(a.label, b.label))
+	})
+	const rows = $derived(t.apply(
+		(unassigned ? all.filter((o) => o.ports.some((p) => !project.index.linkAt({ on: o.id, port: p.port }))) : all).filter((o) => !noRoute || o.ports.some((p) => routeOf(o, p.port)?.problem)),
+		(o) => `${o.label} ${o.usage} ${o.tier} ${o.mount} ${o.ports.map((p) => p.label).join(' ')} ${roomName(o.ports[0]?.serverRoomId)}`,
+		{ label: (o) => o.label, usage: (o) => o.usage, tier: (o) => o.tier, mount: (o) => o.mount, room: (o) => roomName(o.ports[0]?.serverRoomId), panel: (o) => panelOf(o, o.ports[0]?.port ?? 1).text,
+			length: (o) => routeOf(o, o.ports[0]?.port ?? 1)?.lengthM ?? -1, placed: (o) => (o.at ? 1 : 0) },
+	))
+	const nSel = $derived(rows.filter((o) => selected.has(o.id)).length)
+	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	function tableKey(e: KeyboardEvent) {
+		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (copyRows(e, ['Level', 'Label', 'Usage', 'Tier', 'Mount', 'Ports', 'Server room', 'Panel', 'Length (m)'], rows.map((o) => [project.index.nameOf(o.levelId), o.label, o.usage, o.tier, o.mount, o.ports.map((p) => p.label).join(' '), roomName(o.ports[0]?.serverRoomId), o.ports.map((p) => panelOf(o, p.port).text).join(' '), o.ports.map((p) => routeOf(o, p.port)?.lengthM ?? '').join(' ')]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+	}
 	const usages = $derived(sortedUsages(project.settings))
 	const selected = $derived(new Set(ws.selection))
 	// an outlet picked on the plan scrolls its row into view (UX10; as the patch list does) — only a new pick scrolls
@@ -57,11 +78,6 @@
 	// ── cable lengths (Phase 5.2): the project's routes; slack / waste are project settings ──
 	const cable = $derived(cableSettings(project.index))
 	const routeOf = (o: Outlet, port: number) => { const l = project.index.linkAt({ on: o.id, port }); return l ? project.routes.get(l.id) : undefined }
-	function setCable(patch: Partial<CableSettings>) {
-		const s = project.settings
-		if (!s) return
-		project.store.transact('Cable settings', (tx) => tx.put({ ...s, cable: { ...cable, ...patch } }))
-	}
 	const routed = $derived.by(() => {
 		const rs = project.index.outlets.filter((o) => o.levelId === levelId).flatMap((o) => o.ports.map((p) => routeOf(o, p.port))).filter((r) => !!r)
 		return { n: rs.length, none: rs.filter((r) => r.problem).length, over: rs.filter((r) => r.over90).length }
@@ -118,35 +134,23 @@
 		})
 	}
 
-	// ── port label format (project setting) ──
-	const fmtKey = $derived(`${project.settings?.portSuffix ?? 'alpha'}|${project.settings?.portSeparator ?? '.'}`)
-	function setFormat(key: string) {
-		const s = project.settings
-		if (!s) return
-		const [style, sep] = key.split('|') as ['alpha' | 'numeric', PortSep]
-		project.store.transact(`Port labels like ${portLabelsFor('201', 1, style, sep)[0]}`, (tx) => tx.put({ ...s, portSuffix: style, portSeparator: sep }))
-		const edits = project.index.outlets.map((o) => reformatPorts(o, style, sep)).filter((o): o is Outlet => !!o)
-		if (edits.length) ws.ask2(`New outlets will be labelled like ${portLabelsFor('201', 1, style, sep)[0]}. Relabel the ports of ${edits.length} existing outlet(s) too? (imported / hand-made labels are left as they are)`, 'Relabel',
-			() => project.relabel(`Relabel ports of ${edits.length} outlets`, edits, ws.ask2))
-	}
+	// (the port label format, slack and waste moved to Project › Settings › Lengths & labels — UX review T4)
 </script>
 
-<div class="h-full overflow-auto text-xs">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Outlets" onkeydown={tableKey}>
 	<div class="actions">
-		<span class="font-semibold text-zinc-600">Outlets</span>
+		<ScopeSelect {t} view={project.index.nameOf(levelId) || 'This level'} />
+		<input class="find" placeholder="Find…" bind:value={t.q} />
+		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
 		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
 		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
 		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
-		<label class="fmt" title="How port labels follow the outlet label (new outlets; existing ones can be relabelled)">Port labels
-			<select value={fmtKey} onchange={(e) => setFormat(e.currentTarget.value)}>
-				{#each PORT_FORMATS as f (f.style + f.sep)}<option value="{f.style}|{f.sep}">{portLabelsFor('201', 1, f.style, f.sep)[0]}</option>{/each}
-			</select>
-		</label>
-		<label class="fmt" title="Cable slack at the outlet, added to each routed length">Slack <input class="num" type="number" min="0" step="0.1" value={cable.slackM} onchange={(e) => setCable({ slackM: Math.max(0, Number(e.currentTarget.value) || 0) })} /> m</label>
-		<label class="fmt" title="Waste added to the cable metres in the BOM">Waste <input class="num" type="number" min="0" step="1" value={cable.wastePct} onchange={(e) => setCable({ wastePct: Math.max(0, Number(e.currentTarget.value) || 0) })} /> %</label>
-		{#if routed.n}<span class="text-zinc-500" title="Cabled ports on this level">{routed.n - routed.none} routed{routed.none ? ` · ` : ''}{#if routed.none}<b class="text-red-600">{routed.none} no route</b>{/if}{#if routed.over} · <b class="text-red-600">{routed.over} over 90 m</b>{/if}</span>{/if}
+		{#if routed.n}<span class="text-zinc-500" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
+		{#if routed.none}<button class="chip" class:on={noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)}>{routed.none} no route</button>{/if}
+		{#if routed.over}<b class="text-red-600">{routed.over} over 90 m</b>{/if}
 		{#if issues.length}
 			<details class="issues"><summary>{issues.length} allocation issue{issues.length > 1 ? 's' : ''}</summary><ul>{#each issues as t, i (i)}<li>{t}</li>{/each}</ul></details>
 		{/if}
@@ -154,14 +158,16 @@
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
-				<th class="px-2 py-1">Label</th><th class="px-2">Usage</th><th class="px-2">Tier</th><th class="px-2">Mount</th>
-				<th class="px-2">Ports</th><th class="px-2">Server room</th><th class="px-2">Panel (◆ pinned)</th><th class="px-2" title="Cable length per port: the route over the drawn containment + slack, rounded up (red = over 90 m, ? = no route)">Length</th><th class="px-2">Placed</th>
+				{#if t.scope !== 'view'}<th class="px-2 py-1">Level</th>{/if}
+				<SortTh {t} key="label" cls="px-2 py-1">Label</SortTh><SortTh {t} key="usage">Usage</SortTh><SortTh {t} key="tier">Tier</SortTh><SortTh {t} key="mount">Mount</SortTh>
+				<th class="px-2">Ports</th><SortTh {t} key="room">Server room</SortTh><SortTh {t} key="panel">Panel (◆ pinned)</SortTh><SortTh {t} key="length" title="Cable length per port: the route over the drawn containment + {cable.slackM} m slack, rounded up (red = over 90 m, ? = no route) — slack and waste are in Project › Settings › Lengths & labels">Length (+{cable.slackM} m)</SortTh><SortTh {t} key="placed">Placed</SortTh>
 			</tr>
 		</thead>
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
 				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+					{#if t.scope !== 'view'}<td class="px-2 text-zinc-500">{project.index.nameOf(o.levelId)}</td>{/if}
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
@@ -197,7 +203,7 @@
 					<td class="px-2">{o.at ? '✓' : ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No outlets on this level yet — use the Outlet tool on the plan.</td></tr>
+				<tr><td colspan="10" class="px-2 py-3 text-zinc-400">{all.length ? 'No outlets match.' : t.scope === 'sel' ? 'No outlets selected.' : 'No outlets here yet — use the Outlet tool on the plan.'}</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -205,6 +211,8 @@
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
+	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 9rem; background: var(--cad-input); color: var(--cad-text); }
+	div[role='grid']:focus { outline: none; }
 	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.actions button { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.actions button:hover { background: var(--cad-hover); }
@@ -212,9 +220,9 @@
 	.issues summary { cursor: pointer; }
 	.issues ul { position: absolute; z-index: 5; max-height: 10rem; overflow: auto; background: var(--cad-pick); border: 1px solid var(--cad-line); border-radius: 4px; padding: 4px 8px; color: var(--cad-text); }
 	.pp { margin-right: 10px; white-space: nowrap; }
+	.chip { border: 1px solid #fca5a5 !important; color: #b91c1c !important; font-weight: 600; }
+	.chip.on { background: #fee2e2 !important; }
 	.fmt { display: inline-flex; gap: 4px; align-items: center; color: var(--cad-muted); }
-	.fmt select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-family: ui-monospace, monospace; background: var(--cad-input); color: var(--cad-text); }
 	.pp.none { color: var(--cad-faint); }
 	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
-	.num { width: 3.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); }
 </style>

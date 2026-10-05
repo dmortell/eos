@@ -10,15 +10,17 @@
 	import { patchList } from '../domain/reports'
 	import { importCordIds } from '../render/exports'
 	import CordBomDialog from './CordBomDialog.svelte'
+	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import SortTh from './SortTh.svelte'
+	import ScopeSelect from './ScopeSelect.svelte'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
 	/** `inRoomView` = a rack view is open: the list starts on its room (UX review R4); "All rooms" is one click away. */
 	let { project, ws, projectName, roomId, inRoomView = false }: { project: CadProject; ws: Workspace; projectName: string; roomId?: string; inRoomView?: boolean } = $props()
 
-	// ── This room / All ──
-	let here = $state(false)
-	$effect(() => { here = inRoomView })
-	const room = $derived(here && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
+	// ── scope (UX review T6 / R4): This view = the open rack view's room (else every cord) · Selection · All ──
+	const t = new TableState('patch')
+	const room = $derived(t.scope === 'view' && inRoomView && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
 
 	// ── the cord BOM + Excel out (a dialog) and cord IDs back in (Phase 3.6) ──
 	let bomOpen = $state(false)
@@ -37,10 +39,24 @@
 
 	const STATUSES: Cord['status'][] = ['add', 'change', 'remove', 'installed']
 	let show = $state<Record<Cord['status'], boolean>>({ add: true, change: true, remove: true, installed: true })
-	let q = $state('')
-	const all = $derived(patchList(project.index, room ? { rackIds: project.index.racks.filter((r) => r.spaceId === room.id).map((r) => r.id) } : {}))
+	const all = $derived.by(() => {
+		const list = patchList(project.index, room ? { rackIds: project.index.racks.filter((r) => r.spaceId === room.id).map((r) => r.id) } : {})
+		if (t.scope !== 'sel') return list
+		// Selection: the selected cords, and the cords on selected devices / ports
+		const sel = new Set(ws.selection), ps = ws.portSel
+		const on = (r: { on: string; port: number }) => sel.has(r.on) || (!!ps && r.on === ps.on && ps.ports.includes(r.port))
+		const ids = new Set(project.index.cords.filter((c) => sel.has(c.id) || on(c.a) || on(c.b)).map((c) => c.id))
+		return list.filter((r) => ids.has(r.id))
+	})
 	const count = $derived(Object.fromEntries(STATUSES.map((s) => [s, all.filter((r) => r.status === s).length])) as Record<Cord['status'], number>)
-	const rows = $derived(all.filter((r) => show[r.status] && (!q || `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.cordId} ${r.notes}`.toLowerCase().includes(q.toLowerCase()))))
+	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
+		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
+	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
+	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	function tableKey(e: KeyboardEvent) {
+		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+	}
 	const selected = $derived(new Set(ws.selection))
 	/** The cords on the ports picked in a rack view: shown like selected rows. */
 	const onPorts = $derived.by(() => {
@@ -71,25 +87,22 @@
 	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
 </script>
 
-<div class="h-full overflow-auto text-xs">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Patch list" onkeydown={tableKey}>
 	<div class="actions">
-		<span class="font-semibold text-zinc-600">Patch list</span>
-		<select class="btn" title="Every cord, or only this room's (the open rack view's, else the selected rack's)" value={room ? 'room' : 'all'} onchange={(e) => (here = e.currentTarget.value === 'room')}>
-			<option value="all">All rooms</option>
-			<option value="room" disabled={!roomId}>{roomId ? project.index.nameOf(roomId) : 'This room (open a rack view)'}</option>
-		</select>
+		<ScopeSelect {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} />
 		{#each STATUSES as s (s)}
 			<button class="chip s-{s}" class:off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords">{s} {count[s]}</button>
 		{/each}
-		<input class="find" placeholder="Find…" bind:value={q} />
-		<span class="text-zinc-400">{rows.length} of {all.length}</span>
+		<input class="find" placeholder="Find…" bind:value={t.q} />
+		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<button class="btn" title="Cords by type × length and status, and the Excel export (patch schedule + cord BOM)" onclick={() => (bomOpen = true)}>Cord BOM…</button>
 		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 	</div>
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
-			<tr><th class="px-2 py-1">From</th><th class="px-2">Label</th><th class="px-2">To</th><th class="px-2">Label</th><th class="px-2">Type</th><th class="px-2">Len (m)</th><th class="px-2">Cord ID</th><th class="px-2">Status</th><th class="px-2">Notes</th></tr>
+			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh><SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
@@ -114,6 +127,7 @@
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
+	div[role='grid']:focus { outline: none; }
 	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.chip { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px; text-transform: uppercase; border: 0; }
 	.chip.off { opacity: 0.35; }

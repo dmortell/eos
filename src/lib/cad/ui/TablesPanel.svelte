@@ -98,7 +98,7 @@
 		<div class="body">
 			{#if tab === 'patch'}<PatchList {project} {ws} {projectName} {roomId} {inRoomView} />
 			{:else if tab === 'sheets'}<SheetsTab {project} {ws} {onview} />
-			{:else if tab === 'links'}<LinksTable {project} {ws} />
+			{:else if tab === 'links'}<LinksTable {project} {ws} levelId={level?.id} />
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
 		{#if t.float && !t.max}<div class="corner" role="presentation" title="Drag to resize" onpointerdown={cornerDown}></div>{/if}

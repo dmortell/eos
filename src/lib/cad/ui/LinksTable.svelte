@@ -7,21 +7,40 @@
 	import type { Link } from '../domain/types'
 	import { linkRows, type LinkRow } from '../domain/cableList'
 	import { deleteEntities } from '../editor/commands'
+	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import SortTh from './SortTh.svelte'
+	import ScopeSelect from './ScopeSelect.svelte'
 
-	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
+	/** `levelId` = the open level ("This view": links with an end on it). */
+	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId?: string } = $props()
 
 	const KINDS = ['run', 'tie', 'backbone'] as const
 	let show = $state<Record<LinkRow['kind'], boolean>>({ run: true, tie: true, backbone: true })
 	let status = $state<'' | Link['status']>('')
-	let q = $state('')
+	const t = new TableState('links')
 	const LIMIT = 500   // a big project has thousands of runs: the rest come with a narrower filter
 
-	const all = $derived(linkRows(project.index, (id) => project.routes.get(id)?.lengthM))
-	const count = $derived(Object.fromEntries(KINDS.map((k) => [k, all.filter((r) => r.kind === k).length])) as Record<LinkRow['kind'], number>)
-	const rows = $derived.by(() => {
-		const f = q.trim().toLowerCase()
-		return all.filter((r) => show[r.kind] && (!status || r.status === status) && (!f || `${r.a} ${r.b} ${r.label} ${r.cableType}`.toLowerCase().includes(f)))
+	/** An end's level: an outlet's, or its device's rack's. */
+	const levelOf = (on: string) => { const e = project.index.get(on); const r = e?.type === 'device' ? project.index.get(e.rackId) : e; return r && 'levelId' in r ? (r as { levelId?: string }).levelId : undefined }
+	const all = $derived.by(() => {
+		const list = linkRows(project.index, (id) => project.routes.get(id)?.lengthM)
+		if (t.scope === 'all') return list
+		const sel = new Set(ws.selection)
+		return list.filter((r) => {
+			const l = project.index.get<Link>(r.id)
+			if (l?.type !== 'link') return false
+			return t.scope === 'sel' ? sel.has(l.id) || sel.has(l.a.on) || sel.has(l.b.on) : !levelId || levelOf(l.a.on) === levelId || levelOf(l.b.on) === levelId
+		})
 	})
+	const count = $derived(Object.fromEntries(KINDS.map((k) => [k, all.filter((r) => r.kind === k).length])) as Record<LinkRow['kind'], number>)
+	const rows = $derived(t.apply(all.filter((r) => show[r.kind] && (!status || r.status === status)), (r) => `${r.a} ${r.b} ${r.label} ${r.cableType}`,
+		{ kind: (r) => r.kind, a: (r) => r.a, b: (r) => r.b, label: (r) => r.label, type: (r) => r.cableType, len: (r) => r.lengthM ?? -1, status: (r) => r.status }))
+	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
+	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	function tableKey(e: KeyboardEvent) {
+		if (arrowSelect(e, rows.slice(0, LIMIT).map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (copyRows(e, ['Kind', 'Panel end', 'Other end', 'Label', 'Cable type', 'Length (m)', 'Status'], rows.map((r) => [r.kind, r.a, r.b, r.label, r.cableType, r.lengthM, r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+	}
 	const types = $derived([...new Set(all.map((r) => r.cableType).filter(Boolean))].sort())
 	const selected = $derived(new Set(ws.selection))
 
@@ -39,23 +58,23 @@
 	}
 </script>
 
-<div class="h-full overflow-auto text-xs">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Links" onkeydown={tableKey}>
 	<div class="actions">
-		<span class="font-semibold text-zinc-600">Links</span>
+		<ScopeSelect {t} view={levelId ? project.index.nameOf(levelId) : 'This view'} />
 		{#each KINDS as k (k)}
 			<button class="chip k-{k}" class:off={!show[k]} onclick={() => (show[k] = !show[k])} title="Show / hide {k}s">{k} {count[k]}</button>
 		{/each}
 		<select class="btn" bind:value={status} title="Only design or only installed links">
 			<option value="">any status</option><option value="design">design</option><option value="installed">installed</option>
 		</select>
-		<input class="find" placeholder="Find…" bind:value={q} />
-		<span class="text-zinc-400">{rows.length} of {all.length}</span>
-		{#if selected.size > 1}<span class="text-zinc-400">· {[...selected].filter((id) => project.index.get(id)?.type === 'link').length} selected (Properties / Delete)</span>{/if}
+		<input class="find" placeholder="Find…" bind:value={t.q} />
+		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 	</div>
 	<datalist id="cad-link-types">{#each types as t (t)}<option value={t}></option>{/each}</datalist>
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
-			<tr><th class="px-2 py-1">Kind</th><th class="px-2">Panel end</th><th class="px-2">Other end</th><th class="px-2">Label</th><th class="px-2">Cable type</th><th class="px-2">Len (m)</th><th class="px-2">Status</th><th></th></tr>
+			<tr><SortTh {t} key="kind" cls="px-2 py-1">Kind</SortTh><SortTh {t} key="a">Panel end</SortTh><SortTh {t} key="b">Other end</SortTh><SortTh {t} key="label">Label</SortTh><SortTh {t} key="type">Cable type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="status">Status</SortTh><th></th></tr>
 		</thead>
 		<tbody>
 			{#each rows.slice(0, LIMIT) as r (r.id)}
@@ -81,6 +100,7 @@
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
+	div[role='grid']:focus { outline: none; }
 	.actions { position: sticky; left: 0; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.chip { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px; text-transform: uppercase; border: 0; }
 	.chip.off { opacity: 0.35; }
