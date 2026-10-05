@@ -1295,3 +1295,10 @@ existing tab; Navigator dots on the open views; × closed the rear tab.
 
 Checks: 471 cad tests pass (new: `app/tabs.test.ts`); svelte-check: 10 errors (the baseline, none in cad), no cad
 warnings.
+- **L4 Navigator row menus** (Dave: "the hidden buttons beside project name in tree are hard to spot"): no more
+  hover-only buttons. Every row with commands has a faint ⋮ (stronger on hover), and the same menu on right-click:
+  level — Open plan · Rename… (F2) · Delete level…; room — Open rack view · Rename… · Delete room…; sheet — Open ·
+  Rename… · Renumber… · PDF · Archive; section — Open · Rename… · Delete section; Sheets — New sheet · PDF of all
+  sheets; the project row — Floors… · Settings…. "+ New" on the Sheets row is always shown. Delete lives only inside
+  the menus. Rows are focusable; F2 renames the focused row. Project menu: Rename / Delete this level…. The level /
+  room rename and delete moved to `app/navActions.ts`.

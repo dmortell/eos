@@ -38,6 +38,7 @@
 	import TitleBlockDialog from './TitleBlockDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { labelKind } from '../domain/labelEdit'
+	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
 	import { blankSheet } from '../views/sheet'
@@ -311,6 +312,12 @@
 		setPane(activePane, { kind: 'sheet', sheetId: sh.id }, 'keep')
 		ws.select([sh.id])
 	}
+	async function pdfSheet(id: string) {
+		const sh = project.index.get(id)
+		if (sh?.type !== 'sheet') return
+		try { const r = await downloadSheetsPdf(project, [sh]); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+	}
 	async function pdfAllSheets() {
 		try { const r = await downloadSheetsPdf(project, sheetsAll); ws.say(`PDF: ${r.pages} pages${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
@@ -337,6 +344,7 @@
 		cordBom: () => exportsRef?.openCordBom(), cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true),
 		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
+		hasLevel: !!level, renameLevel: () => level && renameLevelOf(project, ws, level.id), deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 	}))
@@ -453,7 +461,7 @@
 
 	{#snippet winBody(id: WinId)}
 		{#if id === 'navigator'}
-			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} />
+			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} onpdf={pdfSheet} />
 		{:else if id === 'properties'}
 			<Properties {project} {ws} />
 			<ImportNotes {project} {ws} />

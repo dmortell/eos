@@ -38,6 +38,7 @@ export interface MenuCtx {
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	// Project
 	floors(): void; settings(): void
+	hasLevel: boolean; renameLevel(): void; deleteLevel(): void
 	// Window / Help
 	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
 	help(keys?: boolean): void
@@ -119,6 +120,9 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Project', items: [
 			{ label: 'Floors…', title: "The building's floors, their names and heights", run: c.floors },
 			{ label: 'Settings… (usages, cable types)', run: c.settings },
+			'-',
+			{ label: 'Rename this level…', disabled: !c.hasLevel, run: c.renameLevel },
+			{ label: 'Delete this level…', disabled: !c.hasLevel, run: c.deleteLevel },
 		] },
 		{ label: 'Window', items: [
 			...WIN_IDS.map((id): MenuItem => ({ label: WIN_TITLES[id], checked: c.win.shown(id), run: () => c.win.toggle(id) })),
