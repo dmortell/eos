@@ -8,9 +8,11 @@
 	import { racksInOrder, newServerRoom, nextRoomName } from '../domain/devices'
 	import { markPrinted } from '../domain/ports'
 	import { exportPanelLabels } from '../render/exports'
+	import { downloadPanelSheets, unsupportedNote } from '../app/sheetsPdf'
 	import type { Device } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
 	import SideSection from './SideSection.svelte'
+	import FindDevice from './FindDevice.svelte'
 
 	let { project, ws, levelId, projectName, onview }: { project: CadProject; ws: Workspace; levelId: string; projectName: string; onview?: (s: ViewSpec) => void } = $props()
 
@@ -35,6 +37,15 @@
 			if (panels.length) ws.ask2(`${r.rows} port labels exported. Mark the ${panels.length} panel(s) of ${name} as printed?`, 'Mark printed',
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
+	}
+	/** The room's panels drawn with their port labels, as a PDF for the installer; then the same "Mark printed" offer. */
+	async function panelPdf(spaceId: string, name: string) {
+		try {
+			const r = await downloadPanelSheets(project, { id: spaceId, name })
+			if (!r.pages) { ws.say(`${name} has no patch panels with ports`); return }
+			ws.ask2(`${r.panels.length} panel(s) on ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}. Mark the panels of ${name} as printed?`, 'Mark printed',
+				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of r.panels) tx.put(markPrinted(project.index, d, now)) }) })
+		} catch (e) { project.error = `Panel PDF failed: ${(e as Error).message}` }
 	}
 	function addRoom() {
 		ws.askText('New server room name', nextRoomName(project.index, levelId), (t) => {
@@ -69,14 +80,16 @@
 
 <SideSection key="racks" title="Racks">
 	{#snippet actions()}<button title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button>{/snippet}
+	<FindDevice {project} {ws} {onview} />
 	{#each groups as g (g.space)}
 		<div class="room">
 			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
-				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name) }}>
+				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name); else if (v === 'pdf') panelPdf(g.space, g.name) }}>
 					<option value="" disabled>⋯</option>
 					<option value="labels">Export panel labels (Excel)…</option>
+					<option value="pdf">Print panels with labels (PDF)…</option>
 				</select>
 				{#if onview}<button class="place" title="Open this room's racks as an elevation (front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Elevation</button>{/if}
 			</span>

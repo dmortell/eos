@@ -7,6 +7,7 @@ import type { Prim } from '../views/display'
 import type { Pt } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { newId } from '../domain/ids'
+import { pickPrim } from './pick'
 import type { Sheet, Viewport } from '../domain/drawing'
 import { fromPaper, toPaper, viewportAt } from '../views/sheet'
 import { dimLine } from '../views/plan'
@@ -14,7 +15,7 @@ import { dimLine } from '../views/plan'
 /** A note tied to a viewport (one being deleted) put back on the paper where it showed. */
 export function untie(s: Shape, vp: Viewport): Shape {
 	const t = toPaper(vp), g = s.geom, k = 1 / vp.scale   // view mm → paper mm
-	const geom = g.kind === 'text' ? { ...g, at: t(g.at) } : g.kind === 'leader' || g.kind === 'cloud' || g.kind === 'polygon' ? { ...g, pts: g.pts.map(t) }
+	const geom = g.kind === 'text' ? { ...g, at: t(g.at), ...(g.width ? { width: g.width * k } : {}) } : g.kind === 'leader' || g.kind === 'cloud' || g.kind === 'polygon' ? { ...g, pts: g.pts.map(t) }
 		: g.kind === 'rect' ? { ...g, centre: t(g.centre), size: { x: g.size.x * k, y: g.size.y * k } }
 		: g.kind === 'ellipse' ? { ...g, centre: t(g.centre), rx: g.rx * k, ry: g.ry * k }
 		: g.kind === 'circle' ? { ...g, centre: t(g.centre), r: g.r * k }
@@ -29,7 +30,7 @@ export function untie(s: Shape, vp: Viewport): Shape {
 export function noteGrips(s: Shape, vp?: Viewport): { at: Pt; index: number }[] {
 	const t = vp ? toPaper(vp) : (p: Pt) => p, g = s.geom
 	if (g.kind === 'text') return [{ at: t(g.at), index: -1 }]
-	if (g.kind === 'leader' || g.kind === 'cloud') return g.pts.map((p, index) => ({ at: t(p), index }))
+	// (a leader's / cloud's points are the Select tool's shape grips: editor/shapeGrips.ts)
 	return []
 }
 /** The note with one grip moved to `to` (where it shows; back into the viewport's view mm when tied). */
@@ -78,23 +79,37 @@ export class NoteTool implements Tool {
 	down(e: PointerIn, c: ToolCtx): void {
 		const p = this.#pt(e, c)
 		if (!this.#where(c, [p])) { c.say?.('Notes go on plans, elevations, sections and sheets'); return }
-		if (this.id === 'text') { this.#textAt = p; return }
+		if (this.id === 'text') {
+			// on an existing text (or a leader's words): edit that one in place instead of starting another
+			const id = pickPrim(c.prims(), e.p, c.tol())?.src, g = id ? (c.store.get(id) as Shape | undefined)?.geom : undefined
+			if (id && c.editText && (g?.kind === 'text' || g?.kind === 'leader')) { c.select([id]); c.editText(id); return }
+			this.#textAt = p
+			return
+		}
 		this.#pts.push(p)
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
 	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
-	/** Text asks on RELEASE: asked on press, the rest of the click takes the focus back from the prompt. */
-	up(_e: PointerIn, c: ToolCtx): void {
+	/** A new text goes on the drawing at once with the words "Text", its box open on it to type over (Dave 2026-10-05: no
+	 *  prompt in the tool bar). On RELEASE: opened on press, the rest of the click would take the focus from the box. */
+	up(e: PointerIn, c: ToolCtx): void {
+		// a leader pressed at its tip and DRAGGED to where its words go: a two-point callout, made on release
+		if (this.id === 'leader' && this.#pts.length === 1) {
+			const q = this.#pt(e, c), tip = this.#pts[0]
+			if (Math.hypot(q.x - tip.x, q.y - tip.y) > c.tol()) { this.#pts.push(q); this.finish(c); return }
+		}
 		const p = this.#textAt
 		this.#textAt = null
-		if (!p) return
-		c.askText?.('Text', '', (t) => {
-			const at = this.#where(c, [p])
-			if (!t.trim() || !at) return
-			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.trim(), sizeMm: 2.5 } } as Shape
+		const at = p && this.#where(c, [p])
+		if (!at) return
+		const make = (t: string) => {
+			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t, sizeMm: 2.5 } } as Shape
 			c.store.transact('Text', (tx) => tx.put(s))
 			c.select([s.id])
-		})
+			return s.id
+		}
+		if (c.editText) c.editText(make('Text'))
+		else c.askText?.('Text', '', (t) => { if (t.trim()) make(t.trim()) })   // no drawing to type on (tests, a headless context)
 	}
 	#textAt: Pt | null = null
 	cancel(): void { this.#pts = []; this.#hover = null }
@@ -109,11 +124,15 @@ export class NoteTool implements Tool {
 			c.store.transact('Revision cloud', (tx) => tx.put(s))
 			c.select([s.id])
 		} else if (this.id === 'leader' && pts.length >= 2) {
-			c.askText?.('Leader text (optional)', '', (t) => {
-				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t.trim() ? { text: t.trim() } : {}) } } as Shape
+			const make = (t: string) => {
+				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t ? { text: t } : {}) } } as Shape
 				c.store.transact('Leader', (tx) => tx.put(s))
 				c.select([s.id])
-			})
+				return s.id
+			}
+			// its words are typed on the drawing at its end (Dave 2026-10-05: no tool-bar prompt); none is fine
+			if (c.editText) c.editText(make(''))
+			else c.askText?.('Leader text (optional)', '', (t) => make(t.trim()))
 		} else if (pts.length) c.say?.(this.id === 'cloud' ? 'A cloud needs at least 3 points' : 'A leader needs a tip and at least one more point')
 	}
 

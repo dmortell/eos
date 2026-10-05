@@ -20,9 +20,18 @@ export type Prim = (
 	clip?: Bounds
 	/** Overrides the class colour: the item's own (a patch cord's colour), else its layer's (views/layers.ts). */
 	color?: string
+	/** A shape's own lineweight (paper mm) and line type (backlog "Shape style"); absent = its class's. */
+	weight?: number
+	dash?: Dash
 	/** The layer it's on, set by views/layers.ts (none = always shown: paper, title block, datums). */
 	layer?: Id
 }
+
+/** Line types (backlog "Shape style"). */
+export type Dash = 'dashed' | 'dotted' | 'dashdot'
+export const DASHES: Dash[] = ['dashed', 'dotted', 'dashdot']
+/** Standard lineweights, paper mm. */
+export const WEIGHTS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1]
 
 export interface Bounds { x0: number; y0: number; x1: number; y1: number }
 

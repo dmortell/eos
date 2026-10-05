@@ -12,14 +12,16 @@ import { segEnds } from '../domain/openings'
 import { sectionFrame } from '../views/section'
 
 /** square = moves / stretches a position; round = sets a property (swing, depth); bar = a whole hole (drag slides it,
- *  click selects it). */
+ *  click selects it); grip = resizes a drawn shape, drawn like its resize grips on the plan (a box's edges in elevations). */
 export interface Handle {
 	at: Pt
-	shape: 'square' | 'round' | 'bar'
+	shape: 'square' | 'round' | 'bar' | 'grip'
 	/** A bar's two ends (it's picked anywhere along them). */
 	span?: [Pt, Pt]
 	drag?: (p: Pt, free: boolean) => Entity
 	click?: () => Entity
+	/** The undo step's name (default: Edit opening / Edit section). */
+	label?: string
 	/** The opening a click selects (a bar). */
 	selects?: string
 }

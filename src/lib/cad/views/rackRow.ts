@@ -7,7 +7,7 @@ import type { Id, Rack, Device, Level } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs } from '../domain/devices'
 
 export const RU_MM = 44.45
 const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
@@ -109,8 +109,11 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 			const roomy = (rack.widthMm - RAIL_W) / 2 >= 48
 			// a tick and a number on every U, on both rails (left: reading out from the left edge; right: mirrored)
 			const tl = x0 + (roomy ? 6 : 2), tr = x0 + rack.widthMm - (roomy ? 6 : 2)
+			// Us where devices on one side overlap (allowed: a shelf, or "May overlap") read bold red with a "!"
+			const clash = clashUs(ix.devicesIn(rack.id))
 			for (let u = 1; u <= rack.heightU; u++) {
-				const z = base + (u - 1) * RU_MM, y = -(z + RU_MM * 0.25), num = { text: String(u), size: RU_MM * 0.55, cls: 'u-label', minPx: 5 } as const
+				const z = base + (u - 1) * RU_MM, y = -(z + RU_MM * 0.25)
+				const num = clash.has(u) ? { text: `${u}!`, size: RU_MM * 0.55, cls: 'u-label u-clash', minPx: 5 } : { text: String(u), size: RU_MM * 0.55, cls: 'u-label', minPx: 5 }
 				uScale.push({ k: 'line', pts: [{ x: tl, y: -z }, { x: tl + 10, y: -z }], cls: 'rack-x' })
 				uScale.push({ k: 'line', pts: [{ x: tr - 10, y: -z }, { x: tr, y: -z }], cls: 'rack-x' })
 				uScale.push({ k: 'text', at: { x: roomy ? tl + 12 : x0 - 4, y }, anchor: roomy ? 'start' : 'end', ...num })
@@ -136,9 +139,21 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				continue
 			}
 			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
-				const x = spec.face === 'rear' ? Math.min(x0 + rack.widthMm - 42, mid + RAIL_W / 2 + 4) : Math.max(x0 + 2, mid - RAIL_W / 2 - 44)
+				// on its side (left / right as seen from the front — mirrored from the rear; backlog "0U PDUs")
+				const onLeft = ((d.pduSide ?? 'left') === 'left') === (spec.face !== 'rear')
+				const x = onLeft ? Math.max(x0 + 2, mid - RAIL_W / 2 - 44) : Math.min(x0 + rack.widthMm - 42, mid + RAIL_W / 2 + 4)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
+				// its name up the strip, its power inlets at the bottom (where the feed comes in), its sockets along it
+				out.push({ k: 'text', at: { x: x + 30, y: -(z0 + z1) / 2 }, text: d.name, size: 22, anchor: 'middle', rot: -90, cls: 'device-label', src: d.id, minPx: 6 })
+				for (let n = 0; n < (d.inlets ?? 0); n++) {
+					const iz = z0 + 10 + n * 34
+					out.push({ k: 'line', pts: [{ x: x + 6, y: -iz }, { x: x + 22, y: -iz }, { x: x + 22, y: -(iz + 24) }, { x: x + 6, y: -(iz + 24) }], closed: true, fill: true, cls: 'pdu-inlet', src: d.id })
+				}
+				const sockets = d.outlets ?? 0, from = z0 + 14 + (d.inlets ?? 0) * 34, to = z1 - 14 - d.portCount * 40
+				const step = sockets > 1 ? Math.max(12, (to - from) / (sockets - 1)) : 0
+				for (let n = 0; n < sockets && from + n * step <= to + 0.5; n++)
+					out.push({ k: 'circle', c: { x: x + 14, y: -(from + n * step) }, r: 6, cls: 'pdu-socket', src: d.id })
 				// its network ports (a metered / switched PDU's management port …), stacked from the top — patchable
 				for (let n = 1; n <= d.portCount; n++) {
 					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }

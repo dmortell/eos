@@ -15,20 +15,23 @@
 	import { untrack } from 'svelte'
 	import { traceCircuit } from '../domain/cords'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
-	import { sheetDisplayList, nextScale } from '../views/sheet'
+	import { sheetDisplayList, nextScale, viewViewport, blankSheet } from '../views/sheet'
+	import { newId } from '../domain/ids'
 	import { applyLayers, layerMap } from '../views/layers'
 	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
 	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
 	import type { SectionCut } from '../domain/drawing'
-	import type { Sheet } from '../domain/drawing'
+	import type { Sheet, Entity } from '../domain/drawing'
+	import { similarTo } from '../domain/similar'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, type Snap } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, MIN_K, type Camera } from '../editor/camera'
+	import TextEditBox from './TextEditBox.svelte'
 	import Prims from './Prims.svelte'
 	import { fillTone, FILL_LIMIT_PCT } from '../domain/fill'
 
@@ -198,6 +201,7 @@
 	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the
 	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */
 	$effect(() => {
+		void ws.focus   // a focus asked for after the view switched (Find a device) fits it too
 		const ps = prims, vk = `${levelId}:${specKey(spec)}`, key = `${vk}:${ps.some((p) => p.k === 'image')}:${Math.round(w / 200)}`
 		// a view not fitted yet stays hidden until its floorplan is in, then fits once
 		const seen = untrack(() => cams.has(vk) || (viewKey === vk && fittedFor !== null))
@@ -224,6 +228,26 @@
 		})
 	})
 
+	/** The project's sheets, for "To sheet…". */
+	const sheetsList = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
+	/** Put this view on a sheet (backlog "A sheet from the current view"): a viewport centred on what the pane shows, at
+	 *  the largest standard scale it fits at, on a new sheet or `sheetId`; one undo step. The sheet opens in this pane
+	 *  with the new viewport selected. */
+	function toSheet(target: string): void {
+		if (!target || spec.kind === 'sheet' || !w || !h) return
+		const visible = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (w - cam.x) / cam.k, y1: (h - cam.y) / cam.k }
+		const base = target === 'new' ? blankSheet(sheetsList, newId()) : (project.index.get(target) as Sheet | undefined)
+		if (base?.type !== 'sheet') return
+		const opts = { projectName: project.name, template: project.settings?.titleBlock }
+		const vp = viewViewport(project.index, base, { levelId, spec: $state.snapshot(spec) as Exclude<ViewSpec, { kind: 'sheet' }> }, visible, newId(), opts)   // plain data: the store freezes it (a $state proxy can't be)
+		const next = { ...base, viewports: [...base.viewports, vp] }
+		project.store.transact(target === 'new' ? `New sheet ${next.number} from this view` : `View onto ${next.number}`, (tx) => tx.put(next))
+		onspec({ kind: 'sheet', sheetId: next.id })
+		ws.select([next.id])
+		ws.selectViewport(vp.id)
+		ws.say(`${specLabel(spec)} on ${next.number} at 1:${vp.scale} — drag the viewport into place, resize it by a corner`)
+	}
+
 	function focusRack(p: Pt): void {
 		const racks = prims.filter((x) => x.k === 'line' && x.cls === 'rack')
 		const id = pickAt(racks, p, TOL_PX / cam.k)
@@ -243,15 +267,24 @@
 		if (spec.kind === 'row') { const r = cursor && rowHit(project.index, spec, cursor)?.rack; return r ? { kind: 'rack', id: r.id } : null }
 		return spec.kind === 'plan' ? { kind: 'level', id: levelId } : spec.kind === 'sheet' ? { kind: 'sheet', id: spec.sheetId } : null
 	}
-	/** Ctrl+A: everything this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes
-	 *  on a sheet (not the sheet itself). */
-	export function selectAll(): void {
-		const ids = new Set<string>()
+	/** What this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes on a sheet (not
+	 *  the sheet itself). */
+	function pickable(): Entity[] {
+		const out = new Map<string, Entity>()
 		for (const p of layered.pick) {
 			const e = p.src && p.k !== 'image' ? project.index.get(p.src) : undefined
-			if (e && (spec.kind === 'row' ? e.type === 'device' : spec.kind === 'sheet' ? e.type === 'shape' : e.type !== 'sheet')) ids.add(e.id)
+			if (e && (spec.kind === 'row' ? e.type === 'device' : spec.kind === 'sheet' ? e.type === 'shape' : e.type !== 'sheet')) out.set(e.id, e)
 		}
-		ws.select([...ids])
+		return [...out.values()]
+	}
+	/** Ctrl+A: everything this view shows that can be picked. */
+	export function selectAll(): void { ws.select(pickable().map((e) => e.id)) }
+	/** Select similar: what this view shows of the same kind as the selection (domain/similar.ts). */
+	export function selectSimilar(): void {
+		const ids = similarTo(ws.selection.map((id) => project.index.get(id)).filter((e): e is Entity => !!e), pickable())
+		if (!ids.length) { ws.say('Nothing like the selection in this view'); return }
+		ws.select(ids)
+		ws.say(`Selected ${ids.length} similar item${ids.length === 1 ? '' : 's'} in this view`)
 	}
 	const nudger = new Nudge()
 	/** An arrow key: the selection moves 50 mm (`big`: 500 mm; Dave: 1 mm was too small) in this view; on a sheet's
@@ -294,7 +327,7 @@
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
-			pathSel: () => ws.pathSel, selectPath: ws.selectPath,
+			pathSel: () => ws.pathSel, selectPath: ws.selectPath, editText: ws.editText,
 			...(spec.kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, spec as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
 		}
 	}
@@ -309,7 +342,7 @@
 	 *  a second press within 400 ms and 5 px of the first. */
 	let lastPress: { t: number; x: number; y: number; n: number } | null = null
 	function pressCount(e: PointerEvent): number {
-		const s = local(e), now = performance.now()
+		const s = local(e), now = e.timeStamp   // when the press HAPPENED: a slow render after the first click (selecting an outlet) delays handling the second past 400 ms
 		const n = lastPress && now - lastPress.t < 400 && Math.hypot(s.x - lastPress.x, s.y - lastPress.y) < 5 ? lastPress.n + 1 : 1
 		lastPress = { t: now, ...s, n }
 		return n
@@ -339,6 +372,7 @@
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
 		if (!toolWorksIn(ws.toolId, spec.kind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }
 		const count = pressCount(e)
+		if (count >= 2) e.preventDefault()   // no word selection / focus change from a double-click (it closed the in-place edit box)
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
 		const why = spec.kind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
@@ -457,13 +491,21 @@
 				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
 			</select>
 		{/if}
+		{#if spec.kind !== 'sheet'}
+			<!-- this view as it is (centred where you're looking) onto a sheet: a new one, or one that's there -->
+			<select class="secs" value="" title="Put this view on a sheet, centred where you're looking, at a scale that fits" onchange={(e) => { onfocus?.(); toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
+				<option value="">To sheet…</option>
+				<option value="new">New sheet from this view</option>
+				{#each sheetsList as s (s.id)}<option value={s.id}>On {s.number} {s.title}</option>{/each}
+			</select>
+		{/if}
 		{#if spec.kind === 'riser'}
 			<span class="sep"></span>
 			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => { onfocus?.(); onspec({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) }) }}>Hide empty floors</button>
 		{/if}
 		{#if spec.kind === 'plan'}
 			<span class="sep"></span>
-			<button class:on={ws.showFill} title="Colour runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
+			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
 		{/if}
 		{#if spec.kind === 'row'}
 			{@const row = spec}
@@ -486,6 +528,7 @@
 		{/if}
 	</div>
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
+	{#if ws.textEdit && active}{#key ws.textEdit}<TextEditBox {project} {ws} {space} {cam} {prims} />{/key}{/if}
 	<div class="scale">
 		<!-- the cursor in the view's own terms: plan / sheet x, y (y down); elevations, sections and rack rows x, z (up) -->
 		{#if readout}<b class="ro">{readout}</b> · {/if}
@@ -496,6 +539,8 @@
 
 <style>
 	.surface { position: relative; width: 100%; height: 100%; overflow: hidden; background: white; }
+	/* the drawing's words aren't page text: a double-click mustn't select them (it took the focus from the in-place edit box) */
+	.surface svg { user-select: none; -webkit-user-select: none; }
 	.surface.active { box-shadow: inset 0 0 0 1px #93c5fd; }
 	/* a strip over the top of the pane, above the drawing (Dave: rack labels showed through the buttons) */
 	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); }

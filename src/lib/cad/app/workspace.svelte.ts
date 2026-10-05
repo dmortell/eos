@@ -16,6 +16,10 @@ import { RenumberTool } from '../editor/renumberTool'
 import { InsertTool } from '../editor/insertTool'
 import { ShapeTool, type ShapeOpts } from '../editor/shapeTool'
 import { DimTool, type DimMode } from '../editor/dimTool'
+import { MoveTool } from '../editor/moveTool'
+import { LegendTool } from '../editor/legendTool'
+import { ViewportTool } from '../editor/viewportTool'
+import type { Viewport } from '../domain/drawing'
 import type { Block } from '../domain/blocks'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
@@ -23,14 +27,14 @@ import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 
-export type ToolId = 'select' | 'insert' | 'shape' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | NoteKind | PathKind
+export type ToolId = 'select' | 'move' | 'copy' | 'insert' | 'shape' | 'box' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section'],
-	section: ['plan'],
-	insert: ['plan', 'elevation', 'section'], shape: ['plan', 'elevation', 'section', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'],
+	section: ['plan'], viewport: ['sheet'],
+	insert: ['plan', 'elevation', 'section'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -56,6 +60,8 @@ export class Workspace {
 	deviceMount = $state<'front' | 'rear' | undefined>(undefined)
 	/** The Shape tool's choice: rectangle / ellipse / polygon (its sides, inscribed or circumscribed). */
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
+	/** The Box tool's options: a desk by default (750 high, from the floor). */
+	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0 })
 	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
 	dimMode = $state<DimMode>('aligned')
 	/** The block the Insert tool places (picked in the Blocks list). */
@@ -64,8 +70,9 @@ export class Workspace {
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
-	/** Show this one thing when the view next fits (a `?rack=` link); cleared once done. Not reactive. */
-	focus: Id | null = null
+	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a
+	 *  focus set after a view switch still fits (Find: set it after the new view is up, or the old view takes it). */
+	focus = $state<Id | null>(null)
 	/** The Outlet tool's settings for the next outlet (tool bar); unset = like the last one placed. */
 	outletNext = $state.raw<{ ports?: number; tier?: Outlet['tier']; usage?: string; mount?: Outlet['mount']; cableType?: string }>({})
 	/** The user's hidden / locked / current layers (loaded by the app with the project id). */
@@ -76,6 +83,10 @@ export class Workspace {
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
 	/** Set by the app: the Delete key's action (with its confirms) — for the Delete buttons. */
 	remove: () => void = () => {}
+	/** Set by the app: the view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
+	viewportView: () => Viewport['view'] | null = () => null
+	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
+	selectSimilar: () => void = () => {}
 	/** Set by the app: show a view in the active pane (a section's Open button). */
 	openView: (s: ViewSpec) => void = () => {}
 	/** Set by the app (it owns the store): how the assign tool writes. */
@@ -86,7 +97,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
@@ -153,6 +164,9 @@ export class Workspace {
 		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
 	}
 	askText = (label: string, value: string, apply: (t: string) => void): void => { this.prompt = { label, value, text: true, apply } }
+	/** The text being edited in place on the drawing (double-click / F2; backlog "Text options"). */
+	textEdit = $state<Id | null>(null)
+	editText = (id: Id): void => { this.textEdit = id }
 
 	/** Switch tool, with the drawing defaults that suit it on this level (ADR 0006 work Z presets). The surface cancels
 	 *  the old tool first (it owns the tool context). */

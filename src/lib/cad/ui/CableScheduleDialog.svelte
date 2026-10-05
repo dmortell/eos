@@ -2,6 +2,7 @@
      route, slack, installed length, the 90 m flag — with totals; "Problems only" shows the links over 90 m or with no
      route. -->
 <script lang="ts">
+	import { backdropClose } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import { cableSchedule, scheduleTotals } from '../domain/cableSchedule'
 	import { cableSettings } from '../domain/routing'
@@ -22,7 +23,7 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" onclick={onclose}>
+<div class="backdrop" role="presentation" use:backdropClose={onclose}>
 	<div class="dlg" role="dialog" aria-label="Cable schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Cable schedule</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<section class="opts">

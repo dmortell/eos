@@ -46,3 +46,25 @@ describe('region grips', () => {
 		expect(gripSpace(onFront, spaceOf(PLAN), () => undefined)).toBeNull()
 	})
 })
+
+describe('note points (Dave, 2026-10-05: edit line and note end points)', () => {
+	it('a leader: its points; the tip dragged off lets go of what it pointed at; Shift = 15° from the next point', () => {
+		const l = shape({ kind: 'leader', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }], text: 'A', attach: 'X' })
+		expect(regionGrips(l.geom)).toEqual([{ x: 0, y: 0 }, { x: 100, y: 0 }])
+		const moved = dragRegionGrip(l, 0, { x: 10, y: 20 }, false).geom
+		expect(moved).toEqual({ kind: 'leader', pts: [{ x: 10, y: 20 }, { x: 100, y: 0 }], text: 'A' })
+		expect(dragRegionGrip(l, 1, { x: 200, y: 3 }, false).geom).toMatchObject({ attach: 'X' })   // the far end keeps it
+		const snapped = dragRegionGrip(l, 1, { x: 100, y: 4 }, true).geom
+		expect(snapped.kind === 'leader' && snapped.pts[1].y).toBe(0)
+	})
+	it('a dimension: its two points, and the middle of its line sets the offset', () => {
+		const d = shape({ kind: 'dimension', a: { x: 0, y: 0 }, b: { x: 1000, y: 0 }, mode: 'aligned', offset: 200 })
+		expect(regionGrips(d.geom)).toEqual([{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 500, y: 200 }])
+		expect(dragRegionGrip(d, 2, { x: 300, y: -150 }, false).geom).toMatchObject({ offset: -150 })
+		expect(dragRegionGrip(d, 1, { x: 1500, y: 10 }, false).geom).toMatchObject({ b: { x: 1500, y: 10 } })
+	})
+	it('a cloud: its points', () => {
+		const c = shape({ kind: 'cloud', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] })
+		expect(dragRegionGrip(c, 2, { x: 150, y: 120 }, false).geom).toMatchObject({ pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 150, y: 120 }] })
+	})
+})

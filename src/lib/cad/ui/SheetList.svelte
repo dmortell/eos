@@ -5,7 +5,8 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
-	import { naturalCompare, nextLabel } from '../domain/labels'
+	import { naturalCompare } from '../domain/labels'
+	import { blankSheet } from '../views/sheet'
 	import { newId } from '../domain/ids'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import SideSection from './SideSection.svelte'
@@ -23,11 +24,7 @@
 	}
 	/** A new sheet straight away, titled "New sheet" (Dave: no name prompt — rename it in Properties). */
 	function add() {
-		const last = sheets.at(-1)
-		const s: Sheet = {
-			type: 'sheet', id: newId(), number: last ? nextLabel(last.number) : 'S001', title: 'New sheet', order: (last?.order ?? 0) + 1,
-			paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active',
-		}
+		const s = blankSheet(sheets, newId())
 		project.store.transact(`New sheet ${s.number}`, (tx) => tx.put(s))
 		onview({ kind: 'sheet', sheetId: s.id })
 		ws.select([s.id])

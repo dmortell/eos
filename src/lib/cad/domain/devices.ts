@@ -81,6 +81,13 @@ export function templateFromDevice(d: Device, name: string): DeviceTemplate {
  * Rows by their order; within a row, racks drawn on the plan run left to right as seen from the front of the row's
  * first placed rack (Dave: racks are drawn on the plan, then put in rows); racks not on the plan follow, by `order`.
  */
+/** A room's patch panels in fill order: racks in row order, then top U down (labels, printed panel sheets). */
+export function panelsInFillOrder(ix: ProjectIndex, spaceId: Id): Device[] {
+	const rank = new Map(racksInOrder(ix, spaceId).map((r, i) => [r.id, i]))
+	return ix.devices.filter((d) => d.kind === 'panel' && rank.has(d.rackId))
+		.sort((a, b) => rank.get(a.rackId)! - rank.get(b.rackId)! || b.u + b.heightU - (a.u + a.heightU))
+}
+
 export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] {
 	const racks = ix.racks.filter((r) => r.spaceId === spaceId && (!rowId || r.rowId === rowId))
 	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }
@@ -114,6 +121,22 @@ export const sidesOf = (d: Pick<Device, 'face' | 'kind' | 'mount'>): ('front' | 
 	d.kind === 'pdu' || d.face === 'none' ? [] : d.mount ? [d.mount] : d.face === 'both' ? ['front', 'rear'] : [d.face]
 export const sharesU = (a: Pick<Device, 'u' | 'heightU'>, b: Pick<Device, 'u' | 'heightU'>) => a.u <= b.u + b.heightU - 1 && b.u <= a.u + a.heightU - 1
 
+/** Two devices on the same side may share Us (backlog "Allow U overlaps with a warning"): when either is a shelf (a
+ *  device sits on it) or has "May overlap" ticked. */
+export const overlapAllowed = (a: Pick<Device, 'kind' | 'overlapOk'>, b: Pick<Device, 'kind' | 'overlapOk'>) =>
+	a.kind === 'shelf' || b.kind === 'shelf' || !!a.overlapOk || !!b.overlapOk
+
+/** The Us of a rack where two devices on the same side share the U (allowed overlaps) — the rack view marks them. */
+export function clashUs(devices: Device[]): Set<number> {
+	const out = new Set<number>()
+	for (let i = 0; i < devices.length; i++) for (let j = i + 1; j < devices.length; j++) {
+		const a = devices[i], b = devices[j], sa = sidesOf(a), sb = sidesOf(b)
+		if (!sa.some((f) => sb.includes(f)) || !sharesU(a, b)) continue
+		for (let u = Math.max(a.u, b.u); u <= Math.min(a.u + a.heightU, b.u + b.heightU) - 1; u++) out.add(u)
+	}
+	return out
+}
+
 /**
  * Can `d` sit where it says (its rack, U, height) beside the rack's other devices? Null = yes, else why not. PDUs are
  * 0U strips and never collide; devices on opposite sides (front / rear face or mount) can share a U, unless their
@@ -126,6 +149,7 @@ export function placementProblem(d: Device, rack: Rack, others: Device[]): strin
 		if (o.id === d.id || o.rackId !== d.rackId || !mine.length || !sidesOf(o).length || !sharesU(d, o)) continue
 		const at = `U${Math.max(d.u, o.u)}`
 		if (mine.some((f) => sidesOf(o).includes(f))) {
+			if (overlapAllowed(d, o)) continue   // allowed (a shelf, or "May overlap"): marked in the rack view, not refused
 			const behind = !d.mount && d.face === 'both' && sidesOf(o).length === 1 ? ` (${o.name} is on the ${sidesOf(o)[0]}: set this one's Mount to ${sidesOf(o)[0] === 'rear' ? 'front' : 'rear'} to share the U)` : ''
 			return `${d.name} would overlap ${o.name} at ${at}${behind}`
 		}

@@ -16,7 +16,7 @@ import { fromPaper, viewportAt } from '../views/sheet'
 import { angleStep, squareCorner } from './constrain'
 
 export type ShapeKind = 'rect' | 'ellipse' | 'polygon'
-export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean }
+export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number }
 
 /** The shape from two points (corner / corner, or centre / corner) in one 2D space; `shift` = square / circle /
  *  15° steps. Null when it would be empty. */
@@ -38,14 +38,15 @@ export function shapeGeom(o: ShapeOpts, a: Pt, b0: Pt, shift: boolean): Geometry
 const r1 = (v: number) => Math.round(v * 10) / 10
 
 export class ShapeTool implements Tool {
-	readonly id = 'shape'
+
 	readonly cursor = 'crosshair'
 	#a: Pt | null = null
 	#b: Pt | null = null
 	#shift = false
 	#press: Pt | null = null
 
-	constructor(private opts: () => ShapeOpts) {}
+	/** 'box' (backlog "Box / desk tool"): the same, on the plan, with a height — a rect / ellipse / polygon with an extent. */
+	constructor(private opts: () => ShapeOpts, readonly id: 'shape' | 'box' = 'shape') {}
 
 	/** A view point, snapped (paper: to 0.5 mm). */
 	#pt(e: PointerIn, c: ToolCtx): Pt {
@@ -90,8 +91,10 @@ export class ShapeTool implements Tool {
 		} else { c.say?.('Shapes go on plans, elevations, sections and sheets'); return }
 		const geom = shapeGeom(o, map(a), map(b), this.#shift)
 		if (!geom) return
-		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom } as Shape
-		const name = o.kind === 'polygon' ? `${Math.round(o.sides)}-sided polygon` : geom.kind
+		// a box: a footprint with a height, standing at its Z (shows in elevations and sections as a box)
+		const box = this.id === 'box' && spec.kind === 'plan' ? { extent: Math.max(1, o.height ?? 750), ...(o.z ? { plane: { kind: 'plan', z: o.z } } : {}) } : {}
+		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom, ...box } as Shape
+		const name = this.id === 'box' ? 'box' : o.kind === 'polygon' ? `${Math.round(o.sides)}-sided polygon` : geom.kind
 		c.store.transact(`Draw ${name}`, (tx) => tx.put(s))
 		c.select([s.id])
 	}

@@ -1,6 +1,6 @@
 // The sheet register (ported from Pages' drawingList.test.ts, on cad sheets).
 import { describe, it, expect } from 'vitest'
-import { sheetRows, filterRows, sortRows, groupRows, revisionColumns } from './sheetList'
+import { sheetRows, filterRows, sortRows, groupRows, revisionColumns, moveInPrintOrder, printOrder } from './sheetList'
 import { renumberEntities } from './renumber'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
@@ -33,7 +33,7 @@ describe('sheet register', () => {
 	})
 	it('the register Excel gets a date column per revision, in the order first issued', () => {
 		const rev = (code: string, date: string) => ({ code, date })
-		const base = { id: '', number: '', title: '', place: '', kind: '', discipline: '', tags: [], status: 'active' as const, rev: '', size: '', scale: '', viewports: 0 }
+		const base = { id: '', order: '', number: '', title: '', place: '', kind: '', discipline: '', tags: [], status: 'active' as const, rev: '', size: '', scale: '', viewports: 0 }
 		const rows = [{ ...base, id: 'A', revisions: [rev('P1', '2026-01-10'), rev('P2', '2026-02-01')] }, { ...base, id: 'B', revisions: [rev('P2', '2026-02-01'), rev('C1', '2026-03-05')] }]
 		const cols = revisionColumns(rows)
 		expect(cols.map((c) => c.code)).toEqual(['P1', 'P2', 'C1'])
@@ -43,5 +43,19 @@ describe('sheet register', () => {
 		const s = (id: string, number: string) => ({ type: 'sheet', id, number, title: id, order: 0, status: 'active', paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [] }) as Sheet
 		const next = renumberEntities([s('X', 'S005'), s('Y', 'S002')], { start: 7 }) as Sheet[]
 		expect(next.map((x) => [x.id, x.number])).toEqual([['X', 'S007'], ['Y', 'S008']])
+	})
+})
+
+describe('print order (Dave, 2026-10-05)', () => {
+	const ss = [sheet('a', { number: 'S1', order: 1 }), sheet('b', { number: 'S2', order: 2 }), sheet('c', { number: 'S3', order: 3 }), sheet('d', { number: 'S4', order: 4 })]
+	const after = (moved: Sheet[]) => printOrder(ss.map((s) => moved.find((m) => m.id === s.id) ?? s)).map((s) => s.id).join('')
+	it('the selected sheets move one place as a block; at the end they stop', () => {
+		expect(after(moveInPrintOrder(ss, ['c', 'd'], -1))).toBe('acdb')
+		expect(after(moveInPrintOrder(ss, ['a'], -1))).toBe('abcd')
+		expect(after(moveInPrintOrder(ss, ['a', 'c'], 1))).toBe('badc')
+	})
+	it('the register shows each sheet\'s place, and sorts by it', () => {
+		const rows = sheetRows(new ProjectIndex(demoProject()), ss.map((s) => ({ ...s, order: 10 - s.order })))
+		expect(sortRows(rows, 'order').map((r) => r.id)).toEqual(['d', 'c', 'b', 'a'])
 	})
 })

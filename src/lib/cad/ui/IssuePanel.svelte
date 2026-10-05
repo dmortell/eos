@@ -6,13 +6,13 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet } from '../domain/drawing'
-	import type { IssuePlanRow } from '../domain/issue'
+	import { ISSUE_PURPOSES, type IssuePlanRow } from '../domain/issue'
 	import { previewIssue, issuePackage, today } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 
 	let { project, ws, sheets, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; onclose: () => void } = $props()
 
-	const PURPOSES = ['For information', 'For comment', 'For approval', 'For tender', 'For construction', 'As built']
+	const PURPOSES = ISSUE_PURPOSES
 	let name = $state(''), purpose = $state('For construction'), date = $state(today()), to = $state(''), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
 	// re-checked when the sheets or the first rev change (not on every project edit)

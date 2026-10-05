@@ -2,11 +2,13 @@
      (auto unless locked), cord ID, notes, and the install workflow — add → installed; installed → change / remove
      (marked, not deleted); revert a change or removal. -->
 <script lang="ts">
+	import { sortedCableTypes } from '../domain/cableTypes'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Cord } from '../domain/types'
 	import { cordLength, installCord, revertCord, removeCord, traceCircuit, STANDARD_LENGTHS } from '../domain/cords'
 	import Trace from './Trace.svelte'
+	import ColorPick from './ColorPick.svelte'
 
 	let { project, ws, c }: { project: CadProject; ws: Workspace; c: Cord } = $props()
 
@@ -36,11 +38,11 @@
 
 <label class="row">Type
 	<select class="inp" value={c.cableType} onchange={(e) => { put('Cord type', { cableType: e.currentTarget.value }); ws.cordDefaults.cableType = e.currentTarget.value }}>
-		{#each project.settings?.cableTypes ?? [] as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+		{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 		{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === c.cableType)}<option value={c.cableType}>{c.cableType}</option>{/if}
 	</select>
 </label>
-<label class="row">Colour <input type="color" value={c.colour} onchange={(e) => { put('Cord colour', { colour: e.currentTarget.value }); ws.cordDefaults.colour = e.currentTarget.value }} /></label>
+<div class="row">Color <ColorPick value={c.colour} onchange={(v) => { if (!v) return; put('Cord color', { colour: v }); ws.cordDefaults.colour = v }} /></div>
 <div class="row">
 	<span>Length (m)</span>
 	<span class="flex items-center gap-1">

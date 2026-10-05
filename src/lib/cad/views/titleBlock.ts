@@ -1,7 +1,8 @@
 // The TITLE BLOCK drawn on a sheet (Phase 4.2): Pages' three layouts as display-list prims in paper mm, so the
 // screen and the PDF draw the same thing — a STRIP down the right (default), a BAND along the bottom, or a COMPACT box
-// in the bottom-right corner. Sections as in Pages: logo (images + text), the drawing office's lines, the full-width
-// fields, the revision table, then the half-width fields as a grid. Returns the prims and the area it takes.
+// in the bottom-right corner. The full-width items in their order (logo images, logo text, the drawing office's block,
+// wide fields — all placed like fields, Dave 2026-10-05), the revision table, then the half-width fields as a grid.
+// Returns the prims and the area it takes.
 import type { TbShown, TbCell } from '../domain/titleBlock'
 import type { Prim, Bounds } from './display'
 
@@ -27,35 +28,30 @@ function cell(out: Prim[], x: number, y: number, w: number, c: TbCell, h = CELL_
 		out.push({ k: 'image', url: c.image.src, x: x + PAD, y: y + (h - ih) / 2, w: w - 2 * PAD, h: ih, fit: 'contain' })
 		return
 	}
+	if (c.kind === 'logoText') {   // the logo text: big and bold, in the middle of its row
+		out.push({ k: 'text', at: { x: x + PAD + 0.5, y: y + h / 2 + 2.4 }, text: fit(c.value, w - 2 * PAD, 7), size: 7, cls: 'tb-logo' })
+		return
+	}
+	if (c.kind === 'company') {   // the drawing office: its name bold, then address / contact, one line each
+		let cy = y + PAD + COMPANY_NAME
+		;(c.lines ?? []).forEach((line, i) => {
+			const size = i === 0 ? COMPANY_NAME : COMPANY_LINE
+			out.push({ k: 'text', at: { x: x + PAD, y: cy }, text: fit(line, w - 2 * PAD, size), size, cls: i === 0 ? 'tb-company-name' : 'tb-company' })
+			cy += i === 0 ? COMPANY_NAME * 1.4 : COMPANY_LINE * 1.5
+		})
+		return
+	}
 	out.push({ k: 'text', at: { x: x + PAD, y: y + PAD + LABEL }, text: fit(c.label.toUpperCase(), w - 2 * PAD, LABEL), size: LABEL, cls: 'tb-label' })
 	out.push({ k: 'text', at: { x: x + PAD, y: y + CELL_H - PAD - 0.4 }, text: fit(c.value, w - 2 * PAD, VALUE), size: VALUE, cls: 'tb-value' })
 }
-/** A full-width row's height: a logo field is as tall as its logo (+ padding). */
-const rowH = (c: TbCell) => (c.image ? Math.max(CELL_H, (c.image.h ?? 10) + 2 * PAD) : CELL_H)
-
-const logoH = (s: TbShown) => (s.logos?.length || s.logo ? Math.max(12, ...(s.logos ?? []).map((l) => l.h ?? 10)) + 4 : 0)
-const companyH = (s: TbShown) => (s.company?.length ? 2 * PAD + COMPANY_NAME * 1.4 + (s.company.length - 1) * COMPANY_LINE * 1.5 : 0)
+/** A full-width row's height: a logo as tall as its image, the logo text 12 mm, the company block its lines (+ padding). */
+const rowH = (c: TbCell) => (c.image ? Math.max(CELL_H, (c.image.h ?? 10) + 2 * PAD)
+	: c.kind === 'logoText' ? Math.max(CELL_H, 16)
+	: c.kind === 'company' ? Math.max(CELL_H, 2 * PAD + COMPANY_NAME * 1.4 + ((c.lines?.length ?? 1) - 1) * COMPANY_LINE * 1.5)
+	: CELL_H)
+/** Its column's width in the band layout. */
+const colW = (c: TbCell) => (c.image ? 40 : c.kind === 'logoText' ? Math.min(60, 8 + c.value.length * 4.5) : c.kind === 'company' ? 55 : 50)
 const revsH = (s: TbShown) => (s.revisions?.length ? REV_HEAD + s.revisions.length * REV_ROW : 0)
-
-/** The logo section in a box: images left to right (each `h` mm high, up to ~3:1 wide), then the logo text. */
-function logoSection(out: Prim[], s: TbShown, x: number, y: number, w: number, h: number): void {
-	let cx = x + PAD
-	for (const l of s.logos ?? []) {
-		const lh = l.h ?? 10, lw = Math.min(lh * 3, (w - 2 * PAD) / Math.max(1, (s.logos?.length ?? 1) + (s.logo ? 1 : 0)))
-		out.push({ k: 'image', url: l.src, x: cx, y: y + (h - lh) / 2, w: lw, h: lh, fit: 'contain' })
-		cx += lw + PAD
-	}
-	if (s.logo) out.push({ k: 'text', at: { x: cx + 0.5, y: y + h / 2 + 2.4 }, text: fit(s.logo, x + w - cx - PAD, 7), size: 7, cls: 'tb-logo' })
-}
-
-function companySection(out: Prim[], s: TbShown, x: number, y: number, w: number): void {
-	let cy = y + PAD + COMPANY_NAME
-	s.company!.forEach((line, i) => {
-		const size = i === 0 ? COMPANY_NAME : COMPANY_LINE
-		out.push({ k: 'text', at: { x: x + PAD, y: cy }, text: fit(line, w - 2 * PAD, size), size, cls: i === 0 ? 'tb-company-name' : 'tb-company' })
-		cy += i === 0 ? COMPANY_NAME * 1.4 : COMPANY_LINE * 1.5
-	})
-}
 
 function revisionTable(out: Prim[], s: TbShown, x: number, y: number, w: number): void {
 	const cols = [0, 0.2, 0.54].map((f) => x + f * w), heads = ['REV', 'DATE', 'NOTE']
@@ -94,13 +90,12 @@ export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { 
 	const innerW = w - 2 * m
 
 	if (s.layout === 'horizontal') {
-		// a band along the bottom: logo | company | each full-width field | revisions | the grid (4 across)
+		// a band along the bottom: each full-width item (logos, logo text, company, wide fields, in their order) |
+		// revisions | the grid (4 across)
 		const gridRows = Math.ceil(half.length / 4)
-		const bandH = Math.max(24, gridRows * CELL_H, logoH(s), companyH(s), revsH(s), ...wide.map(rowH))
+		const bandH = Math.max(24, gridRows * CELL_H, revsH(s), ...wide.map(rowH))
 		const y0 = h - m - bandH, cols: { w: number; draw: (x: number, cw: number) => void }[] = []
-		if (logoH(s)) cols.push({ w: Math.min(60, 8 + (s.logos?.length ?? 0) * 25 + (s.logo ? s.logo.length * 4.5 : 0)), draw: (x, cw) => logoSection(out, s, x, y0, cw, bandH) })
-		if (s.company) cols.push({ w: 55, draw: (x, cw) => companySection(out, s, x, y0, cw) })
-		for (const c of wide) cols.push({ w: c.image ? 40 : 50, draw: (x, cw) => cell(out, x, y0, cw, c, c.image ? bandH : CELL_H) })
+		for (const c of wide) cols.push({ w: colW(c), draw: (x, cw) => cell(out, x, y0, cw, c, c.image || c.kind ? bandH : CELL_H) })
 		if (s.revisions) cols.push({ w: 60, draw: (x, cw) => revisionTable(out, s, x, y0, cw) })
 		const used = cols.reduce((a, c) => a + c.w, 0)
 		if (half.length) cols.push({ w: Math.max(80, innerW - used), draw: (x, cw) => grid(out, half, x, y0, cw, 4) })
@@ -120,12 +115,10 @@ export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { 
 	const compact = s.layout === 'compact'
 	const W = compact ? Math.max(70, innerW * 0.34) : Math.min(80, Math.max(50, innerW * 0.16))
 	const x0 = w - m - W, x1 = w - m
-	const topH = logoH(s) + companyH(s) + wide.reduce((a, c) => a + rowH(c), 0)
+	const topH = wide.reduce((a, c) => a + rowH(c), 0)
 	const bottomH = revsH(s) + Math.ceil(half.length / 2) * CELL_H
 	const y0 = compact ? h - m - topH - bottomH : m, y1 = h - m
 	let y = y0
-	if (logoH(s)) { logoSection(out, s, x0, y, W, logoH(s)); y += logoH(s); out.push(rule(x0, y, x1, y)) }
-	if (s.company) { companySection(out, s, x0, y, W); y += companyH(s); out.push(rule(x0, y, x1, y)) }
 	for (const c of wide) { cell(out, x0, y, W, c, rowH(c)); y += rowH(c); out.push(rule(x0, y, x1, y)) }
 	// the revisions and the grid sit at the bottom (the strip's free space is above them)
 	let yb = y1 - Math.ceil(half.length / 2) * CELL_H

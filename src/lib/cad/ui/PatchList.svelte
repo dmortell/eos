@@ -1,28 +1,26 @@
 <!-- The patch list (Phase 3.5): every cord, from / to with the labels they carry, type, colour, length, ID, status.
      Status chips filter (the install workflow at a glance); a row click selects the cord, and a cord (or a port's
-     cord) selected in a rack view is highlighted here and scrolled into view. -->
+     cord) selected in a rack view is highlighted here and scrolled into view. "Cord BOM…" opens the cord counts with
+     the Excel export (ui/CordBomDialog.svelte). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import { untrack } from 'svelte'
 	import type { Cord } from '../domain/types'
 	import { patchList } from '../domain/reports'
-	import { exportPatchSchedule, importCordIds } from '../render/exports'
+	import { importCordIds } from '../render/exports'
+	import CordBomDialog from './CordBomDialog.svelte'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
 	let { project, ws, projectName, roomId }: { project: CadProject; ws: Workspace; projectName: string; roomId?: string } = $props()
 
-	// ── This room / All; the Excel export follows it, all cords or only the changes (add / change / remove) ──
+	// ── This room / All ──
 	let here = $state(false)
-	let changesOnly = $state(false)
 	const room = $derived(here && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
 
-	// ── Excel out (the patch schedule + cord BOM) and cord IDs back in (Phase 3.6) ──
+	// ── the cord BOM + Excel out (a dialog) and cord IDs back in (Phase 3.6) ──
+	let bomOpen = $state(false)
 	let fileInput: HTMLInputElement | undefined = $state()
-	async function exportExcel() {
-		try { const n = await exportPatchSchedule(project.index, projectName, room, typeLabel, changesOnly); ws.say(`Patch schedule${room ? ` (${room.name})` : ''}: ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`) }
-		catch (e) { project.error = `Export failed: ${(e as Error).message}` }
-	}
 	async function importIds(file: File | undefined) {
 		if (!file) return
 		try {
@@ -83,8 +81,7 @@
 		{/each}
 		<input class="find" placeholder="Find…" bind:value={q} />
 		<span class="text-zinc-400">{rows.length} of {all.length}</span>
-		<button class="btn" title="The patch schedule (work order: remove → change → add → installed) and a cord BOM, as Excel — this room or all, as shown" onclick={exportExcel}>Excel</button>
-		<label title="The Excel has only the work (add / change / remove), not the cords already installed"><input type="checkbox" bind:checked={changesOnly} /> changes only</label>
+		<button class="btn" title="Cords by type × length and status, and the Excel export (patch schedule + cord BOM)" onclick={() => (bomOpen = true)}>Cord BOM…</button>
 		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 	</div>
@@ -111,6 +108,7 @@
 		</tbody>
 	</table>
 </div>
+{#if bomOpen}<CordBomDialog {project} {projectName} {roomId} thisRoom={!!room} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
 
 <style>
 	.hov:hover { background: var(--cad-hover); }

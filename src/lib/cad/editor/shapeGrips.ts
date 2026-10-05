@@ -8,6 +8,8 @@ import type { Sheet } from '../domain/drawing'
 import type { ViewSpace } from '../views/space'
 import { outlineOf } from '../domain/shapes'
 import { toPaper, fromPaper } from '../views/sheet'
+import { dimLine, dimOffset } from '../views/plan'
+import { angleStep } from './constrain'
 
 export interface GripSpace { to(p: Pt): Pt; from(p: Pt): Pt }
 
@@ -49,13 +51,28 @@ export function regionGrips(g: Geometry): Pt[] {
 		return [{ x: rx, y: 0 }, { x: 0, y: ry }, { x: -rx, y: 0 }, { x: 0, y: -ry }].map((p) => add(g.centre, rot(p, a)))
 	}
 	if (g.kind === 'polygon') return g.pts
+	// notes (backlog "Edit line and note end points"): a leader's / cloud's points; a dimension's two measured points
+	// and the middle of its dimension line (drag it to move the line nearer / further)
+	if (g.kind === 'leader' || g.kind === 'cloud') return g.pts
+	if (g.kind === 'dimension') { const { a2, b2 } = dimLine(g); return [g.a, g.b, { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }] }
 	return []
 }
 
 /** The shape with grip `i` dragged to `q` (its own space). */
 export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shape {
 	const g = s.geom
-	if (g.kind === 'polygon') return { ...s, geom: { ...g, pts: g.pts.map((p, j) => (j === i ? r1p(q) : p)) } }
+	if (g.kind === 'polygon' || g.kind === 'cloud') return { ...s, geom: { ...g, pts: g.pts.map((p, j) => (j === i ? r1p(q) : p)) } }
+	if (g.kind === 'leader') {
+		// Shift: 15° steps from the neighbouring point; the tip dragged off what it pointed at lets go of it
+		const from = g.pts[i === 0 ? 1 : i - 1], at = shift && from ? angleStep(from, q) : q
+		const { attach: _a, ...rest } = g
+		return { ...s, geom: { ...(i === 0 ? rest : g), pts: g.pts.map((p, j) => (j === i ? r1p(at) : p)) } }
+	}
+	if (g.kind === 'dimension') {
+		if (i === 2) return { ...s, geom: { ...g, offset: r1(dimOffset(g, q)) } }
+		const at = shift ? angleStep(i === 0 ? g.b : g.a, q) : q
+		return { ...s, geom: i === 0 ? { ...g, a: r1p(at) } : { ...g, b: r1p(at) } }
+	}
 	if (g.kind === 'circle') return { ...s, geom: { ...g, r: Math.max(1, r1(Math.hypot(q.x - g.centre.x, q.y - g.centre.y))) } }
 	if (g.kind === 'ellipse') {
 		const a = g.rot ?? 0, l = rot(sub(q, g.centre), -a)   // the pointer in the ellipse's own axes

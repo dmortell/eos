@@ -7,7 +7,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Id } from '../domain/types'
 	import type { Layer, Sheet } from '../domain/drawing'
-	import { layersOf, layerOf, nextLayerColour, type LayerInfo } from '../domain/layers'
+	import { layersOf, layerOf, nextLayerColour, freezeInExisting, type LayerInfo } from '../domain/layers'
 	import { layerCounts } from '../views/layers'
 	import { newId } from '../domain/ids'
 	import { Icon, DragReorder } from '$lib'
@@ -36,8 +36,11 @@
 		ws.askText('New layer name', '', (t) => {
 			const name = t.trim()
 			if (!name) return
-			const order = Math.max(0, ...all.map((l) => l.order)) + 10
-			put(`Add layer ${name}`, { type: 'layer', id: newId(), name, order, color: nextLayerColour(project.index.layers) })
+			const order = Math.max(0, ...all.map((l) => l.order)) + 10, id = newId()
+			// it starts hidden in the drawings that already exist (Dave): they don't change when something is drawn on it
+			const sheets = freezeInExisting(project.store.ofType('sheet'), id)
+			project.store.transact(`Add layer ${name}`, (tx) => { tx.put({ type: 'layer', id, name, order, color: nextLayerColour(project.index.layers) }); for (const s of sheets) tx.put(s) })
+			if (sheets.length) ws.say(`Layer ${name} added — hidden in the viewports of the ${sheets.length} existing sheet${sheets.length === 1 ? '' : 's'} (show it per viewport)`)
 		})
 	}
 	function rename(l: LayerInfo): void {
@@ -50,7 +53,7 @@
 		project.store.transact(`Delete layer ${l.name}`, (tx) => tx.del(l.id))
 		ws.layers.forget(l.id)
 	}
-	const setColour = (l: LayerInfo, color: string | undefined) => put(`${l.name} colour`, record(l, { color }))
+	const setColour = (l: LayerInfo, color: string | undefined) => put(`${l.name} color`, record(l, { color }))
 
 	// hiding or locking a layer lets go of its selected items (Delete / Properties mustn't act on what you can't see
 	// or have locked); showing / unlocking leaves the selection alone
@@ -90,8 +93,8 @@
 	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
 		<!-- a square = a colour set on the layer (applied to its items); a round dot = the default, the colour its items
 		     already draw in (not forced on them) -->
-		<label class="sw" title={l.color ? 'Layer colour: its items draw in it (unless they have their own) — right-click to go back to the default'
-			: l.look ? 'Default colour: how its items draw now — click to set a layer colour' : 'No colour — click to set one'}
+		<label class="sw" title={l.color ? 'Layer color: its items draw in it (unless they have their own) — right-click to go back to the default'
+			: l.look ? 'Default color: how its items draw now — click to set a layer color' : 'No color — click to set one'}
 			oncontextmenu={(e) => { e.preventDefault(); if (l.color) setColour(l, undefined) }}>
 			<input type="color" value={l.color ?? l.look ?? '#888888'} onchange={(e) => setColour(l, (e.currentTarget as HTMLInputElement).value)} />
 			<span style:background={l.color ?? l.look ?? 'transparent'} class:none={!l.color && !l.look} class:dflt={!l.color}></span>

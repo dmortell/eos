@@ -1,6 +1,7 @@
 <!-- Properties of the selection. One edit = one undo step. Fields per entity type; more types arrive with their
      tools (field descriptors per type replace this in a later slice — analysis §6.7). -->
 <script lang="ts">
+	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity } from '../domain/drawing'
@@ -17,13 +18,18 @@
 	import RackDoors from './RackDoors.svelte'
 	import SectionProps from './SectionProps.svelte'
 	import NoteProps from './NoteProps.svelte'
+	import LegendProps from './LegendProps.svelte'
+	import ColorPick from './ColorPick.svelte'
+	import InsertAttrs from './InsertAttrs.svelte'
+	import LineStyle from './LineStyle.svelte'
 	import RunsMultiProps from './RunsMultiProps.svelte'
+	import ShapesMultiProps from './ShapesMultiProps.svelte'
 	import { groupSelection, ungroupSelection } from '../editor/commands'
 	import RenumberPanel from './RenumberPanel.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { renumberable } from '../domain/renumber'
 	import { newId } from '../domain/ids'
-	import type { Shape } from '../domain/shapes'
+	import { withStyle, type Shape } from '../domain/shapes'
 	import PathProps from './PathProps.svelte'
 	import RunFill from './RunFill.svelte'
 	import WallOpenings from './WallOpenings.svelte'
@@ -150,6 +156,9 @@
 	{:else if items.filter(renumberable).length > 1}
 		<RenumberPanel {project} {ws} />
 	{/if}
+	{#if items.length}
+		<div class="flex justify-end"><button class="btn" title="Select everything in this view like the selection: the same block, or the same kind of shape on the same layer; racks / devices of the same kind; outlets" onclick={() => ws.selectSimilar()}>Select similar</button></div>
+	{/if}
 	{#if !items.length}
 		<p class="text-zinc-400">Nothing selected.</p>
 	{:else if !one}
@@ -207,6 +216,9 @@
 		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
 		{@const runs = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind === 'path')}
 		{#if runs.length > 1}<RunsMultiProps {project} {runs} />{/if}
+		{@const others = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'path')}
+		{#if others.length > 1}<ShapesMultiProps {project} shapes={others} />{/if}
+		{#if others.filter((s) => s.geom.kind === 'insert').length > 1}<InsertAttrs {project} inserts={others} />{/if}
 		{#if blockable.length}
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
 		{/if}
@@ -272,7 +284,7 @@
 		<label class="row">Maker <input class="inp" value={r.maker ?? ''} onchange={(e) => put(r, 'Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row">Model <input class="inp" value={r.model ?? ''} onchange={(e) => put(r, 'Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row" title="The catalogue product (SKU) — the rack BOM adds its accessories">Product <input class="inp font-mono" value={r.catalogId ?? ''} onchange={(e) => put(r, 'Rack product', { catalogId: e.currentTarget.value.trim() || undefined })} /></label>
-		<label class="row">Colour <span><input type="color" value={r.color ?? '#cccccc'} onchange={(e) => put(r, 'Rack colour', { color: e.currentTarget.value })} />{#if r.color} <button class="btn" onclick={() => put(r, 'Rack colour', { color: undefined })}>Clear</button>{/if}</span></label>
+		<div class="row">Color <ColorPick value={r.color} allowByLayer onchange={(v) => put(r, 'Rack color', { color: v })} /></div>
 		<label class="row">Notes <textarea class="inp" rows="2" value={r.notes ?? ''} onchange={(e) => put(r, 'Rack notes', { notes: e.currentTarget.value.trim() || undefined })}></textarea></label>
 		<p class="text-zinc-500">{deviceCounts(project.index.devicesIn(r.id))} · front faces the +y side when not rotated</p>
 	{:else if one.type === 'device'}
@@ -297,6 +309,19 @@
 				<select class="inp" value={d.mount ?? ''} onchange={(e) => putDevice(d, 'Device mount', { mount: (e.currentTarget.value || undefined) as Device['mount'] })}>
 					<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
 				</select></label>
+		{/if}
+		{#if d.kind === 'pdu'}
+			<!-- a 0U PDU (backlog "0U PDUs"): its side, its power inlets and its sockets — drawn on the strip; drag it across the rack to change sides -->
+			<label class="row" title="The side of the rack it's on, as seen from the front (or drag it across)">Side
+				<select class="inp" value={d.pduSide ?? 'left'} onchange={(e) => put(d, 'PDU side', { pduSide: e.currentTarget.value === 'right' ? 'right' : undefined })}>
+					<option value="left">left</option><option value="right">right</option>
+				</select></label>
+			<label class="row" title="Power inlets (feeds in), drawn at its bottom">Inlets <input class="inp" type="number" min="0" max="4" value={d.inlets ?? 0} onchange={(e) => put(d, 'PDU inlets', { inlets: Math.max(0, Math.min(4, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+			<label class="row" title="Sockets (outlets) along the strip">Sockets <input class="inp" type="number" min="0" max="48" value={d.outlets ?? 0} onchange={(e) => put(d, 'PDU sockets', { outlets: Math.max(0, Math.min(48, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+		{/if}
+		{#if d.kind !== 'pdu'}
+			<label class="row" title="Allow it to share Us with another device on the same side (a shelf always may) — the rack view marks the clash: those U numbers bold red with “!”">Overlap
+				<span><input type="checkbox" checked={!!d.overlapOk} onchange={(e) => putDevice(d, e.currentTarget.checked ? 'May overlap' : 'No overlap', { overlapOk: e.currentTarget.checked || undefined })} /> may overlap{d.kind === 'shelf' ? ' (a shelf always may)' : ''}</span></label>
 		{/if}
 		<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
 		<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
@@ -323,7 +348,7 @@
 			<div class="row" title="Allocation puts an outlet on a panel of its usage first; a panel with none ticked is general (takes any usage without a panel of its own)">
 				<span>Takes</span>
 				<span class="usages">
-					{#each project.settings?.usages ?? [] as u (u.id)}
+					{#each sortedUsages(project.settings) as u (u.id)}
 						<label><input type="checkbox" checked={!!d.panel?.usages?.includes(u.id)} onchange={(e) => setUsage(d, u.id, e.currentTarget.checked)} /> {u.label}</label>
 					{/each}
 					{#if !d.panel?.usages?.length}<span class="text-zinc-400">any usage (general)</span>{/if}
@@ -355,9 +380,11 @@
 		<SectionProps {project} {ws} s={one} />
 	{:else if one.type === 'shape' && (one.geom.kind === 'text' || one.geom.kind === 'leader' || one.geom.kind === 'cloud' || one.geom.kind === 'dimension')}
 		<NoteProps {project} s={one} />
+	{:else if one.type === 'shape' && one.geom.kind === 'legend'}
+		<LegendProps {project} s={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
-		{#if one.role?.kind === 'containment'}<RunFill {project} s={one} />{/if}
+		{#if one.role?.kind === 'containment'}<RunFill {project} {ws} s={one} />{/if}
 		{#if one.role?.kind === 'wall'}<WallOpenings {project} {ws} s={one} />{/if}
 		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
@@ -367,6 +394,7 @@
 		<label class="row">Rotation <input class="inp" type="number" value={g.rot ?? 0} onchange={(e) => put(one, 'Rotate', { geom: { ...g, rot: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row">Scale <input class="inp" type="number" step="0.1" value={g.scale ?? 1} onchange={(e) => put(one, 'Scale', { geom: { ...g, scale: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row" title="Height above FFL: where it shows in elevations and sections">Height (Z) <input class="inp" type="number" step="50" value={g.z ?? 0} onchange={(e) => put(one, 'Block height', { geom: { ...g, z: Number(e.currentTarget.value) || undefined } })} /></label>
+		<InsertAttrs {project} inserts={[one]} />
 		{#if b}<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(one.id))}>Explode</button>{/if}
 		{#if b && !b.builtin && !b.retired}
 			<button class="btn del" title="Delete the block from the library (all projects): it can't be picked any more, but drawings that use it keep it"
@@ -375,9 +403,24 @@
 	{:else if one.type === 'shape'}
 		<p class="font-semibold">{one.role?.kind ?? one.geom.kind}</p>
 		<label class="row">Label <input class="inp" value={one.label ?? ''} onchange={(e) => put(one, 'Label', { label: e.currentTarget.value || undefined })} /></label>
+		<div class="row" title="Its own line color (By layer = its layer's)">Color
+			<ColorPick value={one.style?.stroke} allowByLayer onchange={(v) => project.store.transact(v ? 'Color' : 'Color by layer', (tx) => tx.put(withStyle(one, { stroke: v })))} /></div>
+		<LineStyle {project} shapes={[one]} />
+		{#if ['rect', 'circle', 'ellipse', 'polygon'].includes(one.geom.kind) && one.levelId && one.plane?.kind !== 'vertical'}
+			<!-- a region on the plan: how tall it is (0 = flat) and where its base is — a box / desk (backlog "Box / desk tool") -->
+			<label class="row" title="How tall it stands (mm); 0 = flat — a box shows in elevations and sections">Height
+				<input class="inp" type="number" min="0" step="10" value={one.extent ?? 0} onchange={(e) => { const v = Math.max(0, Number(e.currentTarget.value) || 0); put(one, v ? 'Box height' : 'Flat', { extent: v || undefined }) }} /></label>
+			<label class="row" title="Its base above the floor (mm)">Z
+				<input class="inp" type="number" step="10" value={one.plane?.kind === 'plan' ? one.plane.z : 0} onchange={(e) => { const z = Number(e.currentTarget.value) || 0; put(one, 'Box Z', { plane: z ? { kind: 'plan', z } : undefined }) }} /></label>
+		{/if}
+		{#if ['rect', 'circle', 'ellipse', 'polygon'].includes(one.geom.kind)}
+			<div class="row" title="Fill it with a color, or None">Fill
+				<ColorPick value={one.style?.fill ?? 'none'} allowNone onchange={(v) => project.store.transact(v && v !== 'none' ? 'Fill' : 'No fill', (tx) => tx.put(withStyle(one, { fill: v })))} /></div>
+		{/if}
 		{#if one.geom.kind === 'rect'}
 			<label class="row" title="A thick line on the box's back edge (its local −y side), like racks — which way a desk or cabinet faces">Back line
 				<span><input type="checkbox" checked={!!one.backLine} onchange={(e) => put(one, e.currentTarget.checked ? 'Back line' : 'No back line', { backLine: e.currentTarget.checked || undefined })} /> on the back edge</span></label>
+			<RackDoors {project} boxes={[one]} />
 		{/if}
 		{#if blockable.length}<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>{/if}
 	{:else}

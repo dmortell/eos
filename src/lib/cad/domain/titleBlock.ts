@@ -10,10 +10,19 @@ export const TB_AUTO = {
 	scale: 'Scale', size: 'Size', drawn: 'Drawn',
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
-export type TbField = { key: TbAutoKey | 'custom' | 'logo'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
+export type TbField = { key: TbAutoKey | 'custom' | 'logo' | 'logoText' | 'company'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
 	/** key 'logo': which logo image this field shows (Dave 2026-10-05: logos are fields, placed and ordered like them) */
 	logo?: 'company' | 'client' }
 export const LOGO_LABEL = { company: 'Our logo', client: 'Client logo' } as const
+/** The block's own items that are fields too (Dave 2026-10-05: the logo images, the logo text and the company block
+ *  are dragged into place like the others); always in the list, full width — cleared, not removed. */
+const FIXED: TbField[] = [
+	{ key: 'logo', logo: 'company', label: LOGO_LABEL.company, wide: true }, { key: 'logo', logo: 'client', label: LOGO_LABEL.client, wide: true },
+	{ key: 'logoText', label: 'Logo text', wide: true }, { key: 'company', label: 'Company', wide: true },
+]
+const sameItem = (a: TbField, b: TbField) => a.key === b.key && (a.key !== 'logo' || a.logo === b.logo)
+/** Always in the list (no remove button): the two logo images, the logo text, the company block. */
+export const isFixedField = (f: TbField) => FIXED.some((x) => sameItem(x, f))
 /** The block's optional sections — each can be switched off project-wide (`hidden`). */
 export type TbSection = 'logo' | 'company' | 'fields' | 'revisions'
 /** One row of the revision table. */
@@ -40,23 +49,20 @@ export type TbLogo = { src: string; h?: number; key?: string }
 export type TbLayout = 'vertical' | 'horizontal' | 'compact'
 /** The title block as one sheet shows it. `hidden` = this sheet hides the block (the project's `border` still
  *  applies). */
-export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean; hidden?: boolean
+export type TbShown = { cells: TbCell[]; border?: boolean; hidden?: boolean
 	/** The revision table, newest LAST (at most the last 5); absent when hidden or the sheet was never issued. */
 	revisions?: TbRev[]
-	/** The logo images (in the logo section). */ logos?: TbLogo[]
 	layout?: TbLayout }
 
-/** A sheet's shown block: sections the template hides are dropped; empty company lines are skipped. */
+/** A sheet's shown block: the cells in order — the logo images, logo text and company block are cells too (placed
+ *  like fields; their sections' switches are applied in fillTitleBlock) — and the revisions. "Fields" off hides the
+ *  ordinary fields but keeps the block's own items. */
 export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[], revs: TbRev[] = []): TbShown {
-	const off = new Set(t?.hidden ?? []), c = t?.company
-	const company = [c?.name, c?.address, c?.contact].map((s) => s?.trim() ?? '').filter(Boolean)
+	const off = new Set(t?.hidden ?? [])
 	return {
-		logo: off.has('logo') ? undefined : t ? t.logo : DEFAULT_TITLE_BLOCK.logo,
-		company: off.has('company') || !company.length ? undefined : company,
-		cells: off.has('fields') ? [] : cells,
+		cells: off.has('fields') ? cells.filter((c) => c.image || c.kind) : cells,
 		border: !!t?.border,
 		...(off.has('revisions') || !revs.length ? {} : { revisions: revs.slice(-5) }),
-		// the logo IMAGES are fields now (withLogoFields): the logo section keeps the logo text only
 		...(t?.layout && t.layout !== 'vertical' ? { layout: t.layout } : {}),
 	}
 }
@@ -74,25 +80,37 @@ export const DEFAULT_TITLE_BLOCK: TitleBlockTemplate = {
 
 /** Everything the auto fields can show, gathered by the caller for one sheet. */
 export type TbContext = Partial<Record<TbAutoKey, string>>
-export type TbCell = { label: string; value: string; wide: boolean; /** a logo field: its image instead of label + value */ image?: TbLogo }
+export type TbCell = { label: string; value: string; wide: boolean; /** a logo field: its image instead of label + value */ image?: TbLogo
+	/** the logo text (big, bold `value`) or the company block (`lines`: name bold, then address / contact) */
+	kind?: 'logoText' | 'company'; lines?: string[] }
 
-/** The template's cells for one sheet; an empty value shows as '—'. A missing template → the default. */
+/** The template's cells for one sheet; an empty value shows as '—'. A missing template → the default. A logo with no
+ *  image, an empty logo text or company block, or a switched-off section shows nothing (and takes no room). */
 export function fillTitleBlock(t: TitleBlockTemplate | undefined, ctx: TbContext): TbCell[] {
+	const off = new Set(t?.hidden ?? [])
 	return withLogoFields(t).flatMap((f): TbCell[] => {
-		if (f.key === 'logo') {   // its image (no label printed); a logo field with no image set shows nothing
+		if (f.key === 'logo') {   // its image (no label printed)
 			const img = f.logo && t?.logos?.[f.logo]
-			return img?.src ? [{ label: f.label, value: '', wide: !!f.wide, image: img }] : []
+			return img?.src && !off.has('logo') ? [{ label: f.label, value: '', wide: !!f.wide, image: img }] : []
+		}
+		if (f.key === 'logoText') {
+			const text = (t ? t.logo : DEFAULT_TITLE_BLOCK.logo)?.trim()
+			return text && !off.has('logo') ? [{ label: f.label, value: text, wide: true, kind: 'logoText' }] : []
+		}
+		if (f.key === 'company') {
+			const c = t?.company, lines = [c?.name, c?.address, c?.contact].map((s) => s?.trim() ?? '').filter(Boolean)
+			return lines.length && !off.has('company') ? [{ label: f.label, value: '', wide: true, kind: 'company', lines }] : []
 		}
 		return [{ label: f.label || (f.key === 'custom' ? '' : TB_AUTO[f.key]), value: (f.key === 'custom' ? f.value : ctx[f.key])?.trim() || '—', wide: !!f.wide }]
 	})
 }
 
-/** The template's fields with its logo images as fields: a logo that's set but not yet in the list (templates from
- *  before logos were fields) comes first, full width — so old title blocks look the same until a logo is moved. */
+/** The template's fields with the block's own items in them (logo images, logo text, company): any not yet placed
+ *  (templates from before they were fields) come first, in the old order — logos, logo text, company — so an old
+ *  title block keeps its top-to-bottom order until one is dragged. */
 export function withLogoFields(t: TitleBlockTemplate | undefined): TbField[] {
 	const fields = t?.fields?.length ? t.fields : DEFAULT_TITLE_BLOCK.fields
-	const missing = (['company', 'client'] as const).filter((k) => t?.logos?.[k]?.src && !fields.some((f) => f.key === 'logo' && f.logo === k))
-	return [...missing.map((k): TbField => ({ key: 'logo', logo: k, label: LOGO_LABEL[k], wide: true })), ...fields]
+	return [...FIXED.filter((x) => !fields.some((f) => sameItem(f, x))).map((x) => ({ ...x })), ...fields]
 }
 
 /** Initials for "Drawn": "David Mortell" → "DM"; an email → its local part's first 3 letters ("DMO"). */

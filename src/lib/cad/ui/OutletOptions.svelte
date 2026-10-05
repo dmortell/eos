@@ -1,6 +1,8 @@
 <!-- The Outlet tool's options in the tool bar: what the NEXT outlet gets (ports, tier, usage, mount, cable). Blank =
      like the last one placed (the tool's usual habit); a value set here sticks until it's changed. -->
 <script lang="ts">
+	import { sortedCableTypes } from '../domain/cableTypes'
+	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet } from '../domain/types'
@@ -27,7 +29,7 @@
 <label class="opt">Usage
 	<select class="tpl" value={ws.outletNext.usage ?? ''} onchange={(e) => set('usage', e.currentTarget.value || undefined)}>
 		<option value="">as last</option>
-		{#each project.settings?.usages ?? [] as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
+		{#each sortedUsages(project.settings) as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 	</select></label>
 <label class="opt">Mount
 	<select class="tpl" value={ws.outletNext.mount ?? ''} onchange={(e) => set('mount', (e.currentTarget.value || undefined) as Outlet['mount'] | undefined)}>
@@ -37,7 +39,7 @@
 <label class="opt">Cable
 	<select class="tpl" value={ws.outletNext.cableType ?? ''} onchange={(e) => set('cableType', e.currentTarget.value || undefined)}>
 		<option value="">as last</option>
-		{#each project.settings?.cableTypes ?? [] as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+		{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 	</select></label>
 
 <style>

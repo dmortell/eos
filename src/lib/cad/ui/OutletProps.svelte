@@ -2,6 +2,7 @@
      circuits), or the fields several selected outlets share ("mixed" when they differ; an edit sets all). One edit =
      one undo step. -->
 <script lang="ts">
+	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet, Space } from '../domain/types'
@@ -15,7 +16,7 @@
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
 
 	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
-	const usages = $derived(project.settings?.usages ?? [])
+	const usages = $derived(sortedUsages(project.settings))
 	const outletBlocks = $derived([...project.blocks.values()].filter((b) => (b.category === 'outlet' || !b.builtin) && !b.retired))
 	const MOUNTS: Outlet['mount'][] = ['floor', 'wall', 'box', 'desk', 'ceiling']
 

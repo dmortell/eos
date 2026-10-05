@@ -3,7 +3,8 @@
      they share, or "mixed"; an edit sets that one thing on every run, as one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import type { Shape } from '../domain/shapes'
+	import { withStyle, type Shape } from '../domain/shapes'
+	import ColorPick from './ColorPick.svelte'
 	import type { Level } from '../domain/types'
 	import { convertRun, kindOf, RUN_PLACES, placeNow, setRunPlace, type RunKind, type RunPlace } from '../domain/runEdit'
 
@@ -47,14 +48,10 @@
 			<option value="low">low</option><option value="high">high</option><option value="wall">wall</option>
 		</select></label>
 {/if}
-<label class="row" title="Their own colour on the plan (over the tier's)">Colour
-	<span class="flex items-center gap-1"><input type="color" value={colour ?? '#0ea5e9'} onchange={(e) => { const c = e.currentTarget.value; each('Run colour', (s) => ({ ...s, style: { ...s.style, stroke: c } })) }} />
-		{#if colour === null}<span class="text-zinc-400">mixed</span>{/if}
-		{#if runs.some((s) => s.style?.stroke)}<button class="btn" onclick={() => each('Run colour', (s) => { const { stroke: _s, ...st } = s.style ?? {}; return { ...s, style: Object.keys(st).length ? st : undefined } })}>Clear</button>{/if}</span></label>
+<div class="row" title="Their own color on the plan (By layer = the tier's / layer's)">Color
+	<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></div>
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
 </style>

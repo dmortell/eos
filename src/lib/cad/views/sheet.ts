@@ -5,6 +5,8 @@
 import type { Id } from '../domain/types'
 import type { Sheet, Viewport, SectionCut } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
+import { byDrawOrder } from '../domain/shapes'
+import { nextLabel } from '../domain/labels'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim, Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
@@ -14,6 +16,7 @@ import { riserDisplayList, type RiserOpts } from './riser'
 import { sectionDisplayList } from './section'
 import { spaceOf } from './space'
 import { applyLayers } from './layers'
+import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
@@ -150,7 +153,9 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 	// the title block over the viewports (a window that strays under it is covered, as in Pages)
 	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
 	// paper notes (text, leaders, clouds — shapes owned by this sheet) over everything: a cloud may mark the title block
-	for (const s of ix.shapes) if (s.sheetId === sheet.id) out.push(...notePrims(s, sheet, o.blocks))
+	const shown = new Set(sheet.viewports.map((v) => v.view.levelId))   // a legend on the paper lists what its viewports show
+	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
+		out.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, shown, 1, o.blocks) : notePrims(s, sheet, o.blocks)))
 	return out
 }
 
@@ -167,6 +172,27 @@ export function defaultViewport(ix: ProjectIndex, sheet: Sheet, levelId: Id, id:
 	const a = drawingArea(ix, sheet, o), inset = 5
 	const vp: Viewport = { id, view: { levelId, spec: { kind: 'plan' } }, rect: { x: a.x + inset, y: a.y + inset, w: a.w - 2 * inset, h: a.h - 2 * inset }, scale: 100, centre: { x: 0, y: 0 } }
 	return { ...vp, centre: contentCentre(ix, vp, o) }
+}
+
+/** A viewport of the view you're looking at (backlog "A sheet from the current view"): centred on what the pane
+ *  shows (`visible`, view mm), at the largest standard scale at which that fits the sheet's drawing area, sized to it
+ *  (but never past the area), in the area's top-left corner. */
+export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], visible: Bounds, id: Id, o: SheetOpts = {}): Viewport {
+	const a = drawingArea(ix, sheet, o), inset = 5
+	const w = Math.max(1, visible.x1 - visible.x0), h = Math.max(1, visible.y1 - visible.y0)
+	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
+	const scale = SCALES.find((n) => w / n <= roomW && h / n <= roomH) ?? SCALES.at(-1)!
+	return {
+		id, view, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
+		rect: { x: a.x + inset, y: a.y + inset, w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) },
+	}
+}
+
+/** A new, empty sheet after the last one: the next number, "New sheet", A3 landscape (Dave: no name prompt). */
+export function blankSheet(sheets: Sheet[], id: Id): Sheet {
+	const last = [...sheets].sort((a, b) => a.order - b.order).at(-1)
+	return { type: 'sheet', id, number: last ? nextLabel(last.number) : 'S001', title: 'New sheet', order: (last?.order ?? 0) + 1,
+		paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' }
 }
 
 /** A section put on a sheet (backlog "Drop a section as a viewport"): at the largest standard scale (1:20 or
@@ -189,12 +215,28 @@ export function sectionViewport(ix: ProjectIndex, sheet: Sheet, sectionId: Id, l
 
 /** The middle of what a viewport's view shows (for "Fit" and new viewports). */
 export function contentCentre(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): { x: number; y: number } {
+	const b = contentBounds(ix, vp, o)
+	return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }
+}
+
+/** What a viewport's view draws (floorplan images left out), in view mm; undefined = nothing. */
+function contentBounds(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Bounds | undefined {
 	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image')
-	if (!ps.length) return { x: 0, y: 0 }
+	if (!ps.length) return undefined
 	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
 	for (const p of ps) {
 		const pts = p.k === 'line' ? p.pts : p.k === 'circle' ? [p.c] : p.k === 'text' ? [p.at] : []
 		for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y) }
 	}
-	return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 }
+	return Number.isFinite(x0) ? { x0, y0, x1, y1 } : undefined
+}
+
+/** A viewport drawn as a box on the paper (backlog "Viewport tool"): it shows `view`, centred on its content, at the
+ *  largest standard scale at which that fits the box (1:100 when the view is empty). */
+export function boxViewport(ix: ProjectIndex, view: Viewport['view'], rect: Viewport['rect'], id: Id, o: SheetOpts = {}): Viewport {
+	const vp: Viewport = { id, view, rect, scale: 100, centre: { x: 0, y: 0 } }, b = contentBounds(ix, vp, o)
+	if (!b) return vp
+	const w = Math.max(1, b.x1 - b.x0), h = Math.max(1, b.y1 - b.y0)
+	const scale = SCALES.find((n) => w / n <= rect.w && h / n <= rect.h) ?? SCALES.at(-1)!
+	return { ...vp, scale, centre: { x: Math.round((b.x0 + b.x1) / 2), y: Math.round((b.y0 + b.y1) / 2) } }
 }

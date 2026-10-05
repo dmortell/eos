@@ -4,10 +4,10 @@
 import type { ProjectIndex } from '../domain/project'
 import type { Cord, Device, Id, PortRef, Rack } from '../domain/types'
 import type { CatalogProduct } from '$lib/catalog/types'
-import { bom } from '../domain/reports'
+import { bom, cordBom } from '../domain/reports'
 import type { Route } from '../domain/routing'
 import { rackBom, type RackBomLine } from '../domain/rackBom'
-import { racksInOrder } from '../domain/devices'
+import { panelsInFillOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
 import { download, fileSafe } from './download'
 import { scheduleTotals, type CableRow } from '../domain/cableSchedule'
@@ -83,9 +83,9 @@ export async function exportPatchSchedule(ix: ProjectIndex, projectName: string,
 	bh.font = { bold: true, size: 10 }
 	bh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
 	;[14, 10, 10, 10].forEach((w, i) => (b.getColumn(i + 1).width = w))
-	const agg = new Map<string, { type: string; len: number | string; status: string; n: number }>()
-	for (const r of rows) { const k = `${r.cells[11]}|${r.cells[12]}|${r.status}`; const e = agg.get(k); if (e) e.n++; else agg.set(k, { type: String(r.cells[11]), len: r.cells[12], status: r.status, n: 1 }) }
-	for (const e of [...agg.values()].sort((x, y) => x.type.localeCompare(y.type) || Number(x.len) - Number(y.len))) b.addRow([e.type, e.len || '-', e.status, e.n])
+	const cords = new Set(rows.map((r) => r.cells[PATCH_HEAD.length - 1]))
+	for (const l of cordBom(ix.cords.filter((c) => cords.has(c.id)), typeLabel))
+		for (const s of STATUS_ORDER) if (l.n[s]) b.addRow([l.type, l.lengthM || '-', s, l.n[s]])
 	b.addRow(['', '', 'Total', rows.length]).font = { bold: true }
 	download(await wb.xlsx.writeBuffer(), `Patching-${fileSafe(projectName)}${room ? `-${fileSafe(room.name)}` : ''}-${today()}.xlsx`, XLSX)
 	return rows.length
@@ -130,10 +130,7 @@ export function panelLabelRows(ix: ProjectIndex, spaceId?: Id): (string | number
 	const rooms = spaceId ? [spaceId] : [...new Set(ix.racks.map((r) => r.spaceId))].sort((a, b) => naturalCompare(ix.nameOf(a), ix.nameOf(b)))
 	const out: (string | number)[][] = []
 	for (const room of rooms) {
-		const rank = new Map(racksInOrder(ix, room).map((r, i) => [r.id, i]))
-		const panels = ix.devices.filter((d) => d.kind === 'panel' && rank.has(d.rackId))
-			.sort((a, b) => rank.get(a.rackId)! - rank.get(b.rackId)! || b.u + b.heightU - (a.u + a.heightU))
-		for (const d of panels) for (let n = 1; n <= d.portCount; n++) {
+		for (const d of panelsInFillOrder(ix, room)) for (let n = 1; n <= d.portCount; n++) {
 			const far = ix.farEnd({ on: d.id, port: n }), o = far ? ix.get(far.on) : undefined
 			out.push([ix.nameOf(room), ix.nameOf(d.rackId), d.name, d.u, n, ix.portLabel({ on: d.id, port: n }), o?.type === 'outlet' ? o.label : ''])
 		}

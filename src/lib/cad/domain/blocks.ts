@@ -76,10 +76,22 @@ export const outletAttrs = (o: Outlet): Record<string, string> => ({ LABEL: o.la
 
 /** An INSERT's attributes: every `{TAG}` in the block blank unless the insert sets it (an outlet symbol placed as a
  *  plain block — a power faceplate — has no label / ports / usage to show; Dave, A009). */
-export function insertAttrs(b: Block, attrs: Record<string, string> = {}): Record<string, string> {
+export function insertAttrs(b: Block, attrs: Record<string, string> = {}, hidden: string[] = []): Record<string, string> {
 	const out: Record<string, string> = {}
-	for (const s of b.shapes) if (s.geom.kind === 'text') for (const m of s.geom.text.matchAll(/\{([A-Z_]+)\}/g)) out[m[1]] = ''
-	return { ...out, ...attrs }
+	for (const d of blockAttrDefs(b)) out[d.tag] = d.default ?? ''
+	const all = { ...out, ...attrs }
+	for (const t of hidden) all[t] = ''   // a hidden attribute keeps its value (data) but doesn't draw
+	return all
+}
+
+/** A block's ATTRIBUTES (backlog "Block attributes on an insert"): its declared ones (`attrs`, with label and default)
+ *  then any other `{TAG}` its texts use, in that order. */
+export function blockAttrDefs(b: Block): { tag: string; label: string; default?: string }[] {
+	const out = [...(b.attrs ?? []).map((a) => ({ ...a }))], seen = new Set(out.map((a) => a.tag))
+	for (const s of b.shapes) if (s.geom.kind === 'text') for (const m of s.geom.text.matchAll(/\{([A-Z_]+)\}/g)) {
+		if (!seen.has(m[1])) { seen.add(m[1]); out.push({ tag: m[1], label: m[1][0] + m[1].slice(1).toLowerCase() }) }
+	}
+	return out
 }
 
 // ── Make a block from shapes ─────────────────────────────────────────────────────────────────────────────────────
@@ -91,7 +103,7 @@ function pointsOf(g: Geometry): Pt[] {
 		case 'circle': case 'arc': return [{ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }]
 		case 'ellipse': return ellipsePts(g)
 		case 'polygon': case 'leader': case 'cloud': return g.pts
-		case 'text': case 'insert': return [g.at]
+		case 'text': case 'insert': case 'legend': return [g.at]
 		case 'dimension': return [g.a, g.b]
 		case 'image': return [g.centre]
 	}

@@ -6,16 +6,19 @@ type Side = 'left' | 'right' | 'bottom'
 export class Panels {
 	size = $state<Record<Side, number>>({ left: 208, right: 272, bottom: 224 })
 	shown = $state<Record<Side, boolean>>({ left: true, right: true, bottom: true })
+	/** Split view: the left pane's share of the width (0.15–0.85; Dave: drag the bar between them). */
+	split = $state(0.5)
 
 	constructor() {
 		try {
-			const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { size?: Partial<Record<Side, number>>; shown?: Partial<Record<Side, boolean>> }
+			const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { size?: Partial<Record<Side, number>>; shown?: Partial<Record<Side, boolean>>; split?: number }
 			Object.assign(this.size, s.size)
 			Object.assign(this.shown, s.shown)
+			if (typeof s.split === 'number') this.split = Math.min(0.85, Math.max(0.15, s.split))
 		} catch { /* nothing saved, or storage blocked: the defaults */ }
 	}
 	save = (): void => {
-		try { localStorage.setItem(KEY, JSON.stringify({ size: this.size, shown: this.shown })) } catch { /* storage blocked */ }
+		try { localStorage.setItem(KEY, JSON.stringify({ size: this.size, shown: this.shown, split: this.split })) } catch { /* storage blocked */ }
 	}
 	toggle(side: Side): void { this.shown[side] = !this.shown[side]; this.save() }
 

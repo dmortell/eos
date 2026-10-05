@@ -3,7 +3,8 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { SectionCut, Sheet } from '../domain/drawing'
+	import type { SectionCut, Sheet, Viewport } from '../domain/drawing'
+	import { sectionViewports } from '../editor/commands'
 	import { newId } from '../domain/ids'
 	import { sectionViewport } from '../views/sheet'
 
@@ -13,6 +14,13 @@
 	const sheets = $derived.by(() => { void project.rev; return (project.store.ofType('sheet') as Sheet[]).filter((x) => x.status !== 'archived').sort((a, b) => a.order - b.order) })
 	let sheetId = $state('')
 	const target = $derived(sheets.find((x) => x.id === sheetId) ?? sheets[0])
+
+	const shownOn = $derived.by(() => { void project.rev; return sectionViewports(project.store, [s.id]).sort((a, b) => a.sheet.order - b.sheet.order) })
+	function openOn(sheet: Sheet, vp: Viewport) {
+		ws.openView({ kind: 'sheet', sheetId: sheet.id })
+		ws.select([sheet.id])
+		ws.selectViewport(vp.id)
+	}
 
 	function putOnSheet() {
 		const sh = target
@@ -41,6 +49,13 @@
 			<button class="btn" onclick={putOnSheet}>Put on sheet</button>
 		</span></label>
 {/if}
+{#if shownOn.length}
+	<!-- the viewports that show this section: a click opens that sheet with the viewport selected -->
+	<p class="pt-1 font-semibold">On sheets <span class="font-normal text-zinc-400">({shownOn.length})</span></p>
+	{#each shownOn as h (h.vp.id)}
+		<button class="link" title="Open {h.sheet.number} with this viewport selected" onclick={() => openOn(h.sheet, h.vp)}>{h.sheet.number} {h.sheet.title} · 1:{h.vp.scale}</button>
+	{/each}
+{/if}
 <p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
 
 <style>
@@ -48,4 +63,6 @@
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
 	.btn:hover { background: var(--cad-hover); }
+	.link { display: block; width: 100%; text-align: left; padding: 0 4px; border-radius: 3px; color: var(--cad-link, #2563eb); }
+	.link:hover { background: var(--cad-hover); text-decoration: underline; }
 </style>

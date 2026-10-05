@@ -8,6 +8,10 @@
 	let { prims, selected, k }: { prims: Prim[]; selected: Set<Id>; k?: number } = $props()
 
 	const ptsOf = (p: { pts: { x: number; y: number }[] }) => p.pts.map((q) => `${q.x},${q.y}`).join(' ')
+	// a shape's own lineweight (paper mm → screen px at 96 dpi, as CAD shows lineweights) and line type (backlog "Shape style")
+	const lw = (p: Prim) => (p.k !== 'image' && p.weight ? `${Math.max(0.75, p.weight * 3.78)}px` : undefined)
+	const DASH = { dashed: [6, 4], dotted: [1.5, 3], dashdot: [8, 3, 1.5, 3] } as const
+	const da = (p: Prim) => { if (p.k === 'image' || !p.dash) return undefined; const f = Math.max(1, (p.weight ?? 0.25) * 3.78); return DASH[p.dash].map((n) => n * f).join(' ') }
 	const shown = (p: Prim) => p.k !== 'text' || !k || ((p.minPx === undefined || p.size * k >= p.minPx) && (p.maxPx === undefined || p.size * k < p.maxPx))
 
 	// clip windows (sheet viewports): one <clipPath> per distinct rect; ids unique per instance
@@ -25,7 +29,7 @@
 {/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
-	{@const col = sel ? undefined : p.color}
+	{@const col = sel && !(p.k !== 'image' && (p.cls === 'shape-fill' || p.cls === 'note-bg')) ? undefined : p.color}
 	<!-- col = the item's / its layer's colour; the selection look wins. Polygons take it as their outline, and as their
 	     fill only in outlet symbols (a coloured Racks layer mustn't fill rack bodies solid over their devices). -->
 	{#if shown(p)}
@@ -33,17 +37,17 @@
 		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg') ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill') ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
 			<polyline points={ptsOf(p)} class="{p.cls} band" class:sel style:stroke-width={p.w} style:stroke={col} clip-path={clipOf(p)} />
 			<polyline points={ptsOf(p)} class="{p.cls} centre" class:sel vector-effect="non-scaling-stroke" style:stroke={col} clip-path={clipOf(p)} />
 		{:else}
-			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={col} clip-path={clipOf(p)} />
+			<polyline points={ptsOf(p)} class={p.cls} class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} clip-path={clipOf(p)} />
 		{/if}
 	{:else if p.k === 'circle'}
-		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:fill={p.fill ? col : undefined} clip-path={clipOf(p)} />
+		<circle cx={p.c.x} cy={p.c.y} r={p.r} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill ? col : undefined} clip-path={clipOf(p)} />
 	{:else if p.k === 'text'}
 		<text x={p.at.x} y={p.at.y} font-size={p.size} text-anchor={p.anchor ?? 'start'} class={p.cls} class:sel style:fill={col} clip-path={clipOf(p)}
 			transform={p.rot ? `rotate(${p.rot} ${p.at.x} ${p.at.y})` : undefined}>{p.text}</text>
@@ -68,6 +72,7 @@
 	.viewport-bg.filled { fill: #ffffff; stroke: none; }
 	text.note { fill: #0f172a; }
 	.note-bg { stroke: none; fill: #ffffff; }
+	.shape-fill { stroke: none; }
 	.dim { stroke: #0f172a; stroke-width: 1; fill: none; }
 	text.dim-text { fill: #0f172a; }
 	.leader { stroke: #0f172a; }
@@ -80,6 +85,11 @@
 	text.tb-label { fill: #94a3b8; letter-spacing: 0.05em; }
 	text.tb-value { fill: #1f2937; font-weight: 600; }
 	text.tb-logo { fill: #1f2937; font-weight: 700; }
+	.legend { stroke: #64748b; }
+	.legend.filled { fill: #ffffff; }
+	.legend-rule { stroke: #94a3b8; fill: none; }
+	text.legend-title { fill: #0f172a; font-weight: 700; }
+	text.legend-text { fill: #1f2937; }
 	text.tb-company-name { fill: #1f2937; font-weight: 700; }
 	text.tb-company { fill: #475569; }
 	.viewport { stroke: #2563eb; stroke-dasharray: 6 3; }
@@ -97,6 +107,8 @@
 	.device { stroke: #334155; fill: #cbd5e1; }
 	.device-panel { fill: #e0f2fe; }
 	.device-switch { fill: #dcfce7; }
+	.pdu-inlet { stroke: #7f1d1d; fill: #dc2626; }
+	.pdu-socket { stroke: #1f2937; fill: #f8fafc; }
 	.datum { stroke: #a1a1aa; stroke-dasharray: 6 4; }
 	.datum-ffl { stroke: #52525b; stroke-dasharray: none; }
 	/* a device on the rack's other face: faint, behind this face's devices */
@@ -157,6 +169,7 @@
 	text.device-stale { fill: #b91c1c; }
 	text.port-label { fill: #0c4a6e; font-family: ui-monospace, monospace; }
 	text.u-label { fill: #94a3b8; }
+	text.u-label.u-clash { fill: #dc2626; font-weight: 700; }
 	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
 	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
@@ -167,9 +180,11 @@
 	.cord-add { stroke-dasharray: 6 3; }
 	.draft { stroke: #2563eb; opacity: 0.5; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
+	text.draft-label { fill: #2563eb; }
 	/* the Device tool's drop ghost; red = it can't go there */
 	.draft-bad { stroke: #dc2626; opacity: 0.8; stroke-dasharray: 4 3; }
 	.grip { fill: #f59e0b; stroke: white; }
+	.logo-sel { stroke: #f59e0b; stroke-dasharray: 4 3; fill: none; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
 	.sel { stroke: #f59e0b !important; }
 	.opening-pick.sel { stroke: transparent !important; }   /* a selected wall's gaps stay open */

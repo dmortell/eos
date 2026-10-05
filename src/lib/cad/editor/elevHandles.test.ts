@@ -1,0 +1,69 @@
+// Drag top / bottom edges in elevations (Dave, 2026-10-05).
+import { describe, it, expect } from 'vitest'
+import { elevationHandles } from './elevHandles'
+import { moveBy } from './behaviours'
+import { spaceOf } from '../views/space'
+import type { Shape } from '../domain/shapes'
+
+// a wall along x (seen side-on from the front), 2700 high, with a door 900 wide, 2100 high from the floor
+const wall = {
+	type: 'shape', id: 'W', levelId: 'L', section: { w: 100, h: 2700 },
+	role: { kind: 'wall', openings: [{ id: 'D', segId: 's', at: 1000, width: 900, z: 0, h: 2100 }] },
+	geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 4000, y: 0, z: 0 }], segs: [{ id: 's', a: 'a', b: 'b' }] },
+} as unknown as Shape
+const sp = spaceOf({ kind: 'elevation', dir: 'front' })
+
+describe('elevation handles', () => {
+	const hs = elevationHandles(wall, sp)
+	it('a wall seen side-on: its top and bottom, and each opening\'s top and sill', () => {
+		expect(hs.map((h) => h.label)).toEqual(['Wall height', 'Wall base', 'Opening height', 'Opening sill'])
+		expect(-hs[0].at.y).toBe(2700)
+		expect(-hs[2].at.y).toBe(2100)
+	})
+	it('dragging the top sets the height (to 10 mm); the base moves the wall\'s Z, its top stays', () => {
+		const up = hs[0].drag!({ x: 0, y: -3004 }, false) as Shape
+		expect(up.section?.h).toBe(3000)
+		const raised = hs[1].drag!({ x: 0, y: -300 }, false) as Shape
+		expect(raised.geom.kind === 'path' && raised.geom.nodes.map((n) => n.z)).toEqual([300, 300])
+		expect(raised.section?.h).toBe(2400)
+	})
+	it('an opening: top = its height, sill = its Z with the top kept', () => {
+		const taller = hs[2].drag!({ x: 0, y: -2400 }, false) as Shape
+		expect(taller.role?.kind === 'wall' && taller.role.openings[0]).toMatchObject({ z: 0, h: 2400 })
+		const window = hs[3].drag!({ x: 0, y: -900 }, false) as Shape
+		expect(window.role?.kind === 'wall' && window.role.openings[0]).toMatchObject({ z: 900, h: 1200 })
+	})
+	it('seen end-on (from the side): nothing to grab; in a plan: none', () => {
+		expect(elevationHandles(wall, spaceOf({ kind: 'elevation', dir: 'left' }))).toEqual([])
+		expect(elevationHandles(wall, spaceOf({ kind: 'plan' }))).toEqual([])
+	})
+})
+
+describe('boxes in elevations (Dave, 2026-10-05: a box couldn\'t be moved up / down or resized there)', () => {
+	const box = { type: 'shape', id: 'B', levelId: 'L', extent: 750, geom: { kind: 'rect', centre: { x: 1000, y: 500 }, size: { x: 1200, y: 600 } } } as unknown as Shape
+	it('its top square sets the height, its bottom the Z (the top stays)', () => {
+		const [top, base] = elevationHandles(box, sp)
+		expect(-top.at.y).toBe(750)
+		expect((top.drag!({ x: 0, y: -1104 }, false) as Shape).extent).toBe(1100)
+		const raised = base.drag!({ x: 0, y: -300 }, false) as Shape
+		expect(raised).toMatchObject({ extent: 450, plane: { kind: 'plan', z: 300 } })
+	})
+	it('dragged up in an elevation, a box at Z 0 (no plane yet) rises', () => {
+		expect(moveBy(box, { x: 100, y: 0, z: 400 })).toMatchObject({ plane: { kind: 'plan', z: 400 }, geom: { centre: { x: 1100, y: 500 } } })
+	})
+})
+
+describe('box width in elevations', () => {
+	const box = { type: 'shape', id: 'B', levelId: 'L', extent: 750, geom: { kind: 'rect', centre: { x: 1000, y: 500 }, size: { x: 1200, y: 600 } } } as unknown as Shape
+	it('its sides as seen: one moves, the other stays', () => {
+		const hs = elevationHandles(box, sp).filter((h) => h.label === 'Box width')
+		expect(hs).toHaveLength(2)
+		const [lo, hi] = [...hs].sort((a, b) => a.at.x - b.at.x)
+		const wider = hi.drag!({ x: hi.at.x + 300, y: 0 }, false) as Shape
+		const narrower = lo.drag!({ x: lo.at.x + 200, y: 0 }, false) as Shape
+		const span = (s: Shape) => { const g = s.geom as { centre: { x: number }; size: { x: number } }; return [g.centre.x - g.size.x / 2, g.centre.x + g.size.x / 2] }
+		const [a0, a1] = span(box)
+		expect(span(wider)).toEqual([a0, a1 + 300])
+		expect(span(narrower)).toEqual([a0 + 200, a1])
+	})
+})

@@ -23,6 +23,11 @@ import { segAt, segNodes, followersOf, joinAcross, type PathSel } from './pathSe
 import { angleStep, axisLock } from './constrain'
 import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
 import { withGroups } from '../domain/groups'
+import { labelKind } from '../domain/labelEdit'
+import { elevationHandles } from './elevHandles'
+import { logoHandles, logoBoxes, logoAt, type LogoKey } from './logoHandles'
+
+const REGION = new Set(['rect', 'circle', 'ellipse', 'polygon'])
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -57,6 +62,8 @@ export interface ToolCtx {
 	/** Nodes / segments picked within the selected run (Delete removes them; Properties acts on them). */
 	pathSel?(): PathSel | null
 	selectPath?(s: PathSel | null): void
+	/** Edit a text's words in place, on the drawing (double-click / F2). */
+	editText?(id: Id): void
 	selection: Id[]
 	select(ids: Id[]): void
 	/** The selection box being dragged; `crossing` = dragged right → left (selects what it touches). */
@@ -156,6 +163,10 @@ export class SelectTool implements Tool {
 	#note: { base: Shape; vp?: Sheet['viewports'][number]; index: number } | null = null
 	/** A drawn region's resize grip being dragged (editor/shapeGrips.ts): the shape as it was, which grip, its space. */
 	#region: { base: Shape; index: number; space: GripSpace } | null = null
+	/** A title-block logo picked on a sheet (its height grip shows); dropped by a press anywhere else on the paper. */
+	#logo: { sheet: Id; key: LogoKey } | null = null
+	/** A double-clicked text, edited in place when the button comes up. */
+	#editOnUp: Id | null = null
 
 	/** The single selected region's grips (rect / ellipse / circle / polygon) where they show in this view. */
 	#regionGrips(c: ToolCtx): { s: Shape; space: GripSpace; at: Pt[] } | null {
@@ -188,10 +199,19 @@ export class SelectTool implements Tool {
 		const vp = tiedViewport(s, (id) => c.store.get(id))
 		return { s, vp, grips: noteGrips(s, vp) }
 	}
-	/** The single selected thing's handles — on the plan only. */
+	/** The single selected thing's handles: on the plan (openings, sections); in an elevation / section a wall's top and bottom edges. */
 	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
 		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
-		return one && c.space.spec.kind === 'plan' ? handlesFor(one) : { handles: [], decor: [] }
+		if (!one) return { handles: [], decor: [] }
+		if (c.space.spec.kind === 'plan') return handlesFor(one)
+		// a selected sheet: its title block's logos have a height grip on the paper
+		if (c.space.spec.kind === 'sheet') {
+			// the picked logo's height grip, with its outline
+			if (one.type !== 'sheet' || this.#logo?.sheet !== one.id || c.viewportId?.()) { this.#logo = null; return { handles: [], decor: [] } }
+			const l = logoHandles(c.index, one, c.store.get('settings') as ProjectSettings | undefined, this.#logo.key)
+			return { handles: l.handles, decor: l.outline.length ? [{ k: 'line', pts: l.outline, closed: true, cls: 'logo-sel' }] : [] }
+		}
+		return { handles: elevationHandles(one, c.space), decor: [] }   // a wall's top / bottom edges in an elevation / section
 	}
 
 	down(e: PointerIn, c: ToolCtx): void {
@@ -216,6 +236,10 @@ export class SelectTool implements Tool {
 		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }
 		if ((e.count ?? 1) >= 2 && this.#insertNode(e, c)) return
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
+		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
+		// them in place (backlog "Text options", "Edit a label in place")
+		const lk = id && (e.count ?? 1) >= 2 ? labelKind(c.store.get(id)) : null
+		if (id && c.editText && lk && (lk !== 'run' || hit?.k === 'text')) { c.select([id]); this.#editOnUp = id; return }   // opened on RELEASE: on press, the click's own mousedown would take the focus from the box (it blurred, saved and closed)
 		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
 		if (c.space.spec.kind === 'sheet' && c.selectViewport) {
 			// the selected viewport first: a corner grip resizes it, Alt-drag inside pans its view (T126: Ctrl-drag copies)
@@ -229,6 +253,10 @@ export class SelectTool implements Tool {
 				if (inside && e.alt) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; c.say?.('Panning the view — Alt+wheel changes its scale'); return }
 			}
 			const sheet = id ? c.store.get(id) : undefined
+			// a title-block logo: a click picks it (its height grip shows); a press anywhere else drops it
+			const logo = sheet?.type === 'sheet' ? logoAt(logoBoxes(c.index, sheet, c.store.get('settings') as ProjectSettings | undefined), e.p) : null
+			this.#logo = sheet && logo ? { sheet: sheet.id, key: logo } : null
+			if (sheet && logo) { c.select([sheet.id]); c.selectViewport(null); c.say?.('Logo: drag the grip on its bottom edge to change its height (on every sheet)'); return }
 			if (sheet?.type === 'sheet') {
 				c.select([sheet.id])
 				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
@@ -309,7 +337,7 @@ export class SelectTool implements Tool {
 			const { base, index, space } = this.#region
 			// snapped like any point here (paper: 0.5 mm), then into the shape's own space
 			const p = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, base.id).p
-			this.#gesture ??= c.store.begin('Resize shape')
+			this.#gesture ??= c.store.begin(REGION.has(base.geom.kind) ? 'Resize shape' : 'Move point')
 			this.#gesture.update((tx) => tx.put(dragRegionGrip(base, index, space.from(p), e.shift)))
 			return
 		}
@@ -325,7 +353,7 @@ export class SelectTool implements Tool {
 			const drag = h.drag
 			// a bar keeps the press point's offset along it (no jump to the pointer)
 			const q = h.shape === 'bar' ? { x: h.at.x + e.p.x - start.x, y: h.at.y + e.p.y - start.y } : e.p
-			this.#gesture ??= c.store.begin(this.#handle.base.type === 'section' ? 'Edit section' : 'Edit opening')
+			this.#gesture ??= c.store.begin(h.label ?? (this.#handle.base.type === 'section' ? 'Edit section' : 'Edit opening'))
 			this.#gesture.update((tx) => tx.put(drag(q, e.alt)))
 			return
 		}
@@ -457,6 +485,7 @@ export class SelectTool implements Tool {
 	}
 
 	up(e: PointerIn, c: ToolCtx): void {
+		if (this.#editOnUp) { const id = this.#editOnUp; this.#reset(c); c.editText?.(id); return }
 		if (!this.#gesture && this.#handle) {
 			const { h, base } = this.#handle
 			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
@@ -469,8 +498,14 @@ export class SelectTool implements Tool {
 			if (this.#joined) c.say?.(`Joined ${this.#joined === 1 ? "the node" : `${this.#joined} nodes`} to the one it was dropped on · Ctrl+Z undoes`)
 			else if (this.#absorbed) c.say?.(`Joined ${this.#absorbed === 1 ? 'the two runs' : `${this.#absorbed + 1} runs`} into one · Ctrl+Z undoes · click the node, then Disconnect (Properties) to separate them`)
 		}
-		// a click on a grip picks that node; a click on a segment of the selected run picks it (Ctrl: adds / drops it)
-		else if (this.#grip && !this.#grip.branch) c.selectPath?.({ shape: this.#grip.shape, nodes: this.#grip.grip.nodeIds, segs: [] })
+		// a click on a grip picks that node (Ctrl-click: adds / drops it — Ctrl-DRAG still branches); a click on a
+		// segment of the selected run picks it (Ctrl: adds / drops it)
+		else if (this.#grip) {
+			const { shape, grip } = this.#grip, ps = c.pathSel?.(), had = ps?.shape === shape ? ps.nodes : []
+			const nodes = !this.#grip.branch ? grip.nodeIds
+				: grip.nodeIds.every((n) => had.includes(n)) ? had.filter((n) => !grip.nodeIds.includes(n)) : [...new Set([...had, ...grip.nodeIds])]
+			c.selectPath?.(nodes.length ? { shape, nodes, segs: [] } : null)
+		}
 		else if (this.#segPick) {
 			const { shape, seg } = this.#segPick, ps = c.pathSel?.(), had = ps?.shape === shape ? ps.segs : []
 			c.selectPath?.({ shape, nodes: [], segs: e.ctrl ? (had.includes(seg) ? had.filter((x) => x !== seg) : [...had, seg]) : [seg] })
@@ -511,6 +546,7 @@ export class SelectTool implements Tool {
 		for (const h of handles) {
 			if (h.shape === 'round') out.push({ k: 'circle', c: h.at, r: 7 * px, fill: true, cls: 'grip grip-round' })
 			else if (h.shape === 'square') out.push({ k: 'line', pts: sq(h.at, 11 * px), closed: true, fill: true, cls: 'grip grip-handle' })
+			else if (h.shape === 'grip') out.push({ k: 'line', pts: sq(h.at, 6 * px), closed: true, fill: true, cls: 'grip' })   // = a region's edge-middle grip (above)
 		}
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
 		return out
@@ -539,7 +575,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null
 		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
 		c.setMarquee(null)
 	}

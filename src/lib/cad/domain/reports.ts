@@ -1,6 +1,7 @@
 // Reports derived from the project data (ADR 0001 §5): nothing here is stored, everything is recomputed.
 //  - outletSchedule: one row per outlet with its ports, where each is patched to, and totals
 //  - patchList:      one row per cord, both ends with their labels
+//  - cordBom:        cords counted by type × length, a column per status (the dialog and the Excel BOM sheet)
 //  - runLengths:     containment metres per run, split horizontal / vertical
 //  - bom:            quantities by item for a quote (no prices — Dave, 2026-10-02)
 import type { ProjectIndex } from './project'
@@ -88,6 +89,23 @@ export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): Patch
 			cableType: c.cableType, colour: c.colour, lengthM: c.lengthM, cordId: c.cordId ?? '', notes: c.notes ?? '',
 		}))
 		.sort((a, b) => naturalCompare(a.from, b.from))
+}
+
+/** One line of the cord BOM: a cable type at one length, how many cords of each status, and in all. */
+export interface CordBomLine { type: string; lengthM: number; n: Record<Cord['status'], number>; total: number }
+
+/** Cords counted by type × length (A → Z, then shortest first); `typeLabel` names the type. A cord with no length
+ *  counts at 0 (shown as "-"). */
+export function cordBom(cords: Cord[], typeLabel: (id: string) => string = (x) => x): CordBomLine[] {
+	const by = new Map<string, CordBomLine>()
+	for (const c of cords) {
+		const type = typeLabel(c.cableType), lengthM = c.lengthM || 0, k = `${type}|${lengthM}`
+		const e = by.get(k) ?? { type, lengthM, n: { add: 0, change: 0, remove: 0, installed: 0 }, total: 0 }
+		e.n[c.status]++
+		e.total++
+		by.set(k, e)
+	}
+	return [...by.values()].sort((a, b) => naturalCompare(a.type, b.type) || a.lengthM - b.lengthM)
 }
 
 // ── Containment lengths ───────────────────────────────────────────────────────────────────────────────────────────

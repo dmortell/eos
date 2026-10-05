@@ -1,0 +1,25 @@
+// Cable types editor rules (Dave, 2026-10-05).
+import { describe, it, expect } from 'vitest'
+import { ProjectIndex } from './project'
+import { demoProject } from './fixtures'
+import { cableTypeUses, cantDelete, newCableTypeId } from './cableTypes'
+import type { ProjectSettings } from './types'
+
+const settings = { type: 'settings', id: 'settings', portSuffix: 'alpha', usages: [],
+	cableTypes: [{ id: 'cat6a', label: 'Cat6A', media: 'copper', color: '#3b82f6' }, { id: 'om4', label: 'OM4', media: 'fibre', color: '#22d3ee' }, { id: 'cat5e', label: 'Cat5e', media: 'copper', color: '#999999' }],
+	defaults: { outletCableType: 'cat6a', cordCableType: 'om4', cordColour: '#3b82f6', panelPorts: 24 } } as ProjectSettings
+
+describe('cable types', () => {
+	const ix = new ProjectIndex(demoProject())
+	it('a type in use (ports, cords) or set as a default can\'t be deleted; an unused one can', () => {
+		const u = cableTypeUses(ix, settings, 'cat6a')
+		expect(u.ports).toBeGreaterThan(0)
+		expect(cantDelete(u)).toMatch(/^used by \d+ outlet ports/)
+		expect(cantDelete(cableTypeUses(ix, settings, 'om4'))).toBe('the default for new outlets or cords')
+		expect(cantDelete(cableTypeUses(ix, settings, 'cat5e'))).toBeNull()
+	})
+	it('a new type\'s id comes from its label, made unique', () => {
+		expect(newCableTypeId('Cat6A STP', [])).toBe('cat6a-stp')
+		expect(newCableTypeId('OM4', ['om4', 'om4-2'])).toBe('om4-3')
+	})
+})

@@ -1,6 +1,7 @@
 <!-- The cad workspace for one project: levels on the left, the plan in the middle, Properties on the right, the
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
+	import { sortedCableTypes } from '../domain/cableTypes'
 	import { onDestroy, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState } from '$app/navigation'
@@ -23,10 +24,14 @@
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
-	import Legend from './Legend.svelte'
 	import BlockManager from './BlockManager.svelte'
 	import SideSection from './SideSection.svelte'
 	import CableList from './CableList.svelte'
+	import SectionList from './SectionList.svelte'
+	import SettingsDialog from './SettingsDialog.svelte'
+	import ColorPick from './ColorPick.svelte'
+	import { reorderShapes } from '../domain/shapes'
+	import { labelKind } from '../domain/labelEdit'
 	import LinksTable from './LinksTable.svelte'
 	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
@@ -51,6 +56,7 @@
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
 	ws.remove = () => deleteSelected()
+	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 
 	// the view state comes back from the URL on a refresh (Dave): level, the panes' views, the active pane
@@ -63,6 +69,19 @@
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
+
+	/** Drag the bar between split views (backlog "Resizable split bar"): the left pane's share, 15–85 %, kept per browser. */
+	let panesEl: HTMLDivElement | undefined = $state()
+	function splitDown(e: PointerEvent) {
+		if (e.button !== 0 || !panesEl) return
+		e.preventDefault()
+		const bar = e.currentTarget as HTMLElement, r = panesEl.getBoundingClientRect()
+		try { bar.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer */ }
+		const move = (m: PointerEvent) => { panels.split = Math.min(0.85, Math.max(0.15, (m.clientX - r.left) / r.width)) }
+		const up = () => { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); panels.save() }
+		bar.addEventListener('pointermove', move)
+		bar.addEventListener('pointerup', up)
+	}
 
 	function toggleSplit() {
 		canvas?.cancel()
@@ -106,6 +125,15 @@
 	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
+	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
+	 *  looked at. Snapshots: the store freezes what it's given, and a $state proxy can't be frozen. */
+	let lastModel: Exclude<ViewSpec, { kind: 'sheet' }> | null = null
+	$effect(() => { const p = panes[activePane]; if (p && p.kind !== 'sheet') lastModel = $state.snapshot(p) as typeof lastModel })
+	ws.viewportView = () => {
+		const other = panes.length === 2 ? panes[1 - activePane] : undefined
+		const spec = other && other.kind !== 'sheet' ? ($state.snapshot(other) as typeof lastModel) : lastModel
+		return spec && ws.levelId ? { levelId: ws.levelId, spec } : null
+	}
 	// switching to a view the current tool doesn't work in drops back to Select
 	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind)) untrack(() => setTool('select')) })
 
@@ -149,7 +177,7 @@
 
 	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
 	const TOOLS: { id: ToolId; label: string }[] = [
-		{ id: 'select', label: 'Select' }, { id: 'insert', label: 'Block' }, { id: 'shape', label: 'Shape' }, { id: 'dimension', label: 'Dim' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
+		{ id: 'select', label: 'Select' }, { id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }, { id: 'insert', label: 'Block' }, { id: 'shape', label: 'Shape' }, { id: 'box', label: 'Box' }, { id: 'legend', label: 'Legend' }, { id: 'viewport', label: 'Viewport' }, { id: 'dimension', label: 'Dim' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
 		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
 		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
 		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
@@ -157,9 +185,14 @@
 	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
 		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
+		move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
+		copy: 'Select first · click a base point, then each place for a copy (snaps · Shift 15° · type @dx,dy) · Enter / Esc ends',
 		dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
+		legend: 'Click where its top-left corner goes (plan: lists this level · sheet: the levels its viewports show) · rows, title, size in Properties',
+		viewport: 'Drag a box on the paper (or click two corners) · it shows the other pane’s view, else the last plan / elevation / rack view, scaled to fit · at least 20 × 20 mm · Esc stops',
+		box: 'A box / desk on the plan: its footprint corner to corner (or drag) · its height and Z in the tool bar (and Properties) · shows in elevations and sections · Esc stops',
 		shape: 'Click two points (or drag) · on a plan, on an elevation (at the work depth), on a sheet or inside a viewport · Esc stops',
-		select: 'Double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy · Ctrl+G groups, Ctrl+Shift+G ungroups',
+		select: 'Double-click (or F2) a label / text to edit it, Tab = the next one · double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy · Ctrl+G groups, Ctrl+Shift+G ungroups · Ctrl+] / Ctrl+[ draw order',
 		outlet: 'Click to place the next outlet · or type @1200,0 for the next one 1.2 m along',
 		line: 'Click or type points (x,y · @dx,dy · @d<a · a distance) · Shift = 15° steps · Enter finishes · C or a click on the first point closes it · Esc / right-click ends it, again → Select · Backspace undoes a point',
 		trunk: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level · Enter finishes · C closes it · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
@@ -172,8 +205,8 @@
 		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
 		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
 		renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
-		text: 'On a sheet: click where the text goes, then type it',
-		leader: 'On a sheet: click the tip, then the bend / end points · Enter → its text · Esc / right-click ends it, again → Select · Backspace undoes a point',
+		text: 'Click where the text goes and type over "Text" · click a text to edit it · Enter saves, Shift+Enter = new line',
+		leader: 'Press at the tip and drag to where the words go (a callout) — or click the tip, then bends, Enter ends · then type its words on the drawing · border in Properties · Backspace undoes a point',
 		cloud: 'On a sheet: click round the area to mark · Enter closes the cloud · Esc / right-click ends it, again → Select · Backspace undoes a point',
 	}
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
@@ -182,6 +215,7 @@
 
 	let bottom = $state<'outlets' | 'patch' | 'sheets' | 'links'>('outlets')
 	let floorsOpen = $state(false)
+	let typesOpen = $state(false)
 
 	// ── levels: rename, delete (Dave: Journey's 1F and 3307F aren't needed) ──
 	function renameLevel(l: Level) {
@@ -253,7 +287,7 @@
 		const pth = ws.pathSel, run = pth ? project.store.get(pth.shape) : undefined
 		if (pth && run?.type === 'shape') {
 			const out = deletePicked(run, pth)
-			project.store.transact(pth.nodes.length ? 'Delete node' : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p) })
+			project.store.transact(pth.nodes.length ? (pth.nodes.length === 1 ? 'Delete node' : `Delete ${pth.nodes.length} nodes`) : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p) })
 			ws.selectPath(null)
 			ws.select(out.some((p) => p.id === run.id) ? [run.id] : [])
 			if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)
@@ -277,6 +311,13 @@
 		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
+	/** Ctrl+] / Ctrl+[ bring the selected shapes forward / send them back; with Shift to the front / back. */
+	function orderKey(how: 'forward' | 'backward' | 'front' | 'back') {
+		const moved = reorderShapes(project.index.shapes, ws.selection, how)
+		const word = { forward: 'Bring forward', backward: 'Send backward', front: 'Bring to front', back: 'Send to back' }[how]
+		if (!moved.length) { ws.say(ws.selection.length ? `${word}: already there` : 'Select drawn shapes first'); return }
+		project.store.transact(word, (tx) => { for (const s of moved) tx.put(s) })
+	}
 	/** Ctrl+G groups the selected shapes, Ctrl+Shift+G ungroups them (backlog "Group / ungroup"). */
 	function groupKey(ungroup: boolean) {
 		if (ungroup) { const n = ungroupSelection(project.store, ws.selection); ws.say(n ? `Ungrouped ${n} shapes` : 'Nothing selected is in a group'); return }
@@ -297,6 +338,11 @@
 		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); showHistory(project.redo()) }
 		else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }
 		else if (mod && k === 'g') { e.preventDefault(); groupKey(e.shiftKey) }
+		else if (e.key === 'F2' && ws.selection.length === 1) {
+			// F2: edit the selected thing's words in place (a text, a leader, an outlet's label, a rack's name, a run's label)
+			if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
+		}
+		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
 		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
@@ -329,6 +375,7 @@
 		{/if}
 		{#if ws.toolId === 'outlet'}<OutletOptions {project} {ws} />{/if}
 		{#if ws.toolId === 'shape'}<ShapeOptions {ws} />{/if}
+		{#if ws.toolId === 'box'}<ShapeOptions {ws} box />{/if}
 		{#if ws.toolId === 'dimension'}<DimOptions {ws} />{/if}
 		{#if ws.toolId === 'opening'}
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
@@ -361,10 +408,10 @@
 			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
 			<label class="opt">Type
 				<select class="tpl" bind:value={ws.cordDefaults.cableType}>
-					{#each project.settings?.cableTypes ?? [] as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+					{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 					{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
 				</select></label>
-			{#if ws.bulkFrom?.kind !== 'link'}<label class="opt">Colour <input type="color" class="colour" bind:value={ws.cordDefaults.colour} /></label>{/if}
+			{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>{/if}
 			{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Interconnect ${ws.bulkFrom.ports.length} port(s) from ${project.index.nameOf(ws.bulkFrom.on)} — open the other room's rack elevation (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
 		{/if}
 		{#if ws.confirm}
@@ -404,7 +451,7 @@
 	<nav class="levels relative overflow-auto border-r border-zinc-200 bg-white p-2" class:gone={!panels.shown.left}>
 		<ResizeHandle bind:value={panels.size.left} side="right" min={150} max={480} onend={panels.save} />
 		<SideSection key="levels" title="Levels" first>
-			{#snippet actions()}<button title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button>{/snippet}
+			{#snippet actions()}<button title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button><button title="The project's outlet usages and cable types" onclick={() => (typesOpen = true)}>Settings…</button>{/snippet}
 			{#each project.levels as l (l.id)}
 				<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'on' : 'hover:bg-zinc-100'}">
 					<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
@@ -417,8 +464,9 @@
 			{/each}
 		</SideSection>
 		<SheetList {project} {ws} open={openSheet} onview={(s) => setPane(activePane, s)} />
-		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} /><Legend {project} {ws} levelId={level.id} />{/if}
-		<BlockManager {project} {ws} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} />
+		<SectionList {project} {ws} onview={(s) => setPane(activePane, s)} />
+		{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}
+		<BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} />
 		<CableList {project} {ws} />
 		<LayersPanel {project} {ws} />
 	</nav>
@@ -428,9 +476,13 @@
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} />
 		{:else if level}
-			<div class="panes">
+			<div class="panes" bind:this={panesEl}>
 				{#each panes as spec, i (i)}
-					<div class="pane">
+					{#if i === 1}
+						<!-- the bar between split views: drag to share the width (double-click: half and half) -->
+						<div class="split-bar" role="separator" aria-orientation="vertical" title="Drag to resize the two views · double-click: equal" onpointerdown={splitDown} ondblclick={() => { panels.split = 0.5; panels.save() }}></div>
+					{/if}
+					<div class="pane" style:flex={panes.length === 2 ? `${i === 0 ? panels.split : 1 - panels.split} 1 0` : undefined}>
 						<ViewCanvas bind:this={canvases[i]} {project} {ws} levelId={level.id} {spec}
 							other={panes.length === 2 ? panes[1 - i] : undefined} active={activePane === i}
 							onspec={(s) => setPane(i, s)} onfocus={() => (activePane = i)} />
@@ -449,6 +501,7 @@
 	</aside>
 
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
+	{#if typesOpen}<SettingsDialog {project} onclose={() => (typesOpen = false)} />{/if}
 
 	<!-- tables: outlets (this level) | patch list (the project) -->
 	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!panels.shown.bottom}>
@@ -469,7 +522,7 @@
 </div>
 
 <style>
-	/* Colour tokens for cad's panels, lists and dialogs: today's light colours, or the app theme's when one is set
+	/* Colour tokens for cad's panels, lists and dialogs: today's light colors, or the app theme's when one is set
 	   (kestrel.css --t-*), so Kestrel Dark stays readable. The drawing canvas keeps its own (white, like paper). */
 	.shell {
 		--cad-panel: var(--t-surface, white);
@@ -512,11 +565,12 @@
 	.tabs button.on { background: #2563eb; color: white; }
 	.tab-body { flex: 1; min-width: 0; min-height: 0; }
 	/* one or two views side by side */
-	.panes { display: flex; height: 100%; gap: 2px; background: var(--cad-line); }
+	.panes { display: flex; height: 100%; background: var(--cad-line); }
+	.split-bar { flex: 0 0 5px; cursor: col-resize; background: var(--cad-line); touch-action: none; }
+	.split-bar:hover, .split-bar:active { background: #93c5fd; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--cad-muted); margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
-	.opt input.colour { width: 2rem; height: 1.25rem; padding: 0; }
 	.ask { margin-left: 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.ask.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
 	.opt select.tpl { max-width: 13rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }

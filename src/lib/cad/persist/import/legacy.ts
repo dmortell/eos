@@ -16,6 +16,7 @@ import type { Issue } from '../../domain/validate'
 import { ImportCtx, floorOfDocId, type LegacySource } from './ctx'
 import { importCabling } from './legacyCabling'
 import { importOutletsDocs } from './legacyOutlets'
+import { usageCodes, withUsagesMet } from '../../domain/usages'
 
 export type { LegacySource } from './ctx'
 export { floorOfDocId } from './ctx'
@@ -37,7 +38,17 @@ export function importLegacy(src: LegacySource, makeId?: () => string): ImportRe
 	importCabling(c)
 	importOutletsDocs(c)
 	followRacksToAreas(c)
+	addUsagesMet(c)
 	return { entities: c.entities, issues: c.issues, ids: c.ids }
+}
+
+/** Every usage code the outlets and panels came with goes in the usage list (it starts with a fixed 5, so RS / FR /
+ *  WC / LK / custom types showed as raw codes); renamed and recoloured later in Settings → Usages. */
+function addUsagesMet(c: ImportCtx): void {
+	const i = c.entities.findIndex((e) => e.type === 'settings')
+	if (i < 0) return
+	const st = c.entities[i] as ProjectSettings
+	c.entities[i] = { ...st, usages: withUsagesMet(st.usages, usageCodes(c.entities)) }
 }
 
 /** A server room whose racks were all placed on an area's plan belongs to that area's level. */

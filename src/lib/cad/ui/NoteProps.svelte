@@ -4,6 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape } from '../domain/shapes'
 	import { dimLine } from '../views/plan'
+	import ColorPick from './ColorPick.svelte'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
@@ -16,16 +17,38 @@
 		put(label, { style: Object.keys(st).length ? st : undefined })
 	}
 	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
+	/** mm per point. */
+	const PT = 25.4 / 72
 	const TITLE = { text: 'Text', leader: 'Leader', cloud: 'Revision cloud', dimension: 'Dimension' } as Record<string, string>
 	const measured = $derived(g.kind === 'dimension' ? Math.round(dimLine(g).len) : 0)
 </script>
 
 <p class="font-semibold">{TITLE[g.kind] ?? 'Note'}</p>
 {#if g.kind === 'text'}
-	<label class="row">Text <input class="inp" value={g.text} onchange={(e) => e.currentTarget.value.trim() && setGeom('Text', { text: e.currentTarget.value.trim() })} /></label>
-	<label class="row">Size (mm) <input class="inp" type="number" min="1" step="0.5" value={g.sizeMm} onchange={(e) => num(e.currentTarget.value) && setGeom('Text size', { sizeMm: Math.max(1, Number(e.currentTarget.value)) })} /></label>
+	<label class="row" title="Several lines: Enter starts a new one · double-click the text (or F2) to edit it on the drawing">Text
+		<textarea class="inp" rows={Math.min(6, Math.max(2, g.text.split('\n').length))} value={g.text} onchange={(e) => e.currentTarget.value.trim() && setGeom('Text', { text: e.currentTarget.value.replace(/\s+$/, '') })}></textarea></label>
+	<label class="row" title="Its size on paper: mm, or points (1 pt = 0.353 mm)">Size
+		<span class="flex items-center gap-1">
+			<input class="inp" type="number" min="1" step="0.5" value={g.sizeMm} onchange={(e) => num(e.currentTarget.value) && setGeom('Text size', { sizeMm: Math.max(1, Number(e.currentTarget.value)) })} /> mm
+			<input class="inp" type="number" min="3" step="1" value={Math.round((g.sizeMm / PT) * 10) / 10} onchange={(e) => num(e.currentTarget.value) && setGeom('Text size', { sizeMm: Math.max(1, Math.round(Number(e.currentTarget.value) * PT * 100) / 100) })} /> pt
+		</span></label>
+	<span class="row">Align
+		<span class="seg">
+			{#each [['left', 'Left'], ['centre', 'Centre'], ['right', 'Right']] as [a, label] (a)}
+				<button class:on={(g.align ?? 'left') === a} title="{label} of its point" onclick={() => setGeom('Text align', { align: a === 'left' ? undefined : a })}>{label}</button>
+			{/each}
+		</span></span>
+	<label class="row" title="A box width: the text wraps inside it (and is cut off at its sides). Blank = no box, lines as typed. On a sheet paper mm, on a drawing its mm.">Box width
+		<input class="inp" type="number" min="1" value={g.width ?? ''} placeholder="none" onchange={(e) => { const v = Number(e.currentTarget.value); setGeom(v > 0 ? 'Text box width' : 'No text box', { width: v > 0 ? v : undefined }) }} /></label>
 {:else if g.kind === 'leader'}
-	<label class="row">Text <input class="inp" value={g.text ?? ''} placeholder="(none)" onchange={(e) => setGeom('Leader text', { text: e.currentTarget.value.trim() || undefined })} /></label>
+	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing">Text
+		<textarea class="inp" rows={Math.min(6, Math.max(2, (g.text ?? '').split('\n').length))} value={g.text ?? ''} placeholder="(none)" onchange={(e) => setGeom('Leader text', { text: e.currentTarget.value.replace(/\s+$/, '') || undefined })}></textarea></label>
+	<span class="row" title="A callout: a frame round its words">Border
+		<span class="seg">
+			{#each [['', 'None'], ['underline', 'Underline'], ['box', 'Box']] as [b, label] (b)}
+				<button class:on={(g.border ?? '') === b} onclick={() => setGeom('Callout border', { border: b || undefined })}>{label}</button>
+			{/each}
+		</span></span>
 {:else if g.kind === 'cloud'}
 	<label class="row">Arc (mm) <input class="inp" type="number" min="2" step="1" value={g.arcMm ?? 6} onchange={(e) => num(e.currentTarget.value) && setGeom('Cloud arcs', { arcMm: Math.max(2, Number(e.currentTarget.value)) })} /></label>
 {:else if g.kind === 'dimension'}
@@ -35,19 +58,19 @@
 		</select></label>
 	<label class="row" title="Blank = the measured length">Text <input class="inp" value={g.text ?? ''} placeholder={measured < 1000 ? `${measured}` : `${(measured / 1000).toFixed(2)} m`} onchange={(e) => setGeom('Dimension text', { text: e.currentTarget.value.trim() || undefined })} /></label>
 {/if}
-<label class="row" title="The note's colour (its lines and text)">Colour
-	<span class="flex items-center gap-1"><input type="color" value={s.style?.stroke ?? (g.kind === 'cloud' ? '#dc2626' : '#0f172a')} onchange={(e) => setStyle('Note colour', { stroke: e.currentTarget.value })} />
-		{#if s.style?.stroke}<button class="btn" onclick={() => setStyle('Note colour', { stroke: undefined })}>Clear</button>{/if}</span></label>
+<div class="row" title="The note's color (its lines and text); By layer = its layer's / the usual color">Color
+	<ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => setStyle('Note color', { stroke: v })} /></div>
 {#if g.kind === 'text'}
-	<label class="row" title="A filled box behind the text, so it reads over the drawing">Background
-		<span class="flex items-center gap-1"><input type="checkbox" checked={!!s.style?.fill} onchange={(e) => setStyle(e.currentTarget.checked ? 'Text background' : 'No text background', { fill: e.currentTarget.checked ? '#ffffff' : undefined })} />
-			{#if s.style?.fill}<input type="color" value={s.style.fill} onchange={(e) => setStyle('Text background', { fill: e.currentTarget.value })} />{/if}</span></label>
+	<div class="row" title="A filled box behind the text, so it reads over the drawing">Background
+		<ColorPick value={s.style?.fill ?? 'none'} allowNone onchange={(v) => setStyle(v && v !== 'none' ? 'Text background' : 'No text background', { fill: v && v !== 'none' ? v : undefined })} /></div>
 {/if}
 <p class="text-zinc-500">Drag to move · Delete removes it</p>
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
+	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; width: fit-content; }
+	.seg button { padding: 0 8px; color: var(--cad-muted); }
+	.seg button.on { background: #2563eb; color: white; }
+	textarea.inp { resize: vertical; font-family: inherit; }
 </style>

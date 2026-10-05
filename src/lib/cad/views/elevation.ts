@@ -6,7 +6,7 @@ import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import { isVertical, outlineOf } from '../domain/shapes'
-import { passesThrough, shapePrims, dimLine } from './plan'
+import { passesThrough, shapePrims, dimLine, ownStyle } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
@@ -46,14 +46,14 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (s.levelId !== levelId) continue
 			const plane = s.plane, to = (q: Pt) => sp.fromWorld(unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
 			const g = viewGeom(s.geom, to)
-			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1, prims: shapePrims({ ...s, geom: g }, k) })
+			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1 + (s.order ?? 0) * 1e-3, prims: shapePrims({ ...s, geom: g }, k) })   // draw order among them
 			continue
 		}
 		// a block insert (a wall faceplate): its symbol at its height, facing the viewer
 		if (s.geom.kind === 'insert') {
 			if (s.levelId !== levelId) continue
 			const g = s.geom, b = o.blocks?.(g.blockId), p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, v = sp.fromWorld(p)
-			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(b, { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs), s.id, 'shape') })
+			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(b, { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape') })
 			continue
 		}
 		const reaches =s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
@@ -182,7 +182,9 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 		if (!out?.length) return []
 		const world = out.map((q) => unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
 		const mid = world.reduce((m, p) => ({ x: m.x + p.x / world.length, y: m.y + p.y / world.length, z: m.z + p.z / world.length }), { x: 0, y: 0, z: 0 })
-		return [{ depth: sp.depthOf(mid), prims: [{ k: 'line', pts: world.map((p) => sp.fromWorld(p)), closed: true, cls: 'shape', src: s.id }] }]
+		const pts = world.map((p) => sp.fromWorld(p))
+		const fill: Prim[] = s.style?.fill ? [{ k: 'line', pts, closed: true, fill: true, cls: 'shape-fill', color: s.style.fill, src: s.id }] : []
+		return [{ depth: sp.depthOf(mid), prims: [...fill, ...ownStyle(s, [{ k: 'line', pts, closed: true, cls: 'shape', src: s.id }])] }]
 	}
 	if ((g.kind === 'rect' || g.kind === 'circle' || g.kind === 'ellipse' || g.kind === 'polygon') && (!s.plane || s.plane.kind === 'plan')) {
 		const z = s.plane?.z ?? 0, ext = s.extent ?? 0
@@ -191,7 +193,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			: (outlineOf(g) ?? []).map((p) => ({ ...p, z }))
 		const [u0, u1] = uSpan(pts)
 		const c = pts.reduce((m, p) => ({ x: m.x + p.x / pts.length, y: m.y + p.y / pts.length, z }), { x: 0, y: 0, z })
-		return [{ depth: sp.depthOf(c), prims: [ext ? rect(u0, u1, z, z + ext, 'shape', s.id) : { k: 'line', pts: [{ x: u0, y: -z }, { x: u1, y: -z }], cls: 'shape', src: s.id }] }]
+		return [{ depth: sp.depthOf(c), prims: ownStyle(s, [ext ? rect(u0, u1, z, z + ext, 'shape', s.id) : { k: 'line', pts: [{ x: u0, y: -z }, { x: u1, y: -z }], cls: 'shape', src: s.id }]) }]
 	}
 	return []   // plan text doesn't show in elevations yet
 }

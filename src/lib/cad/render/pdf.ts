@@ -7,7 +7,7 @@
 // else outside Latin-1 (a Japanese address …) is drawn by the BROWSER's fonts as a ~300 dpi picture in its place
 // (`rasterText`) — crisp on paper, not selectable. Embedding a CJK font instead would add 5–9 MB to every PDF; that's
 // the upgrade if searchable Japanese text is ever needed. Without a rasteriser (tests) such text is reported.
-import type { Prim, Bounds } from '../views/display'
+import type { Prim, Bounds, Dash } from '../views/display'
 import type { ProjectIndex } from '../domain/project'
 import type { Sheet } from '../domain/drawing'
 import { sheetDisplayList, paperSize, type SheetOpts } from '../views/sheet'
@@ -41,12 +41,12 @@ const STYLES: Record<string, Style> = {
 	device: { stroke: '#334155', fill: '#cbd5e1' }, 'device-panel': { fill: '#e0f2fe' }, 'device-switch': { fill: '#dcfce7' },
 	port: { stroke: '#94a3b8', fill: '#f8fafc' }, 'port-labelled': { fill: '#fef9c3' }, 'port-linked': { fill: '#e0f2fe', stroke: '#0284c7' },
 	'port-reserved': { fill: '#f5f3ff', stroke: '#8b5cf6' }, 'port-stale': { stroke: '#dc2626' },
-	'port-label': { text: '#0c4a6e' }, 'u-label': { text: '#94a3b8' }, 'device-label': { text: '#1e293b', bold: true }, 'on-ports-small': { opacity: 0.45, bold: false }, 'device-stale': { text: '#b91c1c' },
+	'port-label': { text: '#0c4a6e' }, 'pdu-inlet': { stroke: '#7f1d1d', fill: '#dc2626' }, 'pdu-socket': { stroke: '#1f2937', fill: '#f8fafc' }, 'u-label': { text: '#94a3b8' }, 'u-clash': { text: '#dc2626', bold: true }, 'device-label': { text: '#1e293b', bold: true }, 'on-ports-small': { opacity: 0.45, bold: false }, 'device-stale': { text: '#b91c1c' },
 	cord: { width: 0.4, opacity: 0.85 }, 'cord-add': { dash: [1.5, 0.8] }, 'cord-remove': { dash: [0.5, 0.8], opacity: 0.5 },
 	'device-other': { stroke: '#a1a1aa', dash: [1, 0.7], fill: 'none' }, 'device-other-label': { text: '#a1a1aa' },
 	datum: { stroke: '#a1a1aa', dash: [1.5, 1] }, 'datum-ffl': { stroke: '#52525b', dash: [] }, 'datum-slab': { stroke: '#3f3f46', dash: [], width: 0.35 }, 'datum-label': { text: '#71717a' },
 	'tb-frame': { stroke: '#64748b', fill: '#ffffff', width: 0.25 }, 'tb-rule': { stroke: '#cbd5e1' }, 'tb-border': { stroke: '#64748b', width: 0.25 },
-	'tb-label': { text: '#94a3b8' }, 'tb-value': { text: '#1f2937', bold: true }, 'tb-logo': { text: '#1f2937', bold: true },
+	'tb-label': { text: '#94a3b8' }, 'tb-value': { text: '#1f2937', bold: true }, 'tb-logo': { text: '#1f2937', bold: true }, legend: { stroke: '#64748b', fill: '#ffffff', width: 0.25 }, 'legend-rule': { stroke: '#94a3b8' }, 'legend-title': { text: '#0f172a', bold: true }, 'legend-text': { text: '#1f2937' },
 	'tb-company-name': { text: '#1f2937', bold: true }, 'tb-company': { text: '#475569' },
 	label: { text: '#0f172a' },
 	'section-line': { stroke: '#0f766e', width: 0.35, dash: [2, 0.8, 0.4, 0.8] }, 'section-arrow': { stroke: '#0f766e', fill: '#0f766e' }, 'section-label': { text: '#0f766e', bold: true },
@@ -55,8 +55,11 @@ const STYLES: Record<string, Style> = {
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
 	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
 	backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
-	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
+	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
+
+/** Line types on paper (mm). */
+const PDF_DASH: Record<Dash, number[]> = { dashed: [2, 1], dotted: [0.3, 0.8], dashdot: [3, 1, 0.3, 1] }
 
 export function styleOf(cls: string): Style {
 	return cls.split(/\s+/).reduce<Style>((s, c) => ({ ...s, ...STYLES[c] }), {})
@@ -87,9 +90,10 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
 	// the prim's own / layer colour over its class style, as on screen: outline, text, a filled circle or outlet symbol
 	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => {
-		const st = styleOf(p.cls)
+		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type
+		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
-		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls === 'note-bg'))) && p.fill
+		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill'))) && p.fill
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {

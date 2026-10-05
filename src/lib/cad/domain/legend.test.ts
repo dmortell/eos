@@ -1,0 +1,70 @@
+// Legends, boxes, a sheet from the current view, new layers hidden in existing drawings (Dave, 2026-10-05).
+import { describe, it, expect } from 'vitest'
+import { ProjectIndex } from './project'
+import { demoProject } from './fixtures'
+import { legendCandidates, legendShown } from './legend'
+import { freezeInExisting } from './layers'
+import { BUILTIN_BLOCKS } from './blocks'
+import { planDisplayList } from '../views/plan'
+import { viewViewport } from '../views/sheet'
+import { EntityStore } from '../store/store'
+import { ShapeTool } from '../editor/shapeTool'
+import { spaceOf, PLAN } from '../views/space'
+import type { Shape } from './shapes'
+import type { Sheet } from './drawing'
+import type { ToolCtx } from '../editor/tools'
+
+const blockOf = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
+const ents = demoProject()
+const ix = new ProjectIndex(ents)
+
+describe('legends', () => {
+	it('lists the symbols in use with counts (A → Z), then the layers with items; by default the symbols', () => {
+		const all = legendCandidates(ix, new Set(['L33']), blockOf)
+		const blocks = all.filter((r) => r.kind === 'block'), layers = all.filter((r) => r.kind === 'layer')
+		expect(blocks.length).toBeGreaterThan(0)
+		expect(blocks.reduce((n, r) => n + r.count, 0)).toBe(ix.outlets.filter((o) => o.levelId === 'L33' && o.at).length)
+		expect(layers.some((r) => r.id === 'sys:outlets-low' || r.id === 'sys:outlets-high')).toBe(true)
+		expect(legendShown(all, undefined)).toEqual(blocks)
+		expect(legendShown(all, [layers[0].key])).toEqual([layers[0]])
+	})
+	it('a legend on the plan draws its rows (a name and count each), all its own', () => {
+		const lg = { type: 'shape', id: 'LG', levelId: 'L33', geom: { kind: 'legend', at: { x: 0, y: 0 }, title: 'Key' } } as unknown as Shape
+		const ps = planDisplayList(new ProjectIndex([...ents, lg]), 'L33', { scale: 100, blocks: blockOf }).filter((p) => p.src === 'LG')
+		const texts = ps.filter((p) => p.k === 'text').map((p) => (p.k === 'text' ? p.text : ''))
+		expect(texts[0]).toBe('Key')
+		expect(texts.length).toBe(1 + 2 * legendShown(legendCandidates(ix, new Set(['L33']), blockOf), undefined).length)
+	})
+})
+
+describe('boxes', () => {
+	it('the Box tool draws a rectangle with a height and Z on the plan', () => {
+		const store = new EntityStore()
+		store.load(ents)
+		const ctx = { store, index: new ProjectIndex(store.all()), levelId: 'L33', space: spaceOf(PLAN), work: { z: 0, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' }), tol: () => 10, select: () => {}, say: () => {} } as unknown as ToolCtx
+		const t = new ShapeTool(() => ({ kind: 'rect', sides: 4, inscribed: true, height: 750, z: 100 }), 'box')
+		t.down({ p: { x: 0, y: 0 }, shift: false, ctrl: false, alt: false }, ctx); t.down({ p: { x: 1600, y: 800 }, shift: false, ctrl: false, alt: false }, ctx)
+		const s = store.ofType('shape').at(-1) as Shape
+		expect(s).toMatchObject({ extent: 750, plane: { kind: 'plan', z: 100 }, geom: { kind: 'rect', size: { x: 1600, y: 800 } } })
+	})
+})
+
+describe('a sheet from the current view', () => {
+	const sheet = { type: 'sheet', id: 'S', number: 'S1', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' } as Sheet
+	it('centred on what the pane shows, at the largest standard scale it fits at', () => {
+		const vp = viewViewport(ix, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 0, y0: 0, x1: 20000, y1: 10000 }, 'V')
+		expect(vp.centre).toEqual({ x: 10000, y: 5000 })
+		expect(vp.scale).toBe(100)   // 200 × 100 mm fits the A3 drawing area; 1:50 (400 × 200) doesn't
+		expect(vp.rect).toMatchObject({ w: 200, h: 100 })
+	})
+})
+
+describe('new layers in existing drawings', () => {
+	it('start frozen in every viewport that exists', () => {
+		const vp = { id: 'V', view: { levelId: 'L33', spec: PLAN }, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 100, centre: { x: 0, y: 0 } }
+		const sheets = [{ type: 'sheet', id: 'S', viewports: [vp, { ...vp, id: 'W', frozen: ['X'] }] }, { type: 'sheet', id: 'E', viewports: [] }] as unknown as Sheet[]
+		const out = freezeInExisting(sheets, 'NEW')
+		expect(out.map((s) => s.id)).toEqual(['S'])
+		expect(out[0].viewports.map((v) => v.frozen)).toEqual([['NEW'], ['X', 'NEW']])
+	})
+})

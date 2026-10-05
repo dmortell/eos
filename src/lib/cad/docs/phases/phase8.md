@@ -780,3 +780,284 @@ first 500 rows show, then "narrow it".
 
 **Checks:** 405 cad tests pass (new: `editor/dimTool.test.ts`, `domain/groups.test.ts`, `domain/runEdit.test.ts`,
 `domain/cableList.test.ts`); svelte-check clean. Live check not done: Chrome stopped responding.
+
+Committed as 849148b4. Also: blank space in the side and bottom panels no longer selects text on a drag (tables
+still do).
+
+## Batch: blocks legend, nodes, issues, print order, several shapes, draw order, points, text, cable types (Dave 2026-10-05: "(a) … do 7 11 12 14 16 17 18 19 22")
+
+Marked P3 (Dave): the cord workflow (was P1), own cable type for new links, port hover tips, re-allocate pinned ports,
+show all routes, snap to rack corners, layer line type / lineweight, finish the soft retire.
+
+**Blocks and Symbols merged** (Dave chose (a)): the Symbols list is gone (`ui/Legend.svelte` deleted). The Blocks panel
+has Library / "On this level (n)": the blocks the open level uses (outlet symbols and inserts) with counts. Each has
+a "show in the legend" checkbox (Dave), stored per project as `settings.legendOmit`, ready for "Legend on the
+drawing".
+
+**Several nodes:** Ctrl-click node grips adds / drops them (Ctrl-DRAG still branches). Delete removes them all and heals
+the run, one step. The picked box says "n nodes picked".
+
+**Section Properties → On sheets:** the viewports that show the section; a click opens that sheet with the viewport
+selected.
+
+**Edit an issue:** Edit / Done on an issue row makes its name, note, purpose (suggested list shared with the Issue
+panel, `ISSUE_PURPOSES`) and recipient editable. The frozen copies and the PDF stay as issued. The note now shows under
+the name.
+
+**Print order:** the register's "#" column (sortable) and ▲ / ▼ to move the selected sheets as a block
+(`moveInPrintOrder`, renumbering 10, 20 …). The table sorts by # when you move; the PDF follows the table.
+
+**Several shapes at once** (`ui/ShapesMultiProps.svelte`): colour, text size (the texts among them), Z (shapes and
+inserts on the plan), height (boxes), "mixed" where they differ. A shape's own colour now draws for EVERY kind of shape
+(`ownColour` in `views/plan.ts`; it was notes only).
+
+**Draw order:** Ctrl+] / Ctrl+[ bring forward / send backward, with Shift to the front / back (`reorderShapes`). Only
+the moved shapes are written (no renumbering of a level's shapes). Plans and sheets draw shapes in that order; on an
+elevation it orders notes on the same plane.
+
+**Points of notes:** leaders, clouds and dimensions have grips everywhere they show (plan, the elevation they're on,
+sheet / viewport) through the shape-grip code; this replaces the old sheet / plan note point grips. A dimension also
+has a grip on its line's middle that sets the offset. Shift = 15° from the neighbouring point. Dragging a leader's tip
+lets go of what it pointed at. A two-point line / run has a Length field (the second end moves along it).
+
+**Text options:** multi-line text (one line under another, background box around all of them). Align left / centre /
+right on its point, size in mm or pt, and a multi-line Text field in Properties. Double-click a text (or a leader's
+words), or F2 with it selected, to edit it in place (`ui/TextEditBox.svelte`): Enter saves, Shift+Enter is a new line,
+Esc cancels.
+
+**Cable types** (Levels header → "Cable types…", `ui/CableTypesDialog.svelte`, `domain/cableTypes.ts`; the two
+backlog entries merged): label, media, colour, outer diameter (fill uses it), the defaults for new outlets / cords, add,
+delete (refused while outlet ports or cords use it, or it's a default — the reason on hover). One undo step each.
+
+**Checks:** 416 cad tests pass (new: `domain/drawOrder.test.ts`, `domain/cableTypes.test.ts`, print order, several
+nodes, note points, multi-line text); svelte-check clean.
+
+Live (Test Project, 1F):
+- Blocks "On this level" listed 7 blocks with counts and ticked legend boxes.
+- Cable types: Cat6A 114 ports and Cat6 60 ports can't be deleted, OS2 2 cords can't, MPO-12 can.
+- The register shows "#".
+- A text placed, double-clicked: the box opened on it. The first save hit a bug: the shape was read after the edit
+  state cleared; fixed. Then F2 made it two lines, drawn one under the other. Both undone.
+
+## Fixes and follow-ups (Dave 2026-10-05)
+
+- **Legend checkboxes removed** from the Blocks panel (and `settings.legendOmit`): each legend will choose its own
+  symbols / layers ("Legend on the drawing" updated).
+- **Fill color** for rectangles, circles, ellipses and polygons. Single and multi Properties have Color (By layer) and
+  Fill (None). A fill draws as a `shape-fill` prim under the outline, on screen and in PDF; DXF gets the outline only.
+  It also draws on regions on an elevation's plane, and stays visible while selected. `withStyle` / `withFill` are in
+  `domain/shapes.ts`.
+- **Color dropdown everywhere** (`ui/ColorPick.svelte`, wrapping `$lib/ui/ColorPicker` in cad's theme):
+  - Used by notes, shapes, several shapes, several runs, racks, cords, the cord tool bar and cable types.
+  - Palette = the Sheets layer palette plus a bright yellow and white, 7 per row.
+  - Layer swatches in the Layers panel stay as they were (a compact swatch, not a field).
+  - Labels say "Color" (Dave); data fields like `cord.colour` keep their names.
+- **TR1's fill rows** (Dave: "3 segments, only the first can be selected"): the Fill list's rows were not clickable and
+  the section picture always showed the fullest segment. A row click now picks that segment in the run and shows its
+  section; picking a segment in the view shows it too. (Clicking and segment-picking all three on the plan worked
+  live.)
+- **Double-click on a text** works in Select. With the Text tool still active, a click on a text placed another one;
+  the Text tool now edits a text it's clicked on.
+- **New text:** no tool-bar prompt. The text goes down as "Text" with its box open and the word selected to type
+  over. Leaders still ask for their words in the tool bar.
+- **Dialogs closing on a drag:** a drag-select that started in a field and ended outside the dialog closed it. All five
+  dialogs (BOM, cable schedule, cable types, floors, logos) now close only on a click that starts and ends on the
+  backdrop (`ui/backdrop.ts`).
+
+Checks: 417 cad tests pass; svelte-check clean. Live (Test Project 1F), each test edit undone:
+- Cable types survives a drag ending on the backdrop, and closes on a real backdrop click.
+- A rectangle filled yellow from the dropdown (27 swatches).
+- The Text tool opens "Text" selected, with no prompt.
+
+## Batch: callouts, wrapping text, move / copy, attributes, labels in place, usages, find, re-issue, sections list, elevation edges (Dave 2026-10-05: "do 3 4 5 7 8 10 12 14 16 17 21 22")
+
+Image opacity / crop / greyscale marked P3. New P3 todo: a fill-rate drawing as a viewport from a trunk's Properties.
+The resizable split bar (#26) is NOT done: the two panes are a fixed 50 / 50.
+
+**Fixes first:**
+- **Double-click in Select did nothing** (F2 worked). There were two causes:
+  - The box opened on the press, and the click's own mousedown then took its focus, so it saved and closed. It now
+    opens on release.
+  - Clicks were counted by HANDLING time. After the first click selects something heavy (an outlet: Properties, the
+    grid), the second press was handled more than 400 ms later and counted as a single click. ViewCanvas `pressCount`
+    now uses `e.timeStamp`.
+  - A double-click's pointer-down no longer selects words on the drawing either.
+- **The edit box** follows centre / right alignment, and grows with its lines (`field-sizing: content`, rows / cols
+  fallback).
+
+**Built:**
+- **Callouts:** a leader can have a border round its words: none / underline / box (Properties). Pressing at the tip and
+  dragging to where the words go makes a two-point callout. Leader words can have several lines.
+- **Leader words on the drawing:** no tool-bar prompt; the in-place box opens at its end.
+- **Text that fills a box:** Box width in Properties. The text wraps at spaces (and between any CJK characters) and an
+  unturned one is clipped to the box; the background box takes that width. Also in PDF. `wrapLine` is in
+  `views/plan.ts`.
+- **Move / Copy** (`editor/moveTool.ts`, tool-bar buttons):
+  - Click a base point (snapped), then the second point: snapped, Shift 15°, or typed `@dx,dy`.
+  - Move goes once, one undo step.
+  - Copy keeps placing copies (each an undo step) until Enter / Esc, using the clipboard's clone (new groups,
+    references).
+  - A ghost of the selection follows the cursor.
+- **Block attributes on inserts** (`ui/InsertAttrs.svelte`, `blockAttrDefs`):
+  - Every attribute the block declares or uses as `{TAG}`, with its value, for one insert or several ("mixed").
+  - "Shown" unticked hides it: the value is kept as data but not drawn (`insert.hidden`). Defaults come from the block.
+- **Edit a label in place** (`domain/labelEdit.ts`, `ui/TextEditBox.svelte`):
+  - Double-click or F2 on an outlet (label; its ports follow, asking first for printed panels), a rack (name), a run's
+    label (double-click on its words), a text or a leader.
+  - Enter saves. Tab / Shift+Tab save and go to the next / previous of the same kind in reading order. Esc cancels.
+- **Usages** (Levels → "Settings…", which now has Usages and Cable types tabs, `ui/SettingsDialog.svelte`;
+  `domain/usages.ts`):
+  - Code, label and color, with what uses each. Add a code. Delete is refused while outlets or panels use it.
+  - The legacy import now adds every usage code it meets (RS / FR / WC / LK / custom), with the old tools' colors.
+- **Find a device / panel** (top of Racks): matches by name / model / rack, project-wide. Enter opens its room's rack
+  view on its side, zoomed to its rack, with it selected. `ws.focus` is now reactive and the fit effect tracks it; set
+  after the view switch, or the old plan view took it.
+- **Re-issue…** on an issue row: its sheets (those still here and not archived) are selected in the register and the
+  Issue panel opens.
+- **Sections (n)** in the sidebar: every section by level, with how many sheets show it. A click opens it, going to its
+  level, and selects it, so Properties → Put on sheet makes a viewport. (Run fill sections aren't entities, so they're
+  not listed.)
+- **Wall / opening edges in elevations** (`editor/elevHandles.ts`):
+  - A selected wall seen side-on has squares on each segment's top (height) and bottom (Z; the top stays).
+  - Each opening has its top (height) and sill (Z; the top stays).
+  - 10 mm steps, Alt free. A slab-to-slab wall has no top square.
+
+**Checks:** 434 cad tests pass (new: `editor/moveTool.test.ts`, `editor/elevHandles.test.ts`, `domain/usages.test.ts`,
+`domain/labelEdit.test.ts`, wrap / callout tests); svelte-check clean.
+
+Live (Test Project):
+- Find "PP2" opened 4F Server room A with 4AR01 centred and PP2 selected.
+- Sections (2) listed.
+- Settings → Usages showed each usage's outlets / panels.
+- A real double-click on outlet A.003 opened its box; Tab went to A.002; Esc.
+- No edits were saved.
+
+## Split bar, label-edit hints, sorted lists, title block items as fields (Dave 2026-10-05)
+
+- **Resizable split bar:** a bar between the two split views; drag to share the width (15–85 %, kept per browser in
+  `Panels.split`), double-click for equal.
+- **Edit in place, made known:** opening the box says "Enter saves · Tab / Shift+Tab: save and edit the next /
+  previous outlet (rack, run, text) · Esc cancels"; the Select hint mentions it; the Help backlog entry must feature it.
+- **Cable types and usages A → Z** in the Settings dialog and every dropdown (`sortedCableTypes`, `sortedUsages`).
+- **Title block** (Dave: "where did the client logo field go?" — a logo was only listed once it had an image):
+  - The two logo images, the logo text and the company block are always in the field list, so each is dragged into
+    place like a field.
+  - They can't be removed: clear them, or switch their section off.
+  - A logo can be half width (two side by side); the logo text and company block are full width.
+  - Templates from before keep their top-to-bottom order (logos, logo text, company, then fields) until something is
+    dragged. The separate logo / company sections are gone from the drawing code: they're cells (`kind`).
+
+Checks: 434 cad tests pass; svelte-check clean. Live: the split dragged to 30 / 70 and back with a double-click; S001's
+title block editor lists Client logo, Logo text, Company, Our logo, then the fields.
+
+## Batch: overlaps, legend, box tool, new layers hidden, sheet from a view (Dave 2026-10-05: "do 4 10 13 17 18")
+
+Marked P3 (Dave): issue register for the PM, devices list per rack, usage colors / port counts / hover tips, drag racks
+from the list, hover a cord.
+
+- **U overlaps with a warning** (`overlapAllowed`, `clashUs` in `domain/devices.ts`):
+  - Two devices on the same side may share Us when either is a shelf, or has "May overlap" ticked (device Properties
+    → Overlap). Otherwise the overlap is refused as before.
+  - The rack view marks the shared Us: the numbers bold red with "!" (screen and PDF).
+- **Legend** (Legend tool; `domain/legend.ts`, `views/legend.ts`, `ui/LegendProps.svelte`; a `legend` shape kind):
+  - Click to place it on a plan (it lists that level) or a sheet's paper (it lists the levels its viewports show).
+  - A framed table: title, then a row per symbol (the block's own drawing, its name and count) or layer (a color
+    swatch, its name and item count).
+  - Each legend picks its own rows in Properties (ticks; All symbols / None); by default it shows every symbol in use.
+  - It redraws itself from the data, so screen, PDF and DXF match. It sits on the Notes layer.
+  - Block previews (here and in the Blocks panel) no longer show their `{TAGS}`.
+- **Box / desk tool** (the Shape tool as `box`, plan only):
+  - Footprint rectangle / ellipse / polygon, with Height (750 by default) and Z in the tool bar.
+  - A single region on the plan now has Height and Z in Properties.
+  - Boxes show in elevations and sections.
+- **New layers start hidden in existing drawings** (Dave's version of "Hide in new viewports"; `freezeInExisting`): adding
+  a layer freezes it in every existing viewport, in the same undo step, so issued / finished sheets don't change when
+  something is drawn on it. Viewports made later show it.
+- **A sheet from the current view:** each non-sheet pane bar has "To sheet…".
+  - "New sheet from this view", or "On S00x" for an existing sheet.
+  - Makes a viewport centred where you're looking, at the largest standard scale it fits at (`viewViewport`).
+  - The sheet opens with the viewport selected. One undo step.
+  - The spec is snapshotted: the store freezes it, and a `$state` proxy can't be frozen. The first live try threw on
+    that and nothing was saved.
+
+Checks: 441 cad tests pass (new: `domain/legend.test.ts`, `domain/overlap.test.ts`); svelte-check clean. Live (Test
+Project 1F), all undone:
+- A legend listed 7 of the 14 rows (the symbols, with counts).
+- A box got Height 750 / Z 0.
+- "New sheet from this view" made S006 with the plan at 1:50.
+
+## Boxes in elevations, then: box widths, doors on boxes, shape style, lineweights in print, logo grips, PDUs (Dave 2026-10-05)
+
+**Boxes in elevations** (Dave: couldn't drag a box up / down or resize it there):
+- A box at Z 0 has no `plane`, and a move only changed Z when a plan plane was already there; `moveBy` now gives it
+  one (and an insert its own Z).
+- A selected box has top / bottom squares (height; Z with the top kept) in elevations and sections.
+- On "walls block everything": a wall-last / smallest-first pick rule was tried, then taken out. Dave will use sections
+  for vertical edits.
+
+Marked P3 (Dave): quick switcher, Project Properties, Floor manager, Journey tidy-up (was P1), section top / bottom +
+hatching, connection points on boxes, RCP, riser view control.
+
+- **Box grips in elevations, the rest:** left / right squares at the box's sides as seen: drag one, the other stays.
+  Rectangles change their local axis nearest the view (also from angled views), ellipses that radius, circles their
+  radius (`widthDrag`).
+- **Doors on boxes:**
+  - Rectangles have `doors` like racks: front / rear single or split, and the hinge side.
+  - Drawn open on the plan by the shared `doorPrims` (racks use it too).
+  - The Doors row (RackDoors) works for boxes, one or several.
+- **Shape style:**
+  - Line type (solid / dashed / dotted / dash-dot) and lineweight (mm) per shape (`style.dash` / `style.weightMm`):
+    in Properties for one or several shapes and for plain lines (which also get Color).
+  - `ownStyle` puts them on the prims (`weight`, `dash`); text takes only the colour.
+  - On screen a lineweight shows as mm × 3.78 px, CAD-style.
+  - DXF gets DASHED / DOTTED / DASHDOT linetypes at the plot scale. It has no lineweights: the writer has no field.
+- **True lineweights in print:** the PDF uses a shape's own lineweight (mm) and dash pattern.
+- **Logo grips on the paper:** with a sheet selected, each title-block logo has a square on its bottom edge. Drag it to
+  set the logo's printed height (3–60 mm, the project's template) (`editor/logoHandles.ts`). Dragging / resizing
+  IMAGES waits for the image tool (moved into Markup kinds part 4).
+- **0U PDUs:**
+  - A PDU has a side (left / right as seen from the front; mirrored from the rear), power inlets (drawn red at its
+    bottom) and sockets (along the strip). Its name runs up the strip.
+  - Dragging it across the rack switches sides; up / down moves it as before.
+  - Device Properties has Side / Inlets / Sockets.
+
+Checks: 450 cad tests pass (new: `views/style.test.ts`, PDU / box width / box handle tests); svelte-check clean. Not
+tried live: the logo grips and PDUs (the Test Project rack view checked has no PDU).
+
+## Box grips, cord BOM, select similar, panel PDF, viewport tool (Dave 2026-10-06: "do 1 14 16 27 30")
+
+Marked P1 (Dave): cords drawn along the cable channels. Marked P3 (Dave): LR import notes, old cord ends check, riser
+floor / ceiling check, version-model ADR, shape style, label format, rack order, device library builder, port drag
+select, more snaps, DXF for every view, revisions and packages, viewport handling, more viewport types (its one-row
+picker was already built).
+
+- **Box grips in elevations look like the plan's** (Dave: "nothing like the grips on floorplans"): a box's top / bottom
+  / side grips were the blue-and-white handle squares; they're now the amber shape-resize grips, at the size of a
+  rectangle's edge-middle grips on the plan (a new `'grip'` handle shape, `editor/elevHandles.ts`).
+- **Cord BOM on screen** (`ui/CordBomDialog.svelte`, `cordBom` in `domain/reports.ts`): the patch list's "Cord BOM…"
+  opens a dialog of cords by type × length, a column per status, with totals; All rooms / the room; "changes only".
+  "Export to Excel" (the patch schedule + BOM) moved into it from the patch list's tool bar. The Excel's BOM sheet now
+  counts with the same `cordBom`.
+- **Select similar** (`domain/similar.ts`; Properties → Select similar): selects everything the active view shows
+  like the selection — the same block; the same role / drawn kind on the same layer; racks / devices of the same kind;
+  otherwise the same type. `selectAll` and it share `pickable()` in ViewCanvas.
+- **Printed panels with their labels** (`views/panelSheets.ts`, `downloadPanelSheets` in `app/sheetsPdf.ts`): Racks →
+  a room's ⋯ → "Print panels with labels (PDF)…": A4 landscape pages, each panel a 24-across grid of its ports with the
+  port number and the label stacked as large as it fits; panels in fill order (`panelsInFillOrder`, shared with the
+  label Excel), as many to a page as fit; then the same "Mark printed" offer as the Excel.
+- **Viewport tool** (`editor/viewportTool.ts`, `boxViewport` in `views/sheet.ts`): on a sheet, drag (or click two
+  corners) a box, whole mm, at least 20 × 20. It shows the other pane's view, else the last plan / elevation / rack
+  view looked at, else the level's plan — centred on its content at the largest standard scale that fits. One undo
+  step; the viewport is selected; back to Select.
+
+Checks: 459 cad tests pass (new: `domain/similar.test.ts`, `views/panelSheets.test.ts`, `editor/viewportTool.test.ts`,
+cord BOM test); svelte-check: none in cad. Live (Test Project 1F): a box in the Front elevation showed 4 amber 6 px
+grips; Select similar picked the 4 rectangles on Walls; the Cord BOM dialog listed 7 lines (43 cords); a dragged
+viewport on S003 came out 73 × 48 mm showing Elevation front, then undone. Not tried live: the Excel and PDF downloads
+(the panel PDF is rendered in a test).
+- **Logo grip only when the logo is picked** (Dave: "why is logo resize grip permanently on? and why is it different
+  from all other grips?"): it showed whenever the sheet was selected, which is any click on the paper, and it used
+  the blue / white handle style. Now a click on a logo picks it (a dashed amber outline; "Logo: drag the grip…"), and
+  only then its bottom-edge grip shows, as an amber resize grip; a press anywhere else drops it
+  (`logoBoxes` / `logoAt` / `logoHandles(…, key)` in `editor/logoHandles.ts`). Live (S001): clicking the title block
+  showed no grip; clicking the logo showed the outline and one amber grip.

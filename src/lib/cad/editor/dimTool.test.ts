@@ -5,7 +5,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { DimTool, type DimMode } from './dimTool'
 import { NoteTool } from './noteTool'
-import { dimensionPrims, shapePrims, planDisplayList } from '../views/plan'
+import { dimensionPrims, shapePrims, planDisplayList, wrapLine } from '../views/plan'
 import { elevationDisplayList } from '../views/elevation'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import type { ToolCtx } from './tools'
@@ -54,6 +54,46 @@ describe('notes on plans and elevations', () => {
 		expect(ps.map((p) => (p.k === 'image' ? '' : p.cls))).toEqual(['note-bg', 'note'])
 		expect(ps[0]).toMatchObject({ color: '#fef3c7', fill: true })
 		expect(ps[1]).toMatchObject({ color: '#2563eb' })
+	})
+	it('on a drawing a new text goes down as "Text" with its box open; the Text tool on an existing text edits it', () => {
+		const h = harness(PLAN), t = new NoteTool('text')
+		let editing: string | null = null
+		const ctx = () => ({ ...h.ctx(), editText: (id: string) => { editing = id }, prims: () => planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }) }) as ToolCtx
+		t.down(at(500, 500), ctx()); t.up(at(500, 500), ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom).toMatchObject({ kind: 'text', text: 'Text' })
+		expect(editing).toBe(s.id)
+		editing = null
+		t.down(at(560, 470), ctx()); t.up(at(560, 470), ctx())   // on its words
+		expect(editing).toBe(s.id)
+		expect(h.store.ofType('shape').filter((x) => x.geom.kind === 'text')).toHaveLength(1)
+	})
+	it('a text with a box width wraps inside it (at spaces; Japanese between any characters)', () => {
+		expect(wrapLine('ONE TWO THREE', 10, 40)).toEqual(['ONE', 'TWO', 'THREE'])
+		expect(wrapLine('ONE TWO', 10, 100)).toEqual(['ONE TWO'])
+		expect(wrapLine('サーバー室', 10, 25)).toEqual(['サー', 'バー', '室'])
+		const s = { type: 'shape', id: 'T', sheetId: 'S', geom: { kind: 'text', at: { x: 0, y: 0 }, text: 'ONE TWO THREE', sizeMm: 10, width: 40 } } as Shape
+		expect(shapePrims(s, 1).map((p) => p.k === 'text' && p.text)).toEqual(['ONE', 'TWO', 'THREE'])
+	})
+	it('a callout: dragged from its tip it\'s made on release with its words box open; a box border frames the words', () => {
+		const h = harness(PLAN), t = new NoteTool('leader')
+		let editing: string | null = null
+		const ctx = () => ({ ...h.ctx(), editText: (id: string) => { editing = id } }) as ToolCtx
+		t.down(at(0, 0), ctx()); t.move(at(800, -400), ctx()); t.up(at(800, -400), ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom).toMatchObject({ kind: 'leader', pts: [{ x: 0, y: 0 }, { x: 800, y: -400 }] })
+		expect(editing).toBe(s.id)
+		const boxed = shapePrims({ ...s, geom: { ...s.geom, text: 'A\nB', border: 'box' } as unknown as Shape['geom'] }, 100)
+		expect(boxed.filter((p) => p.k === 'text').length).toBe(2)
+		expect(boxed.some((p) => p.k === 'line' && p.closed && p.cls === 'leader')).toBe(true)
+	})
+	it('a text of several lines draws one line under another, on its alignment; the background box covers them all', () => {
+		const s = { type: 'shape', id: 'T', levelId: 'L33', geom: { kind: 'text', at: { x: 0, y: 0 }, text: 'ONE\nTWO', sizeMm: 2, align: 'right' }, style: { fill: '#ffffff' } } as Shape
+		const ps = shapePrims(s, 100)
+		expect(ps.map((p) => p.k === 'text' && [p.text, p.at.y, p.anchor])).toEqual([false, ['ONE', 0, 'end'], ['TWO', 260, 'end']])
+		const box = ps[0].k === 'line' ? ps[0].pts : []
+		expect(Math.max(...box.map((p) => p.x))).toBeCloseTo(50)   // right-aligned: the box ends at the point (+ padding)
+		expect(Math.max(...box.map((p) => p.y))).toBeCloseTo(310)
 	})
 	it('a text on an elevation lies on its plane: drawn there at the clicked height, not on the plan', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, h = harness(spec, 'DATA OUTLETS @ 300'), t = new NoteTool('text')

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
-import { outletSchedule, patchList, runLengths, bom } from './reports'
+import { outletSchedule, patchList, runLengths, bom, cordBom } from './reports'
+import type { Cord } from './types'
 import { validateProject } from './validate'
 import { demoProject } from './fixtures'
 
@@ -39,6 +40,15 @@ describe('patch list', () => {
 		const rows = patchList(p())
 		expect(rows.map((r) => [r.fromLabel, r.toLabel])).toEqual([['33-001.A', 'SW1-01'], ['33-001.B', 'SW1-02']])
 		expect(rows[0].from).toBe('A01 · Panel 1 : 1 (front)')
+	})
+})
+
+describe('cord BOM', () => {
+	it('counts cords by type × length, a column per status, types A → Z then shortest first', () => {
+		const c = (cableType: string, lengthM: number, status: Cord['status']) => ({ cableType, lengthM, status }) as Cord
+		const lines = cordBom([c('cat6a', 2, 'add'), c('cat6a', 1, 'installed'), c('cat6a', 2, 'remove'), c('om4', 3, 'add'), c('cat6a', 2, 'add'), c('cat6a', 0, 'add')], (id) => id.toUpperCase())
+		expect(lines.map((l) => [l.type, l.lengthM, l.total])).toEqual([['CAT6A', 0, 1], ['CAT6A', 1, 1], ['CAT6A', 2, 3], ['OM4', 3, 1]])
+		expect(lines[2].n).toEqual({ add: 2, change: 0, remove: 1, installed: 0 })
 	})
 })
 

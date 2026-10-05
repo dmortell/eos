@@ -1,6 +1,7 @@
 <!-- Pick a logo from the project's Uploads (backlog "Logos picked from Uploads"): its images to click, or "Upload…" a
      new one (it goes into the project's Uploads too, and is picked). -->
 <script lang="ts">
+	import { backdropClose } from './backdrop'
 	import type { Firestore } from 'firebase/firestore'
 	import { watchProjectImages, type ImageFile } from '../app/projectFiles'
 
@@ -18,7 +19,7 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" onclick={onclose}>
+<div class="backdrop" role="presentation" use:backdropClose={onclose}>
 	<div class="dlg" role="dialog" aria-label={title} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>{title}</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<div class="grid">

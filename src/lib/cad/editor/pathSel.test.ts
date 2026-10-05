@@ -96,6 +96,23 @@ describe('picked nodes and segments', () => {
 		expect(split.map((s) => ids(s)!.segs)).toEqual([['R0-R1'], ['R2-R3']])
 		expect(deletePicked(trunk('S', [[0, 0], [10, 0]]), { shape: 'S', nodes: [], segs: ['Ss0'] })).toEqual([])
 	})
+	it('several nodes: Ctrl-click on grips adds / drops them; Delete removes them all and heals the run', () => {
+		const store = new EntityStore()
+		store.load([...demoProject(), run])
+		let ps: { shape: string; nodes: string[]; segs: string[] } | null = null
+		const ctx = () => ({
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 2900, w: 100, h: 50 }, prims: () => [], tol: () => 10,
+			space: spaceOf(PLAN), work: { z: 2900, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' as const }),
+			selection: ['R'], select: () => {}, setMarquee: () => {}, ask: () => {}, say: () => {}, pathSel: () => ps, selectPath: (x: typeof ps) => { ps = x },
+		}) as unknown as ToolCtx
+		const t = new SelectTool(), click = (x: number, ctrl: boolean) => { const e = { p: { x, y: 0 }, shift: false, ctrl, alt: false }; t.down(e, ctx()); t.up(e, ctx()) }
+		click(1000, false); click(2000, true)
+		expect(ps!.nodes).toEqual(['R1', 'R2'])
+		click(3000, true); click(3000, true)   // added, then dropped again
+		expect(ps!.nodes).toEqual(['R1', 'R2'])
+		expect(ids(deletePicked(run, ps!)[0])).toMatchObject({ nodes: ['R0', 'R3'], segs: [expect.stringMatching(/^(R0-R3|R3-R0)$/)] })
+		expect(store.undoLabels).toEqual([])   // picking is not an edit
+	})
 	it('the segment under the cursor', () => {
 		expect(segAt(run, spaceOf(PLAN), { x: 1500, y: 4 }, 10)).toBe('Rs1')
 		expect(segAt(run, spaceOf(PLAN), { x: 1500, y: 40 }, 10)).toBeNull()

@@ -4,6 +4,9 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Shape, Section, PathNode } from '../domain/shapes'
+	import LineStyle from './LineStyle.svelte'
+	import ColorPick from './ColorPick.svelte'
+	import { withStyle } from '../domain/shapes'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
@@ -23,6 +26,19 @@
 	})
 
 	const save = (label: string, next: Shape) => project.store.transact(label, (tx) => tx.put(next))
+
+	/** One segment between two nodes: its length (3D), for the Length field. */
+	const twoPoint = $derived.by(() => {
+		if (s.geom.kind !== 'path' || s.geom.nodes.length !== 2 || s.geom.segs.length !== 1) return null
+		const [a, b] = s.geom.nodes, len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z)
+		return len > 0 ? { a, b, len } : null
+	})
+	function setLength(L: number) {
+		const t = twoPoint
+		if (!t || !(L > 0)) return
+		const k = L / t.len, r = (v: number) => Math.round(v * 10) / 10
+		setNodes('Length', (ns) => ns.map((n) => (n.id === t.b.id ? { ...n, x: r(t.a.x + (t.b.x - t.a.x) * k), y: r(t.a.y + (t.b.y - t.a.y) * k), z: r(t.a.z + (t.b.z - t.a.z) * k) } : n)))
+	}
 
 	function convert(to: Kind) { if (to !== kind) save(`Convert to ${to}`, convertRun(s, to)) }
 	function setSection(patch: Partial<Section>) {
@@ -88,11 +104,20 @@
 </script>
 
 <p class="font-semibold">{kind === 'line' ? 'Line' : kind[0].toUpperCase() + kind.slice(1)}</p>
+{#if kind === 'line'}
+	<!-- a plain line: its own color, line type and lineweight (backlog "Shape style") -->
+	<div class="row" title="Its own color (By layer = its layer's)">Color <ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => save(v ? 'Color' : 'Color by layer', withStyle(s, { stroke: v }))} /></div>
+	<LineStyle {project} shapes={[s]} />
+{/if}
+{#if twoPoint}
+	<!-- a 2-point line / run: its length; typing one moves the second end along the line (backlog "Edit line and note end points") -->
+	<label class="row" title="The second end moves along the line">Length (mm) <input class="inp" type="number" min="1" value={Math.round(twoPoint.len)} onchange={(e) => setLength(Number(e.currentTarget.value))} /></label>
+{/if}
 {#if picked}
 	<!-- a node (click its grip) or segments (click the run again; Ctrl adds) picked in the view -->
 	<div class="picked">
 		{#if picked.nodes.length}
-			<span>Node picked</span>
+			<span>{picked.nodes.length === 1 ? 'Node picked' : `${picked.nodes.length} nodes picked`} <span class="text-zinc-400">· Ctrl-click adds</span></span>
 			<button class="btn" title="Separate the segments that meet at this node: the run splits into separate runs there" onclick={disconnect}>Disconnect</button>
 		{:else}
 			<span>{picked.segs.length} segment{picked.segs.length === 1 ? '' : 's'} picked <span class="text-zinc-400">· drag to move</span></span>

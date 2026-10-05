@@ -2,6 +2,7 @@
      linked to an outlet edits that outlet port's label; any other port keeps its own text on the device. An edit
      that would change a printed panel's labels asks first. -->
 <script lang="ts">
+	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { PortSel } from '../editor/tools'
@@ -29,7 +30,7 @@
 	const links = $derived(sel.ports.map((n) => project.index.linkAt({ on: sel.on, port: n })).filter((l): l is Link => l?.kind === 'horizontal'))
 	const patchedPorts = $derived(new Set(project.index.cords.filter((c) => c.status !== 'remove').flatMap((c) => [c.a, c.b]).filter((r) => r.on === sel.on).map((r) => r.port)))
 	const device = $derived(project.index.get(sel.on) as Device | undefined)
-	const usages = $derived(project.settings?.usages ?? [])
+	const usages = $derived(sortedUsages(project.settings))
 	const reservedAs = (n: number) => device?.panel?.reservations?.find((r) => r.ports.includes(n))?.usage
 
 	function unallocate() {

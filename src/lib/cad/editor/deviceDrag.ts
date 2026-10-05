@@ -40,6 +40,13 @@ export function dragDevices(g: DeviceDrag, dU: number, target: Rack | undefined,
 /** A device narrower than a 19" one (a tower PC, a monitor — `narrowDevice`) also slides sideways with the drag, in
  *  25 mm steps, kept inside the rack; seen from the rear, sideways is mirrored. 19" devices don't move sideways. */
 function sideways(b: Device, rack: Rack | undefined, side?: { dx: number; face: 'front' | 'rear' }): Partial<Device> {
+	// a 0U PDU: dragged across the rack it goes to the other side (left / right as seen from the front)
+	if (b.kind === 'pdu') {
+		if (!side || !rack) return {}
+		const fx = side.face === 'rear' ? -side.dx : side.dx, was = b.pduSide ?? 'left', far = rack.widthMm * 0.4
+		const now = was === 'left' && fx > far ? 'right' : was === 'right' && fx < -far ? 'left' : was
+		return now === 'right' ? { pduSide: 'right' } : { pduSide: undefined }
+	}
 	const w = b.widthMm ?? 0
 	if (!side || !rack || !narrowDevice(b) || w >= rack.widthMm) return {}
 	const room = (rack.widthMm - w) / 2

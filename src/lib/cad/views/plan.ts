@@ -3,11 +3,13 @@
 import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts } from '../domain/shapes'
+import { isVertical, ellipsePts, byDrawOrder } from '../domain/shapes'
+import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
 import { sectionMarks, sectionsOn } from './section'
 import { rotate } from '../domain/conventions'
-import type { Bounds, Prim } from './display'
+import type { Bounds, Prim, Dash } from './display'
+import { DASHES } from './display'
 import { blockPrims } from './blocks'
 import { defaultOutletBlock, outletAttrs, insertAttrs, type Block } from '../domain/blocks'
 
@@ -37,7 +39,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
 	// (a shape drawn on an elevation's plane belongs to elevations, not the plan)
-	for (const s of shapes) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical') out.push(...shapePrims(s, k, o.blocks))
+	for (const s of [...shapes].sort(byDrawOrder)) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical')
+		out.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, new Set([levelId]), k, o.blocks) : shapePrims(s, k, o.blocks)))
 	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
 	// and a rack's filled footprint would hide it.
@@ -55,13 +58,24 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	return out
 }
 
-/** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). */
+/** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own colour
+ *  (`style.stroke`, Properties → Colour) on all of them. */
 export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
+	const ps = basePrims(s, k, blocks), fill = s.style?.fill && FILLABLE.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
+	return ownStyle(s, fill ? [fill, ...ps] : ps)
+}
+const FILLABLE = new Set(['rect', 'circle', 'ellipse', 'polygon'])
+/** A region's fill (Properties → Fill): its outline again, filled with the colour, drawn under it. */
+function regionFill(p: Prim | undefined, color: string): Prim | null {
+	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', color }
+	return null
+}
+function basePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 	const g = s.geom, cls = s.role?.kind === 'wall' ? 'wall' : 'shape'
 	switch (g.kind) {
 		case 'insert': {
 			const b = blocks?.(g.blockId)
-			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs), s.id, 'shape')
+			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]
 		}
@@ -88,32 +102,53 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 		case 'rect': {
 			const hx = g.size.x / 2, hy = g.size.y / 2
 			const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => add(g.centre, rotate({ x, y }, g.rot ?? 0)))
-			// a box / desk can show which side is its back, like racks (a thick line on its local −y edge)
-			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : [])]
+			// a box / desk can show which side is its back, like racks (a thick line on its local −y edge), and its doors
+			const local = (x: number, y: number) => add(g.centre, rotate({ x, y }, g.rot ?? 0))
+			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : []),
+				...doorPrims(s.doors, s.id, local, hx, hy)]
 		}
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]
 		case 'ellipse': return [{ k: 'line', pts: ellipsePts(g), closed: true, fill: !!s.extent, cls, src: s.id }]
 		case 'polygon': return [{ k: 'line', pts: g.pts, closed: true, fill: !!s.extent, cls, src: s.id }]
 		case 'text': {
-			const t: Prim = { k: 'text', at: g.at, text: g.text, size: g.sizeMm * k, rot: g.rot, cls: 'note', src: s.id }
-			return noteColour(s, s.style?.fill ? [textBox(g.at, g.text, g.sizeMm * k, g.rot, s.style.fill, s.id), t] : [t])
+			// one prim per line (backlog "Text options": multi-line, aligned on its anchor point), lines going down the text
+			const size = g.sizeMm * k, lh = size * LINE, r = ((g.rot ?? 0) * Math.PI) / 180, anchor = ANCHOR[g.align ?? 'left']
+			// a text with a WIDTH wraps inside it (backlog "Text that fills a box"), and an unturned one is clipped to it
+			const lines = g.width ? g.text.split('\n').flatMap((p) => wrapLine(p, size, g.width!)) : g.text.split('\n')
+			const x0 = g.at.x - (anchor === 'middle' ? g.width! / 2 : anchor === 'end' ? g.width! : 0)
+			const clip = g.width && !g.rot ? { clip: { x0, y0: g.at.y - size * 2, x1: x0 + g.width, y1: g.at.y + lh * lines.length + size } } : {}
+			const ts = lines.map((text, i): Prim => ({ k: 'text', at: { x: g.at.x - Math.sin(r) * lh * i, y: g.at.y + Math.cos(r) * lh * i }, text, size, rot: g.rot, ...(anchor !== 'start' ? { anchor } : {}), cls: 'note', src: s.id, ...clip }))
+			return s.style?.fill ? [textBox(g.at, lines, size, g.rot, s.style.fill, s.id, anchor, g.width), ...ts] : ts
 		}
-		case 'leader': return noteColour(s, leaderPrims(s.id, g.pts, g.text, k))
-		case 'cloud': return noteColour(s, [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }])
-		case 'dimension': return noteColour(s, dimensionPrims(g, k, s.id))
+		case 'leader': return leaderPrims(s.id, g.pts, g.text, k, g.border)
+		case 'cloud': return [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
+		case 'dimension': return dimensionPrims(g, k, s.id)
 		default: return []
 	}
 }
 
-/** A note's own colour (its style's line colour) on all its prims (backlog "Notes on plans and diagrams"). */
-const noteColour = (s: Shape, ps: Prim[]): Prim[] => (s.style?.stroke ? ps.map((p) => (p.k === 'image' || p.cls === 'note-bg' ? p : { ...p, color: s.style!.stroke })) : ps)
+/** A shape's own style on all its prims: its line colour, lineweight and line type (backlog "Shape style"); a text's
+ *  background box and a region's fill keep theirs, and text takes only the colour. */
+export function ownStyle(s: Shape, ps: Prim[]): Prim[] {
+	const st = s.style ?? {}, dash = st.dash && (DASHES as string[]).includes(st.dash) ? (st.dash as Dash) : undefined
+	if (!st.stroke && !st.weightMm && !dash) return ps
+	return ps.map((p) => {
+		if (p.k === 'image' || p.cls === 'note-bg' || p.cls === 'shape-fill') return p
+		const own = { ...(st.stroke ? { color: st.stroke } : {}), ...(p.k !== 'text' && st.weightMm ? { weight: st.weightMm } : {}), ...(p.k !== 'text' && dash ? { dash } : {}) }
+		return { ...p, ...own }
+	})
+}
 
 /** A filled box behind a text (its background): the text's width estimated as for title blocks (0.6 em Latin, 1 em
  *  full-width), turned with it. */
-function textBox(at: Pt, text: string, size: number, rot: number | undefined, fill: string, src: string): Prim {
-	const w = [...text].reduce((a, ch) => a + (ch.charCodeAt(0) >= 0x2e80 ? 1 : 0.6) * size, 0), pad = size * 0.25
+/** A text's line spacing (× its size). */
+const LINE = 1.3
+const ANCHOR = { left: 'start', centre: 'middle', right: 'end' } as const
+function textBox(at: Pt, lines: string[], size: number, rot: number | undefined, fill: string, src: string, anchor: 'start' | 'middle' | 'end' = 'start', width?: number): Prim {
+	const w = width ?? Math.max(...lines.map((t) => textWidth(t, size))), pad = size * 0.25   // a boxed text: its box's width
+	const x0 = anchor === 'middle' ? -w / 2 : anchor === 'end' ? -w : 0, y1 = (lines.length - 1) * size * LINE
 	const r = ((rot ?? 0) * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r)
-	const pts = [[-pad, -size - pad], [w + pad, -size - pad], [w + pad, pad], [-pad, pad]].map(([x, y]) => ({ x: at.x + x * c - y * sn, y: at.y + x * sn + y * c }))
+	const pts = [[x0 - pad, -size - pad], [x0 + w + pad, -size - pad], [x0 + w + pad, y1 + pad], [x0 - pad, y1 + pad]].map(([x, y]) => ({ x: at.x + x * c - y * sn, y: at.y + x * sn + y * c }))
 	return { k: 'line', pts, closed: true, fill: true, cls: 'note-bg', color: fill, src }
 }
 
@@ -229,8 +264,12 @@ function rackPrims(r: Rack, k: number): Prim[] {
 
 /** A cabinet's doors on the plan: each leaf drawn open at 90° from its hinge, with its swing arc back to the closed
  *  position — so a cramped aisle shows. Front = the rack's local +y; "left" = the left of someone facing that face. */
-export function rackDoorPrims(r: Rack, p: (x: number, y: number) => Pt, hw: number, hd: number): Prim[] {
-	const d = r.doors
+export const rackDoorPrims = (r: Rack, p: (x: number, y: number) => Pt, hw: number, hd: number): Prim[] => doorPrims(r.doors, r.id, p, hw, hd)
+
+/** Doors drawn open at 90° with their swing (racks, and boxes / cabinets drawn as shapes — backlog "Door swings on
+ *  other objects"): `p` maps the footprint's local (x, y) (front = +y) to the plan; `hw` / `hd` = its half width / depth. */
+export function doorPrims(d: Rack['doors'], id: string, p: (x: number, y: number) => Pt, hw: number, hd: number): Prim[] {
+	const r = { id }
 	if (!d) return []
 	const out: Prim[] = []
 	for (const face of ['front', 'rear'] as const) {
@@ -265,16 +304,42 @@ function outletPrims(o: Outlet, k: number, blocks?: PlanOpts['blocks']): Prim[] 
 const add = (a: Pt, b: Pt): Pt => ({ x: a.x + b.x, y: a.y + b.y })
 
 /** A leader: the line (tip first), a filled arrowhead at the tip, its text beside the last point. Paper-mm sizes × k. */
-function leaderPrims(id: string, pts: Pt[], text: string | undefined, k: number): Prim[] {
+function leaderPrims(id: string, pts: Pt[], text: string | undefined, k: number, border?: 'underline' | 'box'): Prim[] {
 	if (pts.length < 2) return []
 	const [tip, next] = pts, len = Math.hypot(next.x - tip.x, next.y - tip.y) || 1
 	const ux = (next.x - tip.x) / len, uy = (next.y - tip.y) / len, a = 3 * k, b = 1 * k
 	const head = [tip, { x: tip.x + ux * a - uy * b, y: tip.y + uy * a + ux * b }, { x: tip.x + ux * a + uy * b, y: tip.y + uy * a - ux * b }]
 	const out: Prim[] = [{ k: 'line', pts, cls: 'leader', src: id }, { k: 'line', pts: head, closed: true, fill: true, cls: 'leader leader-head', src: id }]
 	if (text) {
-		const end = pts[pts.length - 1], prev = pts[pts.length - 2], right = end.x >= prev.x
-		out.push({ k: 'text', at: { x: end.x + (right ? 1 : -1) * k, y: end.y + 0.9 * k }, text, size: 2.5 * k, anchor: right ? 'start' : 'end', cls: 'note', src: id })
+		// its words beside the last point, on the side the leader goes; several lines go down (backlog "Callouts")
+		const end = pts[pts.length - 1], prev = pts[pts.length - 2], right = end.x >= prev.x, size = 2.5 * k, lh = size * LINE
+		const lines = text.split('\n'), x = end.x + (right ? 1 : -1) * k, y0 = end.y + 0.9 * k
+		lines.forEach((t, i) => out.push({ k: 'text', at: { x, y: y0 + i * lh }, text: t, size, anchor: right ? 'start' : 'end', cls: 'note', src: id }))
+		if (border) {
+			const w = Math.max(...lines.map((t) => textWidth(t, size))), pad = 0.6 * k
+			const x0 = right ? x - pad : x - w - pad, x1 = right ? x + w + pad : x + pad, bottom = y0 + (lines.length - 1) * lh + pad
+			out.push(border === 'box'
+				? { k: 'line', pts: [{ x: x0, y: y0 - size - pad }, { x: x1, y: y0 - size - pad }, { x: x1, y: bottom }, { x: x0, y: bottom }], closed: true, cls: 'leader', src: id }
+				: { k: 'line', pts: [{ x: right ? end.x : x1, y: bottom }, { x: right ? x1 : end.x, y: bottom }], cls: 'leader', src: id })
+		}
 	}
+	return out
+}
+/** About how wide a line of text draws (Latin ~0.6 of its size, CJK a full em). */
+const textWidth = (t: string, size: number) => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) >= 0x2e80 ? 1 : 0.6) * size, 0)
+
+/** One paragraph broken into lines that fit `width`: at spaces, and between any two CJK characters; a word longer than
+ *  the width goes on a line of its own (and is clipped). */
+export function wrapLine(text: string, size: number, width: number): string[] {
+	const tokens = text.match(/[⺀-￿]|[^\s⺀-￿]+|\s+/g) ?? ['']
+	const out: string[] = []
+	let cur = ''
+	for (const t of tokens) {
+		const next = cur + t
+		if (cur.trim() && !/^\s+$/.test(t) && textWidth(next.trimEnd(), size) > width) { out.push(cur.trimEnd()); cur = t.trimStart() }
+		else cur = next
+	}
+	out.push(cur.trimEnd())
 	return out
 }
 

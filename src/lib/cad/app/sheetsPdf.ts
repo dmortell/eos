@@ -5,6 +5,8 @@ import type { Sheet } from '../domain/drawing'
 import { sheetPages, pagesToPdf, browserImageLoader, browserTextRaster } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { placeUnderlays } from './issue'
+import { panelPages } from '../views/panelSheets'
+import type { Device } from '../domain/types'
 
 export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[]): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
@@ -18,6 +20,17 @@ export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[]): P
 	const name = sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`
 	download(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf')
 	return { pages: r.pages, unsupported: r.unsupported, rasterised: r.rasterised }
+}
+
+/** A room's patch panels with their port labels as a PDF for the installer (views/panelSheets.ts). Returns the
+ *  panels printed (to offer "Mark printed"). */
+export async function downloadPanelSheets(project: CadProject, room: { id: string; name: string }): Promise<{ pages: number; panels: Device[]; unsupported: string[]; rasterised: string[] }> {
+	const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+	const { pages, panels } = panelPages(project.index, room.id, { title: `Panel labels — ${project.name} · ${room.name}`, date })
+	if (!pages.length) return { pages: 0, panels, unsupported: [], rasterised: [] }
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, browserImageLoader, { rasterText: browserTextRaster })
+	download(pdf.output('blob'), `${fileSafe(`${project.name} ${room.name} panels`)}.pdf`, 'application/pdf')
+	return { pages: pages.length, panels, unsupported, rasterised }
 }
 
 /** A short note for the status line: texts drawn as pictures (Japanese …), and any that couldn't be drawn at all. */

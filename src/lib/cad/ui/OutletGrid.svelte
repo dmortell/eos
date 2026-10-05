@@ -2,6 +2,7 @@
      plan: a click selects in both, an edit is one undo step. Renaming an outlet carries the change into its ports
      (the port labels that start with the old outlet label). -->
 <script lang="ts">
+	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet } from '../domain/types'
@@ -17,7 +18,7 @@
 	let unassigned = $state(false)
 	const all = $derived(project.index.outlets.filter((o) => o.levelId === levelId).sort((a, b) => naturalCompare(a.label, b.label)))
 	const rows = $derived(unassigned ? all.filter((o) => o.ports.some((p) => !project.index.linkAt({ on: o.id, port: p.port }))) : all)
-	const usages = $derived(project.settings?.usages ?? [])
+	const usages = $derived(sortedUsages(project.settings))
 	const selected = $derived(new Set(ws.selection))
 	const roomName = (id?: string) => (id ? project.index.nameOf(id) : '')
 

@@ -88,3 +88,6 @@ export function transmittalRows(issue: Issue): Issue['sheets'] {
 	const cmp = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 	return [...issue.sheets].sort((a, b) => cmp.compare(a.number, b.number))
 }
+
+/** The usual purposes of an issue (the Issue panel's and the Issues list's suggestions; any text is allowed). */
+export const ISSUE_PURPOSES = ['For information', 'For comment', 'For approval', 'For tender', 'For construction', 'As built']

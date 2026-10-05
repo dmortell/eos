@@ -26,8 +26,11 @@ export function moveBy<T extends Entity>(e: T, d: Delta): T {
 			const t = s.plane.frame.t
 			return { ...s, geom: moveGeometry(s.geom, { x: d.x * t.x + d.y * t.y, y: dz }) } as T
 		}
-		const plane = dz && s.plane?.kind === 'plan' ? { plane: { ...s.plane, z: s.plane.z + dz } } : {}
-		return { ...s, geom: moveGeometry(s.geom, d), ...plane } as T
+		// up / down (an elevation drag): a region's plan plane rises (one at Z 0 has none yet), an insert its own Z
+		const region = s.geom.kind === 'rect' || s.geom.kind === 'circle' || s.geom.kind === 'ellipse' || s.geom.kind === 'polygon'
+		const plane = dz && (s.plane?.kind === 'plan' || (!s.plane && region)) ? { plane: { kind: 'plan' as const, z: (s.plane?.kind === 'plan' ? s.plane.z : 0) + dz } } : {}
+		const geom = moveGeometry(s.geom, d)
+		return { ...s, geom: dz && geom.kind === 'insert' ? { ...geom, z: (geom.z ?? 0) + dz } : geom, ...plane } as T
 	}
 	if (e.type === 'outlet' && e.at) return { ...e, at: add(e.at, d), ...(dz ? { z: (e.z ?? 0) + dz } : {}) } as T
 	if (e.type === 'rack' && e.at) return { ...e, at: add(e.at, d) } as T

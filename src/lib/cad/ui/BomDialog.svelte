@@ -2,6 +2,7 @@
      project's materials, and the rack BOM — all racks together or row by row — with totals and product links; what
      goes in the workbook is chosen here, then "Export to Excel". -->
 <script lang="ts">
+	import { backdropClose } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { CatalogProduct } from '$lib/catalog/types'
 	import type { RackRow } from '../domain/types'
@@ -42,7 +43,7 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" onclick={onclose}>
+<div class="backdrop" role="presentation" use:backdropClose={onclose}>
 	<div class="dlg" role="dialog" aria-label="Bill of materials" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Bill of materials</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		{#if !catalog}

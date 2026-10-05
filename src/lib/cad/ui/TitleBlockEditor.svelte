@@ -10,7 +10,7 @@
 	import type { Firestore } from 'firebase/firestore'
 	import { saveProjectImage } from '../app/projectFiles'
 	import LogoPicker from './LogoPicker.svelte'
-	import { TB_AUTO, DEFAULT_TITLE_BLOCK, LOGO_LABEL, withLogoFields, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
+	import { TB_AUTO, DEFAULT_TITLE_BLOCK, LOGO_LABEL, withLogoFields, isFixedField, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
 
 	// `files` = the project's Uploads: logos are picked from its images, and new ones are added to it
 	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string } } = $props()
@@ -31,16 +31,11 @@
 		let to = idx(targetId); if (idx(id) < to) to--   // the target shifted up when the dragged one left
 		fs.splice(after ? to + 1 : to, 0, f); set({ fields: fs })
 	}, idx)
-	/** A logo field takes its image with it (else it would come back as a field on its own). */
-	function remove(i: number) {
-		const f = fields[i], k = f?.key === 'logo' ? f.logo : undefined
-		set({ fields: fields.filter((_, j) => j !== i), ...(k ? { logos: { ...t.logos, [k]: { src: '' } } } : {}) })
-	}
-	const logoFree = (k: 'company' | 'client') => !fields.some((f) => f.key === 'logo' && f.logo === k)
+	/** An ordinary field goes; the block's own items (logos, logo text, company) are always listed — they're cleared. */
+	const remove = (i: number) => set({ fields: fields.filter((_, j) => j !== i) })
 	function add(key: string) {
 		if (!key) return
-		const lg = key === 'logo:company' ? 'company' : key === 'logo:client' ? 'client' : null
-		const f: TbField = lg ? { key: 'logo', logo: lg, label: LOGO_LABEL[lg], wide: true } : key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
+		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
 		set({ fields: [...fields, f] })
 	}
 	// A logo image goes to FILE STORAGE (UploadThing's image route, like Uploads) and the template keeps only its URL +
@@ -123,7 +118,6 @@
 	<select value={t.layout ?? 'vertical'} onchange={(e) => set({ layout: val(e) as TbLayout })}>
 		<option value="vertical">Strip down the right</option><option value="horizontal">Band along the bottom</option><option value="compact">Compact box, bottom right</option>
 	</select></div>
-<div class="prop"><span>Logo text</span><input value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} /></div>
 {#snippet logoControls(k: 'company' | 'client', label: string)}
 	{@const lg = t.logos?.[k]}
 	<span class="logo-row">
@@ -141,9 +135,6 @@
 	<LogoPicker db={files.db} pid={files.pid} title={k === 'company' ? 'Our logo' : 'Client logo'} onclose={() => (picking = null)}
 		onpick={(f) => setLogo(k, { src: f.url, ...(f.key ? { key: f.key } : {}), h: t.logos?.[k]?.h ?? 10 })} onupload={(f) => uploadLogo(k, f)} />
 {/if}
-<div class="prop"><span>Company</span><input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} /></div>
-<div class="prop"><span></span><input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} /></div>
-<div class="prop"><span></span><input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} /></div>
 {#each fields as f, i (i)}
 	{@const r = dr.row(`f${i}`)}
 	<!-- the row is the drop target; only the grip starts a drag (so the inputs stay selectable) -->
@@ -154,6 +145,17 @@
 			<!-- a logo field: its image (the label isn't printed) -->
 			<span class="lbl logo-lbl" title="A logo image — drag to place it among the fields">{LOGO_LABEL[f.logo]}</span>
 			{@render logoControls(f.logo, LOGO_LABEL[f.logo])}
+		{:else if f.key === 'logoText'}
+			<span class="lbl logo-lbl" title="The logo text — drag to place it">Logo text</span>
+			<input class="txt" value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} />
+		{:else if f.key === 'company'}
+			<!-- the drawing office's block: name (bold), address, contact — one line each; drag to place it -->
+			<span class="lbl logo-lbl" title="Your company's block — drag to place it">Company</span>
+			<span class="co">
+				<input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} />
+				<input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} />
+				<input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} />
+			</span>
 		{:else if f.key === 'custom'}
 			<input class="lbl" value={f.label} title="Label (custom text)" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 			<input class="txt" value={f.value ?? ''} placeholder="text" onchange={(e) => setField(i, { value: val(e) })} onkeydown={blurOnEnter} />
@@ -162,8 +164,15 @@
 			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 			<em title="Filled automatically">{auto}</em>
 		{/if}
-		<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>
-		<button title="Remove" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
+		{#if isFixedField(f)}
+			<!-- the block's own items are always listed: cleared (or their section switched off), not removed; the logo
+			     text and company block are always full width, a logo can be half (two side by side) -->
+			{#if f.key === 'logo'}<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>{:else}<span></span>{/if}
+			{#if f.key === 'logo' && f.logo && t.logos?.[f.logo]?.src}<button title="Clear this logo image" onclick={() => setLogo(f.logo!, undefined)}><Icon name="x" size={11} /></button>{:else}<span></span>{/if}
+		{:else}
+			<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>
+			<button title="Remove" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
+		{/if}
 	</div>
 {/each}
 <div class="prop"><span>Add</span>
@@ -171,8 +180,6 @@
 		<option value="">Add a field…</option>
 		{#each Object.entries(TB_AUTO) as [k, l] (k)}<option value={k}>{l} (auto)</option>{/each}
 		<option value="custom">Custom text</option>
-		{#if logoFree('company')}<option value="logo:company">Our logo (image)</option>{/if}
-		{#if logoFree('client')}<option value="logo:client">Client logo (image)</option>{/if}
 	</select>
 </div>
 <div class="hint">Shared by every sheet in this project. Auto fields fill from the project and each sheet.</div>
@@ -180,6 +187,8 @@
 <style>
 	/* cad's light theme in place of Pages' variables */
 	.tbf { display: flex; align-items: center; gap: 3px; padding: 0; line-height: 1.2; }
+	.tbf .co { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+	.tbf .co input { width: 100%; }
 	.tbf.drag-before { box-shadow: inset 0 2px 0 #2563eb; }
 	.tbf.drag-after { box-shadow: inset 0 -2px 0 #2563eb; }
 	.tbf.dragging { opacity: 0.45; }
@@ -195,7 +204,7 @@
 	.tbf button.on { color: #2563eb; }
 	.prop { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 4px; padding: 0; }
 	.prop span { color: var(--cad-muted); font-size: 11px; }
-	.prop input, .prop select { background: var(--cad-input); color: var(--cad-text); border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 11px; min-width: 0; }
+	.prop select { background: var(--cad-input); color: var(--cad-text); border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 11px; min-width: 0; }
 	.logo-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
 	.logo-row img { height: 22px; max-width: 90px; object-fit: contain; background: #fff; border-radius: 2px; }
 	.logo-row input { width: 44px; }

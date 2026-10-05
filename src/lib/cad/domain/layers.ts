@@ -3,7 +3,7 @@
 // layer: its own `layerId` if that layer exists, else the default for its kind — so existing data needs no migration.
 // Who sees what is NOT stored here: the eye / lock are per user (the workspace), a viewport's freeze is on the sheet.
 import type { Id } from './types'
-import type { Entity, Layer } from './drawing'
+import type { Entity, Layer, Sheet } from './drawing'
 
 /** `color` = the layer's colour, applied to its items; `look` = a system layer's default: the colour its items
  *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colours that mean something: an
@@ -51,7 +51,7 @@ export function defaultLayer(e: Entity): Id | undefined {
 			if (r?.kind === 'wall') return 'sys:walls'
 			if (r?.kind === 'containment') return r.tier === 'high' ? 'sys:cont-high' : 'sys:cont-low'
 			const g = e.geom.kind
-			return g === 'text' || g === 'leader' || g === 'cloud' ? 'sys:notes' : 'sys:drawing'
+			return g === 'text' || g === 'leader' || g === 'cloud' || g === 'legend' ? 'sys:notes' : 'sys:drawing'
 		}
 		default: return undefined
 	}
@@ -94,4 +94,13 @@ export function toolLayer(toolId: string, current: Id | null, z: number): Id | u
 export function toolBlock(toolId: string, prefs: { current: Id | null; hidden: ReadonlySet<Id>; locked: ReadonlySet<Id> }, z: number, layers: Map<Id, LayerInfo>): string | null {
 	const id = toolLayer(toolId, prefs.current && layers.has(prefs.current) ? prefs.current : null, z)
 	return id ? layerBlock(id, layers.get(id)?.name ?? id, prefs.hidden, prefs.locked) : null
+}
+
+/** A NEW layer starts hidden in the drawings that already exist (Dave 2026-10-05): its id added to every viewport's
+ *  frozen list, so issued / finished sheets don't change when something is drawn on it. Viewports made later show it.
+ *  The sheets that change. */
+export function freezeInExisting(sheets: Sheet[], layerId: Id): Sheet[] {
+	return sheets.filter((s) => s.viewports.length).map((s) => ({
+		...s, viewports: s.viewports.map((v) => (v.frozen?.includes(layerId) ? v : { ...v, frozen: [...(v.frozen ?? []), layerId] })),
+	}))
 }

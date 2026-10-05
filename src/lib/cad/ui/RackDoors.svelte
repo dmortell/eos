@@ -4,11 +4,13 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Rack } from '../domain/types'
+	import type { Shape } from '../domain/shapes'
 
-	let { project, racks }: { project: CadProject; racks: Rack[] } = $props()
+	let { project, racks = [], boxes = [] }: { project: CadProject; racks?: Rack[]; boxes?: Shape[] } = $props()
 
 	type Doors = NonNullable<Rack['doors']>
-	const cabinets = $derived(racks.filter((r) => r.kind === 'cabinet' || r.kind === 'vcm'))   // VCMs have doors too (Dave)
+	// cabinets and VCMs (Dave: VCMs have doors too), and boxes drawn as rectangles (backlog "Door swings on other objects")
+	const cabinets = $derived<(Rack | Shape)[]>([...racks.filter((r) => r.kind === 'cabinet' || r.kind === 'vcm'), ...boxes.filter((s) => s.geom.kind === 'rect')])
 	/** The value every cabinet shares, or `null` when they differ. */
 	function shared<K extends keyof Doors>(k: K): Doors[K] | null {
 		const vs = new Set(cabinets.map((r) => r.doors?.[k]))
@@ -19,7 +21,7 @@
 
 	function set(patch: Doors) {
 		const n = cabinets.length
-		project.store.transact(n > 1 ? `Rack doors (${n} racks)` : 'Rack doors', (tx) => {
+		project.store.transact(n > 1 ? `Doors (${n})` : 'Doors', (tx) => {
 			for (const r of cabinets) {
 				const next = { ...(r.doors ?? {}), ...patch }
 				tx.put({ ...r, doors: next.front || next.rear ? next : undefined })

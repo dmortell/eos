@@ -3,6 +3,7 @@
      plenum) with "apply to all" and an import from the old Risers tool. Every change re-stacks the FFL elevations.
      One edit = one undo step. Levels with something on them are never removed from here. -->
 <script lang="ts">
+	import { backdropClose } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
@@ -132,7 +133,7 @@
 	{/each}
 {/snippet}
 
-<div class="backdrop" role="presentation" onclick={onclose}>
+<div class="backdrop" role="presentation" use:backdropClose={onclose}>
 	<div class="dlg" role="dialog" aria-label="Floors" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Floors</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 

@@ -8,13 +8,13 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
-	import { sheetRows, filterRows, sortRows, groupRows, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
+	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import type { Issue } from '../domain/drawing'
 	import { reprintIssue } from '../app/issue'
 	import { exportTransmittal } from '../render/transmittal'
-	import { issueNumbers } from '../domain/issue'
+	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 	import IssuePanel from './IssuePanel.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 
@@ -29,7 +29,7 @@
 	const picked = $derived(rows.filter((r) => selected.has(r.id)))
 	const sheetOf = (id: string) => project.index.get(id) as Sheet
 
-	const COLS: [SortKey, string][] = [['number', 'No.'], ['title', 'Title'], ['place', 'Place'], ['kind', 'Kind'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
+	const COLS: [SortKey, string][] = [['order', '#'], ['number', 'No.'], ['title', 'Title'], ['place', 'Place'], ['kind', 'Kind'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
 	const sortBy = (key: SortKey) => (sort = { key, dir: sort.key === key ? (-sort.dir as 1 | -1) : 1 })
 
 	// click / Shift-range / Ctrl-toggle, as in the other grids
@@ -47,6 +47,12 @@
 	function setStatus(s: Sheet['status']) {
 		if (!picked.length) return
 		project.store.transact(`${s === 'archived' ? 'Archive' : 'Restore'} ${picked.length} sheet(s)`, (tx) => { for (const r of picked) tx.put({ ...sheetOf(r.id), status: s }) })
+	}
+	/** Print order (backlog "Print order"): the selected sheets one place earlier / later, as one undo step. */
+	function move(dir: -1 | 1) {
+		const changed = moveInPrintOrder(sheets, picked.map((r) => r.id), dir)
+		sort = { key: 'order', dir: 1 }
+		if (changed.length) project.store.transact(`Print order (${picked.length} sheet${picked.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
 	let busy = $state(false)
 	/** Delete the selected sheets, after saying what goes with them (viewports, notes). */
@@ -68,9 +74,22 @@
 
 	// issuing (4.6): the selection, frozen when the panel opens
 	let issuing = $state.raw<Sheet[] | null>(null), show = $state<'register' | 'issues'>('register')
+	/** The issue whose details are being edited in its row (Edit / Done). */
+	let editing = $state<string | null>(null)
+	const editIssue = (i: Issue, label: string, patch: Partial<Issue>) => project.store.transact(label, (tx) => tx.put({ ...i, ...patch }))
 	function startIssue() {
 		if (!picked.length) { ws.say('Select the sheets for the package'); return }
 		issuing = picked.map((r) => sheetOf(r.id))
+	}
+	/** Re-issue (backlog "Next issue from the last list"): that package's sheets (those still here, not archived)
+	 *  selected in the register and the Issue panel opened on them; add / drop sheets in the register, then Issue… again. */
+	function reissue(i: Issue) {
+		const list = i.sheets.map((x) => project.index.get<Sheet>(x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
+		if (!list.length) { ws.say('None of its sheets are left'); return }
+		ws.select(list.map((s) => s.id))
+		show = 'register'
+		issuing = list
+		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
 	}
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
@@ -94,7 +113,10 @@
 		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
 		<label class="text-zinc-500">Group <select bind:value={by}>{#each ['none', 'place', 'kind', 'discipline', 'tag', 'size'] as g (g)}<option value={g}>{g}</option>{/each}</select></label>
 		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
-		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
+		<span class="seg" title="Print order: move the selected sheets earlier / later (the table sorts by # so you see it; the PDF follows the table)">
+			<button disabled={!picked.length} onclick={() => move(-1)}>▲</button><button disabled={!picked.length} onclick={() => move(1)}>▼</button>
+		</span>
+		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF, in the table's order" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
 		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
 		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
 		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
@@ -104,6 +126,7 @@
 	</div>
 	{#if issuing}<IssuePanel {project} {ws} sheets={issuing} onclose={() => { issuing = null; show = 'issues' }} />{/if}
 	{#if show === 'issues'}
+		<datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
 		<table class="w-full border-collapse">
 			<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 				<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
@@ -113,14 +136,24 @@
 					<tr class="border-b border-zinc-100 align-top">
 						<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
 						<td class="px-2 font-mono">{i.date}</td>
-						<td class="px-2">{i.name}</td>
-						<td class="px-2">{i.purpose}</td>
-						<td class="px-2">{i.to ?? ''}</td>
+						{#if editing === i.id}
+							<!-- the package's details (backlog "Edit package details"): the frozen copies and the PDF stay as issued -->
+							<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue name', { name: e.currentTarget.value.trim() })} />
+								<input class="cell w-full text-zinc-500" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
+							<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue purpose', { purpose: e.currentTarget.value.trim() })} /></td>
+							<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Issue to', { to: e.currentTarget.value.trim() || undefined })} /></td>
+						{:else}
+							<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block text-zinc-500">{i.note}</span>{/if}</td>
+							<td class="px-2">{i.purpose}</td>
+							<td class="px-2">{i.to ?? ''}</td>
+						{/if}
 						<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
 						<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}</td>
 						<td class="px-2 whitespace-nowrap">
 							<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
 							<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
+							<button class="btn" disabled={!!issuing} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
+							<button class="btn" title="Rename it, or change its purpose / recipient / note (what was issued stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
 						</td>
 					</tr>
 				{:else}
@@ -138,10 +171,11 @@
 		</thead>
 		<tbody>
 			{#each groups as g (g.key)}
-				{#if by !== 'none'}<tr class="grp"><td colspan="10">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
+				{#if by !== 'none'}<tr class="grp"><td colspan="11">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
+						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2"><input class="cell w-56" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2">{r.place}</td>
@@ -155,7 +189,7 @@
 					</tr>
 				{/each}
 			{:else}
-				<tr><td colspan="10" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
+				<tr><td colspan="11" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
 			{/each}
 		</tbody>
 	</table>

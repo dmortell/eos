@@ -193,6 +193,14 @@ export interface Device {
 	/** Fixed to one side of the rack only (Dave: a front panel sharing a U with a rear one): it then takes only that side
 	 *  of its Us, and shares them with a device on the other side when their depths fit. Unset = by `face` (full depth). */
 	mount?: 'front' | 'rear'
+	/** May share Us with a device on the same side (Dave: some cases — a shelf with a device on it is always allowed): the
+	 *  clash is marked in the rack view (the U numbers bold red with "!") instead of refused. */
+	overlapOk?: boolean
+	/** A 0U PDU (backlog "0U PDUs"): the side of the rack it's on, as seen from the front (default left), its power
+	 *  inlets (cables in, drawn at its bottom) and its sockets (outlets, along the strip). */
+	pduSide?: 'left' | 'right'
+	inlets?: number
+	outlets?: number
 	portCount: number
 	portType?: 'RJ45' | 'LC' | 'SC' | 'SFP'
 	/** How ports are numbered on the face: row-major (panels: 1–24 top, 25–48 bottom) or column-major (switches: 1

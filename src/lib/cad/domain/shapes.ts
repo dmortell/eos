@@ -75,11 +75,15 @@ export type Geometry =
 	| { kind: 'text'; at: Pt; text: string; sizeMm: number; rot?: number; width?: number; markdown?: boolean; align?: 'left' | 'centre' | 'right' }
 	| { kind: 'dimension'; a: Pt; b: Pt; offset: number; mode: 'aligned' | 'horizontal' | 'vertical' | 'rotated'; angle?: number; text?: string }
 	/** Tip first. `attach` makes the tip follow an entity (an outlet, a rack, a shape). */
-	| { kind: 'leader'; pts: Pt[]; text?: string; attach?: Id }
+	| { kind: 'leader'; pts: Pt[]; text?: string; attach?: Id; /** A callout's frame round its words (backlog "Callouts"); absent = none. */ border?: 'underline' | 'box' }
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
-	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number }
+	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number }
+	/** A LEGEND (backlog "Legend on the drawing"): a table of the symbols / layers in use on its level (a sheet: the levels
+	 *  its viewports show), with counts. `at` = its top-left; `rows` = the row keys it shows ('block:<id>' / 'layer:<id>';
+	 *  absent = every symbol in use); sizes are paper mm. Drawn from the data each time, so it keeps itself up to date. */
+	| { kind: 'legend'; at: Pt; title?: string; rows?: string[]; sizeMm?: number }
 
 export type GeometryKind = Geometry['kind']
 
@@ -164,6 +168,9 @@ export interface ShapeCore {
 	style?: { stroke?: string; fill?: string; weightMm?: number; dash?: string }
 	/** A box (rect): draw a thick line on its back edge (local −y), as racks have — which way a desk / box faces. */
 	backLine?: boolean
+	/** A box / cabinet's doors (backlog "Door swings on other objects"), as racks have: drawn open on the plan, front = its
+	 *  local +y (the back line is −y). */
+	doors?: { front?: 'single' | 'split'; rear?: 'single' | 'split'; hinge?: 'left' | 'right' }
 }
 
 export type Shape = ShapeCore & Owner
@@ -179,7 +186,7 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 		case 'dimension': return { ...g, a: add(g.a), b: add(g.b) }
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(add) }
 		case 'image': return { ...g, centre: add(g.centre) }
-		case 'insert': return { ...g, at: add(g.at) }
+		case 'insert': case 'legend': return { ...g, at: add(g.at) }
 	}
 }
 
@@ -219,3 +226,40 @@ export function isFlat(s: Pick<ShapeCore, 'geom' | 'section' | 'extent'>): boole
 export function ownerOf(s: Owner): { kind: 'level' | 'view' | 'sheet'; id: Id } {
 	return s.levelId ? { kind: 'level', id: s.levelId } : s.viewId ? { kind: 'view', id: s.viewId } : { kind: 'sheet', id: s.sheetId! }
 }
+
+/** Draw order (backlog "Draw order"): lower `order` first, so higher draws on top; equal keeps the list's order. */
+export const byDrawOrder = (a: Shape, b: Shape): number => (a.order ?? 0) - (b.order ?? 0)
+
+/** Ctrl+] / Ctrl+[ (Shift: to the front / back): the selected shapes' new `order` among the other shapes of the same
+ *  owner (level or sheet). Forward = just above the next order up (or one up when they share theirs); front = above
+ *  them all. Only the moved shapes change; [] = nothing to do. */
+export function reorderShapes(all: Shape[], ids: string[], how: 'forward' | 'backward' | 'front' | 'back'): Shape[] {
+	const sel = new Set(ids), out: Shape[] = []
+	const owner = (s: Shape) => s.sheetId ?? s.levelId ?? ''
+	for (const s of all) {
+		if (!sel.has(s.id)) continue
+		const others = all.filter((o) => !sel.has(o.id) && owner(o) === owner(s)).map((o) => o.order ?? 0)
+		if (!others.length) continue
+		const me = s.order ?? 0, up = how === 'forward' || how === 'front'
+		let next = me
+		if (how === 'front') next = Math.max(...others) + 1
+		else if (how === 'back') next = Math.min(...others) - 1
+		else {
+			const beyond = others.filter((o) => (up ? o > me : o < me))
+			next = beyond.length ? (up ? Math.min(...beyond) + 1 : Math.max(...beyond) - 1) : others.includes(me) ? me + (up ? 1 : -1) : me
+		}
+		if (how === 'front' && me > Math.max(...others)) next = me
+		if (how === 'back' && me < Math.min(...others)) next = me
+		if (next !== me) out.push({ ...s, order: next })
+	}
+	return out
+}
+
+/** The shape with its own line colour / fill set; undefined or 'none' takes it off (By layer / no fill). */
+export function withStyle(s: Shape, patch: { stroke?: string; fill?: string }): Shape {
+	const st: NonNullable<Shape['style']> = { ...s.style }
+	for (const k of ['stroke', 'fill'] as const) if (k in patch) { const v = patch[k]; if (v && v !== 'none') st[k] = v; else delete st[k] }
+	return { ...s, style: Object.keys(st).length ? st : undefined }
+}
+/** A region with its fill colour set ('none' / undefined = no fill; Properties → Fill). */
+export const withFill = (s: Shape, fill: string | undefined): Shape => withStyle(s, { fill })
