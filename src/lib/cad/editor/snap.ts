@@ -10,6 +10,9 @@ export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
 
 export const GRID_MM = 10
 
+/** `noGrid` = no grid point (Alt, or SNAP off); `grid` = the grid step (mm; default 10); `noObjects` = OSNAP off. */
+export interface SnapOpts { skip?: Id | Id[]; noGrid?: boolean; grid?: number; noObjects?: boolean }
+
 export function gridSnap(p: Pt, step = GRID_MM): Pt {
 	return { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step }
 }
@@ -18,16 +21,16 @@ export function gridSnap(p: Pt, step = GRID_MM): Pt {
  * Snaps in any view, from what is DRAWN: line vertices and circle centres of the display list (an elevation's run
  * ends, rack corners, outlet faceplates), else the grid. No attach — attaching is done in plan.
  */
-export function snapToPrims(prims: Prim[], p: Pt, tol: number, opts: { skip?: Id | Id[]; noGrid?: boolean } = {}): Snap {
+export function snapToPrims(prims: Prim[], p: Pt, tol: number, opts: SnapOpts = {}): Snap {
 	const skips = new Set(Array.isArray(opts.skip) ? opts.skip : opts.skip ? [opts.skip] : [])
-	let best: Snap | undefined, bestD = tol
+	let best: Snap | undefined, bestD = opts.noObjects ? -1 : tol
 	const offer = (q: Pt) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bestD) { best = { p: q, kind: 'node' }; bestD = d } }
 	for (const pr of prims) {
 		if (!pr.src || skips.has(pr.src)) continue
 		if (pr.k === 'line') pr.pts.forEach(offer)
 		else if (pr.k === 'circle') offer(pr.c)
 	}
-	return best ?? (opts.noGrid ? { p, kind: 'grid' } : { p: gridSnap(p), kind: 'grid' })
+	return best ?? (opts.noGrid || opts.grid === 0 ? { p, kind: 'grid' } : { p: gridSnap(p, opts.grid || GRID_MM), kind: 'grid' })
 }
 
 /** A shape's centre point, if it has one (a polygon: the average of its corners). */
@@ -41,9 +44,9 @@ export function centreOf(g: Shape['geom']): Pt | null {
 }
 
 /** The nearest object snap within `tol`, else the grid point. `skip` excludes a shape (the one being edited). */
-export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: { skip?: Id | Id[]; noGrid?: boolean } = {}): Snap {
+export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: SnapOpts = {}): Snap {
 	const skips = new Set(Array.isArray(opts.skip) ? opts.skip : opts.skip ? [opts.skip] : [])
-	let best: Snap | undefined, bestD = tol
+	let best: Snap | undefined, bestD = opts.noObjects ? -1 : tol
 	const offer = (s: Snap) => {
 		const d = Math.hypot(s.p.x - p.x, s.p.y - p.y)
 		if (d <= bestD) { best = s; bestD = d }
@@ -63,5 +66,5 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 			if (a && b && (a.x !== b.x || a.y !== b.y)) offer({ p: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, kind: 'mid' })
 		}
 	}
-	return best ?? (opts.noGrid ? { p, kind: 'grid' } : { p: gridSnap(p), kind: 'grid' })
+	return best ?? (opts.noGrid || opts.grid === 0 ? { p, kind: 'grid' } : { p: gridSnap(p, opts.grid || GRID_MM), kind: 'grid' })
 }

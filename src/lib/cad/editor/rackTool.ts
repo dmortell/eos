@@ -53,7 +53,7 @@ export class RackTool implements Tool {
 	}
 	move(): void {}
 	up(): void {}
-	hover(e: PointerIn): void { this.#hover = snapPt(e.p, e.alt) }
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = snapPt(e.p, e.alt, c.grid ?? 10) }
 	cancel(): void { this.target = null; this.#hover = null }
 
 	/** The footprint of the rack about to be placed or drawn, under the cursor. */

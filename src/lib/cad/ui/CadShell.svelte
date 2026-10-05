@@ -13,7 +13,7 @@
 	import { reservePorts } from '../domain/ports'
 	import type { Level } from '../domain/types'
 	import ViewCanvas from './ViewCanvas.svelte'
-	import { PLAN, type ViewSpec } from '../views/space'
+	import { PLAN, specKey, specLabel, type ViewSpec } from '../views/space'
 	import OutletGrid from './OutletGrid.svelte'
 	import PatchList from './PatchList.svelte'
 	import Properties from './Properties.svelte'
@@ -38,6 +38,9 @@
 	import { clipboardEvents } from '../app/clipboardEvents'
 	import ExportMenu from './ExportMenu.svelte'
 	import ToolOptions from './ToolOptions.svelte'
+	import ToolStrip from './ToolStrip.svelte'
+	import StatusBar from './StatusBar.svelte'
+	import AskBox from './AskBox.svelte'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -86,14 +89,37 @@
 	}
 	/** Show a view in a pane. The selection follows (UX09): what neither pane draws any more is let go, so Properties
 	 *  always describes something you can see. */
-	function setPane(i: number, s: ViewSpec) {
+	function setPane(i: number, s: ViewSpec, how: 'go' | 'nav' = 'go') {
 		canvases[i]?.cancel()
+		const from = panes[i]
+		if (how === 'go' && from && specKey(from) !== specKey(s)) { hist[i].back = [...hist[i].back.slice(-49), $state.snapshot(from) as ViewSpec]; hist[i].fwd = [] }
 		panes[i] = s
 		void tick().then(() => {
 			const keep = ws.selection.filter((id) => canvases.some((c) => c?.draws(id)))
 			if (keep.length !== ws.selection.length) ws.select(keep)
 		})
 	}
+	/** Back / forward per pane (UX12, Alt+← / Alt+→): the views it showed before, and the ones gone back from. */
+	let hist = $state<{ back: ViewSpec[]; fwd: ViewSpec[] }[]>([{ back: [], fwd: [] }, { back: [], fwd: [] }])
+	const exists = (v: ViewSpec) => (v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : true)
+	function navPane(i: number, dir: -1 | 1) {
+		const h = hist[i], list = dir < 0 ? h.back : h.fwd
+		let to: ViewSpec | undefined
+		while ((to = list.pop()) && !exists(to)) { /* a deleted sheet / section: skip it */ }
+		if (!to) return
+		const here = $state.snapshot(panes[i]) as ViewSpec
+		if (dir < 0) h.fwd.push(here); else h.back.push(here)
+		setPane(i, to, 'nav')
+	}
+	/** A view's name for the back / forward titles. */
+	function viewName(v: ViewSpec | undefined): string | undefined {
+		if (!v) return undefined
+		if (v.kind === 'sheet') { const sh = project.index.get(v.sheetId); return sh?.type === 'sheet' ? `${sh.number} ${sh.title}` : 'a sheet' }
+		if (v.kind === 'row') return `${project.index.nameOf(v.spaceId)} rack view`
+		if (v.kind === 'section') return `Section ${project.index.nameOf(v.sectionId)}`
+		return specLabel(v)
+	}
+	const navOf = (i: number) => ({ back: viewName(hist[i].back.at(-1)), fwd: viewName(hist[i].fwd.at(-1)), go: (d: -1 | 1) => navPane(i, d) })
 	/** A pane showing a sheet (or section) that was deleted goes back to the plan. */
 	$effect(() => {
 		void project.rev
@@ -182,13 +208,6 @@
 		return m
 	})
 
-	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
-	const TOOLS: { id: ToolId; label: string }[] = [
-		{ id: 'select', label: 'Select' }, { id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }, { id: 'insert', label: 'Insert' }, { id: 'shape', label: 'Shape' }, { id: 'box', label: 'Box' }, { id: 'legend', label: 'Legend' }, { id: 'viewport', label: 'Viewport' }, { id: 'dimension', label: 'Dimension' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
-		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
-		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
-		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
-	]
 	const HINT: Partial<Record<ToolId, string>> = {
 		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 		move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
@@ -216,8 +235,9 @@
 		cloud: 'On a sheet: click round the area to mark · Enter closes the cloud · Esc / right-click ends it, again → Select · Backspace undoes a point',
 	}
 	const HINT_PLACE = 'Click on the plan to place the rack (its centre) · Esc cancels'
+	/** The status bar's hint: the tool's, or (Select) the selected viewport's ways of working. */
+	const hint = $derived(ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? '')
 
-	let notice = $state<string | null>(null)
 
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
 	let bottom = $state<BottomTab>('outlets')
@@ -255,24 +275,12 @@
 		ws.setTool(id, level)
 	}
 
-	let promptInput: HTMLInputElement | undefined = $state()
-	/** Focus the prompt when it opens: a number is selected (type over it); typed text keeps its first character. */
-	$effect(() => {
-		if (!ws.prompt || !promptInput) return
-		promptInput.focus()
-		if (ws.prompt.text) promptInput.setSelectionRange(promptInput.value.length, promptInput.value.length)
-		else promptInput.select()
-	})
-	function answer(e: KeyboardEvent) {
-		if (e.key === 'Enter' && ws.prompt) { const t = (e.currentTarget as HTMLInputElement).value; const p = ws.prompt; ws.prompt = null; p.apply(t); canvas?.refresh() }
-		else if (e.key === 'Escape') ws.prompt = null
-	}
 
 	/** Start typing a point while a drawing tool is active: the point box opens with what was typed. */
 	function typePoint(first: string) {
 		ws.askText('Point — x,y · @dx,dy · @d<angle · distance', first, (text) => {
 			const err = canvas?.typed(text) ?? null
-			if (err) { notice = err; setTimeout(() => (notice = null), 4000) }
+			if (err) ws.say(err)
 		})
 	}
 
@@ -356,52 +364,40 @@
 			if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
 		}
 		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
+		else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); navPane(activePane, e.key === 'ArrowLeft' ? -1 : 1) }
+		else if (e.key === 'F9' || e.key === 'F3' || e.key === 'F7') {
+			// the drafting switches (UX05): F9 SNAP, F3 OSNAP, F7 GRID
+			e.preventDefault()
+			const k = e.key === 'F9' ? 'snap' : e.key === 'F3' ? 'osnap' : 'showGrid'
+			ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting()
+			ws.say(`${{ snap: 'SNAP', osnap: 'OSNAP', showGrid: 'GRID' }[k]} ${ws.drafting[k] ? 'on' : 'off'}`)
+		}
 		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
-		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
+		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') setTool('select'); else ws.select([]) }
 		else if (e.key === 'Home') canvas?.zoomExtents()
 		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
 </script>
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
-<div class="shell bg-zinc-50 text-sm" style:grid-template-columns={panels.columns} style:grid-template-rows={panels.rows}>
+<div class="shell bg-zinc-50 text-sm" style:grid-template-columns={panels.columns} style:grid-template-rows="{panels.rows} 1.6rem">
 	<!-- toolbar -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
-		<!-- only the tools that work in this view (Dave: the bar got too wide) -->
-		{#each TOOLS as t (t.id)}
-			{#if toolWorksIn(t.id, activeKind)}
-				<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title={t.id === 'select' ? 'Select (Esc)' : t.label} onclick={() => setTool(t.id)}>{t.label}</button>
-			{/if}
-		{/each}
+		<ToolStrip tool={ws.toolId} kind={activeKind} onTool={setTool} />
 		<ToolOptions {project} {ws} {level} kind={activeKind} />
-		{#if ws.confirm}
-			{@const q = ws.confirm}
-			<span class="ml-2 truncate text-xs text-amber-800">{q.msg}</span>
-			<!-- take apply BEFORE clearing: q is a {@const} of ws.confirm and reads null once it's cleared -->
-			<button class="ask yes" onclick={() => { const apply = q.apply; ws.confirm = null; apply() }}>{q.yes}</button>
-			{#if q.alt}{@const alt = q.alt}<button class="ask yes" onclick={() => { const apply = alt.apply; ws.confirm = null; apply() }}>{alt.label}</button>{/if}
-			<button class="ask" onclick={() => (ws.confirm = null)}>Cancel</button>
-		{:else if ws.prompt}
-			<label class="opt prompt">{ws.prompt.label} <input bind:this={promptInput} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={answer} /></label>
-		{:else if ws.message}
-			<span class="ml-2 truncate text-xs text-amber-700">{ws.message}</span>
-		{:else if HINT[ws.toolId]}
-			<span class="ml-2 truncate text-xs text-zinc-500">{ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId]}</span>
-		{/if}
-		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)">Undo</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)">Redo</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100 disabled:opacity-40" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back">Delete</button>
-		<button class="rounded px-2 py-0.5 hover:bg-zinc-100" onclick={() => canvas?.zoomExtents()} title="Zoom to fit (Home)">Fit</button>
-		<button class="rounded px-2 py-0.5 {panes.length === 2 ? 'bg-blue-100' : 'hover:bg-zinc-100'}" onclick={toggleSplit} title="Two views side by side (plan + elevation)">Split</button>
+		<span class="ml-auto"></span>
+		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
+		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
+		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
+		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
+		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation)"><Icon name="panels" size={15} /></button>
 		{#each [['left', 'panelLeft', 'the left panel (levels, sheets, racks, layers)'], ['bottom', 'panelBottom', 'the tables (outlets, patch list, sheets)'], ['right', 'sidebar', 'Properties']] as const as [side, icon, what] (side)}
-			<button class="rounded px-1 py-0.5 {panels.shown[side] ? 'text-zinc-600 hover:bg-zinc-100' : 'text-zinc-300 hover:bg-zinc-100'}" onclick={() => panels.toggle(side)} title="{panels.shown[side] ? 'Hide' : 'Show'} {what} — drag a panel's edge to resize it"><Icon name={icon} size={15} /></button>
+			<button class="ib {panels.shown[side] ? '' : 'dim'}" onclick={() => panels.toggle(side)} title="{panels.shown[side] ? 'Hide' : 'Show'} {what} — drag a panel's edge to resize it"><Icon name={icon} size={15} /></button>
 		{/each}
-		<span class="mx-2 h-5 w-px bg-zinc-200"></span>
+		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<ExportMenu {project} {ws} {level} {projectName} />
-		{#if notice}<span class="ml-1 text-xs text-emerald-700">{notice}</span>{/if}
-		<span class="ml-auto text-xs text-zinc-500">
+		<span class="saved text-xs text-zinc-500">
 			{#if project.error}<span class="text-red-600">{project.error}</span>
 			{:else if !project.loaded}Loading…
 			{:else if project.pendingWrites}Saving…{:else}Saved{/if}
@@ -434,6 +430,7 @@
 
 	<!-- plan -->
 	<main class="plan relative">
+		<AskBox {ws} />
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} />
 		{:else if level}
@@ -446,7 +443,7 @@
 					<div class="pane" style:flex={panes.length === 2 ? `${i === 0 ? panels.split : 1 - panels.split} 1 0` : undefined}>
 						<ViewCanvas bind:this={canvases[i]} {project} {ws} levelId={level.id} {spec}
 							other={panes.length === 2 ? panes[1 - i] : undefined} active={activePane === i}
-							onspec={(s) => setPane(i, s)} onfocus={() => (activePane = i)} />
+							onspec={(s) => setPane(i, s)} onfocus={() => (activePane = i)} nav={navOf(i)} />
 					</div>
 				{/each}
 			</div>
@@ -480,6 +477,8 @@
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
 	</section>
+
+	<StatusBar {ws} {hint} onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} />
 </div>
 
 <style>
@@ -505,7 +504,7 @@
 		display: grid;
 		height: calc(100vh - 3rem);
 		/* column / row sizes come from Panels (resizable, hideable) */
-		grid-template-areas: 'bar bar bar' 'levels plan props' 'levels grid props';
+		grid-template-areas: 'bar bar bar' 'levels plan props' 'levels grid props' 'status status status';
 	}
 	.bar { grid-area: bar; }
 	.levels { grid-area: levels; min-height: 0; }
@@ -528,14 +527,13 @@
 	.tab-body { flex: 1; min-width: 0; min-height: 0; }
 	/* one or two views side by side */
 	.panes { display: flex; height: 100%; background: var(--cad-line); }
+	.ib { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--cad-muted); }
+	.ib:hover:not(:disabled) { background: var(--cad-hover); color: var(--cad-text); }
+	.ib:disabled { opacity: 0.35; }
+	.ib.on { background: #dbeafe; color: #1d4ed8; }
+	.ib.dim { color: var(--cad-faint); }
+	.saved { margin-left: 8px; min-width: 3.5rem; text-align: right; }
 	.split-bar { flex: 0 0 5px; cursor: col-resize; background: var(--cad-line); touch-action: none; }
 	.split-bar:hover, .split-bar:active { background: #93c5fd; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
-	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--cad-muted); margin-left: 6px; }
-	.opt input { width: 4.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
-	.ask { margin-left: 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
-	.ask.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
-	.opt select.tpl { max-width: 13rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
-	.prompt { background: #fef3c7; padding: 1px 6px; border-radius: 4px; color: #78350f; }
-	.prompt input.wide { width: 9rem; font-family: ui-monospace, monospace; }
 </style>

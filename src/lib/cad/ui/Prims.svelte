@@ -94,7 +94,7 @@
 	text.tb-company { fill: #475569; }
 	.viewport { stroke: #2563eb; stroke-dasharray: 6 3; }
 	.viewport.filled { fill: none; }
-	.viewport.sel { stroke: #f97316; stroke-width: 2; }
+	.viewport.sel { stroke: #2563eb; stroke-width: 2; }
 	.viewport-hidden { stroke-opacity: 0.25; }
 	text.viewport-label { fill: #334155; }
 	.rack-rails { stroke: #64748b; stroke-width: 1.25; fill: none; }
@@ -125,11 +125,10 @@
 	/* handles (openings / sections): blue + white so they show on an orange selection */
 	.opening-pick { stroke: transparent; }
 	.grip-bar { stroke: #1d4ed8; stroke-width: 6; stroke-opacity: 0.35; stroke-linecap: butt; }
-	.grip-bar.grip-bar-sel { stroke: #ea580c; stroke-opacity: 0.8; }
-	.grip.grip-handle.filled { fill: #ffffff; stroke: #1d4ed8; stroke-width: 2; }
-	.grip.grip-round.filled { fill: #1d4ed8; stroke: #ffffff; stroke-width: 2; }
+	.grip-bar.grip-bar-sel { stroke: #2563eb; stroke-opacity: 0.8; }
+	/* a round grip sets a property (a door's swing, a section's depth) — the same look, round */
 	/* a picked node / segment of the selected run (Delete removes it; Properties: Disconnect) */
-	.grip.grip-sel.filled { fill: #2563eb; stroke: #ffffff; stroke-width: 2; }
+	.grip.grip-sel.filled { fill: #2563eb; stroke: #ffffff; stroke-width: 1.75; }
 	.seg-sel { stroke: #2563eb; stroke-width: 7; stroke-opacity: 0.45; stroke-linecap: round; fill: none; }
 	.section-extent { stroke: #0f766e; stroke-dasharray: 4 4; fill: rgba(15, 118, 110, 0.05); }
 	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }
@@ -183,12 +182,17 @@
 	text.draft-label { fill: #2563eb; }
 	/* the Device tool's drop ghost; red = it can't go there */
 	.draft-bad { stroke: #dc2626; opacity: 0.8; stroke-dasharray: 4 3; }
-	.grip { fill: #f59e0b; stroke: white; }
-	.logo-sel { stroke: #f59e0b; stroke-dasharray: 4 3; fill: none; }
+	/* GRIPS look like the Sheets tool's (Dave 2026-10-06): white, a blue edge; a picked one filled blue */
+	.grip.filled { fill: #ffffff; stroke: #2563eb; stroke-width: 1.75; }
+	.logo-sel { stroke: #2563eb; stroke-dasharray: 4 3; fill: none; }
+	/* what a click would take (UX06): a thin light-blue outline */
+	.hover { stroke: #60a5fa; stroke-width: 3; stroke-opacity: 0.8; fill: none; }
+	text.hover { fill: #2563eb; stroke: none; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
-	.sel { stroke: #f59e0b !important; }
+	/* ONE selection colour, blue (Dave: as the Sheets tool) — orange is high runs, amber the cord trace */
+	.sel { stroke: #2563eb !important; }
 	.opening-pick.sel { stroke: transparent !important; }   /* a selected wall's gaps stay open */
 	.band.sel { opacity: 0.9; }
-	text.sel { fill: #b45309; font-weight: 600; }
+	text.sel { fill: #1d4ed8; font-weight: 600; }
 	circle.sel, polygon.sel { stroke-width: 2.5; }
 </style>

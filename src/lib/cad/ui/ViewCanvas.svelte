@@ -8,7 +8,7 @@
 	import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
-	import type { Pt, RackRow } from '../domain/types'
+	import type { Pt } from '../domain/types'
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
@@ -27,16 +27,19 @@
 	import { similarTo } from '../domain/similar'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
-	import { spaceOf, specKey, specLabel, PLAN, type ViewSpec, type WorkPlane } from '../views/space'
+	import { spaceOf, specKey, specLabel, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, type Snap } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, MIN_K, type Camera } from '../editor/camera'
 	import TextEditBox from './TextEditBox.svelte'
+	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { fillTone, FILL_LIMIT_PCT } from '../domain/fill'
+	import { fillTone } from '../domain/fill'
 
-	let { project, ws, levelId, spec, other, active = true, onspec, onfocus }: {
+	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
 		project: CadProject; ws: Workspace; levelId: string; spec: ViewSpec
+		/** Back / forward through this pane's views (UX12). */
+		nav?: PaneNav
 		/** The other pane's view, when split — to show its work plane here. */
 		other?: ViewSpec
 		active?: boolean
@@ -47,8 +50,6 @@
 	const PLOT_SCALE = PLOT
 	/** Screen mm per CSS px (96 dpi): zoom 100% = the drawing at its printed size (1:100, or the paper itself). */
 	const PX_MM = 25.4 / 96
-	const FACES = ['front', 'rear'] as const
-	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 
 	let svg: SVGSVGElement | undefined = $state()
 	let w = $state(800), h = $state(600)
@@ -323,7 +324,8 @@
 			layerId: ws.layers.current && ws.layers.current !== 'sys:drawing' && (ws.layers.current.startsWith('sys:') || project.index.get(ws.layers.current)?.type === 'layer') ? ws.layers.current : null,
 			prims: () => layered.pick, tol: () => tol,
 			snap: (p, alt, skip, dragged) => {
-				const sn = spec.kind === 'plan' ? snapAt(project.index, levelId, p, tol * 1.5, { skip, noGrid: alt }) : snapToPrims(prims, p, tol * 1.5, { skip, noGrid: alt })
+				const d = ws.drafting, o = { skip, noGrid: alt || !d.snap, grid: d.grid, noObjects: !d.osnap }
+				const sn = spec.kind === 'plan' ? snapAt(project.index, levelId, p, tol * 1.5, o) : snapToPrims(prims, p, tol * 1.5, o)
 				// nodes being dragged snap onto the skipped runs' OTHER nodes too (dropped there, they join them); the dragged
 				// nodes themselves, and the midpoints of segments they move, would snap to the cursor
 				if (!dragged || !skip) return sn
@@ -343,6 +345,7 @@
 				}
 				return best
 			},
+			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(spec.kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
@@ -371,6 +374,8 @@
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
 	let cursor = $state<Pt | null>(null)
 	let toolDown = false
+	/** The tool's cursor for what's under the pointer (Select: crosshair on a grip, move on what moves). */
+	const cursorCss = $derived.by(() => { void tick; return ws.tool.cursorNow?.() ?? ws.tool.cursor })
 	/** Length · angle · Δ in the status bar while drawing a run / line (from its last point) or dragging (from where the
 	 *  drag started) — backlog "Length / angle readout" (Dave: in the status bar, not at the cursor). */
 	const readout = $derived.by(() => {
@@ -381,6 +386,31 @@
 		const deg = Math.round(((Math.atan2(-dy, dx) * 180) / Math.PI + 360) % 360 * 10) / 10   // anticlockwise from →, up the screen positive
 		const r = (v: number) => (spec.kind === 'sheet' ? Math.round(v * 10) / 10 : Math.round(v))
 		return `L ${r(Math.hypot(dx, dy))} · ∠ ${deg}° · ΔX ${r(dx)} · ${up ? 'ΔZ' : 'ΔY'} ${r(up ? -dy : dy)}`
+	})
+
+	// the status bar's readout (UX05): the active pane reports the cursor in its own terms (plan / sheet x, y with y down;
+	// elevations, sections and rack rows x, z up), the length · angle while drawing, the scale and the zoom
+	$effect(() => {
+		if (!active) return
+		const up = spec.kind === 'elevation' || spec.kind === 'section' || spec.kind === 'row'
+		ws.viewInfo = {
+			xy: cursor ? `X ${Math.round(cursor.x)} · ${up ? 'Z' : 'Y'} ${Math.round(up ? -cursor.y : cursor.y)}` : null,
+			readout, scale: spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`,
+			zoom: Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100), mmPerPx: Math.round(1 / cam.k),
+			...(spec.kind === 'elevation' ? { extra: `work depth ${Math.round(work.depth)}` } : {}),
+		}
+	})
+	/** The drawn grid (GRID, UX05): lines every grid step, coarsened ×10 until they're at least 8 px apart; every 5th
+	 *  darker. Model views only (a sheet's paper has its margins; a rack view its Us). */
+	const gridLines = $derived.by(() => {
+		const d = ws.drafting
+		if (!d.showGrid || spec.kind === 'sheet' || spec.kind === 'row' || !w || !h) return []
+		let step = Math.max(1, d.grid || 10)
+		while (step * cam.k < 8) step *= 10
+		const x0 = -cam.x / cam.k, y0 = -cam.y / cam.k, x1 = (w - cam.x) / cam.k, y1 = (h - cam.y) / cam.k, out: { a: Pt; b: Pt; major: boolean }[] = []
+		for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) out.push({ a: { x, y: y0 }, b: { x, y: y1 }, major: Math.round(x / step) % 5 === 0 })
+		for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) out.push({ a: { x: x0, y }, b: { x: x1, y }, major: Math.round(y / step) % 5 === 0 })
+		return out
 	})
 
 	function onDown(e: PointerEvent) {
@@ -480,10 +510,11 @@
 
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
-		style:cursor={panning?.moved ? 'grabbing' : ws.tool.cursor}
-		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}
+		style:cursor={panning?.moved ? 'grabbing' : cursorCss}
+		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
 		oncontextmenu={(e) => e.preventDefault()}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
+			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={traceHighlight} selected={new Set()} />
@@ -498,62 +529,9 @@
 			{/if}
 		</g>
 	</svg>
-	<div class="views">
-		{#each VIEWS as v (specKey(v))}
-			<button class:on={specKey(v) === specKey(spec)} onclick={() => { onfocus?.(); onspec(v) }}>{specLabel(v)}</button>
-		{/each}
-		{#if sections.length || section}
-			<span class="sep"></span>
-			<select class="secs" class:on={!!section} value={section?.id ?? ''} title="Sections on this level (draw one with the Section tool on the plan)"
-				onchange={(e) => { onfocus?.(); if (e.currentTarget.value) onspec({ kind: 'section', sectionId: e.currentTarget.value }) }}>
-				<option value="">Section…</option>
-				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
-			</select>
-		{/if}
-		{#if spec.kind !== 'sheet'}
-			<!-- this view as it is (centred where you're looking) onto a sheet: a new one, or one that's there -->
-			<select class="secs" value="" title="Put this view on a sheet, centred where you're looking, at a scale that fits" onchange={(e) => { onfocus?.(); toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
-				<option value="">To sheet…</option>
-				<option value="new">New sheet from this view</option>
-				{#each sheetsList as s (s.id)}<option value={s.id}>On {s.number} {s.title}</option>{/each}
-			</select>
-		{/if}
-		{#if spec.kind === 'riser'}
-			<span class="sep"></span>
-			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => { onfocus?.(); onspec({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) }) }}>Hide empty floors</button>
-		{/if}
-		{#if spec.kind === 'plan'}
-			<span class="sep"></span>
-			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
-		{/if}
-		{#if spec.kind === 'row'}
-			{@const row = spec}
-			<span class="sep"></span>
-			<span class="room">{project.index.nameOf(row.spaceId)}</span>
-			{#each FACES as f (f)}
-				<button class:on={row.face === f} onclick={() => { onfocus?.(); onspec({ ...row, face: f }) }}>Racks {f}</button>
-			{/each}
-			{@const rows = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === row.spaceId).sort((a, b) => a.order - b.order)}
-			{#if rows.length}
-				<select class="secs" class:on={!!row.rowId} title="Show one row of racks, or the whole room" value={row.rowId ?? ''} onchange={(e) => { onfocus?.(); const { rowId: _, ...rest } = row; onspec(e.currentTarget.value ? { ...rest, rowId: e.currentTarget.value } : rest) }}>
-					<option value="">All rows</option>
-					{#each rows as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
-				</select>
-			{/if}
-		{/if}
-		{#if sheet}
-			<span class="sep"></span>
-			<span class="room">{sheet.number} {sheet.title} · {sheet.paper.size} {sheet.paper.orientation}</span>
-		{/if}
-	</div>
+	<ViewStrip {project} {ws} {spec} {levelId} {sections} {section} {sheet} {sheetsList} {onspec} {onfocus} {toSheet} {nav} />
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
 	{#if ws.textEdit && active}{#key ws.textEdit}<TextEditBox {project} {ws} {space} {cam} {prims} />{/key}{/if}
-	<div class="scale">
-		<!-- the cursor in the view's own terms: plan / sheet x, y (y down); elevations, sections and rack rows x, z (up) -->
-		{#if readout}<b class="ro">{readout}</b> · {/if}
-		{#if cursor}{@const up = spec.kind === 'elevation' || spec.kind === 'section' || spec.kind === 'row'}X {Math.round(cursor.x)} · {up ? 'Z' : 'Y'} {Math.round(up ? -cursor.y : cursor.y)} · {/if}
-		{spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`} · zoom {Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100)}% · {Math.round(1 / cam.k)} mm/px{#if spec.kind === 'elevation'} · work depth {Math.round(work.depth)}{/if}
-	</div>
 </div>
 
 <style>
@@ -561,19 +539,9 @@
 	/* the drawing's words aren't page text: a double-click mustn't select them (it took the focus from the in-place edit box) */
 	.surface svg { user-select: none; -webkit-user-select: none; }
 	.surface.active { box-shadow: inset 0 0 0 1px #93c5fd; }
-	/* a strip over the top of the pane, above the drawing (Dave: rack labels showed through the buttons) */
-	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
-	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
-	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
-	.views .secs.on { background: #2563eb; border-color: #2563eb; color: white; }
-	/* the open list keeps plain options (they inherited the blue "on" look: every row looked picked) */
-	.views .secs option { background: white; color: #18181b; }
-	.views .sep { width: 1px; background: #d4d4d8; margin: 0 4px; }
-	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; align-self: center; }
 	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }
-	.scale { position: absolute; bottom: 4px; left: 8px; font-size: 10px; color: #a1a1aa; pointer-events: none; }
-	.scale .ro { font-weight: 600; color: #1d4ed8; }
+	.gridline { stroke: #e4e4e7; stroke-width: 0.5; }
+	.gridline.major { stroke: #d4d4d8; stroke-width: 0.8; }
 	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; }
 	.marquee.crossing { fill: rgba(16, 185, 129, 0.08); stroke: #10b981; stroke-dasharray: 4 3; }
 </style>

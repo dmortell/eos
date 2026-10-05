@@ -1084,3 +1084,35 @@ viewport on S003 came out 73 × 48 mm showing Elevation front, then undone. Not 
 - **UX01** waits for the windows (S2), as the screen direction says.
 
 Checks: 459 cad tests pass; svelte-check: none in cad.
+
+## UX remediation, Phase B: the shell (`../plan/ux-review.md`)
+
+- **B0 The split:** `SelectTool` moved to `editor/selectTool.ts` (`editor/tools.ts` 600 → 120 lines: the interfaces and
+  helpers); CadShell lost its tool options (`ui/ToolOptions.svelte`), tool buttons (`ui/ToolStrip.svelte`), prompt /
+  hint / question (`ui/StatusBar.svelte`, `ui/AskBox.svelte`); ViewCanvas lost its view strip (`ui/ViewStrip.svelte`)
+  and its corner readout.
+- **UX05 Status bar** under the panes: the prompt (a number, a name, a typed point; Enter / Esc) or the latest message
+  or the tool's hint; length · angle while drawing; X / Y (Z); **SNAP** (F9) with the grid step (1–1000 mm),
+  **OSNAP** (F3), **GRID** (F7, a line grid every step, ×10 coarser until lines are 8 px apart, every 5th darker; plans,
+  elevations, sections); scale · zoom; Fit. The switches are kept per browser (`ws.drafting`). The grid step now
+  drives every model snap and move (`ToolCtx.grid`; OSNAP off = `SnapOpts.noObjects`). Alt still skips snaps once.
+- **UX04 Questions over the drawing:** "Delete … ?" is a box at the top middle of the drawing, Enter = the first
+  answer, Esc = Cancel (`AskBox`). Esc also closes an open prompt. Live: delete-level on 4F asked there; Esc → nothing
+  deleted.
+- **UX06 Hover:** the Select tool shows what a click would take — a light-blue outline (a port: just its cell) — and
+  the cursor says what a press does: crosshair on a grip, move on what moves, pointer on the rest. Live: an outlet
+  outlined under the pointer, cursor "move".
+- **UX07 / Q5 One selection colour (Dave: as the Sheets tool):** selection blue `#2563eb` (was amber; orange is high
+  runs, amber the cord trace); every grip white with a blue edge, 8 px, a picked node filled blue; round grips
+  (swing, depth) the same look, round. Selected viewports blue.
+- **UX03 Tool strip (Dave: icons + groups):** icons (Pages' names) in fixed groups — Select / modify · Draw · Annotate
+  · Building · Cabling · Sheet; a tool that doesn't work here is greyed with "works in …" in its title, so nothing
+  moves. Undo / Redo / Delete / Split / panel switches became icons.
+- **UX12 (part) Views:** the strip over each pane has back / forward (‹ ›, Alt+← / Alt+→, per pane, a deleted sheet
+  skipped), a breadcrumb (1F · 1F › IDF1 · S001 New sheet; the level is a link back to its plan), and only the
+  buttons that fit the view (a rack view: Racks front / rear, rows; a sheet: its paper).
+
+Live check (Test Project): two racks deleted by test clicks (no devices, so no question) were undone at once; the
+project saved. No other writes.
+
+Checks: 459 cad tests pass; svelte-check: nothing in cad.

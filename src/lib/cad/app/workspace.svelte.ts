@@ -1,7 +1,8 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level, Outlet } from '../domain/types'
-import { SelectTool, type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { SelectTool } from '../editor/selectTool'
 import { OutletTool } from '../editor/outletTool'
 import type { PathSel } from '../editor/pathSel'
 import { RackTool } from '../editor/rackTool'
@@ -42,6 +43,14 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 }
 export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
+export interface Drafting { snap: boolean; grid: number; osnap: boolean; showGrid: boolean }
+export interface ViewInfo { xy: string | null; readout: string | null; scale: string; zoom: number; mmPerPx: number; extra?: string }
+const DRAFTING_KEY = 'cad-drafting'
+function loadDrafting(): Drafting {
+	const d: Drafting = { snap: true, grid: 10, osnap: true, showGrid: false }
+	try { return { ...d, ...JSON.parse(localStorage.getItem(DRAFTING_KEY) ?? '{}') } } catch { return d }
+}
+
 /** The tool-bar prompt: a number (rise to Z, riser level) or a typed point (text). `apply` gets the raw text. */
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
 
@@ -70,6 +79,12 @@ export class Workspace {
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
+	/** Drafting switches in the status bar (UX05): SNAP = moves / points to the grid (step `grid` mm), OSNAP = object
+	 *  snaps, GRID = the grid drawn. Kept per browser. Alt still skips the snaps for one action. */
+	drafting = $state<Drafting>(loadDrafting())
+	saveDrafting(): void { try { localStorage.setItem(DRAFTING_KEY, JSON.stringify(this.drafting)) } catch { /* storage blocked */ } }
+	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
+	viewInfo = $state.raw<ViewInfo | null>(null)
 	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a
 	 *  focus set after a view switch still fits (Find: set it after the new view is up, or the old view takes it). */
 	focus = $state<Id | null>(null)
