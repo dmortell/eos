@@ -133,7 +133,7 @@
 		<button class="btn" title="Delete key: {picked.nodes.length ? 'the node goes, its two segments join' : 'just these segments (the run may split)'}" onclick={delPicked}>Delete</button>
 	</div>
 {/if}
-<label class="row">Is a
+<label class="row">Kind
 	<select class="inp" value={kind} onchange={(e) => convert(e.currentTarget.value as Kind)}>
 		<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option>
 		<option value="conduit">Conduit</option><option value="tray">Tray</option>

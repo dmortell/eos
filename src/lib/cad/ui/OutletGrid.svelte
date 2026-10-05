@@ -3,6 +3,7 @@
      (the port labels that start with the old outlet label). -->
 <script lang="ts">
 	import { sortedUsages } from '../domain/usages'
+	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet } from '../domain/types'
@@ -20,6 +21,12 @@
 	const rows = $derived(unassigned ? all.filter((o) => o.ports.some((p) => !project.index.linkAt({ on: o.id, port: p.port }))) : all)
 	const usages = $derived(sortedUsages(project.settings))
 	const selected = $derived(new Set(ws.selection))
+	// an outlet picked on the plan scrolls its row into view (UX10; as the patch list does) — only a new pick scrolls
+	const rowEls: Record<string, HTMLTableRowElement> = {}
+	$effect(() => {
+		const want = selected
+		untrack(() => { const id = rows.find((r) => want.has(r.id))?.id; if (id) rowEls[id]?.scrollIntoView({ block: 'nearest' }) })
+	})
 	const roomName = (id?: string) => (id ? project.index.nameOf(id) : '')
 
 	function edit(o: Outlet, label: string, patch: Partial<Outlet>) {
@@ -129,7 +136,7 @@
 		<span class="font-semibold text-zinc-600">Outlets</span>
 		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
-		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack elevation. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
+		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
 		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
 		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
 		<label class="fmt" title="How port labels follow the outlet label (new outlets; existing ones can be relabelled)">Port labels
@@ -154,7 +161,7 @@
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />

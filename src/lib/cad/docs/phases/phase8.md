@@ -1061,3 +1061,26 @@ viewport on S003 came out 73 × 48 mm showing Elevation front, then undone. Not 
   only then its bottom-edge grip shows, as an amber resize grip; a press anywhere else drops it
   (`logoBoxes` / `logoAt` / `logoHandles(…, key)` in `editor/logoHandles.ts`). Live (S001): clicking the title block
   showed no grip; clicking the logo showed the outline and one amber grip.
+
+## UX remediation, Phase A: quick fixes (Dave 2026-10-06: "implement as much as you can in all phases", `../plan/ux-review.md`)
+
+- **UX09 The selection follows the view:** showing another view in a pane lets go of whatever neither pane draws
+  (`setPane` in CadShell asks each canvas `draws(id)` after the switch). Live: a sheet selected, then Plan → Properties
+  "Nothing selected".
+- **UX13 Fit means the content:** Fit / Home and the first fit leave out the datum lines (`contentBounds` in
+  ViewCanvas); a restored camera that shows none of the content fits once instead. Live: the IDF rack view opened with
+  every rack on screen.
+- **UX10 Lists follow the canvas:**
+  - the outlet grid scrolls to the selected outlet (as the patch list does);
+  - the open level's row is outlined, not filled, while a sheet or the riser view is open ("not showing");
+  - the bottom panel follows the view kind — sheet → Sheets, rack view → Patch list, else Outlets — and a tab you pick
+    in a kind of view is kept for that kind. Live: plan → Outlets, S001 → Sheets, rack view → Patch list; Links picked
+    on S001 came back on S001.
+- **UX24 Words:** Racks list "Elevation" → "Rack view"; the Block tool button → "Insert"; "Dim" → "Dimension"; "Is a"
+  → "Kind"; "rack elevation" → "rack view" in hints and titles.
+- **UX20 Location presets in the tool options:** Trunk / Conduit options have the level's Locations (under floor,
+  ceiling plenum, below ceiling, on wall) beside Z, as Properties does. The tool options moved out of CadShell into
+  `ui/ToolOptions.svelte` (the first part of the shell split).
+- **UX01** waits for the windows (S2), as the screen direction says.
+
+Checks: 459 cad tests pass; svelte-check: none in cad.

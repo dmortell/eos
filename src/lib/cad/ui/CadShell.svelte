@@ -1,8 +1,7 @@
 <!-- The cad workspace for one project: levels on the left, the plan in the middle, Properties on the right, the
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
-	import { sortedCableTypes } from '../domain/cableTypes'
-	import { onDestroy, untrack } from 'svelte'
+	import { onDestroy, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState } from '$app/navigation'
 	import { readViewState, writeViewState } from '../app/urlState'
@@ -29,7 +28,6 @@
 	import CableList from './CableList.svelte'
 	import SectionList from './SectionList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
-	import ColorPick from './ColorPick.svelte'
 	import { reorderShapes } from '../domain/shapes'
 	import { labelKind } from '../domain/labelEdit'
 	import LinksTable from './LinksTable.svelte'
@@ -39,9 +37,7 @@
 	import { Icon } from '$lib'
 	import { clipboardEvents } from '../app/clipboardEvents'
 	import ExportMenu from './ExportMenu.svelte'
-	import OutletOptions from './OutletOptions.svelte'
-	import ShapeOptions from './ShapeOptions.svelte'
-	import DimOptions from './DimOptions.svelte'
+	import ToolOptions from './ToolOptions.svelte'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -88,7 +84,16 @@
 		if (panes.length === 2) { panes = [panes[activePane]]; activePane = 0 }
 		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
 	}
-	function setPane(i: number, s: ViewSpec) { canvases[i]?.cancel(); panes[i] = s }
+	/** Show a view in a pane. The selection follows (UX09): what neither pane draws any more is let go, so Properties
+	 *  always describes something you can see. */
+	function setPane(i: number, s: ViewSpec) {
+		canvases[i]?.cancel()
+		panes[i] = s
+		void tick().then(() => {
+			const keep = ws.selection.filter((id) => canvases.some((c) => c?.draws(id)))
+			if (keep.length !== ws.selection.length) ws.select(keep)
+		})
+	}
 	/** A pane showing a sheet (or section) that was deleted goes back to the plan. */
 	$effect(() => {
 		void project.rev
@@ -125,6 +130,8 @@
 	const openSheet = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** The kind of view in the active pane — which tools can be used (TOOL_VIEWS). */
 	const activeKind = $derived(panes[activePane]?.kind ?? 'plan')
+	/** The open level is what the active pane shows (a sheet or the riser view isn't one level's). */
+	const levelShown = $derived(activeKind !== 'sheet' && activeKind !== 'riser')
 	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
 	 *  looked at. Snapshots: the store freezes what it's given, and a $state proxy can't be frozen. */
 	let lastModel: Exclude<ViewSpec, { kind: 'sheet' }> | null = null
@@ -177,12 +184,11 @@
 
 	// no single-letter keys for tools (Dave, 2026-10-04: a stray key switched tools by mistake); Esc goes back to Select
 	const TOOLS: { id: ToolId; label: string }[] = [
-		{ id: 'select', label: 'Select' }, { id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }, { id: 'insert', label: 'Block' }, { id: 'shape', label: 'Shape' }, { id: 'box', label: 'Box' }, { id: 'legend', label: 'Legend' }, { id: 'viewport', label: 'Viewport' }, { id: 'dimension', label: 'Dim' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
+		{ id: 'select', label: 'Select' }, { id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }, { id: 'insert', label: 'Insert' }, { id: 'shape', label: 'Shape' }, { id: 'box', label: 'Box' }, { id: 'legend', label: 'Legend' }, { id: 'viewport', label: 'Viewport' }, { id: 'dimension', label: 'Dimension' }, { id: 'outlet', label: 'Outlet' }, { id: 'line', label: 'Line' }, { id: 'trunk', label: 'Trunk' },
 		{ id: 'conduit', label: 'Conduit' }, { id: 'wall', label: 'Wall' }, { id: 'opening', label: 'Opening' }, { id: 'section', label: 'Section' },
 		{ id: 'rack', label: 'Rack' }, { id: 'device', label: 'Device' }, { id: 'cord', label: 'Cord' }, { id: 'renumber', label: 'Renumber' },
 		{ id: 'text', label: 'Text' }, { id: 'leader', label: 'Leader' }, { id: 'cloud', label: 'Cloud' },
 	]
-	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 	const HINT: Partial<Record<ToolId, string>> = {
 		insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 		move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
@@ -201,9 +207,9 @@
 		section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
 		opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 		rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
-		device: 'In a rack elevation (Racks list → Elevation): click a rack at the U for the device · drag devices with Select to move them',
-		assign: 'Click a panel port in a rack elevation — the chosen outlets go on from there (pinned) · Esc cancels',
-		cord: 'In a rack elevation: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
+		device: 'In a rack view (Racks list → Rack view): click a rack at the U for the device · drag devices with Select to move them',
+		assign: 'Click a panel port in a rack view — the chosen outlets go on from there (pinned) · Esc cancels',
+		cord: 'In a rack view: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
 		renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
 		text: 'Click where the text goes and type over "Text" · click a text to edit it · Enter saves, Shift+Enter = new line',
 		leader: 'Press at the tip and drag to where the words go (a callout) — or click the tip, then bends, Enter ends · then type its words on the drawing · border in Properties · Backspace undoes a point',
@@ -213,7 +219,14 @@
 
 	let notice = $state<string | null>(null)
 
-	let bottom = $state<'outlets' | 'patch' | 'sheets' | 'links'>('outlets')
+	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
+	let bottom = $state<BottomTab>('outlets')
+	/** The bottom panel follows the view (UX10): sheet → Sheets, rack view → Patch list, else Outlets — unless you picked
+	 *  a tab yourself in that kind of view (remembered per kind for the session). */
+	const bottomPicked: Partial<Record<ViewSpec['kind'], BottomTab>> = {}
+	const BOTTOM_FOR: Partial<Record<ViewSpec['kind'], BottomTab>> = { sheet: 'sheets', row: 'patch' }
+	$effect(() => { const k = activeKind; untrack(() => (bottom = bottomPicked[k] ?? BOTTOM_FOR[k] ?? 'outlets')) })
+	function pickBottom(t: BottomTab) { bottom = t; bottomPicked[activeKind] = t }
 	let floorsOpen = $state(false)
 	let typesOpen = $state(false)
 
@@ -361,59 +374,7 @@
 				<button class="rounded px-2 py-0.5 {ws.toolId === t.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100'}" title={t.id === 'select' ? 'Select (Esc)' : t.label} onclick={() => setTool(t.id)}>{t.label}</button>
 			{/if}
 		{/each}
-		{#if DRAWS.has(ws.toolId)}
-			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-			{#if panes[activePane]?.kind === 'elevation'}
-				<label class="opt" title="Where clicks land in the elevation: distance along the view direction (blank = the middle of the floor)">Depth
-					<input type="number" value={ws.depth ?? ''} placeholder="auto" onchange={(e) => (ws.depth = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} /></label>
-			{/if}
-			{#if ws.toolId !== 'line'}
-				<label class="opt">Z <input type="number" bind:value={ws.opts.z} /></label>
-				<label class="opt">{ws.toolId === 'conduit' ? 'Ø' : ws.toolId === 'wall' ? 'Thick' : 'W'} <input type="number" bind:value={ws.opts.w} /></label>
-				{#if ws.toolId !== 'conduit'}<label class="opt">{ws.toolId === 'wall' ? 'Height' : 'H'} <input type="number" bind:value={ws.opts.h} /></label>{/if}
-			{/if}
-		{/if}
-		{#if ws.toolId === 'outlet'}<OutletOptions {project} {ws} />{/if}
-		{#if ws.toolId === 'shape'}<ShapeOptions {ws} />{/if}
-		{#if ws.toolId === 'box'}<ShapeOptions {ws} box />{/if}
-		{#if ws.toolId === 'dimension'}<DimOptions {ws} />{/if}
-		{#if ws.toolId === 'opening'}
-			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-			<label class="opt" title="Width (mm)">W <input type="number" bind:value={ws.opts.w} /></label>
-			<label class="opt" title="Bottom of the hole above FFL (mm)">Z <input type="number" bind:value={ws.opts.z} /></label>
-			<label class="opt" title="Height of the hole (mm)">H <input type="number" bind:value={ws.opts.h} /></label>
-			<label class="opt">Swing
-				<select class="tpl" value={ws.openingSwing ?? ''} onchange={(e) => (ws.openingSwing = (e.currentTarget.value || undefined) as 'left' | 'right' | undefined)}>
-					<option value="">none</option><option value="left">left</option><option value="right">right</option>
-				</select></label>
-		{/if}
-		{#if ws.toolId === 'insert'}
-			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-			<span class="text-xs {ws.insertBlock ? '' : 'text-amber-700'}">{ws.insertBlock ? `Block: ${ws.insertBlock.name}` : 'Pick a block in the Blocks list (left)'}</span>
-		{/if}
-		{#if ws.toolId === 'device'}
-			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-			<label class="opt">Template
-				<select class="tpl" value={ws.deviceTemplate?.id ?? ''} onchange={(e) => (ws.deviceTemplate = project.deviceTemplates.find((t) => t.id === e.currentTarget.value) ?? null)}>
-					{#each project.deviceTemplates as t (t.id)}<option value={t.id}>{t.name}{t.builtin ? '' : ' ★'}</option>{/each}
-				</select></label>
-			{#if ws.deviceTemplate?.face === 'both'}
-				<label class="opt" title="Fix a front-and-rear device (a panel) to one side only, so it can share its U with a device on the other side">Mount
-					<select class="tpl" value={ws.deviceMount ?? ''} onchange={(e) => (ws.deviceMount = (e.currentTarget.value || undefined) as 'front' | 'rear' | undefined)}>
-						<option value="">full depth</option><option value="front">front</option><option value="rear">rear</option>
-					</select></label>
-			{/if}
-		{/if}
-		{#if ws.toolId === 'cord'}
-			<span class="mx-2 h-5 w-px bg-zinc-200"></span>
-			<label class="opt">Type
-				<select class="tpl" bind:value={ws.cordDefaults.cableType}>
-					{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
-					{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
-				</select></label>
-			{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>{/if}
-			{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Interconnect ${ws.bulkFrom.ports.length} port(s) from ${project.index.nameOf(ws.bulkFrom.on)} — open the other room's rack elevation (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
-		{/if}
+		<ToolOptions {project} {ws} {level} kind={activeKind} />
 		{#if ws.confirm}
 			{@const q = ws.confirm}
 			<span class="ml-2 truncate text-xs text-amber-800">{q.msg}</span>
@@ -453,7 +414,7 @@
 		<SideSection key="levels" title="Levels" first>
 			{#snippet actions()}<button title="The building's floors, their names and heights" onclick={() => (floorsOpen = true)}>Floors…</button><button title="The project's outlet usages and cable types" onclick={() => (typesOpen = true)}>Settings…</button>{/snippet}
 			{#each project.levels as l (l.id)}
-				<div class="lvl flex items-center rounded {ws.levelId === l.id ? 'on' : 'hover:bg-zinc-100'}">
+				<div class="lvl flex items-center rounded {ws.levelId === l.id ? (levelShown ? 'on' : 'on dim') : 'hover:bg-zinc-100'}" title={ws.levelId === l.id && !levelShown ? 'The open level — not showing now: a sheet or the riser view is open' : undefined}>
 					<button class="flex flex-1 justify-between px-2 py-0.5 text-left" title={l.area ? `A separate plan of floor ${l.number} (area ${l.area})` : ''}
 						onclick={() => openLevel(l.id)}>
 						<span>{l.name}</span><span class="text-xs text-zinc-400">{counts.get(l.id) ?? ''}</span>
@@ -507,10 +468,10 @@
 	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!panels.shown.bottom}>
 		<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
 		<div class="tabs">
-			<button class:on={bottom === 'outlets'} onclick={() => (bottom = 'outlets')}>Outlets</button>
-			<button class:on={bottom === 'patch'} onclick={() => (bottom = 'patch')}>Patch list</button>
-			<button class:on={bottom === 'sheets'} onclick={() => (bottom = 'sheets')}>Sheets</button>
-			<button class:on={bottom === 'links'} onclick={() => (bottom = 'links')}>Links</button>
+			<button class:on={bottom === 'outlets'} onclick={() => pickBottom('outlets')}>Outlets</button>
+			<button class:on={bottom === 'patch'} onclick={() => pickBottom('patch')}>Patch list</button>
+			<button class:on={bottom === 'sheets'} onclick={() => pickBottom('sheets')}>Sheets</button>
+			<button class:on={bottom === 'links'} onclick={() => pickBottom('links')}>Links</button>
 		</div>
 		<div class="tab-body">
 			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} roomId={patchRoom} />
@@ -557,6 +518,7 @@
 	.levels :global(table), .props :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
 	.lvl.on { background: var(--cad-sel); }
+	.lvl.on.dim { background: none; box-shadow: inset 0 0 0 1px var(--cad-sel); color: var(--cad-muted); }
 	.lvl .act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
 	.lvl:hover .act { visibility: visible; }
 	.lvl .act:hover { color: #dc2626; }

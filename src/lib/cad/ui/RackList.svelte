@@ -91,7 +91,7 @@
 					<option value="labels">Export panel labels (Excel)…</option>
 					<option value="pdf">Print panels with labels (PDF)…</option>
 				</select>
-				{#if onview}<button class="place" title="Open this room's racks as an elevation (front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Elevation</button>{/if}
+				{#if onview}<button class="place" title="Open this room's rack view (its racks front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Rack view</button>{/if}
 			</span>
 		</div>
 		{#each g.racks as r (r.id)}

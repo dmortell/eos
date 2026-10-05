@@ -171,6 +171,8 @@
 	/** Each view (level + plan / elevation / rack row) keeps its own pan and zoom: switching away and back restores it. */
 	const cams = new Map<string, { cam: Camera; fitted: string | null }>()
 	let hiddenUntilFit = $state(false)
+	/** Views whose restored camera has been checked for showing the content (once per view per session). */
+	const checkedRestore = new Set<string>()
 	let viewKey = ''
 
 	// Cameras survive a refresh (Dave): every view's pan / zoom is kept in localStorage per project. A restored view is
@@ -222,8 +224,15 @@
 			// asked to show one thing (a `?rack=` link): fit to it instead, once it's drawn here
 			const want = ws.focus, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
 			if (fb) { cam = fit(fb, w, h); fittedFor = RESTORED; ws.focus = null; return }   // RESTORED: no re-fit over it
-			if (fittedFor === key || fittedFor === RESTORED || !ps.length || !w || !h) return
-			const b = unionBounds(ps.map(primBounds))
+			if (!ps.length || !w || !h) return
+			const b = contentBounds(ps)
+			// a restored camera that shows none of the content (UX13: a rack view opened cut off) fits once instead
+			if (fittedFor === RESTORED && b && !checkedRestore.has(vk)) {
+				checkedRestore.add(vk)
+				const v = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (w - cam.x) / cam.k, y1: (h - cam.y) / cam.k }
+				if (v.x1 < b.x0 || v.x0 > b.x1 || v.y1 < b.y0 || v.y0 > b.y1) { cam = fit(b, w, h); return }
+			}
+			if (fittedFor === key || fittedFor === RESTORED) return
 			if (b) { cam = fit(b, w, h); fittedFor = key }
 		})
 	})
@@ -257,8 +266,18 @@
 	}
 
 	export function zoomExtents(): void {
-		const b = unionBounds(prims.map(primBounds))
+		const b = contentBounds(prims)
 		if (b) cam = fit(b, w, h)
+	}
+	/** What Fit fits (UX13): the content, not the storey datum lines — a rack view / elevation shrank to fit the slab,
+	 *  ceiling and SSL lines drawn wide either side. */
+	function contentBounds(ps: Prim[]): Bounds | undefined {
+		const core = ps.filter((p) => p.k === 'image' || !p.cls.startsWith('datum'))
+		return unionBounds((core.length ? core : ps).map(primBounds))
+	}
+	/** Does this view draw `id`? (The selection follows the view, UX09.) */
+	export function draws(id: string): boolean {
+		return id === (spec.kind === 'sheet' ? spec.sheetId : '') || layered.pick.some((p) => p.src === id)
 	}
 
 	/** Where a paste goes (domain/clipboard): a plan takes plan items, a sheet notes, a rack row devices (into the rack

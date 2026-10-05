@@ -103,7 +103,7 @@
 					<td class="px-2 text-zinc-600">{r.notes}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack elevation'}.</td></tr>
+				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
 			{/each}
 		</tbody>
 	</table>
