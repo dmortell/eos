@@ -770,6 +770,37 @@ Dave is right, and the cause is in the colours:
 
   **P2 · M**
 
+- [ ] **L4 The Navigator's row buttons are invisible until you hover** (Dave: "the hidden buttons beside project name
+  in tree are hard to spot").
+  - **What's hidden:** every row action is `visibility: hidden` and appears only while the mouse is over its row
+    (`ui/Navigator.svelte:149-151`):
+    - **Floors…** and **Settings…** on the project row;
+    - **+ New** and **PDF all** on the Sheets row;
+    - **✎ rename** and **✕ delete** on levels and server rooms.
+
+    Nothing hints that they exist, so you only find them by chance. Hover-only also means they can't be found on
+    touch. The first review's S3 asked for "a ⋮ menu on each row, plus the main menu"; only the menu part was done
+    (Project → Floors… / Settings…, Sheets → New sheet). PDF all and rename / delete level / room aren't in any menu.
+  - **Suggest:**
+    1. **Show the commands that matter on every visit.** + New (the Sheets row) is drawn always, in the muted colour,
+       and turns blue on hover. Project-wide ones (Floors…, Settings…) leave the tree: they're in the Project menu
+       already. One rarely-used button doesn't need to sit in the tree at all.
+    2. **A ⋮ button on every row with commands**, always drawn faint (not hidden), stronger on hover. It opens that
+       row's menu:
+       - level: Open plan · Rename · Delete;
+       - room: Open rack view · Rename · Delete · + Rack;
+       - sheet: Open · Rename / renumber · PDF · Archive;
+       - Sheets: New sheet · PDF all.
+    3. **The same menu on right-click** of a row (the canvas's context menu style), and **F2 renames** the selected
+       row.
+    4. **Delete stays out of the row itself** (it lives in the ⋮ menu), so an ✕ that appears under the pointer can't be
+       clicked by mistake.
+    5. **The menu bar gets the missing ones:**
+       - Sheets → PDF all;
+       - Project → Rename level… / Delete level… for the open level.
+
+  **P2 · S**
+
 ### Drawing tabs (Dave: "would drawing tabs work in cad, like we have in Pages?")
 
 **Yes, and cad is better placed for them than Pages was.** In cad a "drawing" is already a small value: a level plus
@@ -913,7 +944,7 @@ sideways and two rows of bars above the data. **Suggest:**
 ### Suggested order
 
 1. **Seeing and space (S each, about a day):** V1 halo + V2 row style · L1 defaults · T1 tables closed / foldable ·
-   R1 right-click menu · R4 patch-list room.
+   R1 right-click menu · R4 patch-list room · L4 Navigator row menus (⋮, right-click, F2).
 2. **D1 drawing tabs** (+ D2).
 3. **Tables:** T2 title bar + maximise · T4 settings out · T6 scope · T5 sort / filter · T3 full width / floating.
 4. **The rest:** V3 · R2 cameras · R3 spinner · L2 · L3 · outlet Properties groups · T7.

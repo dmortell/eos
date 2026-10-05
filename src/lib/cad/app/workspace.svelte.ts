@@ -104,6 +104,8 @@ export class Workspace {
 	openTitleBlock: () => void = () => {}
 	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
 	selectSimilar: () => void = () => {}
+	/** Set by the app: open a view in its own tab (the viewport chip's "Open view"). */
+	openInTab: (v: { levelId?: Id; spec: ViewSpec }) => void = () => {}
 	/** Set by the app: show a view in the active pane (a section's Open button). */
 	openView: (s: ViewSpec) => void = () => {}
 	/** Set by the app (it owns the store): how the assign tool writes. */

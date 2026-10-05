@@ -2,6 +2,8 @@
 // Built from what the shell can do (`MenuCtx`), so the menus never hold state of their own; each item shows its key.
 import type { ToolId } from '../app/workspace.svelte'
 import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
+import type { Entity } from '../domain/drawing'
+import { labelKind } from '../domain/labelEdit'
 
 export type MenuItem = { label: string; key?: string; checked?: boolean; disabled?: boolean; title?: string; run: () => void } | '-'
 export interface Menu { label: string; items: MenuItem[] }
@@ -128,5 +130,45 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Help', key: 'F1', run: () => c.help() },
 			{ label: 'Keys and mouse', key: '?', run: () => c.help(true) },
 		] },
+	]
+}
+
+/** The right-click menu on the selection (UX21): its commands, with their keys. */
+export function selectionMenu(sel: (Entity | undefined)[], c: {
+	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void
+	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
+}): MenuItem[] {
+	const shapes = sel.filter((e) => e?.type === 'shape'), one = sel.length === 1 ? sel[0] : undefined
+	return [
+		...(one && labelKind(one) ? [{ label: 'Edit label', key: 'F2', run: () => c.editLabel(one.id) } as MenuItem, '-' as const] : []),
+		{ label: 'Cut', key: 'Ctrl+X', run: () => document.execCommand('cut') },
+		{ label: 'Copy', key: 'Ctrl+C', run: () => document.execCommand('copy') },
+		{ label: 'Delete', key: 'Delete', run: c.remove },
+		'-',
+		{ label: 'Select similar', run: c.similar },
+		...(shapes.length ? ['-' as const,
+			...(shapes.length >= 2 ? [{ label: 'Group', key: 'Ctrl+G', run: () => c.group(false) } as MenuItem] : []),
+			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: 'Ctrl+Shift+G', run: () => c.group(true) } as MenuItem] : []),
+			{ label: 'Bring to front', key: 'Ctrl+Shift+]', run: () => c.order('front') } as MenuItem,
+			{ label: 'Send to back', key: 'Ctrl+Shift+[', run: () => c.order('back') } as MenuItem] : []),
+		'-',
+		{ label: 'Properties', run: c.properties },
+	]
+}
+
+/** The tab menu (a right-click on a drawing tab, UX review D1). */
+export function tabMenuOf(id: string, c: {
+	preview: boolean; isSheet: boolean; split: boolean
+	keep(id: string): void; close(id: string): void; closeOthers(id: string): void; closeRight(id: string): void
+	otherPane(id: string): void; toSheet(id: string): void
+}): MenuItem[] {
+	return [
+		...(c.preview ? [{ label: 'Keep it open', run: () => c.keep(id) } as MenuItem] : []),
+		{ label: 'Close', key: 'Alt+W', run: () => c.close(id) },
+		{ label: 'Close others', run: () => c.closeOthers(id) },
+		{ label: 'Close to the right', run: () => c.closeRight(id) },
+		...(c.split ? [{ label: 'Open in the other pane', run: () => c.otherPane(id) } as MenuItem] : []),
+		'-',
+		{ label: 'Put this view on a sheet', disabled: c.isSheet, run: () => c.toSheet(id) },
 	]
 }

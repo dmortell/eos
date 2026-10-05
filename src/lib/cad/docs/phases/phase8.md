@@ -1268,3 +1268,30 @@ Checks: 467 cad tests pass; svelte-check: nothing in cad.
 - **Delete / rename a server room** (Dave: "how to delete unused items in levels tree, like SER-B?"): the Navigator's
   room rows have ✎ and ✕ on hover. A room goes with its rows and racks (and their devices, links, cords); it asks
   first when racks go too or outlet ports name it as their server room, and an empty room just goes. In Help.
+
+## Second UX review, group 2: drawing tabs (D1, D2)
+
+- **Drawing tabs** (`app/tabs.svelte.ts`, `ui/TabStrip.svelte`; Dave: shared by both panes, with a preview tab):
+  - One strip over the drawing; each tab is a level + a view (plan, elevation, section, rack room, riser, sheet).
+    A click shows it in the active pane; in Split the shown tabs are marked 1 / 2.
+  - A single click in the Navigator (or Enter in its search) opens the view in the **preview** tab (italic), which the
+    next single click reuses; a double-click (Ctrl+Enter), a double-click on the tab, or an edit made in it keeps it.
+    A view that's already open just selects its tab. New sheets open in a kept tab.
+  - Back / Forward (‹ › and Alt+← / →) now move inside the tab (each tab has its own history; the per-pane history is
+    gone). The pane strip's view buttons change the current tab's view.
+  - × on hover, a middle-click or **Alt+W** closes (Ctrl+W / Ctrl+Tab belong to the browser); Alt+PgUp / PgDn the
+    previous / next tab; Alt+1…9 a tab by position. A right-click: Keep it open, Close, Close others, Close to the
+    right, Open in the other pane, Put this view on a sheet. ⌄ lists every tab.
+  - Kept per project in this browser; a deleted sheet's / section's tabs close.
+  - The viewport chip has **Open view**: the viewport's model view in its own tab.
+- **D2** The Navigator marks rows that have an open tab (a dot).
+- Fixes: View menu's Back / Forward read the old per-pane history (`hist is not defined`, Dave); svelte-check's
+  "used before its declaration" errors in CadShell / ViewCanvas (my svelte-check filter had been missing cad's
+  double-backslash paths — fixed; checks below are with the right filter). The right-click / tab menus moved to
+  `ui/cadMenus.ts` (CadShell 596 → 574 lines).
+
+Live (Test Project): Front elevation → preview tab; Rear elevation reused it; double-click kept it; Plan selected its
+existing tab; Navigator dots on the open views; × closed the rear tab.
+
+Checks: 471 cad tests pass (new: `app/tabs.test.ts`); svelte-check: 10 errors (the baseline, none in cad), no cad
+warnings.

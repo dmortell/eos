@@ -71,6 +71,13 @@
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
 	/** What the tools work in: the edited viewport's view, else this pane's. */
 	const toolKind = $derived(vpe ? vpe.vp.view.spec.kind : spec.kind)
+	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
+	const centre = $derived.by((): Pt => {
+		const b = unionBounds(planDisplayList(project.index, levelId, { scale: PLOT_SCALE }).map(primBounds))
+		return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }
+	})
+	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
+	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
 	const raw = $derived(spec.kind === 'plan'
 		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
 		: spec.kind === 'row'
@@ -97,13 +104,6 @@
 		return [{ ...frame, cls: 'viewport sel', src: undefined }, ...grips]
 	})
 
-	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
-	const centre = $derived.by((): Pt => {
-		const b = unionBounds(planDisplayList(project.index, levelId, { scale: PLOT_SCALE }).map(primBounds))
-		return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }
-	})
-	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
-	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
 
 	/** Overlays over the drawing (views/overlays.ts): selected ports, a cord's circuit, fill bands, routes, the other
 	 *  pane's work plane. */

@@ -20,7 +20,6 @@
 	import BlockManager from './BlockManager.svelte'
 	import CableList from './CableList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
-	import { labelKind } from '../domain/labelEdit'
 	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -29,13 +28,16 @@
 	import ToolOptions from './ToolOptions.svelte'
 	import Exports from './Exports.svelte'
 	import TablesPanel from './TablesPanel.svelte'
+	import TabStrip from './TabStrip.svelte'
+	import { Tabs, viewKey as viewKeyOf, type TabView } from '../app/tabs.svelte'
 	import Navigator from './Navigator.svelte'
 	import type { NavNode } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import TitleBlockDialog from './TitleBlockDialog.svelte'
-	import { buildMenus, type MenuItem } from './cadMenus'
+	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
+	import { labelKind } from '../domain/labelEdit'
 	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
 	import { blankSheet } from '../views/sheet'
@@ -66,6 +68,7 @@
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
+	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, structuredClone(v.spec), 'keep') }
 	ws.remove = () => deleteSelected()
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
@@ -77,6 +80,11 @@
 	/** One or two panes side by side, each a plan or an elevation of the open level; the active one takes keys. */
 	let panes = $state<ViewSpec[]>(fromUrl.panes ?? [PLAN])
 	let activePane = $state(fromUrl.active ?? 0)
+	/** The drawing tabs (UX review D1): one list for both panes; each pane shows one. */
+	// svelte-ignore state_referenced_locally
+	const tabs = new Tabs(pid)
+	// svelte-ignore state_referenced_locally
+	panes.forEach((v, i) => tabs.ensure(i, { levelId: ws.levelId ?? undefined, spec: v }))
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
@@ -101,28 +109,19 @@
 	}
 	/** Show a view in a pane. The selection follows (UX09): what neither pane draws any more is let go, so Properties
 	 *  always describes something you can see. */
-	function setPane(i: number, s: ViewSpec, how: 'go' | 'nav' = 'go') {
+	/** `how`: 'go' = the pane's tab changes view (its old view goes on the tab's Back list); 'open' / 'keep' = the
+	 *  Navigator / a link: the view's tab, else the preview tab (keep: a kept tab); 'nav' / 'show' = the tab is set. */
+	function setPane(i: number, s: ViewSpec, how: 'go' | 'nav' | 'open' | 'keep' | 'show' = 'go') {
 		canvases[i]?.cancel()
 		ws.vpEdit = null   // another view: no longer editing inside a viewport
-		const from = panes[i]
-		if (how === 'go' && from && specKey(from) !== specKey(s)) { hist[i].back = [...hist[i].back.slice(-49), $state.snapshot(from) as ViewSpec]; hist[i].fwd = [] }
+		const view: TabView = { levelId: ws.levelId ?? undefined, spec: $state.snapshot(s) as ViewSpec }
+		if (how === 'go') tabs.go(i, view)
+		else if (how === 'open' || how === 'keep') tabs.open(i, view, how === 'keep', project.rev)
 		panes[i] = s
 		void tick().then(() => {
 			const keep = ws.selection.filter((id) => canvases.some((c) => c?.draws(id)))
 			if (keep.length !== ws.selection.length) ws.select(keep)
 		})
-	}
-	/** Back / forward per pane (UX12, Alt+← / Alt+→): the views it showed before, and the ones gone back from. */
-	let hist = $state<{ back: ViewSpec[]; fwd: ViewSpec[] }[]>([{ back: [], fwd: [] }, { back: [], fwd: [] }])
-	const exists = (v: ViewSpec) => (v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : true)
-	function navPane(i: number, dir: -1 | 1) {
-		const h = hist[i], list = dir < 0 ? h.back : h.fwd
-		let to: ViewSpec | undefined
-		while ((to = list.pop()) && !exists(to)) { /* a deleted sheet / section: skip it */ }
-		if (!to) return
-		const here = $state.snapshot(panes[i]) as ViewSpec
-		if (dir < 0) h.fwd.push(here); else h.back.push(here)
-		setPane(i, to, 'nav')
 	}
 	/** A view's name for the back / forward titles. */
 	function viewName(v: ViewSpec | undefined): string | undefined {
@@ -132,7 +131,50 @@
 		if (v.kind === 'section') return `Section ${project.index.nameOf(v.sectionId)}`
 		return specLabel(v)
 	}
-	const navOf = (i: number) => ({ back: viewName(hist[i].back.at(-1)), fwd: viewName(hist[i].fwd.at(-1)), go: (d: -1 | 1) => navPane(i, d) })
+	const exists = (v: ViewSpec) => (v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : true)
+	/** Back / forward inside the pane's tab (UX12 → D1, Alt+← / Alt+→). */
+	function navPane(i: number, dir: -1 | 1) {
+		const v = tabs.nav(i, dir, (x) => exists(x.spec))
+		if (!v) return
+		if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId
+		setPane(i, structuredClone(v.spec), 'nav')
+	}
+	const navOf = (i: number) => { const t = tabs.of(i); return { back: viewName(t?.back.at(-1)?.spec), fwd: viewName(t?.fwd.at(-1)?.spec), go: (d: -1 | 1) => navPane(i, d) } }
+	/** Show a tab in a pane (its level first). */
+	function showTab(id: string, i = activePane) {
+		const t = tabs.get(id)
+		if (!t) return
+		tabs.paneTab[i] = id
+		tabs.save()
+		if (t.view.levelId && project.index.get(t.view.levelId)) ws.levelId = t.view.levelId
+		setPane(i, structuredClone(t.view.spec), 'show')
+	}
+	/** Close a tab: the panes that showed it show the tab beside it, or (none left) the open level's plan. */
+	function closeTab(id: string) {
+		const before = [...tabs.paneTab]
+		tabs.close(id)
+		before.forEach((p, i) => { if (p === id && i < panes.length) { const next = tabs.paneTab[i]; if (next) showTab(next, i); else setPane(i, PLAN) } })
+	}
+	// what a pane shows is what its tab holds (a level picked elsewhere changes the tab's view, without history)
+	$effect(() => {
+		const lv = ws.levelId ?? undefined
+		panes.forEach((v, i) => { const view = { levelId: lv, spec: $state.snapshot(v) as ViewSpec }; untrack(() => tabs.sync(i, view)) })
+	})
+	// an edit made while a preview tab is on show keeps that tab
+	$effect(() => {
+		const r = project.rev
+		untrack(() => { const t = tabs.of(activePane); if (t?.preview && t.rev !== undefined && r > t.rev) tabs.keep(t.id) })
+	})
+	/** The tab menu (a right-click on a tab). */
+	let tabMenu = $state<{ id: string; x: number; y: number } | null>(null)
+	const tabMenuItems = $derived(tabMenu ? tabMenuOf(tabMenu.id, {
+		preview: !!tabs.get(tabMenu.id)?.preview, isSheet: tabs.get(tabMenu.id)?.view.spec.kind === 'sheet', split: panes.length === 2,
+		keep: (id) => tabs.keep(id), close: closeTab,
+		closeOthers: (id) => { tabs.closeOthers(id); panes.forEach((_, i) => showTab(id, i)) },
+		closeRight: (id) => { tabs.closeRight(id); panes.forEach((_, i) => { const p = tabs.paneTab[i]; if (p) showTab(p, i) }) },
+		otherPane: (id) => showTab(id, 1 - activePane),
+		toSheet: (id) => { showTab(id); void tick().then(() => canvas?.toSheet('new')) },
+	}) : [])
 	/** A pane showing a sheet (or section) that was deleted goes back to the plan. */
 	$effect(() => {
 		void project.rev
@@ -140,10 +182,12 @@
 			const gone = s.kind === 'sheet' ? !project.store.get(s.sheetId) : s.kind === 'section' ? !project.store.get(s.sectionId) : false
 			if (gone && project.loaded) untrack(() => setPane(i, PLAN))
 		})
+		if (project.loaded) untrack(() => tabs.prune((v) => exists(v.spec)))
 	})
 	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
 	 *  another floor's racks) goes to the level's plan (Dave: clicking a level with S001 open did nothing visible). */
 	function openLevel(id: string) {
+		if (id !== ws.levelId && panes[activePane].kind === 'plan') tabs.go(activePane, { levelId: id, spec: PLAN })
 		ws.levelId = id
 		ws.select([])
 		const p = panes[activePane]
@@ -252,11 +296,11 @@
 	const sheetsAll = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
 	 *  selected. The spec is copied: the tree's comes from frozen store data. */
-	function navOpen(n: NavNode) {
+	function navOpen(n: NavNode, keep = false) {
 		const o = n.open
 		if (!o) return
 		if (o.levelId && o.levelId !== ws.levelId) ws.levelId = o.levelId
-		setPane(activePane, structuredClone(o.spec))
+		setPane(activePane, structuredClone(o.spec), keep ? 'keep' : 'open')
 		if (n.kind === 'rack' && n.id) ws.focus = n.id
 		if (n.select) ws.select([n.select])
 	}
@@ -264,7 +308,7 @@
 	function newSheet() {
 		const sh = blankSheet(sheetsAll, newId())
 		project.store.transact(`New sheet ${sh.number}`, (tx) => tx.put(sh))
-		setPane(activePane, { kind: 'sheet', sheetId: sh.id })
+		setPane(activePane, { kind: 'sheet', sheetId: sh.id }, 'keep')
 		ws.select([sh.id])
 	}
 	async function pdfAllSheets() {
@@ -286,7 +330,7 @@
 		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
 		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), split: panes.length === 2, toggleSplit,
 		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
-		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (hist[activePane]?.back.length ?? 0) > 0, canFwd: (hist[activePane]?.fwd.length ?? 0) > 0,
+		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind), openTable,
@@ -298,26 +342,10 @@
 	}))
 
 	/** The right-click menu on the selection (UX21): its commands, with their keys. */
-	const contextItems = $derived.by((): MenuItem[] => {
-		if (!ws.contextMenu) return []
-		const sel = ws.selection.map((id) => project.index.get(id)), shapes = sel.filter((e) => e?.type === 'shape')
-		const one = sel.length === 1 ? sel[0] : undefined
-		return [
-			...(one && labelKind(one) ? [{ label: 'Edit label', key: 'F2', run: () => ws.editText(one.id) } as MenuItem, '-' as const] : []),
-			{ label: 'Cut', key: 'Ctrl+X', run: () => document.execCommand('cut') },
-			{ label: 'Copy', key: 'Ctrl+C', run: () => document.execCommand('copy') },
-			{ label: 'Delete', key: 'Delete', run: deleteSelected },
-			'-',
-			{ label: 'Select similar', run: () => canvas?.selectSimilar() },
-			...(shapes.length ? ['-' as const,
-				...(shapes.length >= 2 ? [{ label: 'Group', key: 'Ctrl+G', run: () => groupKey(false) } as MenuItem] : []),
-				...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: 'Ctrl+Shift+G', run: () => groupKey(true) } as MenuItem] : []),
-				{ label: 'Bring to front', key: 'Ctrl+Shift+]', run: () => orderKey('front') } as MenuItem,
-				{ label: 'Send to back', key: 'Ctrl+Shift+[', run: () => orderKey('back') } as MenuItem] : []),
-			'-',
-			{ label: 'Properties', run: () => layout.open('properties') },
-		]
-	})
+	const contextItems = $derived(ws.contextMenu ? selectionMenu(ws.selection.map((id) => project.index.get(id)), {
+		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(),
+		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
+	}) : [])
 
 	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
 	let cordDefaultsSet = false
@@ -342,9 +370,9 @@
 		})
 	}
 
-	const deleteSelected = () => deleteSelectedOf(project, ws)
-	const orderKey = (how: 'forward' | 'backward' | 'front' | 'back') => orderKeyOf(project, ws, how)
-	const groupKey = (ungroup: boolean) => groupKeyOf(project, ws, ungroup)
+	function deleteSelected() { deleteSelectedOf(project, ws) }
+	function orderKey(how: 'forward' | 'backward' | 'front' | 'back') { orderKeyOf(project, ws, how) }
+	function groupKey(ungroup: boolean) { groupKeyOf(project, ws, ungroup) }
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
 
 	/** Arrow keys nudge the selection (view directions: y down). */
@@ -370,6 +398,13 @@
 		else if (e.key === '?' && !mod) { e.preventDefault(); helpOpen = 'keys' }
 		else if (mod && e.key === '.') { e.preventDefault(); layout.allHidden = !layout.allHidden }
 		else if (mod && e.key === ',') { e.preventDefault(); panels.toggle('bottom') }
+		else if (e.altKey && !mod && (k === 'w' || e.code === 'KeyW')) { e.preventDefault(); const t = tabs.paneTab[activePane]; if (t) closeTab(t) }
+		else if (e.altKey && !mod && (e.key === 'PageUp' || e.key === 'PageDown')) {
+			e.preventDefault()
+			const at = tabs.list.findIndex((t) => t.id === tabs.paneTab[activePane]), n = tabs.list.length
+			if (n) showTab(tabs.list[(at + (e.key === 'PageDown' ? 1 : -1) + n) % n].id)
+		}
+		else if (e.altKey && !mod && /^Digit[1-9]$/.test(e.code)) { e.preventDefault(); const t = tabs.list[Number(e.code.slice(5)) - 1]; if (t) showTab(t.id) }
 		else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); navPane(activePane, e.key === 'ArrowLeft' ? -1 : 1) }
 		else if (e.key === 'F9' || e.key === 'F3' || e.key === 'F7') {
 			// the drafting switches (UX05): F9 SNAP, F3 OSNAP, F7 GRID
@@ -418,7 +453,7 @@
 
 	{#snippet winBody(id: WinId)}
 		{#if id === 'navigator'}
-			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} />
+			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} />
 		{:else if id === 'properties'}
 			<Properties {project} {ws} />
 			<ImportNotes {project} {ws} />
@@ -443,6 +478,7 @@
 
 	<!-- the drawing: one or two panes, floating windows over it -->
 	<main class="plan relative" bind:this={planEl}>
+		<TabStrip {tabs} {project} panes={panes.length} {activePane} onshow={(id) => showTab(id)} onclose={closeTab} onmenu={(id, x, y) => (tabMenu = { id, x, y })} />
 		<AskBox {ws} />
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} />
@@ -471,6 +507,7 @@
 	{#if typesOpen}<SettingsDialog {project} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
+	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
@@ -512,7 +549,7 @@
 	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
 	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }
 	.dock-right { grid-area: dright; border-left: 1px solid var(--cad-line); }
-	.plan { grid-area: plan; min-height: 0; min-width: 0; }
+	.plan { grid-area: plan; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
 	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
 	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
@@ -521,7 +558,7 @@
 	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
 	/* one or two views side by side */
-	.panes { display: flex; height: 100%; background: var(--cad-line); }
+	.panes { display: flex; flex: 1; min-height: 0; background: var(--cad-line); }
 	.ib { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--cad-muted); }
 	.ib:hover:not(:disabled) { background: var(--cad-hover); color: var(--cad-text); }
 	.ib:disabled { opacity: 0.35; }

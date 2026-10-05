@@ -13,12 +13,16 @@
 	import { navTree, filterTree, pathTo, type NavNode } from '../domain/navTree'
 	import { deleteEntities, levelContents, deleteImpact, impactText } from '../editor/commands'
 	import { Icon } from '$lib'
+	import { viewKey } from '../app/tabs.svelte'
 
-	let { project, ws, current, onopen, onfloors, onsettings, onnewsheet, onpdfall }: {
+	let { project, ws, current, onopen, tabbed, onfloors, onsettings, onnewsheet, onpdfall }: {
 		project: CadProject; ws: Workspace
 		/** What the active pane shows (its row is marked). */
 		current: { levelId?: string; spec: ViewSpec }
-		onopen: (n: NavNode) => void
+		/** A single click opens the row in the preview tab; a double-click (`keep`) in a kept tab. */
+		onopen: (n: NavNode, keep?: boolean) => void
+		/** The views that have an open tab (their view keys): their rows get a dot (UX review D2). */
+		tabbed: Set<string>
 		onfloors: () => void; onsettings: () => void; onnewsheet: () => void; onpdfall: () => void
 	} = $props()
 
@@ -88,13 +92,15 @@
 		if (!racks.length && !ports) return go()
 		ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : ''} Undo brings it back.`, 'Delete room', go)
 	}
+	/** The first row a search shows that opens something (Enter opens it; Ctrl+Enter keeps its tab). */
+	const firstOpen = (ns: NavNode[]): NavNode | undefined => { for (const n of ns) { if (n.open) return n; const c = firstOpen(n.children ?? []); if (c) return c } return undefined }
 	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
 </script>
 
 <div class="nav">
 	<div class="find">
 		<Icon name="search" size={12} />
-		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } }} />
+		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
 	</div>
 	<div class="tree" role="tree">
 		{#each shown as n (n.key)}{@render row(n, 0)}{/each}
@@ -107,9 +113,10 @@
 	{@const unfolded = !!q || open.has(n.key)}
 	<div class="row k-{n.kind}" class:cur={isCurrent(n)} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
 		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
-		<button class="lbl" title={n.open ? 'Open in the active pane' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))}>
+		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
 		</button>
+		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'level' && n.id}
 			{@const id = n.id}
@@ -145,6 +152,7 @@
 	.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.k-building .t, .k-sheets .t { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.02em; color: var(--cad-muted); }
 	.k-level .t { font-weight: 600; }
+	.dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #2563eb; opacity: 0.6; }
 	.d { font-size: 10px; color: var(--cad-faint); white-space: nowrap; }
 	.act { visibility: hidden; padding: 0 3px; font-size: 11px; color: var(--cad-muted); }
 	.act.txt { color: var(--cad-link, #2563eb); }

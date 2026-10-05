@@ -32,6 +32,7 @@
 		</select>
 	</label>
 	<button class:on={ws.vpContentNav} disabled={vp.locked} title="Pan / zoom content: a drag inside the viewport pans its view and the wheel steps its scale (off: they move the paper; Alt does it once)" onclick={() => (ws.vpContentNav = !ws.vpContentNav)}><Icon name="move" size={12} /> Pan / zoom content</button>
+	<button title="Open this viewport's view (the model view) in its own tab" onclick={() => ws.openInTab({ levelId: vp.view.levelId, spec: structuredClone(vp.view.spec) })}><Icon name="link" size={12} /> Open view</button>
 	{#if editing}
 		<button class="done" title="Stop editing inside the viewport (Esc, or a double-click outside it)" onclick={onexit}>Done</button>
 	{:else}
