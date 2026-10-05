@@ -46,5 +46,7 @@
 	button:hover:not(:disabled) { background: var(--cad-hover, #f4f4f5); }
 	button.on { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
 	button.done { background: #2563eb; color: white; }
+	/* the hover's pale background left white text unreadable (Dave): dark text on it */
+	button.done:hover:not(:disabled) { background: #dbeafe; color: #1e3a8a; }
 	button:disabled { opacity: 0.4; }
 </style>
