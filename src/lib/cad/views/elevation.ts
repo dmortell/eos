@@ -24,7 +24,9 @@ export interface Item { depth: number; prims: Prim[] }
 
 /** `range` (a section): only what lies between depth `far` and `near` (view depth: larger = nearer), clipped to u0..u1
  *  across; `extra` = more items (a section's cut walls), drawn in depth order with the rest. */
-export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; extra?: Item[]; blocks?: (id: Id) => Block | undefined }): Prim[] {
+/** `band` (UX review UX14, a test for Dave): an elevation's depth band — what's nearer than `near` is left out (as a
+ *  section cuts it away), what's beyond `far` is drawn faded, so the near things read. */
+export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; band?: { near: number; far: number }; extra?: Item[]; blocks?: (id: Id) => Block | undefined }): Prim[] {
 	const k = o.scale, level = ix.get(levelId) as Level | undefined
 	const items: Item[] = []
 	const rect = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill = true): Prim =>
@@ -73,6 +75,10 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			const xs = it.prims.flatMap(across)
 			return xs.length > 0 && Math.max(...xs) >= r.u0 && Math.min(...xs) <= r.u1
 		}).map((it) => ({ ...it, prims: it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })) }))
+	}
+	if (o.band) {
+		const b = o.band
+		kept = kept.filter((it) => it.depth <= b.near).map((it) => (it.depth < b.far ? { ...it, prims: it.prims.map((p) => (p.k === 'image' ? p : { ...p, cls: `${p.cls} far` })) } : it))
 	}
 	kept = [...kept, ...(o.extra ?? [])]
 	kept.sort((a, b) => a.depth - b.depth)   // far first, near last (larger depth = nearer)

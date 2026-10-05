@@ -81,7 +81,7 @@
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
-						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf }))
+						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
@@ -111,7 +111,7 @@
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])
-	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z) : [])
+	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
 	const preview = $derived.by((): Prim[] => {
 		void tick; void ws.selection; void project.rev; void cam.k
 		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : []

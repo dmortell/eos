@@ -60,6 +60,15 @@
 				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
 			</select>
 		{/if}
+		{#if spec.kind === 'elevation'}
+			<!-- the depth band (UX14, a test): around the work depth; nearer is left out, further fades; the plan shows it in Split -->
+			<button class:on={ws.band.on} title="Depth band: show only what's near the work depth — nearer is left out, further is faded (Split with the plan to see the band)" onclick={() => (ws.band.on = !ws.band.on)}>Band</button>
+			{#if ws.band.on}
+				<label class="num" title="Where the band is: the work depth (mm along the view; blank = the middle of the floor)">at <input type="number" step="100" value={ws.depth ?? ''} placeholder="auto" onchange={(e) => (ws.depth = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} /></label>
+				<label class="num" title="How far the band reaches towards you (mm)">front <input type="number" min="0" step="100" bind:value={ws.band.front} /></label>
+				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
+			{/if}
+		{/if}
 		{#if spec.kind === 'riser'}
 			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => go({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) })}>Hide empty floors</button>
 		{/if}
@@ -104,6 +113,8 @@
 	.views .secs option { background: white; color: #18181b; }
 	.views .sep { width: 1px; align-self: stretch; background: #d4d4d8; margin: 0 4px; }
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; }
+	.num { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: #52525b; }
+	.num input { width: 4.2rem; font-size: 11px; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; }
 	.crumb { font-size: 11px; font-weight: 600; color: #3f3f46; padding: 0 2px; }
 	.views button.crumb.link { border: 0; background: none; color: #1d4ed8; font-weight: 600; padding: 0 2px; }
 	.views button.crumb.link:hover { text-decoration: underline; }

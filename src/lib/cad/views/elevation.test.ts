@@ -125,3 +125,19 @@ describe('openings in elevations', () => {
 		expect(ps.filter((p) => p.k === 'line' && p.cls === 'opening').map(box)).toEqual([[1050, 1950, -2100, 0]])
 	})
 })
+
+describe('depth band (UX14)', () => {
+	it('leaves out what is nearer than the band and fades what is beyond it', () => {
+		const base = demoProject(), o = base.find((e) => e.type === 'outlet') as Outlet
+		const near = { ...o, id: 'ON', label: 'NEAR', at: { x: o.at!.x, y: -6000 } }, far = { ...o, id: 'OF', label: 'FAR', at: { x: o.at!.x, y: 12000 } }
+		const ix = new ProjectIndex([...base, near, far] as Entity[]), sp = spaceOf({ kind: 'elevation', dir: 'front' })
+		const dN = sp.depthOf({ ...near.at, z: 0 }), dF = sp.depthOf({ ...far.at, z: 0 }), dO = sp.depthOf({ ...o.at!, z: 0 })
+		const [hi, lo] = dN > dF ? [dN, dF] : [dF, dN]   // larger depth = nearer the viewer
+		const nearest = dN > dF ? 'ON' : 'OF', furthest = dN > dF ? 'OF' : 'ON'
+		// a band round the fixture's outlets: the nearest extra outlet goes, the furthest fades, the middle ones stay
+		const ps = elevationDisplayList(ix, 'L33', sp, { scale: 100, band: { near: (hi + dO) / 2, far: (lo + dO) / 2 } })
+		expect(ps.some((p) => p.src === nearest)).toBe(false)
+		expect(ps.filter((p) => p.src === furthest).every((p) => p.k === 'image' || p.cls.endsWith(' far'))).toBe(true)
+		expect(ps.some((p) => p.src === o.id && p.k !== 'image' && !p.cls.endsWith(' far'))).toBe(true)
+	})
+})

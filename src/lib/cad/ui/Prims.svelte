@@ -179,6 +179,9 @@
 	.cord-installed { stroke-dasharray: none; }
 	.cord-add { stroke-dasharray: 6 3; }
 	.draft { stroke: #2563eb; opacity: 0.5; }
+	/* an elevation's depth band (UX14): beyond it faded; its edges on the plan */
+	.far { opacity: 0.3; }
+	.band-edge { stroke: #7c3aed; stroke-dasharray: 10 6; stroke-width: 1.2; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
 	text.draft-label { fill: #2563eb; }
 	/* the Device tool's drop ghost; red = it can't go there */

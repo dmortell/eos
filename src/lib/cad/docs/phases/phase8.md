@@ -1225,3 +1225,16 @@ header "Rack R311" with the four groups; a right-click on it listed Edit label [
 similar, Properties. No data written.
 
 Checks: 466 cad tests pass; svelte-check: nothing in cad.
+
+## UX remediation, D2: a depth band on elevations, to test (UX14; Dave: "currently prefer sections, but I would like to test depth bands")
+
+- An elevation's strip has **Band**: on, the elevation shows only what lies near its work depth — `front` mm towards
+  you (default 1000) and `back` mm away (default 4000) round the work depth (`at`, blank = the middle of the floor).
+  Nearer things are left out (as a section cuts them away), things beyond the band are drawn faded (`.far`).
+- In Split with the plan, the plan draws the band's two edges (dashed violet) either side of the work-plane line.
+- For the session only (`ws.band`), and not on sheet viewports — it's a test; sections stay the way to put a cut on
+  a sheet. Not yet: dragging the band's edges on the plan.
+
+Live (Test Project, 1F front): Band on → 138 drawn elements → 78, 6 of them faded. No data written.
+
+Checks: 467 cad tests pass (new: the depth band test in `views/elevation.test.ts`); svelte-check: nothing in cad.
