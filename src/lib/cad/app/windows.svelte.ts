@@ -48,6 +48,8 @@ export class WindowLayout {
 	wins = $state<Record<WinId, WinState>>(clone(DEFAULTS))
 	/** One key (Ctrl+.) hides every window and the tables panel, and brings them back (not stored). */
 	allHidden = $state(false)
+	/** While a window's title is dragged over the drawing's left / right edge: where it would dock (the shell draws it). */
+	dropSide = $state<Dock | null>(null)
 	/** Windows the user closed in this session — not opened again by a view or tool (Racks in a rack view …). */
 	readonly closedByUser = new Set<WinId>()
 

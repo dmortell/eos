@@ -457,6 +457,8 @@
 			</div>
 		{/if}
 		{#each layout.floating() as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
+		<!-- a window dragged to an edge docks there on release -->
+		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
 	</main>
 
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
@@ -533,6 +535,9 @@
 	.ib.on { background: #dbeafe; color: #1d4ed8; }
 	.ib.dim { color: var(--cad-faint); }
 	.saved { margin-left: 8px; min-width: 3.5rem; text-align: right; }
+	.drop { position: absolute; top: 0; bottom: 0; width: 6px; background: #3b82f6; opacity: 0.6; z-index: 60; pointer-events: none; }
+	.drop-left { left: 0; }
+	.drop-right { right: 0; }
 	.split-bar { flex: 0 0 5px; cursor: col-resize; background: var(--cad-line); touch-action: none; }
 	.split-bar:hover, .split-bar:active { background: #93c5fd; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }

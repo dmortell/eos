@@ -619,8 +619,8 @@ Built and committed phase by phase (each logged in `../phases/phase8.md`):
 - **Properties groups for the other kinds** (outlets, runs, sheets, cords, notes, sections): they still use their own
   panels; racks, devices and drawn shapes have groups.
 - **In-place label editing inside a viewport** (double-click / F2 there): edit those labels in the view itself.
-- **Dragging a docked window straight to a new place**: dragging its title out pops it out under the pointer; a
-  second drag places it.
+- ~~Dragging a docked window straight to a new place~~ — fixed 2026-10-06 (one drag: the drag follows the browser
+  window, not the title bar that's replaced when it undocks).
 - **Depth band edges dragged on the plan**: typed for now (at / front / back on the elevation's strip).
 - **F8 ORTHO / F10 POLAR** (backlog "Function keys").
 - **Toolbar fly-outs** (Pages' grouped fly-outs): the strip shows every tool in its group; with 24 tools it fits at
@@ -632,11 +632,13 @@ Built and committed phase by phase (each logged in `../phases/phase8.md`):
 
 - [ ] **Depth band vs sections** (Q4): try Band on an elevation (front / back / at; Split with the plan to see it).
   Keep it (and store it per view, put it on sheets), or drop it in favour of sections?
-- [ ] **Blocks / Racks open docked** under the Navigator when they open by themselves (Insert tool, a rack view) —
-  the review said "the rest floating", but floating they covered the drawing. OK?
-- [ ] **The windows' saved layout was reset once** (`cad-windows:2`) so that change reaches every browser. OK?
-- [ ] **Delete without a question for racks with no devices** — a rack (or anything) with nothing going with it is
+- [x] **Blocks / Racks open docked** under the Navigator when they open by themselves (Insert tool, a rack view) —
+  the review said "the rest floating", but floating they covered the drawing. OK? **Dave: fine.**
+- [x] **The windows' saved layout was reset once** (`cad-windows:2`) so that change reaches every browser. OK? **Dave: fine.**
+- [x] **Delete without a question for racks with no devices** — a rack (or anything) with nothing going with it is
   deleted at once (Undo brings it back). During testing two empty racks went that way. Keep, or ask for every rack?
-- [ ] **Paste in the menus** says "use Ctrl+V": browsers don't let a page paste from a menu click. OK, or hide it?
-- [ ] **`$lib/ui/Window.svelte` not reused** (it's the Sheets tool's, bug-fix only, and lacks close / docking /
-  z-order); cad has its own `CadWindow`. Merge them later, or keep separate?
+  **Dave: deleting empty items immediately is fine.**
+- [x] **Paste in the menus** says "use Ctrl+V": browsers don't let a page paste from a menu click. OK, or hide it?
+  **Dave: fine.**
+- [x] **`$lib/ui/Window.svelte` not reused** (it's the Sheets tool's, bug-fix only, and lacks close / docking /
+  z-order); cad has its own `CadWindow`. Merge them later, or keep separate? **Dave: merge later if we keep Sheets.**

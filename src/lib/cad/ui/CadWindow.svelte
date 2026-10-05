@@ -18,16 +18,14 @@
 
 	const s = $derived(layout.wins[id])
 	const docked = $derived(!!s.dock)
-	/** While a title drag is over an edge: where it would dock. */
-	let dropSide = $state<'left' | 'right' | null>(null)
 	const EDGE = 28
 
 	function titleDown(e: PointerEvent) {
 		if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
 		e.preventDefault()
 		layout.front(id)
-		const bar = e.currentTarget as HTMLElement
-		try { bar.setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+		// the drag listens on the browser window, not this title bar: a docked window that comes out mid-drag is drawn
+		// in another place (a new title bar), and the same drag carries on moving it (Dave: it took two drags)
 		const start = { x: e.clientX, y: e.clientY, wx: s.x, wy: s.y }
 		let floated = !docked
 		const move = (m: PointerEvent) => {
@@ -42,18 +40,19 @@
 				return
 			}
 			layout.moveTo(id, start.wx + m.clientX - start.x, start.wy + m.clientY - start.y)
-			dropSide = m.clientX < r.left + EDGE ? 'left' : m.clientX > r.right - EDGE ? 'right' : null
+			layout.dropSide = m.clientX < r.left + EDGE ? 'left' : m.clientX > r.right - EDGE ? 'right' : null
 		}
 		const up = () => {
-			bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up)
-			if (dropSide) layout.dock(id, dropSide)
+			window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up)
+			const side = layout.dropSide
+			layout.dropSide = null
+			if (side) layout.dock(id, side)
 			else if (area) layout.clampAll(area.clientWidth, area.clientHeight)
-			dropSide = null
 			layout.save()
 		}
-		bar.addEventListener('pointermove', move)
-		bar.addEventListener('pointerup', up)
-		bar.addEventListener('pointercancel', up)
+		window.addEventListener('pointermove', move)
+		window.addEventListener('pointerup', up)
+		window.addEventListener('pointercancel', up)
 	}
 	function cornerDown(e: PointerEvent) {
 		if (e.button !== 0) return
@@ -94,7 +93,6 @@
 		{#if !docked}<div class="corner" role="presentation" title="Drag to resize" onpointerdown={cornerDown}></div>{/if}
 	{/if}
 </section>
-{#if dropSide}<div class="drop {dropSide}"></div>{/if}
 
 <style>
 	.win { display: flex; flex-direction: column; min-height: 0; background: var(--cad-panel, white); color: var(--cad-text); font-size: 12px; }
@@ -113,7 +111,4 @@
 	.body :global(table), .body :global(input), .body :global(textarea) { user-select: text; }
 	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
 		background: linear-gradient(135deg, transparent 50%, var(--cad-faint, #a1a1aa) 50%, transparent 60%, transparent 70%, var(--cad-faint, #a1a1aa) 70%, transparent 80%); border-radius: 0 0 6px 0; }
-	.drop { position: absolute; top: 0; bottom: 0; width: 6px; background: #3b82f6; opacity: 0.6; z-index: 60; pointer-events: none; }
-	.drop.left { left: 0; }
-	.drop.right { right: 0; }
 </style>

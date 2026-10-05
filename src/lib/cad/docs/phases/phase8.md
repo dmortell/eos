@@ -1238,3 +1238,7 @@ Checks: 466 cad tests pass; svelte-check: nothing in cad.
 Live (Test Project, 1F front): Band on → 138 drawn elements → 78, 6 of them faded. No data written.
 
 Checks: 467 cad tests pass (new: the depth band test in `views/elevation.test.ts`); svelte-check: nothing in cad.
+- **One drag undocks and places a window** (Dave: "the initial dragging … gets interrupted, so it takes two drags"):
+  the title drag listens on the browser window, so it carries on after the window comes out of its dock (drawn in a
+  new place); the dock-edge marker moved to the shell (`layout.dropSide`). Live: one drag took the Navigator from the
+  left dock to the middle of the drawing. Dave's answers to the other decisions are in `../plan/ux-review.md`.
