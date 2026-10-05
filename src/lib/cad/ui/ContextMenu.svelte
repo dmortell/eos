@@ -11,12 +11,16 @@
 		return { left: x + w > vw ? Math.max(4, x - w) : x, top: y + h > vh ? Math.max(4, y - h) : y }
 	})
 	function pick(it: Exclude<MenuItem, '-'>) { if (it.disabled) return; onclose(); it.run() }
+	// on Windows the browser's own `contextmenu` comes AFTER the button is let go — i.e. after this menu opened — and lands
+	// on the backdrop: the first one within a moment of opening is that same right-click, not a new one (UX review R1)
+	const opened = performance.now()
+	function backdropMenu(e: MouseEvent) { e.preventDefault(); if (performance.now() - opened > 400) onclose() }
 </script>
 
 <svelte:window onkeydowncapture={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onclose() } }} />
 
-<button class="backdrop" aria-label="Close the menu" onclick={onclose} oncontextmenu={(e) => { e.preventDefault(); onclose() }}></button>
-<div bind:this={el} class="pop" role="menu" style:left="{pos.left}px" style:top="{pos.top}px">
+<button class="backdrop" aria-label="Close the menu" onclick={onclose} oncontextmenu={backdropMenu}></button>
+<div bind:this={el} class="pop" role="menu" tabindex="-1" oncontextmenu={(e) => e.preventDefault()} style:left="{pos.left}px" style:top="{pos.top}px">
 	{#each items as it, i (i)}
 		{#if it === '-'}<div class="sep"></div>
 		{:else}

@@ -161,7 +161,7 @@
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />

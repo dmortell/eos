@@ -173,7 +173,7 @@
 			{#each groups as g (g.key)}
 				{#if by !== 'none'}<tr class="grp"><td colspan="11">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
-					<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(r.id)}
+					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>

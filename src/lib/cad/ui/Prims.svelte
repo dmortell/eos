@@ -27,6 +27,18 @@
 		{#each clips as [key, b] (key)}<clipPath id={clipIds.get(key)}><rect x={b.x0} y={b.y0} width={b.x1 - b.x0} height={b.y1 - b.y0} /></clipPath>{/each}
 	</defs>
 {/if}
+<!-- the SELECTION HALO (UX review V1, Dave: "difficult to see selected outlets"): a wide pale stroke behind every
+     selected line / outline / circle, a constant width on screen, so a pick shows whatever colour the item is (blue
+     outlets barely changed when only their stroke turned blue). Banded runs turn blue whole; texts go bold. -->
+{#if selected.size}
+	{#each prims as p, i (i)}
+		{#if p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && p.k !== 'text' && !(p.k === 'line' && p.w)}
+			{#if p.k === 'circle'}<circle cx={p.c.x} cy={p.c.y} r={p.r} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else if p.closed}<polygon points={ptsOf(p)} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else}<polyline points={ptsOf(p)} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
+		{/if}
+	{/each}
+{/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
 	{@const col = sel && !(p.k !== 'image' && (p.cls === 'shape-fill' || p.cls === 'note-bg')) ? undefined : p.color}
@@ -58,6 +70,7 @@
 <style>
 	polyline, polygon, circle { fill: none; stroke: var(--cad-ink, #334155); stroke-width: 1; }
 	.filled { fill: var(--cad-fill, #e2e8f0); }
+	.halo { fill: none !important; stroke: #2563eb !important; stroke-width: 9px !important; stroke-opacity: 0.32; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
 	.band { stroke-linecap: butt; stroke-linejoin: miter; vector-effect: none; }
 	/* the hairline drawn along every banded run */
 	.centre { opacity: 1; stroke-width: 1.5; }

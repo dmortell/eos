@@ -1242,3 +1242,26 @@ Checks: 467 cad tests pass (new: the depth band test in `views/elevation.test.ts
   the title drag listens on the browser window, so it carries on after the window comes out of its dock (drawn in a
   new place); the dock-edge marker moved to the shell (`layout.dropSide`). Live: one drag took the Navigator from the
   left dock to the middle of the drawing. Dave's answers to the other decisions are in `../plan/ux-review.md`.
+
+## Second UX review, group 1: seeing the selection, space, bugs (`../plan/ux-review.md` "Second review")
+
+- **V1 Selection halo** (Dave: "difficult to see selected outlets"): every selected line, outline or circle gets a
+  wide pale-blue halo behind it, constant on screen (9 px), so blue outlets show as picked too (`ui/Prims.svelte`).
+  Bands turn blue whole and texts go bold as before. (Dimming everything else is a question for Dave.)
+- **V2 One selected-row style** in every table: the drawing's selection blue with a blue bar on the left (was a
+  near-white amber).
+- **R1 Right-click menu on Windows:** the browser's own `contextmenu` arrives after the button is let go and landed
+  on the new menu's backdrop, closing it at once; the backdrop now ignores that first one (400 ms).
+- **R4 Patch list in a rack view** starts on the open room ("All rooms" one click away).
+- **L1 More room:** the tables start closed (`cad-panels:2`, so every browser starts that way) and Racks no longer
+  opens by itself in a rack view (the Navigator lists rooms and racks; Window › Racks for its tools). With the
+  Navigator and Properties docked, the drawing is ~78 % of the width here (1708 of 2188 px) and the full height.
+- **T1–T3 The tables panel** (`ui/TablesPanel.svelte`; Dave: "float"): one title bar with horizontal tabs (Outlets ·
+  Patch list · Sheets · Links), a summary ("Outlets · 47 · 12 selected"), fold to the bar, **maximise** over the
+  drawing (Esc back), **float** over the drawing (move by the bar, resize by the corner, kept on screen) or dock under
+  it, and close. Rows 20 px. Ctrl+, opens / closes it.
+
+Live (Test Project): tables closed at start (drawing 1708 × 975); Ctrl+, opened them (1708 × 751); folded → 946;
+floated → 975; maximised and Esc back; docked; closed. No data written.
+
+Checks: 467 cad tests pass; svelte-check: nothing in cad.

@@ -642,3 +642,288 @@ Built and committed phase by phase (each logged in `../phases/phase8.md`):
   **Dave: fine.**
 - [x] **`$lib/ui/Window.svelte` not reused** (it's the Sheets tool's, bug-fix only, and lacks close / docking /
   z-order); cad has its own `CadWindow`. Merge them later, or keep separate? **Dave: merge later if we keep Sheets.**
+
+---
+
+## Second review (Pages session, 2026-10-06, after the remediation run)
+
+**How it was done:** used cad on Test Project in Chrome at 1567 × 784, at commit `6e1badc9`. I tried:
+- plan → hover / select / right-click an outlet;
+- Navigator → sheet S001 → Fit → double-click a viewport → Esc;
+- Navigator → IDF1 rack view;
+- the View and Window menus.
+
+I made no edits. I also read `CadShell.svelte`, `ViewCanvas.svelte`, `ContextMenu.svelte`, `Navigator.svelte`,
+`Prims.svelte`, `OutletGrid.svelte`, `PatchList.svelte` and `LinksTable.svelte`.
+
+**What's better:** a lot. cad now looks and works like Pages:
+- the menu bar, the grouped icon strip (greyed, not hidden), and the status bar with SNAP / OSNAP / GRID;
+- hover outlines, and the Properties header (Outlet A.007, with copy / delete);
+- the Navigator with search;
+- the bottom panel follows the view (sheet → Sheets, rack view → Patch list);
+- editing inside a viewport: double-click → the paper dims, the frame turns blue, the chip shows 1:N · Pan / zoom
+  content · Done, and the status line says how to leave.
+
+That last one was the biggest gap, and it now works like Pages.
+
+What's left falls into five groups: bugs, **seeing the selection** (Dave: "difficult to see selected outlets"), the
+default layout, **drawing tabs** (Dave's question), and **the tables panel** (Dave: "still takes a lot of space").
+
+### Bugs found
+
+- [ ] **R1 The right-click menu never shows (Windows).** Two right-clicks on a selected outlet showed nothing.
+  - **Likely cause:** the menu opens on pointer-up (`ui/ViewCanvas.svelte:453`). On Windows the browser fires
+    `contextmenu` after the mouse-up, and the target is then the menu's new backdrop. That backdrop's
+    `oncontextmenu` closes the menu (`ui/ContextMenu.svelte:18`), so it opens and shuts in one go. On a Mac,
+    `contextmenu` comes on the press, so it may work there.
+  - **Fix:** open the menu from the canvas's own `contextmenu` event, or ignore the first `contextmenu` that reaches
+    the backdrop (~5 lines).
+
+  **P1 · S**
+
+- [ ] **R2 Views open with an old saved camera.** Fit is fixed, but opening a view still restores whatever camera was
+  last saved for it in this browser, however old:
+  - the plan opened at 515 % on a corner of IDF2;
+  - S001 opened at 645 % on one rack panel, with no paper edge in sight;
+  - the IDF1 rack view opened with the slab / ceiling lines and the racks small.
+
+  Keeping the camera through a refresh is right (Dave asked for it), but opening a view from the Navigator, a tab or
+  the menu is a new visit. **Fix:** restore the saved camera only on a refresh (the same URL), or within the same
+  session; any other open fits the content (UX13's rule). **P2 · S**
+
+- [ ] **R3 The floorplan arrives late with no sign that it's loading.** On 1F the drawing came up first and the PDF
+  floorplan about five seconds later. Until then the plan looked as if it had no floorplan. "Loading floorplan…" only
+  shows for a view that hasn't been fitted before; with a restored camera nothing shows. *Before:* Pages has a small
+  spinner beside the scale in the status bar. **Fix:** the same spinner beside the scale in cad's status bar while any
+  underlay of the open view is rendering (`project.pdf` already knows). **P2 · S**
+
+- [ ] **R4 The patch list in a rack view shows every room.** It shows "All rooms", including 4F's 4AR01 cords, while
+  1F's IDF1 is open. The bottom panel switched to the Patch list as designed, but it didn't narrow to the open room.
+  **Fix:** in a rack view, default the room filter to the open room (`patchRoom` is already passed in); "All rooms"
+  stays one click away. **P2 · S**
+
+### Seeing the selection (Dave: "difficult to see selected outlets?")
+
+Dave is right, and the cause is in the colours:
+
+- [ ] **V1 A selected outlet barely changes on the drawing.** Outlet symbols are drawn blue: stroke `#1d4ed8`, fill
+  `#3b82f6` (`ui/Prims.svelte:102`). Selection turns the stroke `#2563eb` and makes it 2.5 px wide (`Prims.svelte:197`,
+  `:201`). That is almost the same blue, slightly thicker, on a ~10 px symbol, and the hover outline is blue too. With
+  12 outlets selected among 47 you can't tell which are picked. The blue selection was chosen (Q5) for runs and
+  shapes, which are mostly grey, black or orange; it fails exactly on the blue items, the outlets.
+  **Fix**, in order of cost:
+  1. Draw a **halo** behind every selected item: a wide, pale, constant-screen-width stroke (e.g. 8 px `#2563eb` at
+     35 % opacity) under the symbol, as Pages' `.section-region` selection and the seg-sel style already do. It works
+     whatever colour the item is.
+  2. Selected outlets also get a **bold label** in the selection colour. `text.sel` already does this (600 weight),
+     but the outlet labels are drawn separately; check that they pick up `sel`.
+  3. Optionally, **dim everything else** a little (the backlog's "dim the other cords" idea, for every view) while
+     something is selected and the Select tool is idle.
+
+  **P1 · S**
+
+- [ ] **V2 A selected row barely shows in the tables.** A selected outlet row gets `bg-amber-50`
+  (`ui/OutletGrid.svelte:164`, `#fffbeb`), which is nearly white and doesn't match the drawing's blue. The patch list
+  and links use their own tints. **Fix:** one selected-row style for every table, the same as the drawing's selection
+  (`--cad-sel`, `#dbeafe` with a 3 px blue bar on the left). Keep scrolling the first selected row into view. **P1 ·
+  S**
+
+- [ ] **V3 How many are selected, and which?** Nothing says "12 outlets selected" unless Properties shows its
+  several-items form. **Fix:**
+  - The status bar shows "12 selected (outlets)" while anything is selected; a click on it zooms to the selection.
+  - **View → Zoom to selection** (key: Shift+Home) fits the selection, the way Home fits everything.
+
+  **P2 · S**
+
+### Default layout: the drawing is still small
+
+- [ ] **L1 The S1 target isn't met by the defaults.**
+  - **What I measured:** at 1567 × 784 the canvas is still about 1180 × 470 px (~45 % of the screen), the same as in
+    the first review.
+  - **Why:** the windows dock where the panels were, the Racks window is docked under the Navigator, and the tables
+    are open, at ~200 px with their bar.
+  - **Effect on sheets:** a sheet fits at 54 %, so an A3 sheet is about 620 px wide.
+  - **Suggest:**
+    - Tables closed by default. They open by themselves when a table action needs them (Allocate, the patch list
+      from a rack view) and with Ctrl+,. They then close again when the view changes, unless you opened them
+      yourself.
+    - The Racks window closed by default: the Navigator already lists each room's rows and racks (see L2).
+    - With only the Navigator and Properties docked and the tables closed, the drawing gets ~65 % of the screen.
+
+  **P1 · S**
+
+- [ ] **L2 The Navigator and the Racks window show the same racks.** Both list IDF1 / IDF2 / SER-B and their racks;
+  the Racks window adds Find a device, Place, + Server room, the ⋯ menu and the "frame" tag. **Suggest:** the Racks
+  window keeps only the rack work (Find a device, Place for unplaced racks, + Server room), and the plain list lives
+  in the Navigator. Or fold Find a device into the Navigator's search (it already searches racks) and retire the
+  Racks window. **P2 · S**
+
+- [ ] **L3 Labels collide on the plan too.** UX14 dealt with elevations, but at IDF2 on 1F these print on top of each
+  other at every zoom:
+  - the trunk label TR1;
+  - the riser marks (+2105, +2600);
+  - V06 / P3C / V05 / TR2 / TR3.
+
+  **Suggest:**
+  - Run labels sit along their run, at the middle of the longest segment.
+  - When two labels overlap, the smaller item's label moves aside or hides below a zoom level.
+
+  **P2 · M**
+
+### Drawing tabs (Dave: "would drawing tabs work in cad, like we have in Pages?")
+
+**Yes, and cad is better placed for them than Pages was.** In cad a "drawing" is already a small value: a level plus
+a view spec (plan, an elevation, a section, a rack room, the riser view, a sheet). Each view already keeps its own
+camera, the URL already holds the open view, and Back / Forward and the breadcrumb exist. A tab is a name for one of
+those values, kept in a list.
+
+Today the only ways to move between the drawings you're working on are:
+- the Navigator, a tree that gets very long on Journey (~40 floors × plan + 4 elevations + sections + rooms, plus 27
+  sheets);
+- Back / Forward, which walks every view you passed through.
+
+- [ ] **D1 Tabs over the drawing (Pages-style).**
+  - **One strip of tabs** across the top of the drawing area, under the tool strip. Each tab has a kind icon and a
+    short title: "1F Plan", "1F Front", "IDF1 racks", "S001 Test sheet", "Section A".
+  - **The tabs are shared by both panes, as in Pages** (`pages/+page.svelte`: "tabs: open documents (shared; the same
+    page can show in both split panes)"):
+    - A click on a tab shows it in the active pane.
+    - In Split, the two tabs on show are marked 1 and 2.
+    - This avoids the backlog's "both panes is too complex": there's one list, and each pane just points at a tab.
+  - **Preview tab (VS Code / Pages):**
+    - A single click in the Navigator, the search or a link opens the view in one *preview* tab (italic title), which
+      the next single click reuses, so browsing doesn't pile up tabs.
+    - A double-click in the Navigator, any edit in the view, or a double-click on the tab keeps it as a normal tab.
+  - **Closing:** × on hover, a middle-click, or Ctrl+W. Closing the last tab shows the open level's plan.
+  - **Moving between tabs:** Ctrl+Tab / Ctrl+Shift+Tab in most-recently-used order; Ctrl+1…9 jump to a position.
+  - **Tab menu (right-click a tab):** Close, Close others, Close to the right, Open in the other pane, Show in
+    Navigator, Put this view on a sheet.
+  - **Overflow:** the strip scrolls, and a ⌄ button lists every open tab (Pages' "All pages" menu,
+    `pages/parts/TabMenu.svelte`).
+  - **Each tab keeps its own history:** Back / Forward (Alt+← / →) move inside the tab, like a browser tab, instead
+    of jumping between drawings.
+  - **Storage:** kept per user, per project, in localStorage like the cameras and the window layout, so the same tabs
+    come back the next day. The URL keeps only the active tab.
+  - **Sheets:** editing inside a viewport stays in the sheet's tab. A new "Open this view" on the viewport chip opens
+    the viewport's model view in a new tab.
+  - **What it changes:**
+    - The per-pane view strip (Plan · Front · Rear · Left · Right · Riser · Section…) stays, for switching the
+      *current* tab between views of the same level. That changes the tab, not opens one.
+    - The breadcrumb moves into the tab's tooltip, freeing the strip.
+  - **Placement in the plan:**
+    - Raise the backlog's "Tabs (left pane only)" (P3) to **P1** and rewrite it as "shared tabs, both panes".
+    - About M (~200–250 lines): a `ui/TabStrip.svelte` plus a `Tabs` class in `app/` beside `panels.svelte.ts`.
+    - Keep it out of `CadShell.svelte`, which is at 544 lines.
+
+  **P1 · M**
+
+- [ ] **D2 Navigator and tabs together.**
+  - The Navigator marks the rows that have an open tab (a small dot), as well as the current one.
+  - Ctrl+K results open in the preview tab; Ctrl+Enter keeps it.
+
+  **P2 · S**
+
+### The tables panel (Dave: "Tables panel hasn't changed" / "still take a lot of space")
+
+It works, but it is still the old design: a fixed strip under the drawing, about 200 px high, with four tabs written
+sideways and two rows of bars above the data. **Suggest:**
+
+- [ ] **T1 Closed until needed, and smaller when open.** L1 above (closed by default, opens itself for table actions).
+  When open:
+  - one bar instead of two (T4 moves the settings out);
+  - 20 px rows, not ~14.5 px rows plus padding;
+  - a default height of ~8 rows;
+  - a **fold** button that leaves just the bar showing ("Outlets · 47 · 12 selected"), so the tables are one click
+    away without taking space.
+
+  **P1 · S**
+
+- [ ] **T2 Horizontal tabs and a proper title bar.**
+  - **Problem:** the four tabs (Outlets · Patch list · Sheets · Links) are rotated text, hard to read and hard to hit,
+    and the panel has none of the windows' controls.
+  - **Suggest:** the same title bar as a `CadWindow`:
+    - horizontal tabs on the left;
+    - fold, **maximise** and close on the right. Maximise gives the table the whole drawing area while you allocate
+      or patch; Esc or the button brings the drawing back.
+
+  **P1 · S**
+
+- [ ] **T3 The tables only span the middle column.**
+  - **Problem:** docked windows take the full height, so the tables sit between them: ~1180 px for 9 outlet columns,
+    or 9 patch-list columns with long "4AR01 · 24-Port Patch Panel 1u : 1 (front)" names.
+  - **Suggest:**
+    - The tables dock across the full width, under the docked windows.
+    - Or the tables become a window like the others, which can be floated to a second monitor. Window menu: "Tables:
+      docked bottom / floating".
+
+  **P2 · S**
+
+- [ ] **T4 Actions and settings are mixed on one bar.** The Outlets bar holds:
+  - actions: Allocate, Re-allocate…, Assign → port…, Find / replace…;
+  - a filter: No panel yet;
+  - **project settings:** Port labels format, Slack m, Waste %;
+  - a status: "17 routed · 49 no route".
+
+  Slack and waste change every length in the project, but they look like a filter for this table. **Suggest:**
+  - Slack, Waste and the port-label format move to Project → Settings…, and the Length column's title states them.
+  - The bar keeps actions and filters.
+  - "49 no route" becomes a filter chip that lists those outlets.
+
+  **P2 · S**
+
+- [ ] **T5 Sort and filter by column.**
+  - **Today:** the Outlets table is always sorted by label (`ui/OutletGrid.svelte:20`), with no search box. The patch
+    list and links have a text filter and chips but no column sort.
+  - **Suggest:**
+    - Every table sorts by any column (click the header, again to reverse), remembered per table.
+    - Every table has a filter box.
+    - Outlets also gets chips for usage and tier (Pages' ITEMS panel had type / usage / level filters).
+
+  **P2 · M**
+
+- [ ] **T6 One scope rule for every table.**
+  - **Today:** Outlets shows the open level; the patch list picks a room; links and sheets show the whole project.
+  - **Suggest:** one scope select on every table: **This view** (level / room / sheet) · **Selection** · **All**.
+    - The default is "This view", which also fixes R4.
+    - "Selection" lists only what's selected, which is the quickest way to see exactly which 12 of 47 outlets are
+      picked (V1–V3).
+
+  **P2 · S**
+
+- [ ] **T7 Counts and keys.**
+  - Every table shows "n shown of N · m selected" (only the Sheets table has it today).
+  - ↑ / ↓ move the selected row, and with it the selection on the drawing.
+  - Ctrl+C copies the shown rows as tab-separated text for Excel.
+
+  **P3 · M**
+
+### Smaller points
+
+- **Outlet Properties still flat** — the cad session lists it under "Left to do". The outlet is the most-edited item,
+  so it should come first: General (label, usage, tier, mount, symbol) · Position (X, Y, Z / Location preset) · Ports ·
+  Circuit · Layer.
+- **Height (Z, mm) is blank on an outlet** using its default height. Show the default as the placeholder ("10 —
+  floor box"), so a blank doesn't look like missing data.
+- **Menus keep their highlight after Esc** (the View button stayed outlined). Focus should go back to the drawing when
+  a menu closes, so the next keys reach the tools.
+- **Still over the ~500-line guide:** `ui/ViewCanvas.svelte` (567), `ui/CadShell.svelte` (544) and
+  `editor/selectTool.ts` (526). The tabs (D1) and the tables' title bar (T2) are new components, so they shouldn't
+  grow these.
+
+### Suggested order
+
+1. **Seeing and space (S each, about a day):** V1 halo + V2 row style · L1 defaults · T1 tables closed / foldable ·
+   R1 right-click menu · R4 patch-list room.
+2. **D1 drawing tabs** (+ D2).
+3. **Tables:** T2 title bar + maximise · T4 settings out · T6 scope · T5 sort / filter · T3 full width / floating.
+4. **The rest:** V3 · R2 cameras · R3 spinner · L2 · L3 · outlet Properties groups · T7.
+
+### Questions for Dave
+
+- [x] **Tabs:** one strip shared by both panes (as Pages), or a strip per pane? *Suggest:* shared. It's simpler to use   and to build, and it matches Pages. **Dave: fine.**
+- [x] **Preview tab:** single click = preview (reused), double-click / edit = keep; or every open makes a new tab?
+  *Suggest:* the preview tab. Without it, a Navigator browse leaves a dozen tabs behind. **Dave: fine.**
+- [x] **Tables:** docked full width under the windows, or a window that can float (e.g. on a second monitor)?
+  **Dave: float.**
+- [ ] **Racks window:** keep it only for rack tasks (find, place, + server room), or retire it into the Navigator?
+- [ ] **Selection:** halo only (V1.1), or also dim everything else while something is selected (V1.3)?

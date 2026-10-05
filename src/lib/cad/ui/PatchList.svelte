@@ -12,10 +12,12 @@
 	import CordBomDialog from './CordBomDialog.svelte'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
-	let { project, ws, projectName, roomId }: { project: CadProject; ws: Workspace; projectName: string; roomId?: string } = $props()
+	/** `inRoomView` = a rack view is open: the list starts on its room (UX review R4); "All rooms" is one click away. */
+	let { project, ws, projectName, roomId, inRoomView = false }: { project: CadProject; ws: Workspace; projectName: string; roomId?: string; inRoomView?: boolean } = $props()
 
 	// ── This room / All ──
 	let here = $state(false)
+	$effect(() => { here = inRoomView })
 	const room = $derived(here && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
 
 	// ── the cord BOM + Excel out (a dialog) and cord IDs back in (Phase 3.6) ──
@@ -91,7 +93,7 @@
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
-				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(r.id) || onPorts.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.fromLabel || '—'}</td>
 					<td class="px-2">{r.to}</td>

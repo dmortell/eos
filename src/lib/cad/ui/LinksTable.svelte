@@ -59,7 +59,7 @@
 		</thead>
 		<tbody>
 			{#each rows.slice(0, LIMIT) as r (r.id)}
-				<tr class="hov border-b border-zinc-100" class:bg-amber-50={selected.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+				<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5"><span class="chip k-{r.kind}">{r.kind}</span></td>
 					<td class="px-2">{r.a}</td>
 					<td class="px-2">{r.b}</td>

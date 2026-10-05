@@ -12,11 +12,8 @@
 	import { HINT, HINT_PLACE } from './toolHints'
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, specLabel, type ViewSpec } from '../views/space'
-	import OutletGrid from './OutletGrid.svelte'
-	import PatchList from './PatchList.svelte'
 	import Properties from './Properties.svelte'
 	import ImportNotes from './ImportNotes.svelte'
-	import SheetsTab from './SheetsTab.svelte'
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
@@ -24,7 +21,6 @@
 	import CableList from './CableList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
 	import { labelKind } from '../domain/labelEdit'
-	import LinksTable from './LinksTable.svelte'
 	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -32,6 +28,7 @@
 	import { clipboardEvents } from '../app/clipboardEvents'
 	import ToolOptions from './ToolOptions.svelte'
 	import Exports from './Exports.svelte'
+	import TablesPanel from './TablesPanel.svelte'
 	import Navigator from './Navigator.svelte'
 	import type { NavNode } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
@@ -236,9 +233,9 @@
 	let floorsOpen = $state(false)
 	let typesOpen = $state(false)
 
-	// windows open when they're needed, unless you closed them this session: Blocks with the Insert tool, Racks in a rack view
+	// Blocks opens with the Insert tool, unless you closed it this session (Racks no longer opens by itself in a rack
+	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
 	$effect(() => { if (ws.toolId === 'insert') untrack(() => layout.open('blocks', false)) })
-	$effect(() => { if (activeKind === 'row') untrack(() => layout.open('racks', false)) })
 	// floating windows stay reachable when the browser window (or the drawing area) shrinks (Dave)
 	$effect(() => {
 		const el = planEl
@@ -248,6 +245,9 @@
 		return () => ro.disconnect()
 	})
 	const tablesShown = $derived(panels.shown.bottom && !layout.allHidden)
+	/** The tables in the strip under the drawing (not floating or maximised); folded, the strip is just their bar. */
+	const tablesDocked = $derived(tablesShown && !panels.tables.float && !panels.tables.max)
+	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : 0)
 	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
@@ -386,7 +386,7 @@
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
 <div class="shell bg-zinc-50 text-sm" style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
-	style:grid-template-rows="1.75rem 2.25rem minmax(0, 1fr) {tablesShown ? panels.size.bottom : 0}px 1.6rem">
+	style:grid-template-rows="1.75rem 2.25rem minmax(0, 1fr) {tablesRow}px 1.6rem">
 	<MenuBar {menus}>
 		{#snippet right()}
 			<span class="saved text-xs">
@@ -410,6 +410,11 @@
 		<button class="ib {tablesShown ? '' : 'dim'}" onclick={() => panels.toggle('bottom')} title="{tablesShown ? 'Hide' : 'Show'} the tables (outlets, patch list, sheets, links) — Ctrl+,"><Icon name="panelBottom" size={15} /></button>
 		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="expand" size={15} /></button>
 	</div>
+
+	{#snippet tables()}
+		<TablesPanel {project} {ws} {panels} {level} {projectName} roomId={patchRoom} inRoomView={panes[activePane]?.kind === 'row'}
+			tab={bottom} onpick={pickBottom} onview={(s) => setPane(activePane, s)} area={planEl} />
+	{/snippet}
 
 	{#snippet winBody(id: WinId)}
 		{#if id === 'navigator'}
@@ -457,6 +462,7 @@
 			</div>
 		{/if}
 		{#each layout.floating() as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
+		{#if tablesShown && (panels.tables.float || panels.tables.max)}{@render tables()}{/if}
 		<!-- a window dragged to an edge docks there on release -->
 		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
 	</main>
@@ -468,21 +474,10 @@
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
-	<!-- tables: outlets (this level) | patch list (the project) | sheets | links -->
-	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesShown}>
+	<!-- the tables docked under the drawing (floating / maximised they sit in the drawing area, above) -->
+	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesDocked}>
 		<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
-		<div class="tabs">
-			<button class:on={bottom === 'outlets'} onclick={() => pickBottom('outlets')}>Outlets</button>
-			<button class:on={bottom === 'patch'} onclick={() => pickBottom('patch')}>Patch list</button>
-			<button class:on={bottom === 'sheets'} onclick={() => pickBottom('sheets')}>Sheets</button>
-			<button class:on={bottom === 'links'} onclick={() => pickBottom('links')}>Links</button>
-		</div>
-		<div class="tab-body">
-			{#if bottom === 'patch'}<PatchList {project} {ws} {projectName} roomId={patchRoom} />
-			{:else if bottom === 'sheets'}<SheetsTab {project} {ws} onview={(s) => setPane(activePane, s)} />
-			{:else if bottom === 'links'}<LinksTable {project} {ws} />
-			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
-		</div>
+		{#if tablesDocked}{@render tables()}{/if}
 	</section>
 
 	<StatusBar {ws} {hint} onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} />
@@ -521,12 +516,10 @@
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
 	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
 	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
+	/* a selected row, the same in every table (UX review V2): the drawing's selection blue, a bar on its left */
+	.shell :global(tr.row-sel) { background: #dbeafe !important; box-shadow: inset 3px 0 0 #2563eb; }
 	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
-	.tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px; border-right: 1px solid var(--cad-line); background: var(--cad-subtle); }
-	.tabs button { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 6px 2px; border-radius: 4px; color: var(--cad-muted); }
-	.tabs button.on { background: #2563eb; color: white; }
-	.tab-body { flex: 1; min-width: 0; min-height: 0; }
 	/* one or two views side by side */
 	.panes { display: flex; height: 100%; background: var(--cad-line); }
 	.ib { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--cad-muted); }
