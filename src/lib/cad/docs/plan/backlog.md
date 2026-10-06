@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 93 entries (0 P1 · 27 P2 · 66 P3; 10 ⚡ quick wins).
+**Remaining:** 92 entries (0 P1 · 27 P2 · 65 P3; 10 ⚡ quick wins).
 
 ## Suggested order
 
@@ -154,7 +154,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] ⚡ **Write down one simple version model** — A short ADR: what a "version" is in cad (sheet revisions from issues + project snapshots, no Pages-style major / minor model versions unless Dave says so). It unblocks the entries below and the decisions on numbering. **P3 · S** (Dave 2026-10-06: low priority) (a doc, no code). *cad today:* only sheet revisions made by issuing (`cad/domain/issue.ts:62`). *From:* T165
 - [ ] **Change history per drawing** — For each sheet: what changed, when, and who asked for it, entered when issuing (or between issues). It fills the title block's revision table. Keep Issue as simple as it is now. **P2 · M** (~100 lines: `by` / description on a revision + edit in Sheet Properties). *cad today:* a sheet's revisions keep code / date / note (= the purpose) / issue (`cad/domain/drawing.ts:46`); the title block shows the last 5 (`cad/domain/titleBlock.ts:55`). *From:* T102
-- [ ] **Issue register for the PM** — One Excel (or PDF) of all issues: each sheet as a row, each issue as a column with the revision it went at, with a "latest only" option. Easy to send. **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* the Issues list on screen and one transmittal Excel per issue (`cad/render/transmittal.ts:7`). *From:* T134
 - [ ] **Issue gate: nothing goes out unreviewed** — Before Issue, warn or block when a sheet (or the model it shows) changed and was not saved as a version. Settle the version model first (ADR above). **P2 · M** (~80 lines once snapshots exist). *cad today:* a changed sheet just gets the next revision by fingerprint (`cad/domain/issue.ts:62`); no "saved" state. *From:* G322, P025
 - [ ] **Revert to an earlier issue** — Restore the project (or one drawing) to how it was at an earlier issue, making it the live version: straight away when nothing changed since the last issue, else only after the user agrees to lose those changes (Dave 2026-10-04; we could also keep them as a snapshot). Answer to the check: cad cannot today — issues freeze only the printed picture, not the model data. Needs version history (below): take a snapshot at each issue. **P2 · M** (~80 lines after version history). *From:* T158
 - [ ] **Version history** — Save a named snapshot of the project with a note; list, restore (after a confirm, as one undo step), delete; issue from a snapshot. Store it like the frozen issue copies (chunked docs outside the entity store). The per-tool change log part waits on the change-log decision below. **P2 · L** (~300 lines). *cad today:* per-session undo only (`cad/store/store.ts:71`); frozen copies exist only for issued sheets (`cad/app/issue.ts:44`). *From:* G008, G053, G099, G126, G132

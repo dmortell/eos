@@ -11,6 +11,7 @@
 	import { reprintIssue } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 	import { exportTransmittal } from '../render/transmittal'
+	import { exportIssueRegister } from '../render/issueRegister'
 	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 
 	let { project, ws, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
@@ -39,6 +40,10 @@
 		ws.say(`Package “${p.name}” made from ${i.name} — its next issue shows what changed since`)
 		onpackages()
 	}
+	let latestOnly = $state(false)
+	async function register() {
+		try { await exportIssueRegister(issues, project.name, latestOnly) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+	}
 	async function reprint(i: Issue) {
 		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
@@ -48,6 +53,11 @@
 	}
 </script>
 
+<!-- the register of every issue for the PM (backlog): a sheet per row, an issue per column, or the latest only -->
+<div class="bar">
+	<button class="btn" disabled={!issues.length} title="Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel" onclick={() => register()}>Issue register (Excel)</button>
+	<label class="text-zinc-500" title="One column: each sheet's last revision, issue and date"><input type="checkbox" bind:checked={latestOnly} /> latest only</label>
+</div>
 <datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
 <table class="w-full border-collapse">
 	<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
@@ -87,6 +97,7 @@
 </table>
 
 <style>
+	.bar { display: flex; align-items: center; gap: 8px; padding: 3px 8px; }
 	.pk { font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
 	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }

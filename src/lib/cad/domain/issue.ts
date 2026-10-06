@@ -125,3 +125,31 @@ export function issuesOfSheet(issues: Issue[], sheetId: string): { issue: Issue;
 	return issues.flatMap((i) => { const s = i.sheets.find((x) => x.sheetId === sheetId); return s ? [{ issue: i, number: nums.get(i.id) ?? 0, rev: s.rev, changed: s.changed }] : [] })
 		.sort((a, b) => b.number - a.number || b.issue.date.localeCompare(a.issue.date))
 }
+
+/** The ISSUE REGISTER for the PM (backlog "Issue register for the PM"): every sheet that went out, a column per issue
+ *  (in issue order) with the revision it went at — `new` when it got that revision there, 'withdrawn' when the
+ *  package dropped it — or, `latest`, one column: each sheet's last issue. Sheets by number. */
+export type RegisterCell = { rev: string; new: boolean } | 'withdrawn' | null
+export function issueRegister(issues: Issue[], latest = false): { columns: { id: string; head: string; date: string }[]; rows: { number: string; title: string; cells: RegisterCell[] }[] } {
+	const nums = issueNumbers(issues)
+	const ordered = [...issues].sort((a, b) => (nums.get(a.id) ?? 0) - (nums.get(b.id) ?? 0))
+	const sheets = new Map<string, { number: string; title: string }>()
+	for (const i of ordered) for (const s of i.sheets) sheets.set(s.sheetId, { number: s.number, title: s.title })   // the latest number / title
+	const cellOf = (i: Issue, id: string): RegisterCell => {
+		const s = i.sheets.find((x) => x.sheetId === id)
+		return s ? { rev: s.rev, new: s.changed } : i.withdrawn?.some((w) => w.sheetId === id) ? 'withdrawn' : null
+	}
+	const cmp = new Intl.Collator(undefined, { numeric: true })
+	const ids = [...sheets.keys()].sort((a, b) => cmp.compare(sheets.get(a)!.number, sheets.get(b)!.number))
+	if (latest) {
+		return { columns: [{ id: 'latest', head: 'Latest', date: '' }], rows: ids.map((id) => {
+			const last = [...ordered].reverse().find((i) => i.sheets.some((s) => s.sheetId === id))!
+			const s = last.sheets.find((x) => x.sheetId === id)!
+			return { ...sheets.get(id)!, cells: [{ rev: `${s.rev} · ${issueTag(nums.get(last.id) ?? 0)} · ${last.date}`, new: false }] }
+		}) }
+	}
+	return {
+		columns: ordered.map((i) => ({ id: i.id, head: `${issueTag(nums.get(i.id) ?? 0)} ${i.name}`, date: i.date })),
+		rows: ids.map((id) => ({ ...sheets.get(id)!, cells: ordered.map((i) => cellOf(i, id)) })),
+	}
+}

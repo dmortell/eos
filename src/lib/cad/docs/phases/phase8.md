@@ -1556,3 +1556,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **Docs:** `../local-storage.md` lists every key cad keeps in the browser (12 in localStorage, 1 in sessionStorage):
   what each holds, per project or not, which file writes it, and how to add one. The ~500-line file limit is relaxed
   for now (Dave) — backlog note updated.
+- **30 — Issue register for the PM:** Sheets › Issues › **Issue register (Excel)** — a row per sheet that went out
+  (by number), a column per issue (in issue order, "Issue 03 name" + date) with the revision it went at (bold = new in
+  that issue, red "withdrawn"); **latest only** = one column, each sheet's last revision · issue · date
+  (`issueRegister` in `domain/issue.ts`, `render/issueRegister.ts`). Tests: `issue.test.ts` (+2). Live: both files made
+  (7 KB each). Help: touch, port tips, B/W and the register added.

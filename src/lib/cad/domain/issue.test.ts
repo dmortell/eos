@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -85,5 +85,24 @@ describe('issued in (slice 9)', () => {
 			{ type: 'issue', id: 'I3', name: 'Build', purpose: 'For construction', date: '2026-03-01', number: 3, sheets: sh('A', false) },
 		] as Issue[]
 		expect(issuesOfSheet(issues, 'S').map((x) => [x.number, x.rev, x.changed])).toEqual([[3, 'A', false], [1, 'A', true]])
+	})
+})
+
+describe('issue register (backlog: for the PM)', () => {
+	const sh = (id: string, rev: string, changed: boolean) => ({ sheetId: id, number: id, title: `T${id}`, rev, size: 'A3', changed })
+	const issues = [
+		{ type: 'issue', id: 'I2', name: 'Build', purpose: 'x', date: '2026-02-01', number: 2, sheets: [sh('S2', 'B', true)], withdrawn: [{ sheetId: 'S10', number: 'S10', title: '', rev: 'A' }] },
+		{ type: 'issue', id: 'I1', name: 'Tender', purpose: 'x', date: '2026-01-01', number: 1, sheets: [sh('S10', 'A', true), sh('S2', 'A', true)] },
+	] as Issue[]
+	it('a column per issue in issue order, a row per sheet by number: its rev there, new or as issued, withdrawn', () => {
+		const r = issueRegister(issues)
+		expect(r.columns.map((c) => c.head)).toEqual(['Issue 01 Tender', 'Issue 02 Build'])
+		expect(r.rows.map((x) => x.number)).toEqual(['S2', 'S10'])
+		expect(r.rows[0].cells).toEqual([{ rev: 'A', new: true }, { rev: 'B', new: true }])
+		expect(r.rows[1].cells).toEqual([{ rev: 'A', new: true }, 'withdrawn'])
+	})
+	it('latest only: one column, each sheet at its last issue', () => {
+		const r = issueRegister(issues, true)
+		expect(r.rows.map((x) => (x.cells[0] as { rev: string }).rev)).toEqual(['B · Issue 02 · 2026-02-01', 'A · Issue 01 · 2026-01-01'])
 	})
 })
