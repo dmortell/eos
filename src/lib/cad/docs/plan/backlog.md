@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **Code-size warning:** `ui/CadShell.svelte` (497), `ui/ViewCanvas.svelte` (492), `editor/selectTool.ts` (482) and
 `ui/Properties.svelte` are near the ~500-line limit (split 2026-10-07). The first entry that grows one splits it along a real seam first.
 
-**Remaining:** 94 entries (0 P1 · 28 P2 · 66 P3; 10 ⚡ quick wins).
+**Remaining:** 93 entries (0 P1 · 27 P2 · 66 P3; 10 ⚡ quick wins).
 
 ## Suggested order
 
@@ -169,7 +169,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Shell, navigation and touch
 
 - [ ] ⚡ **Finish the soft retire (7.5)** — the title-bar menu stops linking Racks / Frames / Floorplans, the command palette stops offering old tools, and old routes show a "retired — use cad" banner. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines across files outside cad). *cad today:* only the project page is done; the menu is in `lib/ui/Titlebar.svelte:13`. *From:* P043
-- [ ] **Touch: pan and pinch zoom** — two fingers pan and pinch-zoom in every view (also inside a sheet); one finger on empty space pans, a tap clears the selection; one finger on a thing selects / draws. **P2 · M** (~150 lines). *cad today (touch pass 2026-10-06, synthetic touch pointers):* a tap selects; a one-finger drag on empty space does nothing (no pan, no selection box); a pinch does nothing; the canvas has `touch-action: auto`, so on an iPad the browser scrolls / zooms the whole page instead — set `touch-action: none` on the canvas with the gestures. Right / middle drag pans with a mouse. ViewCanvas is ~590 lines, so put the gesture code in a new `editor/touch.ts` (Pages' `pages/ui/panzoom.ts`, 118 lines, is the model to copy). *From:* G007, G041, G080, G182, G298
 - [ ] **Project Properties** — edit the project's name, codes, client, address and description in Properties (needed by the title block's Site section). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* missing; cad only reads the name from `projects/{pid}` (`routes/projects/[pid]/cad/+page.svelte`). Where it lives is the open question "Where should the project details editor go?" below. *From:* G301
 - [ ] **Default file storage per project** — a project setting: new uploads from cad (logos, issue PDFs) go to UploadThing or Firebase Storage. **P2 · M** (~70 lines). *cad today:* cad always uses UploadThing (`cad/ui/TitleBlockEditor.svelte:40`, `cad/app/issue.ts`); both providers exist in `uploads/provider.ts`. *From:* T151
 - [ ] **Open project (Ctrl+O)** — a dialog to pick another project and open it in cad without leaving the tool. **P2 · M** (~100 lines; port `pages/parts/OpenProjectDialog.svelte`). *cad today:* missing. *From:* G296

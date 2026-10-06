@@ -1546,3 +1546,10 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **14 — Own cable type for new links:** while an interconnect is armed, the Cord tool's bar shows **Link type** —
   kept as last chosen (`ws.linkType`), separate from the cords' type (which stays for patch cords). Not live-checked
   (needs an armed interconnect; three lines in `cordTool.ts` / `ToolOptions.svelte`).
+- **23 — Touch: pan and pinch zoom** (`editor/touch.ts`, `TouchNav` + `pinchCamera`): two fingers pan and pinch-zoom
+  in every view (about the fingers' midpoint; a tool's half-done press is cancelled; the finger left after a pinch
+  does nothing until all are up); with Select one finger on empty space pans (a sheet's paper counts as empty) and a
+  tap there clears the selection; on a thing, or with a drawing tool, one finger is a mouse press. The canvas is
+  `touch-action: none` (the browser no longer scrolls / zooms the page). Tests: `touch.test.ts` (3). Live (synthetic
+  touch): one-finger pan +100 / −50 px, pinch 1247 % → 4364 %, tap an outlet → selected, tap empty → cleared. A real
+  iPad pass is still worth doing.

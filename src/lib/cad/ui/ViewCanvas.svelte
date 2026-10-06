@@ -31,6 +31,7 @@
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, type Camera } from '../editor/camera'
+	import { TouchNav } from '../editor/touch'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
 	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop } from './viewportEdit'
@@ -108,8 +109,6 @@
 	// the picked viewport: its frame and (unlocked) corner grips, a constant size on screen
 	const vpHighlight = $derived(spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId) ? []
 		: viewportHighlight(prims, ws.viewportId, !!sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, 4 / cam.k))
-
-
 	/** Overlays over the drawing (views/overlays.ts): selected ports, a cord's circuit, fill bands, routes, the other
 	 *  pane's work plane. */
 	const portHighlight = $derived(spec.kind === 'row' ? portCells(prims, ws.portSel) : [])
@@ -333,9 +332,13 @@
 	// a device template dragged from the Device library onto a rack view (ui/viewportEdit.ts)
 	// svelte-ignore state_referenced_locally
 	const lib = libraryDrop({ ws, ok: () => spec.kind === 'row' && !vpe, input: (e) => input(e), ctx, surface: () => svg, changed: () => tick++, focus: () => onfocus?.() })
+	// touch (editor/touch.ts): two fingers pan / pinch anywhere; one finger on empty space pans with Select, a tap clears
+	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
+		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpe.prims, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })
 	function onDown(e: PointerEvent) {
 		onfocus?.()
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
+		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
 		const count = pressCount(e)
@@ -356,6 +359,7 @@
 		ws.tool.down(input(e, count), ctx()); tick++
 	}
 	function onMove(e: PointerEvent) {
+		if (e.pointerType === 'touch' && touch.move(e.pointerId, local(e))) return
 		if (panning) {
 			const s = local(e)
 			if (panning.moved || Math.hypot(s.x - panning.x, s.y - panning.y) > 3) { cam = panBy(cam, s.x - panning.x, s.y - panning.y); panning = { ...panning, ...s, moved: true } }
@@ -375,6 +379,7 @@
 		tick++
 	}
 	function onUp(e: PointerEvent) {
+		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
 		if (panning) {
 			const click = !panning.moved && panning.button === 2
 			panning = null
@@ -482,7 +487,8 @@
 <style>
 	.surface { position: relative; width: 100%; height: 100%; overflow: hidden; background: white; }
 	/* the drawing's words aren't page text: a double-click mustn't select them (it took the focus from the in-place edit box) */
-	.surface svg { user-select: none; -webkit-user-select: none; }
+	/* touch gestures are ours (editor/touch.ts): the browser must not scroll / zoom the page instead */
+	.surface svg { user-select: none; -webkit-user-select: none; touch-action: none; }
 	.surface.active { box-shadow: inset 0 0 0 1px #93c5fd; }
 	.loading { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 12px; color: #a1a1aa; pointer-events: none; }
 	.vp-dim { fill: #ffffff; fill-opacity: 0.6; pointer-events: none; }
