@@ -1,7 +1,7 @@
 <!-- Draws a display list into an SVG group (in drawing mm). Hairlines keep 1 screen px at any zoom; banded lines
      (trunks, walls) are drawn at their real width. Selected entities get the `sel` look. -->
 <script lang="ts">
-	import type { Prim } from '../views/display'
+	import { primBounds, type Prim } from '../views/display'
 	import type { Id } from '../domain/types'
 
 	/** `k` = screen px per drawing mm, for text LOD (minPx / maxPx). Omit to draw every text. */
@@ -20,6 +20,22 @@
 	const clips = $derived([...new Map(prims.filter((p) => p.clip).map((p) => [clipKey(p.clip!), p.clip!])).entries()])
 	const clipIds = $derived(new Map(clips.map(([key], i) => [key, `clip-${uid}-${i}`])))
 	const clipOf = (p: Prim) => (p.clip ? `url(#${clipIds.get(clipKey(p.clip))})` : undefined)
+
+	/** The selection as Pages / Sheets show it (Dave 2026-10-06): the item stays as drawn; a thin blue line over its
+	 *  lines, and a dashed box round each selected symbol, box or text (a run or wall — open lines only — gets the line
+	 *  alone: a box round a long run says nothing). Padded a few screen px when the zoom is known. */
+	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && (p.k === 'circle' || (p.k === 'line' && !p.cls.startsWith('opening-pick') && !p.cls.startsWith('viewport')))
+	const selBoxes = $derived.by(() => {
+		if (!selected.size) return []
+		const by = new Map<string, Prim[]>()
+		for (const p of prims) if (p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && !p.cls.startsWith('viewport') && !p.cls.startsWith('opening-pick')) (by.get(p.src) ?? by.set(p.src, []).get(p.src)!).push(p)
+		const pad = k ? 4 / k : 0
+		return [...by.entries()].filter(([, ps]) => ps.some((q) => q.k !== 'line' || q.closed)).map(([id, ps]) => {
+			const bs = ps.map(primBounds)
+			const b = { x0: Math.min(...bs.map((q) => q.x0)) - pad, y0: Math.min(...bs.map((q) => q.y0)) - pad, x1: Math.max(...bs.map((q) => q.x1)) + pad, y1: Math.max(...bs.map((q) => q.y1)) + pad }
+			return { id, b, clip: clipOf(ps[0]) }
+		})
+	})
 </script>
 
 {#if clips.length}
@@ -27,23 +43,12 @@
 		{#each clips as [key, b] (key)}<clipPath id={clipIds.get(key)}><rect x={b.x0} y={b.y0} width={b.x1 - b.x0} height={b.y1 - b.y0} /></clipPath>{/each}
 	</defs>
 {/if}
-<!-- the SELECTION HALO (UX review V1, Dave: "difficult to see selected outlets"): a wide pale stroke behind every
-     selected line / outline / circle, a constant width on screen, so a pick shows whatever colour the item is (blue
-     outlets barely changed when only their stroke turned blue). Banded runs turn blue whole; texts go bold. -->
-{#if selected.size}
-	{#each prims as p, i (i)}
-		{#if p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && p.k !== 'text' && !(p.k === 'line' && p.w)}
-			{#if p.k === 'circle'}<circle cx={p.c.x} cy={p.c.y} r={p.r} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
-			{:else if p.closed}<polygon points={ptsOf(p)} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
-			{:else}<polyline points={ptsOf(p)} class="halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
-		{/if}
-	{/each}
-{/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
-	{@const col = sel && !(p.k !== 'image' && (p.cls === 'shape-fill' || p.cls === 'note-bg')) ? undefined : p.color}
-	<!-- col = the item's / its layer's colour; the selection look wins. Polygons take it as their outline, and as their
-	     fill only in outlet symbols (a coloured Racks layer mustn't fill rack bodies solid over their devices). -->
+	{@const col = p.color}
+	<!-- col = the item's / its layer's colour, kept when selected (the selection is drawn over it). Polygons take it as
+	     their outline, and as their fill only in outlet symbols (a coloured Racks layer mustn't fill rack bodies solid
+	     over their devices). -->
 	{#if shown(p)}
 	{#if p.k === 'image'}
 		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
@@ -66,11 +71,24 @@
 	{/if}
 	{/if}
 {/each}
+{#if selected.size}
+	<!-- the SELECTION, over everything (Pages / Sheets look): thin blue lines on the item's own lines, dashed boxes -->
+	{#each prims as p, i (i)}
+		{#if overLine(p)}
+			{#if p.k === 'circle'}<circle cx={p.c.x} cy={p.c.y} r={p.r} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else if p.k === 'line' && p.closed}<polygon points={ptsOf(p)} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else if p.k === 'line'}<polyline points={ptsOf(p)} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
+		{/if}
+	{/each}
+	{#each selBoxes as s (s.id)}<rect x={s.b.x0} y={s.b.y0} width={s.b.x1 - s.b.x0} height={s.b.y1 - s.b.y0} class="sel-box" vector-effect="non-scaling-stroke" clip-path={s.clip} />{/each}
+{/if}
 
 <style>
 	polyline, polygon, circle { fill: none; stroke: var(--cad-ink, #334155); stroke-width: 1; }
 	.filled { fill: var(--cad-fill, #e2e8f0); }
-	.halo { fill: none !important; stroke: #2563eb !important; stroke-width: 9px !important; stroke-opacity: 0.32; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+	/* the selection (Pages / Sheets): a thin blue line over the item's lines, a dashed box round a symbol / box / text */
+	.sel-line { fill: none !important; stroke: #2563eb; stroke-width: 1.75px; stroke-linejoin: round; pointer-events: none; }
+	.sel-box { fill: none !important; stroke: #2563eb; stroke-width: 1.25px; stroke-dasharray: 4 3; opacity: 0.9; pointer-events: none; }
 	.band { stroke-linecap: butt; stroke-linejoin: miter; vector-effect: none; }
 	/* the hairline drawn along every banded run */
 	.centre { opacity: 1; stroke-width: 1.5; }
@@ -211,12 +229,6 @@
 	text.on-fill { fill: #ffffff !important; font-weight: 600; }
 	text.port-count { paint-order: stroke; stroke: #ffffff; stroke-width: 0.25em; stroke-linejoin: round; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
-	/* ONE selection colour, blue (Dave: as the Sheets tool) — orange is high runs, amber the cord trace */
-	.sel { stroke: #2563eb !important; }
-	.opening-pick.sel { stroke: transparent !important; }   /* a selected wall's gaps stay open */
-	.band.sel { opacity: 0.9; }
-	/* a selected text is bold and blue — with NO outline: `.sel`'s stroke on text isn't screen-constant, it grew with the
-	   zoom and smeared outlet labels (Dave: "unreadable … when selected and zoomed in") */
-	text.sel { fill: #1d4ed8; font-weight: 600; stroke: none !important; }
-	circle.sel, polygon.sel { stroke-width: 2.5; }
+	/* selected items keep their own look (the selection is drawn over them, above); text never gets an outline */
+	text.sel { stroke: none !important; }
 </style>

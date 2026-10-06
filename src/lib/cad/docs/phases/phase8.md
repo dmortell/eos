@@ -1397,3 +1397,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   **Cord channels** in a rack view's strip — a project setting (`settings.cordRoute`, stored as 'channels' /
   'straight' so a merge-save can't revert it), followed by sheets, PDFs and issued copies. Tests:
   `views/cordRoute.test.ts` (5). Live (Test Project, IDF2 front, all rows): 19 cords, all orthogonal; left ON there.
+- **Selection drawn as Pages / Sheets do** (Dave: "the halo is enough [no dimming], but I prefer the selection
+  rendering of Pages and Sheets"): no halo, no recolouring — a selected item keeps its own colour and weight; a thin
+  blue line (1.75 px) is drawn over its lines and circles, and a dashed blue box (padded 4 px) goes round each
+  selected symbol, box or text (a run or wall — open lines only — gets just the line). Grips were already the Sheets
+  look. Live (1F plan): 24 picked → 24 dashed boxes, 62 lines, no halo.
