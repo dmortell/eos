@@ -1,6 +1,6 @@
 # Organising sheets and issue packages (plan)
 
-**Status:** Dave answered the questions on 2026-10-07 (section 6) — ready to build, slice 1 first. Dave: "develop a plan for organizing sheets, the user will want to sort them
+**Status:** BUILT 2026-10-07 — all nine slices (log: `../phases/phase8.md`, "Sheets organising"). Left for later: below. Dave: "develop a plan for organizing sheets, the user will want to sort them
 by various categories and build re-usable packages for issuing." Plan only; nothing here is built. It replaces the
 backlog entries **Organising sheets** and **Revisions and packages**, and takes in the parts of **Change history per
 drawing** and the decision **A DRAFT label on drawings?** that touch issuing. Version history, revert and the issue

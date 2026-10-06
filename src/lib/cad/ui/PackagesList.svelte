@@ -32,6 +32,8 @@
 	const nameOf = (k: 'cat' | 'id', id: string) => (k === 'cat' ? catName(id) : project.index.nameOf(id) || id)
 	const selectedSheets = $derived(rows.filter((r) => ws.selection.includes(r.id) && r.status !== 'archived').sort((a, b) => Number(a.order) - Number(b.order)))
 	const nextOrder = () => Math.max(0, ...all.map((p) => p.order)) + 10
+	/** The package's issues, newest first (slice 9). */
+	const issuesOf = (p: SheetPackage) => issues.filter((i) => i.packageId === p.id).sort((a, b) => (numbers.get(b.id) ?? 0) - (numbers.get(a.id) ?? 0))
 	const put = (p: SheetPackage, label: string) => project.store.transact(label, (tx) => tx.put(p))
 
 	function fromSelection() {
@@ -106,6 +108,10 @@
 						<label title="One per line: Name, Organisation">Recipients <textarea class="cell" rows="2" value={recipientsText(p.recipients)} placeholder="Name, Org" onchange={(e) => put({ ...p, recipients: parseRecipients(e.currentTarget.value) }, 'Package recipients')}></textarea></label>
 						<label>Note <input class="cell w-64" value={p.note ?? ''} onchange={(e) => put({ ...p, note: e.currentTarget.value.trim() || undefined }, 'Package note')} /></label>
 					</div>
+					{#if issuesOf(p).length}
+						<!-- its issues (slice 9), newest first -->
+						<div class="hist">{#each issuesOf(p) as i (i.id)}<span>{issueTag(numbers.get(i.id) ?? 0)} · {i.date} · {i.sheets.filter((x) => x.changed).length} new rev{#if i.file} · <a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">PDF</a>{/if}</span>{/each}</div>
+					{/if}
 					<div class="acts">
 						{#if p.sheetIds}
 							<button class="btn" onclick={() => changeList(p, true)}>+ Selected sheets ({selectedSheets.length})</button>
@@ -138,6 +144,7 @@
 	tr.edit { background: var(--cad-subtle); }
 	.form, .acts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 14px; padding: 2px 0; }
 	.form label { display: flex; align-items: flex-start; gap: 4px; color: var(--cad-muted); }
+	.hist { display: flex; flex-wrap: wrap; gap: 2px 14px; padding: 2px 0; color: var(--cad-muted); }
 	.tag { border-radius: 3px; padding: 0 4px; margin-right: 3px; font-size: 10px; font-weight: 600; }
 	.add { background: #dcfce7; color: #166534; }
 	.wd { background: #fee2e2; color: #991b1b; }

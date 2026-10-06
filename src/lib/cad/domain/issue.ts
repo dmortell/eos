@@ -117,3 +117,11 @@ export function issueState(s: Pick<Sheet, 'status' | 'revisions'>, now?: string)
 	return last.hash === now ? 'issued' : 'changed'
 }
 export const ISSUE_STATE_TEXT: Record<IssueState, string> = { 'not-issued': 'Not issued', issued: 'Issued', changed: 'Changed since', superseded: 'Superseded', unknown: '…' }
+
+/** Every issue that included this sheet (sheets-organising slice 9: "Issued in"), newest first, at which revision and
+ *  whether it was new in that issue. */
+export function issuesOfSheet(issues: Issue[], sheetId: string): { issue: Issue; number: number; rev: string; changed: boolean }[] {
+	const nums = issueNumbers(issues)
+	return issues.flatMap((i) => { const s = i.sheets.find((x) => x.sheetId === sheetId); return s ? [{ issue: i, number: nums.get(i.id) ?? 0, rev: s.rev, changed: s.changed }] : [] })
+		.sort((a, b) => b.number - a.number || b.issue.date.localeCompare(a.issue.date))
+}

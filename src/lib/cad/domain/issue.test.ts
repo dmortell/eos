@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -73,5 +73,17 @@ describe('issue state (slice 5)', () => {
 		expect(issueState({ status: 'active', revisions: rev('h1') }, 'h2')).toBe('changed')
 		expect(issueState({ status: 'archived', revisions: rev('h1') }, 'h2')).toBe('superseded')
 		expect(issueState({ status: 'active', revisions: rev('h1') })).toBe('unknown')
+	})
+})
+
+describe('issued in (slice 9)', () => {
+	it('lists the issues that included a sheet, newest first, at its rev, new or as issued', () => {
+		const sh = (rev: string, changed: boolean) => [{ sheetId: 'S', number: 'P1', title: 'Plan', rev, size: 'A3', changed }]
+		const issues = [
+			{ type: 'issue', id: 'I1', name: 'Tender', purpose: 'For tender', date: '2026-01-01', number: 1, sheets: sh('A', true) },
+			{ type: 'issue', id: 'I2', name: 'Other', purpose: 'x', date: '2026-02-01', number: 2, sheets: [] },
+			{ type: 'issue', id: 'I3', name: 'Build', purpose: 'For construction', date: '2026-03-01', number: 3, sheets: sh('A', false) },
+		] as Issue[]
+		expect(issuesOfSheet(issues, 'S').map((x) => [x.number, x.rev, x.changed])).toEqual([[3, 'A', false], [1, 'A', true]])
 	})
 })

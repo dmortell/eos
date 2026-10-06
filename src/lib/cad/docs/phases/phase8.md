@@ -1506,3 +1506,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   stamp is later (Dave D4). Tests: `issue.test.ts` (+1). Live (Test Project): 2, S006 Not issued; S001 / S003 / S004 /
   S005 Changed since — true: this week's drawing changes (port counts in outlets, run labels, cord channels) change
   how they print, so the next issue gives them new revisions; 4 dots in the Navigator.
+- **Slice 9 — history:** sheet Properties › **Issued in** — every issue that included it, newest first, at which
+  revision, "new" when it got that revision there, the package PDF (`issuesOfSheet`); a package's Edit row lists its
+  issues (newest first, how many new revisions, the PDF). Tests: `issue.test.ts` (+1). Live: S001 → Issue 03 B new ·
+  Issue 02 A · Issue 01 A new. **The plan is built** (the backlog's "Organising sheets" and "Revisions and packages"
+  entries are done; review / approval, the DRAFT stamp and version history stay for later).

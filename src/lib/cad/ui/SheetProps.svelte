@@ -14,10 +14,13 @@
 	import { printRevision } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
+	import { issuesOfSheet, issueTag } from '../domain/issue'
+	import type { Issue } from '../domain/drawing'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
 	const vp = $derived(s.viewports.find((v) => v.id === ws.viewportId))
+	const issuedIn = $derived(issuesOfSheet([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue'), s.id))
 	const levels = $derived(project.levels)
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
@@ -158,6 +161,16 @@
 			{/each}
 		</PropGroup>
 	{/if}
+	{#if issuedIn.length}
+		<!-- every issue that included it (slice 9), newest first: at which revision, new in it or as last issued -->
+		<PropGroup kind="sheet" title="Issued in">
+			{#each issuedIn as x (x.issue.id)}
+				<div class="rev2"><span>{issueTag(x.number)}</span><span>{x.issue.date}</span><span class="note" title={x.issue.name}>{x.issue.name}</span>
+					<span class="font-mono" title={x.changed ? 'A new revision in that issue' : 'As last issued'}>{x.rev}{x.changed ? ' new' : ''}</span>
+					{#if x.issue.file}<a class="text-blue-600 underline" href={x.issue.file.url} target="_blank" rel="noopener" title="The package PDF as issued">PDF</a>{:else}<span></span>{/if}</div>
+			{/each}
+		</PropGroup>
+	{/if}
 	<div class="acts">
 		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
 		<button class="btn" title="A copy with its viewports and notes (no number, no revisions), right after it" onclick={() => ws.select(duplicateSheets(project, [s.id]))}>Duplicate</button>
@@ -175,5 +188,7 @@
 	.btn.del:hover { color: #dc2626; }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
 	.rev { display: grid; grid-template-columns: 2.2rem 5.5rem 1fr auto; align-items: center; gap: 4px; }
+	.rev2 { display: grid; grid-template-columns: 3.6rem 5rem 1fr auto 1.8rem; align-items: center; gap: 4px; }
+	.rev2 .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cad-muted); }
 	.rev .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cad-muted); }
 </style>
