@@ -33,7 +33,10 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 			case 'polygon': out.push({ k: 'line', pts: g.pts.map(P), closed: true, fill, cls, src }); break
 			case 'text': {
 				const text = fillAttrs(g.text, attrs)
-				if (text) out.push({ k: 'text', at: P(g.at), text, size: g.sizeMm * s, anchor: g.align === 'centre' ? 'middle' : g.align === 'right' ? 'end' : 'start', rot: (g.rot ?? 0) + rot || undefined, cls: 'label', src })
+				// a text wholly on a filled shape of the block (a port count inside the symbol) is drawn white; a port count
+				// on an outline symbol gets a small halo (`port-count`), so the symbol's lines don't cross it
+				const tcls = onSolid(b, g, text) ? 'label on-fill' : g.text === '{PORTS}' ? 'label port-count' : 'label'
+				if (text) out.push({ k: 'text', at: P(g.at), text, size: g.sizeMm * s, anchor: g.align === 'centre' ? 'middle' : g.align === 'right' ? 'end' : 'start', rot: (g.rot ?? 0) + rot || undefined, cls: tcls, src })
 				break
 			}
 			default: break   // arcs, images and nested inserts in blocks come later
@@ -48,4 +51,31 @@ export function blockPreview(b: Block): { prims: Prim[]; viewBox: string } {
 	const bb = unionBounds(prims.map(primBounds)) ?? { x0: -1, y0: -1, x1: 1, y1: 1 }
 	const pad = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0) * 0.15 || 0.5
 	return { prims, viewBox: `${bb.x0 - pad} ${bb.y0 - pad} ${bb.x1 - bb.x0 + 2 * pad} ${bb.y1 - bb.y0 + 2 * pad}` }
+}
+
+type TextGeom = Extract<Block['shapes'][number]['geom'], { kind: 'text' }>
+
+/** Does this text (block-local mm) sit wholly inside one of the block's SOLID shapes? Its box is taken as 0.6 × size a
+ *  character wide and 0.7 × size tall above the baseline. */
+export function onSolid(b: Block, g: TextGeom, text: string): boolean {
+	const w = text.length * g.sizeMm * 0.6, x0 = g.align === 'centre' ? g.at.x - w / 2 : g.align === 'right' ? g.at.x - w : g.at.x
+	const y1 = g.at.y, y0 = y1 - g.sizeMm * 0.7
+	const corners: Pt[] = [{ x: x0, y: y0 }, { x: x0 + w, y: y0 }, { x: x0 + w, y: y1 }, { x: x0, y: y1 }]
+	return b.shapes.some((sh) => {
+		if (sh.style?.fill !== 'solid') return false
+		const s = sh.geom
+		if (s.kind === 'circle') return corners.every((c) => Math.hypot(c.x - s.centre.x, c.y - s.centre.y) <= s.r)
+		if (s.kind === 'rect' && !s.rot) return corners.every((c) => Math.abs(c.x - s.centre.x) <= s.size.x / 2 && Math.abs(c.y - s.centre.y) <= s.size.y / 2)
+		if (s.kind === 'polygon') return corners.every((c) => inside(c, s.pts))
+		return false
+	})
+}
+
+function inside(p: Pt, pts: Pt[]): boolean {
+	let r = false
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const a = pts[i], c = pts[j]
+		if (a.y > p.y !== c.y > p.y && p.x < ((c.x - a.x) * (p.y - a.y)) / (c.y - a.y) + a.x) r = !r
+	}
+	return r
 }

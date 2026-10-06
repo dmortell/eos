@@ -206,6 +206,10 @@
 	/* what a click would take (UX06): a thin light-blue outline */
 	.hover { stroke: #60a5fa; stroke-width: 3; stroke-opacity: 0.8; fill: none; }
 	text.hover { fill: #2563eb; stroke: none; }
+	/* an outlet's port count in the middle of its symbol: white on a filled symbol (over its layer colour and the
+	   selection), dark with a halo sized to the text (em, so it doesn't grow with the zoom) on an outline one */
+	text.on-fill { fill: #ffffff !important; font-weight: 600; }
+	text.port-count { paint-order: stroke; stroke: #ffffff; stroke-width: 0.25em; stroke-linejoin: round; }
 	.snap { stroke: #16a34a; stroke-width: 1.5; fill: none; }
 	/* ONE selection colour, blue (Dave: as the Sheets tool) — orange is high runs, amber the cord trace */
 	.sel { stroke: #2563eb !important; }

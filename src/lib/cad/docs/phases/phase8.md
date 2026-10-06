@@ -1367,3 +1367,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   drawn in the viewport's view mm on the paper (off the page); it's mapped onto the paper now. The box is a little
   stronger everywhere (1.5 px, 12 % fill). Live (S001, inside the plan viewport): the box sat inside the frame and
   selected 30 items; selected labels: no stroke, blue, 600.
+- **Usage can be cleared** (Dave: "most outlets don't need to display it, just specific ones"): Usage has "— none (not
+  shown)" in outlet Properties (one or several) and "—" in the outlet table. A blank usage draws nothing under the
+  symbol, takes a general panel in allocation (like before) and counts as "other" in the schedule totals.
+- **Port counts in the middle of the outlet** (Dave: "port numbers should be shown in the center of the outlet"; they
+  were to the right): centred in every built-in outlet symbol. A text wholly inside a filled shape of its block
+  (`onSolid` in `views/blocks.ts`) is white (`on-fill`, over the layer colour and the selection); a port count on an
+  outline symbol (ceiling, faceplates) is dark with a halo sized in em, so it doesn't grow with the zoom. The AP's
+  centre dot became a disc (r 0.95) to carry its number. The PDF fills outlet symbols blue like the screen (they were
+  light grey, which white digits wouldn't show on). Tests: `views/blocks.test.ts` (3). Live (1F plan): 9 counts white
+  on filled symbols, 7 haloed on ceiling outlets.

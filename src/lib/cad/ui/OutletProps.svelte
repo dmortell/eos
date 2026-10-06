@@ -78,8 +78,10 @@
 		</select>
 	</label>
 	<label class="row">Usage
-		<select class="inp" value={same((o) => o.usage) ?? ''} onchange={(e) => setOutlets('Usage', () => ({ usage: e.currentTarget.value }))}>
-			{#if !same((o) => o.usage)}<option value="">mixed</option>{/if}
+		<!-- "none" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
+		<select class="inp" value={same((o) => o.usage) ?? '*mixed'} onchange={(e) => setOutlets('Usage', () => ({ usage: e.currentTarget.value }))}>
+			{#if same((o) => o.usage) === undefined}<option value={'*mixed'} disabled>mixed</option>{/if}
+			<option value="">— none (not shown)</option>
 			{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 		</select>
 	</label>
@@ -107,7 +109,8 @@
 		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
 		<label class="row">Usage
 			<select class="inp" value={o.usage} onchange={(e) => put(o, 'Usage', { usage: e.currentTarget.value })}>
-				{#if !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage || '—'}</option>{/if}
+				<option value="">— none (not shown)</option>
+				{#if o.usage && !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage}</option>{/if}
 				{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 			</select>
 		</label>

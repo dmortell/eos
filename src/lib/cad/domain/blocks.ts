@@ -21,22 +21,23 @@ const solid = { style: { fill: 'solid' } }
 // the label above the symbol, the usage below it (y down, `at` = the text's baseline; symbols reach ±1.8)
 const label: BlockShape = sh({ kind: 'text', at: { x: 0, y: -2.2 }, text: '{LABEL}', sizeMm: 1.8, align: 'centre' })
 const usage: BlockShape = sh({ kind: 'text', at: { x: 0, y: 3.6 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' })
-// the number of ports, small, to the right of the symbol (Dave: port quantities shown on outlets)
-const ports = (x = 2.1): BlockShape => sh({ kind: 'text', at: { x, y: 0.5 }, text: '{PORTS}', sizeMm: 1.4 })
+// the number of ports in the MIDDLE of the symbol (Dave: "port numbers should be shown in the center of the outlet";
+// it was to the right) — centred on (0, cy), white on a filled symbol, dark with a halo on an outline one
+const ports = (sizeMm = 1.2, cy = 0): BlockShape => sh({ kind: 'text', at: { x: 0, y: cy + sizeMm * 0.35 }, text: '{PORTS}', sizeMm, align: 'centre' })
 
 /** The built-in outlet symbols (paper mm, centred on the outlet). */
 export const BUILTIN_BLOCKS: Block[] = [
 	{ type: 'block', id: 'builtin:outlet-floor', name: 'Outlet - floor box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label, usage, ports()] },
+		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label, usage, ports(1.1)] },
 	{ type: 'block', id: 'builtin:outlet-wall', name: 'Outlet - wall', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label, usage, ports()] },
+		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label, usage, ports(1.2, -0.3)] },
 	{ type: 'block', id: 'builtin:outlet-box', name: 'Outlet - desk/box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label, usage, ports()] },
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label, usage, ports(1.4)] },
 	{ type: 'block', id: 'builtin:outlet-ceiling', name: 'Outlet - ceiling', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }), seg(-1.06, -1.06, 1.06, 1.06), seg(1.06, -1.06, -1.06, 1.06), label, usage, ports()] },
-	// the AP: a ring with a dot; its usage reads below like every other outlet (it used to say "AP" in the middle)
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }), seg(-1.06, -1.06, 1.06, 1.06), seg(1.06, -1.06, -1.06, 1.06), label, usage, ports(1.3)] },
+	// the AP: a ring with a disc (its port count white on it); its usage reads below like every other outlet (it used to say "AP" in the middle)
 	{ type: 'block', id: 'builtin:ap', name: 'Wireless AP', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.5 }, solid), label, { ...usage, geom: { kind: 'text', at: { x: 0, y: 3.9 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' } }, ports(2.4)] },
+		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.95 }, solid), label, { ...usage, geom: { kind: 'text', at: { x: 0, y: 3.9 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' } }, ports(1.2)] },
 	// wall faceplates, seen on the plan against the wall: a plate (one or two gangs) with a data triangle or power pins
 	...faceplates(),
 ]
@@ -48,7 +49,7 @@ function faceplates(): Block[] {
 	const make = (id: string, name: string, gangs: 1 | 2, mark: (x: number) => BlockShape[]): Block => {
 		const w = gangs === 1 ? 2.6 : 4.8, xs = gangs === 1 ? [0] : [-1.15, 1.15]
 		return { type: 'block', id, name, scope: 'global', category: 'outlet', annotative: true, builtin: true,
-			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(w / 2 + 0.5)] }
+			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(1.1)] }
 	}
 	return [
 		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)]),

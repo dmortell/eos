@@ -54,7 +54,7 @@ export function outletSchedule(p: ProjectIndex, levelId?: Id): { rows: OutletRow
 		}))
 		.sort((a, b) => naturalCompare(a.level, b.level) || naturalCompare(a.label, b.label))
 	const byUsage: Record<string, number> = {}
-	for (const r of rows) byUsage[r.usage] = (byUsage[r.usage] ?? 0) + 1
+	for (const r of rows) byUsage[r.usage || 'other'] = (byUsage[r.usage || 'other'] ?? 0) + 1   // a cleared usage counts as "other"
 	return { rows, totals: { outlets: rows.length, ports: rows.reduce((n, r) => n + r.ports.length, 0), byUsage } }
 }
 

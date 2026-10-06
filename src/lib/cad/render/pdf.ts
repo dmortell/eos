@@ -37,11 +37,11 @@ const STYLES: Record<string, Style> = {
 	run: { stroke: '#0ea5e9', opacity: 0.55 }, 'run-high': { stroke: '#f97316' }, centre: { opacity: 1 },
 	wall: { stroke: '#475569', opacity: 0.8 }, riser: { stroke: '#be185d', fill: '#fce7f3' }, 'riser-label': { text: '#be185d' },
 	rack: { stroke: '#1e293b', fill: 'none' }, 'rack-x': { stroke: '#94a3b8' }, 'rack-back': { stroke: '#1e293b', width: 0.6 }, 'rack-rails': { stroke: '#64748b', fill: 'none' },
-	outlet: { stroke: '#1d4ed8' }, 'outlet-high': { dash: [0.8, 0.5] },
+	outlet: { stroke: '#1d4ed8', fill: '#3b82f6' }, 'outlet-high': { dash: [0.8, 0.5] },
 	device: { stroke: '#334155', fill: '#cbd5e1' }, 'device-panel': { fill: '#e0f2fe' }, 'device-switch': { fill: '#dcfce7' },
 	port: { stroke: '#94a3b8', fill: '#f8fafc' }, 'port-labelled': { fill: '#fef9c3' }, 'port-linked': { fill: '#e0f2fe', stroke: '#0284c7' },
 	'port-reserved': { fill: '#f5f3ff', stroke: '#8b5cf6' }, 'port-stale': { stroke: '#dc2626' },
-	'port-label': { text: '#0c4a6e' }, 'pdu-inlet': { stroke: '#7f1d1d', fill: '#dc2626' }, 'pdu-socket': { stroke: '#1f2937', fill: '#f8fafc' }, 'u-label': { text: '#94a3b8' }, 'u-clash': { text: '#dc2626', bold: true }, 'device-label': { text: '#1e293b', bold: true }, 'on-ports-small': { text: '#0f172a', bold: true }, 'device-stale': { text: '#b91c1c' },
+	'port-label': { text: '#0c4a6e' }, 'pdu-inlet': { stroke: '#7f1d1d', fill: '#dc2626' }, 'pdu-socket': { stroke: '#1f2937', fill: '#f8fafc' }, 'u-label': { text: '#94a3b8' }, 'u-clash': { text: '#dc2626', bold: true }, 'device-label': { text: '#1e293b', bold: true }, 'on-fill': { text: '#ffffff', bold: true }, 'on-ports-small': { text: '#0f172a', bold: true }, 'device-stale': { text: '#b91c1c' },
 	cord: { width: 0.4, opacity: 0.85 }, 'cord-add': { dash: [1.5, 0.8] }, 'cord-remove': { dash: [0.5, 0.8], opacity: 0.5 },
 	'device-other': { stroke: '#a1a1aa', dash: [1, 0.7], fill: 'none' }, 'device-other-label': { text: '#a1a1aa' },
 	datum: { stroke: '#a1a1aa', dash: [1.5, 1] }, 'datum-ffl': { stroke: '#52525b', dash: [] }, 'datum-slab': { stroke: '#3f3f46', dash: [], width: 0.35 }, 'datum-label': { text: '#71717a' },
@@ -94,7 +94,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
 		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill'))) && p.fill
-		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.color, ...(fill ? { fill: p.color } : {}) }
+		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.cls.includes('on-fill') ? st.text : p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {
 		if (p.k !== 'text' || pdfText(p.text).ok || !shownOnPaper(p)) continue

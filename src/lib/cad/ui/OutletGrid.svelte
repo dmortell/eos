@@ -174,8 +174,9 @@
 					</td>
 					<td class="px-2">
 						<select class="bg-transparent" value={o.usage} onchange={(e) => edit(o, 'Usage', { usage: e.currentTarget.value })} onclick={(e) => e.stopPropagation()}>
+							<option value="">—</option>
 							{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
-							{#if !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage}</option>{/if}
+							{#if o.usage && !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage}</option>{/if}
 						</select>
 					</td>
 					<td class="px-2">
