@@ -1402,3 +1402,15 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   blue line (1.75 px) is drawn over its lines and circles, and a dashed blue box (padded 4 px) goes round each
   selected symbol, box or text (a run or wall — open lines only — gets just the line). Grips were already the Sheets
   look. Live (1F plan): 24 picked → 24 dashed boxes, 62 lines, no halo.
+- **Download buttons checked** (backlog P2 quick win; live, Test Project, files caught in the page — nothing saved to
+  disk): Outlet schedule this level (11 KB) / all levels (12 KB), plan DXF (44 KB), BOM (9 KB), cable schedule
+  (15 KB), cord BOM / patch schedule (13 KB), PDF of all sheets (6 pages, 681 KB), sheet register Excel (7 KB),
+  transmittal (7 KB), reprint (391 KB PDF), a sheet "as issued" (S001 rev B, 401 KB PDF), panel labels Excel (IDF2,
+  360 labels, 16 KB), panels PDF (13 panels, 2 pages, 15 KB) — every one made its file with the right name and type.
+  The "Mark printed" offers were cancelled. Opening the files (are their contents right?) is still for Dave.
+- **Touch pass** (backlog P2 quick win; synthetic touch pointers, no iPad): a tap selects; a one-finger drag on empty
+  space does nothing; a pinch does nothing; the canvas is `touch-action: auto`, so an iPad scrolls / zooms the whole
+  page. Findings moved into the "Touch: pan and pinch zoom" backlog entry.
+- **Plan: organising sheets and issue packages** — `../plan/sheets-organising.md` (categories, derived level / room
+  / issue-state columns, group / sort / filter, bulk edit, packages as a list or a rule, re-issue diff, cover page;
+  9 slices, ~1,300 lines; questions D1–D9 for Dave).
