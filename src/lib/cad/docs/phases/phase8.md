@@ -1553,3 +1553,6 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   `touch-action: none` (the browser no longer scrolls / zooms the page). Tests: `touch.test.ts` (3). Live (synthetic
   touch): one-finger pan +100 / −50 px, pinch 1247 % → 4364 %, tap an outlet → selected, tap empty → cleared. A real
   iPad pass is still worth doing.
+- **Docs:** `../local-storage.md` lists every key cad keeps in the browser (12 in localStorage, 1 in sessionStorage):
+  what each holds, per project or not, which file writes it, and how to add one. The ~500-line file limit is relaxed
+  for now (Dave) — backlog note updated.

@@ -15,8 +15,8 @@ in `todo.md`, P = a phase-doc line.
 - Change a priority by editing the tag. When an entry is built, log it in the phase doc (`../phases/phase8.md`) and
   delete it here (a part built: shrink the entry to what's left).
 
-**Code-size warning:** `ui/CadShell.svelte` (497), `ui/ViewCanvas.svelte` (492), `editor/selectTool.ts` (482) and
-`ui/Properties.svelte` are near the ~500-line limit (split 2026-10-07). The first entry that grows one splits it along a real seam first.
+**File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
+CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
 **Remaining:** 93 entries (0 P1 · 27 P2 · 66 P3; 10 ⚡ quick wins).
 
