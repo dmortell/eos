@@ -2,9 +2,12 @@
 // easier to find"): the building side is the model — buildings › levels › their views (plan, elevations), sections,
 // server rooms (rack view, rows, racks) — then the riser view; the sheets after it, grouped by place, each unfolding to
 // its viewports. A search filters as you type and keeps each match's parents. Pure; tested in navTree.test.ts.
+import { categoryOf, DEFAULT_SHEET_CATEGORIES, type SheetCategory } from './sheetCategories'
+import { sheetPlaces, sheetRows } from './sheetList'
+import { packageMembers } from './packages'
 import type { ProjectIndex } from './project'
 import type { Id, Level, RackRow, Rack } from './types'
-import type { Sheet, SectionCut, Entity } from './drawing'
+import type { Sheet, SectionCut, Entity, SheetPackage } from './drawing'
 import type { ViewSpec } from '../views/space'
 import { naturalCompare } from './labels'
 
@@ -26,7 +29,10 @@ export interface NavNode {
 const ELEV: ['front' | 'rear' | 'left' | 'right', string][] = [['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right']]
 const all = <T extends Entity['type']>(ix: ProjectIndex, t: T) => [...ix.byId.values()].filter((e) => e.type === t) as Extract<Entity, { type: T }>[]
 
-export function navTree(ix: ProjectIndex): NavNode[] {
+/** How the Sheets node groups its sheets (the Navigator's choice, per project in this browser). */
+export interface NavOpts { sheetsBy?: 'place' | 'category' | 'level' | 'package'; categories?: SheetCategory[] }
+
+export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 	const levels = [...ix.levels].sort((a, b) => a.order - b.order)
 	const buildings = all(ix, 'building').sort((a, b) => a.order - b.order || naturalCompare(a.name, b.name))
 	const outlets = new Map<Id, number>()
@@ -66,11 +72,28 @@ export function navTree(ix: ProjectIndex): NavNode[] {
 	if (loose.length) out.push({ key: 'bld:none', label: buildings.length ? 'Other levels' : 'Levels', kind: 'building', children: loose.map(levelNode) })
 	out.push({ key: 'riser', label: 'Riser view (building)', kind: 'riser', open: { spec: { kind: 'riser' } } })
 
-	// the sheets, grouped by place: its filed place, else the levels its viewports show
+	// the sheets, grouped by PLACE (its filed place, else the levels its viewports show) — or, chosen in the Sheets row's
+	// ⋮ (sheets-organising slice 4), by category (list order), level (level order; a sheet under each of its levels)
+	// or package (package order, then "Not in a package")
 	const sheets = (all(ix, 'sheet') as Sheet[]).filter((s) => s.status !== 'archived').sort((a, b) => a.order - b.order || naturalCompare(a.number, b.number))
+	const by = o.sheetsBy ?? 'place', cats = o.categories ?? DEFAULT_SHEET_CATEGORIES
 	const placeOf = (s: Sheet) => (s.placeId ? ix.nameOf(s.placeId) : [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))].join(' / ')) || 'No place'
-	const groups = new Map<string, Sheet[]>()
-	for (const s of sheets) groups.set(placeOf(s), [...(groups.get(placeOf(s)) ?? []), s])
+	const groups = new Map<string, Sheet[]>()   // label → sheets, in the order groups should show
+	const add = (label: string, s: Sheet) => groups.set(label, [...(groups.get(label) ?? []), s])
+	if (by === 'category') {
+		const ranked = sheets.map((s) => ({ s, c: categoryOf(s, cats) })).sort((a, b) => a.c.order - b.c.order)
+		for (const { s, c } of ranked) add(c.label, s)
+	} else if (by === 'level') {
+		const lv = sheets.map((s) => ({ s, ls: sheetPlaces(ix, s).levels }))
+		const order = [...new Map(lv.flatMap((x) => x.ls).map((l) => [l.id, l])).values()].sort((a, b) => a.order - b.order)
+		for (const l of order) for (const x of lv) if (x.ls.some((y) => y.id === l.id)) add(l.name, x.s)
+		for (const x of lv) if (!x.ls.length) add('No level', x.s)
+	} else if (by === 'package') {
+		const rows = sheetRows(ix, sheets, cats), byId = new Map(sheets.map((s) => [s.id, s])), inOne = new Set<string>()
+		const pkgs = (all(ix, 'package') as SheetPackage[]).filter((p) => !p.archived).sort((a, b) => a.order - b.order)
+		for (const p of pkgs) for (const r of packageMembers(p, rows)) { add(p.name, byId.get(r.id)!); inOne.add(r.id) }
+		for (const s of sheets) if (!inOne.has(s.id)) add('Not in a package', s)
+	} else for (const s of sheets) add(placeOf(s), s)
 	const sheetNode = (s: Sheet): NavNode => ({
 		key: `sh:${s.id}`, label: `${s.number} ${s.title}`, kind: 'sheet', id: s.id, select: s.id, open: { spec: { kind: 'sheet', sheetId: s.id } },
 		children: s.viewports.map((v): NavNode => ({
@@ -80,7 +103,8 @@ export function navTree(ix: ProjectIndex): NavNode[] {
 	})
 	out.push({
 		key: 'sheets', label: `Sheets (${sheets.length})`, kind: 'sheets',
-		children: groups.size <= 1 ? sheets.map(sheetNode) : [...groups].sort((a, b) => naturalCompare(a[0], b[0])).map(([place, ss]): NavNode => ({ key: `place:${place}`, label: place, kind: 'place', children: ss.map(sheetNode) })),
+		children: groups.size <= 1 && by === 'place' ? sheets.map(sheetNode)
+			: [...groups].sort((a, b) => (by === 'place' ? naturalCompare(a[0], b[0]) : 0)).map(([label, ss]): NavNode => ({ key: `${by}:${label}`, label, detail: by === 'place' ? undefined : String(ss.length), kind: 'place', children: ss.map(sheetNode) })),
 	})
 	return out
 }

@@ -10,7 +10,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import { specKey, type ViewSpec } from '../views/space'
-	import { navTree, filterTree, pathTo, type NavNode } from '../domain/navTree'
+	import { navTree, filterTree, pathTo, type NavNode, type NavOpts } from '../domain/navTree'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf } from '../app/navActions'
 	import { Icon } from '$lib'
 	import { viewKey } from '../app/tabs.svelte'
@@ -33,7 +33,12 @@
 	// Ctrl+K (and the menu) ask for the search box
 	$effect(() => { if (ws.navSearch) untrack(() => { search?.focus(); search?.select() }) })
 
-	const tree = $derived.by(() => { void project.rev; return navTree(project.index) })
+	// how the Sheets node groups (place / category / level / package — its ⋮), per project in this browser
+	type SheetsBy = NonNullable<NavOpts['sheetsBy']>
+	const byKey = () => `cad-nav-sheets:${project.pid}`
+	let sheetsBy = $state<SheetsBy>((() => { try { return (localStorage.getItem(byKey()) as SheetsBy | null) ?? 'place' } catch { return 'place' } })())
+	function groupSheets(b: SheetsBy) { sheetsBy = b; try { localStorage.setItem(byKey(), b) } catch { /* blocked */ } }
+	const tree = $derived.by(() => { void project.rev; return navTree(project.index, { sheetsBy, categories: project.sheetCategories }) })
 	const shown = $derived(filterTree(tree, q))
 
 	// which branches are open: kept per project in this browser; a search opens everything it shows
@@ -103,7 +108,8 @@
 		if (n.kind === 'room' && id) return [...open, '-', { label: 'Rename…', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
 		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
 		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
-		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }]
+		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',
+			...(['place', 'category', 'level', 'package'] as const).map((b) => ({ label: `Group by ${b}`, checked: sheetsBy === b, run: () => groupSheets(b) }))]
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
 		return []
 	}

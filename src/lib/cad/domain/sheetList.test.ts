@@ -1,6 +1,6 @@
 // The sheet register (ported from Pages' drawingList.test.ts, on cad sheets).
 import { describe, it, expect } from 'vitest'
-import { sheetRows, filterRows, sortRows, groupRows, revisionColumns, moveInPrintOrder, printOrder } from './sheetList'
+import { sheetRows, filterRows, sortRows, groupRows, revisionColumns, moveInPrintOrder, printOrder, moveBefore } from './sheetList'
 import { renumberEntities } from './renumber'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
@@ -94,5 +94,16 @@ describe('register columns from the sheets (sheets-organising slice 1)', () => {
 		expect(filterRows(rows, { cats: ['plans', 'details'] }).map((r) => r.id).sort()).toEqual(['OWN', 'P2', 'P33'])
 		expect(filterRows(rows, { cats: ['plans', 'details'], levels: ['L33'] }).map((r) => r.id).sort()).toEqual(['OWN', 'P33'])
 		expect(filterRows(rows, { rooms: ['SR-A'] }).map((r) => r.id).sort()).toEqual(['OWN', 'RE'])
+	})
+})
+
+describe('drag to reorder (slice 4)', () => {
+	const s = (id: string, order: number) => sheet(id, { order })
+	const list = [s('A', 10), s('B', 20), s('C', 30), s('D', 40)]
+	const after = (changed: Sheet[]) => printOrder(list.map((x) => changed.find((c) => c.id === x.id) ?? x)).map((x) => x.id)
+	it('moves the dragged sheets, in their order, before the drop row (or to the end)', () => {
+		expect(after(moveBefore(list, ['D', 'B'], 'A'))).toEqual(['B', 'D', 'A', 'C'])
+		expect(after(moveBefore(list, ['A'], null))).toEqual(['B', 'C', 'D', 'A'])
+		expect(moveBefore(list, ['B'], 'B')).toEqual([])
 	})
 })

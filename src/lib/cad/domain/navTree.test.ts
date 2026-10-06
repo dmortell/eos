@@ -27,3 +27,14 @@ describe('navigator tree', () => {
 		expect(filterTree(navTree(ix()), 'zzz')).toEqual([])
 	})
 })
+
+describe('the Sheets node grouped (sheets-organising slice 4)', () => {
+	const rack: Sheet = { ...sheet, id: 'RK', number: 'RE1', title: 'Racks', order: 2, viewports: [{ ...sheet.viewports[0], id: 'V2', view: { levelId: 'L33', spec: { kind: 'row', spaceId: 'SR-A', face: 'front' } } }] }
+	const pkg = { type: 'package', id: 'K', name: 'Rack set', rule: { kinds: ['rack-elevations'] }, order: 10 }
+	const t = (by: 'place' | 'category' | 'level' | 'package') => navTree(new ProjectIndex([...demoProject(), sheet, rack, pkg] as Entity[]), { sheetsBy: by }).find((n) => n.kind === 'sheets')!
+	it('by category in the list order, by level, by package (then the rest)', () => {
+		expect(t('category').children!.map((g) => g.label)).toEqual(['Plans', 'Rack elevations'])
+		expect(t('level').children!.map((g) => [g.label, g.children!.length])).toEqual([['33F', 2]])
+		expect(t('package').children!.map((g) => [g.label, g.children!.map((c) => c.id)])).toEqual([['Rack set', ['RK']], ['Not in a package', ['SH']]])
+	})
+})

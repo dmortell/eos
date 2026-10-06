@@ -54,6 +54,17 @@ export function sheetPlaces(ix: ProjectIndex, s: Sheet): { levels: Level[]; room
 	return { levels: uniq(levels).sort((a, b) => a.order - b.order), rooms: uniq(rooms).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) }
 }
 
+/** Drag in the register (sheets-organising slice 4): the `ids` sheets, keeping their own order, moved to just before
+ *  `before` (null = the end) in the print order; every sheet renumbered 10, 20 … The sheets whose order changed. */
+export function moveBefore(sheets: Sheet[], ids: string[], before: string | null): Sheet[] {
+	const list = printOrder(sheets), sel = new Set(ids)
+	if (before && sel.has(before)) return []
+	const moving = list.filter((s) => sel.has(s.id)), rest = list.filter((s) => !sel.has(s.id))
+	const at = before ? rest.findIndex((s) => s.id === before) : rest.length
+	const next = [...rest.slice(0, at < 0 ? rest.length : at), ...moving, ...rest.slice(at < 0 ? rest.length : at)]
+	return next.flatMap((s, i) => ((i + 1) * 10 === s.order ? [] : [{ ...s, order: (i + 1) * 10 }]))
+}
+
 export function sheetRows(ix: ProjectIndex, sheets: Sheet[], cats: SheetCategory[] = DEFAULT_SHEET_CATEGORIES): SheetRow[] {
 	const pos = new Map(printOrder(sheets).map((s, i) => [s.id, String(i + 1)]))
 	return sheets.map((s) => {

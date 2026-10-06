@@ -1490,3 +1490,11 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   header: the group's sheets in print order from a pattern prefilled with the category's code ("RE-01" → RE-01,
   RE-02 …; the shared Renumber needs numbers already in the labels). Tests: `sheetEdit.test.ts` (2). Live: 2 sheets →
   General · Paper, tag T1 on both; Duplicate → 6 → 8 "(copy)"; Rack elevations › Number… "RE-01" → RE-01…03; all undone.
+- **Slice 4 — drag reorder + Navigator group-by:** sorted by #, register rows drag (the selection if the dragged row
+  is in it, else that row) to just before the drop row — one undo step, print order renumbered 10, 20 …
+  (`moveBefore` in `domain/sheetList.ts`); a blue line marks the drop. The Navigator's Sheets ⋮ gets **Group by place
+  / category / level / package** (remembered per project in this browser; `NavOpts.sheetsBy` in `domain/navTree.ts`):
+  categories in the list's order, levels in level order (a sheet under each of its levels), packages in their order
+  then "Not in a package"; group rows show a count. Tests: `navTree.test.ts` (+1), `sheetList.test.ts` (+1). Live:
+  Group by category → Plans · Rack elevations · Sections and elevations (put back to place); S004 dragged onto the
+  first row → first; undone.

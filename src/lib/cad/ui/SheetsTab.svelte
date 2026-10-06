@@ -11,7 +11,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, SheetPackage } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
-	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
+	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, moveBefore, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { ordered } from '../domain/sheetCategories'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
@@ -97,6 +97,20 @@
 		const code = by === 'category' ? cats.find((c) => c.id === g.key)?.code : undefined
 		ws.askText(`Number ${g.rows.length} sheets from`, `${code ?? 'S'}-01`, (t) => { if (t.trim()) ws.say(`${numberSheets(project, g.rows.map((r) => r.id), t)} sheet(s) numbered`) })
 	}
+	// drag rows to reorder when sorted by # (slice 4): the selection if the dragged row is in it, else that row; dropped
+	// before the row under the pointer, one undo step
+	let dragging: string[] = [], dropOn = $state<string | null>(null)
+	function dragStart(e: DragEvent, id: string) {
+		dragging = selected.has(id) ? picked.map((r) => r.id) : [id]
+		e.dataTransfer?.setData('application/x-cad-sheets', dragging.join(','))
+	}
+	function dragOver(e: DragEvent, id: string) { if (!dragging.length || sort.key !== 'order') return; e.preventDefault(); dropOn = id }
+	function dropRows(e: DragEvent, id: string) {
+		e.preventDefault(); dropOn = null
+		const ids = dragging; dragging = []
+		const changed = sort.dir === 1 ? moveBefore(sheets, ids, id) : moveBefore(sheets, ids, rows[rows.findIndex((r) => r.id === id) - 1]?.id ?? null)
+		if (changed.length) project.store.transact(`Print order (${ids.length} sheet${ids.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
+	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
 	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
 
@@ -150,7 +164,7 @@
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
-				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
+				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" title={k === 'order' ? 'The print order — sorted by this, drag rows to reorder' : undefined} onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
 				<th class="px-2">Tags</th><th class="px-2">Status</th>
 			</tr>
 		</thead>
@@ -159,7 +173,8 @@
 				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span>
 					<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => numberGroup(g)}>Number…</button></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
-					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)}
+					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
+						draggable={sort.key === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
@@ -210,6 +225,8 @@
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }
+	tr[draggable='true'] { cursor: grab; }
+	tr.drop td { box-shadow: inset 0 2px 0 #2563eb; }
 	.gn { margin-left: 8px; font-weight: 400; color: var(--cad-faint); }
 	.gn:hover { color: #2563eb; }
 </style>
