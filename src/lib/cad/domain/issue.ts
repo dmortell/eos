@@ -43,7 +43,7 @@ export function freeze(prims: Prim[]): Prim[] {
 			case 'line': return { k: 'line', pts: p.pts.map(rp), ...(p.closed ? { closed: true } : {}), ...(p.fill ? { fill: true } : {}), ...(p.w ? { w: r2(p.w) } : {}), ...(p.color ? { color: p.color } : {}), ...base } as Prim
 			case 'circle': return { k: 'circle', c: rp(p.c), r: r2(p.r), ...(p.fill ? { fill: true } : {}), ...base } as Prim
 			case 'text': return { k: 'text', at: rp(p.at), text: p.text, size: r2(p.size), ...(p.anchor ? { anchor: p.anchor } : {}), ...(p.rot ? { rot: p.rot } : {}), ...(p.minPx != null ? { minPx: p.minPx } : {}), ...(p.maxPx != null ? { maxPx: p.maxPx } : {}), ...base } as Prim
-			case 'image': return { k: 'image', url: p.url, x: r2(p.x), y: r2(p.y), w: r2(p.w), h: r2(p.h), ...(p.opacity != null ? { opacity: p.opacity } : {}), ...(p.fit ? { fit: p.fit } : {}), ...(clip ? { clip } : {}) } as Prim
+			case 'image': return { k: 'image', url: p.url, x: r2(p.x), y: r2(p.y), w: r2(p.w), h: r2(p.h), ...(p.opacity != null ? { opacity: p.opacity } : {}), ...(p.fit ? { fit: p.fit } : {}), ...(p.gray ? { gray: true } : {}), ...(clip ? { clip } : {}) } as Prim
 		}
 	})
 }

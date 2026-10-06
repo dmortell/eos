@@ -303,6 +303,9 @@ export interface ProjectSettings {
 	/** Patch cords in rack views (and their sheets / PDFs): along the cable channels, through the nearest horizontal
 	 *  manager — or straight with a sag ('straight' / unset; stored, not removed, so a merge-save can't bring it back). */
 	cordRoute?: 'channels' | 'straight'
+	/** Floorplans in black and white — on screen, sheets, PDFs and issues — so coloured markup stands out (stored true /
+	 *  false, not removed, so a merge-save can't bring it back). */
+	grayFloorplans?: boolean
 	usages: { id: string; label: string; color: string }[]
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number }[]
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }

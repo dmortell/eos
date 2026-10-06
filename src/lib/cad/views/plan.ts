@@ -20,6 +20,8 @@ export interface PlanOpts {
 	underlay?: (u: Underlay) => { url: string; x: number; y: number; w: number; h: number; clip?: Bounds } | undefined
 	/** The block library (built-ins + global). Without it outlets draw as plain circles. */
 	blocks?: (id: Id) => Block | undefined
+	/** Floorplans in black and white (the project's B/W setting): on screen, in sheets and in PDFs. */
+	gray?: boolean
 }
 
 /** Paper sizes (mm) of plan symbols. */
@@ -35,7 +37,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		if (!pl) continue
 		// a level can have several floorplans (zones, Dave: 33F = 3303 + 3307); `origin` moves one off the others
 		const dx = u.origin?.x ?? 0, dy = u.origin?.y ?? 0, c = pl.clip
-		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id })
+		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
 	// (a shape drawn on an elevation's plane belongs to elevations, not the plan)

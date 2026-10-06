@@ -27,6 +27,11 @@
 	const FACES = ['front', 'rear'] as const
 	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
+	/** Floorplans B/W ⇄ colour (a project setting: one undo step). */
+	function toggleGray() {
+		const st = project.settings
+		if (st) project.store.transact(st.grayFloorplans ? 'Floorplans in colour' : 'Floorplans black and white', (tx) => tx.put({ ...st, grayFloorplans: !st.grayFloorplans }))
+	}
 	/** Cords straight ⇄ along the cable channels (a project setting: one undo step). */
 	function toggleCords() {
 		const st = project.settings
@@ -80,7 +85,7 @@
 			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => go({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) })}>Hide empty floors</button>
 		{/if}
 		{#if spec.kind === 'plan'}
-			<button class:on={!!ws.drafting.grayPlan} title="The floorplan in black and white, so coloured markup stands out (this browser)" onclick={() => { ws.drafting.grayPlan = !ws.drafting.grayPlan; ws.saveDrafting() }}>B/W</button>
+			<button class:on={!!project.settings?.grayFloorplans} title="Floorplans in black and white, so coloured markup stands out — for the whole project: on screen, sheets, PDFs and issues" onclick={toggleGray}>B/W</button>
 			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
 		{/if}
 	{:else if spec.kind === 'row'}

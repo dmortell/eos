@@ -1,5 +1,6 @@
 // Sheets → PDF (Phase 4.3): one page per sheet at its paper size, vector text, images embedded, unsupported text
 // reported. Runs jspdf headless (no images: the loader is a stub).
+import { freeze } from '../domain/issue'
 import { describe, it, expect } from 'vitest'
 import { pagesToPdf, sheetPages, pdfText, styleOf } from './pdf'
 import { ProjectIndex } from '../domain/project'
@@ -50,5 +51,15 @@ describe('sheets to PDF', () => {
 		expect(styleOf('paper-margin').skip).toBe(true)
 		expect(styleOf('viewport viewport-hidden').skip).toBe(true)
 		expect(styleOf('viewport').skip).toBeUndefined()
+	})
+})
+
+describe('B/W floorplans in the PDF', () => {
+	it('a gray image is asked for gray, apart from the same image in colour; issues keep the flag', async () => {
+		const calls: [string, boolean | undefined][] = []
+		const img = { k: 'image' as const, url: 'u', x: 0, y: 0, w: 10, h: 10 }
+		await pagesToPdf([{ w: 100, h: 100, prims: [img, { ...img, gray: true }] }], async (url, _k, gray) => { calls.push([url, gray]); return null })
+		expect(calls).toEqual([['u', undefined], ['u', true]])
+		expect(freeze([{ ...img, gray: true }])[0]).toMatchObject({ gray: true })
 	})
 })

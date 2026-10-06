@@ -13,7 +13,7 @@ defaults, not an error. `<pid>` = the project id.
 |---|---|---|---|
 | `cad-windows:2` | all projects | each window's (Navigator, Properties, Layers, Blocks, Racks, Device library, Cables) open / docked left or right / floating x, y, w, h / folded / order. `:2` = the layout was reset once (Blocks and Racks open docked). | `app/windows.svelte.ts` |
 | `cad-panels:2` | all projects | side column widths, the tables panel's height and whether it's shown, the tables panel's float / position / size / folded, the split between two views. `:2` = the tables start closed. | `app/panels.svelte.ts` |
-| `cad-drafting` | all projects | SNAP on / off and the grid step, OSNAP, GRID (shown), B/W floorplans (`grayPlan`). | `app/workspace.svelte.ts` |
+| `cad-drafting` | all projects | SNAP on / off and the grid step, OSNAP, GRID (shown). (B/W floorplans is a project setting in Firestore, not here.) | `app/workspace.svelte.ts` |
 | `cad-tabs:<pid>` | per project | the drawing tabs (each tab's view and level, preview or kept) and which tab each pane shows. Back / Forward history isn't kept. | `app/tabs.svelte.ts` |
 | `cad-cams:<pid>` | per project | each view's camera (pan x, y and zoom), by view key. Only the view a pane opens with is restored after a refresh; other views fit their content first. | `ui/canvasInfo.ts` (`CameraMemory`) |
 | `cad-layers:<pid>` | per project | the Layers panel's eye (hidden layers) and lock (locked layers), and the current layer for new lines / notes. The ❄ freeze per viewport is on the sheet, not here. | `app/layerPrefs.svelte.ts` |

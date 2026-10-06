@@ -78,7 +78,7 @@
 	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
 	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
-	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes, hidden: ws.layers.hidden, cords: project.settings?.cordRoute })
+	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes, hidden: ws.layers.hidden, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
 	/** Editing the model inside one of this sheet's viewports (UX review S5): its view's space, prims and paper maps. */
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
 	/** What the tools work in: the edited viewport's view, else this pane's. */
@@ -91,7 +91,7 @@
 	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
 	const raw = $derived(spec.kind === 'plan'
-		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf })
+		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf, gray: !!project.settings?.grayFloorplans })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec, { cords: project.settings?.cordRoute })
 			: spec.kind === 'sheet'
@@ -453,7 +453,7 @@
 		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
-			<Prims {prims} {selected} k={cam.k} gray={!!ws.drafting.grayPlan && (spec.kind === 'plan' || toolKind === 'plan')} />
+			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={traceHighlight} selected={new Set()} />
 			<Prims prims={fillOverlay} selected={new Set()} />

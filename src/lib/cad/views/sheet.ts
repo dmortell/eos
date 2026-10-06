@@ -40,6 +40,8 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** Floorplans in black and white (the project's B/W setting). */
+	gray?: boolean
 	/** Cords in rack views along the cable channels (the project's setting). */
 	cords?: 'channels' | 'straight'
 	/** On screen only: the layers the user hides with the eye (Dave: hiding a layer didn't hide it in viewports); the
@@ -92,7 +94,7 @@ function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec, { cords: o.cords })
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
-	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })
+	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale, blocks: o.blocks })
 }
 

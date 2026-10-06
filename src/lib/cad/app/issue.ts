@@ -36,7 +36,7 @@ const coverId = (issueId: string) => `cover-${issueId}`
 export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 	return freeze(sheetDisplayList(project.index, sheet, {
 		underlay: (u) => { const pl = project.pdf.placement(u); return pl && { ...pl, url: underlayRef(u.fileId, u.page ?? 1) } },
-		blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute,
+		blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans,
 	}))
 }
 
@@ -61,11 +61,11 @@ async function loadFrozen(project: CadProject, sheetId: string, rev: string): Pr
 }
 
 /** Images in frozen lists: a floorplan reference is rendered from its file again. */
-const frozenImages = (project: CadProject): ImageLoader => async (url, kind) => {
+const frozenImages = (project: CadProject): ImageLoader => async (url, kind, gray) => {
 	const ref = parseUnderlayRef(url)
-	if (!ref) return browserImageLoader(url, kind)
+	if (!ref) return browserImageLoader(url, kind, gray)
 	const pl = await project.pdf.placed(ref)
-	return pl ? browserImageLoader(pl.url, kind) : null
+	return pl ? browserImageLoader(pl.url, kind, gray) : null
 }
 
 export type IssueForm = {

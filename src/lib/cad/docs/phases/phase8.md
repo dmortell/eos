@@ -1561,3 +1561,9 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   that issue, red "withdrawn"); **latest only** = one column, each sheet's last revision · issue · date
   (`issueRegister` in `domain/issue.ts`, `render/issueRegister.ts`). Tests: `issue.test.ts` (+2). Live: both files made
   (7 KB each). Help: touch, port tips, B/W and the register added.
+- **10, revised (Dave: "B/W should toggle for printing too"):** B/W is now a PROJECT setting (`settings.grayFloorplans`,
+  stored true / false; one undo step), like Cord channels: floorplan image prims carry `gray`, so the screen, sheet
+  viewports, sheet PDFs and issued copies all follow it — the PDF loader draws a gray image in grayscale before
+  embedding it (kept apart from the same image in colour), and the frozen copy keeps the flag (switching B/W is a real
+  change to an issued sheet). The per-browser `drafting.grayPlan` is gone. Tests: `pdf.test.ts` (+1). Live: B/W on →
+  plan and S001 gray → back off.

@@ -20,7 +20,7 @@ export function sheetPages(ix: ProjectIndex, sheets: Sheet[], o: SheetOpts = {})
 	return sheets.map((s) => ({ ...paperSize(s), prims: sheetDisplayList(ix, s, o) }))
 }
 /** An image URL → a data URL jspdf can embed, with its natural size (null = skip it). */
-export type ImageLoader = (url: string, kind: 'photo' | 'logo') => Promise<{ data: string; format: 'PNG' | 'JPEG'; w: number; h: number } | null>
+export type ImageLoader = (url: string, kind: 'photo' | 'logo', gray?: boolean) => Promise<{ data: string; format: 'PNG' | 'JPEG'; w: number; h: number } | null>
 /** Text the PDF's fonts can't show (Japanese …) drawn as a picture by the browser's fonts: a PNG and its size in mm,
  *  `ascent` = mm from the top of the picture to the baseline. */
 export type TextRaster = (text: string, sizeMm: number, color: string, bold: boolean) => Promise<{ data: string; w: number; h: number; ascent: number } | null>
@@ -84,7 +84,8 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	const pdf = new jsPDF({ unit: 'mm', format: [first.w, first.h], orientation: first.w > first.h ? 'landscape' : 'portrait', compress: o.compress ?? true })
 	const unsupported = new Set<string>(), rasterised = new Set<string>()
 	const images = new Map<string, Awaited<ReturnType<ImageLoader>>>()
-	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(q.url)) images.set(q.url, await loadImage(q.url, q.fit === 'contain' ? 'logo' : 'photo'))
+	const imgKey = (q: { url: string; gray?: boolean }) => (q.gray ? `gray:${q.url}` : q.url)
+	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit === 'contain' ? 'logo' : 'photo', q.gray))
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
 	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
@@ -122,7 +123,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 			setClip(p.clip)
 			pdf.setGState(new GState({ opacity: st.opacity ?? 1, 'stroke-opacity': st.opacity ?? 1 }))
 			if (p.k === 'image') {
-				const img = images.get(p.url)
+				const img = images.get(imgKey(p))
 				if (!img) continue
 				let { x, y, w, h } = p
 				if (p.fit === 'contain') { const s = Math.min(w / img.w, h / img.h); w = img.w * s; h = img.h * s; y = p.y + (p.h - h) / 2 }
@@ -190,7 +191,7 @@ export const browserTextRaster: TextRaster = async (text, sizeMm, color, bold) =
 
 /** The browser's image loader: any URL (blob:, data:, file storage) → PNG / JPEG data through a canvas, so SVG logos
  *  and floorplan renders both embed. Floorplans go as JPEG (size), logos as PNG (transparency). */
-export const browserImageLoader: ImageLoader = (url, kind) => new Promise((resolve) => {
+export const browserImageLoader: ImageLoader = (url, kind, gray) => new Promise((resolve) => {
 	const img = new Image()
 	img.crossOrigin = 'anonymous'
 	img.onload = () => {
@@ -199,6 +200,7 @@ export const browserImageLoader: ImageLoader = (url, kind) => new Promise((resol
 			c.width = img.naturalWidth || 1; c.height = img.naturalHeight || 1
 			const g = c.getContext('2d')!
 			if (kind === 'photo') { g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height) }
+			if (gray) g.filter = 'grayscale(1)'   // the project's B/W floorplans
 			g.drawImage(img, 0, 0)
 			const format = kind === 'photo' ? 'JPEG' : 'PNG'
 			resolve({ data: c.toDataURL(kind === 'photo' ? 'image/jpeg' : 'image/png', 0.85), format, w: c.width, h: c.height })

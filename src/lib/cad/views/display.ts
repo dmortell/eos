@@ -14,7 +14,7 @@ export type Prim = (
 	 *  least `minPx` and at most `maxPx` screen px tall (port labels: short form when small, full form when big). */
 	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id; sub?: string; minPx?: number; maxPx?: number }
 	/** `fit: 'contain'` keeps the image's own proportions inside the box (a logo); else it fills the box (a floorplan). */
-	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain' }
+	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain'; /** drawn in black and white (screen and PDF) */ gray?: boolean }
 ) & {
 	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
 	clip?: Bounds
