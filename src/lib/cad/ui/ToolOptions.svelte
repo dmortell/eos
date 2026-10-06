@@ -74,11 +74,19 @@
 {/if}
 {#if ws.toolId === 'cord'}
 	<span class="sep"></span>
+	{#if ws.bulkFrom?.kind === 'link'}
+		<!-- interconnects take their own type, kept as last chosen (not the cords') -->
+		<label class="opt" title="The cable type for interconnects (ties, backbone) — kept separately from the patch cords' type">Link type
+			<select class="tpl" value={ws.linkType || ws.cordDefaults.cableType} onchange={(e) => (ws.linkType = e.currentTarget.value)}>
+				{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+			</select></label>
+	{:else}
 	<label class="opt">Type
 		<select class="tpl" bind:value={ws.cordDefaults.cableType}>
 			{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 			{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
 		</select></label>
+	{/if}
 	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>{/if}
 	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Interconnect ${ws.bulkFrom.ports.length} port(s) from ${project.index.nameOf(ws.bulkFrom.on)} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
 {/if}

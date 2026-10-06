@@ -120,8 +120,10 @@ export class Workspace {
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
 	/** Sticky cord defaults: the last type / colour chosen stays for the next cord (the Patching tool's habit). */
 	cordDefaults = $state<CordDefaults>({ cableType: 'cat6a', colour: '#3b82f6' })
+	/** The cable type for new interconnects (ties, backbone) — its own, kept as last chosen ('' = the cord type). */
+	linkType = $state('')
 	bulkFrom = $state.raw<BulkFrom | null>(null)
-	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } })
+	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType)
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),

@@ -1539,3 +1539,10 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   mistakes; the workflow buttons stay.
 - **10 — Grayscale floorplan:** **B/W** in a plan's strip draws floorplans in black and white on screen (this browser;
   `drafting.grayPlan`), so coloured markup stands out. Live: filter grayscale(1) on / off.
+- **13 — Approvals and Site in the title block:** new auto fields **Checked**, **Approved** (set per sheet in its
+  Properties, like Drawn) and **Site** (the template's own address, typed beside the field in Title block template…;
+  full width). Added to a template like any field, removed to switch them off — a template without them prints exactly
+  as before (so issued sheets don't turn "changed"). Tests: `titleBlock.test.ts` (+1).
+- **14 — Own cable type for new links:** while an interconnect is armed, the Cord tool's bar shows **Link type** —
+  kept as last chosen (`ws.linkType`), separate from the cords' type (which stays for patch cords). Not live-checked
+  (needs an armed interconnect; three lines in `cordTool.ts` / `ToolOptions.svelte`).

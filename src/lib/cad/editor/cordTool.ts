@@ -19,7 +19,8 @@ export class CordTool implements Tool {
 	#hover: { x: number; y: number } | null = null
 
 	/** `bulk`: ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
-	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }) {}
+	/** `linkType` = the cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
+	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '') {}
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
 
@@ -36,7 +37,7 @@ export class CordTool implements Tool {
 		if (!r) { c.say?.('Click a port in a rack elevation'); return }
 		if (this.bulk?.kind === 'link') {
 			// permanent cabling lands on the panels' REAR, whichever face is being viewed
-			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: this.defaults().cableType })
+			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: this.linkType() || this.defaults().cableType })
 			if (res.links.length) {
 				const kind = res.links[0].kind === 'tie' ? 'tie' : 'backbone'
 				c.store.transact(`Interconnect ${res.links.length} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })

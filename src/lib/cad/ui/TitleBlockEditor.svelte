@@ -35,7 +35,7 @@
 	const remove = (i: number) => set({ fields: fields.filter((_, j) => j !== i) })
 	function add(key: string) {
 		if (!key) return
-		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
+		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey], ...(key === 'site' ? { wide: true } : {}) }
 		set({ fields: [...fields, f] })
 	}
 	// A logo image goes to FILE STORAGE (UploadThing's image route, like Uploads) and the template keeps only its URL +
@@ -159,6 +159,10 @@
 		{:else if f.key === 'custom'}
 			<input class="lbl" value={f.label} title="Label (custom text)" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 			<input class="txt" value={f.value ?? ''} placeholder="text" onchange={(e) => setField(i, { value: val(e) })} onkeydown={blurOnEnter} />
+		{:else if f.key === 'site'}
+			<!-- the site: its label, and the address it prints (the same on every sheet) -->
+			<input class="lbl" value={f.label} title="Label" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
+			<input class="txt" value={t.site ?? ''} placeholder="Site address" onchange={(e) => set({ site: val(e) || undefined })} onkeydown={blurOnEnter} />
 		{:else if f.key !== 'logo'}
 			{@const auto = TB_AUTO[f.key]}
 			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />

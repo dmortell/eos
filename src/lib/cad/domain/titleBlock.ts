@@ -8,6 +8,10 @@
 export const TB_AUTO = {
 	project: 'Project', title: 'Title', place: 'Location', number: 'Dwg №', rev: 'Rev', date: 'Date',
 	scale: 'Scale', size: 'Size', drawn: 'Drawn',
+	// the approvals and the site (backlog "Approvals and Site sections in the title block"): add them as fields in the
+	// template (a template without them prints as before); Checked / Approved are set per sheet like Drawn, Site is the
+	// template's own address
+	checked: 'Checked', approved: 'Approved', site: 'Site',
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom' | 'logo' | 'logoText' | 'company'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
@@ -39,6 +43,8 @@ export type TitleBlockTemplate = {
 	/** Logo IMAGES (file-storage URLs, or small inline data URLs) — the drawing office's and the client's — each drawn
 	 *  `h` paper mm high. Shown in the logo section, instead of / beside the logo text. */
 	logos?: { company?: TbLogo; client?: TbLogo }
+	/** The site's address, for a Site field. */
+	site?: string
 	/** Where the block sits — a strip down the right (default), a band along the bottom, or a compact box in the
 	 *  bottom-right corner over the drawing area. */
 	layout?: TbLayout

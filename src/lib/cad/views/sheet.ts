@@ -67,7 +67,7 @@ export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''):
 
 /** The title block as this sheet shows it (template + values + revisions + the sheet's own hide). */
 export function sheetTitleBlock(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): TbShown {
-	const shown = shownTitleBlock(o.template, fillTitleBlock(o.template, titleBlockContext(ix, s, o.projectName)), s.revisions ?? [])
+	const shown = shownTitleBlock(o.template, fillTitleBlock(o.template, { site: o.template?.site, ...titleBlockContext(ix, s, o.projectName) }), s.revisions ?? [])
 	return s.titleBlock?.hidden ? { ...shown, hidden: true } : shown
 }
 

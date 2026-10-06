@@ -53,3 +53,14 @@ describe('title block', () => {
 		expect(initialsOf('')).toBe('')
 	})
 })
+
+describe('approvals and site (backlog)', () => {
+	it('Checked / Approved fill from the sheet, Site from the template; a template without them is unchanged', () => {
+		const t = { ...DEFAULT_TITLE_BLOCK, site: '1-2-3 Chiyoda, Tokyo', fields: [...DEFAULT_TITLE_BLOCK.fields, { key: 'checked' as const, label: 'Checked' }, { key: 'approved' as const, label: 'Approved' }, { key: 'site' as const, label: 'Site', wide: true }] }
+		const cells = fillTitleBlock(t, { checked: 'AB', site: t.site })
+		expect(cells.find((c) => c.label === 'Checked')?.value).toBe('AB')
+		expect(cells.find((c) => c.label === 'Approved')?.value).toBe('—')
+		expect(cells.find((c) => c.label === 'Site')).toMatchObject({ value: '1-2-3 Chiyoda, Tokyo', wide: true })
+		expect(fillTitleBlock(DEFAULT_TITLE_BLOCK, { checked: 'AB', site: 'x' })).toEqual(fillTitleBlock(DEFAULT_TITLE_BLOCK, {}))
+	})
+})

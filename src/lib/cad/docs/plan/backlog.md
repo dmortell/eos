@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **Code-size warning:** `ui/CadShell.svelte` (497), `ui/ViewCanvas.svelte` (492), `editor/selectTool.ts` (482) and
 `ui/Properties.svelte` are near the ~500-line limit (split 2026-10-07). The first entry that grows one splits it along a real seam first.
 
-**Remaining:** 96 entries (0 P1 · 28 P2 · 68 P3; 11 ⚡ quick wins).
+**Remaining:** 94 entries (0 P1 · 28 P2 · 66 P3; 10 ⚡ quick wins).
 
 ## Suggested order
 
@@ -75,7 +75,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Ports, panels and allocation
 
 - [ ] ⚡ **Re-allocate pinned ports too** — when outlets change: "Unpin" for a whole panel / room / level, or a "Re-allocate including pinned" choice. **P3 · S** (Dave 2026-10-05: low priority) (~30 lines). *cad today:* Pin / Unpin on selected ports (`cad/ui/PortProps.svelte:109`) and Re-allocate that keeps pinned links (`cad/ui/OutletGrid.svelte:127`) exist; hand-placed links are pinned automatically, so they never move. *From:* T027
-- [ ] ⚡ **Own cable type for new links** — interconnects (ties, backbone) take a "Link type" that stays as last chosen, separate from the cord type. **P3 · S** (Dave 2026-10-05: low priority) (~20 lines). *cad today:* interconnects take the Cord tool's type (`cad/editor/cordTool.ts:39`); outlet links take the outlet port's type, which is right. *From:* G077
 - [ ] **Drag to select a block of ports** — press on a port and drag to select a range; press on the device body and drag to move it. Today a drag from a port moves the whole device. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines; a range across several devices is more). *cad today:* Shift-click ranges within one device only (`cad/editor/tools.ts:176`); the press on a port also arms the device move (`cad/editor/tools.ts:195`). Do after the rack-view interaction plan (Racks decisions). *From:* T025
 
 ## Patching and cords
@@ -145,7 +144,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] **Import Pages sheets (7.2)** — Pages sheets become cad sheets (frames → viewports by direction / scale / level, clip), `revLog` → revisions, the Pages title block → settings, global Pages blocks → cad blocks. **P3 · L** (Dave 2026-10-05: low priority; ~500 lines + tests). *cad today:* not imported; the importer is in `cad/persist/import/` (outlets, cabling, templates only). Journey's 8 Pages sheets are the check. *From:* P040
 - [ ] **Import Sheets-tool sheets (7.3)** — viewports from outlets → plan, racks → rack row, risers → riser view, text → paper text, model3d → plan / section, fillrate → a note; title, number, paper, revisions (no history into Issues, per Dave). **P3 · L** (Dave 2026-10-05: low priority; ~400 lines + tests). *cad today:* not imported. Journey's 19 sheets are the check. *From:* P041
-- [ ] **Approvals and Site sections in the title block** — a Drawn / Checked / Approved row and a Site (address) section, each one can be switched off. **P3 · S** (Dave 2026-10-05: low priority; ~60 lines). *cad today:* "Drawn" is a sheet field; no checked / approved or site (`cad/domain/titleBlock.ts:8`). The site address needs Project Properties (shell). *From:* G180
 - [ ] **Port labels / patch cords toggles per viewport** — a rack-row viewport can hide port labels or patch cords. **P2 · M** (~70 lines; adds a `show` field on `Viewport` used by the rack-row generator). *cad today:* always drawn, labels by level of detail (`cad/views/rackRow.ts:135`). *From:* G190
 - [ ] **Any annotation can belong to a viewport** — lines, rects, dims, images and blocks drawn inside a viewport belong to it and copy / delete with it, like notes do. **P2 · M** (~80 lines). *cad today:* only text, leader and cloud can be tied (`cad/editor/noteTool.ts:34`); the other drawing tools don't work on sheets yet (`cad/app/workspace.svelte.ts:27`), so this follows the drafting tools. *From:* G305
 - [ ] **Viewport handling** — work with viewports like other shapes. Parts: (1) select several (Ctrl-click, marquee on empty paper; Delete removes them all); (2) copy / cut / paste / duplicate (Ctrl+C / X / V / D) with views and notes, across sheets and projects; (3) Ctrl-drag leaves a copy; (4) arrow keys nudge 1 mm (Shift 10 mm); (5) edges snap to paper edge, margin, title block and a 5 mm grid (Alt off); (6) "Fit" also picks the 1:N that fits the frame; (7) scale and align the content with touch (the mouse is done: Alt-drag pans, Alt+wheel steps the scale); (8) viewport numbers, a viewport list and "open source view". **P3 · L** (Dave 2026-10-06: low priority) (~400 lines; (4), (5) and (6) are S each and can go first). *cad today:* one viewport at a time (`cad/editor/tools.ts:142`, `cad/app/workspace.svelte.ts:116`), moves snap to 0.5 mm (`cad/editor/tools.ts:270`), Fit only re-centres (`cad/ui/SheetProps.svelte:101`), Alt-drag pans the content. *From:* G022, G152, G153, G154, G207, G215, G307, G308, G310, T086
