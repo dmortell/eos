@@ -5,6 +5,7 @@
 	import type { Shape } from '../domain/shapes'
 	import { dimLine } from '../views/plan'
 	import ColorPick from './ColorPick.svelte'
+	import PropGroup from './PropGroup.svelte'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
@@ -23,7 +24,8 @@
 	const measured = $derived(g.kind === 'dimension' ? Math.round(dimLine(g).len) : 0)
 </script>
 
-<p class="font-semibold">{TITLE[g.kind] ?? 'Note'}</p>
+<!-- groups (UX review "Properties groups"): its words · its style -->
+<PropGroup kind="note" title={TITLE[g.kind] ?? 'Note'}>
 {#if g.kind === 'text'}
 	<label class="row" title="Several lines: Enter starts a new one · double-click the text (or F2) to edit it on the drawing">Text
 		<textarea class="inp" rows={Math.min(6, Math.max(2, g.text.split('\n').length))} value={g.text} onchange={(e) => e.currentTarget.value.trim() && setGeom('Text', { text: e.currentTarget.value.replace(/\s+$/, '') })}></textarea></label>
@@ -58,12 +60,15 @@
 		</select></label>
 	<label class="row" title="Blank = the measured length">Text <input class="inp" value={g.text ?? ''} placeholder={measured < 1000 ? `${measured}` : `${(measured / 1000).toFixed(2)} m`} onchange={(e) => setGeom('Dimension text', { text: e.currentTarget.value.trim() || undefined })} /></label>
 {/if}
+</PropGroup>
+<PropGroup kind="note" title="Style">
 <div class="row" title="The note's color (its lines and text); By layer = its layer's / the usual color">Color
 	<ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => setStyle('Note color', { stroke: v })} /></div>
 {#if g.kind === 'text'}
 	<div class="row" title="A filled box behind the text, so it reads over the drawing">Background
 		<ColorPick value={s.style?.fill ?? 'none'} allowNone onchange={(v) => setStyle(v && v !== 'none' ? 'Text background' : 'No text background', { fill: v && v !== 'none' ? v : undefined })} /></div>
 {/if}
+</PropGroup>
 <p class="text-zinc-500">Drag to move · Delete removes it</p>
 
 <style>

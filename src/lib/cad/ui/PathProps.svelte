@@ -6,6 +6,7 @@
 	import type { Shape, Section, PathNode } from '../domain/shapes'
 	import LineStyle from './LineStyle.svelte'
 	import ColorPick from './ColorPick.svelte'
+	import PropGroup from './PropGroup.svelte'
 	import { withStyle } from '../domain/shapes'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
@@ -103,16 +104,6 @@
 	}
 </script>
 
-<p class="font-semibold">{kind === 'line' ? 'Line' : kind[0].toUpperCase() + kind.slice(1)}</p>
-{#if kind === 'line'}
-	<!-- a plain line: its own color, line type and lineweight (backlog "Shape style") -->
-	<div class="row" title="Its own color (By layer = its layer's)">Color <ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => save(v ? 'Color' : 'Color by layer', withStyle(s, { stroke: v }))} /></div>
-	<LineStyle {project} shapes={[s]} />
-{/if}
-{#if twoPoint}
-	<!-- a 2-point line / run: its length; typing one moves the second end along the line (backlog "Edit line and note end points") -->
-	<label class="row" title="The second end moves along the line">Length (mm) <input class="inp" type="number" min="1" value={Math.round(twoPoint.len)} onchange={(e) => setLength(Number(e.currentTarget.value))} /></label>
-{/if}
 {#if picked}
 	<!-- a node (click its grip) or segments (click the run again; Ctrl adds) picked in the view -->
 	<div class="picked">
@@ -133,43 +124,62 @@
 		<button class="btn" title="Delete key: {picked.nodes.length ? 'the node goes, its two segments join' : 'just these segments (the run may split)'}" onclick={delPicked}>Delete</button>
 	</div>
 {/if}
-<label class="row">Kind
-	<select class="inp" value={kind} onchange={(e) => convert(e.currentTarget.value as Kind)}>
-		<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option>
-		<option value="conduit">Conduit</option><option value="tray">Tray</option>
-	</select>
-</label>
-{#if s.section}
-	<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'}
-		<input class="inp" type="number" value={s.section.w} onchange={(e) => setSection({ w: Number(e.currentTarget.value) })} /></label>
-	{#if !s.section.round}
-		<label class="row">Height <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
+<!-- groups (UX review "Properties groups"): General · Size · Style (a plain line) · Nodes; fold state per kind -->
+<PropGroup kind={kind} title="General">
+	<label class="row">Kind
+		<select class="inp" value={kind} onchange={(e) => convert(e.currentTarget.value as Kind)}>
+			<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option>
+			<option value="conduit">Conduit</option><option value="tray">Tray</option>
+		</select>
+	</label>
+	<label class="row">Label <input class="inp" value={s.label ?? ''} onchange={(e) => save('Label', { ...s, label: e.currentTarget.value || undefined })} /></label>
+	{#if twoPoint}
+		<!-- a 2-point line / run: its length; typing one moves the second end along the line (backlog "Edit line and note end points") -->
+		<label class="row" title="The second end moves along the line">Length (mm) <input class="inp" type="number" min="1" value={Math.round(twoPoint.len)} onchange={(e) => setLength(Number(e.currentTarget.value))} /></label>
 	{/if}
+</PropGroup>
+{#if s.section || s.role?.kind === 'containment'}
+	<PropGroup kind={kind} title="Size and height">
+		{#if s.section}
+			<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'}
+				<input class="inp" type="number" value={s.section.w} onchange={(e) => setSection({ w: Number(e.currentTarget.value) })} /></label>
+			{#if !s.section.round}
+				<label class="row">Height <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
+			{/if}
+		{/if}
+		{#if s.role?.kind === 'containment'}
+			<label class="row" title="Where it runs: sets its height from the level's heights (the nodes at its main height; drops keep their ends) and its tier">Location
+				<select class="inp" value={place} disabled={!heights} onchange={(e) => e.currentTarget.value && setPlace(e.currentTarget.value as Place)}>
+					<option value="">{heights ? `custom (Z ${mainZ ?? '—'})` : 'no level heights'}</option>
+					{#each Object.entries(PLACES) as [k, label] (k)}<option value={k}>{label}{placeOf(k as Place) ? ` (Z ${placeOf(k as Place)!.z})` : ''}</option>{/each}
+				</select></label>
+		{/if}
+	</PropGroup>
 {/if}
-{#if s.role?.kind === 'containment'}
-	<label class="row" title="Where it runs: sets its height from the level's heights (the nodes at its main height; drops keep their ends) and its tier">Location
-		<select class="inp" value={place} disabled={!heights} onchange={(e) => e.currentTarget.value && setPlace(e.currentTarget.value as Place)}>
-			<option value="">{heights ? `custom (Z ${mainZ ?? '—'})` : 'no level heights'}</option>
-			{#each Object.entries(PLACES) as [k, label] (k)}<option value={k}>{label}{placeOf(k as Place) ? ` (Z ${placeOf(k as Place)!.z})` : ''}</option>{/each}
-		</select></label>
+{#if kind === 'line'}
+	<!-- a plain line: its own color, line type and lineweight (backlog "Shape style") -->
+	<PropGroup kind={kind} title="Style">
+		<div class="row" title="Its own color (By layer = its layer's)">Color <ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => save(v ? 'Color' : 'Color by layer', withStyle(s, { stroke: v }))} /></div>
+		<LineStyle {project} shapes={[s]} />
+	</PropGroup>
 {/if}
-<label class="row">Label <input class="inp" value={s.label ?? ''} onchange={(e) => save('Label', { ...s, label: e.currentTarget.value || undefined })} /></label>
-<label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>
-
-<p class="pt-1 font-semibold">Nodes <span class="font-normal text-zinc-400">({nodes.length}, {vertical} vertical)</span></p>
-<div class="space-y-0.5">
-	{#each nodes as n, i (n.id)}
-		<div class="node">
-			<span class="text-zinc-400">{i + 1}</span>
-			<span class="font-mono text-zinc-500">{Math.round(n.x)}</span>
-			<span class="font-mono text-zinc-500">{Math.round(n.y)}</span>
-			<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" onchange={(e) => setZ(n.id, Number(e.currentTarget.value))} />
-			<button class="rounded border text-zinc-500 hover:bg-zinc-100" title="Add a drop / rise here" onclick={() => drop(n)}>↕</button>
-			<button class="rounded border text-zinc-500 hover:bg-red-50 hover:text-red-700" title="Delete this point (a point in the middle of a run is healed)" onclick={() => removePoint(n.id)}>✕</button>
-		</div>
-		{#if n.attach}<div class="pl-6 text-[10px] text-emerald-700">↳ attached to {project.index.nameOf(n.attach)}</div>{/if}
-	{/each}
-</div>
+<PropGroup kind={kind} title="Nodes">
+	<p class="text-zinc-500">{nodes.length} nodes, {vertical} vertical</p>
+	<label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>
+	<div class="space-y-0.5">
+		{#each nodes as n, i (n.id)}
+			<div class="node">
+				<span class="text-zinc-400">{i + 1}</span>
+				<span class="font-mono text-zinc-500">{Math.round(n.x)}</span>
+				<span class="font-mono text-zinc-500">{Math.round(n.y)}</span>
+				<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" onchange={(e) => setZ(n.id, Number(e.currentTarget.value))} />
+				<button class="rounded border text-zinc-500 hover:bg-zinc-100" title="Add a drop / rise here" onclick={() => drop(n)}>↕</button>
+				<button class="rounded border text-zinc-500 hover:bg-red-50 hover:text-red-700" title="Delete this point (a point in the middle of a run is healed)" onclick={() => removePoint(n.id)}>✕</button>
+			</div>
+			{#if n.attach}<div class="pl-6 text-[10px] text-emerald-700">↳ attached to {project.index.nameOf(n.attach)}</div>{/if}
+		{/each}
+	</div>
+</PropGroup>
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }

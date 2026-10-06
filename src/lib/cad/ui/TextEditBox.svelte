@@ -16,7 +16,17 @@
 	import { readingOrder } from '../domain/labels'
 	import { untrack } from 'svelte'
 
-	let { project, ws, space, cam, prims }: { project: CadProject; ws: Workspace; space: ViewSpace; cam: Camera; prims: Prim[] } = $props()
+	/** `frame` = editing inside a sheet viewport: its view's space and prims (view mm), and view mm → paper mm (backlog
+	 *  "Edit labels inside a viewport"); the box goes where the words show on the paper. */
+	let { project, ws, space: pageSpace, cam, prims: pagePrims, frame }: {
+		project: CadProject; ws: Workspace; space: ViewSpace; cam: Camera; prims: Prim[]
+		frame?: { space: ViewSpace; prims: Prim[]; toPaper: (p: { x: number; y: number }) => { x: number; y: number } }
+	} = $props()
+	const space = $derived(frame?.space ?? pageSpace)
+	const prims = $derived(frame?.prims ?? pagePrims)
+	const toPage = (p: { x: number; y: number }) => (frame ? frame.toPaper(p) : p)
+	/** Paper mm per view mm (1 outside a viewport). */
+	const unit = $derived.by(() => { if (!frame) return 1; const a = frame.toPaper({ x: 0, y: 0 }), b = frame.toPaper({ x: 1000, y: 0 }); return Math.hypot(b.x - a.x, b.y - a.y) / 1000 })
 
 	const e = $derived(project.index.get<Entity>(ws.textEdit ?? undefined))
 	const kind = $derived(labelKind(e))
@@ -37,13 +47,13 @@
 		if (t) return { p: t.at, size: t.size, align: ALIGN[t.anchor ?? 'start'] }
 		if (!mine.length) return null
 		const b = mine.map(primBounds).reduce((a, c) => ({ x0: Math.min(a.x0, c.x0), y0: Math.min(a.y0, c.y0), x1: Math.max(a.x1, c.x1), y1: Math.max(a.y1, c.y1) }))
-		return { p: { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }, size: 10 / cam.k, align: 'centre' }
+		return { p: { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }, size: 10 / (cam.k * unit), align: 'centre' }
 	}
 	const at = $derived.by(() => {
 		if (!e || !kind) return null
 		const pl = placeOf(e)
 		if (!pl) return null
-		return { ...toScreen(cam, pl.p), px: Math.max(11, Math.min(40, pl.size * cam.k)), text: labelOf(e), align: pl.align, multi: kind === 'text' }
+		return { ...toScreen(cam, toPage(pl.p)), px: Math.max(11, Math.min(40, pl.size * unit * cam.k)), text: labelOf(e), align: pl.align, multi: kind === 'text' }
 	})
 	let box: HTMLTextAreaElement | undefined = $state()
 	let done = false

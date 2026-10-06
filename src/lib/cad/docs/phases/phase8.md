@@ -1377,3 +1377,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   centre dot became a disc (r 0.95) to carry its number. The PDF fills outlet symbols blue like the screen (they were
   light grey, which white digits wouldn't show on). Tests: `views/blocks.test.ts` (3). Live (1F plan): 9 counts white
   on filled symbols, 7 haloed on ceiling outlets.
+- **Properties groups for the rest** (UX review, after outlets): the header names the kind, so the panels lost their
+  own titles and fold into groups, remembered per kind — sheet: General (number, title, drawn, title block) · Paper ·
+  Viewports · Issued revisions, then PDF / Delete; viewport: View (level, view, scale, label) · Window (window,
+  centre, frame, lock), then Delete; cord: Ends (status, from / to, was, Installed / Remove / Revert) · Cable (type,
+  colour, length, ID, notes) · Circuit; note: its words (Text / Leader / Cloud / Dimension) · Style; run / line:
+  General (kind, label, length) · Size and height (section, location) · Style (a plain line) · Nodes. Live: S001 →
+  General · Paper · Viewports · Issued revisions.
+- **Labels edited inside a viewport** (backlog "Edit labels in place" follow-up): double-click / F2 on a label while
+  editing in a viewport opens the box where the words show on the paper (`TextEditBox` takes the viewport's space,
+  prims and view → paper mapping). Live (S001): A003's box sat on its label (490,799 vs 487,797), Esc left it.
