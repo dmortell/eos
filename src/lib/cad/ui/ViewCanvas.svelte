@@ -14,10 +14,9 @@
 	import { elevationDisplayList } from '../views/elevation'
 	import { untrack } from 'svelte'
 	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
-	import { sheetDisplayList, nextScale, viewViewport, blankSheet, onPaper, paperSize } from '../views/sheet'
+	import { sheetDisplayList, onPaper, paperSize } from '../views/sheet'
 	import { viewportFrame, inWindow } from '../views/vpFrame'
 	import ViewportChip from './ViewportChip.svelte'
-	import { newId } from '../domain/ids'
 	import { applyLayers, layerMap } from '../views/layers'
 	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
@@ -29,13 +28,17 @@
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, type ViewSpec, type WorkPlane } from '../views/space'
-	import { snapAt, snapToPrims, type Snap } from '../editor/snap'
+	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
-	import { toModel, zoomAt, panBy, fit, MIN_K, type Camera } from '../editor/camera'
+	import { toModel, zoomAt, panBy, fit, visibleArea, type Camera } from '../editor/camera'
+	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
+	import { viewToSheet } from '../app/sheetActions'
+	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop } from './viewportEdit'
+	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf } from '../views/overlays'
+	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, viewportHighlight, pickableIn } from '../views/overlays'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
 		project: CadProject; ws: Workspace; levelId: string; spec: ViewSpec
@@ -101,15 +104,9 @@
 	const prims = $derived(layered.draw)
 	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
 	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
-	const vpHighlight = $derived.by((): Prim[] => {
-		if (spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId)) return []
-		const frame = prims.find((p) => p.k === 'line' && p.sub === ws.viewportId && p.cls.startsWith('viewport'))
-		if (!frame || frame.k !== 'line') return []
-		// corner grips (resize) on an unlocked viewport, a constant size on screen
-		const locked = sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, g = 4 / cam.k
-		const grips: Prim[] = locked ? [] : frame.pts.map((q) => ({ k: 'line', pts: [{ x: q.x - g, y: q.y - g }, { x: q.x + g, y: q.y - g }, { x: q.x + g, y: q.y + g }, { x: q.x - g, y: q.y + g }], closed: true, fill: true, cls: 'grip' }))
-		return [{ ...frame, cls: 'viewport sel', src: undefined }, ...grips]
-	})
+	// the picked viewport: its frame and (unlocked) corner grips, a constant size on screen
+	const vpHighlight = $derived(spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId) ? []
+		: viewportHighlight(prims, ws.viewportId, !!sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, 4 / cam.k))
 
 
 	/** Overlays over the drawing (views/overlays.ts): selected ports, a cord's circuit, fill bands, routes, the other
@@ -132,37 +129,13 @@
 	})
 	const selSet = $derived(new Set(ws.selection))
 
-	/** Each view (level + plan / elevation / rack row) keeps its own pan and zoom: switching away and back restores it. */
-	const cams = new Map<string, { cam: Camera; fitted: string | null }>()
-	let hiddenUntilFit = $state(false)
-	/** Views whose restored camera has been checked for showing the content (once per view per session). */
-	const checkedRestore = new Set<string>()
-	let viewKey = ''
-
-	// Cameras survive a refresh (Dave): every view's pan / zoom is kept in localStorage per project. A restored view is
-	// never auto-fitted again (Fit / Home still fits it). Storage that's blocked or full just means fitting as before.
-	const camsKey = () => `cad-cams:${project.pid}`
-	const RESTORED = 'restored'
-	const readCams = (): Record<string, Camera> => { try { return JSON.parse(localStorage.getItem(camsKey()) ?? '{}') } catch { return {} } }
-	// a camera stuck at the smallest zoom is a bad saved fit, not a choice: that view fits again
-	// a saved camera comes back only for the view this pane opened with — a refresh of the same URL (UX review R2: an old
-	// camera opened S001 at 645 % on one panel); any other view opened later fits its content, then keeps its camera
-	// for the session
+	/** Each view (level + plan / elevation / rack row) keeps its own pan and zoom: switching away and back restores it;
+	 *  the view the pane opened with gets its saved camera back after a refresh (ui/canvasInfo.ts). */
 	// svelte-ignore state_referenced_locally
-	const firstKey = `${levelId}:${specKey(spec)}`
-	for (const [k, c] of Object.entries(readCams())) if (k === firstKey && c && Number.isFinite(c.k) && c.k > MIN_K * 1.5) cams.set(k, { cam: c, fitted: RESTORED })
-	let saveTimer: ReturnType<typeof setTimeout> | undefined
-	$effect(() => {
-		const c = cam
-		untrack(() => {
-			if (!viewKey || hiddenUntilFit) return
-			const vk = viewKey
-			clearTimeout(saveTimer)
-			saveTimer = setTimeout(() => {
-				try { localStorage.setItem(camsKey(), JSON.stringify({ ...readCams(), [vk]: { x: c.x, y: c.y, k: c.k } })) } catch { /* storage blocked / full */ }
-			}, 400)
-		})
-	})
+	const cams = new CameraMemory(project.pid, `${levelId}:${specKey(spec)}`)
+	let hiddenUntilFit = $state(false)
+	let viewKey = ''
+	$effect(() => { const c = cam; untrack(() => { if (viewKey && !hiddenUntilFit) cams.save(viewKey, c) }) })
 
 	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
@@ -180,7 +153,7 @@
 		hiddenUntilFit = false
 		untrack(() => {
 			if (vk !== viewKey) {
-				if (viewKey) cams.set(viewKey, { cam, fitted: fittedFor })
+				if (viewKey) cams.set(viewKey, cam, fittedFor)
 				viewKey = vk
 				const saved = cams.get(vk)
 				// a view with no camera of its own starts unfitted — not with the last view's flag (a new sheet opened from a
@@ -196,9 +169,8 @@
 			if (!ps.length || !w || !h) return
 			const b = contentBounds(ps)
 			// a restored camera that shows none of the content (UX13: a rack view opened cut off) fits once instead
-			if (fittedFor === RESTORED && b && !checkedRestore.has(vk)) {
-				checkedRestore.add(vk)
-				const v = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (w - cam.x) / cam.k, y1: (h - cam.y) / cam.k }
+			if (fittedFor === RESTORED && b && cams.firstCheck(vk)) {
+				const v = visibleArea(cam, w, h)
 				if (v.x1 < b.x0 || v.x0 > b.x1 || v.y1 < b.y0 || v.y0 > b.y1) { cam = fit(b, w, h); return }
 			}
 			if (fittedFor === key || fittedFor === RESTORED) return
@@ -207,23 +179,15 @@
 	})
 
 	/** The project's sheets, for "To sheet…". */
-	const sheetsList = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
-	/** Put this view on a sheet (backlog "A sheet from the current view"): a viewport centred on what the pane shows, at
-	 *  the largest standard scale it fits at, on a new sheet or `sheetId`; one undo step. The sheet opens in this pane
-	 *  with the new viewport selected. */
+	const sheetsList = $derived(activeSheets(project))
+	/** Put this view on a sheet (app/sheetActions.ts): it opens in this pane with the new viewport picked. */
 	export function toSheet(target: string): void {
 		if (!target || spec.kind === 'sheet' || !w || !h) return
-		const visible = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (w - cam.x) / cam.k, y1: (h - cam.y) / cam.k }
-		const base = target === 'new' ? blankSheet(sheetsList, newId()) : (project.index.get(target) as Sheet | undefined)
-		if (base?.type !== 'sheet') return
-		const opts = { projectName: project.name, template: project.settings?.titleBlock }
-		const vp = viewViewport(project.index, base, { levelId, spec: $state.snapshot(spec) as Exclude<ViewSpec, { kind: 'sheet' }> }, visible, newId(), opts)   // plain data: the store freezes it (a $state proxy can't be)
-		const next = { ...base, viewports: [...base.viewports, vp] }
-		project.store.transact(target === 'new' ? `New sheet ${next.number} from this view` : `View onto ${next.number}`, (tx) => tx.put(next))
-		onspec({ kind: 'sheet', sheetId: next.id })
-		ws.select([next.id])
-		ws.selectViewport(vp.id)
-		ws.say(`${specLabel(spec)} on ${next.number} at 1:${vp.scale} — drag the viewport into place, resize it by a corner`)
+		const r = viewToSheet(project, ws, { levelId, spec: $state.snapshot(spec) as Exclude<ViewSpec, { kind: 'sheet' }> }, visibleArea(cam, w, h), target)   // plain data: the store freezes it
+		if (!r) return
+		onspec({ kind: 'sheet', sheetId: r.sheet.id })
+		ws.selectViewport(r.vpId)
+		ws.say(`${specLabel(spec)} on ${r.sheet.number} at 1:${r.scale} — drag the viewport into place, resize it by a corner`)
 	}
 
 	function focusRack(p: Pt): void {
@@ -267,14 +231,7 @@
 	}
 	/** What this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes on a sheet (not
 	 *  the sheet itself). */
-	function pickable(): Entity[] {
-		const out = new Map<string, Entity>()
-		for (const p of vpe ? vpe.prims : layered.pick) {
-			const e = p.src && p.k !== 'image' ? project.index.get(p.src) : undefined
-			if (e && (toolKind === 'row' ? e.type === 'device' : toolKind === 'sheet' ? e.type === 'shape' : e.type !== 'sheet')) out.set(e.id, e)
-		}
-		return [...out.values()]
-	}
+	const pickable = (): Entity[] => pickableIn(project.index, vpe ? vpe.prims : layered.pick, toolKind)
 	/** Ctrl+A: everything this view shows that can be picked. */
 	export function selectAll(): void { ws.select(pickable().map((e) => e.id)) }
 	/** Select similar: what this view shows of the same kind as the selection (domain/similar.ts). */
@@ -309,22 +266,7 @@
 				const sn = kind === 'plan' ? snapAt(project.index, lv, p, tol * 1.5, o) : snapToPrims(f ? f.prims : prims, p, tol * 1.5, o)
 				// nodes being dragged snap onto the skipped runs' OTHER nodes too (dropped there, they join them); the dragged
 				// nodes themselves, and the midpoints of segments they move, would snap to the cursor
-				if (!dragged || !skip) return sn
-				let best = sn, bestD = sn.kind === 'grid' ? tol * 1.5 : Math.hypot(sn.p.x - p.x, sn.p.y - p.y)
-				const offer = (q: Pt, s: Snap) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bestD) { best = s; bestD = d } }
-				for (const id of Array.isArray(skip) ? skip : [skip]) {
-					const own = project.index.get(id)
-					if (own?.type !== 'shape' || own.geom.kind !== 'path') continue
-					const byId = new Map(own.geom.nodes.map((n) => [n.id, n]))
-					for (const n of own.geom.nodes) if (!dragged.includes(n.id)) { const q = sp.fromWorld(n); offer(q, { p: q, kind: 'node', z: n.z }) }
-					for (const g of own.geom.segs) {
-						const a = byId.get(g.a), b = byId.get(g.b)
-						if (!a || !b || dragged.includes(a.id) || dragged.includes(b.id)) continue
-						const qa = sp.fromWorld(a), qb = sp.fromWorld(b), q = { x: (qa.x + qb.x) / 2, y: (qa.y + qb.y) / 2 }
-						if (qa.x !== qb.x || qa.y !== qb.y) offer(q, { p: q, kind: 'mid' })
-					}
-				}
-				return best
+				return dragged && skip ? snapDragged(sn, p, tol * 1.5, project.index, skip, dragged, (q) => sp.fromWorld(q)) : sn
 			},
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
@@ -347,35 +289,14 @@
 		return { p: vpe ? vpe.fromPaper(q) : q, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, count }
 	}
 	/** Enter / leave a viewport (UX review S5): its level opens, the selection starts empty; leaving picks the viewport. */
-	function enterVp(id: string): void {
-		if (!sheet) return
-		const vp = sheet.viewports.find((v) => v.id === id)
-		if (!vp) return
-		ws.tool.cancel(ctx())
-		ws.vpEdit = { sheetId: sheet.id, vpId: id }
-		ws.levelId = vp.view.levelId
-		ws.select([])
-		ws.say(`Editing ${specLabel(vp.view.spec)} in ${sheet.number} — Esc, or a double-click outside the viewport, to leave`)
-		tick++
-	}
-	function exitVp(): void {
-		const e = ws.vpEdit
-		ws.vpEdit = null
-		if (e && sheet) { ws.select([sheet.id]); ws.selectViewport(e.vpId) }
-		tick++
-	}
+	function enterVp(id: string): void { if (sheet && sheet.viewports.some((v) => v.id === id)) { ws.tool.cancel(ctx()); enterViewport(ws, sheet, id); tick++ } }
+	function exitVp(): void { leaveVp(ws, sheet); tick++ }
 	/** A drag that pans the edited viewport's view (Pan / zoom content on): the viewport at the press, the gesture. */
 	let vpPan: { at: Pt; vp: Sheet['viewports'][number]; g: ReturnType<typeof project.store.begin> | null } | null = null
 
-	/** Click counting: a pointerdown's `detail` is always 0 (Pointer Events spec), so double-clicks are found here —
-	 *  a second press within 400 ms and 5 px of the first. */
-	let lastPress: { t: number; x: number; y: number; n: number } | null = null
-	function pressCount(e: PointerEvent): number {
-		const s = local(e), now = e.timeStamp   // when the press HAPPENED: a slow render after the first click (selecting an outlet) delays handling the second past 400 ms
-		const n = lastPress && now - lastPress.t < 400 && Math.hypot(s.x - lastPress.x, s.y - lastPress.y) < 5 ? lastPress.n + 1 : 1
-		lastPress = { t: now, ...s, n }
-		return n
-	}
+	/** Click counting (a pointerdown's `detail` is always 0): ui/canvasInfo.ts. */
+	const clicks = new ClickCounter()
+	const pressCount = (e: PointerEvent): number => clicks.press(local(e), e.timeStamp)
 
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
@@ -388,11 +309,7 @@
 	const readout = $derived.by(() => {
 		void tick
 		const t = ws.tool, from = t.dragFrom?.() ?? (['line', 'trunk', 'conduit', 'wall'].includes(ws.toolId) ? t.lastPoint?.(ctx()) : null)
-		if (!cursor || !from) return null
-		const dx = cursor.x - from.x, dy = cursor.y - from.y, up = toolKind !== 'plan' && toolKind !== 'sheet'
-		const deg = Math.round(((Math.atan2(-dy, dx) * 180) / Math.PI + 360) % 360 * 10) / 10   // anticlockwise from →, up the screen positive
-		const r = (v: number) => (toolKind === 'sheet' ? Math.round(v * 10) / 10 : Math.round(v))
-		return `L ${r(Math.hypot(dx, dy))} · ∠ ${deg}° · ΔX ${r(dx)} · ${up ? 'ΔZ' : 'ΔY'} ${r(up ? -dy : dy)}`
+		return cursor && from ? readoutText(cursor, from, toolKind) : null
 	})
 
 	// the status bar's readout (UX05): the active pane reports the cursor in its own terms (plan / sheet x, y with y down;
@@ -410,36 +327,11 @@
 	})
 	/** The drawn grid (GRID, UX05): lines every grid step, coarsened ×10 until they're at least 8 px apart; every 5th
 	 *  darker. Model views only (a sheet's paper has its margins; a rack view its Us). */
-	const gridLines = $derived.by(() => {
-		const d = ws.drafting
-		if (!d.showGrid || spec.kind === 'sheet' || spec.kind === 'row' || !w || !h) return []
-		let step = Math.max(1, d.grid || 10)
-		while (step * cam.k < 8) step *= 10
-		const x0 = -cam.x / cam.k, y0 = -cam.y / cam.k, x1 = (w - cam.x) / cam.k, y1 = (h - cam.y) / cam.k, out: { a: Pt; b: Pt; major: boolean }[] = []
-		for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) out.push({ a: { x, y: y0 }, b: { x, y: y1 }, major: Math.round(x / step) % 5 === 0 })
-		for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) out.push({ a: { x: x0, y }, b: { x: x1, y }, major: Math.round(y / step) % 5 === 0 })
-		return out
-	})
+	const gridLines = $derived(!ws.drafting.showGrid || spec.kind === 'sheet' || spec.kind === 'row' || !w || !h ? [] : gridLines_(cam, w, h, ws.drafting.grid))
 
-	// ── a device template dragged from the Device library onto a rack (rack views): the Device tool's ghost follows the
-	//    pointer at the snapped U, the drop adds it (the library puts the old tool back when the drag ends) ──
-	function dragOver(e: DragEvent) {
-		if (!ws.libraryDrag || spec.kind !== 'row' || vpe) return
-		e.preventDefault()
-		if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-		if (ws.toolId !== 'device') ws.toolId = 'device'
-		onfocus?.()
-		ws.tool.hover?.(input(e), ctx()); tick++
-	}
-	function drop(e: DragEvent) {
-		if (!ws.libraryDrag || spec.kind !== 'row' || vpe) return
-		e.preventDefault()
-		ws.tool.down(input(e), ctx()); tick++
-	}
-	function dragLeave(e: DragEvent) {
-		if (e.relatedTarget instanceof Node && svg?.contains(e.relatedTarget)) return   // onto a child: still over the view
-		ws.tool.unhover?.(); tick++
-	}
+	// a device template dragged from the Device library onto a rack view (ui/viewportEdit.ts)
+	// svelte-ignore state_referenced_locally
+	const lib = libraryDrop({ ws, ok: () => spec.kind === 'row' && !vpe, input: (e) => input(e), ctx, surface: () => svg, changed: () => tick++, focus: () => onfocus?.() })
 	function onDown(e: PointerEvent) {
 		onfocus?.()
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
@@ -507,22 +399,14 @@
 		if (toolDown) { toolDown = false; ws.tool.up(input(e), ctx()); tick++ }
 	}
 
-	/** Alt+wheel over the selected, unlocked viewport: the next standard scale (T126). False = not over one. */
-	function rescaleViewport(dir: 1 | -1, p: Pt): boolean {
-		const vp = vpe?.vp ?? sheet?.viewports.find((v) => v.id === ws.viewportId)
-		if (!sheet || !vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return false
-		const scale = nextScale(vp.scale, dir), s = sheet
-		if (scale !== vp.scale) project.store.transact(`Viewport scale 1:${scale}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
-		ws.say(`1:${scale} — the wheel steps the viewport's scale with Pan / zoom content on (or Alt+wheel)`)
-		return true
-	}
+	const rescale = (dir: 1 | -1, p: Pt) => rescaleViewport(project, ws, sheet, vpe?.vp.id, dir, p)
 	/** The wheel needs a non-passive listener to stop the page scrolling. */
 	$effect(() => {
 		const el = svg
 		if (!el) return
 		const onWheel = (e: WheelEvent) => {
 			e.preventDefault()
-			if (!((e.altKey || ws.vpContentNav) && rescaleViewport(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), Math.exp(-e.deltaY * 0.0015))
+			if (!((e.altKey || ws.vpContentNav) && rescale(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), Math.exp(-e.deltaY * 0.0015))
 		}
 		el.addEventListener('wheel', onWheel, { passive: false })
 		return () => el.removeEventListener('wheel', onWheel)
@@ -560,7 +444,7 @@
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={panning?.moved ? 'grabbing' : cursorCss}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
-		oncontextmenu={(e) => e.preventDefault()} ondragover={dragOver} ondrop={drop} ondragleave={dragLeave}>
+		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />

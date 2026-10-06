@@ -25,3 +25,6 @@ export function fit(b: Bounds, w: number, h: number, pad = 24): Camera {
 	const k = Math.min(MAX_K, Math.max(MIN_K, Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh)))
 	return { k, x: (w - bw * k) / 2 - b.x0 * k, y: (h - bh * k) / 2 - b.y0 * k }
 }
+
+/** What a `w` × `h` px view shows through this camera, in drawing mm. */
+export const visibleArea = (c: Camera, w: number, h: number): Bounds => ({ x0: -c.x / c.k, y0: -c.y / c.k, x1: (w - c.x) / c.k, y1: (h - c.y) / c.k })

@@ -1516,3 +1516,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   panel: Category 228 px, an empty Tags 144 px, Level 49 px) — the register's edit boxes and category picker fit
   their text (`field-sizing: content`), long patch-list notes are cut with … (full text on hover). Live: register
   1229 → 738 px. Backlog: "Uploads from inside cad" (link or embed) added.
+
+## Batch (Dave 2026-10-07): 1 2 3 4 5 6 10 13 14 23 30
+
+- **1 — oversized files split** along real seams, no behaviour change: CadShell 609 → 497 (`WindowBody.svelte` the
+  windows' insides, `SplitBar.svelte`, `ui/shellKeys.ts` the keys with a context like the menus', `app/shellActions.ts`
+  new sheet / PDFs / F4 / "n selected" / view titles / drafting toggle); ViewCanvas 608 → 492 (`ui/canvasInfo.ts`
+  grid lines, readout, `CameraMemory`, `ClickCounter`; `ui/viewportEdit.ts` enter / leave / Alt+wheel scale / library
+  drop; `viewToSheet` in `app/sheetActions.ts`; `viewportHighlight` / `pickableIn` in `views/overlays.ts`;
+  `snapDragged` in `editor/snap.ts`; `visibleArea` in `editor/camera.ts`); selectTool 532 → 482
+  (`editor/dragParts.ts`: `dragViewport`, `dragNodesInto`). 510 tests pass; live: windows, F9, Shift+Home, Esc, split.

@@ -4,6 +4,7 @@
 import type { Prim } from './display'
 import type { ProjectIndex } from '../domain/project'
 import type { Id } from '../domain/types'
+import type { Entity } from '../domain/drawing'
 import type { PortSel } from '../editor/tools'
 import type { Route } from '../domain/routing'
 import type { ViewSpec } from './space'
@@ -83,4 +84,23 @@ export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], dept
 	}
 	if (spec.kind === 'elevation' && other.kind === 'plan') return [{ k: 'line', pts: [{ x: b.x0, y: -z }, { x: b.x1, y: -z }], cls: 'workplane' }]
 	return []
+}
+
+/** A sheet's picked VIEWPORT: its frame highlighted and (unlocked) corner grips a constant `g` mm (= 4 px) across. */
+export function viewportHighlight(prims: Prim[], vpId: Id, locked: boolean, g: number): Prim[] {
+	const frame = prims.find((p) => p.k === 'line' && p.sub === vpId && p.cls.startsWith('viewport'))
+	if (!frame || frame.k !== 'line') return []
+	const grips: Prim[] = locked ? [] : frame.pts.map((q) => ({ k: 'line', pts: [{ x: q.x - g, y: q.y - g }, { x: q.x + g, y: q.y - g }, { x: q.x + g, y: q.y + g }, { x: q.x - g, y: q.y + g }], closed: true, fill: true, cls: 'grip' }))
+	return [{ ...frame, cls: 'viewport sel', src: undefined }, ...grips]
+}
+
+/** What a view shows that can be picked (Ctrl+A, Select similar): devices in a rack row, notes on a sheet (not the
+ *  sheet), else anything but a sheet. */
+export function pickableIn(ix: ProjectIndex, prims: Prim[], kind: string): Entity[] {
+	const out = new Map<string, Entity>()
+	for (const p of prims) {
+		const e = p.src && p.k !== 'image' ? ix.get(p.src) : undefined
+		if (e && (kind === 'row' ? e.type === 'device' : kind === 'sheet' ? e.type === 'shape' : e.type !== 'sheet')) out.set(e.id, e)
+	}
+	return [...out.values()]
 }

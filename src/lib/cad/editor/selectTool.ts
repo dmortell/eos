@@ -9,8 +9,9 @@ import type { Prim } from '../views/display'
 import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
-import { pathGrips, gripAt, moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
-import { insertNode, branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
+import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
+import { insertNode } from '../domain/pathEdit'
+import { dragViewport, dragNodesInto } from './dragParts'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
@@ -18,7 +19,7 @@ import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
-import { segAt, segNodes, followersOf, joinAcross } from './pathSel'
+import { segAt, segNodes, followersOf } from './pathSel'
 import { angleStep, axisLock } from './constrain'
 import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
 import { withGroups } from '../domain/groups'
@@ -303,24 +304,7 @@ export class SelectTool implements Tool {
 			const { sheet, vpId, mode, corner } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			this.#gesture ??= c.store.begin(mode === 'resize' ? 'Resize viewport' : mode === 'pan' ? 'Pan viewport' : 'Move viewport')
-			const next = (v: Sheet['viewports'][number]) => {
-				const r = v.rect
-				if (mode === 'pan') return { ...v, centre: { x: v.centre.x - d.x * v.scale, y: v.centre.y - d.y * v.scale } }
-				if (mode === 'move') return { ...v, rect: { ...r, x: r.x + d.x, y: r.y + d.y } }
-				// resize from a corner (0 TL, 1 TR, 2 BR, 3 BL), the opposite corner fixed; at least 10 mm
-				const left = corner === 0 || corner === 3, top = corner === 0 || corner === 1
-				let x0 = left ? Math.min(r.x + d.x, r.x + r.w - 10) : r.x, x1 = left ? r.x + r.w : Math.max(r.x + r.w + d.x, r.x + 10)
-				let y0 = top ? Math.min(r.y + d.y, r.y + r.h - 10) : r.y, y1 = top ? r.y + r.h : Math.max(r.y + r.h + d.y, r.y + 10)
-				// Shift: square (the longer side wins; the opposite corner stays put)
-				if (e.shift) {
-					const s = Math.max(x1 - x0, y1 - y0)
-					if (left) x0 = x1 - s; else x1 = x0 + s
-					if (top) y0 = y1 - s; else y1 = y0 + s
-				}
-				// the view stays put on the paper: the centre moves with the window's middle
-				const cx = v.centre.x + ((x0 + x1) / 2 - (r.x + r.w / 2)) * v.scale, cy = v.centre.y + ((y0 + y1) / 2 - (r.y + r.h / 2)) * v.scale
-				return { ...v, rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, centre: { x: cx, y: cy } }
-			}
+			const next = (v: Sheet['viewports'][number]) => dragViewport(v, mode, d, corner, e.shift)   // the view stays put on the paper
 			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? next(v) : v)) }))
 			return
 		}
@@ -337,42 +321,8 @@ export class SelectTool implements Tool {
 			this.#snap = sn.kind === 'grid' ? null : sn
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')
 			this.#gesture.update((tx) => {
-				const s = tx.get(shape) as Shape
-				if (branch && s.geom.kind === 'path') {
-					const from = s.geom.nodes.find((n) => n.id === grip.nodeIds[grip.nodeIds.length - 1])!
-					const w = c.space.spec.kind === 'plan' ? { x: sn.p.x, y: sn.p.y, z: from.z } : (() => { const d = c.space.deltaToWorld({ x: sn.p.x - grip.at.x, y: sn.p.y - grip.at.y }); return { x: from.x + d.x, y: from.y + d.y, z: from.z + (d.z ?? 0) } })()
-					tx.put(branchFrom(s, from.id, { ...w, ...(from.levelId ? { levelId: from.levelId } : {}), ...(sn.attach && c.space.spec.kind === 'plan' ? { attach: sn.attach } : {}) }, branch))
-					return
-				}
-				// plan: put the stack ON the snapped point (and attach to what it lands on); elevation: shift by the drag
-				const plan = c.space.spec.kind === 'plan', d = c.space.deltaToWorld({ x: sn.p.x - grip.at.x, y: sn.p.y - grip.at.y })
-				// a run of the same kind whose node sits on this one is already connected here: it becomes part of this run
-				// (Dave: two trunks touching at a point move as one); other runs' nodes there just move along
-				const absorbed: Id[] = []
-				let base = s
-				for (const [fid, ids] of fol) {
-					const f = tx.get(fid) as Shape | undefined
-					if (!f || !canJoin(base, f) || base.geom.kind !== 'path') continue
-					const mine = base.geom.nodes.filter((n) => grip.nodeIds.includes(n.id)), theirs = f.geom.kind === 'path' ? f.geom.nodes.filter((n) => ids.includes(n.id)) : []
-					const m = joinShapes(base, f, theirs.map((n): [Id, Id] => [n.id, [...mine].sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0].id]))
-					if (m) { base = m; absorbed.push(fid); tx.del(fid) }
-				}
-				const moved = plan ? moveNodes(base, grip.nodeIds, sn.p, sn.attach ?? (home ? undefined : null)) : moveNodesBy(base, grip.nodeIds, d)
-				for (const [fid, ids] of fol) {
-					if (absorbed.includes(fid)) continue
-					const f = tx.get(fid) as Shape | undefined
-					if (f) tx.put(plan ? moveNodes(f, ids, sn.p) : moveNodesBy(f, ids, d))
-				}
-				// dropped on another node of the path (snapped onto it): JOIN them — shows while dragging, undone by dragging on
-				const j = joinDropped(moved, grip.nodeIds, c.space)
-				this.#joined = j.joined
-				// …or on a node of ANOTHER run of the same kind: the two runs become one (cables choosing that run follow)
-				const across = j.joined ? null : joinAcross(j.shape, grip.nodeIds, c.store.ofType('shape').filter((o) => o.id !== shape && !fol.has(o.id)), c.space)
-				if (across) { tx.del(across.absorbed); absorbed.push(across.absorbed) }
-				this.#absorbed = absorbed.length
-				tx.put(across?.shape ?? j.shape)
-				// a cable that chose a joined-in run (a backbone's riser) now uses this one
-				if (absorbed.length) for (const l of c.store.ofType('link')) if (l.via && absorbed.includes(l.via)) tx.put({ ...l, via: shape })
+				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space: c.space, shapes: c.store.ofType('shape'), links: c.store.ofType('link') })
+				if (!branch) { this.#joined = r.joined; this.#absorbed = r.absorbed }
 			})
 		} else if (this.#segDrag && this.#start) {
 			// a selected segment (or several) dragged whole: their end nodes move by the drag; other runs' nodes on them too

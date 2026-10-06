@@ -6,6 +6,10 @@ import type { Id } from '../domain/types'
 import { duplicateSheet, numberFrom } from '../domain/sheetEdit'
 import { printOrder } from '../domain/sheetList'
 import { newId } from '../domain/ids'
+import type { Workspace } from './workspace.svelte'
+import type { ViewSpec } from '../views/space'
+import type { Bounds } from '../views/display'
+import { blankSheet, viewViewport } from '../views/sheet'
 
 /** Duplicate these sheets (with their viewports and paper notes; no number, no revisions, each after its original),
  *  one undo step; the copies' ids. */
@@ -25,4 +29,19 @@ export function numberSheets(project: CadProject, ids: Id[], pattern: string): n
 	const changed = sheets.map((s, i) => ({ ...s, number: nums[i] })).filter((s, i) => s.number !== sheets[i].number)
 	if (changed.length) project.store.transact(`Number ${sheets.length} sheets from ${nums[0]}`, (tx) => { for (const s of changed) tx.put(s) })
 	return changed.length
+}
+
+/** Put a view on a sheet (backlog "A sheet from the current view", split out of ViewCanvas): a viewport centred on
+ *  `visible` (what the pane shows), at the largest standard scale it fits at, on a new sheet (`target` 'new') or that
+ *  sheet; one undo step, the sheet selected with the new viewport picked. The sheet and the viewport. */
+export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId: Id; spec: Exclude<ViewSpec, { kind: 'sheet' }> }, visible: Bounds, target: string): { sheet: Sheet; vpId: Id; scale: number } | null {
+	const sheets = (project.store.ofType('sheet') as Sheet[]).filter((s) => s.status !== 'archived')
+	const base = target === 'new' ? blankSheet(sheets, newId()) : project.index.get<Sheet>(target)
+	if (base?.type !== 'sheet') return null
+	const vp = viewViewport(project.index, base, view, visible, newId(), { projectName: project.name, template: project.settings?.titleBlock })
+	const next = { ...base, viewports: [...base.viewports, vp] }
+	project.store.transact(target === 'new' ? `New sheet ${next.number} from this view` : `View onto ${next.number}`, (tx) => tx.put(next))
+	ws.select([next.id])
+	ws.selectViewport(vp.id)
+	return { sheet: next, vpId: vp.id, scale: vp.scale }
 }

@@ -68,3 +68,24 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 	}
 	return best ?? (opts.noGrid || opts.grid === 0 ? { p, kind: 'grid' } : { p: gridSnap(p, opts.grid || GRID_MM), kind: 'grid' })
 }
+
+/** Dragging nodes of a run (`skip` = the runs, `dragged` = their moving nodes): besides `sn`, the runs' OTHER nodes and
+ *  the midpoints of segments that don't move are snap points too (dropped there, they join them); the dragged nodes
+ *  themselves would snap to the cursor. `toView` = a world point in the view. Split out of ViewCanvas. */
+export function snapDragged(sn: Snap, p: Pt, tol: number, ix: ProjectIndex, skip: Id | Id[], dragged: Id[], toView: (q: { x: number; y: number; z: number }) => Pt): Snap {
+	let best = sn, bestD = sn.kind === 'grid' ? tol : Math.hypot(sn.p.x - p.x, sn.p.y - p.y)
+	const offer = (q: Pt, s: Snap) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bestD) { best = s; bestD = d } }
+	for (const id of Array.isArray(skip) ? skip : [skip]) {
+		const own = ix.get(id)
+		if (own?.type !== 'shape' || own.geom.kind !== 'path') continue
+		const byId = new Map(own.geom.nodes.map((n) => [n.id, n]))
+		for (const n of own.geom.nodes) if (!dragged.includes(n.id)) { const q = toView(n); offer(q, { p: q, kind: 'node', z: n.z }) }
+		for (const g of own.geom.segs) {
+			const a = byId.get(g.a), b = byId.get(g.b)
+			if (!a || !b || dragged.includes(a.id) || dragged.includes(b.id)) continue
+			const qa = toView(a), qb = toView(b), q = { x: (qa.x + qb.x) / 2, y: (qa.y + qb.y) / 2 }
+			if (qa.x !== qb.x || qa.y !== qb.y) offer(q, { p: q, kind: 'mid' })
+		}
+	}
+	return best
+}

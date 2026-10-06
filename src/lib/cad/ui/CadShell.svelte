@@ -1,6 +1,10 @@
 <!-- The cad workspace for one project: levels on the left, the plan in the middle, Properties on the right, the
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
+	import WindowBody from './WindowBody.svelte'
+	import SplitBar from './SplitBar.svelte'
+	import { shellKey, ARROWS } from './shellKeys'
+	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
 	import { onDestroy, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState } from '$app/navigation'
@@ -11,17 +15,10 @@
 	import { deleteSelected as deleteSelectedOf, orderKey as orderKeyOf, groupKey as groupKeyOf } from '../app/selectionActions'
 	import { HINT, HINT_PLACE } from './toolHints'
 	import ViewCanvas from './ViewCanvas.svelte'
-	import { PLAN, specKey, specLabel, type ViewSpec } from '../views/space'
-	import Properties from './Properties.svelte'
-	import ImportNotes from './ImportNotes.svelte'
+	import { PLAN, specKey, type ViewSpec } from '../views/space'
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
-	import RackList from './RackList.svelte'
-	import DeviceLibrary from './DeviceLibrary.svelte'
-	import BlockManager from './BlockManager.svelte'
-	import CableList from './CableList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
-	import LayersPanel from './LayersPanel.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
@@ -31,26 +28,18 @@
 	import TablesPanel from './TablesPanel.svelte'
 	import TabStrip from './TabStrip.svelte'
 	import { Tabs, viewKey as viewKeyOf, type TabView } from '../app/tabs.svelte'
-	import Navigator from './Navigator.svelte'
 	import type { NavNode } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import TitleBlockDialog from './TitleBlockDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
-	import { labelKind } from '../domain/labelEdit'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
-	import { blankSheet } from '../views/sheet'
-	import { newId } from '../domain/ids'
-	import type { Sheet } from '../domain/drawing'
-	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import ToolStrip from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
-	import { repeatOn } from '../domain/repeatEdit'
-	import type { Device } from '../domain/types'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -92,19 +81,8 @@
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
-
-	/** Drag the bar between split views (backlog "Resizable split bar"): the left pane's share, 15–85 %, kept per browser. */
 	let panesEl: HTMLDivElement | undefined = $state()
-	function splitDown(e: PointerEvent) {
-		if (e.button !== 0 || !panesEl) return
-		e.preventDefault()
-		const bar = e.currentTarget as HTMLElement, r = panesEl.getBoundingClientRect()
-		try { bar.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer */ }
-		const move = (m: PointerEvent) => { panels.split = Math.min(0.85, Math.max(0.15, (m.clientX - r.left) / r.width)) }
-		const up = () => { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); panels.save() }
-		bar.addEventListener('pointermove', move)
-		bar.addEventListener('pointerup', up)
-	}
+
 
 	function toggleSplit() {
 		canvas?.cancel()
@@ -127,15 +105,7 @@
 			if (keep.length !== ws.selection.length) ws.select(keep)
 		})
 	}
-	/** A view's name for the back / forward titles. */
-	function viewName(v: ViewSpec | undefined): string | undefined {
-		if (!v) return undefined
-		if (v.kind === 'sheet') { const sh = project.index.get(v.sheetId); return sh?.type === 'sheet' ? `${sh.number} ${sh.title}` : 'a sheet' }
-		if (v.kind === 'row') return `${project.index.nameOf(v.spaceId)} rack view`
-		if (v.kind === 'section') return `Section ${project.index.nameOf(v.sectionId)}`
-		return specLabel(v)
-	}
-	const exists = (v: ViewSpec) => (v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : true)
+	const viewName = (v: ViewSpec | undefined) => viewTitle(project, v), exists = (v: ViewSpec) => viewExists(project, v)
 	/** Back / forward inside the pane's tab (UX12 → D1, Alt+← / Alt+→). */
 	function navPane(i: number, dir: -1 | 1) {
 		const v = tabs.nav(i, dir, (x) => exists(x.spec))
@@ -298,7 +268,7 @@
 	const tablesDocked = $derived(tablesShown && !panels.tables.float && !panels.tables.max)
 	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : 0)
 	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
-	const sheetsAll = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order))
+	const sheetsAll = $derived(activeSheets(project))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
 	 *  selected. The spec is copied: the tree's comes from frozen store data. */
 	function navOpen(n: NavNode, keep = false) {
@@ -310,45 +280,13 @@
 		if (n.select) ws.select([n.select])
 	}
 	function openTable(t: BottomTab) { panels.shown.bottom = true; panels.save(); pickBottom(t) }
-	function newSheet() {
-		const sh = blankSheet(sheetsAll, newId())
-		project.store.transact(`New sheet ${sh.number}`, (tx) => tx.put(sh))
-		setPane(activePane, { kind: 'sheet', sheetId: sh.id }, 'keep')
-		ws.select([sh.id])
-	}
-	async function pdfSheet(id: string) {
-		const sh = project.index.get(id)
-		if (sh?.type !== 'sheet') return
-		try { const r = await downloadSheetsPdf(project, [sh]); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
-		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
-	}
-	async function pdfAllSheets() {
-		try { const r = await downloadSheetsPdf(project, sheetsAll); ws.say(`PDF: ${r.pages} pages${unsupportedNote(r.unsupported, r.rasterised)}`) }
-		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
-	}
-	/** "12 selected (outlets)" for the status bar (UX review V3). */
-	const selectedText = $derived.by(() => {
-		const n = ws.selection.length
-		if (!n) return ''
-		const kinds = [...new Set(ws.selection.map((id) => project.index.get(id)?.type).filter(Boolean))]
-		return `${n} selected${kinds.length === 1 ? ` (${kinds[0]}${n > 1 ? 's' : ''})` : ''}`
-	})
-	/** F4: the last device edit (Properties) again, on the selected devices — one undo step; those it can't go on are
-	 *  skipped and named (domain/repeatEdit.ts). */
-	function repeatDeviceEdit() {
-		const edit = ws.lastDeviceEdit
-		if (!edit) { ws.say('F4 repeats a device edit — change a field of a device in Properties first'); return }
-		const devices = ws.selection.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
-		if (!devices.length) { ws.say(`F4: select the devices to repeat "${edit.label}" on`); return }
-		const r = repeatOn(edit, devices, project.index.devices, (id) => { const x = project.index.get(id); return x?.type === 'rack' ? x : undefined })
-		if (r.next.length) project.store.transact(`${edit.label} (repeated on ${r.next.length})`, (tx) => { for (const n of r.next) tx.put(n) })
-		ws.say(`Repeated "${edit.label}" on ${r.next.length} device${r.next.length === 1 ? '' : 's'}${r.skipped.length ? ` · skipped ${r.skipped.join('; ')}` : ''}`)
-	}
+	// project actions (app/shellActions.ts)
+	const newSheet = () => setPane(activePane, { kind: 'sheet', sheetId: newSheetIn(project, ws) }, 'keep')
+	const pdfSheet = (id: string) => { const sh = project.index.get(id); if (sh?.type === 'sheet') void sheetsPdf(project, ws, [sh]) }
+	const pdfAllSheets = () => void sheetsPdf(project, ws, sheetsAll)
+	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
-	function toggleDrafting(k: 'snap' | 'osnap' | 'showGrid') {
-		ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting()
-		ws.say(`${{ snap: 'SNAP', osnap: 'OSNAP', showGrid: 'GRID' }[k]} ${ws.drafting[k] ? 'on' : 'off'}`)
-	}
+	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
 		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0,
@@ -404,51 +342,15 @@
 	function deleteSelected() { deleteSelectedOf(project, ws) }
 	function orderKey(how: 'forward' | 'backward' | 'front' | 'back') { orderKeyOf(project, ws, how) }
 	function groupKey(ungroup: boolean) { groupKeyOf(project, ws, ungroup) }
+	/** The keys (ui/shellKeys.ts). */
+	const onKey = (e: KeyboardEvent) => shellKey(e, {
+		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
+		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
+		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel,
+	})
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
 
-	/** Arrow keys nudge the selection (view directions: y down). */
-	const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
-	function onKey(e: KeyboardEvent) {
-		if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
-		const mod = e.ctrlKey || e.metaKey
-		if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
-		if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); typePoint(e.key); return }
-		const k = e.key.toLowerCase(), arrow = ARROWS[e.key]
-		if (mod && (k === 'z' || k === 'y')) canvas?.endNudge()   // a nudge burst is its own undo step
-		if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); showHistory(project.undo()) }
-		else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); showHistory(project.redo()) }
-		else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }
-		else if (mod && k === 'g') { e.preventDefault(); groupKey(e.shiftKey) }
-		else if (e.key === 'F2' && ws.selection.length === 1) {
-			// F2: edit the selected thing's words in place (a text, a leader, an outlet's label, a rack's name, a run's label)
-			if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
-		}
-		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
-		else if (e.key === 'F4') { e.preventDefault(); repeatDeviceEdit() }
-		else if (e.key === 'F1') { e.preventDefault(); helpOpen = 'help' }
-		else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
-		else if (e.key === '?' && !mod) { e.preventDefault(); helpOpen = 'keys' }
-		else if (mod && e.key === '.') { e.preventDefault(); layout.allHidden = !layout.allHidden }
-		else if (mod && e.key === ',') { e.preventDefault(); panels.toggle('bottom') }
-		else if (e.altKey && !mod && (k === 'w' || e.code === 'KeyW')) { e.preventDefault(); const t = tabs.paneTab[activePane]; if (t) closeTab(t) }
-		else if (e.altKey && !mod && (e.key === 'PageUp' || e.key === 'PageDown')) {
-			e.preventDefault()
-			const at = tabs.list.findIndex((t) => t.id === tabs.paneTab[activePane]), n = tabs.list.length
-			if (n) showTab(tabs.list[(at + (e.key === 'PageDown' ? 1 : -1) + n) % n].id)
-		}
-		else if (e.altKey && !mod && /^Digit[1-9]$/.test(e.code)) { e.preventDefault(); const t = tabs.list[Number(e.code.slice(5)) - 1]; if (t) showTab(t.id) }
-		else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); navPane(activePane, e.key === 'ArrowLeft' ? -1 : 1) }
-		else if (e.key === 'F9' || e.key === 'F3' || e.key === 'F7') {
-			// the drafting switches (UX05): F9 SNAP, F3 OSNAP, F7 GRID
-			e.preventDefault()
-			toggleDrafting(e.key === 'F9' ? 'snap' : e.key === 'F3' ? 'osnap' : 'showGrid')
-		}
-		else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
-		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
-		else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
-		else if (e.key === 'Home' && e.shiftKey) zoomSel()
-		else if (e.key === 'Home') canvas?.zoomExtents()
-		else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }	}
+
 </script>
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
@@ -479,29 +381,17 @@
 		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="expand" size={15} /></button>
 	</div>
 
+	{#snippet winBody(id: WinId)}
+		<WindowBody {id} {project} {ws} {level} {projectName} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))}
+			on={{ navOpen, floors: () => (floorsOpen = true), settings: () => (typesOpen = true), newSheet, pdfAll: pdfAllSheets, pdf: pdfSheet,
+				insert: (b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }, view: (s) => setPane(activePane, s) }} />
+	{/snippet}
+
 	{#snippet tables()}
 		<TablesPanel {project} {ws} {panels} {level} {projectName} roomId={patchRoom} inRoomView={panes[activePane]?.kind === 'row'}
 			tab={bottom} onpick={pickBottom} onview={(s) => setPane(activePane, s)} area={planEl} />
 	{/snippet}
 
-	{#snippet winBody(id: WinId)}
-		{#if id === 'navigator'}
-			<Navigator {project} {ws} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} onopen={navOpen} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))} onfloors={() => (floorsOpen = true)} onsettings={() => (typesOpen = true)} onnewsheet={newSheet} onpdfall={pdfAllSheets} onpdf={pdfSheet} />
-		{:else if id === 'properties'}
-			<Properties {project} {ws} />
-			<ImportNotes {project} {ws} />
-		{:else if id === 'layers'}
-			<div class="p-2"><LayersPanel {project} {ws} /></div>
-		{:else if id === 'blocks'}
-			<div class="p-2"><BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} /></div>
-		{:else if id === 'racks'}
-			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}</div>
-		{:else if id === 'devices'}
-			<div class="p-2"><DeviceLibrary {project} {ws} /></div>
-		{:else if id === 'cables'}
-			<div class="p-2"><CableList {project} {ws} /></div>
-		{/if}
-	{/snippet}
 
 	<!-- docked windows: the left and right columns (today's side panels), stacked -->
 	{#each ['left', 'right'] as const as side (side)}
@@ -522,7 +412,7 @@
 				{#each panes as spec, i (i)}
 					{#if i === 1}
 						<!-- the bar between split views: drag to share the width (double-click: half and half) -->
-						<div class="split-bar" role="separator" aria-orientation="vertical" title="Drag to resize the two views · double-click: equal" onpointerdown={splitDown} ondblclick={() => { panels.split = 0.5; panels.save() }}></div>
+						<SplitBar {panels} container={panesEl} />
 					{/if}
 					<div class="pane" style:flex={panes.length === 2 ? `${i === 0 ? panels.split : 1 - panels.split} 1 0` : undefined}>
 						<ViewCanvas bind:this={canvases[i]} {project} {ws} levelId={level.id} {spec}
@@ -603,7 +493,5 @@
 	.drop { position: absolute; top: 0; bottom: 0; width: 6px; background: #3b82f6; opacity: 0.6; z-index: 60; pointer-events: none; }
 	.drop-left { left: 0; }
 	.drop-right { right: 0; }
-	.split-bar { flex: 0 0 5px; cursor: col-resize; background: var(--cad-line); touch-action: none; }
-	.split-bar:hover, .split-bar:active { background: #93c5fd; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 </style>
