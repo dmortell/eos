@@ -1419,3 +1419,15 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   follows at the snapped U (red when it overlaps or runs off the rack); the drop adds it (one undo step, selected),
   and the tool you had comes back when the drag ends. A click arms the Device tool with it instead. Help updated.
   Live (IDF2 front): "Fibre panel 24 LC" dragged onto R313 → ghost, PP4 added and selected, Select back; undone.
+- **Device library in its own window** (Dave: "it might get very long"): Window › Device library, docked under Racks;
+  it opens with the Device tool (as Blocks opens with Insert). The Racks window is back to racks only.
+- **F4 repeats the last device edit** (Dave, like Excel): a field changed on a device (or several) in Properties is
+  remembered as the change itself (`domain/repeatEdit.ts`); select other devices, F4 puts it on them, one undo step.
+  Not repeated: name, U (per device) and the printed-label record; a panel change carries only the changed panel
+  fields (another panel keeps its reservations / printed labels); a device the change won't fit is skipped and named.
+  Help (keys + how-to) updated. Tests: `domain/repeatEdit.test.ts` (3). Live (IDF2): Maker "F4TEST" on one switch,
+  F4 on another → "Repeated "Device maker" on 1 device"; both undone.
+- **Sheets plan decisions** (Dave 2026-10-07) recorded in `../plan/sheets-organising.md`: categories GLOBAL
+  (`settings/cadSheetCategories`, retire not delete), discipline kept, review flag and DRAFT stamp later, cover page
+  at the first sheet's size, packages by list or rule, rev codes typed per issue first, recipients on the package,
+  "Make package" for old issues.

@@ -1,4 +1,4 @@
-<!-- The DEVICE LIBRARY (backlog "Device library: drag onto a rack", G063): every device template (built-in and the
+<!-- The DEVICE LIBRARY window (its own window — Dave: the list gets long; backlog "Device library: drag onto a rack", G063): every device template (built-in and the
      global ones, ★), found by name and grouped by kind. DRAG one onto a rack in a rack view — the Device tool's ghost
      shows the snapped U (red where it can't go) and the drop adds it there, one undo step, selected. A CLICK arms the
      Device tool with it instead (the next click in a rack places it). -->
@@ -7,7 +7,6 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { DeviceTemplate } from '../domain/devices'
 	import { naturalCompare } from '../domain/labels'
-	import SideSection from './SideSection.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -38,7 +37,7 @@
 	}
 </script>
 
-<SideSection key="device-library" title="Device library">
+<div class="lib">
 	<input class="find" placeholder="Find a template…" bind:value={q} />
 	{#each groups as g (g.k)}
 		<p class="kind">{g.label}</p>
@@ -51,7 +50,7 @@
 	{:else}
 		<p class="px-2 text-[11px] text-zinc-400">No template matches</p>
 	{/each}
-</SideSection>
+</div>
 
 <style>
 	.find { width: 100%; margin: 2px 0 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 6px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }

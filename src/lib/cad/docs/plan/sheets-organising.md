@@ -1,6 +1,6 @@
 # Organising sheets and issue packages (plan)
 
-**Status:** draft for Dave (2026-10-06). Dave: "develop a plan for organizing sheets, the user will want to sort them
+**Status:** Dave answered the questions on 2026-10-07 (section 6) — ready to build, slice 1 first. Dave: "develop a plan for organizing sheets, the user will want to sort them
 by various categories and build re-usable packages for issuing." Plan only; nothing here is built. It replaces the
 backlog entries **Organising sheets** and **Revisions and packages**, and takes in the parts of **Change history per
 drawing** and the decision **A DRAFT label on drawings?** that touch issuing. Version history, revert and the issue
@@ -35,7 +35,7 @@ since that package last went out, a cover sheet in the PDF, and per-sheet change
 | Field | Stored / derived | Where it comes from | Used for |
 |---|---|---|---|
 | **Category** | stored `kind` (id), else **derived** | project list `settings.sheetCategories`; unset → from the viewports (below) | column, group, filter, package rule, number prefix |
-| **Discipline** | stored `discipline` | free text with suggestions from values in use (question D2) | column, group, filter |
+| **Discipline** | stored `discipline` | free text with suggestions from values in use (Dave, D2: keep) | column, group, filter |
 | **Level(s)** | derived | `placeId` if it is a level; else the levels its viewports show | column, group, filter, rule; sorts by **level order** (B1, 1F, 2F), not by name |
 | **Room** | derived | `placeId` if it is a space; else the server rooms of its rack-row viewports | column, group, filter, rule ("IDF1") |
 | **Place** | stored `placeId`, else derived | as today | the Navigator's default grouping |
@@ -51,11 +51,14 @@ elevations; all `riser` → Risers; `section` / `elevation` → Sections and ele
 or a mix → General. Shown in the register in grey italics with "(auto)"; setting one stores it. This means most sheets
 sort sensibly with nobody typing anything.
 
-**Category list** — `settings.sheetCategories: { id, label, code?, order }[]`, edited in Settings → a new **Sheets**
-tab, the same pattern as the usage list (add, rename, reorder, delete refused while sheets use it). Seeded on first
-use: General `G`, Plans `P`, Rack elevations `RE`, Risers `R`, Sections and elevations `S`, Schedules `SC`,
-Details `D`. `code` is the number prefix "Renumber group" offers. Groups and the Navigator list categories in list
-`order`, not alphabetically.
+**Category list — GLOBAL** (Dave, D1): one list for every project, stored like the blocks and device templates in a
+global doc, `settings/cadSheetCategories` (`{ categories: { id, label, code?, order }[] }`), read by `CadProject`
+next to `globalTemplates`. Edited in Settings → a new **Sheets** tab, marked "all projects" (add, rename, reorder;
+delete refused while a sheet in *this* project uses it — other projects can't be checked cheaply, so a deleted
+category is soft: `retired`, hidden from pickers, still shown where used, like retired blocks). Built-in defaults
+live in code and are shown when the doc is empty: General `G`, Plans `P`, Rack elevations `RE`, Risers `R`,
+Sections and elevations `S`, Schedules `SC`, Details `D`. `code` is the number prefix "Renumber group" offers.
+Groups and the Navigator list categories in list `order`, not alphabetically.
 
 **Issue state** — one derived value, no stored flag to forget:
 - **Not issued** — no revisions.
@@ -68,7 +71,7 @@ The fingerprint needs each sheet's display list with its floorplans placed (`pre
 Compute it only while the Issue column is shown or a package is being issued: in idle chunks, cached per sheet and
 cleared by `project.rev` (debounced ~1 s). 50 sheets ≈ a second or two of background work the first time.
 
-**Hand-set "For review / Approved"** is not in the first slices (question D3).
+**Hand-set "For review / Approved"** — later (Dave, D3).
 
 ## 2. UI
 
@@ -135,7 +138,7 @@ or from the current filter chips (rule).
 4. The title block's revision table shows `code · date · desc` (desc falls back to the note, so old revisions read
    as before). Status becomes "Issued C" by derivation; nothing else to set.
 
-**Cover page / transmittal**: a generated page (A4 portrait, or the package's first sheet size; question D5) drawn
+**Cover page / transmittal**: a generated page (the size of the package's first sheet, with the project title block — Dave, D5) drawn
 as a display list like any sheet, so it goes through `pagesToPdf` and is frozen with the issue: project, issue
 number, package, purpose, date, recipients, then the drawing register (No., title, rev, size, "New rev" / "As
 issued" / "Withdrawn"). The Excel transmittal stays and gains the withdrawn rows and recipients.
@@ -145,7 +148,7 @@ issued" / "Withdrawn"). The Excel transmittal stays and gains the withdrawn rows
 - per sheet (Sheet Properties): "Issued revisions" as today, plus **Issued in**: every issue that included it, at
   which rev, new or as issued (derived by scanning `issue.sheets`, no new storage).
 
-**DRAFT stamp** (if Dave picks decision (b)): any PDF that is not an issue prints "DRAFT — not issued" (Not issued)
+**DRAFT stamp** (later — Dave, D4; how it would work): any PDF that is not an issue prints "DRAFT — not issued" (Not issued)
 or "DRAFT — changed since rev B" across the title block for sheets whose state is not "Issued". Issues and reprints
 never carry it.
 
@@ -164,8 +167,9 @@ revisions?: { code: string; date: string; note?: string; issueId?: Id; hash?: st
 	desc?: string        // what changed in this revision (title block revision table)
 	by?: string }[]      // initials of who issued it
 
-// ProjectSettings (domain/types.ts)
-sheetCategories?: { id: string; label: string; code?: string; order: number }[]
+// GLOBAL (Dave, D1): settings/cadSheetCategories — like settings/cadBlocks and settings/cadDeviceTemplates
+interface SheetCategory { id: string; label: string; code?: string; order: number; retired?: boolean }
+// doc: { categories: SheetCategory[] }; built-in defaults in code (domain/sheetCategories.ts) when it is empty
 
 // NEW entity (domain/drawing.ts, added to DrawingEntity)
 export interface SheetPackage {
@@ -190,8 +194,8 @@ cover?: boolean              // the PDF has a cover page (reprint draws it again
 ```
 
 - **Why keep the field name `kind`**: it is already stored on sheets; renaming means a migration for a label change.
-  Free-text kinds already in projects become categories on first load (label = the text, id = a slug), the same way
-  `missingUsages` adds codes the usage list lacks.
+  A free-text kind that isn't in the global list shows as typed, with "Add to the category list" beside it (the list
+  is global, so nothing is added to it by just opening a project).
 - **Rules store ids, not names** (levels, spaces, category ids), so renaming a level or a category doesn't break a
   package. A rule pointing at a deleted level just matches nothing; the Packages view shows "level gone".
 - **What a "snapshot" is (decided here, for issuing only)**: the frozen display list per (sheet, rev) in `cadIssued`
@@ -210,16 +214,17 @@ Each slice is useful alone. Sizes as in the backlog (S ≤ 60 lines, M 60–250,
 1. **Register split + derived columns — M (~120).** IssuesList out of SheetsTab; tableKit; Level (level order), Room,
    derived Category; group by level / room / category; filter chips. *Tests:* `sheetList.test.ts` — level-order sort,
    derived category per view mix, room from row viewports and from `placeId`, chips AND / OR.
-2. **Category list — M (~120).** `settings.sheetCategories`, Settings → Sheets tab, seeding, free-text kinds adopted,
-   delete refused while used, category order in groups. *Tests:* `sheetCategories.test.ts` (seed, adopt, slug clash,
-   uses).
+2. **Category list (global) — M (~130).** `settings/cadSheetCategories` + built-in defaults, Settings → Sheets tab
+   ("all projects"), "Add to the category list" for a typed kind, retire instead of delete, category order in groups.
+   *Tests:* `sheetCategories.test.ts` (defaults when empty, add from a typed kind, slug clash, retired hidden from
+   pickers but shown where used).
 3. **Bulk edit, duplicate, renumber group — M (~180).** SheetMultiProps; group-header select; Renumber prefilled
    with the category code; Duplicate sheet. *Tests:* duplicate keeps viewports / notes, drops revisions and number;
    multi-edit "(mixed)" helper.
 4. **Drag reorder + Navigator group-by — M (~120).** Drag in the register when sorted by `#`; Sheets node Group by
    Place / Category / Level. *Tests:* `moveInPrintOrder` with a drop index; `navTree.test.ts` grouping modes.
-5. **Issue state — M (~100).** Background fingerprints with cache; column, chip, Navigator dot. **+ DRAFT stamp
-   (S, ~40)** if decision D4 is (b). *Tests:* `issueState()` for each of the four states; stamp text.
+5. **Issue state — M (~100).** Background fingerprints with cache; column, chip, Navigator dot. (The DRAFT stamp is
+   later — Dave, D4.) *Tests:* `issueState()` for each of the four states.
 6. **Packages — L (~260).** `SheetPackage` entity, validation, Packages view, new from selection / from chips,
    rule evaluation, Issue… from a package, `issue.packageId`, Make package from an old issue, Navigator group by
    Package. *Tests:* `packages.test.ts` — rule matching (each field, ids not names, archived excluded), list order,
@@ -227,8 +232,9 @@ Each slice is useful alone. Sizes as in the backlog (S ≤ 60 lines, M 60–250,
 7. **Re-issue diff + change notes — M (~150).** Added / Withdrawn / New rev / As issued against the package's last
    issue; editable rev code per row; `desc` / `by` on revisions; revision table shows desc. *Tests:*
    `diffSinceLastIssue` (added, withdrawn via archive and via removal, unchanged), `planIssue` with a code override.
-8. **Cover page + transmittal — M (~150).** `views/transmittalPage.ts` display list, first page of the PDF and of
-   reprints, Excel gains withdrawn + recipients. *Tests:* page rows and order, long registers flow onto a 2nd page.
+8. **Cover page + transmittal — M (~150).** `views/transmittalPage.ts` display list, on the package's first sheet's
+   paper size with the project title block (Dave, D5), first page of the PDF and of reprints; recipients from the
+   package (D8); Excel gains withdrawn + recipients. *Tests:* page rows and order, long registers flow onto a 2nd page.
 9. **History — S (~60).** Package → its issues; Sheet Properties → Issued in. *Tests:* `issuesOfSheet`.
 
 Rough total ~1,300 lines over 9 slices. Order suggestion: 1 → 2 → 6 → 7 → 8 (that is "sort by category" and
@@ -237,14 +243,27 @@ Rough total ~1,300 lines over 9 slices. Order suggestion: 1 → 2 → 6 → 7 �
 
 ## Left for later
 
-- **For review / Approved workflow** and the **Issue gate** (needs the version model ADR).
+- **For review / Approved workflow** (Dave, D3: later) and the **Issue gate** (needs the version model ADR).
+- **DRAFT stamp** on non-issue PDFs (Dave, D4: later) — slice 5's issue state gives it for ~40 lines when wanted.
 - **Version history / Revert to an earlier issue** — model snapshots; an issue can point at one later.
 - Typed packages with codes (`TYPE-001`), superseding a whole package, package draft / published states.
 - Copy / paste a sheet into another project; dragging sheets in the Navigator; nested groups (Level › Category).
 - Sending the package (email / share link); the PM's all-issues register (its own backlog entry).
 - Sheet-number templates (`{CAT}-{LVL}{NN}`) beyond "Renumber group" with a prefix.
 
-## 6. Open questions for Dave
+## 6. Decisions (Dave, 2026-10-07)
+
+- **D1 Category list:** **global** — one list for all projects (`settings/cadSheetCategories`), built-in defaults.
+- **D2 Discipline:** keep (free text with suggestions, column hidden by default).
+- **D3 For review / Approved:** later.
+- **D4 DRAFT label:** later.
+- **D5 Cover page:** the same size as the package's first sheet, with the project title block.
+- **D6 Package members:** either a list or a rule, with "Freeze to list".
+- **D7 Revision codes:** try (a) first — type the code per sheet / "Set all to…" in the Issue panel.
+- **D8 Recipients:** a list on the package (name, org), printed on the cover and the transmittal.
+- **D9 Old issues without a package:** offer "Make package" on each.
+
+<details><summary>The questions as asked</summary>
 
 - [ ] **D1 Category list: fixed or per project?** Options: (a) a fixed cad list; (b) a project list seeded with
   defaults, edited in Settings (like usages); (c) free text as today. *Suggest:* (b) — projects differ (some have
@@ -270,3 +289,5 @@ Rough total ~1,300 lines over 9 slices. Order suggestion: 1 → 2 → 6 → 7 �
   contacts.
 - [ ] **D9 Old issues without a package** — (a) leave them loose; (b) offer "Make package" per issue; (c) auto-make a
   package per distinct issue name. *Suggest:* (b) — explicit, and the next issue diffs against it.
+
+</details>

@@ -27,6 +27,7 @@ import type { Link } from '../domain/types'
 import type { ViewSpec } from '../views/space'
 import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
+import type { RepeatEdit } from '../domain/repeatEdit'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'insert' | 'shape' | 'box' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | NoteKind | PathKind
 
@@ -67,6 +68,8 @@ export class Workspace {
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
 	/** A template being dragged from the Device library (the tool to go back to when the drag ends). */
 	libraryDrag = $state<{ prevTool: ToolId } | null>(null)
+	/** The last device edit made in Properties, for F4 (repeat on the selected devices). */
+	lastDeviceEdit = $state.raw<RepeatEdit | null>(null)
 	/** The device tool's Mount: a both-face device (a panel) fixed to the front or rear only (shares its U). */
 	deviceMount = $state<'front' | 'rear' | undefined>(undefined)
 	/** The Shape tool's choice: rectangle / ellipse / polygon (its sides, inscribed or circumscribed). */

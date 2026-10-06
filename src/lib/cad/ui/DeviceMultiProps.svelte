@@ -1,6 +1,7 @@
 <!-- Several selected devices: the fields they share ("mixed" where they differ; an edit sets all, one undo step).
      A change that would make any of them overlap or run off its rack is refused with the reason. -->
 <script lang="ts">
+	import { repeatableEdit } from '../domain/repeatEdit'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Device } from '../domain/types'
@@ -21,6 +22,8 @@
 			if (problem) { ws.say(problem); return }
 		}
 		project.store.transact(`${label} (${devices.length} devices)`, (tx) => { for (const n of next) tx.put(n) })
+		// F4 repeats it on other devices (taken from the first: the change, not this event's closure)
+		if (devices[0]) ws.lastDeviceEdit = repeatableEdit(devices[0], label, patch(devices[0])) ?? ws.lastDeviceEdit
 	}
 	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
 	const text = (v: string) => v.trim() || undefined

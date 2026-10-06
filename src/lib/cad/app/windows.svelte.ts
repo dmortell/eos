@@ -5,7 +5,7 @@
 // the browser window shrinks (Dave: "be careful to handle browser window resizing"). Pure state; ui/CadWindow.svelte
 // and ui/DockColumn.svelte draw it.
 
-export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'cables'
+export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'devices' | 'cables'
 export type Dock = 'left' | 'right'
 export interface WinState {
 	open: boolean
@@ -19,7 +19,7 @@ export interface WinState {
 	z: number
 }
 
-export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', cables: 'Cables' }
+export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', devices: 'Device library', cables: 'Cables' }
 export const WIN_IDS = Object.keys(WIN_TITLES) as WinId[]
 
 const KEY = 'cad-windows:2'   // :2 — Blocks / Racks now open docked (a floating Racks covered the drawing)
@@ -31,7 +31,9 @@ const DEFAULTS: Record<WinId, WinState> = {
 	// on the drawing; drag them out to float them
 	blocks: { open: false, dock: 'left', order: 2, x: 290, y: 80, w: 260, h: 420, folded: false, z: 1 },
 	racks: { open: false, dock: 'left', order: 3, x: 320, y: 100, w: 240, h: 420, folded: false, z: 1 },
-	cables: { open: false, dock: null, order: 4, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
+	// its own window (Dave: the template list gets long): opens with the Device tool, docked under Racks
+	devices: { open: false, dock: 'left', order: 4, x: 340, y: 110, w: 240, h: 460, folded: false, z: 1 },
+	cables: { open: false, dock: null, order: 5, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
 }
 const clone = (s: Record<WinId, WinState>) => Object.fromEntries(WIN_IDS.map((id) => [id, { ...s[id] }])) as Record<WinId, WinState>
 

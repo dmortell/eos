@@ -49,6 +49,8 @@
 	import ToolStrip from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
+	import { repeatOn } from '../domain/repeatEdit'
+	import type { Device } from '../domain/types'
 
 	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
 
@@ -282,6 +284,7 @@
 	// Blocks opens with the Insert tool, unless you closed it this session (Racks no longer opens by itself in a rack
 	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
 	$effect(() => { if (ws.toolId === 'insert') untrack(() => layout.open('blocks', false)) })
+	$effect(() => { if (ws.toolId === 'device') untrack(() => layout.open('devices', false)) })
 	// floating windows stay reachable when the browser window (or the drawing area) shrinks (Dave)
 	$effect(() => {
 		const el = planEl
@@ -330,6 +333,17 @@
 		const kinds = [...new Set(ws.selection.map((id) => project.index.get(id)?.type).filter(Boolean))]
 		return `${n} selected${kinds.length === 1 ? ` (${kinds[0]}${n > 1 ? 's' : ''})` : ''}`
 	})
+	/** F4: the last device edit (Properties) again, on the selected devices — one undo step; those it can't go on are
+	 *  skipped and named (domain/repeatEdit.ts). */
+	function repeatDeviceEdit() {
+		const edit = ws.lastDeviceEdit
+		if (!edit) { ws.say('F4 repeats a device edit — change a field of a device in Properties first'); return }
+		const devices = ws.selection.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
+		if (!devices.length) { ws.say(`F4: select the devices to repeat "${edit.label}" on`); return }
+		const r = repeatOn(edit, devices, project.index.devices, (id) => { const x = project.index.get(id); return x?.type === 'rack' ? x : undefined })
+		if (r.next.length) project.store.transact(`${edit.label} (repeated on ${r.next.length})`, (tx) => { for (const n of r.next) tx.put(n) })
+		ws.say(`Repeated "${edit.label}" on ${r.next.length} device${r.next.length === 1 ? '' : 's'}${r.skipped.length ? ` · skipped ${r.skipped.join('; ')}` : ''}`)
+	}
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
 	function toggleDrafting(k: 'snap' | 'osnap' | 'showGrid') {
 		ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting()
@@ -410,6 +424,7 @@
 			if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
 		}
 		else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
+		else if (e.key === 'F4') { e.preventDefault(); repeatDeviceEdit() }
 		else if (e.key === 'F1') { e.preventDefault(); helpOpen = 'help' }
 		else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
 		else if (e.key === '?' && !mod) { e.preventDefault(); helpOpen = 'keys' }
@@ -480,7 +495,9 @@
 		{:else if id === 'blocks'}
 			<div class="p-2"><BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} /></div>
 		{:else if id === 'racks'}
-			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}<DeviceLibrary {project} {ws} /></div>
+			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}</div>
+		{:else if id === 'devices'}
+			<div class="p-2"><DeviceLibrary {project} {ws} /></div>
 		{:else if id === 'cables'}
 			<div class="p-2"><CableList {project} {ws} /></div>
 		{/if}

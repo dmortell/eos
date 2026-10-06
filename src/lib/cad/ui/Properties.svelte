@@ -30,6 +30,7 @@
 	import PropsHeader from './PropsHeader.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import { renumberable } from '../domain/renumber'
+	import { repeatableEdit } from '../domain/repeatEdit'
 	import { newId } from '../domain/ids'
 	import { withStyle, type Shape } from '../domain/shapes'
 	import PathProps from './PathProps.svelte'
@@ -122,6 +123,7 @@
 		const problem = rack?.type === 'rack' ? placementProblem(next, rack, project.index.devices) : null
 		if (problem) { ws.say(problem); return }
 		put(d, label, patch)
+		ws.lastDeviceEdit = repeatableEdit(d, label, patch) ?? ws.lastDeviceEdit   // F4 repeats it on other devices
 	}
 	/** `…/cad?rack=<id>`: opens the rack's room in the rack view, zoomed to the rack (CadShell). */
 	function copyRackLink(r: Rack) {
@@ -131,7 +133,7 @@
 	}
 	function setUsage(d: Device, usage: string, on: boolean) {
 		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
-		put(d, `${d.name} takes ${usages.join(', ') || 'any usage'}`, { panel: { tier: 'low', ...d.panel, usages: usages.length ? usages : undefined } })
+		putDevice(d, `${d.name} takes ${usages.join(', ') || 'any usage'}`, { panel: { tier: 'low', ...d.panel, usages: usages.length ? usages : undefined } })
 	}
 	function saveTemplate(d: Device) {
 		ws.askText('Template name (global)', d.name, async (name) => {
@@ -322,11 +324,11 @@
 			{#if d.kind === 'pdu'}
 				<!-- a 0U PDU (backlog "0U PDUs"): its side, its power inlets and its sockets — drawn on the strip; drag it across the rack to change sides -->
 				<label class="row" title="The side of the rack it's on, as seen from the front (or drag it across)">Side
-					<select class="inp" value={d.pduSide ?? 'left'} onchange={(e) => put(d, 'PDU side', { pduSide: e.currentTarget.value === 'right' ? 'right' : undefined })}>
+					<select class="inp" value={d.pduSide ?? 'left'} onchange={(e) => putDevice(d, 'PDU side', { pduSide: e.currentTarget.value === 'right' ? 'right' : undefined })}>
 						<option value="left">left</option><option value="right">right</option>
 					</select></label>
-				<label class="row" title="Power inlets (feeds in), drawn at its bottom">Inlets <input class="inp" type="number" min="0" max="4" value={d.inlets ?? 0} onchange={(e) => put(d, 'PDU inlets', { inlets: Math.max(0, Math.min(4, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
-				<label class="row" title="Sockets (outlets) along the strip">Sockets <input class="inp" type="number" min="0" max="48" value={d.outlets ?? 0} onchange={(e) => put(d, 'PDU sockets', { outlets: Math.max(0, Math.min(48, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+				<label class="row" title="Power inlets (feeds in), drawn at its bottom">Inlets <input class="inp" type="number" min="0" max="4" value={d.inlets ?? 0} onchange={(e) => putDevice(d, 'PDU inlets', { inlets: Math.max(0, Math.min(4, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
+				<label class="row" title="Sockets (outlets) along the strip">Sockets <input class="inp" type="number" min="0" max="48" value={d.outlets ?? 0} onchange={(e) => putDevice(d, 'PDU sockets', { outlets: Math.max(0, Math.min(48, Number(e.currentTarget.value) || 0)) || undefined })} /></label>
 			{/if}
 			{#if d.kind !== 'pdu'}
 				<label class="row" title="Allow it to share Us with another device on the same side (a shelf always may) — the rack view marks the clash: those U numbers bold red with “!”">Overlap
@@ -334,8 +336,8 @@
 			{/if}
 		</PropGroup>
 		<PropGroup kind="device" title="Product and size">
-			<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => put(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
-			<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => put(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Maker <input class="inp" value={d.maker ?? ''} onchange={(e) => putDevice(d, 'Device maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
+			<label class="row">Model <input class="inp" value={d.model ?? ''} onchange={(e) => putDevice(d, 'Device model', { model: e.currentTarget.value.trim() || undefined })} /></label>
 			<label class="row">Width (mm) <input class="inp" type="number" min="10" value={d.widthMm ?? ''} placeholder="19-inch" onchange={(e) => putDevice(d, 'Device width', { widthMm: num(e.currentTarget.value) })} /></label>
 			<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={d.depthMm ?? ''} onchange={(e) => putDevice(d, 'Device depth', { depthMm: num(e.currentTarget.value) })} /></label>
 			{#if rack && narrowDevice(d) && d.widthMm! < rack.widthMm}

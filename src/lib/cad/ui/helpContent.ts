@@ -15,7 +15,8 @@ export const HOWTO: HowTo[] = [
 	{ q: 'Delete a level, a server room or a section', a: 'In the Navigator, hover the row: ✎ renames it, ✕ deletes it. A level goes with everything on it; a server room with its racks (and their devices, links, cords) — it asks first when more goes with it, and an empty room just goes. A section: click its row (or the cut line on the plan) and press Delete. Undo brings any of them back.' },
 	{ q: 'Go back to the view you were in', a: 'The ‹ › buttons at the left of each pane\'s strip, or Alt+← / Alt+→. Each pane keeps its own history.' },
 	{ q: 'Put a view on a sheet', a: 'In the view, "To sheet…" on its strip: a new sheet or one that\'s there, centred where you\'re looking at a scale that fits. Or on a sheet, the Viewport tool: drag a box — it shows the other pane\'s view (or the last one you looked at), scaled to fit.' },
-	{ q: 'Add a device from the library', a: 'Racks window → Device library: find a template, then DRAG it onto a rack in a rack view — the outline shows where it lands (red: it overlaps or runs off the rack) and the drop adds it, selected. Or click a template, then click a U in a rack.' },
+	{ q: 'Make the same change to more devices', a: 'Change a field of a device (or several) in Properties — its kind, height, ports, maker, a panel’s tier … — then select other devices and press F4: the same change goes on them, one undo step. Its name and U aren’t repeated; a device it won’t fit is skipped and named.' },
+	{ q: 'Add a device from the library', a: 'Window › Device library (it opens with the Device tool): find a template, then DRAG it onto a rack in a rack view — the outline shows where it lands (red: it overlaps or runs off the rack) and the drop adds it, selected. Or click a template, then click a U in a rack.' },
 	{ q: 'Draw cords along the cable channels', a: 'In a rack view, Cord channels (in the strip over the view) draws every patch cord down to the channel at the side of its panel, across through the nearest horizontal manager when it changes side, and between racks at mid-height. Off = straight cords. It is a project setting: sheets and PDFs follow it.' },
 	{ q: 'Move, resize or pan a viewport', a: 'Click a viewport’s FRAME (its border) on the sheet: drag the frame to move it, a corner to resize it. Its middle doesn’t pick it, so it can’t be dragged by mistake — double-click inside to edit the model in it. The chip on its corner sets its scale and has Pan / zoom content (a drag inside pans its view, the wheel steps its scale). Its view, level and scale are also in Properties.' },
 	{ q: 'Hide a layer in a viewport', a: 'The eye in Layers hides a layer on screen everywhere, viewports included. What PRINTS is each viewport’s ❄: pick the viewport (or edit inside it) and click a layer’s snowflake to freeze it in that viewport (Shift: every viewport on the sheet).' },
@@ -41,6 +42,6 @@ export const SHORTCUTS: [string, string][] = [
 ]
 
 export const FKEYS: [string, string][] = [
-	['F1', 'Help (this)'], ['F2', 'Edit the selected label in place'], ['F3', 'OSNAP: object snaps on / off'],
+	['F1', 'Help (this)'], ['F2', 'Edit the selected label in place'], ['F3', 'OSNAP: object snaps on / off'], ['F4', 'Repeat the last device edit on the selected devices'],
 	['F7', 'GRID: draw the grid'], ['F9', 'SNAP: grid snap on / off'],
 ]
