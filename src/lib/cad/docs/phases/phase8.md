@@ -1345,3 +1345,9 @@ Live (Test Project): R311 selected → "1 selected (rack)", 4 halo outlines; the
 the spinner showed while the floorplan rendered. No data written.
 
 Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline), no cad warnings.
+- **Fixes (Dave):** "clicking tabs does nothing" — showing a tab cloned its view with `structuredClone`, which throws
+  on a `$state` proxy (the tab list is state); Back / Forward and the chip's Open view had the same; now
+  `$state.snapshot`. Live: clicking 1F plan / 1F front elevation tabs switched the view. "S006: ports unreadable due
+  to the white background of panel labels when zoomed in; panel labels too faint" — a panel's name over its ports no
+  longer has a white halo, and its small (zoomed-in) form is full strength, dark and semi-bold (screen and PDF).
+  Live: S006 at 1323 %: names halo-free and solid over 134 readable port labels.

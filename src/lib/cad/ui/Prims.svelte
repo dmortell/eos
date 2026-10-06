@@ -186,8 +186,9 @@
 	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
 	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
-	text.device-label.on-ports { paint-order: stroke; stroke: white; stroke-width: 3px; stroke-opacity: 0.9; }
-	text.device-label.on-ports-small { fill-opacity: 0.45; font-weight: 500; stroke: none; }
+	/* a panel's name over its ports: no white halo (Dave: it hid the port labels when zoomed in), full strength */
+	text.device-label.on-ports { stroke: none; }
+	text.device-label.on-ports-small { fill: #0f172a; font-weight: 600; }
 	.cord { stroke-width: 2; opacity: 0.85; }
 	.cord-installed { stroke-dasharray: none; }
 	.cord-add { stroke-dasharray: 6 3; }

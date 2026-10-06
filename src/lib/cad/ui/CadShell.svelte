@@ -69,7 +69,7 @@
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
-	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, structuredClone(v.spec), 'keep') }
+	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, $state.snapshot(v.spec) as ViewSpec, 'keep') }
 	ws.remove = () => deleteSelected()
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
@@ -138,7 +138,7 @@
 		const v = tabs.nav(i, dir, (x) => exists(x.spec))
 		if (!v) return
 		if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId
-		setPane(i, structuredClone(v.spec), 'nav')
+		setPane(i, $state.snapshot(v.spec) as ViewSpec, 'nav')
 	}
 	const navOf = (i: number) => { const t = tabs.of(i); return { back: viewName(t?.back.at(-1)?.spec), fwd: viewName(t?.fwd.at(-1)?.spec), go: (d: -1 | 1) => navPane(i, d) } }
 	/** Show a tab in a pane (its level first). */
@@ -148,7 +148,7 @@
 		tabs.paneTab[i] = id
 		tabs.save()
 		if (t.view.levelId && project.index.get(t.view.levelId)) ws.levelId = t.view.levelId
-		setPane(i, structuredClone(t.view.spec), 'show')
+		setPane(i, $state.snapshot(t.view.spec) as ViewSpec, 'show')
 	}
 	/** Close a tab: the panes that showed it show the tab beside it, or (none left) the open level's plan. */
 	function closeTab(id: string) {
@@ -301,7 +301,7 @@
 		const o = n.open
 		if (!o) return
 		if (o.levelId && o.levelId !== ws.levelId) ws.levelId = o.levelId
-		setPane(activePane, structuredClone(o.spec), keep ? 'keep' : 'open')
+		setPane(activePane, $state.snapshot(o.spec) as ViewSpec, keep ? 'keep' : 'open')
 		if (n.kind === 'rack' && n.id) ws.focus = n.id
 		if (n.select) ws.select([n.select])
 	}
