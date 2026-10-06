@@ -12,7 +12,7 @@
 	import type { Sheet } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
 	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
-	import { DEFAULT_SHEET_CATEGORIES } from '../domain/sheetCategories'
+	import { ordered } from '../domain/sheetCategories'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import IssuePanel from './IssuePanel.svelte'
@@ -23,12 +23,13 @@
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
-	const cats = $derived(DEFAULT_SHEET_CATEGORIES.filter((c) => !c.retired))
+	/** The global list (retired ones left out of pickers; they still name sheets that use them). */
+	const cats = $derived(ordered(project.sheetCategories))
 	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
 	let q = $state(''), status = $state<'active' | 'archived' | ''>('active'), by = $state<GroupBy>('none')
 	let fCats = $state<string[]>([]), fLevels = $state<string[]>([]), fRooms = $state<string[]>([]), fTags = $state<string[]>([])
 	let sort = $state<{ key: SortKey; dir: 1 | -1 }>({ key: 'number', dir: 1 })
-	const all = $derived(sheetRows(project.index, sheets, DEFAULT_SHEET_CATEGORIES))
+	const all = $derived(sheetRows(project.index, sheets, project.sheetCategories))
 	const rows = $derived(sortRows(filterRows(all, { q, status: status || undefined, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sort.key, sort.dir))
 	const groups = $derived(groupRows(rows, by))
 	const selected = $derived(new Set(ws.selection))

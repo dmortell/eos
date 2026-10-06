@@ -1445,3 +1445,11 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   register Excel has Category / Level / Room instead of Place / Kind. Tests: `sheetList.test.ts` (+4). Live (Test
   Project): 6 sheets → Rack elevations ×3, Plans ×2, Sections ×1, all auto; group by level 1F 3 · 4F 3; chips Rack
   elevations → 3, + 4F → 2.
+- **Slice 2 — the category list, GLOBAL (Dave D1):** `settings/cadSheetCategories` (`{ categories }`, replaced whole
+  on save), read by `CadProject` like the device templates; the built-in list while it's empty. Project › Settings ›
+  **Sheets** (`SheetCategoriesTab.svelte`): rename, code (the Renumber prefix), order ▲▼, how many sheets here use
+  it; ✕ RETIRES a category (other projects may use it: it still names their sheets, it isn't offered any more),
+  Restore brings it back; typed categories on this project's sheets not in the list get "+ add". Not on the
+  project's undo history (a global doc, like templates). The register's pickers and chips use the list. Tests:
+  `sheetCategories.test.ts` (4). Live: Details ▲ then ▼ — saved to the global doc and back in the built-in order
+  (the doc now exists, equal to the defaults).

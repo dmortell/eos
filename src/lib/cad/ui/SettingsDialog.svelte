@@ -6,6 +6,7 @@
        follow the outlet label (relabel existing ones on request), the cable slack per port and the BOM's waste.
      Every edit is one undo step. -->
 <script lang="ts">
+	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
 	import { backdropClose } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectSettings } from '../domain/types'
@@ -17,7 +18,7 @@
 	import { cableSettings, type CableSettings } from '../domain/routing'
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 
-	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' } = $props()
+	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' | 'sheets' } = $props()
 
 
 	const st = $derived(project.settings)
@@ -72,10 +73,13 @@
 				<button class:on={tab === 'usages'} onclick={() => (tab = 'usages')}>Usages</button>
 				<button class:on={tab === 'cables'} onclick={() => (tab = 'cables')}>Cable types</button>
 				<button class:on={tab === 'lengths'} onclick={() => (tab = 'lengths')}>Lengths &amp; labels</button>
+				<button class:on={tab === 'sheets'} onclick={() => (tab = 'sheets')}>Sheets</button>
 			</span>
 			<button class="x" title="Close (Esc)" onclick={onclose}>✕</button>
 		</div>
-		{#if !st}
+		{#if tab === 'sheets'}
+			<SheetCategoriesTab {project} />
+		{:else if !st}
 			<p class="p-3 text-zinc-500">This project has no settings yet.</p>
 		{:else if tab === 'usages'}
 			<table>

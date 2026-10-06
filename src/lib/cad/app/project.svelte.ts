@@ -1,5 +1,6 @@
 // One open project: the entity store, its Firestore sync, and reactive reads for the UI. Created by the route per
 // project and destroyed with it (no module-level state — the Pages singletons leaked across projects).
+import { DEFAULT_SHEET_CATEGORIES, type SheetCategory } from '../domain/sheetCategories'
 import type { Firestore } from 'firebase/firestore'
 import { EntityStore, type UndoResult } from '../store/store'
 import { Sync } from '../persist/sync'
@@ -35,6 +36,8 @@ function clientTag(): string {
 /** The global block library doc (Dave, 2026-10-02: blocks are global only). */
 const BLOCKS_DOC = ['settings', 'cadBlocks'] as const
 const TEMPLATES_DOC = ['settings', 'cadDeviceTemplates'] as const
+/** Sheet categories are GLOBAL (Dave, sheets-organising D1): one list for every project. */
+const CATEGORIES_DOC = ['settings', 'cadSheetCategories'] as const
 
 export class CadProject {
 	readonly store = new EntityStore()
@@ -62,17 +65,22 @@ export class CadProject {
 	/** Device templates are GLOBAL too (Dave, Phase 3 §9): built-ins + `settings/cadDeviceTemplates`. */
 	globalTemplates = $state.raw<Record<Id, DeviceTemplate>>({})
 	deviceTemplates = $derived([...BUILTIN_DEVICE_TEMPLATES, ...Object.values(this.globalTemplates).sort((a, b) => a.name.localeCompare(b.name))])
+	/** The global sheet category list (`settings/cadSheetCategories`); the built-in one while that doc is empty. */
+	globalSheetCategories = $state.raw<SheetCategory[] | null>(null)
+	sheetCategories = $derived(this.globalSheetCategories?.length ? this.globalSheetCategories : DEFAULT_SHEET_CATEGORIES)
 
 	#sync: Sync
 	#watched = new Set<string>()
 	#off: () => void
 	#offBlocks: () => void
 	#offTemplates: () => void
+	#offCategories: () => void
 
 	constructor(readonly pid: string, readonly db: Firestore, user: string) {
 		this.pdf = new PdfCache(db)
 		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> })
 		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> })
+		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null })
 		this.#off = this.store.subscribe(() => { this.rev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
 			user, client: clientTag(), onPending: (n) => { this.pendingWrites = n },
@@ -165,6 +173,11 @@ export class CadProject {
 		this.store.transact(label, (tx) => { for (const id of remove) tx.del(id); for (const l of add) tx.put(l) })
 	}
 
+	/** Save the whole global sheet category list (replaces the doc: a removed field must not survive a merge). */
+	async saveSheetCategories(list: SheetCategory[]): Promise<void> {
+		await setDoc(doc(this.db, ...CATEGORIES_DOC), { categories: list.map((c) => stripUndefined(c)) })
+	}
+
 	/** Save a device's shape as a global template ("Save as template"). */
 	async saveTemplate(deviceId: Id, name: string): Promise<DeviceTemplate | null> {
 		const d = this.store.get(deviceId)
@@ -179,6 +192,7 @@ export class CadProject {
 		this.#off()
 		this.#offBlocks()
 		this.#offTemplates()
+		this.#offCategories()
 		this.pdf.destroy()
 	}
 }

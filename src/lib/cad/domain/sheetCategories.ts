@@ -34,3 +34,30 @@ export function categoryOf(s: Pick<Sheet, 'kind' | 'viewports'>, list: SheetCate
 	const c = list.find((x) => x.id === id) ?? list.find((x) => x.label.toLowerCase() === id.toLowerCase())
 	return c ? { id: c.id, label: c.label, order: c.order, auto } : { id, label: id, order: 1e6, auto }   // typed text not in the list: last
 }
+
+/** The list in its order; `all` = with retired ones too (they still name sheets that use them). */
+export const ordered = (list: SheetCategory[], all = false): SheetCategory[] => [...list].filter((c) => all || !c.retired).sort((a, b) => a.order - b.order)
+
+/** A new category at the end of the list; its id is a slug of the label, made unique ("Plans" taken → "plans-2"). */
+export function addCategory(list: SheetCategory[], label: string, code?: string): SheetCategory[] {
+	const base = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'category'
+	const taken = new Set(list.map((c) => c.id))
+	let id = base
+	for (let n = 2; taken.has(id); n++) id = `${base}-${n}`
+	const order = Math.max(0, ...list.map((c) => c.order)) + 10
+	return [...list, { id, label: label.trim(), ...(code?.trim() ? { code: code.trim() } : {}), order }]
+}
+
+/** One place up / down in the list (retired ones keep their place); orders renumbered 10, 20 … */
+export function moveCategory(list: SheetCategory[], id: string, dir: -1 | 1): SheetCategory[] {
+	const l = ordered(list, true), i = l.findIndex((c) => c.id === id), j = i + dir
+	if (i < 0 || j < 0 || j >= l.length) return list
+	;[l[i], l[j]] = [l[j], l[i]]
+	return l.map((c, k) => ({ ...c, order: (k + 1) * 10 }))
+}
+
+/** Typed kinds on these sheets that aren't in the list (old free text): offered "Add to the category list". */
+export function strayKinds(sheets: Pick<Sheet, 'kind'>[], list: SheetCategory[]): string[] {
+	const known = new Set(list.flatMap((c) => [c.id, c.label.toLowerCase()]))
+	return [...new Set(sheets.map((s) => s.kind?.trim()).filter((k): k is string => !!k && !known.has(k) && !known.has(k.toLowerCase())))].sort()
+}
