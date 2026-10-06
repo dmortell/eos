@@ -36,6 +36,7 @@
 	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop } from './viewportEdit'
 	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
+	import PortTip from './PortTip.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
 	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, viewportHighlight, pickableIn } from '../views/overlays'
@@ -301,7 +302,7 @@
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
 	let cursor = $state<Pt | null>(null)
-	let toolDown = false
+	let toolDown = $state(false)
 	/** The tool's cursor for what's under the pointer (Select: crosshair on a grip, move on what moves). */
 	const cursorCss = $derived.by(() => { void tick; return ws.tool.cursorNow?.() ?? ws.tool.cursor })
 	/** Length · angle · Δ in the status bar while drawing a run / line (from its last point) or dragging (from where the
@@ -447,7 +448,7 @@
 		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
-			<Prims {prims} {selected} k={cam.k} />
+			<Prims {prims} {selected} k={cam.k} gray={!!ws.drafting.grayPlan && (spec.kind === 'plan' || toolKind === 'plan')} />
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={traceHighlight} selected={new Set()} />
 			<Prims prims={fillOverlay} selected={new Set()} />
@@ -474,6 +475,7 @@
 		{#if chipVp}<ViewportChip {project} {ws} {sheet} vp={chipVp} editing={!!vpe} {cam} onenter={() => enterVp(chipVp.id)} onexit={exitVp} />{/if}
 	{/if}
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
+	{#if spec.kind === 'row'}<PortTip ix={project.index} {prims} {cursor} {cam} face={spec.face} dragging={toolDown || !!panning} />{/if}
 	{#if ws.textEdit && active}{#key ws.textEdit}<TextEditBox {project} {ws} {space} {cam} {prims} frame={vpe ? { space: vpe.space, prims: vpe.prims, toPaper: vpe.toPaper } : undefined} />{/key}{/if}
 </div>
 

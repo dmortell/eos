@@ -14,6 +14,8 @@ export interface MenuCtx {
 	dxf(): void
 	pdfAllSheets(): void
 	hasSheets: boolean
+	/** The Uploads tool, in a new tab. */
+	uploads(): void
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -49,6 +51,10 @@ export function buildMenus(c: MenuCtx): Menu[] {
 	const tool = (id: ToolId, label: string, key?: string): MenuItem => ({ label, key, disabled: !c.toolOk(id), run: () => c.tool(id), ...(c.toolOk(id) ? {} : { title: 'Not in this view' }) })
 	return [
 		{ label: 'File', items: [
+			// the floorplan PDFs (upload, origin, scale, crop) and the issued package PDFs live in Uploads (backlog "Uploads
+			// from inside cad": the link; embedding it is still to decide)
+			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
+			'-',
 			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
 			{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
 			{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },

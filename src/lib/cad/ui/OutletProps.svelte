@@ -3,6 +3,7 @@
      one undo step. -->
 <script lang="ts">
 	import { sortedUsages } from '../domain/usages'
+	import { sortedCableTypes } from '../domain/cableTypes'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet, Space } from '../domain/types'
@@ -32,6 +33,9 @@
 		const v = outlets.length ? get(outlets[0]) : undefined
 		return outlets.every((o) => get(o) === v) ? v : undefined
 	}
+	const cableTypes = $derived(sortedCableTypes(project.settings))
+	/** The cable every port of the outlet takes (undefined: its ports differ). */
+	const cableOf = (o: Outlet): string | undefined => { const t = o.ports[0]?.cableType; return o.ports.every((p) => p.cableType === t) ? t : undefined }
 	function setOutlets(label: string, patch: (o: Outlet) => Partial<Outlet>) {
 		project.store.transact(`${label} (${outlets.length} outlets)`, (tx) => { for (const o of outlets) tx.put({ ...o, ...patch(o) }) })
 	}
@@ -91,6 +95,13 @@
 			{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
 		</select>
 	</label>
+	<!-- the cable its ports take (backlog "Cable type per outlet"): one pick sets every port -->
+	<label class="row">Cable
+		<select class="inp" value={same((o) => cableOf(o) ?? '?') ?? '?'} onchange={(e) => { const t = e.currentTarget.value; setOutlets('Cable type', (o) => ({ ports: o.ports.map((p) => ({ ...p, cableType: t })) })) }}>
+			{#if (same((o) => cableOf(o) ?? '?') ?? '?') === '?'}<option value="?" disabled>mixed</option>{/if}
+			{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+		</select>
+	</label>
 	<label class="row">Server room
 		<select class="inp" value={same((o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?')) ?? '?'}
 			onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
@@ -120,6 +131,13 @@
 		<label class="row">Mount
 			<select class="inp" value={o.mount} onchange={(e) => put(o, 'Mount', { mount: e.currentTarget.value as Outlet['mount'] })}>
 				{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
+			</select>
+		</label>
+		<label class="row">Cable
+			<select class="inp" value={cableOf(o) ?? '?'} onchange={(e) => { const t = e.currentTarget.value; put(o, 'Cable type', { ports: o.ports.map((p) => ({ ...p, cableType: t })) }) }}>
+				{#if !cableOf(o)}<option value="?" disabled>mixed</option>{/if}
+				{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+				{#if cableOf(o) && !cableTypes.some((t) => t.id === cableOf(o))}<option value={cableOf(o)}>{cableOf(o)}</option>{/if}
 			</select>
 		</label>
 		<label class="row">Symbol

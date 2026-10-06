@@ -44,7 +44,9 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 }
 export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
 
-export interface Drafting { snap: boolean; grid: number; osnap: boolean; showGrid: boolean }
+export interface Drafting { snap: boolean; grid: number; osnap: boolean; showGrid: boolean
+	/** Floorplans in black and white on screen (backlog "Grayscale floorplan toggle"), so coloured markup stands out. */
+	grayPlan?: boolean }
 export interface ViewInfo { loading?: boolean; xy: string | null; readout: string | null; scale: string; zoom: number; mmPerPx: number; extra?: string }
 const DRAFTING_KEY = 'cad-drafting'
 function loadDrafting(): Drafting {

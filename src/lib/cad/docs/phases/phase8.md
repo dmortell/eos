@@ -1526,3 +1526,16 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   drop; `viewToSheet` in `app/sheetActions.ts`; `viewportHighlight` / `pickableIn` in `views/overlays.ts`;
   `snapDragged` in `editor/snap.ts`; `visibleArea` in `editor/camera.ts`); selectTool 532 → 482
   (`editor/dragParts.ts`: `dragViewport`, `dragNodesInto`). 510 tests pass; live: windows, F9, Shift+Home, Esc, split.
+- **2 — backlog pruned:** "Tabs (left pane only)" (built as the shared drawing tabs) and "Review the device template
+  picker" (the Device library window) gone; "Usage colours…" shrunk to what's left; the size warning updated.
+- **3 — File › Uploads…** opens the Uploads tool in a new tab; embedding it stays a backlog question.
+- **4 — Cable type per outlet:** a Cable picker in outlet Properties (one and several), from the project's cable types;
+  it sets every port ("mixed" when the ports differ).
+- **5 — Port hover tips:** in a rack view, at once beside the pointer: the port's place and full label, the cable in it
+  (→ outlet port and level, or a tie / backbone's far panel) and its cords (far end, length, status) —
+  `views/portTip.ts` + `PortTip.svelte`; hidden while dragging. Tests: `portTip.test.ts` (3). Live (IDF2): P3C 48-port
+  : 1 → 01A.002A · cable → outlet A.002 port 1 (1F) · cord → 24-port : 8 · 0.3 m · add.
+- **6 — Set any status:** the cord's status in Properties is a picker (add / change / remove / installed), to fix
+  mistakes; the workflow buttons stay.
+- **10 — Grayscale floorplan:** **B/W** in a plan's strip draws floorplans in black and white on screen (this browser;
+  `drafting.grayPlan`), so coloured markup stands out. Live: filter grayscale(1) on / off.

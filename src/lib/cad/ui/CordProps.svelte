@@ -33,7 +33,11 @@
 <!-- groups (UX review "Properties groups"): Ends (with its status and the install workflow) · Cable · Circuit -->
 <PropGroup kind="cord" title="Ends">
 	<div class="ends">
-		<span class="k">Status</span><span><span class="status s-{c.status}">{c.status}</span></span>
+		<!-- any status, to fix a mistake (backlog "Set any status"); the buttons below are the install workflow -->
+		<span class="k">Status</span><span><select class="stsel status s-{c.status}" value={c.status} title="Set the status directly (to fix a mistake) — the buttons below follow the install workflow"
+			onchange={(e) => put('Cord status', { status: e.currentTarget.value as Cord['status'] })}>
+			{#each ['add', 'change', 'remove', 'installed'] as st (st)}<option value={st}>{st}</option>{/each}
+		</select></span>
 		<span class="k">From</span><span>{end(c.a)}<br /><span class="font-mono text-zinc-500">{label(c.a) || '—'}</span></span>
 		<span class="k">To</span><span>{end(c.b)}<br /><span class="font-mono text-zinc-500">{label(c.b) || '—'}</span></span>
 	</div>
@@ -74,6 +78,8 @@
 <style>
 	.ends { display: grid; grid-template-columns: 2.5rem 1fr; gap: 2px 6px; }
 	.k { color: var(--cad-muted); }
+	.stsel { border: 1px solid transparent; cursor: pointer; }
+	.stsel:hover { border-color: var(--cad-line); }
 	.status { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 4px; text-transform: uppercase; }
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }

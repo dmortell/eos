@@ -5,7 +5,8 @@
 	import type { Id } from '../domain/types'
 
 	/** `k` = screen px per drawing mm, for text LOD (minPx / maxPx). Omit to draw every text. */
-	let { prims, selected, k }: { prims: Prim[]; selected: Set<Id>; k?: number } = $props()
+	/** `gray` = draw images (floorplans) in black and white. */
+	let { prims, selected, k, gray = false }: { prims: Prim[]; selected: Set<Id>; k?: number; gray?: boolean } = $props()
 
 	const ptsOf = (p: { pts: { x: number; y: number }[] }) => p.pts.map((q) => `${q.x},${q.y}`).join(' ')
 	// a shape's own lineweight (paper mm → screen px at 96 dpi, as CAD shows lineweights) and line type (backlog "Shape style")
@@ -51,7 +52,7 @@
 	     over their devices). -->
 	{#if shown(p)}
 	{#if p.k === 'image'}
-		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
+		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
 			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill') ? col : undefined} clip-path={clipOf(p)} />

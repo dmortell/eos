@@ -80,6 +80,7 @@
 			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => go({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) })}>Hide empty floors</button>
 		{/if}
 		{#if spec.kind === 'plan'}
+			<button class:on={!!ws.drafting.grayPlan} title="The floorplan in black and white, so coloured markup stands out (this browser)" onclick={() => { ws.drafting.grayPlan = !ws.drafting.grayPlan; ws.saveDrafting() }}>B/W</button>
 			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
 		{/if}
 	{:else if spec.kind === 'row'}
