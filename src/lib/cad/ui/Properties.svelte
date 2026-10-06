@@ -4,7 +4,7 @@
 	import { sortedUsages } from '../domain/usages'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Entity } from '../domain/drawing'
+	import type { Entity, Sheet } from '../domain/drawing'
 	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
 	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
@@ -12,6 +12,7 @@
 	import PortProps from './PortProps.svelte'
 	import CordProps from './CordProps.svelte'
 	import SheetProps from './SheetProps.svelte'
+	import SheetMultiProps from './SheetMultiProps.svelte'
 	import OutletProps from './OutletProps.svelte'
 	import DeviceMultiProps from './DeviceMultiProps.svelte'
 	import RowProps from './RowProps.svelte'
@@ -215,6 +216,8 @@
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
 		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
+		{@const sheetsSel = items.filter((e): e is Sheet => e.type === 'sheet')}
+		{#if sheetsSel.length > 1}<SheetMultiProps {project} {ws} sheets={sheetsSel} />{/if}
 		{@const runs = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind === 'path')}
 		{#if runs.length > 1}<RunsMultiProps {project} {runs} />{/if}
 		{@const others = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'path')}

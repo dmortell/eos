@@ -13,6 +13,7 @@
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import { printRevision } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
+	import { duplicateSheets } from '../app/sheetActions'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -159,6 +160,7 @@
 	{/if}
 	<div class="acts">
 		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
+		<button class="btn" title="A copy with its viewports and notes (no number, no revisions), right after it" onclick={() => ws.select(duplicateSheets(project, [s.id]))}>Duplicate</button>
 		<button class="btn del" title="Delete this sheet (asks first; Undo brings it back)" onclick={deleteSheet}>Delete sheet</button>
 	</div>
 {/if}

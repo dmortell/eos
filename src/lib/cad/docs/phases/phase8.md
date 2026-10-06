@@ -1482,3 +1482,11 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   withdrawn sheets too. Tests: `transmittalPage.test.ts` (3: size / content / order, flow onto more pages, PDF with
   no picture text). Checked as a real PDF (rendered in a scratch test): A3, the title block on the right, 15 rows.
   Not checked live: issuing uploads a real PDF — first real issue of a package will show it.
+- **Slice 3 — bulk edit, duplicate, number a group:** 2+ sheets selected → Properties **SheetMultiProps** (category,
+  discipline, drawn, a tag + / −, paper size and orientation, Add to package, Duplicate, Archive / Restore; "(mixed)"
+  where they differ; one undo step each). **Duplicate** (`domain/sheetEdit.ts` + `app/sheetActions.ts`): a copy with
+  its viewports and paper notes under new ids, "(copy)", no number, no revisions, right after the original — in the
+  register's bar, sheet Properties, multi Properties and the Navigator's sheet ⋮. **Number…** on a register group
+  header: the group's sheets in print order from a pattern prefilled with the category's code ("RE-01" → RE-01,
+  RE-02 …; the shared Renumber needs numbers already in the labels). Tests: `sheetEdit.test.ts` (2). Live: 2 sheets →
+  General · Paper, tag T1 on both; Duplicate → 6 → 8 "(copy)"; Rack elevations › Number… "RE-01" → RE-01…03; all undone.

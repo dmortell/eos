@@ -21,6 +21,7 @@
 	import ChipPick from './ChipPick.svelte'
 	import { arrowSelect, copyRows } from './tableKit.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
+	import { duplicateSheets, numberSheets } from '../app/sheetActions'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -91,6 +92,11 @@
 	async function excel() {
 		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
+	/** A group's sheets numbered in print order from a pattern, prefilled with the category's code (slice 3). */
+	function numberGroup(g: { key: string; rows: SheetRow[] }) {
+		const code = by === 'category' ? cats.find((c) => c.id === g.key)?.code : undefined
+		ws.askText(`Number ${g.rows.length} sheets from`, `${code ?? 'S'}-01`, (t) => { if (t.trim()) ws.say(`${numberSheets(project, g.rows.map((r) => r.id), t)} sheet(s) numbered`) })
+	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
 	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
 
@@ -128,6 +134,7 @@
 		</span>
 		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF, in the table's order" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
 		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
+		<button class="btn" disabled={!picked.length} title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
 		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
 		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
 		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
@@ -149,7 +156,8 @@
 		</thead>
 		<tbody>
 			{#each groups as g (g.key)}
-				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
+				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span>
+					<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => numberGroup(g)}>Number…</button></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
@@ -202,4 +210,6 @@
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }
+	.gn { margin-left: 8px; font-weight: 400; color: var(--cad-faint); }
+	.gn:hover { color: #2563eb; }
 </style>

@@ -5,6 +5,7 @@
      marked and its branch unfolded. Levels: rename / delete on hover; Floors…, Settings…, New sheet, PDF all on their
      headers. -->
 <script lang="ts">
+	import { duplicateSheets } from '../app/sheetActions'
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -100,7 +101,7 @@
 		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
 		if (n.kind === 'level' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
 		if (n.kind === 'room' && id) return [...open, '-', { label: 'Rename…', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
-		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
+		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
 		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }]
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
