@@ -6,8 +6,9 @@ import { download, fileSafe } from './download'
 const COLS: { head: string; width: number; get: (r: SheetRow) => string | number }[] = [
 	{ head: 'Sheet No.', width: 14, get: (r) => r.number },
 	{ head: 'Title', width: 40, get: (r) => r.title },
-	{ head: 'Place', width: 22, get: (r) => r.place },
-	{ head: 'Kind', width: 12, get: (r) => r.kind },
+	{ head: 'Category', width: 18, get: (r) => r.category },
+	{ head: 'Level', width: 12, get: (r) => r.level },
+	{ head: 'Room', width: 12, get: (r) => r.room },
 	{ head: 'Discipline', width: 14, get: (r) => r.discipline },
 	{ head: 'Tags', width: 22, get: (r) => r.tags.join(', ') },
 	{ head: 'Rev', width: 6, get: (r) => r.rev },

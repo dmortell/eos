@@ -1,35 +1,48 @@
-<!-- The SHEET REGISTER (Phase 4.4), a bottom-panel tab: every sheet with its number, title, place, kind, discipline,
-     tags, revision, size, scale and status. Find, active / archived, group, click a heading to sort. Number, title,
-     kind, discipline and tags are edited in place. Click selects (Shift / Ctrl for more), double-click opens the sheet
-     in the active pane. PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown); select
-     several sheets (in order) and Properties → Renumber numbers them, like outlets and racks. -->
+<!-- The SHEET REGISTER (Phase 4.4; sheets-organising slice 1), a tables-panel tab: every sheet with its print order,
+     number, title, CATEGORY (its own, else derived from its viewports — grey "auto"), LEVEL and ROOM (from its place,
+     else its viewports), discipline, tags, revision, size, scale and status. Find, active / archived, filter CHIPS
+     (category, level, room, tag: any pick within a chip, every chip), group, click a heading to sort (level in level
+     order, category in the list's order). Number, title, category, discipline and tags are edited in place. Click
+     selects (Shift / Ctrl for more), double-click opens the sheet, ↑ / ↓ move the selection, Ctrl+C copies the rows.
+     PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown). The Issues view is
+     IssuesList.svelte. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
 	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
+	import { DEFAULT_SHEET_CATEGORIES } from '../domain/sheetCategories'
 	import { exportSheetRows } from '../render/sheetList'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
-	import type { Issue } from '../domain/drawing'
-	import { reprintIssue } from '../app/issue'
-	import { exportTransmittal } from '../render/transmittal'
-	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 	import IssuePanel from './IssuePanel.svelte'
+	import IssuesList from './IssuesList.svelte'
+	import ChipPick from './ChipPick.svelte'
+	import { arrowSelect, copyRows } from './tableKit.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
+	const cats = $derived(DEFAULT_SHEET_CATEGORIES.filter((c) => !c.retired))
 	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
 	let q = $state(''), status = $state<'active' | 'archived' | ''>('active'), by = $state<GroupBy>('none')
+	let fCats = $state<string[]>([]), fLevels = $state<string[]>([]), fRooms = $state<string[]>([]), fTags = $state<string[]>([])
 	let sort = $state<{ key: SortKey; dir: 1 | -1 }>({ key: 'number', dir: 1 })
-	const rows = $derived(sortRows(filterRows(sheetRows(project.index, sheets), { q, status: status || undefined }), sort.key, sort.dir))
+	const all = $derived(sheetRows(project.index, sheets, DEFAULT_SHEET_CATEGORIES))
+	const rows = $derived(sortRows(filterRows(all, { q, status: status || undefined, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sort.key, sort.dir))
 	const groups = $derived(groupRows(rows, by))
 	const selected = $derived(new Set(ws.selection))
 	const picked = $derived(rows.filter((r) => selected.has(r.id)))
 	const sheetOf = (id: string) => project.index.get(id) as Sheet
 
-	const COLS: [SortKey, string][] = [['order', '#'], ['number', 'No.'], ['title', 'Title'], ['place', 'Place'], ['kind', 'Kind'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
+	// the chips offer what the sheets have (categories: the list, plus typed ones in use)
+	const catOptions = $derived([...cats.map((c) => ({ id: c.id, label: c.label })), ...[...new Map(all.filter((r) => !cats.some((c) => c.id === r.categoryId)).map((r) => [r.categoryId, { id: r.categoryId, label: r.category }])).values()]])
+	const levelOptions = $derived(project.levels.filter((l) => all.some((r) => r.levelIds.includes(l.id))).map((l) => ({ id: l.id, label: l.name })))
+	const roomOptions = $derived([...new Map(all.flatMap((r) => r.roomIds.map((id, i) => [id, { id, label: r.room.split(' / ')[i] }] as const))).values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })))
+	const tagOptions = $derived([...new Set(all.flatMap((r) => r.tags))].sort().map((t) => ({ id: t, label: t })))
+
+	const COLS: [SortKey, string][] = [['order', '#'], ['number', 'No.'], ['title', 'Title'], ['category', 'Category'], ['level', 'Level'], ['room', 'Room'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
+	const GROUPS: [GroupBy, string][] = [['none', 'none'], ['category', 'category'], ['level', 'level'], ['room', 'room'], ['place', 'place'], ['discipline', 'discipline'], ['tag', 'tag'], ['size', 'size']]
 	const sortBy = (key: SortKey) => (sort = { key, dir: sort.key === key ? (-sort.dir as 1 | -1) : 1 })
 
 	// click / Shift-range / Ctrl-toggle, as in the other grids
@@ -41,6 +54,12 @@
 		}
 		anchor = id
 		ws.select(e.ctrlKey || e.metaKey ? (selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id]) : [id])
+	}
+	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (as the other tables). */
+	function tableKey(e: KeyboardEvent) {
+		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (copyRows(e, ['#', 'No.', 'Title', 'Category', 'Level', 'Room', 'Discipline', 'Rev', 'Size', 'Scale', 'Tags', 'Status'],
+			(picked.length ? picked : rows).map((r) => [r.order, r.number, r.title, r.category, r.level, r.room, r.discipline, r.rev, r.size, r.scale, r.tags.join(', '), r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const put = (r: SheetRow, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
 
@@ -71,47 +90,33 @@
 		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
+	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
 
 	// issuing (4.6): the selection, frozen when the panel opens
 	let issuing = $state.raw<Sheet[] | null>(null), show = $state<'register' | 'issues'>('register')
-	/** The issue whose details are being edited in its row (Edit / Done). */
-	let editing = $state<string | null>(null)
-	const editIssue = (i: Issue, label: string, patch: Partial<Issue>) => project.store.transact(label, (tx) => tx.put({ ...i, ...patch }))
+	const issueCount = $derived([...project.index.byId.values()].filter((e) => e.type === 'issue').length)
 	function startIssue() {
 		if (!picked.length) { ws.say('Select the sheets for the package'); return }
 		issuing = picked.map((r) => sheetOf(r.id))
 	}
-	/** Re-issue (backlog "Next issue from the last list"): that package's sheets (those still here, not archived)
-	 *  selected in the register and the Issue panel opened on them; add / drop sheets in the register, then Issue… again. */
-	function reissue(i: Issue) {
-		const list = i.sheets.map((x) => project.index.get<Sheet>(x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
-		if (!list.length) { ws.say('None of its sheets are left'); return }
-		ws.select(list.map((s) => s.id))
-		show = 'register'
-		issuing = list
-		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
-	}
-	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
-	const numbers = $derived(issueNumbers(issues))
-	async function reprint(i: Issue) {
-		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
-		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
-	}
-	async function transmittal(i: Issue) {
-		try { await exportTransmittal(i, project.name, numbers.get(i.id)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
-	}
 </script>
 
-<div class="h-full overflow-auto text-xs">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Sheets" onkeydown={tableKey}>
 	<div class="actions">
 		<span class="seg">
 			<button class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
-			<button class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issues.length || ''}</button>
+			<button class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issueCount || ''}</button>
 		</span>
 	{#if show === 'register'}
 		<input class="find" placeholder="Find…" bind:value={q} />
 		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
-		<label class="text-zinc-500">Group <select bind:value={by}>{#each ['none', 'place', 'kind', 'discipline', 'tag', 'size'] as g (g)}<option value={g}>{g}</option>{/each}</select></label>
+		<ChipPick label="Category" options={catOptions} bind:picked={fCats} />
+		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
+		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />
+		{#if tagOptions.length}<ChipPick label="Tag" options={tagOptions} bind:picked={fTags} />{/if}
+		{#if chips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = [] }}>Clear</button>{/if}
+		<label class="text-zinc-500">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
 		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
 		<span class="seg" title="Print order: move the selected sheets earlier / later (the table sorts by # so you see it; the PDF follows the table)">
 			<button disabled={!picked.length} onclick={() => move(-1)}>▲</button><button disabled={!picked.length} onclick={() => move(1)}>▼</button>
@@ -126,41 +131,7 @@
 	</div>
 	{#if issuing}<IssuePanel {project} {ws} sheets={issuing} onclose={() => { issuing = null; show = 'issues' }} />{/if}
 	{#if show === 'issues'}
-		<datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
-		<table class="w-full border-collapse">
-			<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
-				<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
-			</thead>
-			<tbody>
-				{#each issues as i (i.id)}
-					<tr class="border-b border-zinc-100 align-top">
-						<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
-						<td class="px-2 font-mono">{i.date}</td>
-						{#if editing === i.id}
-							<!-- the package's details (backlog "Edit package details"): the frozen copies and the PDF stay as issued -->
-							<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue name', { name: e.currentTarget.value.trim() })} />
-								<input class="cell w-full text-zinc-500" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
-							<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue purpose', { purpose: e.currentTarget.value.trim() })} /></td>
-							<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Issue to', { to: e.currentTarget.value.trim() || undefined })} /></td>
-						{:else}
-							<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block text-zinc-500">{i.note}</span>{/if}</td>
-							<td class="px-2">{i.purpose}</td>
-							<td class="px-2">{i.to ?? ''}</td>
-						{/if}
-						<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
-						<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}</td>
-						<td class="px-2 whitespace-nowrap">
-							<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
-							<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
-							<button class="btn" disabled={!!issuing} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
-							<button class="btn" title="Rename it, or change its purpose / recipient / note (what was issued stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
-						</td>
-					</tr>
-				{:else}
-					<tr><td colspan="8" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
-				{/each}
-			</tbody>
-		</table>
+		<IssuesList {project} {ws} busy={!!issuing} onreissue={(list) => { show = 'register'; issuing = list }} />
 	{:else}
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
@@ -171,15 +142,22 @@
 		</thead>
 		<tbody>
 			{#each groups as g (g.key)}
-				{#if by !== 'none'}<tr class="grp"><td colspan="11">{g.label} <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
+				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span></td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2"><input class="cell w-56" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
-						<td class="px-2">{r.place}</td>
-						<td class="px-2"><input class="cell w-20" value={r.kind} placeholder="—" onchange={(e) => put(r, 'Sheet kind', { kind: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
+						<!-- its own category, or "auto" = the one its viewports make it (grey) -->
+						<td class="px-2"><select class="cell" class:auto={r.categoryAuto} value={r.categoryAuto ? '' : r.categoryId} title={r.categoryAuto ? 'Worked out from its viewports — pick one to set it' : 'Its category'}
+							onchange={(e) => put(r, 'Sheet category', { kind: e.currentTarget.value || undefined })} onclick={(e) => e.stopPropagation()}>
+							<option value="">{r.categoryAuto ? `${r.category} (auto)` : 'Auto (from its viewports)'}</option>
+							{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+							{#if !r.categoryAuto && !cats.some((c) => c.id === r.categoryId)}<option value={r.categoryId}>{r.category}</option>{/if}
+						</select></td>
+						<td class="px-2 whitespace-nowrap">{r.level}</td>
+						<td class="px-2 whitespace-nowrap">{r.room}</td>
 						<td class="px-2"><input class="cell w-20" value={r.discipline} placeholder="—" onchange={(e) => put(r, 'Sheet discipline', { discipline: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2 font-mono">{r.rev || '—'}</td>
 						<td class="px-2">{r.size}</td>
@@ -189,7 +167,7 @@
 					</tr>
 				{/each}
 			{:else}
-				<tr><td colspan="11" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
+				<tr><td colspan="12" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -197,20 +175,24 @@
 </div>
 
 <style>
+	div[role='grid']:focus { outline: none; }
 	.hov:hover { background: var(--cad-hover); }
-	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; }
 	.seg button { padding: 0 8px; font-weight: 600; color: var(--cad-muted); }
 	.seg button.on { background: var(--cad-strong); color: var(--cad-text); }
-	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
+	.actions { position: sticky; left: 0; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.btn:disabled { opacity: 0.4; }
+	.clear { color: #2563eb; }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
 	.th { font-weight: 600; color: inherit; }
 	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }
 	.cell:hover { border-color: var(--cad-line); }
 	.cell:focus { border-color: #60a5fa; background: var(--cad-input); outline: none; }
+	select.cell.auto { color: var(--cad-faint); font-style: italic; }
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
+	.gh { font-weight: 600; color: inherit; }
+	.gh:hover { color: #2563eb; text-decoration: underline; }
 </style>

@@ -33,7 +33,8 @@ describe('sheet register', () => {
 	})
 	it('the register Excel gets a date column per revision, in the order first issued', () => {
 		const rev = (code: string, date: string) => ({ code, date })
-		const base = { id: '', order: '', number: '', title: '', place: '', kind: '', discipline: '', tags: [], status: 'active' as const, rev: '', size: '', scale: '', viewports: 0 }
+		const base = { id: '', order: '', number: '', title: '', place: '', kind: '', discipline: '', tags: [], status: 'active' as const, rev: '', size: '', scale: '', viewports: 0,
+			category: '', categoryId: '', categoryAuto: true, categoryOrder: 0, level: '', levelIds: [], levelOrders: [], levelOrder: 0, room: '', roomIds: [] }
 		const rows = [{ ...base, id: 'A', revisions: [rev('P1', '2026-01-10'), rev('P2', '2026-02-01')] }, { ...base, id: 'B', revisions: [rev('P2', '2026-02-01'), rev('C1', '2026-03-05')] }]
 		const cols = revisionColumns(rows)
 		expect(cols.map((c) => c.code)).toEqual(['P1', 'P2', 'C1'])
@@ -57,5 +58,41 @@ describe('print order (Dave, 2026-10-05)', () => {
 	it('the register shows each sheet\'s place, and sorts by it', () => {
 		const rows = sheetRows(new ProjectIndex(demoProject()), ss.map((s) => ({ ...s, order: 10 - s.order })))
 		expect(sortRows(rows, 'order').map((r) => r.id)).toEqual(['d', 'c', 'b', 'a'])
+	})
+})
+
+describe('register columns from the sheets (sheets-organising slice 1)', () => {
+	const L2 = { type: 'level' as const, id: 'L2', buildingId: 'B', number: 2, name: '2F', order: 2, elevationMm: 4000, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2700, plenumMm: 800 } }
+	const ix = new ProjectIndex([...demoProject(), L2])
+	const vp = (levelId: string, spec: Sheet['viewports'][number]['view']['spec']) => ({ id: `V${levelId}${spec.kind}`, view: { levelId, spec }, rect: { x: 0, y: 0, w: 10, h: 10 }, scale: 100, centre: { x: 0, y: 0 } })
+	const sheets = [
+		sheet('P33', { number: 'P2', viewports: [vp('L33', { kind: 'plan' })] }),
+		sheet('P2', { number: 'P1', viewports: [vp('L2', { kind: 'plan' })] }),
+		sheet('RE', { number: 'RE1', viewports: [vp('L33', { kind: 'row', spaceId: 'SR-A', face: 'front' })] }),
+		sheet('MIX', { number: 'G1', viewports: [vp('L33', { kind: 'plan' }), vp('L33', { kind: 'riser' })] }),
+		sheet('OWN', { number: 'D1', kind: 'details', placeId: 'SR-A', viewports: [] }),
+	]
+	const rows = sheetRows(ix, sheets)
+	const of = (id: string) => rows.find((r) => r.id === id)!
+	it('derives the category from the viewports (a mix → General), else takes its own', () => {
+		expect(of('P33')).toMatchObject({ category: 'Plans', categoryAuto: true })
+		expect(of('RE').category).toBe('Rack elevations')
+		expect(of('MIX').category).toBe('General')
+		expect(of('OWN')).toMatchObject({ category: 'Details', categoryAuto: false })
+	})
+	it('level and room from the place, else the viewports; a riser view names no level', () => {
+		expect(of('RE')).toMatchObject({ level: '33F', room: 'IDF-A' })
+		expect(of('OWN')).toMatchObject({ level: '33F', room: 'IDF-A' })
+		expect(of('MIX').levelIds).toEqual(['L33'])
+	})
+	it('sorts and groups levels in level order, categories in list order', () => {
+		expect(sortRows(rows.filter((r) => r.levelIds.length), 'level').map((r) => r.id)).toEqual(['P2', 'OWN', 'MIX', 'P33', 'RE'])   // 2F first; within 33F by number
+		expect(groupRows(rows, 'level').map((g) => g.label)).toEqual(['2F', '33F'])
+		expect(groupRows(rows, 'category').map((g) => g.label)).toEqual(['General', 'Plans', 'Rack elevations', 'Details'])
+	})
+	it('chips: any pick within a chip, every chip', () => {
+		expect(filterRows(rows, { cats: ['plans', 'details'] }).map((r) => r.id).sort()).toEqual(['OWN', 'P2', 'P33'])
+		expect(filterRows(rows, { cats: ['plans', 'details'], levels: ['L33'] }).map((r) => r.id).sort()).toEqual(['OWN', 'P33'])
+		expect(filterRows(rows, { rooms: ['SR-A'] }).map((r) => r.id).sort()).toEqual(['OWN', 'RE'])
 	})
 })

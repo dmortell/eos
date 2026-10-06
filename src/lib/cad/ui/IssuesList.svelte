@@ -1,0 +1,84 @@
+<!-- The ISSUES view of the Sheets tab (split out of SheetsTab, sheets-organising slice 1): every issue, newest first —
+     its number (edit to renumber), date, package name / note, purpose, recipient, sheets at their revisions (bold =
+     new in it), the uploaded PDF; Transmittal (Excel), Reprint (exactly as issued), Re-issue… (its sheets selected and
+     the Issue panel opened on them) and Edit (name / purpose / to / note — what was issued stays as it was). -->
+<script lang="ts">
+	import type { CadProject } from '../app/project.svelte'
+	import type { Workspace } from '../app/workspace.svelte'
+	import type { Issue, Sheet } from '../domain/drawing'
+	import { reprintIssue } from '../app/issue'
+	import { unsupportedNote } from '../app/sheetsPdf'
+	import { exportTransmittal } from '../render/transmittal'
+	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
+
+	let { project, ws, busy, onreissue }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[]) => void } = $props()
+
+	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
+	const numbers = $derived(issueNumbers(issues))
+	/** The issue whose details are being edited in its row (Edit / Done). */
+	let editing = $state<string | null>(null)
+	const editIssue = (i: Issue, label: string, patch: Partial<Issue>) => project.store.transact(label, (tx) => tx.put({ ...i, ...patch }))
+
+	/** Re-issue (backlog "Next issue from the last list"): that package's sheets (those still here, not archived)
+	 *  selected in the register and the Issue panel opened on them; add / drop sheets in the register, then Issue… again. */
+	function reissue(i: Issue) {
+		const list = i.sheets.map((x) => project.index.get<Sheet>(x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
+		if (!list.length) { ws.say('None of its sheets are left'); return }
+		ws.select(list.map((s) => s.id))
+		onreissue(list)
+		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
+	}
+	async function reprint(i: Issue) {
+		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
+	}
+	async function transmittal(i: Issue) {
+		try { await exportTransmittal(i, project.name, numbers.get(i.id)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+	}
+</script>
+
+<datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
+<table class="w-full border-collapse">
+	<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+		<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
+	</thead>
+	<tbody>
+		{#each issues as i (i.id)}
+			<tr class="border-b border-zinc-100 align-top">
+				<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
+				<td class="px-2 font-mono">{i.date}</td>
+				{#if editing === i.id}
+					<!-- the package's details (backlog "Edit package details"): the frozen copies and the PDF stay as issued -->
+					<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue name', { name: e.currentTarget.value.trim() })} />
+						<input class="cell w-full text-zinc-500" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
+					<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue purpose', { purpose: e.currentTarget.value.trim() })} /></td>
+					<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Issue to', { to: e.currentTarget.value.trim() || undefined })} /></td>
+				{:else}
+					<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block text-zinc-500">{i.note}</span>{/if}</td>
+					<td class="px-2">{i.purpose}</td>
+					<td class="px-2">{i.to ?? ''}</td>
+				{/if}
+				<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
+				<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}</td>
+				<td class="px-2 whitespace-nowrap">
+					<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
+					<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
+					<button class="btn" disabled={busy} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
+					<button class="btn" title="Rename it, or change its purpose / recipient / note (what was issued stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
+				</td>
+			</tr>
+		{:else}
+			<tr><td colspan="8" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
+		{/each}
+	</tbody>
+</table>
+
+<style>
+	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:hover:not(:disabled) { background: var(--cad-hover); }
+	.btn:disabled { opacity: 0.4; }
+	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }
+	.cell:hover { border-color: var(--cad-line); }
+	.cell:focus { border-color: #60a5fa; background: var(--cad-input); outline: none; }
+</style>

@@ -1431,3 +1431,17 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   (`settings/cadSheetCategories`, retire not delete), discipline kept, review flag and DRAFT stamp later, cover page
   at the first sheet's size, packages by list or rule, rev codes typed per issue first, recipients on the package,
   "Make package" for old issues.
+
+## Sheets organising (plan `../plan/sheets-organising.md`)
+
+- **Slice 1 — register split + derived columns:** the Issues view moved to `IssuesList.svelte`; the register gets
+  **Category** (its own, else derived from its viewports — all plans → Plans, rack rows → Rack elevations, risers →
+  Risers, sections / elevations → Sections and elevations, a mix → General; grey "(auto)"; `domain/sheetCategories.ts`
+  with the built-in list), **Level** (its place, else its viewports'; a riser view names none; sorted and grouped in
+  level order) and **Room** (its place when a room, else its rack-row viewports' rooms). Filter **chips** Category /
+  Level / Room / Tag (`ChipPick.svelte`: any pick in a chip, every chip), group by category / level / room too
+  (a sheet under each of its levels / rooms), a click on a group header selects its sheets, ↑ / ↓ and Ctrl+C as in
+  the other tables. The Kind column became Category (a picker: Auto or a category; old typed kinds still show). The
+  register Excel has Category / Level / Room instead of Place / Kind. Tests: `sheetList.test.ts` (+4). Live (Test
+  Project): 6 sheets → Rack elevations ×3, Plans ×2, Sections ×1, all auto; group by level 1F 3 · 4F 3; chips Rack
+  elevations → 3, + 4F → 2.
