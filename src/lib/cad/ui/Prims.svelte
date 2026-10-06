@@ -211,6 +211,8 @@
 	.sel { stroke: #2563eb !important; }
 	.opening-pick.sel { stroke: transparent !important; }   /* a selected wall's gaps stay open */
 	.band.sel { opacity: 0.9; }
-	text.sel { fill: #1d4ed8; font-weight: 600; }
+	/* a selected text is bold and blue — with NO outline: `.sel`'s stroke on text isn't screen-constant, it grew with the
+	   zoom and smeared outlet labels (Dave: "unreadable … when selected and zoomed in") */
+	text.sel { fill: #1d4ed8; font-weight: 600; stroke: none !important; }
 	circle.sel, polygon.sel { stroke-width: 2.5; }
 </style>

@@ -56,6 +56,13 @@
 	let w = $state(800), h = $state(600)
 	let cam = $state<Camera>({ x: 0, y: 0, k: 0.05 })
 	let marquee = $state<Bounds | null>(null)
+	/** The selection box as drawn: inside an edited viewport the tool works in the viewport's view mm, so it goes onto
+	 *  the paper (Dave: "the select marquee is not visible" — it was drawn off the page). */
+	const mq = $derived.by((): Bounds | null => {
+		if (!marquee || !vpe) return marquee
+		const a = vpe.toPaper({ x: marquee.x0, y: marquee.y0 }), b = vpe.toPaper({ x: marquee.x1, y: marquee.y1 })
+		return { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
+	})
 	/** The box is dragged right → left: a crossing selection (dashed green, like other CAD). */
 	let crossing = $state(false)
 	/** Bumped after every tool event, so the preview (which reads the tool's own fields) is recomputed. */
@@ -552,8 +559,8 @@
 			{/if}
 			<Prims prims={portHighlight} selected={new Set()} />
 			<Prims prims={preview} selected={new Set()} />
-			{#if marquee}
-				<rect x={marquee.x0} y={marquee.y0} width={marquee.x1 - marquee.x0} height={marquee.y1 - marquee.y0}
+			{#if mq}
+				<rect x={mq.x0} y={mq.y0} width={mq.x1 - mq.x0} height={mq.y1 - mq.y0}
 					class="marquee" class:crossing vector-effect="non-scaling-stroke" />
 			{/if}
 		</g>
@@ -577,6 +584,6 @@
 	.vp-edit { fill: none; stroke: #2563eb; stroke-width: 2.5; pointer-events: none; }
 	.gridline { stroke: #e4e4e7; stroke-width: 0.5; }
 	.gridline.major { stroke: #d4d4d8; stroke-width: 0.8; }
-	.marquee { fill: rgba(59, 130, 246, 0.08); stroke: #3b82f6; }
-	.marquee.crossing { fill: rgba(16, 185, 129, 0.08); stroke: #10b981; stroke-dasharray: 4 3; }
+	.marquee { fill: rgba(59, 130, 246, 0.12); stroke: #2563eb; stroke-width: 1.5px; }
+	.marquee.crossing { fill: rgba(16, 185, 129, 0.12); stroke: #059669; stroke-dasharray: 5 3; }
 </style>

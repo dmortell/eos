@@ -1360,3 +1360,10 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   is the paper (or a note there); its border picks and drags it, a corner resizes it, a double-click anywhere inside
   edits inside it. Help updated. (While testing, a ❄ on S001's viewport was clicked by mistake and clicked back — no net
   change.)
+- **Selected labels readable when zoomed in** (Dave: "outlet labels are unreadable on plans when selected and zoomed
+  in, the blur is bad"): `.sel`'s blue stroke also outlined selected TEXT, and a text stroke isn't screen-constant, so
+  it grew with the zoom and smeared the label; selected text is now bold blue with no outline.
+- **The selection box shows while editing inside a viewport** (Dave: "the select marquee is not visible"): it was
+  drawn in the viewport's view mm on the paper (off the page); it's mapped onto the paper now. The box is a little
+  stronger everywhere (1.5 px, 12 % fill). Live (S001, inside the plan viewport): the box sat inside the frame and
+  selected 30 items; selected labels: no stroke, blue, 600.
