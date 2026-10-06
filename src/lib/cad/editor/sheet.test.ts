@@ -34,22 +34,25 @@ function harness() {
 }
 
 describe('viewports on a sheet', () => {
-	it('clicking inside picks the viewport; dragging moves its window', () => {
+	it('a click on its FRAME picks the viewport and a drag there moves it; a click in its middle does not (Dave: dragged by mistake)', () => {
 		const h = harness(), t = new SelectTool()
-		h.drag(t, { x: 100, y: 100 }, { x: 130, y: 110 })
+		h.drag(t, { x: 100, y: 100 }, { x: 130, y: 110 })   // the middle: the paper, nothing moves
+		expect(h.vp()).toBeNull()
+		expect(h.vpNow().rect).toMatchObject({ x: 20, y: 20 })
+		h.drag(t, { x: 100, y: 20 }, { x: 130, y: 30 })     // the top edge
 		expect(h.vp()).toBe('V')
 		expect(h.vpNow().rect).toMatchObject({ x: 50, y: 30, w: 200, h: 150 })
 	})
 	it('a corner grip resizes it, the view staying where it is on the paper', () => {
 		const h = harness(), t = new SelectTool()
-		h.drag(t, { x: 100, y: 100 }, { x: 100, y: 100 })                 // select it
+		h.drag(t, { x: 100, y: 20 }, { x: 100, y: 20 })                   // select it (its frame)
 		h.drag(t, { x: 220, y: 170 }, { x: 260, y: 190 })                 // bottom-right corner +40, +20
 		expect(h.vpNow().rect).toEqual({ x: 20, y: 20, w: 240, h: 170 })
 		expect(h.vpNow().centre).toEqual({ x: 3000 + 20 * 100, y: 4000 + 10 * 100 })
 	})
 	it('Alt-drag inside pans the view (the centre), not the window (T126); Ctrl-drag no longer pans', () => {
 		const h = harness(), t = new SelectTool()
-		h.drag(t, { x: 100, y: 100 }, { x: 100, y: 100 })
+		h.drag(t, { x: 100, y: 20 }, { x: 100, y: 20 })   // select it (its frame)
 		h.drag(t, { x: 100, y: 100 }, { x: 110, y: 100 }, true)
 		expect(h.vpNow().rect.x).toBe(20)
 		expect(h.vpNow().centre.x).toBe(3000 - 10 * 100)
@@ -58,7 +61,7 @@ describe('viewports on a sheet', () => {
 	})
 	it('Shift keeps a viewport square while a corner is dragged', () => {
 		const h = harness(), t = new SelectTool()
-		h.drag(t, { x: 100, y: 100 }, { x: 100, y: 100 })   // select it
+		h.drag(t, { x: 100, y: 20 }, { x: 100, y: 20 })   // select it (its frame)
 		const ev = (p: { x: number; y: number }) => ({ p, shift: true, ctrl: false, alt: false })
 		t.down(ev({ x: 220, y: 170 }), h.ctx()); t.move(ev({ x: 260, y: 180 }), h.ctx()); t.up(ev({ x: 260, y: 180 }), h.ctx())
 		expect(h.vpNow().rect).toEqual({ x: 20, y: 20, w: 240, h: 240 })
@@ -66,7 +69,7 @@ describe('viewports on a sheet', () => {
 	it('a locked viewport says so when picked', () => {
 		const h = harness(), t = new SelectTool(), said: string[] = []
 		h.ctx().store.transact('lock', (tx) => tx.put({ ...SHEET, viewports: [{ ...VP, locked: true }] }))
-		t.down({ p: { x: 100, y: 100 }, shift: false, ctrl: false, alt: false }, { ...h.ctx(), say: (m) => said.push(m) })
+		t.down({ p: { x: 100, y: 20 }, shift: false, ctrl: false, alt: false }, { ...h.ctx(), say: (m) => said.push(m) })
 		expect(said.at(-1)).toMatch(/locked/)
 	})
 })

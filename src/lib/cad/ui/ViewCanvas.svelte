@@ -66,7 +66,7 @@
 	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
 	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
-	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes })
+	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes, hidden: ws.layers.hidden })
 	/** Editing the model inside one of this sheet's viewports (UX review S5): its view's space, prims and paper maps. */
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
 	/** What the tools work in: the edited viewport's view, else this pane's. */

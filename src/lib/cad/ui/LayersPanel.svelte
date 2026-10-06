@@ -19,8 +19,9 @@
 	const all = $derived(layersOf(project.index.layers))
 	const rows = $derived(q.trim() ? all.filter((l) => l.name.toLowerCase().includes(q.trim().toLowerCase())) : all)
 	const counts = $derived(layerCounts(project.index))
-	const sheet = $derived(ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
-	const vp = $derived(sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined)
+	// the picked viewport — or the one being edited inside (its ❄ freeze is what prints)
+	const sheet = $derived(ws.vpEdit ? project.index.get<Sheet>(ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
+	const vp = $derived(sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === (ws.vpEdit?.vpId ?? ws.viewportId)) : undefined)
 	/** Any layer can be current (Dave: clicking a name did nothing on most); new lines go on it. */
 	const canBeCurrent = (_l: LayerInfo) => true
 
@@ -85,7 +86,7 @@
 <SideSection key="layers" title="Layers">
 {#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={add}>+ Layer</button>{/snippet}
 {#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
-{#if vp}<p class="note">❄ = frozen in the picked viewport (prints) · Shift = every viewport on the sheet</p>{/if}
+{#if vp}<p class="note">👁 hides on screen · ❄ = frozen in this viewport (prints) · Shift = every viewport on the sheet</p>{/if}
 {#each rows as l (l.id)}
 	{@const n = counts.get(l.id) ?? 0}
 	{@const off = ws.layers.hidden.has(l.id)}

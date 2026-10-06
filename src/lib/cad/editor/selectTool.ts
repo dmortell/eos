@@ -25,6 +25,7 @@ import { withGroups } from '../domain/groups'
 import { labelKind } from '../domain/labelEdit'
 import { elevationHandles } from './elevHandles'
 import { logoHandles, logoBoxes, logoAt, type LogoKey } from './logoHandles'
+import { viewportAt } from '../views/sheet'
 import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn } from './tools'
 
 const REGION = new Set(['rect', 'circle', 'ellipse', 'polygon'])
@@ -173,8 +174,13 @@ export class SelectTool implements Tool {
 		// them in place (backlog "Text options", "Edit a label in place")
 		const lk = id && (e.count ?? 1) >= 2 ? labelKind(c.store.get(id)) : null
 		if (id && c.editText && lk && (lk !== 'run' || hit?.k === 'text')) { c.select([id]); this.#editOnUp = id; return }   // opened on RELEASE: on press, the click's own mousedown would take the focus from the box (it blurred, saved and closed)
-		// a sheet: its viewports are picked (and dragged) by their window; the paper selects the sheet
+		// a sheet: its viewports are picked (and dragged) by their FRAME; the paper selects the sheet
 		if (c.space.spec.kind === 'sheet' && c.selectViewport) {
+			// a double-click anywhere inside a viewport edits inside it (its middle isn't its handle any more)
+			if ((e.count ?? 1) >= 2 && c.enterViewport) {
+				const sh = c.store.get(c.space.spec.sheetId), inside = sh?.type === 'sheet' ? viewportAt(sh, e.p) : undefined
+				if (sh?.type === 'sheet' && inside) { c.select([sh.id]); c.selectViewport(inside.id); c.enterViewport(inside.id); return }
+			}
 			// the selected viewport first: a corner grip resizes it, Alt-drag inside pans its view (T126: Ctrl-drag copies)
 			const cur = c.viewportId?.(), curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 			const sel = curSheet?.type === 'sheet' && cur ? curSheet.viewports.find((v) => v.id === cur) : undefined

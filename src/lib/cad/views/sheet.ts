@@ -40,6 +40,9 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** On screen only: the layers the user hides with the eye (Dave: hiding a layer didn't hide it in viewports); the
+	 *  PDF leaves this out — what prints is each viewport's ❄ freeze. */
+	hidden?: Iterable<string>
 	/** Cable routes for a riser viewport (else routed here). */
 	routes?: RiserOpts['routes']
 }
@@ -78,7 +81,8 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 /** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale), with
  *  the layers frozen in it left out and layer colours applied (the user's own eye doesn't reach paper). */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
-	return applyLayers(viewContent(ix, vp, o), ix, { hidden: new Set(vp.frozen), sort: vp.view.spec.kind === 'plan' }).draw
+	const hidden = new Set([...(vp.frozen ?? []), ...(o.hidden ?? [])])
+	return applyLayers(viewContent(ix, vp, o), ix, { hidden, sort: vp.view.spec.kind === 'plan' }).draw
 }
 
 function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
@@ -152,8 +156,9 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 		// an opaque window: a viewport laid over another hides what's under it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: 'viewport-bg' })
 		for (const p of viewportContent(ix, vp, o)) out.push(placePrim(p, t, k, clip))
-		// the window itself: what you pick and drag on the sheet
-		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
+		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
+		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
+		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
 		const label = vp.label ?? autoLabel(ix, vp)
 		if (label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}

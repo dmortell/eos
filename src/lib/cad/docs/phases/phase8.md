@@ -1351,3 +1351,12 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   to the white background of panel labels when zoomed in; panel labels too faint" — a panel's name over its ports no
   longer has a white halo, and its small (zoomed-in) form is full strength, dark and semi-bold (screen and PDF).
   Live: S006 at 1323 %: names halo-free and solid over 134 readable port labels.
+- **Viewports and layers (Dave: "in viewport, hiding layers does not hide them"):** the Layers eye (hide, only for
+  you) now hides the layer inside sheet viewports too, on screen (`SheetOpts.hidden`); what prints is still each
+  viewport's ❄ freeze. The ❄ column also shows while editing inside a viewport. Live: Walls' eye on S001 → 22 wall
+  prims → 0 → 22.
+- **Viewports are picked by their frame only** (Dave: "too easy to drag viewports around page by mistake … only on the
+  frame border, like Pages and Sheets"): the frame isn't filled for picking any more, so a click in a viewport's middle
+  is the paper (or a note there); its border picks and drags it, a corner resizes it, a double-click anywhere inside
+  edits inside it. Help updated. (While testing, a ❄ on S001's viewport was clicked by mistake and clicked back — no net
+  change.)
