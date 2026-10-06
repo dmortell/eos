@@ -26,7 +26,7 @@ export const isFixedField = (f: TbField) => FIXED.some((x) => sameItem(x, f))
 /** The block's optional sections — each can be switched off project-wide (`hidden`). */
 export type TbSection = 'logo' | 'company' | 'fields' | 'revisions'
 /** One row of the revision table. */
-export type TbRev = { code: string; date: string; note?: string }
+export type TbRev = { code: string; date: string; note?: string; desc?: string }
 export type TbCompany = { name?: string; address?: string; contact?: string }
 export type TitleBlockTemplate = {
 	logo?: string; fields: TbField[]

@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -49,5 +49,18 @@ describe('issue', () => {
 	it('transmittal rows in sheet-number order', () => {
 		const iss = { sheets: [{ number: 'S10' }, { number: 'S2' }] } as Issue
 		expect(transmittalRows(iss).map((s) => s.number)).toEqual(['S2', 'S10'])
+	})
+})
+
+describe('typed revision codes (sheets-organising slice 7, D7)', () => {
+	const s = (id: string, revs: string[] = []) => ({ type: 'sheet', id, number: id, title: id, order: 0, status: 'active', viewports: [], paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, revisions: revs.map((code) => ({ code, date: '2026-01-01' })) }) as unknown as import('./drawing').Sheet
+	it('a typed code replaces the suggested one on changed sheets only; blank keeps it', () => {
+		const plan = [{ sheet: s('A', ['P01']), changed: true, from: 'P01', rev: 'P02' }, { sheet: s('B', ['P01']), changed: false, from: 'P01', rev: 'P01' }, { sheet: s('C'), changed: true, rev: 'A' }]
+		expect(withCodes(plan, { A: 'C01', B: 'C01', C: ' ' }).map((r) => r.rev)).toEqual(['C01', 'P01', 'A'])
+	})
+	it('refuses a blank code or one the sheet already has', () => {
+		expect(revCodeProblem(s('A', ['P01']), 'P01')).toMatch(/already has/)
+		expect(revCodeProblem(s('A'), '  ')).toMatch(/no revision code/)
+		expect(revCodeProblem(s('A', ['P01']), 'C01')).toBeNull()
 	})
 })

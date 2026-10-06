@@ -5,8 +5,9 @@
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Sheet, SheetPackage } from '../domain/drawing'
-	import { ISSUE_PURPOSES, type IssuePlanRow } from '../domain/issue'
+	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
+	import { ISSUE_PURPOSES, withCodes, revCodeProblem, type IssuePlanRow } from '../domain/issue'
+	import { lastIssueOf } from '../domain/packages'
 	import { previewIssue, issuePackage, today } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 
@@ -18,6 +19,16 @@
 	// svelte-ignore state_referenced_locally
 	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(pkg?.recipients?.map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ') ?? ''), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
+	// slice 7: typed revision codes (D7), what changed per sheet, who issues it (remembered in this browser)
+	let codes = $state<Record<string, string>>({}), descs = $state<Record<string, string>>({}), setAll = $state('')
+	let by = $state((() => { try { return localStorage.getItem('cad-issue-by') ?? '' } catch { return '' } })())
+	const shown = $derived(plan ? withCodes(plan, codes) : null)
+	const problems = $derived((shown ?? []).map((r) => (r.changed ? revCodeProblem(r.sheet, r.rev) : null)).filter((x): x is string => !!x))
+	/** Issuing a package: its last issue — sheets added since, and ones withdrawn (in it then, not now). */
+	const last = $derived(pkg ? lastIssueOf(pkg, [...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue')) : undefined)
+	const added = $derived(new Set(last ? sheets.filter((s) => !last.sheets.some((x) => x.sheetId === s.id)).map((s) => s.id) : []))
+	const withdrawn = $derived(last ? last.sheets.filter((x) => !sheets.some((s) => s.id === x.sheetId)).map((x) => ({ sheetId: x.sheetId, number: x.number, title: x.title, rev: x.rev })) : [])
+	function applyAll() { if (!plan || !setAll.trim()) return; codes = Object.fromEntries(plan.filter((r) => r.changed).map((r) => [r.sheet.id, setAll.trim()])) }
 	// re-checked when the sheets or the first rev change (not on every project edit)
 	$effect(() => {
 		const list = sheets, f = first
@@ -30,7 +41,9 @@
 		if (!name.trim()) { err = 'Name the package'; return }
 		busy = true; err = ''
 		try {
-			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id })
+			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
+			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id,
+				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn })
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
 			onclose()
@@ -49,15 +62,35 @@
 		<label>To <input class="inp w-32" bind:value={to} placeholder="(optional)" /></label>
 		<label title="The revision a sheet gets the first time it is issued">First rev <input class="inp w-12 font-mono" bind:value={first} /></label>
 		<label>Note <input class="inp w-40" bind:value={note} placeholder="(optional)" /></label>
-		<button class="btn primary" disabled={busy || !plan} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>
+		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
+		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => e.key === 'Enter' && applyAll()} onchange={applyAll} /></label>
+		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>
 		<button class="btn" disabled={busy} onclick={onclose}>Cancel</button>
 	</div>
 	{#if err}<p class="text-red-600">{err}</p>{/if}
-	{#if plan}
-		<p class="mt-1 text-zinc-600">
-			{#each plan as r, i (r.sheet.id)}{i ? ' · ' : ''}<span class="font-mono">{r.sheet.number}</span>
-				{#if r.changed}<b class="text-amber-700">{r.from ? `${r.from} → ` : 'new '}{r.rev}</b>{:else}<span class="text-zinc-400">stays {r.rev} (unchanged)</span>{/if}{/each}
-		</p>
+	{#if shown}
+		<!-- per sheet: a new revision (its code editable; what changed) or as last issued; a package's added / withdrawn -->
+		<table class="plan">
+			<thead><tr><th>No.</th><th>Title</th><th>Revision</th><th>What changed</th></tr></thead>
+			<tbody>
+				{#each shown as r (r.sheet.id)}
+					<tr>
+						<td class="font-mono">{r.sheet.number}{#if added.has(r.sheet.id)} <span class="tag add" title="Not in the package's last issue">added</span>{/if}</td>
+						<td>{r.sheet.title}</td>
+						{#if r.changed}
+							<td class="whitespace-nowrap"><span class="text-zinc-500">{r.from ? `${r.from} →` : 'new'}</span>
+								<input class="inp w-14 font-mono" class:bad={!!revCodeProblem(r.sheet, r.rev)} value={r.rev} title={revCodeProblem(r.sheet, r.rev) ?? 'Its new revision (type another code to override)'}
+									onchange={(e) => (codes = { ...codes, [r.sheet.id]: e.currentTarget.value })} /></td>
+							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={purpose} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
+						{:else}
+							<td class="text-zinc-400" colspan="2">stays {r.rev} (unchanged since issued)</td>
+						{/if}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+		{#if withdrawn.length}<p class="text-red-700">Withdrawn since its last issue: {withdrawn.map((w) => `${w.number} ${w.rev}`).join(', ')} — listed on the transmittal</p>{/if}
+		{#if problems.length}<p class="text-red-600">{problems.join(' · ')}</p>{/if}
 	{:else if !err}<p class="mt-1 text-zinc-400">Checking what changed…</p>{/if}
 </div>
 
@@ -66,6 +99,12 @@
 	.inp { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 8px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }
+	.plan { margin-top: 4px; border-collapse: collapse; width: 100%; max-width: 60rem; }
+	.plan th { text-align: left; font-weight: 600; color: var(--cad-muted); padding: 0 6px; }
+	.plan td { padding: 1px 6px; }
+	.inp.bad { border-color: #dc2626; }
+	.tag { border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: 600; }
+	.add { background: #dcfce7; color: #166534; }
 	.primary { background: #2563eb; border-color: #2563eb; color: white; }
 	label { color: var(--cad-muted); }
 </style>

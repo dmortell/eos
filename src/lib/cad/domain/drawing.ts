@@ -41,7 +41,9 @@ export interface Sheet {
 	viewports: Viewport[]
 	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. `hash` =
 	 *  the fingerprint of what the sheet showed at that issue (a sheet is "changed" when it no longer matches). */
-	revisions?: { code: string; date: string; note?: string; issueId?: Id; hash?: string }[]
+	/** `note` = the issue's purpose; `desc` = what changed in this revision (the title block shows it, else the note);
+	 *  `by` = who issued it (initials). */
+	revisions?: { code: string; date: string; note?: string; desc?: string; by?: string; issueId?: Id; hash?: string }[]
 	kind?: string
 	discipline?: string
 	tags?: string[]
@@ -145,6 +147,8 @@ export interface Issue {
 	file?: { id: string; url: string; name: string }
 	/** The PACKAGE it was issued from (sheets-organising §3) — the next issue of that package diffs against this one. */
 	packageId?: Id
+	/** Sheets in the package's last issue that aren't in this one (archived or taken out) — listed on the transmittal. */
+	withdrawn?: { sheetId: Id; number: string; title: string; rev: string }[]
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

@@ -59,7 +59,8 @@ function revisionTable(out: Prim[], s: TbShown, x: number, y: number, w: number)
 	out.push(rule(x, y + REV_HEAD, x + w, y + REV_HEAD))
 	s.revisions!.forEach((r, j) => {
 		const ry = y + REV_HEAD + (j + 1) * REV_ROW
-		;[r.code, r.date, r.note ?? ''].forEach((t, i) => {
+		// what changed (sheets-organising slice 7), else the issue's purpose — old revisions read as before
+		;[r.code, r.date, r.desc ?? r.note ?? ''].forEach((t, i) => {
 			const cw = (i < 2 ? cols[i + 1] : x + w) - cols[i]
 			out.push({ k: 'text', at: { x: cols[i] + PAD, y: ry - 1 }, text: fit(t, cw - 2 * PAD, 2), size: 2, cls: 'tb-value' })
 		})

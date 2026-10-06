@@ -1465,3 +1465,11 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   package. (Navigator "group by package" comes with slice 4.) Tests: `packages.test.ts` (5). Live: chips Rack
   elevations → + From chips "Rack set TEST" = 3 sheets, 2 not issued; Issue… filled from it (cancelled); Make package
   on Issue 04 → linked, nothing since; both undone.
+- **Slice 7 — re-issue diff + change notes:** the Issue panel is a table — per sheet its new revision (from → code,
+  the code editable; "Set all to…" for P01 → C01, Dave D7) and **what changed** (prefilled with the purpose), or "stays
+  B (unchanged since issued)"; **By** (initials, remembered in this browser). Issuing a package marks sheets **added**
+  since its last issue and lists the **withdrawn** ones (recorded on the issue: `issue.withdrawn`). A typed code that
+  is blank or one the sheet already has is refused before anything is written (`withCodes`, `revCodeProblem` in
+  `domain/issue.ts`). Revisions keep `desc` and `by`; the title block's revision table shows the description, else
+  the purpose (old revisions print exactly as before — their fingerprints don't change). Tests: `issue.test.ts` (+2).
+  Live: S001 / S006 / 2 → C / A / A; "B" on S001 refused, Issue disabled; cancelled.

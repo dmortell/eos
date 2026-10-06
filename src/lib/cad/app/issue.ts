@@ -11,7 +11,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, fingerprint, planIssue, withRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -64,22 +64,31 @@ const frozenImages = (project: CadProject): ImageLoader => async (url, kind) => 
 	return pl ? browserImageLoader(pl.url, kind) : null
 }
 
-export type IssueForm = { name: string; purpose: string; date: string; to?: string; note?: string; first: string; packageId?: Id }
+export type IssueForm = {
+	name: string; purpose: string; date: string; to?: string; note?: string; first: string; packageId?: Id
+	/** Typed revision codes per sheet (D7), what changed per sheet, who issued it (initials) — sheets-organising slice 7. */
+	codes?: Record<Id, string>; descs?: Record<Id, string>; by?: string
+	/** The package's sheets from its last issue that aren't in this one. */
+	withdrawn?: Issue['withdrawn']
+}
 export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: string[] }
 
 /** Issue these sheets as one package: bump the changed ones (frozen at the new revision), take the rest as last
  *  issued, draw the package PDF from the frozen lists, upload it, then record it all (one undo step for the sheets
  *  and the issue; the frozen copies and the file stay). Throws — before anything is recorded — if the upload fails. */
 export async function issuePackage(project: CadProject, sheets: Sheet[], f: IssueForm): Promise<IssueResult> {
-	const plan = await previewIssue(project, sheets, f.first)
+	const plan = withCodes(await previewIssue(project, sheets, f.first), f.codes)
+	// a typed code must be new for its sheet — checked before anything is written
+	for (const r of plan) { const why = r.changed ? revCodeProblem(r.sheet, r.rev) : null; if (why) throw new Error(why) }
 	const issueId = newId()
 	const bumped: Sheet[] = [], pages: PdfPage[] = []
 	for (const row of plan) {
 		if (!row.changed) { pages.push(await loadFrozen(project, row.sheet.id, row.rev)); continue }
 		// frozen as it shows once issued (the title block reads the new rev / date)
-		const next = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, issueId })
+		const desc = f.descs?.[row.sheet.id]?.trim(), extra = { ...(desc ? { desc } : {}), ...(f.by?.trim() ? { by: f.by.trim() } : {}) }
+		const next = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
 		const prims = frozenNow(project, next)
-		const done = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, issueId, hash: fingerprint(prims) })
+		const done = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) })
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)
 		bumped.push(done)
 		pages.push({ ...paperSize(row.sheet), prims })
@@ -90,7 +99,7 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}

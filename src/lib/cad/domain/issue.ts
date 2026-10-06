@@ -67,6 +67,19 @@ export function planIssue(sheets: Sheet[], now: (s: Sheet) => string, first = 'A
 	})
 }
 
+/** The plan with the revision codes typed in the Issue panel (D7: per sheet, or "Set all to…") on the sheets that get
+ *  a new one; a blank code keeps the suggested one. */
+export function withCodes(plan: IssuePlanRow[], codes: Record<string, string> = {}): IssuePlanRow[] {
+	return plan.map((r) => (r.changed && codes[r.sheet.id]?.trim() ? { ...r, rev: codes[r.sheet.id].trim() } : r))
+}
+/** Why a typed revision code can't be used on this sheet (blank, or it already has that revision — the frozen copy and
+ *  the title block would clash), else null. */
+export function revCodeProblem(s: Sheet, code: string): string | null {
+	if (!code.trim()) return `${s.number || s.title}: no revision code`
+	if (s.revisions?.some((r) => r.code === code.trim())) return `${s.number || s.title} already has revision ${code.trim()}`
+	return null
+}
+
 /** The sheet with its new revision (what it shows once issued: the title block's rev / date read from it). */
 export const withRevision = (s: Sheet, rev: Required<Sheet>['revisions'][number]): Sheet => ({ ...s, revisions: [...(s.revisions ?? []), rev] })
 
