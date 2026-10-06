@@ -15,10 +15,10 @@ in `todo.md`, P = a phase-doc line.
 - Change a priority by editing the tag. When an entry is built, log it in the phase doc (`../phases/phase8.md`) and
   delete it here (a part built: shrink the entry to what's left).
 
-**Code-size warning:** `ui/ViewCanvas.svelte`, `ui/CadShell.svelte`, `editor/tools.ts` and `ui/Properties.svelte` are
-at ~410–470 lines, near the ~500-line limit. The first entry that grows one of them splits it along a real seam first.
+**Code-size warning:** `ui/CadShell.svelte` (497), `ui/ViewCanvas.svelte` (492), `editor/selectTool.ts` (482) and
+`ui/Properties.svelte` are near the ~500-line limit (split 2026-10-07). The first entry that grows one splits it along a real seam first.
 
-**Remaining:** 102 entries (0 P1 · 28 P2 · 74 P3; 12 ⚡ quick wins).
+**Remaining:** 100 entries (0 P1 · 28 P2 · 72 P3; 12 ⚡ quick wins).
 
 ## Suggested order
 
@@ -49,7 +49,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] **Cable type per outlet** — a Cable select (from `settings.cableTypes`) in single and multi outlet Properties; it sets every port of the outlet. **P3 · S** (~25 lines; Dave 2026-10-04: low priority). *cad today:* stored per port (`cad/domain/types.ts:123`), set from the last outlet / project default when placed (`cad/editor/tools.ts:373`), never shown. *From:* G034
 - [ ] **Zones and server rooms when placing outlets** — check result: the Outlet tool copies zone and server room from the last outlet, but nothing can set a zone (only the import does), and a first outlet on a level has no server room. Add a Zone select (the level's zone spaces) to outlet Properties and to the next-outlet defaults. **P3 · S** (~30 lines; Dave 2026-10-04: low priority). *cad today:* `zoneId` carried over in `cad/editor/tools.ts:371`, server room per port at `:374`; no zone field in the UI. *From:* T057
-- [ ] **Usage colours, port counts and hover tips** — outlets on the plan and panel port cells tinted by usage colour; the port count drawn inside the outlet symbol; an instant tip (no delay) on any outlet / port showing its full label and usage. **P3 · M** (Dave 2026-10-05: low priority) (~120 lines). *cad today:* usage colours exist in settings but nothing draws them (`cad/views/plan.ts:185`, `cad/views/rackRow.ts:131`); `{PORTS}` is already an outlet attribute (`cad/domain/blocks.ts:51`) but no built-in block uses it; tools have a `hover` hook (`cad/editor/tools.ts:78`) but no tooltip. *From:* G016, G038, G062, G137, T024
+- [ ] **Usage colours and outlet tips** — outlets on the plan and panel port cells tinted by usage colour; an instant tip (no delay) on an outlet showing its full label and usage. **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* the port count is drawn inside the outlet symbol (2026-10-06) and port tips come with "Port hover tips"; usage colours exist in settings but nothing draws them. *From:* G016, G038, G062, G137, T024
 - [ ] **Label format settings** — separator (default / all periods / all hyphens), include zone, include room, with a live preview, applied to new outlets and (on request) existing ones. A full template engine is T029's decision, below. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* a Port labels format select (201.A / 201A / 201-A / 201.1 / 201-1) that can relabel existing ports (`cad/ui/OutletGrid.svelte:111`); imported `labelPatterns` are unused (`cad/domain/types.ts:268`). *From:* G130
 - [ ] **Usage buttons** — one button per usage (from the usage list) in outlet Properties / the grid, instead of a select. **P3 · S** (~25 lines). *cad today:* a select only. Do after the editable usage list. *From:* G128
 - [ ] **Find/replace into the Renumber / Relabel tool** — fold the grid's Find/replace into the Renumber tool, and add port-label and regex modes. **P3 · S** (~50 lines). *cad today:* outlet labels only, plain text (`cad/ui/OutletGrid.svelte:92`). *From:* P021
@@ -66,7 +66,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Racks, devices and rack views
 
-- [ ] **Review the device template picker** (Dave: "looks shit") — the template select in the Device tool's toolbar: grouping by kind, U / ports shown, search, maybe a thumbnail. **P3 · S–M** (Dave 2026-10-04: low priority). *cad today:* a plain select (`cad/ui/CadShell.svelte:280`). *From:* Dave 2026-10-04
 - [ ] ❓ **Devices list per rack** — a sidebar list for the selected rack: front, then "Rear mount", each "U12: name · type"; click / Ctrl / Shift to select, Delete to remove. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, new component). *cad today:* missing. *From:* G087, G109, T040
 - [ ] **Rack order in a row: nudge or drag** — let Dave fix the order where the plan gets it wrong (racks / VCMs set at right angles): move up / down buttons or drag in the racks list, stored as an order override. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines). *cad today:* the order comes only from plan positions (`cad/domain/devices.ts:64`); `Rack.order` is used only for unplaced racks. *From:* G104, T037
 - [ ] **Drag racks from the list onto the plan** — drag one or several unplaced racks onto the plan; several land spaced in a line. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines). *cad today:* "Place", then one click per rack (`cad/ui/RackList.svelte:61`). *From:* G050
@@ -181,7 +180,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Default file storage per project** — a project setting: new uploads from cad (logos, issue PDFs) go to UploadThing or Firebase Storage. **P2 · M** (~70 lines). *cad today:* cad always uses UploadThing (`cad/ui/TitleBlockEditor.svelte:40`, `cad/app/issue.ts`); both providers exist in `uploads/provider.ts`. *From:* T151
 - [ ] **Open project (Ctrl+O)** — a dialog to pick another project and open it in cad without leaving the tool. **P2 · M** (~100 lines; port `pages/parts/OpenProjectDialog.svelte`). *cad today:* missing. *From:* G296
 - [ ] **Function keys** — what's left: F8 ORTHO and F10 POLAR (new drafting modes). **P2 · M** (~100 lines). *cad today:* F1 Help, F2 edit the selected label, F3 OSNAP, F7 GRID, F9 SNAP (UX review, 2026-10-06, `ui/CadShell.svelte`, `ui/StatusBar.svelte`); Alt skips snaps once. *From:* G300
-- [ ] **Tabs (left pane only)** — a tab strip over the left pane: each tab is a saved place (view, level, pan / zoom), a single click reuses a preview tab, close / tab menu; kept per project in localStorage. Both panes is too complex (Dave). **P3 · M** (Dave 2026-10-05: low priority; ~200 lines). *cad today:* one or two panes that switch views in place (`cad/ui/CadShell.svelte:53`); cameras are already saved per view (`cad/ui/ViewCanvas.svelte`). CadShell is 428 lines, so tabs go in their own component. *From:* G055, G293, T152, T166
 - [ ] **Floor view presets** — quick buttons on a plan: Outlets (low), Outlets (high), Trunks, Fill rate. **P3 · M** (~80 lines). *cad today:* a Fill toggle only (`cad/ui/ViewCanvas.svelte`); presets were never wired in legacy either. *From:* G057
 - [ ] ❓ **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110
 
