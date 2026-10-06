@@ -421,6 +421,25 @@
 		return out
 	})
 
+	// ── a device template dragged from the Device library onto a rack (rack views): the Device tool's ghost follows the
+	//    pointer at the snapped U, the drop adds it (the library puts the old tool back when the drag ends) ──
+	function dragOver(e: DragEvent) {
+		if (!ws.libraryDrag || spec.kind !== 'row' || vpe) return
+		e.preventDefault()
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+		if (ws.toolId !== 'device') ws.toolId = 'device'
+		onfocus?.()
+		ws.tool.hover?.(input(e), ctx()); tick++
+	}
+	function drop(e: DragEvent) {
+		if (!ws.libraryDrag || spec.kind !== 'row' || vpe) return
+		e.preventDefault()
+		ws.tool.down(input(e), ctx()); tick++
+	}
+	function dragLeave(e: DragEvent) {
+		if (e.relatedTarget instanceof Node && svg?.contains(e.relatedTarget)) return   // onto a child: still over the view
+		ws.tool.unhover?.(); tick++
+	}
 	function onDown(e: PointerEvent) {
 		onfocus?.()
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
@@ -541,7 +560,7 @@
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={panning?.moved ? 'grabbing' : cursorCss}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
-		oncontextmenu={(e) => e.preventDefault()}>
+		oncontextmenu={(e) => e.preventDefault()} ondragover={dragOver} ondrop={drop} ondragleave={dragLeave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />

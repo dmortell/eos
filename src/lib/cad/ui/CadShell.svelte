@@ -17,6 +17,7 @@
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
 	import RackList from './RackList.svelte'
+	import DeviceLibrary from './DeviceLibrary.svelte'
 	import BlockManager from './BlockManager.svelte'
 	import CableList from './CableList.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
@@ -479,7 +480,7 @@
 		{:else if id === 'blocks'}
 			<div class="p-2"><BlockManager {project} {ws} levelId={level?.id} onpick={(b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }} /></div>
 		{:else if id === 'racks'}
-			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}</div>
+			<div class="p-2">{#if level}<RackList {project} {ws} {projectName} levelId={level.id} onview={(s) => setPane(activePane, s)} />{/if}<DeviceLibrary {project} {ws} /></div>
 		{:else if id === 'cables'}
 			<div class="p-2"><CableList {project} {ws} /></div>
 		{/if}

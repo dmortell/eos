@@ -40,6 +40,8 @@ export class DeviceTool implements Tool {
 	up(): void {}
 	hover(e: PointerIn, c: ToolCtx): void { const h = c.rowHit?.(e.p); this.#hover = h ? { rack: h.rack.id, u: h.u } : null }
 	cancel(): void { this.#hover = null }
+	/** The pointer (or a library drag) left the view: no ghost. */
+	unhover(): void { this.#hover = null }
 	/** The rack and U under the cursor (shown in the status line). */
 	get hovering() { return this.#hover }
 

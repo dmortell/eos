@@ -1414,3 +1414,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **Plan: organising sheets and issue packages** — `../plan/sheets-organising.md` (categories, derived level / room
   / issue-state columns, group / sort / filter, bulk edit, packages as a list or a rule, re-issue diff, cover page;
   9 slices, ~1,300 lines; questions D1–D9 for Dave).
+- **Device library: drag onto a rack** (backlog P2): a Device library section in the Racks window — every template
+  (built-in and global ★), a find box, grouped by kind with its U. Drag one over a rack view: the Device tool's ghost
+  follows at the snapped U (red when it overlaps or runs off the rack); the drop adds it (one undo step, selected),
+  and the tool you had comes back when the drag ends. A click arms the Device tool with it instead. Help updated.
+  Live (IDF2 front): "Fibre panel 24 LC" dragged onto R313 → ghost, PP4 added and selected, Select back; undone.
