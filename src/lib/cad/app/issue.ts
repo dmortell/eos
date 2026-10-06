@@ -2,6 +2,7 @@
 // `projects/{pid}/cadIssued` — written once, never edited, and outside the entity store so opening a project doesn't
 // load it. The package PDF is drawn from the frozen lists, uploaded to file storage (UploadThing + `files/{id}`, so
 // it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
+import { coverPages, type CoverRow } from '../views/transmittalPage'
 import type { Id } from '../domain/types'
 import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
 import { genUploader } from 'uploadthing/client'
@@ -27,6 +28,9 @@ export async function placeUnderlays(project: CadProject, sheets: Sheet[]): Prom
 	const us = [...project.index.byId.values()].filter((e): e is Underlay => e.type === 'underlay' && levels.has(e.levelId))
 	await Promise.all(us.map((u) => project.pdf.placed(u)))
 }
+
+/** The frozen cover pages of an issue are kept like a sheet's, under this id (rev = the page number). */
+const coverId = (issueId: string) => `cover-${issueId}`
 
 /** What the sheet shows now, frozen (floorplans as file references). Call placeUnderlays first. */
 export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
@@ -70,6 +74,8 @@ export type IssueForm = {
 	codes?: Record<Id, string>; descs?: Record<Id, string>; by?: string
 	/** The package's sheets from its last issue that aren't in this one. */
 	withdrawn?: Issue['withdrawn']
+	/** A cover page / transmittal first in the PDF (slice 8), with who gets it. */
+	cover?: boolean; recipients?: { name: string; org?: string }[]
 }
 export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: string[] }
 
@@ -93,13 +99,29 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 		bumped.push(done)
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
 	const number = nextIssueNumber(project.store.ofType('issue'))
+	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue
+	let coverN = 0
+	if (f.cover && plan.length) {
+		const rows: CoverRow[] = [
+			...plan.map((r) => ({ number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: r.sheet.paper.size, status: (r.changed ? 'New revision' : 'As last issued') as CoverRow['status'] })),
+			...(f.withdrawn ?? []).map((w) => ({ number: w.number, title: w.title, rev: w.rev, size: '', status: 'Withdrawn' as const })),
+		]
+		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows },
+			{ blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock })
+		for (const [i, c] of cover.entries()) {
+			const prims = freeze(c.prims)
+			await saveFrozen(project, { ...plan[0].sheet, id: coverId(issueId) }, String(i + 1), issueId, prims)
+			pages.splice(i, 0, { w: c.w, h: c.h, prims })
+		}
+		coverN = cover.length
+	}
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
 	const name = `${fileSafe(`${project.name} ${issueTag(number)} ${f.name} ${f.date}`)}.pdf`
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}
@@ -121,7 +143,8 @@ async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']
 
 /** The package again, exactly as issued (the frozen lists), downloaded. */
 export async function reprintIssue(project: CadProject, issue: Issue): Promise<{ unsupported: string[]; rasterised: string[] }> {
-	const pages = await Promise.all(issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev)))
+	const cover = Array.from({ length: issue.cover ?? 0 }, (_, i) => loadFrozen(project, coverId(issue.id), String(i + 1)))
+	const pages = await Promise.all([...cover, ...issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev))])
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
 	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
 	download(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf')

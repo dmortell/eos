@@ -149,6 +149,8 @@ export interface Issue {
 	packageId?: Id
 	/** Sheets in the package's last issue that aren't in this one (archived or taken out) — listed on the transmittal. */
 	withdrawn?: { sheetId: Id; number: string; title: string; rev: string }[]
+	/** How many cover pages (a transmittal) open its PDF — frozen with it, so a reprint shows them as issued. */
+	cover?: number
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

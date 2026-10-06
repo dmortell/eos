@@ -20,6 +20,7 @@
 	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(pkg?.recipients?.map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ') ?? ''), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
 	// slice 7: typed revision codes (D7), what changed per sheet, who issues it (remembered in this browser)
+	let cover = $state(true)
 	let codes = $state<Record<string, string>>({}), descs = $state<Record<string, string>>({}), setAll = $state('')
 	let by = $state((() => { try { return localStorage.getItem('cad-issue-by') ?? '' } catch { return '' } })())
 	const shown = $derived(plan ? withCodes(plan, codes) : null)
@@ -43,7 +44,7 @@
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
 			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id,
-				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn })
+				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, recipients: pkg?.recipients ?? (to.trim() ? [{ name: to.trim() }] : undefined) })
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
 			onclose()
@@ -62,6 +63,7 @@
 		<label>To <input class="inp w-32" bind:value={to} placeholder="(optional)" /></label>
 		<label title="The revision a sheet gets the first time it is issued">First rev <input class="inp w-12 font-mono" bind:value={first} /></label>
 		<label>Note <input class="inp w-40" bind:value={note} placeholder="(optional)" /></label>
+		<label title="A cover page first in the PDF: the project, the issue, who gets it and the drawing register (the first sheet's size, with the title block)"><input type="checkbox" bind:checked={cover} /> Cover page</label>
 		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => e.key === 'Enter' && applyAll()} onchange={applyAll} /></label>
 		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>

@@ -1473,3 +1473,12 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   `domain/issue.ts`). Revisions keep `desc` and `by`; the title block's revision table shows the description, else
   the purpose (old revisions print exactly as before — their fingerprints don't change). Tests: `issue.test.ts` (+2).
   Live: S001 / S006 / 2 → C / A / A; "B" on S001 refused, Issue disabled; cancelled.
+- **Slice 8 — cover page + transmittal:** `views/transmittalPage.ts` draws the cover as display lists on the package's
+  first sheet's paper with the project title block (Dave D5) — project, "TRANSMITTAL — Issue 05 · name", purpose,
+  date, To (the package's recipients, D8), note, then the register (No., title, rev, size, New revision / As last
+  issued / Withdrawn in red); a long register flows onto more pages ("page 2 of 3"). The Issue panel's **Cover page**
+  (on by default) puts it first in the package PDF; the cover is frozen with the issue (`cover-<issueId>`, rev = page
+  number; `issue.cover` = how many pages), so Reprint shows it exactly as issued. The Excel transmittal lists the
+  withdrawn sheets too. Tests: `transmittalPage.test.ts` (3: size / content / order, flow onto more pages, PDF with
+  no picture text). Checked as a real PDF (rendered in a scratch test): A3, the title block on the right, 15 rows.
+  Not checked live: issuing uploads a real PDF — first real issue of a package will show it.
