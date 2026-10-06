@@ -1453,3 +1453,15 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   project's undo history (a global doc, like templates). The register's pickers and chips use the list. Tests:
   `sheetCategories.test.ts` (4). Live: Details ▲ then ▼ — saved to the global doc and back in the built-in order
   (the doc now exists, equal to the defaults).
+- **Slice 6 — packages:** a `package` entity (`SheetPackage` in `domain/drawing.ts`): name, purpose, recipients
+  (Dave D8), note, and EITHER a list of sheet ids OR a rule (category / level / room / tag / discipline ids — D6);
+  `issue.packageId` links an issue to it. `domain/packages.ts`: members now (a list in its order, gone / archived
+  sheets left out; a rule in print order, never archived), rule from the chips, rule in words, freeze to list, last
+  issue, since then (added / withdrawn / never issued), a package from an old issue, recipients as lines. Sheets tab ›
+  **Packages** (`PackagesList.svelte`): + From selection (a list) / + From chips (a rule), Show, Issue… (the Issue
+  panel on its sheets, name / purpose / recipients filled, the issue linked), Edit (purpose, recipients, note; a list:
+  ± selected sheets; a rule: Freeze to list; Duplicate; Archive / Restore). Issues › **Make package** on an issue
+  from before packages (D9) — a list of its sheets, the issue linked; Re-issue of a linked issue opens it as the
+  package. (Navigator "group by package" comes with slice 4.) Tests: `packages.test.ts` (5). Live: chips Rack
+  elevations → + From chips "Rack set TEST" = 3 sheets, 2 not issued; Issue… filled from it (cancelled); Make package
+  on Issue 04 → linked, nothing since; both undone.

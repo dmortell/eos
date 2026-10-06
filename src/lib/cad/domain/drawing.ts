@@ -143,7 +143,32 @@ export interface Issue {
 	number?: number
 	/** The package PDF in file storage (`files/{id}`, listed in Uploads). */
 	file?: { id: string; url: string; name: string }
+	/** The PACKAGE it was issued from (sheets-organising §3) — the next issue of that package diffs against this one. */
+	packageId?: Id
 }
+
+/** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1
+ *  rack elevations") — either a LIST (sheet ids in its own order) or a RULE (a saved filter: new sheets that match
+ *  join by themselves; archived sheets never do). An issue records which package it came from. */
+export interface SheetPackage {
+	type: 'package'
+	id: Id
+	name: string
+	/** The default purpose of its issues ("For construction" …). */
+	purpose?: string
+	/** Who gets it (Dave D8): printed on the cover page and the transmittal. */
+	recipients?: { name: string; org?: string }[]
+	note?: string
+	/** Exactly one of these: a list in the package's order, or a rule. */
+	sheetIds?: Id[]
+	rule?: SheetRule
+	/** Its place in the Packages list. */
+	order: number
+	archived?: boolean
+}
+/** A package's rule: categories (ids), levels, rooms, tags, disciplines — any value within a field, every field set.
+ *  Ids, not names, so renaming a level or a category doesn't break it. */
+export interface SheetRule { kinds?: string[]; levelIds?: Id[]; spaceIds?: Id[]; tags?: string[]; disciplines?: string[] }
 
 /** A SECTION (Phase 6.2): a cut line `a → b` on a level's plan. The view stands on the line and looks to its LEFT
  *  as drawn on the sheet (a → b left to right looks up the sheet, like the Front elevation); `flip` looks the other
@@ -159,6 +184,6 @@ export interface SectionCut {
 	flip?: boolean
 }
 
-export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SectionCut
+export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SheetPackage | SectionCut
 export type Entity = DomainEntity | DrawingEntity
 export type EntityType = Entity['type']

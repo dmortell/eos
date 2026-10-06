@@ -5,15 +5,18 @@
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Sheet } from '../domain/drawing'
+	import type { Sheet, SheetPackage } from '../domain/drawing'
 	import { ISSUE_PURPOSES, type IssuePlanRow } from '../domain/issue'
 	import { previewIssue, issuePackage, today } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 
-	let { project, ws, sheets, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; onclose: () => void } = $props()
+	/** `pkg` = issuing a PACKAGE (sheets-organising slice 6): its name, purpose and recipients fill the form, and the
+	 *  issue is linked to it (the next issue of the package diffs against this one). */
+	let { project, ws, sheets, pkg, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; pkg?: SheetPackage; onclose: () => void } = $props()
 
 	const PURPOSES = ISSUE_PURPOSES
-	let name = $state(''), purpose = $state('For construction'), date = $state(today()), to = $state(''), note = $state(''), first = $state('A')
+	// svelte-ignore state_referenced_locally
+	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(pkg?.recipients?.map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ') ?? ''), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
 	// re-checked when the sheets or the first rev change (not on every project edit)
 	$effect(() => {
@@ -27,7 +30,7 @@
 		if (!name.trim()) { err = 'Name the package'; return }
 		busy = true; err = ''
 		try {
-			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A' })
+			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id })
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
 			onclose()

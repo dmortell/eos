@@ -5,13 +5,15 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Issue, Sheet } from '../domain/drawing'
+	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
+	import { packageFromIssue } from '../domain/packages'
+	import { newId } from '../domain/ids'
 	import { reprintIssue } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 	import { exportTransmittal } from '../render/transmittal'
 	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 
-	let { project, ws, busy, onreissue }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[]) => void } = $props()
+	let { project, ws, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
@@ -25,8 +27,17 @@
 		const list = i.sheets.map((x) => project.index.get<Sheet>(x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
 		if (!list.length) { ws.say('None of its sheets are left'); return }
 		ws.select(list.map((s) => s.id))
-		onreissue(list)
+		const pkg = i.packageId ? project.index.get<SheetPackage>(i.packageId) : undefined
+		onreissue(list, pkg?.type === 'package' ? pkg : undefined)
 		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
+	}
+	/** An issue from before packages (Dave D9): a list package of its sheets, and the issue linked to it — one undo step. */
+	function makePackage(i: Issue) {
+		const order = Math.max(0, ...[...project.index.byId.values()].filter((e): e is SheetPackage => e.type === 'package').map((p) => p.order)) + 10
+		const p = packageFromIssue(i, newId(), order)
+		project.store.transact(`Package from ${i.name}`, (tx) => { tx.put(p); tx.put({ ...i, packageId: p.id }) })
+		ws.say(`Package “${p.name}” made from ${i.name} — its next issue shows what changed since`)
+		onpackages()
 	}
 	async function reprint(i: Issue) {
 		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
@@ -64,6 +75,8 @@
 					<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
 					<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
 					<button class="btn" disabled={busy} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
+					{#if !i.packageId}<button class="btn" title="Make a re-usable package of its sheets (this issue becomes the package's last issue)" onclick={() => makePackage(i)}>Make package</button>
+					{:else}<span class="pk" title="Issued from a package">{project.index.nameOf(i.packageId) || 'package'}</span>{/if}
 					<button class="btn" title="Rename it, or change its purpose / recipient / note (what was issued stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
 				</td>
 			</tr>
@@ -74,6 +87,7 @@
 </table>
 
 <style>
+	.pk { font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
 	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover:not(:disabled) { background: var(--cad-hover); }

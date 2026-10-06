@@ -2,6 +2,7 @@
 // `projects/{pid}/cadIssued` — written once, never edited, and outside the entity store so opening a project doesn't
 // load it. The package PDF is drawn from the frozen lists, uploaded to file storage (UploadThing + `files/{id}`, so
 // it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
+import type { Id } from '../domain/types'
 import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
 import { genUploader } from 'uploadthing/client'
 import type { OurFileRouter } from '../../../routes/api/uploadthing/uploadthing'
@@ -63,7 +64,7 @@ const frozenImages = (project: CadProject): ImageLoader => async (url, kind) => 
 	return pl ? browserImageLoader(pl.url, kind) : null
 }
 
-export type IssueForm = { name: string; purpose: string; date: string; to?: string; note?: string; first: string }
+export type IssueForm = { name: string; purpose: string; date: string; to?: string; note?: string; first: string; packageId?: Id }
 export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: string[] }
 
 /** Issue these sheets as one package: bump the changed ones (frozen at the new revision), take the rest as last
@@ -89,7 +90,7 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}

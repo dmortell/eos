@@ -9,7 +9,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Sheet } from '../domain/drawing'
+	import type { Sheet, SheetPackage } from '../domain/drawing'
 	import type { ViewSpec } from '../views/space'
 	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { ordered } from '../domain/sheetCategories'
@@ -17,6 +17,7 @@
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import IssuePanel from './IssuePanel.svelte'
 	import IssuesList from './IssuesList.svelte'
+	import PackagesList from './PackagesList.svelte'
 	import ChipPick from './ChipPick.svelte'
 	import { arrowSelect, copyRows } from './tableKit.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
@@ -94,10 +95,12 @@
 	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
 
 	// issuing (4.6): the selection, frozen when the panel opens
-	let issuing = $state.raw<Sheet[] | null>(null), show = $state<'register' | 'issues'>('register')
+	let issuing = $state.raw<Sheet[] | null>(null), issuingPkg = $state.raw<SheetPackage | undefined>(undefined), show = $state<'register' | 'packages' | 'issues'>('register')
 	const issueCount = $derived([...project.index.byId.values()].filter((e) => e.type === 'issue').length)
+	const packageCount = $derived([...project.index.byId.values()].filter((e) => e.type === 'package' && !e.archived).length)
 	function startIssue() {
 		if (!picked.length) { ws.say('Select the sheets for the package'); return }
+		issuingPkg = undefined
 		issuing = picked.map((r) => sheetOf(r.id))
 	}
 </script>
@@ -107,6 +110,7 @@
 	<div class="actions">
 		<span class="seg">
 			<button class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
+			<button class:on={show === 'packages'} title="Re-usable sets of sheets for issuing" onclick={() => (show = 'packages')}>Packages {packageCount || ''}</button>
 			<button class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issueCount || ''}</button>
 		</span>
 	{#if show === 'register'}
@@ -130,9 +134,11 @@
 		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
 	{/if}
 	</div>
-	{#if issuing}<IssuePanel {project} {ws} sheets={issuing} onclose={() => { issuing = null; show = 'issues' }} />{/if}
+	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={() => { issuing = null; issuingPkg = undefined; show = 'issues' }} />{/key}{/if}
 	{#if show === 'issues'}
-		<IssuesList {project} {ws} busy={!!issuing} onreissue={(list) => { show = 'register'; issuing = list }} />
+		<IssuesList {project} {ws} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
+	{:else if show === 'packages'}
+		<PackagesList {project} {ws} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
 	{:else}
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
