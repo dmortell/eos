@@ -27,6 +27,13 @@
 	const FACES = ['front', 'rear'] as const
 	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
+	/** Cords straight ⇄ along the cable channels (a project setting: one undo step). */
+	function toggleCords() {
+		const st = project.settings
+		if (!st) return
+		const on = st.cordRoute !== 'channels'
+		project.store.transact(on ? 'Cords along channels' : 'Cords straight', (tx) => tx.put({ ...st, cordRoute: on ? 'channels' : 'straight' }))
+	}
 	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet')
 	/** Where you are: "1F", "1F › IDF1", "S001 New sheet" (the riser view is the building's, not a level's). */
 	const crumbs = $derived.by((): { text: string; to?: ViewSpec }[] => {
@@ -87,6 +94,8 @@
 				{#each rows as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
 			</select>
 		{/if}
+		<!-- how cords are drawn, for the whole project (screen, sheets, PDFs): straight, or along the cable channels -->
+		<button class:on={project.settings?.cordRoute === 'channels'} title="Cords along the cable channels: down to the side channel, across through the nearest horizontal manager (off = straight lines). For the whole project, sheets and PDFs too." onclick={toggleCords}>Cord channels</button>
 	{:else if sheet}
 		<span class="room">{sheet.paper.size} {sheet.paper.orientation}</span>
 	{/if}

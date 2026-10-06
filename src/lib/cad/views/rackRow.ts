@@ -8,6 +8,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
 import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs } from '../domain/devices'
+import { channelRoute, type RackFrame } from './cordRoute'
 
 export const RU_MM = 44.45
 const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
@@ -85,9 +86,13 @@ export function rackCaption(r: Rack, face: 'front' | 'rear'): string {
 	return `${r.kind === 'desk' || r.kind === 'shelf' ? `${r.widthMm} mm` : `${r.heightU}U`} ${r.kind}${face === 'rear' ? ' · REAR' : ''}`
 }
 
-export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
+/** How patch cords are drawn: straight with a sag (the default), or along the cable channels (a project setting). */
+export interface RowOpts { cords?: 'channels' | 'straight' }
+
+export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts = {}): Prim[] {
 	const out: Prim[] = [], cords: Prim[] = []
-	const portAt = new Map<string, { x: number; y: number }>()   // "deviceId:port" → cell centre, for cords
+	// "deviceId:port" → cell centre, half its height and its rack's frame, for cords
+	const portAt = new Map<string, { x: number; y: number; hh: number; rack: RackFrame }>()
 	const layout = rackLayout(ix, spec)
 	if (!layout.length) return [{ k: 'text', at: { x: 0, y: 0 }, text: 'No racks in this room yet — draw them on the plan with the Rack tool', size: 120, cls: 'datum-label' }]
 	// the title over the elevation: "4F — IDF 2 · front" (one row: "… · Row A")
@@ -124,6 +129,12 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 		out.push({ k: 'text', at: { x: mid, y: -h - 60 }, text: rack.name, size: 90, anchor: 'middle', cls: 'label', src: rack.id })
 		out.push({ k: 'text', at: { x: mid, y: -h - 14 }, text: rackCaption(rack, spec.face), size: 40, anchor: 'middle', cls: 'datum-label' })
 		const inRack = ix.devicesIn(rack.id)
+		// the rack's cable channels (along the panel edges, outside the port area; a narrow rack: inside its edges) and
+		// its horizontal managers on this face — for cords drawn along the channels
+		const frame: RackFrame = {
+			id: rack.id, mid, chan: rack.widthMm >= RAIL_W ? PORT_AREA_W / 2 + 6 : Math.max(5, rack.widthMm / 2 - 15),
+			managers: inRack.filter((d) => d.kind === 'manager' && sidesOf(d).includes(spec.face)).map((d) => -(base + (d.u - 1) * RU_MM + (d.heightU * RU_MM) / 2)),
+		}
 		for (const d of inRack) {
 			if (d.face === 'none') continue
 			// a device on the other face only: a faint outline, "(rear)" / "(front)" — what takes the U from behind (Dave);
@@ -159,7 +170,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }
 					const ref = { on: d.id, port: n, face: spec.face }, linked = !!ix.linkAt(ref)
 					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: linked ? 'port port-linked' : 'port', src: d.id, sub: String(n) })
-					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
+					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				}
 				continue
 			}
@@ -188,7 +199,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
-				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
+				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				if (!label) continue
 				const { full, short } = labelLines(label)
 				const sizeFor = (lines: string[]) => Math.min((c.h * 0.85) / lines.length, (c.w * 0.92) / (Math.max(...lines.map((l) => l.length)) * 0.6))
@@ -213,9 +224,11 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec): Prim[] {
 		out.push(...uScale)
 	}
 	// patch cords whose both ends are drawn on this face (ones marked `remove` too, faded — they still have to come out)
+	let lane = 0
 	for (const c of ix.cords) {
 		const a = portAt.get(`${c.a.on}:${c.a.port}`), b = portAt.get(`${c.b.on}:${c.b.port}`)
 		if (!a || !b || (c.a.face && c.a.face !== spec.face) || (c.b.face && c.b.face !== spec.face)) continue
+		if (o.cords === 'channels') { cords.push({ k: 'line', pts: channelRoute(a, b, lane++), cls: `cord cord-${c.status}`, src: c.id, color: c.colour }); continue }
 		const sag = Math.min(200, Math.abs(a.x - b.x) * 0.15 + Math.abs(a.y - b.y) * 0.05)
 		cords.push({ k: 'line', pts: [a, { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y) + sag }, b], cls: `cord cord-${c.status}`, src: c.id, color: c.colour })
 	}

@@ -40,6 +40,8 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** Cords in rack views along the cable channels (the project's setting). */
+	cords?: 'channels' | 'straight'
 	/** On screen only: the layers the user hides with the eye (Dave: hiding a layer didn't hide it in viewports); the
 	 *  PDF leaves this out — what prints is each viewport's ❄ freeze. */
 	hidden?: Iterable<string>
@@ -87,7 +89,7 @@ export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {
 
 function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
-	if (spec.kind === 'row') return rackRowDisplayList(ix, spec)
+	if (spec.kind === 'row') return rackRowDisplayList(ix, spec, { cords: o.cords })
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks })

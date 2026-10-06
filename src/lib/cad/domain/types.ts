@@ -300,6 +300,9 @@ export interface ProjectSettings {
 	labelPatterns?: { outlet?: string; port?: string }
 	/** Cable lengths (Phase 5): slack at the outlet (m, added to each routed length) and waste % (on BOM metres). */
 	cable?: { slackM?: number; wastePct?: number }
+	/** Patch cords in rack views (and their sheets / PDFs): along the cable channels, through the nearest horizontal
+	 *  manager — or straight with a sag ('straight' / unset; stored, not removed, so a merge-save can't bring it back). */
+	cordRoute?: 'channels' | 'straight'
 	usages: { id: string; label: string; color: string }[]
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number }[]
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }

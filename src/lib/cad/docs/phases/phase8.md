@@ -1387,3 +1387,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **Labels edited inside a viewport** (backlog "Edit labels in place" follow-up): double-click / F2 on a label while
   editing in a viewport opens the box where the words show on the paper (`TextEditBox` takes the viewport's space,
   prims and view → paper mapping). Live (S001): A003's box sat on its label (490,799 vs 487,797), Esc left it.
+- **Cords along the cable channels** (backlog P1, Dave: "a toggle to switch between the current cord rendering and
+  using the side channels"): `views/cordRoute.ts` ports the legacy patching tool's `computeRoute`
+  (`patching/parts/cableUtils.ts`) to view mm — each end drops below its port and runs to the channel on its side
+  (along the panel edges, outside the port area); a cord changing sides in one rack crosses through the horizontal
+  manager nearest the middle of its ports; between racks it leaves on the facing side (through the manager nearest
+  the port when the port is on the far side), runs across at mid-height and enters the same way. New over the
+  legacy one: each cord has its own lane (3.5 mm apart, 5 lanes), so parallel cords don't overlap. The toggle is
+  **Cord channels** in a rack view's strip — a project setting (`settings.cordRoute`, stored as 'channels' /
+  'straight' so a merge-save can't revert it), followed by sheets, PDFs and issued copies. Tests:
+  `views/cordRoute.test.ts` (5). Live (Test Project, IDF2 front, all rows): 19 cords, all orthogonal; left ON there.

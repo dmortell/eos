@@ -31,7 +31,7 @@ export async function placeUnderlays(project: CadProject, sheets: Sheet[]): Prom
 export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 	return freeze(sheetDisplayList(project.index, sheet, {
 		underlay: (u) => { const pl = project.pdf.placement(u); return pl && { ...pl, url: underlayRef(u.fileId, u.page ?? 1) } },
-		blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock,
+		blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute,
 	}))
 }
 
