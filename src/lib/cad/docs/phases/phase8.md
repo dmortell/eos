@@ -1498,3 +1498,11 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   then "Not in a package"; group rows show a count. Tests: `navTree.test.ts` (+1), `sheetList.test.ts` (+1). Live:
   Group by category → Plans · Rack elevations · Sections and elevations (put back to place); S004 dragged onto the
   first row → first; undone.
+- **Slice 5 — issue state:** `issueState` (`domain/issue.ts`): Not issued / Issued B / Changed since B / Superseded
+  (archived after issue) — derived, never stored. `app/issueStates.svelte.ts` works out each issued sheet's
+  fingerprint in the background (floorplans placed, one sheet at a time, a pause between), only while something asks
+  (`want()`), again ~1 s after an edit; one per project. The register's **Issue state** box adds the column (coloured)
+  and a State chip; the Navigator shows an amber ● on a sheet changed since its last issue (when known). The DRAFT
+  stamp is later (Dave D4). Tests: `issue.test.ts` (+1). Live (Test Project): 2, S006 Not issued; S001 / S003 / S004 /
+  S005 Changed since — true: this week's drawing changes (port counts in outlets, run labels, cord channels) change
+  how they print, so the next issue gives them new revisions; 4 dots in the Navigator.

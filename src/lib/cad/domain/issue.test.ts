@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -62,5 +62,16 @@ describe('typed revision codes (sheets-organising slice 7, D7)', () => {
 		expect(revCodeProblem(s('A', ['P01']), 'P01')).toMatch(/already has/)
 		expect(revCodeProblem(s('A'), '  ')).toMatch(/no revision code/)
 		expect(revCodeProblem(s('A', ['P01']), 'C01')).toBeNull()
+	})
+})
+
+describe('issue state (slice 5)', () => {
+	const rev = (hash?: string) => [{ code: 'B', date: '2026-01-01', ...(hash ? { hash } : {}) }]
+	it('not issued / issued / changed since / superseded / not worked out yet', () => {
+		expect(issueState({ status: 'active' })).toBe('not-issued')
+		expect(issueState({ status: 'active', revisions: rev('h1') }, 'h1')).toBe('issued')
+		expect(issueState({ status: 'active', revisions: rev('h1') }, 'h2')).toBe('changed')
+		expect(issueState({ status: 'archived', revisions: rev('h1') }, 'h2')).toBe('superseded')
+		expect(issueState({ status: 'active', revisions: rev('h1') })).toBe('unknown')
 	})
 })

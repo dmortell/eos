@@ -7,6 +7,7 @@
      PDF, Archive / Restore and Excel act on the selection (Excel: else the rows shown). The Issues view is
      IssuesList.svelte. -->
 <script lang="ts">
+	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, SheetPackage } from '../domain/drawing'
@@ -22,6 +23,8 @@
 	import { arrowSelect, copyRows } from './tableKit.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { duplicateSheets, numberSheets } from '../app/sheetActions'
+	import { issueStatesOf } from '../app/issueStates.svelte'
+	import { ISSUE_STATE_TEXT } from '../domain/issue'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -32,7 +35,15 @@
 	let fCats = $state<string[]>([]), fLevels = $state<string[]>([]), fRooms = $state<string[]>([]), fTags = $state<string[]>([])
 	let sort = $state<{ key: SortKey; dir: 1 | -1 }>({ key: 'number', dir: 1 })
 	const all = $derived(sheetRows(project.index, sheets, project.sheetCategories))
-	const rows = $derived(sortRows(filterRows(all, { q, status: status || undefined, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sort.key, sort.dir))
+	// the ISSUE STATE column (slice 5): worked out in the background only while it's on
+	let showState = $state(false), fStates = $state<string[]>([])
+	const states = $derived(issueStatesOf(project))
+	$effect(() => { if (showState) return untrack(() => states.want()) })   // untracked: an edit re-checks via `of`, debounced
+	const stateOf = (r: SheetRow) => states.of(sheetOf(r.id))
+	const stateText = (r: SheetRow) => { const st = stateOf(r); return st === 'issued' || st === 'changed' ? `${ISSUE_STATE_TEXT[st]} ${r.rev}` : ISSUE_STATE_TEXT[st] }
+	const STATE_OPTIONS = (['not-issued', 'issued', 'changed', 'superseded'] as const).map((id) => ({ id, label: ISSUE_STATE_TEXT[id] }))
+	const rows = $derived(sortRows(filterRows(all, { q, status: status || undefined, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sort.key, sort.dir)
+		.filter((r) => !showState || !fStates.length || fStates.includes(stateOf(r))))
 	const groups = $derived(groupRows(rows, by))
 	const selected = $derived(new Set(ws.selection))
 	const picked = $derived(rows.filter((r) => selected.has(r.id)))
@@ -140,6 +151,8 @@
 		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
 		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />
 		{#if tagOptions.length}<ChipPick label="Tag" options={tagOptions} bind:picked={fTags} />{/if}
+		<label class="text-zinc-500" title="Show each sheet's issue state — worked out in the background (draws every issued sheet)"><input type="checkbox" bind:checked={showState} /> Issue state{#if states.busy}…{/if}</label>
+		{#if showState}<ChipPick label="State" options={STATE_OPTIONS} bind:picked={fStates} />{/if}
 		{#if chips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = [] }}>Clear</button>{/if}
 		<label class="text-zinc-500">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
 		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
@@ -165,7 +178,7 @@
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
 			<tr>
 				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" title={k === 'order' ? 'The print order — sorted by this, drag rows to reorder' : undefined} onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
-				<th class="px-2">Tags</th><th class="px-2">Status</th>
+				{#if showState}<th class="px-2">Issue</th>{/if}<th class="px-2">Tags</th><th class="px-2">Status</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -192,6 +205,7 @@
 						<td class="px-2 font-mono">{r.rev || '—'}</td>
 						<td class="px-2">{r.size}</td>
 						<td class="px-2">{r.scale}</td>
+						{#if showState}<td class="px-2 whitespace-nowrap"><span class="st st-{stateOf(r)}">{stateText(r)}</span></td>{/if}
 						<td class="px-2"><input class="cell w-28" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2 text-zinc-500">{r.status}</td>
 					</tr>
@@ -226,6 +240,12 @@
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }
 	tr[draggable='true'] { cursor: grab; }
+	.st { border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: 600; }
+	.st-not-issued { background: #fef9c3; color: #854d0e; }
+	.st-issued { background: #dcfce7; color: #166534; }
+	.st-changed { background: #ffedd5; color: #9a3412; }
+	.st-superseded { background: #e4e4e7; color: #52525b; }
+	.st-unknown { color: var(--cad-faint); }
 	tr.drop td { box-shadow: inset 0 2px 0 #2563eb; }
 	.gn { margin-left: 8px; font-weight: 400; color: var(--cad-faint); }
 	.gn:hover { color: #2563eb; }

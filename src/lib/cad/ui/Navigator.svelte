@@ -5,6 +5,7 @@
      marked and its branch unfolded. Levels: rename / delete on hover; Floors…, Settings…, New sheet, PDF all on their
      headers. -->
 <script lang="ts">
+	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
@@ -38,6 +39,7 @@
 	const byKey = () => `cad-nav-sheets:${project.pid}`
 	let sheetsBy = $state<SheetsBy>((() => { try { return (localStorage.getItem(byKey()) as SheetsBy | null) ?? 'place' } catch { return 'place' } })())
 	function groupSheets(b: SheetsBy) { sheetsBy = b; try { localStorage.setItem(byKey(), b) } catch { /* blocked */ } }
+	const states = $derived(issueStatesOf(project))
 	const tree = $derived.by(() => { void project.rev; return navTree(project.index, { sheetsBy, categories: project.sheetCategories }) })
 	const shown = $derived(filterTree(tree, q))
 
@@ -138,6 +140,8 @@
 		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
 		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
+			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
+			{#if n.kind === 'sheet' && n.id}{@const sh = project.index.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last issue ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
@@ -171,4 +175,5 @@
 	.row:hover .act { color: var(--cad-link, #2563eb); opacity: 1; }
 	.act:hover { background: var(--cad-hover); }
 	.none { padding: 8px; color: var(--cad-faint); }
+	.chg { color: #d97706; font-size: 9px; margin-left: 2px; }
 </style>

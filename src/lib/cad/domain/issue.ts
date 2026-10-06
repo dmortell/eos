@@ -104,3 +104,16 @@ export function transmittalRows(issue: Issue): Issue['sheets'] {
 
 /** The usual purposes of an issue (the Issue panel's and the Issues list's suggestions; any text is allowed). */
 export const ISSUE_PURPOSES = ['For information', 'For comment', 'For approval', 'For tender', 'For construction', 'As built']
+
+/** A sheet's ISSUE STATE (sheets-organising §1, slice 5) — derived, never stored: never issued; issued and unchanged
+ *  (its print now = its last revision's fingerprint); changed since (the next issue gives it a new revision);
+ *  superseded (archived after being issued). `now` = its fingerprint now (undefined: not worked out yet → 'unknown'). */
+export type IssueState = 'not-issued' | 'issued' | 'changed' | 'superseded' | 'unknown'
+export function issueState(s: Pick<Sheet, 'status' | 'revisions'>, now?: string): IssueState {
+	const last = s.revisions?.at(-1)
+	if (!last) return 'not-issued'
+	if (s.status === 'archived') return 'superseded'
+	if (now === undefined || !last.hash) return 'unknown'
+	return last.hash === now ? 'issued' : 'changed'
+}
+export const ISSUE_STATE_TEXT: Record<IssueState, string> = { 'not-issued': 'Not issued', issued: 'Issued', changed: 'Changed since', superseded: 'Superseded', unknown: '…' }
