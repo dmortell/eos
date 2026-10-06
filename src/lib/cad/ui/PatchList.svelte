@@ -115,7 +115,7 @@
 					<td class="px-2">{r.lengthM}</td>
 					<td class="px-2 font-mono">{r.cordId}</td>
 					<td class="px-2"><span class="chip s-{r.status}">{r.status}</span></td>
-					<td class="px-2 text-zinc-600">{r.notes}</td>
+					<td class="clip px-2 text-zinc-600" title={r.notes}>{r.notes}</td>
 				</tr>
 			{:else}
 				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>

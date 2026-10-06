@@ -1511,3 +1511,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   issues (newest first, how many new revisions, the PDF). Tests: `issue.test.ts` (+1). Live: S001 → Issue 03 B new ·
   Issue 02 A · Issue 01 A new. **The plan is built** (the backlog's "Organising sheets" and "Revisions and packages"
   entries are done; review / approval, the DRAFT stamp and version history stay for later).
+- **Fixes (Dave 2026-10-07):** an auto category (worked out from the viewports) is plain grey "(auto)", not italic;
+  the tables in the bottom panel are as wide as their content, from the left (the register was stretched to the
+  panel: Category 228 px, an empty Tags 144 px, Level 49 px) — the register's edit boxes and category picker fit
+  their text (`field-sizing: content`), long patch-list notes are cut with … (full text on hover). Live: register
+  1229 → 738 px. Backlog: "Uploads from inside cad" (link or embed) added.

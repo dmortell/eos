@@ -122,6 +122,10 @@
 	.ib:hover { background: var(--cad-hover); color: var(--cad-text); }
 	.ib.on { background: #dbeafe; color: #1d4ed8; }
 	.body { flex: 1; min-height: 0; overflow: auto; }
+	/* every table as wide as its content, from the left (Dave: stretched to the panel, spare width went to whatever
+	   column could grow — an empty Tags, a 370 px Notes — while Level got 49 px) */
+	.body :global(table) { width: max-content; min-width: 0; }
+	.body :global(td.clip) { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	/* rows a little taller and easier to hit (T1) */
 	.body :global(td) { height: 20px; }
 	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;

@@ -190,8 +190,8 @@
 						draggable={sort.key === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
-						<td class="px-2"><input class="cell font-mono w-20" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
-						<td class="px-2"><input class="cell w-56" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell font-mono" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<!-- its own category, or "auto" = the one its viewports make it (grey) -->
 						<td class="px-2"><select class="cell" class:auto={r.categoryAuto} value={r.categoryAuto ? '' : r.categoryId} title={r.categoryAuto ? 'Worked out from its viewports — pick one to set it' : 'Its category'}
 							onchange={(e) => put(r, 'Sheet category', { kind: e.currentTarget.value || undefined })} onclick={(e) => e.stopPropagation()}>
@@ -201,12 +201,12 @@
 						</select></td>
 						<td class="px-2 whitespace-nowrap">{r.level}</td>
 						<td class="px-2 whitespace-nowrap">{r.room}</td>
-						<td class="px-2"><input class="cell w-20" value={r.discipline} placeholder="—" onchange={(e) => put(r, 'Sheet discipline', { discipline: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell" value={r.discipline} placeholder="—" onchange={(e) => put(r, 'Sheet discipline', { discipline: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2 font-mono">{r.rev || '—'}</td>
 						<td class="px-2">{r.size}</td>
 						<td class="px-2">{r.scale}</td>
 						{#if showState}<td class="px-2 whitespace-nowrap"><span class="st st-{stateOf(r)}">{stateText(r)}</span></td>{/if}
-						<td class="px-2"><input class="cell w-28" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
+						<td class="px-2"><input class="cell" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2 text-zinc-500">{r.status}</td>
 					</tr>
 				{/each}
@@ -232,10 +232,12 @@
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
 	.th { font-weight: 600; color: inherit; }
-	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }
+	/* edit boxes as wide as what they hold (the table is as wide as its content) */
+	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; field-sizing: content; min-width: 3ch; max-width: 22rem; }
 	.cell:hover { border-color: var(--cad-line); }
 	.cell:focus { border-color: #60a5fa; background: var(--cad-input); outline: none; }
-	select.cell.auto { color: var(--cad-faint); font-style: italic; }
+	/* a category worked out from the viewports (not set on the sheet): grey, "(auto)" — readable, not italic (Dave) */
+	select.cell.auto { color: var(--cad-muted); }
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }

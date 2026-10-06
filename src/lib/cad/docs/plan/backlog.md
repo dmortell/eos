@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **Code-size warning:** `ui/ViewCanvas.svelte`, `ui/CadShell.svelte`, `editor/tools.ts` and `ui/Properties.svelte` are
 at ~410–470 lines, near the ~500-line limit. The first entry that grows one of them splits it along a real seam first.
 
-**Remaining:** 101 entries (0 P1 · 28 P2 · 73 P3; 12 ⚡ quick wins).
+**Remaining:** 102 entries (0 P1 · 28 P2 · 74 P3; 12 ⚡ quick wins).
 
 ## Suggested order
 
@@ -56,6 +56,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Levels, plans and underlays
 
+- [ ] ❓ **Uploads from inside cad** — consider embedding the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in cad, or at least linking to it — e.g. File › Uploads… opening `/projects/[pid]/uploads` in a new tab, or a window / dialog with the Uploads UI. Decide: link (S, ~10 lines) vs embed (M–L: Uploads is its own route with its own PDF viewer state). **P3 · S–L** (Dave 2026-10-07: "consider"). *cad today:* floorplans placed in cad come from Uploads, but cad has no way to get there; issued package PDFs also land in Uploads. *From:* Dave 2026-10-07
 - [ ] **Floor manager: server rooms, tenant areas, level numbers** — in the Floor manager, add / rename / delete each level's server rooms and tenant areas, and edit a level's number. **P3 · M** (Dave 2026-10-05: low priority) (~120 lines). *cad today:* the Floor manager (`cad/ui/FloorManager.svelte`, phase8 Batch 3) sets the range, gaps, names and heights; server rooms come only from the import or a rack's Properties. *From:* G030, G100, G125 (the range part is built)
 - [ ] **Grayscale floorplan toggle** — a B/W ↔ Colour button for the underlay, kept per view. **P3 · S** (~20 lines: an image prim flag + a CSS filter; Dave 2026-10-04: low priority). *cad today:* always colour at 60 % opacity (`cad/views/plan.ts:34`). *From:* G029
 - [ ] **RCP (reflected ceiling plan)** — a plan view of a level that shows the ceiling: high runs, ceiling outlets / APs, risers, with floor-level items faded or hidden; can go on a sheet. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, a filter on the plan generator). *cad today:* one plan view per level; high runs are drawn on top (`cad/views/plan.ts:43`) but nothing filters by height. *From:* T083
