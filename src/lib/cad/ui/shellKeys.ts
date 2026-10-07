@@ -29,6 +29,8 @@ export interface ShellKeyCtx {
 	deleteSelected(): void
 	setTool(id: ToolId): void
 	zoomSel(): void
+	/** Ctrl+O: the Open project dialog. */
+	openProject(): void
 }
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
@@ -51,6 +53,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	else if (e.key === 'F4') { e.preventDefault(); c.repeatDeviceEdit() }
 	else if (e.key === 'F1') { e.preventDefault(); c.help(false) }
 	else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
+	else if (mod && k === 'o') { e.preventDefault(); c.openProject() }
 	else if (e.key === '?' && !mod) { e.preventDefault(); c.help(true) }
 	else if (mod && e.key === '.') { e.preventDefault(); layout.allHidden = !layout.allHidden }
 	else if (mod && e.key === ',') { e.preventDefault(); panels.toggle('bottom') }

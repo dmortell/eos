@@ -35,7 +35,7 @@ export const HOWTO: HowTo[] = [
 ]
 
 export const SHORTCUTS: [string, string][] = [
-	['Find a level, view, sheet, room, rack', 'Ctrl+K'], ['Undo / Redo', 'Ctrl+Z / Ctrl+Y'], ['Delete the selection', 'Delete'], ['Copy / Cut / Paste', 'Ctrl+C / X / V'],
+	['Find a level, view, sheet, room, rack', 'Ctrl+K'], ['Open another project', 'Ctrl+O'], ['Undo / Redo', 'Ctrl+Z / Ctrl+Y'], ['Delete the selection', 'Delete'], ['Copy / Cut / Paste', 'Ctrl+C / X / V'],
 	['Select all in this view', 'Ctrl+A'], ['Group / Ungroup', 'Ctrl+G / Ctrl+Shift+G'],
 	['Draw order: forward / to front', 'Ctrl+] / Ctrl+Shift+]'], ['Draw order: backward / to back', 'Ctrl+[ / Ctrl+Shift+['],
 	['Edit a label in place', 'Double-click · F2'], ['…save and edit the next / previous', 'Tab / Shift+Tab'],

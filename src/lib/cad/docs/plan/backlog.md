@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 78 entries (0 P1 · 19 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 77 entries (0 P1 · 18 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -157,7 +157,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] ⚡ **Finish the soft retire (7.5)** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* the title-bar menu stops linking Racks / Frames / Floorplans, the command palette stops offering old tools, and old routes show a "retired — use cad" banner. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines across files outside cad). *cad today:* only the project page is done; the menu is in `lib/ui/Titlebar.svelte:13`. *From:* P043
 - [ ] **Project Properties** — edit the project's name, codes, client, address and description in Properties (needed by the title block's Site section). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* missing; cad only reads the name from `projects/{pid}` (`routes/projects/[pid]/cad/+page.svelte`). Where it lives is the open question "Where should the project details editor go?" below. *From:* G301
 - [ ] **Default file storage per project** — a project setting: new uploads from cad (logos, issue PDFs) go to UploadThing or Firebase Storage. **P2 · M** (~70 lines). *cad today:* cad always uses UploadThing (`cad/ui/TitleBlockEditor.svelte:40`, `cad/app/issue.ts`); both providers exist in `uploads/provider.ts`. *From:* T151
-- [ ] **Open project (Ctrl+O)** — a dialog to pick another project and open it in cad without leaving the tool. **P2 · M** (~100 lines; port `pages/parts/OpenProjectDialog.svelte`). *cad today:* missing. *From:* G296
 - [ ] **Floor view presets** — quick buttons on a plan: Outlets (low), Outlets (high), Trunks, Fill rate. **P3 · M** (~80 lines). *cad today:* a Fill toggle only (`cad/ui/ViewCanvas.svelte`); presets were never wired in legacy either. *From:* G057
 - [ ] ❓ **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110
 

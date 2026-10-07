@@ -2,12 +2,13 @@
      outlets grid below. Owns the CadProject + Workspace for its lifetime (created here, destroyed on unmount). -->
 <script lang="ts">
 	import WindowBody from './WindowBody.svelte'
+	import OpenProjectDialog from './OpenProjectDialog.svelte'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS } from './shellKeys'
 	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
 	import { onDestroy, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
-	import { replaceState } from '$app/navigation'
+	import { replaceState, goto } from '$app/navigation'
 	import { readViewState, writeViewState } from '../app/urlState'
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
@@ -52,7 +53,7 @@
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
-	let titleBlockOpen = $state(false)
+	let titleBlockOpen = $state(false), openProjectOpen = $state(false)
 	let exportsRef: Exports | undefined = $state()
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
@@ -289,7 +290,7 @@
 	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
-		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'),
+		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'), openProject: () => (openProjectOpen = true),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
 		paste: () => ws.say('Paste with Ctrl+V (the browser lets a page paste only from the keyboard)'),
@@ -346,7 +347,7 @@
 	const onKey = (e: KeyboardEvent) => shellKey(e, {
 		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
-		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel,
+		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true),
 	})
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
 
@@ -431,6 +432,7 @@
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
 	{#if typesOpen}<SettingsDialog {project} {ws} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
+	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}

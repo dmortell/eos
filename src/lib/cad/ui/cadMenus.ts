@@ -16,6 +16,8 @@ export interface MenuCtx {
 	hasSheets: boolean
 	/** The Uploads tool, in a new tab. */
 	uploads(): void
+	/** Pick another project and open it in cad (Ctrl+O). */
+	openProject(): void
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -53,6 +55,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'File', items: [
 			// the floorplan PDFs (upload, origin, scale, crop) and the issued package PDFs live in Uploads (backlog "Uploads
 			// from inside cad": the link; embedding it is still to decide)
+			{ label: 'Open project…', key: 'Ctrl+O', run: c.openProject },
 			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
 			'-',
 			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },

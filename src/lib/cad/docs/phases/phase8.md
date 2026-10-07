@@ -1616,3 +1616,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   insert as one INSERT on its layer with its ATTRIBs (LABEL, USAGE, PORTS …; a repeated tag → TAG_2) — so AutoCAD can
   count them. A hidden attribute is written empty (the writer can't set the invisible flag). Without the library the
   output is as before. Tests: `render.test.ts` (+1). Checked the file's structure: INSERT 66=1, ATTRIBs, SEQEND each.
+- **24 — Open project (Ctrl+O):** File › Open project… / Ctrl+O — the Pages tool's dialog ported
+  (`OpenProjectDialog.svelte`, cad's colours): every project (trashed hidden), search over name / codes / client,
+  "My projects", newest first, ↑ / ↓ / Enter; picking one opens it in cad (the route is keyed by project, so the
+  workspace starts fresh). Help: Ctrl+O. Live: Ctrl+O → Project Journey, Test Project (open), LR; Esc closed it.
