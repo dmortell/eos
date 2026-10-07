@@ -14,7 +14,7 @@ export interface LayerInfo { id: Id; name: string; order: number; color?: string
 export const SYSTEM_LAYERS: LayerInfo[] = ([
 	['sys:background', 'Floorplans', '#9ca3af'], ['sys:walls', 'Walls', '#475569'], ['sys:drawing', 'Drawing', '#0f172a'],
 	['sys:racks', 'Racks', '#1e293b'], ['sys:cont-low', 'Trunks', '#0ea5e9'], ['sys:cont-high', 'Trunks high', '#f97316'],
-	['sys:risers', 'Risers', '#be185d'], ['sys:backbone', 'Backbone', '#7c3aed'], ['sys:cords', 'Patch cords', '#3b82f6'],
+	['sys:risers', 'Risers', '#be185d'], ['sys:backbone', 'Backbone', '#7c3aed'], ['sys:cords', 'Patch cords', '#3b82f6'], ['sys:port-labels', 'Port labels', '#0c4a6e'],
 	['sys:outlets-low', 'Outlets', '#1d4ed8'], ['sys:outlets-high', 'Outlets high', '#1d4ed8'],
 	['sys:notes', 'Notes', '#0f172a'], ['sys:sections', 'Sections', '#0f766e'],
 ] as const).map(([id, name, look], i) => ({ id, name, look, order: (i + 1) * 10, system: true }))
@@ -67,6 +67,8 @@ export function layerOf(e: Entity, known: Set<Id>): Id | undefined {
 export function primLayer(cls: string, e: Entity | undefined, known: Set<Id>): Id | undefined {
 	if (!e) return undefined
 	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && cls.startsWith('riser')) return 'sys:risers'
+	// a device's port labels have their own layer (Dave 2026-10-07): hidden / frozen apart from the racks
+	if (e.type === 'device' && cls.split(' ').includes('port-label')) return 'sys:port-labels'
 	return layerOf(e, known)
 }
 

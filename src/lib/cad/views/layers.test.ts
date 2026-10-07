@@ -107,3 +107,16 @@ describe('hiding, locking and colouring', () => {
 		expect(n.get('sys:outlets-low')).toBe(1)
 	})
 })
+
+describe('port labels layer (Dave 2026-10-07)', () => {
+	it("a device's port labels go on Port labels: hiding it keeps the racks and ports, hiding Racks keeps the labels", () => {
+		const index = ix()
+		const prims = rackRowDisplayList(index, { spaceId: 'SR-A', face: 'front' })
+		const labels = (ps: typeof prims) => ps.filter((p) => p.k === 'text' && p.cls === 'port-label').length
+		expect(labels(prims)).toBeGreaterThan(0)
+		const noLabels = applyLayers(prims, index, { hidden: new Set(['sys:port-labels']) }).draw
+		expect(labels(noLabels)).toBe(0)
+		expect(noLabels.some((p) => p.k === 'line' && p.cls.startsWith('port'))).toBe(true)
+		expect(labels(applyLayers(prims, index, { hidden: new Set(['sys:racks']) }).draw)).toBe(labels(prims))
+	})
+})

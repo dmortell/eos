@@ -1567,3 +1567,12 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   embedding it (kept apart from the same image in colour), and the frozen copy keeps the flag (switching B/W is a real
   change to an issued sheet). The per-browser `drafting.grayPlan` is gone. Tests: `pdf.test.ts` (+1). Live: B/W on →
   plan and S001 gray → back off.
+
+## Batch (Dave 2026-10-07, second): 1 5 7 9 10 12 13 20 23 24
+
+- **Backlog:** not needed → `later.md` (snap to rack corners, dim other cords, check old cord ends, F8 / F10, selectable
+  Japanese PDF text, per-viewport port-label / cord toggles — replaced by the Port labels layer); low priority (P3, and
+  P3 waits until P1 / P2 are done): show all routes, finish the soft retire, track cord labels.
+- **1 — Port labels layer:** a system layer "Port labels" (after Patch cords): a device's `port-label` texts go on it
+  (`primLayer`), so the eye hides them on screen and a viewport's ❄ freeze hides them in print — apart from the racks
+  and ports (hiding Racks no longer hides them). Tests: `layers.test.ts` (+1).
