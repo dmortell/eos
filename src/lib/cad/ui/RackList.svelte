@@ -3,7 +3,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Rack } from '../domain/types'
+	import type { Rack, RackRow } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
 	import { racksInOrder, newServerRoom, nextRoomName } from '../domain/devices'
 	import { markPrinted } from '../domain/ports'
@@ -25,7 +25,11 @@
 		return [...by].map(([space, rs]) => {
 			// unplaced racks first (they need "Place"), then the room's row order — the rack elevation's order
 			const rank = new Map(racksInOrder(project.index, space).map((r, i) => [r.id, i]))
-			return { space, name: project.index.nameOf(space) || 'No room', racks: rs.sort((a, b) => Number(!!a.at) - Number(!!b.at) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)) }
+			const sorted = rs.sort((a, b) => Number(!!a.at) - Number(!!b.at) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+			// the room › row › rack tree (backlog "Rack tree and row views"): its rows in order, then racks in no row
+			const rows = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === space).sort((a, b) => a.order - b.order)
+			const parts = rows.length ? [...rows.map((row) => ({ row, racks: sorted.filter((r) => r.rowId === row.id) })), { row: null, racks: sorted.filter((r) => !r.rowId || !rows.some((x) => x.id === r.rowId)) }].filter((x) => x.row || x.racks.length) : [{ row: null, racks: sorted }]
+			return { space, name: project.index.nameOf(space) || 'No room', racks: sorted, parts }
 		}).sort((a, b) => naturalCompare(a.name, b.name))
 	})
 	const selected = $derived(new Set(ws.selection))
@@ -94,13 +98,20 @@
 				{#if onview}<button class="place" title="Open this room's rack view (its racks front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Rack view</button>{/if}
 			</span>
 		</div>
-		{#each g.racks as r (r.id)}
-			<div class="rack" class:sel={selected.has(r.id)}>
+		{#each g.parts as part (part.row?.id ?? '')}
+			{#if part.row}
+				{@const row = part.row}
+				<div class="rowh"><span>{row.name} <span class="n">{part.racks.length}</span></span>
+					{#if onview}<button class="place" title="Open this row's rack view" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front', rowId: row.id })}>Row view</button>{/if}</div>
+			{:else if g.parts.length > 1}<div class="rowh"><span>No row</span></div>{/if}
+		{#each part.racks as r (r.id)}
+			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row}>
 				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{r.name}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
 				{#if !r.at}
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}
 			</div>
+		{/each}
 		{:else}
 			<p class="px-2 text-[11px] text-zinc-400">No racks yet — draw them with the Rack tool</p>
 		{/each}
@@ -118,6 +129,9 @@
 	.room { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; color: var(--cad-faint); }
 	.rack { display: flex; align-items: center; justify-content: space-between; border-radius: 4px; padding: 0 4px; font-size: 12px; }
 	.rack:hover { background: var(--cad-hover); }
+	.rack.inrow { padding-left: 14px; }
+	.rowh { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0 8px; font-size: 11px; color: var(--cad-muted); font-weight: 600; }
+	.rowh .n { font-weight: 400; color: var(--cad-faint); }
 	.rack.sel { background: var(--cad-pick); }
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
 	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }

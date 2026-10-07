@@ -1582,3 +1582,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **7 — Re-allocate pinned ports too:** the Outlets table's **incl. pinned** box beside Re-allocate… re-allocates the
   pinned (hand-placed, imported) links as well, for when the outlets changed; patched panel ports still stay
   (`AllocOpts.includePinned`). Tests: `allocate.test.ts` (+1).
+- **12 — Rack tree and row views:** the Racks window is a room › row › rack tree (rows in order, each with its rack
+  count and **Row view**; racks in no row under "No row"; a room with no rows stays flat). In a rack view
+  **Shift+double-click** on a rack fits it and the rack beside it (a pair), and **Esc** with nothing selected goes back
+  to the whole row (`unfocus`). Live (Test Project): IDF1 › IDF1 Row 1 (6), IDF2 › Row A (6) · Row B (0); pair 718 →
+  869 %, Esc → 718 %.

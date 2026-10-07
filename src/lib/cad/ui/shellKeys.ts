@@ -69,7 +69,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	}
 	else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 	else if (e.key === 'Delete' || e.key === 'Backspace') c.deleteSelected()
-	else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
+	else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (!ws.selection.length && canvas?.unfocus()) { /* back to the whole row */ } else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
 	else if (e.key === 'Home' && e.shiftKey) c.zoomSel()
 	else if (e.key === 'Home') canvas?.zoomExtents()
 	else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }

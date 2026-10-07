@@ -13,7 +13,7 @@
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
 	import { untrack } from 'svelte'
-	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
+	import { rackRowDisplayList, rowHit, rackLayout, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList, onPaper, paperSize } from '../views/sheet'
 	import { viewportFrame, inWindow } from '../views/vpFrame'
 	import ViewportChip from './ViewportChip.svelte'
@@ -190,13 +190,24 @@
 		ws.say(`${specLabel(spec)} on ${r.sheet.number} at 1:${r.scale} — drag the viewport into place, resize it by a corner`)
 	}
 
-	function focusRack(p: Pt): void {
+	/** Double-click a rack in a rack view: fit it; with Shift, it and the rack beside it (a pair — backlog "Rack tree and
+	 *  row views"). Esc (nothing selected) goes back to the whole row. Off a rack: the whole row. */
+	let focused = false
+	function focusRack(p: Pt, pair = false): void {
 		const racks = prims.filter((x) => x.k === 'line' && x.cls === 'rack')
 		const id = pickAt(racks, p, TOL_PX / cam.k)
-		const b = id ? unionBounds(prims.filter((x) => x.src === id).map(primBounds)) : null
-		if (b) cam = fit(b, w, h)
-		else zoomExtents()
+		let ids = id ? [id] : []
+		if (id && pair && spec.kind === 'row') {
+			const order = rackLayout(project.index, spec).map((l) => l.rack.id), i = order.indexOf(id)
+			const next = order[i + 1] ?? order[i - 1]
+			if (next) ids = [id, next]
+		}
+		const b = ids.length ? unionBounds(prims.filter((x) => x.src && ids.includes(x.src)).map(primBounds)) : null
+		if (b) { cam = fit(b, w, h); focused = true }
+		else { zoomExtents(); focused = false }
 	}
+	/** Esc with nothing selected in a rack view focused on a rack: back to the whole row. True = done. */
+	export function unfocus(): boolean { if (spec.kind !== 'row' || !focused) return false; zoomExtents(); focused = false; return true }
 
 	/** Zoom to the selection (UX review V3; Shift+Home): what this view draws of it, with a margin. False = none here. */
 	export function zoomToSelection(): boolean {
@@ -352,7 +363,7 @@
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
 		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
-		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
+		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p, e.shiftKey); return }
 		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
 		if (why) { ws.say(why); return }
 		toolDown = true
