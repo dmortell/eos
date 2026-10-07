@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 86 entries (0 P1 · 23 P2 · 63 P3; 8 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 84 entries (0 P1 · 23 P2 · 61 P3; 7 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -74,7 +74,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Ports, panels and allocation
 
-- [ ] ⚡ **Re-allocate pinned ports too** — when outlets change: "Unpin" for a whole panel / room / level, or a "Re-allocate including pinned" choice. **P3 · S** (Dave 2026-10-05: low priority) (~30 lines). *cad today:* Pin / Unpin on selected ports (`cad/ui/PortProps.svelte:109`) and Re-allocate that keeps pinned links (`cad/ui/OutletGrid.svelte:127`) exist; hand-placed links are pinned automatically, so they never move. *From:* T027
 - [ ] **Drag to select a block of ports** — press on a port and drag to select a range; press on the device body and drag to move it. Today a drag from a port moves the whole device. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines; a range across several devices is more). *cad today:* Shift-click ranges within one device only (`cad/editor/tools.ts:176`); the press on a port also arms the device move (`cad/editor/tools.ts:195`). Do after the rack-view interaction plan (Racks decisions). *From:* T025
 
 ## Patching and cords
@@ -86,7 +85,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Containment, routing, risers and fill
 
-- [ ] **Segment lengths** — run / wall Properties list each segment with its length, and the total. **P3 · S** (~25 lines; Dave 2026-10-04: low priority). *cad today:* only nodes are listed (`cad/ui/PathProps.svelte:84`). *From:* G269
 - [ ] ⚡ **Check floor / ceiling lines in the riser view** — compare with the Risers tool and list what is missing. **P3 · S** (Dave 2026-10-06: low priority) (check, then small fixes). *cad today:* each floor band draws slab, FFL and ceiling lines (`cad/views/riser.ts:57`). *From:* T071
 - [ ] ⚡ **Show all routes** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* a "Routes" toggle on the plan (like Fill) draws every outlet's route, coloured by server room. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines). *cad today:* real routes over the containment, drawn only for the selection (`cad/ui/ViewCanvas.svelte:125`). *From:* G049
 - [ ] **Fill % and cable count at penetrations** — a penetration shows the cables through it and its fill. **P2 · M** (~80 lines). *cad today:* the `penetration` role exists with a `source` run segment (`cad/domain/shapes.ts:114`) and the BOM counts it (`cad/domain/reports.ts:162`); there is no tool and no fill on it. Needs the penetrations decision (T145) first. *From:* T010

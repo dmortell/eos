@@ -85,15 +85,17 @@
 
 	// ── allocation (Phase 3.4): preview in the tool bar, apply as one undo step ──
 	let issues = $state<string[]>([])
+	/** Re-allocate the pinned (hand-placed) links too. */
+	let withPinned = $state(false)
 	function runAllocate(reallocate: boolean) {
 		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
 		const scope = ids.length ? { outletIds: ids } : { levelId }
-		const r = allocate(project.index, { ...scope, reallocate })
+		const r = allocate(project.index, { ...scope, reallocate, includePinned: reallocate && withPinned })
 		issues = r.issues.map((i) => i.text)
 		const what = ids.length ? `${ids.length} selected outlet(s)` : 'this level'
 		const n = r.add.length, left = r.unallocated.length
 		if (!n && !r.remove.length) { ws.say(left ? `Nothing to allocate — ${left} port(s) can't be placed (see the list)` : `Everything on ${what} is already allocated`); return }
-		const msg = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} unpinned link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}.`
+		const msg = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} ${withPinned ? '' : 'unpinned '}link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}.`
 		ws.ask2(msg, 'Apply', () => project.applyLinks(`${reallocate ? 'Re-allocate' : 'Allocate'} ${what}`, r.add, r.remove))
 	}
 	function assign() {
@@ -145,6 +147,7 @@
 		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
+		<label class="pin" title="Re-allocate the PINNED links too (hand placements, imported ones) — when the outlets changed. Patched panel ports still stay."><input type="checkbox" bind:checked={withPinned} /> incl. pinned</label>
 		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
 		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
 		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
@@ -226,4 +229,5 @@
 	.fmt { display: inline-flex; gap: 4px; align-items: center; color: var(--cad-muted); }
 	.pp.none { color: var(--cad-faint); }
 	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
+	.pin { display: inline-flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 </style>

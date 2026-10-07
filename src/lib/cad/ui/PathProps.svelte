@@ -11,7 +11,7 @@
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
-	import { removeNode } from '../domain/pathEdit'
+	import { removeNode, segmentLengths } from '../domain/pathEdit'
 	import { deletePicked, disconnectPicked } from '../editor/pathSel'
 	import { deleteEntities } from '../editor/commands'
 
@@ -26,6 +26,8 @@
 		return s.geom.segs.filter((g) => { const a = byId.get(g.a), b = byId.get(g.b); return a && b && isVertical(a, b) }).length
 	})
 
+	const lengths = $derived(segmentLengths(s))
+	const fmtMm = (v: number) => `${Math.round(v).toLocaleString('en').replace(/,/g, ' ')} mm`
 	const save = (label: string, next: Shape) => project.store.transact(label, (tx) => tx.put(next))
 
 	/** One segment between two nodes: its length (3D), for the Length field. */
@@ -163,6 +165,13 @@
 		<LineStyle {project} shapes={[s]} />
 	</PropGroup>
 {/if}
+<!-- each segment's length and the total (backlog "Segment lengths"; 3D: a drop counts its height) -->
+<PropGroup kind={kind} title="Segments">
+	{#each lengths.segs as g (g.id)}
+		<div class="seg"><span class="text-zinc-400">{g.from}–{g.to}</span><span class="font-mono">{fmtMm(g.len)}</span><span class="text-zinc-400">{g.vertical ? '↕ drop' : ''}</span></div>
+	{/each}
+	<div class="seg total"><span>Total</span><span class="font-mono">{fmtMm(lengths.total)}</span><span class="text-zinc-400">{(lengths.total / 1000).toFixed(2)} m</span></div>
+</PropGroup>
 <PropGroup kind={kind} title="Nodes">
 	<p class="text-zinc-500">{nodes.length} nodes, {vertical} vertical</p>
 	<label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>
@@ -190,5 +199,7 @@
 	.segsize { display: inline-flex; gap: 6px; align-items: center; }
 	.segsize input { width: 4rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; }
+	.seg { display: grid; grid-template-columns: 3rem 1fr 4rem; align-items: center; gap: 0.25rem; font-size: 11px; }
+	.seg.total { border-top: 1px solid var(--cad-line); padding-top: 2px; font-weight: 600; }
 	.node { display: grid; grid-template-columns: 1.5rem 1fr 1fr 4.5rem 1.6rem 1.6rem; align-items: center; gap: 0.25rem; font-size: 11px; }
 </style>

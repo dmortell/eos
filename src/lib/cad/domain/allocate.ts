@@ -27,6 +27,9 @@ export interface AllocOpts {
 	outletIds?: Id[]
 	/** Drop unpinned links in scope first and allocate again from scratch. */
 	reallocate?: boolean
+	/** Re-allocate the PINNED links too (backlog "Re-allocate pinned ports too"): when outlets changed and the hand
+	 *  placements should go. Patched panel ports still stay. */
+	includePinned?: boolean
 }
 
 export interface AllocIssue { kind: 'no-server-room' | 'no-panels' | 'full' | 'room-mismatch' | 'high-on-floor-panel' | 'kept-patched'; text: string; outletId?: Id; port?: number }
@@ -86,7 +89,7 @@ export function allocate(ix: ProjectIndex, opts: AllocOpts = {}): Allocation {
 		if (opts.serverRoomId && p.serverRoomId !== opts.serverRoomId) continue
 		const l = linkOfOutletPort.get(opKey(o.id, p.port))
 		if (l) {
-			if (!opts.reallocate || l.pinned) continue
+			if (!opts.reallocate || (l.pinned && !opts.includePinned)) continue
 			if (patched.has(opKey(l.a.on, l.a.port))) {
 				out.issues.push({ kind: 'kept-patched', outletId: o.id, port: p.port, text: `${p.label || o.label} stays on ${ix.portPlace(l.a)} — that panel port is patched` })
 				continue

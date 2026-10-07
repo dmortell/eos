@@ -150,3 +150,17 @@ export function degree(s: Shape): Map<Id, number> {
 	for (const x of geomOf(s).segs) for (const id of [x.a, x.b]) m.set(id, (m.get(id) ?? 0) + 1)
 	return m
 }
+
+/** Each segment's length (3D, mm) with its end nodes' places in the node list (1-based), and the total — run / wall
+ *  Properties' Segments list (backlog "Segment lengths"). A vertical segment (a drop / rise) counts its height. */
+export function segmentLengths(s: Shape): { segs: { id: Id; from: number; to: number; len: number; vertical: boolean }[]; total: number } {
+	if (s.geom.kind !== 'path') return { segs: [], total: 0 }
+	const at = new Map(s.geom.nodes.map((n, i) => [n.id, { n, i: i + 1 }]))
+	const segs = s.geom.segs.flatMap((g) => {
+		const a = at.get(g.a), b = at.get(g.b)
+		if (!a || !b) return []
+		const len = Math.hypot(b.n.x - a.n.x, b.n.y - a.n.y, b.n.z - a.n.z)
+		return [{ id: g.id, from: a.i, to: b.i, len, vertical: a.n.x === b.n.x && a.n.y === b.n.y && a.n.z !== b.n.z }]
+	})
+	return { segs, total: segs.reduce((t, x) => t + x.len, 0) }
+}

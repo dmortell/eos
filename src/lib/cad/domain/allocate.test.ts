@@ -106,6 +106,14 @@ describe('sticky', () => {
 		expect(r.issues.map((i) => i.kind)).toContain('kept-patched')
 		expect(r.add.map((l) => `${l.b.on}:${l.b.port}→${l.a.on}:${l.a.port}`)).toEqual(['A.001:2→P1:1', 'A.002:2→P1:2'])
 	})
+	it('with includePinned, the pinned ones go too (patched ones still stay)', () => {
+		const ents = [...base(), ...outlets(2)]
+		const pinned: Link = { type: 'link', id: 'LP', kind: 'horizontal', a: { on: 'P3', port: 5, face: 'rear' }, b: { on: 'A.001', port: 1 }, status: 'design', pinned: true }
+		const patchedL: Link = { type: 'link', id: 'LC', kind: 'horizontal', a: { on: 'P3', port: 7, face: 'rear' }, b: { on: 'A.002', port: 1 }, status: 'design', pinned: true }
+		const cord: Cord = { type: 'cord', id: 'C', kind: 'patch', a: { on: 'P3', port: 7, face: 'front' }, b: { on: 'P3', port: 20 }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'installed' } as Cord
+		expect(run([...ents, pinned, patchedL, cord], { reallocate: true }).remove).toEqual([])
+		expect(run([...ents, pinned, patchedL, cord], { reallocate: true, includePinned: true }).remove).toEqual(['LP'])
+	})
 })
 
 describe('what does not fit is reported', () => {

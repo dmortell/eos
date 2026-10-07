@@ -1576,3 +1576,9 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **1 — Port labels layer:** a system layer "Port labels" (after Patch cords): a device's `port-label` texts go on it
   (`primLayer`), so the eye hides them on screen and a viewport's ❄ freeze hides them in print — apart from the racks
   and ports (hiding Racks no longer hides them). Tests: `layers.test.ts` (+1).
+- **5 — Segment lengths:** run / wall Properties › **Segments**: each segment (node n–m) with its 3D length (a drop
+  counts its height, marked ↕), and the total in mm and m (`segmentLengths` in `domain/pathEdit.ts`). Tests:
+  `pathEdit.test.ts` (1).
+- **7 — Re-allocate pinned ports too:** the Outlets table's **incl. pinned** box beside Re-allocate… re-allocates the
+  pinned (hand-placed, imported) links as well, for when the outlets changed; patched panel ports still stay
+  (`AllocOpts.includePinned`). Tests: `allocate.test.ts` (+1).
