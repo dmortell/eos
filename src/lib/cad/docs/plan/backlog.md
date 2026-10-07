@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 83 entries (0 P1 · 22 P2 · 61 P3; 7 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 81 entries (0 P1 · 22 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -84,7 +84,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Containment, routing, risers and fill
 
-- [ ] ⚡ **Check floor / ceiling lines in the riser view** — compare with the Risers tool and list what is missing. **P3 · S** (Dave 2026-10-06: low priority) (check, then small fixes). *cad today:* each floor band draws slab, FFL and ceiling lines (`cad/views/riser.ts:57`). *From:* T071
 - [ ] ⚡ **Show all routes** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* a "Routes" toggle on the plan (like Fill) draws every outlet's route, coloured by server room. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines). *cad today:* real routes over the containment, drawn only for the selection (`cad/ui/ViewCanvas.svelte:125`). *From:* G049
 - [ ] **Fill % and cable count at penetrations** — a penetration shows the cables through it and its fill. **P2 · M** (~80 lines). *cad today:* the `penetration` role exists with a `source` run segment (`cad/domain/shapes.ts:114`) and the BOM counts it (`cad/domain/reports.ts:162`); there is no tool and no fill on it. Needs the penetrations decision (T145) first. *From:* T010
 - [ ] **Fill by hand** — add cables to a run by hand (count × type), before routes exist or for non-data cables (power, coax); fill adds them to the routed ones. **P2 · M** (~100 lines). *cad today:* fill counts routed links only (`cad/domain/fill.ts:38`). *From:* T080
@@ -145,7 +144,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Revisions, issue and versions
 
-- [ ] ⚡ **Write down one simple version model** — A short ADR: what a "version" is in cad (sheet revisions from issues + project snapshots, no Pages-style major / minor model versions unless Dave says so). It unblocks the entries below and the decisions on numbering. **P3 · S** (Dave 2026-10-06: low priority) (a doc, no code). *cad today:* only sheet revisions made by issuing (`cad/domain/issue.ts:62`). *From:* T165
 - [ ] **Change history per drawing** — For each sheet: what changed, when, and who asked for it, entered when issuing (or between issues). It fills the title block's revision table. Keep Issue as simple as it is now. **P2 · M** (~100 lines: `by` / description on a revision + edit in Sheet Properties). *cad today:* a sheet's revisions keep code / date / note (= the purpose) / issue (`cad/domain/drawing.ts:46`); the title block shows the last 5 (`cad/domain/titleBlock.ts:55`). *From:* T102
 - [ ] **Issue gate: nothing goes out unreviewed** — Before Issue, warn or block when a sheet (or the model it shows) changed and was not saved as a version. Settle the version model first (ADR above). **P2 · M** (~80 lines once snapshots exist). *cad today:* a changed sheet just gets the next revision by fingerprint (`cad/domain/issue.ts:62`); no "saved" state. *From:* G322, P025
 - [ ] **Revert to an earlier issue** — Restore the project (or one drawing) to how it was at an earlier issue, making it the live version: straight away when nothing changed since the last issue, else only after the user agrees to lose those changes (Dave 2026-10-04; we could also keep them as a snapshot). Answer to the check: cad cannot today — issues freeze only the printed picture, not the model data. Needs version history (below): take a snapshot at each issue. **P2 · M** (~80 lines after version history). *From:* T158

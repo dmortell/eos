@@ -95,10 +95,21 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e)
 	const storeyOf = (e: number) => { const h = byElev.get(e)?.[0]?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
 	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
+	// each floor as a section through the building (as the old Risers tool): the slab, the raised-floor void above it
+	// up to FFL, the room, the ceiling, the plenum up to the slab above — that slab drawn here too when no floor shows
+	// directly above (the top floor, a floor under a break). Heights: ADR 0004 (slab top at FFL − raised floor).
+	const elevs = [...byElev.keys()].sort((a, b) => a - b)
+	const strip = (za: number, zb: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: -za }, { x: x1, y: -za }, { x: x1, y: -zb }, { x: x0, y: -zb }], closed: true, fill: true, cls })
 	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
 		if (!shown(e)) continue
-		const h = ls[0].heights, slab = h?.slabMm ?? 200, ceil = h?.clearHeightMm ?? 2600, v = zv(e)
-		out.push({ k: 'line', pts: [{ x: x0, y: -v }, { x: x1, y: -v }, { x: x1, y: -(v - slab) }, { x: x0, y: -(v - slab) }], closed: true, fill: true, cls: 'riser-slab' })
+		const h = ls[0].heights, slab = h?.slabMm ?? 200, rf = h?.raisedFloorMm ?? 300, ceil = h?.clearHeightMm ?? 2600, plenum = h?.plenumMm ?? 700, v = zv(e)
+		out.push(strip(v - rf, v - rf - slab, 'riser-slab'))
+		if (rf > 0) out.push(strip(v, v - rf, 'riser-void'))
+		if (plenum > 0) out.push(strip(v + ceil, v + ceil + plenum, 'riser-void'))
+		// the slab above, unless the next floor up is shown and its own slab starts where this storey ends
+		const above = elevs[elevs.indexOf(e) + 1], ha = above === undefined ? undefined : byElev.get(above)?.[0]?.heights
+		const nextSlabAt = above === undefined ? Infinity : above - (ha?.raisedFloorMm ?? 300) - (ha?.slabMm ?? 200)
+		if (above === undefined || !shown(above) || Math.abs(nextSlabAt - (e + ceil + plenum)) > 1) out.push(strip(v + ceil + plenum, v + ceil + plenum + slab, 'riser-slab'))
 		out.push({ k: 'line', pts: [{ x: x0, y: -v }, { x: x1, y: -v }], cls: 'riser-ffl' })
 		out.push({ k: 'line', pts: [{ x: x0, y: -(v + ceil) }, { x: x1, y: -(v + ceil) }], cls: 'riser-ceiling' })
 		const names = [...new Set(ls.map((l) => l.name))].join(' / ')
@@ -113,9 +124,10 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		out.push({ k: 'text', at: { x: x0 + 200, y: ym - amp - small * 0.3 }, text: what, size: small, cls: 'datum-label' })
 	}
 	for (const r of rooms) {
-		const v = zv(r.z)
-		out.push({ k: 'line', pts: [{ x: r.x0, y: -v }, { x: r.x1, y: -v }, { x: r.x1, y: -(v + ROOM_H) }, { x: r.x0, y: -(v + ROOM_H) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
-		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(v + ROOM_H) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
+		// the room fills its storey, FFL to ceiling (the old tool's boxes did; a fixed 2200 sat under a 2600 ceiling)
+		const v = zv(r.z), rh = byElev.get(r.z)?.[0]?.heights?.clearHeightMm ?? ROOM_H
+		out.push({ k: 'line', pts: [{ x: r.x0, y: -v }, { x: r.x1, y: -v }, { x: r.x1, y: -(v + rh) }, { x: r.x0, y: -(v + rh) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
+		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(v + rh) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
 	}
 	for (const sh of shafts) {
 		const v0 = zv(sh.z0), v1 = zv(sh.z1)

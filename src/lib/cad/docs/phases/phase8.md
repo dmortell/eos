@@ -1587,3 +1587,15 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   **Shift+double-click** on a rack fits it and the rack beside it (a pair), and **Esc** with nothing selected goes back
   to the whole row (`unfocus`). Live (Test Project): IDF1 › IDF1 Row 1 (6), IDF2 › Row A (6) · Row B (0); pair 718 →
   869 %, Esc → 718 %.
+- **9 — Riser view floor / ceiling lines:** checked against the old Risers tool (`../plan/riser-lines-check.md`); fixed
+  what it found: the slab was drawn straight under FFL — it now sits under the raised floor (ADR 0004: slab top at
+  FFL − raised floor); the raised-floor void and the ceiling plenum are shaded strips (`riser-void`, screen + PDF);
+  the slab above a storey is drawn when no floor sits on it (the top floor, one under a break or a gap); server-room
+  boxes fill the storey to the ceiling (were a fixed 2200). EPS rooms, HIGH / LOW tags (→ "High / low cables in the
+  riser view"), walls and grid left as the check suggests. Tests: `riser.test.ts` (+1). Live (Test Project): 3 slabs,
+  4 void strips, rooms to the ceiling.
+- **10 — Version model:** `../adr/0008-version-model.md` (Proposed): two kinds of history — sheet REVISIONS (what was
+  issued, frozen; built) and project VERSIONS (named snapshots of every `cadEntities` doc, in `cadVersions`); no
+  major / minor model versions; issuing auto-saves a version (`issue.versionId`); restore = the whole project as one
+  undo step, keeping the live issue history; what Version history / Revert / Issue gate / Change history then need;
+  six questions for Dave.
