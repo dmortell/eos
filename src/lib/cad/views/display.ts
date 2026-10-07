@@ -25,7 +25,14 @@ export type Prim = (
 	dash?: Dash
 	/** The layer it's on, set by views/layers.ts (none = always shown: paper, title block, datums). */
 	layer?: Id
+	/** Drawn from a BLOCK (an outlet's symbol, an insert): which, where, and its attribute values — so the DXF can write
+	 *  one INSERT of a BLOCK instead of loose lines (backlog "DXF blocks as BLOCK + INSERT"). Shared by all its prims. */
+	ins?: BlockInstance
 }
+
+/** One placed block: its id, insertion point (drawing mm, y down), rotation (°), scale (incl. the annotative k), the
+ *  filled attribute values, and the entity it draws. */
+export interface BlockInstance { blockId: Id; at: Pt; rot: number; scale: number; attrs: Record<string, string>; src: Id }
 
 /** Line types (backlog "Shape style"). */
 export type Dash = 'dashed' | 'dotted' | 'dashdot'

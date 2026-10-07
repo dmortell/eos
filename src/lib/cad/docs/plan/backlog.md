@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 79 entries (0 P1 · 20 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 78 entries (0 P1 · 19 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -150,7 +150,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Print and export
 
 - [ ] **DXF for every view and sheet** — export the active pane as DXF whatever it is (plan, elevation, wall / room elevation, section, rack row, riser), and a sheet as DXF (paper space, viewports clipped). Dave wants wall / room elevations; rack elevations and risers come free from the same display list. **P3 · M** (Dave 2026-10-06: low priority) (~120 lines). *cad today:* "This plan (DXF)" only (`cad/ui/CadShell.svelte:150`, `cad/render/dxf.ts:30`). *From:* T107, T120
-- [ ] **DXF blocks as BLOCK + INSERT** — write each block once with ATTDEF / ATTRIB (hidden ones stay invisible), so inserts can be counted in AutoCAD. **P2 · M** (~150 lines: the display list must keep which insert a prim came from). *cad today:* inserts go out as plain lines and text (`cad/render/dxf.ts:40`). *From:* G326
 - [ ] **Frame label sheets in Excel (grid layout)** — match the Frames / Elevations export: a sheet per frame or per room (a setting), RU rows × 24 port columns coloured by usage, reserved cells, merged device slots, racks side by side with bottoms aligned, A3 landscape fit-to-page, footer with file name and page. **P2 · L** (~300 lines, port `frames/parts/exportExcel.ts`). *cad today:* "Export panel labels" is a flat list per room (`cad/render/exports.ts:127`). *From:* G097, G131, T050
 
 ## Shell, navigation and touch

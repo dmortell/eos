@@ -1610,3 +1610,9 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   (`placeNote`): on the paper, or — started / dropped inside a viewport — tied to it in its view mm, so they move,
   copy (Duplicate sheet) and are untied with it like notes; a block on a sheet is paper size. (There's no image tool
   yet.) Tests: `sheet.test.ts` (+2: a tied line in view mm, drawn back where it was drawn; a paper line; a tied block).
+- **23 — DXF blocks as BLOCK + INSERT:** prims drawn from a block carry their placement (`ins`: block, point,
+  rotation, scale incl. the annotative k, attribute values); the plan DXF writes each block ONCE (`blockDefinition`:
+  its lines, circles and fixed texts in block mm, {TAG} texts as ATTDEFs; entities on layer 0) and each outlet /
+  insert as one INSERT on its layer with its ATTRIBs (LABEL, USAGE, PORTS …; a repeated tag → TAG_2) — so AutoCAD can
+  count them. A hidden attribute is written empty (the writer can't set the invisible flag). Without the library the
+  output is as before. Tests: `render.test.ts` (+1). Checked the file's structure: INSERT 66=1, ATTRIBs, SEQEND each.

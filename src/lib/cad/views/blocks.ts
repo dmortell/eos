@@ -1,7 +1,7 @@
 // Drawing a block (an outlet's symbol or an insert shape) into display-list prims: each block shape transformed by the
 // insert's position / rotation / scale (× the drawing scale for annotative blocks), `{LABEL}` attributes filled in.
 import type { Id, Pt } from '../domain/types'
-import { primBounds, unionBounds, type Prim } from './display'
+import { primBounds, unionBounds, type Prim, type BlockInstance } from './display'
 import { fillAttrs, insertAttrs, type Block } from '../domain/blocks'
 import { rotate } from '../domain/conventions'
 
@@ -42,7 +42,10 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 			default: break   // arcs, images and nested inserts in blocks come later
 		}
 	}
-	return out
+	// every prim knows the placed block it came from (the DXF writes one INSERT of a BLOCK for them); none in previews
+	if (!src) return out
+	const ins: BlockInstance = { blockId: b.id, at: pl.at, rot, scale: s, attrs, src }
+	return out.map((p) => ({ ...p, ins }))
 }
 
 /** A block drawn small for a list (the legend, the Blocks panel): its prims at 1:1 and a padded viewBox round them. */
@@ -78,4 +81,24 @@ function inside(p: Pt, pts: Pt[]): boolean {
 		if (a.y > p.y !== c.y > p.y && p.x < ((c.x - a.x) * (p.y - a.y)) / (c.y - a.y) + a.x) r = !r
 	}
 	return r
+}
+
+/** A block in its own coordinates (block mm, y down, unscaled), for a DXF BLOCK: its lines, circles and fixed texts as
+ *  prims, and each text with a {TAG} as an attribute definition (`template` = the text as written in the block; an
+ *  insert's value = the template filled). Tags repeat-proofed (a second {LABEL} → LABEL_2). */
+export function blockDefinition(b: Block): { prims: Prim[]; attdefs: { tag: string; template: string; at: Pt; size: number; anchor: 'start' | 'middle' | 'end'; rot?: number }[] } {
+	const marked: Record<string, string> = {}
+	for (const sh of b.shapes) if (sh.geom.kind === 'text') for (const m of sh.geom.text.matchAll(/\{([A-Z_]+)\}/g)) marked[m[1]] = `{${m[1]}}`
+	const prims = blockPrims(b, { at: { x: 0, y: 0 } }, 1, marked, '', '')
+	const attdefs: ReturnType<typeof blockDefinition>['attdefs'] = [], used = new Map<string, number>()
+	const fixed = prims.filter((p) => {
+		if (p.k !== 'text') return true
+		const m = /\{([A-Z_]+)\}/.exec(p.text)
+		if (!m) return true
+		const n = (used.get(m[1]) ?? 0) + 1
+		used.set(m[1], n)
+		attdefs.push({ tag: n > 1 ? `${m[1]}_${n}` : m[1], template: p.text, at: p.at, size: p.size, anchor: p.anchor ?? 'start', ...(p.rot ? { rot: p.rot } : {}) })
+		return false
+	})
+	return { prims: fixed, attdefs }
 }

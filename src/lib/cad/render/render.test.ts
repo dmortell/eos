@@ -5,6 +5,7 @@ import { scheduleTable } from './outletSchedule'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
+import { BUILTIN_BLOCKS } from '../domain/blocks'
 import type { Prim } from '../views/display'
 
 const ix = () => new ProjectIndex(demoProject())
@@ -45,5 +46,23 @@ describe('outlet schedule sheet', () => {
 		expect(t.totals).toBe('2 outlets, 4 ports (desk 2)')
 		const o = ix().outlets.find((x) => x.label === '33-001')!
 		expect([t.body[0][col('X (mm)')], t.body[0][col('Y (mm)')]]).toEqual([Math.round(o.at!.x), Math.round(o.at!.y)])
+	})
+})
+
+describe('DXF blocks as BLOCK + INSERT (backlog)', () => {
+	it('each outlet is one INSERT of a BLOCK written once, its label / ports / usage as ATTRIBs', () => {
+		const ix = new ProjectIndex(demoProject())
+		const blockOf = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
+		const prims = planDisplayList(ix, 'L33', { scale: 100, blocks: blockOf })
+		const outlets = ix.outlets.filter((o) => o.levelId === 'L33' && o.at)
+		const text = displayListToDxf(prims, undefined, 100, blockOf).text
+		const count = (re: RegExp) => (text.match(re) ?? []).length
+		expect(count(/\nINSERT\r?\n/g)).toBe(outlets.length)
+		expect(count(/\nATTDEF\r?\n/g)).toBeGreaterThan(0)
+		expect(count(/\nATTRIB\r?\n/g)).toBe(outlets.length * 3)   // LABEL, USAGE, PORTS
+		expect(text).toMatch(/\nLABEL\r?\n/)
+		for (const o of outlets) expect(text).toContain(`\n${o.label}\n`)
+		// without the library the symbols go out as loose lines as before
+		expect(displayListToDxf(prims).text).not.toMatch(/\nINSERT\r?\n/)
 	})
 })
