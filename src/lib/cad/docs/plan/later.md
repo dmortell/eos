@@ -59,3 +59,12 @@ wanted. *From:* ids as in `backlog.md`.
 - **Hidden-line removal** — true hidden lines in elevations / sections; only needed for line-only DXF elevations. *From:* P007
 - **Room elevations** — four sections per room (A–D) with outlets on their wall face; needs room boundaries first (later per Dave). *From:* P034
 - **3D view** — a read-only three.js view of a level (later per Dave). *From:* P035
+
+## Not needed (Dave 2026-10-07)
+
+- **Dim the other cords when one is selected** — not needed (Dave 2026-10-07). *From:* T017
+- **Check how old ends of moved / removed cords show** — not needed (Dave 2026-10-07). *From:* T049
+- **Snap to rack corners on the plan** — not needed (Dave 2026-10-07). *From:* G250
+- **Port labels / patch cords toggles per viewport** — replaced by a "Port labels" layer (the ❄ freeze hides it per viewport; cords already have a layer) (Dave 2026-10-07). *From:* G190
+- **Selectable Japanese text in PDF** — not needed (Dave 2026-10-07). *From:* G324, P027
+- **Function keys** — not needed (Dave 2026-10-07). *From:* G300
