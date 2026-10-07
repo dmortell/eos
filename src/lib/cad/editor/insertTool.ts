@@ -2,6 +2,7 @@
 // Plan: at the click, at the last insert's height. Elevation / section: the click gives the height too, and the
 // block goes ON the nearest wall behind the click (its face, turned to face the viewer: a wall faceplate); with no
 // wall there, on the work plane.
+import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
 import { insertAttrs, type Block } from '../domain/blocks'
@@ -27,6 +28,16 @@ export class InsertTool implements Tool {
 		if (!b) { c.say?.('Pick a block in the Blocks list first'); return }
 		const p = this.#place(e, c)
 		const attrs = Object.fromEntries((b.attrs ?? []).filter((a) => a.default).map((a) => [a.tag, a.default!]))
+		// a block on a sheet: on the paper, or tied to the viewport it's dropped in (backlog "Any annotation can belong
+		// to a viewport"), at paper size
+		if (c.space.spec.kind === 'sheet') {
+			const at = placeNote(c, [p.at])
+			if (!at) return
+			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'insert', blockId: b.id, at: at.pts[0], ...(Object.keys(attrs).length ? { attrs } : {}) } } as Shape
+			c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
+			c.select([s.id])
+			return
+		}
 		const s = {
 			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
 			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
@@ -42,13 +53,14 @@ export class InsertTool implements Tool {
 	cancel(): void { this.#hover = null }
 
 	/** A ghost of the block where it will land. */
-	preview(): Prim[] {
+	preview(c?: ToolCtx): Prim[] {
 		const b = this.blockOf(), h = this.#hover
 		if (!b || !h) return []
-		return blockPrims(b, { at: h.view }, PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you in elevations
+		return blockPrims(b, { at: h.view }, c?.space.spec.kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you in elevations
 	}
 
 	#place(e: PointerIn, c: ToolCtx): Place {
+		if (c.space.spec.kind === 'sheet') { const p = e.alt ? e.p : { x: Math.round(e.p.x * 2) / 2, y: Math.round(e.p.y * 2) / 2 }; return { at: p, z: 0, view: p } }   // paper: 0.5 mm
 		const q = placeAt(c, e, this.#z), f = c.space.frame
 		if (c.space.spec.kind === 'plan' || !f) return { ...q, view: c.space.fromWorld({ ...q.at, z: q.z }) }
 		// the block's front (its local +y, as racks) towards the viewer (n points at the viewer)

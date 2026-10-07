@@ -11,6 +11,7 @@ import type { Snap } from './snap'
 import { makePath, toWall, toContainment } from '../domain/make'
 import { angleStep } from './constrain'
 import { newId } from '../domain/ids'
+import { placeNote } from './noteTool'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
 
@@ -95,6 +96,16 @@ export class PathTool implements Tool {
 		if (this.pts.length < 2) { this.cancel(); return }
 		const pts = this.pts
 		this.pts = []
+		// a LINE on a sheet (backlog "Any annotation can belong to a viewport"): on the paper — or, started inside a
+		// viewport, tied to it in its view mm, so it moves / copies / goes with it, like notes
+		if (c.space.spec.kind === 'sheet') {
+			const at = placeNote(c, pts.map((p) => ({ x: p.x, y: p.y })))
+			if (!at) return
+			const s = makePath(at.owner as never, at.pts.map((p) => ({ ...p, z: 0 })), { closed: close && pts.length >= 3 })
+			c.store.transact('Draw line', (tx) => tx.put(s))
+			c.select([s.id])
+			return
+		}
 		const line = makePath({ levelId: c.levelId }, pts)
 		// carry each pick's attachment onto its node
 		if (line.geom.kind === 'path') line.geom.nodes.forEach((n, i) => { if (pts[i].attach) n.attach = pts[i].attach; if (pts[i].levelId) n.levelId = pts[i].levelId })

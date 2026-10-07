@@ -1605,3 +1605,8 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   on the other device — bulk patch / interconnect from there. The drop is the tool's click on that port; the tool you
   had comes back when the drag ends (an unused arming is undone). Help added. Live: outlet 201 dragged onto a free
   panel port → its 6 ports linked (66 → 72), undone.
+- **20 — Any annotation can belong to a viewport:** shapes (rect / ellipse / polygon) and dimensions already tied to
+  the viewport they start in; now the **Line** tool and **Insert** (blocks) work on sheets too and do the same
+  (`placeNote`): on the paper, or — started / dropped inside a viewport — tied to it in its view mm, so they move,
+  copy (Duplicate sheet) and are untied with it like notes; a block on a sheet is paper size. (There's no image tool
+  yet.) Tests: `sheet.test.ts` (+2: a tied line in view mm, drawn back where it was drawn; a paper line; a tied block).

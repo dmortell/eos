@@ -73,3 +73,31 @@ describe('viewports on a sheet', () => {
 		expect(said.at(-1)).toMatch(/locked/)
 	})
 })
+
+describe('lines and blocks on a sheet belong to the viewport they start in (backlog)', () => {
+	it('a line started inside a viewport is tied to it in its view mm; on the paper it stays paper', async () => {
+		const { PathTool } = await import('./pathTool')
+		const h = harness(), t = new PathTool('line'), ev = (x: number, y: number) => ({ p: { x, y }, shift: false, ctrl: false, alt: true })
+		t.down(ev(100, 100), h.ctx()); t.down(ev(110, 100), h.ctx()); t.finish(h.ctx())
+		const line = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'path' && s.sheetId === 'SH')!
+		expect(line.vpId).toBe('V')
+		// paper (100, 100) in a 1:100 window at (20, 20) 200 × 150 (middle (120, 95)) centred on (3000, 4000): view = centre + (paper − middle) × 100
+		const nodes = line.geom.kind === 'path' ? line.geom.nodes : []
+		expect(nodes.map((n) => [n.x, n.y])).toEqual([[1000, 4500], [2000, 4500]])
+		// …and is drawn on the paper where it was drawn
+		const drawn = h.ctx().prims().find((p) => p.k === 'line' && p.src === line.id)
+		expect(drawn?.k === 'line' && drawn.pts.map((q) => [Math.round(q.x), Math.round(q.y)])).toEqual([[100, 100], [110, 100]])
+		const t2 = new PathTool('line')
+		t2.down(ev(300, 250), h.ctx()); t2.down(ev(320, 250), h.ctx()); t2.finish(h.ctx())
+		const paper = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'path' && s.sheetId === 'SH' && !s.vpId)!
+		expect(paper.geom.kind === 'path' && paper.geom.nodes.map((n) => n.x)).toEqual([300, 320])
+	})
+	it('a block dropped inside a viewport is tied to it', async () => {
+		const { InsertTool } = await import('./insertTool')
+		const { BUILTIN_BLOCKS } = await import('../domain/blocks')
+		const h = harness(), t = new InsertTool(() => BUILTIN_BLOCKS[0])
+		t.down({ p: { x: 100, y: 100 }, shift: false, ctrl: false, alt: false }, h.ctx())
+		const ins = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'insert')!
+		expect(ins).toMatchObject({ sheetId: 'SH', vpId: 'V', geom: { at: { x: 1000, y: 4500 } } })
+	})
+})
