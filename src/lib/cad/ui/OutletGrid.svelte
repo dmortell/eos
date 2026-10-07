@@ -98,6 +98,15 @@
 		const msg = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} ${withPinned ? '' : 'unpinned '}link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}.`
 		ws.ask2(msg, 'Apply', () => project.applyLinks(`${reallocate ? 'Re-allocate' : 'Allocate'} ${what}`, r.add, r.remove))
 	}
+	/** Drag outlets (the selection when the row is in it) onto a panel port in a rack view: assigned from that port —
+	 *  "Assign → port…" by drag (backlog "Bulk patching by drag"). */
+	function dragOutlets(e: DragEvent, o: Outlet) {
+		const ids = selected.has(o.id) ? ws.selection.filter((id) => project.index.get(id)?.type === 'outlet') : [o.id]
+		ws.startDrag(() => ws.assignOutlets(ids), () => { ws.assignTool.outlets = [] })
+		e.dataTransfer?.setData('application/x-cad-outlets', ids.join(','))
+		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'link'
+		ws.say(`Drop the ${ids.length} outlet(s) on a panel port in a rack view: they go on from there`)
+	}
 	function assign() {
 		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
 		if (!ids.length) { ws.say('Select outlets in the grid (Shift / Ctrl for more), then Assign'); return }
@@ -169,7 +178,7 @@
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(o.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(o.id)} draggable="true" ondragstart={(e) => dragOutlets(e, o)} ondragend={() => ws.endDrag()} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
 					{#if t.scope !== 'view'}<td class="px-2 text-zinc-500">{project.index.nameOf(o.levelId)}</td>{/if}
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"

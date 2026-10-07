@@ -87,8 +87,11 @@
 <p class="pt-1 font-semibold">Port{sel.ports.length > 1 ? 's' : ''} {portRanges(sel.ports)} <span class="font-normal text-zinc-500">({sel.face})</span></p>
 <p class="text-zinc-500">Click a port · Shift-click a range · Ctrl-click to add or drop one</p>
 <div class="acts">
-	<button title="Patch these ports to another device: click its first port next (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}>Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to…</button>
-	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port" onclick={() => ws.interconnectFrom(sel)}>Interconnect to…</button>{/if}
+	<!-- click, then click the first port; or DRAG the button onto that port in a rack view (backlog "Bulk patching by drag") -->
+	<button title="Patch these ports to another device: click its first port next — or drag this onto that port (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}
+		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.patchFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'patch') }} ondragend={() => ws.endDrag()}>Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to…</button>
+	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port — or drag this onto that port" onclick={() => ws.interconnectFrom(sel)}
+		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.interconnectFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'link') }} ondragend={() => ws.endDrag()}>Interconnect to…</button>{/if}
 	{#if cables.length}<button title="Remove the permanent cables on these ports — outlet links, ties and backbone, patched or not" onclick={() => removeAll(`Remove ${cables.length} link${cables.length === 1 ? '' : 's'}`, cables.map((l) => l.id))}>Remove links ({cables.length})</button>{/if}
 	{#if cordsHere.length}<button title="Remove the patch cords on these ports" onclick={() => removeAll(`Remove ${cordsHere.length} cord${cordsHere.length === 1 ? '' : 's'}`, cordsHere.map((c) => c.id))}>Remove cords ({cordsHere.length})</button>{/if}
 </div>

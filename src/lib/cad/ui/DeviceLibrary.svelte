@@ -19,17 +19,12 @@
 	})
 
 	function start(e: DragEvent, t: DeviceTemplate) {
-		ws.deviceTemplate = t
-		ws.libraryDrag = { prevTool: ws.toolId === 'device' ? 'select' : ws.toolId }
+		ws.startDrag(() => { ws.deviceTemplate = t; ws.toolId = 'device' })
 		e.dataTransfer?.setData('application/x-cad-device', t.id)
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 	}
 	/** The drag ended (dropped or not): back to the tool you had. */
-	function end() {
-		const d = ws.libraryDrag
-		ws.libraryDrag = null
-		if (d && ws.toolId === 'device') ws.toolId = d.prevTool
-	}
+	const end = () => ws.endDrag()
 	function arm(t: DeviceTemplate) {
 		ws.deviceTemplate = t
 		ws.toolId = 'device'

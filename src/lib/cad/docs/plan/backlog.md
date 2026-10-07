@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 81 entries (0 P1 · 22 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 80 entries (0 P1 · 21 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -79,7 +79,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] **Cord workflow: re-route, end badges, bulk status, sort, purge** — Finish the install workflow in the UI: (1) "Re-route From / To" in Cord Properties, then click the new port (an installed cord becomes `change`, moving it back makes it `installed`); (2) amber F / violet T badges on the selected cord's ends; (3) patch list: sort by From / To / Type / Length / Status; bulk Installed / Add / Restore on the ticked rows; "Purge removed" (delete every `remove` cord); (4) an option to create new cords as `installed` (for recording an existing site); (5) per-room Excel. Can ship in parts — sort and purge are ~15 lines each. **P3 · M** (Dave 2026-10-05: low priority) (~200 lines). *cad today:* `repatch()` with the change rule exists but nothing calls it (`cad/domain/cords.ts:113`); Installed / Remove / Revert one cord at a time (`cad/ui/CordProps.svelte:57`); multi-select + Delete works (`cad/editor/commands.ts:25`); fixed sort (`cad/domain/reports.ts:85`); `exportPatchSchedule` already takes a room (`cad/render/exports.ts:47`) but the UI passes none. *From:* G015, G072, G093, G094, G095, G133, G134, G139, G140, G141, P016
 - [ ] ❓ **Hover a cord** — Hovering a cord makes it thicker, dims the others and shows a tip "from → to, type, length, status". **P3 · M** (Dave 2026-10-05: low priority) (~70 lines: hover state in the select tool + a tip). *cad today:* no hover state or tooltip on cords; tools have a `hover` hook (`cad/ui/ViewCanvas.svelte:279`). *From:* G136, T064
-- [ ] **Bulk patching by drag** — Select outlets / ports in a list (outlet grid, Port Properties) and drag them onto a panel / device in a rack view; it patches (or links) them in order from the drop port. **P2 · M** (~150 lines). *cad today:* bulk patch works by arming ports in Port Properties ("Patch to…") then clicking the first target port (`cad/editor/cordTool.ts:3`, `cad/domain/cords.ts:141`); no drag. *From:* T021
 - [ ] **Track cord labels, ordered and delivered** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* In the cord BOM, record the cord IDs / labels used and assigned, and how many cords were ordered and delivered, so you can see what is still short. **P3 · M** (~150 lines: a small record per type × length + a table). *cad today:* each cord has a `cordId`, and cord IDs can be read back from the installer's Excel (`cad/ui/PatchList.svelte:19`); nothing for ordered / delivered. *From:* T070
 
 ## Containment, routing, risers and fill

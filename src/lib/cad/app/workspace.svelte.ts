@@ -66,8 +66,20 @@ export class Workspace {
 	prompt = $state<Prompt | null>(null)
 	/** The template the device tool adds (chosen in the tool bar). */
 	deviceTemplate = $state.raw<DeviceTemplate | null>(null)
-	/** A template being dragged from the Device library (the tool to go back to when the drag ends). */
-	libraryDrag = $state<{ prevTool: ToolId } | null>(null)
+	/** A DRAG that arms a tool (the Device library's templates, outlets from the table, ports from Port Properties —
+	 *  backlog "Bulk patching by drag"): over a rack view it arms its tool once (`arm`), the drop is that tool's click on
+	 *  the port / U under it, and when the drag ends the tool you had comes back (`disarm` undoes an unused arming). */
+	dragArm = $state.raw<{ prevTool: ToolId; arm: () => void; disarm?: () => void; armed?: boolean } | null>(null)
+	/** Start such a drag (from a dragstart). */
+	startDrag(arm: () => void, disarm?: () => void): void { this.dragArm = { prevTool: this.toolId, arm, disarm } }
+	/** The drag ended (dropped or not): unused arming undone, the tool you had back. */
+	endDrag(): void {
+		const d = this.dragArm
+		this.dragArm = null
+		if (!d) return
+		d.disarm?.()
+		if (d.armed) this.toolId = d.prevTool
+	}
 	/** The last device edit made in Properties, for F4 (repeat on the selected devices). */
 	lastDeviceEdit = $state.raw<RepeatEdit | null>(null)
 	/** The device tool's Mount: a both-face device (a panel) fixed to the front or rear only (shares its U). */

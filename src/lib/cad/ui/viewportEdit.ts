@@ -1,7 +1,8 @@
 // Viewport actions of a sheet view (split out of ViewCanvas): ENTER / LEAVE editing inside a viewport (UX review S5:
 // its level opens, the selection starts empty; leaving picks the viewport), Alt+wheel STEPS its scale (T126), and a
-// device template DRAGGED from the Device library onto a rack view (the Device tool's ghost follows the pointer at the
-// snapped U; the drop adds it; the library puts the old tool back when the drag ends).
+// DRAG that arms a tool dropped on a rack view (`ws.dragArm`): a Device library template (the Device tool's ghost at
+// the snapped U), outlets from the table (Assign), ports from Port Properties (Patch / Interconnect) — the drop is the
+// tool's click there; the source puts the old tool back when the drag ends.
 import type { CadProject } from '../app/project.svelte'
 import type { Workspace } from '../app/workspace.svelte'
 import type { Sheet } from '../domain/drawing'
@@ -40,15 +41,16 @@ export function libraryDrop(o: { ws: Workspace; ok: () => boolean; input: (e: Mo
 	const { ws } = o
 	return {
 		over(e: DragEvent) {
-			if (!ws.libraryDrag || !o.ok()) return
+			const d = ws.dragArm
+			if (!d || !o.ok()) return
 			e.preventDefault()
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-			if (ws.toolId !== 'device') ws.toolId = 'device'
+			if (!d.armed) { d.arm(); d.armed = true }   // the tool it arms, once (it stays armed until the drop / drag end)
 			o.focus?.()
 			ws.tool.hover?.(o.input(e), o.ctx()); o.changed()
 		},
 		drop(e: DragEvent) {
-			if (!ws.libraryDrag || !o.ok()) return
+			if (!ws.dragArm || !o.ok()) return
 			e.preventDefault()
 			ws.tool.down(o.input(e), o.ctx()); o.changed()
 		},

@@ -1599,3 +1599,9 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   major / minor model versions; issuing auto-saves a version (`issue.versionId`); restore = the whole project as one
   undo step, keeping the live issue history; what Version history / Revert / Issue gate / Change history then need;
   six questions for Dave.
+- **13 — Bulk patching by drag:** a drag that ARMS a tool (`ws.startDrag` / `endDrag`, the Device library's drag
+  generalised): drag outlet rows from the Outlets table (the selection when the row is in it) onto a panel port in a
+  rack view — Assign from there (pinned); drag Port Properties' "Patch … to…" / "Interconnect to…" onto the first port
+  on the other device — bulk patch / interconnect from there. The drop is the tool's click on that port; the tool you
+  had comes back when the drag ends (an unused arming is undone). Help added. Live: outlet 201 dragged onto a free
+  panel port → its 6 ports linked (66 → 72), undone.
