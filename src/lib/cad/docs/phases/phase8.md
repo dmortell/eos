@@ -1620,3 +1620,5 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   (`OpenProjectDialog.svelte`, cad's colours): every project (trashed hidden), search over name / codes / client,
   "My projects", newest first, ↑ / ↓ / Enter; picking one opens it in cad (the route is keyed by project, so the
   workspace starts fresh). Help: Ctrl+O. Live: Ctrl+O → Project Journey, Test Project (open), LR; Esc closed it.
+- **Riser voids white (Dave):** the raised-floor void and ceiling plenum are no longer shaded (`riser-void` strips
+  and their styles removed); slabs, FFL and ceiling lines unchanged. Live: S007 shows 0 voids, 5 slabs.

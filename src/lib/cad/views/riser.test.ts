@@ -52,7 +52,7 @@ describe('riser view', () => {
 		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))).toEqual([0, 3800 + 1200])
 		expect(ps.some((p) => p.k === 'text' && p.text === 'floors with no level')).toBe(true)
 	})
-	it('each storey stacks as a section: slab under the raised floor, the voids, the room to the ceiling, the roof slab', () => {
+	it('each storey stacks as a section: slab under the raised floor, white voids, the room to the ceiling, the roof slab', () => {
 		const ps = riserDisplayList(ix)
 		const ys = (cls: string) => ps.filter((p) => p.k === 'line' && p.cls === cls).map((p) => (p.k === 'line' ? [-Math.max(...p.pts.map((q) => q.y)), -Math.min(...p.pts.map((q) => q.y))] : []))
 		// 1F (FFL 0): slab −500…−300 (top at FFL − raised floor); 4F (FFL 11400): slab 10900…11100; the roof slab above 4F
@@ -61,8 +61,8 @@ describe('riser view', () => {
 		const stacked = riserDisplayList(new ProjectIndex([...ents, level('L2', '2F', 3800)] as Entity[]))
 			.filter((p) => p.k === 'line' && p.cls === 'riser-slab' && Math.abs(-Math.max(...p.pts.map((q) => q.y)) - 3300) < 1)
 		expect(stacked).toHaveLength(1)   // 2F's own slab only
-		// the voids: 1F floor −300…0 and plenum 2600…3300
-		expect(ys('riser-void')).toEqual(expect.arrayContaining([[-300, 0], [2600, 3300]]))
+		// the voids stay white (no shading)
+		expect(ys('riser-void')).toEqual([])
 		// a room fills its storey up to the ceiling
 		const room = ps.find((p) => p.k === 'line' && p.cls === 'riser-room')
 		expect(room?.k === 'line' && -Math.min(...room.pts.map((q) => q.y))).toBe(2600)
