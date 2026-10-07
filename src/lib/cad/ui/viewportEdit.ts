@@ -1,7 +1,7 @@
 // Viewport actions of a sheet view (split out of ViewCanvas): ENTER / LEAVE editing inside a viewport (UX review S5:
 // its level opens, the selection starts empty; leaving picks the viewport), Alt+wheel STEPS its scale (T126), and a
 // DRAG that arms a tool dropped on a rack view (`ws.dragArm`): a Device library template (the Device tool's ghost at
-// the snapped U), outlets from the table (Assign), ports from Port Properties (Patch / Interconnect) — the drop is the
+// the snapped U), outlets from the table (Assign), ports from Port Properties (Patch / Link) — the drop is the
 // tool's click there; the source puts the old tool back when the drag ends.
 import type { CadProject } from '../app/project.svelte'
 import type { Workspace } from '../app/workspace.svelte'

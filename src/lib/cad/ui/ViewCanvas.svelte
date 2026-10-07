@@ -5,7 +5,7 @@
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
+	import { toolWorksIn, ANNOTATION_TOOLS, type Workspace } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
 	import type { Pt } from '../domain/types'
@@ -298,8 +298,6 @@
 	/** Click counting (a pointerdown's `detail` is always 0): ui/canvasInfo.ts. */
 	const clicks = new ClickCounter()
 	const pressCount = (e: PointerEvent): number => clicks.press(local(e), e.timeStamp)
-	/** The annotation tools: on a sheet they always annotate the view (an edited viewport is left first). */
-	const ANNOTATE = new Set<string>(['text', 'leader', 'cloud', 'dimension'])
 
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
@@ -353,7 +351,7 @@
 			if (ws.vpContentNav) { vpPan = { at: q, vp: vpe.vp, g: null }; return }
 			// annotations go on the VIEW, never into the model from a sheet (Dave 2026-10-07): an annotation tool leaves the
 			// viewport first, and the note is tied to it as when it isn't being edited
-			if (ANNOTATE.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
+			if (ANNOTATION_TOOLS.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
 		}
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
 		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }

@@ -202,7 +202,7 @@
 		return spec && ws.levelId ? { levelId: ws.levelId, spec } : null
 	}
 	// switching to a view the current tool doesn't work in drops back to Select
-	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind)) untrack(() => setTool('select')) })
+	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind, !!vpEditKind)) untrack(() => setTool('select')) })
 
 	// ...and goes back into it on every change (replaceState: no history entries, SvelteKit's router stays in charge)
 	// Compared with the ADDRESS BAR (location), not page.url: after a replaceState page.url can lag, and a switch back
@@ -302,7 +302,7 @@
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
-		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind), openTable,
+		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
 		cordBom: () => exportsRef?.openCordBom(), cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true),
 		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
@@ -317,7 +317,7 @@
 		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
 		ports: portActions(),
 	}) : [])
-	/** Right-click on selected ports: Patch to… / Interconnect to… (a panel's) at the top of the menu. */
+	/** Right-click on selected ports: Patch to… / Link to… (a panel's) at the top of the menu. */
 	function portActions() {
 		const s = ws.portSel, d = s ? project.index.get(s.on) : undefined
 		if (!s || d?.type !== 'device') return undefined
@@ -377,7 +377,7 @@
 
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
-		<ToolStrip tool={ws.toolId} kind={activeKind} onTool={setTool} />
+		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={setTool} />
 		<ToolOptions {project} {ws} {level} kind={activeKind} />
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>

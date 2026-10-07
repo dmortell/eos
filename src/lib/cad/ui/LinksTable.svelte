@@ -91,7 +91,7 @@
 					<td class="px-1"><button class="del" title="Remove this link (Ctrl+Z undoes)" onclick={(e) => { e.stopPropagation(); remove(r.id) }}>✕</button></td>
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="px-2 py-3 text-zinc-400">No links{all.length ? ' match' : ' yet — allocate outlets, or interconnect panels from a port'}.</td></tr>
+				<tr><td colspan="8" class="px-2 py-3 text-zinc-400">No links{all.length ? ' match' : ' yet — allocate outlets, or link panels from a port (Link to…)'}.</td></tr>
 			{/each}
 			{#if rows.length > LIMIT}<tr><td colspan="8" class="px-2 py-2 text-zinc-400">… and {rows.length - LIMIT} more — narrow it with Find or the chips.</td></tr>{/if}
 		</tbody>

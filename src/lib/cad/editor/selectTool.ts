@@ -430,8 +430,11 @@ export class SelectTool implements Tool {
 		// as drawn — a blue copy over it made it unreadable, Dave 2026-10-07)
 		const hv = this.#hov
 		if (hv && !this.#gesture && (hv.sub ? true : !c.selection.includes(hv.id))) {
+			const hoverHasShape = c.prims().some((p) => p.src === hv.id && p.k !== 'text' && p.k !== 'image' && (!hv.sub || p.sub === hv.sub))
 			for (const p of c.prims()) {
-				if (p.src !== hv.id || p.k === 'image' || (hv.sub && (p.sub !== hv.sub || p.k === 'text'))) continue
+				if (p.src !== hv.id || p.k === 'image' || (hv.sub && p.sub !== hv.sub)) continue
+				// a thing's own words stay as drawn (a blue copy over them read as two labels); a text alone is outlined in blue
+				if (p.k === 'text' && hoverHasShape) continue
 				out.push(p.k === 'text' ? { ...p, cls: 'hover' } : p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false })
 			}
 		}

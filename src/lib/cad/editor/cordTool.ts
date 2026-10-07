@@ -40,7 +40,7 @@ export class CordTool implements Tool {
 			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: this.linkType() || this.defaults().cableType })
 			if (res.links.length) {
 				const kind = res.links[0].kind === 'tie' ? 'tie' : 'backbone'
-				c.store.transact(`Interconnect ${res.links.length} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
+				c.store.transact(`Link ${res.links.length} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
 			}
 			c.say?.(`${res.links.length} interconnect cable(s) added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
 			this.bulk = null

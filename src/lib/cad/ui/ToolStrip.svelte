@@ -18,7 +18,7 @@
 	import { TOOL_VIEWS, toolWorksIn } from '../app/workspace.svelte'
 	import type { ViewSpec } from '../views/space'
 
-	let { tool, kind, onTool }: { tool: ToolId; kind: ViewSpec['kind']; onTool: (id: ToolId) => void } = $props()
+	let { tool, kind, onSheet = false, onTool }: { tool: ToolId; kind: ViewSpec['kind']; /** a viewport being edited on a sheet */ onSheet?: boolean; onTool: (id: ToolId) => void } = $props()
 
 	const VIEW_WORDS: Record<ViewSpec['kind'], string> = { plan: 'plans', elevation: 'elevations', section: 'sections', row: 'rack views', sheet: 'sheets', riser: 'the riser view' }
 	const where = (id: ToolId) => TOOL_VIEWS[id].map((k) => VIEW_WORDS[k]).join(', ')
@@ -28,7 +28,7 @@
 	{#each TOOL_GROUPS as g, gi (g.name)}
 		{#if gi}<span class="sep" role="separator"></span>{/if}
 		{#each g.tools as t (t.id)}
-			{@const ok = toolWorksIn(t.id, kind)}
+			{@const ok = toolWorksIn(t.id, kind, onSheet)}
 			<button class="tool" class:on={tool === t.id} class:off={!ok} aria-label={t.label}
 				title={ok ? t.label : `${t.label} — works in ${where(t.id)}`} onclick={() => ok && onTool(t.id)}><Icon name={t.icon} size={16} /></button>
 		{/each}

@@ -42,7 +42,7 @@ export function roomProblem(ix: ProjectIndex, a: { on: Id }, b: { on: Id }): str
 	const room = (on: Id) => { const d = ix.get(on); const r = d?.type === 'device' ? ix.get(d.rackId) : undefined; return r?.type === 'rack' ? r.spaceId : undefined }
 	const ra = room(a.on), rb = room(b.on)
 	if (!ra || !rb || ra === rb) return null
-	return `A patch cord stays in one room (${ix.nameOf(ra)} ≠ ${ix.nameOf(rb)}) — use Interconnect for cables between rooms`
+	return `A patch cord stays in one room (${ix.nameOf(ra)} ≠ ${ix.nameOf(rb)}) — use Link to… for cables between rooms`
 }
 
 /**

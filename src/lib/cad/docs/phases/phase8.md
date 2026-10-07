@@ -1633,3 +1633,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   - Patch to… easier to find: the selected ports' section is at the TOP of Device Properties (boxed), Patch to… /
     Interconnect to… are blue buttons with their keys; P / I arm them; right-click a selected port → Patch to… /
     Interconnect to… first in the menu. Help: keys + the patching answer. Live: all three, P armed the Cord tool.
+- **Dave 2026-10-07, second round:**
+  - Annotation tools (Text / Leader / Cloud / Dimension) are enabled while ANY viewport is being edited (a rack or
+    riser view had them greyed out, so they couldn't be used): `toolWorksIn(id, kind, onSheet)`, `ANNOTATION_TOOLS`.
+    Live: S006 rack viewport in edit mode → Text / Leader / Dimension on, Line off.
+  - Selecting a port no longer hides the panel's name drawn over its ports: the selected / traced cells are a tint
+    again (blue 30 % / amber 35 %), and the port labels AND the panel name are redrawn over them. The selected port
+    itself isn't also amber (blue over amber read grey).
+  - Hovering a device (a cable manager) no longer shows its name twice (blue copy over black): hover outlines a
+    thing's shapes and leaves its words as drawn; a text alone still turns blue.
+  - "Interconnect" → "Link" in every label, menu, message and help (Link to…, key L); code names unchanged.

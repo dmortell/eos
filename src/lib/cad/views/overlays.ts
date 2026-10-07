@@ -13,13 +13,19 @@ import { spaceOf } from './space'
 import { traceCircuit } from '../domain/cords'
 import { fillTone } from '../domain/fill'
 
-/** The selected ports (rack rows), drawn over their cells — their labels again on top (white on the blue cell: the
- *  cell hid them, Dave 2026-10-07). */
+/** The selected ports (rack rows), a tint over their cells — then their labels and the panel's name (drawn over its
+ *  ports) again on top, so neither is lost under the highlight (Dave 2026-10-07). */
 export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	if (!s) return []
 	const want = new Set(s.ports.map(String))
 	const cells = prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
-	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel')]
+	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel'), ...namesOver(prims, [s.on])]
+}
+
+/** A panel's name drawn over its ports (no src: it takes no clicks) — found inside the device's body. */
+function namesOver(prims: Prim[], devices: Id[]): Prim[] {
+	const bodies = prims.flatMap((p) => (p.k === 'line' && p.src && devices.includes(p.src) && p.cls.startsWith('device ') ? [primBounds(p)] : []))
+	return prims.filter((p) => p.k === 'text' && !p.src && p.cls.includes('on-ports') && bodies.some((b) => p.at.x >= b.x0 && p.at.x <= b.x1 && p.at.y >= b.y0 && p.at.y <= b.y1))
 }
 
 /** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer colour: the
@@ -37,10 +43,12 @@ export function circuitOf(ix: ProjectIndex, prims: Prim[], selection: Id[], ps: 
 	if (steps.length < 2) return []
 	const cords = new Set(steps.flatMap((s) => (s.via?.kind === 'cord' ? [s.via.id] : [])))
 	const ports = new Set(steps.map((s) => `${s.ref.on}:${s.ref.port}`))
+	if (ps?.ports.length === 1) ports.delete(`${ps.on}:${ps.ports[0]}`)   // the selected port itself: blue, not blue over amber
 	const lines = prims.flatMap((p) => p.k !== 'line' ? [] :
 		p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline colour: the trace look wins
 		p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
-	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace')]   // the labels over the amber cells
+	const devs = [...new Set(steps.map((s) => s.ref.on))]
+	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace'), ...namesOver(prims, devs)]   // labels and names over the cells
 }
 
 /** Fill overlay (Phase 5.3, plan): each run segment with cables in it as a band in its fill tone, with its %. */

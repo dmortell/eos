@@ -42,7 +42,11 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	device: ['row'], cord: ['row'], assign: ['row'],
 	text: ['sheet', 'plan', 'elevation', 'section'], leader: ['sheet', 'plan', 'elevation', 'section'], cloud: ['sheet', 'plan', 'elevation', 'section'],
 }
-export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind']) => TOOL_VIEWS[id].includes(kind)
+/** The annotation tools: on a sheet they always annotate the VIEW (an edited viewport is left first, Dave 2026-10-07),
+ *  so they work while any viewport is being edited, whatever it shows. */
+export const ANNOTATION_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['text', 'leader', 'cloud', 'dimension'])
+/** `onSheet`: the view is a viewport being edited on a sheet. */
+export const toolWorksIn = (id: ToolId, kind: ViewSpec['kind'], onSheet = false) => TOOL_VIEWS[id].includes(kind) || (onSheet && ANNOTATION_TOOLS.has(id))
 
 export interface Drafting { snap: boolean; grid: number; osnap: boolean; showGrid: boolean }
 export interface ViewInfo { loading?: boolean; xy: string | null; readout: string | null; scale: string; zoom: number; mmPerPx: number; extra?: string }

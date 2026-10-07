@@ -152,14 +152,14 @@ export function buildMenus(c: MenuCtx): Menu[] {
 export function selectionMenu(sel: (Entity | undefined)[], c: {
 	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
-	/** Ports selected on a device: their actions come first (Patch to… / Interconnect to… — a panel's). */
+	/** Ports selected on a device: their actions come first (Patch to… / Link to… — a panel's). */
 	ports?: { n: number; patch(): void; interconnect?: () => void }
 }): MenuItem[] {
 	const shapes = sel.filter((e) => e?.type === 'shape'), one = sel.length === 1 ? sel[0] : undefined, p = c.ports
 	return [
 		...(p ? [
 			{ label: `Patch ${p.n > 1 ? `${p.n} ports ` : ''}to…`, key: 'P', run: p.patch } as MenuItem,
-			...(p.interconnect ? [{ label: 'Interconnect to…', key: 'I', run: p.interconnect } as MenuItem] : []),
+			...(p.interconnect ? [{ label: 'Link to…', key: 'L', run: p.interconnect } as MenuItem] : []),
 			'-' as const] : []),
 		...(one && labelKind(one) ? [{ label: 'Edit label', key: 'F2', run: () => c.editLabel(one.id) } as MenuItem, '-' as const] : []),
 		{ label: 'Cut', key: 'Ctrl+X', run: () => document.execCommand('cut') },
