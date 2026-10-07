@@ -302,6 +302,9 @@
 		{@const d = one as Device}
 		{@const rack = project.index.get(d.rackId) as Rack | undefined}
 		<p class="text-zinc-500">in {rack?.name ?? '?'}</p>
+		<!-- the selected PORTS first, above the device's own groups: what you clicked is what you want to act on (Dave
+		     2026-10-07: "Patch to…" was hard to find at the bottom) -->
+		{#if ws.portSel?.on === d.id}<div class="ports-first"><PortProps {project} {ws} sel={ws.portSel} /></div>{/if}
 		<PropGroup kind="device" title="General">
 			<label class="row">Name <input class="inp" value={d.name} onchange={(e) => putDevice(d, 'Rename device', { name: e.currentTarget.value })} /></label>
 			<label class="row">Kind
@@ -390,7 +393,6 @@
 			{/if}
 		</PropGroup>
 		<button class="btn" disabled={busy} title="Save this device's size, ports and kind as a GLOBAL template (every project)" onclick={() => saveTemplate(d)}>Save as template…</button>
-		{#if ws.portSel?.on === d.id}<PortProps {project} {ws} sel={ws.portSel} />{/if}
 	{:else if one.type === 'sheet'}
 		<SheetProps {project} {ws} s={one} />
 	{:else if one.type === 'cord'}
@@ -459,4 +461,5 @@
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.btn.del:hover { color: #dc2626; }
+	.ports-first { border: 1px solid #bfdbfe; background: color-mix(in srgb, #2563eb 5%, var(--cad-panel, #fff)); border-radius: 6px; padding: 0 8px 6px; margin: 4px 0 8px; }
 </style>

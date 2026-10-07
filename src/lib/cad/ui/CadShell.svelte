@@ -315,7 +315,14 @@
 	const contextItems = $derived(ws.contextMenu ? selectionMenu(ws.selection.map((id) => project.index.get(id)), {
 		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(),
 		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
+		ports: portActions(),
 	}) : [])
+	/** Right-click on selected ports: Patch to… / Interconnect to… (a panel's) at the top of the menu. */
+	function portActions() {
+		const s = ws.portSel, d = s ? project.index.get(s.on) : undefined
+		if (!s || d?.type !== 'device') return undefined
+		return { n: s.ports.length, patch: () => ws.patchFrom(s), ...(d.kind === 'panel' ? { interconnect: () => ws.interconnectFrom(s) } : {}) }
+	}
 
 	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
 	let cordDefaultsSet = false

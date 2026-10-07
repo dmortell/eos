@@ -13,11 +13,19 @@ import { spaceOf } from './space'
 import { traceCircuit } from '../domain/cords'
 import { fillTone } from '../domain/fill'
 
-/** The selected ports (rack rows), drawn over their cells. */
+/** The selected ports (rack rows), drawn over their cells — their labels again on top (white on the blue cell: the
+ *  cell hid them, Dave 2026-10-07). */
 export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	if (!s) return []
 	const want = new Set(s.ports.map(String))
-	return prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	const cells = prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel')]
+}
+
+/** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer colour: the
+ *  class decides). */
+function labelsOf(prims: Prim[], keys: Set<string>, cls: string): Prim[] {
+	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.cls === 'port-label' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls, src: undefined, color: undefined }] : []))
 }
 
 /** The circuit of a selected cord or single port (rack rows): its cords and ports drawn highlighted. */
@@ -29,9 +37,10 @@ export function circuitOf(ix: ProjectIndex, prims: Prim[], selection: Id[], ps: 
 	if (steps.length < 2) return []
 	const cords = new Set(steps.flatMap((s) => (s.via?.kind === 'cord' ? [s.via.id] : [])))
 	const ports = new Set(steps.map((s) => `${s.ref.on}:${s.ref.port}`))
-	return prims.flatMap((p) => p.k !== 'line' ? [] :
+	const lines = prims.flatMap((p) => p.k !== 'line' ? [] :
 		p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline colour: the trace look wins
 		p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
+	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace')]   // the labels over the amber cells
 }
 
 /** Fill overlay (Phase 5.3, plan): each run segment with cables in it as a band in its fill tone, with its %. */

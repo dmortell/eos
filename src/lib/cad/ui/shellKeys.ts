@@ -51,6 +51,9 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	}
 	else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); c.orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
 	else if (e.key === 'F4') { e.preventDefault(); c.repeatDeviceEdit() }
+	// P / I with ports selected: Patch to… / Interconnect to… (a panel's) — then click the other device's first port
+	else if (!mod && !e.altKey && k === 'p' && ws.portSel) { e.preventDefault(); ws.patchFrom(ws.portSel) }
+	else if (!mod && !e.altKey && k === 'i' && ws.portSel && project.index.get(ws.portSel.on)?.type === 'device' && (project.index.get(ws.portSel.on) as { kind?: string }).kind === 'panel') { e.preventDefault(); ws.interconnectFrom(ws.portSel) }
 	else if (e.key === 'F1') { e.preventDefault(); c.help(false) }
 	else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
 	else if (mod && k === 'o') { e.preventDefault(); c.openProject() }
@@ -72,7 +75,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	}
 	else if (arrow && !mod && ws.selection.length) { e.preventDefault(); canvas?.nudge(arrow[0], arrow[1], e.shiftKey) }
 	else if (e.key === 'Delete' || e.key === 'Backspace') c.deleteSelected()
-	else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (!ws.selection.length && canvas?.unfocus()) { /* back to the whole row */ } else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
+	else if (e.key === 'Escape') { if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else canvas?.leaveViewport() }
 	else if (e.key === 'Home' && e.shiftKey) c.zoomSel()
 	else if (e.key === 'Home') canvas?.zoomExtents()
 	else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); canvas?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) }

@@ -13,7 +13,7 @@
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
 	import { untrack } from 'svelte'
-	import { rackRowDisplayList, rowHit, rackLayout, type RowSpec } from '../views/rackRow'
+	import { rackRowDisplayList, rowHit, type RowSpec } from '../views/rackRow'
 	import { sheetDisplayList, onPaper, paperSize } from '../views/sheet'
 	import { viewportFrame, inWindow } from '../views/vpFrame'
 	import ViewportChip from './ViewportChip.svelte'
@@ -190,24 +190,14 @@
 		ws.say(`${specLabel(spec)} on ${r.sheet.number} at 1:${r.scale} — drag the viewport into place, resize it by a corner`)
 	}
 
-	/** Double-click a rack in a rack view: fit it; with Shift, it and the rack beside it (a pair — backlog "Rack tree and
-	 *  row views"). Esc (nothing selected) goes back to the whole row. Off a rack: the whole row. */
-	let focused = false
-	function focusRack(p: Pt, pair = false): void {
+	/** Double-click a rack in a rack view: fit it; off a rack: the whole row. */
+	function focusRack(p: Pt): void {
 		const racks = prims.filter((x) => x.k === 'line' && x.cls === 'rack')
 		const id = pickAt(racks, p, TOL_PX / cam.k)
-		let ids = id ? [id] : []
-		if (id && pair && spec.kind === 'row') {
-			const order = rackLayout(project.index, spec).map((l) => l.rack.id), i = order.indexOf(id)
-			const next = order[i + 1] ?? order[i - 1]
-			if (next) ids = [id, next]
-		}
-		const b = ids.length ? unionBounds(prims.filter((x) => x.src && ids.includes(x.src)).map(primBounds)) : null
-		if (b) { cam = fit(b, w, h); focused = true }
-		else { zoomExtents(); focused = false }
+		const b = id ? unionBounds(prims.filter((x) => x.src === id).map(primBounds)) : null
+		if (b) cam = fit(b, w, h)
+		else zoomExtents()
 	}
-	/** Esc with nothing selected in a rack view focused on a rack: back to the whole row. True = done. */
-	export function unfocus(): boolean { if (spec.kind !== 'row' || !focused) return false; zoomExtents(); focused = false; return true }
 
 	/** Zoom to the selection (UX review V3; Shift+Home): what this view draws of it, with a margin. False = none here. */
 	export function zoomToSelection(): boolean {
@@ -308,6 +298,8 @@
 	/** Click counting (a pointerdown's `detail` is always 0): ui/canvasInfo.ts. */
 	const clicks = new ClickCounter()
 	const pressCount = (e: PointerEvent): number => clicks.press(local(e), e.timeStamp)
+	/** The annotation tools: on a sheet they always annotate the view (an edited viewport is left first). */
+	const ANNOTATE = new Set<string>(['text', 'leader', 'cloud', 'dimension'])
 
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
@@ -359,11 +351,14 @@
 			// outside the edited viewport nothing is picked (the frame only); a double-click there leaves it
 			if (!inWindow(vpe, q)) { if (count >= 2) exitVp(); return }
 			if (ws.vpContentNav) { vpPan = { at: q, vp: vpe.vp, g: null }; return }
+			// annotations go on the VIEW, never into the model from a sheet (Dave 2026-10-07): an annotation tool leaves the
+			// viewport first, and the note is tied to it as when it isn't being edited
+			if (ANNOTATE.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
 		}
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
 		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
-		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p, e.shiftKey); return }
+		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
 		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
 		if (why) { ws.say(why); return }
 		toolDown = true
@@ -466,7 +461,7 @@
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
-			<Prims prims={traceHighlight} selected={new Set()} />
+			<Prims prims={traceHighlight} selected={new Set()} k={cam.k} />
 			<Prims prims={fillOverlay} selected={new Set()} />
 			<Prims prims={routeHighlight} selected={new Set()} />
 			<Prims prims={vpHighlight} selected={new Set()} />
@@ -477,8 +472,8 @@
 				<rect class="vp-edit" x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} vector-effect="non-scaling-stroke" />
 				<Prims prims={vpSelected} selected={selSet} />
 			{/if}
-			<Prims prims={portHighlight} selected={new Set()} />
-			<Prims prims={preview} selected={new Set()} />
+			<Prims prims={portHighlight} selected={new Set()} k={cam.k} />
+			<Prims prims={preview} selected={new Set()} k={cam.k} />
 			{#if mq}
 				<rect x={mq.x0} y={mq.y0} width={mq.x1 - mq.x0} height={mq.y1 - mq.y0}
 					class="marquee" class:crossing vector-effect="non-scaling-stroke" />

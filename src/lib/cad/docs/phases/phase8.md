@@ -1622,3 +1622,14 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   workspace starts fresh). Help: Ctrl+O. Live: Ctrl+O → Project Journey, Test Project (open), LR; Esc closed it.
 - **Riser voids white (Dave):** the raised-floor void and ceiling plenum are no longer shaded (`riser-void` strips
   and their styles removed); slabs, FFL and ceiling lines unchanged. Live: S007 shows 0 voids, 5 slabs.
+- **Dave 2026-10-07 follow-ups:**
+  - Rack pair focus removed (Shift+double-click, Esc back to the row): not needed. Double-click a rack still fits it.
+  - Annotations on sheets go on the VIEW only: Text / Leader / Cloud / Dimension used inside a viewport being edited
+    leave it first, so the note is tied to the viewport (never written into the model from a sheet). Help entry.
+    Live: S001, editing a viewport, Text click → edit mode left, text on the sheet (undone).
+  - Selected / traced port labels readable: their labels are redrawn over the highlight cell (white on a solid blue
+    selected cell, dark on the amber traced ones), with zoom LOD. Hovering a port outlines the cell only (the blue
+    copy of its label — both LOD forms at once — looked blurred). The tool preview layer gets the zoom for LOD.
+  - Patch to… easier to find: the selected ports' section is at the TOP of Device Properties (boxed), Patch to… /
+    Interconnect to… are blue buttons with their keys; P / I arm them; right-click a selected port → Patch to… /
+    Interconnect to… first in the menu. Help: keys + the patching answer. Live: all three, P armed the Cord tool.

@@ -26,9 +26,10 @@ export const HOWTO: HowTo[] = [
 	{ q: 'Add a device from the library', a: 'Window › Device library (it opens with the Device tool): find a template, then DRAG it onto a rack in a rack view — the outline shows where it lands (red: it overlaps or runs off the rack) and the drop adds it, selected. Or click a template, then click a U in a rack.' },
 	{ q: 'Draw cords along the cable channels', a: 'In a rack view, Cord channels (in the strip over the view) draws every patch cord down to the channel at the side of its panel, across through the nearest horizontal manager when it changes side, and between racks at mid-height. Off = straight cords. It is a project setting: sheets and PDFs follow it.' },
 	{ q: 'Move, resize or pan a viewport', a: 'Click a viewport’s FRAME (its border) on the sheet: drag the frame to move it, a corner to resize it. Its middle doesn’t pick it, so it can’t be dragged by mistake — double-click inside to edit the model in it. The chip on its corner sets its scale and has Pan / zoom content (a drag inside pans its view, the wheel steps its scale). Its view, level and scale are also in Properties.' },
+	{ q: 'Annotate a viewport on a sheet', a: 'With the viewport NOT being edited, use Text, Leader, Cloud, Dimension, Line or Insert where it shows: what you draw is tied to that viewport (it moves and scales with it) and stays on this sheet. Started on the paper, it belongs to the paper. Annotation tools never write into the model from a sheet — used inside a viewport you are editing, they leave it first.' },
 	{ q: 'Hide a layer in a viewport', a: 'The eye in Layers hides a layer on screen everywhere, viewports included. What PRINTS is each viewport’s ❄: pick the viewport (or edit inside it) and click a layer’s snowflake to freeze it in that viewport (Shift: every viewport on the sheet).' },
 	{ q: 'Open, move and dock windows', a: 'Window menu: tick a window to open it. Drag a window by its title to float it over the drawing; drop it on the left or right edge to dock it there. Ctrl+. hides every window and brings them back; Window › Reset layout puts everything back.' },
-	{ q: 'Patch ports in a rack view', a: 'Open the room\'s rack view (Racks › Rack view). Pick the Cord tool, click a port, then the port it goes to. Several ports: select them (Shift-click a range), Properties › Patch to…, then click the first target port.' },
+	{ q: 'Patch ports in a rack view', a: 'Open the room\'s rack view (Racks › Rack view). Pick the Cord tool, click a port, then the port it goes to. Several ports: select them (Shift-click a range), press P (or right-click them › Patch to…, or the blue Patch to… at the top of Properties), then click the first target port.' },
 	{ q: 'Allocate outlets to panel ports', a: 'Outlets table › Allocate (the selected outlets, else this level): each port gets a panel port of its server room, racks in row order, top U down. Assign → port… places them by hand (pinned).' },
 	{ q: 'Print panels with their labels', a: 'Racks window: a room\'s ⋯ → "Print panels with labels (PDF)…" (or "Export panel labels (Excel)…"). Afterwards it offers to mark the panels as printed, so later label changes ask first.' },
 	{ q: 'Undo a mistake', a: 'Ctrl+Z (Edit › Undo). Undo selects what came back or changed and opens its level.' },
@@ -49,6 +50,6 @@ export const SHORTCUTS: [string, string][] = [
 ]
 
 export const FKEYS: [string, string][] = [
-	['F1', 'Help (this)'], ['F2', 'Edit the selected label in place'], ['F3', 'OSNAP: object snaps on / off'], ['F4', 'Repeat the last device edit on the selected devices'],
+	['F1', 'Help (this)'], ['F2', 'Edit the selected label in place'], ['F3', 'OSNAP: object snaps on / off'], ['F4', 'Repeat the last device edit on the selected devices'], ['P / I', 'Patch / Interconnect the selected ports to… (then click the first port on the other device)'],
 	['F7', 'GRID: draw the grid'], ['F9', 'SNAP: grid snap on / off'],
 ]

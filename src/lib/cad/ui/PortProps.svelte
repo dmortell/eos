@@ -86,12 +86,12 @@
 
 <p class="pt-1 font-semibold">Port{sel.ports.length > 1 ? 's' : ''} {portRanges(sel.ports)} <span class="font-normal text-zinc-500">({sel.face})</span></p>
 <p class="text-zinc-500">Click a port · Shift-click a range · Ctrl-click to add or drop one</p>
-<div class="acts">
-	<!-- click, then click the first port; or DRAG the button onto that port in a rack view (backlog "Bulk patching by drag") -->
+<div class="acts main">
+	<!-- click (or P / I, or right-click a port), then click the first port; or DRAG the button onto that port in a rack view (backlog "Bulk patching by drag") -->
 	<button title="Patch these ports to another device: click its first port next — or drag this onto that port (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}
-		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.patchFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'patch') }} ondragend={() => ws.endDrag()}>Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to…</button>
+		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.patchFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'patch') }} ondragend={() => ws.endDrag()} class="primary">⇄ Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to… <kbd>P</kbd></button>
 	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port — or drag this onto that port" onclick={() => ws.interconnectFrom(sel)}
-		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.interconnectFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'link') }} ondragend={() => ws.endDrag()}>Interconnect to…</button>{/if}
+		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.interconnectFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'link') }} ondragend={() => ws.endDrag()} class="primary">⟷ Interconnect to… <kbd>I</kbd></button>{/if}
 	{#if cables.length}<button title="Remove the permanent cables on these ports — outlet links, ties and backbone, patched or not" onclick={() => removeAll(`Remove ${cables.length} link${cables.length === 1 ? '' : 's'}`, cables.map((l) => l.id))}>Remove links ({cables.length})</button>{/if}
 	{#if cordsHere.length}<button title="Remove the patch cords on these ports" onclick={() => removeAll(`Remove ${cordsHere.length} cord${cordsHere.length === 1 ? '' : 's'}`, cordsHere.map((c) => c.id))}>Remove cords ({cordsHere.length})</button>{/if}
 </div>
@@ -143,6 +143,11 @@
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
 	.acts button, .acts select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); font-size: 12px; }
 	.acts button:hover { background: var(--cad-hover); }
+	/* the port's main actions: big, blue, with their key */
+	.acts.main { margin: 6px 0; }
+	.acts button.primary { background: #2563eb; border-color: #1d4ed8; color: #fff; font-weight: 600; padding: 2px 8px; }
+	.acts button.primary:hover { background: #1d4ed8; }
+	.acts kbd { font: 10px ui-monospace, monospace; border: 1px solid #ffffff80; border-radius: 3px; padding: 0 3px; margin-left: 2px; }
 	.from { color: var(--cad-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }

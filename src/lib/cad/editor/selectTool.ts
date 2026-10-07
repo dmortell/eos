@@ -426,11 +426,12 @@ export class SelectTool implements Tool {
 			const at = new Map(run.geom.nodes.map((n) => [n.id, c.space.fromWorld(n)]))
 			for (const g of run.geom.segs) if (ps.segs.includes(g.id) && at.get(g.a) && at.get(g.b)) out.push({ k: 'line', pts: [at.get(g.a)!, at.get(g.b)!], cls: 'seg-sel' })
 		}
-		// what a click would take (UX06), unless it's already selected: its outline (a port: just that cell)
+		// what a click would take (UX06), unless it's already selected: its outline (a port: just that cell, its label left
+		// as drawn — a blue copy over it made it unreadable, Dave 2026-10-07)
 		const hv = this.#hov
 		if (hv && !this.#gesture && (hv.sub ? true : !c.selection.includes(hv.id))) {
 			for (const p of c.prims()) {
-				if (p.src !== hv.id || p.k === 'image' || (hv.sub && p.sub !== hv.sub)) continue
+				if (p.src !== hv.id || p.k === 'image' || (hv.sub && (p.sub !== hv.sub || p.k === 'text'))) continue
 				out.push(p.k === 'text' ? { ...p, cls: 'hover' } : p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false })
 			}
 		}

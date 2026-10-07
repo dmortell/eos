@@ -197,9 +197,12 @@
 	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
 	.cord-change { stroke-dasharray: 8 2 2 2; }
 	.port-reserved { fill: #f5f3ff; stroke: #8b5cf6; stroke-dasharray: 3 2; }
-	.port-sel { fill: #2563eb; fill-opacity: 0.35; stroke: #1d4ed8; stroke-width: 2; }
+	.port-sel { fill: #2563eb; stroke: #1e3a8a; stroke-width: 2; }
 	text.device-stale { fill: #b91c1c; }
 	text.port-label { fill: #0c4a6e; font-family: ui-monospace, monospace; }
+	/* a selected / traced port's label, redrawn over its highlight cell */
+	text.port-label-sel { fill: #ffffff; font-weight: 600; }
+	text.port-label-trace { fill: #78350f; }
 	text.u-label { fill: #94a3b8; }
 	text.u-label.u-clash { fill: #dc2626; font-weight: 700; }
 	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
