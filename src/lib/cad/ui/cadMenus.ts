@@ -18,6 +18,9 @@ export interface MenuCtx {
 	uploads(): void
 	/** Pick another project and open it in cad (Ctrl+O). */
 	openProject(): void
+	/** Download backup… / Restore from file… (ADR 0008); only the owner restores. */
+	backup(mode: 'download' | 'restore'): void
+	canRestore: boolean
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -57,6 +60,9 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			// from inside cad": the link; embedding it is still to decide)
 			{ label: 'Open project…', key: 'Ctrl+O', run: c.openProject },
 			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
+			'-',
+			{ label: 'Download backup…', title: 'Save the whole project or chosen models as a file', run: () => c.backup('download') },
+			{ label: 'Restore from file…', disabled: !c.canRestore, title: c.canRestore ? 'Put models back as they were in a backup file' : 'Only the project owner can restore', run: () => c.backup('restore') },
 			'-',
 			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
 			{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },

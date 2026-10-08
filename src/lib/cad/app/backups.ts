@@ -51,6 +51,26 @@ export async function applyRestore(project: CadProject, file: ProjectFile, parts
 	return p
 }
 
+// ── As a file (.eoscad = gzipped JSON) ──────────────────────────────────────────────────────────────────────────
+
+export async function gzipText(text: string): Promise<Blob> {
+	return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).blob()
+}
+
+/** A backup file's text: gzipped (as downloaded) or plain JSON. */
+export async function readBackupFile(f: Blob): Promise<string> {
+	const head = new Uint8Array(await f.slice(0, 2).arrayBuffer())
+	if (head[0] !== 0x1f || head[1] !== 0x8b) return f.text()
+	return new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text()
+}
+
+/** "Test Project 33F 3303 2026-10-08 1402.eoscad" */
+export function backupFileName(projectName: string, label: string, at = new Date()): string {
+	const p = (n: number) => String(n).padStart(2, '0')
+	const stamp = `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())} ${p(at.getHours())}${p(at.getMinutes())}`
+	return `${`${projectName} ${label} ${stamp}`.replace(/[\\/:*?"<>|]+/g, '_').trim()}.eoscad`
+}
+
 /** Restores go into the project the backup came from (ADR 0008 §5). */
 export function checkFile(project: CadProject, file: ProjectFile): void {
 	if (file.project?.id && file.project.id !== project.pid) throw new Error(`This backup is from ${file.project.name || file.project.id}, not this project`)
