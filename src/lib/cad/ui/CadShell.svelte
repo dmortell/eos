@@ -42,12 +42,12 @@
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 
-	let { pid, user, projectName }: { pid: string; user: string; projectName: string } = $props()
+	let { pid, user, userName = '', projectName, ownerId }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string } = $props()
 
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
 	const project = new CadProject(pid, firestore, user)
-	$effect(() => { project.name = projectName })
+	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName })
 	const ws = new Workspace()
 	const panels = new Panels()
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */

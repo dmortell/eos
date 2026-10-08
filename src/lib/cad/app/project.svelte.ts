@@ -43,6 +43,10 @@ export class CadProject {
 	readonly store = new EntityStore()
 	/** The project's display name (title blocks, export file names); set by the shell. */
 	name = $state('')
+	/** The project's owner (`projects/{pid}.ownerId`; set by the shell): only they restore a backup (ADR 0008 §4). */
+	ownerId = $state<string | undefined>()
+	/** The signed-in user's name, for who made a backup. */
+	userName = $state('')
 	readonly pdf: PdfCache
 	/** Bumped on every store change; everything derived reads it. */
 	rev = $state(0)
@@ -76,7 +80,7 @@ export class CadProject {
 	#offTemplates: () => void
 	#offCategories: () => void
 
-	constructor(readonly pid: string, readonly db: Firestore, user: string) {
+	constructor(readonly pid: string, readonly db: Firestore, readonly user: string) {
 		this.pdf = new PdfCache(db)
 		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> })
 		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> })
@@ -176,6 +180,13 @@ export class CadProject {
 	/** Save the whole global sheet category list (replaces the doc: a removed field must not survive a merge). */
 	async saveSheetCategories(list: SheetCategory[]): Promise<void> {
 		await setDoc(doc(this.db, ...CATEGORIES_DOC), { categories: list.map((c) => stripUndefined(c)) })
+	}
+
+	/** Add blocks a restored backup draws that the global library no longer has (never overwrites one it has). */
+	async addMissingBlocks(blocks: Block[]): Promise<number> {
+		const missing = blocks.filter((b) => !this.blocks.has(b.id) && !b.builtin)
+		if (missing.length) await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: Object.fromEntries(missing.map((b) => [b.id, stripUndefined(b)])) }, { merge: true })
+		return missing.length
 	}
 
 	/** Save a device's shape as a global template ("Save as template"). */
