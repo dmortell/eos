@@ -16,9 +16,8 @@ import { freeze, fingerprint, planIssue, withRevision, withCodes, revCodeProblem
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
+import { splitChunks } from '../persist/chunks'
 
-/** Text chunks per Firestore doc: ≤ 300k characters stays under the 1 MB doc limit even if all of it is Japanese. */
-const CHUNK = 300_000
 const key = (sheetId: string, rev: string) => `${sheetId}~${encodeURIComponent(rev)}`
 const col = (p: CadProject) => `projects/${p.pid}/cadIssued`
 
@@ -47,10 +46,10 @@ export async function previewIssue(project: CadProject, sheets: Sheet[], first: 
 }
 
 async function saveFrozen(project: CadProject, sheet: Sheet, rev: string, issueId: string, prims: Prim[]): Promise<void> {
-	const json = JSON.stringify(prims), k = key(sheet.id, rev), parts = Math.max(1, Math.ceil(json.length / CHUNK))
+	const chunks = splitChunks(JSON.stringify(prims)), k = key(sheet.id, rev)
 	const b = writeBatch(project.db)
-	b.set(doc(project.db, col(project), k), { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts, at: Date.now() })
-	for (let i = 0; i < parts; i++) b.set(doc(project.db, col(project), `${k}~p${i}`), { json: json.slice(i * CHUNK, (i + 1) * CHUNK) })
+	b.set(doc(project.db, col(project), k), { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts: chunks.length, at: Date.now() })
+	chunks.forEach((json, i) => b.set(doc(project.db, col(project), `${k}~p${i}`), { json }))
 	await b.commit()
 }
 async function loadFrozen(project: CadProject, sheetId: string, rev: string): Promise<PdfPage> {

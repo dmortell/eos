@@ -7,14 +7,17 @@
 	import { floorsOf, partsLabel, type Parts } from '../domain/backupParts'
 	import { canRestore } from '../domain/restorePlan'
 	import { readProjectFile, type ProjectFile } from '../persist/file'
-	import { collect, previewRestore, applyRestore, gzipText, readBackupFile, backupFileName, checkFile, type RestorePreview } from '../app/backups'
+	import { collect, previewRestore, applyRestore, gzipText, readBackupFile, backupFileName, checkFile, storeBackup, type RestorePreview } from '../app/backups'
 	import { download } from '../render/download'
 
-	let { project, mode, onclose, say }: { project: CadProject; mode: 'download' | 'restore'; onclose: () => void; say: (msg: string) => void } = $props()
+	/** `source`: restore a stored backup (Project › Backups…) instead of choosing a file. */
+	let { project, mode, source, onclose, say }: { project: CadProject; mode: 'download' | 'restore'; source?: { file: ProjectFile; name: string }; onclose: () => void; say: (msg: string) => void } = $props()
 
-	let parts = $state<Parts>('all')
+	// svelte-ignore state_referenced_locally
+	let parts = $state<Parts>(source?.file.parts ?? 'all')
 	let busy = $state(''), error = $state('')
-	let file = $state.raw<ProjectFile | null>(null), fileName = $state(''), fileWarnings = $state<string[]>([])
+	// svelte-ignore state_referenced_locally
+	let file = $state.raw<ProjectFile | null>(source?.file ?? null), fileName = $state(source?.name ?? ''), fileWarnings = $state<string[]>([])
 	let preview = $state.raw<RestorePreview | null>(null)
 	let backFirst = $state(true)
 	let input: HTMLInputElement | undefined = $state()
@@ -70,7 +73,7 @@
 			id = noticeId = await notices.announce(what, partsLabel(file!.entities, parts))
 			await notices.countdown(id)
 			await notices.start(id)
-			if (backFirst) await saveFile(parts, 'Before restore - ')
+			if (backFirst) await storeBackup(project, `Before restore — ${what}`, parts)
 			const p = await applyRestore(project, file!, parts, what)
 			const line = `${p.line}${p.skipped.length ? ` (${p.skipped.length} skipped)` : ''}`
 			await notices.finish(id, line)
@@ -82,14 +85,15 @@
 		} finally { noticeId = '' }
 	})
 
+	const title = $derived(mode === 'download' ? 'Download backup' : source ? 'Restore backup' : 'Restore from file')
 	const when = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleString() }
 	function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !busy) { e.preventDefault(); onclose() } }
 </script>
 
 <svelte:window onkeydown={onKey} />
 <div class="backdrop">
-	<div class="dlg" role="dialog" aria-modal="true" aria-label={mode === 'download' ? 'Download backup' : 'Restore from file'}>
-		<div class="head"><b>{mode === 'download' ? 'Download backup' : 'Restore from file'}</b><button class="x" title="Close (Esc)" disabled={!!busy} onclick={onclose}>✕</button></div>
+	<div class="dlg" role="dialog" aria-modal="true" aria-label={title}>
+		<div class="head"><b>{title}</b><button class="x" title="Close (Esc)" disabled={!!busy} onclick={onclose}>✕</button></div>
 
 		{#if mode === 'download'}
 			<section>
@@ -103,7 +107,7 @@
 		{:else}
 			<section>
 				<div class="row">
-					<button class="btn" disabled={!!busy} onclick={() => input?.click()}>{file ? 'Choose another file…' : 'Choose a backup file…'}</button>
+					{#if !source}<button class="btn" disabled={!!busy} onclick={() => input?.click()}>{file ? 'Choose another file…' : 'Choose a backup file…'}</button>{/if}
 					<input bind:this={input} type="file" accept=".eoscad,.json" hidden onchange={pick} />
 					{#if file}<span class="fname">{fileName}</span>{/if}
 				</div>
@@ -123,7 +127,7 @@
 						{#each preview.skipped.slice(0, 8) as s (s)}<div class="warn">{s}</div>{/each}
 						{#if preview.skipped.length > 8}<div class="warn">… and {preview.skipped.length - 8} more skipped</div>{/if}
 						<div class="hint">Everyone working in these models gets the change at once. Issues and sheet revisions stay as they are.</div>
-						<label class="row"><input type="checkbox" bind:checked={backFirst} /> Download the current state first</label>
+						<label class="row"><input type="checkbox" bind:checked={backFirst} /> Back up the current state first <span class="hint">(Project › Backups…)</span></label>
 					{:else}
 						<div class="hint">Compare first, to see what the restore would change.</div>
 					{/if}

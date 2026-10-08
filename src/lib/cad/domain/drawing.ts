@@ -151,6 +151,9 @@ export interface Issue {
 	withdrawn?: { sheetId: Id; number: string; title: string; rev: string }[]
 	/** How many cover pages (a transmittal) open its PDF — frozen with it, so a reprint shows them as issued. */
 	cover?: number
+	/** The whole-project backup made with it (`cadBackups/{id}`, ADR 0008 §7), when "Back up the project with this
+	 *  issue" was ticked — the Issues list can then restore it. */
+	backupId?: Id
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

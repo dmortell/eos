@@ -2,10 +2,14 @@
 // holds and what a restore changes are worked out in the domain (backupParts.ts, restorePlan.ts); this waits for the
 // data to be complete and writes.
 import type { CadProject } from './project.svelte'
-import type { Id } from '../domain/types'
-import { makeBackup, type ProjectFile } from '../persist/file'
+import type { Id, Level } from '../domain/types'
+import type { Issue } from '../domain/drawing'
+import { makeBackup, readProjectFile, type ProjectFile } from '../persist/file'
 import { partsLabel, type Parts } from '../domain/backupParts'
 import { restorePlan, restoreSummary, canRestore, type RestorePlan } from '../domain/restorePlan'
+import { splitChunks } from '../persist/chunks'
+import { newId } from '../domain/ids'
+import { collection, doc, getDocs, writeBatch, updateDoc } from 'firebase/firestore'
 
 /** Wait until the store holds the parts as the server has them: the project and the chosen models loaded, and none
  *  of this tab's own edits still on the way. */
@@ -49,6 +53,78 @@ export async function applyRestore(project: CadProject, file: ProjectFile, parts
 		for (const e of p.plan.put) tx.put(e)
 	})
 	return p
+}
+
+// ── Stored backups (`projects/{pid}/cadBackups/{id}` + `/chunks/{n}`, ADR 0008 §3) ──────────────────────────────
+
+/** A stored backup's head: what the Backups window lists (the data is in its chunks). */
+export interface BackupHead {
+	id: Id
+	name: string
+	note?: string
+	by: { uid: string; name: string }
+	at: number
+	/** 'all', or the models it holds with their names then. */
+	parts: 'all' | { levelId: Id; name: string }[]
+	/** Entities, JSON characters, chunk docs. */
+	count: number
+	bytes: number
+	chunks: number
+	/** The issue it was made with (ADR 0008 §7). */
+	issueId?: Id
+}
+
+export const backupsCol = (p: CadProject) => collection(p.db, 'projects', p.pid, 'cadBackups')
+const chunksCol = (p: CadProject, id: Id) => collection(p.db, 'projects', p.pid, 'cadBackups', id, 'chunks')
+
+/** Back up `parts` into the project. The chunks go first and the head last, so the list never shows half of one. */
+export async function storeBackup(project: CadProject, name: string, parts: Parts, o: { note?: string; issueId?: Id } = {}): Promise<BackupHead> {
+	const file = await collect(project, parts)
+	const json = JSON.stringify(file), chunks = splitChunks(json), id = newId()
+	for (let i = 0; i < chunks.length; i += 8) {           // ≤ 2.4 M characters a batch, under its 10 MB limit
+		const b = writeBatch(project.db)
+		chunks.slice(i, i + 8).forEach((c, k) => b.set(doc(chunksCol(project, id), String(i + k)), { n: i + k, json: c }))
+		await b.commit()
+	}
+	const levels = new Map(file.entities.filter((e): e is Level => e.type === 'level').map((l) => [l.id, l.name]))
+	const head: BackupHead = {
+		id, name: name.trim() || partsLabel(file.entities, parts), by: file.by!, at: Date.now(),
+		parts: parts === 'all' ? 'all' : parts.map((levelId) => ({ levelId, name: levels.get(levelId) ?? levelId })),
+		count: file.entities.length, bytes: json.length, chunks: chunks.length,
+		...(o.note?.trim() ? { note: o.note.trim() } : {}), ...(o.issueId ? { issueId: o.issueId } : {}),
+	}
+	const b = writeBatch(project.db)
+	b.set(doc(backupsCol(project), id), head)
+	await b.commit()
+	return head
+}
+
+/** A stored backup's data, as a file. */
+export async function loadBackup(project: CadProject, head: BackupHead): Promise<ProjectFile> {
+	const docs = (await getDocs(chunksCol(project, head.id))).docs.map((d) => d.data() as { n: number; json: string }).sort((a, b) => a.n - b.n)
+	if (docs.length !== head.chunks) throw new Error(`The backup "${head.name}" is incomplete (${docs.length} of ${head.chunks} parts)`)
+	const r = readProjectFile(docs.map((d) => d.json).join(''))
+	if (r.error || !r.file) throw new Error(r.error ?? 'Not a backup')
+	return r.file
+}
+
+export async function renameBackup(project: CadProject, id: Id, name: string, note: string): Promise<void> {
+	await updateDoc(doc(backupsCol(project), id), { name: name.trim(), note: note.trim() })
+}
+
+/** Delete backups (heads first, so the list drops them at once; then their chunks). An issue that pointed at one
+ *  forgets it (it can still be reprinted). Not undoable. */
+export async function deleteBackups(project: CadProject, heads: BackupHead[]): Promise<void> {
+	const ids = new Set(heads.map((h) => h.id))
+	const b = writeBatch(project.db)
+	for (const h of heads) b.delete(doc(backupsCol(project), h.id))
+	await b.commit()
+	for (const h of heads) {
+		const cs = (await getDocs(chunksCol(project, h.id))).docs
+		for (let i = 0; i < cs.length; i += 400) { const cb = writeBatch(project.db); cs.slice(i, i + 400).forEach((d) => cb.delete(d.ref)); await cb.commit() }
+	}
+	const issues = project.store.ofType('issue').filter((i) => i.backupId && ids.has(i.backupId))
+	if (issues.length) project.store.transact('Forget deleted backups', (tx) => { for (const i of issues) { const { backupId: _, ...rest } = i; tx.put(rest as Issue) } })
 }
 
 // ── As a file (.eoscad = gzipped JSON) ──────────────────────────────────────────────────────────────────────────

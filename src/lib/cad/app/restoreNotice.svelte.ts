@@ -36,6 +36,9 @@ export class RestoreNotices {
 	#off: () => void
 	#tick: ReturnType<typeof setInterval>
 	#cleared = new Set<string>()
+	#seen = new Set<string>()
+	/** This session saw the notice before it ended (a cancelled one only matters to those who saw it coming). */
+	sawComing = (id: string) => this.#seen.has(id)
 
 	constructor(private project: CadProject) {
 		this.#off = onSnapshot(ref(project.db, project.pid), (s) => { this.notice = (s.data() as Notice | undefined) ?? null; this.#apply() })
@@ -46,6 +49,7 @@ export class RestoreNotices {
 	 *  fight it, so they go. (Called from the listener, not an effect: it reads and writes state.) */
 	#apply(): void {
 		const n = this.notice, store = this.project.store
+		if (n && isLive(n)) this.#seen.add(n.id)
 		const other = !!n && !this.mine(n)
 		store.readOnly = other && n.state === 'running' && isLive(n) ? `${n.by.name || 'Someone'} is restoring ${n.parts} — editing is paused until it's done` : null
 		if (other && n.state === 'done' && !this.#cleared.has(n.id) && Date.now() - n.at < ABANDONED_MS) { this.#cleared.add(n.id); store.clearHistory() }

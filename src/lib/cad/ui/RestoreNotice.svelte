@@ -12,7 +12,7 @@
 
 	const n = $derived(project.notices.notice)
 	const show = $derived(!!n && !project.notices.mine(n) && !dismissed.includes(`${n.id}:${n.state}`) &&
-		(isLive(n, now) || ((n.state === 'done' || n.state === 'cancelled') && now - n.at < ABANDONED_MS)))
+		(isLive(n, now) || ((n.state === 'done' || (n.state === 'cancelled' && project.notices.sawComing(n.id))) && now - n.at < ABANDONED_MS)))
 	const left = $derived(n ? Math.max(0, Math.ceil((n.startsAt - now) / 1000)) : 0)
 	const who = $derived(n?.by.name || 'Someone')
 	const time = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { restorePlan, restoreSummary, canRestore } from './restorePlan'
+import { restorePlan, restoreSummary, canRestore, canDeleteBackup } from './restorePlan'
 import { demoProject } from './fixtures'
 import type { Entity } from './drawing'
 import type { Level, Outlet, Link, Rack } from './types'
@@ -72,5 +72,11 @@ describe('restore plan', () => {
 		expect(canRestore('u1', 'u2')).toBe(false)
 		expect(canRestore(undefined, 'u2')).toBe(true)
 		expect(canRestore('u1', undefined)).toBe(false)
+	})
+	it('a backup is deleted by its maker or the owner', () => {
+		expect(canDeleteBackup('u2', 'u1', 'u2')).toBe(true)
+		expect(canDeleteBackup('u3', 'u1', 'u1')).toBe(true)
+		expect(canDeleteBackup('u3', 'u1', 'u2')).toBe(false)
+		expect(canDeleteBackup('u3', undefined, 'u2')).toBe(true)
 	})
 })
