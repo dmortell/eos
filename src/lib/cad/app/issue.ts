@@ -17,6 +17,7 @@ import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, ty
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
 import { splitChunks } from '../persist/chunks'
+import { storeBackup } from './backups'
 
 const key = (sheetId: string, rev: string) => `${sheetId}~${encodeURIComponent(rev)}`
 const col = (p: CadProject) => `projects/${p.pid}/cadIssued`
@@ -75,6 +76,8 @@ export type IssueForm = {
 	withdrawn?: Issue['withdrawn']
 	/** A cover page / transmittal first in the PDF (slice 8), with who gets it. */
 	cover?: boolean; recipients?: { name: string; org?: string }[]
+	/** Back up the whole project with it (ADR 0008 §7) — off unless ticked: a full copy each time. */
+	backup?: boolean
 }
 export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: string[] }
 
@@ -85,7 +88,9 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const plan = withCodes(await previewIssue(project, sheets, f.first), f.codes)
 	// a typed code must be new for its sheet — checked before anything is written
 	for (const r of plan) { const why = r.changed ? revCodeProblem(r.sheet, r.rev) : null; if (why) throw new Error(why) }
-	const issueId = newId()
+	const issueId = newId(), number = nextIssueNumber(project.store.ofType('issue'))
+	// the backup first: if it fails, nothing has been written yet
+	const backup = f.backup ? await storeBackup(project, `${issueTag(number)}: ${f.name}`, 'all', { issueId }) : null
 	const bumped: Sheet[] = [], pages: PdfPage[] = []
 	for (const row of plan) {
 		if (!row.changed) { pages.push(await loadFrozen(project, row.sheet.id, row.rev)); continue }
@@ -98,7 +103,6 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 		bumped.push(done)
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
-	const number = nextIssueNumber(project.store.ofType('issue'))
 	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue
 	let coverN = 0
 	if (f.cover && plan.length) {
@@ -120,7 +124,7 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}), ...(backup ? { backupId: backup.id } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}

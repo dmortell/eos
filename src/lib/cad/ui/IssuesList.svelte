@@ -13,11 +13,13 @@
 	import { exportTransmittal } from '../render/transmittal'
 	import { exportIssueRegister } from '../render/issueRegister'
 	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
+	import { canRestore } from '../domain/restorePlan'
 
 	let { project, ws, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
+	const owner = $derived(canRestore(project.ownerId, project.user))
 	/** The issue whose details are being edited in its row (Edit / Done). */
 	let editing = $state<string | null>(null)
 	const editIssue = (i: Issue, label: string, patch: Partial<Issue>) => project.store.transact(label, (tx) => tx.put({ ...i, ...patch }))
@@ -84,6 +86,7 @@
 				<td class="px-2 whitespace-nowrap">
 					<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
 					<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
+					{#if i.backupId}<button class="btn" disabled={!owner} title={owner ? 'Put the whole project, or chosen models, back as they were when this went out' : 'Only the project owner can restore'} onclick={() => ws.restoreBackup(i.backupId!)}>Restore its backup…</button>{/if}
 					<button class="btn" disabled={busy} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
 					{#if !i.packageId}<button class="btn" title="Make a re-usable package of its sheets (this issue becomes the package's last issue)" onclick={() => makePackage(i)}>Make package</button>
 					{:else}<span class="pk" title="Issued from a package">{project.index.nameOf(i.packageId) || 'package'}</span>{/if}

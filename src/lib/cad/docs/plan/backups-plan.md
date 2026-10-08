@@ -1,5 +1,7 @@
 # Backups, file download and restore — implementation plan
 
+**Built 2026-10-08** — all seven slices; the log is `../phases/phase8.md` "Backups".
+
 The design is ADR 0008 (`../adr/0008-backups.md`). Built in seven slices, each committed and checked live on Test
 Project (restores there are undone, test backups deleted). About 1,150 lines with tests.
 

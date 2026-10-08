@@ -1643,3 +1643,47 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   - Hovering a device (a cable manager) no longer shows its name twice (blue copy over black): hover outlines a
     thing's shapes and leaves its words as drawn; a text alone still turns blue.
   - "Interconnect" → "Link" in every label, menu, message and help (Link to…, key L); code names unchanged.
+
+## Backups (Dave 2026-10-08; ADR `../adr/0008-backups.md`, plan `../plan/backups-plan.md`)
+
+Called **backups**, not versions (Dave: clearer to a new user). Dave's answers: no automatic backup when issuing (a
+tick), the project owner only restores, a 30 s countdown, models (levels) only, keep until deleted by hand.
+
+- **1 — What a model holds** (`domain/backupParts.ts`): `inParts` — a level, its spaces, outlets, underlays, plan
+  shapes, sections, racks with their rows, devices and cords, the groups its shapes are in; a link / cord with one end
+  inside CROSSES the edge (kept, its outside end noted). `floorsOf` groups area plans by floor (33F = 3303 + 3307),
+  `partsLabel` ("33F 3307 + 32F", a whole floor reads "33F"). The file format is the existing `eos-cad` one
+  (`persist/file.ts`) with `by`, `parts` and `library.blocks` (the global blocks it draws; devices copy a template's
+  data, so no templates); a crossing link's outside end isn't reported as an error. Tests: `backupParts.test.ts` (6),
+  `file.test.ts` (+2).
+- **2 — Restore plan** (`domain/restorePlan.ts`): put back what differs, add back what was deleted, remove what was
+  made since — inside the parts only; an entity moved to another model since is left alone; a crossing link comes back
+  only if its outside end exists and that port is free (else skipped, with why); issues and sheets' `revisions[]` are
+  never rolled back; `restoreSummary` ("1F: 1 changed, 1 removed" + skipped lines); `canRestore` (owner, or anyone
+  when `ownerId` is unset); `canDeleteBackup` (its maker or the owner). Tests: `restorePlan.test.ts` (8).
+- **3 — Collect and apply** (`app/backups.ts`): a backup is taken from the STORE (every level's data loads with the
+  project) once the chosen models are loaded and nothing is pending; restore = ONE undo step, owner only, same
+  project only, missing global blocks added back (`CadProject.addMissingBlocks`). The route passes `ownerId` and the
+  user's name.
+- **4 — As a file:** File › **Download backup…** (whole project or ticked models → gzipped `.eoscad`) and **Restore
+  from file…** (greyed for a non-owner): choose a file, pick its models (`ui/PartsPicker.svelte`), Compare, Restore.
+  A file from another project is refused. Live (Test Project): 1F = 227 items, 11 kB; a copy with A.003 relabelled and
+  a text removed → "1F: 1 changed, 1 removed" → restored → Ctrl+Z → both back (checked in Firestore).
+- **5 — The restore notice** (`app/restoreNotice.svelte.ts`, `ui/RestoreNotice.svelte`): `projects/{pid}/cadMeta/restore`
+  pending → running → done / cancelled, one at a time (a transaction), abandoned after 10 min. Others see the 30 s
+  countdown, are read-only while it runs (`EntityStore.readOnly`: edits, drags, undo / redo refused with the reason
+  in the status bar; remote changes still arrive), then a done banner, and their undo history is cleared; a cancelled
+  one shows only to those who saw it coming. The restorer's dialog counts down with Cancel. Tests: `store.test.ts`
+  (+1). Live, two tabs: B saw the countdown, "editing is paused" (a tier change refused, nothing stored), the done
+  banner; A's restore undone.
+- **6 — Stored backups:** Project › **Backups…** (`ui/BackupsWindow.svelte`): Back up now (name, note, parts), the
+  list with sizes and the total, newest or largest first; per backup Restore… (owner), Download, Rename, Delete (its
+  maker or the owner), tick several → Delete N (a confirm bar). Stored as `cadBackups/{id}` + `chunks/{n}` (chunks
+  first, the head last; chunking shared with `cadIssued` in `persist/chunks.ts`). "Back up the current state first"
+  before a restore now makes a stored backup. Live: "Test 1F" backed up (227 items, 53 kB), a tier edit, restored
+  from it (with "Before restore — Test 1F"), both deleted (heads and chunks gone).
+- **7 — Issues:** the Issue panel's **Back up the project with this issue** (off; ticked it shows the size, "about
+  98 kB" on Test Project) makes a whole-project backup "Issue NN: name" FIRST and records `Issue.backupId`; the Issues
+  list shows **Restore its backup…** on such an issue (owner only); deleting the backup clears `backupId`. Not issued
+  live (an issue uploads a PDF): the tick and warning checked, cancelled.
+- Help: back up / restore a file, keep and clean up backups, the issue tick.

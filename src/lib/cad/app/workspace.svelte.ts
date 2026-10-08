@@ -123,6 +123,8 @@ export class Workspace {
 	viewportView: () => Viewport['view'] | null = () => null
 	/** Set by the app: open the project's title block dialog (Sheets › Title block…, sheet Properties). */
 	openTitleBlock: () => void = () => {}
+	/** Open the Restore dialog on a stored backup (an issue's, from the Issues list); set by the shell. */
+	restoreBackup: (backupId: string) => void = () => {}
 	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
 	selectSimilar: () => void = () => {}
 	/** Set by the app: open a view in its own tab (the viewport chip's "Open view"). */

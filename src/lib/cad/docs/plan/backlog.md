@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 77 entries (0 P1 · 18 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 74 entries (0 P1 · 15 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -143,9 +143,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Revisions, issue and backups
 
 - [ ] **Change history per drawing** — For each sheet: what changed, when, and who asked for it, entered when issuing (or between issues). It fills the title block's revision table. Keep Issue as simple as it is now. **P2 · M** (~100 lines: `by` / description on a revision + edit in Sheet Properties). *cad today:* a sheet's revisions keep code / date / note (= the purpose) / issue (`cad/domain/drawing.ts:46`); the title block shows the last 5 (`cad/domain/titleBlock.ts:55`). *From:* T102
-- [ ] **Project backup as a file** — File › Download backup… (whole project or chosen models (levels: 33F, or 33F 3303 alone)) and Restore from file… (same project; project owner only; pick parts; a preview of what changes; Back up the current state first; one undo step). Design: ADR 0008 §2, §4, §5; plan `backups-plan.md` slices 1–4. **P2 · L** (~700 lines with tests). *cad today:* no backup or restore. *From:* Dave 2026-10-07
-- [ ] **Restore notice for everyone** — a restore is announced to every open session of the project: a 30 s countdown, editing off while it runs, a banner when done (who, what, when); one restore at a time. ADR 0008 §6; plan slice 5. **P2 · M** (~170 lines). *From:* Dave 2026-10-07
-- [ ] **Backups and restoring an issue's backup** — Project › Backups…: named backups of the whole project or chosen models (levels: 33F, or 33F 3303 alone); list with sizes, restore (owner; any of its parts), download, rename, delete (several at once). Issuing backs up only when ticked (with a size warning), and the Issues list gets Restore this issue's backup. Replaces the old Issue gate (ADR 0008 §7, §8). Plan slices 6–7. **P2 · M** (~300 lines after the file backup). *cad today:* per-session undo only (`cad/store/store.ts:71`); frozen copies exist only for issued sheets (`cad/app/issue.ts:44`). *From:* G008, G053, G099, G126, G132, G322, P025, T158
 
 ## Print and export
 

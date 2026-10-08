@@ -1,6 +1,6 @@
 # ADR 0008: Backups of chosen models; restore is announced to everyone
 
-**Status:** Accepted (Dave 2026-10-07 / 08): "essentially a database backup and restore of the models", with
+**Status:** Accepted and built 2026-10-08 (`../phases/phase8.md` "Backups") — Dave 2026-10-07 / 08: "essentially a database backup and restore of the models", with
 backups of a selection of models (33F only, or 3303 and 3307 only), a download / restore as a file, and a warning
 to the other users before a restore. Called **backups**, not versions (Dave 2026-10-08): it says what they are to a
 new user and doesn't clash with sheet revisions or the legacy drawing versions (`types/versioning.ts`). Dave's

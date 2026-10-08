@@ -5,6 +5,8 @@
 	import OpenProjectDialog from './OpenProjectDialog.svelte'
 	import BackupDialog from './BackupDialog.svelte'
 	import BackupsWindow from './BackupsWindow.svelte'
+	import { backupsCol, loadBackup, type BackupHead } from '../app/backups'
+	import { doc, getDoc } from 'firebase/firestore'
 	import type { ProjectFile } from '../persist/file'
 	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
@@ -67,6 +69,14 @@
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
 	ws.openTitleBlock = () => (titleBlockOpen = true)
+	ws.restoreBackup = async (id) => {
+		try {
+			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined
+			if (!head) { ws.say('That backup has been deleted'); return }
+			restoreSource = { file: await loadBackup(project, head), name: head.name }
+			backupOpen = 'restore'
+		} catch (e) { ws.say(`Could not open the backup: ${(e as Error).message}`) }
+	}
 	// svelte-ignore state_referenced_locally
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
