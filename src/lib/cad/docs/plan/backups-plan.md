@@ -1,15 +1,15 @@
-# Versions, file backup and restore — implementation plan
+# Backups, file download and restore — implementation plan
 
-The design is ADR 0008 (`../adr/0008-version-model.md`). Built in seven slices, each committed and checked live
-on Test Project (restores there are undone, test versions deleted). About 1,100 lines with tests.
+The design is ADR 0008 (`../adr/0008-backups.md`). Built in seven slices, each committed and checked live on Test
+Project (restores there are undone, test backups deleted). About 1,150 lines with tests.
 
 The order puts the risky core first (what a part holds, what a restore changes) as pure, tested code, then the
 file round trip (useful on its own, and the cheapest way to exercise restore), then the multi-user notice, and only
-then the stored versions and the issue hook.
+then the stored backups and the issue tick.
 
 ## Slice 1 — Parts and snapshots (pure) · ~200 lines + tests
 
-- `domain/versionParts.ts`:
+- `domain/backupParts.ts`:
   - `type Parts = 'all' | Id[]` (level ids — a model each, ADR §2)
   - `inParts(ix, parts): { inside: Set<Id>; crossing: Map<Id, 'a' | 'b'> }` — the entities the models hold (ADR §2
     table): each level, its spaces, outlets, underlays, level shapes, sections, racks, rows, devices, cords; links
@@ -34,28 +34,31 @@ then the stored versions and the issue hook.
   - project-wide records only for 'all'; issues and sheets' `revisions[]` always kept live (ADR §4)
 - `restoreSummary(plan, ix)` — the preview lines ("33F 3303: 214 changed, 12 added back, 30 removed; 3 links to
   33F 3307 skipped (port in use)").
+- `canRestore(project, uid)` — the owner, or anyone when the project has no `ownerId` (ADR §4).
 - Tests: unchanged project → empty plan; a moved outlet comes back; a new rack is removed; a deleted cord comes
-  back; a crossing link to a now-busy port is skipped; a whole-project plan keeps issues and revisions.
+  back; a crossing link to a now-busy port is skipped; a whole-project plan keeps issues and revisions; canRestore.
 
-## Slice 3 — Collect and apply (app) · ~150 lines
+## Slice 3 — Collect and apply (app) · ~160 lines
 
 - `app/snapshotIo.ts`:
   - `collect(project, parts)` — waits for `pendingWrites === 0`, reads the project scope + each chosen model's scope
     from Firestore (`getDocs` with `where('scope', '==', …)`), strips meta (`fromDoc`), filters with `inParts`,
     adds the used blocks / templates as `library`.
-  - `applyRestore(project, snap, parts)` — loads the chosen models, builds the plan, applies it in ONE
-    `store.transact('Restore …')`, adds missing library items, returns the summary.
+  - `applyRestore(project, snap, parts)` — refuses unless `canRestore`; loads the chosen models, builds the plan,
+    applies it in ONE `store.transact('Restore …')`, adds missing library items, returns the summary.
   - chunk / unchunk JSON (moved out of `app/issue.ts`, shared with `cadIssued`).
+- The project's `ownerId` reaches the cad project (read with the project doc CadShell already loads).
 - Unit tests for chunking; the rest is checked live.
 
 ## Slice 4 — Download / restore as a file (UI) · ~170 lines
 
-- File menu: **Download project…** and **Restore from file…** (`ui/cadMenus.ts`).
+- File menu: **Download backup…** and **Restore from file…** (`ui/cadMenus.ts`); Restore from file greyed with the
+  reason for a non-owner.
 - `ui/PartsPicker.svelte` — Whole project, or a tree of floors with their models (checkboxes; ticking a floor
-  ticks its models). Shared by download, save version and restore.
+  ticks its models). Shared by download, Back up now and restore.
 - Download: gzip with `CompressionStream`, name `<project> <parts> <yyyy-mm-dd hhmm>.eoscad`.
-- Restore from file: open → parse → show project / date / parts → pick parts → preview (slice 2 summary) with "Save
-  the current state first" → restore (slice 3), behind the notice (slice 5; until it lands, a confirm only).
+- Restore from file: open → parse → show project / date / parts → pick parts → preview (slice 2 summary) with "Back
+  up the current state first" → restore (slice 3), behind the notice (slice 5; until it lands, a confirm only).
 - A file from another project is refused ("This file is from <name>").
 - Help: "Back up a project to a file / restore it".
 - Live: download 1F, change something on 1F, restore 1F from the file → back; Undo → the change again (then undone).
@@ -72,28 +75,31 @@ then the stored versions and the issue hook.
 - Live: two tabs on Test Project — tab A restores 1F from a file, tab B sees the countdown, the read-only banner and
   the done banner; tab B's edit during running is refused.
 
-## Slice 6 — Stored versions · ~200 lines
+## Slice 6 — Stored backups · ~230 lines
 
-- `app/versions.ts`: `saveVersion(project, name, note, parts)` (collect → chunks under `cadVersions/{id}`),
-  `listVersions` (heads, newest first), `loadVersion`, `renameVersion`, `deleteVersion` (refused for one an issue
-  points at).
-- `ui/VersionsWindow.svelte` (Project › Versions…): the list — name, date, by, parts, count, issue — with **Save
-  version…**, and per row Restore…, Download, Rename, Delete. Restore goes through the same picker, preview and
-  notice (a version's parts can be narrowed: restore only "33F 3303" from a 33F version).
-- Help: "Save and restore versions".
-- Live: save a 1F version, change 1F, restore it, Undo; delete the test version.
+- `app/backups.ts`: `makeBackup(project, name, note, parts)` (collect → chunks under `cadBackups/{id}`),
+  `listBackups` (heads, newest first), `loadBackup`, `renameBackup`, `deleteBackups(ids)` (chunks and head; clears
+  `Issue.backupId` on an issue that points at one).
+- `ui/BackupsWindow.svelte` (Project › Backups…): the list — name, date, by, parts, count, size, issue — with the
+  project's total size, sort by date or size, **Back up now…**, and per row Restore… (owner), Download, Rename,
+  Delete (its maker or the owner); tick several to delete them at once. Restore goes through the same picker,
+  preview and notice (a backup's parts can be narrowed: restore only "33F 3303" from a 33F backup).
+- Help: "Back up and restore models".
+- Live: back up 1F, change 1F, restore it, Undo; delete the test backup.
 
-## Slice 7 — Issues · ~60 lines
+## Slice 7 — Issues · ~70 lines
 
-- Issuing first saves a whole-project version "Issue NN: <name>" and records `Issue.versionId`
-  (`domain/drawing.ts` Issue, `app/issue.ts`).
-- Issues list: **Revert to this issue…** (greyed when the issue has no version) → the restore flow with the version.
-- Backlog: closes "Version history", "Revert to an earlier issue" and "Issue gate" (ADR §7).
-- Live: issue a test package, revert one model to it, Undo; delete the test issue's version only if Dave agrees.
+- Issue dialog: **Back up the project with this issue**, unticked, with the size warning (ADR §7). Ticked, issuing
+  first makes a whole-project backup "Issue NN: <name>" and records `Issue.backupId` (`domain/drawing.ts` Issue,
+  `app/issue.ts`).
+- Issues list: **Restore this issue's backup…** on an issue that has one (owner only) → the restore flow.
+- Backlog: closes "Backups and restoring an issue's backup".
+- Live: issue a test package with the tick, restore one model from it, Undo; delete the test backup.
 
 ## Not in this plan
 
 - Firestore scheduled backups / point-in-time recovery: Dave sets them up in the Firebase console.
 - Copying a project from a file (a new project id), restoring one sheet's paper, and rooms as parts — later, if
   asked.
+- Checking ownership anywhere else in the app (the projects list still lets anyone edit settings).
 - A change log (who changed what, when): a separate decision.

@@ -1594,7 +1594,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   boxes fill the storey to the ceiling (were a fixed 2200). EPS rooms, HIGH / LOW tags (→ "High / low cables in the
   riser view"), walls and grid left as the check suggests. Tests: `riser.test.ts` (+1). Live (Test Project): 3 slabs,
   4 void strips, rooms to the ceiling.
-- **10 — Version model:** `../adr/0008-version-model.md` (Proposed): two kinds of history — sheet REVISIONS (what was
+- **10 — Version model:** `../adr/0008-backups.md` (Proposed): two kinds of history — sheet REVISIONS (what was
   issued, frozen; built) and project VERSIONS (named snapshots of every `cadEntities` doc, in `cadVersions`); no
   major / minor model versions; issuing auto-saves a version (`issue.versionId`); restore = the whole project as one
   undo step, keeping the live issue history; what Version history / Revert / Issue gate / Change history then need;
