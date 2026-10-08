@@ -16,9 +16,9 @@ then the stored backups and the issue tick.
     with an end inside, crossing ones marked with the end that is outside.
   - `floorsOf(ix)` — the picker's tree: floors (`buildingId` + `number`) with their models.
   - `partsLabel(ix, parts)` — "33F 3303 + 32F" for names and file names; a whole floor reads "33F".
-- `domain/snapshot.ts`: `Snapshot = { format: 'eos-cad'; schema: 1; projectId; projectName; at; by; parts;
-  entities: Entity[]; library?: { blocks; deviceTemplates } }`; `makeSnapshot(...)`, `parseSnapshot(json)` (checks
-  format / schema, gives a readable error).
+- `persist/file.ts` (the existing `eos-cad` whole-project file) gains `by`, `parts` and `library: { blocks }`;
+  `makeBackup(entities, parts, …)` and `usedBlocks`; `readProjectFile` checks `parts` and doesn't report a crossing
+  link's outside end as an error.
 - Tests: a model holds its outlets / racks / devices / cords, not another model's (an area level's racks stay with
   it); a link from an outlet in one area level to a panel in the other is inside when both are chosen, crossing when
   one is; 'all' holds everything; parse rejects a non-cad file.
@@ -41,9 +41,8 @@ then the stored backups and the issue tick.
 ## Slice 3 — Collect and apply (app) · ~160 lines
 
 - `app/snapshotIo.ts`:
-  - `collect(project, parts)` — waits for `pendingWrites === 0`, reads the project scope + each chosen model's scope
-    from Firestore (`getDocs` with `where('scope', '==', …)`), strips meta (`fromDoc`), filters with `inParts`,
-    adds the used blocks / templates as `library`.
+  - `collect(project, parts)` — waits for the chosen models' scopes to load and `pendingWrites === 0`, then
+    `makeBackup` from the store (every level's data loads with the project).
   - `applyRestore(project, snap, parts)` — refuses unless `canRestore`; loads the chosen models, builds the plan,
     applies it in ONE `store.transact('Restore …')`, adds missing library items, returns the summary.
   - chunk / unchunk JSON (moved out of `app/issue.ts`, shared with `cadIssued`).

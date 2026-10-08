@@ -46,7 +46,7 @@ A backup holds the **whole project** or a set of **models** (levels):
 - Project-wide records (sheets, views, layers, settings, issues) are only in whole-project backups. Restoring a
   part never changes a sheet; a sheet that shows the part just shows the restored data.
 - **Never in a backup or a file:** the global libraries (`settings/cadBlocks`, `cadDeviceTemplates`,
-  `cadSheetCategories`) — a file carries a copy of the blocks and templates it uses, for reference (§5); the frozen
+  `cadSheetCategories`) — a file carries a copy of the blocks it draws (§5; devices copy a template's data, so templates aren't needed); the frozen
   issue copies (`cadIssued`) and uploaded files (`files/{id}`) — kept by id; workspace state (localStorage); undo
   history; the legacy tools' docs.
 
@@ -56,9 +56,9 @@ A backup holds the **whole project** or a set of **models** (levels):
   (`'all'` or a list of `{ levelId, name }`), `count`, `bytes`, `chunks`, `issueId?`.
 - The data in `projects/{pid}/cadBackups/{backupId}/chunks/{n}`: the same JSON as a file (§5), chunked at 300k
   characters, sharing the code with `cadIssued`. The list reads heads only.
-- **Taken from Firestore, not the store** (the store only holds the models opened this session): the project scope
-  (always loaded) plus a query per chosen model's scope; making one first waits for `pendingWrites` to reach 0 so
-  the user's own last edit is in it. Entities are stored without `rev` / `updatedAt` / `updatedBy` / `client` /
+- **Taken from the store**, which holds every model once its level's data has loaded (`CadProject.#watchLevels`
+  watches every level): making one waits for the chosen models' scopes to load and for `pendingWrites` to reach 0,
+  so the store matches the server and the user's own last edit is in it. Entities are stored without `rev` / `updatedAt` / `updatedBy` / `client` /
   `scope`.
 - Backups never change: they can be renamed, have their note edited, or be deleted (§8).
 
@@ -84,12 +84,13 @@ A backup holds the **whole project** or a set of **models** (levels):
 
 - **File › Download backup…** asks which parts (whole project by default) and saves
   `<project> <parts> <yyyy-mm-dd hhmm>.eoscad` — gzipped JSON:
-  `{ format: 'eos-cad', schema: 1, projectId, projectName, at, by, parts, entities: [...], library: { blocks, deviceTemplates } }`.
+  `{ format: 'eos-cad', version: 1, exportedAt, project: { id, name }, by, parts?, entities: [...], library?: { blocks } }`
+  (`persist/file.ts`, which already had the whole-project format; `parts` absent = the whole project).
   A big floor is about 1–2 MB of JSON before gzip.
 - **File › Restore from file…** reads one, shows its project, date and parts, lets the owner pick which of its parts
   to restore, and goes through the same preview and notice as a stored backup (§4, §6).
   - **Only into the same project** (`projectId` must match) for now. Copying a project from a file is later.
-  - Missing global blocks / templates are added from `library`; existing ones are never overwritten.
+  - Missing global blocks are added from `library`; existing ones are never overwritten.
 - **Download** on a stored backup gives the same file; a file and a stored backup are interchangeable.
 
 ### 6. Everyone is told before a restore
