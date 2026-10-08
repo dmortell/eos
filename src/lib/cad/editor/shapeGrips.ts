@@ -6,14 +6,13 @@ import type { Pt } from '../domain/types'
 import type { Shape, Geometry } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { ViewSpace } from '../views/space'
-import { outlineOf } from '../domain/shapes'
+import { outlineOf, sameFrame } from '../domain/shapes'
 import { toPaper, fromPaper } from '../views/sheet'
 import { dimLine, dimOffset } from '../views/plan'
 import { angleStep } from './constrain'
 
 export interface GripSpace { to(p: Pt): Pt; from(p: Pt): Pt }
 
-const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
 
 /** How the shape's own points show in this view, or null when it isn't shown here (no grips then). */
 export function gripSpace(s: Shape, sp: ViewSpace, get: (id: string) => unknown): GripSpace | null {
@@ -26,8 +25,7 @@ export function gripSpace(s: Shape, sp: ViewSpace, get: (id: string) => unknown)
 	if (!s.levelId) return null
 	if (s.plane?.kind === 'vertical') {
 		// only in the view it was drawn on (same frame): its (u, z) is the view's (x, −y) there
-		const f = s.plane.frame, g = sp.frame
-		if ((spec.kind !== 'elevation' && spec.kind !== 'section') || !g || !near(f.t.x, g.t.x) || !near(f.t.y, g.t.y) || !near(f.o.x, g.o.x) || !near(f.o.y, g.o.y)) return null
+		if ((spec.kind !== 'elevation' && spec.kind !== 'section') || !sp.frame || !sameFrame(s.plane.frame, sp.frame)) return null
 		return { to: (p) => ({ x: p.x, y: -p.y }), from: (p) => ({ x: p.x, y: -p.y }) }
 	}
 	return spec.kind === 'plan' ? id : null

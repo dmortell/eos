@@ -4,6 +4,7 @@
 import type { Gesture } from '../store/store'
 import type { Id, Pt, ProjectSettings, Rack, Device } from '../domain/types'
 import type { Shape } from '../domain/shapes'
+import { ownFrame, sameFrame } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim } from '../views/display'
 import type { Snap } from './snap'
@@ -124,7 +125,10 @@ export class SelectTool implements Tool {
 	/** Grips of the single selected path shape, in the view. */
 	grips(c: ToolCtx): Grip[] {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
-		return s?.type === 'shape' ? pathGrips(s, c.space) : []
+		if (s?.type !== 'shape') return []
+		// a line drawn on one elevation / section: its grips only there (selected there, it isn't drawn in the other pane)
+		const own = ownFrame(s)
+		return own && !(c.space.frame && sameFrame(own, c.space.frame)) ? [] : pathGrips(s, c.space)
 	}
 	/** A note's point grips (text anchor, leader / cloud points): on its sheet, or a plan's own text. */
 	#noteGrips(c: ToolCtx): { s: Shape; vp?: Sheet['viewports'][number]; grips: ReturnType<typeof noteGrips> } | null {

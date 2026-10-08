@@ -54,7 +54,8 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 	for (const o of ix.outlets) if (o.levelId === levelId && o.at) offer({ p: o.at, kind: 'outlet', attach: o.id })
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) offer({ p: r.at, kind: 'rack', attach: r.id })
 	for (const s of ix.shapes) {
-		if (s.levelId !== levelId || skips.has(s.id)) continue
+		// (shapes on an elevation's plane have (u, z) points, not plan ones)
+		if (s.levelId !== levelId || skips.has(s.id) || s.plane?.kind === 'vertical') continue
 		// the CENTRE of a circle / arc / box / polygon, and a block's insertion point (backlog "Centre snap")
 		const c = centreOf(s.geom)
 		if (c) offer({ p: c, kind: 'centre' })

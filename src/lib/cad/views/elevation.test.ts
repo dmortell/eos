@@ -84,6 +84,33 @@ describe('drawing and moving in an elevation (ADR 0006)', () => {
 		const s = h.store.get(h.sel()[0]) as Shape
 		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.x, n.y, n.z])).toEqual([[500, 0, 1000], [500, 4000, 1000]])
 	})
+	it('a LINE drawn on an elevation belongs to it: shown there only, not on the plan or the other elevations', () => {
+		const h = harness('front', 3000)
+		const t = new PathTool('line')
+		t.down(at(0, -1000), h.ctx()); t.down(at(2000, -1000), h.ctx()); t.finish(h.ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.plane).toMatchObject({ kind: 'vertical', depth: 3000 })
+		const ents = h.store.all()
+		const shown = (dir: 'front' | 'rear' | 'left' | 'right') => view(dir, ents).some((p) => p.src === s.id)
+		expect([shown('front'), shown('rear'), shown('left'), shown('right')]).toEqual([true, false, false, false])
+		// a trunk drawn the same way is a model run: every elevation shows it
+		const r = new PathTool('trunk')
+		r.down(at(0, -2000), h.ctx()); r.down(at(2000, -2000), h.ctx()); r.finish(h.ctx())
+		const run = h.sel()[0]
+		expect(view('rear', h.store.all()).some((p) => p.src === run)).toBe(true)
+	})
+	it('a note or flat shape on one elevation stays there; a box with a depth is seen from the others', () => {
+		const sp = spaceOf({ kind: 'elevation', dir: 'front' })
+		const plane = { kind: 'vertical' as const, frame: sp.frame!, depth: 3000 }
+		const note = { type: 'shape', id: 'N', levelId: 'L33', plane, geom: { kind: 'text', at: { x: 0, y: 1000 }, text: 'A', sizeMm: 2.5 } } as Shape
+		const flat = { type: 'shape', id: 'F', levelId: 'L33', plane, geom: { kind: 'rect', centre: { x: 0, y: 1000 }, size: { x: 400, y: 200 } } } as Shape
+		const solid = { ...flat, id: 'B', extent: 300 } as Shape
+		const ents = [...placed(), note, flat, solid]
+		const ids = (dir: 'front' | 'rear' | 'left' | 'right') => ['N', 'F', 'B'].filter((id) => view(dir, ents).some((p) => p.src === id))
+		expect(ids('front')).toEqual(['N', 'F', 'B'])
+		expect(ids('rear')).toEqual(['B'])
+		expect(ids('left')).toEqual(['B'])
+	})
 	it('dragging an outlet up in an elevation raises it (z) and slides it along the view', () => {
 		const h = harness('front', 0)
 		const sel = new SelectTool()

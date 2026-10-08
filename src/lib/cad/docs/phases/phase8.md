@@ -1687,3 +1687,16 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   list shows **Restore its backup…** on such an issue (owner only); deleting the backup clears `backupId`. Not issued
   live (an issue uploads a PDF): the tick and warning checked, cancelled.
 - Help: back up / restore a file, keep and clean up backups, the issue tick.
+
+## Batch: shapes per elevation, file storage, multi-core cables (Dave 2026-10-09: "do 5 2 12")
+
+- **Shapes that belong to one elevation** (backlog P2, G266): a FLAT shape drawn on an elevation's / section's plane —
+  text, leader, cloud, dimension, a flat Shape-tool shape, and now a LINE — belongs to that view (`ownFrame` /
+  `sameFrame` in `domain/shapes.ts`): drawn only in views with the same frame (that elevation / section and its
+  viewports), never on the plan or the other elevations (notes used to show mirrored in the rear and edge-on in the
+  sides). The Line tool in an elevation / section stores the line with the view's vertical plane; its nodes stay model
+  points on the plane, so moving, grips and snapping work as before. Trunks, conduits, walls and boxes with a depth
+  stay model items seen everywhere. Kept in the LEVEL's scope (not the unused `viewId` owner: elevations aren't
+  entities, and level ownership keeps loading, backups and the clipboard as they are). Plan snapping no longer offers
+  points of shapes on an elevation plane. Images wait for "Images on the model" (no image tool yet). Tests:
+  `elevation.test.ts` (+2). Live (Test Project 1F): a line on the Front elevation, absent from the Rear; undone.

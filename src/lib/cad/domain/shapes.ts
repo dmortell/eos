@@ -145,7 +145,9 @@ export interface ShapeCore {
 	type: 'shape'
 	id: Id
 	geom: Geometry
-	/** Non-path shapes in a level's model: the plane they lie on (absent = plan at z 0). */
+	/** Non-path shapes in a level's model: the plane they lie on (absent = plan at z 0). A PATH with a vertical plane is
+	 *  a line drawn on that elevation / section: its nodes are still model points (on the plane), and it shows only
+	 *  there (`ownFrame`). */
 	plane?: Plane
 	/** Paths: the cross-section of every segment. Absent = a plain line (no width, no height). */
 	section?: Section
@@ -221,6 +223,19 @@ export function isVertical(a: { x: number; y: number }, b: { x: number; y: numbe
 /** Flat = drawn in 2D only: a path with no section, or anything else with no extent. */
 export function isFlat(s: Pick<ShapeCore, 'geom' | 'section' | 'extent'>): boolean {
 	return s.geom.kind === 'path' ? !s.section : !s.extent
+}
+
+/** Two elevation / section frames are one view's when they look the same way from the same origin. */
+export function sameFrame(a: ElevFrame, b: ElevFrame): boolean {
+	const near = (p: number, q: number) => Math.abs(p - q) < 1e-6
+	return near(a.t.x, b.t.x) && near(a.t.y, b.t.y) && near(a.o.x, b.o.x) && near(a.o.y, b.o.y)
+}
+
+/** A FLAT shape drawn on an elevation's / section's plane (a note, a dimension, a line, a flat box) belongs to that
+ *  one view (backlog "Shapes that belong to one elevation"): the frame of the view it shows in. Null = shown wherever
+ *  its geometry falls (plan shapes, solids, runs). */
+export function ownFrame(s: Pick<ShapeCore, 'geom' | 'section' | 'extent' | 'plane'>): ElevFrame | null {
+	return s.plane?.kind === 'vertical' && isFlat(s) ? s.plane.frame : null
 }
 
 export function ownerOf(s: Owner): { kind: 'level' | 'view' | 'sheet'; id: Id } {

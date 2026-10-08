@@ -113,7 +113,10 @@ export class PathTool implements Tool {
 			const ns = line.geom.nodes
 			line.geom.segs.push({ id: newId(), a: ns[ns.length - 1].id, b: ns[0].id })
 		}
-		const shape = this.id === 'line' ? (c.layerId ? { ...line, layerId: c.layerId } : line)
+		// a LINE drawn on an elevation / section lies on its plane and belongs to that view only (shapes.ts ownFrame)
+		const spec = c.space.spec, onView = this.id === 'line' && c.space.frame && (spec.kind === 'elevation' || spec.kind === 'section')
+			? { plane: { kind: 'vertical' as const, frame: c.space.frame, depth: Math.round(c.work.depth) } } : {}
+		const shape = this.id === 'line' ? { ...line, ...onView, ...(c.layerId ? { layerId: c.layerId } : {}) }
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
 			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
 		c.store.transact(`Draw ${this.id}`, (tx) => tx.put(shape))

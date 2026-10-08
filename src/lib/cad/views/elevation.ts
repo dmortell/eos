@@ -5,7 +5,7 @@
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isVertical, outlineOf } from '../domain/shapes'
+import { isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W } from '../domain/devices'
@@ -43,8 +43,11 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	// level is cut to this floor's height (slab underside → top of the plenum), so a 30-floor riser is one storey here.
 	const h = level?.heights, floor = { y0: -((h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700)), y1: (h?.raisedFloorMm ?? 300) + (h?.slabMm ?? 200) }
 	for (const s of ix.shapes) {
+		// a note, line or flat shape drawn on ONE elevation / section shows only there (not mirrored into the others)
+		const own = ownFrame(s)
+		if (own && !(sp.frame && sameFrame(own, sp.frame))) continue
 		// a note or dimension drawn ON an elevation's plane: put into this view's coordinates, drawn as on a plan
-		if (s.plane?.kind === 'vertical' && !outlineOf(s.geom)) {
+		if (s.plane?.kind === 'vertical' && s.geom.kind !== 'path' && !outlineOf(s.geom)) {
 			if (s.levelId !== levelId) continue
 			const plane = s.plane, to = (q: Pt) => sp.fromWorld(unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
 			const g = viewGeom(s.geom, to)
@@ -179,7 +182,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 				const cls = s.role.tier === 'high' ? 'run run-high' : 'run'
 				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: isVertical(a, b) ? sec.w : sec.h, cls, src: s.id }] }]
 			}
-			return [{ depth, prims: [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }] }]
+			return [{ depth, prims: ownStyle(s, [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }]) }]
 		})
 	}
 	// a region drawn ON an elevation's plane (the Shape tool there): its (u, z) outline put back in the model, seen here

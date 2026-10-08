@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 74 entries (0 P1 · 15 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 73 entries (0 P1 · 14 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -159,6 +159,5 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## 3D, elevations and sections
 
-- [ ] **Shapes that belong to one elevation** — text, lines and images drawn in an elevation's own plane, shown only there. **P2 · M** (~120 lines). *cad today:* view-owned and vertical-plane shapes exist in the model, but text works on sheets only and the line tool draws model paths (`cad/domain/shapes.ts:19`, `cad/app/workspace.svelte.ts:21`). *From:* G266
 - [ ] **Section top / bottom and hatching** — sections get top / bottom limits, and cut walls and slabs draw hatched. **P3 · M** (Dave 2026-10-05: low priority) (~150 lines). *cad today:* depth and flip work; cut walls are plain solid (`cad/views/section.ts:40`). *From:* P036
 - [ ] **Connection points on boxes** — centre + edge midpoints by default, or your own (U / V), shown as × marks, for routing to desks. **P3 · M** (Dave 2026-10-05: low priority) (~150 lines, after the Box tool). *cad today:* missing. *From:* G272
