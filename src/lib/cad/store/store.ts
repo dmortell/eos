@@ -51,8 +51,17 @@ export class EntityStore {
 	ofType<T extends EntityType>(type: T): Extract<Entity, { type: T }>[] {
 		return this.all().filter((e): e is Extract<Entity, { type: T }> => e.type === type)
 	}
-	get canUndo(): boolean { return this.#undo.length > 0 }
-	get canRedo(): boolean { return this.#redo.length > 0 }
+	get canUndo(): boolean { return !this.readOnly && this.#undo.length > 0 }
+	get canRedo(): boolean { return !this.readOnly && this.#redo.length > 0 }
+
+	/** Set while someone else's restore runs (ADR 0008 §6): every local edit, undo and redo is refused with this
+	 *  reason (`onRefuse` tells the user); other people's changes still arrive. */
+	readOnly: string | null = null
+	onRefuse: ((reason: string) => void) | null = null
+	#refused(): boolean { if (this.readOnly) this.onRefuse?.(this.readOnly); return !!this.readOnly }
+
+	/** Forget the undo / redo history — after someone else's restore, old steps would fight it. */
+	clearHistory(): void { this.#undo = []; this.#redo = [] }
 	get undoLabels(): string[] { return this.#undo.map((s) => s.label) }
 
 	subscribe(cb: (c: Change) => void): () => void {
@@ -73,6 +82,7 @@ export class EntityStore {
 	 *  undo to give back when nothing it touched is left (undoing a paste / copy). */
 	transact(label: string, fn: (tx: Txn) => void, sel?: Id[]): Step | null {
 		if (this.#gesture) throw new Error(`"${label}" started while the gesture "${this.#gesture.label}" is open`)
+		if (this.#refused()) return null
 		const base = new Map<Id, Entity | null>()
 		fn(this.#txn(base))
 		const ops = this.#settle(base)
@@ -86,6 +96,7 @@ export class EntityStore {
 	/** A drag: changes show live, one undo step on commit, Esc restores the start. */
 	begin(label: string): Gesture {
 		if (this.#gesture) throw new Error(`"${label}" started while the gesture "${this.#gesture.label}" is open`)
+		if (this.#refused()) return { update: () => {}, commit: () => null, rollback: () => {} }
 		const g = { label, base: new Map<Id, Entity | null>() }
 		this.#gesture = g
 		const restore = () => {
@@ -124,6 +135,7 @@ export class EntityStore {
 
 	/** Undo the last step. Ops whose entity someone else changed since are skipped, never overwritten. */
 	undo(): UndoResult | null {
+		if (this.#refused()) return null
 		const step = this.#undo.pop()
 		if (!step) return null
 		const res = this.#replay(step, 'undo')
@@ -132,6 +144,7 @@ export class EntityStore {
 	}
 
 	redo(): UndoResult | null {
+		if (this.#refused()) return null
 		const step = this.#redo.pop()
 		if (!step) return null
 		const res = this.#replay(step, 'redo')

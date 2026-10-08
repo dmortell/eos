@@ -4,6 +4,7 @@
 	import WindowBody from './WindowBody.svelte'
 	import OpenProjectDialog from './OpenProjectDialog.svelte'
 	import BackupDialog from './BackupDialog.svelte'
+	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS } from './shellKeys'
@@ -51,6 +52,8 @@
 	const project = new CadProject(pid, firestore, user)
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName })
 	const ws = new Workspace()
+	// a refused edit while someone else's restore runs says why
+	project.store.onRefuse = (reason) => ws.say(reason)
 	const panels = new Panels()
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
@@ -443,6 +446,7 @@
 	{#if typesOpen}<SettingsDialog {project} {ws} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
+	<RestoreNotice {project} />
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} onclose={() => (backupOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}

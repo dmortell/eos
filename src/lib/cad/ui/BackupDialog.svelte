@@ -57,11 +57,29 @@
 
 	const doPreview = () => run('Comparing…', async () => { preview = await previewRestore(project, file!, parts) })
 
+	/** The countdown everyone else sees (ADR 0008 §6): announce, wait 30 s (Cancel stops it), then everyone else is
+	 *  read-only while it runs, and told when it's done. */
+	let noticeId = $state(''), now = $state(Date.now())
+	const left = $derived.by(() => { const n = project.notices.notice; return n?.id === noticeId ? Math.max(0, Math.ceil((n.startsAt - now) / 1000)) : 0 })
+	$effect(() => { if (!noticeId) return; const t = setInterval(() => (now = Date.now()), 250); return () => clearInterval(t) })
+
 	const doRestore = () => run('Restoring…', async () => {
-		if (backFirst) await saveFile(parts, 'Before restore - ')
-		const p = await applyRestore(project, file!, parts, fileName.replace(/\.eoscad$/i, ''))
-		say(`Restored — ${p.line}${p.skipped.length ? ` (${p.skipped.length} skipped)` : ''}. Ctrl+Z undoes it.`)
-		onclose()
+		const what = fileName.replace(/\.eoscad$/i, ''), notices = project.notices
+		let id = ''
+		try {
+			id = noticeId = await notices.announce(what, partsLabel(file!.entities, parts))
+			await notices.countdown(id)
+			await notices.start(id)
+			if (backFirst) await saveFile(parts, 'Before restore - ')
+			const p = await applyRestore(project, file!, parts, what)
+			const line = `${p.line}${p.skipped.length ? ` (${p.skipped.length} skipped)` : ''}`
+			await notices.finish(id, line)
+			say(`Restored — ${line}. Ctrl+Z undoes it.`)
+			onclose()
+		} catch (e) {
+			if (id) await notices.cancel(id, (e as Error).message)
+			throw e
+		} finally { noticeId = '' }
 	})
 
 	const when = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleString() }
@@ -114,6 +132,9 @@
 					{#if !owner}<span class="warn">Only the project owner can restore this project.</span>{:else if !project.ownerId}<span class="hint">This project has no owner set, so anyone who can edit may restore it.</span>{:else}<span></span>{/if}
 					{#if !preview}
 						<button class="btn pri" disabled={none || !!busy} onclick={doPreview}>{busy || 'Compare'}</button>
+					{:else if noticeId}
+						<span class="warn">{left ? `Restoring in ${left} s — everyone in the project has been told` : 'Restoring — everyone else is read-only until it\'s done'}</span>
+						{#if left}<button class="btn" onclick={() => project.notices.cancel(noticeId)}>Cancel</button>{/if}
 					{:else}
 						{@const empty = !preview.plan.put.length && !preview.plan.del.length}
 						<button class="btn pri" disabled={!owner || empty || !!busy} title={!owner ? 'Only the project owner can restore' : empty ? 'Nothing to change' : ''} onclick={doRestore}>{busy || 'Restore'}</button>

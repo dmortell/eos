@@ -12,6 +12,7 @@ import { fillBySegment } from '../domain/fill'
 import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
 import { PdfCache } from './pdf.svelte'
+import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, onSnapshot, setDoc } from 'firebase/firestore'
@@ -47,6 +48,8 @@ export class CadProject {
 	ownerId = $state<string | undefined>()
 	/** The signed-in user's name, for who made a backup. */
 	userName = $state('')
+	/** This browser tab (see clientTag): tells a restore notice it wrote from one another tab wrote. */
+	readonly client = clientTag()
 	readonly pdf: PdfCache
 	/** Bumped on every store change; everything derived reads it. */
 	rev = $state(0)
@@ -87,12 +90,16 @@ export class CadProject {
 		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null })
 		this.#off = this.store.subscribe(() => { this.rev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
-			user, client: clientTag(), onPending: (n) => { this.pendingWrites = n },
+			user, client: this.client, onPending: (n) => { this.pendingWrites = n },
 			onError: (e) => { this.error = `Saving failed: ${(e as Error).message ?? e}` },
 		})
 		this.#watched.add(PROJECT_SCOPE)
 		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true })
+		this.notices = new RestoreNotices(this)
 	}
+
+	/** Restores announced to everyone in the project (ADR 0008 §6). */
+	readonly notices: RestoreNotices
 
 	/** Scopes whose first snapshot has arrived (a plan waits for its level's before fitting the view). */
 	loadedScopes = $state<Record<string, true>>({})
@@ -205,5 +212,6 @@ export class CadProject {
 		this.#offTemplates()
 		this.#offCategories()
 		this.pdf.destroy()
+		this.notices.destroy()
 	}
 }
