@@ -18,7 +18,7 @@
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
 	<div class="dlg" role="dialog" aria-label="Title block" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Title block <span class="hint">— the project's, on every sheet</span></b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
-		<div class="body"><TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid }} /></div>
+		<div class="body"><TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid, storage: project.settings?.fileStorage }} /></div>
 	</div>
 </div>
 

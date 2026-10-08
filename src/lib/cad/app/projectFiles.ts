@@ -1,7 +1,11 @@
 // The project's uploaded files, live: its PDFs (for picking a level's floorplan) and images (logos). A file belongs to a
 // project through the legacy `projectId` or the newer `projectIds` list ($lib/files.ts), so both are watched and
-// merged. Issue PDFs (no page count) are left out of the PDFs.
+// merged. Issue PDFs (no page count) are left out of the PDFs. `storeFile` uploads cad's own files (issue PDFs, logos).
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where, type DocumentData, type Firestore } from 'firebase/firestore'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { genUploader } from 'uploadthing/client'
+import { nanoid } from 'nanoid'
+import type { OurFileRouter } from '../../../routes/api/uploadthing/uploadthing'
 
 export interface PdfFile {
 	id: string
@@ -55,9 +59,28 @@ export async function freeFileId(db: Firestore, name: string): Promise<string> {
 	return `${base} (${Date.now()})${ext}`
 }
 
-/** Record an uploaded image in the project's Uploads (UploadThing: url + key), under a free name. */
-export async function saveProjectImage(db: Firestore, pid: string, f: { name: string; url: string; key: string; size: number; type: string }): Promise<string> {
-	const id = await freeFileId(db, f.name)
-	await setDoc(doc(db, 'files', id), { id, name: id, url: f.url, key: f.key, path: f.key, type: f.type, provider: 'uploadthing', size: f.size, projectId: pid, projectIds: [pid], uploadedAt: new Date() })
-	return id
+/** Where cad's own uploads go (backlog "Default file storage per project", Settings › Files): UploadThing (the
+ *  default, as before) or Firebase Storage. */
+export type FileStorage = 'uploadthing' | 'firebase'
+
+/** Upload a file to the project's file storage and list it in its Uploads (`files/{id}`; `provider` says where the
+ *  bytes are, as in Uploads). `id` = the doc id (default: a free one from the file's name, which is also its name);
+ *  `route` = UploadThing's route (images / PDFs). Firebase paths are laid out as Uploads does. */
+export async function storeFile(db: Firestore, pid: string, file: File, o: { storage?: FileStorage; route: 'imageUploader' | 'floorplanUploader'; id?: string }): Promise<{ id: string; url: string; key?: string }> {
+	let url: string, at: { provider: FileStorage; path: string; key?: string }
+	if (o.storage === 'firebase') {
+		const path = `projects/${pid}/uploads/${nanoid(8)}_${file.name}`, r = ref(getStorage(db.app), path)
+		await uploadBytes(r, file, { contentType: file.type })
+		url = await getDownloadURL(r)
+		at = { provider: 'firebase', path }
+	} else {
+		const { uploadFiles } = genUploader<OurFileRouter>({ package: 'cad' })
+		const [res] = await uploadFiles(o.route, { files: [file] })
+		if (!res?.ufsUrl) throw new Error('the upload returned no url')
+		url = res.ufsUrl
+		at = { provider: 'uploadthing', path: res.key, key: res.key }
+	}
+	const id = o.id ?? (await freeFileId(db, file.name))
+	await setDoc(doc(db, 'files', id), { id, name: o.id ? file.name : id, url, ...at, type: file.type, size: file.size, projectId: pid, projectIds: [pid], uploadedAt: new Date() })
+	return { id, url, ...(at.key ? { key: at.key } : {}) }
 }

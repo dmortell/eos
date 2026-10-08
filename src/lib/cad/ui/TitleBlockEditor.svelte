@@ -6,14 +6,13 @@
 	// (saved on the project's settings; every sheet re-renders from it).
 	import { Icon, DragReorder } from '$lib'
 	import { toast } from 'svelte-sonner'
-	import { createUploadThing } from '../../../routes/projects/[pid]/uploads/uploader'
 	import type { Firestore } from 'firebase/firestore'
-	import { saveProjectImage } from '../app/projectFiles'
+	import { storeFile, type FileStorage } from '../app/projectFiles'
 	import LogoPicker from './LogoPicker.svelte'
 	import { TB_AUTO, DEFAULT_TITLE_BLOCK, LOGO_LABEL, withLogoFields, isFixedField, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../domain/titleBlock'
 
 	// `files` = the project's Uploads: logos are picked from its images, and new ones are added to it
-	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string } } = $props()
+	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string; storage?: FileStorage } } = $props()
 	let picking = $state<'company' | 'client' | null>(null)
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
 	// the field list WITH the logos as fields (Dave: logos placed and ordered like fields); an edit saves it that way
@@ -38,35 +37,23 @@
 		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey], ...(key === 'site' ? { wide: true } : {}) }
 		set({ fields: [...fields, f] })
 	}
-	// A logo image goes to FILE STORAGE (UploadThing's image route, like Uploads) and the template keeps only its URL +
-	// key. A raster is downscaled first (≤ 1200 × 480 px); an SVG goes as it is. If the upload fails (offline), a small
+	// A logo image goes to the project's FILE STORAGE (UploadThing or Firebase Storage, Settings › Files) and the
+	// template keeps only its URL (+ UploadThing's key). A raster is downscaled first (≤ 1200 × 480 px); an SVG goes as it is. If the upload fails (offline), a small
 	// inline data URL is kept so it still works — "Move to storage" uploads it later.
 	const LOGO_MAX = 150_000
 	const setLogo = (k: 'company' | 'client', lg: TbLogo | undefined) => set({ logos: { ...t.logos, [k]: lg ?? { src: '' } } })
 	let uploading = $state<'company' | 'client' | null>(null)
-	let pending: { k: 'company' | 'client'; h: number; fallback: string } | null = null
-	const { startUpload } = createUploadThing('imageUploader', {
-		onClientUploadComplete: (res) => {
-			const f = Array.isArray(res) ? res[0] : null, p = pending; pending = null; uploading = null
-			if (p && f?.ufsUrl) setLogo(p.k, { src: f.ufsUrl, key: f.key, h: p.h })
-			// listed in the project's Uploads too, so it can be picked again (another sheet, another logo slot)
-			if (f?.ufsUrl && files) saveProjectImage(files.db, files.pid, { name: f.name, url: f.ufsUrl, key: f.key, size: f.size, type: f.type ?? 'image/png' })
-				.catch((e) => toast.error(`The logo is set, but it couldn't be added to Uploads: ${e instanceof Error ? e.message : String(e)}`))
-		},
-		onUploadError: (e) => {
-			const p = pending; pending = null; uploading = null
-			if (p?.fallback) setLogo(p.k, { src: p.fallback, h: p.h })
-			toast.error(`Logo upload failed${p?.fallback ? ' — kept inside the project for now (Move to storage later)' : ''}: ${e.message ?? 'unknown error'}`)
-		},
-	})
+	// to the project's file storage (Settings › Files) and listed in its Uploads, so it can be picked again
 	async function upload(k: 'company' | 'client', file: File, h: number, fallback: string) {
-		pending = { k, h, fallback }; uploading = k
-		try { await startUpload([file]) } catch (e) { onFail(e) }
-	}
-	function onFail(e: unknown) {
-		const p = pending; pending = null; uploading = null
-		if (p?.fallback) setLogo(p.k, { src: p.fallback, h: p.h })
-		toast.error(`Logo upload failed: ${e instanceof Error ? e.message : String(e)}`)
+		uploading = k
+		try {
+			if (!files) throw new Error('no project files')
+			const f = await storeFile(files.db, files.pid, file, { storage: files.storage, route: 'imageUploader' })
+			setLogo(k, { src: f.url, ...(f.key ? { key: f.key } : {}), h })
+		} catch (e) {
+			if (fallback) setLogo(k, { src: fallback, h })
+			toast.error(`Logo upload failed${fallback ? ' — kept inside the project for now (Move to storage later)' : ''}: ${e instanceof Error ? e.message : String(e)}`)
+		} finally { uploading = null }
 	}
 	/** An image scaled to fit w × h px, as a PNG blob. */
 	const scaled = (img: HTMLImageElement, w: number, h: number) => new Promise<Blob | null>((res) => {

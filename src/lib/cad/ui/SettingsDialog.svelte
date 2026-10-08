@@ -4,6 +4,7 @@
        outlets / cords; add, delete (refused while an outlet port or a cord uses it, or it's a default).
      - LENGTHS & LABELS (UX review T4: they were on the Outlets table's bar, looking like a filter): how port labels
        follow the outlet label (relabel existing ones on request), the cable slack per port and the BOM's waste.
+     - SHEETS: sheet categories. FILES (backlog "Default file storage per project"): where cad's uploads go.
      Every edit is one undo step. -->
 <script lang="ts">
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
@@ -17,8 +18,9 @@
 	import type { Outlet } from '../domain/types'
 	import { cableSettings, type CableSettings } from '../domain/routing'
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
+	import type { FileStorage } from '../app/projectFiles'
 
-	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' | 'sheets' } = $props()
+	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' | 'sheets' | 'files' } = $props()
 
 
 	const st = $derived(project.settings)
@@ -74,6 +76,7 @@
 				<button class:on={tab === 'cables'} onclick={() => (tab = 'cables')}>Cable types</button>
 				<button class:on={tab === 'lengths'} onclick={() => (tab = 'lengths')}>Lengths &amp; labels</button>
 				<button class:on={tab === 'sheets'} onclick={() => (tab = 'sheets')}>Sheets</button>
+				<button class:on={tab === 'files'} onclick={() => (tab = 'files')}>Files</button>
 			</span>
 			<button class="x" title="Close (Esc)" onclick={onclose}>✕</button>
 		</div>
@@ -112,6 +115,14 @@
 					<span><input class="num" type="number" min="0" step="0.1" value={cable.slackM} onchange={(e) => setCable({ slackM: Math.max(0, Number(e.currentTarget.value) || 0) })} /> m</span></label>
 				<label title="Waste added to the cable metres in the BOM">Waste in the BOM
 					<span><input class="num" type="number" min="0" step="1" value={cable.wastePct} onchange={(e) => setCable({ wastePct: Math.max(0, Number(e.currentTarget.value) || 0) })} /> %</span></label>
+			</div>
+		{:else if tab === 'files'}
+			<div class="form">
+				<label title="Where cad puts the files it uploads: issue PDFs and title-block logos">New uploads go to
+					<select value={st.fileStorage ?? 'uploadthing'} onchange={(e) => { const v = e.currentTarget.value as FileStorage; save(v === 'firebase' ? 'Uploads to Firebase Storage' : 'Uploads to UploadThing', (s) => ({ ...s, fileStorage: v })) }}>
+						<option value="uploadthing">UploadThing</option><option value="firebase">Firebase Storage</option>
+					</select></label>
+				<p class="wide text-zinc-500">Issue PDFs and title-block logos, for everyone on this project. Files already uploaded stay where they are; Uploads lists both kinds.</p>
 			</div>
 		{:else}
 			<table>
@@ -161,6 +172,7 @@
 	.del:disabled { opacity: 0.3; }
 	.form { display: grid; grid-template-columns: 9rem auto; gap: 8px 12px; align-items: center; padding: 12px; }
 	.form label { display: contents; }
+	.form .wide { grid-column: 1 / -1; margin: 0; }
 	.foot { display: flex; gap: 12px; align-items: center; padding: 8px 12px; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }

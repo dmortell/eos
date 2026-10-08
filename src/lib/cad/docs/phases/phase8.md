@@ -1700,3 +1700,12 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   entities, and level ownership keeps loading, backups and the clipboard as they are). Plan snapping no longer offers
   points of shapes on an elevation plane. Images wait for "Images on the model" (no image tool yet). Tests:
   `elevation.test.ts` (+2). Live (Test Project 1F): a line on the Front elevation, absent from the Rear; undone.
+- **Default file storage per project** (backlog P2, T151): Project › Settings… › **Files**: "New uploads go to"
+  UploadThing (absent = the default, as before) or Firebase Storage — `ProjectSettings.fileStorage`, one undo step,
+  for everyone on the project. One upload path for cad's own files, `storeFile` in `app/projectFiles.ts` (replaces
+  `saveProjectImage`): UploadThing's route, or Firebase at `projects/{pid}/uploads/{nanoid}_{name}` as Uploads lays
+  it out; either way a `files/{id}` doc with its `provider`, so Uploads lists it. Issue PDFs (`app/issue.ts`) and
+  title-block logos (`TitleBlockEditor`, incl. "Move to storage") use it; files already uploaded stay where they are.
+  Live (Test Project): the Files tab; a 1 px PNG through `storeFile` to Firebase → `files` doc (provider firebase,
+  path, type, projectIds), its URL loads; object and doc deleted. The setting flipped to Firebase (stored) and undone
+  (field gone).

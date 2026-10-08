@@ -49,7 +49,7 @@ export type TitleBlockTemplate = {
 	 *  bottom-right corner over the drawing area. */
 	layout?: TbLayout
 }
-/** A title-block logo: `src` = its file-storage URL (UploadThing, like Uploads; `key` = the stored file's key), or —
+/** A title-block logo: `src` = its file-storage URL (UploadThing or Firebase Storage, like Uploads; `key` = an UploadThing file's key), or —
  *  legacy / offline — an inline data URL; `h` = its printed height (mm). */
 export type TbLogo = { src: string; h?: number; key?: string }
 export type TbLayout = 'vertical' | 'horizontal' | 'compact'

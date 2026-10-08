@@ -1,13 +1,12 @@
 // ISSUING a package (Phase 4.6), the app part. Each issued (sheet, revision) is FROZEN once in
 // `projects/{pid}/cadIssued` — written once, never edited, and outside the entity store so opening a project doesn't
-// load it. The package PDF is drawn from the frozen lists, uploaded to file storage (UploadThing + `files/{id}`, so
-// it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
+// load it. The package PDF is drawn from the frozen lists, uploaded to the project's file storage (UploadThing or
+// Firebase Storage, Settings › Files; + `files/{id}`, so it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
 import { coverPages, type CoverRow } from '../views/transmittalPage'
 import type { Id } from '../domain/types'
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
-import { genUploader } from 'uploadthing/client'
-import type { OurFileRouter } from '../../../routes/api/uploadthing/uploadthing'
+import { doc, getDoc, writeBatch } from 'firebase/firestore'
 import type { CadProject } from './project.svelte'
+import { storeFile } from './projectFiles'
 import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
@@ -133,15 +132,8 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 }
 
 async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']> {
-	const { uploadFiles } = genUploader<OurFileRouter>({ package: 'cad' })
-	const [res] = await uploadFiles('floorplanUploader', { files: [file] })
-	if (!res?.ufsUrl) throw new Error('the PDF upload returned no url')
-	const id = `issue-${newId()}`
-	await setDoc(doc(project.db, 'files', id), {
-		id, name: file.name, url: res.ufsUrl, key: res.key, path: res.key, provider: 'uploadthing', size: res.size,
-		projectId: project.pid, projectIds: [project.pid], uploadedAt: new Date(),
-	})
-	return { id, url: res.ufsUrl, name: file.name }
+	const r = await storeFile(project.db, project.pid, file, { storage: project.settings?.fileStorage, route: 'floorplanUploader', id: `issue-${newId()}` })
+	return { id: r.id, url: r.url, name: file.name }
 }
 
 /** The package again, exactly as issued (the frozen lists), downloaded. */

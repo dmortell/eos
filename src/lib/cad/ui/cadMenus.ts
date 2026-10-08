@@ -136,7 +136,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Project', items: [
 			{ label: 'Floors…', title: "The building's floors, their names and heights", run: c.floors },
-			{ label: 'Settings… (usages, cable types)', run: c.settings },
+			{ label: 'Settings… (usages, cable types, files)', run: c.settings },
 			{ label: 'Backups…', title: 'Back up the project or chosen models, restore, download or delete backups', run: c.backups },
 			'-',
 			{ label: 'Rename this level…', disabled: !c.hasLevel, run: c.renameLevel },

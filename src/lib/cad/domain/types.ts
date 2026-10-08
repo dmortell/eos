@@ -306,6 +306,8 @@ export interface ProjectSettings {
 	/** Floorplans in black and white — on screen, sheets, PDFs and issues — so coloured markup stands out (stored true /
 	 *  false, not removed, so a merge-save can't bring it back). */
 	grayFloorplans?: boolean
+	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
+	fileStorage?: 'uploadthing' | 'firebase'
 	usages: { id: string; label: string; color: string }[]
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number }[]
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }
