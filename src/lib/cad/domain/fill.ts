@@ -7,6 +7,7 @@ import type { Id, ProjectSettings } from './types'
 import type { Section, Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import type { Route } from './routing'
+import { cableKey } from './multicore'
 
 export const FILL_LIMIT_PCT = 40
 /** Outer diameters (mm) when a cable type has none set (the Pages fill table). */
@@ -38,9 +39,12 @@ export const segKey = (shape: Id, seg: Id) => `${shape}:${seg}`
 export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT): Map<string, SegFill> {
 	const settings = ix.get<ProjectSettings>('settings')
 	const out = new Map<string, SegFill>()
+	// a multi-core cable counts once: its first routed core (the others share its route)
+	const counted = new Set<Id>()
 	for (const l of ix.links) {
 		const r = routes.get(l.id)
-		if (!r || r.problem) continue
+		if (!r || r.problem || counted.has(cableKey(l))) continue
+		counted.add(cableKey(l))
 		const type = l.cableType ?? 'cable', d = cableOd(settings?.type === 'settings' ? settings : undefined, type)
 		for (const { shape, seg } of r.segs) {
 			const k = segKey(shape, seg)

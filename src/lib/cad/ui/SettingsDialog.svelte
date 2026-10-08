@@ -126,7 +126,7 @@
 			</div>
 		{:else}
 			<table>
-				<thead><tr><th>Label</th><th>Media</th><th>Color</th><th title="Outer diameter — run fill uses it">Ø (mm)</th><th>Used by</th><th></th></tr></thead>
+				<thead><tr><th>Label</th><th>Media</th><th>Color</th><th title="A multi-core cable (a 24-core fibre): Link to… puts this many cores in each cable, and fill, the BOM and the cable schedule count the cable once. Blank = one">Cores</th><th title="Outer diameter — run fill uses it">Ø (mm)</th><th>Used by</th><th></th></tr></thead>
 				<tbody>
 					{#each types as t (t.id)}
 						{@const u = uses.get(t.id)}
@@ -135,6 +135,7 @@
 							<td><input class="lbl" value={t.label} onchange={(e) => e.currentTarget.value.trim() && setType(t.id, 'Rename cable type', { label: e.currentTarget.value.trim() })} /></td>
 							<td><select value={t.media} onchange={(e) => setType(t.id, 'Cable media', { media: e.currentTarget.value as CableType['media'] })}>{#each MEDIA as m (m)}<option value={m}>{m}</option>{/each}</select></td>
 							<td><ColorPick value={t.color} onchange={(v) => v && setType(t.id, 'Cable color', { color: v })} /></td>
+							<td><input class="num" type="number" min="1" step="1" value={t.cores ?? ''} placeholder="1" onchange={(e) => { const v = Math.floor(Number(e.currentTarget.value)); setType(t.id, 'Cable cores', { cores: v > 1 ? v : undefined }) }} /></td>
 							<td><input class="num" type="number" min="1" step="0.1" value={t.diameterMm ?? ''} placeholder="—" onchange={(e) => { const v = Number(e.currentTarget.value); setType(t.id, 'Cable diameter', { diameterMm: v > 0 ? v : undefined }) }} /></td>
 							<td class="text-zinc-500">{u ? [u.ports && `${u.ports} ports`, u.cords && `${u.cords} cords`].filter(Boolean).join(' · ') || '—' : ''}</td>
 							<td><button class="del" disabled={!!why} title={why ? `Can't delete: ${why}` : 'Delete this type (Undo brings it back)'} onclick={() => removeType(t.id)}>✕</button></td>
@@ -153,7 +154,7 @@
 
 <style>
 	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
-	.dlg { width: min(40rem, 96vw); max-height: 84vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
+	.dlg { width: min(46rem, 96vw); max-height: 84vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
 	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.tabs { display: flex; align-items: center; gap: 6px; }
 	.tabs b { margin-right: 6px; }

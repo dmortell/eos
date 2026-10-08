@@ -11,6 +11,7 @@
 import type { Id, Outlet, Rack, Device, Level } from './types'
 import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
+import { cablesOf } from './multicore'
 
 export const JOIN_MM = 50
 /** The furthest an outlet reaches (plan + height) to join a run (Dave: 10 m); beyond it the port has no route. */
@@ -312,13 +313,15 @@ function walk(g: Graph, run: ReturnType<typeof fromTaps> & { taps: Tap[] }, node
 }
 const dedupe = (segs: Route['segs']) => segs.filter((s, i) => !i || s.shape !== segs[i - 1].shape || s.seg !== segs[i - 1].seg)
 
-/** For the BOM: metres per cable type with waste, and a box note (305 m boxes). */
+/** For the BOM: metres per cable type with waste, and a box note (305 m boxes). `links` = cables: a multi-core cable
+ *  counts once, at the length of its first routed core. */
 export function cableMetres(ix: ProjectIndex, routes: Map<Id, Route>, cable: CableSettings = DEFAULT_CABLE): { type: string; metres: number; links: number; unrouted: number }[] {
 	const by = new Map<string, { type: string; metres: number; links: number; unrouted: number }>()
-	for (const l of ix.links) {
-		const type = l.cableType ?? 'cable', r = routes.get(l.id), row = by.get(type) ?? { type, metres: 0, links: 0, unrouted: 0 }
+	for (const cores of cablesOf(ix.links)) {
+		const type = cores[0].cableType ?? 'cable', row = by.get(type) ?? { type, metres: 0, links: 0, unrouted: 0 }
+		const len = cores.map((l) => routes.get(l.id)?.lengthM).find((m) => m != null)
 		row.links++
-		if (r?.lengthM != null) row.metres += r.lengthM
+		if (len != null) row.metres += len
 		else row.unrouted++
 		by.set(type, row)
 	}

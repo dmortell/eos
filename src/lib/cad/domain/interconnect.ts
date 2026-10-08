@@ -1,13 +1,14 @@
 // INTERCONNECTS (Phase 5): permanent cables panel ↔ panel — a BACKBONE between server rooms (through a riser,
 // across floors) or a TIE within one room. Like bulk patching: ports picked on one panel go, in order, to the free
-// ports of the other from the one clicked. A port that already has a cable is skipped. Pure; tested in
-// interconnect.test.ts.
+// ports of the other from the one clicked. A port that already has a cable is skipped. A multi-core cable type puts
+// the links, in order, into cables of its cores (domain/multicore.ts). Pure; tested in interconnect.test.ts.
 import type { Id, Link, PortRef, Device, Rack } from './types'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
+import { intoCables } from './multicore'
 
 export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear' }, b: { on: Id; start: number; face?: 'front' | 'rear' },
-	o: { cableType: string; via?: Id }): { links: Link[]; skipped: string[] } {
+	o: { cableType: string; via?: Id; /** A multi-core type: the links go, in order, into cables of this many cores. */ cores?: number }): { links: Link[]; skipped: string[] } {
 	const devA = ix.get<Device>(a.on), devB = ix.get<Device>(b.on)
 	const links: Link[] = [], skipped: string[] = []
 	if (devA?.type !== 'device' || devB?.type !== 'device') return { links, skipped: ['Not a device'] }
@@ -25,7 +26,7 @@ export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[];
 		links.push({ type: 'link', id: newId(), kind, a: ra, b: rb, cableType: o.cableType, ...(o.via ? { via: o.via } : {}), status: 'design' })
 		nb++
 	}
-	return { links, skipped }
+	return { links: intoCables(links, o.cores ?? 1), skipped }
 }
 
 /** Runs that can be a cable's "via": risers (a vertical segment between two levels) first, by label. */

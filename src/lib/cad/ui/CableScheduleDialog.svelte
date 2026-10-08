@@ -1,4 +1,4 @@
-<!-- The CABLE SCHEDULE on screen (Dave: in a dialog like the BOM, then Excel): one row per link — from, to, cable,
+<!-- The CABLE SCHEDULE on screen (Dave: in a dialog like the BOM, then Excel): one row per cable (a multi-core cable once) — from, to, cable,
      route, slack, installed length, the 90 m flag — with totals; "Problems only" shows the links over 90 m or with no
      route. -->
 <script lang="ts">
@@ -17,7 +17,7 @@
 
 	async function exportXlsx() {
 		busy = true
-		try { await exportCableSchedule(rows, projectName); ondone(`Cable schedule: ${rows.length} links`); onclose() }
+		try { await exportCableSchedule(rows, projectName); ondone(`Cable schedule: ${rows.length} cables`); onclose() }
 		catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
@@ -27,7 +27,7 @@
 	<div class="dlg" role="dialog" aria-label="Cable schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Cable schedule</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<section class="opts">
-			<span>{t.links} links · <b>{t.metres} m</b> installed{#if t.unrouted} · <span class="bad">{t.unrouted} without a route</span>{/if}{#if t.over90} · <span class="bad">{t.over90} over 90 m</span>{/if}</span>
+			<span>{t.links} cables · <b>{t.metres} m</b> installed{#if t.unrouted}{' · '}<span class="bad">{t.unrouted} without a route</span>{/if}{#if t.over90}{' · '}<span class="bad">{t.over90} over 90 m</span>{/if}</span>
 			<label><input type="checkbox" bind:checked={problems} /> Problems only</label>
 			<span class="grow"></span>
 			<button class="btn go" disabled={busy || !rows.length} onclick={exportXlsx}>{busy ? 'Exporting…' : `Export to Excel${problems ? ' (these)' : ''}`}</button>
@@ -43,7 +43,7 @@
 							<td class="hint">{r.over90 ? 'over 90 m' : r.problem ? `no route: ${r.problem}` : r.handSet ? 'set by hand' : ''}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="9" class="hint">{problems ? 'No problems.' : 'No links yet.'}</td></tr>
+						<tr><td colspan="9" class="hint">{problems ? 'No problems.' : 'No cables yet.'}</td></tr>
 					{/each}
 				</tbody>
 			</table>

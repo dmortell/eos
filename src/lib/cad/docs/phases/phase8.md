@@ -1709,3 +1709,17 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   Live (Test Project): the Files tab; a 1 px PNG through `storeFile` to Firebase → `files` doc (provider firebase,
   path, type, projectIds), its URL loads; object and doc deleted. The setting flipped to Firebase (stored) and undone
   (field gone).
+- **Multi-core cables** (backlog P2, T079): a multi-core cable is its cores' LINKS (one per core, port ↔ port, as
+  before) sharing `Link.cable`; a cable type's **Cores** (Settings › Cable types, blank = 1) says how many it holds
+  (`domain/multicore.ts`: `cableKey`, `coresOf`, `cablesOf`, `intoCables`, `coreLabels`). Link to… on a multi-core
+  type puts the picked ports, in order, into cables of that many cores (18 ports on 12-core → a 12 and a 6; the tool
+  bar says "in 2 × 12-core cable(s)"). Counted ONCE: fill (one cable's d² per segment), the BOM metres, the cable
+  schedule (one row per cable: "PP1 : 1–12 → PP2 : 2–13", "os2 (12 of 12 cores)"; totals say cables), the sidebar
+  cable list ("2 × os2 · 18 cores") and the riser view label ("2 × os2 (18 cores)"). The Links table shows "core 3
+  of 12" and a type / status change goes to all the cable's cores; Port Properties' riser and hand length too, and
+  its length / total count a cable once. Validation warns when a cable has more cores linked than its type holds.
+  Not built: cable labels / ids of their own, splitting a cable, a core count on non-link (outlet) cables. Tests:
+  `multicore.test.ts` (3). Live (Test Project): OS2 fibre given 12 cores; 4AR01's U21 panel ports 1–18 → Link to…
+  → P3C-36 in IDF2: 18 backbone cores in 2 cables; the schedule showed 2 rows (164 cables); the Links table "core n
+  of 12"; installing core 1 installed its 12 (not the 6); all undone (links back to 162) and the cores cleared.
+  Also: the schedule's totals line lost its spaces before "· N without a route" (fixed).

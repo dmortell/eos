@@ -1,7 +1,10 @@
-// The CABLE SCHEDULE (backlog "Cable schedule Excel", Dave: on screen first, like the BOM): one row per permanent link —
+// The CABLE SCHEDULE (backlog "Cable schedule Excel", Dave: on screen first, like the BOM): one row per permanent cable
+// (a link, or a multi-core cable's cores together) —
 // from (the panel end), to (the outlet port, or the other panel), its label, cable type, the route's length, the
 // slack added at the outlet, the installed length, and the 90 m permanent-link flag. Pure; tested.
-import type { Id } from './types'
+import type { Id, ProjectSettings } from './types'
+import { cablesOf, coresOf } from './multicore'
+import { portRanges } from './ports'
 import type { ProjectIndex } from './project'
 import type { Route, CableSettings } from './routing'
 import { naturalCompare } from './labels'
@@ -27,11 +30,15 @@ export interface CableRow {
 
 export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: CableSettings): CableRow[] {
 	const KIND = { horizontal: 0, tie: 1, backbone: 2 }
-	return ix.links.map((l): CableRow => {
-		const r = routes.get(l.id), horizontal = l.kind === 'horizontal'
+	// a multi-core cable is ONE row: its ports as ranges, its cores counted (domain/multicore.ts)
+	return cablesOf(ix.links).map((cores): CableRow => {
+		const l = cores[0], horizontal = l.kind === 'horizontal'
+		const r = cores.map((c) => routes.get(c.id)).find((x) => x && !x.problem) ?? routes.get(l.id)
+		const place = (end: 'a' | 'b') => cores.length > 1 ? ix.portPlace(l[end]).replace(/ : \d+/, ` : ${portRanges(cores.map((c) => c[end].port))}`) : ix.portPlace(l[end])
+		const n = Math.max(coresOf(ix.get<ProjectSettings>('settings'), l.cableType), cores.length)
 		return {
 			linkId: l.id, kind: l.kind, label: ix.portLabel(horizontal ? l.b : l.a) || ix.portLabel(l.b) || '',
-			from: ix.portPlace(l.a), to: ix.portPlace(l.b), type: l.cableType ?? 'cable',
+			from: place('a'), to: place('b'), type: `${l.cableType ?? 'cable'}${l.cable ? ` (${cores.length} of ${n} cores)` : ''}`,
 			...(r?.routeMm != null ? { routeM: Math.round(r.routeMm / 100) / 10 } : {}),
 			slackM: horizontal ? cable.slackM : 0,
 			...(r?.lengthM != null ? { lengthM: r.lengthM } : {}),

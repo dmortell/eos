@@ -12,6 +12,7 @@
 	import Trace from './Trace.svelte'
 	import { riserRuns } from '../domain/interconnect'
 	import type { Device, Link } from '../domain/types'
+	import { cablesOf } from '../domain/multicore'
 
 	let { project, ws, sel }: { project: CadProject; ws: Workspace; sel: PortSel } = $props()
 
@@ -50,23 +51,26 @@
 
 	// ── the permanent cables on these ports (Phase 5): any kind, one per port ──
 	const cables = $derived([...new Map(sel.ports.map((n) => project.index.linkAt({ on: sel.on, port: n })).filter((l): l is Link => !!l).map((l) => [l.id, l])).values()])
+	/** With every other core of their multi-core cables: a cable's route and length are set on all its cores. */
+	const withCores = $derived.by(() => { const ids = new Set(cables.map((l) => l.cable).filter(Boolean)); return ids.size ? [...new Map([...cables, ...project.index.links.filter((l) => l.cable && ids.has(l.cable))].map((l) => [l.id, l])).values()] : cables })
 	const lengthText = $derived.by(() => {
-		const ls = cables.map((l) => project.routes.get(l.id)?.lengthM).filter((m): m is number => m != null)
-		const none = cables.length - ls.length
+		// a multi-core cable once
+		const ls = cablesOf(cables).map((g) => project.routes.get(g[0].id)?.lengthM).filter((m): m is number => m != null)
+		const none = cablesOf(cables).length - ls.length
 		if (!ls.length) return 'no route'
 		const lo = Math.min(...ls), hi = Math.max(...ls)
-		return `${lo === hi ? `${lo}m` : `${lo}–${hi}m`}${cables.length > 1 ? ` · total ${ls.reduce((a, b) => a + b, 0)}m` : ''}${none ? ` · ${none} no route` : ''}`
+		return `${lo === hi ? `${lo}m` : `${lo}–${hi}m`}${ls.length > 1 ? ` · total ${ls.reduce((a, b) => a + b, 0)}m` : ''}${none ? ` · ${none} no route` : ''}`
 	})
 	const same = <T,>(xs: T[]) => (xs.every((x) => x === xs[0]) ? xs[0] : '*')
 	const viaShown = $derived(same(cables.map((l) => l.via ?? '')))
 	const handShown = $derived.by(() => { const h = same(cables.map((l) => l.lengthM ?? '')); return h === '*' ? '' : h })
 	function setVia(v: string) {
-		project.store.transact(v ? `Route ${cables.length} cable(s) via ${project.index.nameOf(v)}` : 'Route by the shortest way', (tx) => { for (const l of cables) tx.put({ ...l, via: v || undefined }) })
+		project.store.transact(v ? `Route ${cables.length} cable(s) via ${project.index.nameOf(v)}` : 'Route by the shortest way', (tx) => { for (const l of withCores) tx.put({ ...l, via: v || undefined }) })
 	}
 	function setHand(v: string) {
 		const m = v.trim() === '' ? undefined : Math.max(0, Number(v))
 		if (m != null && !Number.isFinite(m)) return
-		project.store.transact(m == null ? 'Cable length: routed' : `Cable length ${m} m by hand`, (tx) => { for (const l of cables) tx.put({ ...l, lengthM: m }) })
+		project.store.transact(m == null ? 'Cable length: routed' : `Cable length ${m} m by hand`, (tx) => { for (const l of withCores) tx.put({ ...l, lengthM: m }) })
 	}
 
 	// ── take the cables / cords off these ports (any kind of link: outlet, tie, backbone); Undo brings them back ──
@@ -98,7 +102,8 @@
 {#if cables.length}
 	<!-- the permanent cables on the selected ports (Phase 5): routed length, the riser a backbone takes, a hand length -->
 	{@const r0 = project.routes.get(cables[0].id)}
-	<p class="pt-1 font-semibold">Cable{cables.length > 1 ? `s (${cables.length})` : ''} <span class="font-normal text-zinc-500">{[...new Set(cables.map((l) => l.kind))].join(' / ')} · {cables[0].cableType ?? ''}</span></p>
+	{@const nCables = cablesOf(cables).length}
+	<p class="pt-1 font-semibold">Cable{nCables > 1 ? `s (${nCables})` : ''} <span class="font-normal text-zinc-500">{[...new Set(cables.map((l) => l.kind))].join(' / ')} · {cables[0].cableType ?? ''}{nCables !== cables.length || cables[0].cable ? ` · ${cables.length} core${cables.length === 1 ? '' : 's'} here` : ''}</span></p>
 	<div class="row"><span>Length</span><span class="font-mono" class:text-red-600={cables.some((l) => project.routes.get(l.id)?.problem || project.routes.get(l.id)?.over90)}>{lengthText}</span></div>
 	{#if cables.length === 1 && r0?.problem}<p class="text-red-600">No route: {r0.problem}</p>{/if}
 	{#if cables.some((l) => l.kind !== 'horizontal')}

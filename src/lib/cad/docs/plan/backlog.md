@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 72 entries (0 P1 · 13 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 71 entries (0 P1 · 12 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -88,7 +88,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Fill by hand** — add cables to a run by hand (count × type), before routes exist or for non-data cables (power, coax); fill adds them to the routed ones. **P2 · M** (~100 lines). *cad today:* fill counts routed links only (`cad/domain/fill.ts:38`). *From:* T080
 - [ ] **Set a cable's route by hand (diverse routes)** — give a cable (or several) an ordered list of runs / risers to pass through; routing goes through each in turn. Lets two backbone cables take different paths. **P2 · M** (~150 lines). *cad today:* routes are found automatically; one optional `via` run can be forced (`cad/domain/types.ts:232`, `cad/domain/routing.ts:265`, `cad/ui/PortProps.svelte:60`). *From:* G148, T078
 - [ ] **Riser view control** — From / To floor; EPS rooms; HIGH / LOW tags; extend a riser to more floors (edit its far-end level). Dave: one riser view for now (no per-viewport floor choice). **P3 · M** (Dave 2026-10-05: low priority) (~150 lines). *cad today:* "Hide empty floors" is built (phase8 Batch 1): floors with no server room, and floors with no level, squeeze into break bands (`cad/views/riser.ts`, a riser-view toggle and a sheet viewport choice); node far-end levels are set only when drawing (`cad/editor/pathTool.ts:55`). *From:* G021, G145, G146, G194, G195, G277, G315, T073, T076
-- [ ] **Multi-core cables** — a cable with many cores (e.g. 24-core fibre) ending on panel ports / terminations at both ends; counts once for fill and BOM. **P2 · L** (~300 lines). *cad today:* one link = one port to one port (`cad/domain/types.ts`, `cad/domain/interconnect.ts:9`). *From:* T079
 - [ ] **Cable label and colour (riser view)** — an optional label and colour per backbone cable group (defaults: fibre amber, copper blue). **P3 · S** (~40 lines). *cad today:* groups are labelled "count × type · length" in one style (`cad/views/riser.ts:7`). *From:* G147
 - [ ] **Trunk drawing style** — joined runs drawn as one outline with rounded inner corners, filled in the run's colour, primary runs stronger, ceiling runs dashed. **P3 · M** (~120 lines). *cad today:* banded segments by tier class; high runs orange; no per-run colour (`cad/views/plan.ts:116`, `cad/ui/Prims.svelte:58`). *From:* G048, G187
 - [ ] **Bend radius** — a conduit's default corner radius, changed per corner with a handle; drawn as an arc. **P3 · M** (~150 lines). *cad today:* `PathNode.radius` exists but is never drawn or edited (`cad/domain/shapes.ts:50`). *From:* G270

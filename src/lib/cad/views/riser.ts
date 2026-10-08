@@ -14,6 +14,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
 import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
+import { cableKey } from '../domain/multicore'
 import type { Prim } from './display'
 
 const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200
@@ -166,7 +167,9 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		const xr = sh ? sh.x + (lane - 0.5) * LANE : (xa + xb) / 2
 		const pts = sh || lo.box.z !== hi.box.z ? [{ x: xa, y: yA }, { x: xr, y: yA }, { x: xr, y: yB }, { x: xb, y: yB }] : [{ x: xa, y: yA }, { x: xb, y: yB }]
 		const len = g.lengths.length ? (Math.min(...g.lengths) === Math.max(...g.lengths) ? `${g.lengths[0]}m` : `${Math.min(...g.lengths)}–${Math.max(...g.lengths)}m`) : ''
-		const label = `${g.links.length} × ${g.type}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
+		// a multi-core cable counts once (domain/multicore.ts), its cores said after
+		const cables = new Set(g.links.map(cableKey)).size, cores = cables !== g.links.length ? ` (${g.links.length} cores)` : ''
+		const label = `${cables} × ${g.type}${cores}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
 		out.push({ k: 'line', pts, cls: g.unrouted === g.links.length ? 'backbone backbone-none' : 'backbone', src: g.links[0].id })
 		out.push({ k: 'text', at: { x: xr + small * 0.4, y: (yA + yB) / 2 }, text: label, size: small, cls: 'backbone-label', src: g.links[0].id })
 		n++

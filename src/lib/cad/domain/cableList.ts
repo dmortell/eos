@@ -1,9 +1,10 @@
 // Lists of the PERMANENT cables (Dave, 2026-10-05): the backbone / tie cables grouped panel ↔ panel for the sidebar's
 // "Cables (n)" (backlog "Backbone cable list"), and one row per link for the Links table (backlog "Links table").
 // Pure.
-import type { Id, Link, Device, Rack, Level } from './types'
+import type { Id, Link, Device, Rack, Level, ProjectSettings } from './types'
 import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
+import { cableKey, coreLabels, coresOf } from './multicore'
 
 /** A cable type's jacket colour, by the usual conventions (singlemode yellow, OM3 / OM4 aqua, OM5 lime, OM1 / OM2
  *  orange); copper and anything else grey-blue. */
@@ -22,6 +23,8 @@ export interface CableGroup {
 	type: string
 	colour: string
 	links: Id[]
+	/** Cables: a multi-core cable once (its cores are `links`). */
+	cables: number
 	/** "4F IDF2 R311 · PP01" — the panel ends, in level order. */
 	a: string
 	b: string
@@ -36,7 +39,7 @@ export function cableGroups(ix: ProjectIndex): CableGroup[] {
 		const d = ix.get<Device>(on), r = d?.type === 'device' ? ix.get<Rack>(d.rackId) : undefined, lv = r ? ix.get<Level>(r.levelId) : undefined
 		return d?.type === 'device' && r ? { d, r, lv, i: lv ? levels.indexOf(lv) : -1 } : null
 	}
-	const groups = new Map<string, CableGroup & { lo: number }>()
+	const groups = new Map<string, CableGroup & { lo: number; keys: Set<Id> }>()
 	for (const l of ix.links) {
 		if (l.kind === 'horizontal') continue
 		let A = at(l.a.on), B = at(l.b.on)
@@ -47,13 +50,15 @@ export function cableGroups(ix: ProjectIndex): CableGroup[] {
 		if (!g) {
 			const transit = Math.max(0, B.i - A.i - 1), fa = A.lv?.name ?? '?', fb = B.lv?.name ?? '?'
 			const end = (x: NonNullable<typeof A>) => `${x.lv?.name ?? ''} ${ix.nameOf(x.r.spaceId)} ${x.r.name} · ${x.d.name}`.trim()
-			g = { key, kind: l.kind, type, colour: cableColour(type), links: [], a: end(A), b: end(B), lo: A.i,
+			g = { key, kind: l.kind, type, colour: cableColour(type), links: [], cables: 0, keys: new Set(), a: end(A), b: end(B), lo: A.i,
 				floors: fa === fb ? fa : `${fa} → ${fb}${transit ? ` (${transit} transit)` : ''}` }
 			groups.set(key, g)
 		}
 		g.links.push(l.id)
+		g.keys.add(cableKey(l))
+		g.cables = g.keys.size
 	}
-	return [...groups.values()].sort((x, y) => x.lo - y.lo || naturalCompare(x.a, y.a) || naturalCompare(x.b, y.b)).map(({ lo: _lo, ...g }) => g)
+	return [...groups.values()].sort((x, y) => x.lo - y.lo || naturalCompare(x.a, y.a) || naturalCompare(x.b, y.b)).map(({ lo: _lo, keys: _k, ...g }) => g)
 }
 
 export interface LinkRow {
@@ -66,13 +71,17 @@ export interface LinkRow {
 	cableType: string
 	status: Link['status']
 	lengthM?: number
+	/** A core of a multi-core cable: "core 3 of 24". */
+	core?: string
 }
 
 /** Every permanent link as a table row: a horizontal one shows as a "run" (panel → outlet). Panel end first. */
 export function linkRows(ix: ProjectIndex, lengthOf: (id: Id) => number | undefined = () => undefined): LinkRow[] {
+	const st = ix.get<ProjectSettings>('settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t))
 	return ix.links.map((l) => ({
 		id: l.id, kind: l.kind === 'horizontal' ? 'run' : l.kind,
 		a: ix.portPlace(l.a), b: ix.portPlace(l.b), label: ix.portLabel(l.b) || ix.portLabel(l.a),
 		cableType: l.cableType ?? '', status: l.status, lengthM: l.lengthM ?? lengthOf(l.id),
+		...(cores.has(l.id) ? { core: cores.get(l.id) } : {}),
 	} satisfies LinkRow)).sort((x, y) => naturalCompare(x.a, y.a))
 }

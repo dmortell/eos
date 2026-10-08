@@ -44,9 +44,12 @@
 	const types = $derived([...new Set(all.map((r) => r.cableType).filter(Boolean))].sort())
 	const selected = $derived(new Set(ws.selection))
 
+	/** A core of a multi-core cable: the edit goes to all its cores (they share type and status). */
 	function edit(id: string, label: string, patch: Partial<Link>) {
 		const l = project.index.get<Link>(id)
-		if (l?.type === 'link') project.store.transact(label, (tx) => tx.put({ ...l, ...patch }))
+		if (l?.type !== 'link') return
+		const all = l.cable ? project.index.links.filter((x) => x.cable === l.cable) : [l]
+		project.store.transact(label, (tx) => { for (const x of all) tx.put({ ...x, ...patch }) })
 	}
 	function pick(id: string, e: MouseEvent) {
 		if (e.ctrlKey || e.metaKey || e.shiftKey) ws.select(selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id])
@@ -79,7 +82,7 @@
 		<tbody>
 			{#each rows.slice(0, LIMIT) as r (r.id)}
 				<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
-					<td class="px-2 py-0.5"><span class="chip k-{r.kind}">{r.kind}</span></td>
+					<td class="px-2 py-0.5 whitespace-nowrap"><span class="chip k-{r.kind}">{r.kind}</span>{#if r.core} <span class="text-zinc-500" title="A core of a multi-core cable: type and status changes go to all its cores">{r.core}</span>{/if}</td>
 					<td class="px-2">{r.a}</td>
 					<td class="px-2">{r.b}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.label || '—'}</td>

@@ -8,6 +8,7 @@ import type { Cord, Id, PortRef } from '../domain/types'
 import { pickPrim } from './pick'
 import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
 import { bulkInterconnect } from '../domain/interconnect'
+import { coresOf } from '../domain/multicore'
 
 /** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
 export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link' }
@@ -37,12 +38,16 @@ export class CordTool implements Tool {
 		if (!r) { c.say?.('Click a port in a rack elevation'); return }
 		if (this.bulk?.kind === 'link') {
 			// permanent cabling lands on the panels' REAR, whichever face is being viewed
-			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: this.linkType() || this.defaults().cableType })
-			if (res.links.length) {
+			// a multi-core type (Settings › Cable types › Cores): the ports go into cables of that many cores
+			const type = this.linkType() || this.defaults().cableType, cores = coresOf(c.settings, type)
+			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: type, cores })
+			const n = res.links.length, cables = cores > 1 ? Math.ceil(n / cores) : n
+			const what = cores > 1 ? `${cables} × ${cores}-core cable(s), ${n} cores` : `${n} interconnect cable(s)`
+			if (n) {
 				const kind = res.links[0].kind === 'tie' ? 'tie' : 'backbone'
-				c.store.transact(`Link ${res.links.length} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
+				c.store.transact(cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable(s)` : `Link ${n} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
 			}
-			c.say?.(`${res.links.length} interconnect cable(s) added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
+			c.say?.(`${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
 			this.bulk = null
 			return
 		}

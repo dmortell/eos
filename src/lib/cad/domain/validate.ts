@@ -1,9 +1,10 @@
 // Validation: the store accepts any well-typed record; these checks report what is wrong for the issues grid and
 // for importers. One entity at a time (`validateShape`, `validateEntity`) and across the project (`validateProject`).
 import type { Entity } from './drawing'
-import type { Id, Outlet, Device, Rack, Link, Cord, PortRef } from './types'
+import type { Id, Outlet, Device, Rack, Link, Cord, PortRef, ProjectSettings } from './types'
 import type { Shape } from './shapes'
 import { ownerOf } from './shapes'
+import { cablesOf, coresOf } from './multicore'
 
 export interface Issue { id: Id; code: string; message: string; severity: 'error' | 'warning' }
 
@@ -117,6 +118,12 @@ export function validateProject(entities: Iterable<Entity>): Issue[] {
 		const first = used.get(k)
 		if (first) out.push(warn(l.id, 'port-twice', `Port ${end.on}:${end.port} already has link ${first}`))
 		else used.set(k, l.id)
+	}
+	// A multi-core cable holds no more cores than its type has (domain/multicore.ts).
+	const settings = all.find((e): e is ProjectSettings => e.type === 'settings')
+	for (const g of cablesOf(all.filter((e): e is Link => e.type === 'link' && !!e.cable))) {
+		const n = coresOf(settings, g[0].cableType)
+		if (g.length > n) out.push(warn(g[0].id, 'cable-cores', `${g.length} cores linked on a ${n}-core ${g[0].cableType ?? 'cable'}`))
 	}
 	return out
 }

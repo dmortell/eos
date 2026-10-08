@@ -259,6 +259,9 @@ export interface Link {
 	via?: Id
 	/** Re-allocation never moves a pinned link. */
 	pinned?: boolean
+	/** A core of this MULTI-CORE cable (domain/multicore.ts): every core of one cable has the same id here, and the
+	 *  same type, route, length and status. Absent = a cable of its own. */
+	cable?: Id
 	status: 'design' | 'installed'
 	notes?: string
 }
@@ -309,7 +312,8 @@ export interface ProjectSettings {
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
 	usages: { id: string; label: string; color: string }[]
-	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number }[]
+	/** `cores` = a multi-core cable (a 24-core fibre): Link to… puts that many cores in each cable (absent = 1). */
+	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number; cores?: number }[]
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }
 }
 
