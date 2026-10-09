@@ -1807,3 +1807,9 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   and a sheet viewport freezes them like any layer. Not built: F to flip, dragging the lines (backlog, P3); walls
   (later.md, maybe). Tests: `rackRow.test.ts` (+1). Live (IDF2): floor 150, ceiling 2400 → the lines and labels, the
   level's ceiling line gone; Room lines off → none drawn, on → back; both undone.
+- **Markup: line end marks** (backlog "Markup kinds" part 2): `style.ends` `{ a?, b? }` (`LineEnd` = arrow / dot /
+  tick) on a plain line — `a` at its first point, `b` at every other loose end — drawn by `lineEnds` (views/plan.ts)
+  pointing out along the last segment: a filled 3 × 2 paper-mm arrow, a Ø1.6 dot, a 3 mm 45° tick, in the line's
+  colour (solid even on a dashed line), on plans, sheets and elevations (`endItems`), screen and PDF. Properties ›
+  Start / End for one or several plain lines (LineStyle). Tests: `plan.test.ts` (+1). Live (1F): a line given an arrow
+  and a tick → one head, one tick drawn; undone.

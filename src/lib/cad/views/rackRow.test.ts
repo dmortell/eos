@@ -35,9 +35,9 @@ describe('the rack row', () => {
 		const texts = after.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
 		expect(texts).toEqual(expect.arrayContaining(['IDF-A CEILING FL+2400', 'IDF-A FLOOR FL+150', 'SLAB FFL+3500']))
 		expect(texts).not.toContain('CEILING FFL+2700')
-		const lines = after.filter((p) => p.cls.includes('room-line'))
+		const lines = after.filter((p) => 'cls' in p && p.cls.includes('room-line'))
 		const known = new Set(layersOf([]).map((l) => l.id))
-		expect(new Set(lines.map((p) => primLayer(p.cls, undefined, known)))).toEqual(new Set(['sys:room-lines']))
+		expect(new Set(lines.map((p) => primLayer('cls' in p ? p.cls : '', undefined, known)))).toEqual(new Set(['sys:room-lines']))
 		expect(primLayer('device-other', undefined, known)).toBe('sys:other-face')
 	})
 	it('a room with no racks says so', () => {

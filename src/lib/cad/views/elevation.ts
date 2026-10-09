@@ -6,7 +6,7 @@ import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import { isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
-import { passesThrough, shapePrims, dimLine, ownStyle } from './plan'
+import { passesThrough, shapePrims, dimLine, ownStyle, lineEnds } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
@@ -63,7 +63,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 		}
 		const reaches =s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
 		if (s.levelId !== levelId && !(s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) && !passesThrough(ix, s, levelId)) continue
-		const its = shapeItems(s, sp, rect, uSpan, zOf, wallSpan(ix, s))
+		const its = shapeItems(s, sp, rect, uSpan, zOf, wallSpan(ix, s), k)
 		// ±1 km across: wide enough for any building. (±1e9 broke Chrome's clipping in some view directions — the
 		// riser vanished from the front / right elevations.)
 		items.push(...(reaches ? its.map((it) => ({ ...it, prims: it.prims.map((p) => ({ ...p, clip: { x0: -1e6, x1: 1e6, ...floor } })) })) : its))
@@ -143,7 +143,14 @@ function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
 	}
 }
 
-function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, span?: { z0: number; z1: number }): Item[] {
+/** A plain line's end marks, on its projected nodes (`k` = drawing mm per paper mm). */
+function endItems(s: Shape, g: Extract<Shape['geom'], { kind: 'path' }>, nodes: Map<Id, Pt3 & { id: Id }>, sp: ViewSpace, k: number): Item[] {
+	const flat = { ...g, nodes: g.nodes.map((n) => { const w = nodes.get(n.id)!; return { ...n, ...sp.fromWorld(w), z: 0 } }) }
+	const n0 = nodes.get(g.nodes[0]?.id ?? '')
+	return [{ depth: n0 ? sp.depthOf(n0) : 0, prims: ownStyle(s, lineEnds(flat, s.style!.ends!, k, s.id)) }]
+}
+
+function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, span?: { z0: number; z1: number }, k = 100): Item[] {
 	const g = s.geom
 	if (g.kind === 'path') {
 		const nodes = new Map(g.nodes.map((n) => [n.id, { ...n, z: zOf(n, s) }]))
@@ -183,7 +190,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: isVertical(a, b) ? sec.w : sec.h, cls, src: s.id }] }]
 			}
 			return [{ depth, prims: ownStyle(s, [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }]) }]
-		})
+		}).concat(!s.role && s.style?.ends ? endItems(s, g, nodes, sp, k) : [])
 	}
 	// a region drawn ON an elevation's plane (the Shape tool there): its (u, z) outline put back in the model, seen here
 	if (s.plane?.kind === 'vertical') {

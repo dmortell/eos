@@ -103,7 +103,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] **More snaps** — Intersection, perpendicular and nearest. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
 - [ ] **Markup kinds on plan and paper** — New tools for the kinds Dave ticked. **P2 · L** (~200 lines left). *cad today:* Text, Leader, Cloud on sheets, plans and elevations / sections; the Dim tool (aligned / H / V, 2026-10-05, `cad/editor/dimTool.ts`); the Shape tool draws rectangles, ellipses and regular polygons on plans, elevations / sections (on the view's plane) and sheets / viewports (2026-10-05, `cad/editor/shapeTool.ts`), with resize grips (2026-10-05, `cad/editor/shapeGrips.ts`). Parts left:
-  2. Arrow heads on line ends: none / arrow / dot / tick (S–M).
   4. Image from this computer or Uploads, fitted in a box, with grips to drag / resize it on the paper (M: geometry exists, not drawn, `cad/domain/shapes.ts:78`; image prims aren't pickable, `cad/editor/pick.ts:39`).
   5. Symbols (north arrow, datum, detail bubble, elevation tag): as blocks (see Layers / blocks theme).
   *From:* G012, G156, G157, G158, G161, G209, G240, G258, G263, G287, G329

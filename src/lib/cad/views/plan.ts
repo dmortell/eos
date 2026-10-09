@@ -99,7 +99,7 @@ function basePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 					]
 				}
 				return [{ k: 'line', pts: [a, b], ...(w ? { w } : {}), cls, src: s.id }]
-			})
+			}).concat(!s.role && s.style?.ends ? lineEnds(g, s.style.ends, k, s.id) : [])
 		}
 		case 'rect': {
 			const hx = g.size.x / 2, hy = g.size.y / 2
@@ -136,7 +136,7 @@ export function ownStyle(s: Shape, ps: Prim[]): Prim[] {
 	if (!st.stroke && !st.weightMm && !dash) return ps
 	return ps.map((p) => {
 		if (p.k === 'image' || p.cls === 'note-bg' || p.cls === 'shape-fill') return p
-		const own = { ...(st.stroke ? { color: st.stroke } : {}), ...(p.k !== 'text' && st.weightMm ? { weight: st.weightMm } : {}), ...(p.k !== 'text' && dash ? { dash } : {}) }
+		const own = { ...(st.stroke ? { color: st.stroke } : {}), ...(p.k !== 'text' && st.weightMm ? { weight: st.weightMm } : {}), ...(p.k !== 'text' && dash && !/line-(head|tick)/.test(p.cls) ? { dash } : {}) }
 		return { ...p, ...own }
 	})
 }
@@ -313,6 +313,31 @@ function outletPrims(o: Outlet, k: number, blocks?: PlanOpts['blocks']): Prim[] 
 }
 
 const add = (a: Pt, b: Pt): Pt => ({ x: a.x + b.x, y: a.y + b.y })
+
+/** A plain line's end marks (backlog "Markup kinds" part 2): at its first node (`a`) and at every other loose end
+ *  (`b`), pointing out along the last segment — a filled arrow (3 × 2 paper mm), a dot (Ø1.6) or a 45° tick (3 long).
+ *  Paper-mm sizes × k. */
+export function lineEnds(g: Extract<Shape['geom'], { kind: 'path' }>, ends: NonNullable<NonNullable<Shape['style']>['ends']>, k: number, id: string): Prim[] {
+	const byId = new Map(g.nodes.map((n) => [n.id, n])), degree = new Map<string, string[]>()
+	for (const sg of g.segs) { degree.set(sg.a, [...(degree.get(sg.a) ?? []), sg.b]); degree.set(sg.b, [...(degree.get(sg.b) ?? []), sg.a]) }
+	const out: Prim[] = []
+	for (const [nid, nbrs] of degree) {
+		if (nbrs.length !== 1) continue
+		const mark = nid === g.nodes[0]?.id ? ends.a : ends.b, n = byId.get(nid), from = byId.get(nbrs[0])
+		if (!mark || !n || !from) continue
+		const tip = { x: n.x, y: n.y }
+		const len = Math.hypot(tip.x - from.x, tip.y - from.y) || 1, ux = (from.x - tip.x) / len, uy = (from.y - tip.y) / len
+		if (mark === 'arrow') {
+			const a = 3 * k, b = 1 * k
+			out.push({ k: 'line', pts: [tip, { x: tip.x + ux * a - uy * b, y: tip.y + uy * a + ux * b }, { x: tip.x + ux * a + uy * b, y: tip.y + uy * a - ux * b }], closed: true, fill: true, cls: 'shape line-head', src: id })
+		} else if (mark === 'dot') out.push({ k: 'circle', c: tip, r: 0.8 * k, fill: true, cls: 'shape line-head', src: id })
+		else {
+			const t = 1.5 * k, c = Math.SQRT1_2, dx = (ux * c - uy * c) * t, dy = (uy * c + ux * c) * t   // the tick: 45° across the line
+			out.push({ k: 'line', pts: [{ x: tip.x - dx, y: tip.y - dy }, { x: tip.x + dx, y: tip.y + dy }], cls: 'shape line-tick', src: id })
+		}
+	}
+	return out
+}
 
 /** A leader: the line (tip first), a filled arrowhead at the tip, its text beside the last point. Paper-mm sizes × k. */
 function leaderPrims(id: string, pts: Pt[], text: string | undefined, k: number, border?: 'underline' | 'box'): Prim[] {

@@ -1,6 +1,6 @@
 // What the plan draws, and in what order (later = on top).
 import { describe, it, expect } from 'vitest'
-import { planDisplayList } from './plan'
+import { planDisplayList, shapePrims } from './plan'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Entity } from '../domain/drawing'
@@ -51,5 +51,20 @@ describe('labels that collide (UX review L3)', () => {
 		expect(ys[0]).toBe(0)                       // the rack's label stays
 		expect(new Set(ys).size).toBe(4)            // the others each moved to their own line
 		expect(Math.min(...ys.slice(1))).toBeGreaterThan(0)
+	})
+})
+
+describe('line end marks (Markup kinds part 2)', () => {
+	it('an arrow at the first point, a tick or dot at the other loose ends, pointing out along the last segment; none on runs', () => {
+		const nodes = [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }, { id: 'c', x: 1000, y: 500, z: 0 }]
+		const line = { type: 'shape', id: 'L', levelId: 'L1', geom: { kind: 'path', nodes, segs: [{ id: 's0', a: 'a', b: 'b' }, { id: 's1', a: 'b', b: 'c' }] }, style: { ends: { a: 'arrow', b: 'dot' } } } as Shape
+		const ps = shapePrims(line, 100)
+		const head = ps.find((p) => p.k === 'line' && p.cls.includes('line-head')) as { pts: { x: number; y: number }[]; fill?: boolean }
+		expect(head.pts[0]).toEqual({ x: 0, y: 0 })                              // the tip on the first point
+		expect(head.pts[1].x).toBeCloseTo(300)                                   // 3 paper mm × 1:100 back along the line
+		expect(ps.find((p) => p.k === 'circle')).toMatchObject({ c: { x: 1000, y: 500 }, r: 80, fill: true })
+		const tick = shapePrims({ ...line, style: { ends: { b: 'tick' } } } as Shape, 100).filter((p) => p.k === 'line' && p.cls.includes('line-tick'))
+		expect(tick).toHaveLength(1)
+		expect(shapePrims({ ...line, role: { kind: 'containment', form: 'trunk', tier: 'low' }, section: { w: 100, h: 50 } } as Shape, 100).some((p) => 'cls' in p && p.cls.includes('line-'))).toBe(false)
 	})
 })

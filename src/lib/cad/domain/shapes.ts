@@ -146,6 +146,9 @@ export interface Opening {
 	flip?: boolean
 }
 
+/** A mark on a line's end: a filled arrow, a dot, or an architectural tick. */
+export type LineEnd = 'arrow' | 'dot' | 'tick'
+
 export interface ShapeCore {
 	type: 'shape'
 	id: Id
@@ -172,7 +175,10 @@ export interface ShapeCore {
 	/** Draw order within its owner and layer (higher = on top). */
 	order?: number
 	catalogId?: Id
-	style?: { stroke?: string; fill?: string; weightMm?: number; dash?: string }
+	style?: { stroke?: string; fill?: string; weightMm?: number; dash?: string
+		/** A plain line's end marks (backlog "Markup kinds" part 2): at its start (`a`, its first node) and its other
+		 *  end(s) (`b`). */
+		ends?: { a?: LineEnd; b?: LineEnd } }
 	/** A box (rect): draw a thick line on its back edge (local −y), as racks have — which way a desk / box faces. */
 	backLine?: boolean
 	/** A box / cabinet's doors (backlog "Door swings on other objects"), as racks have: drawn open on the plan, front = its
