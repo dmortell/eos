@@ -68,3 +68,5 @@ wanted. *From:* ids as in `backlog.md`.
 - **Port labels / patch cords toggles per viewport** — replaced by a "Port labels" layer (the ❄ freeze hides it per viewport; cords already have a layer) (Dave 2026-10-07). *From:* G190
 - **Selectable Japanese text in PDF** — not needed (Dave 2026-10-07). *From:* G324, P027
 - **Function keys** — not needed (Dave 2026-10-07). *From:* G300
+- **Floorplan zones: rotate and drag** — not required (Dave 2026-10-09); zones keep the typed X / Y offset in the Floor manager. *From:* Dave 2026-10-04
+- **Several buildings in one project** — not required (Dave 2026-10-09: "I'll make a different project per building"). *From:* T054

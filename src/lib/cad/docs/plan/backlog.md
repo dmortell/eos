@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 71 entries (0 P1 · 12 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 69 entries (0 P1 · 10 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -58,9 +58,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] ❓ **Embed Uploads in cad?** — the link is built (File › Uploads… opens it in a new tab, 2026-10-07). Still to decide: embed the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in a cad window / dialog. **P3 · L** (Dave 2026-10-07: "consider"; Uploads is its own route with its own PDF viewer state). *From:* Dave 2026-10-07
 - [ ] **Floor manager: server rooms, tenant areas, level numbers** — in the Floor manager, add / rename / delete each level's server rooms and tenant areas, and edit a level's number. **P3 · M** (Dave 2026-10-05: low priority) (~120 lines). *cad today:* the Floor manager (`cad/ui/FloorManager.svelte`, phase8 Batch 3) sets the range, gaps, names and heights; server rooms come only from the import or a rack's Properties. *From:* G030, G100, G125 (the range part is built)
 - [ ] **RCP (reflected ceiling plan)** — a plan view of a level that shows the ceiling: high runs, ceiling outlets / APs, risers, with floor-level items faded or hidden; can go on a sheet. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, a filter on the plan generator). *cad today:* one plan view per level; high runs are drawn on top (`cad/views/plan.ts:43`) but nothing filters by height. *From:* T083
-- [ ] **Several buildings in one project** — add / rename buildings, group levels by building in the levels list, a riser view per building. Journey has 3 buildings plus a data centre. **P2 · L** (~250+ lines). *cad today:* a `Building` entity exists and every level has `buildingId` (`cad/domain/types.ts:28`); the import makes one building; the riser view uses all levels (`cad/views/riser.ts:57`); the riser ViewDef already has `buildingId` (`cad/domain/drawing.ts:14`). *From:* T054
 - [ ] **Calibrate an image in place** — set origin, 2-point scale and crop on the drawing, without going to Uploads. **P3 · M** (~200 lines). *cad today:* calibration is done in Uploads only (`cad/app/pdf.svelte.ts:13`). *From:* G289
-- [ ] **Floorplan zones: rotate and drag** — a zone's floorplan can be turned (any angle) and moved by dragging on the plan with all zones shown, as well as typed (Dave: 33F's 3303 and 3307 calibrated origins overlap). **P2 · M** (~150 lines: the Uploads crop must turn with it — a rotated clip on screen, in the PDF and in issued copies, or a pre-rotated raster). *cad today:* Floor manager zones with a name and a typed X / Y offset (2026-10-04, `Underlay.origin`); `Underlay.rot` exists but isn't drawn. Settle "Zones: one model or separate" (decisions) first. *From:* Dave 2026-10-04
 
 ## Racks, devices and rack views
 
