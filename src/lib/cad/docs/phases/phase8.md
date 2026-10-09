@@ -1821,3 +1821,15 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   line end marks use it too) — before, a solid shape in a plain insert filled light grey. Tests: `blocks.test.ts`
   (+1). Live (S001): the three placed from the Blocks panel — "1 / A-201", "1 / A-501", "FFL +0", the pointer and the
   datum's quarters dark; deleted afterwards (an HMR reload had cleared undo).
+- **Markup: images** (backlog "Markup kinds" part 4, and the plan / sheet half of "Images on the model"): Insert ›
+  Image… (`ImagePickDialog`): "From this computer…" (stored with `storeFile` per Settings › Files, listed in Uploads)
+  or a picture / PDF page already in Uploads; then the Image tool (the Shape tool's `image` kind) drags its box on a
+  plan or a sheet (an elevation says not yet). The image geometry draws as a `picture:fileId#page` reference fitted
+  centred in its box (`fit: 'centre'`), plus an unseen `image-frame` that takes clicks and the selection; grips resize
+  it like a box (`regionGrips` / `dragRegionGrip`). The reference resolves when shown (`PdfCache.picture`: an image
+  file as is, a PDF page rasterised; the shell provides it to `Prims` as the `cad-picture` context) or printed
+  (`pictureLoader` for sheet PDFs, `frozenImages` for issues) — display lists and frozen issues keep the reference,
+  never a blob url. Properties › Image shows the file, page and size (no line style). The "Markup kinds" entry is
+  done; "Images in elevations" stays (P2). Tests: `plan.test.ts` (+1). Live (S001): eire-logo.png and 3PAGE.pdf
+  page 2 placed by dragging, both drawn (the PDF page rasterised), the logo resized by its corner grip; both removed
+  (undo, and a delete for one placed before an HMR reload).
