@@ -23,6 +23,16 @@ describe('fill', () => {
 		expect(fillByRun(f).get('T1')!.seg).toBe('s1')
 		expect(fillBySegment(ix, routes, 20).get('T1:s0')!.over).toBe(true)
 	})
+	it('cables added by hand: on every segment or one, with their own Ø, before any route (T080)', () => {
+		const hand = { ...run, role: { ...run.role, extra: [{ type: 'power', n: 4, d: 10 }, { type: 'cat6a', n: 2, seg: 's1' }, { type: 'coax', n: 0 }] } }
+		const f = fillBySegment(new ProjectIndex([hand, settings] as Entity[]), new Map())
+		expect(f.get('T1:s0')!.cables).toEqual({ power: 4 })
+		expect(f.get('T1:s1')!).toMatchObject({ cables: { power: 4, cat6a: 2 }, hand: { power: 4, cat6a: 2 }, od: { power: 10 }, cableMm2: 4 * 100 + 2 * 64 })
+		// added to the routed ones
+		const both = fillBySegment(new ProjectIndex([hand, settings, ...ix.links] as Entity[]), routes).get('T1:s0')!
+		expect(both.cables).toEqual({ cat6a: 18, os2: 2, power: 4 })
+		expect(both.cableMm2).toBe(18 * 64 + 2 * 9 + 400)
+	})
 	it('round conduits use πr²; tones; unknown types fall back by media', () => {
 		expect(sectionArea({ w: 20, h: 20, round: true })).toBeCloseTo(Math.PI * 100)
 		expect(sectionArea({ w: 100, h: 50, inner: { w: 94, h: 44 } })).toBe(94 * 44)

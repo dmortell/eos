@@ -1,4 +1,5 @@
-// CONTAINMENT FILL (Phase 5.3): how full each run segment is from the cables ROUTED through it (domain/routing.ts).
+// CONTAINMENT FILL (Phase 5.3): how full each run segment is from the cables ROUTED through it (domain/routing.ts),
+// plus the cables added to a run by hand (`ContainmentRole.extra`).
 // A cable counts as a SQUARE of its outer diameter (d², Dave) against the section's inside area (`inner`, else the
 // section; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
@@ -29,34 +30,57 @@ export interface SegFill {
 	shape: Id; seg: Id
 	/** Cables per type through it. */
 	cables: Record<string, number>
+	/** Of those, the ones added by hand, per type. */
+	hand?: Record<string, number>
+	/** Outer Ø (mm) per type where a hand-added row set its own. */
+	od?: Record<string, number>
 	cableMm2: number; areaMm2: number
 	pct: number
 	over: boolean
 }
 export const segKey = (shape: Id, seg: Id) => `${shape}:${seg}`
 
-/** The fill of every run segment that has cables routed through it. */
+/** The fill of every run segment that has cables routed through it or added by hand. */
 export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT): Map<string, SegFill> {
-	const settings = ix.get<ProjectSettings>('settings')
+	const st = ix.get<ProjectSettings>('settings'), settings = st?.type === 'settings' ? st : undefined
 	const out = new Map<string, SegFill>()
+	const entry = (shape: Id, seg: Id, s = ix.get<Shape>(shape)): SegFill => {
+		const k = segKey(shape, seg)
+		let f = out.get(k)
+		if (!f) {
+			const sec = s?.type === 'shape' && s.geom.kind === 'path' ? (s.geom.segs.find((x) => x.id === seg)?.section ?? s.section) : undefined
+			f = { shape, seg, cables: {}, cableMm2: 0, areaMm2: sectionArea(sec), pct: 0, over: false }
+			out.set(k, f)
+		}
+		return f
+	}
 	// a multi-core cable counts once: its first routed core (the others share its route)
 	const counted = new Set<Id>()
 	for (const l of ix.links) {
 		const r = routes.get(l.id)
 		if (!r || r.problem || counted.has(cableKey(l))) continue
 		counted.add(cableKey(l))
-		const type = l.cableType ?? 'cable', d = cableOd(settings?.type === 'settings' ? settings : undefined, type)
+		const type = l.cableType ?? 'cable', d = cableOd(settings, type)
 		for (const { shape, seg } of r.segs) {
-			const k = segKey(shape, seg)
-			let f = out.get(k)
-			if (!f) {
-				const s = ix.get<Shape>(shape)
-				const sec = s?.type === 'shape' && s.geom.kind === 'path' ? (s.geom.segs.find((x) => x.id === seg)?.section ?? s.section) : undefined
-				f = { shape, seg, cables: {}, cableMm2: 0, areaMm2: sectionArea(sec), pct: 0, over: false }
-				out.set(k, f)
-			}
+			const f = entry(shape, seg)
 			f.cables[type] = (f.cables[type] ?? 0) + 1
 			f.cableMm2 += d * d
+		}
+	}
+	// cables added by hand: on one segment, or on every segment of the run
+	for (const s of ix.shapes) {
+		if (s.role?.kind !== 'containment' || !s.role.extra?.length || s.geom.kind !== 'path') continue
+		for (const h of s.role.extra) {
+			const n = Math.max(0, Math.round(h.n)), type = h.type.trim() || 'cable', d = h.d && h.d > 0 ? h.d : cableOd(settings, type)
+			if (!n) continue
+			for (const g of s.geom.segs) {
+				if (h.seg && h.seg !== g.id) continue
+				const f = entry(s.id, g.id, s)
+				f.cables[type] = (f.cables[type] ?? 0) + n
+				f.hand = { ...f.hand, [type]: (f.hand?.[type] ?? 0) + n }
+				if (h.d && h.d > 0) f.od = { ...f.od, [type]: h.d }
+				f.cableMm2 += n * d * d
+			}
 		}
 	}
 	for (const f of out.values()) {

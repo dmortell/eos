@@ -1739,3 +1739,11 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   Live (Test Project): notes added on S001 and S003; S003 retitled so it would get a new revision → the Issue panel
   defaulted What changed to "Added AP-12" with the notes in its tip; cancelled (nothing issued); all three edits
   undone.
+- **Fill by hand** (backlog P2, T080): a run's containment role keeps `extra` rows (`HandCables`: `n` × `type`, own
+  Ø `d`, one segment `seg` else the whole run). `fillBySegment` adds them to the routed cables (a segment with only
+  hand cables now has a fill too); `SegFill.hand` / `.od` say which and their Ø, so the section picture packs them at
+  their size. Run Properties › Fill › **Cables by hand**: count, type (the cable types as suggestions, or any name),
+  Ø (placeholder = the type's), whole run / seg N, × — one undo step each; Add puts the row on the picked segment.
+  The BOM doesn't count them (they aren't links). Tests: `fill.test.ts` (+1). Live (Test Project 1F, TR1 50×50
+  tray): Add → 1 × cat6a on every segment; changed to 4 × power Ø10 on seg 3 → 13.7 % → 29.7 %, the picture packed
+  four Ø10 cables; all five edits undone.

@@ -103,7 +103,12 @@ export interface ContainmentRole {
 	/** Server rooms this run may carry cables to (empty = any) — the Outlets tool's routing filter. */
 	serves?: Id[]
 	primary?: boolean
+	/** Cables added BY HAND (backlog T080): before routes exist, or ones that aren't links (power, coax). Fill adds them
+	 *  to the routed ones — `n` × `type` (a cable type id, or any name), `d` = their outer Ø in mm (else the type's),
+	 *  `seg` = one segment (else every segment of the run). */
+	extra?: HandCables[]
 }
+export type HandCables = { type: string; n: number; d?: number; seg?: Id }
 
 /** A thing in the room that is neither wall nor containment, e.g. furniture or equipment — for filtering and the BOM. */
 export interface ObjectRole {
