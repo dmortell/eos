@@ -14,6 +14,9 @@ export interface MenuCtx {
 	dxf(): void
 	pdfAllSheets(): void
 	hasSheets: boolean
+	/** The sheet open in the active pane, as a PDF; `onSheet`: one is open. */
+	pdfThisSheet(): void
+	onSheet: boolean
 	/** The Uploads tool, in a new tab. */
 	uploads(): void
 	/** Pick another project and open it in cad (Ctrl+O). */
@@ -74,6 +77,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Cable schedule…', run: c.cableSchedule },
 			{ label: 'Cord BOM / patch schedule…', run: c.cordBom },
 			'-',
+			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Edit', items: [
@@ -134,6 +138,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Title block…', run: c.titleBlock },
 			{ label: 'Sheet register', run: () => c.openTable('sheets') },
+			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Project', items: [
