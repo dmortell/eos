@@ -13,6 +13,8 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 	const out: Prim[] = []
 	for (const sh of b.shapes) {
 		const fill = sh.style?.fill === 'solid'
+		// a solid part of a symbol is filled with its line colour (`ink`); an outlet's fills as outlets do
+		const fcls = fill && !cls.startsWith('outlet') ? `${cls} ink` : cls
 		const g = sh.geom
 		switch (g.kind) {
 			case 'path': {
@@ -26,11 +28,11 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 			case 'rect': {
 				const hx = g.size.x / 2, hy = g.size.y / 2
 				const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => { const q = rotate({ x, y }, g.rot ?? 0); return P({ x: g.centre.x + q.x, y: g.centre.y + q.y }) })
-				out.push({ k: 'line', pts, closed: true, fill, cls, src })
+				out.push({ k: 'line', pts, closed: true, fill, cls: fcls, src })
 				break
 			}
-			case 'circle': out.push({ k: 'circle', c: P(g.centre), r: g.r * s, fill, cls, src }); break
-			case 'polygon': out.push({ k: 'line', pts: g.pts.map(P), closed: true, fill, cls, src }); break
+			case 'circle': out.push({ k: 'circle', c: P(g.centre), r: g.r * s, fill, cls: fcls, src }); break
+			case 'polygon': out.push({ k: 'line', pts: g.pts.map(P), closed: true, fill, cls: fcls, src }); break
 			case 'text': {
 				const text = fillAttrs(g.text, attrs)
 				// a text wholly on a filled shape of the block (a port count inside the symbol) is drawn white; a port count

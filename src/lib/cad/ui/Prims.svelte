@@ -54,7 +54,7 @@
 		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith('line-head')) ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
@@ -108,7 +108,8 @@
 	text.dim-text { fill: #0f172a; }
 	.leader { stroke: #0f172a; }
 	.leader-head.filled { fill: #0f172a; }
-	.line-head.filled { fill: #0f172a; }
+	/* filled with the line's own colour (line end marks, a symbol's solid parts) */
+	.ink.filled { fill: #0f172a; }
 	.cloud { stroke: #dc2626; stroke-width: 1.25; }
 	.tb-frame { stroke: #64748b; }
 	.tb-frame.filled { fill: #ffffff; }

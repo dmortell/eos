@@ -329,8 +329,8 @@ export function lineEnds(g: Extract<Shape['geom'], { kind: 'path' }>, ends: NonN
 		const len = Math.hypot(tip.x - from.x, tip.y - from.y) || 1, ux = (from.x - tip.x) / len, uy = (from.y - tip.y) / len
 		if (mark === 'arrow') {
 			const a = 3 * k, b = 1 * k
-			out.push({ k: 'line', pts: [tip, { x: tip.x + ux * a - uy * b, y: tip.y + uy * a + ux * b }, { x: tip.x + ux * a + uy * b, y: tip.y + uy * a - ux * b }], closed: true, fill: true, cls: 'shape line-head', src: id })
-		} else if (mark === 'dot') out.push({ k: 'circle', c: tip, r: 0.8 * k, fill: true, cls: 'shape line-head', src: id })
+			out.push({ k: 'line', pts: [tip, { x: tip.x + ux * a - uy * b, y: tip.y + uy * a + ux * b }, { x: tip.x + ux * a + uy * b, y: tip.y + uy * a - ux * b }], closed: true, fill: true, cls: 'shape line-head ink', src: id })
+		} else if (mark === 'dot') out.push({ k: 'circle', c: tip, r: 0.8 * k, fill: true, cls: 'shape line-head ink', src: id })
 		else {
 			const t = 1.5 * k, c = Math.SQRT1_2, dx = (ux * c - uy * c) * t, dy = (uy * c + ux * c) * t   // the tick: 45° across the line
 			out.push({ k: 'line', pts: [{ x: tip.x - dx, y: tip.y - dy }, { x: tip.x + dx, y: tip.y + dy }], cls: 'shape line-tick', src: id })

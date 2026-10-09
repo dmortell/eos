@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, explodeInsert, type Block } from './blocks'
+import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, explodeInsert, blockAttrDefs, insertAttrs, type Block } from './blocks'
 import { blockPrims } from '../views/blocks'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from './project'
@@ -68,5 +68,15 @@ describe('make block / explode', () => {
 		expect(back.geom).toEqual(a.geom)
 		expect(back.id).not.toBe(a.id)
 		expect(back.extent).toBe(720)
+	})
+})
+
+describe('drawing symbols (Markup kinds part 5)', () => {
+	it('datum, detail callout and elevation tag: annotative symbols whose words are attributes with defaults', () => {
+		const sym = BUILTIN_BLOCKS.filter((b) => b.category === 'symbol')
+		expect(sym.map((b) => b.name)).toEqual(['Datum (level)', 'Detail callout', 'Elevation tag'])
+		expect(sym.every((b) => b.annotative)).toBe(true)
+		expect(sym.map((b) => blockAttrDefs(b).map((d) => `${d.tag}=${d.default}`))).toEqual([['NAME=FFL', 'HEIGHT=+0'], ['NUMBER=1', 'ON_SHEET=A-501'], ['NUMBER=1', 'ON_SHEET=A-201']])
+		expect(insertAttrs(sym[1], { NUMBER: '3' })).toEqual({ NUMBER: '3', ON_SHEET: 'A-501' })
 	})
 })

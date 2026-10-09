@@ -1813,3 +1813,11 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   colour (solid even on a dashed line), on plans, sheets and elevations (`endItems`), screen and PDF. Properties ›
   Start / End for one or several plain lines (LineStyle). Tests: `plan.test.ts` (+1). Live (1F): a line given an arrow
   and a tick → one head, one tick drawn; undone.
+- **Markup: drawing symbols** (backlog "Markup kinds" part 5; no north arrow — Dave): built-in annotative blocks in a
+  Symbol group (`drawingSymbols` in domain/blocks.ts) — Datum (level): a quartered target on its line, "{NAME}
+  {HEIGHT}" (FFL +0); Detail callout: a split bubble, {NUMBER} over {ON_SHEET}; Elevation tag: the bubble with a
+  filled pointer on its edge (turn the insert to aim it). Their words are block attributes with defaults (Properties
+  › Attributes per insert). A symbol's solid parts are filled in its line colour: a new `ink` class (screen and PDF;
+  line end marks use it too) — before, a solid shape in a plain insert filled light grey. Tests: `blocks.test.ts`
+  (+1). Live (S001): the three placed from the Blocks panel — "1 / A-201", "1 / A-501", "FFL +0", the pointer and the
+  datum's quarters dark; deleted afterwards (an HMR reload had cleared undo).

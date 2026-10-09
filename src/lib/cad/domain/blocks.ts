@@ -41,7 +41,33 @@ export const BUILTIN_BLOCKS: Block[] = [
 		shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.8 }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.95 }, solid), label, { ...usage, geom: { kind: 'text', at: { x: 0, y: 3.9 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' } }, ports(1.2)] },
 	// wall faceplates, seen on the plan against the wall: a plate (one or two gangs) with a data triangle or power pins
 	...faceplates(),
+	...drawingSymbols(),
 ]
+
+/** Drawing symbols (backlog "Markup kinds" part 5, Dave 2026-10-09: datum, detail and elevation tags — no north
+ *  arrow), paper mm, the insert point at the symbol's centre (a datum: on its line). Their words are attributes, so
+ *  each insert says its own (Properties › Attributes). Turn an elevation tag to aim its pointer. */
+function drawingSymbols(): Block[] {
+	const text = (x: number, y: number, t: string, sizeMm: number, align: 'left' | 'centre' = 'centre') => sh({ kind: 'text', at: { x, y }, text: t, sizeMm, align })
+	/** A filled quarter of a circle of radius r, from angle a0 (degrees, y down). */
+	const quarter = (r: number, a0: number) => sh({ kind: 'polygon', pts: [{ x: 0, y: 0 }, ...Array.from({ length: 7 }, (_, i) => { const a = ((a0 + i * 15) * Math.PI) / 180; return { x: r * Math.cos(a), y: r * Math.sin(a) } })] }, solid)
+	return [
+		// a level datum: a quartered target on the line, its name and height above the line
+		{ type: 'block', id: 'builtin:datum', name: 'Datum (level)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			attrs: [{ tag: 'NAME', label: 'Name', default: 'FFL' }, { tag: 'HEIGHT', label: 'Height', default: '+0' }],
+			shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.6 }), quarter(1.6, 180), quarter(1.6, 0), seg(-1.6, 0, 18, 0), text(2.6, -0.7, '{NAME} {HEIGHT}', 2, 'left')] },
+		// a detail callout: the detail's number over the sheet it is drawn on
+		{ type: 'block', id: 'builtin:detail', name: 'Detail callout', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			attrs: [{ tag: 'NUMBER', label: 'Detail no.', default: '1' }, { tag: 'ON_SHEET', label: 'On sheet', default: 'A-501' }],
+			shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 5 }), seg(-5, 0, 5, 0), text(0, -1.3, '{NUMBER}', 3), text(0, 3.4, '{ON_SHEET}', 2)] },
+		// an elevation tag: the same bubble with a filled pointer towards what the elevation looks at (turn the insert)
+		{ type: 'block', id: 'builtin:elevation-tag', name: 'Elevation tag', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			attrs: [{ tag: 'NUMBER', label: 'Elevation no.', default: '1' }, { tag: 'ON_SHEET', label: 'On sheet', default: 'A-201' }],
+			// the pointer sits on the circle's edge (its base follows the arc), clear of the number inside
+			shapes: [sh({ kind: 'polygon', pts: [...Array.from({ length: 9 }, (_, i) => { const t = ((-130 + i * 10) * Math.PI) / 180; return { x: 4 * Math.cos(t), y: 4 * Math.sin(t) } }), { x: 0, y: -7.5 }] }, solid),
+				sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 4 }), seg(-4, 0, 4, 0), text(0, -0.9, '{NUMBER}', 2.2), text(0, 2.8, '{ON_SHEET}', 1.8)] },
+	]
+}
 
 /** Data / power faceplates, single / dual gang (paper mm, the plate's back on the wall line y = −0.75). */
 function faceplates(): Block[] {
