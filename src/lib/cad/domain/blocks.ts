@@ -7,6 +7,7 @@ import type { BlockDef } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
 import { moveGeometry, ellipsePts } from './shapes'
 import { newId } from './ids'
+import { isDataField } from './fields'
 
 export type BlockShape = BlockDef['shapes'][number]
 export type Block = BlockDef & { annotative?: boolean; builtin?: boolean }
@@ -86,11 +87,11 @@ export function insertAttrs(b: Block, attrs: Record<string, string> = {}, hidden
 }
 
 /** A block's ATTRIBUTES (backlog "Block attributes on an insert"): its declared ones (`attrs`, with label and default)
- *  then any other `{TAG}` its texts use, in that order. */
+ *  then any other `{TAG}` its texts use, in that order — not the data fields ({PROJECT}, {LEVEL} …, domain/fields.ts). */
 export function blockAttrDefs(b: Block): { tag: string; label: string; default?: string }[] {
 	const out = [...(b.attrs ?? []).map((a) => ({ ...a }))], seen = new Set(out.map((a) => a.tag))
 	for (const s of b.shapes) if (s.geom.kind === 'text') for (const m of s.geom.text.matchAll(/\{([A-Z_]+)\}/g)) {
-		if (!seen.has(m[1])) { seen.add(m[1]); out.push({ tag: m[1], label: m[1][0] + m[1].slice(1).toLowerCase() }) }
+		if (!seen.has(m[1]) && !isDataField(m[1])) { seen.add(m[1]); out.push({ tag: m[1], label: m[1][0] + m[1].slice(1).toLowerCase() }) }
 	}
 	return out
 }

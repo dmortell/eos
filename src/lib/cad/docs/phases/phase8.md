@@ -1747,3 +1747,13 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   The BOM doesn't count them (they aren't links). Tests: `fill.test.ts` (+1). Live (Test Project 1F, TR1 50×50
   tray): Add → 1 × cat6a on every segment; changed to 4 × power Ø10 on seg 3 → 13.7 % → 29.7 %, the picture packed
   four Ø10 cables; all five edits undone.
+- **Text fields linked to data** (backlog P2, T092): `domain/fields.ts` — `{PROJECT}`, `{LEVEL}`, `{SHEET}`,
+  `{SHEET_TITLE}`, `{DATE}` and `{COUNT:name}` (inserts of that block — by name or id — plus outlets drawn with it,
+  on the view's level) in any text, leader or block text, filled when drawn and never stored (`fieldCtx` +
+  `withFields`, the last step of a view): plan / elevation / section / riser in `ViewCanvas`, each viewport and the
+  paper notes in `sheetDisplayList` (so PDFs and issues too; a viewport reads its level, a paper note its viewports'
+  levels and the sheet), the plan DXF. A field with nothing to show (no sheet in a plan) stays as typed. Block
+  attributes leave data fields out (`blockAttrDefs`), so an insert doesn't blank them. Not done: a DXF block ATTRIB
+  keeps a data field as typed (plain texts are filled). Text / Leader in Properties list the fields in their tip.
+  Tests: `fields.test.ts` (2). Live (Test Project 1F): "{PROJECT} {LEVEL}: {COUNT:Wireless AP} APs" drew "Test
+  Project 1F: 2 APs" (1F has two placed APs); undone.

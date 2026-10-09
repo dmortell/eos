@@ -18,6 +18,7 @@ import { spaceOf } from './space'
 import { applyLayers } from './layers'
 import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
+import { fieldCtx, withFields } from '../domain/fields'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
@@ -159,7 +160,9 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 		const t = toPaper(vp), k = 1 / vp.scale
 		// an opaque window: a viewport laid over another hides what's under it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: 'viewport-bg' })
-		for (const p of viewportContent(ix, vp, o)) out.push(placePrim(p, t, k, clip))
+		// text fields ({LEVEL}, {COUNT:…}, domain/fields.ts) read the viewport's level (a riser: the whole project)
+		const ctx = fieldCtx(ix, { project: o.projectName, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
+		for (const p of withFields(viewportContent(ix, vp, o), ctx)) out.push(placePrim(p, t, k, clip))
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
@@ -170,8 +173,11 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = 
 	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
 	// paper notes (text, leaders, clouds — shapes owned by this sheet) over everything: a cloud may mark the title block
 	const shown = new Set(sheet.viewports.map((v) => v.view.levelId))   // a legend on the paper lists what its viewports show
+	const notes: Prim[] = []
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
-		out.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, shown, 1, o.blocks) : notePrims(s, sheet, o.blocks)))
+		notes.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, shown, 1, o.blocks) : notePrims(s, sheet, o.blocks)))
+	// their text fields read the sheet and its viewports' levels
+	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, sheet, blocks: o.blocks, levels: shown })))
 	return out
 }
 

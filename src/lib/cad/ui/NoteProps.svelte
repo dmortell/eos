@@ -22,12 +22,14 @@
 	const PT = 25.4 / 72
 	const TITLE = { text: 'Text', leader: 'Leader', cloud: 'Revision cloud', dimension: 'Dimension' } as Record<string, string>
 	const measured = $derived(g.kind === 'dimension' ? Math.round(dimLine(g).len) : 0)
+	/** The data fields a text can show (domain/fields.ts). */
+	const FIELDS_TIP = 'Live values: {PROJECT} {LEVEL} {SHEET} {SHEET_TITLE} {DATE} · {COUNT:block name} = how many of that block are on this level (on a sheet: its viewports’ levels)'
 </script>
 
 <!-- groups (UX review "Properties groups"): its words · its style -->
 <PropGroup kind="note" title={TITLE[g.kind] ?? 'Note'}>
 {#if g.kind === 'text'}
-	<label class="row" title="Several lines: Enter starts a new one · double-click the text (or F2) to edit it on the drawing">Text
+	<label class="row" title="Several lines: Enter starts a new one · double-click the text (or F2) to edit it on the drawing. {FIELDS_TIP}">Text
 		<textarea class="inp" rows={Math.min(6, Math.max(2, g.text.split('\n').length))} value={g.text} onchange={(e) => e.currentTarget.value.trim() && setGeom('Text', { text: e.currentTarget.value.replace(/\s+$/, '') })}></textarea></label>
 	<label class="row" title="Its size on paper: mm, or points (1 pt = 0.353 mm)">Size
 		<span class="flex items-center gap-1">
@@ -43,7 +45,7 @@
 	<label class="row" title="A box width: the text wraps inside it (and is cut off at its sides). Blank = no box, lines as typed. On a sheet paper mm, on a drawing its mm.">Box width
 		<input class="inp" type="number" min="1" value={g.width ?? ''} placeholder="none" onchange={(e) => { const v = Number(e.currentTarget.value); setGeom(v > 0 ? 'Text box width' : 'No text box', { width: v > 0 ? v : undefined }) }} /></label>
 {:else if g.kind === 'leader'}
-	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing">Text
+	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing. {FIELDS_TIP}">Text
 		<textarea class="inp" rows={Math.min(6, Math.max(2, (g.text ?? '').split('\n').length))} value={g.text ?? ''} placeholder="(none)" onchange={(e) => setGeom('Leader text', { text: e.currentTarget.value.replace(/\s+$/, '') || undefined })}></textarea></label>
 	<span class="row" title="A callout: a frame round its words">Border
 		<span class="seg">

@@ -2,6 +2,7 @@
      open plan as DXF (your hidden layers left out), the project BOM, the cable schedule and the cord BOM. Headless: the
      menu calls these functions; this component owns their dialogs. -->
 <script lang="ts">
+	import { fieldCtx, withFields } from '../domain/fields'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Level } from '../domain/types'
@@ -26,7 +27,8 @@
 	/** The open plan as DXF — the same display list as the screen, your hidden layers left out (floorplan images too). */
 	export function dxf() {
 		if (!level) return
-		const plan = applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw
+		const plan = withFields(applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw,
+			fieldCtx(project.index, { project: projectName, blocks: project.blockOf, levels: [level.id] }))
 		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])), 100, project.blockOf)   // blocks as BLOCK + INSERT
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
 		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`)

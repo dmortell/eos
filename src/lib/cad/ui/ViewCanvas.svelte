@@ -41,6 +41,7 @@
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
 	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, viewportHighlight, pickableIn } from '../views/overlays'
+	import { fieldCtx, withFields } from '../domain/fields'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
 		project: CadProject; ws: Workspace; levelId: string; spec: ViewSpec
@@ -90,7 +91,7 @@
 	})
 	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
-	const raw = $derived(spec.kind === 'plan'
+	const drawn = $derived(spec.kind === 'plan'
 		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf, gray: !!project.settings?.grayFloorplans })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec, { cords: project.settings?.cordRoute })
@@ -101,6 +102,9 @@
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
+	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
+	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' ? drawn
+		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
