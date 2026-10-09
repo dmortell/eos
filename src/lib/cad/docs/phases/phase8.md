@@ -1785,3 +1785,14 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   the room". Tests: `frameSheets.test.ts` (2). Live (Test Project IDF2, one sheet for the room; the download caught
   in the page and read back, nothing saved): one sheet "1F IDF2", R312 and R311 (42U) start 3 U lower than P3C
   (45U), labels coloured by usage (desk blue, others green), managers as merged blocks, A3 landscape fit, footer.
+
+## Batch: menu fix, rack elevation context, markup kinds (Dave 2026-10-09)
+
+Dave: the Racks window's room ⋯ menu "looks weird with labels centered"; rack elevation context = the server room's
+own floor / ceiling lines and the view toggles (draggable walls a maybe → `../plan/later.md`); markup = arrowheads,
+images, and blocks for datum, detail and elevation tags (no north arrow).
+
+- **Room ⋯ menu**: the native select (centred labels) is now the app's own menu (`ContextMenu`, as right-click),
+  opened under the button — left-aligned, padded, with a separator before the frame sheets. `ContextMenu` now mounts
+  itself on cad's root (`.shell`): inside a floating window (backdrop-filter) a fixed menu was placed relative to the
+  window. Live: opens right under ⋯.

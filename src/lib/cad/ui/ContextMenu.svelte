@@ -15,10 +15,14 @@
 	// on the backdrop: the first one within a moment of opening is that same right-click, not a new one (UX review R1)
 	const opened = performance.now()
 	function backdropMenu(e: MouseEvent) { e.preventDefault(); if (performance.now() - opened > 400) onclose() }
+	/** Shown from cad's root (its theme colours, no filter): inside a floating window (its backdrop-filter)
+	 *  `position: fixed` would be relative to the window, not the screen. */
+	function toRoot(node: HTMLElement) { (node.parentElement?.closest('.shell') ?? document.body).appendChild(node); return { destroy: () => node.remove() } }
 </script>
 
 <svelte:window onkeydowncapture={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onclose() } }} />
 
+<div class="menu-root" use:toRoot>
 <button class="backdrop" aria-label="Close the menu" onclick={onclose} oncontextmenu={backdropMenu}></button>
 <div bind:this={el} class="pop" role="menu" tabindex="-1" oncontextmenu={(e) => e.preventDefault()} style:left="{pos.left}px" style:top="{pos.top}px">
 	{#each items as it, i (i)}
@@ -30,8 +34,10 @@
 		{/if}
 	{/each}
 </div>
+</div>
 
 <style>
+	.menu-root { display: contents; }
 	.backdrop { position: fixed; inset: 0; z-index: 95; background: none; border: none; cursor: default; }
 	.pop { position: fixed; z-index: 96; min-width: 210px; padding: 4px; background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 14px 36px rgb(0 0 0 / 0.22); font-size: 12px; }
 	.item { display: flex; align-items: center; width: 100%; padding: 4px 8px; border-radius: 4px; text-align: left; color: var(--cad-text); }

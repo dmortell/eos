@@ -14,6 +14,8 @@
 	import type { ViewSpec } from '../views/space'
 	import SideSection from './SideSection.svelte'
 	import FindDevice from './FindDevice.svelte'
+	import ContextMenu from './ContextMenu.svelte'
+	import type { MenuItem } from './cadMenus'
 
 	let { project, ws, levelId, projectName, onview }: { project: CadProject; ws: Workspace; levelId: string; projectName: string; onview?: (s: ViewSpec) => void } = $props()
 
@@ -43,6 +45,15 @@
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 	}
+	/** The room ⋯ menu (exports), opened under its button — the app's own menu, not a native select. */
+	let roomMenu = $state<{ x: number; y: number; space: string; name: string } | null>(null)
+	const roomItems = (m: { space: string; name: string }): MenuItem[] => [
+		{ label: 'Export panel labels (Excel)…', title: 'Every port label as a list, for the label printer', run: () => labels(m.space, m.name) },
+		{ label: 'Print panels with labels (PDF)…', title: 'The panels drawn with their labels, for the installer', run: () => panelPdf(m.space, m.name) },
+		'-',
+		{ label: 'Frame label sheets (Excel), a sheet per frame', title: 'RU rows × 24 ports, labels coloured by usage (A3)', run: () => frames(m.space, m.name, false) },
+		{ label: 'Frame label sheets (Excel), one sheet for the room', title: 'The room’s frames side by side, bottoms aligned (A3)', run: () => frames(m.space, m.name, true) },
+	]
 	/** The room's frames as label sheets in Excel (the Frames tool's grid layout): a sheet per frame or one for the room. */
 	async function frames(spaceId: string, name: string, perRoom: boolean) {
 		try {
@@ -90,6 +101,7 @@
 	}
 </script>
 
+{#if roomMenu}<ContextMenu x={roomMenu.x} y={roomMenu.y} items={roomItems(roomMenu)} onclose={() => (roomMenu = null)} />{/if}
 <SideSection key="racks" title="Racks">
 	{#snippet actions()}<button title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button>{/snippet}
 	<FindDevice {project} {ws} {onview} />
@@ -98,13 +110,7 @@
 			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
-				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name); else if (v === 'pdf') panelPdf(g.space, g.name); else if (v === 'frames' || v === 'frames-room') frames(g.space, g.name, v === 'frames-room') }}>
-					<option value="" disabled>⋯</option>
-					<option value="labels">Export panel labels (Excel)…</option>
-					<option value="pdf">Print panels with labels (PDF)…</option>
-					<option value="frames" title="A sheet per frame: RU rows × 24 ports, labels coloured by usage (A3)">Frame label sheets (Excel), a sheet per frame</option>
-					<option value="frames-room" title="One sheet with the room's frames side by side, bottoms aligned (A3)">Frame label sheets (Excel), one sheet for the room</option>
-				</select>
+				<button class="acts" title="Room actions (exports)" onclick={(e) => { const b = e.currentTarget.getBoundingClientRect(); roomMenu = { x: b.left, y: b.bottom + 2, space: g.space, name: g.name } }}>⋯</button>
 				{#if onview}<button class="place" title="Open this room's rack view (its racks front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Rack view</button>{/if}
 			</span>
 		</div>
@@ -129,10 +135,8 @@
 </SideSection>
 
 <style>
-	.acts { width: 1.6rem; border: 0; background: transparent; color: var(--cad-muted); font-size: 12px; cursor: pointer; appearance: none; text-align: center; }
-	.acts:hover { color: #2563eb; }
-	/* the open list: a transparent select would show its options in the theme's text colour on the browser's own list */
-	.acts option { background: var(--cad-panel); color: var(--cad-text); }
+	.acts { width: 1.6rem; color: var(--cad-muted); font-size: 12px; border-radius: 3px; }
+	.acts:hover { color: #2563eb; background: var(--cad-hover); }
 	.roomname { color: inherit; font-size: inherit; }
 	.roomname:hover { color: #2563eb; text-decoration: underline; }
 	.frame { margin-left: 6px; font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 3px; }
