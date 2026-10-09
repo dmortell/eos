@@ -8,6 +8,7 @@
 	import { racksInOrder, newServerRoom, nextRoomName } from '../domain/devices'
 	import { markPrinted } from '../domain/ports'
 	import { exportPanelLabels } from '../render/exports'
+	import { exportFrameSheets } from '../render/frameSheets'
 	import { downloadPanelSheets, unsupportedNote } from '../app/sheetsPdf'
 	import type { Device } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
@@ -40,6 +41,13 @@
 			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
 			if (panels.length) ws.ask2(`${r.rows} port labels exported. Mark the ${panels.length} panel(s) of ${name} as printed?`, 'Mark printed',
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
+		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
+	}
+	/** The room's frames as label sheets in Excel (the Frames tool's grid layout): a sheet per frame or one for the room. */
+	async function frames(spaceId: string, name: string, perRoom: boolean) {
+		try {
+			const r = await exportFrameSheets(project.index, projectName, [spaceId], perRoom)
+			ws.say(r.racks ? `${name}: ${r.racks} frame(s) exported${perRoom ? ' on one sheet' : ''}` : `${name} has no racks with patch panels`)
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 	}
 	/** The room's panels drawn with their port labels, as a PDF for the installer; then the same "Mark printed" offer. */
@@ -90,10 +98,12 @@
 			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
-				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name); else if (v === 'pdf') panelPdf(g.space, g.name) }}>
+				<select class="acts" title="Room actions" value="" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'labels') labels(g.space, g.name); else if (v === 'pdf') panelPdf(g.space, g.name); else if (v === 'frames' || v === 'frames-room') frames(g.space, g.name, v === 'frames-room') }}>
 					<option value="" disabled>⋯</option>
 					<option value="labels">Export panel labels (Excel)…</option>
 					<option value="pdf">Print panels with labels (PDF)…</option>
+					<option value="frames" title="A sheet per frame: RU rows × 24 ports, labels coloured by usage (A3)">Frame label sheets (Excel), a sheet per frame</option>
+					<option value="frames-room" title="One sheet with the room's frames side by side, bottoms aligned (A3)">Frame label sheets (Excel), one sheet for the room</option>
 				</select>
 				{#if onview}<button class="place" title="Open this room's rack view (its racks front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Rack view</button>{/if}
 			</span>

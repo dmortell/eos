@@ -1773,3 +1773,15 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
 - Fix (found while testing): cancelling the Issue panel switched the Sheets tab to its Issues view; now only a
   finished issue goes there, Cancel stays where you were (`IssuePanel` `onclose(issued)`). Live: Sheets → Issue… →
   Cancel → still Sheets.
+- **Frame label sheets in Excel (grid layout)** (backlog P2, G097 / G131 / T050; Dave "do 12 as well"): the Frames
+  export (`frames/parts/exportExcel.ts`) ported onto cad's racks — `render/frameSheets.ts`: `frameRacks` (pure: a
+  room's patch frames, else racks holding a panel, in row order; each device a block from its top U; a panel's ports
+  24 a row in its numbering, each cell the port label + the usage of the outlet it reaches, or the usage a
+  reservation holds it for; other devices one block; PDUs left out; a front device wins a U shared with a rear one)
+  and `frameWorkbook` (ExcelJS: 2 rows per U, RU column, port-number header, usage colours from Settings as a light
+  tint + darker text, reserved = italic with a dotted border, device blocks merged and shaded, block / rack borders,
+  A3 landscape fit to one page, footer file name + page; a sheet per frame, or one per room with the racks side by
+  side, bottoms aligned). Racks window › room ⋯ → "Frame label sheets (Excel), a sheet per frame / one sheet for
+  the room". Tests: `frameSheets.test.ts` (2). Live (Test Project IDF2, one sheet for the room; the download caught
+  in the page and read back, nothing saved): one sheet "1F IDF2", R312 and R311 (42U) start 3 U lower than P3C
+  (45U), labels coloured by usage (desk blue, others green), managers as merged blocks, A3 landscape fit, footer.
