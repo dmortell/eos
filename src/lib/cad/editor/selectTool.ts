@@ -7,6 +7,7 @@ import type { Shape } from '../domain/shapes'
 import { ownFrame, sameFrame } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim } from '../views/display'
+import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
@@ -119,7 +120,16 @@ export class SelectTool implements Tool {
 		if (s?.type !== 'shape' || s.geom.kind !== 'path') return null
 		const g = s.geom.segs.find((x) => nodeIds.includes(x.a) !== nodeIds.includes(x.b))
 		const other = g && s.geom.nodes.find((n) => n.id === (nodeIds.includes(g.a) ? g.b : g.a))
-		return other ? c.space.fromWorld(other) : null
+		return other ? (this.#pathSpace(c, s) ?? c.space).fromWorld(other) : null
+	}
+	/** Where a path's own points show in this view: a line on a sheet drawn inside a viewport keeps its points in that
+	 *  view's mm, so its grips, drags and picks go through the viewport onto the paper (they were placed as paper mm,
+	 *  off the line); a sheet's line nowhere but on its sheet. Null = not shown here. */
+	#pathSpace(c: ToolCtx, s: Shape): ViewSpace | null {
+		if (!s.sheetId) return c.space
+		const gs = gripSpace(s, c.space, (id) => c.store.get(id)), vp = gs && tiedViewport(s, (id) => c.store.get(id))
+		if (!gs) return null
+		return !vp ? c.space : { ...c.space, toWorld: (p, w) => ({ ...gs.from(p), z: w.z }), deltaToWorld: (d) => ({ x: d.x * vp.scale, y: d.y * vp.scale, z: 0 }), fromWorld: (p) => gs.to(p) }
 	}
 
 	/** Grips of the single selected path shape, in the view. */
@@ -127,8 +137,8 @@ export class SelectTool implements Tool {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		if (s?.type !== 'shape') return []
 		// a line drawn on one elevation / section: its grips only there (selected there, it isn't drawn in the other pane)
-		const own = ownFrame(s)
-		return own && !(c.space.frame && sameFrame(own, c.space.frame)) ? [] : pathGrips(s, c.space)
+		const own = ownFrame(s), sp = this.#pathSpace(c, s)
+		return !sp || (own && !(c.space.frame && sameFrame(own, c.space.frame))) ? [] : pathGrips(s, sp)
 	}
 	/** A note's point grips (text anchor, leader / cloud points): on its sheet, or a plan's own text. */
 	#noteGrips(c: ToolCtx): { s: Shape; vp?: Sheet['viewports'][number]; grips: ReturnType<typeof noteGrips> } | null {
@@ -229,7 +239,7 @@ export class SelectTool implements Tool {
 		// the selected run, pressed again: on a picked segment, drag those segments whole; elsewhere a click picks the
 		// segment under the cursor (a drag still moves the whole run)
 		if (id && c.selectPath && hitEnt?.type === 'shape' && hitEnt.geom.kind === 'path' && c.selection.length === 1 && c.selection[0] === id && !e.shift) {
-			const seg = segAt(hitEnt, c.space, e.p, c.tol()), ps = c.pathSel?.()
+			const sp = this.#pathSpace(c, hitEnt), seg = sp && segAt(hitEnt, sp, e.p, c.tol()), ps = c.pathSel?.()
 			if (seg && !e.ctrl && ps?.shape === id && ps.segs.includes(seg)) {
 				const nodes = segNodes(hitEnt, ps.segs)
 				this.#segDrag = { shape: id, nodes }
@@ -324,8 +334,9 @@ export class SelectTool implements Tool {
 				: c.snap(e.p, e.alt, [shape, ...fol.keys()], branch ? undefined : [...grip.nodeIds, ...[...fol.values()].flat()])
 			this.#snap = sn.kind === 'grid' ? null : sn
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')
+			const gs = c.store.get(shape), space = (gs?.type === 'shape' && this.#pathSpace(c, gs)) || c.space
 			this.#gesture.update((tx) => {
-				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space: c.space, shapes: c.store.ofType('shape'), links: c.store.ofType('link') })
+				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space, shapes: c.store.ofType('shape'), links: c.store.ofType('link') })
 				if (!branch) { this.#joined = r.joined; this.#absorbed = r.absorbed }
 			})
 		} else if (this.#segDrag && this.#start) {
@@ -333,7 +344,8 @@ export class SelectTool implements Tool {
 			const { shape, nodes } = this.#segDrag, fol = this.#followers
 			const dv0 = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }, dv = e.shift ? axisLock(dv0) : dv0   // Shift: H / V
 			if (!this.#gesture && Math.hypot(dv.x, dv.y) < c.tol()) return
-			const d = c.space.deltaToWorld(snapPt(dv, e.alt, c.grid ?? 10))
+			const ss = c.store.get(shape), sp = (ss?.type === 'shape' && this.#pathSpace(c, ss)) || c.space
+			const d = sp.deltaToWorld(snapPt(dv, e.alt, c.grid ?? 10))
 			this.#gesture ??= c.store.begin('Move segment')
 			this.#gesture.update((tx) => {
 				const s = tx.get(shape) as Shape | undefined
@@ -427,7 +439,7 @@ export class SelectTool implements Tool {
 		// picked segments of the run (under the grips), then the grips — a picked node's grip filled blue
 		const ps = c.pathSel?.(), run = ps ? c.store.get(ps.shape) : undefined, out: Prim[] = [...decor]
 		if (ps && run?.type === 'shape' && run.geom.kind === 'path') {
-			const at = new Map(run.geom.nodes.map((n) => [n.id, c.space.fromWorld(n)]))
+			const sp = this.#pathSpace(c, run) ?? c.space, at = new Map(run.geom.nodes.map((n) => [n.id, sp.fromWorld(n)]))
 			for (const g of run.geom.segs) if (ps.segs.includes(g.id) && at.get(g.a) && at.get(g.b)) out.push({ k: 'line', pts: [at.get(g.a)!, at.get(g.b)!], cls: 'seg-sel' })
 		}
 		// what a click would take (UX06), unless it's already selected: its outline (a port: just that cell, its label left
@@ -463,13 +475,14 @@ export class SelectTool implements Tool {
 	/** Double-click on a segment of the selected path inserts a node there (interpolating z). */
 	#insertNode(e: PointerIn, c: ToolCtx): boolean {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
-		if (s?.type !== 'shape' || s.geom.kind !== 'path') return false
+		const sp = s?.type === 'shape' ? this.#pathSpace(c, s) : null
+		if (s?.type !== 'shape' || s.geom.kind !== 'path' || !sp) return false
 		const byId = new Map(s.geom.nodes.map((n) => [n.id, n]))
 		let best: { seg: Id; t: number; d: number } | null = null
 		for (const sg of s.geom.segs) {
 			const a = byId.get(sg.a), b = byId.get(sg.b)
 			if (!a || !b) continue
-			const pa = c.space.fromWorld(a), pb = c.space.fromWorld(b)
+			const pa = sp.fromWorld(a), pb = sp.fromWorld(b)
 			const dx = pb.x - pa.x, dy = pb.y - pa.y, l2 = dx * dx + dy * dy
 			if (!l2) continue
 			const t = Math.max(0, Math.min(1, ((e.p.x - pa.x) * dx + (e.p.y - pa.y) * dy) / l2))

@@ -1833,3 +1833,15 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   done; "Images in elevations" stays (P2). Tests: `plan.test.ts` (+1). Live (S001): eire-logo.png and 3PAGE.pdf
   page 2 placed by dragging, both drawn (the PDF page rasterised), the logo resized by its corner grip; both removed
   (undo, and a delete for one placed before an HMR reload).
+- **PDF of this sheet** (Dave 2026-10-09: "I can't find it"): File and Sheets menus › PDF of this sheet — the sheet
+  open in the active pane (greyed when none). It was already on the Navigator's right-click (PDF), the sheet's
+  Properties (Download sheet PDF) and Tables › Sheets (PDF of the selection); Help gains "Make a PDF of a sheet". Live:
+  the item shows, enabled on S001 (not clicked: a download).
+- **Lines on sheets: selection and grips** (Dave 2026-10-09: "lines inside views show selection and grips nicely,
+  but lines on sheets don't"): the sheet canvas highlighted nothing (the paper and its windows share the sheet's id),
+  so a selected paper line, note or shape had no blue line / box — now everything selected but the sheet itself is.
+  A line drawn inside a viewport is tied to it in its view mm, but the Select tool gripped it as paper mm (grips off
+  the line, drags wrong): `#pathSpace` in selectTool.ts takes its points through the viewport (`gripSpace`) for grips,
+  node / segment drags, segment picks and double-click node insert; a sheet's line gets no grips in other views.
+  Live (S001): a line drawn in the viewport — blue, grips on its ends, its end grip dragged to where it was dropped;
+  undone.

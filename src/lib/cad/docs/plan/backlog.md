@@ -101,6 +101,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Drafting commands and input
 
+- [ ] ⚡ **Cloud preview looks like a cloud** — while drawing a revision cloud, the rubber line shows the scallops (as the finished cloud draws them), not a plain polygon. **P2 · S** (Dave 2026-10-09: todo) (~10 lines). *cad today:* the preview is a straight-sided outline (`cad/editor/noteTool.ts:148`). *From:* Dave 2026-10-09
 - [ ] **More snaps** — Intersection, perpendicular and nearest. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
 - [ ] **Match properties** — Copy one shape's layer and style (colour, fill, line weight, font) onto others. **P3 · S** (~40 lines). *cad today:* missing; shapes have `style` and `layerId` (`cad/domain/shapes.ts:162`). *From:* G247
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264

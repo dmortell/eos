@@ -108,8 +108,9 @@
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
-	// on a sheet only the selected VIEWPORT is highlighted (the sheet's paper and other windows share its id)
-	const selected = $derived(spec.kind === 'sheet' ? new Set<string>() : new Set(ws.selection))
+	// on a sheet the paper and its windows share the sheet's id, so that isn't highlighted (the picked VIEWPORT is, below);
+	// what's drawn on the paper (lines, notes, shapes) is, like in a view (Dave: a selected line on a sheet showed nothing)
+	const selected = $derived(new Set(spec.kind === 'sheet' ? ws.selection.filter((id) => id !== spec.sheetId) : ws.selection))
 	// the picked viewport: its frame and (unlocked) corner grips, a constant size on screen
 	const vpHighlight = $derived(spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId) ? []
 		: viewportHighlight(prims, ws.viewportId, !!sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, 4 / cam.k))
