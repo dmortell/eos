@@ -3,11 +3,11 @@
 // Devices on that face at their U, port cells with level-of-detail labels (short form when small, full stacked form
 // when big — elevations-plan §3.3), patch cords between ports on this face. Labels come from ProjectIndex.portLabel:
 // a panel port shows the label of the outlet port it is linked to (ADR 0002).
-import type { Id, Rack, Device, Level } from '../domain/types'
+import type { Id, Rack, Device, Level, Space } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 
 export const RU_MM = 44.45
@@ -47,7 +47,7 @@ export const rackHeight = (r: Rack) => r.heightMm ?? r.heightU * RU_MM + 150
 export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: number }): { rack: Rack; u: number } | null {
 	for (const { rack, x0 } of rackLayout(ix, spec)) {
 		if (p.x < x0 || p.x > x0 + rack.widthMm) continue
-		const base = (rackHeight(rack) - rack.heightU * RU_MM) / 2
+		const base = (rackHeight(rack) - rack.heightU * RU_MM) / 2 + roomFloor(ix, spec.spaceId)   // racks stand on the room's floor
 		const u = Math.floor((-p.y - base) / RU_MM) + 1
 		return u >= 1 && u <= rack.heightU ? { rack, u } : null
 	}
@@ -232,27 +232,47 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		const sag = Math.min(200, Math.abs(a.x - b.x) * 0.15 + Math.abs(a.y - b.y) * 0.05)
 		cords.push({ k: 'line', pts: [a, { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y) + sag }, b], cls: `cord cord-${c.status}`, src: c.id, color: c.colour })
 	}
+	// the racks stand on the room's own floor (Space.floorMm, above FFL): everything drawn so far goes up by it
+	const lift = roomFloor(ix, spec.spaceId)
+	const up = (ps: Prim[]) => (lift ? ps.map((p) => liftPrim(p, lift)) : ps)
+	const lines: Prim[] = []
 	if (layout.length) {
-		const x1 = Math.max(...layout.map((l) => l.x0 + l.rack.widthMm))
-		out.unshift({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl' }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label' },
-			...storeyPrims(ix.get<Level>((ix.get(spec.spaceId) as { levelId?: Id } | undefined)?.levelId), -400, x1 + 400))
+		const x1 = Math.max(...layout.map((l) => l.x0 + l.rack.widthMm)), sp = ix.get(spec.spaceId)
+		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line' }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line' },
+			...storeyPrims(ix.get<Level>((sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
 	}
-	return [...out, ...cords]
+	return [...lines, ...up(out), ...up(cords)]
 }
 
 /** The storey around the racks (Dave): the top of the floor slab under the raised floor, the ceiling and the
  *  underside of the slab above, as lines (the slab ones a little heavier than FFL), from the level's heights (y up
- *  from FFL = negative). Drawn under the racks; nothing when the level has no heights. */
-function storeyPrims(lv: Level | undefined, xa: number, xb: number): Prim[] {
+ *  from FFL = negative) — and the server room's OWN floor and ceiling where it has them (they replace the level's
+ *  ceiling). Drawn under the racks, on the Room lines layer; nothing from the level when it has no heights. */
+function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number, xb: number): Prim[] {
 	const h = lv?.type === 'level' ? lv.heights : undefined
-	if (!h) return []
-	const line = (y: number, cls: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls })
-	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label' })
-	const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
-	const out: Prim[] = [
-		line(-ceil, 'riser-ceiling'), label(-ceil - 30, `CEILING FFL+${ceil}`),
-		line(-soffit, 'datum datum-slab'), label(-soffit - 30, `SLAB FFL+${soffit}`),
-	]
-	if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `SLAB FFL-${floor}`))
+	const line = (y: number, cls: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls: `${cls} room-line` })
+	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label room-line' })
+	const sign = (v: number) => (v < 0 ? `-${-v}` : `+${v}`)
+	const out: Prim[] = []
+	const roomCeil = room?.ceilingMm, rFloor = room?.floorMm
+	if (h) {
+		const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
+		if (roomCeil == null) out.push(line(-ceil, 'riser-ceiling'), label(-ceil - 30, `CEILING FFL+${ceil}`))
+		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `SLAB FFL+${soffit}`))
+		if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `SLAB FFL-${floor}`))
+	}
+	if (roomCeil != null) out.push(line(-roomCeil, 'riser-ceiling'), label(-roomCeil - 30, `${room?.name ?? 'ROOM'} CEILING FL${sign(roomCeil)}`))
+	if (rFloor) out.push(line(-rFloor, 'datum datum-room-floor'), label(-rFloor - 30, `${room?.name ?? 'ROOM'} FLOOR FL${sign(rFloor)}`))
 	return out
+}
+
+/** A prim moved up by `dz` mm (view y is −height). */
+function liftPrim(p: Prim, dz: number): Prim {
+	const m = (q: { x: number; y: number }) => ({ x: q.x, y: q.y - dz })
+	switch (p.k) {
+		case 'line': return { ...p, pts: p.pts.map(m) }
+		case 'circle': return { ...p, c: m(p.c) }
+		case 'text': return { ...p, at: m(p.at) }
+		case 'image': return { ...p, y: p.y - dz }
+	}
 }

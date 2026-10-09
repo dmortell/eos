@@ -280,6 +280,16 @@
 				</select>
 			</label>
 			{#if r.rowId}<RowProps {project} {ws} rowId={r.rowId} />{/if}
+			{@const room = project.index.get(r.spaceId)}
+			{#if room?.type === 'space'}
+				<!-- the server room's own floor / ceiling (rack elevation context): the room's, for all its racks -->
+				{@const lv = project.index.get(r.levelId)}
+				{@const levelCeil = lv?.type === 'level' ? lv.heights.clearHeightMm : undefined}
+				<label class="row" title="The room's floor, mm above the level's FFL (a step up or a sunken slab; − = below). Its racks stand on it — rack views, elevations and cable heights. For every rack in {room.name}.">Room floor
+					<span class="flex items-center gap-1">FL <input class="inp" type="number" step="10" value={room.floorMm ?? ''} placeholder="+0" onchange={(e) => { const v = e.currentTarget.value.trim(); project.store.transact(`${room.name} floor`, (tx) => tx.put({ ...room, floorMm: v === '' || Number(v) === 0 ? undefined : Number(v) })) }} /> mm</span></label>
+				<label class="row" title="The room's ceiling, mm above the level's FFL; blank = the level's ceiling. Drawn in its rack views. For every rack in {room.name}.">Room ceiling
+					<span class="flex items-center gap-1">FL <input class="inp" type="number" step="10" value={room.ceilingMm ?? ''} placeholder={levelCeil != null ? `+${levelCeil} (level)` : 'level'} onchange={(e) => { const v = e.currentTarget.value.trim(); project.store.transact(`${room.name} ceiling`, (tx) => tx.put({ ...room, ceilingMm: v === '' ? undefined : Number(v) })) }} /> mm</span></label>
+			{/if}
 			<label class="row" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets.">Patch frame
 				<span><input type="checkbox" checked={!!r.patchFrame} onchange={(e) => put(r, e.currentTarget.checked ? 'Patch frame' : 'Not a patch frame', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
 			</label>

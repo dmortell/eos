@@ -102,6 +102,9 @@
 		{/if}
 		<!-- how cords are drawn, for the whole project (screen, sheets, PDFs): straight, or along the cable channels -->
 		<button class:on={project.settings?.cordRoute === 'channels'} title="Cords along the cable channels: down to the side channel, across through the nearest horizontal manager (off = straight lines). For the whole project, sheets and PDFs too." onclick={toggleCords}>Cord channels</button>
+		<!-- the rack view's context, as layers (your eye; a viewport freezes them): the room's lines, the other face -->
+		<button class:on={!ws.layers.hidden.has('sys:room-lines')} title="Floor, ceiling and slab lines — the server room's own floor / ceiling where set (a rack's Properties › Room floor / ceiling). The Room lines layer." onclick={() => ws.layers.toggleHidden('sys:room-lines')}>Room lines</button>
+		<button class:on={!ws.layers.hidden.has('sys:other-face')} title="Devices on the other face, drawn faint with (rear) / (front). The Other face layer." onclick={() => ws.layers.toggleHidden('sys:other-face')}>Other face</button>
 	{:else if sheet}
 		<span class="room">{sheet.paper.size} {sheet.paper.orientation}</span>
 	{/if}

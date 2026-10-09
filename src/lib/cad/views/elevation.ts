@@ -8,7 +8,7 @@ import type { Shape } from '../domain/shapes'
 import { isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
-import { RACK_DEVICE_W } from '../domain/devices'
+import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
@@ -99,12 +99,12 @@ function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
 /** A rack: its body, and — when its front or rear faces the viewer — the devices mounted on that face at their U. */
 function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, k: number): Item {
 	const [u0, u1] = uSpan(footprint(r.at!, r.widthMm, r.depthMm, r.rot))
-	const h = r.heightMm ?? r.heightU * RU_MM + 150
-	const prims: Prim[] = [rect(u0, u1, 0, h, 'rack', r.id)]
+	const h = r.heightMm ?? r.heightU * RU_MM + 150, f = roomFloor(ix, r.spaceId)   // it stands on its room's floor
+	const prims: Prim[] = [rect(u0, u1, f, f + h, 'rack', r.id)]
 	const facing = sp.frame ? rackFrontNormal(r).x * sp.frame.n.x + rackFrontNormal(r).y * sp.frame.n.y : 0
 	const face = facing > 0.5 ? 'front' : facing < -0.5 ? 'rear' : null
 	if (face) {
-		const base = (h - r.heightU * RU_MM) / 2, mid = (u0 + u1) / 2
+		const base = (h - r.heightU * RU_MM) / 2 + f, mid = (u0 + u1) / 2
 		for (const d of ix.devicesIn(r.id)) {
 			if (d.kind === 'pdu' || d.face === 'none' || (d.face !== 'both' && d.face !== face)) continue
 			const hw = Math.min(r.widthMm, d.widthMm ?? RACK_DEVICE_W) / 2, z0 = base + (d.u - 1) * RU_MM

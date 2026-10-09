@@ -12,6 +12,7 @@ import type { Id, Outlet, Rack, Device, Level, Link } from './types'
 import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 import { cablesOf } from './multicore'
+import { roomFloor } from './devices'
 
 export const JOIN_MM = 50
 /** The furthest an outlet reaches (plan + height) to join a run (Dave: 10 m); beyond it the port has no route. */
@@ -155,7 +156,7 @@ export const RACK_REACH_MM = 3000
  *  nearest point — else just the nearest run. */
 export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device | undefined): Tap[] {
 	if (!rack.at) return []
-	const x = { ...rack.at, z: levelElevation(ix, rack.levelId) + panelZ(device) }
+	const x = { ...rack.at, z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
 	const best = new Map<Id, Tap & { plan: number }>()
 	g.segs.forEach((s, i) => {
 		if (!s.levelIds.has(rack.levelId) || !serves(s.shape, rack.spaceId)) return

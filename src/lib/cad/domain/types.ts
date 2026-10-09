@@ -64,6 +64,10 @@ export interface Space {
 	code?: string
 	boundary?: Pt[]
 	order: number
+	/** A server room's OWN floor and ceiling, mm above its level's FFL (rack elevation context, Dave: they often
+	 *  differ from the office floors): racks stand on `floorMm` (unset = FFL); `ceilingMm` unset = the level's. */
+	floorMm?: number
+	ceilingMm?: number
 }
 
 // ── Physical layout ───────────────────────────────────────────────────────────────────────────────────────────────

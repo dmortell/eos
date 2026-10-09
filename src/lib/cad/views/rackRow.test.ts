@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { rackRowDisplayList, rackLayout, labelLines, portCell, rackCaption, RU_MM } from './rackRow'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
+import { layersOf, primLayer } from '../domain/layers'
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack } from '../domain/types'
 
@@ -23,6 +24,21 @@ describe('the rack row', () => {
 		expect(texts).toEqual(expect.arrayContaining(['CEILING FFL+2700', 'SLAB FFL+3500', 'SLAB FFL-300']))
 		const slabs = ps.filter((p) => p.k === 'line' && p.cls.includes('datum-slab')).map((p) => (p as { pts: { y: number }[] }).pts[0].y)
 		expect(slabs.sort((a, b) => a - b)).toEqual([-3500, 300])   // under the 300 floor void; above 2700 + 800 plenum
+	})
+	it('the room’s own floor and ceiling: racks stand on its floor, its ceiling replaces the level’s; all on the Room lines layer', () => {
+		const base = new ProjectIndex(demoProject())
+		const room = base.get('SR-A') as Entity
+		const lifted = new ProjectIndex([...demoProject().filter((e) => e.id !== 'SR-A'), { ...room, floorMm: 150, ceilingMm: 2400 } as Entity])
+		const before = rackRowDisplayList(base, { spaceId: 'SR-A', face: 'front' }), after = rackRowDisplayList(lifted, { spaceId: 'SR-A', face: 'front' })
+		const rackY = (ps: typeof before) => (ps.find((p) => p.k === 'line' && p.cls === 'rack') as { pts: { y: number }[] }).pts[0].y
+		expect(rackY(after)).toBe(rackY(before) - 150)
+		const texts = after.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
+		expect(texts).toEqual(expect.arrayContaining(['IDF-A CEILING FL+2400', 'IDF-A FLOOR FL+150', 'SLAB FFL+3500']))
+		expect(texts).not.toContain('CEILING FFL+2700')
+		const lines = after.filter((p) => p.cls.includes('room-line'))
+		const known = new Set(layersOf([]).map((l) => l.id))
+		expect(new Set(lines.map((p) => primLayer(p.cls, undefined, known)))).toEqual(new Set(['sys:room-lines']))
+		expect(primLayer('device-other', undefined, known)).toBe('sys:other-face')
 	})
 	it('a room with no racks says so', () => {
 		const ps = rackRowDisplayList(ix([{ type: 'space', id: 'EMPTY', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9 } as Entity]), { spaceId: 'EMPTY', face: 'front' })

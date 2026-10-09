@@ -3,7 +3,7 @@
 // overlap or run off the rack is refused with the reason. The tool stays on for the next device.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Device, Id } from '../domain/types'
-import { deviceFromTemplate, placementProblem, RACK_DEVICE_W, type DeviceTemplate } from '../domain/devices'
+import { deviceFromTemplate, placementProblem, RACK_DEVICE_W, roomFloor, type DeviceTemplate } from '../domain/devices'
 import { nextLabel, naturalCompare } from '../domain/labels'
 import { rackLayout, rackHeight, RU_MM } from '../views/rackRow'
 import type { Prim } from '../views/display'
@@ -51,7 +51,7 @@ export class DeviceTool implements Tool {
 		if (!t || !h || spec.kind !== 'row') return []
 		const l = rackLayout(c.index, spec).find((x) => x.rack.id === h.rack)
 		if (!l) return []
-		const u = t.kind === 'pdu' ? 1 : h.u, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2
+		const u = t.kind === 'pdu' ? 1 : h.u, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2 + roomFloor(c.index, spec.spaceId)
 		const w = Math.min(t.widthMm ?? RACK_DEVICE_W, l.rack.widthMm), x0 = l.x0 + (l.rack.widthMm - w) / 2, x1 = x0 + w
 		const y0 = -(base + (u - 1) * RU_MM), y1 = -(base + (u - 1 + t.heightU) * RU_MM)
 		const d = this.#make(t, l.rack.id, u, t.name, c)

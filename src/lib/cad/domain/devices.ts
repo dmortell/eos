@@ -88,6 +88,12 @@ export function panelsInFillOrder(ix: ProjectIndex, spaceId: Id): Device[] {
 		.sort((a, b) => rank.get(a.rackId)! - rank.get(b.rackId)! || b.u + b.heightU - (a.u + a.heightU))
 }
 
+/** Where a room's racks stand: its own floor, mm above the level's FFL (0 when it has none). */
+export const roomFloor = (ix: ProjectIndex, spaceId: Id | undefined): number => {
+	const s = spaceId ? ix.get(spaceId) : undefined
+	return s?.type === 'space' ? (s.floorMm ?? 0) : 0
+}
+
 export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] {
 	const racks = ix.racks.filter((r) => r.spaceId === spaceId && (!rowId || r.rowId === rowId))
 	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }

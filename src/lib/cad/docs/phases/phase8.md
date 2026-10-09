@@ -1796,3 +1796,14 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   opened under the button — left-aligned, padded, with a separator before the frame sheets. `ContextMenu` now mounts
   itself on cad's root (`.shell`): inside a floating window (backdrop-filter) a fixed menu was placed relative to the
   window. Live: opens right under ⋯.
+- **Rack elevation context** (backlog P2 → the rest P3): a server room's own floor and ceiling — `Space.floorMm` /
+  `ceilingMm`, mm above the level's FFL, typed in a rack's Properties › Room, row, level (one undo step, the room's).
+  Its racks stand on its floor everywhere (`roomFloor` in `domain/devices.ts`): the rack view lifts racks, devices
+  and cords (`liftPrim`), `rowHit` and the Device tool's ghost follow, the level elevations draw the rack on it, and
+  routing's rack drop starts from it. The rack view draws "IDF2 FLOOR FL+150" / "IDF2 CEILING FL+2400" (the room's
+  ceiling replaces the level's) beside the slab lines. **Toggles:** two new system layers, Room lines (the floor /
+  ceiling / slab / FFL lines) and Other face (the faint devices of the other face), found by class since they have
+  no source (not pickable) — `primLayer`; the rack view strip has Room lines / Other face buttons (your layer eye),
+  and a sheet viewport freezes them like any layer. Not built: F to flip, dragging the lines (backlog, P3); walls
+  (later.md, maybe). Tests: `rackRow.test.ts` (+1). Live (IDF2): floor 150, ceiling 2400 → the lines and labels, the
+  level's ceiling line gone; Room lines off → none drawn, on → back; both undone.

@@ -17,6 +17,8 @@ export const SYSTEM_LAYERS: LayerInfo[] = ([
 	['sys:risers', 'Risers', '#be185d'], ['sys:backbone', 'Backbone', '#7c3aed'], ['sys:cords', 'Patch cords', '#3b82f6'], ['sys:port-labels', 'Port labels', '#0c4a6e'],
 	['sys:outlets-low', 'Outlets', '#1d4ed8'], ['sys:outlets-high', 'Outlets high', '#1d4ed8'],
 	['sys:notes', 'Notes', '#0f172a'], ['sys:sections', 'Sections', '#0f766e'],
+	// the rack view's context (Dave 2026-10-09: its toggles): the room's floor / ceiling / slab lines, the other face
+	['sys:room-lines', 'Room lines', '#64748b'], ['sys:other-face', 'Other face', '#94a3b8'],
 ] as const).map(([id, name, look], i) => ({ id, name, look, order: (i + 1) * 10, system: true }))
 
 /** Colours for new project layers, in turn (distinct from the system defaults where possible). */
@@ -65,7 +67,8 @@ export function layerOf(e: Entity, known: Set<Id>): Id | undefined {
 
 /** The layer a drawn prim is on: its source's — except that a containment run's RISER parts sit on Risers. */
 export function primLayer(cls: string, e: Entity | undefined, known: Set<Id>): Id | undefined {
-	if (!e) return undefined
+	// a rack view's context: not pickable (no source), on their own layers so they can be hidden / frozen
+	if (!e) { const c = cls.split(' '); return c.includes('room-line') ? 'sys:room-lines' : c.includes('device-other') || c.includes('device-other-label') ? 'sys:other-face' : undefined }
 	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && cls.startsWith('riser')) return 'sys:risers'
 	// a device's port labels have their own layer (Dave 2026-10-07): hidden / frozen apart from the racks
 	if (e.type === 'device' && cls.split(' ').includes('port-label')) return 'sys:port-labels'

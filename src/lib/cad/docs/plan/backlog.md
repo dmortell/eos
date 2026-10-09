@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 64 entries (0 P1 · 5 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 64 entries (0 P1 · 4 P2 · 60 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -66,7 +66,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Rack order in a row: nudge or drag** — let Dave fix the order where the plan gets it wrong (racks / VCMs set at right angles): move up / down buttons or drag in the racks list, stored as an order override. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines). *cad today:* the order comes only from plan positions (`cad/domain/devices.ts:64`); `Rack.order` is used only for unplaced racks. *From:* G104, T037
 - [ ] **Drag racks from the list onto the plan** — drag one or several unplaced racks onto the plan; several land spaced in a line. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines). *cad today:* "Place", then one click per rack (`cad/ui/RackList.svelte:61`). *From:* G050
 - [ ] **Device library builder** — make a template from scratch (name, kind, U, ports, maker, model), click a template to edit it, delete it, and search the list. **P3 · M** (Dave 2026-10-06: low priority) (~180 lines). *cad today:* only "Save as template…" from a placed device (`cad/ui/Properties.svelte:405`, `cad/app/project.svelte.ts:159`); no edit, delete or search. *From:* G088, G110
-- [ ] **Rack elevation context** — the server room around the racks: floor and ceiling lines per server room (drag, or type FL + mm; they often differ from the office floors), slab, left / right walls (drag), F to flip the face, and view toggles. **P2 · L** (~250 lines). Can ship in steps: the server room's own floor / ceiling heights, then walls. *cad today:* FFL, slab lines, ceiling and plenum from the LEVEL's heights (2026-10-04, `storeyPrims` in `cad/views/rackRow.ts`), not per server room yet; the other face's devices are drawn faint and named "(rear)" / "(front)" (2026-10-04); front / rear are buttons, no F key. *From:* G020, G078, G079, G117, G192, T032, T045, T119
+- [ ] **Rack elevation context: what's left** — F to flip the face (today: the Racks front / rear buttons), and dragging the room's floor / ceiling lines on the view (today: typed in a rack's Properties). **P3 · S** (~50 lines). *cad today:* the room's own floor / ceiling (`Space.floorMm` / `ceilingMm`), racks standing on its floor, Room lines / Other face toggles (2026-10-09, `../phases/phase8.md`). Draggable walls: `later.md`. *From:* G020, G078, G079, G117, G192, T032, T045
 - [ ] **Catalogue tab** — browse the Panduit catalogue (kind, maker, colour, RU, fits the row), add a rack from it, add / delete custom products. **P3 · L** (~300 lines). *cad today:* missing; the rack BOM reads the built-in Panduit seed only. Decide "Catalogue vs library" (below) first. *From:* G089
 
 ## Ports, panels and allocation

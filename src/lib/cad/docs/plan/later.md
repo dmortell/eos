@@ -60,6 +60,10 @@ wanted. *From:* ids as in `backlog.md`.
 - **Room elevations** — four sections per room (A–D) with outlets on their wall face; needs room boundaries first (later per Dave). *From:* P034
 - **3D view** — a read-only three.js view of a level (later per Dave). *From:* P035
 
+## Maybe later
+
+- **Walls beside the racks in the rack view** — left / right walls of the server room, dragged into place, to see the clearance at the row ends. A maybe for later (Dave 2026-10-09). *From:* T119
+
 ## Not needed (Dave 2026-10-07)
 
 - **Dim the other cords when one is selected** — not needed (Dave 2026-10-07). *From:* T017
