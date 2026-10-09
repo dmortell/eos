@@ -13,7 +13,7 @@
 
 	/** `pkg` = issuing a PACKAGE (sheets-organising slice 6): its name, purpose and recipients fill the form, and the
 	 *  issue is linked to it (the next issue of the package diffs against this one). */
-	let { project, ws, sheets, pkg, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; pkg?: SheetPackage; onclose: () => void } = $props()
+	let { project, ws, sheets, pkg, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; pkg?: SheetPackage; onclose: (issued?: boolean) => void } = $props()
 
 	const PURPOSES = ISSUE_PURPOSES
 	// svelte-ignore state_referenced_locally
@@ -50,7 +50,7 @@
 				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, recipients: pkg?.recipients ?? (to.trim() ? [{ name: to.trim() }] : undefined) })
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
-			onclose()
+			onclose(true)
 		} catch (e) { err = `Issue failed — nothing was recorded: ${(e as Error).message}` }
 		finally { busy = false }
 	}
@@ -71,7 +71,7 @@
 		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => e.key === 'Enter' && applyAll()} onchange={applyAll} /></label>
 		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>
-		<button class="btn" disabled={busy} onclick={onclose}>Cancel</button>
+		<button class="btn" disabled={busy} onclick={() => onclose()}>Cancel</button>
 	</div>
 	{#if backup}<p class="text-amber-700">A full copy of the project (about {projectSize}) is kept with this issue. Tick it only for an issue you may need to go back to (old ones can be deleted in Project › Backups…)</p>{/if}
 	{#if err}<p class="text-red-600">{err}</p>{/if}

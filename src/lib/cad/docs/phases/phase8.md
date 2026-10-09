@@ -1770,3 +1770,6 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   a loop gone round, 17 m not 11 m up-and-back; a missing run). Live (Test Project, P3C-37 rear port 3 → A.001):
   9 m shortest; through TR2 15 m; TR2 → TR3 and TR3 alone: no route — TR3 (the short run by IDF2) isn't joined to
   the trunks; everything back to Shortest (an HMR reload mid-check had cleared undo; the edits were net zero).
+- Fix (found while testing): cancelling the Issue panel switched the Sheets tab to its Issues view; now only a
+  finished issue goes there, Cancel stays where you were (`IssuePanel` `onclose(issued)`). Live: Sheets → Issue… →
+  Cancel → still Sheets.

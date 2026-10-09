@@ -168,7 +168,7 @@
 		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
 	{/if}
 	</div>
-	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={() => { issuing = null; issuingPkg = undefined; show = 'issues' }} />{/key}{/if}
+	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={(issued) => { issuing = null; issuingPkg = undefined; if (issued) show = 'issues' }} />{/key}{/if}
 	{#if show === 'issues'}
 		<IssuesList {project} {ws} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
 	{:else if show === 'packages'}
