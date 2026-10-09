@@ -3,7 +3,7 @@
 // pane's work plane. Pure: display-list in, display-list out.
 import type { Prim } from './display'
 import type { ProjectIndex } from '../domain/project'
-import type { Id } from '../domain/types'
+import type { Id, Pt } from '../domain/types'
 import type { Entity } from '../domain/drawing'
 import type { PortSel } from '../editor/tools'
 import type { Route } from '../domain/routing'
@@ -101,6 +101,29 @@ export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], dept
 	}
 	if (spec.kind === 'elevation' && other.kind === 'plan') return [{ k: 'line', pts: [{ x: b.x0, y: -z }, { x: b.x1, y: -z }], cls: 'workplane' }]
 	return []
+}
+
+/** The work plane's GRIP (Dave 2026-10-10: make it movable): where its line starts by the drawing, and what dragging
+ *  it sets — the elevation's work depth (in the plan) or the plan's Z (in the elevation). A grip, not the whole line:
+ *  at Z 0 the line lies on the floor line, where most things sit. Null = no line here. */
+export function workPlaneGrip(spec: ViewSpec, other: ViewSpec, prims: Prim[], depth: number, z: number): { at: Pt; what: 'depth' | 'z' } | null {
+	const b = unionBounds(prims.map(primBounds))
+	if (!b) return null
+	if (spec.kind === 'plan' && other.kind === 'elevation') {
+		const f = spaceOf(other).frame!, c = { x: f.o.x + f.n.x * depth, y: f.o.y + f.n.y * depth }
+		const s = Math.min(...[[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].map(([x, y]) => (x - c.x) * f.t.x + (y - c.y) * f.t.y))
+		return { at: { x: c.x + f.t.x * s, y: c.y + f.t.y * s }, what: 'depth' }
+	}
+	if (spec.kind === 'elevation' && other.kind === 'plan') return { at: { x: b.x0, y: -z }, what: 'z' }
+	return null
+}
+
+/** The value the work-plane grip dragged to `p` gives: the depth along the elevation's view direction (plan), or the
+ *  height (elevation). */
+export function workPlaneAt(spec: ViewSpec, other: ViewSpec, p: Pt): number | null {
+	if (spec.kind === 'plan' && other.kind === 'elevation') { const f = spaceOf(other).frame!; return (p.x - f.o.x) * f.n.x + (p.y - f.o.y) * f.n.y }
+	if (spec.kind === 'elevation' && other.kind === 'plan') return -p.y
+	return null
 }
 
 /** A sheet's picked VIEWPORT: its frame highlighted and (unlocked) corner grips a constant `g` mm (= 4 px) across. */

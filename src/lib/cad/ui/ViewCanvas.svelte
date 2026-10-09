@@ -40,7 +40,7 @@
 	import PortTip from './PortTip.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, viewportHighlight, pickableIn } from '../views/overlays'
+	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
@@ -121,6 +121,18 @@
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])
 	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
+	/** The work plane's grip and its value (views/overlays.ts): drag it (Select tool) to set the elevation's work depth /
+	 *  the plan's Z, 10 mm steps (Alt: free); double-click it in the plan → auto depth again. */
+	const wGrip = $derived(other && prims.length ? workPlaneGrip(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z) : null)
+	let wDrag = $state(false)
+	const onWGrip = (p: Pt | null) => !!wGrip && !!p && Math.hypot(p.x - wGrip.at.x, p.y - wGrip.at.y) <= 7 / cam.k
+	const wGripPrims = $derived.by((): Prim[] => {
+		if (!wGrip) return []
+		const g = wGrip.at, r = 4 / cam.k, auto = wGrip.what === 'depth' && ws.depth == null
+		const text = wGrip.what === 'depth' ? `Work depth ${Math.round(ws.depth ?? depthAt(other))}${auto ? ' (auto)' : ''}` : `Work Z ${ws.opts.z > 0 ? '+' : ''}${ws.opts.z}`
+		return [{ k: 'line', pts: [{ x: g.x - r, y: g.y - r }, { x: g.x + r, y: g.y - r }, { x: g.x + r, y: g.y + r }, { x: g.x - r, y: g.y + r }], closed: true, fill: true, cls: 'grip workplane-grip' },
+			{ k: 'text', at: { x: g.x + 8 / cam.k, y: g.y - 6 / cam.k }, text, size: 11 / cam.k, cls: 'workplane-label' }]
+	})
 	const preview = $derived.by((): Prim[] => {
 		void tick; void ws.selection; void project.rev; void cam.k
 		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : []
@@ -349,6 +361,12 @@
 		if (e.button !== 0) return
 		const count = pressCount(e)
 		if (count >= 2) e.preventDefault()   // no word selection / focus change from a double-click (it closed the in-place edit box)
+		// the work plane's grip (Select tool): drag it; a double-click on the plan's sets the depth back to auto
+		if (ws.toolId === 'select' && onWGrip(input(e).p)) {
+			if (count >= 2 && wGrip?.what === 'depth') { ws.depth = null; ws.say('Work depth: auto (the middle of the floor)') }
+			else wDrag = true
+			return
+		}
 		if (vpe) {
 			const q = paperAt(e)
 			// outside the edited viewport nothing is picked (the frame only); a double-click there leaves it
@@ -381,6 +399,11 @@
 			vpPan.g.update((tx) => tx.put({ ...sh, viewports: sh.viewports.map((v) => (v.id === v0.id ? { ...v, centre: { x: v0.centre.x - d.x * v0.scale, y: v0.centre.y - d.y * v0.scale } } : v)) }))
 			return
 		}
+		if (wDrag && other) {
+			const v = workPlaneAt(spec, other, input(e).p)
+			if (v != null) { const r = e.altKey ? Math.round(v) : Math.round(v / 10) * 10; if (wGrip?.what === 'depth') ws.depth = r; else ws.opts.z = r }
+			return
+		}
 		cursor = input(e).p
 		if (!active) return
 		if (toolDown) ws.tool.move(input(e), ctx())
@@ -411,6 +434,7 @@
 			return
 		}
 		if (vpPan) { vpPan.g?.commit(ws.selection); vpPan = null; return }
+		if (wDrag) { wDrag = false; ws.say(wGrip?.what === 'depth' ? `Work depth ${ws.depth} — what you draw in the elevation goes there · double-click the grip: auto` : `Work Z ${ws.opts.z} — what you draw in the plan goes at this height`); return }
 		if (toolDown) { toolDown = false; ws.tool.up(input(e), ctx()); tick++ }
 	}
 
@@ -457,13 +481,14 @@
 
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
-		style:cursor={panning?.moved ? 'grabbing' : cursorCss}
+		style:cursor={panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
 		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />
 			<Prims prims={linked} selected={new Set()} />
+			<Prims prims={wGripPrims} selected={new Set()} k={cam.k} />
 			<Prims prims={traceHighlight} selected={new Set()} k={cam.k} />
 			<Prims prims={fillOverlay} selected={new Set()} />
 			<Prims prims={routeHighlight} selected={new Set()} />

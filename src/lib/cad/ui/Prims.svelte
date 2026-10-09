@@ -158,6 +158,9 @@
 	.datum-slab { stroke: #3f3f46; stroke-dasharray: none; stroke-width: 2; }   /* a slab face: a little heavier than FFL */
 	text.datum-label { fill: #71717a; }
 	.workplane { stroke: #16a34a; stroke-dasharray: 8 4; stroke-width: 1.5; }
+	/* its grip (drag = the work depth / Z) and value, in its green */
+	.grip.workplane-grip.filled { fill: #ffffff; stroke: #16a34a; stroke-width: 1.75; }
+	text.workplane-label { fill: #15803d; }
 	.port { stroke: #94a3b8; fill: #f8fafc; }
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
