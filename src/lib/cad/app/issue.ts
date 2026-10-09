@@ -11,7 +11,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, fingerprint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, fingerprint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -59,8 +59,16 @@ async function loadFrozen(project: CadProject, sheetId: string, rev: string): Pr
 	return { w: head.w, h: head.h, prims: JSON.parse(parts.map((p) => p.data()?.json ?? '').join('')) }
 }
 
-/** Images in frozen lists: a floorplan reference is rendered from its file again. */
+/** Images in a sheet's PDF: an image shape's `picture:` reference is loaded from its file first. */
+export const pictureLoader = (project: CadProject): ImageLoader => async (url, kind, gray) => {
+	if (!url.startsWith(PICTURE_REF)) return browserImageLoader(url, kind, gray)
+	const real = await project.pdf.pictureReady(url)
+	return real ? browserImageLoader(real, kind, gray) : null
+}
+
+/** Images in frozen lists: a floorplan reference is rendered from its file again (a picture loaded from its file). */
 const frozenImages = (project: CadProject): ImageLoader => async (url, kind, gray) => {
+	if (url.startsWith(PICTURE_REF)) return pictureLoader(project)(url, kind, gray)
 	const ref = parseUnderlayRef(url)
 	if (!ref) return browserImageLoader(url, kind, gray)
 	const pl = await project.pdf.placed(ref)

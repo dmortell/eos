@@ -3,7 +3,8 @@
 import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts, byDrawOrder } from '../domain/shapes'
+import { isVertical, ellipsePts, byDrawOrder, outlineOf } from '../domain/shapes'
+import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
 import { sectionMarks, sectionsOn } from './section'
@@ -125,6 +126,12 @@ function basePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 		case 'leader': return leaderPrims(s.id, g.pts, g.text, k, g.border)
 		case 'cloud': return [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
 		case 'dimension': return dimensionPrims(g, k, s.id)
+		case 'image': {
+			// the picture fitted in its box (its own proportions), then an unseen frame that takes clicks and the selection
+			const box = outlineOf(g)!
+			return [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x: g.centre.x - g.size.x / 2, y: g.centre.y - g.size.y / 2, w: g.size.x, h: g.size.y, fit: 'centre', src: s.id },
+				{ k: 'line', pts: box, closed: true, fill: true, cls: 'image-frame', src: s.id }]
+		}
 		default: return []
 	}
 }

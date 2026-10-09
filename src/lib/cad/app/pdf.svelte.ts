@@ -4,6 +4,7 @@
 import { doc, getDoc, onSnapshot, type Firestore } from 'firebase/firestore'
 import { PdfState } from '../../../routes/projects/[pid]/uploads/parts/PdfState.svelte'
 import type { Underlay } from '../domain/types'
+import { parsePictureRef } from '../domain/issue'
 
 const RENDER_SCALE = 2
 /** `clip` = the crop set in Uploads, in plan mm (the image is drawn only inside it). */
@@ -41,6 +42,40 @@ export class PdfCache {
 		const key = `${u.fileId}#${u.page ?? 1}`
 		await this.#jobs.get(key)
 		return this.#ready[key]
+	}
+
+	// ── an image shape's picture (backlog "Markup kinds" part 4): no calibration, just the picture ──
+	#pics = $state<Record<string, string>>({})
+	#picJobs = new Map<string, Promise<void>>()
+	/** Reactive: the url to show for a `picture:` reference — an image file as it is, a PDF page rasterised —
+	 *  undefined while it loads (or when it can't: `problems`). */
+	picture = (ref: string): string | undefined => {
+		const r = parsePictureRef(ref)
+		if (!r) return undefined
+		const key = `${r.fileId}#${r.page}`, url = this.#pics[key]
+		if (!url && !this.#picJobs.has(key)) this.#picJobs.set(key, this.#renderPicture(r.fileId, r.page, key))
+		return url
+	}
+	/** The same, waiting for it (PDFs). */
+	pictureReady = async (ref: string): Promise<string | undefined> => {
+		const r = parsePictureRef(ref)
+		if (!r) return undefined
+		this.picture(ref)
+		await this.#picJobs.get(`${r.fileId}#${r.page}`)
+		return this.#pics[`${r.fileId}#${r.page}`]
+	}
+	async #renderPicture(fileId: string, page: number, key: string): Promise<void> {
+		try {
+			const fd = (await getDoc(doc(this.db, 'files', fileId))).data()
+			if (!fd?.url) throw new Error('the file has no url')
+			const isPdf = fd.type === 'application/pdf' || /\.pdf$/i.test(String(fd.name ?? ''))
+			if (!isPdf) { this.#pics[key] = fd.url; return }
+			const pdf = new PdfState()
+			pdf.applyFileSettings(fd)
+			try { await pdf.load(fd.url); this.#pics[key] = (await pdf.renderToObjectUrl(page, RENDER_SCALE)).objectUrl } finally { pdf.destroy() }
+		} catch (e) {
+			this.problems[`picture:${key}`] = (e as Error).message
+		}
 	}
 
 	/** Each file is watched once it's used: a new origin / scale / crop / layers in Uploads redraws its pages at once

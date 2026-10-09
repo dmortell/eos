@@ -25,6 +25,15 @@ export function nextRev(code: string | undefined, first = 'A'): string {
 
 /** A floorplan in a frozen list: its file and page, not the rendered picture (that is a local blob). */
 export const UNDERLAY_REF = 'underlay:'
+/** An image shape's picture (backlog "Markup kinds" part 4): its file and page, resolved when shown or printed — the
+ *  display list (and a frozen issue) keeps the reference, never a blob url. */
+export const PICTURE_REF = 'picture:'
+export const pictureRef = (fileId: string, page = 1) => `${PICTURE_REF}${fileId}#${page}`
+export function parsePictureRef(url: string): { fileId: string; page: number } | null {
+	if (!url.startsWith(PICTURE_REF)) return null
+	const [fileId, page] = url.slice(PICTURE_REF.length).split('#')
+	return fileId ? { fileId, page: Number(page) || 1 } : null
+}
 export const underlayRef = (fileId: string, page = 1) => `${UNDERLAY_REF}${fileId}#${page}`
 export function parseUnderlayRef(url: string): { fileId: string; page: number } | null {
 	if (!url.startsWith(UNDERLAY_REF)) return null

@@ -55,7 +55,7 @@ const STYLES: Record<string, Style> = {
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
 	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
 	backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
-	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, ink: { fill: '#0f172a' }, 'line-tick': { width: 0.3 }, cloud: { stroke: '#dc2626', width: 0.3 },
+	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, ink: { fill: '#0f172a' }, 'image-frame': { skip: true }, 'line-tick': { width: 0.3 }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 
 /** Line types on paper (mm). */
@@ -85,7 +85,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	const unsupported = new Set<string>(), rasterised = new Set<string>()
 	const images = new Map<string, Awaited<ReturnType<ImageLoader>>>()
 	const imgKey = (q: { url: string; gray?: boolean }) => (q.gray ? `gray:${q.url}` : q.url)
-	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit === 'contain' ? 'logo' : 'photo', q.gray))
+	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit ? 'logo' : 'photo', q.gray))
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
 	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
@@ -126,7 +126,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 				const img = images.get(imgKey(p))
 				if (!img) continue
 				let { x, y, w, h } = p
-				if (p.fit === 'contain') { const s = Math.min(w / img.w, h / img.h); w = img.w * s; h = img.h * s; y = p.y + (p.h - h) / 2 }
+				if (p.fit) { const s = Math.min(w / img.w, h / img.h); w = img.w * s; h = img.h * s; y = p.y + (p.h - h) / 2; if (p.fit === 'centre') x = p.x + (p.w - w) / 2 }
 				pdf.setGState(new GState({ opacity: p.opacity ?? 1 }))
 				pdf.addImage(img.data, img.format, x, y, w, h, undefined, 'FAST')
 				continue

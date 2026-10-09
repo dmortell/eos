@@ -40,7 +40,7 @@ const r1p = (p: Pt): Pt => ({ x: r1(p.x), y: r1(p.y) })
 /** A region's grips in its own space: rect = 4 corners then 4 edge middles (−y, +x, +y, −x edges, local); ellipse /
  *  circle = its +x, +y, −x, −y axis ends; polygon = its corners. [] = not a region. */
 export function regionGrips(g: Geometry): Pt[] {
-	if (g.kind === 'rect') {
+	if (g.kind === 'rect' || g.kind === 'image') {
 		const c = outlineOf(g)!
 		return [...c, ...c.map((p, i) => { const q = c[(i + 1) % 4]; return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } })]
 	}
@@ -78,7 +78,7 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 		if (shift) return { ...s, geom: { kind: 'circle', centre: g.centre, r: Math.max(1, r1(along)) } }
 		return { ...s, geom: i % 2 === 0 ? { ...g, rx: Math.max(1, r1(along)) } : { ...g, ry: Math.max(1, r1(along)) } }
 	}
-	if (g.kind !== 'rect') return s
+	if (g.kind !== 'rect' && g.kind !== 'image') return s   // an image resizes like a box
 	const a = g.rot ?? 0, hx = g.size.x / 2, hy = g.size.y / 2
 	const local = (p: Pt) => rot(sub(p, g.centre), -a), world = (p: Pt) => add(g.centre, rot(p, a))
 	const lq = local(q)

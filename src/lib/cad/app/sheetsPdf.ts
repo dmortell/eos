@@ -2,16 +2,16 @@
 // downloaded as one file. Issuing (4.6) builds its package PDF the same way and uploads it instead.
 import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
-import { sheetPages, pagesToPdf, browserImageLoader, browserTextRaster } from '../render/pdf'
+import { sheetPages, pagesToPdf, browserTextRaster } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
-import { placeUnderlays } from './issue'
+import { placeUnderlays, pictureLoader } from './issue'
 import { panelPages } from '../views/panelSheets'
 import type { Device } from '../domain/types'
 
 export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[]): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
 	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, browserImageLoader, { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster })
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
 }
 
@@ -28,7 +28,7 @@ export async function downloadPanelSheets(project: CadProject, room: { id: strin
 	const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 	const { pages, panels } = panelPages(project.index, room.id, { title: `Panel labels — ${project.name} · ${room.name}`, date })
 	if (!pages.length) return { pages: 0, panels, unsupported: [], rasterised: [] }
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, browserImageLoader, { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster })
 	download(pdf.output('blob'), `${fileSafe(`${project.name} ${room.name} panels`)}.pdf`, 'application/pdf')
 	return { pages: pages.length, panels, unsupported, rasterised }
 }

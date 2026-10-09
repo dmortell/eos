@@ -15,8 +15,9 @@ import { newId } from '../domain/ids'
 import { fromPaper, viewportAt } from '../views/sheet'
 import { angleStep, squareCorner } from './constrain'
 
-export type ShapeKind = 'rect' | 'ellipse' | 'polygon'
-export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number }
+export type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'image'
+export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number
+	/** the Image tool (backlog "Markup kinds" part 4): the picture — a file in Uploads and its page */ image?: { fileId: string; page?: number } }
 
 /** The shape from two points (corner / corner, or centre / corner) in one 2D space; `shift` = square / circle /
  *  15° steps. Null when it would be empty. */
@@ -33,6 +34,7 @@ export function shapeGeom(o: ShapeOpts, a: Pt, b0: Pt, shift: boolean): Geometry
 	const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y), centre = { x: r1((a.x + b.x) / 2), y: r1((a.y + b.y) / 2) }
 	if (w < 1e-6 || h < 1e-6) return null
 	if (o.kind === 'rect') return { kind: 'rect', centre, size: { x: r1(w), y: r1(h) } }
+	if (o.kind === 'image') return o.image ? { kind: 'image', fileId: o.image.fileId, ...(o.image.page && o.image.page !== 1 ? { page: o.image.page } : {}), centre, size: { x: r1(w), y: r1(h) } } : null
 	return shift ? { kind: 'circle', centre, r: r1(w / 2) } : { kind: 'ellipse', centre, rx: r1(w / 2), ry: r1(h / 2) }
 }
 const r1 = (v: number) => Math.round(v * 10) / 10
@@ -46,7 +48,7 @@ export class ShapeTool implements Tool {
 	#press: Pt | null = null
 
 	/** 'box' (backlog "Box / desk tool"): the same, on the plan, with a height — a rect / ellipse / polygon with an extent. */
-	constructor(private opts: () => ShapeOpts, readonly id: 'shape' | 'box' = 'shape') {}
+	constructor(private opts: () => ShapeOpts, readonly id: 'shape' | 'box' | 'image' = 'shape') {}
 
 	/** A view point, snapped (paper: to 0.5 mm). */
 	#pt(e: PointerIn, c: ToolCtx): Pt {
@@ -85,6 +87,7 @@ export class ShapeTool implements Tool {
 			if (vp) map = fromPaper(vp)
 		} else if (spec.kind === 'plan') {
 			owner = { levelId: c.levelId }
+		} else if (o.kind === 'image') { c.say?.('Images go on plans and sheets'); return
 		} else if (c.space.frame && (spec.kind === 'elevation' || spec.kind === 'section')) {
 			owner = { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) } }
 			map = (p) => ({ x: p.x, y: -p.y })   // view (u, −z) → the plane's (u, z)
@@ -94,7 +97,7 @@ export class ShapeTool implements Tool {
 		// a box: a footprint with a height, standing at its Z (shows in elevations and sections as a box)
 		const box = this.id === 'box' && spec.kind === 'plan' ? { extent: Math.max(1, o.height ?? 750), ...(o.z ? { plane: { kind: 'plan', z: o.z } } : {}) } : {}
 		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom, ...box } as Shape
-		const name = this.id === 'box' ? 'box' : o.kind === 'polygon' ? `${Math.round(o.sides)}-sided polygon` : geom.kind
+		const name = this.id === 'box' ? 'box' : o.kind === 'image' ? 'image' : o.kind === 'polygon' ? `${Math.round(o.sides)}-sided polygon` : geom.kind
 		c.store.transact(`Draw ${name}`, (tx) => tx.put(s))
 		c.select([s.id])
 	}

@@ -206,7 +206,7 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 /** A closed region's outline in its own 2D space (a box's corners, an ellipse's / circle's points, a polygon). */
 export function outlineOf(g: Geometry): Pt[] | null {
 	switch (g.kind) {
-		case 'rect': {
+		case 'rect': case 'image': {
 			const r = ((g.rot ?? 0) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), hx = g.size.x / 2, hy = g.size.y / 2
 			return [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => ({ x: g.centre.x + x * c - y * s, y: g.centre.y + x * s + y * c }))
 		}

@@ -29,14 +29,14 @@ import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 import type { RepeatEdit } from '../domain/repeatEdit'
 
-export type ToolId = 'select' | 'move' | 'copy' | 'insert' | 'shape' | 'box' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | NoteKind | PathKind
+export type ToolId = 'select' | 'move' | 'copy' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section'],
 	section: ['plan'], viewport: ['sheet'],
-	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'],
+	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan'], image: ['plan', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation', 'sheet'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -92,6 +92,8 @@ export class Workspace {
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0 })
+	/** The Image tool's picture (Insert › Image…): its file in Uploads and page, and its name for the hint. */
+	imagePick = $state<{ fileId: string; page?: number; name: string } | null>(null)
 	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
 	dimMode = $state<DimMode>('aligned')
 	/** The block the Insert tool places (picked in the Blocks list). */
@@ -141,7 +143,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType)
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),

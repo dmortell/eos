@@ -1,8 +1,13 @@
 <!-- Draws a display list into an SVG group (in drawing mm). Hairlines keep 1 screen px at any zoom; banded lines
      (trunks, walls) are drawn at their real width. Selected entities get the `sel` look. -->
 <script lang="ts">
+	import { getContext } from 'svelte'
 	import { primBounds, type Prim } from '../views/display'
 	import type { Id } from '../domain/types'
+
+	/** An image shape's `picture:` reference → the url to show (set by the cad shell; app/pdf.svelte.ts). */
+	const pictureOf = getContext<((ref: string) => string | undefined) | undefined>('cad-picture')
+	const hrefOf = (url: string) => (url.startsWith('picture:') ? pictureOf?.(url) : url)
 
 	/** `k` = screen px per drawing mm, for text LOD (minPx / maxPx). Omit to draw every text. */
 	let { prims, selected, k }: { prims: Prim[]; selected: Set<Id>; k?: number } = $props()
@@ -51,7 +56,8 @@
 	     over their devices). -->
 	{#if shown(p)}
 	{#if p.k === 'image'}
-		<image href={p.url} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : 'none'} clip-path={clipOf(p)} />
+		{@const href = hrefOf(p.url)}
+		{#if href}<image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : p.fit === 'centre' ? 'xMidYMid meet' : 'none'} clip-path={clipOf(p)} />{/if}
 	{:else if p.k === 'line'}
 		{#if p.closed}
 			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
@@ -110,6 +116,8 @@
 	.leader-head.filled { fill: #0f172a; }
 	/* filled with the line's own colour (line end marks, a symbol's solid parts) */
 	.ink.filled { fill: #0f172a; }
+	/* an image's frame: unseen, it takes the clicks and shows the selection */
+	.image-frame { fill: transparent; stroke: none; }
 	.cloud { stroke: #dc2626; stroke-width: 1.25; }
 	.tb-frame { stroke: #64748b; }
 	.tb-frame.filled { fill: #ffffff; }

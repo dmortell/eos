@@ -13,8 +13,9 @@ export type Prim = (
 	/** Text: `size` in drawing mm (already scaled from paper mm by the generator). LOD: drawn only while the text is at
 	 *  least `minPx` and at most `maxPx` screen px tall (port labels: short form when small, full form when big). */
 	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id; sub?: string; minPx?: number; maxPx?: number }
-	/** `fit: 'contain'` keeps the image's own proportions inside the box (a logo); else it fills the box (a floorplan). */
-	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain'; /** drawn in black and white (screen and PDF) */ gray?: boolean }
+	/** `fit: 'contain'` keeps the image's own proportions inside the box, at its left (a logo); `'centre'` the same,
+ *  centred (an image shape); else it fills the box (a floorplan). */
+	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain' | 'centre'; /** drawn in black and white (screen and PDF) */ gray?: boolean }
 ) & {
 	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
 	clip?: Bounds

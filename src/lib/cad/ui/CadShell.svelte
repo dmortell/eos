@@ -13,7 +13,7 @@
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS } from './shellKeys'
 	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
-	import { onDestroy, tick, untrack } from 'svelte'
+	import { onDestroy, setContext, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState, goto } from '$app/navigation'
 	import { readViewState, writeViewState } from '../app/urlState'
@@ -41,6 +41,7 @@
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import TitleBlockDialog from './TitleBlockDialog.svelte'
+	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import ContextMenu from './ContextMenu.svelte'
@@ -54,6 +55,8 @@
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
 	const project = new CadProject(pid, firestore, user)
+	// image shapes' pictures, resolved for every canvas (ui/Prims.svelte)
+	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName })
 	const ws = new Workspace()
 	// a refused edit while someone else's restore runs says why
@@ -62,6 +65,7 @@
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
+	let imagePickOpen = $state(false)
 	let titleBlockOpen = $state(false), openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
 	/** A stored backup to restore (Project › Backups… › Restore…). */
 	let restoreSource = $state.raw<{ file: ProjectFile; name: string } | undefined>()
@@ -324,7 +328,7 @@
 		drafting: ws.drafting, toggleDrafting,
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
 		cordBom: () => exportsRef?.openCordBom(), cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
-		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true),
+		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true), image: () => (imagePickOpen = true),
 		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
 		hasLevel: !!level, renameLevel: () => level && renameLevelOf(project, ws, level.id), deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
@@ -459,6 +463,7 @@
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
 	{#if typesOpen}<SettingsDialog {project} {ws} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
+	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />
 	{#if backupsOpen}<BackupsWindow {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}

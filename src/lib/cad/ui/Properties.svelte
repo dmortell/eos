@@ -435,11 +435,19 @@
 		<PropGroup kind="shape" title="General">
 			<label class="row">Label <input class="inp" value={one.label ?? ''} onchange={(e) => put(one, 'Label', { label: e.currentTarget.value || undefined })} /></label>
 		</PropGroup>
+		{#if one.geom.kind === 'image'}
+			<!-- a picture (Insert › Image…): which file; its box is resized by its grips -->
+			{@const g = one.geom}
+			<PropGroup kind="shape" title="Image">
+				<p class="text-zinc-500" title="The file in Uploads">{g.fileId}{g.page && g.page > 1 ? ` · page ${g.page}` : ''} · {Math.round(g.size.x)} × {Math.round(g.size.y)}{one.sheetId ? ' mm on paper' : ' mm'}</p>
+			</PropGroup>
+		{:else}
 		<PropGroup kind="shape" title="Style">
 			<div class="row" title="Its own line color (By layer = its layer's)">Color
 				<ColorPick value={one.style?.stroke} allowByLayer onchange={(v) => project.store.transact(v ? 'Color' : 'Color by layer', (tx) => tx.put(withStyle(one, { stroke: v })))} /></div>
 			<LineStyle {project} shapes={[one]} />
 		</PropGroup>
+		{/if}
 		{#if ['rect', 'circle', 'ellipse', 'polygon'].includes(one.geom.kind) && one.levelId && one.plane?.kind !== 'vertical'}
 			<!-- a region on the plan: how tall it is (0 = flat) and where its base is — a box / desk (backlog "Box / desk tool") -->
 			<label class="row" title="How tall it stands (mm); 0 = flat — a box shows in elevations and sections">Height
