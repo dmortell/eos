@@ -387,7 +387,7 @@ export function wrapLine(text: string, size: number, width: number): string[] {
 }
 
 /** A revision cloud: each edge of the outline as a row of outward bumps about `arc` long (polyline points). */
-function cloudPts(pts: Pt[], arc: number): Pt[] {
+export function cloudPts(pts: Pt[], arc: number): Pt[] {
 	if (pts.length < 2) return pts
 	// clockwise or not decides which side is "out"
 	const area = pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y }, 0), side = area > 0 ? -1 : 1

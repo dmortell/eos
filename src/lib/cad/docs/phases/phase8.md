@@ -1852,3 +1852,16 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   the tool hint and Help say where it goes. Tests: `elevation.test.ts` (+1). Live (1F front elevation):
   eire-logo.png dragged in, drawn, selected with its 8 grips, moved and resized by its right-edge grip (4240 → 5970
   mm, left edge kept); removed (an undo, then a delete after a reload had cleared undo).
+- **Work plane grip** (Dave 2026-10-10: "should the green dashed work plane be movable?" — yes): with a plan and an
+  elevation split, the green work-plane line in each pane gets a green grip where it starts by the drawing, its value
+  beside it ("Work depth −8180 (auto)" / "Work Z +1040"). Dragging it (Select tool) sets the elevation's work depth
+  (plan) or the plan's Z (elevation) in 10 mm steps (Alt: free); a double-click on the plan's grip sets the depth back
+  to auto. A grip, not the line: at Z 0 the line lies on the floor line, where most things are clicked.
+  `workPlaneGrip` / `workPlaneAt` in views/overlays.ts (tested in the new `overlays.test.ts`), ViewCanvas the drag and
+  the grab cursor; Help "Set where drawing in an elevation goes". Live (1F front + plan): depth −8180 → −5990 by a
+  drag, double-click → auto; Z dragged to +1040 and back to 0.
+- **Cloud preview** (backlog ⚡, Dave 2026-10-09): the Revision cloud tool's rubber band is scalloped as the cloud will
+  be drawn — one bumpy edge for two points, then the closed cloud (`cloudPts` exported from views/plan.ts; bumps 6
+  printed mm: paper mm on a sheet, × the plot scale elsewhere). Tests: `notes.test.ts` (+1). Live (1F plan): one
+  scalloped edge, then a closed cloud following the cursor; dropped with Esc. Backlog: penetration fill and linked
+  symbols moved to P3 (Dave: low priority) — no P1 / P2 left.

@@ -61,6 +61,16 @@ describe('paper notes', () => {
 		const drawn = sheetDisplayList(new ProjectIndex(h.store.all()), h.store.get('SH') as Sheet).find((p) => p.src === c.id)
 		expect(drawn && drawn.k === 'line' && drawn.pts.length).toBeGreaterThan(40)   // scallops, not 4 corners
 	})
+	it('Cloud: the rubber band while drawing is scalloped too — one edge open, then closed', () => {
+		const h = harness(), tool = new NoteTool('cloud')
+		tool.down(h.at(50, 50), h.ctx()); tool.hover(h.at(110, 50), h.ctx())
+		const [one] = tool.preview(h.ctx())
+		expect(one.k === 'line' && !one.closed && one.pts.length).toBe(10 * 8 + 1)   // 60 mm / 6 mm bumps × 8 points, then its end
+		expect(one.k === 'line' && one.pts.some((p) => Math.abs(p.y - 50) > 1)).toBe(true)   // bumps off the straight line
+		tool.down(h.at(110, 50), h.ctx()); tool.hover(h.at(110, 100), h.ctx())
+		const [two] = tool.preview(h.ctx())
+		expect(two.k === 'line' && two.closed && two.pts.length).toBeGreaterThan(40)
+	})
 	it('a note drawn inside a viewport is tied to it: follows a rescale / pan, drags in view mm, untied in place on delete', () => {
 		const h = harness()
 		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 50, y: 50, w: 200, h: 150 }, scale: 100, centre: { x: 1000, y: 2000 } }

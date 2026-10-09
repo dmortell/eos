@@ -10,7 +10,8 @@ import { newId } from '../domain/ids'
 import { pickPrim } from './pick'
 import type { Sheet, Viewport } from '../domain/drawing'
 import { fromPaper, toPaper, viewportAt } from '../views/sheet'
-import { dimLine } from '../views/plan'
+import { dimLine, cloudPts } from '../views/plan'
+import { PLOT_SCALE } from '../views/display'
 
 /** A note tied to a viewport (one being deleted) put back on the paper where it showed. */
 export function untie(s: Shape, vp: Viewport): Shape {
@@ -144,11 +145,15 @@ export class NoteTool implements Tool {
 		return false
 	}
 
-	/** The points so far and a rubber band to the cursor (a cloud shows its closing edge). */
-	preview(): Prim[] {
+	/** The points so far and a rubber band to the cursor. A cloud shows its scallops as it will be drawn (Dave
+	 *  2026-10-09), its closing edge too; with two points, the one scalloped edge. */
+	preview(c: ToolCtx): Prim[] {
 		if (!this.#pts.length || !this.#hover) return []
 		const pts = [...this.#pts, this.#hover]
-		return [{ k: 'line', pts, closed: this.id === 'cloud' && pts.length > 2, cls: 'draft' }]
+		if (this.id !== 'cloud' || Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) < 1e-6) return [{ k: 'line', pts, cls: 'draft' }]
+		// its bumps a printed 6 mm (views/plan.ts): paper mm on a sheet, else drawn at the plot scale
+		const arc = 6 * (c.space.spec.kind === 'sheet' ? 1 : PLOT_SCALE), all = cloudPts(pts, arc)
+		return [{ k: 'line', pts: pts.length > 2 ? all : [...all.slice(0, all.length / 2), pts[1]], closed: pts.length > 2, cls: 'draft' }]
 	}
 	lastPoint(): Pt | null { return this.#pts.at(-1) ?? null }
 	typed(p: Pt, c: ToolCtx): void { const e = { p, shift: false, ctrl: false, alt: false } as PointerIn; this.down(e, c); this.up(e, c) }

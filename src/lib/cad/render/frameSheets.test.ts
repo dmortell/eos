@@ -44,5 +44,5 @@ describe('frame label sheets (G097 / G131 / T050)', () => {
 		expect(String(ws.getCell(1, 1).value)).toMatch(/A \(10U\)/)
 		expect(String(ws.getCell(5, 27).value)).toMatch(/C \(8U\)/)
 		expect(ws.getCell(3, 2).value).toBe(1)   // A's header row (title, blank, header): port 1
-	})
+	}, 20000)   // ExcelJS loads slowly the first time in a full run (it went over the 5 s default once)
 })
