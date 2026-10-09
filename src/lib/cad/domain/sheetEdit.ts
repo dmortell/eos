@@ -8,7 +8,7 @@ import type { Shape } from './shapes'
 /** A copy of the sheet and its paper notes, with new ids (`id()` makes one). "(copy)" title, no number. */
 export function duplicateSheet(s: Sheet, notes: Shape[], id: () => Id): { sheet: Sheet; notes: Shape[] } {
 	const vpIds = new Map(s.viewports.map((v) => [v.id, id()]))
-	const sheet: Sheet = { ...structuredClone(s), id: id(), number: '', title: `${s.title} (copy)`, order: (s.order ?? 0) + 0.5, status: 'active', revisions: undefined,
+	const sheet: Sheet = { ...structuredClone(s), id: id(), number: '', title: `${s.title} (copy)`, order: (s.order ?? 0) + 0.5, status: 'active', revisions: undefined, changes: undefined,
 		viewports: s.viewports.map((v) => ({ ...structuredClone(v), id: vpIds.get(v.id)! })) }
 	const copies = notes.filter((n) => n.sheetId === s.id).map((n) => {
 		const c = { ...structuredClone(n), id: id(), sheetId: sheet.id } as Shape

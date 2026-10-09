@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 69 entries (0 P1 · 10 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 68 entries (0 P1 · 9 P2 · 59 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -139,7 +139,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Revisions, issue and backups
 
-- [ ] **Change history per drawing** — For each sheet: what changed, when, and who asked for it, entered when issuing (or between issues). It fills the title block's revision table. Keep Issue as simple as it is now. **P2 · M** (~100 lines: `by` / description on a revision + edit in Sheet Properties). *cad today:* a sheet's revisions keep code / date / note (= the purpose) / issue (`cad/domain/drawing.ts:46`); the title block shows the last 5 (`cad/domain/titleBlock.ts:55`). *From:* T102
 
 ## Print and export
 

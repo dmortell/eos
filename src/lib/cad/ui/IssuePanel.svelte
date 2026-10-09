@@ -6,7 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
-	import { ISSUE_PURPOSES, withCodes, revCodeProblem, type IssuePlanRow } from '../domain/issue'
+	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
 	import { lastIssueOf } from '../domain/packages'
 	import { previewIssue, issuePackage, today } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
@@ -88,7 +88,8 @@
 							<td class="whitespace-nowrap"><span class="text-zinc-500">{r.from ? `${r.from} →` : 'new'}</span>
 								<input class="inp w-14 font-mono" class:bad={!!revCodeProblem(r.sheet, r.rev)} value={r.rev} title={revCodeProblem(r.sheet, r.rev) ?? 'Its new revision (type another code to override)'}
 									onchange={(e) => (codes = { ...codes, [r.sheet.id]: e.currentTarget.value })} /></td>
-							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={purpose} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
+							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={changesText(r.sheet) || purpose}
+								title={r.sheet.changes?.length ? `Its change notes (Sheet Properties), recorded on the revision:\n${changeLines(r.sheet.changes)}` : 'What changed (else the purpose)'} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
 						{:else}
 							<td class="text-zinc-400" colspan="2">stays {r.rev} (unchanged since issued)</td>
 						{/if}

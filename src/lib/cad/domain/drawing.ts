@@ -27,6 +27,9 @@ interface ViewBase<K extends string, P> {
 export type ViewKind = ViewDef['kind']
 
 /** A drawing sheet: paper, title block and viewports. Shapes drawn on its paper are Shapes with `sheetId`. */
+/** One change to a sheet: what changed, when, and who asked for it. */
+export type SheetChange = { id: Id; date: string; text: string; asked?: string }
+
 export interface Sheet {
 	type: 'sheet'
 	id: Id
@@ -42,8 +45,11 @@ export interface Sheet {
 	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. `hash` =
 	 *  the fingerprint of what the sheet showed at that issue (a sheet is "changed" when it no longer matches). */
 	/** `note` = the issue's purpose; `desc` = what changed in this revision (the title block shows it, else the note);
-	 *  `by` = who issued it (initials). */
-	revisions?: { code: string; date: string; note?: string; desc?: string; by?: string; issueId?: Id; hash?: string }[]
+	 *  `by` = who issued it (initials); `changes` = the change notes it went out with (moved from `changes` below). */
+	revisions?: { code: string; date: string; note?: string; desc?: string; by?: string; issueId?: Id; hash?: string; changes?: SheetChange[] }[]
+	/** What has changed since its last issue (change history, backlog T102): noted in Sheet Properties between issues;
+	 *  issuing a new revision moves them onto it (its "what changed" defaults to them). */
+	changes?: SheetChange[]
 	kind?: string
 	discipline?: string
 	tags?: string[]

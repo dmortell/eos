@@ -11,7 +11,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, fingerprint, planIssue, withRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, fingerprint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -93,11 +93,11 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const bumped: Sheet[] = [], pages: PdfPage[] = []
 	for (const row of plan) {
 		if (!row.changed) { pages.push(await loadFrozen(project, row.sheet.id, row.rev)); continue }
-		// frozen as it shows once issued (the title block reads the new rev / date)
+		// frozen as it shows once issued (the title block reads the new rev / date); its change notes go onto the revision
 		const desc = f.descs?.[row.sheet.id]?.trim(), extra = { ...(desc ? { desc } : {}), ...(f.by?.trim() ? { by: f.by.trim() } : {}) }
-		const next = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
+		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
 		const prims = frozenNow(project, next)
-		const done = withRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) })
+		const done = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) })
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)
 		bumped.push(done)
 		pages.push({ ...paperSize(row.sheet), prims })

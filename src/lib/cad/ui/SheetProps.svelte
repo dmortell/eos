@@ -11,11 +11,11 @@
 	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
-	import { printRevision } from '../app/issue'
+	import { printRevision, today } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
-	import { issuesOfSheet, issueTag } from '../domain/issue'
-	import type { Issue } from '../domain/drawing'
+	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
+	import type { Issue, SheetChange } from '../domain/drawing'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -25,6 +25,15 @@
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
+	// change notes since the last issue: add one (dated today), edit or remove
+	let newText = $state(''), newAsked = $state('')
+	$effect(() => { void s.id; newText = ''; newAsked = '' })   // another sheet picked: start empty
+	function addChange() {
+		if (!newText.trim()) return
+		putSheet('Add change note', { changes: [...(s.changes ?? []), { id: newId(), date: today(), text: newText.trim(), ...(newAsked.trim() ? { asked: newAsked.trim() } : {}) }] })
+		newText = ''
+	}
+	const setChange = (id: string, patch: Partial<SheetChange>) => putSheet('Edit change note', { changes: (s.changes ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) })
 	/** Notes tied to it go back on the paper where they showed. */
 	/** Delete this sheet, after saying what goes with it (its viewports and notes). */
 	function deleteSheet() {
@@ -156,11 +165,25 @@
 		<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click a frame on the paper to pick one, double-click inside to edit in it</p>
 		<div class="acts"><button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button></div>
 	</PropGroup>
+	<!-- change history (backlog T102): what changed, when and who asked, between issues; issuing moves them onto the
+	     new revision ("what changed" defaults to them) -->
+	<PropGroup kind="sheet" title={s.revisions?.length ? 'Changes since last issue' : 'Changes'}>
+		{#each s.changes ?? [] as c (c.id)}
+			<div class="chg"><span class="text-zinc-500">{c.date}</span>
+				<input class="inp" value={c.text} placeholder="what changed" onchange={(e) => setChange(c.id, { text: e.currentTarget.value.trim() })} />
+				<input class="inp" value={c.asked ?? ''} placeholder="asked by" title="Who asked for it" onchange={(e) => setChange(c.id, { asked: e.currentTarget.value.trim() || undefined })} />
+				<button class="btn del" title="Remove this note" onclick={() => putSheet('Remove change note', { changes: (s.changes ?? []).filter((x) => x.id !== c.id) })}>×</button></div>
+		{/each}
+		<div class="chg"><span class="text-zinc-500">{today()}</span>
+			<input class="inp" bind:value={newText} placeholder="what changed" onkeydown={(e) => e.key === 'Enter' && addChange()} />
+			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" onkeydown={(e) => e.key === 'Enter' && addChange()} />
+			<button class="btn" disabled={!newText.trim()} title="Note this change; the next issue records it on the new revision" onclick={addChange}>Add</button></div>
+	</PropGroup>
 	{#if s.revisions?.length}
 		<!-- each issued revision, printable exactly as it went out (its frozen copy) -->
 		<PropGroup kind="sheet" title="Issued revisions">
 			{#each [...s.revisions].reverse() as r (r.code)}
-				<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={r.note ?? ''}>{r.note ?? ''}</span>
+				<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={[r.desc ?? r.note ?? '', r.by ? `issued by ${r.by}` : '', changeLines(r.changes)].filter(Boolean).join('\n')}>{r.desc ?? r.note ?? ''}</span>
 					<button class="btn" disabled={busy} title="Download this sheet as issued at {r.code} (PDF)" onclick={() => printRev(r.code)}>Print</button></div>
 			{/each}
 		</PropGroup>
@@ -192,6 +215,7 @@
 	.btn.del:hover { color: #dc2626; }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
 	.rev { display: grid; grid-template-columns: 2.2rem 5.5rem 1fr auto; align-items: center; gap: 4px; }
+	.chg { display: grid; grid-template-columns: 4.6rem 1fr 4.5rem auto; align-items: center; gap: 4px; margin-bottom: 2px; }
 	.rev2 { display: grid; grid-template-columns: 3.6rem 5rem 1fr auto 1.8rem; align-items: center; gap: 4px; }
 	.rev2 .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cad-muted); }
 	.rev .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cad-muted); }

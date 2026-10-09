@@ -1723,3 +1723,19 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   → P3C-36 in IDF2: 18 backbone cores in 2 cables; the schedule showed 2 rows (164 cables); the Links table "core n
   of 12"; installing core 1 installed its 12 (not the 6); all undone (links back to 162) and the cores cleared.
   Also: the schedule's totals line lost its spaces before "· N without a route" (fixed).
+
+## Batch: change history, fill by hand, text fields, routes by hand, frame label Excel (Dave 2026-10-09: "do 1 2 3 4", then "do 12 as well")
+
+Also: floorplan zones rotate / drag and several buildings marked not required (→ `../plan/later.md`).
+
+- **Change history per drawing** (backlog P2, T102): "what changed" per revision and who issued it were already
+  recorded at issue (sheets-organising slice 7). Added: **Sheet Properties › Changes since last issue** — notes
+  between issues: what changed and who asked for it, dated the day they're added, editable, × removes (one undo
+  step each; `Sheet.changes`, `SheetChange`). Issuing a sheet at a NEW revision moves its notes onto the revision
+  (`issuedRevision` in `domain/issue.ts`): the Issue panel's What changed defaults to them (placeholder; its tip lists
+  them with who asked) and the title block's revision table shows that text; the sheet starts empty again. A sheet
+  issued "as last issued" keeps its notes. Issued revisions in Properties show what changed (else the purpose); the
+  tip adds who issued it and the notes. Duplicate drops the notes. Issue stays as it was. Tests: `issue.test.ts` (+1).
+  Live (Test Project): notes added on S001 and S003; S003 retitled so it would get a new revision → the Issue panel
+  defaulted What changed to "Added AP-12" with the notes in its tip; cancelled (nothing issued); all three edits
+  undone.

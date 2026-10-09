@@ -1,11 +1,24 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
 const sheet = (id: string, revisions?: Sheet['revisions']): Sheet => ({
 	type: 'sheet', id, number: id, title: id, order: 0, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active', ...(revisions ? { revisions } : {}),
+})
+
+describe('change history (T102)', () => {
+	it('a new revision takes the change notes: "what changed" defaults to them, the sheet starts empty again', () => {
+		const s = { ...sheet('S1'), changes: [{ id: 'c1', date: '2026-10-08', text: 'Moved rack A3', asked: 'client' }, { id: 'c2', date: '2026-10-09', text: 'Added AP-12 ' }, { id: 'c3', date: '2026-10-09', text: ' ' }] }
+		expect(changesText(s)).toBe('Moved rack A3; Added AP-12')
+		const r = issuedRevision(s, { code: 'A', date: '2026-10-10', note: 'For construction' })
+		expect(r.changes).toBeUndefined()
+		expect(r.revisions).toEqual([{ code: 'A', date: '2026-10-10', note: 'For construction', desc: 'Moved rack A3; Added AP-12', changes: s.changes.slice(0, 2) }])
+		// a typed "what changed" wins; no notes → as before
+		expect(issuedRevision(s, { code: 'A', date: 'd', desc: 'Re-issued' }).revisions![0].desc).toBe('Re-issued')
+		expect(issuedRevision(sheet('S2'), { code: 'A', date: 'd' }).revisions).toEqual([{ code: 'A', date: 'd' }])
+	})
 })
 
 describe('issue numbers', () => {
