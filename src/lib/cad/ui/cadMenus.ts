@@ -117,7 +117,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Show the grid (GRID)', key: 'F7', checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
 		] },
 		{ label: 'Insert', items: [
-			tool('insert', 'Block…'), tool('legend', 'Legend'), { label: 'Image…', title: 'A picture from this computer or Uploads, on a plan or a sheet', disabled: !c.toolOk('image'), run: c.image }, '-',
+			tool('insert', 'Block…'), tool('legend', 'Legend'), { label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image }, '-',
 			tool('text', 'Text'), tool('leader', 'Leader'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'), '-',
 			tool('viewport', 'Viewport'),
 		] },

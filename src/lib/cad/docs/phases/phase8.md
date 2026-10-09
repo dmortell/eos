@@ -1845,3 +1845,10 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   node / segment drags, segment picks and double-click node insert; a sheet's line gets no grips in other views.
   Live (S001): a line drawn in the viewport — blue, grips on its ends, its end grip dragged to where it was dropped;
   undone.
+- **Images in elevations** (backlog P2, done): the Image tool works in elevations and sections — the box goes on the
+  view's vertical plane at the work depth (as a flat shape there: points in (u, z)), so it shows only in that view
+  (`ownFrame`). views/elevation.ts draws it as the picture fitted in its box plus the unseen `image-frame`; moving,
+  copying and the 8 resize grips come from the vertical-plane shape code already there. Insert › Image…, the picker,
+  the tool hint and Help say where it goes. Tests: `elevation.test.ts` (+1). Live (1F front elevation):
+  eire-logo.png dragged in, drawn, selected with its 8 grips, moved and resized by its right-edge grip (4240 → 5970
+  mm, left edge kept); removed (an undo, then a delete after a reload had cleared undo).

@@ -14,6 +14,7 @@ import type { ViewSpace } from './space'
 import type { Prim } from './display'
 import { insertAttrs, type Block } from '../domain/blocks'
 import { blockPrims } from './blocks'
+import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
 const LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
@@ -199,6 +200,12 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 		const world = out.map((q) => unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
 		const mid = world.reduce((m, p) => ({ x: m.x + p.x / world.length, y: m.y + p.y / world.length, z: m.z + p.z / world.length }), { x: 0, y: 0, z: 0 })
 		const pts = world.map((p) => sp.fromWorld(p))
+		// an image (backlog "Images in elevations"): the picture fitted in its box as seen here, the unseen frame on top
+		if (g.kind === 'image') {
+			const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y), x = Math.min(...xs), y = Math.min(...ys)
+			return [{ depth: sp.depthOf(mid), prims: [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y, fit: 'centre', src: s.id },
+				{ k: 'line', pts, closed: true, fill: true, cls: 'image-frame', src: s.id }] }]
+		}
 		const fill: Prim[] = s.style?.fill ? [{ k: 'line', pts, closed: true, fill: true, cls: 'shape-fill', color: s.style.fill, src: s.id }] : []
 		return [{ depth: sp.depthOf(mid), prims: [...fill, ...ownStyle(s, [{ k: 'line', pts, closed: true, cls: 'shape', src: s.id }])] }]
 	}

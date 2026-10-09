@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 63 entries (0 P1 · 3 P2 · 60 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 63 entries (0 P1 · 3 P2 · 60 P3; 6 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -120,7 +120,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] ❓ **Linked symbols (URL / sheet link)** — an insert can link to a sheet or a web page; a badge shows on hover, double-click opens it. Store the link on the insert (each marker has its own target), not the block. **P2 · M** (~80 lines). *cad today:* missing. *From:* G257, T149
 - [ ] **Image opacity, crop, greyscale** — Properties for an underlay / image: opacity slider (for tracing), crop, greyscale (so coloured markup stands out). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* `Underlay.opacity` and `crop` fields exist and opacity is drawn (default 0.6), but there is no UI (`cad/domain/types.ts:79`, `cad/views/plan.ts:34`). *From:* G288
 - [ ] **Blocks: drag to place, front drawings** — what's left of the Blocks panel: drag a block from the list onto a view (today: click it, then click), and a block's own FRONT drawing for elevations (today the plan symbol is drawn there, facing you). **P3 · M**. *cad today:* Blocks panel + Insert tool in plan / elevation / section, inserts have a height (2026-10-04, `cad/ui/BlockManager.svelte`, `cad/editor/insertTool.ts`). *From:* G284, P004
-- [ ] **Images in elevations** — an image placed in an elevation stands on its ground line (an image on a plan or a sheet is built: Insert › Image…, 2026-10-09). **P2 · M** (~100 lines: the image on the view's vertical plane, drawn in that elevation). *cad today:* the Image tool works on plans and sheets (`cad/editor/shapeTool.ts`, kind image); elevations say "Images go on plans and sheets". *From:* G292
 
 ## Sheets and viewports
 

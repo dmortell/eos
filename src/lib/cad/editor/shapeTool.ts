@@ -87,7 +87,6 @@ export class ShapeTool implements Tool {
 			if (vp) map = fromPaper(vp)
 		} else if (spec.kind === 'plan') {
 			owner = { levelId: c.levelId }
-		} else if (o.kind === 'image') { c.say?.('Images go on plans and sheets'); return
 		} else if (c.space.frame && (spec.kind === 'elevation' || spec.kind === 'section')) {
 			owner = { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) } }
 			map = (p) => ({ x: p.x, y: -p.y })   // view (u, −z) → the plane's (u, z)

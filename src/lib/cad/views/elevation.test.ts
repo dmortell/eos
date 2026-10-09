@@ -111,6 +111,17 @@ describe('drawing and moving in an elevation (ADR 0006)', () => {
 		expect(ids('rear')).toEqual(['B'])
 		expect(ids('left')).toEqual(['B'])
 	})
+	it('an image on an elevation: its picture in its box, standing where it was drawn, only in that view', () => {
+		const sp = spaceOf({ kind: 'elevation', dir: 'front' })
+		const img = { type: 'shape', id: 'I', levelId: 'L33', plane: { kind: 'vertical', frame: sp.frame!, depth: 3000 }, geom: { kind: 'image', fileId: 'f1', page: 2, centre: { x: 500, y: 1000 }, size: { x: 400, y: 200 } } } as Shape
+		const ents = [...placed(), img]
+		const pic = view('front', ents).find((p) => p.src === 'I' && p.k === 'image')
+		expect(pic).toMatchObject({ url: 'picture:f1#2', w: 400, h: 200, fit: 'centre' })
+		const u = sp.fromWorld({ x: 0, y: 0, z: 0 }).x   // the frame's u origin in this view
+		expect(pic && pic.k === 'image' ? [pic.x - u, pic.y] : null).toEqual([300, -1100])   // top-left: u 300, z 1100 up
+		expect(view('front', ents).some((p) => p.src === 'I' && 'cls' in p && p.cls === 'image-frame')).toBe(true)
+		expect(view('rear', ents).some((p) => p.src === 'I')).toBe(false)
+	})
 	it('dragging an outlet up in an elevation raises it (z) and slides it along the view', () => {
 		const h = harness('front', 0)
 		const sel = new SelectTool()
