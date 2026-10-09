@@ -1757,3 +1757,16 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   keeps a data field as typed (plain texts are filled). Text / Leader in Properties list the fields in their tip.
   Tests: `fields.test.ts` (2). Live (Test Project 1F): "{PROJECT} {LEVEL}: {COUNT:Wireless AP} APs" drew "Test
   Project 1F: 2 APs" (1F has two placed APs); undone.
+- **Set a cable's route by hand (diverse routes)** (backlog P2, G148, T078): `Link.via` is now the runs to pass
+  through IN ORDER from the panel end — one id as before (old data and older tabs keep working), several an array
+  (`viaList` / `viaValue` in `domain/routing.ts`). Routing (`throughRuns`): legs that don't use the runs they connect,
+  and ALONG each run a search over directed pieces that never turns straight back (`alongRun`), so a cable told to go
+  through a loop goes round it instead of up one leg and back; the far end's Dijkstra doesn't use the last run either.
+  The Dijkstra core is shared (`dijkstra`, with runs to skip). No route says which run: "can't reach TR3 (in the
+  order given)" or "can't go on from TR3 to its other end (a dead end?)". Port Properties › **Route through** (every
+  cable kind now, was Riser on backbone / tie only): a list of runs and risers (`containmentRuns`: risers first, then
+  by level — "TR1 · 1F", "Riser A (riser)"), change / × / "+ then…", mixed selections show (mixed) + clear; one undo
+  step, all cores of a multi-core cable. Joining runs rewrites the list (`dragParts`). Tests: `routing.test.ts` (+1:
+  a loop gone round, 17 m not 11 m up-and-back; a missing run). Live (Test Project, P3C-37 rear port 3 → A.001):
+  9 m shortest; through TR2 15 m; TR2 → TR3 and TR3 alone: no route — TR3 (the short run by IDF2) isn't joined to
+  the trunks; everything back to Shortest (an HMR reload mid-check had cleared undo; the edits were net zero).

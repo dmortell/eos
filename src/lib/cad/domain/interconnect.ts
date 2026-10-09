@@ -2,7 +2,7 @@
 // across floors) or a TIE within one room. Like bulk patching: ports picked on one panel go, in order, to the free
 // ports of the other from the one clicked. A port that already has a cable is skipped. A multi-core cable type puts
 // the links, in order, into cables of its cores (domain/multicore.ts). Pure; tested in interconnect.test.ts.
-import type { Id, Link, PortRef, Device, Rack } from './types'
+import type { Id, Link, PortRef, Device, Rack, Level } from './types'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { intoCables } from './multicore'
@@ -37,4 +37,15 @@ export function riserRuns(ix: ProjectIndex): { id: Id; label: string }[] {
 		return lv.size > 1
 	}).map((s) => ({ id: s.id, label: s.label || `Riser ${ix.nameOf(s.levelId)}` }))
 		.sort((x, y) => x.label.localeCompare(y.label, undefined, { numeric: true }))
+}
+
+/** Every containment run a cable can be sent through (Port Properties › Route through): risers first, then by level
+ *  and label — "TR1 · 1F", "R2 (riser)". */
+export function containmentRuns(ix: ProjectIndex): { id: Id; label: string }[] {
+	const order = (id: Id | undefined) => ix.get<Level>(id)?.order ?? 0
+	return ix.shapes.filter((s) => s.role?.kind === 'containment' && s.geom.kind === 'path').map((s) => {
+		const lv = new Set(s.geom.kind === 'path' ? s.geom.nodes.map((n) => n.levelId ?? s.levelId) : []), riser = lv.size > 1
+		return { id: s.id, riser, order: order(s.levelId), label: `${s.label || (riser ? 'Riser' : 'Run')}${riser ? ' (riser)' : ` · ${ix.nameOf(s.levelId)}`}` }
+	}).sort((a, b) => Number(b.riser) - Number(a.riser) || a.order - b.order || a.label.localeCompare(b.label, undefined, { numeric: true }))
+		.map(({ id, label }) => ({ id, label }))
 }

@@ -8,6 +8,7 @@ import type { Snap } from './snap'
 import { moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
 import { branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
 import { joinAcross } from './pathSel'
+import { viaList, viaValue } from '../domain/routing'
 
 type Viewport = Sheet['viewports'][number]
 
@@ -71,6 +72,6 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 	if (across) { tx.del(across.absorbed); absorbed.push(across.absorbed) }
 	tx.put(across?.shape ?? j.shape)
 	// a cable that chose a joined-in run (a backbone's riser) now uses this one
-	if (absorbed.length) for (const l of o.links) if (l.type === 'link' && l.via && absorbed.includes(l.via)) tx.put({ ...l, via: shape })
+	if (absorbed.length) for (const l of o.links) if (l.type === 'link' && viaList(l).some((v) => absorbed.includes(v))) tx.put({ ...l, via: viaValue(viaList(l).map((v) => (absorbed.includes(v) ? shape : v))) })
 	return { joined: j.joined, absorbed: absorbed.length }
 }

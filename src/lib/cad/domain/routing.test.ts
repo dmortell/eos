@@ -2,7 +2,7 @@
 // tier / room filters, lengths with slack (rounded up), the 90 m flag, a hand-set length winning, and BOM metres.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
-import { routeLinks, cableMetres, panelZ, boxNote } from './routing'
+import { routeLinks, cableMetres, panelZ, boxNote, viaValue } from './routing'
 import { cableSchedule, scheduleTotals } from './cableSchedule'
 import type { Entity } from './drawing'
 import type { Shape } from './shapes'
@@ -112,6 +112,28 @@ describe('routing', () => {
 		expect(b2.routeMm).toBeCloseTo(RACK_DROP + 8000 + 4000 + 3000 + RACK_DROP)
 		expect(b2.segs.map((s) => s.shape)).toEqual(['T2', 'V2', 'T1'])
 		expect(b1.lengthM).toBe(Math.ceil(b1.routeMm! / 1000))   // no outlet: no slack
+	})
+	it('a route set by hand goes through each run in order, along it, never doubling back (G148 / T078)', () => {
+		const ix = project([
+			run('V1', 'L1', [[2000, 500, 0], [2000, 500, 0]], 'low', { toLevel: 'L2' }),
+			run('V2', 'L1', [[8000, 500, 0], [8000, 500, 0]], 'low', { toLevel: 'L2' }),
+			run('T2', 'L2', [[2000, 500, 0], [8000, 500, 0]]),
+			// a loop the long way round on 2F: (2000, 500) → (2000, 6000) → (8000, 6000) → (8000, 500)
+			run('U2', 'L2', [[2000, 500, 0], [2000, 6000, 0], [8000, 6000, 0], [8000, 500, 0]]),
+			{ type: 'space', id: 'S2', levelId: 'L2', name: 'IDF-2', kind: 'serverRoom' },
+			{ type: 'rack', id: 'R2', levelId: 'L2', spaceId: 'S2', order: 1, name: 'R2', kind: '4-post', heightU: 42, widthMm: 600, depthMm: 1000, at: { x: 5000, y: 0 } },
+			{ ...DEV, id: 'P2', rackId: 'R2', name: 'P2' },
+			{ type: 'link', id: 'B1', kind: 'backbone', a: { on: 'P1', port: 1 }, b: { on: 'P2', port: 1 }, cableType: 'cat6a', status: 'design', via: ['V1', 'U2'] },
+			{ type: 'link', id: 'B2', kind: 'backbone', a: { on: 'P1', port: 2 }, b: { on: 'P2', port: 2 }, cableType: 'cat6a', status: 'design', via: ['V2', 'GONE'] },
+		])
+		const routes = routeLinks(ix, { slackM: 0.5, wastePct: 0 })
+		const b1 = routes.get('B1')!
+		// up V1, all the way round U2 (not up one leg and back), along T2 to the rack
+		expect(b1.routeMm).toBeCloseTo(RACK_DROP + 2000 + 4000 + 17000 + 3000 + RACK_DROP)
+		expect(b1.segs.map((s) => s.shape)).toEqual(['T2', 'U2', 'U2', 'U2', 'V1', 'T1'])
+		// a run that isn't there (deleted) can't be reached
+		expect(routes.get('B2')!.problem).toBe("the cable can't reach a chosen run in the order given")
+		expect([viaValue([]), viaValue(['A']), viaValue(['A', 'A', 'B'])]).toEqual([undefined, 'A', ['A', 'B']])
 	})
 	it('flags over 90 m; a hand-set length wins; BOM metres add waste and a box note', () => {
 		const ix = project([

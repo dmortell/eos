@@ -8,7 +8,7 @@
 //            rack, then the height to the panel's U.
 // Backbone / tie links route rack to rack the same way. Length (5.2) = route + slack at the outlet, rounded up;
 // waste % is a BOM matter (reports.ts). Pure; tested in routing.test.ts.
-import type { Id, Outlet, Rack, Device, Level } from './types'
+import type { Id, Outlet, Rack, Device, Level, Link } from './types'
 import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 import { cablesOf } from './multicore'
@@ -172,7 +172,21 @@ export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device 
 // ── Shortest paths ───────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Dijkstra from taps (each a start with its own cost onto its segment's pieces). `prev` = the piece walked in by. */
-export function fromTaps(g: Graph, taps: Tap[]): { d: Float64Array; prev: Int32Array; startTap: Int32Array } {
+export function fromTaps(g: Graph, taps: Tap[], o?: Only): ReturnType<typeof dijkstra> {
+	const init: [number, number, number][] = []
+	taps.forEach((tp, ti) => {
+		const s = g.segs[tp.seg], list = g.piecesOf.get(segKey(s.shape.id, s.seg)) ?? []
+		const pc = list.map((k) => g.pieces[k]).find((p) => tp.t >= p.t0 - 1e-9 && tp.t <= p.t1 + 1e-9)
+		if (!pc) return
+		for (const [node, tt] of [[pc.a, pc.t0], [pc.b, pc.t1]] as const) init.push([node, tp.dropMm + Math.abs(tp.t - tt) * s.len, ti])
+	})
+	return dijkstra(g, init, o)
+}
+
+/** Runs a walk may not use (on the way to / from them). */
+type Only = { skip?: Id[] }
+/** Dijkstra from start nodes, each with its cost (and a tag kept in `startTap`: which start it grew from). */
+function dijkstra(g: Graph, init: [node: number, cost: number, tag: number][], o?: Only): { d: Float64Array; prev: Int32Array; startTap: Int32Array } {
 	const n = g.nodes.length, d = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), startTap = new Int32Array(n).fill(-1)
 	const heap: [number, number][] = []
 	const push = (k: number, v: number) => { heap.push([k, v]); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p } }
@@ -181,19 +195,13 @@ export function fromTaps(g: Graph, taps: Tap[]): { d: Float64Array; prev: Int32A
 		if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m } }
 		return top
 	}
-	taps.forEach((tp, ti) => {
-		const s = g.segs[tp.seg], list = g.piecesOf.get(segKey(s.shape.id, s.seg)) ?? []
-		const pc = list.map((k) => g.pieces[k]).find((p) => tp.t >= p.t0 - 1e-9 && tp.t <= p.t1 + 1e-9)
-		if (!pc) return
-		for (const [node, tt] of [[pc.a, pc.t0], [pc.b, pc.t1]] as const) {
-			const c = tp.dropMm + Math.abs(tp.t - tt) * s.len
-			if (c < d[node]) { d[node] = c; prev[node] = -1; startTap[node] = ti; push(c, node) }
-		}
-	})
+	for (const [node, c, tag] of init) if (c < d[node]) { d[node] = c; prev[node] = -1; startTap[node] = tag; push(c, node) }
 	while (heap.length) {
 		const [c, u] = pop()
 		if (c > d[u]) continue
 		for (const e of g.adj[u]) {
+			const sh = g.pieces[e.piece].shape
+			if (o?.skip?.includes(sh)) continue
 			const v = e.to, nc = c + g.pieces[e.piece].len
 			if (nc < d[v]) { d[v] = nc; prev[v] = e.piece; startTap[v] = startTap[u]; push(nc, v) }
 		}
@@ -262,21 +270,17 @@ export function routeLinks(ix: ProjectIndex, cable: CableSettings = DEFAULT_CABL
 			if (!r2?.at) { finish({ segs: [], problem: 'the far panel is not in a placed rack' }); continue }
 			ends = rackTaps(g, ix, r2, d2)
 		}
-		// through a chosen run (a riser for diversity): rack → the run → far end, both halves shortest
-		if (l.via) {
-			const fromB = { ...fromTaps(g, ends), taps: ends }
-			let bv: { cost: number; u: number; v: number; piece: number } | null = null
-			g.pieces.forEach((pc, pi) => {
-				if (pc.shape !== l.via) return
-				for (const [u, v] of [[pc.a, pc.b], [pc.b, pc.a]] as const) {
-					const c = from.d[u] + pc.len + fromB.d[v]
-					if (c < (bv?.cost ?? Infinity)) bv = { cost: c, u, v, piece: pi }
-				}
-			})
-			const via = bv as { cost: number; u: number; v: number; piece: number } | null
-			if (!via || !Number.isFinite(via.cost)) { finish({ segs: [], problem: `the cable can't reach ${ix.nameOf(l.via) || 'the chosen run'} from both ends` }); continue }
-			const vp = g.pieces[via.piece]
-			finish({ segs: dedupe([...walk(g, fromB, via.v).reverse(), { shape: vp.shape, seg: vp.seg }, ...walk(g, from, via.u)]), routeMm: via.cost })
+		// through chosen runs, in order (a riser for diversity; a route set by hand): rack → run 1 → … → run n → far
+		// end, each leg the shortest way; a run is entered at whichever of its pieces makes the whole cheapest
+		const vias = viaList(l)
+		if (vias.length) {
+			const r = throughRuns(g, from, ends, vias)
+			if ('stuck' in r) {
+				const name = ix.nameOf(r.stuck) || 'a chosen run'
+				finish({ segs: [], problem: r.on ? `the cable can't go on from ${name} to its other end (a dead end?)` : `the cable can't reach ${name}${vias.length > 1 ? ' in the order given' : ''}` })
+				continue
+			}
+			finish(r)
 			continue
 		}
 		// cost at each end tap: reach its segment's piece ends from the rack, or (same segment as a rack tap) go along it
@@ -310,6 +314,86 @@ function walk(g: Graph, run: ReturnType<typeof fromTaps> & { taps: Tap[] }, node
 	const st = run.startTap[node]
 	if (st >= 0) { const s0 = g.segs[run.taps[st].seg]; out.push({ shape: s0.shape.id, seg: s0.seg }) }
 	return out
+}
+/** A link's runs to pass through, in order (`via`: one run id, or several). */
+export const viaList = (l: Pick<Link, 'via'>): Id[] => (Array.isArray(l.via) ? l.via : l.via ? [l.via] : [])
+
+/** How a list of runs is stored on a link: none → absent, one → its id (as before), several → the list. Runs next to
+ *  each other twice collapse to one. */
+export const viaValue = (ids: Id[]): Link['via'] => { const v = ids.filter((x, i) => x && x !== ids[i - 1]); return v.length > 1 ? v : v[0] }
+
+type Stage = ReturnType<typeof fromTaps> & { taps: Tap[] }
+/** ALONG one run: its pieces only, walked as directed pieces that never turn straight back on the one just walked
+ *  (a dead end stops there), starting from wherever `from` reaches it. `d` = the cheapest arrival at each node after at
+ *  least one piece; `back(n)` = the pieces walked to `n` (last first) and the node it joined the run at. */
+function alongRun(g: Graph, from: Float64Array, run: Id): { d: Float64Array; back: (n: number) => { segs: Route['segs']; start: number } } {
+	const cost = new Map<number, number>(), prev = new Map<number, number>(), heap: [number, number][] = []
+	const push = (k: number, v: number) => { heap.push([k, v]); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p } }
+	const pop = (): [number, number] => {
+		const top = heap[0], last = heap.pop()!
+		if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m } }
+		return top
+	}
+	// a state = piece × direction (2·piece + 1 = walked b → a); it ends at `end(state)`
+	const end = (st: number) => (st & 1 ? g.pieces[st >> 1].a : g.pieces[st >> 1].b), begin = (st: number) => (st & 1 ? g.pieces[st >> 1].b : g.pieces[st >> 1].a)
+	const relax = (st: number, c: number, from: number) => { if (c < (cost.get(st) ?? Infinity)) { cost.set(st, c); prev.set(st, from); push(c, st) } }
+	g.pieces.forEach((pc, pi) => { if (pc.shape === run) for (const st of [2 * pi, 2 * pi + 1]) if (Number.isFinite(from[begin(st)])) relax(st, from[begin(st)] + pc.len, -1) })
+	while (heap.length) {
+		const [c, st] = pop()
+		if (c > (cost.get(st) ?? Infinity)) continue
+		const w = end(st)
+		for (const e of g.adj[w]) {
+			const pc = g.pieces[e.piece]
+			if (pc.shape !== run || e.piece === st >> 1) continue
+			relax(2 * e.piece + (pc.a === w ? 0 : 1), c + pc.len, st)
+		}
+	}
+	const d = new Float64Array(g.nodes.length).fill(Infinity), best = new Int32Array(g.nodes.length).fill(-1)
+	for (const [st, c] of cost) { const w = end(st); if (c < d[w]) { d[w] = c; best[w] = st } }
+	return {
+		d,
+		back: (n) => {
+			const segs: Route['segs'] = []
+			let st = best[n], start = n
+			for (; st >= 0; st = prev.get(st) ?? -1) { const pc = g.pieces[st >> 1]; segs.push({ shape: pc.shape, seg: pc.seg }); start = begin(st) }
+			return { segs, start }
+		},
+	}
+}
+
+/** The route through `vias` in order: legs that don't use the runs they go between (the way to a run comes in from
+ *  outside it, the way on never doubles back along it), and ALONG each run (`alongRun`); the last run meets the far
+ *  end's Dijkstra. Returns the route (segments far end first), else the run it got stuck at: not reached, or no way
+ *  `on` from it without doubling back (a dead end). */
+function throughRuns(g: Graph, start: Stage, ends: Tap[], vias: Id[]): Omit<Route, 'linkId'> | { stuck: Id; on: boolean } {
+	const from: Stage = { ...fromTaps(g, start.taps, { skip: [vias[0]] }), taps: start.taps }
+	const parts: ({ leg: Stage } | { along: ReturnType<typeof alongRun> })[] = []
+	let reach = from.d, along: ReturnType<typeof alongRun> | null = null
+	for (const [i, run] of vias.entries()) {
+		along = alongRun(g, reach, run)
+		if (!along.d.some(Number.isFinite)) return { stuck: run, on: false }
+		parts.push({ along })
+		if (i < vias.length - 1) {
+			const out: [number, number, number][] = []
+			along.d.forEach((c, n) => { if (Number.isFinite(c)) out.push([n, c, -1]) })
+			const leg = { ...dijkstra(g, out, { skip: [run, vias[i + 1]] }), taps: [] }
+			parts.push({ leg })
+			reach = leg.d
+		}
+	}
+	const last = vias[vias.length - 1], back: Stage = { ...fromTaps(g, ends, { skip: [last] }), taps: ends }
+	let x = -1, cost = Infinity
+	along!.d.forEach((c, n) => { if (c + back.d[n] < cost) { cost = c + back.d[n]; x = n } })
+	if (x < 0 || !Number.isFinite(cost)) return { stuck: last, on: true }
+	// back from the far end: its walk, then each part from where it was left to where it began, then to the rack
+	const segs: Route['segs'] = [...walk(g, back, x).reverse()]
+	let n = x
+	for (const p of parts.reverse()) {
+		if ('along' in p) { const b = p.along.back(n); segs.push(...b.segs); n = b.start; continue }
+		for (; p.leg.prev[n] >= 0;) { const pc = g.pieces[p.leg.prev[n]]; segs.push({ shape: pc.shape, seg: pc.seg }); n = pc.a === n ? pc.b : pc.a }
+	}
+	segs.push(...walk(g, from, n))
+	return { segs: dedupe(segs), routeMm: cost }
 }
 const dedupe = (segs: Route['segs']) => segs.filter((s, i) => !i || s.shape !== segs[i - 1].shape || s.seg !== segs[i - 1].seg)
 

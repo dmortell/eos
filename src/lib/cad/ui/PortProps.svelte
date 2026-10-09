@@ -10,7 +10,8 @@
 	import { newId } from '../domain/ids'
 	import { traceCircuit } from '../domain/cords'
 	import Trace from './Trace.svelte'
-	import { riserRuns } from '../domain/interconnect'
+	import { containmentRuns } from '../domain/interconnect'
+	import { viaList, viaValue } from '../domain/routing'
 	import type { Device, Link } from '../domain/types'
 	import { cablesOf } from '../domain/multicore'
 
@@ -62,10 +63,13 @@
 		return `${lo === hi ? `${lo}m` : `${lo}–${hi}m`}${ls.length > 1 ? ` · total ${ls.reduce((a, b) => a + b, 0)}m` : ''}${none ? ` · ${none} no route` : ''}`
 	})
 	const same = <T,>(xs: T[]) => (xs.every((x) => x === xs[0]) ? xs[0] : '*')
-	const viaShown = $derived(same(cables.map((l) => l.via ?? '')))
+	// the runs these cables must pass through, in order (a riser for diversity, or a whole route by hand)
+	const viasShown = $derived.by(() => { const v = same(cables.map((l) => viaList(l).join(','))); return v === '*' ? null : v ? v.split(',') : [] })
+	const runs = $derived(containmentRuns(project.index))
 	const handShown = $derived.by(() => { const h = same(cables.map((l) => l.lengthM ?? '')); return h === '*' ? '' : h })
-	function setVia(v: string) {
-		project.store.transact(v ? `Route ${cables.length} cable(s) via ${project.index.nameOf(v)}` : 'Route by the shortest way', (tx) => { for (const l of withCores) tx.put({ ...l, via: v || undefined }) })
+	function setVias(ids: string[]) {
+		const v = viaValue(ids), names = viaList({ via: v }).map((id) => project.index.nameOf(id) || 'a run')
+		project.store.transact(names.length ? `Route ${cablesOf(cables).length} cable(s) through ${names.join(' → ')}` : 'Route by the shortest way', (tx) => { for (const l of withCores) tx.put({ ...l, via: v }) })
 	}
 	function setHand(v: string) {
 		const m = v.trim() === '' ? undefined : Math.max(0, Number(v))
@@ -106,14 +110,27 @@
 	<p class="pt-1 font-semibold">Cable{nCables > 1 ? `s (${nCables})` : ''} <span class="font-normal text-zinc-500">{[...new Set(cables.map((l) => l.kind))].join(' / ')} · {cables[0].cableType ?? ''}{nCables !== cables.length || cables[0].cable ? ` · ${cables.length} core${cables.length === 1 ? '' : 's'} here` : ''}</span></p>
 	<div class="row"><span>Length</span><span class="font-mono" class:text-red-600={cables.some((l) => project.routes.get(l.id)?.problem || project.routes.get(l.id)?.over90)}>{lengthText}</span></div>
 	{#if cables.length === 1 && r0?.problem}<p class="text-red-600">No route: {r0.problem}</p>{/if}
-	{#if cables.some((l) => l.kind !== 'horizontal')}
-		<label class="row" title="The riser (a run between floors) these cables must use — e.g. a second riser for diversity. Shortest = whichever routing finds.">Riser
-			<select value={viaShown} onchange={(e) => setVia(e.currentTarget.value)}>
-				<option value="">Shortest</option>
-				{#if viaShown === '*'}<option value="*">(mixed)</option>{/if}
-				{#each riserRuns(project.index) as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
-			</select></label>
-	{/if}
+	<!-- route set by hand (backlog G148 / T078): the runs / risers to pass through, in order from the panel end;
+	     routing takes the shortest way between them -->
+	<div class="row" title="Runs and risers these cables must pass through, in order from the panel: e.g. a second riser for diversity, or a whole route. Routing takes the shortest way to, between and from them. None = the shortest route.">
+		<span>Route through</span>
+		<span class="vias">
+			{#if viasShown === null}<span class="text-zinc-500">(mixed) <button class="x" title="Clear: route every one the shortest way" onclick={() => setVias([])}>clear</button></span>
+			{:else}
+				{#each viasShown as id, i (i)}
+					<span class="via"><span class="text-zinc-400">{i + 1}</span>
+						<select value={id} onchange={(e) => setVias(viasShown.map((x, j) => (j === i ? e.currentTarget.value : x)))}>
+							{#each runs as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
+						</select>
+						<button class="x" title="Take this run out" onclick={() => setVias(viasShown.filter((_, j) => j !== i))}>×</button></span>
+				{/each}
+			{/if}
+			<select value="" title="Add a run or riser to pass through (after the ones listed)" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v) setVias([...(viasShown ?? []), v]) }}>
+				<option value="">{viasShown?.length ? '+ then…' : 'Shortest — + through…'}</option>
+				{#each runs as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
+			</select>
+		</span>
+	</div>
 	<label class="row" title="A length typed by hand (as-built, or where the containment isn't drawn); blank = the routed length">By hand (m)
 		<input class="inp w-16" type="number" min="0" step="1" value={handShown} placeholder="routed" onchange={(e) => setHand(e.currentTarget.value)} /></label>
 {/if}
@@ -143,6 +160,11 @@
 </div>
 
 <style>
+	.vias { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+	.via { display: grid; grid-template-columns: 0.9rem 1fr auto; align-items: center; gap: 3px; }
+	.vias select { min-width: 0; width: 100%; }
+	.x { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
+	.x:hover { color: #dc2626; }
 	.ports { display: grid; grid-template-columns: 1.75rem 1fr 7.5rem; gap: 2px 4px; align-items: center; max-height: 40vh; overflow: auto; }
 	.n { color: var(--cad-faint); text-align: right; }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }

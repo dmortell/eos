@@ -254,9 +254,10 @@ export interface Link {
 	lengthM?: number
 	/** The containment-shape segments the cable runs through, in order (set by routing or by hand). */
 	route?: { shape: Id; seg: Id }[]
-	/** A run the route must use — which riser a backbone takes (two risers for diversity). Routing still finds the
-	 *  shortest way to and from it (Phase 5). */
-	via?: Id
+	/** The runs the route must pass through, IN ORDER from the panel (`a`) end — which riser a backbone takes (two
+	 *  risers for diversity), or a whole route set by hand. One run is a plain id (as before), several an array
+	 *  (`viaList` in domain/routing.ts reads both). Routing finds the shortest way between them (Phase 5). */
+	via?: Id | Id[]
 	/** Re-allocation never moves a pinned link. */
 	pinned?: boolean
 	/** A core of this MULTI-CORE cable (domain/multicore.ts): every core of one cable has the same id here, and the
