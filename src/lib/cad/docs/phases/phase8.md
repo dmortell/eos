@@ -1976,3 +1976,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Closed tables keep their tab bar (Dave):** closed, the tables leave their bar under the drawing — the four tabs and
   an open button; a tab opens the panel on it (`TablesPanel` `closed`, `CadShell` `tablesBar`; not when Ctrl+. hides
   everything). Help: "Open, move and dock windows". Live: ✕ left the 28 px bar; Outlets opened it on the outlet table.
+- **Gap under the status bar (Dave):** the shell was `100vh − 3rem` (42 px) under a 28 px title bar, leaving 14 px
+  empty. The cad page's Titlebar is now `height={28}` and the shell `100dvh − 28px`. Live: the status bar ends at the
+  window's bottom, no page scroll.

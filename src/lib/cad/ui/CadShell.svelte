@@ -517,7 +517,7 @@
 	/* Layout lives here, not in Tailwind arbitrary classes: the panel sizes belong to the component. */
 	.shell {
 		display: grid;
-		height: calc(100vh - 3rem);
+		height: calc(100dvh - 28px);   /* the page's title bar is 28px: no gap under the status bar (Dave) */
 		/* column / row sizes come from Panels (resizable, hideable) */
 		grid-template-areas: 'menu menu menu' 'bar bar bar' 'dleft plan dright' 'dleft grid dright' 'status status status';
 	}

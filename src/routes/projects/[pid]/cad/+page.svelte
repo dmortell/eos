@@ -19,7 +19,7 @@
 	})
 </script>
 
-<Titlebar title="{projectName} · CAD" />
+<Titlebar title="{projectName} · CAD" height={28} />   <!-- CadShell fills the rest: 100dvh − 28px -->
 
 {#if !authChecked}
 	<p class="p-6 text-sm text-zinc-500">Signing in…</p>
