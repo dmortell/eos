@@ -42,6 +42,14 @@ describe('routing', () => {
 		expect(r.lengthM).toBe(Math.ceil((RACK_DROP + 9000) / 1000 + 0.5))   // 11.36 + 0.5 → 12
 		expect(r.segs).toEqual([{ shape: 'T1', seg: 'T1s0' }])
 	})
+	it('an outlet by a stub shorter than the join distance joins the run beside it, not the stub (Dave: Journey TV06 — a 38 mm end bit, "not connected")', () => {
+		// T1 ends with a 38 mm bit going off sideways at x = 10000; the outlet is nearest that bit
+		const stubbed = { ...run('T1', 'L1', [[0, 500, 0], [10000, 500, 0], [10000, 538, 0]]) }
+		const ix = new ProjectIndex([...project().byId.values()].map((e) => (e.id === 'T1' ? stubbed : e)).concat([outlet('O1', 'L1', 10000, 1100), link('K1', 'O1')] as Entity[]))
+		const r = routeLinks(ix, { slackM: 0.5, wastePct: 10 }).get('K1')!
+		expect(r.problem).toBeUndefined()
+		expect(r.segs).toEqual([{ shape: 'T1', seg: 'T1s0' }])
+	})
 	it('takes a tee branch (segments cut where another run meets them)', () => {
 		const ix = project([run('B1', 'L1', [[5000, 500, 0], [5000, 5000, 0]]), outlet('O1', 'L1', 5300, 4000), link('K1', 'O1')])
 		const r = routeLinks(ix).get('K1')!

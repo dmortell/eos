@@ -2047,3 +2047,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Layer row is drawn once at the end of Properties; for one run / line it's now in PathProps' General group (Kind,
   Label, Length, Layer) and not repeated at the bottom. LayerPick's row now matches the other Properties rows (6.5rem
   label, same box) — it had its own narrower, muted one. Live (Test Project TR2): Layer under Length, aligned.
+- **An outlet next to a tiny stub joins the real run (Dave: Journey TV06 "not connected, there is a high level trunk
+  beside it"):** TV06 (high) took its nearest high run, conduit 5m3-h8C-JYJ1 — but the nearest part was a 38 mm end
+  bit, shorter than JOIN_MM (50), so both its ends merged into one graph node and it had no pieces: a route starting
+  on it went nowhere ("the runs at the two ends are not connected"). `outletTap` and `rackTaps` now skip a segment with
+  no pieces; the outlet joins the segment beside it (38 mm further). Test in `domain/routing.test.ts` (fails without
+  the fix). Journey in memory, nothing written: TV06.A / .B → 20 m.

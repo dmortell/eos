@@ -140,6 +140,7 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 		const role = s.shape.role
 		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !s.levelIds.has(o.levelId) || !serves(s.shape, roomId)) return
 		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
+		if (!g.piecesOf.get(segKey(s.shape.id, s.seg))?.length) return   // not onto a stub shorter than JOIN_MM: it has no length in the graph, so a route from it goes nowhere (Journey TV06: a 38 mm end bit)
 		const t = tapOn(g, i, x)
 		if (t.dropMm <= MAX_OUTLET_DROP_MM && (!best || t.dropMm < best.dropMm)) best = t
 	})
@@ -161,6 +162,7 @@ export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device 
 	g.segs.forEach((s, i) => {
 		if (!s.levelIds.has(rack.levelId) || !serves(s.shape, rack.spaceId)) return
 		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
+		if (!g.piecesOf.get(segKey(s.shape.id, s.seg))?.length) return   // nor onto a stub (see outletTap)
 		const plan = project3({ ...s.p, z: 0 }, { ...s.q, z: 0 }, { ...x, z: 0 }).d
 		const t = { ...tapOn(g, i, x), plan }, cur = best.get(s.shape.id)
 		if (!cur || t.dropMm < cur.dropMm) best.set(s.shape.id, t)
