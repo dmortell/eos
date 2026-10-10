@@ -264,7 +264,10 @@
 	 *  paper 1 / 10 mm; a rack row moves devices 1 U. */
 	export function nudge(dx: number, dy: number, big: boolean): void {
 		const step = spec.kind === 'row' ? 1 : spec.kind === 'sheet' ? (big ? 10 : 1) : big ? 500 : 50
-		const why = nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, space)
+		// a viewport picked on the sheet: its window moves (1 / 10 paper mm)
+		const why = spec.kind === 'sheet' && ws.viewportId && !ws.vpEdit && ws.selection.length === 1 && ws.selection[0] === spec.sheetId
+			? nudger.pressViewport(project.store, spec.sheetId, ws.viewportId, { x: dx * step, y: dy * step })
+			: nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, space)
 		if (why) ws.say(why)
 	}
 	export function endNudge(): void { nudger.end() }

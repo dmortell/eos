@@ -13,7 +13,7 @@ import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode } from '../domain/pathEdit'
-import { dragViewport, dragNodesInto } from './dragParts'
+import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
@@ -69,6 +69,8 @@ export class SelectTool implements Tool {
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
+	/** The lines that viewport's edges snap to, taken once per drag. */
+	#vpLines: { xs: number[]; ys: number[] } | null = null
 
 	/** A handle being used (an opening's / a section's, editor/handles.ts) and its entity as it was at the press. */
 	#handle: { h: Handle; base: Entity } | null = null
@@ -315,8 +317,13 @@ export class SelectTool implements Tool {
 		}
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
 		if (this.#vp && this.#start) {
-			const { sheet, vpId, mode, corner } = this.#vp, d = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
-			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
+			const { sheet, vpId, mode, corner } = this.#vp, raw = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
+			if (!this.#gesture && Math.hypot(raw.x, raw.y) < c.tol()) return
+			// its edges snap to the paper, the margin, the title block and the other viewports, else a 5 mm grid (Alt: free;
+			// Shift-square resizes aren't snapped)
+			const v0 = sheet.viewports.find((v) => v.id === vpId)
+			const d = mode === 'pan' || e.alt || (mode === 'resize' && e.shift) || !v0 ? raw
+				: snapViewportDrag(v0, mode, raw, this.#vpLines ??= viewportSnapLines(c.prims(), vpId), c.tol(), corner)
 			this.#gesture ??= c.store.begin(mode === 'resize' ? 'Resize viewport' : mode === 'pan' ? 'Pan viewport' : 'Move viewport')
 			const next = (v: Sheet['viewports'][number]) => dragViewport(v, mode, d, corner, e.shift)   // the view stays put on the paper
 			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? next(v) : v)) }))
@@ -496,7 +503,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null
 		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
 		c.setMarquee(null)
 	}

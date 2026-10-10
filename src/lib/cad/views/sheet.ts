@@ -241,6 +241,14 @@ export function contentCentre(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {})
 	return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }
 }
 
+/** "Fit" (backlog "Viewport handling" part 6): centred on what its view shows, at the largest standard scale at which
+ *  that fits its window (the window stays). An empty view keeps its centre and scale. */
+export function fitViewport(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Pick<Viewport, 'centre' | 'scale'> {
+	if (!contentBounds(ix, vp, o)) return { centre: vp.centre, scale: vp.scale }
+	const b = boxViewport(ix, vp.view, vp.rect, vp.id, o)
+	return { centre: b.centre, scale: b.scale }
+}
+
 /** What a viewport's view draws (floorplan images left out), in view mm; undefined = nothing. */
 function contentBounds(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Bounds | undefined {
 	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image')

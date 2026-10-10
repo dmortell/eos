@@ -5,6 +5,7 @@ import type { Shape } from '../domain/shapes'
 import type { Entity, Sheet } from '../domain/drawing'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
+import { primBounds, unionBounds, type Prim } from '../views/display'
 import { moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
 import { branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
 import { joinAcross } from './pathSel'
@@ -29,6 +30,36 @@ export function dragViewport(v: Viewport, mode: 'move' | 'pan' | 'resize', d: Pt
 	}
 	const cx = v.centre.x + ((x0 + x1) / 2 - (r.x + r.w / 2)) * v.scale, cy = v.centre.y + ((y0 + y1) / 2 - (r.y + r.h / 2)) * v.scale
 	return { ...v, rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, centre: { x: cx, y: cy } }
+}
+
+/** The paper lines a viewport's edges snap to (backlog "Viewport handling" part 5), from the sheet's prims: the paper's
+ *  edge, the margin, the title block's outline, and the OTHER viewports' frames. */
+export function viewportSnapLines(prims: Prim[], vpId: Id): { xs: number[]; ys: number[] } {
+	const xs: number[] = [], ys: number[] = []
+	const add = (b: { x0: number; y0: number; x1: number; y1: number } | undefined) => { if (b) { xs.push(b.x0, b.x1); ys.push(b.y0, b.y1) } }
+	const tb: Prim[] = []
+	for (const p of prims) {
+		if (p.k !== 'line') { if (p.k === 'text' && p.cls.startsWith('tb')) tb.push(p); continue }
+		const c = p.cls.split(' ')[0]
+		if (c === 'paper' || c === 'paper-margin' || (c === 'viewport' && p.sub !== vpId)) add(primBounds(p))
+		else if (c.startsWith('tb')) tb.push(p)
+	}
+	add(unionBounds(tb.map(primBounds)))
+	return { xs, ys }
+}
+
+/** A viewport drag `d` (paper mm) adjusted so the moving edges land on a snap line within `tol`, else on the 5 mm
+ *  grid. 'move' snaps whichever edge is nearer a line; 'resize' the corner's two edges. */
+export function snapViewportDrag(v: Viewport, mode: 'move' | 'resize', d: Pt, lines: { xs: number[]; ys: number[] }, tol: number, corner = 0): Pt {
+	const r = v.rect, GRID = 5
+	const axis = (edges: number[], ls: number[], dv: number) => {
+		let best: number | null = null
+		for (const e of edges) for (const l of ls) { const a = l - (e + dv); if (Math.abs(a) <= tol && (best === null || Math.abs(a) < Math.abs(best))) best = a }
+		return best !== null ? dv + best : Math.round((edges[0] + dv) / GRID) * GRID - edges[0]
+	}
+	if (mode === 'move') return { x: axis([r.x, r.x + r.w], lines.xs, d.x), y: axis([r.y, r.y + r.h], lines.ys, d.y) }
+	const left = corner === 0 || corner === 3, top = corner === 0 || corner === 1
+	return { x: axis([left ? r.x : r.x + r.w], lines.xs, d.x), y: axis([top ? r.y : r.y + r.h], lines.ys, d.y) }
 }
 
 /** What a node drag writes, inside its gesture: a BRANCH grown from the node, or the nodes moved — on a plan ONTO the

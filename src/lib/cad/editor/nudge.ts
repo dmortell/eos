@@ -3,6 +3,7 @@
 // undo step: the gesture stays open until the key is let go (or a moment passes).
 import type { Id, Pt, Device, Rack } from '../domain/types'
 import type { Shape } from '../domain/shapes'
+import type { Sheet } from '../domain/drawing'
 import type { EntityStore, Gesture } from '../store/store'
 import type { ViewSpace } from '../views/space'
 import { moveBy, canMove, followAttached } from './behaviours'
@@ -40,6 +41,25 @@ export class Nudge {
 				for (const sh of followAttached(store.ofType('shape') as Shape[], moved, s)) tx.put(sh)
 			})
 		}
+		this.#sum = sum
+		clearTimeout(this.#timer)
+		this.#timer = setTimeout(() => this.end(), 1500)
+		return null
+	}
+
+	/** One press on a sheet with a viewport picked (backlog "Viewport handling" part 4): its window moves `d` paper mm
+	 *  (the view stays put on the paper). A locked one stays. */
+	pressViewport(store: EntityStore, sheetId: Id, vpId: Id, d: Pt): string | null {
+		const sheet = store.get(sheetId)
+		const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === vpId) : undefined
+		if (sheet?.type !== 'sheet' || !vp) return null
+		if (vp.locked) return 'Viewport locked — unlock it in Properties to move it'
+		const sum = { x: this.#sum.x + d.x, y: this.#sum.y + d.y }
+		this.#g ??= store.begin('Nudge viewport')
+		this.#g.update((tx) => {   // each update starts again from before the burst: the whole sum
+			const s = tx.get(sheetId) as Sheet
+			tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vpId ? { ...v, rect: { ...v.rect, x: v.rect.x + sum.x, y: v.rect.y + sum.y } } : v)) })
+		})
 		this.#sum = sum
 		clearTimeout(this.#timer)
 		this.#timer = setTimeout(() => this.end(), 1500)

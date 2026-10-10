@@ -6,7 +6,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, Viewport } from '../domain/drawing'
 	import type { RackRow } from '../domain/types'
-	import { defaultViewport, contentCentre, SCALES } from '../views/sheet'
+	import { defaultViewport, contentCentre, fitViewport, SCALES } from '../views/sheet'
 	import { newId } from '../domain/ids'
 	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
@@ -127,7 +127,7 @@
 			<span class="flex gap-1">
 				<input class="inp" type="number" title="X (view mm)" value={Math.round(vp.centre.x)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, x: num(e.currentTarget.value) } })} />
 				<input class="inp" type="number" title="Y (view mm)" value={Math.round(vp.centre.y)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, y: num(e.currentTarget.value) } })} />
-				<button class="btn" title="Centre on what the view shows" onclick={() => putVp('Fit viewport', { centre: contentCentre(project.index, vp) })}>Fit</button>
+				<button class="btn" title="Centre on what the view shows, at the largest standard scale (1:N) at which it fits the window" onclick={() => putVp('Fit viewport', fitViewport(project.index, vp))}>Fit</button>
 			</span>
 		</div>
 		<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>

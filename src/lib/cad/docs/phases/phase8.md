@@ -1895,3 +1895,11 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   (domain/match.ts). Plan, elevation, section, sheet. Tests: `domain/match.test.ts` (3). Live (1F plan): a Walls box
   → a Drawing box moved it to Walls (Walls 20 → 21, Drawing 7 → 6); boxes already on Walls said "It already
   matches"; undone. Help entry, tool hint.
+- **Viewport handling parts 4–6** (backlog): (4) arrow keys move a picked viewport's window 1 mm (Shift 10 mm), a
+  burst one undo step, a locked one refused (`Nudge.pressViewport`); (5) dragging a viewport (move, or a corner
+  resize) snaps its edges to the paper edge, the margin, the title block's outline and the other viewports' frames
+  within the pick tolerance, else to a 5 mm grid — Alt free, Shift-square resizes unsnapped (`viewportSnapLines` /
+  `snapViewportDrag` in editor/dragParts.ts, lines taken once per drag from the sheet's prims); (6) Properties › Fit
+  also picks the largest standard 1:N at which the view fits the window (`fitViewport`, views/sheet.ts; an empty view
+  keeps its scale). Tests: `editor/viewportHandling.test.ts` (5). Live: not checked — the Chrome tab was in the
+  background, where the panes don't redraw on a tab switch.
