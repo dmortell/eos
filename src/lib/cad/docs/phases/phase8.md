@@ -1952,3 +1952,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Rack view: each range's label over its first port instead of the panel name. Properties › Ports and labels › Split
   labels (In two, edit from / to / label, + Range, ✕). Help: "Give half a panel its own label". Tests:
   `domain/portGroups.test.ts` (5). Not tried live: Test Project has no 48-port panel with ties.
+- **Drag tabs to reorder (Dave):** `Tabs.move(id, target, after)` (the panes keep their tabs; saved with the list);
+  the strip uses `$lib` DragReorder, a blue line on the side the tab goes. Help: "Work with the drawing tabs". Test in
+  `app/tabs.test.ts`. Live: a tab dragged to the front and back with drag events — order changed, views unchanged.
+  Off the backlog.

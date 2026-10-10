@@ -121,6 +121,15 @@ export class Tabs {
 		this.paneTab = this.paneTab.map((p) => (p && gone.has(p) ? id : p))
 		this.save()
 	}
+	/** A dragged tab goes before (or `after`) another (Dave 2026-10-10); what each pane shows doesn't change. */
+	move(id: string, targetId: string, after: boolean): void {
+		const t = this.get(id)
+		if (!t || id === targetId || !this.get(targetId)) return
+		const list = this.list.filter((x) => x.id !== id)
+		list.splice(list.findIndex((x) => x.id === targetId) + (after ? 1 : 0), 0, t)
+		this.list = list
+		this.save()
+	}
 	/** Tabs whose sheet / section no longer exists go. */
 	prune(exists: (v: TabView) => boolean): void {
 		const gone = this.list.filter((t) => !exists(t.view))

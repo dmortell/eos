@@ -2,7 +2,7 @@
      the active pane; in Split the tabs on show are marked 1 / 2. The preview tab's title is in italics (double-click it
      to keep it). × on hover or a middle-click closes; a right-click opens the tab menu; ⌄ lists every tab. -->
 <script lang="ts">
-	import { Icon } from '$lib'
+	import { Icon, DragReorder } from '$lib'
 	import type { Tabs, Tab } from '../app/tabs.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import { viewName } from '../domain/navTree'
@@ -18,6 +18,8 @@
 		if (v.spec.kind === 'sheet') { const s = ix.get(v.spec.sheetId); return s?.type === 'sheet' ? `${s.number} ${s.title}` : 'Sheet' }
 		return viewName(ix, v.spec, v.levelId) || 'View'
 	}
+	// drag a tab along the strip to move it (Dave 2026-10-10); the drop line shows on the side it goes
+	const dr = new DragReorder((id, target, after) => tabs.move(id, target, after), (id) => tabs.list.findIndex((t) => t.id === id))
 	let listOpen = $state(false)
 	let strip: HTMLDivElement | undefined = $state()
 	// the active pane's tab scrolls into view
@@ -32,6 +34,7 @@
 		{#each tabs.list as t (t.id)}
 			{@const pane = tabs.paneTab.slice(0, panes).indexOf(t.id)}
 			<div class="tab" class:on={tabs.paneTab[activePane] === t.id} class:shown={pane >= 0} class:preview={t.preview} data-tab={t.id} role="tab" tabindex="-1"
+				{...dr.row(t.id)} class:drop-before={dr.isBefore(t.id)} class:drop-after={dr.isAfter(t.id)} class:dragging={dr.dragId === t.id}
 				aria-selected={tabs.paneTab[activePane] === t.id} title="{title(t)}{t.preview ? ' — preview: double-click to keep it' : ''}"
 				onclick={() => onshow(t.id)} ondblclick={() => tabs.keep(t.id)} onkeydown={(e) => e.key === 'Enter' && onshow(t.id)}
 				onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); onclose(t.id) } }}
@@ -66,6 +69,9 @@
 	.tab.shown { color: var(--cad-text); }
 	.tab.on { background: var(--cad-panel, white); color: var(--cad-text); box-shadow: inset 0 -2px 0 #2563eb; }
 	.tab.preview .t { font-style: italic; }
+	.tab.dragging { opacity: 0.5; }
+	.tab.drop-before { box-shadow: inset 2px 0 0 #2563eb; }
+	.tab.drop-after { box-shadow: inset -2px 0 0 #2563eb; }
 	.t { overflow: hidden; text-overflow: ellipsis; }
 	.pn { font-size: 9px; font-weight: 700; color: white; background: #2563eb; border-radius: 3px; padding: 0 4px; }
 	.x { display: inline-flex; padding: 2px; border-radius: 3px; visibility: hidden; color: var(--cad-muted); }
