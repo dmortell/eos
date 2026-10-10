@@ -1987,3 +1987,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **The picked table survives a refresh (Dave: "refresh resets bottom panel tab to Patch List"):** the table picked per
   kind of view was kept for the session only; it's now `Panels.tableFor`, saved with the panel layout in this browser.
   Live: Outlets picked in the rack view, page reloaded — Outlets again.
+- **Panel ports showing 001 / 046–056 for outlets 201–257 (Dave, Journey P3A):** not the drag. A Renumber at 08:31
+  UTC renamed 56 outlets on 33F 3303 to 201–257; 12 kept their old port labels (201: 001.A…, 245: 056.A …) because
+  those port labels didn't contain the outlet's old label — the legacy Outlets import keeps the old tool's port labels
+  as they were (Dave: 001–078 came from it). The drag at 08:44 linked them; a panel port shows the outlet PORT's label.
+  Journey has 25 such outlets, all on 33F 3303 (some — TV01…08 with ports 058… — may be meant). Repair, chosen by
+  Dave per selection: `domain/labels.ts` `portsFromLabel` and, in outlet Properties, a warning with Ports from label
+  (ports that contain the label are left alone; through `relabel`: asks for printed panels; undoable). Help: "A panel
+  port shows the wrong outlet number". Tests in `domain/labels.test.ts`. Journey not changed by me.

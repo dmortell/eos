@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextLabel, numberAt, setNumber, portLabelsFor, renumber, renumberOutlets, naturalCompare, readingOrder, reformatPorts } from './labels'
+import { nextLabel, numberAt, setNumber, portLabelsFor, renumber, renumberOutlets, naturalCompare, readingOrder, reformatPorts, portsFromLabel } from './labels'
 import type { Outlet } from './types'
 
 describe('port label formats (Dave: 201.A → 201A, or numeric 201.1)', () => {
@@ -67,5 +67,17 @@ describe('ordering', () => {
 	it('reading order: rows down the sheet, left to right within a row; unplaced last', () => {
 		const xs = [outlet('c', [], { x: 0, y: 3000 }), outlet('b', [], { x: 2000, y: 100 }), outlet('u', []), outlet('a', [], { x: 0, y: 0 })]
 		expect(readingOrder(xs, (o) => o.at).map((o) => o.label)).toEqual(['a', 'b', 'c', 'u'])
+	})
+})
+
+describe('ports from the outlet label (Journey: 245 kept ports 056.A after a renumber)', () => {
+	const o = (label: string, ports: string[]) => ({ label, ports: ports.map((l, i) => ({ port: i + 1, label: l })) })
+	it('ports that don’t carry the label are made again from it; the rest are left alone', () => {
+		expect(portsFromLabel(o('245', ['056.A', '056.B']), 'alpha', '.')?.ports.map((p) => p.label)).toEqual(['245.A', '245.B'])
+		expect(portsFromLabel(o('201', ['201.A', '001.B']), 'alpha', '.')?.ports.map((p) => p.label)).toEqual(['201.A', '201.B'])
+	})
+	it('labels that contain the outlet’s label (any format) need nothing', () => {
+		expect(portsFromLabel(o('001', ['L30.A.001-A01', 'L30.A.001-A02']), 'alpha', '.')).toBeNull()
+		expect(portsFromLabel(o('203', ['203.A']), 'alpha', '.')).toBeNull()
 	})
 })

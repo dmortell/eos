@@ -7,7 +7,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet, Space } from '../domain/types'
-	import { naturalCompare } from '../domain/labels'
+	import { naturalCompare, portsFromLabel } from '../domain/labels'
 	import { newId } from '../domain/ids'
 	import { setPortLabel, renameOutlet, setPortCount } from '../domain/ports'
 	import { traceCircuit } from '../domain/cords'
@@ -73,8 +73,20 @@
 			project.store.transact(`Room ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(room); for (const o of outlets) tx.put({ ...o, roomId: room.id }) })
 		})
 	}
+
+	/** Outlets whose port labels don't carry their own label (Dave: Journey 245 kept ports 056.A after a renumber): made
+	 *  again from the label. */
+	const portFix = $derived(outlets.map((o) => portsFromLabel(o, project.settings?.portSuffix ?? 'alpha', project.settings?.portSeparator ?? '.')).filter((o): o is Outlet => !!o))
+	const fixPorts = () => project.relabel(`Ports from label (${portFix.length} outlet${portFix.length === 1 ? '' : 's'})`, portFix, ws.ask2)
 </script>
 
+{#if portFix.length}
+	{@const o = outlets.find((x) => x.id === portFix[0].id)}
+	<p class="warn" title="A panel port linked to one of these shows the port's label — it doesn't match the outlet">
+		{portFix.length === 1 ? 'Its' : `${portFix.length} outlets'`} port labels don't match {portFix.length === 1 ? 'its label' : 'their labels'} ({o?.label}: {o?.ports[0]?.label} …)
+		<button class="btn" title="Label those ports from the outlet's label again (e.g. 245.A, 245.B) — ports that contain the label are left alone; Undo puts them back" onclick={fixPorts}>Ports from label</button>
+	</p>
+{/if}
 {#if outlets.length > 1}
 	<label class="row">Tier
 		<select class="inp" value={same((o) => o.tier) ?? ''} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
@@ -197,4 +209,7 @@
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
+	.warn { margin: 2px 0 6px; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #92400e; background: #fef3c7; }
+	.btn { margin-left: 4px; border: 1px solid #d97706; border-radius: 4px; padding: 0 6px; background: white; color: #92400e; }
+	.btn:hover { background: #fffbeb; }
 </style>

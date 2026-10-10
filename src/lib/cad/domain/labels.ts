@@ -72,6 +72,14 @@ export function reformatPorts<T extends { label: string; ports: { port: number; 
 	return changed ? { ...o, ports } : null
 }
 
+/** Port labels made again from the outlet's own label, for the ports that don't contain it (Dave 2026-10-10: Journey
+ *  outlets renumbered to 245… kept ports "056.A"; a panel showed 056). Ports that carry the label in any form —
+ *  "L30.A.001-A01" on outlet 001 — are left alone. Null = none to change. */
+export function portsFromLabel<T extends { label: string; ports: { port: number; label: string }[] }>(o: T, style: 'alpha' | 'numeric', sep: PortSep): T | null {
+	if (!o.label || o.ports.every((p) => p.label.includes(o.label))) return null
+	return { ...o, ports: o.ports.map((p) => (p.label.includes(o.label) ? p : { ...p, label: `${o.label}${sep}${suffix(style, p.port)}` })) }
+}
+
 function alpha(n: number): string {
 	let s = ''
 	for (let v = n; v > 0; v = Math.floor((v - 1) / 26)) s = String.fromCharCode(65 + ((v - 1) % 26)) + s
