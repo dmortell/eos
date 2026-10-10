@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 61 entries (0 P1 · 0 P2 · 61 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties, viewport nudge / snap / fit scale, copy one segment, Find/replace into Renumber, blocks drag to place. **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 60 entries (0 P1 · 0 P2 · 60 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale, copy one segment, Find/replace into Renumber, blocks drag to place. **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -102,7 +102,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Drafting commands and input
 
 - [ ] **More snaps** — Intersection, perpendicular and nearest. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
-- [ ] **Match properties** — Copy one shape's layer and style (colour, fill, line weight, font) onto others. **P3 · S** (~40 lines). *cad today:* missing; shapes have `style` and `layerId` (`cad/domain/shapes.ts:162`). *From:* G247
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264
 - [ ] **Arc** — Arc through three points; snapped, gripped, moved like any shape. **P3 · M** (~80 lines). *cad today:* arc geometry exists but is not drawn (`cad/views/plan.ts:95` falls to `default`). *From:* G241
 - [ ] **TRIM** — Click part of a line to cut it back to the shapes that cross it. **P3 · M** (~100 lines). *cad today:* missing. *From:* G245

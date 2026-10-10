@@ -339,7 +339,7 @@
 
 	/** The right-click menu on the selection (UX21): its commands, with their keys. */
 	const contextItems = $derived(ws.contextMenu ? selectionMenu(ws.selection.map((id) => project.index.get(id)), {
-		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(),
+		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(), match: () => setTool('match'),
 		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
 		ports: portActions(),
 	}) : [])
@@ -355,6 +355,7 @@
 	function setTool(id: ToolId) {
 		canvas?.cancel()
 		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order
+		if (id === 'match') { const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; ws.matchTool.source = one?.type === 'shape' ? one.id : null }
 		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
 		if (id === 'cord' && !cordDefaultsSet && project.settings) {

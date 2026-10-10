@@ -23,6 +23,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	device: 'In a rack view (Racks list → Rack view): click a rack at the U for the device · drag devices with Select to move them',
 	assign: 'Click a panel port in a rack view — the chosen outlets go on from there (pinned) · Esc cancels',
 	cord: 'In a rack view: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
+	match: 'Click shapes to give them the source’s layer and look (colour, fill, line type, lineweight, text size) · no source selected: click it first · Esc / right-click ends',
 	renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
 	text: 'Click where the text goes and type over "Text" · click a text to edit it · Enter saves, Shift+Enter = new line',
 	leader: 'Press at the tip and drag to where the words go (a callout) — or click the tip, then bends, Enter ends · then type its words on the drawing · border in Properties · Backspace undoes a point',

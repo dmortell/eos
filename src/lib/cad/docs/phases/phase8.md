@@ -1888,3 +1888,10 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   (1F plan): Drawing → Dashed 0.5 mm, its two boxes drew dashed and heavier; both undone. Help entry.
   Note: the Chrome tab was in the background, so the floorplan PDF didn't render (pdf.js waits for a visible tab) —
   not a bug.
+- **Match properties** (backlog G247): Edit › Match properties, or right-click one shape › Match properties…, arms the
+  `match` tool (editor/matchTool.ts) with the selected shape as the source (none: the first click picks it); each
+  click on another shape gives it the source's layer (as drawn: its own or its kind's default) and style (colour,
+  fill, line type, lineweight; a line's end marks stay), a text the source text's size — one undo step each
+  (domain/match.ts). Plan, elevation, section, sheet. Tests: `domain/match.test.ts` (3). Live (1F plan): a Walls box
+  → a Drawing box moved it to Walls (Walls 20 → 21, Drawing 7 → 6); boxes already on Walls said "It already
+  matches"; undone. Help entry, tool hint.

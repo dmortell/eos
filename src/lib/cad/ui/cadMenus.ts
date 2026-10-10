@@ -91,6 +91,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Select all', key: 'Ctrl+A', run: c.selectAll },
 			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
+			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (colour, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
 			'-',
 			{ label: 'Group', key: 'Ctrl+G', disabled: !c.hasSelection, run: c.group },
 			{ label: 'Ungroup', key: 'Ctrl+Shift+G', disabled: !c.hasSelection, run: c.ungroup },
@@ -164,7 +165,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 
 /** The right-click menu on the selection (UX21): its commands, with their keys. */
 export function selectionMenu(sel: (Entity | undefined)[], c: {
-	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void
+	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void; match(): void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
 	/** Ports selected on a device: their actions come first (Patch to… / Link to… — a panel's). */
 	ports?: { n: number; patch(): void; interconnect?: () => void }
@@ -181,6 +182,7 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 		{ label: 'Delete', key: 'Delete', run: c.remove },
 		'-',
 		{ label: 'Select similar', run: c.similar },
+		...(one?.type === 'shape' ? [{ label: 'Match properties…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
 			...(shapes.length >= 2 ? [{ label: 'Group', key: 'Ctrl+G', run: () => c.group(false) } as MenuItem] : []),
 			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: 'Ctrl+Shift+G', run: () => c.group(true) } as MenuItem] : []),
