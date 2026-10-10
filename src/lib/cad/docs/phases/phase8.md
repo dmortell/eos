@@ -2039,3 +2039,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   bulk is made or Esc'd and the workspace puts that tool back. Picking the Cord tool yourself still makes cord after
   cord. Help: "Link several panels to a switch". Test in `editor/racks.test.ts`. Live (Test Project): L → Cord tool,
   Esc → Select again; nothing written.
+- **No dashed box round a selected run (Dave: "the dashed select rect around trunks looks odd"):** runs were meant to
+  get the blue line only, but a labelled run's name (text) or a riser symbol brought the box back round the whole run.
+  `Prims.svelte` now never boxes an item drawn as a run (`run…` / `riser…` / `run-label` prims). Live (Test Project
+  1F plan): TR2 selected shows its grips and blue line, no box.

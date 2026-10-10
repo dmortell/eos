@@ -35,7 +35,9 @@
 		const by = new Map<string, Prim[]>()
 		for (const p of prims) if (p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && !p.cls.startsWith('viewport') && !p.cls.startsWith('opening-pick')) (by.get(p.src) ?? by.set(p.src, []).get(p.src)!).push(p)
 		const pad = k ? 4 / k : 0
-		return [...by.entries()].filter(([, ps]) => ps.some((q) => q.k !== 'line' || q.closed)).map(([id, ps]) => {
+		// a run never (Dave 2026-10-10: a labelled trunk's text brought a box back round the whole run — it looked odd)
+		const isRun = (q: Prim) => /^(run|riser)\b/.test(q.cls) || q.cls.includes('run-label')
+		return [...by.entries()].filter(([, ps]) => !ps.some(isRun) && ps.some((q) => q.k !== 'line' || q.closed)).map(([id, ps]) => {
 			const bs = ps.map(primBounds)
 			const b = { x0: Math.min(...bs.map((q) => q.x0)) - pad, y0: Math.min(...bs.map((q) => q.y0)) - pad, x1: Math.max(...bs.map((q) => q.x1)) + pad, y1: Math.max(...bs.map((q) => q.y1)) + pad }
 			return { id, b, clip: clipOf(ps[0]) }
