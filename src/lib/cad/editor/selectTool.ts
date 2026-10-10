@@ -9,7 +9,7 @@ import type { Sheet } from '../domain/drawing'
 import type { Prim } from '../views/display'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
-import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
+import { pickPrim, pickInside, pickStack, pickTouching, primDist } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode, copySegs } from '../domain/pathEdit'
@@ -32,6 +32,8 @@ import { logoHandles, logoBoxes, logoAt, type LogoKey } from './logoHandles'
 import { viewportAt } from '../views/sheet'
 import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn, type PortSel } from './tools'
 import { movePorts } from '../domain/allocate'
+import { cordEndGrips, portPlus, type CordEndGrip, type PortPlus } from './portGrips'
+import { repatch } from '../domain/cords'
 
 /** A press on a picked port (rack views), until the release: a click or a drop on another panel. */
 type PortMove = { sel: PortSel; n: number; start: Pt; moved: boolean }
@@ -98,6 +100,18 @@ export class SelectTool implements Tool {
 	#cursor = 'default'
 	/** A double-clicked text, edited in place when the button comes up. */
 	#editOnUp: Id | null = null
+	/** A selected cord's end grip being dragged (rack views): dropped on a port it re-patches that end there. */
+	#cordEnd: (CordEndGrip & { to: Pt }) | null = null
+
+	/** The single selected cord's end grips, in a rack view. */
+	#cordGrips(c: ToolCtx): CordEndGrip[] {
+		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+		return one?.type === 'cord' && c.space.spec.kind === 'row' ? cordEndGrips(c.prims(), one.id) : []
+	}
+	/** The + on the selected port(s): a click starts a patch cord or a link from them (editor/portGrips.ts). */
+	#plus(c: ToolCtx): PortPlus | null {
+		return c.space.spec.kind === 'row' && c.armPorts ? portPlus(c.index, c.portSel?.() ?? null, c.space.spec.face, c.prims()) : null
+	}
 
 	/** The single selected region's grips (rect / ellipse / circle / polygon) where they show in this view. */
 	#regionGrips(c: ToolCtx): { s: Shape; space: GripSpace; at: Pt[] } | null {
@@ -114,7 +128,10 @@ export class SelectTool implements Tool {
 		const t = c.tol() * 1.5, near = (q: Pt) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= t
 		const rg = this.#regionGrips(c), ng = this.#noteGrips(c)
 		const h = handleAt(this.#handles(c).handles, e.p, t), g = gripAt(this.grips(c), e.p, t)
-		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at ?? null
+		const pl = this.#plus(c)
+		if (pl && near(pl.at)) { this.#hov = null; this.#hovGrip = null; this.#cursor = 'pointer'; return }
+		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at
+			?? this.#cordGrips(c).find((q) => near(q.at))?.at ?? null
 		this.#hovGrip = onGrip
 		if (onGrip || h) { this.#hov = null; this.#cursor = 'crosshair'; return }
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
@@ -190,6 +207,17 @@ export class SelectTool implements Tool {
 			if (!e.ctrl && !e.alt && s?.type === 'shape') this.#followers = followersOf(c.store.ofType('shape'), s, g.nodeIds)
 			return
 		}
+		// rack views: the + on the selected port(s) starts a patch cord / a link from them; a selected cord's end grip
+		// drags that end to another port
+		const near = (q: Pt) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5
+		const pl = this.#plus(c), ps = c.portSel?.()
+		if (pl && ps && near(pl.at)) {
+			c.armPorts?.(ps, pl.kind)
+			c.say?.(pl.kind === 'cord' ? 'Click the port to patch to' : 'Click the first port to link to (another room or floor: switch views first)')
+			return
+		}
+		const ce = this.#cordGrips(c).find((q) => near(q.at))
+		if (ce) { this.#cordEnd = { ...ce, to: ce.at }; return }
 		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
 		// a drawn region's resize grip (corner / edge / axis end / polygon corner)
 		const rg = this.#regionGrips(c), ri = rg ? rg.at.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5) : -1
@@ -320,6 +348,7 @@ export class SelectTool implements Tool {
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		if (this.#cordEnd) { this.#cordEnd.to = e.p; return }
 		if (this.#portMove) {
 			const pm = this.#portMove
 			if (!pm.moved && Math.hypot(e.p.x - pm.start.x, e.p.y - pm.start.y) > c.tol()) {
@@ -461,7 +490,33 @@ export class SelectTool implements Tool {
 		if (here.length) c.selectPorts?.({ on: d.id, face, ports: here, anchor: here[0] })
 		c.say?.(`Moved ${r.add.length} outlet port(s) to ${d.name}${r.left ? ` · ${r.left} didn't fit` : ''}${kept} · Ctrl+Z undoes`)
 	}
+	/** The end of a press on a selected cord's end grip: dropped on a port, that end is re-patched there; a click (no
+	 *  drag) picks the port under it, as a click there would without the grip. */
+	#dropCordEnd(ce: CordEndGrip, e: PointerIn, c: ToolCtx): void {
+		const spec = c.space.spec, cord = c.store.get(ce.cord)
+		if (spec.kind !== 'row' || cord?.type !== 'cord') return
+		// the NEAREST port cell (inside one = 0): the topmost within the tolerance was the next port along, on small cells
+		let hit: Prim | undefined, best = c.tol()
+		for (const p of c.prims()) {
+			if (p.k !== 'line' || !p.sub || !p.cls.startsWith('port')) continue
+			const dist = primDist(p, e.p)
+			if (dist <= best) { best = dist; hit = p }
+		}
+		const d = hit?.src ? c.store.get(hit.src) : undefined
+		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
+		if (d?.type !== 'device' || !sub) { c.say?.('Not moved — drop the cord’s end on a port'); return }
+		const to = { on: d.id, port: Number(sub), face: spec.face }
+		if (Math.hypot(e.p.x - ce.at.x, e.p.y - ce.at.y) <= c.tol()) { c.select([d.id]); c.selectPorts?.({ on: d.id, face: spec.face, ports: [to.port], anchor: to.port }); return }
+		const from = cord[ce.end]
+		if (from.on === to.on && from.port === to.port) return
+		const r = repatch(c.index, cord, ce.end, to)
+		if (!r.cord) { c.say?.(r.problem ?? 'Not moved'); return }
+		const next = r.cord
+		c.store.transact(`Re-patch ${c.index.portPlace(from)} → ${c.index.portPlace(to)}`, (tx) => tx.put(next))
+		c.say?.(`Re-patched to ${c.index.portPlace(to)} · Ctrl+Z undoes`)
+	}
 	up(e: PointerIn, c: ToolCtx): void {
+		if (this.#cordEnd) { const ce = this.#cordEnd; this.#cordEnd = null; this.#dropCordEnd(ce, e, c); return }
 		if (this.#portMove) { const pm = this.#portMove; this.#portMove = null; this.#dropPorts(pm, e, c); return }
 		if (this.#editOnUp) { const id = this.#editOnUp; this.#reset(c); c.editText?.(id); return }
 		if (!this.#gesture && this.#handle) {
@@ -537,6 +592,15 @@ export class SelectTool implements Tool {
 			if (h.shape === 'round') out.push({ k: 'circle', c: h.at, r: 5 * px, fill: true, cls: 'grip grip-round' })
 			else out.push({ k: 'line', pts: sq(h.at, 8 * px), closed: true, fill: true, cls: 'grip' })   // square / grip: one look (Sheets')
 		}
+		// rack views: a selected cord's end grips — the end being dragged: a line from the other end to the pointer
+		const ce = this.#cordEnd, cord = ce ? c.store.get(ce.cord) : undefined
+		if (ce) out.push({ k: 'line', pts: [ce.other, ce.to], cls: 'cord cord-add draft', color: cord?.type === 'cord' ? cord.colour : undefined })
+		else for (const g of this.#cordGrips(c)) out.push({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' })
+		// the + on the selected port(s): a round grip with a plus
+		const pl = this.#plus(c), arm = 3 * px
+		if (pl) out.push({ k: 'circle', c: pl.at, r: 6 * px, fill: true, cls: 'grip grip-round' },
+			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: 'grip-plus' },
+			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
 		if (this.#hovGrip && !this.#gesture) out.push({ k: 'line', pts: sq(this.#hovGrip, 11 * px), closed: true, fill: true, cls: 'grip grip-hover' })
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
@@ -567,7 +631,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
 		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
 		c.setMarquee(null)
 	}

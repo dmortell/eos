@@ -63,6 +63,12 @@ describe('the rack row', () => {
 		expect(textOf(5)).toEqual([])
 		expect(prims.find((p) => p.src === 'P1' && p.sub === '1' && p.k === 'line')?.cls).toContain('port-linked')
 	})
+	it('a port with a cord in has a green edge — both ends; a linked port with none doesn’t (Dave: "patched ports should have an indicator")', () => {
+		const cls = (on: string, n: number) => (view('front').find((p) => p.k === 'line' && p.src === on && p.sub === String(n)) as { cls: string }).cls
+		expect(cls('P1', 1)).toContain('port-patched')    // C1
+		expect(cls('SW1', 1)).toContain('port-patched')
+		expect(cls('P1', 3)).not.toContain('port-patched')   // linked, not patched
+	})
 	it('patch cords are drawn between their ports, in their own colour, on their face only', () => {
 		const cords = (face: 'front' | 'rear') => view(face).filter((p) => p.k === 'line' && p.cls.startsWith('cord'))
 		expect(cords('front')).toHaveLength(2)

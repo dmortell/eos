@@ -166,6 +166,7 @@
 	.port { stroke: #94a3b8; fill: #f8fafc; }
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
+	.port-patched { stroke: #16a34a; stroke-width: 2; }   /* a cord is plugged in (Dave) */
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.port-mid { stroke: #334155; stroke-width: 1.5; }   /* the tick under the middle of a 24+ port device's ports */
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
@@ -177,6 +178,7 @@
 	/* a picked node / segment of the selected run (Delete removes it; Properties: Disconnect) */
 	.grip.grip-hover.filled { fill: #dbeafe; stroke: #1d4ed8; stroke-width: 2; }
 	.grip.grip-sel.filled { fill: #2563eb; stroke: #ffffff; stroke-width: 1.75; }
+	.grip-plus { stroke: #2563eb; stroke-width: 1.75; }   /* the + on a selected port's grip: start a patch / a link from it */
 	.seg-sel { stroke: #2563eb; stroke-width: 7; stroke-opacity: 0.45; stroke-linecap: round; fill: none; }
 	.section-extent { stroke: #0f766e; stroke-dasharray: 4 4; fill: rgba(15, 118, 110, 0.05); }
 	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }

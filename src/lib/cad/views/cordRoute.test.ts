@@ -36,6 +36,10 @@ describe('cords along the channels', () => {
 		expect(pts[0]).toEqual({ x: 150, y: -1300 })
 		expect(pts.at(-1)).toEqual({ x: 1150, y: -900 })
 	})
+	it('the drop under a port is short — 3 mm below the cell (Dave: on a 48-port 1U panel it covered the port below)', () => {
+		const pts = channelRoute(end(150, -1000, R1), end(200, -1200, R1))
+		expect(pts[1]).toEqual({ x: 150, y: -1000 + 10 + 3 })
+	})
 	it('lanes keep parallel cords apart', () => {
 		const a = channelRoute(end(150, -1000, R1), end(200, -1200, R1), 0)
 		const b = channelRoute(end(150, -1000, R1), end(200, -1200, R1), 1)

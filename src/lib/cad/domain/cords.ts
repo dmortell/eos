@@ -119,7 +119,9 @@ export function removeCord(c: Cord): Cord | null {
 
 /** Move one end of a cord. An installed cord becomes a `change` (remembering where it was); a planned one just moves. */
 export function repatch(ix: ProjectIndex, c: Cord, end: 'a' | 'b', to: PortRef): { cord?: Cord; problem?: string } {
-	const p = patchProblem(ix, to, c.id) ?? roomProblem(ix, to, end === 'a' ? c.b : c.a)
+	const other = end === 'a' ? c.b : c.a
+	if (to.on === other.on && to.port === other.port) return { problem: 'Both ends are the same port' }
+	const p = patchProblem(ix, to, c.id) ?? roomProblem(ix, to, other)
 	if (p) return { problem: p }
 	const moved = { ...c, [end]: to }
 	const next: Cord = c.status === 'installed' || c.status === 'change'

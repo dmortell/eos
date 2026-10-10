@@ -2068,3 +2068,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the gap between the middle ports — Dave: the ~3 mm one looked fine. Test in `views/rackRow.test.ts`. Live (Test
   Project 33IDF2 racks): ticks on the 24-port panels, fibre enclosure, 48- and 96-port switches. Help: "Find the
   middle of a panel's or switch's ports".
+- **Cord-end grips, a + on a selected port, a green edge on patched ports, a shorter drop (Dave: "grips on each end of
+  a selected patch cord would be great for repatching …"):** a selected cord in a rack view shows a grip on each end
+  (the ends of its drawn line); dragging one onto another port re-patches that end (`repatch`, which now also refuses
+  the cord's own other end; an installed cord becomes a `change`). The drop takes the NEAREST port cell — the topmost
+  within the tolerance was the next port along (live: dropped on 16, landed on 17). A click on the grip picks the port.
+  A selected port with no cord shows a + at its cell's top-right: a panel port with a link → Patch to… (cord tool
+  armed), with none → Link to…, a switch / other device → Patch to… (Link to… is a panel's only, as in Port
+  Properties); mixed or patched ports → no +. Pure helpers in `editor/portGrips.ts`; `ToolCtx.armPorts`. Ports with a
+  cord in (not one being removed) get `port-patched`: a green 2 px edge (also in PDF). Channel cords drop half as far
+  under a port (3 mm + half the lane step) — on a 48-port 1U panel the drop covered the port below. Tests in
+  `editor/racks.test.ts`, `views/rackRow.test.ts`, `views/cordRoute.test.ts`. Live (Test Project 33IDF2, P3C): green
+  edges; cord P3C-37:15 → P3C-35:15 dragged to 17 and back to 15 (as before: ADD, 1 m); + on P3C-35:18 armed a patch,
+  on P3C-36:3 a link, Esc back to Select each time. Help: "Re-patch a cord, or start one from a port".

@@ -93,6 +93,9 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	const out: Prim[] = [], cords: Prim[] = []
 	// "deviceId:port" → cell centre, half its height and its rack's frame, for cords
 	const portAt = new Map<string, { x: number; y: number; hh: number; rack: RackFrame }>()
+	// "deviceId:port" with a cord in (one being removed doesn't count): its cell gets a green edge (Dave: "patched ports
+	// should have an indicator")
+	const patched = new Set(ix.cords.filter((c) => c.status !== 'remove').flatMap((c) => [`${c.a.on}:${c.a.port}`, `${c.b.on}:${c.b.port}`]))
 	const layout = rackLayout(ix, spec)
 	if (!layout.length) return [{ k: 'text', at: { x: 0, y: 0 }, text: 'No racks in this room yet — draw them on the plan with the Rack tool', size: 120, cls: 'datum-label' }]
 	// the title over the elevation: "4F — IDF 2 · front" (one row: "… · Row A")
@@ -169,7 +172,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				for (let n = 1; n <= d.portCount; n++) {
 					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }
 					const ref = { on: d.id, port: n, face: spec.face }, linked = !!ix.linkAt(ref)
-					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: linked ? 'port port-linked' : 'port', src: d.id, sub: String(n) })
+					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: (linked ? 'port port-linked' : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : ''), src: d.id, sub: String(n) })
 					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				}
 				continue
@@ -199,7 +202,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
 				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
-				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
+				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
 				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				if (!label) continue

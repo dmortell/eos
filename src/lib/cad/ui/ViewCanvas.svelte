@@ -6,7 +6,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import { toolWorksIn, ANNOTATION_TOOLS, type Workspace } from '../app/workspace.svelte'
-	import type { ToolCtx, PointerIn } from '../editor/tools'
+	import type { ToolCtx, PointerIn, PortSel } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
 	import type { Pt } from '../domain/types'
 	import { TOL_PX } from '../editor/tools'
@@ -294,7 +294,7 @@
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			pathSel: () => ws.pathSel, selectPath: ws.selectPath, editText: ws.editText,   // inside a viewport too: the box maps onto the paper
-			...(kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, (f ? f.vp.view.spec : spec) as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts } : {}),
+			...(kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, (f ? f.vp.view.spec : spec) as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts, armPorts: (s: PortSel, k: 'cord' | 'link') => (k === 'link' ? ws.interconnectFrom(s) : ws.patchFrom(s)) } : {}),
 		}
 	}
 

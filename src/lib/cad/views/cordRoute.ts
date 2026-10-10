@@ -22,7 +22,8 @@ const LANES = 5
 
 export function channelRoute(a: CordEnd, b: CordEnd, lane = 0): Pt[] {
 	const off = (lane % LANES) * LANE
-	const ya = a.y + a.hh + DROP + off, yb = b.y + b.hh + DROP + off
+	// the drop under a port is half the lane step (Dave: on a 48-port 1U panel it ran over the port below — hard to click)
+	const ya = a.y + a.hh + (DROP + off) / 2, yb = b.y + b.hh + (DROP + off) / 2
 	const left = (p: CordEnd) => p.x < p.rack.mid
 	const ch = (r: RackFrame, l: boolean) => (l ? r.mid - r.chan - off : r.mid + r.chan + off)
 	/** The manager nearest y (its middle, shifted by the lane), or null. */

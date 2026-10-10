@@ -10,6 +10,7 @@ import { RackTool } from './rackTool'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
 import { CordTool, type BulkFrom } from './cordTool'
+import { cordEndGrips, portPlus } from './portGrips'
 import { AssignTool } from './assignTool'
 import { deleteEntities, deleteImpact, impactText } from './commands'
 import { patchList } from '../domain/reports'
@@ -174,6 +175,39 @@ describe('devices in the rack row', () => {
 		bulk = { on: 'P1', ports: [4], face: 'front', kind: 'link' }
 		expect(tool.key({ key: 'Escape' } as KeyboardEvent)).toBe(true)
 		expect([bulk, done]).toEqual([null, 2])
+	})
+	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (Dave: grips for repatching)', () => {
+		const h = harness(ROW)
+		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }
+		const sel = new SelectTool()
+		h.ctx().select(['C1'])   // P1 1 → SW1 1
+		const [ga, gb] = cordEndGrips(h.ctx().prims(), 'C1')
+		expect(Math.hypot(ga.at.x - cell('P1', 1).x, ga.at.y - cell('P1', 1).y)).toBeLessThan(1)
+		const to = cell('SW1', 7)
+		sel.down(at(gb.at.x, gb.at.y), h.ctx()); sel.move(at(to.x, to.y), h.ctx()); sel.up(at(to.x, to.y), h.ctx())
+		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 }, b: { on: 'SW1', port: 7 } })
+		const taken = cell('P1', 2)   // C2's
+		sel.down(at(ga.at.x, ga.at.y), h.ctx()); sel.move(at(taken.x, taken.y), h.ctx()); sel.up(at(taken.x, taken.y), h.ctx())
+		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 } })
+		expect(h.said.at(-1)).toMatch(/already patched/)
+	})
+	it('the + on a selected port: a patch when it has a link and no cord (a switch: always), a link when it has neither, none when patched', () => {
+		const h = harness(ROW)
+		const armed: [number[], string][] = []
+		const ctx = (): ToolCtx => ({ ...h.ctx(), armPorts: (s, k) => armed.push([s.ports, k]) })
+		const pick = (on: string, n: number) => h.ctx().selectPorts!({ on, face: 'front', ports: [n], anchor: n })
+		pick('P1', 3)   // K3 → O2, no cord
+		expect(portPlus(ctx().index, h.ports(), 'front', ctx().prims())?.kind).toBe('cord')
+		pick('P1', 1)   // C1
+		expect(portPlus(ctx().index, h.ports(), 'front', ctx().prims())).toBeNull()
+		pick('SW1', 9)  // a switch port: patched, not linked (Link to… is a panel's)
+		expect(portPlus(ctx().index, h.ports(), 'front', ctx().prims())?.kind).toBe('cord')
+		pick('P1', 10)  // nothing
+		const plus = portPlus(ctx().index, h.ports(), 'front', ctx().prims())!
+		expect(plus.kind).toBe('link')
+		const sel = new SelectTool()
+		sel.down(at(plus.at.x, plus.at.y), ctx()); sel.up(at(plus.at.x, plus.at.y), ctx())
+		expect(armed).toEqual([[[10], 'link']])
 	})
 	it('Delete on cords: a planned one goes, an installed one is only marked `remove`', () => {
 		const h = harness(ROW)

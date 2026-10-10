@@ -67,6 +67,8 @@ export interface ToolCtx {
 	/** Rack-row views only: the selected ports (of one device). */
 	portSel?(): PortSel | null
 	selectPorts?(s: PortSel | null): void
+	/** Rack-row views only: arm the cord tool from these ports — a patch cord, or a link (Patch to… / Link to…). */
+	armPorts?(s: PortSel, kind: 'cord' | 'link'): void
 	/** The model grid step for moves and placing (mm; 0 = SNAP off; absent = 10). Paper steps stay 0.5 / 1 mm. */
 	grid?: number
 	/** A short message in the status area (why something was refused). */
