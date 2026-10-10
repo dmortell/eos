@@ -2062,3 +2062,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   drop, rack); the walk uses any run. Tests in `domain/runEdit.test.ts`. Journey in memory, nothing written: with
   33IDF2 ticked on 5m3-h8C-JYJ1 all 8 route (4–23 m). Live (Test Project TR2): ticked 33IDF1, Edit › Undo, back to
   none (checked in Firestore). Help: "Which server rooms a run serves".
+- **A tick under the middle of the ports (Dave: "cable outlet ports on the left of the frame to switch ports on the
+  left, and same for the right"):** a device or panel with 24 ports or more gets a short tick at the centre of its port
+  grid, from its bottom edge up to the ports (6 mm at most; class `port-mid`, also in PDF / DXF). Tried 10 mm up into
+  the gap between the middle ports — Dave: the ~3 mm one looked fine. Test in `views/rackRow.test.ts`. Live (Test
+  Project 33IDF2 racks): ticks on the 24-port panels, fibre enclosure, 48- and 96-port switches. Help: "Find the
+  middle of a panel's or switch's ports".

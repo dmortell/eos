@@ -167,6 +167,7 @@
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
+	.port-mid { stroke: #334155; stroke-width: 1.5; }   /* the tick under the middle of a 24+ port device's ports */
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
 	/* handles (openings / sections): blue + white so they show on an orange selection */
 	.opening-pick { stroke: transparent; }

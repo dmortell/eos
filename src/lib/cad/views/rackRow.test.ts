@@ -150,6 +150,22 @@ describe('port cells and labels', () => {
 		expect(at(3).y).toBe(at(1).y); expect(at(3).x).toBeGreaterThan(at(1).x)   // 3 beside 1
 		expect(at(48).x).toBe(at(96).x)   // the last column: 47 / 48 over 95 / 96
 	})
+	it('24 ports or more: a tick under the middle of the ports, from the bottom edge (Dave: left outlets to the left switch ports)', () => {
+		const dev = (id: string, u: number, portCount: number) => ({ type: 'device', id, rackId: 'R1', name: id, kind: 'panel', u, heightU: 1, face: 'both', portCount }) as Device
+		const prims = view('front', [dev('P48', 10, 48), dev('P12', 12, 12)])
+		const ticks = prims.filter((p) => p.k === 'line' && p.cls === 'port-mid') as { pts: { x: number; y: number }[] }[]
+		const cell = (n: number) => (prims.find((p) => p.k === 'line' && p.src === 'P48' && p.sub === String(n)) as { pts: { x: number; y: number }[] }).pts
+		const r1 = demoProject().find((e) => e.id === 'R1') as Rack
+		const bottomOf = (u: number) => -(((r1.heightMm ?? r1.heightU * RU_MM + 150) - r1.heightU * RU_MM) / 2 + (u - 1) * RU_MM)
+		const at = (u: number) => ticks.filter((t) => Math.abs(t.pts[0].y - bottomOf(u)) < 0.01)
+		expect(at(10)).toHaveLength(1)
+		const [bottom, up] = at(10)[0].pts
+		expect(bottom.x).toBe(up.x)
+		expect(bottom.x).toBeGreaterThan(cell(12)[0].x); expect(bottom.x).toBeLessThan(cell(13)[1].x)   // between ports 12 and 13
+		expect(up.y).toBeLessThan(bottom.y)                                           // upwards, short of the ports
+		expect(up.y).toBeGreaterThanOrEqual(Math.max(...cell(25).map((q) => q.y)))
+		expect(at(12)).toHaveLength(0)   // the 12-port panel has none
+	})
 	it('a device with few ports keeps port-sized cells (Dave: a server / tower PC drew huge ports)', () => {
 		const server: Device = { type: 'device', id: 'SV', rackId: 'R1', name: 'SV', kind: 'server', u: 10, heightU: 2, face: 'front', portCount: 2 }
 		const c = portCell(server, 1, 0, 0)!

@@ -191,9 +191,11 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
 			if (!grid) out.push(nameText)
 			let minLabel = Infinity   // the smallest port label: once it can be read, the name over the ports shrinks
+			let gx0 = Infinity, gx1 = -Infinity, gBottom = -Infinity   // the port grid's left / right edges and its bottom (view y)
 			for (let n = 1; n <= d.portCount; n++) {
 				const c = portCell(d, n, dx, z0)
 				if (!c) break
+				gx0 = Math.min(gx0, c.x); gx1 = Math.max(gx1, c.x + c.w); gBottom = Math.max(gBottom, c.y + c.h)
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
 				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
@@ -207,6 +209,12 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				minLabel = Math.min(minLabel, sS)
 				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
+			}
+			// 24 ports or more: a tick under the middle of the ports, up from the device's bottom edge to the ports (6 mm at most)
+			// (Dave: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)
+			if (d.portCount >= 24 && gx1 > gx0) {
+				const x = (gx0 + gx1) / 2
+				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x, y: Math.max(gBottom, -z0 - 6) }], cls: 'port-mid' })
 			}
 			// over the ports (Dave: P3C U32 / U37's name covered them): the name is normal size until the port labels can be
 			// read, then small (a 1U 48-port panel's port label size) and see-through, in the top-left corner
