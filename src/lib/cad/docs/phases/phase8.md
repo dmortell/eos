@@ -1995,3 +1995,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Dave per selection: `domain/labels.ts` `portsFromLabel` and, in outlet Properties, a warning with Ports from label
   (ports that contain the label are left alone; through `relabel`: asks for printed panels; undoable). Help: "A panel
   port shows the wrong outlet number". Tests in `domain/labels.test.ts`. Journey not changed by me.
+- **Outlets picked in the list show their panel ports (Dave):** `views/overlays.ts` `outletPortCells` — the ports
+  linked to selected outlets drawn as selected ports in rack views (added to ViewCanvas's port highlight). Test in
+  `views/overlays.test.ts`. Live (Test Project): an outlet linked to PP3, its row clicked — 4 ports lit; undone.
+- **Drag picked panel ports to another panel (Dave: "if not patched, drag them to the first port to start allocating
+  from"):** `domain/allocate.ts` `movePorts` — the picked ports' outlets, in port order, onto free ports from the drop
+  port (`assignFrom`, pinned); ports with a cord stay and are reported. `SelectTool`: a press on a picked port of a
+  PANEL whose picked ports carry outlets starts it (a switch, or ports with no outlets, still drag the device — the
+  old "Select drags a device" test caught that); the release on a panel moves them and picks them there; a click
+  picks that port alone. Help: "Move outlets from one panel to another". Test in `editor/racks.test.ts`. The drag
+  itself not tried live (synthetic pointer drags on the canvas); the tool test runs the real Select tool.

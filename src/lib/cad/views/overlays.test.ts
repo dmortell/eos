@@ -1,6 +1,9 @@
 // The work plane's grip (views/overlays.ts): where it sits, and what dragging it sets.
 import { describe, it, expect } from 'vitest'
-import { workPlaneGrip, workPlaneAt } from './overlays'
+import { workPlaneGrip, workPlaneAt, outletPortCells } from './overlays'
+import { rackRowDisplayList } from './rackRow'
+import { ProjectIndex } from '../domain/project'
+import { demoProject } from '../domain/fixtures'
 import { spaceOf } from './space'
 import type { Prim } from './display'
 
@@ -26,5 +29,15 @@ describe('the work plane grip', () => {
 	it('no grip without a line (two elevations, an empty view)', () => {
 		expect(workPlaneGrip(front, { kind: 'elevation', dir: 'left' }, box, 0, 0)).toBeNull()
 		expect(workPlaneGrip(plan, front, [], 0, 0)).toBeNull()
+	})
+})
+
+describe('the ports of outlets picked in the list', () => {
+	it('selected outlets light up the panel ports they are linked to (rack view); other selections, nothing', () => {
+		const ix = new ProjectIndex(demoProject()), prims = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })
+		const lit = (sel: string[]) => outletPortCells(ix, prims, sel).filter((p) => p.k === 'line').map((p) => p.cls)
+		expect(lit(['O2'])).toEqual(['port-sel', 'port-sel'])   // O2's two ports: P1 3 and 4
+		expect(lit(['O1', 'O2'])).toHaveLength(4)
+		expect(lit(['P1'])).toEqual([])
 	})
 })

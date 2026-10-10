@@ -85,6 +85,24 @@ describe('devices in the rack row', () => {
 		tool.down(at(Math.min(...xs) + 3, (Math.min(...ys) + Math.max(...ys)) / 2), h.ctx())   // the panel's edge, clear of its ports
 		expect(added[0]?.map((l) => [l.a.on, l.a.port, l.b.on, l.b.port])).toEqual([['PX', 1, 'O2', 1], ['PX', 2, 'O2', 2]])
 	})
+	it('picked panel ports dragged onto another panel’s port take their outlets there; patched ones stay; a click picks one', () => {
+		const px: Device = { type: 'device', id: 'PX', rackId: 'R1', name: 'PX', kind: 'panel', u: 30, heightU: 1, face: 'both', portCount: 24, panel: { tier: 'low' } }
+		const h = harness(ROW, [px])
+		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }
+		const sel = new SelectTool()
+		h.ctx().selectPorts!({ on: 'P1', face: 'front', ports: [1, 2, 3, 4], anchor: 1 })   // P1 1–4: O1 (patched on 1, 2), O2
+		const a = cell('P1', 3), b = cell('PX', 5)
+		sel.down(at(a.x, a.y), h.ctx()); sel.move(at(b.x, b.y), h.ctx()); sel.up(at(b.x, b.y), h.ctx())
+		const links = h.store.ofType('link')
+		expect(links.filter((l) => l.a.on === 'PX').map((l) => [l.a.port, l.b.on, l.b.port]).sort()).toEqual([[5, 'O2', 1], [6, 'O2', 2]])
+		expect(links.filter((l) => l.a.on === 'P1').map((l) => l.a.port).sort()).toEqual([1, 2])   // the patched ports stayed
+		expect(h.ports()).toMatchObject({ on: 'PX', ports: [5, 6] })
+		expect(h.said.at(-1)).toMatch(/2 patched port\(s\) stay/)
+		// a click (no drag) on a picked port picks that port alone
+		const c5 = cell('PX', 5)
+		sel.down(at(c5.x, c5.y), h.ctx()); sel.up(at(c5.x, c5.y), h.ctx())
+		expect(h.ports()).toMatchObject({ on: 'PX', ports: [5] })
+	})
 	it('the device tool adds the chosen template at the clicked U', () => {
 		const h = harness(ROW)
 		const tool = new DeviceTool(() => tpl('builtin:panel-24'))

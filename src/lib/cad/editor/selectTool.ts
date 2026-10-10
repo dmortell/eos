@@ -30,7 +30,11 @@ import { labelKind } from '../domain/labelEdit'
 import { elevationHandles } from './elevHandles'
 import { logoHandles, logoBoxes, logoAt, type LogoKey } from './logoHandles'
 import { viewportAt } from '../views/sheet'
-import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn } from './tools'
+import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn, type PortSel } from './tools'
+import { movePorts } from '../domain/allocate'
+
+/** A press on a picked port (rack views), until the release: a click or a drop on another panel. */
+type PortMove = { sel: PortSel; n: number; start: Pt; moved: boolean }
 
 const REGION = new Set(['rect', 'circle', 'ellipse', 'polygon'])
 
@@ -70,6 +74,9 @@ export class SelectTool implements Tool {
 	#cycle: Id | null = null
 	/** The device last clicked in a rack view: a Shift-click on another in its rack selects those between. */
 	#devAnchor: Id | null = null
+	/** Pressed on a PICKED port: a drag takes the picked ports' outlets to another panel (dropped on its first port); a
+	 *  click picks just that port. */
+	#portMove: PortMove | null = null
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
@@ -268,6 +275,14 @@ export class SelectTool implements Tool {
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
+			// on one of a PANEL's picked ports that carry outlets: a drag moves those outlets to another panel (up decides:
+			// click or drop). Otherwise — a switch, ports with no outlets — a drag still moves the device.
+			const dev = c.store.get(id)
+			if (prev && prev.on === id && prev.ports.includes(n) && !e.shift && !e.ctrl && !e.alt && dev?.type === 'device' && dev.kind === 'panel'
+				&& prev.ports.some((p) => c.index.linkAt({ on: id, port: p })?.kind === 'horizontal')) {
+				this.#portMove = { sel: prev, n, start: e.p, moved: false }
+				return
+			}
 			if (prev && prev.on === id && (e.shift || e.ctrl)) {
 				const cur = prev
 				const ports = e.shift
@@ -305,6 +320,14 @@ export class SelectTool implements Tool {
 	}
 
 	move(e: PointerIn, c: ToolCtx): void {
+		if (this.#portMove) {
+			const pm = this.#portMove
+			if (!pm.moved && Math.hypot(e.p.x - pm.start.x, e.p.y - pm.start.y) > c.tol()) {
+				pm.moved = true
+				c.say?.(`Drop on another panel's port — the outlets on ${pm.sel.ports.length} port(s) move there (patched ports stay)`)
+			}
+			return
+		}
 		if (this.#region) {
 			const { base, index, space } = this.#region
 			// snapped like any point here (paper: 0.5 mm), then into the shape's own space
@@ -421,7 +444,25 @@ export class SelectTool implements Tool {
 		}
 	}
 
+	/** The end of a press on a picked port: a click picks that port alone; a drop on a panel (its port, else its first
+	 *  free one) moves the picked ports' outlets there, and picks them in their new place. */
+	#dropPorts(pm: PortMove, e: PointerIn, c: ToolCtx): void {
+		const face = c.space.spec.kind === 'row' ? c.space.spec.face : pm.sel.face
+		if (!pm.moved) { c.selectPorts?.({ on: pm.sel.on, face, ports: [pm.n], anchor: pm.n }); return }
+		const hit = pickPrim(c.prims(), e.p, c.tol()), d = hit?.src ? c.store.get(hit.src) : undefined
+		if (d?.type !== 'device' || d.kind !== 'panel') { c.say?.('Not moved — drop the ports on a panel port in this view'); return }
+		const start = hit && hit.k !== 'image' && hit.sub ? Number(hit.sub) : 1
+		const r = movePorts(c.index, pm.sel, { on: d.id, port: start })
+		const kept = r.patched.length ? ` · ${r.patched.length} patched port(s) stay — take their cords off first` : ''
+		if (!r.add.length) { c.say?.(`Nothing moved — no outlets on those ports, or no free ports from there${kept}`); return }
+		c.store.transact(`Move ${r.add.length} port(s) to ${d.name}`, (tx) => { for (const id of r.remove) tx.del(id); for (const l of r.add) tx.put(l) })
+		const here = r.add.filter((l) => l.a.on === d.id).map((l) => l.a.port)
+		c.select([d.id])
+		if (here.length) c.selectPorts?.({ on: d.id, face, ports: here, anchor: here[0] })
+		c.say?.(`Moved ${r.add.length} outlet port(s) to ${d.name}${r.left ? ` · ${r.left} didn't fit` : ''}${kept} · Ctrl+Z undoes`)
+	}
 	up(e: PointerIn, c: ToolCtx): void {
+		if (this.#portMove) { const pm = this.#portMove; this.#portMove = null; this.#dropPorts(pm, e, c); return }
 		if (this.#editOnUp) { const id = this.#editOnUp; this.#reset(c); c.editText?.(id); return }
 		if (!this.#gesture && this.#handle) {
 			const { h, base } = this.#handle

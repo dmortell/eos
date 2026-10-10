@@ -199,3 +199,19 @@ export function assignFrom(ix: ProjectIndex, wants: { outletId: Id; port: number
 	})
 	return { add, remove, left: wants.length - add.length }
 }
+
+/** Drag picked PANEL PORTS onto another panel's port (Dave 2026-10-10): the outlets on them move there, in port order,
+ *  onto free ports from the one dropped on (as Assign). Ports with a patch cord stay (`patched`: take the cord off
+ *  first); ports with no outlet on them are skipped. */
+export function movePorts(ix: ProjectIndex, from: { on: Id; ports: number[] }, start: { on: Id; port: number }): { add: Link[]; remove: Id[]; left: number; patched: number[] } {
+	const corded = new Set(ix.cords.filter((c) => c.status !== 'remove').flatMap((c) => [c.a, c.b]).filter((r) => r.on === from.on).map((r) => r.port))
+	const patched: number[] = [], wants: { outletId: Id; port: number }[] = []
+	for (const n of [...from.ports].sort((a, b) => a - b)) {
+		const l = ix.linkAt({ on: from.on, port: n })
+		if (l?.kind !== 'horizontal') continue
+		if (corded.has(n)) { patched.push(n); continue }
+		const o = l.a.on === from.on ? l.b : l.a
+		wants.push({ outletId: o.on, port: o.port })
+	}
+	return { ...assignFrom(ix, wants, start), patched }
+}

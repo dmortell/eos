@@ -22,6 +22,18 @@ export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel'), ...namesOver(prims, [s.on])]
 }
 
+/** The panel ports linked to the selected OUTLETS (Dave 2026-10-10: pick outlets in the list, see their ports on the
+ *  frame), drawn as selected ports. */
+export function outletPortCells(ix: ProjectIndex, prims: Prim[], selection: Id[]): Prim[] {
+	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
+	if (!outlets.size) return []
+	const keys = new Set(ix.links.flatMap((l) => (outlets.has(l.b.on) ? [`${l.a.on}:${l.a.port}`] : outlets.has(l.a.on) ? [`${l.b.on}:${l.b.port}`] : [])))
+	if (!keys.size) return []
+	const cells = prims.flatMap((p) => (p.k === 'line' && p.src && p.sub && p.cls.startsWith('port') && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	const devs = [...new Set([...keys].map((k) => k.split(':')[0]))]
+	return [...cells, ...labelsOf(prims, keys, 'port-label port-label-sel'), ...namesOver(prims, devs)]
+}
+
 /** A panel's name drawn over its ports (no src: it takes no clicks) — found inside the device's body. */
 function namesOver(prims: Prim[], devices: Id[]): Prim[] {
 	const bodies = prims.flatMap((p) => (p.k === 'line' && p.src && devices.includes(p.src) && p.cls.startsWith('device ') ? [primBounds(p)] : []))

@@ -40,7 +40,7 @@
 	import PortTip from './PortTip.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { portCells, circuitOf, fillBands, routesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
+	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
@@ -116,7 +116,7 @@
 		: viewportHighlight(prims, ws.viewportId, !!sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, 4 / cam.k))
 	/** Overlays over the drawing (views/overlays.ts): selected ports, a cord's circuit, fill bands, routes, the other
 	 *  pane's work plane. */
-	const portHighlight = $derived(spec.kind === 'row' ? portCells(prims, ws.portSel) : [])
+	const portHighlight = $derived(spec.kind === 'row' ? [...outletPortCells(project.index, prims, ws.selection), ...portCells(prims, ws.portSel)] : [])   // + the ports of outlets picked in the list
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])
