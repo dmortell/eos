@@ -110,6 +110,10 @@
 		</select>
 	</label>
 	<label class="row">Height (Z, mm) <input class="inp" type="number" value={same((o) => o.z) ?? ''} placeholder="mixed" onchange={(e) => setOutlets('Height', () => ({ z: num(e.currentTarget.value) }))} /></label>
+	<label class="row" title="Show them in elevations and sections too (on a wall); otherwise only on the plan">Elevations
+		<span><input type="checkbox" checked={outlets.every((o) => o.inElevations)} indeterminate={outlets.some((o) => o.inElevations) && !outlets.every((o) => o.inElevations)}
+			onchange={(e) => { const on = e.currentTarget.checked; setOutlets(on ? 'Show in elevations' : 'Plan only', () => ({ inElevations: on || undefined })) }} /> show in elevations</span>
+	</label>
 	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={same((o) => o.ports.length) ?? ''} placeholder="mixed" onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
 	{@render roomField()}
 {:else if outlets.length === 1}
@@ -151,6 +155,8 @@
 	<PropGroup kind="outlet" title="Position">
 		<!-- a blank height shows the default it uses (a floor box 0, a wall outlet 300, a ceiling one the ceiling) -->
 		<label class="row" title="Height above FFL (mm); blank = the default for its mount">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
+		<label class="row" title="Show it in elevations and sections too (on a wall); otherwise only on the plan">Elevations
+			<span><input type="checkbox" checked={!!o.inElevations} onchange={(e) => put(o, e.currentTarget.checked ? 'Show in elevations' : 'Plan only', { inElevations: e.currentTarget.checked || undefined })} /> show in elevations</span></label>
 		{#if o.at}
 			<label class="row">X <input class="inp" type="number" value={Math.round(o.at.x)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, x: Number(e.currentTarget.value) } })} /></label>
 			<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>

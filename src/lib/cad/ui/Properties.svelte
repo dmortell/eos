@@ -222,6 +222,13 @@
 		{#if runs.length > 1}<RunsMultiProps {project} {runs} />{/if}
 		{@const others = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'path')}
 		{#if others.length > 1}<ShapesMultiProps {project} shapes={others} />{/if}
+		{@const placed = others.filter((s) => s.geom.kind === 'insert' && s.levelId)}
+		{#if placed.length > 1}
+			{@const on = (s: Shape) => s.geom.kind === 'insert' && !!s.geom.inElevations}
+			<label class="row" title="Show these blocks in elevations and sections too (wall faceplates); otherwise only on the plan">Elevations
+				<span><input type="checkbox" checked={placed.every(on)} indeterminate={placed.some(on) && !placed.every(on)}
+					onchange={(e) => { const v = e.currentTarget.checked || undefined; project.store.transact(`${v ? 'Show in elevations' : 'Plan only'} (${placed.length} blocks)`, (tx) => { for (const s of placed) tx.put({ ...s, geom: { ...s.geom, inElevations: v } } as Shape) }) }} /> show in elevations</span></label>
+		{/if}
 		{#if others.filter((s) => s.geom.kind === 'insert').length > 1}<InsertAttrs {project} inserts={others} />{/if}
 		{#if blockable.length}
 			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
@@ -425,6 +432,10 @@
 		<label class="row">Rotation <input class="inp" type="number" value={g.rot ?? 0} onchange={(e) => put(one, 'Rotate', { geom: { ...g, rot: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row">Scale <input class="inp" type="number" step="0.1" value={g.scale ?? 1} onchange={(e) => put(one, 'Scale', { geom: { ...g, scale: Number(e.currentTarget.value) || undefined } })} /></label>
 		<label class="row" title="Height above FFL: where it shows in elevations and sections">Height (Z) <input class="inp" type="number" step="50" value={g.z ?? 0} onchange={(e) => put(one, 'Block height', { geom: { ...g, z: Number(e.currentTarget.value) || undefined } })} /></label>
+		{#if one.levelId}
+			<label class="row" title="Show it in elevations and sections too (a wall faceplate); otherwise only on the plan">Elevations
+				<span><input type="checkbox" checked={!!g.inElevations} onchange={(e) => put(one, e.currentTarget.checked ? 'Show in elevations' : 'Plan only', { geom: { ...g, inElevations: e.currentTarget.checked || undefined } })} /> show in elevations</span></label>
+		{/if}
 		<InsertAttrs {project} inserts={[one]} />
 		{#if b}<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(one.id))}>Explode</button>{/if}
 		{#if b && !b.builtin && !b.retired}

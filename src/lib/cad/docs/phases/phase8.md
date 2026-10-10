@@ -1874,3 +1874,7 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   `elevation.test.ts` (+1, fixtures' outlets marked as placed on walls), `insertTool.test.ts`. Live (1F front + plan):
   the elevation shows no outlets (the plan's 32 still drawn); a faceplate placed in the elevation shows there; undone.
   Help: "What a plan shows in elevations".
+- **Show in elevations tickbox** (Dave 2026-10-10): Properties › Elevations "show in elevations" sets `inElevations`
+  on an outlet or a block insert (plan / elevation inserts; not sheet ones) — one, or several at once (mixed =
+  indeterminate). Fixes outlets / blocks placed in elevations before the flag, and shows a plan-placed wall outlet
+  there. Live (1F): ticked outlet A003 → it showed in the front elevation; undone → gone, box unticked. Help updated.
