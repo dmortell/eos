@@ -274,11 +274,12 @@
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
 	let bottom = $state<BottomTab>('outlets')
 	/** The bottom panel follows the view (UX10): sheet → Sheets, rack view → Patch list, else Outlets — unless you picked
-	 *  a tab yourself in that kind of view (remembered per kind for the session). */
-	const bottomPicked: Partial<Record<ViewSpec['kind'], BottomTab>> = {}
+	 *  a tab yourself in that kind of view (remembered per kind in this browser, over a refresh — Dave 2026-10-10). */
 	const BOTTOM_FOR: Partial<Record<ViewSpec['kind'], BottomTab>> = { sheet: 'sheets', row: 'patch' }
-	$effect(() => { const k = activeKind; untrack(() => (bottom = bottomPicked[k] ?? BOTTOM_FOR[k] ?? 'outlets')) })
-	function pickBottom(t: BottomTab) { bottom = t; bottomPicked[activeKind] = t }
+	const TABLES: BottomTab[] = ['outlets', 'patch', 'sheets', 'links']
+	const pickedFor = (k: ViewSpec['kind']) => { const t = panels.tableFor[k] as BottomTab | undefined; return t && TABLES.includes(t) ? t : undefined }
+	$effect(() => { const k = activeKind; untrack(() => (bottom = pickedFor(k) ?? BOTTOM_FOR[k] ?? 'outlets')) })
+	function pickBottom(t: BottomTab) { bottom = t; panels.tableFor[activeKind] = t; panels.save() }
 	let floorsOpen = $state(false)
 	let typesOpen = $state(false)
 

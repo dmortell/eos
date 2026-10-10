@@ -12,18 +12,21 @@ export class Panels {
 	tables = $state({ float: false, x: 40, y: 60, w: 960, h: 320, folded: false, max: false })
 	/** Split view: the left pane's share of the width (0.15–0.85; Dave: drag the bar between them). */
 	split = $state(0.5)
+	/** The table picked for each kind of view (rack view → Outlets …), kept over a refresh (Dave 2026-10-10). */
+	tableFor: Record<string, string> = {}
 
 	constructor() {
 		try {
-			const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { size?: Partial<Record<Side, number>>; shown?: Partial<Record<Side, boolean>>; split?: number; tables?: Partial<Panels['tables']> }
+			const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { size?: Partial<Record<Side, number>>; shown?: Partial<Record<Side, boolean>>; split?: number; tables?: Partial<Panels['tables']>; tableFor?: Record<string, string> }
 			Object.assign(this.size, s.size)
 			Object.assign(this.shown, s.shown)
 			Object.assign(this.tables, s.tables, { max: false })
 			if (typeof s.split === 'number') this.split = Math.min(0.85, Math.max(0.15, s.split))
+			if (s.tableFor && typeof s.tableFor === 'object') this.tableFor = { ...s.tableFor }
 		} catch { /* nothing saved, or storage blocked: the defaults */ }
 	}
 	save = (): void => {
-		try { localStorage.setItem(KEY, JSON.stringify({ size: this.size, shown: this.shown, split: this.split, tables: this.tables })) } catch { /* storage blocked */ }
+		try { localStorage.setItem(KEY, JSON.stringify({ size: this.size, shown: this.shown, split: this.split, tables: this.tables, tableFor: this.tableFor })) } catch { /* storage blocked */ }
 	}
 	toggle(side: Side): void { this.shown[side] = !this.shown[side]; this.save() }
 

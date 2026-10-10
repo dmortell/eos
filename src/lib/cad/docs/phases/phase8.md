@@ -1984,3 +1984,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   a drop effect the source doesn't allow makes the browser show "no drop" and never fire `drop`. Synthetic drag events
   (the earlier live checks) skip that check. `dropEffectFor(effectAllowed)` now answers in kind. Test in
   `ui/libraryDrop.test.ts`.
+- **The picked table survives a refresh (Dave: "refresh resets bottom panel tab to Patch List"):** the table picked per
+  kind of view was kept for the session only; it's now `Panels.tableFor`, saved with the panel layout in this browser.
+  Live: Outlets picked in the rack view, page reloaded — Outlets again.
