@@ -8,7 +8,7 @@ import type { Entity, Layer, Sheet } from './drawing'
 /** `color` = the layer's colour, applied to its items; `look` = a system layer's default: the colour its items
  *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colours that mean something: an
  *  unrouted backbone's red, a rack's ports and U numbers). */
-export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean }
+export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean; /** The lineweight (paper mm) and line type its items use when they set none ("By layer"). */ weightMm?: number; dash?: string }
 
 /** The system layers, bottom to top (the order the plan draws them; Dave: pairs together, Floorplans first). */
 export const SYSTEM_LAYERS: LayerInfo[] = ([
@@ -34,8 +34,9 @@ export function nextLayerColour(records: Layer[]): string {
 /** The project's layers: the system ones (restyled by a record with their id) and its own, by order. */
 export function layersOf(records: Layer[]): LayerInfo[] {
 	const own = new Map(records.map((r) => [r.id, r]))
-	const sys = SYSTEM_LAYERS.map((s) => { const r = own.get(s.id); return r ? { ...s, order: r.order, ...(r.color ? { color: r.color } : {}) } : s })
-	const custom = records.filter((r) => !r.id.startsWith('sys:')).map((r): LayerInfo => ({ id: r.id, name: r.name, order: r.order, ...(r.color ? { color: r.color } : {}), system: false }))
+	const look = (r: Layer) => ({ ...(r.color ? { color: r.color } : {}), ...(r.weightMm ? { weightMm: r.weightMm } : {}), ...(r.dash ? { dash: r.dash } : {}) })
+	const sys = SYSTEM_LAYERS.map((s) => { const r = own.get(s.id); return r ? { ...s, order: r.order, ...look(r) } : s })
+	const custom = records.filter((r) => !r.id.startsWith('sys:')).map((r): LayerInfo => ({ id: r.id, name: r.name, order: r.order, ...look(r), system: false }))
 	return [...sys, ...custom].sort((a, b) => a.order - b.order)
 }
 

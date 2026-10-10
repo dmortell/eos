@@ -72,6 +72,17 @@ describe('hiding, locking and colouring', () => {
 		expect(SYSTEM_LAYERS.every((l) => l.look)).toBe(true)
 		expect(draw.find((p) => p.src === 'O1')?.color).toBeUndefined()
 	})
+	it('a layer’s line type and lineweight go on its lines that set none; a line’s own wins; text and run bands are left alone', () => {
+		const sh = (id: string, style?: object): Entity => ({ type: 'shape', id, levelId: 'L33', layerId: 'L-A', ...(style ? { style } : {}),
+			geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }], segs: [{ id: 's', a: 'a', b: 'b' }] } }) as Entity
+		const i = ix([{ ...layer('L-A', 500), weightMm: 0.5, dash: 'dashed' }, sh('LN'), sh('OWN', { dash: 'dotted', weightMm: 0.18 }), layer('sys:cont-low', 50)])
+		const draw = applyLayers(plan(i), i).draw
+		expect(draw.find((p) => p.src === 'LN')).toMatchObject({ weight: 0.5, dash: 'dashed' })
+		expect(draw.find((p) => p.src === 'OWN')).toMatchObject({ weight: 0.18, dash: 'dotted' })
+		// a restyled system layer: a trunk's band keeps its real width
+		const j = ix([{ ...layer('sys:cont-low', 50), weightMm: 1 }]), band = applyLayers(plan(j), j).draw.find((p) => p.src === 'T1' && p.k === 'line' && p.w)
+		expect(band && 'weight' in band).toBe(false)
+	})
 	it('new project layers take the next unused palette colour', () => {
 		expect(nextLayerColour([])).toBe(LAYER_PALETTE[0])
 		expect(nextLayerColour([layer('IDF1', 500, LAYER_PALETTE[0]), layer('sys:walls', 20, LAYER_PALETTE[1])])).toBe(LAYER_PALETTE[1])

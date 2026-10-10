@@ -1878,3 +1878,13 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   on an outlet or a block insert (plan / elevation inserts; not sheet ones) — one, or several at once (mixed =
   indeterminate). Fixes outlets / blocks placed in elevations before the flag, and shows a plan-placed wall outlet
   there. Live (1F): ticked outlet A003 → it showed in the front elevation; undone → gone, box unticked. Help updated.
+
+### Batch 5 (Dave 2026-10-10: "do 2 5 6 7 10. do the blocks drag")
+
+- **Layer line type and lineweight** (backlog ⚡): Layers › the line sample on a row opens Line type + Lineweight
+  selects (undoable; a system layer gets its record on first change). `applyLayers` (views/layers.ts) puts them on
+  lines and circles that set none of their own — not on text, pictures, note backgrounds, shape fills, run bands, or
+  (line type) arrowheads / ticks; PDF and DXF read the same prim fields. Tests: `views/layers.test.ts` (+1). Live
+  (1F plan): Drawing → Dashed 0.5 mm, its two boxes drew dashed and heavier; both undone. Help entry.
+  Note: the Chrome tab was in the background, so the floorplan PDF didn't render (pdf.js waits for a visible tab) —
+  not a bug.

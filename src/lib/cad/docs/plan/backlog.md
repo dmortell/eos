@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 62 entries (0 P1 · 0 P2 · 62 P3; 5 ⚡ quick wins). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 61 entries (0 P1 · 0 P2 · 61 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties, viewport nudge / snap / fit scale, copy one segment, Find/replace into Renumber, blocks drag to place. **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -114,7 +114,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Layers, styles, blocks and symbols
 
 - [ ] **Layer presets, groups, multi-select** — the parts of the Layers panel left out of the first build (`docs/plan/layers.md`): saved sets of shown layers, group headings with a group eye, Ctrl / Shift-click several rows. **P3 · M** (~120 lines). *cad today:* `ui/LayersPanel.svelte` has eye / lock / freeze / colour / order per layer, one row at a time. *From:* G174, G177, P051
-- [ ] ⚡ **Layer line type and lineweight** — each layer gets a line type and a lineweight (mm) that its shapes use "ByLayer". **P3 · S** (Dave 2026-10-05: low priority) (~40 lines, after Layers and Shape style). *cad today:* `Layer.weightMm` / `dash` fields exist, unused (`cad/domain/drawing.ts:92`). *From:* G280
 - [ ] ❓ **Shape style** — what's left: project drawing defaults for new shapes (color, line type, lineweight); DXF lineweights (the writer has no field) and a DXF hatch for fills. **P3 · S** (Dave 2026-10-06: low priority) (~60 lines). *cad today:* a shape's own color, fill, line type (solid / dashed / dotted / dash-dot) and lineweight (mm) in Properties (one or several, and plain lines), on screen, printed as set in PDF, line types in DXF (2026-10-05, `cad/ui/LineStyle.svelte`, `ownStyle` in `cad/views/plan.ts`). *From:* G011, G164, G283, T093
 - [ ] ❓ **Linked symbols (URL / sheet link)** — an insert can link to a sheet or a web page; a badge shows on hover, double-click opens it. Store the link on the insert (each marker has its own target), not the block. **P3 · M** (Dave 2026-10-10: low priority) (~80 lines). *cad today:* missing. *From:* G257, T149
 - [ ] **Image opacity, crop, greyscale** — Properties for an underlay / image: opacity slider (for tracing), crop, greyscale (so coloured markup stands out). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* `Underlay.opacity` and `crop` fields exist and opacity is drawn (default 0.6), but there is no UI (`cad/domain/types.ts:79`, `cad/views/plan.ts:34`). *From:* G288

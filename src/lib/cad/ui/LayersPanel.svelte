@@ -10,6 +10,7 @@
 	import { layersOf, layerOf, nextLayerColour, freezeInExisting, type LayerInfo } from '../domain/layers'
 	import { layerCounts } from '../views/layers'
 	import { newId } from '../domain/ids'
+	import { DASHES, WEIGHTS } from '../views/display'
 	import { Icon, DragReorder } from '$lib'
 	import SideSection from './SideSection.svelte'
 
@@ -29,6 +30,8 @@
 	const record = (l: LayerInfo, change: Partial<Layer>): Layer => {
 		const next: Layer = { ...(project.index.get<Layer>(l.id) ?? { type: 'layer', id: l.id, name: l.name, order: l.order }), ...change }
 		if (!next.color) delete next.color
+		if (!next.weightMm) delete next.weightMm
+		if (!next.dash) delete next.dash
 		return next
 	}
 	const put = (label: string, ...ls: Layer[]) => project.store.transact(label, (tx) => ls.forEach((l) => tx.put(l)))
@@ -55,6 +58,10 @@
 		ws.layers.forget(l.id)
 	}
 	const setColour = (l: LayerInfo, color: string | undefined) => put(`${l.name} color`, record(l, { color }))
+	// the layer's line type and lineweight (backlog "Layer line type and lineweight"): its items without their own use them
+	let styling = $state<Id | null>(null)
+	const DASH_NAMES: Record<string, string> = { '': 'Solid', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot' }
+	const SAMPLE: Record<string, string | undefined> = { dashed: '4 2', dotted: '1 2', dashdot: '5 2 1 2' }
 
 	// hiding or locking a layer lets go of its selected items (Delete / Properties mustn't act on what you can't see
 	// or have locked); showing / unlocking leaves the selection alone
@@ -108,12 +115,27 @@
 			<button class="ic" title={n ? `Has ${n} item${n === 1 ? '' : 's'} — move them first` : 'Delete this layer'} onclick={() => remove(l)}><Icon name="trash" size={11} /></button>
 		{/if}
 		<span class="ct">{n || ''}</span>
+		<button class="ic ln" class:on={styling === l.id} title="Line type and lineweight of this layer: {DASH_NAMES[l.dash ?? ''] ?? l.dash}, {l.weightMm ? `${l.weightMm} mm` : 'default weight'} (its items use them unless they set their own)"
+			onclick={() => (styling = styling === l.id ? null : l.id)}>
+			<svg width="14" height="8" viewBox="0 0 14 8"><line x1="0" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width={l.weightMm ? Math.min(3, Math.max(0.75, l.weightMm * 3)) : 1} stroke-dasharray={SAMPLE[l.dash ?? '']} /></svg>
+		</button>
 		{#if vp}
 			<button class="ic" class:on={vp.frozen?.includes(l.id)} title="Freeze in this viewport (Shift: every viewport on the sheet)" onclick={(e) => freeze(l, e.shiftKey)}><Icon name="snowflake" size={12} /></button>
 		{/if}
 		<button class="ic" title={off ? 'Show (only for you)' : 'Hide (only for you)'} onclick={() => hide(l)}><Icon name={off ? 'eyeSlash' : 'eye'} size={12} /></button>
 		<button class="ic" class:on={locked} title={locked ? 'Unlock' : 'Lock: still drawn and snapped to, but can’t be picked (only for you)'} onclick={() => lock(l)}><Icon name={locked ? 'lock' : 'lockOpen'} size={12} /></button>
 	</div>
+	{#if styling === l.id}
+		<div class="sub">
+			<select title="Line type of this layer's items (unless they set their own)" value={l.dash ?? ''} onchange={(e) => put(`${l.name} line type`, record(l, { dash: e.currentTarget.value || undefined }))}>
+				{#each ['', ...DASHES] as d (d)}<option value={d}>{DASH_NAMES[d]}</option>{/each}
+			</select>
+			<select title="Lineweight of this layer's items on paper (unless they set their own) — prints as set" value={String(l.weightMm ?? 0)} onchange={(e) => put(`${l.name} lineweight`, record(l, { weightMm: Number(e.currentTarget.value) || undefined }))}>
+				<option value="0">Default weight</option>
+				{#each WEIGHTS as w (w)}<option value={String(w)}>{w} mm</option>{/each}
+			</select>
+		</div>
+	{/if}
 {/each}
 </SideSection>
 
@@ -138,4 +160,7 @@
 	.ic { display: inline-flex; padding: 1px; color: var(--cad-faint); border-radius: 2px; }
 	.ic:hover { color: var(--cad-text); }
 	.ic.on { color: var(--cad-link); }
+	.ic.ln { align-items: center; }
+	.sub { display: flex; gap: 0.25rem; padding: 1px 2px 3px 1.1rem; }
+	.sub select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 </style>
