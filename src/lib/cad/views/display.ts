@@ -53,7 +53,12 @@ export function primBounds(p: Prim): Bounds {
 		case 'circle': return { x0: p.c.x - p.r, y0: p.c.y - p.r, x1: p.c.x + p.r, y1: p.c.y + p.r }
 		case 'text': {
 			const w = p.text.length * p.size * 0.6, x0 = p.anchor === 'middle' ? p.at.x - w / 2 : p.anchor === 'end' ? p.at.x - w : p.at.x
-			return { x0, y0: p.at.y - p.size, x1: x0 + w, y1: p.at.y + p.size * 0.2 }
+			const b = { x0, y0: p.at.y - p.size, x1: x0 + w, y1: p.at.y + p.size * 0.2 }
+			if (!p.rot) return b
+			// turned text (a 0U PDU's name up its strip): the box turned about its anchor, as SVG's rotate() draws it
+			const a = (p.rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)
+			const pts = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].map(([x, y]) => ({ x: p.at.x + (x - p.at.x) * c - (y - p.at.y) * s, y: p.at.y + (x - p.at.x) * s + (y - p.at.y) * c }))
+			return { x0: Math.min(...pts.map((q) => q.x)), y0: Math.min(...pts.map((q) => q.y)), x1: Math.max(...pts.map((q) => q.x)), y1: Math.max(...pts.map((q) => q.y)) }
 		}
 		case 'image': return { x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h }
 	}
