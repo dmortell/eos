@@ -18,10 +18,11 @@ export class AssignTool implements Tool {
 	down(e: PointerIn, c: ToolCtx): void {
 		const hit = pickPrim(c.prims(), e.p, c.tol())
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined, d = hit?.src ? c.store.get(hit.src) : undefined
-		if (!sub || d?.type !== 'device' || d.kind !== 'panel') { c.say?.('Click a panel port in a rack view — the outlets go on from there'); return }
+		// a port: from there; the panel itself (Dave: drag the outlet rows "to a panel"): from its first free port
+		if (d?.type !== 'device' || d.kind !== 'panel') { c.say?.('Click a panel (or one of its ports) in a rack view — the outlets go on from there'); return }
 		const outlets = this.outlets.map((id) => c.index.get(id)).filter((o) => o?.type === 'outlet').sort((a, b) => naturalCompare(a!.label, b!.label))
 		const wants = outlets.flatMap((o) => (o!.type === 'outlet' ? o!.ports.map((p) => ({ outletId: o!.id, port: p.port })) : []))
-		const r = assignFrom(c.index, wants, { on: d.id, port: Number(sub) })
+		const r = assignFrom(c.index, wants, { on: d.id, port: sub ? Number(sub) : 1 })
 		if (!r.add.length) { c.say?.('No free panel ports from there'); return }
 		this.apply(`Assign ${outlets.length} outlet(s) to ${d.name}`, r.add, r.remove)
 		// a hand placement may cross tiers on purpose — say so rather than refuse

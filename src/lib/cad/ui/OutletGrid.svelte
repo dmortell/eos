@@ -105,7 +105,7 @@
 		ws.startDrag(() => ws.assignOutlets(ids), () => { ws.assignTool.outlets = [] })
 		e.dataTransfer?.setData('application/x-cad-outlets', ids.join(','))
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'link'
-		ws.say(`Drop the ${ids.length} outlet(s) on a panel port in a rack view: they go on from there`)
+		ws.say(`Drop the ${ids.length} outlet(s) on a panel in a rack view: they go on from the port you drop on, or its first free port`)
 	}
 	function assign() {
 		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')

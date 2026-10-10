@@ -10,13 +10,14 @@ import { RackTool } from './rackTool'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
 import { CordTool } from './cordTool'
+import { AssignTool } from './assignTool'
 import { deleteEntities, deleteImpact, impactText } from './commands'
 import { patchList } from '../domain/reports'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
 import type { Entity } from '../domain/drawing'
-import type { Device, Rack, Cord } from '../domain/types'
+import type { Device, Rack, Cord, Link } from '../domain/types'
 
 const ROW: ViewSpec = { kind: 'row', spaceId: 'SR-A', face: 'front' }
 const R2: Rack = { type: 'rack', id: 'R2', levelId: 'L33', spaceId: 'SR-A', order: 1, name: 'A02', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 }
@@ -72,6 +73,17 @@ describe('devices in the rack row', () => {
 		sel.down({ ...at(b.x, b.y), shift: true }, h.ctx()); sel.up({ ...at(b.x, b.y), shift: true }, h.ctx())
 		expect(h.sel()).toEqual(['U10', 'U8', 'U6', 'U4'])   // top down; the rear-only U5 isn't on this face, U2 is outside
 		expect(h.ports()).toBeNull()
+	})
+	it('outlets dropped on a panel itself (not a port) go on from its first free port (Dave: drag rows "to a panel")', () => {
+		const px: Device = { type: 'device', id: 'PX', rackId: 'R1', name: 'PX', kind: 'panel', u: 30, heightU: 1, face: 'both', portCount: 24, panel: { tier: 'low' } }
+		const h = harness(ROW, [px])
+		const added: Link[][] = []
+		const tool = new AssignTool(() => {}, (_l, add) => { added.push(add) })
+		tool.outlets = ['O2']
+		const body = h.ctx().prims().find((p) => p.src === 'PX' && p.k === 'line' && p.cls.startsWith('device'))!
+		const xs = body.k === 'line' ? body.pts.map((q) => q.x) : [], ys = body.k === 'line' ? body.pts.map((q) => q.y) : []
+		tool.down(at(Math.min(...xs) + 3, (Math.min(...ys) + Math.max(...ys)) / 2), h.ctx())   // the panel's edge, clear of its ports
+		expect(added[0]?.map((l) => [l.a.on, l.a.port, l.b.on, l.b.port])).toEqual([['PX', 1, 'O2', 1], ['PX', 2, 'O2', 2]])
 	})
 	it('the device tool adds the chosen template at the clicked U', () => {
 		const h = harness(ROW)

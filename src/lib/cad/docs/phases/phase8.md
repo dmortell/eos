@@ -1969,3 +1969,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   last device clicked (body or port) as the anchor, and a Shift-click on another device of that rack selects the range
   (a Shift-click on the same device still selects a port range). Help: "Select a run of devices in a rack, and unlink
   them". Test in `editor/racks.test.ts`. Not clicked live: Dave was working in the tab.
+- **Drag outlet rows onto a panel itself (Dave: Journey, rows from the bottom panel to a panel to allocate):** this
+  already worked onto a PORT; `AssignTool` now takes a drop (or click) on the panel's body too — from its first free
+  port. Hints and Help say so (and that a rack view opens the tables on the Patch list: pick Outlets). Test in
+  `editor/racks.test.ts`. Live (Test Project): an outlet row dragged onto PP3's edge linked its 4 ports; undone.
+- **Closed tables keep their tab bar (Dave):** closed, the tables leave their bar under the drawing — the four tabs and
+  an open button; a tab opens the panel on it (`TablesPanel` `closed`, `CadShell` `tablesBar`; not when Ctrl+. hides
+  everything). Help: "Open, move and dock windows". Live: ✕ left the 28 px bar; Outlets opened it on the outlet table.

@@ -297,7 +297,9 @@
 	const tablesShown = $derived(panels.shown.bottom && !layout.allHidden)
 	/** The tables in the strip under the drawing (not floating or maximised); folded, the strip is just their bar. */
 	const tablesDocked = $derived(tablesShown && !panels.tables.float && !panels.tables.max)
-	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : 0)
+	/** Closed, their bar of tabs stays under the drawing (Dave 2026-10-10) — not when every window is hidden. */
+	const tablesBar = $derived(!panels.shown.bottom && !layout.allHidden)
+	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : tablesBar ? 29 : 0)
 	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived(activeSheets(project))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
@@ -429,9 +431,9 @@
 				insert: (b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }, view: (s) => setPane(activePane, s) }} />
 	{/snippet}
 
-	{#snippet tables()}
+	{#snippet tables(closed = false)}
 		<TablesPanel {project} {ws} {panels} {level} {projectName} roomId={patchRoom} inRoomView={panes[activePane]?.kind === 'row'}
-			tab={bottom} onpick={pickBottom} onview={(s) => setPane(activePane, s)} area={planEl} />
+			tab={bottom} onpick={pickBottom} onview={(s) => setPane(activePane, s)} area={planEl} {closed} />
 	{/snippet}
 
 
@@ -484,9 +486,11 @@
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
 	<!-- the tables docked under the drawing (floating / maximised they sit in the drawing area, above) -->
-	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesDocked}>
-		<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
-		{#if tablesDocked}{@render tables()}{/if}
+	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesDocked && !tablesBar}>
+		{#if tablesDocked}
+			<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
+			{@render tables()}
+		{:else if tablesBar}{@render tables(true)}{/if}
 	</section>
 
 	<StatusBar {ws} {hint} onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} />

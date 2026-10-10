@@ -20,14 +20,19 @@
 	import LinksTable from './LinksTable.svelte'
 
 
-	let { project, ws, panels, level, projectName, roomId, inRoomView, tab, onpick, onview, area }: {
+	let { project, ws, panels, level, projectName, roomId, inRoomView, tab, onpick, onview, area, closed = false }: {
 		project: CadProject; ws: Workspace; panels: Panels; level: Level | undefined; projectName: string
 		roomId?: string; inRoomView: boolean; tab: TableTab; onpick: (t: TableTab) => void; onview: (s: ViewSpec) => void
 		/** The drawing area (a floating / maximised panel sits in it). */
 		area: HTMLElement | undefined
+		/** Closed: only the bar of tabs stays, under the drawing (Dave 2026-10-10); a tab opens the panel on it. */
+		closed?: boolean
 	} = $props()
 
 	const t = $derived(panels.tables)
+	const floating = $derived(t.float && !t.max && !closed), max = $derived(t.max && !closed), folded = $derived(closed || (t.folded && !t.max))
+	/** Open the closed panel, unfolded. */
+	const open = () => { set({ folded: false }); panels.toggle('bottom') }
 	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['patch', 'Patch list'], ['sheets', 'Sheets'], ['links', 'Links']]
 	/** The folded bar's summary: how many rows the open table has, and how many of them are selected. */
 	const summary = $derived.by(() => {
@@ -75,26 +80,30 @@
 
 <svelte:window onkeydowncapture={(e) => { if (t.max && e.key === 'Escape' && !(e.target instanceof Element && e.target.closest('input, select, textarea'))) { e.preventDefault(); e.stopPropagation(); set({ max: false }) } }} />
 
-<section class="tables" class:floating={t.float && !t.max} class:max={t.max} class:folded={t.folded && !t.max}
-	style:left={t.float && !t.max ? `${t.x}px` : undefined} style:top={t.float && !t.max ? `${t.y}px` : undefined}
-	style:width={t.float && !t.max ? `${t.w}px` : undefined} style:height={t.float && !t.max && !t.folded ? `${t.h}px` : undefined}>
+<section class="tables" class:floating class:max class:folded class:closed
+	style:left={floating ? `${t.x}px` : undefined} style:top={floating ? `${t.y}px` : undefined}
+	style:width={floating ? `${t.w}px` : undefined} style:height={floating && !t.folded ? `${t.h}px` : undefined}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<header onpointerdown={barDown} ondblclick={(e) => { if (!(e.target as HTMLElement).closest('button')) set({ folded: !t.folded }) }}>
+	<header onpointerdown={(e) => { if (!closed) barDown(e) }} ondblclick={(e) => { if (!(e.target as HTMLElement).closest('button')) { if (closed) open(); else set({ folded: !t.folded }) } }}>
 		<div class="tabs" role="tablist">
 			{#each TABS as [k, label] (k)}
-				<button role="tab" aria-selected={tab === k} class:on={tab === k} onclick={() => { onpick(k); if (t.folded) set({ folded: false }) }}>{label}</button>
+				<button role="tab" aria-selected={!closed && tab === k} class:on={!closed && tab === k} onclick={() => { onpick(k); if (closed) open(); else if (t.folded) set({ folded: false }) }}>{label}</button>
 			{/each}
 		</div>
-		<span class="sum">{TABS.find((x) => x[0] === tab)?.[1]} · {summary}</span>
+		{#if !closed}<span class="sum">{TABS.find((x) => x[0] === tab)?.[1]} · {summary}</span>{/if}
 		<span class="grow"></span>
-		{#if !t.max}<button class="ib" title={t.folded ? 'Unfold' : 'Fold to this bar'} onclick={() => set({ folded: !t.folded })}><Icon name={t.folded ? 'chevronUp' : 'chevronDown'} size={13} /></button>{/if}
-		<button class="ib" class:on={t.max} title={t.max ? 'Back to the drawing (Esc)' : 'Maximise: the table fills the drawing area'} onclick={() => set({ max: !t.max, folded: false })}><Icon name="expand" size={13} /></button>
-		{#if !t.max}
-			<button class="ib" title={t.float ? 'Dock it under the drawing' : 'Float it over the drawing (move and resize it)'} onclick={() => { set({ float: !t.float }); clamp() }}><Icon name={t.float ? 'panelBottom' : 'panels'} size={13} /></button>
+		{#if closed}
+			<button class="ib" title="Open the tables (Ctrl+,)" onclick={open}><Icon name="chevronUp" size={13} /></button>
+		{:else}
+			{#if !t.max}<button class="ib" title={t.folded ? 'Unfold' : 'Fold to this bar'} onclick={() => set({ folded: !t.folded })}><Icon name={t.folded ? 'chevronUp' : 'chevronDown'} size={13} /></button>{/if}
+			<button class="ib" class:on={t.max} title={t.max ? 'Back to the drawing (Esc)' : 'Maximise: the table fills the drawing area'} onclick={() => set({ max: !t.max, folded: false })}><Icon name="expand" size={13} /></button>
+			{#if !t.max}
+				<button class="ib" title={t.float ? 'Dock it under the drawing' : 'Float it over the drawing (move and resize it)'} onclick={() => { set({ float: !t.float }); clamp() }}><Icon name={t.float ? 'panelBottom' : 'panels'} size={13} /></button>
+			{/if}
+			<button class="ib" title="Close the tables to their tabs (Ctrl+, or a tab brings them back)" onclick={() => { set({ max: false }); panels.toggle('bottom') }}><Icon name="x" size={13} /></button>
 		{/if}
-		<button class="ib" title="Close the tables (Ctrl+, or View › Tables panel brings them back)" onclick={() => { set({ max: false }); panels.toggle('bottom') }}><Icon name="x" size={13} /></button>
 	</header>
-	{#if !t.folded || t.max}
+	{#if !folded}
 		<div class="body">
 			{#if tab === 'patch'}<PatchList {project} {ws} {projectName} {roomId} {inRoomView} />
 			{:else if tab === 'sheets'}<SheetsTab {project} {ws} {onview} />
