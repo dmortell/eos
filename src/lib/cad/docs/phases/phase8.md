@@ -1956,3 +1956,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the strip uses `$lib` DragReorder, a blue line on the side the tab goes. Help: "Work with the drawing tabs". Test in
   `app/tabs.test.ts`. Live: a tab dragged to the front and back with drag events — order changed, views unchanged.
   Off the backlog.
+- **Duplicate tabs (Dave: "why are there duplicate tabs shown?"):** switching a tab's view in place (the view bar's
+  Plan / Front …, a level picked elsewhere, Back / Forward) never checked for another tab open on that view; only the
+  Navigator's open did. `Tabs.go` / `sync` / `nav` now show that open tab instead (the current tab is left as it was),
+  and duplicates saved before merge on load (the first kept, panes moved to it). Test in `app/tabs.test.ts`. Live:
+  Test Project's two "IDF2 racks · Row A" and two "1F plan" tabs merged — 7 tabs, all different.

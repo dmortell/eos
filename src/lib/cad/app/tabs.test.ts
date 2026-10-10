@@ -1,5 +1,5 @@
 // Drawing tabs (UX review D1): one list for both panes, a preview tab, history per tab.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Tabs, viewKey, type TabView } from './tabs.svelte'
 
 const plan = (levelId: string): TabView => ({ levelId, spec: { kind: 'plan' } })
@@ -42,6 +42,26 @@ describe('drawing tabs', () => {
 		const a = t.open(1, sheet('S1'), false, 0)
 		const b = t.open(0, sheet('S2'), false, 0)
 		expect(b.id).not.toBe(a.id)
+	})
+	it('switching a tab to a view another tab has open shows that tab — no duplicate (Dave); old duplicates merge on load', () => {
+		const t = new Tabs('dup')
+		t.ensure(0, plan('L1'))
+		const s1 = t.open(0, sheet('S1'), true, 0)
+		const front: TabView = { levelId: 'L1', spec: { kind: 'elevation', dir: 'front' } }
+		const fr = t.open(0, front, true, 0)
+		t.go(0, plan('L1'))                       // the Plan button in the front elevation's tab
+		expect(t.list).toHaveLength(3)
+		expect(t.of(0)?.view).toEqual(plan('L1'))
+		expect(t.get(fr.id)?.view).toEqual(front)  // that tab is left as it was
+		t.paneTab[0] = s1.id
+		t.sync(0, front)                           // the pane shows the front elevation some other way
+		expect([t.list.length, t.paneTab[0]]).toEqual([3, fr.id])
+		// saved with a duplicate: loaded as one tab, the pane on the first
+		const a = t.list[0], saved = JSON.stringify({ list: [...t.list, { ...a, id: 'DUP' }], paneTab: ['DUP', null] })
+		vi.stubGlobal('localStorage', { getItem: () => saved, setItem: () => {} })
+		const again = new Tabs('dup')
+		vi.unstubAllGlobals()
+		expect([again.list.length, again.paneTab[0]]).toEqual([3, a.id])
 	})
 	it('a dragged tab goes before / after another; the pane keeps showing its tab', () => {
 		const t = new Tabs('p')

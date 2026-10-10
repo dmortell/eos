@@ -33,8 +33,11 @@ export class Tabs {
 		this.#key = `cad-tabs:${pid}`
 		try {
 			const s = JSON.parse(localStorage.getItem(this.#key) ?? '{}') as { list?: Tab[]; paneTab?: (string | null)[] }
-			if (Array.isArray(s.list)) this.list = s.list.map((t) => ({ ...t, back: [], fwd: [] }))
-			if (Array.isArray(s.paneTab)) this.paneTab = [s.paneTab[0] ?? null, s.paneTab[1] ?? null]
+			// two tabs on one view (saved before switching views checked for an open tab) become one: the first
+			const first = new Map<string, string>(), same = new Map<string, string>()
+			for (const t of Array.isArray(s.list) ? s.list : []) { const k = viewKey(t.view), f = first.get(k); if (f) same.set(t.id, f); else first.set(k, t.id) }
+			if (Array.isArray(s.list)) this.list = s.list.filter((t) => !same.has(t.id)).map((t) => ({ ...t, back: [], fwd: [] }))
+			if (Array.isArray(s.paneTab)) this.paneTab = [0, 1].map((k) => { const p = s.paneTab![k] ?? null; return p && same.has(p) ? same.get(p)! : p })
 		} catch { /* nothing saved, or storage blocked */ }
 	}
 	/** The list and which tab each pane shows (not the histories). */
@@ -55,11 +58,22 @@ export class Tabs {
 		this.save()
 		return t
 	}
-	/** The view in pane `i`'s tab changes (its strip, a level, To sheet): the old view goes on its Back list. */
+	/** Another tab already showing `view` becomes pane `i`'s tab (Dave: a view switched to inside a tab made a
+	 *  duplicate of a tab already open on it). True = done. */
+	#toOpen(i: number, t: Tab, view: TabView): boolean {
+		const other = this.list.find((x) => x.id !== t.id && viewKey(x.view) === viewKey(view))
+		if (!other) return false
+		this.paneTab[i] = other.id
+		this.save()
+		return true
+	}
+	/** The view in pane `i`'s tab changes (its strip, a level, To sheet): the old view goes on its Back list — unless
+	 *  another tab is open on that view: the pane shows that tab. */
 	go(i: number, view: TabView): void {
 		const t = this.of(i)
 		if (!t) { this.ensure(i, view); return }
 		if (viewKey(t.view) === viewKey(view)) { t.view = copy(view); this.save(); return }
+		if (this.#toOpen(i, t, view)) return
 		t.back = [...t.back.slice(-49), t.view]
 		t.fwd = []
 		t.view = copy(view)
@@ -69,7 +83,7 @@ export class Tabs {
 	sync(i: number, view: TabView): void {
 		const t = this.of(i)
 		if (!t) { this.ensure(i, view); return }
-		if (viewKey(t.view) !== viewKey(view)) { t.view = copy(view); this.save() }
+		if (viewKey(t.view) !== viewKey(view) && !this.#toOpen(i, t, view)) { t.view = copy(view); this.save() }
 	}
 	/** Back (−1) / forward (+1) inside pane `i`'s tab: the view to show, or null (`exists` skips deleted sheets). */
 	nav(i: number, dir: -1 | 1, exists: (v: TabView) => boolean): TabView | null {
@@ -79,6 +93,7 @@ export class Tabs {
 		let to: TabView | undefined
 		while ((to = from.pop()) && !exists(to)) { /* a deleted sheet / section */ }
 		if (!to) return null
+		if (this.#toOpen(i, t, to)) return to   // open in another tab: that tab
 		if (dir < 0) t.fwd.push(t.view); else t.back.push(t.view)
 		t.view = to
 		this.save()
