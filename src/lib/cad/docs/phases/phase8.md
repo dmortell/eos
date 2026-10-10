@@ -2033,3 +2033,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   One helper, `portAt` (domain/devices.ts), for the rack view, the frame sheets and the panel label sheets (each had
   its own copy). 1–2-row devices are unchanged; the only 3+-row devices numbered down in any project are Journey's
   three CCS-720XP-96 (checked read-only). Help: "Number a switch's ports down". Test in `views/rackRow.test.ts`.
+- **Patch to… / Link to… hand the tool back (Dave: "after linking … the cursor remains a crosshair — what will
+  clicking further ports do?"):** the armed bulk was made on the click, but the Cord tool stayed, so two more port
+  clicks made a patch cord. Arming (`ws.#armBulk`) remembers the tool you had; the cord tool calls `done` once the
+  bulk is made or Esc'd and the workspace puts that tool back. Picking the Cord tool yourself still makes cord after
+  cord. Help: "Link several panels to a switch". Test in `editor/racks.test.ts`. Live (Test Project): L → Cord tool,
+  Esc → Select again; nothing written.

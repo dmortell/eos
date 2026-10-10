@@ -147,7 +147,7 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	/** Match properties: its source is set when it starts (CadShell setTool). */
 	readonly matchTool = new MatchTool()
-	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType)
+	readonly cordTool = new CordTool(() => this.cordDefaults, { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone())
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
@@ -169,24 +169,26 @@ export class Workspace {
 		this.toolId = 'rack'
 	}
 	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
-	patchFrom(sel: PortSel): void {
-		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face }
-		this.toolId = 'cord'
-	}
+	patchFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face }) }
 	/** Arm an interconnect from these ports (backbone / tie cables, Phase 5): the next port clicked — in any room, on
 	 *  any floor — is where they start on the other panel. */
-	interconnectFrom(sel: PortSel): void {
-		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }
+	interconnectFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }) }
+	/** The tool to go back to once the armed Patch to… / Link to… is done or Esc'd (Dave: the crosshair stayed, and two
+	 *  more port clicks made a patch cord). */
+	#bulkReturn: ToolId = 'select'
+	#armBulk(b: BulkFrom): void {
+		if (this.toolId !== 'cord') this.#bulkReturn = this.toolId
+		this.bulkFrom = b
 		this.toolId = 'cord'
 	}
+	bulkDone = (): void => { this.toolId = this.#bulkReturn }
 	/** Link to… with several panels selected: all their ports, the top panel first (by rack, then U), go on from the
 	 *  port clicked next — four 24-port panels onto ports 1–96 of a switch. */
 	interconnectPanels(panels: Device[]): void {
 		const order = [...panels].sort((x, y) => x.rackId.localeCompare(y.rackId) || y.u - x.u)
 		const all = order.map((d) => ({ on: d.id, ports: Array.from({ length: d.portCount }, (_, i) => i + 1) }))
 		if (!all.length) return
-		this.bulkFrom = { ...all[0], face: 'rear', kind: 'link', more: all.slice(1) }
-		this.toolId = 'cord'
+		this.#armBulk({ ...all[0], face: 'rear', kind: 'link', more: all.slice(1) })
 	}
 	/** Arm "assign by hand" with these outlets; the next panel-port click places them. */
 	assignOutlets(ids: Id[]): void {

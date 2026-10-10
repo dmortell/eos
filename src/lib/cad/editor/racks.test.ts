@@ -9,7 +9,7 @@ import { SelectTool } from './selectTool'
 import { RackTool } from './rackTool'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
-import { CordTool } from './cordTool'
+import { CordTool, type BulkFrom } from './cordTool'
 import { AssignTool } from './assignTool'
 import { deleteEntities, deleteImpact, impactText } from './commands'
 import { patchList } from '../domain/reports'
@@ -161,6 +161,19 @@ describe('devices in the rack row', () => {
 		const cord = h.store.ofType('cord').find((c) => c.a.on === 'P1' && c.a.port === 3)
 		expect(cord).toMatchObject({ status: 'add', colour: '#ef4444', a: { face: 'front' }, b: { on: 'SW1', port: 5 } })
 		expect(h.sel()).toEqual([cord!.id])
+	})
+	it('an armed Patch to… / Link to… hands back the tool once made or Esc’d — a stray click doesn’t make a cord (Dave: the crosshair stayed)', () => {
+		const h = harness(ROW)
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		let bulk: BulkFrom | null = { on: 'P1', ports: [3], face: 'front' }, done = 0
+		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++)
+		tool.down(portOf('SW1', 5), h.ctx())
+		expect([bulk, done]).toEqual([null, 1])
+		bulk = { on: 'P1', ports: [4], face: 'front', kind: 'link' }
+		expect(tool.key({ key: 'Escape' } as KeyboardEvent)).toBe(true)
+		expect([bulk, done]).toEqual([null, 2])
 	})
 	it('Delete on cords: a planned one goes, an installed one is only marked `remove`', () => {
 		const h = harness(ROW)

@@ -21,7 +21,8 @@ export class CordTool implements Tool {
 
 	/** `bulk`: ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
 	/** `linkType` = the cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
-	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '') {}
+	/** `done`: a bulk patch / link has been made (or Esc'd) — the workspace puts back the tool you had. */
+	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}) {}
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
 
@@ -49,6 +50,7 @@ export class CordTool implements Tool {
 			}
 			c.say?.(`${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
 			this.bulk = null
+			this.done()
 			return
 		}
 		if (this.bulk) {
@@ -59,6 +61,7 @@ export class CordTool implements Tool {
 			}
 			c.say?.(`${res.cords.length} cord(s) added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
 			this.bulk = null
+			this.done()
 			return
 		}
 		if (!this.#first) {
@@ -81,7 +84,8 @@ export class CordTool implements Tool {
 	 *  floor, so the user switches views between picking the ports and clicking the target. Esc drops both. */
 	cancel(): void { this.#first = null; this.#hover = null }
 	key(e: KeyboardEvent): boolean {
-		if (e.key === 'Escape' && (this.#first || this.bulk)) { this.cancel(); this.bulk = null; return true }
+		if (e.key === 'Escape' && this.bulk) { this.cancel(); this.bulk = null; this.done(); return true }
+		if (e.key === 'Escape' && this.#first) { this.cancel(); return true }
 		return false
 	}
 
