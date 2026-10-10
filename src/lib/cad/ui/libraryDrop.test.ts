@@ -1,7 +1,7 @@
 // A library drag over a view (viewportEdit.ts): which views take it, and what the drop does (backlog "Blocks: drag to
 // place", Dave 2026-10-10).
 import { describe, it, expect } from 'vitest'
-import { dropTakes, libraryDrop } from './viewportEdit'
+import { dropTakes, dropEffectFor, libraryDrop } from './viewportEdit'
 import type { Workspace } from '../app/workspace.svelte'
 import type { PointerIn, ToolCtx } from '../editor/tools'
 
@@ -15,6 +15,9 @@ describe('library drag and drop', () => {
 	it('a template / outlets / ports (no tool named): rack views only, as before; no drag: nothing', () => {
 		expect(['row', 'plan'].map((k) => dropTakes(drag(), k as never, false))).toEqual([true, false])
 		expect(dropTakes(null, 'plan', false)).toBe(false)
+	})
+	it('the drop effect is one the source allows — outlets (link) were refused when every drag was answered with copy', () => {
+		expect(['link', 'copy', 'all', 'uninitialized', 'linkMove', 'move'].map((a) => dropEffectFor(a as DataTransfer['effectAllowed']))).toEqual(['link', 'copy', 'copy', 'copy', 'link', 'move'])
 	})
 	it('over the view it arms the tool once and shows its ghost; the drop is the tool’s click there', () => {
 		let armed = 0, hovers = 0, downs: PointerIn[] = []

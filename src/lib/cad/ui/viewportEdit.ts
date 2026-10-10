@@ -44,6 +44,11 @@ export function dropTakes(drag: Workspace['dragArm'], kind: ViewSpec['kind'], in
 	return !!drag && !inViewport && (drag.tool ? toolWorksIn(drag.tool, kind) : kind === 'row')
 }
 
+/** The drop effect to answer a drag with: one its source allows. */
+export function dropEffectFor(allowed: DataTransfer['effectAllowed']): DataTransfer['dropEffect'] {
+	return allowed === 'link' || allowed === 'linkMove' ? 'link' : allowed === 'move' ? 'move' : 'copy'
+}
+
 /** The drop handlers for a library drag over a view; `ok()` = this view takes it (a rack view, not inside a viewport). */
 export function libraryDrop(o: { ws: Workspace; ok: () => boolean; input: (e: MouseEvent) => PointerIn; ctx: () => ToolCtx; surface: () => Element | undefined; changed: () => void; focus?: () => void }) {
 	const { ws } = o
@@ -52,7 +57,9 @@ export function libraryDrop(o: { ws: Workspace; ok: () => boolean; input: (e: Mo
 			const d = ws.dragArm
 			if (!d || !o.ok()) return
 			e.preventDefault()
-			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+			// the effect the source allows (outlets from the table: 'link'; templates / blocks: 'copy') — one it doesn't
+			// allow makes the browser refuse the drop (Dave: dragging outlets 201–257 onto a panel showed "no drop")
+			if (e.dataTransfer) e.dataTransfer.dropEffect = dropEffectFor(e.dataTransfer.effectAllowed)
 			if (!d.armed) { d.arm(); d.armed = true }   // the tool it arms, once (it stays armed until the drop / drag end)
 			o.focus?.()
 			ws.tool.hover?.(o.input(e), o.ctx()); o.changed()

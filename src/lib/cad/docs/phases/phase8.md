@@ -1979,3 +1979,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Gap under the status bar (Dave):** the shell was `100vh − 3rem` (42 px) under a 28 px title bar, leaving 14 px
   empty. The cad page's Titlebar is now `height={28}` and the shell `100dvh − 28px`. Live: the status bar ends at the
   window's bottom, no page scroll.
+- **Outlet drag refused in a real browser (Dave: outlets 201–257 onto the U10 panel, "drop remains disabled"):** the
+  table starts the drag with `effectAllowed = 'link'` and the view answered every dragover with `dropEffect = 'copy'`;
+  a drop effect the source doesn't allow makes the browser show "no drop" and never fire `drop`. Synthetic drag events
+  (the earlier live checks) skip that check. `dropEffectFor(effectAllowed)` now answers in kind. Test in
+  `ui/libraryDrop.test.ts`.
