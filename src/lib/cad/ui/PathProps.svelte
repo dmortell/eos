@@ -9,7 +9,7 @@
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { withStyle } from '../domain/shapes'
-	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
+	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, servableRooms, toggleServes, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
 	import { removeNode, segmentLengths } from '../domain/pathEdit'
@@ -28,6 +28,8 @@
 	})
 
 	const lengths = $derived(segmentLengths(s))
+	const rooms = $derived(servableRooms(project.index, s))
+	const serving = $derived(s.role?.kind === 'containment' ? s.role.serves ?? [] : [])
 	const fmtMm = (v: number) => `${Math.round(v).toLocaleString('en').replace(/,/g, ' ')} mm`
 	const save = (label: string, next: Shape) => project.store.transact(label, (tx) => tx.put(next))
 
@@ -142,6 +144,17 @@
 	{/if}
 	<!-- up here, not under the long Segments / Nodes lists (Dave 2026-10-10) -->
 	<LayerPick {project} ids={[s.id]} />
+	{#if s.role?.kind === 'containment' && rooms.length}
+		<!-- which server rooms' cables may join it (outlet drops, racks); none ticked = every room -->
+		<div class="row" title="The server rooms whose cables may join this run — from their outlets or racks. None ticked: every room. Along the way a cable uses any run.">Serves
+			<span class="serves">
+				{#each rooms as r (r.id)}
+					<label><input type="checkbox" checked={serving.includes(r.id)} onchange={(e) => save(e.currentTarget.checked ? `Serves ${r.name}` : `No longer serves ${r.name}`, toggleServes(s, r.id, e.currentTarget.checked))} /> {r.name}</label>
+				{/each}
+				{#if !serving.length}<span class="hint">every room</span>{/if}
+			</span>
+		</div>
+	{/if}
 </PropGroup>
 {#if s.section || s.role?.kind === 'containment'}
 	<PropGroup kind={kind} title="Size and height">
@@ -195,6 +208,9 @@
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
+	.serves { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+	.serves label { white-space: nowrap; }
+	.serves .hint { color: var(--cad-faint); }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	/* one node per row: index, x, y, z, drop */
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }

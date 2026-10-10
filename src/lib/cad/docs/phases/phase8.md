@@ -2053,3 +2053,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   on it went nowhere ("the runs at the two ends are not connected"). `outletTap` and `rackTaps` now skip a segment with
   no pieces; the outlet joins the segment beside it (38 mm further). Test in `domain/routing.test.ts` (fails without
   the fix). Journey in memory, nothing written: TV06.A / .B → 20 m.
+- **Edit which server rooms a run serves (Dave: Journey TV07 / TV08 not connected; "allow editing which rooms a
+  conduit / trunk serves. Do vertical risers also need it across floors?"):** `role.serves` came only from the legacy
+  Outlets import and nothing showed it; every high conduit on 33F 3303 served 33IDF1 only, so 33IDF2's high outlets
+  (TV07, TV08, CCTV01–04, AP01, TEL01) found no run ("no high run within 10 m … serving its room"). Run Properties ›
+  General › Serves: a box per server room on the run's levels (and any it serves already); none = every room
+  (`servableRooms` / `toggleServes`, domain/runEdit.ts). Risers: no — serving only gates where a cable JOINS (outlet
+  drop, rack); the walk uses any run. Tests in `domain/runEdit.test.ts`. Journey in memory, nothing written: with
+  33IDF2 ticked on 5m3-h8C-JYJ1 all 8 route (4–23 m). Live (Test Project TR2): ticked 33IDF1, Edit › Undo, back to
+  none (checked in Firestore). Help: "Which server rooms a run serves".

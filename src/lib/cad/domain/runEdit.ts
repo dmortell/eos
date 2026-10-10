@@ -2,6 +2,9 @@
 // once"): converting a path to a line / wall / trunk / conduit / tray, and where it runs — under floor, ceiling plenum,
 // below ceiling, on a wall — as a height from its level's heights and a tier. Pure.
 import type { Shape, Section } from './shapes'
+import type { Id, Space } from './types'
+import type { ProjectIndex } from './project'
+import { naturalCompare } from './labels'
 import { toLine, toWall, toContainment } from './make'
 
 export type RunKind = 'line' | 'wall' | 'trunk' | 'conduit' | 'tray'
@@ -50,4 +53,23 @@ export function setRunPlace(s: Shape, heights: Heights | undefined, p: RunPlace)
 	if (!q || role?.kind !== 'containment' || s.geom.kind !== 'path') return null
 	const was = mainZ(s)
 	return { ...s, role: { ...role, tier: q.tier }, geom: { ...s.geom, nodes: s.geom.nodes.map((n) => (n.z === was ? { ...n, z: q.z } : n)) } }
+}
+
+/** The server rooms a run can be set to serve: those on every level it reaches, plus any it serves already (so a
+ *  stale one can be unticked). Serving decides only where cables may JOIN the run (an outlet's drop, a rack's); once
+ *  in, a cable goes along any run — a riser needs none (Dave 2026-10-10: Journey's high conduits served 33IDF1 only,
+ *  so 33IDF2's TV07 / TV08 found no run beside them). */
+export function servableRooms(ix: ProjectIndex, s: Shape): Space[] {
+	if (s.geom.kind !== 'path') return []
+	const levels = new Set([s.levelId, ...s.geom.nodes.map((n) => n.levelId)].filter(Boolean))
+	const now = new Set(s.role?.kind === 'containment' ? s.role.serves ?? [] : [])
+	return ix.spaces.filter((r) => (r.kind === 'server room' && levels.has(r.levelId)) || now.has(r.id)).sort((a, b) => naturalCompare(a.name, b.name))
+}
+
+/** The run with a server room ticked on / off; none left = it serves every room (`serves` dropped). */
+export function toggleServes(s: Shape, roomId: Id, on: boolean): Shape {
+	if (s.role?.kind !== 'containment') return s
+	const { serves: _, ...role } = s.role
+	const next = on ? [...new Set([...(s.role.serves ?? []), roomId])] : (s.role.serves ?? []).filter((id) => id !== roomId)
+	return { ...s, role: next.length ? { ...role, serves: next } : role }
 }
