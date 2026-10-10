@@ -2012,3 +2012,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the Properties field shows the worked-out one in grey. Tests in `domain/portGroups.test.ts`. Checked on Journey's
   data in memory (nothing written): with its two labels cleared, P3A U41 reads P3A-R301:01–24 / P3A-R302:01–24, and
   R302-P3A's ports P3A-R302:NN. Dave clears the two typed labels himself.
+- **Split label boxes out of sight (Dave: "I can't see the split label fields"):** with ranges, each line (from, to,
+  label, ✕) sat in the 2nd column of the 6.5rem / 1fr row; the number boxes and ✕ left the label box 10 px wide. Each
+  range is now its own full-width line under "Split labels" (`.range` grid: 3rem – 3rem 1fr ✕); + Range sits on the
+  header row. Live (Test Project, PP3 "In two", undone): label boxes 110 px, PP3-A / PP3-B shown in grey.

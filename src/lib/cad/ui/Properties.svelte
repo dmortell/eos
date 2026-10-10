@@ -409,29 +409,31 @@
 				</div>
 			{/if}
 			{#if d.kind === 'panel' && d.portCount > 1}
+				{@const groups = d.panel?.groups ?? []}
+				{@const last = groups.reduce((m, g) => Math.max(m, g.to), 0)}
 				<div class="row" title="Give a range of ports its own label: a port in it shows “label:NN”, counted from the range's first port (the 25th port of a panel whose bottom half is P3A-R302 is P3A-R302:01), at both ends of its cable">
 					<span>Split labels</span>
-					<span class="flex flex-col gap-1">
-						{#each d.panel?.groups ?? [] as g, i (i)}
-							<span class="flex items-center gap-1">
-								<input class="inp num" type="number" min="1" max={d.portCount} value={g.from} title="First port" onchange={(e) => editGroup(d, i, { from: Number(e.currentTarget.value) })} />–<input class="inp num" type="number" min="1" max={d.portCount} value={g.to} title="Last port" onchange={(e) => editGroup(d, i, { to: Number(e.currentTarget.value) })} />
-								<!-- empty = from its cables (the grey text); typed = that label -->
-								<input class="inp" value={g.label ?? ''} placeholder={rangeLabel(project.index, d, { from: g.from, to: g.to })} title="Empty: named from its cables (this rack - the rack they go to). Type to set your own; clear it to go back."
-									onchange={(e) => editGroup(d, i, { label: e.currentTarget.value.trim() || undefined })} />
-								<button class="btn" title="Remove this range (its ports go back to their usual labels)" onclick={() => setGroups(d, (d.panel?.groups ?? []).filter((_, j) => j !== i), `${d.name} port range removed`)}>✕</button>
-							</span>
-						{:else}
-							<span class="flex items-center gap-1">
-								<button class="btn whitespace-nowrap" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(d, 2), `${d.name} split in two`)}>In two</button>
-								<span class="text-zinc-400">one label</span>
-							</span>
-						{/each}
-						{#if d.panel?.groups?.length}
-							{@const last = d.panel.groups.reduce((m, g) => Math.max(m, g.to), 0)}
-							{#if last < d.portCount}<button class="btn self-start" title="Another range, from the port after the last range to the end" onclick={() => setGroups(d, [...(d.panel?.groups ?? []), { from: last + 1, to: d.portCount }], `${d.name} port range added`)}>+ Range</button>{/if}
+					<span class="flex items-center gap-1">
+						{#if !groups.length}
+							<button class="btn whitespace-nowrap" title="Two ranges, top and bottom half — each named from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(d, 2), `${d.name} split in two`)}>In two</button>
+							<span class="text-zinc-400">one label</span>
+						{:else if last < d.portCount}
+							<button class="btn whitespace-nowrap" title="Another range, from the port after the last range to the end" onclick={() => setGroups(d, [...groups, { from: last + 1, to: d.portCount }], `${d.name} port range added`)}>+ Range</button>
 						{/if}
 					</span>
 				</div>
+				<!-- each range on its own full-width line (Dave: the label box was squeezed out of sight): ports from – to, label, ✕ -->
+				{#each groups as g, i (i)}
+					<div class="range">
+						<input class="inp" type="number" min="1" max={d.portCount} value={g.from} title="First port" onchange={(e) => editGroup(d, i, { from: Number(e.currentTarget.value) })} />
+						<span>–</span>
+						<input class="inp" type="number" min="1" max={d.portCount} value={g.to} title="Last port" onchange={(e) => editGroup(d, i, { to: Number(e.currentTarget.value) })} />
+						<!-- empty = from its cables (the grey text); typed = that label -->
+						<input class="inp" value={g.label ?? ''} placeholder={rangeLabel(project.index, d, { from: g.from, to: g.to })} title="Empty: named from its cables (this rack - the rack they go to). Type to set your own; clear it to go back."
+							onchange={(e) => editGroup(d, i, { label: e.currentTarget.value.trim() || undefined })} />
+						<button class="btn" title="Remove this range (its ports go back to their usual labels)" onclick={() => setGroups(d, groups.filter((_, j) => j !== i), `${d.name} port range removed`)}>✕</button>
+					</div>
+				{/each}
 			{/if}
 			{#if d.kind === 'panel' && d.portCount}
 				{@const stale = changedSincePrinted(project.index, d)}
@@ -528,7 +530,8 @@
 	.usages label { white-space: nowrap; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
-	.inp.num { width: 3.2rem; flex: none; }
+	/* a split-label range: first port – last port, its label (the rest of the width), ✕ */
+	.range { display: grid; grid-template-columns: 3rem auto 3rem minmax(0, 1fr) auto; align-items: center; gap: 0.25rem; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.btn.del:hover { color: #dc2626; }
