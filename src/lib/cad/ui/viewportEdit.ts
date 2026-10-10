@@ -1,11 +1,13 @@
 // Viewport actions of a sheet view (split out of ViewCanvas): ENTER / LEAVE editing inside a viewport (UX review S5:
 // its level opens, the selection starts empty; leaving picks the viewport), Alt+wheel STEPS its scale (T126), and a
-// DRAG that arms a tool dropped on a rack view (`ws.dragArm`): a Device library template (the Device tool's ghost at
-// the snapped U), outlets from the table (Assign), ports from Port Properties (Patch / Link) — the drop is the
-// tool's click there; the source puts the old tool back when the drag ends.
+// DRAG that arms a tool dropped on a view (`ws.dragArm`): a Device library template (the Device tool's ghost at the
+// snapped U), outlets from the table (Assign), ports from Port Properties (Patch / Link) on rack views; a block from
+// the Blocks list (Insert) on a plan, an elevation / section or a sheet — the drop is the tool's click there; the
+// source puts the old tool back when the drag ends.
 import type { CadProject } from '../app/project.svelte'
-import type { Workspace } from '../app/workspace.svelte'
+import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
 import type { Sheet } from '../domain/drawing'
+import type { ViewSpec } from '../views/space'
 import type { Pt } from '../domain/types'
 import type { PointerIn, ToolCtx } from '../editor/tools'
 import { nextScale } from '../views/sheet'
@@ -34,6 +36,12 @@ export function rescaleViewport(project: CadProject, ws: Workspace, sheet: Sheet
 	if (scale !== vp.scale) project.store.transact(`Viewport scale 1:${scale}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
 	ws.say(`1:${scale} — the wheel steps the viewport's scale with Pan / zoom content on (or Alt+wheel)`)
 	return true
+}
+
+/** Whether a view of this kind takes a library drag: one that names its tool (a block → Insert) where that tool works,
+ *  else (device templates, outlets, ports) rack views only; never inside an edited viewport. */
+export function dropTakes(drag: Workspace['dragArm'], kind: ViewSpec['kind'], inViewport: boolean): boolean {
+	return !!drag && !inViewport && (drag.tool ? toolWorksIn(drag.tool, kind) : kind === 'row')
 }
 
 /** The drop handlers for a library drag over a view; `ok()` = this view takes it (a rack view, not inside a viewport). */

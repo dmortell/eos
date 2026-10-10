@@ -74,9 +74,10 @@ export class Workspace {
 	/** A DRAG that arms a tool (the Device library's templates, outlets from the table, ports from Port Properties —
 	 *  backlog "Bulk patching by drag"): over a rack view it arms its tool once (`arm`), the drop is that tool's click on
 	 *  the port / U under it, and when the drag ends the tool you had comes back (`disarm` undoes an unused arming). */
-	dragArm = $state.raw<{ prevTool: ToolId; arm: () => void; disarm?: () => void; armed?: boolean } | null>(null)
-	/** Start such a drag (from a dragstart). */
-	startDrag(arm: () => void, disarm?: () => void): void { this.dragArm = { prevTool: this.toolId, arm, disarm } }
+	dragArm = $state.raw<{ prevTool: ToolId; arm: () => void; disarm?: () => void; armed?: boolean; tool?: ToolId } | null>(null)
+	/** Start such a drag (from a dragstart). `tool` = the tool it arms, so any view that tool works in takes the drop (a
+	 *  block from the Blocks list); without it, rack views only. */
+	startDrag(arm: () => void, disarm?: () => void, tool?: ToolId): void { this.dragArm = { prevTool: this.toolId, arm, disarm, ...(tool ? { tool } : {}) } }
 	/** The drag ended (dropped or not): unused arming undone, the tool you had back. */
 	endDrag(): void {
 		const d = this.dragArm

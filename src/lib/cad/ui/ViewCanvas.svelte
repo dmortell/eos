@@ -34,7 +34,7 @@
 	import { TouchNav } from '../editor/touch'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
-	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop } from './viewportEdit'
+	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop, dropTakes } from './viewportEdit'
 	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
 	import PortTip from './PortTip.svelte'
@@ -352,7 +352,7 @@
 
 	// a device template dragged from the Device library onto a rack view (ui/viewportEdit.ts)
 	// svelte-ignore state_referenced_locally
-	const lib = libraryDrop({ ws, ok: () => spec.kind === 'row' && !vpe, input: (e) => input(e), ctx, surface: () => svg, changed: () => tick++, focus: () => onfocus?.() })
+	const lib = libraryDrop({ ws, ok: () => dropTakes(ws.dragArm, spec.kind, !!vpe), input: (e) => input(e), ctx, surface: () => svg, changed: () => tick++, focus: () => onfocus?.() })
 	// touch (editor/touch.ts): two fingers pan / pinch anywhere; one finger on empty space pans with Select, a tap clears
 	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
 		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpe.prims, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })

@@ -36,6 +36,14 @@
 		return [...by].sort((a, c) => a[0].localeCompare(c[0])).map(([cat, bs]) => ({ cat, rows: bs.map((b) => ({ b, ...(b.shapes.length ? blockPreview(b) : { prims: [], viewBox: '-1 -1 2 2' }) })) }))
 	})
 	const picked = $derived(ws.toolId === 'insert' ? ws.insertBlock?.id : undefined)
+	/** Drag a block onto a plan, an elevation / section or a sheet (backlog "Blocks: drag to place"): over the view it
+	 *  arms Insert (the ghost follows), the drop places it; then the tool you had comes back. */
+	function dragBlock(e: DragEvent, b: Block) {
+		const had = ws.insertBlock
+		ws.startDrag(() => { ws.insertBlock = b; ws.toolId = 'insert' }, () => { ws.insertBlock = had }, 'insert')
+		e.dataTransfer?.setData('application/x-cad-block', b.id)
+		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+	}
 	function retire(b: Block) {
 		ws.ask2(`Delete block ${b.name} from the library (every project)? What's already drawn keeps it. This can't be undone.`, 'Delete block', () => project.retireBlock(b.id))
 	}
@@ -51,7 +59,8 @@
 		<p class="cat">{g.cat}</p>
 		{#each g.rows as r (r.b.id)}
 			<div class="row" class:here class:on={picked === r.b.id}>
-				<button class="pick" title="Place {r.b.name}{picked === r.b.id ? ' (click again to stop)' : ''}" disabled={!project.blockOf(r.b.id)} onclick={() => onpick(picked === r.b.id ? null : r.b)}>
+				<button class="pick" title="Place {r.b.name}: click, then click where it goes — or drag it onto the drawing{picked === r.b.id ? ' (click again to stop)' : ''}" disabled={!project.blockOf(r.b.id)} onclick={() => onpick(picked === r.b.id ? null : r.b)}
+					draggable={!!project.blockOf(r.b.id)} ondragstart={(e) => dragBlock(e, r.b)} ondragend={() => ws.endDrag()}>
 					<svg class="pv" viewBox={r.viewBox}><Prims prims={r.prims} selected={new Set()} /></svg>
 					<span class="nm">{r.b.name}</span>
 				</button>

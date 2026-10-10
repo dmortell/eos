@@ -1917,3 +1917,12 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   outlets (the selected, else the shown) and opens it; the mode resets when the selection clears. Tests:
   `renumber.test.ts` (+3). Live (1F plan, 8 outlets): A0 → Z0 previewed 5; port labels with `-A(\d+)$` → `/$1` turned
   L01.003-A01 into L01.003/01, applied, undone; "(" said "Not a valid pattern …". Help entry.
+- **Blocks: drag to place** (backlog G284 part): a block in the Blocks list can be dragged onto a plan, an elevation /
+  section or a sheet (not a rack view, not inside an edited viewport): over the view it arms Insert with that block
+  (its ghost follows), the drop is Insert's click there (on the wall behind it in an elevation), then the tool and
+  block you had come back. The drag-arm (`ws.startDrag`) can now name its tool; `dropTakes` (ui/viewportEdit.ts)
+  decides which views take a drag (a named tool: where it works; else rack views, as before). Tests:
+  `ui/libraryDrop.test.ts` (3). Live (1F plan): "Faceplate - power, single" dragged in with HTML drag events — ghost
+  shown, the insert placed and selected, Select back; undone. Left in the backlog: a block's own front drawing.
+
+Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
