@@ -38,7 +38,7 @@
 {/if}
 
 <style>
-	.row { display: grid; grid-template-columns: 5.5rem 1fr; align-items: center; gap: 0.5rem; font-size: 12px; margin-bottom: 0.25rem; }
-	.row span { color: var(--cad-muted); }
-	select { padding: 1px 2px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
+	/* the same row and box as the Properties fields beside it (Kind, Label …) */
+	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
+	select { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 </style>

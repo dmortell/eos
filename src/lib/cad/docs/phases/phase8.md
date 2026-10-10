@@ -2043,3 +2043,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   get the blue line only, but a labelled run's name (text) or a riser symbol brought the box back round the whole run.
   `Prims.svelte` now never boxes an item drawn as a run (`run…` / `riser…` / `run-label` prims). Live (Test Project
   1F plan): TR2 selected shows its grips and blue line, no box.
+- **Layer up in a run's General group (Dave: "in trunk props, Layer appears way down below nodes and segments"):** the
+  Layer row is drawn once at the end of Properties; for one run / line it's now in PathProps' General group (Kind,
+  Label, Length, Layer) and not repeated at the bottom. LayerPick's row now matches the other Properties rows (6.5rem
+  label, same box) — it had its own narrower, muted one. Live (Test Project TR2): Layer under Length, aligned.

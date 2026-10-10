@@ -7,6 +7,7 @@
 	import LineStyle from './LineStyle.svelte'
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
+	import LayerPick from './LayerPick.svelte'
 	import { withStyle } from '../domain/shapes'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
@@ -139,6 +140,8 @@
 		<!-- a 2-point line / run: its length; typing one moves the second end along the line (backlog "Edit line and note end points") -->
 		<label class="row" title="The second end moves along the line">Length (mm) <input class="inp" type="number" min="1" value={Math.round(twoPoint.len)} onchange={(e) => setLength(Number(e.currentTarget.value))} /></label>
 	{/if}
+	<!-- up here, not under the long Segments / Nodes lists (Dave 2026-10-10) -->
+	<LayerPick {project} ids={[s.id]} />
 </PropGroup>
 {#if s.section || s.role?.kind === 'containment'}
 	<PropGroup kind={kind} title="Size and height">

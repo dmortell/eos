@@ -522,7 +522,8 @@
 	{:else}
 		<p class="font-semibold">{one.type}</p>
 	{/if}
-	<LayerPick {project} ids={ws.selection} />
+	<!-- a run / line has it in its General group (PathProps) -->
+	{#if !(one?.type === 'shape' && one.geom.kind === 'path')}<LayerPick {project} ids={ws.selection} />{/if}
 </div>
 
 <style>
