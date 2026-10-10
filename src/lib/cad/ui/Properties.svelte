@@ -158,8 +158,8 @@
 <div class="space-y-1 p-3 text-xs">
 	{#if ws.toolId === 'renumber'}
 		<RenumberPanel {project} {ws} open />
-	{:else if items.filter(renumberable).length > 1}
-		<RenumberPanel {project} {ws} />
+	{:else if items.filter(renumberable).length > 1 || (ws.renumberMode === 'replace' && items.some(renumberable))}
+		<RenumberPanel {project} {ws} open={ws.renumberMode === 'replace'} />
 	{/if}
 	{#if items.length}<PropsHeader {project} {ws} {items} />{/if}
 	{#if !items.length}

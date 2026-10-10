@@ -4,6 +4,7 @@
 import type { Id, Pt } from './types'
 import type { Entity } from './drawing'
 import { setNumber, splitGroups, readingOrder, naturalCompare, numberAt, type RenumberOpts } from './labels'
+import { renameOutlet } from './ports'
 
 /** The text Renumber changes: an outlet's label, a rack's name, a shape's label, a sheet's number. */
 export function labelOf(e: Entity | undefined): string | undefined {
@@ -58,6 +59,35 @@ export function renumberEntities(items: Entity[], o: RenumberOpts): Entity[] {
 		const label = setNumber(template.get(e.type)!, o.start + i * step, group, o.pad)
 		if (label === old) return []
 		if (e.type === 'outlet') return [{ ...e, label, ports: e.ports.map((p) => ({ ...p, label: portFollows(p.label, old, label, group) })) }]
+		if (e.type === 'rack') return [{ ...e, name: label }]
+		if (e.type === 'sheet') return [{ ...e, number: label }]
+		return e.type === 'shape' ? [{ ...e, label }] : []
+	})
+}
+
+/** Find / replace (backlog "Find/replace into the Renumber tool"): in the items' labels (an outlet's ports follow, as
+ *  a rename) or — `ports` — in outlets' PORT labels only. Plain text replaces every match; `regex` takes a pattern,
+ *  and `$1` … in the replacement. */
+export interface ReplaceOpts { find: string; repl: string; regex?: boolean; ports?: boolean }
+
+/** The items whose text changes, or why the pattern can't be used. */
+export function replaceInLabels(items: Entity[], o: ReplaceOpts): Entity[] | { problem: string } {
+	if (!o.find) return []
+	let re: RegExp
+	try { re = new RegExp(o.regex ? o.find : o.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g') }
+	catch (e) { return { problem: `Not a valid pattern: ${(e as Error).message}` } }
+	const sub = (t: string) => (o.regex ? t.replace(re, o.repl) : t.replace(re, () => o.repl))   // plain: "$" is just "$"
+	return items.flatMap((e): Entity[] => {
+		if (o.ports) {
+			if (e.type !== 'outlet') return []
+			const ports = e.ports.map((p) => ({ ...p, label: sub(p.label) }))
+			return ports.some((p, i) => p.label !== e.ports[i].label) ? [{ ...e, ports }] : []
+		}
+		const old = labelOf(e)
+		if (old === undefined) return []
+		const label = sub(old)
+		if (label === old) return []
+		if (e.type === 'outlet') return [renameOutlet(e, label)]
 		if (e.type === 'rack') return [{ ...e, name: label }]
 		if (e.type === 'sheet') return [{ ...e, number: label }]
 		return e.type === 'shape' ? [{ ...e, label }] : []

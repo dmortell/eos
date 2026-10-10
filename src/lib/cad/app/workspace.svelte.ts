@@ -101,6 +101,8 @@ export class Workspace {
 	insertBlock = $state.raw<Block | null>(null)
 	/** The Opening tool's swing (none / left / right), sticky like the cord defaults. */
 	openingSwing = $state<'left' | 'right' | undefined>(undefined)
+	/** The Renumber panel's mode: renumber, or find / replace in labels (the outlet grid's Find/replace opens it). */
+	renumberMode = $state<'number' | 'replace'>('number')
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
 	/** Drafting switches in the status bar (UX05): SNAP = moves / points to the grid (step `grid` mm), OSNAP = object
@@ -200,6 +202,7 @@ export class Workspace {
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
 		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet
+		if (!ids.length) this.renumberMode = 'number'   // Find / replace lasts while its items stay selected
 	}
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
 	/** The viewport selected on the selected sheet (null = the sheet itself). */

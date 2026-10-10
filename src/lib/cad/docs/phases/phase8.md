@@ -1909,3 +1909,11 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   by the drag and selected; the run stays. A Ctrl-click (no drag) still drops the segment from the pick. Tests:
   `pathSel.test.ts` (+1). Live (1F plan): the diagonal trunk segment Ctrl-dragged down — a copy of that segment only,
   the run untouched; undone. (A quick second click on a selected run is a double-click: it adds a point — undone.)
+- **Find / replace in the Renumber panel** (backlog P021): the Renumber panel (Properties, several labelled things or
+  the Renumber tool) has Renumber / Find / replace tabs. Find / replace changes text in their labels (outlets' ports
+  follow, as a rename) or, for outlets, in their PORT labels only; plain text replaces every match, "regular
+  expression" takes a pattern with `$1` … groups; a bad pattern says why; preview old → new, empty labels refused,
+  labels already used listed (`replaceInLabels`, domain/renumber.ts). The outlet grid's Find/replace… now selects the
+  outlets (the selected, else the shown) and opens it; the mode resets when the selection clears. Tests:
+  `renumber.test.ts` (+3). Live (1F plan, 8 outlets): A0 → Z0 previewed 5; port labels with `-A(\d+)$` → `/$1` turned
+  L01.003-A01 into L01.003/01, applied, undone; "(" said "Not a valid pattern …". Help entry.

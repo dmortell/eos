@@ -127,22 +127,13 @@
 		else ws.select([o.id])
 	}
 
-	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001") ──
+	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001"): the Renumber panel's Find / replace, on
+	// the selected outlets, else the ones shown here ──
 	function findReplace() {
-		const ids = new Set(ws.selection.filter((id) => project.index.get(id)?.type === 'outlet'))
-		const scope = ids.size ? rows.filter((o) => ids.has(o.id)) : rows
-		ws.askText(`Find in ${ids.size ? `${ids.size} selected` : 'this level’s'} outlet labels`, '', (find) => {
-			if (!find) return
-			const hits = scope.filter((o) => o.label.includes(find))
-			if (!hits.length) { ws.say(`No outlet label contains "${find}"`); return }
-			ws.askText(`Replace "${find}" (${hits.length} outlets) with`, '', (repl) => {
-				const taken = new Set(project.index.outlets.filter((o) => o.levelId === levelId && !hits.includes(o)).map((o) => o.label))
-				const edits = hits.map((o) => renameOutlet(o, o.label.replace(find, repl)))
-				const clash = edits.find((o) => taken.has(o.label) || !o.label.trim())
-				if (clash) { ws.say(`"${clash.label || '(empty)'}" would clash or be empty — nothing changed`); return }
-				project.relabel(`Labels: "${find}" → "${repl}" (${edits.length})`, edits, ws.ask2)
-			})
-		})
+		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
+		if (!ids.length) ws.select(rows.map((o) => o.id))
+		ws.renumberMode = 'replace'
+		ws.say(`Find / replace in ${ids.length || rows.length} outlets: Properties (labels or port labels, text or a pattern)`)
 	}
 
 	// (the port label format, slack and waste moved to Project › Settings › Lengths & labels — UX review T4)
@@ -158,7 +149,7 @@
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
 		<label class="pin" title="Re-allocate the PINNED links too (hand placements, imported ones) — when the outlets changed. Patched panel ports still stay."><input type="checkbox" bind:checked={withPinned} /> incl. pinned</label>
 		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
-		<button title="Find and replace text in outlet labels (the selected outlets, else this level); their ports follow" onclick={findReplace}>Find/replace…</button>
+		<button title="Find and replace in outlet labels or port labels — plain text or a pattern (the selected outlets, else the ones shown): Properties › Find / replace" onclick={findReplace}>Find/replace…</button>
 		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
 		{#if routed.n}<span class="text-zinc-500" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
 		{#if routed.none}<button class="chip" class:on={noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)}>{routed.none} no route</button>{/if}

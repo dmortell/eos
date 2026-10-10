@@ -1,6 +1,6 @@
 // Renumber over outlets, racks and labelled shapes.
 import { describe, it, expect } from 'vitest'
-import { renumberEntities, orderFor, numberGroups, startOf, clashes, renumberable } from './renumber'
+import { renumberEntities, orderFor, numberGroups, startOf, clashes, renumberable, replaceInLabels } from './renumber'
 import type { Entity } from './drawing'
 import type { Outlet, Rack } from './types'
 import type { Shape } from './shapes'
@@ -42,5 +42,26 @@ describe('renumber', () => {
 		const next = renumberEntities([all[0], all[1]], { start: 2 })   // A1 → A2, A2 → A3
 		expect(clashes(next, all)).toEqual([])
 		expect(clashes(renumberEntities([all[0], all[1]], { start: 5 }), all)).toEqual(['A5'])   // A6 is a rack: no clash
+	})
+})
+
+describe('find / replace in labels', () => {
+	it('plain text: every match, in outlet labels (ports follow), rack names and shape labels; "$" is just "$"', () => {
+		const r = replaceInLabels([outlet('a', 'A.001', 0, 0), rack('r', 'A.R1'), note('n', 'A.x'), outlet('b', 'B.002', 0, 0)], { find: 'A.', repl: '$' })
+		expect(r).toEqual([
+			expect.objectContaining({ id: 'a', label: '$001', ports: [expect.objectContaining({ label: '$001.A' })] }),
+			expect.objectContaining({ id: 'r', name: '$R1' }), expect.objectContaining({ id: 'n', label: '$x' }),
+		])
+	})
+	it('a pattern with groups; a bad pattern says why', () => {
+		const r = replaceInLabels([outlet('a', '33-007', 0, 0)], { find: String.raw`^(\d+)-(\d+)$`, repl: '$2/$1', regex: true }) as Outlet[]
+		expect(r[0].label).toBe('007/33')
+		expect(replaceInLabels([outlet('a', 'x', 0, 0)], { find: '(', repl: '', regex: true })).toMatchObject({ problem: expect.stringMatching(/Not a valid pattern/) })
+	})
+	it('port labels only: the outlet keeps its label; racks and shapes are left out', () => {
+		const r = replaceInLabels([outlet('a', 'A.001', 0, 0), rack('r', 'A.R1')], { find: '.A', repl: '-1', ports: true }) as Outlet[]
+		expect(r).toHaveLength(1)
+		expect([r[0].label, r[0].ports[0].label]).toEqual(['A.001', 'A.001-1'])
+		expect(replaceInLabels([outlet('a', 'A.001', 0, 0)], { find: 'zzz', repl: 'y' })).toEqual([])
 	})
 })

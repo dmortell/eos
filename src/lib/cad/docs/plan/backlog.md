@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 59 entries (0 P1 · 0 P2 · 59 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber, blocks drag to place. **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 58 entries (0 P1 · 0 P2 · 58 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place. **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -51,7 +51,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Usage colours and outlet tips** — outlets on the plan and panel port cells tinted by usage colour; an instant tip (no delay) on an outlet showing its full label and usage. **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* the port count is drawn inside the outlet symbol (2026-10-06) and port tips come with "Port hover tips"; usage colours exist in settings but nothing draws them. *From:* G016, G038, G062, G137, T024
 - [ ] **Label format settings** — separator (default / all periods / all hyphens), include zone, include room, with a live preview, applied to new outlets and (on request) existing ones. A full template engine is T029's decision, below. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* a Port labels format select (201.A / 201A / 201-A / 201.1 / 201-1) that can relabel existing ports (`cad/ui/OutletGrid.svelte:111`); imported `labelPatterns` are unused (`cad/domain/types.ts:268`). *From:* G130
 - [ ] **Usage buttons** — one button per usage (from the usage list) in outlet Properties / the grid, instead of a select. **P3 · S** (~25 lines). *cad today:* a select only. Do after the editable usage list. *From:* G128
-- [ ] **Find/replace into the Renumber / Relabel tool** — fold the grid's Find/replace into the Renumber tool, and add port-label and regex modes. **P3 · S** (~50 lines). *cad today:* outlet labels only, plain text (`cad/ui/OutletGrid.svelte:92`). *From:* P021
 
 ## Levels, plans and underlays
 
