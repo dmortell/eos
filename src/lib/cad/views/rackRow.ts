@@ -7,7 +7,7 @@ import type { Id, Rack, Device, Level, Space } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
 
@@ -66,8 +66,7 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
 	const area = Math.min(PORT_AREA_W, (d.widthMm ?? RAIL_W) - 20)
 	const w = Math.min(area / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
-	const i = n - 1
-	const [row, col] = d.portNumbering === 'column' ? [i % rows, Math.floor(i / rows)] : [Math.floor(i / cols), i % cols]
+	const [row, col] = portAt(d.portNumbering, n, rows, cols)
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
 	return { x: devX - area / 2 + col * w, y: -(top - row * h), w, h }
 }

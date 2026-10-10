@@ -7,7 +7,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Device, Id } from '../domain/types'
 import type { Prim } from './display'
 import type { PdfPage } from '../render/pdf'
-import { panelsInFillOrder } from '../domain/devices'
+import { panelsInFillOrder, portAt } from '../domain/devices'
 import { labelLines } from './rackRow'
 
 const PAGE = { w: 297, h: 210 }, M = 10, TOP = 20
@@ -17,7 +17,7 @@ const CELL_W = (PAGE.w - 2 * M) / 24, CELL_H = 13, TITLE_H = 6, GAP = 5
 /** The panel's port grid: 24 a row (fewer ports: one row), numbered along rows or down columns as the panel is. */
 function grid(d: Device): { rows: number; cols: number; at: (n: number) => [number, number] } {
 	const rows = Math.max(1, Math.ceil(d.portCount / 24)), cols = Math.ceil(d.portCount / rows)
-	return { rows, cols, at: (n) => (d.portNumbering === 'column' ? [(n - 1) % rows, Math.floor((n - 1) / rows)] : [Math.floor((n - 1) / cols), (n - 1) % cols]) }
+	return { rows, cols, at: (n) => portAt(d.portNumbering, n, rows, cols) }
 }
 
 /** The text size (mm) that fits these lines in a cell. */

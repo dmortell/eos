@@ -2027,3 +2027,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   device ↔ device link with a SWITCH at one end reads the switch port at both ends — its own label, else "01"–"96"
   (after the panel's own labels and split ranges; before the rack-pair tie label). 33NACC2 / 33NACC3 were kind
   panel; Dave set them to switch. Help: "Link several panels to a switch". Test in `domain/interconnect.test.ts`.
+- **Switch ports numbered down each U (Dave: "those Arista switches have ports in an odd order, port 2 is below port
+  1, and ports 49 and 50 are on rows 3 and 4 below port 2"):** "Down (2 under 1)" ran down all four rows of a 96-port
+  2U switch (1–4 in the first column). It now goes down each U's pair of rows: 1–48 on rows 1–2, 49–96 on rows 3–4.
+  One helper, `portAt` (domain/devices.ts), for the rack view, the frame sheets and the panel label sheets (each had
+  its own copy). 1–2-row devices are unchanged; the only 3+-row devices numbered down in any project are Journey's
+  three CCS-720XP-96 (checked read-only). Help: "Number a switch's ports down". Test in `views/rackRow.test.ts`.

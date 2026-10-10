@@ -31,6 +31,16 @@ export const RACK_DEVICE_W = 450
 /** A device that can be offset sideways in its rack (narrower than a 19" device). */
 export const narrowDevice = (d: Pick<Device, 'widthMm'>): boolean => !!d.widthMm && d.widthMm < RACK_DEVICE_W
 
+/** Where port `n` (1-based) sits in a device's grid of `rows` × `cols`: [row, col]. Along the rows ('row': 1–24 top,
+ *  25–48 under) or DOWN ('column': 2 under 1), down each U's pair of rows in turn — a 96-port 2U switch has 1–48 on
+ *  its top two rows and 49 under 2 (Dave 2026-10-10: Journey's Arista CCS-720XP-96). */
+export function portAt(numbering: Device['portNumbering'], n: number, rows: number, cols: number): [number, number] {
+	const i = n - 1
+	if (numbering !== 'column') return [Math.floor(i / cols), i % cols]
+	const band = Math.floor(i / (2 * cols)), h = Math.min(2, rows - 2 * band), j = i - band * 2 * cols
+	return [2 * band + (j % h), Math.floor(j / h)]
+}
+
 /** Maker / model travel between a device and its template. */
 const makerModel = (x: { maker?: string; model?: string }) => ({ ...(x.maker ? { maker: x.maker } : {}), ...(x.model ? { model: x.model } : {}) })
 

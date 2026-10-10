@@ -6,7 +6,7 @@
 import type { Workbook, Worksheet, Cell, Border, Borders, Fill, PaperSize } from 'exceljs'
 import type { ProjectIndex } from '../domain/project'
 import type { Device, Id, ProjectSettings, Rack } from '../domain/types'
-import { racksInOrder } from '../domain/devices'
+import { racksInOrder, portAt } from '../domain/devices'
 import { download, fileSafe } from './download'
 
 /** One port cell: its label; the usage of the outlet it reaches, or the usage it is reserved for (no outlet yet). */
@@ -45,7 +45,7 @@ export function frameRacks(ix: ProjectIndex, spaceId: Id): FrameRoom {
 				const nRows = Math.max(1, Math.ceil(d.portCount / COLS)), cols = Math.ceil(d.portCount / nRows), res = reservedFor(d)
 				const rows: (FrameCell | null)[][] = Array.from({ length: nRows }, () => Array<FrameCell | null>(COLS).fill(null))
 				for (let n = 1; n <= d.portCount; n++) {
-					const [row, col] = d.portNumbering === 'column' ? [(n - 1) % nRows, Math.floor((n - 1) / nRows)] : [Math.floor((n - 1) / cols), (n - 1) % cols]
+					const [row, col] = portAt(d.portNumbering, n, nRows, cols)
 					const far = ix.farEnd({ on: d.id, port: n }), o = far ? ix.get(far.on) : undefined
 					const usage = o?.type === 'outlet' ? o.usage : undefined
 					rows[row][col] = { label: ix.portLabel({ on: d.id, port: n }), ...(usage ? { usage } : res.has(n) ? { usage: res.get(n), reserved: true } : {}) }

@@ -142,6 +142,14 @@ describe('port cells and labels', () => {
 		expect(ys.size).toBe(4)
 		expect(portCell(big, 1, 0, 0)!.w).toBeCloseTo(430 / 24)
 	})
+	it('numbered down, a 96-port 2U switch goes down each U’s pair of rows: 2 under 1, 49 under 2, 50 under 49 (Dave: Journey’s Arista CCS-720XP-96)', () => {
+		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96, portNumbering: 'column' }
+		const at = (p: number) => portCell(big, p, 0, 0)!
+		expect([2, 49, 50].map((p) => at(p).x)).toEqual([at(1).x, at(1).x, at(1).x])
+		expect(at(2).y).toBeGreaterThan(at(1).y); expect(at(49).y).toBeGreaterThan(at(2).y); expect(at(50).y).toBeGreaterThan(at(49).y)
+		expect(at(3).y).toBe(at(1).y); expect(at(3).x).toBeGreaterThan(at(1).x)   // 3 beside 1
+		expect(at(48).x).toBe(at(96).x)   // the last column: 47 / 48 over 95 / 96
+	})
 	it('a device with few ports keeps port-sized cells (Dave: a server / tower PC drew huge ports)', () => {
 		const server: Device = { type: 'device', id: 'SV', rackId: 'R1', name: 'SV', kind: 'server', u: 10, heightU: 2, face: 'front', portCount: 2 }
 		const c = portCell(server, 1, 0, 0)!
