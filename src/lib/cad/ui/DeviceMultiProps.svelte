@@ -26,6 +26,7 @@
 		// F4 repeats it on other devices (taken from the first: the change, not this event's closure)
 		if (devices[0]) ws.lastDeviceEdit = repeatableEdit(devices[0], label, patch(devices[0])) ?? ws.lastDeviceEdit
 	}
+	const KINDS: Device['kind'][] = ['panel', 'switch', 'manager', 'server', 'shelf', 'pdu', 'enclosure', 'other']
 	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
 	const text = (v: string) => v.trim() || undefined
 	/** A typed whole number ≥ min, else nothing changes. */
@@ -34,6 +35,12 @@
 
 <p class="pt-1 font-semibold">{devices.length} devices</p>
 <label class="row">Name <input class="inp" value={same((d) => d.name) ?? ''} placeholder="mixed" onchange={(e) => { const t = e.currentTarget.value.trim(); if (t) set('Rename devices', () => ({ name: t })) }} /></label>
+<label class="row">Kind
+	<select class="inp" value={same((d) => d.kind) ?? ''} onchange={(e) => { const kind = e.currentTarget.value as Device['kind']; if (kind) set('Device kind', () => ({ kind })) }}>
+		{#if !same((d) => d.kind)}<option value="">mixed</option>{/if}
+		{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}
+	</select>
+</label>
 <label class="row">Face
 	<select class="inp" value={same((d) => d.face) ?? ''} onchange={(e) => set('Device face', () => ({ face: e.currentTarget.value as Device['face'] }))}>
 		{#if !same((d) => d.face)}<option value="">mixed</option>{/if}

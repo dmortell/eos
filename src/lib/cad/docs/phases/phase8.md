@@ -2016,3 +2016,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   label, ✕) sat in the 2nd column of the 6.5rem / 1fr row; the number boxes and ✕ left the label box 10 px wide. Each
   range is now its own full-width line under "Split labels" (`.range` grid: 3rem – 3rem 1fr ✕); + Range sits on the
   header row. Live (Test Project, PP3 "In two", undone): label boxes 110 px, PP3-A / PP3-B shown in grey.
+- **Kind for several devices (Dave: "need to be able to edit Kind in props for multi-selected devices/panels"):**
+  `DeviceMultiProps` has a Kind select ("mixed" where they differ), one undo step, F4 repeats it. Help: "Make the
+  same change to more devices".
