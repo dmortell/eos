@@ -1926,3 +1926,13 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   shown, the insert placed and selected, Select back; undone. Left in the backlog: a block's own front drawing.
 
 Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
+
+### Follow-ups (Dave 2026-10-10)
+
+- **Say the layer a drawing went on** ("a toast might be a good idea"): `domain/layers.ts` `drawnOn(created, layers)` —
+  "Drawn on the Walls layer" for new plan / view shapes (paper shapes: nothing); `CadShell` subscribes to the store
+  and says it after a local edit or a finished gesture, unless the tool is Select / Move / Copy / Match (paste and copies
+  keep their layers). Help: "Which layer did that go on?". Test in `views/layers.test.ts`.
+- **0U PDU selection box too wide:** `primBounds` measured the PDU's turned name (rot −90) as flat text, so the box
+  was as wide as the name is long. Turned text is now measured turned (also tightens picking and zoom-to-fit).
+  Test: `views/display.test.ts`.

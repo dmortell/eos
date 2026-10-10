@@ -7,7 +7,7 @@ import { viewportContent } from './sheet'
 import { displayListToDxf } from '../render/dxf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { layersOf, layerOf, defaultLayer, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS } from '../domain/layers'
+import { layersOf, layerOf, defaultLayer, drawnOn, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS } from '../domain/layers'
 import type { Entity, Layer, Viewport } from '../domain/drawing'
 import type { Outlet } from '../domain/types'
 
@@ -129,5 +129,14 @@ describe('port labels layer (Dave 2026-10-07)', () => {
 		expect(labels(noLabels)).toBe(0)
 		expect(noLabels.some((p) => p.k === 'line' && p.cls.startsWith('port'))).toBe(true)
 		expect(labels(applyLayers(prims, index, { hidden: new Set(['sys:racks']) }).draw)).toBe(labels(prims))
+	})
+	it('a drawing tool says which layer its new shapes went on; paper shapes and other items say nothing', () => {
+		const ls = layersOf([{ type: 'layer', id: 'L-A', name: 'Comms', order: 500 } as Layer])
+		const geom = { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }
+		const sh = (o: object) => ({ type: 'shape', id: 'S', geom, ...o }) as unknown as Entity
+		expect(drawnOn([sh({ levelId: 'L1', layerId: 'L-A' })], ls)).toBe('Drawn on the Comms layer')
+		expect(drawnOn([sh({ levelId: 'L1' }), sh({ levelId: 'L1', role: { kind: 'wall' } })], ls)).toBe('Drawn on the Drawing, Walls layers')
+		expect(drawnOn([sh({ sheetId: 'SH' })], ls)).toBeNull()
+		expect(drawnOn([], ls)).toBeNull()
 	})
 })

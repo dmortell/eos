@@ -10,6 +10,7 @@
 	import type { ProjectFile } from '../persist/file'
 	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
+	import { drawnOn, layersOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS } from './shellKeys'
 	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
@@ -163,6 +164,12 @@
 		const r = project.rev
 		untrack(() => { const t = tabs.of(activePane); if (t?.preview && t.rev !== undefined && r > t.rev) tabs.keep(t.id) })
 	})
+	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
+	$effect(() => project.store.subscribe((c) => {
+		if (!(c.source === 'local' || (c.source === 'gesture' && c.final)) || ['select', 'move', 'copy', 'match'].includes(ws.toolId)) return
+		const msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), layersOf(project.index.layers))
+		if (msg) ws.say(msg)
+	}))
 	/** The tab menu (a right-click on a tab). */
 	let tabMenu = $state<{ id: string; x: number; y: number } | null>(null)
 	const tabMenuItems = $derived(tabMenu ? tabMenuOf(tabMenu.id, {

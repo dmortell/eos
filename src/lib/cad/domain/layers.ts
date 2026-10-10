@@ -96,6 +96,19 @@ export function toolLayer(toolId: string, current: Id | null, z: number): Id | u
 	}
 }
 
+/** What a drawing tool says after it adds shapes (Dave 2026-10-10: show which layer they went on), or null — none
+ *  added, or only paper items (a sheet's shapes are on no layer). */
+export function drawnOn(created: Entity[], layers: LayerInfo[]): string | null {
+	const known = new Map(layers.map((l) => [l.id, l.name]))
+	const names = new Set<string>()
+	for (const e of created) {
+		if (e.type !== 'shape' || e.sheetId) continue
+		const id = layerOf(e, new Set(known.keys()))
+		if (id) names.add(known.get(id) ?? id)
+	}
+	return names.size ? `Drawn on the ${[...names].join(', ')} layer${names.size > 1 ? 's' : ''}` : null
+}
+
 /** A drawing tool refused because its layer is hidden / locked for this user (the item would vanish, or be stuck). */
 export function toolBlock(toolId: string, prefs: { current: Id | null; hidden: ReadonlySet<Id>; locked: ReadonlySet<Id> }, z: number, layers: Map<Id, LayerInfo>): string | null {
 	const id = toolLayer(toolId, prefs.current && layers.has(prefs.current) ? prefs.current : null, z)
