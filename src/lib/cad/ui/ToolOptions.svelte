@@ -22,6 +22,7 @@
 	const places = $derived(Object.keys(RUN_PLACES).map((k) => ({ k: k as RunPlace, at: placeOf(level?.heights, k as RunPlace, ws.opts.h) })).filter((x) => x.at))
 	const placeNow = $derived(places.find((x) => x.at!.z === ws.opts.z)?.k ?? '')
 	/** Link to…'s type is multi-core: the ports go into cables of this many cores. */
+	const linkPorts = $derived((ws.bulkFrom?.ports.length ?? 0) + (ws.bulkFrom?.more ?? []).reduce((n, m) => n + m.ports.length, 0))
 	const linkCores = $derived(coresOf(project.settings, ws.linkType || ws.cordDefaults.cableType))
 </script>
 
@@ -91,7 +92,7 @@
 		</select></label>
 	{/if}
 	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>{/if}
-	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${ws.bulkFrom.ports.length} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${linkCores > 1 ? ` in ${Math.ceil(ws.bulkFrom.ports.length / linkCores)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
+	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkCores)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
 {/if}
 
 <style>

@@ -71,6 +71,10 @@ export class ProjectIndex {
 		// in a labelled range of ports ("P3A-R302:01"), on this panel or on the one its cable comes from
 		const g = groupPortLabel(this, e, r.port) || (fe?.type === 'device' ? groupPortLabel(this, fe, far!.port) : '')
 		if (g) return g
+		// cabled to a SWITCH: the switch's port (its own label, else its number "01"–"96") at both ends — the panels
+		// are named after their switch (Dave 2026-10-10: Journey's 33NACC1 panels in P3A ↔ the 33NACC1 switch)
+		if (fe?.type === 'device' && fe.kind === 'switch') return fe.portLabels?.[String(far!.port)] || String(far!.port).padStart(2, '0')
+		if (fe?.type === 'device' && e.kind === 'switch') return String(r.port).padStart(2, '0')
 		const l = this.linkAt(r)
 		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
 	}

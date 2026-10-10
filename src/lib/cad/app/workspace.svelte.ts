@@ -1,6 +1,6 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
-import type { Id, Level, Outlet } from '../domain/types'
+import type { Id, Level, Outlet, Device } from '../domain/types'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { SelectTool } from '../editor/selectTool'
 import { OutletTool } from '../editor/outletTool'
@@ -177,6 +177,15 @@ export class Workspace {
 	 *  any floor — is where they start on the other panel. */
 	interconnectFrom(sel: PortSel): void {
 		this.bulkFrom = { on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }
+		this.toolId = 'cord'
+	}
+	/** Link to… with several panels selected: all their ports, the top panel first (by rack, then U), go on from the
+	 *  port clicked next — four 24-port panels onto ports 1–96 of a switch. */
+	interconnectPanels(panels: Device[]): void {
+		const order = [...panels].sort((x, y) => x.rackId.localeCompare(y.rackId) || y.u - x.u)
+		const all = order.map((d) => ({ on: d.id, ports: Array.from({ length: d.portCount }, (_, i) => i + 1) }))
+		if (!all.length) return
+		this.bulkFrom = { ...all[0], face: 'rear', kind: 'link', more: all.slice(1) }
 		this.toolId = 'cord'
 	}
 	/** Arm "assign by hand" with these outlets; the next panel-port click places them. */

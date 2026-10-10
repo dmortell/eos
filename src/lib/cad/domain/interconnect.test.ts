@@ -25,6 +25,18 @@ describe('interconnects', () => {
 		expect(r.links.map((l) => [l.kind, l.a.port, l.b.port])).toEqual([['tie', 1, 2], ['tie', 3, 3]])
 		expect(r.skipped).toEqual(['PP1 port 2 already has a cable'])
 	})
+	it('several panels onto one switch: each carries on from where the one before stopped; both ends read the switch port (Dave: Journey P3A ↔ 33NACC1)', () => {
+		const sw = { type: 'device', id: 'SW', rackId: 'C', name: '33NACC1', kind: 'switch', u: 6, heightU: 2, face: 'front', portCount: 96 }
+		const p = (id: string, u: number) => ({ ...panel(id, 'A'), u })
+		const all = (id: string) => ({ on: id, ports: Array.from({ length: 24 }, (_, i) => i + 1) })
+		const base = [sw, p('P24', 24), p('P23', 23), p('P22', 22), p('P21', 21)]
+		const r = bulkInterconnect(ix(base), { ...all('P24'), face: 'rear', more: [all('P23'), all('P22'), all('P21')] }, { on: 'SW', start: 1, face: 'rear' }, { cableType: 'cat6a' })
+		expect(r.skipped).toEqual([])
+		expect(r.links).toHaveLength(96)
+		expect(r.links.map((l) => `${l.a.on}:${l.a.port}>${l.b.port}`).filter((_, i) => i % 24 === 0 || i % 24 === 23)).toEqual(['P24:1>1', 'P24:24>24', 'P23:1>25', 'P23:24>48', 'P22:1>49', 'P22:24>72', 'P21:1>73', 'P21:24>96'])
+		const linked = ix([...base, ...r.links])
+		expect([linked.portLabel({ on: 'P24', port: 1 }), linked.portLabel({ on: 'P23', port: 19 }), linked.portLabel({ on: 'P21', port: 24 }), linked.portLabel({ on: 'SW', port: 43 })]).toEqual(['01', '43', '96', '43'])
+	})
 	it('risers are runs that reach another level', () => {
 		const riser = { type: 'shape', id: 'V1', levelId: 'L1', label: 'Riser A', geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 0, y: 0, z: 0, levelId: 'L4' }], segs: [{ id: 's', a: 'a', b: 'b' }] }, role: { kind: 'containment', form: 'trunk', tier: 'low' } }
 		const flat = { ...riser, id: 'T1', label: 'Tray', geom: { ...riser.geom, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 9, y: 0, z: 0 }] } }

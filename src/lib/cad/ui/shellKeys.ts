@@ -8,6 +8,7 @@ import type { Panels } from '../app/panels.svelte'
 import type { Tabs } from '../app/tabs.svelte'
 import type ViewCanvas from './ViewCanvas.svelte'
 import { labelKind } from '../domain/labelEdit'
+import type { Device } from '../domain/types'
 
 /** Arrow keys nudge the selection (view directions: y down). */
 export const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
@@ -52,6 +53,11 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); c.orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
 	else if (e.key === 'F4') { e.preventDefault(); c.repeatDeviceEdit() }
 	// P / L with ports selected: Patch to… / Link to… (a panel's) — then click the other device's first port
+	// L with several panels selected: link all their ports, the top panel first — as Properties shows, even when the
+	// click that started the selection also picked a port
+	else if (!mod && !e.altKey && k === 'l' && ws.selection.length > 1 && ws.selection.every((id) => { const d = project.index.get(id); return d?.type === 'device' && d.kind === 'panel' })) {
+		e.preventDefault(); ws.interconnectPanels(ws.selection.map((id) => project.index.get(id) as Device))
+	}
 	else if (!mod && !e.altKey && k === 'p' && ws.portSel) { e.preventDefault(); ws.patchFrom(ws.portSel) }
 	else if (!mod && !e.altKey && k === 'l' && ws.portSel && project.index.get(ws.portSel.on)?.type === 'device' && (project.index.get(ws.portSel.on) as { kind?: string }).kind === 'panel') { e.preventDefault(); ws.interconnectFrom(ws.portSel) }
 	else if (e.key === 'F1') { e.preventDefault(); c.help(false) }

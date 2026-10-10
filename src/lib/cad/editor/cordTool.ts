@@ -11,7 +11,7 @@ import { bulkInterconnect } from '../domain/interconnect'
 import { coresOf } from '../domain/multicore'
 
 /** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
-export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link' }
+export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link'; /** links only: more panels, in order, after the first */ more?: { on: Id; ports: number[] }[] }
 
 export class CordTool implements Tool {
 	readonly id = 'cord'

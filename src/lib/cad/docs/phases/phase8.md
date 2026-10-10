@@ -2019,3 +2019,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Kind for several devices (Dave: "need to be able to edit Kind in props for multi-selected devices/panels"):**
   `DeviceMultiProps` has a Kind select ("mixed" where they differ), one undo step, F4 repeats it. Help: "Make the
   same change to more devices".
+- **Link several panels to a switch, labelled by the switch port (Dave: Journey P3A U13–U24 → the three 96-port
+  switches 33NACC1–3; "Link to" missing with 4 panels selected; the panels didn't show the switch label; "they could
+  probably just show port numbers 1 to 96"):** `bulkInterconnect` takes `a.more` (further panels; each carries on
+  from where the one before stopped on the target). Several panels selected: Properties › "⟷ Link N panels to…" or L
+  arms it (`ws.interconnectPanels`, top panel first by rack then U); the hint counts every port. `portLabel`: a
+  device ↔ device link with a SWITCH at one end reads the switch port at both ends — its own label, else "01"–"96"
+  (after the panel's own labels and split ranges; before the rack-pair tie label). 33NACC2 / 33NACC3 were kind
+  panel; Dave set them to switch. Help: "Link several panels to a switch". Test in `domain/interconnect.test.ts`.

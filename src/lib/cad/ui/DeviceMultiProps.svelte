@@ -66,9 +66,17 @@
 		</select>
 	</label>
 {/if}
+{#if devices.every((d) => d.kind === 'panel')}
+	<!-- all their ports, top panel first, from the port clicked next (four 24-port panels onto a 96-port switch) -->
+	<div class="pt-1"><button class="link" title="Permanent cables from all these panels' ports, the top panel first, to another device: click its first port next" onclick={() => ws.interconnectPanels(devices)}>⟷ Link {devices.length} panels to… <kbd>L</kbd></button></div>
+{/if}
 <DeviceCables {project} {ws} {devices} />
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
+	/* as Port Properties' Link to… : big, blue, with its key */
+	.link { border: 1px solid #1d4ed8; border-radius: 4px; background: #2563eb; color: #fff; font-weight: 600; font-size: 12px; padding: 2px 8px; }
+	.link:hover { background: #1d4ed8; }
+	.link kbd { font: 10px ui-monospace, monospace; border: 1px solid #ffffff80; border-radius: 3px; padding: 0 3px; margin-left: 2px; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 </style>
