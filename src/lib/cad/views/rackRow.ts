@@ -210,13 +210,19 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			}
 			// over the ports (Dave: P3C U32 / U37's name covered them): the name is normal size until the port labels can be
 			// read, then small (a 1U 48-port panel's port label size) and see-through, in the top-left corner
-			if (grid && nameText.k === 'text') {
-				if (minLabel === Infinity) out.push(nameText)
+			// a panel split into labelled ranges (P3A-R301 / P3A-R302): each range's label at the top left of its first port
+			// instead of the one name (its top edge where the name's would be, for the first row)
+			const ranges = (d.panel?.groups ?? []).filter((g) => g.label).map((g) => ({ g, c: portCell(d, g.from, dx, z0) })).filter((x) => x.c)
+			const names = ranges.length ? ranges.map(({ g, c }) => ({ text: g.label + (g.from === ranges[0].g.from ? note : ''), top: -c!.y + (z1 - (-grid!.y)), x: c!.x === grid!.x ? dx - w / 2 + 4 : c!.x }))
+				: [{ text: d.name + note, top: z1, x: dx - w / 2 + 4 }]
+			if (grid && nameText.k === 'text') for (const nm of names) {
+				const t: Prim = { ...nameText, text: nm.text, at: { x: nm.x, y: -(nm.top - nameSize * 0.95) } }
+				if (minLabel === Infinity) out.push(t)
 				else {
 					const k = LABEL_MIN_PX / minLabel   // px per mm where the port labels appear
 					const small = Math.min(ON_PORTS_NAME_MM, nameSize)
-					out.push({ ...nameText, maxPx: nameSize * k })
-					out.push({ ...nameText, at: { x: nameText.at.x, y: -(z1 - small * 0.95) }, size: small, cls: `${nameCls} on-ports on-ports-small`, minPx: small * k })
+					out.push({ ...t, maxPx: nameSize * k })
+					out.push({ ...t, at: { x: nm.x, y: -(nm.top - small * 0.95) }, size: small, cls: `${nameCls} on-ports on-ports-small`, minPx: small * k })
 				}
 			}
 		}

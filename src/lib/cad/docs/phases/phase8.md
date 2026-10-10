@@ -1944,3 +1944,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   racks in a rack view". Test in `views/rackRow.test.ts`.
 - **Server room rack counts leave out VCMs:** the Navigator's "N racks" beside a server room skips `kind: 'vcm'`;
   the managers are still listed under it. Test in `domain/navTree.test.ts`.
+- **Labelled port ranges on a panel (Dave: option A — P3A U41, top 24 → R301, bottom 24 → R302):**
+  `PanelInfo.groups` = `{ from, to, label }[]`; `domain/portGroups.ts`: `groupPortLabel` ("P3A-R302:01" for the 25th
+  port, numbered within the range), `groupsProblem` (off the panel / back to front / overlapping), `splitPanel` (In two:
+  each half labelled "<rack>-<the rack its cables go to>", else "<panel>-A / -B"). `ProjectIndex.portLabel`: own label,
+  then a range label on this panel or the far end's, then the rack-pair tie label — so both ends of a tie read the same.
+  Rack view: each range's label over its first port instead of the panel name. Properties › Ports and labels › Split
+  labels (In two, edit from / to / label, + Range, ✕). Help: "Give half a panel its own label". Tests:
+  `domain/portGroups.test.ts` (5). Not tried live: Test Project has no 48-port panel with ties.

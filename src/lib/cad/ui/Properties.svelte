@@ -5,7 +5,8 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity, Sheet } from '../domain/drawing'
-	import type { Id, Outlet, Rack, RackRow, Device, Space } from '../domain/types'
+	import type { Id, Outlet, Rack, RackRow, Device, Space, PortGroup } from '../domain/types'
+	import { groupsProblem, splitPanel } from '../domain/portGroups'
 	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { naturalCompare } from '../domain/labels'
@@ -136,6 +137,14 @@
 		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
 		putDevice(d, `${d.name} takes ${usages.join(', ') || 'any usage'}`, { panel: { tier: 'low', ...d.panel, usages: usages.length ? usages : undefined } })
 	}
+	/** A panel's labelled port ranges (backlog A, Dave 2026-10-10); refused with the reason if they don't fit. */
+	function setGroups(d: Device, groups: PortGroup[], label: string) {
+		const why = groupsProblem(groups, d.portCount)
+		if (why) { ws.say(why); return }
+		putDevice(d, label, { panel: { tier: 'low', ...d.panel, groups: groups.length ? groups : undefined } })
+	}
+	const editGroup = (d: Device, i: number, patch: Partial<PortGroup>) =>
+		setGroups(d, (d.panel?.groups ?? []).map((g, j) => (j === i ? { ...g, ...patch } : g)), `${d.name} port range`)
 	function saveTemplate(d: Device) {
 		ws.askText('Template name (global)', d.name, async (name) => {
 			busy = true
@@ -393,6 +402,29 @@
 					</span>
 				</div>
 			{/if}
+			{#if d.kind === 'panel' && d.portCount > 1}
+				<div class="row" title="Give a range of ports its own label: a port in it shows “label:NN”, counted from the range's first port (the 25th port of a panel whose bottom half is P3A-R302 is P3A-R302:01), at both ends of its cable">
+					<span>Split labels</span>
+					<span class="flex flex-col gap-1">
+						{#each d.panel?.groups ?? [] as g, i (i)}
+							<span class="flex items-center gap-1">
+								<input class="inp num" type="number" min="1" max={d.portCount} value={g.from} title="First port" onchange={(e) => editGroup(d, i, { from: Number(e.currentTarget.value) })} />–<input class="inp num" type="number" min="1" max={d.portCount} value={g.to} title="Last port" onchange={(e) => editGroup(d, i, { to: Number(e.currentTarget.value) })} />
+								<input class="inp" value={g.label} placeholder="Label" onchange={(e) => editGroup(d, i, { label: e.currentTarget.value.trim() })} />
+								<button class="btn" title="Remove this range (its ports go back to their usual labels)" onclick={() => setGroups(d, (d.panel?.groups ?? []).filter((_, j) => j !== i), `${d.name} port range removed`)}>✕</button>
+							</span>
+						{:else}
+							<span class="flex gap-1">
+								<button class="btn" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(project.index, d, 2), `${d.name} split in two`)}>In two</button>
+								<span class="text-zinc-400">one label (the panel's name)</span>
+							</span>
+						{/each}
+						{#if d.panel?.groups?.length}
+							{@const last = d.panel.groups.reduce((m, g) => Math.max(m, g.to), 0)}
+							{#if last < d.portCount}<button class="btn self-start" title="Another range, from the port after the last range to the end" onclick={() => setGroups(d, [...(d.panel?.groups ?? []), { from: last + 1, to: d.portCount, label: `${d.name}-${String.fromCharCode(65 + (d.panel?.groups?.length ?? 0))}` }], `${d.name} port range added`)}>+ Range</button>{/if}
+						{/if}
+					</span>
+				</div>
+			{/if}
 			{#if d.kind === 'panel' && d.portCount}
 				{@const stale = changedSincePrinted(project.index, d)}
 				<div class="row">
@@ -487,6 +519,7 @@
 	.usages label { white-space: nowrap; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
+	.inp.num { width: 3.2rem; flex: none; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.btn.del:hover { color: #dc2626; }

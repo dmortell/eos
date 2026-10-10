@@ -227,6 +227,9 @@ export interface Device {
 	portLabels?: Record<string, string>
 }
 
+/** A labelled range of a panel's ports, `from`–`to` inclusive (1-based). */
+export interface PortGroup { from: number; to: number; label: string }
+
 export interface PanelInfo {
 	tier: Tier
 	serverRoomId?: Id
@@ -238,6 +241,9 @@ export interface PanelInfo {
 	/** When the port labels were printed and stuck on. Editing or renumbering a label linked to this panel then asks
 	 *  first (ADR 0002); the issued sheets record what was printed. */
 	labelsPrintedAt?: number
+	/** Labelled port ranges (Dave 2026-10-10: the top half of a 48-port panel tied to one rack, the bottom half to
+	 *  another): a port in one shows "<label>:NN", numbered from the range's first port (domain/portGroups.ts). */
+	groups?: PortGroup[]
 	/** What was printed, by port number (non-empty labels only) — a later difference is flagged on the panel. */
 	printedLabels?: Record<string, string>
 }

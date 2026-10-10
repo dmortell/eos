@@ -4,6 +4,7 @@ import type { Entity, Layer } from './drawing'
 import type { Id, Outlet, Device, Rack, Link, Cord, Level, Space, PortRef } from './types'
 import type { Shape } from './shapes'
 import { naturalCompare } from './labels'
+import { groupPortLabel } from './portGroups'
 
 export const portKey = (r: PortRef) => `${r.on}:${r.port}:${r.face ?? ''}`
 const portKeyAnyFace = (r: PortRef) => `${r.on}:${r.port}:`
@@ -67,6 +68,9 @@ export class ProjectIndex {
 		if (fe?.type === 'outlet') return fe.ports[far!.port - 1]?.label ?? ''
 		const own = e.portLabels?.[String(r.port)]
 		if (own) return own
+		// in a labelled range of ports ("P3A-R302:01"), on this panel or on the one its cable comes from
+		const g = groupPortLabel(e, r.port) || (fe?.type === 'device' ? groupPortLabel(fe, far!.port) : '')
+		if (g) return g
 		const l = this.linkAt(r)
 		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
 	}
