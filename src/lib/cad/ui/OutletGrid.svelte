@@ -14,6 +14,7 @@
 	import { renameOutlet } from '../domain/ports'
 	import { allocate } from '../domain/allocate'
 	import { cableSettings } from '../domain/routing'
+	import { cordAt } from '../domain/cords'
 
 	let { project, ws, levelId }: { project: CadProject; ws: Workspace; levelId: string } = $props()
 
@@ -66,13 +67,16 @@
 	function setRoom(o: Outlet, id: string) {
 		edit(o, `${o.label} → ${roomName(id) || 'no server room'}`, { ports: o.ports.map((p) => ({ ...p, serverRoomId: id || undefined })) })
 	}
-	/** Where each port is cabled: "P3C U37:3" (pinned ◆), or "—". */
-	function panelOf(o: Outlet, port: number): { text: string; pinned: boolean } {
+	/** Where each port is cabled: "P3C U37:3" (pinned ◆), or "—"; `patched` = where the cord in that panel port goes
+	 *  (Dave: "indicate which ports of each outlet have been patched") — drawn green. */
+	function panelOf(o: Outlet, port: number): { text: string; pinned: boolean; patched?: string } {
 		const l = project.index.linkAt({ on: o.id, port })
 		const d = l ? project.index.get(l.a.on === o.id ? l.b.on : l.a.on) : undefined
 		if (!l || d?.type !== 'device') return { text: '—', pinned: false }
 		const pp = l.a.on === o.id ? l.b.port : l.a.port
-		return { text: `${project.index.nameOf(d.rackId)} U${d.u}:${pp}`, pinned: !!l.pinned }
+		const c = cordAt(project.index, { on: d.id, port: pp })
+		const patched = c && project.index.portPlace(c.a.on === d.id && c.a.port === pp ? c.b : c.a)
+		return { text: `${project.index.nameOf(d.rackId)} U${d.u}:${pp}`, pinned: !!l.pinned, patched }
 	}
 
 	// ── cable lengths (Phase 5.2): the project's routes; slack / waste are project settings ──
@@ -163,7 +167,7 @@
 			<tr>
 				{#if t.scope !== 'view'}<th class="px-2 py-1">Level</th>{/if}
 				<SortTh {t} key="label" cls="px-2 py-1">Label</SortTh><SortTh {t} key="usage">Usage</SortTh><SortTh {t} key="tier">Tier</SortTh><SortTh {t} key="mount">Mount</SortTh>
-				<th class="px-2">Ports</th><SortTh {t} key="room">Server room</SortTh><SortTh {t} key="panel">Panel (◆ pinned)</SortTh><SortTh {t} key="length" title="Cable length per port: the route over the drawn containment + {cable.slackM} m slack, rounded up (red = over 90 m, ? = no route) — slack and waste are in Project › Settings › Lengths & labels">Length (+{cable.slackM} m)</SortTh><SortTh {t} key="placed">Placed</SortTh>
+				<th class="px-2">Ports</th><SortTh {t} key="room">Server room</SortTh><SortTh {t} key="panel" title="Where each port is cabled — ◆ = pinned (re-allocation leaves it), green = patched (a cord in that panel port)">Panel (◆ pinned · green patched)</SortTh><SortTh {t} key="length" title="Cable length per port: the route over the drawn containment + {cable.slackM} m slack, rounded up (red = over 90 m, ? = no route) — slack and waste are in Project › Settings › Lengths & labels">Length (+{cable.slackM} m)</SortTh><SortTh {t} key="placed">Placed</SortTh>
 			</tr>
 		</thead>
 		<tbody>
@@ -198,7 +202,7 @@
 						{:else}<span title="Ports go to different server rooms — set them per port in Properties">mixed</span>{/if}
 					</td>
 					<td class="px-2 font-mono text-zinc-600">
-						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
+						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'} class:patched={!!at.patched} title={at.patched ? `Patched to ${at.patched}` : undefined}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
 					</td>
 					<td class="px-2 font-mono">
 						{#each o.ports as p (p.port)}{@const r = routeOf(o, p.port)}<span class="pp" class:none={!r} class:over={r?.over90} class:bad={r?.problem}
@@ -228,6 +232,7 @@
 	.chip.on { background: #fee2e2 !important; }
 	.fmt { display: inline-flex; gap: 4px; align-items: center; color: var(--cad-muted); }
 	.pp.none { color: var(--cad-faint); }
+	.pp.patched { color: #16a34a; font-weight: 600; }   /* a cord in that panel port: the rack view's green edge */
 	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
 	.pin { display: inline-flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 </style>

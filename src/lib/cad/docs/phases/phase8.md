@@ -2081,3 +2081,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/racks.test.ts`, `views/rackRow.test.ts`, `views/cordRoute.test.ts`. Live (Test Project 33IDF2, P3C): green
   edges; cord P3C-37:15 → P3C-35:15 dragged to 17 and back to 15 (as before: ADD, 1 m); + on P3C-35:18 armed a patch,
   on P3C-36:3 a link, Esc back to Select each time. Help: "Re-patch a cord, or start one from a port".
+- **Patched outlet ports in the Outlets table (Dave: "indicate which ports of each outlet have been patched (maybe
+  change the pinned indicator to green?)"):** the Panel column's "P3C U37:15" reads green (bold) when that panel port
+  has a cord in (not one being removed) — the rack view's green edge; its tooltip says where the cord goes. The whole
+  entry rather than only the ◆: pinned and patched are separate (an unpinned port can be patched), so the ◆ stays
+  "pinned". Header: "Panel (◆ pinned · green patched)". Live (Test Project 1F): A.004 U37:15, A.005 U37:17, A.008
+  U37:6 / U37:7 green — the green-edged ports on P3C-37. Help: in "Re-patch a cord, or start one from a port".
