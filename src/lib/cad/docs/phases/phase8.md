@@ -1936,3 +1936,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **0U PDU selection box too wide:** `primBounds` measured the PDU's turned name (rot −90) as flat text, so the box
   was as wide as the name is long. Turned text is now measured turned (also tightens picking and zoom-to-fit).
   Test: `views/display.test.ts`.
+- **Rack order round a corner (Journey IDF1):** R301–R303 face up (180°); round the corner P3A faces right (270°) and
+  its two VCMs left (90°). Runs were grouped by exact rotation and ranked along the FIRST rack in the data (a VCM), so
+  the view read R301 R302 R303 then P3A. `racksInOrder` now groups a run by its line (rotation mod 180), orders each run
+  from the facing with the most width, and ranks runs along the widest run: VCM P3A VCM R301 R302 R303 (Dave: P3A left
+  of R301). IDF 2 unchanged. Allocation follows the same order, but existing links stay. Help: "Change the order of
+  racks in a rack view". Test in `views/rackRow.test.ts`.

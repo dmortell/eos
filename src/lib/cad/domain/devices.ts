@@ -98,21 +98,31 @@ export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] 
 	const racks = ix.racks.filter((r) => r.spaceId === spaceId && (!rowId || r.rowId === rowId))
 	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }
 	// A row can turn a corner (racks along one wall, a frame and its managers along the next — Dave's IDF 2), so each
-	// run of racks with the SAME rotation is ordered along its own "right" (as seen from its front), and the runs are
-	// ordered along the first run's right. Racks not on the plan follow, by `order`.
+	// RUN — the racks along one line, whichever way each faces (a manager turned round is still in the line: Journey
+	// IDF1) — is ordered along its own "right" as seen from the front of its widest racks, and the runs are ordered
+	// along the right of the widest run (not whichever rack happens to come first). Racks not on the plan follow, by `order`.
 	const pos = new Map<Id, number[]>()
 	const byRow = new Map<string, Rack[]>()
 	for (const r of racks) byRow.set(r.rowId ?? '', [...(byRow.get(r.rowId ?? '') ?? []), r])
+	const rotOf = (r: Rack) => (((r.rot ?? 0) % 360) + 360) % 360
+	const width = (rs: Rack[]) => rs.reduce((s, r) => s + r.widthMm, 0)
+	/** The facing of most width in a run (ties: the first) — the way its viewer stands. */
+	const facing = (rs: Rack[]) => {
+		const w = new Map<number, number>()
+		for (const r of rs) w.set(rotOf(r), (w.get(rotOf(r)) ?? 0) + r.widthMm)
+		return [...w].reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+	}
 	for (const rs of byRow.values()) {
 		const placed = rs.filter((r) => r.at)
 		if (!placed.length) continue
 		const runs = new Map<number, Rack[]>()
-		for (const r of placed) { const k = (((r.rot ?? 0) % 360) + 360) % 360; runs.set(k, [...(runs.get(k) ?? []), r]) }
+		for (const r of placed) { const k = rotOf(r) % 180; runs.set(k, [...(runs.get(k) ?? []), r]) }
 		const dot = (p: Pt, t: Pt) => p.x * t.x + p.y * t.y
-		const first = rotate({ x: 1, y: 0 }, placed[0].rot ?? 0)
+		const main = [...runs.values()].reduce((a, b) => (width(b) > width(a) ? b : a))
+		const first = rotate({ x: 1, y: 0 }, facing(main))
 		const centre = (rs: Rack[]): Pt => ({ x: rs.reduce((s, r) => s + r.at!.x, 0) / rs.length, y: rs.reduce((s, r) => s + r.at!.y, 0) / rs.length })
 		const runRank = new Map([...runs.entries()].sort((a, b) => dot(centre(a[1]), first) - dot(centre(b[1]), first)).map(([k], i) => [k, i]))
-		for (const [k, run] of runs) { const t = rotate({ x: 1, y: 0 }, k); for (const r of run) pos.set(r.id, [runRank.get(k)!, dot(r.at!, t)]) }
+		for (const [k, run] of runs) { const t = rotate({ x: 1, y: 0 }, facing(run)); for (const r of run) pos.set(r.id, [runRank.get(k)!, dot(r.at!, t)]) }
 	}
 	const cmp = (a: Rack, b: Rack) => {
 		const pa = pos.get(a.id), pb = pos.get(b.id)

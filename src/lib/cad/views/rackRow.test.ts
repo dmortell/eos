@@ -117,6 +117,14 @@ describe('row order comes from the plan', () => {
 		const ents = [mk('R313', -2242, -10808, 90), mk('R312', -2242, -10208, 90), mk('R311', -2225, -9308, 90), mk('V05', -3124, -7059), mk('V06', -3824, -7059), mk('P3C', -3450, -7008)]
 		expect(rackLayout(ix([row, ...ents]), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)).toEqual(['R313', 'R312', 'R311', 'V06', 'P3C', 'V05'])
 	})
+	it('managers turned round stay in their frame’s line; the widest run sets the way (Dave: Journey IDF1 — P3A left of R301)', () => {
+		const mk = (id: string, x: number, y: number, rot: number, widthMm: number): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm, depthMm: 1000, at: { x, y }, rot })
+		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row A', order: 0 }
+		// the racks face up the sheet (180°); round the corner P3A faces right (270°), its two managers left (90°) — and
+		// a manager comes first in the data
+		const ents = [mk('V1', 10600, -2390, 90, 152), mk('V2', 10580, -3100, 90, 152), mk('R302', 8425, -3755, 180, 750), mk('R303', 7750, -3755, 180, 600), mk('R301', 9125, -3755, 180, 750), mk('P3A', 10510, -2745, 270, 550)]
+		expect(rackLayout(ix([row, ...ents]), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)).toEqual(['V1', 'P3A', 'V2', 'R301', 'R302', 'R303'])
+	})
 })
 
 describe('port cells and labels', () => {
