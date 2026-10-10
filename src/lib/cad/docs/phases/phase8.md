@@ -1903,3 +1903,9 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   also picks the largest standard 1:N at which the view fits the window (`fitViewport`, views/sheet.ts; an empty view
   keeps its scale). Tests: `editor/viewportHandling.test.ts` (5). Live: not checked — the Chrome tab was in the
   background, where the panes don't redraw on a tab switch.
+- **Copy one segment of a run** (backlog G064 part): Ctrl-drag on a PICKED segment of the selected run copies just the
+  picked segments as a new run (`copySegs`, domain/pathEdit.ts: section, role, layer and style kept, new ids, a
+  wall's openings on them come along, nodes not attached, no label; disconnected segments give a run each), moved
+  by the drag and selected; the run stays. A Ctrl-click (no drag) still drops the segment from the pick. Tests:
+  `pathSel.test.ts` (+1). Live (1F plan): the diagonal trunk segment Ctrl-dragged down — a copy of that segment only,
+  the run untouched; undone. (A quick second click on a selected run is a double-click: it adds a point — undone.)

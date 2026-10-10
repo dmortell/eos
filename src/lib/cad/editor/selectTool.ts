@@ -12,7 +12,7 @@ import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
-import { insertNode } from '../domain/pathEdit'
+import { insertNode, copySegs } from '../domain/pathEdit'
 import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
@@ -50,7 +50,8 @@ export class SelectTool implements Tool {
 	#followers = new Map<Id, Id[]>()
 	#absorbed = 0
 	/** A selected segment being dragged whole: its run and end nodes. */
-	#segDrag: { shape: Id; nodes: Id[] } | null = null
+	/** Picked segments dragged whole; `copy` (Ctrl) = those segments copied as a new run instead. */
+	#segDrag: { shape: Id; nodes: Id[]; copy?: Id[] } | null = null
 	/** Pressed on a segment of the selected run: a click (no drag) picks that segment. */
 	#segPick: { shape: Id; seg: Id } | null = null
 	#snap: Snap | null = null
@@ -238,14 +239,16 @@ export class SelectTool implements Tool {
 			if (bar) { this.#handle = { h: { ...bar, selects: undefined }, base: hitEnt }; this.#start = e.p }
 			return
 		}
-		// the selected run, pressed again: on a picked segment, drag those segments whole; elsewhere a click picks the
-		// segment under the cursor (a drag still moves the whole run)
+		// the selected run, pressed again: on a picked segment, drag those segments whole (Ctrl: a COPY of them, as a new
+		// run; a Ctrl-click still drops it from the pick); elsewhere a click picks the segment under the cursor (a drag
+		// still moves the whole run)
 		if (id && c.selectPath && hitEnt?.type === 'shape' && hitEnt.geom.kind === 'path' && c.selection.length === 1 && c.selection[0] === id && !e.shift) {
 			const sp = this.#pathSpace(c, hitEnt), seg = sp && segAt(hitEnt, sp, e.p, c.tol()), ps = c.pathSel?.()
-			if (seg && !e.ctrl && ps?.shape === id && ps.segs.includes(seg)) {
+			if (seg && ps?.shape === id && ps.segs.includes(seg)) {
 				const nodes = segNodes(hitEnt, ps.segs)
-				this.#segDrag = { shape: id, nodes }
-				this.#followers = followersOf(c.store.ofType('shape'), hitEnt, nodes)
+				this.#segDrag = { shape: id, nodes, ...(e.ctrl ? { copy: ps.segs } : {}) }
+				if (e.ctrl) this.#segPick = { shape: id, seg }
+				else this.#followers = followersOf(c.store.ofType('shape'), hitEnt, nodes)
 				this.#start = e.p
 				return
 			}
@@ -348,12 +351,21 @@ export class SelectTool implements Tool {
 			})
 		} else if (this.#segDrag && this.#start) {
 			// a selected segment (or several) dragged whole: their end nodes move by the drag; other runs' nodes on them too
-			const { shape, nodes } = this.#segDrag, fol = this.#followers
+			const { shape, nodes, copy } = this.#segDrag, fol = this.#followers
 			const dv0 = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }, dv = e.shift ? axisLock(dv0) : dv0   // Shift: H / V
 			if (!this.#gesture && Math.hypot(dv.x, dv.y) < c.tol()) return
 			const ss = c.store.get(shape), sp = (ss?.type === 'shape' && this.#pathSpace(c, ss)) || c.space
 			const d = sp.deltaToWorld(snapPt(dv, e.alt, c.grid ?? 10))
-			this.#gesture ??= c.store.begin('Move segment')
+			this.#gesture ??= c.store.begin(copy ? (copy.length === 1 ? 'Copy segment' : `Copy ${copy.length} segments`) : 'Move segment')
+			if (copy) {   // the copy moves with the drag and is selected when let go; the run itself stays
+				this.#gesture.update((tx) => {
+					const s = tx.get(shape) as Shape | undefined
+					const made = s ? copySegs(s, copy).map((x) => moveBy(x, d)) : []
+					for (const x of made) tx.put(x)
+					this.#copied = made.map((x) => x.id)
+				})
+				return
+			}
 			this.#gesture.update((tx) => {
 				const s = tx.get(shape) as Shape | undefined
 				if (s) tx.put(moveNodesBy(s, nodes, d))

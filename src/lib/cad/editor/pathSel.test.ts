@@ -10,6 +10,7 @@ import { SelectTool } from './selectTool'
 import { followersOf, joinAcross, deletePicked, disconnectPicked, segAt } from './pathSel'
 import { canJoin } from '../domain/pathEdit'
 import { spaceOf, PLAN } from '../views/space'
+import { planDisplayList } from '../views/plan'
 import type { Shape } from '../domain/shapes'
 import type { Link } from '../domain/types'
 
@@ -113,6 +114,33 @@ describe('picked nodes and segments', () => {
 		expect(ps!.nodes).toEqual(['R1', 'R2'])
 		expect(ids(deletePicked(run, ps!)[0])).toMatchObject({ nodes: ['R0', 'R3'], segs: [expect.stringMatching(/^(R0-R3|R3-R0)$/)] })
 		expect(store.undoLabels).toEqual([])   // picking is not an edit
+	})
+	it('Ctrl-drag a picked segment: a COPY of just that segment, moved by the drag, selected; the run stays; one undo step', () => {
+		const store = new EntityStore()
+		const attached = { ...run, geom: { ...run.geom, nodes: (run.geom as { nodes: object[] }).nodes.map((n, i) => (i === 1 ? { ...n, attach: 'O1' } : n)) } } as Shape
+		store.load([...demoProject(), attached])
+		let ps: { shape: string; nodes: string[]; segs: string[] } | null = { shape: 'R', nodes: [], segs: ['Rs1'] }, sel = ['R']
+		const ctx = () => ({
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 2900, w: 100, h: 50 }, prims: () => planDisplayList(new ProjectIndex(store.all()), 'L33', { scale: 100 }), tol: () => 10, grid: 10,
+			space: spaceOf(PLAN), work: { z: 2900, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' as const }),
+			selection: sel, select: (x: string[]) => { sel = x }, setMarquee: () => {}, ask: () => {}, say: () => {}, pathSel: () => ps, selectPath: (x: typeof ps) => { ps = x },
+		}) as unknown as ToolCtx
+		const t = new SelectTool(), at = (x: number, y: number) => ({ p: { x, y }, shift: false, ctrl: true, alt: false })
+		t.down(at(1500, 0), ctx()); t.move(at(1500, 600), ctx()); t.up(at(1500, 600), ctx())
+		expect(store.get('R')).toEqual(attached)   // the run itself is untouched
+		const copy = store.get(sel[0]) as Shape
+		expect(sel).toHaveLength(1)
+		expect(copy.id).not.toBe('R')
+		expect(copy.role).toEqual(run.role)
+		const g = copy.geom as { nodes: { x: number; y: number; attach?: string }[]; segs: object[] }
+		expect(g.segs).toHaveLength(1)
+		expect(g.nodes.map((n) => [n.x, n.y])).toEqual([[1000, 600], [2000, 600]])
+		expect(g.nodes.some((n) => n.attach)).toBe(false)   // not attached to what the original was
+		expect(store.undoLabels).toEqual(['Copy segment'])
+		// a Ctrl-CLICK (no drag) on a picked segment still drops it from the pick
+		sel = ['R']; ps = { shape: 'R', nodes: [], segs: ['Rs0', 'Rs1'] }
+		t.down(at(1500, 0), ctx()); t.up(at(1500, 0), ctx())
+		expect(ps!.segs).toEqual(['Rs0'])
 	})
 	it('the segment under the cursor', () => {
 		expect(segAt(run, spaceOf(PLAN), { x: 1500, y: 4 }, 10)).toBe('Rs1')

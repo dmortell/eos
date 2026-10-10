@@ -144,6 +144,22 @@ export function removeSegs(s: Shape, segIds: Id[]): Shape[] {
 	return pieces({ ...withGeom(s, { ...g, nodes: g.nodes.filter((n) => used.has(n.id)), segs }), ...role })
 }
 
+/** COPY some segments (backlog "Copy one segment of a run": Ctrl-drag picked segments) as new runs of the same kind —
+ *  section, role, layer, style kept; new ids throughout; a wall's openings on them come along; nodes no longer attached
+ *  to anything and no label (they're the original's). Disconnected segments give one run each. */
+export function copySegs(s: Shape, segIds: Id[]): Shape[] {
+	const g = geomOf(s), segs = g.segs.filter((x) => segIds.includes(x.id))
+	if (!segs.length) return []
+	const nid = new Map<Id, Id>(), sid = new Map<Id, Id>()
+	for (const x of segs) { for (const n of [x.a, x.b]) if (!nid.has(n)) nid.set(n, newId()); sid.set(x.id, newId()) }
+	const nodes = g.nodes.filter((n) => nid.has(n.id)).map((n) => { const { attach: _a, ...rest } = n; return { ...rest, id: nid.get(n.id)! } })
+	const role = s.role?.kind === 'wall' ? { role: { ...s.role, openings: s.role.openings.filter((o) => sid.has(o.segId)).map((o) => ({ ...o, id: newId(), segId: sid.get(o.segId)! })) } } : {}
+	const copy: Shape = { ...withGeom(s, { ...g, nodes, segs: segs.map((x) => ({ ...x, id: sid.get(x.id)!, a: nid.get(x.a)!, b: nid.get(x.b)! })) }), ...role, id: newId() }
+	delete copy.label
+	delete copy.groupId
+	return pieces(copy)
+}
+
 /** How many segments meet at each node (1 = an end, 2 = a run, 3+ = a junction). */
 export function degree(s: Shape): Map<Id, number> {
 	const m = new Map<Id, number>()
