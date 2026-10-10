@@ -69,7 +69,7 @@ export class ProjectIndex {
 		const own = e.portLabels?.[String(r.port)]
 		if (own) return own
 		// in a labelled range of ports ("P3A-R302:01"), on this panel or on the one its cable comes from
-		const g = groupPortLabel(e, r.port) || (fe?.type === 'device' ? groupPortLabel(fe, far!.port) : '')
+		const g = groupPortLabel(this, e, r.port) || (fe?.type === 'device' ? groupPortLabel(this, fe, far!.port) : '')
 		if (g) return g
 		const l = this.linkAt(r)
 		return l?.kind === 'tie' ? this.#tieLabel(l) : ''

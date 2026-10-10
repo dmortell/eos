@@ -2005,3 +2005,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   old "Select drags a device" test caught that); the release on a panel moves them and picks them there; a click
   picks that port alone. Help: "Move outlets from one panel to another". Test in `editor/racks.test.ts`. The drag
   itself not tried live (synthetic pointer drags on the canvas); the tool test runs the real Select tool.
+- **Split labels named from the cables, always (Dave: Journey P3A U41 read P3A-R301A / P3A-R301B):** "In two" was
+  clicked before the ties existed, so it stored the fallback "<panel>-A / -B" (the panel is named P3A-R301). A range's
+  `label` is now optional: none = `rangeLabel` works it out from its cables each time ("<rack>-<far rack>", else
+  "<panel>-A…"; cached per index); a typed label wins; clearing it goes back. "In two" and "+ Range" store no label;
+  the Properties field shows the worked-out one in grey. Tests in `domain/portGroups.test.ts`. Checked on Journey's
+  data in memory (nothing written): with its two labels cleared, P3A U41 reads P3A-R301:01–24 / P3A-R302:01–24, and
+  R302-P3A's ports P3A-R302:NN. Dave clears the two typed labels himself.

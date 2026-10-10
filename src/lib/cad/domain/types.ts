@@ -227,8 +227,9 @@ export interface Device {
 	portLabels?: Record<string, string>
 }
 
-/** A labelled range of a panel's ports, `from`–`to` inclusive (1-based). */
-export interface PortGroup { from: number; to: number; label: string }
+/** A labelled range of a panel's ports, `from`–`to` inclusive (1-based). No `label` = from its cables (P3A-R301: this
+ *  rack - the rack they go to), worked out each time — so splitting before linking still names it right (Dave). */
+export interface PortGroup { from: number; to: number; label?: string }
 
 export interface PanelInfo {
 	tier: Tier

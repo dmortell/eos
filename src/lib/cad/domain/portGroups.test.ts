@@ -14,16 +14,16 @@ const tie = (a: [string, number], b: [string, number]): Link => ({ type: 'link',
 const room = { type: 'space', id: 'IDF1', levelId: 'L1', kind: 'server room', name: 'IDF1', order: 1 }
 // 24 ties each way: the top half (1–24) to R301's panel, the bottom half (25–48) to R302's
 const ties = Array.from({ length: 24 }, (_, i) => [tie(['P41', i + 1], ['A41', i + 1]), tie(['P41', i + 25], ['B41', i + 1])]).flat()
-const world = (groups?: PortGroup[]) => new ProjectIndex([
+const world = (groups?: PortGroup[], linked = true) => new ProjectIndex([
 	room, rack('P3A', 'P3A'), rack('R301', 'R301'), rack('R302', 'R302'),
-	panel('P41', 'P3A', 'P3A-41', 48, groups), panel('A41', 'R301', 'R301-41', 24), panel('B41', 'R302', 'R302-41', 24), ...ties,
+	panel('P41', 'P3A', 'P3A-41', 48, groups), panel('A41', 'R301', 'R301-41', 24), panel('B41', 'R302', 'R302-41', 24), ...(linked ? ties : []),
 ] as Entity[])
 
 describe('labelled port ranges', () => {
 	const split = [{ from: 1, to: 24, label: 'P3A-R301' }, { from: 25, to: 48, label: 'P3A-R302' }]
 	it('a port in a range is "<label>:NN" counted from the range’s first port — the 25th is P3A-R302:01', () => {
 		const ix = world(split), d = ix.get<Device>('P41')!
-		expect([groupPortLabel(d, 1), groupPortLabel(d, 24), groupPortLabel(d, 25), groupPortLabel(d, 48)]).toEqual(['P3A-R301:01', 'P3A-R301:24', 'P3A-R302:01', 'P3A-R302:24'])
+		expect([groupPortLabel(ix, d, 1), groupPortLabel(ix, d, 24), groupPortLabel(ix, d, 25), groupPortLabel(ix, d, 48)]).toEqual(['P3A-R301:01', 'P3A-R301:24', 'P3A-R302:01', 'P3A-R302:24'])
 		expect(ix.portLabel({ on: 'P41', port: 25 })).toBe('P3A-R302:01')
 	})
 	it('the far end of its tie shows the same label; without ranges the ties keep their rack-pair labels', () => {
@@ -31,9 +31,15 @@ describe('labelled port ranges', () => {
 		expect(world(split).portLabel({ on: 'A41', port: 7 })).toBe('P3A-R301:07')
 		expect(world().portLabel({ on: 'B41', port: 1 })).toBe('P3A~R302:01')
 	})
-	it('"In two" labels each half from the rack its cables go to', () => {
-		const ix = world()
-		expect(splitPanel(ix, ix.get<Device>('P41')!, 2)).toEqual(split)
+	it('"In two" leaves the labels to the cables — split BEFORE linking still reads P3A-R301 / P3A-R302 once linked (Dave)', () => {
+		const halves = splitPanel(world().get<Device>('P41')!, 2)
+		expect(halves).toEqual([{ from: 1, to: 24 }, { from: 25, to: 48 }])
+		expect(world(halves, false).portLabel({ on: 'P41', port: 25 })).toBe('P3A-41-B:01')   // not linked yet: the panel's name
+		const linked = world(halves)
+		expect([linked.portLabel({ on: 'P41', port: 1 }), linked.portLabel({ on: 'P41', port: 25 }), linked.portLabel({ on: 'B41', port: 24 })]).toEqual(['P3A-R301:01', 'P3A-R302:01', 'P3A-R302:24'])
+	})
+	it('a label typed for a range wins over the cables', () => {
+		expect(world([{ from: 1, to: 24, label: 'TIE-A' }, { from: 25, to: 48 }]).portLabel({ on: 'P41', port: 3 })).toBe('TIE-A:03')
 	})
 	it('ranges off the panel, back to front or overlapping are refused', () => {
 		expect(groupsProblem(split, 48)).toBeNull()

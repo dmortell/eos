@@ -6,7 +6,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity, Sheet } from '../domain/drawing'
 	import type { Id, Outlet, Rack, RackRow, Device, Space, PortGroup } from '../domain/types'
-	import { groupsProblem, splitPanel } from '../domain/portGroups'
+	import { groupsProblem, splitPanel, rangeLabel } from '../domain/portGroups'
 	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { naturalCompare } from '../domain/labels'
@@ -145,7 +145,12 @@
 		putDevice(d, label, { panel: { tier: 'low', ...d.panel, groups: groups.length ? groups : undefined } })
 	}
 	const editGroup = (d: Device, i: number, patch: Partial<PortGroup>) =>
-		setGroups(d, (d.panel?.groups ?? []).map((g, j) => (j === i ? { ...g, ...patch } : g)), `${d.name} port range`)
+		setGroups(d, (d.panel?.groups ?? []).map((g, j) => {
+			if (j !== i) return g
+			const next = { ...g, ...patch }
+			if (!next.label) delete next.label   // no label: named from its cables
+			return next
+		}), `${d.name} port range`)
 	function saveTemplate(d: Device) {
 		ws.askText('Template name (global)', d.name, async (name) => {
 			busy = true
@@ -410,18 +415,20 @@
 						{#each d.panel?.groups ?? [] as g, i (i)}
 							<span class="flex items-center gap-1">
 								<input class="inp num" type="number" min="1" max={d.portCount} value={g.from} title="First port" onchange={(e) => editGroup(d, i, { from: Number(e.currentTarget.value) })} />–<input class="inp num" type="number" min="1" max={d.portCount} value={g.to} title="Last port" onchange={(e) => editGroup(d, i, { to: Number(e.currentTarget.value) })} />
-								<input class="inp" value={g.label} placeholder="Label" onchange={(e) => editGroup(d, i, { label: e.currentTarget.value.trim() })} />
+								<!-- empty = from its cables (the grey text); typed = that label -->
+								<input class="inp" value={g.label ?? ''} placeholder={rangeLabel(project.index, d, { from: g.from, to: g.to })} title="Empty: named from its cables (this rack - the rack they go to). Type to set your own; clear it to go back."
+									onchange={(e) => editGroup(d, i, { label: e.currentTarget.value.trim() || undefined })} />
 								<button class="btn" title="Remove this range (its ports go back to their usual labels)" onclick={() => setGroups(d, (d.panel?.groups ?? []).filter((_, j) => j !== i), `${d.name} port range removed`)}>✕</button>
 							</span>
 						{:else}
 							<span class="flex items-center gap-1">
-								<button class="btn whitespace-nowrap" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(project.index, d, 2), `${d.name} split in two`)}>In two</button>
+								<button class="btn whitespace-nowrap" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(d, 2), `${d.name} split in two`)}>In two</button>
 								<span class="text-zinc-400">one label</span>
 							</span>
 						{/each}
 						{#if d.panel?.groups?.length}
 							{@const last = d.panel.groups.reduce((m, g) => Math.max(m, g.to), 0)}
-							{#if last < d.portCount}<button class="btn self-start" title="Another range, from the port after the last range to the end" onclick={() => setGroups(d, [...(d.panel?.groups ?? []), { from: last + 1, to: d.portCount, label: `${d.name}-${String.fromCharCode(65 + (d.panel?.groups?.length ?? 0))}` }], `${d.name} port range added`)}>+ Range</button>{/if}
+							{#if last < d.portCount}<button class="btn self-start" title="Another range, from the port after the last range to the end" onclick={() => setGroups(d, [...(d.panel?.groups ?? []), { from: last + 1, to: d.portCount }], `${d.name} port range added`)}>+ Range</button>{/if}
 						{/if}
 					</span>
 				</div>
