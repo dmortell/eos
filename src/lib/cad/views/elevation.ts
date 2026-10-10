@@ -5,7 +5,7 @@
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
+import { isFlat, isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle, lineEnds } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
@@ -35,7 +35,8 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	const uSpan = (pts: Pt3[]) => { const us = pts.map((p) => sp.fromWorld(p).x); return [Math.min(...us), Math.max(...us)] as const }
 
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) items.push(rackItem(ix, r, sp, rect, uSpan, k))
-	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) items.push(outletItem(ot, level, sp, rect, k))
+	// only outlets placed in an elevation / section (on a wall): one placed on a plan is a plan symbol (Dave 2026-10-10)
+	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at && ot.inElevations) items.push(outletItem(ot, level, sp, rect, k))
 	// Path nodes on another level (a riser's far end) are lifted by the difference in level heights.
 	const elev = (id?: Id) => { const l = id ? ix.get(id) : undefined; return l?.type === 'level' ? l.elevationMm : 0 }
 	const here = elev(levelId)
@@ -55,13 +56,15 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1 + (s.order ?? 0) * 1e-3, prims: shapePrims({ ...s, geom: g }, k) })   // draw order among them
 			continue
 		}
-		// a block insert (a wall faceplate): its symbol at its height, facing the viewer
+		// a block insert placed in an elevation (a wall faceplate): its symbol at its height, facing the viewer; one
+		// placed on the plan is a plan symbol, not shown here
 		if (s.geom.kind === 'insert') {
-			if (s.levelId !== levelId) continue
+			if (s.levelId !== levelId || !s.geom.inElevations) continue
 			const g = s.geom, b = o.blocks?.(g.blockId), p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, v = sp.fromWorld(p)
 			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(b, { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape') })
 			continue
 		}
+		if (planDrawing(s)) continue
 		const reaches =s.geom.kind === 'path' && s.geom.nodes.some((n) => (n.levelId ?? s.levelId) !== levelId)
 		if (s.levelId !== levelId && !(s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) && !passesThrough(ix, s, levelId)) continue
 		const its = shapeItems(s, sp, rect, uSpan, zOf, wallSpan(ix, s), k)
@@ -144,6 +147,15 @@ function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
 	}
 }
 
+/** Drawing on a plan (Dave 2026-10-10: not shown in elevations): a flat line, box, circle or polygon — no height, no
+ *  role, not on an elevation's plane. A line rising (its nodes at different heights or levels) is a 3D line: shown. */
+function planDrawing(s: Shape): boolean {
+	if (s.role || s.plane?.kind === 'vertical' || !isFlat(s)) return false
+	const g = s.geom
+	if (g.kind !== 'path') return true
+	return g.nodes.every((n) => n.z === g.nodes[0].z && (n.levelId ?? s.levelId) === s.levelId)
+}
+
 /** A plain line's end marks, on its projected nodes (`k` = drawing mm per paper mm). */
 function endItems(s: Shape, g: Extract<Shape['geom'], { kind: 'path' }>, nodes: Map<Id, Pt3 & { id: Id }>, sp: ViewSpace, k: number): Item[] {
 	const flat = { ...g, nodes: g.nodes.map((n) => { const w = nodes.get(n.id)!; return { ...n, ...sp.fromWorld(w), z: 0 } }) }
@@ -218,7 +230,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 		const c = pts.reduce((m, p) => ({ x: m.x + p.x / pts.length, y: m.y + p.y / pts.length, z }), { x: 0, y: 0, z })
 		return [{ depth: sp.depthOf(c), prims: ownStyle(s, [ext ? rect(u0, u1, z, z + ext, 'shape', s.id) : { k: 'line', pts: [{ x: u0, y: -z }, { x: u1, y: -z }], cls: 'shape', src: s.id }]) }]
 	}
-	return []   // plan text doesn't show in elevations yet
+	return []   // plan notes and dimensions don't show in elevations
 }
 
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */

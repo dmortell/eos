@@ -1,7 +1,7 @@
 // The INSERT tool (the Blocks list): click to place the chosen block; it stays on for the next one, Esc → Select.
 // Plan: at the click, at the last insert's height. Elevation / section: the click gives the height too, and the
 // block goes ON the nearest wall behind the click (its face, turned to face the viewer: a wall faceplate); with no
-// wall there, on the work plane.
+// wall there, on the work plane. Only those show in elevations: a block placed on the plan is a plan symbol.
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
@@ -40,7 +40,7 @@ export class InsertTool implements Tool {
 		}
 		const s = {
 			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
-			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
+			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
 		} as Shape
 		c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
 		this.#z = p.z

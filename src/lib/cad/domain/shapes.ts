@@ -79,7 +79,7 @@ export type Geometry =
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
-	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number }
+	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (Dave 2026-10-10). */ inElevations?: boolean }
 	/** A LEGEND (backlog "Legend on the drawing"): a table of the symbols / layers in use on its level (a sheet: the levels
 	 *  its viewports show), with counts. `at` = its top-left; `rows` = the row keys it shows ('block:<id>' / 'layer:<id>';
 	 *  absent = every symbol in use); sizes are paper mm. Drawn from the data each time, so it keeps itself up to date. */

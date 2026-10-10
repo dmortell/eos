@@ -12,9 +12,12 @@ import { snapToPrims } from '../editor/snap'
 import type { Entity } from '../domain/drawing'
 import type { Outlet, Rack } from '../domain/types'
 import type { Shape } from '../domain/shapes'
+import { BUILTIN_BLOCKS } from '../domain/blocks'
 
+/** The demo's outlets as if placed in an elevation (on a wall): only those show in elevations. */
+const onWalls = (): Entity[] => demoProject().map((e) => (e.type === 'outlet' ? { ...e, inElevations: true } : e))
 /** The demo with its rack placed (front = +y, unrotated) at plan (5000, 1000). */
-const placed = (): Entity[] => demoProject().map((e) => (e.id === 'R1' ? { ...(e as Rack), at: { x: 5000, y: 1000 } } : e))
+const placed = (): Entity[] => onWalls().map((e) => (e.id === 'R1' ? { ...(e as Rack), at: { x: 5000, y: 1000 } } : e))
 const view = (dir: 'front' | 'rear' | 'left' | 'right', ents = placed()) => elevationDisplayList(new ProjectIndex(ents), 'L33', spaceOf({ kind: 'elevation', dir }), { scale: 100 })
 const srcs = (dir: 'front' | 'rear' | 'left' | 'right') => new Set(view(dir).map((p) => p.src).filter(Boolean))
 
@@ -46,6 +49,28 @@ describe('what an elevation shows', () => {
 		expect(xs[0]).toBeLessThan(xs[1])
 		const ys = view('rear').filter((x) => (x.src === 'O1' || x.src === 'O2') && x.k === 'line').map((x) => (x as { pts: { x: number }[] }).pts[0].x)
 		expect(ys[0]).toBeGreaterThan(ys[1])   // seen from behind, the order flips
+	})
+	it('what was placed on the PLAN stays there: outlets, blocks, flat shapes and lines, notes, dimensions (Dave 2026-10-10)', () => {
+		const sh = (id: string, geom: object, extra = {}) => ({ type: 'shape', id, levelId: 'L33', geom, ...extra }) as Shape
+		const flat = (id: string, z: number) => ({ id, x: 1000, y: 2000, z })
+		const plan: Entity[] = [
+			...demoProject(),   // its outlets were placed on the plan
+			sh('INS', { kind: 'insert', blockId: 'builtin:faceplate-power-1', at: { x: 1000, y: 2000 } }),
+			sh('BOX', { kind: 'rect', centre: { x: 1000, y: 2000 }, size: { x: 400, y: 200 } }),
+			sh('LN', { kind: 'path', nodes: [flat('a', 0), { ...flat('b', 0), x: 3000 }], segs: [{ id: 's', a: 'a', b: 'b' }] }),
+			sh('TX', { kind: 'text', at: { x: 1000, y: 2000 }, text: 'A', sizeMm: 2.5 }),
+			sh('DIM', { kind: 'dimension', a: { x: 0, y: 0 }, b: { x: 2000, y: 0 }, offset: 500, mode: 'aligned' }),
+			// …but a box with a height, and a line that rises, are model things: shown
+			sh('SOLID', { kind: 'rect', centre: { x: 1000, y: 2000 }, size: { x: 400, y: 200 } }, { extent: 900 }),
+			sh('RISE', { kind: 'path', nodes: [flat('c', 0), flat('d', 2000)], segs: [{ id: 't', a: 'c', b: 'd' }] }),
+		]
+		const ix = new ProjectIndex(plan), blocks = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
+		const shown = new Set(elevationDisplayList(ix, 'L33', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100, blocks }).map((p) => p.src))
+		expect(['O1', 'O2', 'INS', 'BOX', 'LN', 'TX', 'DIM'].filter((id) => shown.has(id))).toEqual([])
+		expect(['SOLID', 'RISE'].filter((id) => shown.has(id))).toEqual(['SOLID', 'RISE'])
+		// the same block placed in an elevation (a wall faceplate) shows
+		const wall = new ProjectIndex([...plan, sh('INS2', { kind: 'insert', blockId: 'builtin:faceplate-power-1', at: { x: 1000, y: 2000 }, z: 1200, inElevations: true })])
+		expect(elevationDisplayList(wall, 'L33', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100, blocks }).some((p) => p.src === 'INS2')).toBe(true)
 	})
 	it('level datum lines are drawn (FFL, ceiling …)', () => {
 		expect(view('front').some((p) => p.k === 'text' && p.text === 'FFL ±0')).toBe(true)
@@ -166,7 +191,7 @@ describe('openings in elevations', () => {
 
 describe('depth band (UX14)', () => {
 	it('leaves out what is nearer than the band and fades what is beyond it', () => {
-		const base = demoProject(), o = base.find((e) => e.type === 'outlet') as Outlet
+		const base = onWalls(), o = base.find((e) => e.type === 'outlet') as Outlet
 		const near = { ...o, id: 'ON', label: 'NEAR', at: { x: o.at!.x, y: -6000 } }, far = { ...o, id: 'OF', label: 'FAR', at: { x: o.at!.x, y: 12000 } }
 		const ix = new ProjectIndex([...base, near, far] as Entity[]), sp = spaceOf({ kind: 'elevation', dir: 'front' })
 		const dN = sp.depthOf({ ...near.at, z: 0 }), dF = sp.depthOf({ ...far.at, z: 0 }), dO = sp.depthOf({ ...o.at!, z: 0 })

@@ -33,6 +33,7 @@ describe('the Insert tool', () => {
 		new InsertTool(() => plate).down(click({ x: 1000, y: 2000 }), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape
 		expect(s.geom).toMatchObject({ kind: 'insert', blockId: plate.id, at: { x: 1000, y: 2000 } })
+		expect('inElevations' in s.geom).toBe(false)   // a plan symbol: not shown in elevations
 		expect(h.store.undoLabels).toEqual([`Insert ${plate.name}`])
 	})
 	it('in an elevation: on the face of the wall behind the click, at the clicked height, facing you — and drawn there', () => {

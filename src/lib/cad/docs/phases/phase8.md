@@ -1865,3 +1865,12 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   printed mm: paper mm on a sheet, × the plot scale elsewhere). Tests: `notes.test.ts` (+1). Live (1F plan): one
   scalloped edge, then a closed cloud following the cursor; dropped with Esc. Backlog: penetration fill and linked
   symbols moved to P3 (Dave: low priority) — no P1 / P2 left.
+- **Plan things not in elevations** (Dave 2026-10-10: "when outlets, symbols, 2d blocks, dimensions etc are placed on a
+  plan, they should not be displayed on elevations"): elevations and sections now show only outlets and block inserts
+  placed IN an elevation / section (new `inElevations` flag, set by the Outlet and Insert tools there), and no flat
+  plan drawing (`planDrawing` in views/elevation.ts: a line, box, circle or polygon with no height, role or vertical
+  plane; a line that rises still shows). Plan text and dimensions already didn't. Outlets / blocks placed in an
+  elevation before this have no flag, so they now show on the plan only: re-place them in the elevation. Tests:
+  `elevation.test.ts` (+1, fixtures' outlets marked as placed on walls), `insertTool.test.ts`. Live (1F front + plan):
+  the elevation shows no outlets (the plan's 32 still drawn); a faceplate placed in the elevation shows there; undone.
+  Help: "What a plan shows in elevations".

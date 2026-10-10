@@ -115,6 +115,9 @@ export interface Outlet {
 	at?: Pt
 	z?: number
 	rot?: number
+	/** Placed in an elevation / section (on a wall): shown in elevations and sections too. One placed on a plan is a
+	 *  plan symbol and shows only in plans (Dave 2026-10-10). */
+	inElevations?: boolean
 	/** The wall shape a wall-mounted outlet sits on (it moves with the wall). */
 	hostShapeId?: Id
 	/** The block that draws it (a symbol, a block, or the user's own grouped shapes made into one); absent = the
