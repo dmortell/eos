@@ -19,6 +19,15 @@ describe('navigator tree', () => {
 		const room = pathTo(t, (n) => n.key === 'room:SR-A')
 		expect(room?.length).toBeGreaterThan(2)   // building › level › room
 	})
+	it('a server room counts its racks, not its cable managers (they are still listed)', () => {
+		const find = (ns: NavNode[]): NavNode | undefined => ns.find((n) => n.key === 'room:SR-A') ?? ns.map((n) => find(n.children ?? [])).find(Boolean)
+		const room = (extra: Entity[]) => find(navTree(new ProjectIndex([...demoProject(), ...extra])))!
+		const before = Number(room([]).detail!.split(' ')[0])
+		const vcm = { type: 'rack', id: 'VCM1', levelId: 'L33', spaceId: 'SR-A', order: 9, name: 'V01', kind: 'vcm', heightU: 42, widthMm: 152, depthMm: 600 } as Entity
+		const r = room([vcm])
+		expect(Number(r.detail!.split(' ')[0])).toBe(before)
+		expect(labels(r.children ?? [])).toContain('V01')
+	})
 	it('a search keeps the matches and their parents', () => {
 		const f = filterTree(navTree(ix()), 'a01')
 		expect(labels(f)).toContain('A01')

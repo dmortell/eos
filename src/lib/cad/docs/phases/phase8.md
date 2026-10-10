@@ -1942,3 +1942,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   from the facing with the most width, and ranks runs along the widest run: VCM P3A VCM R301 R302 R303 (Dave: P3A left
   of R301). IDF 2 unchanged. Allocation follows the same order, but existing links stay. Help: "Change the order of
   racks in a rack view". Test in `views/rackRow.test.ts`.
+- **Server room rack counts leave out VCMs:** the Navigator's "N racks" beside a server room skips `kind: 'vcm'`;
+  the managers are still listed under it. Test in `domain/navTree.test.ts`.

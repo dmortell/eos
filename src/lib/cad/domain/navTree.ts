@@ -50,8 +50,9 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 		const roomNodes = rooms.map((r): NavNode => {
 			const racks = ix.racks.filter((k) => k.spaceId === r.id).sort((a, b) => naturalCompare(a.name, b.name))
 			const rs = rows.filter((w) => w.spaceId === r.id).sort((a, b) => a.order - b.order)
+			const n = racks.filter((k) => k.kind !== 'vcm').length   // cable managers are listed, not counted (Dave 2026-10-10)
 			return {
-				key: `room:${r.id}`, label: r.name, detail: `${racks.length} rack${racks.length === 1 ? '' : 's'}`, kind: 'room', id: r.id,
+				key: `room:${r.id}`, label: r.name, detail: `${n} rack${n === 1 ? '' : 's'}`, kind: 'room', id: r.id,
 				open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } },
 				children: [
 					...rs.map((w): NavNode => ({ key: `row:${w.id}`, label: `Row ${w.name}`, kind: 'row', open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front', rowId: w.id } } })),
