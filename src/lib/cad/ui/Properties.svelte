@@ -413,9 +413,9 @@
 								<button class="btn" title="Remove this range (its ports go back to their usual labels)" onclick={() => setGroups(d, (d.panel?.groups ?? []).filter((_, j) => j !== i), `${d.name} port range removed`)}>✕</button>
 							</span>
 						{:else}
-							<span class="flex gap-1">
-								<button class="btn" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(project.index, d, 2), `${d.name} split in two`)}>In two</button>
-								<span class="text-zinc-400">one label (the panel's name)</span>
+							<span class="flex items-center gap-1">
+								<button class="btn whitespace-nowrap" title="Two ranges, top and bottom half — each labelled from the rack its cables go to (P3A-R301), else the panel's name -A / -B" onclick={() => setGroups(d, splitPanel(project.index, d, 2), `${d.name} split in two`)}>In two</button>
+								<span class="text-zinc-400">one label</span>
 							</span>
 						{/each}
 						{#if d.panel?.groups?.length}
