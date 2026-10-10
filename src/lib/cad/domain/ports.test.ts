@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel, reservePorts } from './ports'
+import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel, reservePorts, cablesOnDevices } from './ports'
 import type { Entity } from './drawing'
 import type { Device, Outlet } from './types'
 
@@ -81,5 +81,14 @@ describe('printed panels', () => {
 		expect(reservePorts(b, [10], '', '')).toBeNull()
 		expect(reservePorts(b, [1, 2, 3, 4], '', '')!.panel?.reservations).toBeUndefined()
 		expect(reservePorts(base().find((e) => e.id === 'SW1') as Device, [1], 'AP', 'r3')).toBeNull()   // not a panel
+	})
+	it('the links and cords on any port of the selected devices (Remove links / cords on several panels)', () => {
+		const i = ix(base())
+		const p1 = cablesOnDevices(i, ['P1'])
+		expect(p1.links.sort()).toEqual(i.links.filter((l) => l.a.on === 'P1' || l.b.on === 'P1').map((l) => l.id).sort())
+		expect(p1.links.length).toBeGreaterThan(0)
+		expect(p1.cords.length).toBe(i.cords.length)                 // every fixture cord is P1 → SW1
+		expect(cablesOnDevices(i, ['SW1']).links).toEqual([])        // the switch has cords, no links
+		expect(cablesOnDevices(i, []).links).toEqual([])
 	})
 })

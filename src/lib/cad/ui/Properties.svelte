@@ -11,6 +11,7 @@
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { naturalCompare } from '../domain/labels'
 	import PortProps from './PortProps.svelte'
+	import DeviceCables from './DeviceCables.svelte'
 	import CordProps from './CordProps.svelte'
 	import SheetProps from './SheetProps.svelte'
 	import SheetMultiProps from './SheetMultiProps.svelte'
@@ -440,6 +441,7 @@
 					{#if d.panel?.labelsPrintedAt}<button class="btn" title="Forget the printed labels (no more warnings)" onclick={() => put(d, `${d.name} not printed`, { panel: { ...d.panel!, labelsPrintedAt: undefined, printedLabels: undefined } })}>Clear</button>{/if}
 				</div>
 			{/if}
+			<DeviceCables {project} {ws} devices={[d]} />
 		</PropGroup>
 		<button class="btn" disabled={busy} title="Save this device's size, ports and kind as a GLOBAL template (every project)" onclick={() => saveTemplate(d)}>Save as template…</button>
 	{:else if one.type === 'sheet'}

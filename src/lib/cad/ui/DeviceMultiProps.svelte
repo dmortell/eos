@@ -6,6 +6,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Device } from '../domain/types'
 	import { placementProblem } from '../domain/devices'
+	import DeviceCables from './DeviceCables.svelte'
 
 	let { project, ws, devices }: { project: CadProject; ws: Workspace; devices: Device[] } = $props()
 
@@ -58,6 +59,7 @@
 		</select>
 	</label>
 {/if}
+<DeviceCables {project} {ws} {devices} />
 
 <style>
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }

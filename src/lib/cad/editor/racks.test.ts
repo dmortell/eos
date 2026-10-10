@@ -63,6 +63,16 @@ describe('drawing racks on the plan', () => {
 })
 
 describe('devices in the rack row', () => {
+	it('click a device, Shift-click another in the rack: every device between them on this face (Dave: U10 to U4)', () => {
+		const dev = (id: string, u: number, face: Device['face'] = 'both', heightU = 1): Device => ({ type: 'device', id, rackId: 'R1', name: id, kind: 'panel', u, heightU, face, portCount: 24 })
+		const h = harness(ROW, [dev('U10', 10), dev('U8', 7, 'both', 2), dev('U6', 6, 'front'), dev('U5', 5, 'rear'), dev('U4', 4), dev('U2', 2)])
+		const sel = new SelectTool()
+		const a = uPoint(h.store, 'R1', 10), b = uPoint(h.store, 'R1', 4)
+		sel.down(at(a.x, a.y), h.ctx()); sel.up(at(a.x, a.y), h.ctx())
+		sel.down({ ...at(b.x, b.y), shift: true }, h.ctx()); sel.up({ ...at(b.x, b.y), shift: true }, h.ctx())
+		expect(h.sel()).toEqual(['U10', 'U8', 'U6', 'U4'])   // top down; the rear-only U5 isn't on this face, U2 is outside
+		expect(h.ports()).toBeNull()
+	})
 	it('the device tool adds the chosen template at the clicked U', () => {
 		const h = harness(ROW)
 		const tool = new DeviceTool(() => tpl('builtin:panel-24'))

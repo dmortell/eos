@@ -137,6 +137,15 @@ export const sidesOf = (d: Pick<Device, 'face' | 'kind' | 'mount'>): ('front' | 
 	d.kind === 'pdu' || d.face === 'none' ? [] : d.mount ? [d.mount] : d.face === 'both' ? ['front', 'rear'] : [d.face]
 export const sharesU = (a: Pick<Device, 'u' | 'heightU'>, b: Pick<Device, 'u' | 'heightU'>) => a.u <= b.u + b.heightU - 1 && b.u <= a.u + a.heightU - 1
 
+/** Shift-click a second device in a rack view (Dave 2026-10-10: select U10, Shift-click U4): every device of that rack
+ *  shown on this face whose Us fall between the two (inclusive), top down. Null = not two devices in one rack. */
+export function devicesBetween(ix: ProjectIndex, aId: Id, bId: Id, face: 'front' | 'rear'): Id[] | null {
+	const a = ix.get<Device>(aId), b = ix.get<Device>(bId)
+	if (a?.type !== 'device' || b?.type !== 'device' || a.rackId !== b.rackId) return null
+	const lo = Math.min(a.u, b.u), hi = Math.max(a.u + a.heightU - 1, b.u + b.heightU - 1)
+	return ix.devicesIn(a.rackId).filter((d) => d.kind !== 'pdu' && (d.face === 'both' || d.face === face) && sharesU(d, { u: lo, heightU: hi - lo + 1 })).map((d) => d.id)
+}
+
 /** Two devices on the same side may share Us (backlog "Allow U overlaps with a warning"): when either is a shelf (a
  *  device sits on it) or has "May overlap" ticked. */
 export const overlapAllowed = (a: Pick<Device, 'kind' | 'overlapOk'>, b: Pick<Device, 'kind' | 'overlapOk'>) =>

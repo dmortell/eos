@@ -1961,3 +1961,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Navigator's open did. `Tabs.go` / `sync` / `nav` now show that open tab instead (the current tab is left as it was),
   and duplicates saved before merge on load (the first kept, panes moved to it). Test in `app/tabs.test.ts`. Live:
   Test Project's two "IDF2 racks · Row A" and two "1F plan" tabs merged — 7 tabs, all different.
+- **Unlink several panels at once (Dave: P3A's panels U4–U10 in Journey):** `domain/ports.ts` `cablesOnDevices`;
+  `ui/DeviceCables.svelte` — Remove links (N) / Remove cords (N) for one device (Properties › Ports and labels) or
+  several (DeviceMultiProps); asks first, one undo step. Test in `domain/ports.test.ts`.
+- **Shift-click a range of devices (Dave: select U10, Shift-click U4):** `domain/devices.ts` `devicesBetween` — the
+  rack's devices shown on this face whose Us fall between the two, top down (0U PDUs left out); `SelectTool` keeps the
+  last device clicked (body or port) as the anchor, and a Shift-click on another device of that rack selects the range
+  (a Shift-click on the same device still selects a port range). Help: "Select a run of devices in a rack, and unlink
+  them". Test in `editor/racks.test.ts`. Not clicked live: Dave was working in the tab.

@@ -17,6 +17,7 @@ import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
+import { devicesBetween } from '../domain/devices'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, type Handle } from './handles'
@@ -67,6 +68,8 @@ export class SelectTool implements Tool {
 	/** The last press point, and what a click there now steps to (stacked items). */
 	#last: Pt | null = null
 	#cycle: Id | null = null
+	/** The device last clicked in a rack view: a Shift-click on another in its rack selects those between. */
+	#devAnchor: Id | null = null
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
@@ -254,6 +257,14 @@ export class SelectTool implements Tool {
 			}
 			if (seg) this.#segPick = { shape: id, seg }
 		}
+		// Shift on ANOTHER device of the rack last clicked (its body or a port): every device between them (Dave: select
+		// U10, Shift-click U4); press here again on one of them to drag them
+		const spec = c.space.spec, isDev = !!id && c.store.get(id)?.type === 'device'
+		if (spec.kind === 'row' && isDev && e.shift && !e.ctrl && this.#devAnchor && this.#devAnchor !== id) {
+			const range = devicesBetween(c.index, this.#devAnchor, id!, spec.face)
+			if (range) { c.selectPorts?.(null); c.select(range); return }
+		}
+		if (spec.kind === 'row' && isDev && !e.shift) this.#devAnchor = id
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
