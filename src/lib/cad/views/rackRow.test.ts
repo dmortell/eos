@@ -6,6 +6,7 @@ import { demoProject } from '../domain/fixtures'
 import { layersOf, primLayer } from '../domain/layers'
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack } from '../domain/types'
+import { nudgeRack, planOrder } from '../domain/devices'
 
 const ix = (extra: Entity[] = []) => new ProjectIndex([...demoProject(), ...extra])
 const view = (face: 'front' | 'rear', extra: Entity[] = []) => rackRowDisplayList(ix(extra), { spaceId: 'SR-A', face })
@@ -130,6 +131,20 @@ describe('row order comes from the plan', () => {
 		// a manager comes first in the data
 		const ents = [mk('V1', 10600, -2390, 90, 152), mk('V2', 10580, -3100, 90, 152), mk('R302', 8425, -3755, 180, 750), mk('R303', 7750, -3755, 180, 600), mk('R301', 9125, -3755, 180, 750), mk('P3A', 10510, -2745, 270, 550)]
 		expect(rackLayout(ix([row, ...ents]), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)).toEqual(['V1', 'P3A', 'V2', 'R301', 'R302', 'R303'])
+	})
+	it('put in order by hand where the plan is wrong (backlog "Rack order in a row"): ▲ / ▼, and back to the plan', () => {
+		const mk = (id: string, x: number): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y: 0 } })
+		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row 1', order: 0 }
+		const room = { type: 'space' as const, id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', order: 2 }
+		const ents: Entity[] = [room, row, mk('A', 1000), mk('B', 2000), mk('C', 3000)]
+		const names = (es: Entity[]) => rackLayout(ix(es), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)
+		const moved = nudgeRack(ix(ents), 'C', -1)!
+		expect(moved.rackOrder).toEqual({ ROW: ['A', 'C', 'B'] })
+		const after = [moved, ...ents.slice(1)]
+		expect(names(after)).toEqual(['A', 'C', 'B'])
+		expect(nudgeRack(ix(after), 'A', -1)).toBeNull()                                     // already first
+		expect(names([...after, mk('D', 500)])).toEqual(['A', 'C', 'B', 'D'])                  // a new rack: after the hand order
+		expect(planOrder(moved, 'ROW').rackOrder).toBeUndefined()
 	})
 })
 

@@ -5,7 +5,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Rack, RackRow } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
-	import { racksInOrder, newServerRoom, nextRoomName } from '../domain/devices'
+	import { racksInOrder, newServerRoom, nextRoomName, nudgeRack, planOrder, rowKey } from '../domain/devices'
 	import { markPrinted } from '../domain/ports'
 	import { exportPanelLabels } from '../render/exports'
 	import { exportFrameSheets } from '../render/frameSheets'
@@ -28,11 +28,13 @@
 		return [...by].map(([space, rs]) => {
 			// unplaced racks first (they need "Place"), then the room's row order — the rack elevation's order
 			const rank = new Map(racksInOrder(project.index, space).map((r, i) => [r.id, i]))
-			const sorted = rs.sort((a, b) => Number(!!a.at) - Number(!!b.at) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+			// (a row put in order by hand lists in that order, so ▲ / ▼ move what you see)
+			const sp = project.index.get(space), hand = sp?.type === 'space' ? sp.rackOrder ?? {} : {}
+			const sorted = rs.sort((a, b) => (hand[rowKey(a)] ? 0 : Number(!!a.at) - Number(!!b.at)) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
 			// the room › row › rack tree (backlog "Rack tree and row views"): its rows in order, then racks in no row
 			const rows = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === space).sort((a, b) => a.order - b.order)
 			const parts = rows.length ? [...rows.map((row) => ({ row, racks: sorted.filter((r) => r.rowId === row.id) })), { row: null, racks: sorted.filter((r) => !r.rowId || !rows.some((x) => x.id === r.rowId)) }].filter((x) => x.row || x.racks.length) : [{ row: null, racks: sorted }]
-			return { space, name: project.index.nameOf(space) || 'No room', racks: sorted, parts }
+			return { space, name: project.index.nameOf(space) || 'No room', racks: sorted, parts, hand }
 		}).sort((a, b) => naturalCompare(a.name, b.name))
 	})
 	const selected = $derived(new Set(ws.selection))
@@ -94,6 +96,15 @@
 		anchor = r.id
 		ws.select(e.ctrlKey || e.metaKey ? (selected.has(r.id) ? ws.selection.filter((x) => x !== r.id) : [...ws.selection, r.id]) : [r.id])
 	}
+	/** ▲ / ▼: one place along its row (the rack view's order), kept as the room's hand order for that row. */
+	function nudge(r: Rack, by: -1 | 1) {
+		const next = nudgeRack(project.index, r.id, by)
+		if (next) project.store.transact(`Rack order: ${r.name} ${by < 0 ? 'left' : 'right'}`, (tx) => tx.put(next))
+	}
+	function resetOrder(spaceId: string, key: string, what: string) {
+		const s = project.index.get(spaceId)
+		if (s?.type === 'space') project.store.transact(`${what}: rack order from the plan`, (tx) => tx.put(planOrder(s, key)))
+	}
 	function rename(spaceId: string, name: string) {
 		const s = project.index.get(spaceId)
 		if (s?.type !== 'space') return
@@ -118,11 +129,20 @@
 			{#if part.row}
 				{@const row = part.row}
 				<div class="rowh"><span>{row.name} <span class="n">{part.racks.length}</span></span>
-					{#if onview}<button class="place" title="Open this row's rack view" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front', rowId: row.id })}>Row view</button>{/if}</div>
-			{:else if g.parts.length > 1}<div class="rowh"><span>No row</span></div>{/if}
-		{#each part.racks as r (r.id)}
+					<span>
+						{#if g.hand[row.id]}<button class="place" title="Put this row's racks back in the plan's order (left to right as drawn)" onclick={() => resetOrder(g.space, row.id, row.name)}>↺ plan order</button>{/if}
+						{#if onview}<button class="place" title="Open this row's rack view" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front', rowId: row.id })}>Row view</button>{/if}
+					</span></div>
+			{:else if g.parts.length > 1 || g.hand.none}<div class="rowh"><span>No row</span>
+				{#if g.hand.none}<button class="place" title="Put these racks back in the plan's order (left to right as drawn)" onclick={() => resetOrder(g.space, 'none', g.name)}>↺ plan order</button>{/if}</div>{/if}
+		{#each part.racks as r, i (r.id)}
 			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row}>
 				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{r.name}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
+				<!-- the rack view's order, fixed by hand where the plan gets it wrong (backlog "Rack order in a row") -->
+				<span class="nudge">
+					<button disabled={i === 0} title="Move it one place left in the rack view (up this list)" onclick={() => nudge(r, -1)}>▲</button>
+					<button disabled={i === part.racks.length - 1} title="Move it one place right in the rack view (down this list)" onclick={() => nudge(r, 1)}>▼</button>
+				</span>
 				{#if !r.at}
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}
@@ -150,4 +170,9 @@
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
 	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
 	.place:hover, .place.armed { background: var(--cad-sel); }
+	.nudge { display: none; }
+	.rack:hover .nudge { display: inline-flex; }
+	.nudge button { font-size: 9px; color: var(--cad-muted); padding: 0 3px; border-radius: 3px; }
+	.nudge button:hover:not(:disabled) { color: #2563eb; background: var(--cad-sel); }
+	.nudge button:disabled { opacity: 0.25; }
 </style>

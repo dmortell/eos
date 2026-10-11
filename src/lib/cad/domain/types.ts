@@ -68,6 +68,10 @@ export interface Space {
 	 *  differ from the office floors): racks stand on `floorMm` (unset = FFL); `ceilingMm` unset = the level's. */
 	floorMm?: number
 	ceilingMm?: number
+	/** A server room's racks put in order BY HAND, per row (key: the row's id, `none` = the racks in no row) — where the
+	 *  plan's order is wrong (racks / VCMs at right angles). Listed racks come first in this order, the others after
+	 *  in the plan's order (domain/devices.ts racksInOrder; backlog "Rack order in a row"). */
+	rackOrder?: Record<Id, Id[]>
 }
 
 // ── Physical layout ───────────────────────────────────────────────────────────────────────────────────────────────

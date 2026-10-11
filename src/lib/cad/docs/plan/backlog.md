@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 55 entries (0 P1 · 0 P2 · 55 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 54 entries (0 P1 · 0 P2 · 54 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -61,7 +61,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Racks, devices and rack views
 
 - [ ] ❓ **Devices list per rack** — a sidebar list for the selected rack: front, then "Rear mount", each "U12: name · type"; click / Ctrl / Shift to select, Delete to remove. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, new component). *cad today:* missing. *From:* G087, G109, T040
-- [ ] **Rack order in a row: nudge or drag** — let Dave fix the order where the plan gets it wrong (racks / VCMs set at right angles): move up / down buttons or drag in the racks list, stored as an order override. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines). *cad today:* the order comes only from plan positions (`cad/domain/devices.ts:64`); `Rack.order` is used only for unplaced racks. *From:* G104, T037
 - [ ] **Drag racks from the list onto the plan** — drag one or several unplaced racks onto the plan; several land spaced in a line. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines). *cad today:* "Place", then one click per rack (`cad/ui/RackList.svelte:61`). *From:* G050
 - [ ] **Device library builder** — make a template from scratch (name, kind, U, ports, maker, model), click a template to edit it, delete it, and search the list. **P3 · M** (Dave 2026-10-06: low priority) (~180 lines). *cad today:* only "Save as template…" from a placed device (`cad/ui/Properties.svelte:405`, `cad/app/project.svelte.ts:159`); no edit, delete or search. *From:* G088, G110
 - [ ] **Rack elevation context: what's left** — F to flip the face (today: the Racks front / rear buttons), and dragging the room's floor / ceiling lines on the view (today: typed in a rack's Properties). **P3 · S** (~50 lines). *cad today:* the room's own floor / ceiling (`Space.floorMm` / `ceilingMm`), racks standing on its floor, Room lines / Other face toggles (2026-10-09, `../phases/phase8.md`). Draggable walls: `later.md`. *From:* G020, G078, G079, G117, G192, T032, T045

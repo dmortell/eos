@@ -2211,3 +2211,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the step). **The undo didn't run:** editing handles.ts mid-test hot-reloaded the shell and emptied its history; the
   trunk was put back in-page with `db.replace` (no `bendRadius`, no node radius) and checked. Memory saved. Help:
   "Round a run's corners (bend radius)".
+- **Rack order in a row (backlog, G104 / T037; "do 12"):** `Space.rackOrder` — a server room's racks put in order by
+  hand, per row (key: the row's id, `none` = racks in no row). `racksInOrder` ranks listed racks first in that order
+  (the plan's order after, so a new rack goes last); `nudgeRack(ix, id, ±1)` writes the row's whole order with the two
+  swapped; `planOrder(space, key)` drops it. Racks window: ▲ / ▼ on a hovered rack, "↺ plan order" on a row that has
+  a hand order (also a "No row" header then); a row in hand order lists in that order (not unplaced-first) so ▲ / ▼
+  move what you see. Allocation's fill order and the rack view follow it. Tests in `views/rackRow.test.ts`. Live (Test
+  Project 33IDF2 Row A): ▲ on V05 → stored `rackOrder` for the row, V05 above R311; "↺ plan order" → the order back and
+  the field gone (Firestore). (A first click missed the 9 px button — screenshot px ≈ 0.8 × CSS px here.) Help:
+  "Change the order of racks in a row".

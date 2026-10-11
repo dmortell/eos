@@ -139,7 +139,32 @@ export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] 
 		if (pa && pb) return pa[0] - pb[0] || pa[1] - pb[1]
 		return pa ? -1 : pb ? 1 : 0
 	}
-	return racks.sort((a, b) => rowOrder(a) - rowOrder(b) || (a.rowId ?? '').localeCompare(b.rowId ?? '') || cmp(a, b) || a.order - b.order || naturalCompare(a.name, b.name))
+	// a row's order set by hand (Space.rackOrder) wins: its listed racks first, in that order
+	const space = ix.get(spaceId), hand = space?.type === 'space' ? space.rackOrder : undefined
+	const handRank = (r: Rack) => { const i = hand?.[rowKey(r)]?.indexOf(r.id) ?? -1; return i < 0 ? 1e6 : i }
+	return racks.sort((a, b) => rowOrder(a) - rowOrder(b) || (a.rowId ?? '').localeCompare(b.rowId ?? '') || handRank(a) - handRank(b) || cmp(a, b) || a.order - b.order || naturalCompare(a.name, b.name))
+}
+
+/** The key of a rack's row in `Space.rackOrder`: its row's id, `none` for a rack in no row. */
+export const rowKey = (r: Pick<Rack, 'rowId'>): string => r.rowId ?? 'none'
+
+/** Move a rack one place along its row (the racks list's ▲ / ▼, backlog "Rack order in a row"): the room's hand order
+ *  for that row, written in full (the current order with the two swapped). Null = it can't move that way. */
+export function nudgeRack(ix: ProjectIndex, rackId: Id, by: -1 | 1): Space | null {
+	const r = ix.get(rackId), space = r?.type === 'rack' ? ix.get(r.spaceId) : undefined
+	if (r?.type !== 'rack' || space?.type !== 'space') return null
+	const ids = racksInOrder(ix, r.spaceId).filter((x) => rowKey(x) === rowKey(r)).map((x) => x.id)
+	const i = ids.indexOf(rackId), j = i + by
+	if (i < 0 || j < 0 || j >= ids.length) return null
+	;[ids[i], ids[j]] = [ids[j], ids[i]]
+	return { ...space, rackOrder: { ...space.rackOrder, [rowKey(r)]: ids } }
+}
+
+/** Back to the plan's order for a row (drops the hand order). */
+export function planOrder(space: Space, key: string): Space {
+	const { [key]: _drop, ...rest } = space.rackOrder ?? {}
+	const { rackOrder: _all, ...base } = space
+	return Object.keys(rest).length ? { ...base, rackOrder: rest } : base
 }
 
 /** The sides of the rack a device takes at its Us: its mount if set, else the faces it shows (PDUs: none, 0U). */
