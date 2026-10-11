@@ -5,10 +5,14 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity } from '../domain/drawing'
 	import { Icon } from '$lib'
+	import { ALIGN_LABEL, type AlignHow } from '../editor/align'
+	import { canMove } from '../editor/behaviours'
 
 	let { project, ws, items }: { project: CadProject; ws: Workspace; items: Entity[] } = $props()
 
 	const one = $derived(items.length === 1 ? items[0] : undefined)
+	const movable = $derived(items.filter(canMove).length)
+	const ALIGN: [AlignHow, string][] = [['left', 'alignLeftEdges'], ['centre', 'alignCentresX'], ['right', 'alignRightEdges'], ['top', 'alignTopEdges'], ['middle', 'alignMiddlesY'], ['bottom', 'alignBottomEdges'], ['across', 'distributeX'], ['down', 'distributeY']]
 	const KIND: Record<string, [string, string]> = {
 		outlet: ['Outlet', 'circleDot'], rack: ['Rack', 'server'], device: ['Device', 'pcCase'], sheet: ['Sheet', 'fileText'], cord: ['Patch cord', 'cable'],
 		section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], level: ['Level', 'layers'],
@@ -50,6 +54,16 @@
 	<button title="Select everything in this view like the selection (Edit › Select similar)" onclick={() => ws.selectSimilar()}><Icon name="copy" size={13} /></button>
 	<button class="del" title="Delete (the Delete key) — asks first when more goes with it; Undo brings it back" onclick={ws.remove}><Icon name="trash" size={13} /></button>
 </div>
+{#if movable >= 2}
+	<!-- align / distribute (backlog "Align / distribute"): as the active view draws them; a group counts as one -->
+	<div class="al" role="group" aria-label="Align">
+		<span>Align</span>
+		{#each ALIGN as [how, icon] (how)}
+			<button title={ALIGN_LABEL[how]} disabled={(how === 'across' || how === 'down') && movable < 3} onclick={() => ws.align(how)}><Icon name={icon} size={13} /></button>
+			{#if how === 'right' || how === 'bottom'}<i></i>{/if}
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.hd { display: flex; align-items: center; gap: 6px; padding-bottom: 4px; margin-bottom: 2px; color: var(--cad-muted); }
@@ -60,4 +74,8 @@
 	button { display: inline-flex; padding: 3px; border-radius: 4px; color: var(--cad-muted); }
 	button:hover { background: var(--cad-hover); color: var(--cad-text); }
 	button.del:hover { color: #dc2626; }
+	.al { display: flex; align-items: center; gap: 1px; margin: -2px 0 4px; font-size: 11px; color: var(--cad-muted); }
+	.al span { margin-right: 4px; }
+	.al i { width: 1px; height: 14px; margin: 0 3px; background: var(--cad-line); }
+	.al button:disabled { opacity: 0.35; }
 </style>

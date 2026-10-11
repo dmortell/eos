@@ -1,6 +1,7 @@
 <script module lang="ts">
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
+	AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
 	Archive, ArrowLeft, Blinds, MessageSquareQuote, StickyNote, PencilRuler, Box, BrickWall, Cable, CircleDot, DoorOpen, Paintbrush, Radius, Camera, Check, Crosshair, Crop,
 	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle, CirclePile,
 	Ellipsis, EllipsisVertical, ExternalLink, Expand, Eye, EyeOff,
@@ -25,6 +26,7 @@ let lucide: Record<string, any> = {
 	blinds: Blinds, callout: MessageSquareQuote, stickyNote: StickyNote, brickWall: BrickWall, circleDot: CircleDot, doorOpen: DoorOpen, paintbrush: Paintbrush, radius: Radius, pencilRuler: PencilRuler,
 	center: TextAlignCenter, alignCenter: TextAlignCenter,
 	alignTop: AlignVerticalJustifyStart, alignBottom: AlignVerticalJustifyEnd,
+	alignLeftEdges: AlignStartVertical, alignCentresX: AlignCenterVertical, alignRightEdges: AlignEndVertical, alignTopEdges: AlignStartHorizontal, alignMiddlesY: AlignCenterHorizontal, alignBottomEdges: AlignEndHorizontal, distributeX: AlignHorizontalDistributeCenter, distributeY: AlignVerticalDistributeCenter,
 	alignMiddle: AlignVerticalJustifyCenter,
 	box: Box, cable: Cable, camera: Camera, check: Check, close: X,
 	chevronRight: ChevronRight, chevronLeft: ChevronLeft,

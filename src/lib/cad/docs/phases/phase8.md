@@ -2386,3 +2386,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `#neighbours` (all of the grip's segments). Tests in `editor/constrain.test.ts`. Live (Test Project 1F, the high
   trunk's 4-way junction, a Shift drag by pointer events): −15°, −90°, 90° on steps (the 4th can't be: its far ends
   weren't on a common step to start with — −1°, −179.7°); undone, checked as before. Help: keys (Shift).
+- **Align / distribute (backlog, G248; "do 27"):** `editor/align.ts` — `alignMoves` (pure): left / centre / right / top
+  / middle / bottom of all the boxes, or equal gaps across / down (three or more; first and last stay); `applyAlign`:
+  the boxes from the active view's prims (a group = one box), the moves through the view's space (`moveBy`, tied
+  notes scaled, attached shapes follow), one undo step. ViewCanvas `align` (not inside a viewport / in rack or riser
+  views); `ws.align`; Properties header: an **Align** row of 8 icon buttons when two or more movable things are
+  picked (lucide align / distribute icons added to `$lib/ui/Icon.svelte`). Tests in `editor/align.test.ts`. Live
+  (Test Project 1F, three outlets): the row (distribute off — one of them isn't placed), Align left → "1 moved",
+  undone. Help: "Align or distribute things".

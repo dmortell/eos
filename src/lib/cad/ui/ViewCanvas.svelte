@@ -40,6 +40,7 @@
 	import TextEditBox from './TextEditBox.svelte'
 	import PortTip from './PortTip.svelte'
 	import OutletTip from './OutletTip.svelte'
+	import { applyAlign, type AlignHow } from '../editor/align'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
 	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
@@ -277,6 +278,11 @@
 		if (why) ws.say(why)
 	}
 	export function endNudge(): void { nudger.end() }
+	/** Align / distribute the selection as this view draws it (backlog "Align / distribute"). */
+	export function align(how: AlignHow): void {
+		if (vpe || spec.kind === 'row' || spec.kind === 'riser') { ws.say('Align works in a plan, an elevation, a section or on a sheet’s paper'); return }
+		ws.say(applyAlign(project.store, ws.selection, layered.pick, how, space))
+	}
 
 	function ctx(): ToolCtx {
 		// inside an edited viewport the tools work in its view: its space, level and prims; tolerances in its view mm

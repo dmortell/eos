@@ -92,6 +92,7 @@
 	ws.openView = (s) => setPane(activePane, s)
 	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, $state.snapshot(v.spec) as ViewSpec, 'keep') }
 	ws.remove = () => deleteSelected()
+	ws.align = (how) => canvas?.align(how)
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 

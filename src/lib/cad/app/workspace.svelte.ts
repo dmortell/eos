@@ -4,6 +4,7 @@ import type { Id, Level, Outlet, Device } from '../domain/types'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { SelectTool } from '../editor/selectTool'
 import { OutletTool, type OutletNext } from '../editor/outletTool'
+import type { AlignHow } from '../editor/align'
 import type { PathSel } from '../editor/pathSel'
 import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
@@ -130,6 +131,8 @@ export class Workspace {
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
 	/** Set by the app: the Delete key's action (with its confirms) — for the Delete buttons. */
 	remove: () => void = () => {}
+	/** Set by the app: align / distribute the selection in the active view (editor/align.ts). */
+	align: (how: AlignHow) => void = () => {}
 	/** Set by the app: the view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
 	viewportView: () => Viewport['view'] | null = () => null
 	/** Set by the app: open the project's title block dialog (Sheets › Title block…, sheet Properties). */
