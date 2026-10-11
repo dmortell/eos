@@ -1,6 +1,11 @@
 // Drag top / bottom edges in elevations (Dave, 2026-10-05).
 import { describe, it, expect } from 'vitest'
-import { elevationHandles } from './elevHandles'
+import { elevationHandles, roomLineHandles } from './elevHandles'
+import { rackRowDisplayList } from '../views/rackRow'
+import { ProjectIndex } from '../domain/project'
+import { demoProject } from '../domain/fixtures'
+import type { Entity } from '../domain/drawing'
+import type { Space } from '../domain/types'
 import { moveBy } from './behaviours'
 import { spaceOf } from '../views/space'
 import type { Shape } from '../domain/shapes'
@@ -65,5 +70,29 @@ describe('box width in elevations', () => {
 		const [a0, a1] = span(box)
 		expect(span(wider)).toEqual([a0, a1 + 300])
 		expect(span(narrower)).toEqual([a0 + 200, a1])
+	})
+})
+
+describe('rack views: the room’s floor and ceiling lines drag', () => {
+	const roomView = (room: Entity) => {
+		const ix = new ProjectIndex([...demoProject().filter((e) => e.id !== 'SR-A'), room])
+		return roomLineHandles(rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' }), room)
+	}
+	const base = new ProjectIndex(demoProject()).get('SR-A') as Space
+	it('FFL is the floor until the room has its own; the level ceiling until it has its own; 10 mm steps', () => {
+		const hs = roomView(base as Entity)
+		expect(hs.map((h) => [h.label, h.at.y])).toEqual([[`${base.name}: room floor`, 0], [`${base.name}: room ceiling`, -2700]])
+		expect(hs[0].drag!({ x: 0, y: -153 }, false)).toMatchObject({ floorMm: 150 })
+		expect(hs[0].drag!({ x: 0, y: -153 }, false, true)).toMatchObject({ floorMm: 150 })
+		expect(hs[0].drag!({ x: 0, y: -153 }, true)).toMatchObject({ floorMm: 153 })
+		expect(hs[1].drag!({ x: 0, y: -2404 }, false)).toMatchObject({ ceilingMm: 2400 })
+	})
+	it('the room’s own floor line drags; back to FFL drops it; the ceiling stays 300 above the floor', () => {
+		const own = { ...base, floorMm: 150, ceilingMm: 2400 } as Space
+		const [floor, ceil] = roomView(own as Entity).sort((a, b) => b.at.y - a.at.y)
+		expect(floor.at.y).toBe(-150)
+		expect('floorMm' in (floor.drag!({ x: 0, y: 2 }, false) as Space)).toBe(false)
+		expect(floor.drag!({ x: 0, y: -3000 }, false)).toMatchObject({ floorMm: 2100 })
+		expect(ceil.drag!({ x: 0, y: -100 }, false)).toMatchObject({ ceilingMm: 450 })
 	})
 })

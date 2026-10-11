@@ -2309,3 +2309,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Rack views: its own dash. Tests in `domain/cords.test.ts` (+ the BOM test). Live (Test Project 33IDF2, P3C switch
   :22): status → replace in the list (chip "replace 0" → the row purple), Properties "Replaces the cord there now: set
   the new type…", length 1 → 5 → "— was 1 m" there and on the list's ↶; both undone. Help: "Cord status".
+- **Rack elevation context: what was left (backlog, G020 / G078 / G079 / G117 / G192 / T032 / T045; "do 15"):** **F** in a
+  rack view shows the other face (front ↔ rear; `shellKeys.ts` `flipFace`, CadShell swaps the pane's face). The room's
+  **floor and ceiling lines drag**: `views/rackRow.ts` marks them (`sub` `room-floor` / `room-ceiling`; FFL is the floor
+  until the room has its own, the level's ceiling until it has its own); `editor/elevHandles.ts` `roomLineHandles` →
+  bars whose drag writes `Space.floorMm` / `ceilingMm` (10 mm, Shift 50, Alt free; ceiling ≥ floor + 300; the floor
+  back on FFL = none). The select tool takes them where nothing else is under the pointer (a rack's foot stays the
+  rack's): hover → a blue bar and ↕ cursor, press-drag → one undo step "IDF: room floor / ceiling". Tests in
+  `editor/elevHandles.test.ts`. Live (Test Project 1F, 33IDF2): F → rear and back; the level ceiling dragged →
+  "33IDF2 CEILING FL+2490"; FFL dragged up → "33IDF2 FLOOR FL+50", the racks on it; both undone. Help: the room
+  floor / ceiling entry, keys (F).

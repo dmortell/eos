@@ -255,11 +255,16 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	const lines: Prim[] = []
 	if (layout.length) {
 		const x1 = Math.max(...layout.map((l) => l.x0 + l.rack.widthMm)), sp = ix.get(spec.spaceId)
-		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line' }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line' },
+		// FFL is the room's floor too until it has its own (then that line is the one to drag — editor/selectTool.ts)
+		const ownFloor = sp?.type === 'space' && !!sp.floorMm
+		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line', ...(ownFloor ? {} : { sub: ROOM_FLOOR }) }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line' },
 			...storeyPrims(ix.get<Level>((sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
 	}
 	return [...lines, ...up(out), ...up(cords)]
 }
+
+/** The `sub` of the room's floor / ceiling lines in a rack view: dragged to set `Space.floorMm` / `ceilingMm`. */
+export const ROOM_FLOOR = 'room-floor', ROOM_CEILING = 'room-ceiling'
 
 /** The storey around the racks (Dave): the top of the floor slab under the raised floor, the ceiling and the
  *  underside of the slab above, as lines (the slab ones a little heavier than FFL), from the level's heights (y up
@@ -267,19 +272,19 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
  *  ceiling). Drawn under the racks, on the Room lines layer; nothing from the level when it has no heights. */
 function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number, xb: number): Prim[] {
 	const h = lv?.type === 'level' ? lv.heights : undefined
-	const line = (y: number, cls: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls: `${cls} room-line` })
+	const line = (y: number, cls: string, sub?: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls: `${cls} room-line`, ...(sub ? { sub } : {}) })
 	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label room-line' })
 	const sign = (v: number) => (v < 0 ? `-${-v}` : `+${v}`)
 	const out: Prim[] = []
 	const roomCeil = room?.ceilingMm, rFloor = room?.floorMm
 	if (h) {
 		const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
-		if (roomCeil == null) out.push(line(-ceil, 'riser-ceiling'), label(-ceil - 30, `CEILING FFL+${ceil}`))
+		if (roomCeil == null) out.push(line(-ceil, 'riser-ceiling', ROOM_CEILING), label(-ceil - 30, `CEILING FFL+${ceil}`))
 		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `SLAB FFL+${soffit}`))
 		if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `SLAB FFL-${floor}`))
 	}
-	if (roomCeil != null) out.push(line(-roomCeil, 'riser-ceiling'), label(-roomCeil - 30, `${room?.name ?? 'ROOM'} CEILING FL${sign(roomCeil)}`))
-	if (rFloor) out.push(line(-rFloor, 'datum datum-room-floor'), label(-rFloor - 30, `${room?.name ?? 'ROOM'} FLOOR FL${sign(rFloor)}`))
+	if (roomCeil != null) out.push(line(-roomCeil, 'riser-ceiling', ROOM_CEILING), label(-roomCeil - 30, `${room?.name ?? 'ROOM'} CEILING FL${sign(roomCeil)}`))
+	if (rFloor) out.push(line(-rFloor, 'datum datum-room-floor', ROOM_FLOOR), label(-rFloor - 30, `${room?.name ?? 'ROOM'} FLOOR FL${sign(rFloor)}`))
 	return out
 }
 

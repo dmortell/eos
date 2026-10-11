@@ -10,6 +10,8 @@ import type { Handle } from './handles'
 import { segEnds } from '../domain/openings'
 import { outlineOf } from '../domain/shapes'
 import type { Pt } from '../domain/types'
+import type { Prim } from '../views/display'
+import { ROOM_FLOOR, ROOM_CEILING } from '../views/rackRow'
 
 const r10 = (v: number, free: boolean) => (free ? v : Math.round(v / 10) * 10)
 
@@ -96,4 +98,26 @@ function widthDrag(s: Shape, t: Pt, w: number, dir: -1 | 1 | 0 = 1): Shape | nul
 	const r1 = (v: number) => Math.round(v * 10) / 10
 	if (g.kind === 'rect') return { ...s, geom: { ...g, centre, size: alongX ? { x: r1(next), y: g.size.y } : { x: g.size.x, y: r1(next) } } }
 	return { ...s, geom: { ...g, centre, ...(alongX ? { rx: r1(next / 2) } : { ry: r1(next / 2) }) } }
+}
+
+/** RACK VIEWS (backlog "Rack elevation context"): the room's floor and ceiling lines (views/rackRow.ts marks them —
+ *  FFL until the room has its own floor) as bars: dragging one sets the room's own `floorMm` / `ceilingMm` (FL ± mm,
+ *  10 mm steps, Shift 50, Alt free; the ceiling stays 300 above the floor). Floor back on FFL = no own floor. */
+export function roomLineHandles(prims: Prim[], room: Entity | undefined): Handle[] {
+	if (room?.type !== 'space') return []
+	const step = (v: number, free: boolean, coarse?: boolean) => (free ? Math.round(v) : Math.round(v / (coarse ? 50 : 10)) * (coarse ? 50 : 10))
+	const out: Handle[] = []
+	for (const p of prims) {
+		if (p.k !== 'line' || p.src || (p.sub !== ROOM_FLOOR && p.sub !== ROOM_CEILING)) continue
+		const a = p.pts[0], b = p.pts[p.pts.length - 1], floor = p.sub === ROOM_FLOOR
+		out.push({ at: { x: (a.x + b.x) / 2, y: a.y }, shape: 'bar', span: [a, b], label: floor ? `${room.name}: room floor` : `${room.name}: room ceiling`,
+			drag: (q, free, coarse) => {
+				const v = step(-q.y, free, coarse)
+				if (!floor) return { ...room, ceilingMm: Math.max(v, (room.floorMm ?? 0) + 300) }
+				const f = room.ceilingMm != null ? Math.min(v, room.ceilingMm - 300) : v
+				const { floorMm: _was, ...rest } = room
+				return f ? { ...rest, floorMm: f } : rest
+			} })
+	}
+	return out
 }

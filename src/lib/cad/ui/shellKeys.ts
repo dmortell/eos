@@ -32,6 +32,8 @@ export interface ShellKeyCtx {
 	zoomSel(): void
 	/** Ctrl+O: the Open project dialog. */
 	openProject(): void
+	/** F in a rack view: the other face (front ↔ rear); false = not a rack view. */
+	flipFace(): boolean
 }
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
@@ -60,6 +62,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	}
 	else if (!mod && !e.altKey && k === 'p' && ws.portSel) { e.preventDefault(); ws.patchFrom(ws.portSel) }
 	else if (!mod && !e.altKey && k === 'l' && ws.portSel && project.index.get(ws.portSel.on)?.type === 'device' && (project.index.get(ws.portSel.on) as { kind?: string }).kind === 'panel') { e.preventDefault(); ws.interconnectFrom(ws.portSel) }
+	else if (!mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f' && c.flipFace()) e.preventDefault()   // rack view: front ↔ rear
 	else if (e.key === 'F1') { e.preventDefault(); c.help(false) }
 	else if (mod && k === 'k') { e.preventDefault(); layout.open('navigator'); ws.navSearch++ }
 	else if (mod && k === 'o') { e.preventDefault(); c.openProject() }

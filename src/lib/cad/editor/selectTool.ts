@@ -27,7 +27,7 @@ import { angleStep, axisLock } from './constrain'
 import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
 import { withGroups } from '../domain/groups'
 import { labelKind } from '../domain/labelEdit'
-import { elevationHandles } from './elevHandles'
+import { elevationHandles, roomLineHandles } from './elevHandles'
 import { logoHandles, logoBoxes, logoAt, type LogoKey } from './logoHandles'
 import { viewportAt } from '../views/sheet'
 import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn, type PortSel } from './tools'
@@ -100,6 +100,8 @@ export class SelectTool implements Tool {
 	#hov: { id: Id; sub?: string } | null = null
 	/** The grip under the pointer: drawn larger (UX07). */
 	#hovGrip: Pt | null = null
+	/** A rack view's room floor / ceiling line under the pointer (drag it up / down): drawn as a bar. */
+	#hovRoom: Handle | null = null
 	#cursor = 'default'
 	/** A double-clicked text, edited in place when the button comes up. */
 	#editOnUp: Id | null = null
@@ -126,7 +128,12 @@ export class SelectTool implements Tool {
 
 	/** The cursor for what's under the pointer: a grip → crosshair, something that moves → move, else pointer / arrow. */
 	cursorNow(): string { return this.#cursor }
-	unhover(): void { this.#hov = null; this.#hovGrip = null; this.#cursor = 'default' }
+	unhover(): void { this.#hov = null; this.#hovGrip = null; this.#hovRoom = null; this.#cursor = 'default' }
+	/** A rack view: the room's floor / ceiling line under `p` — where nothing else is (a rack's foot stays the rack's). */
+	#roomLineAt(c: ToolCtx, p: Pt): Handle | null {
+		if (c.space.spec.kind !== 'row' || pickPrim(c.prims(), p, c.tol())) return null
+		return handleAt(roomLineHandles(c.prims(), c.store.get(c.space.spec.spaceId)), p, c.tol() * 1.5)
+	}
 	hover(e: PointerIn, c: ToolCtx): void {
 		const t = c.tol() * 1.5, near = (q: Pt) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= t
 		const rg = this.#regionGrips(c), ng = this.#noteGrips(c)
@@ -136,7 +143,9 @@ export class SelectTool implements Tool {
 		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at
 			?? this.#cordGrips(c).find((q) => near(q.at))?.at ?? null
 		this.#hovGrip = onGrip
-		if (onGrip || h) { this.#hov = null; this.#cursor = 'crosshair'; return }
+		if (onGrip || h) { this.#hov = null; this.#hovRoom = null; this.#cursor = 'crosshair'; return }
+		this.#hovRoom = this.#roomLineAt(c, e.p)
+		if (this.#hovRoom) { this.#hov = null; this.#cursor = 'ns-resize'; return }
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
@@ -234,6 +243,9 @@ export class SelectTool implements Tool {
 		const ng = this.#noteGrips(c), np = ng?.grips.find((q) => q.index >= 0 && Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= c.tol() * 1.5)
 		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }
 		if ((e.count ?? 1) >= 2 && this.#insertNode(e, c)) return
+		// a rack view: the room's floor / ceiling line drags up / down (Space.floorMm / ceilingMm)
+		const rl = this.#roomLineAt(c, e.p), room = c.space.spec.kind === 'row' ? c.store.get(c.space.spec.spaceId) : undefined
+		if (rl && room) { this.#handle = { h: rl, base: room }; this.#start = e.p; this.#hovRoom = null; return }
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
 		// them in place (backlog "Text options", "Edit a label in place")
@@ -620,6 +632,7 @@ export class SelectTool implements Tool {
 			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: 'grip-plus' },
 			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
+		if (this.#hovRoom?.span && !this.#gesture) out.push({ k: 'line', pts: this.#hovRoom.span, cls: 'grip-bar' })
 		if (this.#hovGrip && !this.#gesture) out.push({ k: 'line', pts: sq(this.#hovGrip, 11 * px), closed: true, fill: true, cls: 'grip grip-hover' })
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
 		return out

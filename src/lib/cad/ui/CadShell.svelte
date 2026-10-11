@@ -409,6 +409,12 @@
 		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true),
+		flipFace: () => {
+			const s = panes[activePane]
+			if (s.kind !== 'row') return false
+			setPane(activePane, { ...s, face: s.face === 'front' ? 'rear' : 'front' })
+			return true
+		},
 	})
 	// ── calibrating a floorplan in place (backlog "Calibrate an image in place"): Floor manager › Origin / Scale / Crop
 	// arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE (Uploads' format) — not in
