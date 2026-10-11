@@ -14,8 +14,10 @@
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
 	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
+	import type { CalibMode } from '../editor/calibrateTool'
 
-	let { project, ws, onclose }: { project: CadProject; ws: Workspace; onclose: () => void } = $props()
+	/** `oncalibrate`: set a floorplan's origin / scale / crop on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
+	let { project, ws, onclose, oncalibrate }: { project: CadProject; ws: Workspace; onclose: () => void; oncalibrate?: (u: Underlay, mode: CalibMode) => void } = $props()
 
 	const building = $derived(project.store.ofType('building')[0] as Building | undefined)
 	const levels = $derived.by(() => { void project.rev; return project.store.ofType('level') })
@@ -185,6 +187,15 @@
 										</select>
 										<input class="off" type="number" step="100" value={z.origin?.x ?? 0} title="Move this floorplan right (mm)" onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} />
 										<input class="off" type="number" step="100" value={z.origin?.y ?? 0} title="Move this floorplan down (mm)" onchange={(e) => setOffset(l, z, 'y', e.currentTarget.value)} />
+										{#if oncalibrate}
+											{@const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]}
+											<!-- calibrate on the plan (not in Uploads): what it writes is the file's, shared with Uploads and other projects -->
+											<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
+												<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
+												<button onclick={() => oncalibrate(z, 'scale')} title="Click both ends of a distance you know, then type it">Scale</button>
+												<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
+											</span>
+										{/if}
 										<button class="x" title="Remove this floorplan" onclick={() => project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))}>✕</button>
 									</div>
 								{/each}
@@ -220,6 +231,11 @@
 	.zone { display: flex; gap: 2px; align-items: center; margin-bottom: 2px; }
 	input.zn { width: 5rem; font-size: 11px; }
 	input.off { width: 4.5rem; font-size: 11px; }
+	.cal { display: inline-flex; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; overflow: hidden; }
+	.cal button { font-size: 10.5px; padding: 0 5px; color: #2563eb; }
+	.cal button + button { border-left: 1px solid var(--cad-line, #e4e4e7); }
+	.cal button:hover { background: var(--cad-sel, #dbeafe); }
+	.cal.todo { border-color: #f59e0b; }
 	button.x { color: var(--cad-muted, #71717a); padding: 0 4px; }
 	button.x:hover { color: #b91c1c; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }

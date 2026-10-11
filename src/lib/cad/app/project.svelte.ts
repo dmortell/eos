@@ -15,7 +15,7 @@ import { PdfCache } from './pdf.svelte'
 import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
-import { doc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
 import { stripUndefined } from '../persist/docs'
 import { BUILTIN_DEVICE_TEMPLATES, templateFromDevice, type DeviceTemplate } from '../domain/devices'
@@ -210,6 +210,20 @@ export class CadProject {
 		const ref = doc(this.db, ...TEMPLATES_DOC)
 		await setDoc(ref, {}, { merge: true })
 		await updateDoc(ref, new FieldPath('templates', t.id), stripUndefined({ ...t, builtin: undefined }))
+	}
+	/** Set a floorplan page's calibration field in its FILE (`files/{id}.pages[page].origin | scale | crop`, the Uploads
+	 *  format — so Uploads, Pages and every project using the file agree; backlog "Calibrate an image in place").
+	 *  Returns what it was, for "Put it back" (the file isn't in the drawing's undo). */
+	async setPageCalib(fileId: string, page: number, field: 'origin' | 'scale' | 'crop', value: unknown): Promise<unknown> {
+		const ref = doc(this.db, 'files', fileId), fd = (await getDoc(ref)).data()
+		const was = (fd?.pages?.[page] ?? fd?.pages?.[String(page)])?.[field]
+		await updateDoc(ref, new FieldPath('pages', String(page), field), value === undefined ? deleteField() : stripUndefined(value))
+		return was
+	}
+	/** The projects a file is used by (`files/{id}.projectIds`, else its `projectId`). */
+	async fileProjects(fileId: string): Promise<string[]> {
+		const fd = (await getDoc(doc(this.db, 'files', fileId))).data()
+		return (fd?.projectIds as string[] | undefined) ?? (fd?.projectId ? [fd.projectId as string] : [])
 	}
 	/** Delete a global template (not a built-in). Placed devices keep their own copy of everything. */
 	async deleteTemplate(id: Id): Promise<void> {

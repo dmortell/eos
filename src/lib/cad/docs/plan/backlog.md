@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 50 entries (0 P1 · 0 P2 · 50 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 49 entries (0 P1 · 0 P2 · 49 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -56,7 +56,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] ❓ **Embed Uploads in cad?** — the link is built (File › Uploads… opens it in a new tab, 2026-10-07). Still to decide: embed the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in a cad window / dialog. **P3 · L** (Dave 2026-10-07: "consider"; Uploads is its own route with its own PDF viewer state). *From:* Dave 2026-10-07
 - [ ] **Floor manager: server rooms, tenant areas, level numbers** — in the Floor manager, add / rename / delete each level's server rooms and tenant areas, and edit a level's number. **P3 · M** (Dave 2026-10-05: low priority) (~120 lines). *cad today:* the Floor manager (`cad/ui/FloorManager.svelte`, phase8 Batch 3) sets the range, gaps, names and heights; server rooms come only from the import or a rack's Properties. *From:* G030, G100, G125 (the range part is built)
 - [ ] **RCP (reflected ceiling plan)** — a plan view of a level that shows the ceiling: high runs, ceiling outlets / APs, risers, with floor-level items faded or hidden; can go on a sheet. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, a filter on the plan generator). *cad today:* one plan view per level; high runs are drawn on top (`cad/views/plan.ts:43`) but nothing filters by height. *From:* T083
-- [ ] **Calibrate an image in place** — set origin, 2-point scale and crop on the drawing, without going to Uploads. **P3 · M** (~200 lines). *cad today:* calibration is done in Uploads only (`cad/app/pdf.svelte.ts:13`). *From:* G289
 
 ## Racks, devices and rack views
 

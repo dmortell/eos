@@ -25,6 +25,8 @@
 	import { HINT, HINT_PLACE } from './toolHints'
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, type ViewSpec } from '../views/space'
+	import type { CalibMode } from '../editor/calibrateTool'
+	import type { Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import FloorManager from './FloorManager.svelte'
 	import SettingsDialog from './SettingsDialog.svelte'
@@ -408,6 +410,38 @@
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true),
 	})
+	// ── calibrating a floorplan in place (backlog "Calibrate an image in place"): Floor manager › Origin / Scale / Crop
+	// arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE (Uploads' format) — not in
+	// the drawing's undo, so each change offers "Put it back" ──
+	ws.calibIO = {
+		calib: (u) => project.pdf.calib[`${u.fileId}#${u.page ?? 1}`],
+		write: (u, field, value, what) => {
+			const page = u.page ?? 1
+			const save = () => project.setPageCalib(u.fileId, page, field, value).then(
+				(was) => ws.ask2(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Put it back',
+					() => void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Put back as it was'), (e) => (project.error = `Couldn't put it back: ${(e as Error).message}`))),
+				(e) => (project.error = `Couldn't save the calibration: ${(e as Error).message}`))
+			// the calibration is the FILE's: another project using the same floorplan moves with it — ask first
+			project.fileProjects(u.fileId).then((pids) => {
+				const others = pids.filter((p) => p !== project.pid).length
+				if (others) ws.ask2(`This floorplan file is also used by ${others} other project${others === 1 ? '' : 's'} — its ${field} changes there too.`, `Change it (${others + 1} projects)`, () => void save())
+				else void save()
+			}, () => void save())
+		},
+	}
+	const CALIB_SAY: Record<CalibMode, string> = {
+		origin: 'Click the point on the floorplan that is 0, 0 (a grid corner, a column) — Esc stops',
+		scale: 'Click one end of a distance you know on the floorplan (a grid spacing, a dimension) — Esc stops',
+		crop: 'Click one corner of the part of the floorplan to keep — Esc stops',
+	}
+	function oncalibrate(u: Underlay, mode: CalibMode) {
+		floorsOpen = false
+		if (u.levelId !== ws.levelId) openLevel(u.levelId)
+		if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN)
+		ws.calibTarget = { underlay: u, mode }
+		setTool('calibrate')
+		ws.say(CALIB_SAY[mode])
+	}
 	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Insert › Image's uploads (the project's
 	 *  files, listed in Uploads), then the Image tool is armed with it — drag its box where it goes. */
 	async function pastePicture(file: File) {
@@ -503,7 +537,7 @@
 		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
 	</main>
 
-	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} />{/if}
+	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} {oncalibrate} />{/if}
 	{#if typesOpen}<SettingsDialog {project} {ws} onclose={() => (typesOpen = false)} />{/if}
 	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}

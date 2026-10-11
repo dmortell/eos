@@ -2260,3 +2260,18 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   pane → refused, nothing uploaded; in the plan → uploaded, the tool armed, a box dragged → the picture on the plan
   (Properties: Image "Pasted 2026-10-12 00.13.36.png"); Undo → gone; the upload deleted (UploadThing via
   `/api/uploadthing/delete`, then its `files` doc) and checked. Help: "Paste a screenshot or a picture".
+- **Calibrate an image in place (backlog, G289; "do 10" — as Pages / Uploads do it):** `editor/calibrateTool.ts`, a plan
+  tool armed from **Project › Floors… › Origin · Scale · Crop** on a floorplan (CadShell `oncalibrate`: that level's plan
+  in the active pane). Origin: one click → that page point becomes plan 0, 0. Scale: two clicks, then the real
+  distance (the prompt shows what it measures now) → mm per point (3 dp), the line kept as Uploads' dimension record
+  (x1…y2, distance; measured straight, where Uploads measures along x or y). Crop: two corners → a page-point box.
+  `toPage` inverts the placement (zone offset, origin, mm per point). It writes `files/{id}.pages[n].origin | scale |
+  crop` (`CadProject.setPageCalib`, Uploads' units), so Uploads, Pages and every project using the file follow (the
+  PDF cache already redraws on a file change) — **a file used by another project asks first** (`fileProjects`). Not in
+  the drawing's undo: each change offers "Put it back". An uncalibrated page is now shown as if drawn at 1:100 (amber
+  buttons) so it can be scaled in place (`PROVISIONAL_SF`; `PdfCache.calib` keeps each page's calibration as placed).
+  Tests in `editor/calibrateTool.test.ts`. Live (Test Project 1F): **every Test Project floorplan file is shared with
+  Journey**, so nothing was saved: Floors… › Scale → the plan, two clicks, "it measures 25295 mm", 20000 → "This
+  floorplan file is also used by 1 other project — its scale changes there too" → Cancel; the file's calibration
+  checked unchanged (35.281 mm/pt, origin 240, 676, crop 45, 35, 764 × 779). (A Ctrl+A meant for the prompt went to the
+  plan and selected all — no writes.) Help: "Calibrate a floorplan on the plan (origin, scale, crop)".

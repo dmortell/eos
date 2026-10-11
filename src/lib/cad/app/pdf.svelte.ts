@@ -10,6 +10,10 @@ const RENDER_SCALE = 2
 /** `clip` = the crop set in Uploads, in plan mm (the image is drawn only inside it). */
 export interface Placed { url: string; x: number; y: number; w: number; h: number; clip?: { x0: number; y0: number; x1: number; y1: number } }
 type PageCalib = { origin?: { x: number; y: number }; scale?: { scale?: number }; crop?: { x: number; y: number; width: number; height: number } }
+/** A page's calibration as placed: `origin` (page points) lands on plan (0, 0), `sf` = mm per page point. */
+export interface PageCalibUsed { origin: { x: number; y: number }; sf: number; crop?: PageCalib['crop']; provisional: boolean }
+/** An uncalibrated page is shown as if drawn at 1:100: a PDF point (1/72 in = 0.3528 mm) × 100. */
+export const PROVISIONAL_SF = (25.4 / 72) * 100
 
 /** Where a rendered page (w × h px) sits in plan mm: the calibration origin lands on plan (0, 0). The page's crop
  *  (rendered px, the same space as the origin — as the outlets / model3d tools read it) becomes a clip. */
@@ -24,8 +28,11 @@ export function placementFromCalib(c: PageCalib | undefined, w: number, h: numbe
 export class PdfCache {
 	#ready = $state<Record<string, Placed>>({})
 	#jobs = new Map<string, Promise<void>>()
-	/** Files whose page could not be placed (no url, not calibrated, render failed): key → reason. */
+	/** Files whose page could not be placed (no url, render failed) or isn't calibrated yet: key → reason. */
 	problems = $state<Record<string, string>>({})
+	/** Each placed page's calibration as used (`fileId#page` → origin in page points, mm per point, crop) — what the
+	 *  Calibrate tool turns plan points back into page points with. */
+	calib = $state<Record<string, PageCalibUsed>>({})
 
 	constructor(private db: Firestore) {}
 
@@ -104,8 +111,16 @@ export class PdfCache {
 			try {
 				await pdf.load(fd.url)
 				const r = await pdf.renderToObjectUrl(page, RENDER_SCALE)
-				const pl = placementFromCalib(fd.pages?.[page] ?? fd.pages?.[String(page)], r.width, r.height)
-				if (!pl) throw new Error('the page is not calibrated in Uploads')
+				const c = (fd.pages?.[page] ?? fd.pages?.[String(page)]) as PageCalib | undefined
+				const calibrated = !!Number(c?.scale?.scale)
+				// not scaled yet: shown as if drawn at 1:100 (a PDF point = 0.3528 mm on paper), so it can be calibrated in
+				// place (Floor manager › Origin / Scale / Crop, backlog "Calibrate an image in place")
+				const use: PageCalib = calibrated ? c! : { ...c, scale: { scale: PROVISIONAL_SF } }
+				const pl = placementFromCalib(use, r.width, r.height)
+				if (!pl) throw new Error('the page could not be placed')
+				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated }
+				if (calibrated) delete this.problems[key]
+				else this.problems[key] = 'the page is not calibrated — shown as if 1:100: Project › Floor manager › Scale (or Uploads)'
 				this.#ready[key] = { url: r.objectUrl, ...pl }
 			} finally { pdf.destroy() }
 		} catch (e) {
