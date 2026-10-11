@@ -1,6 +1,6 @@
 // Phase 3.6 spreadsheets: the tables they write, and cord IDs coming back.
 import { describe, it, expect } from 'vitest'
-import { patchScheduleRows, panelLabelRows, importCordIds, cordsForSchedule, PATCH_HEAD } from './exports'
+import { patchScheduleRows, panelLabelRows, importCordIds, cordsForSchedule, scheduleSheets, sheetName, cordRoom, PATCH_HEAD } from './exports'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Cord } from '../domain/types'
@@ -18,6 +18,25 @@ describe('patch schedule', () => {
 		expect(c1[0]).toBe(2)                       // the running "#"
 		expect(c1[1]).toBe('33-001.A')              // From Label: the outlet port label the panel port carries
 		expect(c1[PATCH_HEAD.length - 1]).toBe('C1') // Key = the cord's id
+	})
+})
+
+describe('a sheet per room (patch-list-plan.md D4)', () => {
+	const roomB: Entity[] = [
+		{ type: 'space', id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', code: 'B', order: 2 },
+		{ type: 'rack', id: 'RB', levelId: 'L33', spaceId: 'SR-B', order: 0, name: 'B01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 },
+		{ type: 'device', id: 'SWB', rackId: 'RB', name: 'Switch B', kind: 'switch', u: 20, heightU: 1, face: 'front', portCount: 24 },
+		{ type: 'cord', id: 'CB', kind: 'patch', a: { on: 'SWB', port: 1 }, b: { on: 'SWB', port: 2 }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'add' },
+	] as Entity[]
+	it('all rooms → a sheet each, rooms A → Z; or one sheet', () => {
+		const i = ix([...demoProject(), ...roomB])
+		expect(scheduleSheets(i, i.cords, true).map((s) => [s.name, s.cords.map((c) => c.id)])).toEqual([['IDF-A', ['C1', 'C2']], ['IDF-B', ['CB']]])
+		expect(scheduleSheets(i, i.cords, false).map((s) => [s.name, s.cords.length])).toEqual([['Patch Schedule', 3]])
+		expect(cordRoom(i, i.get('CB') as Cord)).toBe('SR-B')
+	})
+	it('sheet names Excel accepts: no : / ? * [ ], 31 characters, unique', () => {
+		const taken = new Set<string>()
+		expect([sheetName('IDF:1/2', taken), sheetName('idf-1-2', taken), sheetName('x'.repeat(40), taken)]).toEqual(['IDF-1-2', 'idf-1-2 2', 'x'.repeat(31)])
 	})
 })
 
@@ -60,6 +79,14 @@ describe('cord IDs back from the vendor', { timeout: 30000 }, () => {
 		const r = await importCordIds(await sheet([row(1, 'PC-0002', 'C2'), row(2, 'PC-0001', 'C1')]), ix())
 		expect(r.byKey).toBe(true)
 		expect([...r.ids]).toEqual([['C2', 'PC-0002'], ['C1', 'PC-0001']])
+	})
+	it('reads every room sheet of the book (not the Bill of Materials)', async () => {
+		const ExcelJS = await import('exceljs')
+		const wb = new ExcelJS.Workbook()
+		for (const [name, r] of [['IDF-A', row(1, 'PC-1', 'C1')], ['IDF-B', row(1, 'PC-2', 'C2')]] as const) { const ws = wb.addWorksheet(name); ws.addRow(PATCH_HEAD); ws.addRow(r) }
+		wb.addWorksheet('Bill of Materials').addRow(['Cable Type', 'Length (m)', 'Status', 'Quantity'])
+		const r = await importCordIds(new File([await wb.xlsx.writeBuffer()], 'back.xlsx'), ix())
+		expect([...r.ids]).toEqual([['C1', 'PC-1'], ['C2', 'PC-2']])
 	})
 	it('an old sheet without Key falls back to "#" in the export order', async () => {
 		const head = PATCH_HEAD.slice(0, -1)

@@ -26,31 +26,82 @@ const STATUS_FG: Record<Cord['status'], string> = { add: 'FF2563EB', change: 'FF
 export const PATCH_HEAD = ['#', 'From Label', 'From Rack', 'From Device', 'From U/Face', 'From Port', 'To Label', 'To Rack', 'To Device', 'To U/Face', 'To Port', 'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes', 'Was From', 'Was To', 'Key']
 const PATCH_WIDTHS = [4, 16, 10, 20, 10, 6, 16, 10, 20, 10, 6, 10, 8, 12, 9, 20, 24, 24, 14]
 
-/** The cords of a room (or all), in the export's order: by status group, then From. */
-export function cordsForSchedule(ix: ProjectIndex, spaceId?: Id): Cord[] {
-	const inRoom = (r: PortRef) => { const d = ix.get(r.on); const rk = d?.type === 'device' ? (ix.get(d.rackId) as Rack | undefined) : undefined; return !spaceId || rk?.spaceId === spaceId }
-	return ix.cords.filter((c) => inRoom(c.a) || inRoom(c.b))
-		.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || naturalCompare(ix.portPlace(a.a), ix.portPlace(b.a)))
+/** The server room a cord is in (a cord stays in one room): its From end's rack's room. */
+export function cordRoom(ix: ProjectIndex, c: Cord): Id | undefined {
+	const room = (r: PortRef) => { const d = ix.get(r.on); const rk = d?.type === 'device' ? (ix.get(d.rackId) as Rack | undefined) : undefined; return rk?.spaceId }
+	return room(c.a) ?? room(c.b)
 }
 
-export function patchScheduleRows(ix: ProjectIndex, spaceId?: Id, typeLabel: (id: string) => string = (x) => x): { status: Cord['status']; cells: (string | number)[] }[] {
+/** Cords in the export's order: by status group, then From (the port's place — D7: review after testing). */
+export function orderForSchedule(ix: ProjectIndex, cords: Cord[]): Cord[] {
+	return [...cords].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || naturalCompare(ix.portPlace(a.a), ix.portPlace(b.a)))
+}
+
+/** The cords of a room (or all), in the export's order. */
+export function cordsForSchedule(ix: ProjectIndex, spaceId?: Id): Cord[] {
+	const inRoom = (r: PortRef) => { const d = ix.get(r.on); const rk = d?.type === 'device' ? (ix.get(d.rackId) as Rack | undefined) : undefined; return !spaceId || rk?.spaceId === spaceId }
+	return orderForSchedule(ix, ix.cords.filter((c) => inRoom(c.a) || inRoom(c.b)))
+}
+
+/** One worksheet of the patch schedule: a room's cords (or a selection's). */
+export interface ScheduleSheet { name: string; cords: Cord[] }
+
+/** The worksheets: a sheet per room (rooms A → Z; D4, Dave 2026-10-11), or one sheet for them all, each in the
+ *  export's order. */
+export function scheduleSheets(ix: ProjectIndex, cords: Cord[], perRoom: boolean, name = 'Patch Schedule'): ScheduleSheet[] {
+	if (!perRoom) return [{ name, cords: orderForSchedule(ix, cords) }]
+	const by = new Map<Id | undefined, Cord[]>()
+	for (const c of cords) { const r = cordRoom(ix, c); by.set(r, [...(by.get(r) ?? []), c]) }
+	return [...by].map(([r, cs]) => ({ name: r ? ix.nameOf(r) : 'No room', cords: orderForSchedule(ix, cs) })).sort((a, b) => naturalCompare(a.name, b.name))
+}
+
+/** A worksheet name Excel accepts: ≤ 31 characters, none of : \ / ? * [ ], unique in the book. */
+export function sheetName(name: string, taken: Set<string>): string {
+	const base = name.replace(/[:\\/?*[\]]/g, '-').slice(0, 31).trim() || 'Sheet'
+	let n = base
+	for (let i = 2; taken.has(n.toLowerCase()); i++) n = `${base.slice(0, 31 - String(i).length - 1)} ${i}`
+	taken.add(n.toLowerCase())
+	return n
+}
+
+export function patchScheduleRows(ix: ProjectIndex, cords: Cord[] = cordsForSchedule(ix), typeLabel: (id: string) => string = (x) => x): { status: Cord['status']; cells: (string | number)[] }[] {
 	const end = (r: PortRef) => {
 		const d = ix.get(r.on) as Device | undefined
 		return [ix.portLabel(r), ix.nameOf(d?.rackId), d?.name ?? '', d ? `U${d.u} ${r.face ?? ''}`.trim() : '', r.port]
 	}
 	const was = (r?: PortRef) => (r ? ix.portPlace(r) : '')
-	return cordsForSchedule(ix, spaceId).map((c, i) => ({
+	return cords.map((c, i) => ({
 		status: c.status,
 		cells: [i + 1, ...end(c.a), ...end(c.b), typeLabel(c.cableType), c.lengthM || '', c.cordId ?? '', c.status[0].toUpperCase() + c.status.slice(1), c.notes ?? '', was(c.previous?.a), was(c.previous?.b), c.id],
 	}))
 }
 
-/** `changesOnly` = just the work (add / change / remove), not the cords already installed. */
-export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, typeLabel?: (id: string) => string, changesOnly = false): Promise<number> {
-	const rows = patchScheduleRows(ix, room?.id, typeLabel).filter((r) => !changesOnly || r.status !== 'installed')
+/** The patch schedule as Excel: a worksheet per `sheets` entry (a room, or one for a selection), each grouped in work
+ *  order, plus the cord BOM over them all. `tag` names the file ("33IDF2", "changes"). Returns the cords written. */
+export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, sheets: ScheduleSheet[], typeLabel?: (id: string) => string, tag?: string): Promise<number> {
 	const ExcelJS = await import('exceljs')
-	const wb = new ExcelJS.Workbook()
-	const ws = wb.addWorksheet('Patch Schedule')
+	const wb = new ExcelJS.Workbook(), taken = new Set<string>(['bill of materials'])
+	const all: Cord[] = []
+	for (const s of sheets) {
+		if (!s.cords.length) continue
+		all.push(...s.cords)
+		addPatchSheet(wb.addWorksheet(sheetName(s.name, taken)), patchScheduleRows(ix, s.cords, typeLabel), `Patch Schedule - ${projectName}${sheets.length > 1 || s.name !== 'Patch Schedule' ? ` - ${s.name}` : ''}`)
+	}
+
+	// cords by type × length × status
+	const b = wb.addWorksheet('Bill of Materials')
+	const bh = b.addRow(['Cable Type', 'Length (m)', 'Status', 'Quantity'])
+	bh.font = { bold: true, size: 10 }
+	bh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+	;[14, 10, 10, 10].forEach((w, i) => (b.getColumn(i + 1).width = w))
+	for (const l of cordBom(all, typeLabel))
+		for (const s of STATUS_ORDER) if (l.n[s]) b.addRow([l.type, l.lengthM || '-', s, l.n[s]])
+	b.addRow(['', '', 'Total', all.length]).font = { bold: true }
+	download(await wb.xlsx.writeBuffer(), `Patching-${fileSafe(projectName)}${tag ? `-${fileSafe(tag)}` : ''}-${today()}.xlsx`, XLSX)
+	return all.length
+}
+
+function addPatchSheet(ws: import('exceljs').Worksheet, rows: { status: Cord['status']; cells: (string | number)[] }[], title: string) {
 	ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
 	const head = ws.addRow(PATCH_HEAD)
 	head.font = { bold: true, size: 9 }
@@ -75,20 +126,7 @@ export async function exportPatchSchedule(ix: ProjectIndex, projectName: string,
 		}
 	}
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
-	ws.headerFooter = { oddHeader: `&C&BPatch Schedule - ${projectName}${room ? ` - ${room.name}` : ''}`, oddFooter: '&L&D&RPage &P / &N' }
-
-	// cords by type × length × status
-	const b = wb.addWorksheet('Bill of Materials')
-	const bh = b.addRow(['Cable Type', 'Length (m)', 'Status', 'Quantity'])
-	bh.font = { bold: true, size: 10 }
-	bh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
-	;[14, 10, 10, 10].forEach((w, i) => (b.getColumn(i + 1).width = w))
-	const cords = new Set(rows.map((r) => r.cells[PATCH_HEAD.length - 1]))
-	for (const l of cordBom(ix.cords.filter((c) => cords.has(c.id)), typeLabel))
-		for (const s of STATUS_ORDER) if (l.n[s]) b.addRow([l.type, l.lengthM || '-', s, l.n[s]])
-	b.addRow(['', '', 'Total', rows.length]).font = { bold: true }
-	download(await wb.xlsx.writeBuffer(), `Patching-${fileSafe(projectName)}${room ? `-${fileSafe(room.name)}` : ''}-${today()}.xlsx`, XLSX)
-	return rows.length
+	ws.headerFooter = { oddHeader: `&C&B${title}`, oddFooter: '&L&D&RPage &P / &N' }
 }
 
 /**
@@ -100,25 +138,31 @@ export async function importCordIds(file: File, ix: ProjectIndex, spaceId?: Id):
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	await wb.xlsx.load(await file.arrayBuffer())
-	const ws = wb.getWorksheet('Patch Schedule') ?? wb.getWorksheet(1)
-	if (!ws) throw new Error('No "Patch Schedule" sheet in that file')
-	let cordCol = 14, keyCol = 0
-	ws.getRow(1).eachCell((cell, col) => {
-		const h = String(cell.value ?? '').trim().toLowerCase()
-		if (h === 'cord id') cordCol = col
-		if (h === 'key') keyCol = col
-	})
+	// every schedule sheet (a sheet per room since 2026-10-11) — the ones whose header has a Cord ID column
+	const sheets = wb.worksheets.filter((w) => w.name !== 'Bill of Materials')
+	if (!sheets.length) throw new Error('No patch schedule sheet in that file')
 	const ordered = cordsForSchedule(ix, spaceId), ids = new Map<Id, string>()
-	ws.eachRow((row, n) => {
-		if (n <= 1) return
-		const v = String(row.getCell(cordCol).value ?? '').trim()
-		if (!v || v === '—' || v === '-') return
-		const key = keyCol ? String(row.getCell(keyCol).value ?? '').trim() : ''
-		if (key && ix.get(key)?.type === 'cord') { ids.set(key, v); return }
-		const idx = row.getCell(1).value
-		if (!keyCol && typeof idx === 'number' && ordered[idx - 1]) ids.set(ordered[idx - 1].id, v)
-	})
-	return { ids, byKey: !!keyCol }
+	let byKey = false
+	for (const ws of sheets) {
+		let cordCol = 14, keyCol = 0
+		ws.getRow(1).eachCell((cell, col) => {
+			const h = String(cell.value ?? '').trim().toLowerCase()
+			if (h === 'cord id') cordCol = col
+			if (h === 'key') keyCol = col
+		})
+		if (keyCol) byKey = true
+		ws.eachRow((row, n) => {
+			if (n <= 1) return
+			const v = String(row.getCell(cordCol).value ?? '').trim()
+			if (!v || v === '—' || v === '-') return
+			const key = keyCol ? String(row.getCell(keyCol).value ?? '').trim() : ''
+			if (key && ix.get(key)?.type === 'cord') { ids.set(key, v); return }
+			// an old single-sheet export without Key: "#" in the export's order
+			const idx = row.getCell(1).value
+			if (!keyCol && sheets.length === 1 && typeof idx === 'number' && ordered[idx - 1]) ids.set(ordered[idx - 1].id, v)
+		})
+	}
+	return { ids, byKey }
 }
 
 // ── Panel labels (for the label printer) ──────────────────────────────────────────────────────────────────────────

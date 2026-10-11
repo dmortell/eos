@@ -8,7 +8,7 @@
 	import type { Level } from '../domain/types'
 	import BomDialog from './BomDialog.svelte'
 	import CableScheduleDialog from './CableScheduleDialog.svelte'
-	import CordBomDialog from './CordBomDialog.svelte'
+	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
 	import { exportOutletSchedule } from '../render/outletSchedule'
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
@@ -41,5 +41,5 @@
 
 {#if bomOpen}<BomDialog {project} {projectName} onclose={() => (bomOpen = false)} ondone={tell} />{/if}
 {#if cablesOpen}<CableScheduleDialog {project} {projectName} onclose={() => (cablesOpen = false)} ondone={tell} />{/if}
-{#if cordsOpen}<CordBomDialog {project} {projectName} {roomId} thisRoom={!!roomId} onclose={() => (cordsOpen = false)} ondone={tell} />{/if}
+{#if cordsOpen}<PatchScheduleDialog {project} {projectName} {roomId} thisRoom={!!roomId} onclose={() => (cordsOpen = false)} ondone={tell} />{/if}
 

@@ -2120,3 +2120,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (Test Project, all rooms): P3C-37:6 + :7 Shift-selected → bar + Properties "Cords"; Installed (2) → INSTALLED;
   right-click → Add (2) / Remove (2) / Delete (2); Add (2) → back to ADD (as before). Help: "Mark cords installed,
   restore or remove several at once".
+- **Patch list management, Slice 3 — the export (`patch-list-plan.md`):** the Cord BOM dialog is now
+  `ui/PatchScheduleDialog.svelte` ("Patch schedule · cord BOM"; the list's button reads Export…, the menus "Patch
+  schedule / cord BOM…"). Which cords: All rooms — **a sheet per room** (D4) — or any room that has cords (not only the
+  open one), or the list's selected rows, or the rows it shows; "changes only" as before (all rooms + changes = every
+  changed patch). `render/exports.ts`: `cordRoom`, `orderForSchedule` (status group, then the From place — D7: review
+  after testing), `scheduleSheets`, `sheetName` (Excel's 31 characters / no `:\/?*[]` / unique), and
+  `exportPatchSchedule(ix, name, sheets, typeLabel, tag)` — the BOM sheet counts every sheet's cords. Import cord IDs
+  reads every sheet but the BOM (Key match; the "#" fallback only for an old one-sheet file). Tests in
+  `render/exports.test.ts`. Live (Test Project): the picker lists All rooms / 33IDF2 / Server room A / the rows shown
+  (35); 33IDF2 + changes only → 11 cords (8 add, 3 remove), as the list shows. Not exported (a download). Help:
+  "Export the patch schedule (all, a room, the changes)".

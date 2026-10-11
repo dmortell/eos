@@ -1,7 +1,7 @@
 <!-- The patch list (Phase 3.5): every cord, from / to with the labels they carry, type, colour, length, ID, status.
      Status chips filter (the install workflow at a glance); a row click selects the cord, and a cord (or a port's
-     cord) selected in a rack view is highlighted here and scrolled into view. "Cord BOM…" opens the cord counts with
-     the Excel export (ui/CordBomDialog.svelte). -->
+     cord) selected in a rack view is highlighted here and scrolled into view. "Export…" opens the patch schedule export with
+     the Excel export (ui/PatchScheduleDialog.svelte). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -9,7 +9,7 @@
 	import type { Cord } from '../domain/types'
 	import { patchList } from '../domain/reports'
 	import { importCordIds } from '../render/exports'
-	import CordBomDialog from './CordBomDialog.svelte'
+	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
 	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
@@ -57,6 +57,8 @@
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** The selected rows' cords — what the action bar and the right-click act on (patch-list-plan.md Slice 2). */
 	const selCords = $derived(rows.filter((r) => selected.has(r.id)).map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
+	/** The rows shown (scope, status chips, Find) as cords — the export's "rows the list shows". */
+	const rowCords = $derived(rows.map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
 	/** Purge removed: every cord marked for removal in this scope is out on site — their records go. */
 	const removed = $derived(all.filter((r) => r.status === 'remove').map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
 	let menu = $state<{ x: number; y: number } | null>(null)
@@ -111,7 +113,7 @@
 		{#if removed.length}<button class="btn" title="The cords marked for removal{room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)" onclick={() => runCordAction(project, ws, removed, 'installed')}>Purge removed ({removed.length})</button>{/if}
 		<input class="find" placeholder="Find…" bind:value={t.q} />
 		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
-		<button class="btn" title="Cords by type × length and status, and the Excel export (patch schedule + cord BOM)" onclick={() => (bomOpen = true)}>Cord BOM…</button>
+		<button class="btn" title="The patch schedule as Excel — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}>Export…</button>
 		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 	</div>
@@ -144,7 +146,7 @@
 	</table>
 </div>
 {#if menu}<ContextMenu x={menu.x} y={menu.y} items={cordActionMenu(project, ws, selCords)} onclose={() => (menu = null)} />{/if}
-{#if bomOpen}<CordBomDialog {project} {projectName} {roomId} thisRoom={!!room} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
+{#if bomOpen}<PatchScheduleDialog {project} {projectName} {roomId} thisRoom={!!room} selected={selCords} shown={rowCords} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
 
 <style>
 	.hov:hover { background: var(--cad-hover); }

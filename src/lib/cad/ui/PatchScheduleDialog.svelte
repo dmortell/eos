@@ -1,44 +1,63 @@
-<!-- The CORD BOM on screen (backlog "Cord BOM on screen", Dave 2026-10-06: a dialog, with the Excel export in it): cords
-     by type × length, a column per status, for all rooms or the patch list's room; "Export to Excel" writes the patch
-     schedule + this BOM (all cords, or only the changes). Same counting as the Excel sheet (`cordBom`). -->
+<!-- The PATCH SCHEDULE export (was "Cord BOM", Dave 2026-10-06; patch-list-plan.md Slice 3): what — every cord or only the
+     changes (add / change / remove); where — all rooms (a sheet per room, D4), any one room with cords, the patch list's
+     selected rows or the rows it shows; the cord BOM of that on screen (same counting as the Excel's BOM sheet). -->
 <script lang="ts">
 	import { untrack } from 'svelte'
 	import { backdropClose } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
-	import { cordsForSchedule, exportPatchSchedule } from '../render/exports'
+	import { naturalCompare } from '../domain/labels'
+	import { cordRoom, exportPatchSchedule, scheduleSheets } from '../render/exports'
 
-	/** `thisRoom` = start on the patch list's room (it shows that room). */
-	let { project, projectName, roomId, thisRoom = false, onclose, ondone }: { project: CadProject; projectName: string; roomId?: string; thisRoom?: boolean; onclose: () => void; ondone: (msg: string) => void } = $props()
+	/** `roomId` = the open room (start there when `thisRoom`); `selected` / `shown` = the patch list's selected rows and
+	 *  the rows its filters show (offered when there are some). */
+	let { project, projectName, roomId, thisRoom = false, selected = [], shown: listed = [], onclose, ondone }: {
+		project: CadProject; projectName: string; roomId?: string; thisRoom?: boolean; selected?: Cord[]; shown?: Cord[]
+		onclose: () => void; ondone: (msg: string) => void
+	} = $props()
 
 	const STATUSES: Cord['status'][] = ['add', 'change', 'remove', 'installed']
-	let here = $state(untrack(() => thisRoom))
+	/** 'all' · 'room:<id>' · 'sel' · 'shown' */
+	let where = $state(untrack(() => (selected.length > 1 ? 'sel' : thisRoom && roomId ? `room:${roomId}` : 'all')))
 	let changesOnly = $state(false)
 	let busy = $state(false)
-	const room = $derived(here && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
+	const rooms = $derived([...new Set(project.index.cords.map((c) => cordRoom(project.index, c)).filter((r): r is string => !!r))]
+		.map((id) => ({ id, name: project.index.nameOf(id) })).sort((a, b) => naturalCompare(a.name, b.name)))
+	const roomOf = $derived(where.startsWith('room:') ? where.slice(5) : undefined)
 	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
-	const cords = $derived(cordsForSchedule(project.index, room?.id).filter((c) => !changesOnly || c.status !== 'installed'))
+	const picked = $derived(where === 'sel' ? selected : where === 'shown' ? listed : roomOf ? project.index.cords.filter((c) => cordRoom(project.index, c) === roomOf) : project.index.cords)
+	const cords = $derived(picked.filter((c) => !changesOnly || c.status !== 'installed'))
+	const what = $derived(where === 'sel' ? 'selected' : where === 'shown' ? 'shown' : roomOf ? project.index.nameOf(roomOf) : 'all rooms')
 	const lines = $derived(cordBom(cords, typeLabel))
 	const shown = $derived(STATUSES.filter((s) => !changesOnly || s !== 'installed'))
 	const sum = (s: Cord['status']) => lines.reduce((n, l) => n + l.n[s], 0)
+	const perRoom = $derived(where === 'all')
 
 	async function exportXlsx() {
 		if (busy) return
 		busy = true
-		try { const n = await exportPatchSchedule(project.index, projectName, room, typeLabel, changesOnly); ondone(`Patch schedule${room ? ` (${room.name})` : ''}: ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`); onclose() }
+		try {
+			const sheets = scheduleSheets(project.index, cords, perRoom, roomOf ? project.index.nameOf(roomOf) : where === 'sel' ? 'Selected' : 'Patch Schedule')
+			const tag = [where === 'all' ? '' : what, changesOnly ? 'changes' : ''].filter(Boolean).join('-')
+			const n = await exportPatchSchedule(project.index, projectName, sheets, typeLabel, tag)
+			ondone(`Patch schedule (${what}${perRoom && sheets.length > 1 ? `, ${sheets.length} sheets` : ''}): ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`)
+			onclose()
+		}
 		catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Cord BOM" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>Cord BOM</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
+	<div class="dlg" role="dialog" aria-label="Patch schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+		<div class="head"><b>Patch schedule · cord BOM</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<section class="opts">
-			<select title="Every cord, or only this room's (the open rack view's, else the selected rack's)" value={room ? 'room' : 'all'} onchange={(e) => (here = e.currentTarget.value === 'room')}>
-				<option value="all">All rooms</option>
-				<option value="room" disabled={!roomId}>{roomId ? project.index.nameOf(roomId) : 'This room (open a rack view)'}</option>
+			<select title="Which cords: every room (a sheet each in the Excel), one room, or the patch list's selected / shown rows" bind:value={where}>
+				<option value="all">All rooms (a sheet per room)</option>
+				{#each rooms as r (r.id)}<option value="room:{r.id}">{r.name}</option>{/each}
+				{#if selected.length}<option value="sel">The selected rows ({selected.length})</option>{/if}
+				{#if listed.length}<option value="shown">The rows the list shows ({listed.length})</option>{/if}
 			</select>
 			<label title="Only the work (add / change / remove), not the cords already installed — here and in the Excel"><input type="checkbox" bind:checked={changesOnly} /> changes only</label>
 			<span class="grow"></span>
@@ -51,7 +70,7 @@
 					{#each lines as l (`${l.type}|${l.lengthM}`)}
 						<tr><td>{l.type}</td><td class="n">{l.lengthM || '-'}</td>{#each shown as s (s)}<td class="n" class:zero={!l.n[s]}>{l.n[s]}</td>{/each}<td class="n b">{l.total}</td></tr>
 					{:else}
-						<tr><td colspan={shown.length + 3} class="hint">No cords{changesOnly ? ' to add / change / remove' : ''}{room ? ` in ${room.name}` : ''}.</td></tr>
+						<tr><td colspan={shown.length + 3} class="hint">No cords{changesOnly ? ' to add / change / remove' : ''} ({what}).</td></tr>
 					{/each}
 					{#if lines.length}
 						<tr class="tot"><td colspan="2">Total</td>{#each shown as s (s)}<td class="n">{sum(s)}</td>{/each}<td class="n">{cords.length}</td></tr>
