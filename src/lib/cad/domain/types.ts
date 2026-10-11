@@ -296,9 +296,11 @@ export interface Cord {
 	colour: string
 	lengthM: number
 	lengthLocked: boolean
-	status: 'add' | 'remove' | 'change' | 'installed'
-	/** The endpoints and status before a re-patch / soft delete, so it can be reverted. */
-	previous?: { a: PortRef; b: PortRef; status: Cord['status'] }
+	/** `replace` (set by hand): swap the cord for another — other type, colour or length — at the same ends. */
+	status: 'add' | 'remove' | 'change' | 'replace' | 'installed'
+	/** The endpoints and status before a re-patch / soft delete, so it can be reverted; a `replace` also keeps the cord
+	 *  it swaps out (its type, colour, length). */
+	previous?: { a: PortRef; b: PortRef; status: Cord['status']; cableType?: string; colour?: string; lengthM?: number }
 	cordId?: string
 	notes?: string
 }

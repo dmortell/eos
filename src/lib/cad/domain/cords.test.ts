@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -112,6 +112,18 @@ describe('install workflow', () => {
 		expect(setStatus(installed(), 'remove')).toMatchObject({ status: 'remove', previous: { status: 'installed' } })
 		expect(setStatus(removeCord(installed())!, 'installed').status).toBe('installed')   // not deleted
 		expect(setStatus(moved, 'change')).toBe(moved)
+	})
+	it('REPLACE (by hand): keeps the cord it swaps out; Revert / Remove bring that back; Installed confirms the new one', () => {
+		const r = setStatus(installed(), 'replace'), was = installed()
+		expect(r).toMatchObject({ status: 'replace', previous: { status: 'installed', cableType: was.cableType, colour: was.colour, lengthM: was.lengthM } })
+		const swapped: Cord = { ...r, cableType: 'om4', colour: '#ff0000', lengthM: 5 }
+		expect(replacedText(swapped)).toBe(`was ${was.cableType} · ${was.colour} · ${was.lengthM} m`)
+		expect(replacedText({ ...r })).toBe('')                                                  // nothing changed yet
+		expect(revertCord(swapped)).toMatchObject({ status: 'installed', cableType: was.cableType, colour: was.colour, lengthM: was.lengthM })
+		expect(removeCord(swapped)).toMatchObject({ status: 'remove', cableType: was.cableType, previous: { status: 'installed' } })
+		expect(installCord(swapped)).toMatchObject({ status: 'installed', cableType: 'om4' })
+		expect(installCord(swapped)!.previous).toBeUndefined()
+		expect(repatch(ix(), swapped, 'b', { on: 'SW1', port: 9 }).cord).toMatchObject({ status: 'change', previous: { cableType: was.cableType } })
 	})
 })
 

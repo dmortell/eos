@@ -106,7 +106,7 @@ export function cordBom(cords: Cord[], typeLabel: (id: string) => string = (x) =
 	const by = new Map<string, CordBomLine>()
 	for (const c of cords) {
 		const type = typeLabel(c.cableType), lengthM = c.lengthM || 0, k = `${type}|${lengthM}`
-		const e = by.get(k) ?? { type, lengthM, n: { add: 0, change: 0, remove: 0, installed: 0 }, total: 0 }
+		const e = by.get(k) ?? { type, lengthM, n: { add: 0, change: 0, replace: 0, remove: 0, installed: 0 }, total: 0 }
 		e.n[c.status]++
 		e.total++
 		by.set(k, e)

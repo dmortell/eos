@@ -53,7 +53,7 @@ describe('cord BOM', () => {
 		const c = (cableType: string, lengthM: number, status: Cord['status']) => ({ cableType, lengthM, status }) as Cord
 		const lines = cordBom([c('cat6a', 2, 'add'), c('cat6a', 1, 'installed'), c('cat6a', 2, 'remove'), c('om4', 3, 'add'), c('cat6a', 2, 'add'), c('cat6a', 0, 'add')], (id) => id.toUpperCase())
 		expect(lines.map((l) => [l.type, l.lengthM, l.total])).toEqual([['CAT6A', 0, 1], ['CAT6A', 1, 1], ['CAT6A', 2, 3], ['OM4', 3, 1]])
-		expect(lines[2].n).toEqual({ add: 2, change: 0, remove: 1, installed: 0 })
+		expect(lines[2].n).toEqual({ add: 2, change: 0, replace: 0, remove: 1, installed: 0 })
 	})
 })
 

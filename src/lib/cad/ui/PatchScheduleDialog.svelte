@@ -7,6 +7,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
+	import { CORD_STATUSES } from '../domain/cords'
 	import { naturalCompare } from '../domain/labels'
 	import { cordRoom, exportPatchSchedule, scheduleSheets, SCHEDULE_SORTS, type ScheduleSort } from '../render/exports'
 
@@ -17,7 +18,7 @@
 		onclose: () => void; ondone: (msg: string) => void
 	} = $props()
 
-	const STATUSES: Cord['status'][] = ['add', 'change', 'remove', 'installed']
+	const STATUSES = CORD_STATUSES
 	/** 'all' · 'room:<id>' · 'sel' · 'shown' */
 	let where = $state(untrack(() => (selected.length > 1 ? 'sel' : thisRoom && roomId ? `room:${roomId}` : 'all')))
 	let changesOnly = $state(false)
@@ -108,5 +109,6 @@
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }
 	.s-remove { background: #fee2e2; color: #991b1b; }
+	.s-replace { background: #f3e8ff; color: #7e22ce; }
 	.s-installed { background: #e4e4e7; color: #3f3f46; }
 </style>

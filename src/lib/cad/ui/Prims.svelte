@@ -226,6 +226,7 @@
 	.trace-port { fill: #f59e0b; fill-opacity: 0.35; stroke: #d97706; stroke-width: 2; }
 	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
 	.cord-change { stroke-dasharray: 8 2 2 2; }
+	.cord-replace { stroke-dasharray: 8 2 2 2 2 2; }
 	.port-reserved { fill: #f5f3ff; stroke: #8b5cf6; stroke-dasharray: 3 2; }
 	.port-sel { fill: #2563eb; fill-opacity: 0.3; stroke: #1d4ed8; stroke-width: 2; }
 	text.device-stale { fill: #b91c1c; }

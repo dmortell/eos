@@ -118,6 +118,8 @@ export function removeCord(c: Cord): Cord | null {
 	if (c.status === 'remove') return c
 	// a planned move not yet made: the cord is still at its old ends on site — it comes out from there
 	if (c.status === 'change' && c.previous) return { ...c, a: c.previous.a, b: c.previous.b, status: 'remove', previous: c.previous }
+	// a swap not yet made: the cord on site is the one it replaces — that comes out
+	if (c.status === 'replace' && c.previous) return { ...revertCord(c), status: 'remove', previous: c.previous }
 	return { ...c, status: 'remove', previous: { a: c.a, b: c.b, status: c.status } }
 }
 
@@ -149,7 +151,7 @@ export function repatch(ix: ProjectIndex, c: Cord, end: 'a' | 'b', to: PortRef):
 	const p = patchProblem(ix, to, c.id) ?? roomProblem(ix, to, other)
 	if (p) return { problem: p }
 	const moved = { ...c, [end]: to }
-	let next: Cord = c.status === 'installed' || c.status === 'change'
+	let next: Cord = c.status === 'installed' || c.status === 'change' || c.status === 'replace'
 		? { ...moved, status: 'change', previous: c.previous ?? { a: c.a, b: c.b, status: c.status } }
 		: moved
 	if (next.status === 'change' && next.previous && sameEnd(next.a, next.previous.a) && sameEnd(next.b, next.previous.b)) next = revertCord(next)
@@ -166,14 +168,29 @@ export function setStatus(c: Cord, s: Cord['status']): Cord {
 	const { previous: _p, ...rest } = c
 	if (s === 'installed' || s === 'add') return { ...rest, status: s }
 	if (s === 'remove') return removeCord(c) ?? { ...rest, status: 'remove', previous: { a: c.a, b: c.b, status: c.status } }
+	// replace: the cord as it is now is what comes out (its type, colour, length) — change those next
+	if (s === 'replace') return { ...c, status: s, previous: { ...(c.previous ?? { a: c.a, b: c.b, status: c.status }), cableType: c.cableType, colour: c.colour, lengthM: c.lengthM } }
 	return { ...c, status: s }
+}
+
+/** Every cord status, in the lists' order. */
+export const CORD_STATUSES: Cord['status'][] = ['add', 'change', 'replace', 'remove', 'installed']
+
+/** What a REPLACE swaps out, when it differs: "was CAT6 · blue · 2 m". */
+export function replacedText(c: Cord, typeLabel: (id: string) => string = (x) => x): string {
+	const p = c.previous
+	if (c.status !== 'replace' || !p) return ''
+	const parts = [p.cableType !== undefined && p.cableType !== c.cableType ? typeLabel(p.cableType) : '', p.colour !== undefined && p.colour !== c.colour ? p.colour : '', p.lengthM !== undefined && p.lengthM !== c.lengthM ? `${p.lengthM} m` : '']
+	return parts.some(Boolean) ? `was ${parts.filter(Boolean).join(' · ')}` : ''
 }
 
 /** Back to how it was before a re-patch / removal (the `previous` ends and status). */
 export function revertCord(c: Cord): Cord {
 	if (!c.previous) return c
 	const { previous, ...rest } = c
-	return { ...rest, a: previous.a, b: previous.b, status: previous.status }
+	const { a, b, status, cableType, colour, lengthM } = previous
+	// a replace (or a removal of one) also takes back the cord it swapped out
+	return { ...rest, a, b, status, ...(cableType !== undefined ? { cableType } : {}), ...(colour !== undefined ? { colour } : {}), ...(lengthM !== undefined ? { lengthM } : {}) }
 }
 
 /** On site: the cord is in. A removed cord is gone (null = delete the record). */

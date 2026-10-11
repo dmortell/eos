@@ -5,6 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Cord, Device, Id, PortRef, Rack } from '../domain/types'
 import type { CatalogProduct } from '$lib/catalog/types'
 import { bom, cordBom } from '../domain/reports'
+import { replacedText } from '../domain/cords'
 import type { Route } from '../domain/routing'
 import { rackBom, type RackBomLine } from '../domain/rackBom'
 import { panelsInFillOrder } from '../domain/devices'
@@ -19,10 +20,10 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d
 // ── Patch schedule ────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Work order: pull → re-route → install → reference. The export and the cord-ID import share this order. */
-export const STATUS_ORDER: Cord['status'][] = ['remove', 'change', 'add', 'installed']
-const STATUS_TITLE: Record<Cord['status'], string> = { remove: 'REMOVE - pull these cords', change: 'CHANGE - move these cords', add: 'ADD - install these cords', installed: 'INSTALLED - already in place (reference only)' }
-const STATUS_BG: Record<Cord['status'], string> = { add: 'FFDBEAFE', change: 'FFFEF3C7', remove: 'FFFEE2E2', installed: 'FFDCFCE7' }
-const STATUS_FG: Record<Cord['status'], string> = { add: 'FF2563EB', change: 'FFD97706', remove: 'FFDC2626', installed: 'FF16A34A' }
+export const STATUS_ORDER: Cord['status'][] = ['remove', 'replace', 'change', 'add', 'installed']
+const STATUS_TITLE: Record<Cord['status'], string> = { remove: 'REMOVE - pull these cords', replace: 'REPLACE - swap these cords for the type / colour / length shown (same ends)', change: 'CHANGE - move these cords', add: 'ADD - install these cords', installed: 'INSTALLED - already in place (reference only)' }
+const STATUS_BG: Record<Cord['status'], string> = { add: 'FFDBEAFE', replace: 'FFF3E8FF', change: 'FFFEF3C7', remove: 'FFFEE2E2', installed: 'FFDCFCE7' }
+const STATUS_FG: Record<Cord['status'], string> = { add: 'FF2563EB', replace: 'FF9333EA', change: 'FFD97706', remove: 'FFDC2626', installed: 'FF16A34A' }
 
 /** Each end: device, label, then where it is — rack, U, face, port (Dave 2026-10-11). */
 export const PATCH_HEAD = ['#', 'From Device', 'From Label', 'From Rack', 'From U', 'From Face', 'From Port', 'To Device', 'To Label', 'To Rack', 'To U', 'To Face', 'To Port', 'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes', 'Was From', 'Was To', 'Key']
@@ -82,7 +83,7 @@ export function patchScheduleRows(ix: ProjectIndex, cords: Cord[] = cordsForSche
 	const was = (r?: PortRef) => (r ? ix.portPlace(r) : '')
 	return cords.map((c, i) => ({
 		status: c.status,
-		cells: [i + 1, ...end(c.a), ...end(c.b), typeLabel(c.cableType), c.lengthM || '', c.cordId ?? '', c.status[0].toUpperCase() + c.status.slice(1), c.notes ?? '', was(c.previous?.a), was(c.previous?.b), c.id],
+		cells: [i + 1, ...end(c.a), ...end(c.b), typeLabel(c.cableType), c.lengthM || '', c.cordId ?? '', c.status[0].toUpperCase() + c.status.slice(1), c.notes ?? '', ...(c.status === 'replace' ? [replacedText(c, typeLabel), ''] : [was(c.previous?.a), was(c.previous?.b)]), c.id],
 	}))
 }
 

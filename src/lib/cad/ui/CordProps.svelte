@@ -6,7 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Cord } from '../domain/types'
-	import { cordLength, installCord, revertCord, removeCord, setStatus, traceCircuit, STANDARD_LENGTHS } from '../domain/cords'
+	import { cordLength, installCord, revertCord, removeCord, setStatus, traceCircuit, STANDARD_LENGTHS, CORD_STATUSES, replacedText } from '../domain/cords'
 	import Trace from './Trace.svelte'
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
@@ -19,6 +19,7 @@
 	const end = (r: Cord['a']) => project.index.portPlace(r)   // includes the face
 	const label = (r: Cord['a']) => project.index.portLabel(r)
 	const auto = $derived(cordLength(project.index, c.a, c.b))
+	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
 	const steps = $derived(traceCircuit(project.index, { on: c.a.on, port: c.a.port }))
 
 	function install() {
@@ -38,12 +39,13 @@
 		<!-- any status, to fix a mistake (backlog "Set any status"); the buttons below are the install workflow -->
 		<span class="k">Status</span><span><select class="stsel status s-{c.status}" value={c.status} title="Set the status directly (to fix a mistake) — the buttons below follow the install workflow"
 			onchange={(e) => set('Cord status', setStatus(c, e.currentTarget.value as Cord['status']))}>
-			{#each ['add', 'change', 'remove', 'installed'] as st (st)}<option value={st}>{st}</option>{/each}
+			{#each CORD_STATUSES as st (st)}<option value={st}>{st}</option>{/each}
 		</select></span>
 		<span class="k">From</span><span>{end(c.a)}<br /><span class="font-mono text-zinc-500">{label(c.a) || '—'}</span></span>
 		<span class="k">To</span><span>{end(c.b)}<br /><span class="font-mono text-zinc-500">{label(c.b) || '—'}</span></span>
 	</div>
-	{#if c.previous}<p class="text-zinc-500">Was: {end(c.previous.a)} → {end(c.previous.b)} ({c.previous.status})</p>{/if}
+	{#if c.status === 'replace'}<p class="text-zinc-500">Replaces the cord there now{replacedText(c, typeLabel) ? ` — ${replacedText(c, typeLabel)}` : ': set the new type, colour or length below'}</p>
+	{:else if c.previous}<p class="text-zinc-500">Was: {end(c.previous.a)} → {end(c.previous.b)} ({c.previous.status})</p>{/if}
 	<div class="acts">
 		{#if c.status !== 'installed'}<button title={c.status === 'remove' ? 'Taken out on site — the record goes' : 'Done on site'} onclick={install}>{c.status === 'remove' ? 'Removed on site' : 'Installed'}</button>{/if}
 		{#if c.status !== 'remove'}<button title={c.status === 'add' ? 'Not installed yet — deleted outright' : 'Mark it to come out on site'} onclick={remove}>{c.status === 'add' ? 'Delete' : 'Remove'}</button>{/if}
@@ -86,6 +88,7 @@
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }
 	.s-remove { background: #fee2e2; color: #991b1b; }
+	.s-replace { background: #f3e8ff; color: #7e22ce; }
 	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }

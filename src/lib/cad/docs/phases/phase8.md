@@ -2300,3 +2300,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   rename in place (new `ui/InlineName.svelte`: click → an input, Enter / clicking away saves, Esc keeps it).
   Help: "Add or rename a server room or a row of racks". Live (Test Project 1F): the form (1F (open) picked, IDF 3;
   4F → IDF 4; Esc), "IDF Test" added and renamed in place, a row renamed, all undone.
+- **REPLACE status for a cord (backlog, D2 of `patch-list-plan.md`; "do 20"):** `replace` joins the cord statuses
+  (`CORD_STATUSES`, shared by the Patch list, its Status cell, Cord Properties and the schedule dialog), set by hand
+  only. `setStatus(c, 'replace')` keeps the cord there now in `previous` (+ its `cableType`, `colour`, `lengthM`);
+  `replacedText` = "was CAT6 · blue · 2 m" (what differs). `revertCord` brings those back too; Remove on a replace →
+  the old cord comes out (as a change does); Installed confirms the new one; moving an end → a change (keeping the
+  swapped-out cord). Schedule: its own REPLACE group (purple) after REMOVE, "was …" in Was From; cord BOM counts it.
+  Rack views: its own dash. Tests in `domain/cords.test.ts` (+ the BOM test). Live (Test Project 33IDF2, P3C switch
+  :22): status → replace in the list (chip "replace 0" → the row purple), Properties "Replaces the cord there now: set
+  the new type…", length 1 → 5 → "— was 1 m" there and on the list's ↶; both undone. Help: "Cord status".

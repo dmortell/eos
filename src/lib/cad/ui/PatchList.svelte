@@ -17,7 +17,7 @@
 	import CordMode from './CordMode.svelte'
 	import ContextMenu from './ContextMenu.svelte'
 	import { cordActionMenu, runCordAction } from './cordActions'
-	import { setStatus } from '../domain/cords'
+	import { setStatus, CORD_STATUSES, replacedText } from '../domain/cords'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
 	/** `inRoomView` = a rack view is open: the list starts on its room (UX review R4); "All rooms" is one click away. */
@@ -42,8 +42,8 @@
 		finally { if (fileInput) fileInput.value = '' }
 	}
 
-	const STATUSES: Cord['status'][] = ['add', 'change', 'remove', 'installed']
-	let show = $state<Record<Cord['status'], boolean>>({ add: true, change: true, remove: true, installed: true })
+	const STATUSES = CORD_STATUSES
+	let show = $state<Record<Cord['status'], boolean>>({ add: true, change: true, replace: true, remove: true, installed: true })
 	const all = $derived.by(() => {
 		const list = patchList(project.index, room ? { rackIds: project.index.racks.filter((r) => r.spaceId === room.id).map((r) => r.id) } : {})
 		if (t.scope !== 'sel') return list
@@ -163,12 +163,13 @@
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
+				{@const rep = r.status === 'replace' ? replacedText(project.index.get<Cord>(r.id)!, typeLabel) : ''}
 				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.fromLabel || '—'}</td>
 					<td class="px-2">{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.toLabel || '—'}</td>
-					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}</td>
+					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
 					{#if isEditing(r.id, 'cordId')}
 						<td class="ed"><input class="cell font-mono" value={r.cordId} use:focus onkeydown={(e) => editKey(e, r.id, 'cordId')} onblur={(e) => blurSave(r.id, 'cordId', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
@@ -205,6 +206,7 @@
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }
 	.s-remove { background: #fee2e2; color: #991b1b; }
+	.s-replace { background: #f3e8ff; color: #7e22ce; }
 	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
