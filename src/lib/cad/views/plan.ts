@@ -202,7 +202,7 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 	const { a, b } = g, { a2, b2, len } = dimLine(g)
 	if (len < 1e-6) return []
 	const gap = 1 * k, over = 1.5 * k, tick = 1.2 * k
-	const ext = (p: Pt, q: Pt): Prim | null => {
+	const ext = (p: Pt, q: Pt, gap: number): Prim | null => {
 		const L = Math.hypot(q.x - p.x, q.y - p.y)
 		if (L < gap) return null
 		const u = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }
@@ -216,10 +216,10 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 	const r = (ang * Math.PI) / 180, up = { x: Math.sin(r), y: -Math.cos(r) }, mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }
 	const text = g.text ?? (len < 1000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(len < 10000 ? 2 : 1)} m`)
 	return [
-		...[ext(a, a2), ext(b, b2)].filter((p): p is Prim => !!p),
+		...[ext(a, a2, g.gapA ?? gap), ext(b, b2, g.gapB ?? gap)].filter((p): p is Prim => !!p),
 		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', src },
 		slash(a2), slash(b2),
-		{ k: 'text', at: { x: mid.x + up.x * k, y: mid.y + up.y * k }, text, size: 2.5 * k, anchor: 'middle', rot: ang || undefined, cls: 'dim-text', src },
+		{ k: 'text', at: g.textAt ?? { x: mid.x + up.x * k, y: mid.y + up.y * k }, text, size: 2.5 * k, anchor: 'middle', rot: ang || undefined, cls: 'dim-text', src },
 	]
 }
 

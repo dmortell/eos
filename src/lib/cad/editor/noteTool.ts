@@ -21,7 +21,7 @@ export function untie(s: Shape, vp: Viewport): Shape {
 		: g.kind === 'ellipse' ? { ...g, centre: t(g.centre), rx: g.rx * k, ry: g.ry * k }
 		: g.kind === 'circle' ? { ...g, centre: t(g.centre), r: g.r * k }
 		// a dimension keeps the real length it measured in the view (on paper it would measure paper mm)
-		: g.kind === 'dimension' ? { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLine(g).len)}` } : g
+		: g.kind === 'dimension' ? { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLine(g).len)}`, ...(g.textAt ? { textAt: t(g.textAt) } : {}), ...(g.gapA != null ? { gapA: g.gapA * k } : {}), ...(g.gapB != null ? { gapB: g.gapB * k } : {}) } : g
 	const { vpId: _drop, ...rest } = s as Shape & { vpId?: string }
 	return { ...rest, geom } as Shape
 }

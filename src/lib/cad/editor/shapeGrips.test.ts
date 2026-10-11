@@ -1,6 +1,7 @@
 // Resize grips on drawn regions (Dave, 2026-10-05).
 import { describe, it, expect } from 'vitest'
-import { regionGrips, dragRegionGrip, gripSpace } from './shapeGrips'
+import { regionGrips, dragRegionGrip, gripSpace, dimGrips, nearestIn } from './shapeGrips'
+import { dimensionPrims } from '../views/plan'
 import { spaceOf, PLAN } from '../views/space'
 import type { Shape } from '../domain/shapes'
 
@@ -62,6 +63,20 @@ describe('note points (Dave, 2026-10-05: edit line and note end points)', () => 
 		expect(regionGrips(d.geom)).toEqual([{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 500, y: 200 }])
 		expect(dragRegionGrip(d, 2, { x: 300, y: -150 }, false).geom).toMatchObject({ offset: -150 })
 		expect(dragRegionGrip(d, 1, { x: 1500, y: 10 }, false).geom).toMatchObject({ b: { x: 1500, y: 10 } })
+	})
+	it('a dimension’s text and extension-line grips: found where drawn; the text goes where dragged, a gap slides', () => {
+		const d = shape({ kind: 'dimension', a: { x: 0, y: 0 }, b: { x: 1000, y: 0 }, mode: 'aligned', offset: 200 })
+		const prims = dimensionPrims(d.geom as Parameters<typeof dimensionPrims>[0], 100, d.id)   // 1:100: a 100 mm gap, text 100 off
+		const [text, extA, extB] = dimGrips(prims, d.id, { x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 0, y: 200 }, { x: 1000, y: 200 })
+		expect(extA).toEqual({ x: 0, y: 100 })
+		expect(extB).toEqual({ x: 1000, y: 100 })
+		expect(text.x).toBe(500)
+		expect(dragRegionGrip(d, 3, { x: 800, y: 400 }, false).geom).toMatchObject({ textAt: { x: 800, y: 400 } })
+		expect(dragRegionGrip(d, 4, { x: 30, y: 40 }, false).geom).toMatchObject({ gapA: 40 })
+		expect(dragRegionGrip(d, 5, { x: 1000, y: 900 }, false).geom).toMatchObject({ gapB: 200 })   // no further than its line
+		const moved = dimensionPrims({ ...(d.geom as Parameters<typeof dimensionPrims>[0]), gapA: 40, textAt: { x: 800, y: 400 } }, 100, d.id)
+		expect(dimGrips(moved, d.id, { x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 0, y: 200 }, { x: 1000, y: 200 }).slice(0, 2)).toEqual([{ x: 800, y: 400 }, { x: 0, y: 40 }])
+		expect(nearestIn([{ x: 0, y: 0 }, { x: 3, y: 0 }], { x: 2.5, y: 0 }, 5)).toBe(1)
 	})
 	it('a cloud: its points', () => {
 		const c = shape({ kind: 'cloud', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] })

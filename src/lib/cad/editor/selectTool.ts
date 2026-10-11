@@ -24,7 +24,8 @@ import { handlesFor, handleAt, segWidthHandles, bendHandles, type Handle } from 
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf } from './pathSel'
 import { angleStepAll, axisLock } from './constrain'
-import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
+import { gripSpace, regionGrips, dragRegionGrip, dimGrips, nearestIn, type GripSpace } from './shapeGrips'
+import { dimLine } from '../views/plan'
 import { withGroups } from '../domain/groups'
 import { labelKind } from '../domain/labelEdit'
 import { elevationHandles, roomLineHandles } from './elevHandles'
@@ -123,7 +124,10 @@ export class SelectTool implements Tool {
 		const s = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		if (s?.type !== 'shape') return null
 		const pts = regionGrips(s.geom), space = pts.length ? gripSpace(s, c.space, (id) => c.store.get(id)) : null
-		return space ? { s, space, at: pts.map(space.to) } : null
+		if (!space) return null
+		const at = pts.map(space.to)
+		// a dimension: + its text and its extension lines' starts, where this view draws them (their size is paper mm)
+		return { s, space, at: s.geom.kind === 'dimension' ? [...at, ...dimGrips(c.prims(), s.id, at[0], at[1], space.to(dimLine(s.geom).a2), space.to(dimLine(s.geom).b2))] : at }
 	}
 
 	/** The cursor for what's under the pointer: a grip → crosshair, something that moves → move, else pointer / arrow. */
@@ -240,7 +244,8 @@ export class SelectTool implements Tool {
 		if (ce) { this.#cordEnd = { ...ce, to: ce.at }; return }
 		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
 		// a drawn region's resize grip (corner / edge / axis end / polygon corner)
-		const rg = this.#regionGrips(c), ri = rg ? rg.at.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5) : -1
+		// the NEAREST grip in reach (a dimension's text grip sits close to its line's middle one)
+		const rg = this.#regionGrips(c), ri = rg ? nearestIn(rg.at, e.p, c.tol() * 1.5) : -1
 		if (rg && ri >= 0) { this.#region = { base: rg.s, index: ri, space: rg.space }; return }
 		const ng = this.#noteGrips(c), np = ng?.grips.find((q) => q.index >= 0 && Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= c.tol() * 1.5)
 		if (ng && np) { this.#note = { base: ng.s, vp: ng.vp, index: np.index }; return }

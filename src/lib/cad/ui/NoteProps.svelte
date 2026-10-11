@@ -61,6 +61,9 @@
 			<option value="aligned">along the two points</option><option value="horizontal">horizontal</option><option value="vertical">vertical</option>
 		</select></label>
 	<label class="row" title="Blank = the measured length">Text <input class="inp" value={g.text ?? ''} placeholder={measured < 1000 ? `${measured}` : `${(measured / 1000).toFixed(2)} m`} onchange={(e) => setGeom('Dimension text', { text: e.currentTarget.value.trim() || undefined })} /></label>
+	{#if g.textAt || g.gapA != null || g.gapB != null}
+		<button class="lnk" title="Its text centred over its line again, and the extension lines' usual gaps (the grips moved them)" onclick={() => { const { textAt: _t, gapA: _a, gapB: _b, ...rest } = g; put('Dimension text and gaps back', { geom: rest as Shape['geom'] }) }}>Text and gaps back as drawn</button>
+	{/if}
 {/if}
 </PropGroup>
 <PropGroup kind="note" title="Style">
@@ -74,6 +77,7 @@
 <p class="text-zinc-500">Drag to move · Delete removes it</p>
 
 <style>
+	.lnk { color: var(--cad-link, #2563eb); font-size: 11px; text-align: left; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; width: fit-content; }

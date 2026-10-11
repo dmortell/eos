@@ -137,11 +137,11 @@ function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
 		case 'text': return { ...g, at: to(g.at) }
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(to) }
 		case 'dimension': {
-			const a = to(g.a), b = to(g.b), a2 = to(dimLine(g).a2)
-			if (g.mode === 'horizontal') return { ...g, a, b, offset: a2.y - a.y }
-			if (g.mode === 'vertical') return { ...g, a, b, offset: a2.x - a.x }
+			const a = to(g.a), b = to(g.b), a2 = to(dimLine(g).a2), t = g.textAt ? { textAt: to(g.textAt) } : {}
+			if (g.mode === 'horizontal') return { ...g, a, b, ...t, offset: a2.y - a.y }
+			if (g.mode === 'vertical') return { ...g, a, b, ...t, offset: a2.x - a.x }
 			const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
-			return { ...g, a, b, offset: ((a2.x - a.x) * -(b.y - a.y) + (a2.y - a.y) * (b.x - a.x)) / L }
+			return { ...g, a, b, ...t, offset: ((a2.x - a.x) * -(b.y - a.y) + (a2.y - a.y) * (b.x - a.x)) / L }
 		}
 		default: return null
 	}

@@ -2399,3 +2399,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   skips the usage colour when 'layer' (the layer's colour, else the class's, as before). Panel port tints in rack views
   are unaffected. Test in `views/portTip.test.ts`. Live (Test Project 1F): on → three usage colours; off → none;
   undone. Help: "Usage colours and outlet tips".
+- **Dimension text and extension-line grips (backlog "Dimension text and grips", G259 — the grips; `<>` and units →
+  later, Dave 2026-10-12):** a dimension's geometry gets `textAt` (its text dragged there; unset = centred off its
+  line) and `gapA` / `gapB` (each extension line's gap from its point; unset = 1 paper mm); drawn by
+  `dimensionPrims`, carried by moves, elevations' plane mapping and a viewport note put back on paper. Grips 3–5
+  (`shapeGrips.ts` `dimGrips`, found in the view's prims since they're paper-sized): the text (drag = `textAt`) and
+  each extension line's start (slid along it, 0 … its line). The select tool now takes the NEAREST grip in reach
+  (`nearestIn`; the text grip sits close to the line's middle one). Properties: "Text and gaps back as drawn" once
+  moved. Tests in `editor/shapeGrips.test.ts`. Live (Test Project 1F, the "1.07 m" dimension): the text dragged off its
+  line, the lower extension line's start slid; both undone. Help: "Edit a dimension".

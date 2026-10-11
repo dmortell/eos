@@ -10,6 +10,7 @@ import { outlineOf, sameFrame } from '../domain/shapes'
 import { toPaper, fromPaper } from '../views/sheet'
 import { dimLine, dimOffset } from '../views/plan'
 import { angleStep } from './constrain'
+import type { Prim } from '../views/display'
 
 export interface GripSpace { to(p: Pt): Pt; from(p: Pt): Pt }
 
@@ -68,6 +69,13 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 	}
 	if (g.kind === 'dimension') {
 		if (i === 2) return { ...s, geom: { ...g, offset: r1(dimOffset(g, q)) } }
+		if (i === 3) return { ...s, geom: { ...g, textAt: r1p(q) } }   // its text, dragged anywhere
+		if (i === 4 || i === 5) {
+			// an extension line's start: slid along it — its gap from the measured point (0 … the dimension line)
+			const { a2, b2 } = dimLine(g), p = i === 4 ? g.a : g.b, p2 = i === 4 ? a2 : b2, L = Math.hypot(p2.x - p.x, p2.y - p.y)
+			const gap = L ? Math.max(0, Math.min(L, ((q.x - p.x) * (p2.x - p.x) + (q.y - p.y) * (p2.y - p.y)) / L)) : 0
+			return { ...s, geom: { ...g, [i === 4 ? 'gapA' : 'gapB']: Math.round(gap) } }
+		}
 		const at = shift ? angleStep(i === 0 ? g.b : g.a, q) : q
 		return { ...s, geom: i === 0 ? { ...g, a: r1p(at) } : { ...g, b: r1p(at) } }
 	}
@@ -95,4 +103,30 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 	const fixed = -sign * h, moved = axis === 'x' ? lq.x : lq.y, len = Math.max(1, r1(Math.abs(moved - fixed))), mid = (moved + fixed) / 2
 	const c = world(axis === 'x' ? { x: mid, y: 0 } : { x: 0, y: mid })
 	return { ...s, geom: { ...g, size: axis === 'x' ? { x: len, y: g.size.y } : { x: g.size.x, y: len }, centre: r1p(c) } }
+}
+
+/** A selected dimension's extra grips, in VIEW points (after its a, b and line-middle grips: indices 3, 4, 5): its text,
+ *  and each extension line's start — found in the view's prims, since their sizes are paper mm (backlog "Dimension
+ *  grips"). An extension line too short to draw: its grip sits on the dimension line's end. */
+export function dimGrips(prims: Prim[], id: string, a: Pt, b: Pt, a2: Pt, b2: Pt): Pt[] {
+	const text = prims.find((p) => p.src === id && p.k === 'text' && p.cls === 'dim-text')
+	const start = (p: Pt, p2: Pt): Pt => {
+		const L = Math.hypot(p2.x - p.x, p2.y - p.y)
+		if (!L) return p2
+		const ux = (p2.x - p.x) / L, uy = (p2.y - p.y) / L
+		const line = prims.find((q) => {
+			if (q.src !== id || q.k !== 'line' || q.cls !== 'dim' || q.pts.length !== 2) return false
+			const s = q.pts[0], along = (s.x - p.x) * ux + (s.y - p.y) * uy, off = Math.abs((s.x - p.x) * -uy + (s.y - p.y) * ux)
+			return off < L * 0.01 + 0.01 && along >= -0.01 && along <= L + 0.01
+		})
+		return line?.k === 'line' ? line.pts[0] : p2
+	}
+	return [text?.k === 'text' ? text.at : { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }, start(a, a2), start(b, b2)]
+}
+
+/** The index of the point nearest `p` within `tol`, else −1. */
+export function nearestIn(pts: Pt[], p: Pt, tol: number): number {
+	let best = -1, bd = tol
+	pts.forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= bd) { best = i; bd = d } })
+	return best
 }

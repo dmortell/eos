@@ -73,7 +73,9 @@ export type Geometry =
 	| { kind: 'arc'; centre: Pt; r: number; start: number; end: number }
 	/** Text and notes. `width` set = a wrapping note box; `markdown` allows lists and tables. Sizes are paper mm. */
 	| { kind: 'text'; at: Pt; text: string; sizeMm: number; rot?: number; width?: number; markdown?: boolean; align?: 'left' | 'centre' | 'right' }
-	| { kind: 'dimension'; a: Pt; b: Pt; offset: number; mode: 'aligned' | 'horizontal' | 'vertical' | 'rotated'; angle?: number; text?: string }
+	/** `textAt`: where its text was dragged (unset = centred just off its line); `gapA` / `gapB`: each extension line's
+	 *  gap from its measured point (mm; unset = 1 paper mm) — the text and extension grips (backlog "Dimension grips"). */
+	| { kind: 'dimension'; a: Pt; b: Pt; offset: number; mode: 'aligned' | 'horizontal' | 'vertical' | 'rotated'; angle?: number; text?: string; textAt?: Pt; gapA?: number; gapB?: number }
 	/** Tip first. `attach` makes the tip follow an entity (an outlet, a rack, a shape). */
 	| { kind: 'leader'; pts: Pt[]; text?: string; attach?: Id; /** A callout's frame round its words (backlog "Callouts"); absent = none. */ border?: 'underline' | 'box' }
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
@@ -199,7 +201,7 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 		case 'rect': case 'circle': case 'ellipse': case 'arc': return { ...g, centre: add(g.centre) }
 		case 'polygon': return { ...g, pts: g.pts.map(add) }
 		case 'text': return { ...g, at: add(g.at) }
-		case 'dimension': return { ...g, a: add(g.a), b: add(g.b) }
+		case 'dimension': return { ...g, a: add(g.a), b: add(g.b), ...(g.textAt ? { textAt: add(g.textAt) } : {}) }
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(add) }
 		case 'image': return { ...g, centre: add(g.centre) }
 		case 'insert': case 'legend': return { ...g, at: add(g.at) }
