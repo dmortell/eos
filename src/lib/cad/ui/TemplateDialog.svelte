@@ -51,8 +51,8 @@
 			<label>Maker <input value={t.maker ?? ''} oninput={(e) => (t.maker = e.currentTarget.value)} /></label>
 			<label>Model <input value={t.model ?? ''} oninput={(e) => (t.model = e.currentTarget.value)} /></label>
 		</div>
+		<p class="hint">{isNew ? 'Saved to the device library of every project' : 'Changes the template for every project — devices already placed keep theirs'}</p>
 		<div class="foot">
-			<span class="hint">{isNew ? 'Saved to the device library of every project' : 'Changes the template for every project — devices already placed keep theirs'}</span>
 			<button class="btn" onclick={onclose}>Cancel</button>
 			<button class="btn go" disabled={!ok} onclick={save}>{isNew ? 'Add to library' : 'Save'}</button>
 		</div>
@@ -67,8 +67,8 @@
 	.body { display: grid; gap: 4px; padding: 8px 12px; }
 	label { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 6px; }
 	input, select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; min-width: 0; }
-	.foot { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); }
-	.hint { flex: 1; color: var(--cad-muted, #71717a); font-size: 11px; }
+	.foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); }
+	.hint { margin: 0; padding: 0 12px 8px; color: var(--cad-muted, #71717a); font-size: 11px; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }
 	.btn:disabled { opacity: 0.5; }

@@ -2275,3 +2275,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   floorplan file is also used by 1 other project — its scale changes there too" → Cancel; the file's calibration
   checked unchanged (35.281 mm/pt, origin 240, 676, crop 45, 35, 764 × 779). (A Ctrl+A meant for the prompt went to the
   plan and selected all — no writes.) Help: "Calibrate a floorplan on the plan (origin, scale, crop)".
+- **Fixes (Dave 2026-10-12):** the Racks window shows a nameless rack as its kind (and model) in grey italics, and Find a
+  device shows a nameless device as its kind (search matches the kind too). New / edit device template: the "Saved to
+  the device library…" note sits on its own line above the buttons.

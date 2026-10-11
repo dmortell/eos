@@ -17,7 +17,7 @@
 		if (!s) return []
 		return project.index.devices
 			.map((d) => ({ d, r: project.index.get<Rack>(d.rackId) }))
-			.filter(({ d, r }) => r?.type === 'rack' && `${d.name} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
+			.filter(({ d, r }) => r?.type === 'rack' && `${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
 			.sort((a, b) => naturalCompare(`${a.r!.name} ${a.d.name}`, `${b.r!.name} ${b.d.name}`))
 			.slice(0, 10)
 	})
@@ -43,7 +43,7 @@
 		<div class="list">
 			{#each hits as h, i (h.d.id)}
 				<button class:on={i === at} onclick={() => open(h.d, h.r!)}>
-					<span class="nm">{h.d.name}</span><span class="meta">{h.r!.name} · U{h.d.u} · {project.index.nameOf(h.r!.levelId)}</span>
+					<span class="nm">{h.d.name.trim() || `${h.d.kind}${h.d.model ? ` · ${h.d.model}` : ''}`}</span><span class="meta">{h.r!.name} · U{h.d.u} · {project.index.nameOf(h.r!.levelId)}</span>
 				</button>
 			{:else}
 				<p class="none">No device matches</p>

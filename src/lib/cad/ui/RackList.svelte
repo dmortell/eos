@@ -137,7 +137,7 @@
 				{#if g.hand.none}<button class="place" title="Put these racks back in the plan's order (left to right as drawn)" onclick={() => resetOrder(g.space, 'none', g.name)}>↺ plan order</button>{/if}</div>{/if}
 		{#each part.racks as r, i (r.id)}
 			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row}>
-				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{r.name}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
+				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{#if r.name.trim()}{r.name}{:else}<span class="nameless">{r.kind}{r.model ? ` · ${r.model}` : ''}</span>{/if}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
 				<!-- the rack view's order, fixed by hand where the plan gets it wrong (backlog "Rack order in a row") -->
 				<span class="nudge">
 					<button disabled={i === 0} title="Move it one place left in the rack view (up this list)" onclick={() => nudge(r, -1)}>▲</button>
@@ -168,6 +168,7 @@
 	.rowh .n { font-weight: 400; color: var(--cad-faint); }
 	.rack.sel { background: var(--cad-pick); }
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
+	.nameless { color: var(--cad-muted); font-style: italic; }
 	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
 	.place:hover, .place.armed { background: var(--cad-sel); }
 	.nudge { display: none; }
