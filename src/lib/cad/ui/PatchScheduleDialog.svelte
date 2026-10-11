@@ -8,6 +8,7 @@
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
 	import { CORD_STATUSES } from '../domain/cords'
+	import CordBatches from './CordBatches.svelte'
 	import { naturalCompare } from '../domain/labels'
 	import { cordRoom, exportPatchSchedule, scheduleSheets, SCHEDULE_SORTS, type ScheduleSort } from '../render/exports'
 
@@ -81,13 +82,14 @@
 					{/if}
 				</tbody>
 			</table>
+			<CordBatches {project} {typeLabel} />
 		</div>
 	</div>
 </div>
 
 <style>
 	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 5vh; }
-	.dlg { width: min(40rem, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
+	.dlg { width: min(58rem, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
 	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.x { color: var(--cad-muted, #71717a); }
 	.opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }

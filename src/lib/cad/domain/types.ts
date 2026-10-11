@@ -305,6 +305,10 @@ export interface Cord {
 	notes?: string
 }
 
+/** A batch of patch cords bought with pre-printed labels, typed by hand: "2AR-0001" … "2AR-0100" = 100 × 2 m CAT6A red
+ *  (backlog "Cord label batches"). `ordered` defaults to the labels in the range; `delivered` = how many came so far. */
+export interface CordBatch { id: Id; cableType: string; lengthM: number; colour: string; first: string; last: string; ordered?: number; delivered?: number; note?: string }
+
 // ── Project-wide settings (one doc) ───────────────────────────────────────────────────────────────────────────────
 
 export interface ProjectSettings {
@@ -335,6 +339,8 @@ export interface ProjectSettings {
 	grayFloorplans?: boolean
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
+	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */
+	cordBatches?: CordBatch[]
 	usages: { id: string; label: string; color: string }[]
 	/** `cores` = a multi-core cable (a 24-core fibre): Link to… puts that many cores in each cable (absent = 1). */
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number; cores?: number }[]

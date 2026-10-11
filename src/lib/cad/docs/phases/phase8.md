@@ -2319,3 +2319,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/elevHandles.test.ts`. Live (Test Project 1F, 33IDF2): F → rear and back; the level ceiling dragged →
   "33IDF2 CEILING FL+2490"; FFL dragged up → "33IDF2 FLOOR FL+50", the racks on it; both undone. Help: the room
   floor / ceiling entry, keys (F).
+- **Cord label batches by type, length and colour (backlog, T070; "do 19"; labels typed by hand, Dave 2026-10-11):**
+  `CordBatch` (type, length, colour, first / last label, ordered, delivered) in `ProjectSettings.cordBatches` (undoable
+  settings writes). `domain/cordBatches.ts`: `labelRange` (same prefix, a number counting up, its width kept),
+  `batchUse` (the cords whose Cord ID is in the range — not ones being removed —, free, last used, next free; a cord of
+  another type / length / colour with its label → `wrong`), `labelNeeds` (per type × length × colour: cords, labels
+  ordered — default the range's count —, delivered, short, the next order's first label = after the highest bought).
+  `ui/CordBatches.svelte` under the cord BOM in the Patch schedule dialog (now 58rem wide): a row per batch, edited in
+  place; "+ Batch" starts from a kind still short, at its next label; the needs table; the wrong-label warning. Tests in
+  `domain/cordBatches.test.ts`. Live (Test Project): + Batch, 2AR-0001 … 2AR-0100 → 100 labels, 0 used, next 2AR-0001;
+  Cat6A · 1 m: 1 cord, 100 labels, next order 2AR-0101; uutp kinds short 2 / 12 / 17; undone (3 steps). Assigning a free
+  label to a cord from its batch is not built (offered). Help: "Record the patch cords bought (label batches)".
