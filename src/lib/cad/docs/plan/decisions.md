@@ -13,7 +13,7 @@ You ticked these in the gap list, then asked about them in a todo. They stay in 
 "no", or what to change.
 
 - [x] **Copies take the next free label** (Outlets, labels and numbering) — you asked: T142: **Copies: keep the label, or take the next free number?** Decide: take next free number if copied to same model, keep label if different model.
-- [ ] **Devices list per rack** (Racks, devices and rack views) — you asked: T040: **Device list for the selected rack?** Decide.
+- [x] **Devices list per rack** (Racks, devices and rack views) — you asked: T040: **Device list for the selected rack?** Decide: later (Dave 2026-10-12) → `later.md`.
 - [x] **Scroll the list to the selection** (Patching and cords) — you asked: T063: **Scroll to the clicked port in lists?** Consider: scroll to the clicked port.
 - [x] **Hover a cord** (Patching and cords) — you asked: T064: **Hover tips on patch cords?** Decide: not needed (Dave 2026-10-12) → `later.md`.
 - [x] **Cable types editor** (Patching and cords) — you asked: T019: **Customisable cable types, colours and statuses?** Decide: implement cable types editor.

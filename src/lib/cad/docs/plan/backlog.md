@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 34 entries (0 P1 · 0 P2 · 34 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 31 entries (0 P1 · 0 P2 · 31 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -53,7 +53,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Racks, devices and rack views
 
-- [ ] ❓ **Devices list per rack** — a sidebar list for the selected rack: front, then "Rear mount", each "U12: name · type"; click / Ctrl / Shift to select, Delete to remove. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, new component). *cad today:* missing. *From:* G087, G109, T040
 - [ ] **Drag racks from the list onto the plan** — drag one or several unplaced racks onto the plan; several land spaced in a line. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines). *cad today:* "Place", then one click per rack (`cad/ui/RackList.svelte:61`). *From:* G050
 - [ ] **Catalogue tab** — browse the Panduit catalogue (kind, maker, colour, RU, fits the row), add a rack from it, add / delete custom products. **P3 · L** (~300 lines). *cad today:* missing; the rack BOM reads the built-in Panduit seed only. Decide "Catalogue vs library" (below) first. *From:* G089
 
@@ -72,17 +71,15 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Selection and editing
 
 - [ ] **Paste at the cursor** — Ctrl+Shift+V centres the paste on the cursor. Build after the clipboard. **P3 · S** (~15 lines after that). *cad today:* missing. *From:* G232
-- [ ] **Join runs on draw** — A run drawn from another run's node is stored as joined and follows it. "Joined nodes move together" and "Split and join runs" may cover this; check after them. **P3 · M** (~80 lines). *cad today:* routing joins runs whose nodes touch, without storing a join (`cad/domain/routing.ts:2`). *From:* G271
 - [ ] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **P3 · M** (~80 lines). *cad today:* missing. *From:* G234
 
 ## Drafting commands and input
 
-- [ ] **More snaps** — Intersection, perpendicular and nearest. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
+- [ ] **More snaps** — Intersection, perpendicular and nearest; **and a run drawn from / to the middle of another run's segment (a nearest / perpendicular snap) splits that segment there so the two join** (was "Join runs on draw", folded in by Dave 2026-10-12: runs meeting at a node already join and move together). **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264
 - [ ] **Arc** — Arc through three points; snapped, gripped, moved like any shape. **P3 · M** (~80 lines). *cad today:* arc geometry exists but is not drawn (`cad/views/plan.ts:95` falls to `default`). *From:* G241
 - [ ] **TRIM** — Click part of a line to cut it back to the shapes that cross it. **P3 · M** (~100 lines). *cad today:* missing. *From:* G245
 - [ ] **EXTEND** — Grow a line end to the next shape. **P3 · M** (~80 lines, shares the crossing code with TRIM). *cad today:* missing. *From:* G246
-- [ ] **Dimension text and grips** — Text override (`<>`), text offset grip, extension-line grip, units mm / cm / m. Build after Dimension. **P3 · M** (~100 lines). *cad today:* missing. *From:* G259
 - [ ] ❓ **Markdown notes block** — A note with headings, bullet / numbered lists, tables and bold / italic, wrapped in a box; paste from Word / Excel. Answer to "how much code?": about 250 lines (layout into text lines, plus PDF / DXF output), on top of "Text that fills a box". **P3 · L** (~250 lines). *cad today:* `markdown` flag in the data, unused (`cad/domain/shapes.ts:73`). *From:* G184, G328, T143
 
 ## Layers, styles, blocks and symbols
