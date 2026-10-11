@@ -1,28 +1,20 @@
-<!-- A name renamed where it shows (Dave 2026-10-12: not in the status bar): click → an input in its place, Enter or
-     clicking away saves, Esc keeps the old one. -->
+<!-- A name renamed where it shows, by clicking it (where a click does nothing else — the Racks window's rooms and rows):
+     an input in its place (ui/NameInput.svelte). -->
 <script lang="ts">
+	import NameInput from './NameInput.svelte'
+
 	let { value, onsave, title, placeholder }: { value: string; onsave: (name: string) => void; title?: string; placeholder?: string } = $props()
 
-	let editing = $state(false), draft = $state('')
-	function start() { draft = value; editing = true }
-	function done(save: boolean) {
-		if (!editing) return
-		editing = false
-		const t = draft.trim()
-		if (save && t && t !== value) onsave(t)
-	}
-	function focus(el: HTMLInputElement) { el.focus(); el.select() }
+	let editing = $state(false)
 </script>
 
 {#if editing}
-	<input class="ed" use:focus bind:value={draft} {placeholder} onblur={() => done(true)}
-		onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false) }} />
+	<NameInput {value} {placeholder} onsave={(t) => { editing = false; onsave(t) }} oncancel={() => (editing = false)} />
 {:else}
-	<button class="nm" {title} onclick={start}>{value || placeholder}</button>
+	<button class="nm" {title} onclick={() => (editing = true)}>{value || placeholder}</button>
 {/if}
 
 <style>
 	.nm { color: inherit; font-size: inherit; text-align: left; }
 	.nm:hover { color: #2563eb; text-decoration: underline; }
-	.ed { font-size: inherit; color: var(--cad-text); background: var(--cad-input); border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; min-width: 0; width: 9rem; }
 </style>

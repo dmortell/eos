@@ -15,6 +15,7 @@
 	import Trace from './Trace.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import UsageButtons from './UsageButtons.svelte'
+	import NameInput from './NameInput.svelte'
 	import { outletZ } from '../domain/routing'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
@@ -67,12 +68,15 @@
 	function setRoom(value: string, select: HTMLSelectElement) {
 		if (value !== '+') { setOutlets('Room', () => ({ roomId: value || undefined })); return }
 		select.value = same((o) => o.roomId ?? '') ?? '?'
-		ws.askText('New room (number or name)', '', (t) => {
-			const name = t.trim(), levelId = outlets[0]?.levelId
-			if (!name || !levelId) return
-			const room: Space = { type: 'space', id: newId(), levelId, kind: 'room', name, code: name, order: rooms.length }
-			project.store.transact(`Room ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(room); for (const o of outlets) tx.put({ ...o, roomId: room.id }) })
-		})
+		newRoom = true   // its name in a box under the field (not the status bar)
+	}
+	let newRoom = $state(false)
+	function addRoom(name: string) {
+		newRoom = false
+		const levelId = outlets[0]?.levelId
+		if (!levelId) return
+		const room: Space = { type: 'space', id: newId(), levelId, kind: 'room', name, code: name, order: rooms.length }
+		project.store.transact(`Room ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(room); for (const o of outlets) tx.put({ ...o, roomId: room.id }) })
 	}
 
 	/** Outlets whose port labels don't carry their own label (Dave: Journey 245 kept ports 056.A after a renumber): made
@@ -195,6 +199,7 @@
 			<option value="+">New room…</option>
 		</select>
 	</label>
+	{#if newRoom}<div class="row"><span class="text-zinc-500">New room</span><NameInput wide placeholder="Its number or name — Enter adds it" onsave={addRoom} oncancel={() => (newRoom = false)} /></div>{/if}
 {/snippet}
 
 <style>

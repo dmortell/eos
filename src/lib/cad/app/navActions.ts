@@ -5,10 +5,19 @@ import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
 import { deleteEntities, levelContents, deleteImpact, impactText } from '../editor/commands'
 
-export function renameLevel(project: CadProject, ws: Workspace, id: string): void {
-	const l = project.index.get(id) as Level | undefined
-	if (l?.type !== 'level') return
-	ws.askText('Level name', l.name, (t) => { if (t.trim() && t.trim() !== l.name) project.store.transact(`Rename level ${l.name} → ${t.trim()}`, (tx) => tx.put({ ...l, name: t.trim() })) })
+/** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
+export function renameLevel(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
+/** The name typed in the Navigator: a level's, a room's, a section's, a sheet's title or number. */
+export function applyRename(project: CadProject, id: string, name: string, field?: 'title' | 'number'): void {
+	const e = project.index.get(id)
+	if (!e) return
+	if (e.type === 'sheet') {
+		const f = field ?? 'title'
+		if (name !== e[f]) project.store.transact(f === 'number' ? `Renumber ${e.number} → ${name}` : `Retitle ${e.number}`, (tx) => tx.put({ ...e, [f]: name }))
+		return
+	}
+	if ((e.type === 'level' || e.type === 'space' || e.type === 'section') && name !== e.name)
+		project.store.transact(`Rename ${e.type === 'space' ? 'room' : e.type} ${e.name} → ${name}`, (tx) => tx.put({ ...e, name }))
 }
 export function deleteLevel(project: CadProject, ws: Workspace, id: string): void {
 	const l = project.index.get(id) as Level | undefined
@@ -20,11 +29,7 @@ export function deleteLevel(project: CadProject, ws: Workspace, id: string): voi
 	})
 }
 // ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
-export function renameRoom(project: CadProject, ws: Workspace, id: string): void {
-	const r = project.index.get(id)
-	if (r?.type !== 'space') return
-	ws.askText('Room name', r.name, (t) => { if (t.trim() && t.trim() !== r.name) project.store.transact(`Rename room ${r.name} → ${t.trim()}`, (tx) => tx.put({ ...r, name: t.trim() })) })
-}
+export function renameRoom(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
 /** A room goes with its racks (and their devices, links, cords) and rows; outlet ports and panels that name it as
  *  their server room keep the id but show none (said in the question). An empty room just goes (Undo brings it back). */
 export function deleteRoom(project: CadProject, ws: Workspace, id: string): void {

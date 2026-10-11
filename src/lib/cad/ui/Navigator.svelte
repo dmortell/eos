@@ -12,7 +12,8 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import { specKey, type ViewSpec } from '../views/space'
 	import { navTree, filterTree, pathTo, type NavNode, type NavOpts } from '../domain/navTree'
-	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf } from '../app/navActions'
+	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf, applyRename } from '../app/navActions'
+	import NameInput from './NameInput.svelte'
 	import { Icon } from '$lib'
 	import { viewKey } from '../app/tabs.svelte'
 	import ContextMenu from './ContextMenu.svelte'
@@ -78,25 +79,27 @@
 	// the same menu on right-click; Delete only inside the menu (no ✕ under the pointer) ──
 	let menu = $state<{ n: NavNode; x: number; y: number } | null>(null)
 	function openMenu(n: NavNode, e: MouseEvent) { menu = { n, x: e.clientX, y: e.clientY } }
-	function renameSheet(id: string) {
-		const sh = project.index.get(id)
-		if (sh?.type !== 'sheet') return
-		ws.askText('Sheet title', sh.title, (t) => { if (t.trim() && t.trim() !== sh.title) project.store.transact(`Retitle ${sh.number}`, (tx) => tx.put({ ...sh, title: t.trim() })) })
-	}
-	function renumberSheet(id: string) {
-		const sh = project.index.get(id)
-		if (sh?.type !== 'sheet') return
-		ws.askText('Sheet number', sh.number, (t) => { if (t.trim() && t.trim() !== sh.number) project.store.transact(`Renumber ${sh.number} → ${t.trim()}`, (tx) => tx.put({ ...sh, number: t.trim() })) })
+	// renames happen in the row (ws.navRename): its label becomes an input — unfolded to it first (Project › Rename this level…)
+	const renameSheet = (id: string) => { ws.navRename = { id, field: 'title' } }
+	const renumberSheet = (id: string) => { ws.navRename = { id, field: 'number' } }
+	$effect(() => {
+		const r = ws.navRename
+		if (!r) return
+		untrack(() => {
+			const path = pathTo(tree, (n) => n.id === r.id && n.kind !== 'rack')
+			if (path) { const n = new Set(open); for (const k of path.slice(0, -1)) n.add(k); open = n; save() }
+		})
+	})
+	/** The text the input starts with: a sheet's title or number, else the name. */
+	function renameValue(id: string, field?: 'title' | 'number'): string {
+		const e = project.index.get(id)
+		return e?.type === 'sheet' ? e[field ?? 'title'] : e && 'name' in e ? String(e.name ?? '') : ''
 	}
 	function archiveSheet(id: string) {
 		const sh = project.index.get(id)
 		if (sh?.type === 'sheet') project.store.transact(`Archive ${sh.number}`, (tx) => tx.put({ ...sh, status: 'archived' }))
 	}
-	function renameSection(id: string) {
-		const sc = project.index.get(id)
-		if (sc?.type !== 'section') return
-		ws.askText('Section name', sc.name, (t) => { if (t.trim() && t.trim() !== sc.name) project.store.transact(`Rename section ${sc.name} → ${t.trim()}`, (tx) => tx.put({ ...sc, name: t.trim() })) })
-	}
+	const renameSection = (id: string) => { ws.navRename = { id } }
 	/** F2 on a focused row renames it (UX review L4). */
 	function renameOf(n: NavNode): (() => void) | null {
 		const id = n.id
@@ -138,14 +141,22 @@
 	<div class="row k-{n.kind}" tabindex="-1" oncontextmenu={(e) => { if (rowMenu(n).length) { e.preventDefault(); openMenu(n, e) } }}
 		onkeydown={(e) => { if (e.key === 'F2' && renameOf(n)) { e.preventDefault(); e.stopPropagation(); renameOf(n)!() } }} class:cur={isCurrent(n)} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
 		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
+		{#if ws.navRename && n.id === ws.navRename.id && n.kind !== 'rack'}
+			{@const r = ws.navRename}
+			<span class="lbl"><Icon name={ICON[n.kind]} size={12} />
+				<NameInput wide value={renameValue(r.id, r.field)} title={r.field === 'number' ? 'Sheet number' : r.field === 'title' ? 'Sheet title' : 'Name'}
+					onsave={(t) => { const { id, field } = r; ws.navRename = null; applyRename(project, id, t, field) }} oncancel={() => (ws.navRename = null)} /></span>
+		{:else}
 		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
 			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.index.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last issue ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
+		{/if}
 		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'sheets'}<button class="act txt" title="A new A3 landscape sheet, opened in a tab" onclick={onnewsheet}>+ New</button>{/if}
+		{#if renameOf(n) && ws.navRename?.id !== n.id}<button class="act ren" title={n.kind === 'sheet' ? 'Rename (its title; Renumber is in ⋮) — F2' : 'Rename — F2'} onclick={() => renameOf(n)!()}><Icon name="edit" size={11} /></button>{/if}
 		{#if rowMenu(n).length}<button class="act more" title="Commands (or right-click the row)" onclick={(e) => openMenu(n, e)}>⋮</button>{/if}
 	</div>
 	{#if unfolded}{#each kids as c (c.key)}{@render row(c, depth + 1)}{/each}{/if}
@@ -172,6 +183,8 @@
 	.act { padding: 0 4px; font-size: 11px; color: var(--cad-faint); border-radius: 3px; }
 	.act.txt { color: var(--cad-muted); }
 	.act.more { font-weight: 700; opacity: 0.55; }
+	.act.ren { display: none; }
+	.row:hover .act.ren { display: inline-flex; }
 	.row:hover .act { color: var(--cad-link, #2563eb); opacity: 1; }
 	.act:hover { background: var(--cad-hover); }
 	.none { padding: 8px; color: var(--cad-faint); }

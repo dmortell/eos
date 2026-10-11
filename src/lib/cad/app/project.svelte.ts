@@ -18,7 +18,7 @@ import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
 import { stripUndefined } from '../persist/docs'
-import { BUILTIN_DEVICE_TEMPLATES, templateFromDevice, type DeviceTemplate } from '../domain/devices'
+import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { printedPanelsAffected, portRanges } from '../domain/ports'
 import type { Entity } from '../domain/drawing'
 
@@ -196,14 +196,6 @@ export class CadProject {
 		return missing.length
 	}
 
-	/** Save a device's shape as a global template ("Save as template"). */
-	async saveTemplate(deviceId: Id, name: string): Promise<DeviceTemplate | null> {
-		const d = this.store.get(deviceId)
-		if (d?.type !== 'device' || !name.trim()) return null
-		const t = templateFromDevice(d, name.trim())
-		await setDoc(doc(this.db, ...TEMPLATES_DOC), { templates: { [t.id]: stripUndefined(t) } }, { merge: true })
-		return t
-	}
 	/** Add or replace a global template (Device library › New / edit, backlog "Device library builder") — written
 	 *  whole, so a field cleared in the form goes (a merge would keep it). Global: every project sees it. */
 	async putTemplate(t: DeviceTemplate): Promise<void> {

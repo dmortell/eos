@@ -2335,3 +2335,21 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (was Export…: the schedule as Excel + the cord BOM), **Cord labels…** (the label batches, now their own dialog —
   `ui/CordLabelsDialog.svelte`, also Cabling › Cord label batches…; out of the schedule dialog, back to 40rem) and
   Import cord IDs…. Help: the tab's new names. Live: the tab, the three buttons, the Cord labels dialog.
+- **Names typed where they show, not in the status bar (Dave 2026-10-12):** new `ui/NameInput.svelte` (focused and
+  selected; Enter / clicking away saves, Esc cancels; `create` saves a suggested name as is). **Renames by an action
+  button** (a click on a name selects, Dave): Navigator — ✎ on hover (and F2, ⋮ › Rename… / Renumber…, Project ›
+  Rename this level…) swaps the row's label for the box (`ws.navRename`, unfolded to it; `navActions.applyRename` for
+  levels, rooms, sections, a sheet's title / number); Layers — ✎ on hover (double-click rename gone); Properties ›
+  Row › Rename (RowProps). **New things in a box by their field:** Properties › Room › New server room… and Row › New
+  row… (suggested name; one or several racks), Outlet › Room › New room…, Layers › + Layer (a row at the end),
+  Packages › + From selection / + From chips (in its bar), Sheets › Number… (in the group's heading), Make block (under
+  its button). **Save as template…** opens the template dialog filled in from the device (a new template —
+  `TemplateDialog` `fresh`; `CadProject.saveTemplate` gone). Only drawing commands still ask in the status bar (typed
+  points, leader text, the Rack tool's room) — that prompt now **stands out**: the bar's top edge amber, the block
+  amber with a darker edge, pulsing twice as it opens, a bold question, a ringed input. The device Face field's tip now
+  says what it is (the side it faces / is drawn on, not how it is fixed — Mount is that). Live (Test Project): a level
+  renamed from ✎ and undone (a `{@const}` read after clearing the state lost the id — fixed by reading it first); a
+  sheet's ✎ + Esc; + Layer "Test layer", ✎ → "Test layer 2", undone; Properties New server room box + Esc; New row
+  "Row 2" (as suggested) → the rack in it, Rename → "Row 2 renamed", undone; Save as template → "New device template"
+  filled in, Cancel; Make block box + Esc; Number… → "P-01" + Esc; + From selection box + Esc; outlet New room box +
+  Esc; the Line tool's point prompt in its new look.

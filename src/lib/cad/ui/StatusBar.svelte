@@ -38,10 +38,10 @@
 	const v = $derived(ws.viewInfo)
 </script>
 
-<footer class="status">
+<footer class="status" class:asking={!!ws.prompt}>
 	<div class="left">
 		{#if ws.prompt}
-			<label class="prompt">{ws.prompt.label} <input bind:this={input} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={key} />
+			<label class="prompt"><span class="q">{ws.prompt.label}</span> <input bind:this={input} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={key} />
 				<span class="keys">Enter · Esc</span></label>
 		{:else if ws.message}
 			<span class="msg" title={ws.message}>{ws.message}</span>
@@ -72,8 +72,13 @@
 	.left { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 	.hint, .msg { overflow: hidden; text-overflow: ellipsis; display: block; }
 	.msg { color: #b45309; }
-	.prompt { display: inline-flex; align-items: center; gap: 6px; background: #fef3c7; padding: 1px 6px; border-radius: 4px; color: #78350f; }
-	.prompt input { width: 5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
+	/* a question being asked (a drawing command's typed value): it stands out — the bar's top edge, an amber block
+	   that pulses as it opens, a bold question and a ringed input (Dave 2026-10-12) */
+	.status.asking { border-top: 2px solid #f59e0b; }
+	.prompt { display: inline-flex; align-items: center; gap: 6px; background: #fde68a; padding: 1px 8px 1px 6px; border-left: 3px solid #d97706; border-radius: 4px; color: #78350f; font-size: 12px; animation: ask 0.9s ease-out 2; }
+	.prompt .q { font-weight: 700; }
+	@keyframes ask { 0%, 100% { background: #fde68a; } 50% { background: #fbbf24; } }
+	.prompt input { width: 5rem; border: 1px solid #d97706; border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-size: 12px; outline: 2px solid rgb(245 158 11 / 0.35); }
 	.prompt input.wide { width: 12rem; font-family: ui-monospace, monospace; }
 	.keys { font-size: 10px; opacity: 0.7; }
 	.ro { color: #1d4ed8; font-weight: 600; font-size: 12px; }

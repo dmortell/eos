@@ -239,6 +239,9 @@ export class Workspace {
 	band = $state({ on: false, front: 1000, back: 4000 })
 	/** Bumped to focus the Navigator's search (Ctrl+K). */
 	navSearch = $state(0)
+	/** A Navigator row being renamed in place (a level, room, section, a sheet's title or number) — Rename… / F2 /
+	 *  Project › Rename this level…; the Navigator unfolds to it and swaps its label for an input. */
+	navRename = $state<{ id: string; field?: 'title' | 'number' } | null>(null)
 	/** The right-click menu on the selection (UX21), at a screen point; null = closed. */
 	contextMenu = $state<{ x: number; y: number } | null>(null)
 	selectViewport = (id: Id | null): void => { this.viewportId = id }

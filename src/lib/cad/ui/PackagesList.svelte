@@ -12,6 +12,7 @@
 	import { packageMembers, ruleFromFilter, ruleText, freezeToList, lastIssueOf, sinceLastIssue, recipientsText, parseRecipients } from '../domain/packages'
 	import { issueNumbers, issueTag, ISSUE_PURPOSES } from '../domain/issue'
 	import { newId } from '../domain/ids'
+	import NameInput from './NameInput.svelte'
 
 	let { project, ws, rows, filter, busy, onissue }: {
 		project: CadProject; ws: Workspace
@@ -36,22 +37,24 @@
 	const issuesOf = (p: SheetPackage) => issues.filter((i) => i.packageId === p.id).sort((a, b) => (numbers.get(b.id) ?? 0) - (numbers.get(a.id) ?? 0))
 	const put = (p: SheetPackage, label: string) => project.store.transact(label, (tx) => tx.put(p))
 
+	// a new package's name is typed in the bar (not the status bar, Dave 2026-10-12)
+	let naming = $state<{ sheetIds?: string[]; rule?: NonNullable<SheetPackage['rule']>; value: string } | null>(null)
 	function fromSelection() {
 		if (!selectedSheets.length) { ws.say('Select sheets in the register first'); return }
-		ws.askText('Package name', '', (name) => {
-			if (!name.trim()) return
-			const p: SheetPackage = { type: 'package', id: newId(), name: name.trim(), sheetIds: selectedSheets.map((r) => r.id), order: nextOrder() }
-			put(p, `New package ${p.name}`); editing = p.id
-		})
+		naming = { sheetIds: selectedSheets.map((r) => r.id), value: '' }
 	}
 	function fromChips() {
 		const rule = ruleFromFilter(filter)
 		if (!rule) { ws.say('Pick some chips in the register first (category, level, room, tag) — the package takes every sheet that matches'); return }
-		ws.askText('Package name', ruleText(rule, nameOf), (name) => {
-			if (!name.trim()) return
-			const p: SheetPackage = { type: 'package', id: newId(), name: name.trim(), rule, order: nextOrder() }
-			put(p, `New package ${p.name}`)
-		})
+		naming = { rule, value: ruleText(rule, nameOf) }
+	}
+	function create(name: string) {
+		const n = naming
+		naming = null
+		if (!n) return
+		const p: SheetPackage = { type: 'package', id: newId(), name, ...(n.rule ? { rule: n.rule } : { sheetIds: n.sheetIds ?? [] }), order: nextOrder() }
+		put(p, `New package ${p.name}`)
+		if (!n.rule) editing = p.id
 	}
 	function issue(p: SheetPackage) {
 		const m = packageMembers(p, rows)
@@ -73,6 +76,10 @@
 	<button class="btn" title="A package of the sheets selected in the register (a list, in print order)" onclick={fromSelection}>+ From selection ({selectedSheets.length})</button>
 	<button class="btn" title="A package of every sheet matching the register's chips now and later (a rule)" onclick={fromChips}>+ From chips</button>
 	<label class="text-zinc-500"><input type="checkbox" bind:checked={showArchived} /> archived</label>
+	{#if naming}
+		<span class="text-zinc-500">New package {naming.rule ? '(rule)' : `of ${naming.sheetIds?.length ?? 0} sheet${naming.sheetIds?.length === 1 ? '' : 's'}`}:</span>
+		<NameInput create value={naming.value} placeholder="Its name — Enter makes it" title="Enter: make it · Esc: cancel" onsave={create} oncancel={() => (naming = null)} />
+	{/if}
 </div>
 <table class="w-full border-collapse">
 	<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">

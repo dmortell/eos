@@ -25,6 +25,7 @@
 	import { duplicateSheets, numberSheets } from '../app/sheetActions'
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { ISSUE_STATE_TEXT } from '../domain/issue'
+	import NameInput from './NameInput.svelte'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -104,9 +105,12 @@
 		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 	/** A group's sheets numbered in print order from a pattern, prefilled with the category's code (slice 3). */
-	function numberGroup(g: { key: string; rows: SheetRow[] }) {
-		const code = by === 'category' ? cats.find((c) => c.id === g.key)?.code : undefined
-		ws.askText(`Number ${g.rows.length} sheets from`, `${code ?? 'S'}-01`, (t) => { if (t.trim()) ws.say(`${numberSheets(project, g.rows.map((r) => r.id), t)} sheet(s) numbered`) })
+	// the first number is typed in the group's heading (not the status bar, Dave 2026-10-12)
+	let numbering = $state<string | null>(null)
+	const firstNumber = (key: string) => `${(by === 'category' ? cats.find((c) => c.id === key)?.code : undefined) ?? 'S'}-01`
+	function numberGroup(g: { key: string; rows: SheetRow[] }, from: string) {
+		numbering = null
+		ws.say(`${numberSheets(project, g.rows.map((r) => r.id), from)} sheet(s) numbered`)
 	}
 	// drag rows to reorder when sorted by # (slice 4): the selection if the dragged row is in it, else that row; dropped
 	// before the row under the pointer, one undo step
@@ -184,7 +188,8 @@
 		<tbody>
 			{#each groups as g (g.key)}
 				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span>
-					<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => numberGroup(g)}>Number…</button></td></tr>{/if}
+					{#if numbering === g.key}<span class="text-zinc-500">Number {g.rows.length} sheets from</span> <NameInput create value={firstNumber(g.key)} title="The first number (RE-01 → RE-02, RE-03 …) — Enter numbers them in print order · Esc cancels" onsave={(t) => numberGroup(g, t)} oncancel={() => (numbering = null)} />
+					{:else}<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => (numbering = g.key)}>Number…</button>{/if}</td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
 						draggable={sort.key === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}

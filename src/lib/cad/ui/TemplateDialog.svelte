@@ -9,13 +9,14 @@
 	import { newId } from '../domain/ids'
 
 	/** `from`: the template to edit (a built-in: the start of a new one); absent = a new one from scratch. */
-	let { from, onsave, onclose }: { from?: DeviceTemplate; onsave: (t: DeviceTemplate) => void; onclose: () => void } = $props()
+	/** `fresh`: `from` is only the start of a NEW template (Properties › Save as template: the device's own). */
+	let { from, fresh = false, onsave, onclose }: { from?: DeviceTemplate; fresh?: boolean; onsave: (t: DeviceTemplate) => void; onclose: () => void } = $props()
 
 	const KINDS: [DeviceTemplate['kind'], string][] = [['panel', 'Patch panel'], ['switch', 'Switch'], ['manager', 'Cable manager'], ['server', 'Server'], ['shelf', 'Shelf'], ['pdu', 'PDU (0U)'], ['enclosure', 'Enclosure'], ['other', 'Other']]
 	const PORT_TYPES: NonNullable<Device['portType']>[] = ['RJ45', 'LC', 'SC', 'SFP']
-	const isNew = untrack(() => !from || !!from.builtin)
+	const isNew = untrack(() => fresh || !from || !!from.builtin)
 	let t = $state<DeviceTemplate>(untrack(() => (from
-		? { ...from, ...(from.builtin ? { id: newId(), name: `${from.name} (copy)`, builtin: undefined } : {}) }
+		? { ...from, ...(from.builtin ? { id: newId(), name: `${from.name} (copy)`, builtin: undefined } : fresh ? { id: newId() } : {}) }
 		: { id: newId(), name: '', kind: 'panel', heightU: 1, portCount: 24, portType: 'RJ45', face: 'both' })))
 	const focus = (el: HTMLInputElement) => { el.focus(); el.select() }
 	const num = (v: string) => (v.trim() === '' ? undefined : Math.max(0, Number(v) || 0))
@@ -43,7 +44,7 @@
 					<select value={t.portNumbering ?? 'row'} onchange={(e) => (t.portNumbering = e.currentTarget.value === 'column' ? 'column' : undefined)}>
 						<option value="row">Along the rows (1 2 3 …)</option><option value="column">Down the columns (1 over 2)</option></select></label>
 			{/if}
-			<label title="The face it mounts on by default (a patch panel: both — patched at the front, cabled at the rear)">Face
+			<label title="Which side of the rack it faces — where it is drawn with its ports: front, rear, both (a patch panel: patched at the front, cabled at the rear) or none (not drawn). Not how it is fixed: a “both” device’s Mount (Properties) says that">Face
 				<select value={t.face ?? 'front'} onchange={(e) => (t.face = e.currentTarget.value as Device['face'])}>
 					<option value="front">Front</option><option value="rear">Rear</option><option value="both">Both</option><option value="none">None</option></select></label>
 			<label title="Blank = a 19-inch device (fills the rack's width)">Width (mm) <input type="number" min="0" value={t.widthMm ?? ''} placeholder="19-inch" oninput={(e) => (t.widthMm = num(e.currentTarget.value))} /></label>

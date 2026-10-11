@@ -7,7 +7,10 @@
 	import type { Entity, Sheet } from '../domain/drawing'
 	import type { Id, Outlet, Rack, RackRow, Device, Space, PortGroup, Cord } from '../domain/types'
 	import { groupsProblem, splitPanel, rangeLabel } from '../domain/portGroups'
-	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
+	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice, templateFromDevice, type DeviceTemplate } from '../domain/devices'
+	import NameInput from './NameInput.svelte'
+	import TemplateDialog from './TemplateDialog.svelte'
+	import { untrack } from 'svelte'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { naturalCompare } from '../domain/labels'
 	import PortProps from './PortProps.svelte'
@@ -81,27 +84,35 @@
 	/** Move racks to another room; their row is dropped (rows belong to a room) — pick one there next. */
 	const NEW_ROOM = '__newroom'
 	function setRoom(rs: Rack[], spaceId: string) {
-		if (spaceId === NEW_ROOM) {
-			const lv = rs[0].levelId
-			ws.askText('New server room name', nextRoomName(project.index, lv), (name) => {
-				if (!name.trim()) return
-				const room = newServerRoom(project.index, lv, name.trim())
-				project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const r of rs) tx.put({ ...r, spaceId: room.id, rowId: undefined }) })
-			})
-			return
-		}
+		if (spaceId === NEW_ROOM) { naming = { kind: 'room', ids: rs.map((r) => r.id) }; return }
 		const moving = rs.filter((r) => r.spaceId !== spaceId)
 		if (!moving.length) return
 		project.store.transact(`${moving.length > 1 ? `${moving.length} racks` : moving[0].name} → ${project.index.nameOf(spaceId)}`, (tx) => { for (const r of moving) tx.put({ ...r, spaceId, rowId: undefined }) })
 	}
 	function setRow(rs: Rack[], value: string) {
 		if (value !== NEW_ROW) { project.store.transact('Rack row', (tx) => { for (const r of rs) tx.put({ ...r, rowId: value || undefined }) }); return }
-		const existing = rowsIn(rs[0].spaceId)
-		ws.askText('Row name', `Row ${existing.length + 1}`, (name) => {
-			if (!name.trim()) return
-			const row: RackRow = { type: 'rackRow', id: newId(), spaceId: rs[0].spaceId, name: name.trim(), order: existing.length }
+		naming = { kind: 'row', ids: rs.map((r) => r.id) }
+	}
+	// "New server room…" / "New row…" / Make block: the name is typed in a box here (not the status bar, Dave 2026-10-12)
+	let naming = $state<{ kind: 'room' | 'row' | 'block'; ids: Id[] } | null>(null)
+	$effect(() => { void ws.selection; untrack(() => { naming = null }) })   // another selection: the box goes
+	const namingRacks = () => (naming?.ids ?? []).map((id) => project.index.get(id)).filter((e): e is Rack => e?.type === 'rack')
+	function suggest(kind: 'room' | 'row'): string {
+		const r0 = namingRacks()[0]
+		return !r0 ? '' : kind === 'room' ? nextRoomName(project.index, r0.levelId) : `Row ${rowsIn(r0.spaceId).length + 1}`
+	}
+	function named(name: string) {
+		const n = naming, rs = namingRacks()
+		naming = null
+		if (n?.kind === 'block') { void makeBlock(name); return }
+		if (!rs.length) return
+		if (n?.kind === 'room') {
+			const room = newServerRoom(project.index, rs[0].levelId, name)
+			project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const r of rs) tx.put({ ...r, spaceId: room.id, rowId: undefined }) })
+		} else {
+			const row: RackRow = { type: 'rackRow', id: newId(), spaceId: rs[0].spaceId, name, order: rowsIn(rs[0].spaceId).length }
 			project.store.transact(`New row ${row.name}`, (tx) => { tx.put(row); for (const r of rs) tx.put({ ...r, rowId: row.id }) })
-		})
+		}
 	}
 
 	/** Racks to another level: devices, links and cords go with them; they come off that level's plan. */
@@ -152,24 +163,31 @@
 			if (!next.label) delete next.label   // no label: named from its cables
 			return next
 		}), `${d.name} port range`)
-	function saveTemplate(d: Device) {
-		ws.askText('Template name (global)', d.name, async (name) => {
-			busy = true
-			try { const t = await project.saveTemplate(d.id, name); if (t) ws.say(`Saved template "${t.name}"`) }
-			catch (e) { project.error = `Save template failed: ${(e as Error).message}` }
-			finally { busy = false }
-		})
+	// Save as template: the template dialog, filled in from the device (its name, kind, U, ports …) — a NEW template
+	let tplFrom = $state<DeviceTemplate | null>(null)
+	const saveTemplate = (d: Device) => { tplFrom = templateFromDevice(d, d.name) }
+	async function putTemplate(t: DeviceTemplate) {
+		tplFrom = null
+		try { await project.putTemplate(t); ws.say(`${t.name}: added to the device library (every project)`) }
+		catch (e) { project.error = `Save template failed: ${(e as Error).message}` }
 	}
 
-	function makeBlock() {
-		ws.askText('Block name', '', async (name) => {
-			busy = true
-			try { const id = await project.makeBlock(blockable.map((s) => s.id), name); if (id) ws.select([id]) }
-			catch (e) { project.error = `Make block failed: ${(e as Error).message}` }
-			finally { busy = false }
-		})
+	async function makeBlock(name: string) {
+		busy = true
+		try { const id = await project.makeBlock(blockable.map((s) => s.id), name); if (id) ws.select([id]) }
+		catch (e) { project.error = `Make block failed: ${(e as Error).message}` }
+		finally { busy = false }
 	}
 </script>
+
+{#snippet nameBox(kind: 'room' | 'row' | 'block')}
+	{#if naming?.kind === kind}
+		<div class="row"><span class="text-zinc-500">{kind === 'room' ? 'New server room' : kind === 'row' ? 'New row' : 'Block name'}</span>
+			<NameInput wide create value={kind === 'block' ? '' : suggest(kind)} placeholder={kind === 'block' ? 'Its name — Enter makes it' : 'Its name'}
+				title="Enter: {kind === 'block' ? 'make the block' : 'add it'} · Esc: cancel" onsave={named} oncancel={() => (naming = null)} /></div>
+	{/if}
+{/snippet}
+{#if tplFrom}<TemplateDialog from={tplFrom} fresh onsave={putTemplate} onclose={() => (tplFrom = null)} />{/if}
 
 <div class="space-y-1 p-3 text-xs">
 	{#if ws.toolId === 'renumber'}
@@ -189,6 +207,7 @@
 					<option value={NEW_ROOM}>New server room…</option>
 				</select>
 			</label>
+			{@render nameBox('room')}
 		{/if}
 		{#if racks.length > 1 && sameRoom}
 			<!-- racks drawn on the plan, then put in a row together (Dave: no row builder) -->
@@ -199,6 +218,7 @@
 					<option value={NEW_ROW}>New row…</option>
 				</select>
 			</label>
+			{@render nameBox('row')}
 			{#if sameRow}<RowProps {project} {ws} rowId={sameRow} />{/if}
 		{/if}
 		{#if racks.length > 1}
@@ -249,7 +269,7 @@
 		{/if}
 		{#if others.filter((s) => s.geom.kind === 'insert').length > 1}<InsertAttrs {project} inserts={others} />{/if}
 		{#if blockable.length}
-			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={makeBlock}>Make block from {blockable.length} shapes…</button>
+			<button class="btn" disabled={busy} title="Turn the selected shapes into a global block and put one insert in their place" onclick={() => (naming = { kind: 'block', ids: [] })}>Make block from {blockable.length} shapes…</button>{@render nameBox('block')}
 		{/if}
 		<!-- groups: shapes that select and move as one (Ctrl+G / Ctrl+Shift+G) -->
 		{@const drawn = items.filter((e): e is Shape => e.type === 'shape')}
@@ -297,6 +317,7 @@
 					<option value={NEW_ROOM}>New server room…</option>
 				</select>
 			</label>
+			{@render nameBox('room')}
 			<label class="row">Row
 				<select class="inp" value={r.rowId ?? ''} onchange={(e) => setRow([r], e.currentTarget.value)}>
 					<option value="">—</option>
@@ -304,6 +325,7 @@
 					<option value={NEW_ROW}>New row…</option>
 				</select>
 			</label>
+			{@render nameBox('row')}
 			{#if r.rowId}<RowProps {project} {ws} rowId={r.rowId} />{/if}
 			{@const room = project.index.get(r.spaceId)}
 			{#if room?.type === 'space'}
@@ -351,7 +373,7 @@
 		<PropGroup kind="device" title="Position">
 			<label class="row">U (bottom) <input class="inp" type="number" value={d.u} onchange={(e) => putDevice(d, 'Move device', { u: Number(e.currentTarget.value) })} /></label>
 			<label class="row">Height (U) <input class="inp" type="number" min="1" value={d.heightU} onchange={(e) => putDevice(d, 'Device height', { heightU: Number(e.currentTarget.value) })} /></label>
-			<label class="row">Face
+			<label class="row" title="Which side of the rack it faces — where it is drawn with its ports: front, rear, both (a patch panel: patched at the front, cabled at the rear) or none (not drawn)">Face
 				<select class="inp" value={d.face} onchange={(e) => putDevice(d, 'Device face', { face: e.currentTarget.value as Device['face'] })}>
 					{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
 				</select>
@@ -470,7 +492,7 @@
 		<PathProps {project} {ws} s={one} />
 		{#if one.role?.kind === 'containment'}<RunFill {project} {ws} s={one} />{/if}
 		{#if one.role?.kind === 'wall'}<WallOpenings {project} {ws} s={one} />{/if}
-		<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>
+		<button class="btn" disabled={busy} onclick={() => (naming = { kind: 'block', ids: [] })}>Make block…</button>{@render nameBox('block')}
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
 		{@const g = one.geom}
 		{@const b = project.blockOf(g.blockId)}
@@ -521,7 +543,7 @@
 				<span><input type="checkbox" checked={!!one.backLine} onchange={(e) => put(one, e.currentTarget.checked ? 'Back line' : 'No back line', { backLine: e.currentTarget.checked || undefined })} /> on the back edge</span></label>
 			<RackDoors {project} boxes={[one]} />
 		{/if}
-		{#if blockable.length}<button class="btn" disabled={busy} onclick={makeBlock}>Make block…</button>{/if}
+		{#if blockable.length}<button class="btn" disabled={busy} onclick={() => (naming = { kind: 'block', ids: [] })}>Make block…</button>{@render nameBox('block')}{/if}
 	{:else}
 		<p class="font-semibold">{one.type}</p>
 	{/if}

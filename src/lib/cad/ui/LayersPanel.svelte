@@ -13,6 +13,7 @@
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { Icon, DragReorder } from '$lib'
 	import SideSection from './SideSection.svelte'
+	import NameInput from './NameInput.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -36,21 +37,17 @@
 	}
 	const put = (label: string, ...ls: Layer[]) => project.store.transact(label, (tx) => ls.forEach((l) => tx.put(l)))
 
-	function add(): void {
-		ws.askText('New layer name', '', (t) => {
-			const name = t.trim()
-			if (!name) return
-			const order = Math.max(0, ...all.map((l) => l.order)) + 10, id = newId()
-			// it starts hidden in the drawings that already exist (Dave): they don't change when something is drawn on it
-			const sheets = freezeInExisting(project.store.ofType('sheet'), id)
-			project.store.transact(`Add layer ${name}`, (tx) => { tx.put({ type: 'layer', id, name, order, color: nextLayerColour(project.index.layers) }); for (const s of sheets) tx.put(s) })
-			if (sheets.length) ws.say(`Layer ${name} added — hidden in the viewports of the ${sheets.length} existing sheet${sheets.length === 1 ? '' : 's'} (show it per viewport)`)
-		})
+	// names are typed in the list (Dave 2026-10-12): "+ Layer" opens a name box at the end, ✎ swaps a name for one
+	let adding = $state(false), renaming = $state<string | null>(null)
+	function add(name: string): void {
+		adding = false
+		const order = Math.max(0, ...all.map((l) => l.order)) + 10, id = newId()
+		// it starts hidden in the drawings that already exist (Dave): they don't change when something is drawn on it
+		const sheets = freezeInExisting(project.store.ofType('sheet'), id)
+		project.store.transact(`Add layer ${name}`, (tx) => { tx.put({ type: 'layer', id, name, order, color: nextLayerColour(project.index.layers) }); for (const s of sheets) tx.put(s) })
+		if (sheets.length) ws.say(`Layer ${name} added — hidden in the viewports of the ${sheets.length} existing sheet${sheets.length === 1 ? '' : 's'} (show it per viewport)`)
 	}
-	function rename(l: LayerInfo): void {
-		if (l.system) return
-		ws.askText('Layer name', l.name, (t) => { if (t.trim() && t.trim() !== l.name) put(`Rename layer ${l.name}`, record(l, { name: t.trim() })) })
-	}
+	function rename(l: LayerInfo): void { if (!l.system) renaming = l.id }
 	function remove(l: LayerInfo): void {
 		const n = counts.get(l.id) ?? 0
 		if (n) { ws.say(`${l.name} has ${n} item${n === 1 ? '' : 's'} — move them to another layer first (Properties → Layer)`); return }
@@ -91,7 +88,7 @@
 </script>
 
 <SideSection key="layers" title="Layers">
-{#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={add}>+ Layer</button>{/snippet}
+{#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={() => (adding = true)}>+ Layer</button>{/snippet}
 {#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
 {#if vp}<p class="note">👁 hides on screen · ❄ = frozen in this viewport (prints) · Shift = every viewport on the sheet</p>{/if}
 {#each rows as l (l.id)}
@@ -107,11 +104,16 @@
 			<input type="color" value={l.color ?? l.look ?? '#888888'} onchange={(e) => setColour(l, (e.currentTarget as HTMLInputElement).value)} />
 			<span style:background={l.color ?? l.look ?? 'transparent'} class:none={!l.color && !l.look} class:dflt={!l.color}></span>
 		</label>
+		{#if renaming === l.id}
+			<NameInput wide value={l.name} title="Layer name" onsave={(t) => { renaming = null; put(`Rename layer ${l.name}`, record(l, { name: t })) }} oncancel={() => (renaming = null)} />
+		{:else}
 		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 		<span class="nm"
-			title={[l.name, canBeCurrent(l) ? 'click: make it the current layer (new lines go here)' : '', l.system ? '' : 'double-click: rename'].filter(Boolean).join(' — ')}
-			onclick={() => { if (canBeCurrent(l)) ws.layers.setCurrent(l.id === 'sys:drawing' ? null : l.id) }} ondblclick={() => rename(l)}>{l.name}</span>
+			title={[l.name, canBeCurrent(l) ? 'click: make it the current layer (new lines go here)' : '', l.system ? '' : '✎: rename'].filter(Boolean).join(' — ')}
+			onclick={() => { if (canBeCurrent(l)) ws.layers.setCurrent(l.id === 'sys:drawing' ? null : l.id) }}>{l.name}</span>
+		{/if}
 		{#if !l.system}
+			<button class="ic ren" title="Rename this layer" onclick={() => rename(l)}><Icon name="edit" size={11} /></button>
 			<button class="ic" title={n ? `Has ${n} item${n === 1 ? '' : 's'} — move them first` : 'Delete this layer'} onclick={() => remove(l)}><Icon name="trash" size={11} /></button>
 		{/if}
 		<span class="ct">{n || ''}</span>
@@ -137,6 +139,7 @@
 		</div>
 	{/if}
 {/each}
+{#if adding}<div class="row new"><NameInput wide placeholder="New layer name — Enter adds it" onsave={add} oncancel={() => (adding = false)} /></div>{/if}
 </SideSection>
 
 <style>
@@ -161,6 +164,8 @@
 	.ic:hover { color: var(--cad-text); }
 	.ic.on { color: var(--cad-link); }
 	.ic.ln { align-items: center; }
+	.ren { visibility: hidden; }
+	.row:hover .ren { visibility: visible; }
 	.sub { display: flex; gap: 0.25rem; padding: 1px 2px 3px 1.1rem; }
 	.sub select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 </style>
