@@ -68,6 +68,7 @@ wanted. *From:* ids as in `backlog.md`.
 
 - **North arrow symbol** — not needed (Dave 2026-10-09; datum, detail and elevation tags were built). *From:* G258
 
+- **Hover a cord** — thicker on hover, the others dimmed, a "from → to, type, length, status" tip; not needed (Dave 2026-10-12). *From:* G136, T064
 - **Dim the other cords when one is selected** — not needed (Dave 2026-10-07). *From:* T017
 - **Check how old ends of moved / removed cords show** — not needed (Dave 2026-10-07). *From:* T049
 - **Snap to rack corners on the plan** — not needed (Dave 2026-10-07). *From:* G250

@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 48 entries (0 P1 · 0 P2 · 48 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 47 entries (0 P1 · 0 P2 · 47 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -69,7 +69,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Patching and cords
 
-- [ ] ❓ **Hover a cord** — Hovering a cord makes it thicker, dims the others and shows a tip "from → to, type, length, status". **P3 · M** (Dave 2026-10-05: low priority) (~70 lines: hover state in the select tool + a tip). *cad today:* no hover state or tooltip on cords; tools have a `hover` hook (`cad/ui/ViewCanvas.svelte:279`). *From:* G136, T064
 - [ ] **Cord label batches by type, length and colour (ordered and delivered)** — *(Dave 2026-10-07: low priority; 2026-10-11: label batches)* Record the patch cords bought, as labelled batches per type × length × colour: e.g. **2AR-0001 to 2AR-0100** = 100 × 2 m CAT6A red (the client's format). **Labels are entered by hand** (Dave 2026-10-11: no auto-generating them) — each batch: type, length, colour, first / last label as typed, ordered / delivered counts. Then: which labels are assigned to cords (`cordId`), which are free, what is still short against the cord BOM, and the **last label used** per type × length × colour, so the next order knows where to continue (2AR-0101). Assigning a free label from the batch to a cord could follow. **P3 · M** (~200 lines: a batch record + a table in the Cord BOM / patch schedule dialog + the next-number rule). *cad today:* each cord has a `cordId`, read back from the installer's Excel (`cad/ui/PatchList.svelte:19`); the cord BOM counts type × length × status but not colour; nothing records batches, ordered or delivered. *From:* T070, Dave 2026-10-11
 
 ## Containment, routing, risers and fill
