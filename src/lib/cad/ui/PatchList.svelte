@@ -14,6 +14,7 @@
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import CordActions from './CordActions.svelte'
+	import CordMode from './CordMode.svelte'
 	import ContextMenu from './ContextMenu.svelte'
 	import { cordActionMenu, runCordAction } from './cordActions'
 
@@ -107,6 +108,7 @@
 <div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Patch list" onkeydown={tableKey}>
 	<div class="actions">
 		<ScopeSelect {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} />
+		<span class="text-zinc-500" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
 		{#each STATUSES as s (s)}
 			<button class="chip s-{s}" class:off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords">{s} {count[s]}</button>
 		{/each}

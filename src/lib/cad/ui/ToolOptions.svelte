@@ -13,6 +13,7 @@
 	import OutletOptions from './OutletOptions.svelte'
 	import ShapeOptions from './ShapeOptions.svelte'
 	import DimOptions from './DimOptions.svelte'
+	import CordMode from './CordMode.svelte'
 
 	let { project, ws, level, kind }: { project: CadProject; ws: Workspace; level: Level | undefined; kind: ViewSpec['kind'] } = $props()
 
@@ -91,7 +92,8 @@
 			{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === ws.cordDefaults.cableType)}<option value={ws.cordDefaults.cableType}>{ws.cordDefaults.cableType}</option>{/if}
 		</select></label>
 	{/if}
-	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>{/if}
+	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>
+		<span class="opt" title="What new cords start as: ADD (planning) or INSTALLED (surveying a built site) — a project setting">New cords <CordMode {project} /></span>{/if}
 	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkCores)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to`}</span>{/if}
 {/if}
 

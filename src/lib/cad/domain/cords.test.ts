@@ -143,6 +143,11 @@ describe('bulk patch', () => {
 		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 1 }, D)
 		expect(r.cords.map((c) => `${c.a.port}→${c.b.port}`)).toEqual(['3→3', '4→4'])   // SW1:1 and :2 are taken by C1, C2
 	})
+	it('surveying a built site: new cords start as installed (one, or in bulk); planning (default) = add', () => {
+		expect(makeCord(ix(), { on: 'P1', port: 3, face: 'front' }, { on: 'SW1', port: 3 }, { ...D, status: 'installed' }).cord?.status).toBe('installed')
+		expect(bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 1 }, { ...D, status: 'installed' }).cords.map((c) => c.status)).toEqual(['installed', 'installed'])
+		expect(bulkPatch(ix(), { on: 'P1', ports: [3] }, { on: 'SW1', start: 1 }, D).cords[0].status).toBe('add')
+	})
 	it('unlabelled panel ports are skipped with the reason', () => {
 		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 10] }, { on: 'SW1', start: 5 }, D)
 		expect(r.cords).toHaveLength(1)

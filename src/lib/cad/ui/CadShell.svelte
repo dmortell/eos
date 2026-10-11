@@ -362,6 +362,8 @@
 
 	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
 	let cordDefaultsSet = false
+	// Planning / Surveying (a project setting): what the cord tool's new cords start as
+	$effect(() => { ws.newCordStatus = project.settings?.newCordStatus ?? 'add' })
 	function setTool(id: ToolId) {
 		canvas?.cancel()
 		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order

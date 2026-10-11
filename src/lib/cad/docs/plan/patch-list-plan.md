@@ -1,6 +1,6 @@
 # Patch list management — plan for review
 
-**Status: reviewed (Dave 2026-10-11, decisions D1–D8 below); building slice by slice, logged in
+**Status: BUILT 2026-10-11 — slices 1–4 and D5 (decisions D1–D8 below); D7 (schedule order) to review after testing. Logged in
 `../phases/phase8.md`.** Dave asked for:
 - the status of the selected patches can be set (e.g. Installed);
 - changes set the status automatically;

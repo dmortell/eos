@@ -19,6 +19,7 @@
 	import { cableSettings, type CableSettings } from '../domain/routing'
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 	import type { FileStorage } from '../app/projectFiles'
+	import CordMode from './CordMode.svelte'
 
 	let { project, ws, onclose, tab = $bindable('usages') }: { project: CadProject; ws?: Workspace; onclose: () => void; tab?: 'usages' | 'cables' | 'lengths' | 'sheets' | 'files' } = $props()
 
@@ -147,6 +148,7 @@
 				<button class="btn" onclick={addType}>+ Add type</button>
 				<label>New outlets <select value={st.defaults.outletCableType} onchange={(e) => setDefault('outletCableType', e.currentTarget.value)}>{#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}</select></label>
 				<label>New cords <select value={st.defaults.cordCableType} onchange={(e) => setDefault('cordCableType', e.currentTarget.value)}>{#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}</select></label>
+				<span title="What new cords start as: ADD (planning a new install) or INSTALLED (surveying a built site)">start as <CordMode {project} /></span>
 			</div>
 		{/if}
 	</div>

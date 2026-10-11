@@ -13,7 +13,9 @@ export const snapToStandard = (m: number) => STANDARD_LENGTHS.find((l) => l >= m
 const RU = 44.45, RAIL_W = 482.6, RACK_GAP = 200, PORTS_PER_ROW = 24
 const SLACK_SAME_RU = 2, SLACK_CROSS_RU = 5
 
-export interface CordDefaults { cableType: string; colour: string }
+/** `status`: what a new cord starts as — `add` (planning a new install) or `installed` (surveying a built site), the
+ *  project's Planning / Surveying toggle (patch-list-plan.md D1). */
+export interface CordDefaults { cableType: string; colour: string; status?: 'add' | 'installed' }
 
 const key = (r: { on: Id; port: number }) => `${r.on}:${r.port}`
 
@@ -99,12 +101,12 @@ function rackApart(ix: ProjectIndex, ra: Rack, rb: Rack): { dist: number; aIsLef
 	return { dist: ia < 0 || ib < 0 ? 2000 : dist, aIsLeft: ia <= ib }
 }
 
-/** A new cord (status `add`), checked against the gate at both ends. */
+/** A new cord (status `add`, or `installed` when surveying), checked against the gate at both ends. */
 export function makeCord(ix: ProjectIndex, a: PortRef, b: PortRef, d: CordDefaults): { cord?: Cord; problem?: string } {
 	if (a.on === b.on && a.port === b.port) return { problem: 'Both ends are the same port' }
 	const p = patchProblem(ix, a) ?? patchProblem(ix, b) ?? roomProblem(ix, a, b)
 	if (p) return { problem: p }
-	return { cord: { type: 'cord', id: newId(), kind: 'patch', a, b, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, a, b), lengthLocked: false, status: 'add' } }
+	return { cord: { type: 'cord', id: newId(), kind: 'patch', a, b, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, a, b), lengthLocked: false, status: d.status ?? 'add' } }
 }
 
 /**
@@ -225,7 +227,7 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 		while (nb <= devB.portCount && (usedB.has(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
 		if (nb > devB.portCount) { skipped.push(`${devB.name} has no free port left`); break }
 		const rb: PortRef = { on: b.on, port: nb, ...(b.face ? { face: b.face } : {}) }
-		cords.push({ type: 'cord', id: newId(), kind: 'patch', a: ra, b: rb, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, ra, rb), lengthLocked: false, status: 'add' })
+		cords.push({ type: 'cord', id: newId(), kind: 'patch', a: ra, b: rb, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, ra, rb), lengthLocked: false, status: d.status ?? 'add' })
 		usedB.add(nb++)
 	}
 	return { cords, skipped }

@@ -59,7 +59,7 @@ export class CordTool implements Tool {
 				c.store.transact(`Patch ${res.cords.length} cords`, (tx) => { for (const k of res.cords) tx.put(k) })
 				c.select(res.cords.map((k) => k.id))
 			}
-			c.say?.(`${res.cords.length} cord(s) added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
+			c.say?.(`${res.cords.length} cord(s) added${this.defaults().status === 'installed' ? ' as INSTALLED (surveying)' : ''}${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
 			this.bulk = null
 			this.done()
 			return
@@ -75,6 +75,7 @@ export class CordTool implements Tool {
 		const cord: Cord = res.cord
 		c.store.transact(`Patch ${c.index.portPlace(cord.a)} → ${c.index.portPlace(cord.b)}`, (tx) => tx.put(cord))
 		c.select([cord.id])
+		if (cord.status === 'installed') c.say?.('Cord recorded as INSTALLED (surveying)')
 		this.#first = null
 	}
 	move(e: PointerIn): void { this.#hover = e.p }

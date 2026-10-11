@@ -2131,3 +2131,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `render/exports.test.ts`. Live (Test Project): the picker lists All rooms / 33IDF2 / Server room A / the rows shown
   (35); 33IDF2 + changes only → 11 cords (8 add, 3 remove), as the list shows. Not exported (a download). Help:
   "Export the patch schedule (all, a room, the changes)".
+- **Patch list management, Slice 4 — Planning · Surveying (D1, Dave: "an obvious toggle for engineer inventorying a
+  built site, or designer planning a new install"):** project setting `newCordStatus: 'add' | 'installed'` (stored
+  both ways); `ui/CordMode.svelte` = the two-way toggle, in the Patch list bar ("New cords Planning · Surveying"), the
+  Cord tool's option bar (so it shows while patching — also after a port's + or Patch to…) and Settings › Cable
+  types ("start as"). `CordDefaults.status` → `makeCord` / `bulkPatch`; `ws.newCordStatus` (CadShell keeps it in step
+  with the setting) feeds the cord tool; the status line says "… added as INSTALLED (surveying)". Test in
+  `domain/cords.test.ts`. Live (Test Project 33IDF2): Surveying; P3C-37:16 selected → + → P3C-35:16 → INSTALLED
+  cord, message shown; then Delete (1) → confirm, Planning — Firestore: 35 cords (32 add, 3 remove) as before;
+  `newCordStatus: 'add'` is now stored (was unset — same meaning). Help: "Record the cords of a built site
+  (Surveying)". **Slices 1–4 of `patch-list-plan.md` done.**
