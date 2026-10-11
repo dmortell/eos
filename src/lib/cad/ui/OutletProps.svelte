@@ -14,6 +14,7 @@
 	import { defaultOutletBlock } from '../domain/blocks'
 	import Trace from './Trace.svelte'
 	import PropGroup from './PropGroup.svelte'
+	import UsageButtons from './UsageButtons.svelte'
 	import { outletZ } from '../domain/routing'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
@@ -93,14 +94,10 @@
 			{#if !same((o) => o.tier)}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
 		</select>
 	</label>
-	<label class="row">Usage
-		<!-- "none" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
-		<select class="inp" value={same((o) => o.usage) ?? '*mixed'} onchange={(e) => setOutlets('Usage', () => ({ usage: e.currentTarget.value }))}>
-			{#if same((o) => o.usage) === undefined}<option value={'*mixed'} disabled>mixed</option>{/if}
-			<option value="">— none (not shown)</option>
-			{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
-		</select>
-	</label>
+	<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
+	<div class="row">Usage
+		<UsageButtons {usages} value={same((o) => o.usage ?? '')} mixed={same((o) => o.usage ?? '') === undefined} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
+	</div>
 	<label class="row">Mount
 		<select class="inp" value={same((o) => o.mount) ?? ''} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
 			{#if !same((o) => o.mount)}<option value="">mixed</option>{/if}
@@ -134,13 +131,7 @@
 	<!-- groups (UX review "Outlet Properties still flat"): General · Position · Ports · Circuit; the layer is below -->
 	<PropGroup kind="outlet" title="General">
 		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
-		<label class="row">Usage
-			<select class="inp" value={o.usage} onchange={(e) => put(o, 'Usage', { usage: e.currentTarget.value })}>
-				<option value="">— none (not shown)</option>
-				{#if o.usage && !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage}</option>{/if}
-				{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
-			</select>
-		</label>
+		<div class="row">Usage <UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} /></div>
 		<label class="row">Tier
 			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
 		</label>

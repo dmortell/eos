@@ -2183,3 +2183,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   view: switch :3 → 01A.022B, :22 → 01A.035A, :28 → 01A.025A (bottom row), the panel's outlet labels; To sheet › New
   sheet → S008 at 1:1, viewport Properties "Port map · …"; undone — Firestore: sheets S001–S007, 35 cords (32 add, 3
   remove) as before. Help: "Port map drawing of switches and panels (for VLANs)". Backlog entry removed (built).
+- **Usage buttons (backlog, G128; Dave 2026-10-11 "do 6"):** `ui/UsageButtons.svelte` — one button per usage of the
+  project's list in its colour, the picked one filled, "—" = none; a code the list lacks shows as its own button; with
+  several outlets that differ none is filled. In Outlet Properties for one outlet and for several (replacing the
+  selects). The Outlet tool's bar ("as last" blank, one line) and the Outlets table keep their selects. Live (Test
+  Project): A.002 shows Desk filled; Printer → set, Undo → Desk. Help: "Set an outlet's usage".
