@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 53 entries (0 P1 · 0 P2 · 53 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 52 entries (0 P1 · 0 P2 · 52 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -67,7 +67,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Ports, panels and allocation
 
-- [ ] **Drag to select a block of ports** — press on a port and drag to select a range; press on the device body and drag to move it. Today a drag from a port moves the whole device. **P3 · M** (Dave 2026-10-06: low priority) (~80 lines; a range across several devices is more). *cad today:* Shift-click ranges within one device only (`cad/editor/tools.ts:176`); the press on a port also arms the device move (`cad/editor/tools.ts:195`). Do after the rack-view interaction plan (Racks decisions). *From:* T025
 
 ## Patching and cords
 

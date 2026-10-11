@@ -79,6 +79,9 @@ export class SelectTool implements Tool {
 	/** Pressed on a PICKED port: a drag takes the picked ports' outlets to another panel (dropped on its first port); a
 	 *  click picks just that port. */
 	#portMove: PortMove | null = null
+	/** Pressed on a port (rack rows): a drag picks the ports from it to the one under the pointer (backlog "Drag to
+	 *  select a block of ports"); the device moves by its body instead (or Alt-drag from a port). */
+	#portRange: { on: Id; face: 'front' | 'rear'; anchor: number } | null = null
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
 	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
@@ -327,6 +330,8 @@ export class SelectTool implements Tool {
 			}
 			c.select([id])
 			c.selectPorts({ on: id, face, ports: [n], anchor: n })
+			// a drag from here picks a block of ports (the device moves by its body, or Alt-drag from a port)
+			if (!e.alt) { this.#portRange = { on: id, face, anchor: n }; return }
 		} else if (c.selectPorts && !(e.shift || e.ctrl)) c.selectPorts(null)
 		// clicking the same spot again steps down through what's stacked there (the release picks the next; a drag moves
 		// the current one)
@@ -355,6 +360,13 @@ export class SelectTool implements Tool {
 
 	move(e: PointerIn, c: ToolCtx): void {
 		if (this.#cordEnd) { this.#cordEnd.to = e.p; return }
+		if (this.#portRange) {
+			// the port of the same device under the pointer: the pick runs from the pressed port to it
+			const { on, face, anchor } = this.#portRange, hit = pickPrim(c.prims().filter((p) => p.src === on && p.k === 'line' && p.sub), e.p, c.tol())
+			const n = hit && hit.k !== 'image' && hit.sub ? Number(hit.sub) : NaN
+			if (Number.isFinite(n)) c.selectPorts?.({ on, face, ports: Array.from({ length: Math.abs(n - anchor) + 1 }, (_, i) => Math.min(n, anchor) + i), anchor })
+			return
+		}
 		if (this.#portMove) {
 			const pm = this.#portMove
 			if (!pm.moved && Math.hypot(e.p.x - pm.start.x, e.p.y - pm.start.y) > c.tol()) {
@@ -638,7 +650,7 @@ export class SelectTool implements Tool {
 
 	#reset(c: ToolCtx): void {
 		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
-		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null
+		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null; this.#portRange = null
 		c.setMarquee(null)
 	}
 }

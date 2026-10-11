@@ -2229,3 +2229,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   → listed ★ under Patch panels; ✎ → 2U, maker cleared → stored 2U with no maker; ✕ → gone; the templates map equals
   what it was before the test. (The form's `autofocus` didn't take — a `use:focus` action now; the first typing went
   to the page, no effect seen.) Help: "Make, edit or delete a device template".
+- **Drag to select a block of ports (backlog, T025; "do 17"):** in a rack view a press on a port picks it and a drag
+  from there picks the ports from it to the one under the pointer (same numbering range as Shift-click; one device);
+  the device no longer moves from a port — drag it by its body (the edge beside the port grid, its name strip), or
+  **Alt-drag from a port**. Unchanged: a press on an already-picked panel port that carries outlets drags those outlets
+  to another panel; Shift / Ctrl clicks. `editor/selectTool.ts` `#portRange`. Tests in `editor/racks.test.ts` (the
+  device-drag tests now press on the body beside the ports). Live (Test Project 33IDF2): a drag along the 48-port
+  switch's top row → "Ports 5–12 (front)" in Properties, the switch stayed (no writes). Help: "Pick ports, or move a
+  device, in a rack view".

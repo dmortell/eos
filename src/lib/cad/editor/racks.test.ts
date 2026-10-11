@@ -48,7 +48,9 @@ function uPoint(store: EntityStore, rackId: string, u: number) {
 	const ix = new ProjectIndex(store.all())
 	const l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' }).find((x) => x.rack.id === rackId)!
 	const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2
-	return { x: l.x0 + l.rack.widthMm / 2, y: -(base + (u - 0.5) * RU_MM) }
+	// left of the middle, on a device's BODY beside its ports (a press on a port picks ports — backlog "Drag to select a
+	// block of ports"): the 450 mm device's edge is 225 mm out, its port area 215 mm
+	return { x: l.x0 + l.rack.widthMm / 2 - 220, y: -(base + (u - 0.5) * RU_MM) }
 }
 const tpl = (id: string): DeviceTemplate => BUILTIN_DEVICE_TEMPLATES.find((t) => t.id === id)!
 
@@ -149,6 +151,19 @@ describe('devices in the rack row', () => {
 		expect(h.ports()?.ports).toEqual([3, 5, 6, 10])
 		sel.down(at(-5000, 5000), h.ctx()); sel.up(at(-5000, 5000), h.ctx())
 		expect(h.ports()).toBeNull()
+	})
+	it('a drag from a port picks the ports to the one under the pointer; the device stays (Alt-drag moves it)', () => {
+		const h = harness(ROW)
+		const sel = new SelectTool()
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, p1 = h.store.get('P1') as Device
+		const port = (n: number) => { const c = portCell(p1, n, l.x0 + l.rack.widthMm / 2, base + (p1.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		sel.down(port(9), h.ctx()); sel.move(port(12), h.ctx()); sel.move(port(5), h.ctx()); sel.up(port(5), h.ctx())
+		expect(h.ports()).toMatchObject({ on: 'P1', ports: [5, 6, 7, 8, 9], anchor: 9 })
+		expect((h.store.get('P1') as Device).u).toBe(p1.u)
+		const p9 = port(9).p, down = { ...at(p9.x, p9.y), alt: true }, to = { ...at(p9.x, p9.y + 3 * RU_MM), alt: true }
+		sel.down(down, h.ctx()); sel.move(to, h.ctx()); sel.up(to, h.ctx())
+		expect((h.store.get('P1') as Device).u).toBe(p1.u - 3)
 	})
 	it('the cord tool: port A then port B makes a cord; an unlabelled panel port refuses with the reason', () => {
 		const h = harness(ROW)
