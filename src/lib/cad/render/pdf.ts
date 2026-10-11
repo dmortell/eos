@@ -25,7 +25,7 @@ export type ImageLoader = (url: string, kind: 'photo' | 'logo', gray?: boolean) 
  *  `ascent` = mm from the top of the picture to the baseline. */
 export type TextRaster = (text: string, sizeMm: number, color: string, bold: boolean) => Promise<{ data: string; w: number; h: number; ascent: number } | null>
 
-interface Style { stroke?: string; fill?: string; text?: string; width?: number; dash?: number[]; bold?: boolean; skip?: boolean; opacity?: number }
+interface Style { stroke?: string; fill?: string; text?: string; width?: number; dash?: number[]; bold?: boolean; skip?: boolean; opacity?: number; /** the fill's own (else `opacity`) */ fillOpacity?: number }
 
 const INK = '#334155'
 /** Class → PDF style (later classes on a prim win). Widths in mm; hairlines are 0.15 mm. */
@@ -34,7 +34,8 @@ const STYLES: Record<string, Style> = {
 	filled: { fill: '#e2e8f0' },
 	'viewport-bg': { fill: '#ffffff', stroke: 'none' }, viewport: { stroke: '#64748b', width: 0.25, fill: 'none' },
 	'viewport-label': { text: '#334155' },
-	run: { stroke: '#0ea5e9', opacity: 0.55 }, 'run-high': { stroke: '#f97316' }, centre: { opacity: 1 },
+	run: { stroke: '#0ea5e9', opacity: 0.55 }, 'run-high': { stroke: '#f97316', fill: '#f97316' }, centre: { opacity: 1 },
+	'run-hit': { skip: true }, 'run-body': { stroke: '#0ea5e9', fill: '#0ea5e9', fillOpacity: 0.2, opacity: 1, width: 0.25 }, 'run-ceiling': { dash: [1.5, 1] }, 'run-primary': { width: 0.5, fillOpacity: 0.32 },
 	wall: { stroke: '#475569', opacity: 0.8 }, riser: { stroke: '#be185d', fill: '#fce7f3' }, 'riser-label': { text: '#be185d' },
 	rack: { stroke: '#1e293b', fill: 'none' }, 'rack-x': { stroke: '#94a3b8' }, 'rack-back': { stroke: '#1e293b', width: 0.6 }, 'rack-rails': { stroke: '#64748b', fill: 'none' },
 	outlet: { stroke: '#1d4ed8', fill: '#3b82f6' }, 'outlet-high': { dash: [0.8, 0.5] },
@@ -94,7 +95,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type
 		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
-		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')))) && p.fill
+		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')))) && p.fill
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.cls.includes('on-fill') ? st.text : p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {
@@ -121,7 +122,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 			const st = p.k === 'image' ? {} : styleFor(p)
 			if (st.skip) continue
 			setClip(p.clip)
-			pdf.setGState(new GState({ opacity: st.opacity ?? 1, 'stroke-opacity': st.opacity ?? 1 }))
+			pdf.setGState(new GState({ opacity: st.fillOpacity ?? st.opacity ?? 1, 'stroke-opacity': st.opacity ?? 1 }))
 			if (p.k === 'image') {
 				const img = images.get(imgKey(p))
 				if (!img) continue

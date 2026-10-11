@@ -62,7 +62,7 @@
 		{#if href}<image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : p.fit === 'centre' ? 'xMidYMid meet' : 'none'} clip-path={clipOf(p)} />{/if}
 	{:else if p.k === 'line'}
 		{#if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
@@ -102,6 +102,13 @@
 	.centre { opacity: 1; stroke-width: 1.5; }
 	.run { stroke: #0ea5e9; opacity: 0.55; }
 	.run-high { stroke: #f97316; }
+	/* runs as one outline each (backlog "Trunk drawing style"): a faint fill in the run's colour, a thin edge; dashed in the
+	   ceiling, stronger when primary. The runs' own bands are invisible over it — they pick and select a run */
+	.run-hit { opacity: 0; }
+	.run-body { fill: #0ea5e9; fill-opacity: 0.2; stroke: #0ea5e9; stroke-width: 1.25; stroke-linejoin: round; }
+	.run-body.run-high { fill: #f97316; stroke: #f97316; }
+	.run-ceiling { stroke-dasharray: 6 4; }
+	.run-primary { stroke-width: 2.5; fill-opacity: 0.32; }
 	.wall { stroke: #475569; opacity: 0.8; }
 	.riser { stroke: #be185d; fill: #fce7f3; }
 	.rack { stroke: #1e293b; fill: none; }   /* no shading (Dave); still picked by its whole body */

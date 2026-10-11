@@ -25,7 +25,8 @@ export function applyLayers(prims: Prim[], ix: ProjectIndex, f: LayerFilter = {}
 	const byId = layerMap(ix), known = new Set(byId.keys())
 	const draw: Prim[] = []
 	for (const p of prims) {
-		const id = primLayer('cls' in p ? p.cls : '', ix.get(p.src), known)
+		// a prim with no source can name its layer itself (a run outline that joins several runs: views/plan.ts runBodies)
+		const id = !p.src && p.layer && known.has(p.layer) ? p.layer : primLayer('cls' in p ? p.cls : '', ix.get(p.src), known)
 		if (!id) { draw.push(p); continue }
 		if (f.hidden?.has(id)) continue
 		const l = byId.get(id), color = p.color ?? l?.color

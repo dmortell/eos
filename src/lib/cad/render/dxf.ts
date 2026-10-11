@@ -14,6 +14,7 @@ import { blockDefinition } from '../views/blocks'
 const LAYERS: Record<string, { name: string; aci: number }> = {
 	outlet: { name: 'E-OUTLETS', aci: 5 },
 	run: { name: 'E-CONTAINMENT', aci: 4 },
+	'run-body': { name: 'E-CONTAINMENT', aci: 4 },
 	riser: { name: 'E-RISERS', aci: 6 },
 	'riser-label': { name: 'E-RISERS', aci: 6 },
 	rack: { name: 'E-RACKS', aci: 7 },
@@ -99,6 +100,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	}
 	for (const p of prims) {
 		if (p.k !== 'image' && p.cls === 'shape-fill') continue   // a region's fill: DXF gets the outline only (no hatch yet)
+		if (p.k !== 'image' && p.cls.split(' ').includes('run-hit')) continue   // a run's pick bands: DXF gets its outline (run-body)
 		if (p.k !== 'image' && p.ins && insertOf(p, p.ins)) continue
 		switch (p.k) {
 			case 'line': {

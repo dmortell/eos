@@ -5,6 +5,8 @@ import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, byDrawOrder, outlineOf } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
+import { outlineLoops, roundCorners, endCorners, type OutlineEdge } from '../domain/runOutline'
+import { layersOf, layerOf } from '../domain/layers'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
@@ -49,6 +51,10 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
 	// and a rack's filled footprint would hide it.
 	const over: Prim[] = []
+	// the runs' bodies: joined runs as one outline each (backlog "Trunk drawing style"), under their pick bands
+	const bodies = runBodies(ix, shapes, levelId)
+	out.push(...bodies.low)
+	over.push(...bodies.high)
 	for (const s of shapes) {
 		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
 		const high = s.role.tier === 'high' || s.geom.nodes.every((n) => n.z > 0)
@@ -226,10 +232,51 @@ export function passesThrough(ix: ProjectIndex, s: Shape, levelId: Id): boolean 
 	})
 }
 
-/** Containment: horizontal segments as bands of their real width; vertical ones as a riser symbol + z range. */
+/**
+ * The runs' BODIES (backlog "Trunk drawing style", G048 / G187, the legacy outlets tool's look): every level segment
+ * of the containment runs as a band, the bands of runs on the same layer, tier, colour and weight walked into ONE
+ * outline (runs that meet at a point join; domain/runOutline.ts), its corners rounded (a quarter of the width; square
+ * ends stay), filled faintly in the run's colour. High (ceiling) runs dashed, primary runs stronger. A corner's bend
+ * radius (domain/bends.ts) shapes the outline. No source: the runs' own bands (drawn invisibly over it) are what
+ * picks and selects them; the outline carries its layer so hiding the layer hides it.
+ */
+function runBodies(ix: ProjectIndex, shapes: Shape[], levelId: Id): { low: Prim[]; high: Prim[] } {
+	const known = new Set(layersOf(ix.layers).map((l) => l.id))
+	const buckets = new Map<string, { high: boolean; layer?: Id; color?: string; primary: boolean; edges: OutlineEdge[] }>()
+	for (const s of shapes) {
+		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		const high = s.role.tier === 'high' || s.geom.nodes.every((n) => n.z > 0), layer = layerOf(s, known), color = s.style?.stroke, primary = !!s.role.primary
+		const k = `${high}|${layer}|${color ?? ''}|${primary}`
+		const b = buckets.get(k) ?? buckets.set(k, { high, layer, color, primary, edges: [] }).get(k)!
+		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n])), bends = corners(s), w0 = s.section?.w ?? 50
+		for (const sg of s.geom.segs) {
+			const a = nodes.get(sg.a), z = nodes.get(sg.b)
+			if (!a || !z || isVertical(a, z) || (a.levelId ?? s.levelId) !== levelId) continue
+			const [p, q] = trimmedEnds(bends, sg.id, a, z)
+			b.edges.push({ a: p, b: q, w: (sg.section ?? s.section)?.w ?? w0 })
+		}
+		for (const bd of bends.values()) {
+			if (bd.r <= 0 || (nodes.get(bd.node)?.levelId ?? s.levelId) !== levelId) continue
+			const w = Math.min(...s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w0))
+			for (let i = 1; i < bd.arc.length; i++) b.edges.push({ a: bd.arc[i - 1], b: bd.arc[i], w })
+		}
+	}
+	const low: Prim[] = [], high: Prim[] = []
+	for (const b of buckets.values()) {
+		if (!b.edges.length) continue
+		const r = Math.min(...b.edges.map((e) => e.w)) / 4, sharp = endCorners(b.edges)
+		const cls = `run-body${b.high ? ' run-high run-ceiling' : ''}${b.primary ? ' run-primary' : ''}`
+		for (const loop of outlineLoops(b.edges))
+			(b.high ? high : low).push({ k: 'line', pts: roundCorners(loop, r, sharp), closed: true, fill: true, cls, ...(b.layer ? { layer: b.layer } : {}), ...(b.color ? { color: b.color } : {}) })
+	}
+	return { low, high }
+}
+
+/** Containment: horizontal segments as bands of their real width — invisible over the run's body (they pick and select
+ *  it); vertical ones as a riser symbol + z range. */
 function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => string): Prim[] {
 	if (s.geom.kind !== 'path' || s.role?.kind !== 'containment') return []
-	const high = s.role.tier === 'high', cls = high ? 'run run-high' : 'run'
+	const high = s.role.tier === 'high', cls = high ? 'run run-hit run-high' : 'run run-hit'
 	const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
 	const w = s.section?.w ?? 50
 	const out: Prim[] = []

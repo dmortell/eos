@@ -2237,3 +2237,17 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   device-drag tests now press on the body beside the ports). Live (Test Project 33IDF2): a drag along the 48-port
   switch's top row → "Ports 5–12 (front)" in Properties, the switch stayed (no writes). Help: "Pick ports, or move a
   device, in a rack view".
+- **Trunk drawing style (backlog, G048 / G187; "do 25"):** the legacy outlets tool's look. `domain/runOutline.ts`
+  (ported from `routes/.../outlets/trunks/geometry.ts`): `outlineLoops(edges)` walks bands (segment + width) as a graph
+  — nodes merged within 0.5 mm, neighbours by angle, half-edges — into closed loops with mitred joins (bevel past a
+  4× mitre); `roundCorners(loop, r, sharp)` rounds them (arcs as points), `endCorners` keeps a run's square ends.
+  `views/plan.ts` `runBodies`: the level segments of all containment runs (trimmed to bends + their arcs), bucketed by
+  layer · tier · colour · primary — one outline per joined group, corners r = ¼ of the width, closed + filled, class
+  `run-body` (+ `run-high run-ceiling` for high runs: dashed; + `run-primary`: stronger), carrying `layer` and no
+  source. The runs' own bands stay as `run run-hit` — invisible (opacity 0; PDF skips; DXF skips) but they still pick,
+  hover and select the run. `applyLayers` takes a source-less prim's own `layer` (hide / freeze / colour). Screen
+  (`Prims.svelte`): fill 20 % of the colour, 1.25 px edge (primary 2.5 px, 32 %), ceiling dashed. PDF: `fillOpacity`
+  (fill apart from the stroke), the run's colour fills too. A ring of runs fills its hole (rare; noted). Elevations
+  unchanged. Tests in `domain/runOutline.test.ts`, `views/plan.test.ts`. Live (Test Project 1F): the high trunk cross
+  → one dashed orange outline, arms joined, corners rounded; TR2 a faint blue band with its edge; clicking TR2 still
+  selects it. Help: "How runs (trunks, trays, conduits) are drawn on the plan".

@@ -83,3 +83,26 @@ describe('images (Markup kinds part 4)', () => {
 		expect(g).toMatchObject({ kind: 'image', centre: { x: 110, y: 60 }, size: { x: 100, y: 60 } })
 	})
 })
+
+describe('runs as one outline (backlog "Trunk drawing style")', () => {
+	const run = (id: string, pts: { x: number; y: number }[], extra: Partial<Shape> = {}): Shape => ({
+		type: 'shape', id, levelId: 'L33', geom: { kind: 'path', nodes: pts.map((p, i) => ({ id: `${id}${i}`, ...p, z: -200 })), segs: pts.slice(1).map((_, i) => ({ id: `${id}s${i}`, a: `${id}${i}`, b: `${id}${i + 1}` })) },
+		section: { w: 200, h: 50 }, role: { kind: 'containment', form: 'trunk', tier: 'low' }, ...extra,
+	} as Shape)
+	const bodies = (extra: Entity[]) => planDisplayList(new ProjectIndex([...demoProject(), ...extra]), 'L33', { scale: 100 }).filter((p) => p.k === 'line' && p.cls.startsWith('run-body'))
+	it('two runs that meet join into one filled outline (on their layer, no source); their own bands only pick', () => {
+		const a = run('A', [{ x: 0, y: 0 }, { x: 2000, y: 0 }]), b = run('B', [{ x: 2000, y: 0 }, { x: 2000, y: 2000 }])
+		const bs = bodies([a, b]).filter((p) => p.k === 'line' && p.cls === 'run-body')   // (the fixture's own trunk is high)
+		expect(bs).toHaveLength(1)
+		expect(bs[0]).toMatchObject({ closed: true, fill: true, cls: 'run-body', layer: 'sys:cont-low' })
+		expect(bs[0].src).toBeUndefined()
+		const bands = planDisplayList(new ProjectIndex([...demoProject(), a, b]), 'L33', { scale: 100 }).filter((p) => p.src === 'A' && p.k === 'line')
+		expect(bands.every((p) => p.k === 'line' && p.cls.includes('run-hit'))).toBe(true)
+	})
+	it('a high run: dashed (ceiling); a primary run: stronger; a run of another colour: its own outline', () => {
+		const hi = run('H', [{ x: 0, y: 5000 }, { x: 2000, y: 5000 }], { role: { kind: 'containment', form: 'trunk', tier: 'high', primary: true } } as Partial<Shape>)
+		const red = run('R', [{ x: 2000, y: 0 }, { x: 4000, y: 0 }], { style: { stroke: '#ff0000' } } as Partial<Shape>)
+		const cls = bodies([hi, run('A', [{ x: 0, y: 0 }, { x: 2000, y: 0 }]), red]).map((p) => (p.k === 'line' ? `${p.cls}${p.color ? ` ${p.color}` : ''}` : ''))
+		expect(cls).toEqual(expect.arrayContaining(['run-body run-high run-ceiling run-primary', 'run-body', 'run-body #ff0000']))
+	})
+})

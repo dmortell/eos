@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 52 entries (0 P1 · 0 P2 · 52 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 51 entries (0 P1 · 0 P2 · 51 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -80,7 +80,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Fill % and cable count at penetrations** — a penetration shows the cables through it and its fill. **P3 · M** (Dave 2026-10-10: low priority) (~80 lines). *cad today:* the `penetration` role exists with a `source` run segment (`cad/domain/shapes.ts:114`) and the BOM counts it (`cad/domain/reports.ts:162`); there is no tool and no fill on it. Needs the penetrations decision (T145) first. *From:* T010
 - [ ] **Riser view control** — From / To floor; EPS rooms; HIGH / LOW tags; extend a riser to more floors (edit its far-end level). Dave: one riser view for now (no per-viewport floor choice). **P3 · M** (Dave 2026-10-05: low priority) (~150 lines). *cad today:* "Hide empty floors" is built (phase8 Batch 1): floors with no server room, and floors with no level, squeeze into break bands (`cad/views/riser.ts`, a riser-view toggle and a sheet viewport choice); node far-end levels are set only when drawing (`cad/editor/pathTool.ts:55`). *From:* G021, G145, G146, G194, G195, G277, G315, T073, T076
 - [ ] **Cable label and colour (riser view)** — an optional label and colour per backbone cable group (defaults: fibre amber, copper blue). **P3 · S** (~40 lines). *cad today:* groups are labelled "count × type · length" in one style (`cad/views/riser.ts:7`). *From:* G147
-- [ ] **Trunk drawing style** — joined runs drawn as one outline with rounded inner corners, filled in the run's colour, primary runs stronger, ceiling runs dashed. **P3 · M** (~120 lines). *cad today:* banded segments by tier class; high runs orange; no per-run colour (`cad/views/plan.ts:116`, `cad/ui/Prims.svelte:58`). *From:* G048, G187
 - [ ] **High / low cables in the riser view** — each hop drawn at ceiling-plenum or floor-void height. **P3 · M** (~80 lines). *cad today:* the plans use real run heights, but the riser view draws groups at one fixed height. *From:* G149
 
 ## Selection and editing
