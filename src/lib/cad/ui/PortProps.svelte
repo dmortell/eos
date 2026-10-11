@@ -8,7 +8,7 @@
 	import type { PortSel } from '../editor/tools'
 	import { setPortLabel, portRanges, reservePorts } from '../domain/ports'
 	import { newId } from '../domain/ids'
-	import { traceCircuit } from '../domain/cords'
+	import { traceCircuit, removeCords, removedText } from '../domain/cords'
 	import Trace from './Trace.svelte'
 	import { containmentRuns } from '../domain/interconnect'
 	import { viaList, viaValue } from '../domain/routing'
@@ -78,10 +78,16 @@
 	}
 
 	// ── take the cables / cords off these ports (any kind of link: outlet, tie, backbone); Undo brings them back ──
-	const cordsHere = $derived(project.index.cords.filter((c) => (c.a.on === sel.on && sel.ports.includes(c.a.port)) || (c.b.on === sel.on && sel.ports.includes(c.b.port))))
+	const cordsHere = $derived(project.index.cords.filter((c) => c.status !== 'remove' && ((c.a.on === sel.on && sel.ports.includes(c.a.port)) || (c.b.on === sel.on && sel.ports.includes(c.b.port)))))
 	function removeAll(label: string, ids: string[]) {
 		project.store.transact(label, (tx) => { for (const id of ids) tx.del(id) })
 		ws.say(`${label} — Undo brings them back`)
+	}
+	/** the install workflow (patch-list-plan.md): an installed cord is only marked — it still has to come out on site */
+	function removeCordsHere() {
+		const r = removeCords(cordsHere), label = `Remove ${cordsHere.length} cord${cordsHere.length === 1 ? '' : 's'}`
+		project.store.transact(label, (tx) => { for (const c of r.marked) tx.put(c); for (const id of r.deleted) tx.del(id) })
+		ws.say(`${label}: ${removedText(r)} — Undo brings them back`)
 	}
 
 	function edit(n: number, input: HTMLInputElement) {
@@ -101,7 +107,7 @@
 	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port — or drag this onto that port" onclick={() => ws.interconnectFrom(sel)}
 		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.interconnectFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'link') }} ondragend={() => ws.endDrag()} class="primary">⟷ Link to… <kbd>L</kbd></button>{/if}
 	{#if cables.length}<button title="Remove the permanent cables on these ports — outlet links, ties and backbone, patched or not" onclick={() => removeAll(`Remove ${cables.length} link${cables.length === 1 ? '' : 's'}`, cables.map((l) => l.id))}>Remove links ({cables.length})</button>{/if}
-	{#if cordsHere.length}<button title="Remove the patch cords on these ports" onclick={() => removeAll(`Remove ${cordsHere.length} cord${cordsHere.length === 1 ? '' : 's'}`, cordsHere.map((c) => c.id))}>Remove cords ({cordsHere.length})</button>{/if}
+	{#if cordsHere.length}<button title="Remove the patch cords on these ports — installed ones are marked for removal (they come out on site), planned ones deleted" onclick={removeCordsHere}>Remove cords ({cordsHere.length})</button>{/if}
 </div>
 {#if cables.length}
 	<!-- the permanent cables on the selected ports (Phase 5): routed length, the riser a backbone takes, a hand length -->

@@ -6,7 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Cord } from '../domain/types'
-	import { cordLength, installCord, revertCord, removeCord, traceCircuit, STANDARD_LENGTHS } from '../domain/cords'
+	import { cordLength, installCord, revertCord, removeCord, setStatus, traceCircuit, STANDARD_LENGTHS } from '../domain/cords'
 	import Trace from './Trace.svelte'
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
@@ -14,6 +14,8 @@
 	let { project, ws, c }: { project: CadProject; ws: Workspace; c: Cord } = $props()
 
 	const put = (label: string, patch: Partial<Cord>) => project.store.transact(label, (tx) => tx.put({ ...c, ...patch }))
+	/** the whole cord (status rules drop `previous`, which a patch over `c` would keep) */
+	const set = (label: string, next: Cord) => project.store.transact(label, (tx) => tx.put(next))
 	const end = (r: Cord['a']) => project.index.portPlace(r)   // includes the face
 	const label = (r: Cord['a']) => project.index.portLabel(r)
 	const auto = $derived(cordLength(project.index, c.a, c.b))
@@ -35,7 +37,7 @@
 	<div class="ends">
 		<!-- any status, to fix a mistake (backlog "Set any status"); the buttons below are the install workflow -->
 		<span class="k">Status</span><span><select class="stsel status s-{c.status}" value={c.status} title="Set the status directly (to fix a mistake) — the buttons below follow the install workflow"
-			onchange={(e) => put('Cord status', { status: e.currentTarget.value as Cord['status'] })}>
+			onchange={(e) => set('Cord status', setStatus(c, e.currentTarget.value as Cord['status']))}>
 			{#each ['add', 'change', 'remove', 'installed'] as st (st)}<option value={st}>{st}</option>{/each}
 		</select></span>
 		<span class="k">From</span><span>{end(c.a)}<br /><span class="font-mono text-zinc-500">{label(c.a) || '—'}</span></span>
@@ -45,7 +47,7 @@
 	<div class="acts">
 		{#if c.status !== 'installed'}<button title={c.status === 'remove' ? 'Taken out on site — the record goes' : 'Done on site'} onclick={install}>{c.status === 'remove' ? 'Removed on site' : 'Installed'}</button>{/if}
 		{#if c.status !== 'remove'}<button title={c.status === 'add' ? 'Not installed yet — deleted outright' : 'Mark it to come out on site'} onclick={remove}>{c.status === 'add' ? 'Delete' : 'Remove'}</button>{/if}
-		{#if c.previous}<button title="Back to the ends and status before the change / removal" onclick={() => put('Revert cord', revertCord(c))}>Revert</button>{/if}
+		{#if c.previous}<button title="Back to the ends and status before the change / removal" onclick={() => set('Revert cord', revertCord(c))}>Revert</button>{/if}
 	</div>
 </PropGroup>
 <PropGroup kind="cord" title="Cable">

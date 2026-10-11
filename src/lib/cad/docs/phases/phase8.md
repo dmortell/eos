@@ -2090,3 +2090,20 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Cable schedule sorted by label (Dave 2026-10-11):** the dialog and its Excel export list cables by label, in
   natural order (O2 before O10), unlabelled last; ties by kind, then the panel end (was: kind, then panel end).
   Test in `domain/routing.test.ts`.
+- **Patch list management, Slice 1 — the status rules (`docs/plan/patch-list-plan.md`, Dave's D1–D8 2026-10-11):**
+  - A `change` moved back onto its old ends is `installed` again, with no history (legacy rule). A cord marked
+    `remove` doesn't move ("restore it first").
+  - Removing a `change` (a move not yet made on site) takes the cord out from its OLD ends, so Restore gives the
+    installed cord back where it is.
+  - `setStatus` (the Properties status box, to fix a mistake) never deletes: installed / add forget the history,
+    remove remembers ends + status (Restore brings it back). Revert and the status box now write the whole cord —
+    the patch over `c` kept `previous`, so a reverted cord still showed "Was: …".
+  - Device / Port › Remove cords follow the install workflow (`removeCords`): installed cords are marked `remove`,
+    planned ones deleted ("2 marked for removal, 1 deleted (never installed)"); cords already marked aren't counted.
+  - D3: deleting a device or rack with installed cords still takes them, and the confirm says how many were
+    installed ("export the changes first", `installedCordsGoing`).
+  - D2: only moving an end makes a `change` (type / colour / length don't); a manual REPLACE status → backlog.
+  - Tests in `domain/cords.test.ts`, `editor/racks.test.ts`. Live (Test Project 33IDF2, cord P3C-37:15 → P3C-35:15):
+    Installed; end dragged to 16 → CHANGE with "Was"; back to 15 → INSTALLED, no Revert; Remove → REMOVE; Revert →
+    INSTALLED with no "Was"; status box → ADD — Firestore: add, no `previous`, 1 m (as before). Help: "Cord status:
+    add, change, remove, installed".

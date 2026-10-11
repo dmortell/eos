@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, bulkPatch, traceCircuit, snapToStandard, cordAt } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, bulkPatch, traceCircuit, snapToStandard, cordAt } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -85,6 +85,33 @@ describe('install workflow', () => {
 	})
 	it('re-patching onto a taken port is refused', () => {
 		expect(repatch(ix(), installed(), 'b', { on: 'SW1', port: 2 }).problem).toMatch(/already patched/)
+	})
+	it('a change moved back onto its old ends is installed again, with no history (plan: patch-list-plan.md)', () => {
+		const moved = repatch(ix(), installed(), 'b', { on: 'SW1', port: 9 }).cord!
+		const again = repatch(ix(), moved, 'b', { on: 'SW1', port: 12 }).cord!
+		expect(again).toMatchObject({ status: 'change', previous: { b: { on: 'SW1', port: 1 } } })   // the FIRST ends kept
+		const back = repatch(ix(), again, 'b', { on: 'SW1', port: 1 }).cord!
+		expect(back).toMatchObject({ status: 'installed', b: { on: 'SW1', port: 1 } })
+		expect(back.previous).toBeUndefined()
+	})
+	it('a cord marked for removal does not move; removing a planned move takes the cord out from its old ends', () => {
+		expect(repatch(ix(), removeCord(installed())!, 'b', { on: 'SW1', port: 9 }).problem).toMatch(/restore it first/)
+		const moved = repatch(ix(), installed(), 'b', { on: 'SW1', port: 9 }).cord!
+		const out = removeCord(moved)!
+		expect(out).toMatchObject({ status: 'remove', b: { on: 'SW1', port: 1 }, previous: { status: 'installed', b: { on: 'SW1', port: 1 } } })
+		expect(revertCord(out)).toMatchObject({ status: 'installed', b: { on: 'SW1', port: 1 } })
+	})
+	it('setting the status by hand never deletes: installed / add forget the history, remove can be restored', () => {
+		const moved = repatch(ix(), installed(), 'b', { on: 'SW1', port: 9 }).cord!
+		expect(setStatus(moved, 'installed')).toMatchObject({ status: 'installed', b: { on: 'SW1', port: 9 } })
+		expect(setStatus(moved, 'installed').previous).toBeUndefined()
+		expect(setStatus(moved, 'add').previous).toBeUndefined()
+		const planned = ix().get('C1') as Cord   // `add`
+		expect(setStatus(planned, 'remove')).toMatchObject({ status: 'remove', previous: { status: 'add' } })
+		expect(revertCord(setStatus(planned, 'remove'))).toMatchObject({ status: 'add' })
+		expect(setStatus(installed(), 'remove')).toMatchObject({ status: 'remove', previous: { status: 'installed' } })
+		expect(setStatus(removeCord(installed())!, 'installed').status).toBe('installed')   // not deleted
+		expect(setStatus(moved, 'change')).toBe(moved)
 	})
 })
 

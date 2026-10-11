@@ -3,7 +3,7 @@
 // and the Edit menu all call these.
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
-import { deleteEntities, deleteViewport, deleteImpact, impactText, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
+import { deleteEntities, deleteViewport, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
 import { reservePorts } from '../domain/ports'
 import { reorderShapes } from '../domain/shapes'
@@ -53,7 +53,9 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	if (!also) return go()
 	const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
 	const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
-	ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
+	const inst = installedCordsGoing(project.store, ids)
+	const warn = inst ? ` ${inst} of the cords ${inst === 1 ? 'is' : 'are'} installed: they go from the record, not into the removal list — export the changes first if the installer needs them.` : ''
+	ws.ask2(`Delete ${what} with ${also}?${warn} Undo brings them back.`, 'Delete', go)
 }
 /** Ctrl+] / Ctrl+[ bring the selected shapes forward / send them back; with Shift to the front / back. */
 export function orderKey(project: CadProject, ws: Workspace, how: 'forward' | 'backward' | 'front' | 'back'): void {

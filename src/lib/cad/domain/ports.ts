@@ -114,12 +114,13 @@ export function reservePorts(d: Device, ports: number[], usage: string, id: Id):
 
 /** "3–7, 12" for a list of port numbers. */
 /** The permanent cables (outlet links, ties, backbone) and patch cords on any port of these devices — what "Remove
- *  links / cords" on selected devices takes off (Dave 2026-10-10: unlink P3A's panels U4–U10 at once). */
+ *  links / cords" on selected devices takes off (Dave 2026-10-10: unlink P3A's panels U4–U10 at once). Cords already
+ *  marked for removal aren't counted. */
 export function cablesOnDevices(ix: ProjectIndex, deviceIds: Id[]): { links: Id[]; cords: Id[] } {
 	const on = new Set(deviceIds)
 	return {
 		links: ix.links.filter((l) => on.has(l.a.on) || on.has(l.b.on)).map((l) => l.id),
-		cords: ix.cords.filter((c) => on.has(c.a.on) || on.has(c.b.on)).map((c) => c.id),
+		cords: ix.cords.filter((c) => c.status !== 'remove' && (on.has(c.a.on) || on.has(c.b.on))).map((c) => c.id),
 	}
 }
 

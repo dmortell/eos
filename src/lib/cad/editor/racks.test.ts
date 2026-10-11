@@ -12,7 +12,7 @@ import { DeviceTool } from './deviceTool'
 import { CordTool, type BulkFrom } from './cordTool'
 import { cordEndGrips, portPlus } from './portGrips'
 import { AssignTool } from './assignTool'
-import { deleteEntities, deleteImpact, impactText } from './commands'
+import { deleteEntities, deleteImpact, impactText, installedCordsGoing } from './commands'
 import { patchList } from '../domain/reports'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
@@ -227,6 +227,10 @@ describe('devices in the rack row', () => {
 		expect([p1.devices, p1.links, p1.cords]).toEqual([0, count('link', ['P1']), count('cord', ['P1'])])
 		expect(impactText({ devices: 0, links: 3, cords: 1, viewports: 0, notes: 0 })).toBe('3 links and 1 cord')
 		expect(deleteImpact(h.store, ['P1', 'C1']).cords).toBe(count('cord', ['P1']) - 1)   // a selected cord isn't "with it"
+		// D3 (patch-list-plan.md): the installed ones are named in the warning
+		expect(installedCordsGoing(h.store, ['P1'])).toBe(0)                                  // the demo's cords are `add`
+		h.store.transact('t', (tx) => tx.put({ ...(h.store.get('C1') as Cord), status: 'installed' }))
+		expect([installedCordsGoing(h.store, ['P1']), installedCordsGoing(h.store, ['R1']), installedCordsGoing(h.store, ['P1', 'C1'])]).toEqual([1, 1, 0])
 	})
 	it('a panel moved to another U and another rack keeps the labels its cords show', () => {
 		const h = harness(ROW, [R2])

@@ -114,20 +114,56 @@ export function makeCord(ix: ProjectIndex, a: PortRef, b: PortRef, d: CordDefaul
 export function removeCord(c: Cord): Cord | null {
 	if (c.status === 'add') return null
 	if (c.status === 'remove') return c
+	// a planned move not yet made: the cord is still at its old ends on site — it comes out from there
+	if (c.status === 'change' && c.previous) return { ...c, a: c.previous.a, b: c.previous.b, status: 'remove', previous: c.previous }
 	return { ...c, status: 'remove', previous: { a: c.a, b: c.b, status: c.status } }
 }
 
-/** Move one end of a cord. An installed cord becomes a `change` (remembering where it was); a planned one just moves. */
+/** Several cords out in the install workflow: the planned ones deleted, the others marked `remove` (already marked: as is). */
+export function removeCords(cs: Cord[]): { marked: Cord[]; deleted: Id[] } {
+	const marked: Cord[] = [], deleted: Id[] = []
+	for (const c of cs) {
+		const n = removeCord(c)
+		if (!n) deleted.push(c.id)
+		else if (n !== c) marked.push(n)
+	}
+	return { marked, deleted }
+}
+/** "3 marked for removal, 2 deleted" — what removeCords did. */
+export const removedText = (r: { marked: Cord[]; deleted: Id[] }) => [r.marked.length ? `${r.marked.length} marked for removal` : '', r.deleted.length ? `${r.deleted.length} deleted (never installed)` : ''].filter(Boolean).join(', ')
+
+const sameEnd = (x: PortRef, y: PortRef) => x.on === y.on && x.port === y.port && (x.face ?? '') === (y.face ?? '')
+
+/**
+ * Move one end of a cord. An installed cord becomes a `change` (remembering where it was); a planned one just moves.
+ * A change moved back onto its old ends is `installed` again (nothing to do on site). A cord being removed doesn't
+ * move — restore it first.
+ */
 export function repatch(ix: ProjectIndex, c: Cord, end: 'a' | 'b', to: PortRef): { cord?: Cord; problem?: string } {
+	if (c.status === 'remove') return { problem: 'The cord is marked for removal — restore it first' }
 	const other = end === 'a' ? c.b : c.a
 	if (to.on === other.on && to.port === other.port) return { problem: 'Both ends are the same port' }
 	const p = patchProblem(ix, to, c.id) ?? roomProblem(ix, to, other)
 	if (p) return { problem: p }
 	const moved = { ...c, [end]: to }
-	const next: Cord = c.status === 'installed' || c.status === 'change'
+	let next: Cord = c.status === 'installed' || c.status === 'change'
 		? { ...moved, status: 'change', previous: c.previous ?? { a: c.a, b: c.b, status: c.status } }
 		: moved
+	if (next.status === 'change' && next.previous && sameEnd(next.a, next.previous.a) && sameEnd(next.b, next.previous.b)) next = revertCord(next)
 	return { cord: c.lengthLocked ? next : { ...next, lengthM: cordLength(ix, next.a, next.b) } }
+}
+
+/**
+ * The status set by hand (Cord Properties' dropdown, the patch list's Add) — to fix a mistake, so it never deletes:
+ * installed / add forget the change history; remove remembers the cord's ends and status (Restore brings it back);
+ * change keeps the history it has.
+ */
+export function setStatus(c: Cord, s: Cord['status']): Cord {
+	if (s === c.status) return c
+	const { previous: _p, ...rest } = c
+	if (s === 'installed' || s === 'add') return { ...rest, status: s }
+	if (s === 'remove') return removeCord(c) ?? { ...rest, status: 'remove', previous: { a: c.a, b: c.b, status: c.status } }
+	return { ...c, status: s }
 }
 
 /** Back to how it was before a re-patch / removal (the `previous` ends and status). */

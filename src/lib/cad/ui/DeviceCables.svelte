@@ -3,8 +3,9 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Device } from '../domain/types'
+	import type { Cord, Device } from '../domain/types'
 	import { cablesOnDevices } from '../domain/ports'
+	import { removeCords, removedText } from '../domain/cords'
 
 	let { project, ws, devices }: { project: CadProject; ws: Workspace; devices: Device[] } = $props()
 
@@ -13,8 +14,15 @@
 	function remove(kind: 'links' | 'cords') {
 		const ids = on[kind], n = ids.length
 		const label = `Remove ${n} ${kind === 'links' ? 'link' : 'cord'}${n === 1 ? '' : 's'} on ${what}`
-		const body = kind === 'links' ? 'their outlet links, ties and backbone cables (patched or not)' : 'their patch cords'
+		const body = kind === 'links' ? 'their outlet links, ties and backbone cables (patched or not)' : 'their patch cords (installed ones are marked for removal, planned ones deleted)'
 		ws.ask2(`${label}: ${body}? Undo brings them back.`, kind === 'links' ? 'Remove links' : 'Remove cords', () => {
+			if (kind === 'cords') {
+				// the install workflow (patch-list-plan.md): an installed cord still has to come out on site
+				const r = removeCords(ids.map((id) => project.index.get(id) as Cord))
+				project.store.transact(label, (tx) => { for (const c of r.marked) tx.put(c); for (const id of r.deleted) tx.del(id) })
+				ws.say(`${label}: ${removedText(r)} — Undo brings them back`)
+				return
+			}
 			project.store.transact(label, (tx) => { for (const id of ids) tx.del(id) })
 			ws.say(`${label} — Undo brings them back`)
 		})

@@ -119,12 +119,22 @@ export function deleteViewport(store: EntityStore, sheet: Sheet, vp: Viewport): 
 /** What deleting `ids` takes WITH it (beyond the selected things): devices in deleted racks, links and cords on
  *  deleted devices, a deleted sheet's viewports and notes. Ask first when any of it is non-zero. */
 export interface DeleteImpact { devices: number; links: number; cords: number; viewports: number; notes: number }
-export function deleteImpact(store: EntityStore, ids: Id[]): DeleteImpact {
+function devicesGoing(store: EntityStore, ids: Id[]) {
 	const sel = new Set(ids)
 	const racks = new Set(ids.filter((id) => store.get(id)?.type === 'rack'))
 	const inRacks = store.ofType('device').filter((d) => racks.has(d.rackId) && !sel.has(d.id))
 	const devs = new Set([...inRacks.map((d) => d.id), ...ids.filter((id) => store.get(id)?.type === 'device')])
 	const on = (e: { id: Id; a: { on: Id }; b: { on: Id } }) => !sel.has(e.id) && (devs.has(e.a.on) || devs.has(e.b.on))
+	return { sel, inRacks, on }
+}
+/** Installed cords (or ones mid-change) that go with deleted devices / racks: out of the record, not marked `remove` —
+ *  their end is gone (patch-list-plan.md D3: delete them, after a warning). */
+export function installedCordsGoing(store: EntityStore, ids: Id[]): number {
+	const { on } = devicesGoing(store, ids)
+	return store.ofType('cord').filter((c) => (c.status === 'installed' || c.status === 'change') && on(c)).length
+}
+export function deleteImpact(store: EntityStore, ids: Id[]): DeleteImpact {
+	const { sel, inRacks, on } = devicesGoing(store, ids)
 	const sheets = store.ofType('sheet').filter((s) => sel.has(s.id))
 	const sheetIds = new Set(sheets.map((s) => s.id))
 	return {
