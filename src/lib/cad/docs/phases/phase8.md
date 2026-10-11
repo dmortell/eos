@@ -2220,3 +2220,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Project 33IDF2 Row A): ▲ on V05 → stored `rackOrder` for the row, V05 above R311; "↺ plan order" → the order back and
   the field gone (Firestore). (A first click missed the 9 px button — screenshot px ≈ 0.8 × CSS px here.) Help:
   "Change the order of racks in a row".
+- **Device library builder (backlog, G088 / G110; "do 14"):** `ui/TemplateDialog.svelte` — a template's name, kind,
+  U, ports, port type / numbering, face, width / depth, maker, model; a built-in opened in it is saved as a new one
+  ("… (copy)"). Device library: **+ New** by Find, and on a hovered template ✎ (edit; a built-in: ⧉) and ✕ (delete,
+  asks first — global, no undo). Find matches maker / model too. `CadProject.putTemplate` writes the template WHOLE
+  (`updateDoc` with `FieldPath('templates', id)`; a merge would keep a cleared maker) and `deleteTemplate` uses
+  `deleteField()`. Live (the global `settings/cadDeviceTemplates`): + New "ZZ Test template (Claude)", maker TestMaker
+  → listed ★ under Patch panels; ✎ → 2U, maker cleared → stored 2U with no maker; ✕ → gone; the templates map equals
+  what it was before the test. (The form's `autofocus` didn't take — a `use:focus` action now; the first typing went
+  to the page, no effect seen.) Help: "Make, edit or delete a device template".

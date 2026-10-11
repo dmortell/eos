@@ -15,7 +15,7 @@ import { PdfCache } from './pdf.svelte'
 import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
-import { doc, onSnapshot, setDoc } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
 import { stripUndefined } from '../persist/docs'
 import { BUILTIN_DEVICE_TEMPLATES, templateFromDevice, type DeviceTemplate } from '../domain/devices'
@@ -203,6 +203,17 @@ export class CadProject {
 		const t = templateFromDevice(d, name.trim())
 		await setDoc(doc(this.db, ...TEMPLATES_DOC), { templates: { [t.id]: stripUndefined(t) } }, { merge: true })
 		return t
+	}
+	/** Add or replace a global template (Device library › New / edit, backlog "Device library builder") — written
+	 *  whole, so a field cleared in the form goes (a merge would keep it). Global: every project sees it. */
+	async putTemplate(t: DeviceTemplate): Promise<void> {
+		const ref = doc(this.db, ...TEMPLATES_DOC)
+		await setDoc(ref, {}, { merge: true })
+		await updateDoc(ref, new FieldPath('templates', t.id), stripUndefined({ ...t, builtin: undefined }))
+	}
+	/** Delete a global template (not a built-in). Placed devices keep their own copy of everything. */
+	async deleteTemplate(id: Id): Promise<void> {
+		await updateDoc(doc(this.db, ...TEMPLATES_DOC), new FieldPath('templates', id), deleteField())
 	}
 
 	destroy(): void {
