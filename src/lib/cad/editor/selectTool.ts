@@ -23,7 +23,7 @@ import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, segWidthHandles, bendHandles, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf } from './pathSel'
-import { angleStep, axisLock } from './constrain'
+import { angleStepAll, axisLock } from './constrain'
 import { gripSpace, regionGrips, dragRegionGrip, type GripSpace } from './shapeGrips'
 import { withGroups } from '../domain/groups'
 import { labelKind } from '../domain/labelEdit'
@@ -156,13 +156,15 @@ export class SelectTool implements Tool {
 
 	dragFrom(): Pt | null { return this.#gesture ? (this.#grip?.grip.at ?? this.#start) : null }
 
-	/** Where the node at the other end of a dragged node's (first) segment shows: Shift's 15° steps turn about it. */
-	#neighbour(c: ToolCtx, shape: Id, nodeIds: Id[]): Pt | null {
+	/** Where the nodes at the other ends of a dragged node's segments show: Shift keeps every one of those segments on
+	 *  15° (a junction too — constrain.ts angleStepAll). */
+	#neighbours(c: ToolCtx, shape: Id, nodeIds: Id[]): Pt[] {
 		const s = c.store.get(shape)
-		if (s?.type !== 'shape' || s.geom.kind !== 'path') return null
-		const g = s.geom.segs.find((x) => nodeIds.includes(x.a) !== nodeIds.includes(x.b))
-		const other = g && s.geom.nodes.find((n) => n.id === (nodeIds.includes(g.a) ? g.b : g.a))
-		return other ? (this.#pathSpace(c, s) ?? c.space).fromWorld(other) : null
+		if (s?.type !== 'shape' || s.geom.kind !== 'path') return []
+		const sp = this.#pathSpace(c, s) ?? c.space, g = s.geom
+		return g.segs.filter((x) => nodeIds.includes(x.a) !== nodeIds.includes(x.b))
+			.map((x) => g.nodes.find((n) => n.id === (nodeIds.includes(x.a) ? x.b : x.a)))
+			.filter((n): n is NonNullable<typeof n> => !!n).map((n) => sp.fromWorld(n))
 	}
 	/** Where a path's own points show in this view: a line on a sheet drawn inside a viewport keeps its points in that
 	 *  view's mm, so its grips, drags and picks go through the viewport onto the paper (they were placed as paper mm,
@@ -431,9 +433,9 @@ export class SelectTool implements Tool {
 			if (!this.#gesture && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) < c.tol() / 2) return
 			// back where it started → exactly there (not the nearest grid point), so a drag-and-return changes nothing
 			const home = !branch && Math.hypot(e.p.x - grip.at.x, e.p.y - grip.at.y) <= c.tol()
-			// Shift: 15° steps — a branch from its node, a node from the node at the other end of its segment
-			const pivot = e.shift ? (branch ? grip.at : this.#neighbour(c, shape, grip.nodeIds)) : null
-			const sn: Snap = home ? { p: grip.at, kind: 'node' } : pivot ? { p: angleStep(pivot, e.p), kind: 'grid' }
+			// Shift: 15° steps — a branch from its node; a node keeps every segment it has on a step (a junction: all of them)
+			const pivots = e.shift ? (branch ? [grip.at] : this.#neighbours(c, shape, grip.nodeIds)) : []
+			const sn: Snap = home ? { p: grip.at, kind: 'node' } : pivots.length ? { p: angleStepAll(pivots, e.p), kind: 'grid' }
 				: c.snap(e.p, e.alt, [shape, ...fol.keys()], branch ? undefined : [...grip.nodeIds, ...[...fol.values()].flat()])
 			this.#snap = sn.kind === 'grid' ? null : sn
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')

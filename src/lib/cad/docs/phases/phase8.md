@@ -2379,3 +2379,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   mount, each port → its panel port or "not allocated". Tests in `views/portTip.test.ts`. Live (Test Project 1F):
   the tip on A.002 ("Desk · low · wall", 01A.002A → P3C · P3C-37 : 28 (rear) …); 58 tinted ports on 33IDF2 in three
   usage colours. Help: "Usage colours and outlet tips".
+- **Shift constraints: junctions (backlog, G188 / G197 / …; "do 18"):** Shift on a dragged node now keeps EVERY segment
+  it has on 15° (it turned only about its first segment's far end). `editor/constrain.ts` `angleStepAll`: the
+  intersections of each pair of neighbours' 15° lines (plus each one's own step), scored by how many segments land on
+  a step, then nearest the pointer (within the junction's reach); one neighbour = `angleStep` as before. Select tool
+  `#neighbours` (all of the grip's segments). Tests in `editor/constrain.test.ts`. Live (Test Project 1F, the high
+  trunk's 4-way junction, a Shift drag by pointer events): −15°, −90°, 90° on steps (the 4th can't be: its far ends
+  weren't on a common step to start with — −1°, −179.7°); undone, checked as before. Help: keys (Shift).

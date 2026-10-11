@@ -95,7 +95,7 @@ export const SHORTCUTS: [string, string][] = [
 	['Draw order: forward / to front', 'Ctrl+] / Ctrl+Shift+]'], ['Draw order: backward / to back', 'Ctrl+[ / Ctrl+Shift+['],
 	['Edit a label in place', 'Double-click · F2'], ['…save and edit the next / previous', 'Tab / Shift+Tab'],
 	['Nudge (× 10 with Shift)', 'Arrow keys'], ['Zoom to fit', 'Home'], ['Page up / down (sideways: Shift)', 'PgUp / PgDn'],
-	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel'], ['15° steps / H-V / square', 'Shift while drawing or dragging'],
+	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel'], ['15° steps / H-V / square', 'Shift while drawing or dragging (a dragged node keeps all its segments on 15°, a junction too)'],
 	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat) · right-click'],
 	['Copy by dragging', 'Ctrl-drag'], ['Branch a run from a node', 'Ctrl-drag the node'], ['Pull a node off another run', 'Alt-drag the node'],
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],
