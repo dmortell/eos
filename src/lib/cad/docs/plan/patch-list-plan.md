@@ -1,6 +1,7 @@
 # Patch list management — plan for review
 
-**Status: for Dave's review (2026-10-11).** Nothing below is built yet. Dave asked for:
+**Status: reviewed (Dave 2026-10-11, decisions D1–D8 below); building slice by slice, logged in
+`../phases/phase8.md`.** Dave asked for:
 - the status of the selected patches can be set (e.g. Installed);
 - changes set the status automatically;
 - the full patch list can be exported, or part of it (one room, or every changed patch);
@@ -57,7 +58,7 @@ share `patching/parts/PatchListPane.svelte`. The legacy outlets and racks tools 
 | Deleting an installed cord marks it remove | have, with the 3 bypasses above | Slice 1 |
 | **New cords start as Installed** (recording an existing site) | missing | Slice 4 (optional) |
 | Bulk colour / cable type (type resets colour) | missing | D5 |
-| Inline editing in the list | Properties instead | not planned |
+| Inline editing in the list | Properties instead | not planned, consider adding at least for cord ID, status, notes |
 | Per-room export | have (open room only) | Slice 3 (any room) |
 | Changes-only export | CAD only | — |
 | Cord-ID import | have (better: by Key) | — |
@@ -73,8 +74,7 @@ Every path that changes a cord goes through these rules, so the list, Properties
 | Action | add | installed | change | remove |
 |---|---|---|---|---|
 | **Move an end** (grip, Re-patch) | moves | → change, `previous` = old ends | moves; **back on its `previous` ends → installed, `previous` cleared** | not allowed (restore first) |
-| **Edit type / colour / length** (D2) | edits | → change, `previous` records the old value | edits; back to the old values → installed | not allowed |
-| **Notes, cord ID, length lock** | edits | edits, no status change | edits | edits |
+| **Type, colour, length, notes, cord ID, length lock** (D2: never change the status) | edits | edits | edits | edits |
 | **Delete / Remove** (key, list, device or port "Remove cords") | deleted | → remove, `previous` = itself | → remove, `previous` kept (its *installed* state) | — |
 | **Installed** (done on site) | → installed | — | → installed, `previous` cleared | **record deleted** (removed on site) |
 | **Restore** | — | — | → back to `previous` (Revert) | → back to `previous` status and ends |
@@ -82,20 +82,19 @@ Every path that changes a cord goes through these rules, so the list, Properties
 - **Setting the status by hand** (the dropdown, to fix a mistake) uses the rows above: *installed* = Installed;
   *remove* = Remove; *add* = a plain set, with `previous` cleared. *change* is reached only by an edit.
 
-- `previous` grows to `{ a, b, status, cableType?, colour?, lengthM? }` (only the fields that changed), so Revert,
-  "Was" and the Excel's Was columns cover a swapped cord too. Firestore-safe: optional fields only.
+- `previous` stays `{ a, b, status }` (D2: only the ends make a `change`).
 - Deleting a device or rack with **installed** cords on it: the cords can't stay as `remove` because their end is
-  gone. The delete confirm already lists what goes. It adds: "N installed cords go from the record — export the
-  changes first if the installer needs them" (D3).
-- `removeCord`, `repatch`, `revertCord` and `installCord` stay; a new `editCord(c, patch)` holds the edit rule;
-  `setStatus(c, s)` maps the dropdown onto them. All pure, all tested.
+  gone. They are deleted; the delete confirm warns "N installed cords go from the record — export the changes
+  first if the installer needs them" (D3).
+- `removeCord`, `repatch`, `revertCord` and `installCord` stay; `setStatus(c, s)` maps the dropdown onto them. All
+  pure, all tested.
 
 ## Slices
 
-### Slice 1 — The rules (domain, pure) · ~120 lines + tests
-- `editCord`, `setStatus`, and the back-to-original check in `repatch` / `editCord`; `previous` gains the optional
-  fields.
-- CordProps uses them: the dropdown goes through `setStatus`, and type / colour / length edits through `editCord`.
+### Slice 1 — The rules (domain, pure) · ~100 lines + tests
+- `setStatus`, and the back-to-original check in `repatch`.
+- CordProps' dropdown goes through `setStatus`.
+- The device / rack delete confirm warns about installed cords (D3).
 - DeviceCables and PortProps "Remove cords" go through `removeCord`: `add` cords are deleted, the others are marked
   `remove`. The button reads "Remove cords (3 marked, 2 deleted)".
 - Tests: each cell of the table above, plus a round trip (installed → move → move back = installed with no
@@ -107,6 +106,8 @@ Every path that changes a cord goes through these rules, so the list, Properties
   "3 removed cords go from the record". One undo step per action, with a status-line message.
 - The same actions on a right-click on the rows, and on several cords selected in a rack view (Properties shows a
   "N cords" group with the same buttons).
+- **Cable type · Colour** for the selected rows (D5): a type change also sets the type's colour, as in the legacy
+  tool. No status change (D2).
 - **Purge removed (n)** next to the status chips: every `remove` cord in the scope is done on site (asks first).
 - Ctrl+A in the list selects the shown rows. `remove` rows are struck through and dimmed. A moved end shows "↶" with
   the old end as its tooltip.
@@ -120,38 +121,37 @@ Every path that changes a cord goes through these rules, so the list, Properties
     rows (when there are some) · the rows shown (the list's filters and Find)
   - the cord BOM counts as now, for whatever is chosen
 - All rooms → **a sheet per room** in one workbook, plus the BOM (D4). A room or selection → one sheet, as now.
-- Sorting inside each status group: by From label (D7).
+- Sorting inside each status group: by the From port's place, as now (D7 — **review after testing**).
 - `exportPatchSchedule` takes a cord list instead of `(room, changesOnly)`. `importCordIds` is unchanged (Key).
 - The "Cord BOM…" button stays as a shortcut to the same dialog.
 
-### Slice 4 (optional, D1) — New cords start as Installed · ~30 lines
-- Settings › Patching: "New cords start as: Add (planned) / Installed (recording what is on site)". `makeCord` and
-  `bulkPatch` take the status.
+### Slice 4 (D1) — Recording a built site: new cords start as Installed · ~60 lines
+- A project setting, `newCordStatus: 'add' | 'installed'`, shown as an obvious two-way toggle, **Planning (new
+  cords: add) · Surveying (new cords: installed)**:
+  - in the patch list's bar (always visible there);
+  - in the cord tool's option bar and the status-line prompt when a patch starts ("Click the port to patch to —
+    recorded as INSTALLED");
+  - in Project › Settings.
+- `makeCord` and `bulkPatch` take the status. Surveying cords skip the work order (they're already in).
+- The message after a patch says which ("3 cords recorded as installed").
 
-**Total about 400 lines with tests; slices 1–3 ship in that order, each committed and checked live on Test Project.**
+**Total about 450 lines with tests; slices ship 1 → 4, each committed and checked live on Test Project.**
 
-## Decisions for Dave
+## Decisions (Dave 2026-10-11)
 
-- **D1** Slice 4 (new cords as Installed, for surveying an existing site): build it now, or later?
-  *Recommend: now; it's small, and the legacy tool had it.*
-- **D2** "Changes auto change the status": which edits make an installed cord a `change`?
-  (a) moving an end only (legacy);
-  (b) also the cable type, colour and length — a different cord has to go in.
-  *Recommend (b).* Notes and cord ID never change the status.
-- **D3** Deleting a device or rack with installed cords: (a) delete them, and the confirm warns (as planned above);
-  (b) refuse until the cords are removed and purged. *Recommend (a).*
-- **D4** "Full list" export: (a) one sheet, grouped by status (as now); (b) a sheet per room plus the BOM.
-  *Recommend (b): installers work room by room.*
-- **D5** Bulk cable type / colour on the selected rows (legacy had it; with D2b it makes them `change`): include it
-  in Slice 2? *Recommend: not now — one line in later.md.*
-- **D6** F / T badges on a selected cord's ends (old backlog item): drop them now that the end grips show the ends?
-  *Recommend: drop.*
-- **D7** Inside each status group the schedule sorts by the From port's place (P3C U37 : 15). Switch to the From
-  label, or keep the place (the installer walks the rack)? *Recommend: keep the place.*
-- **D8** Is "Changes only" + "Installed" on the selected rows the whole round trip? The installer gets the changes,
-  does them, and you then mark those rows Installed. Or do you also want the returned Excel to set the status (a
-  "Done" column, read back like cord IDs)? *Recommend: not now.*
+- **D1** New cords as Installed: **build**, with an obvious toggle for an engineer surveying a built site or a
+  designer planning a new install (Slice 4).
+- **D2** Only **moving an end** makes an installed cord a `change`. A cord that has to be swapped (other type,
+  colour, length) may later get a manual **REPLACE** status to instruct the installer — backlog.
+- **D3** Deleting a device or rack with installed cords: **delete them, after a warning**.
+- **D4** Full-list export: **a sheet per room** plus the BOM.
+- **D5** Bulk cable type / colour on the selected rows: **now** (no status change, D2).
+- **D6** F / T badges: **dropped**.
+- **D7** Keep sorting by the From port's place — **review after testing**.
+- **D8** Status back from the returned Excel: **not now**.
+- Dave's note on the gap table: inline editing in the list — consider it at least for cord ID, status and notes
+  (not in these slices).
 
-Not in this plan (still in `decisions.md` / `later.md`): hovering a cord (18), patch bench / by rule / port holds
-(82), the bulk preview and port counts (84b), a change log (131), patch schedule viewports on sheets
-(backlog), cords ordered / delivered (backlog).
+Not in this plan (still in `decisions.md` / `later.md` / `backlog.md`): hovering a cord (18), patch bench / by rule /
+port holds (82), the bulk preview and port counts (84b), a change log (131), patch schedule viewports on sheets,
+cord label batches (backlog "Cord label batches by type, length and colour"), a REPLACE status (backlog).
