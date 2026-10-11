@@ -46,7 +46,7 @@ export interface PathNode {
 	z: number
 	/** Only when the node is on another level than the shape (a riser's far end). */
 	levelId?: Id
-	/** Bend radius (mm), 0 = sharp. */
+	/** This corner's bend radius (mm), 0 = sharp; absent = the run's `bendRadius` (domain/bends.ts). */
 	radius?: number
 	/** An outlet / rack / shape this node is attached to, and follows. */
 	attach?: Id
@@ -107,6 +107,9 @@ export interface ContainmentRole {
 	 *  to the routed ones — `n` × `type` (a cable type id, or any name), `d` = their outer Ø in mm (else the type's),
 	 *  `seg` = one segment (else every segment of the run). */
 	extra?: HandCables[]
+	/** The run's corner radius (mm; backlog "Bend radius") — a conduit's bends; absent / 0 = sharp. A node's own
+	 *  `radius` wins (domain/bends.ts). */
+	bendRadius?: number
 }
 export type HandCables = { type: string; n: number; d?: number; seg?: Id }
 

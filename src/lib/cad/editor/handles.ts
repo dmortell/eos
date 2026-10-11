@@ -10,6 +10,7 @@ import type { Opening, Shape } from '../domain/shapes'
 import type { Prim } from '../views/display'
 import { segEnds } from '../domain/openings'
 import { sectionFrame } from '../views/section'
+import { corners, defaultBend } from '../domain/bends'
 
 /** square = moves / stretches a position; round = sets a property (swing, depth); bar = a whole hole (drag slides it,
  *  click selects it); grip = resizes a drawn shape, drawn like its resize grips on the plan (a box's edges in elevations). */
@@ -90,6 +91,31 @@ export function segWidthHandles(s: Shape, segIds: string[], minHalf = 0): Handle
 		})
 	}
 	return out
+}
+
+/**
+ * A selected run's BEND handles (backlog "Bend radius", G270): a round grip on each corner's bisector, inside the bend —
+ * `gap` in from the arc's middle (so a sharp corner's grip isn't on its node's grip). Dragging it along the bisector
+ * sets that corner's radius (10 mm steps, Shift 50 mm, Alt free; at most what fits): the node's own `radius`, dropped
+ * again when it equals the run's default. Plan, level runs (containment) only.
+ */
+export function bendHandles(s: Shape, gap = 0): Handle[] {
+	if (s.geom.kind !== 'path' || s.role?.kind !== 'containment' || s.sheetId) return []
+	const geom = s.geom, def = defaultBend(s), h0 = Math.max(gap, (s.section?.w ?? 0) / 2)
+	return [...corners(s).values()].map((b): Handle => ({
+		at: { x: b.at.x + b.dir.x * (b.r * (b.k - 1) + h0), y: b.at.y + b.dir.y * (b.r * (b.k - 1) + h0) }, shape: 'round', label: 'Bend radius',
+		drag: (p, free, coarse) => {
+			const d = (p.x - b.at.x) * b.dir.x + (p.y - b.at.y) * b.dir.y, step = coarse ? 50 : 10
+			const raw = Math.max(0, d - h0) / (b.k - 1), cap = free ? Math.floor(b.rMax + 1e-6) : Math.floor(b.rMax / step + 1e-6) * step   // at most what fits, on the step
+			const r = Math.min(cap, free ? Math.round(raw) : Math.round(raw / step) * step)
+			const nodes = geom.nodes.map((n) => {
+				if (n.id !== b.node) return n
+				const { radius: _drop, ...rest } = n
+				return r === def ? rest : { ...rest, radius: r }
+			})
+			return { ...s, geom: { ...geom, nodes } }
+		},
+	}))
 }
 
 function openingHandles(s: Shape): Handle[] {

@@ -20,7 +20,7 @@ import { RU_MM } from '../views/rackRow'
 import { devicesBetween } from '../domain/devices'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
-import { handlesFor, handleAt, segWidthHandles, type Handle } from './handles'
+import { handlesFor, handleAt, segWidthHandles, bendHandles, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf } from './pathSel'
 import { angleStep, axisLock } from './constrain'
@@ -184,7 +184,9 @@ export class SelectTool implements Tool {
 		if (c.space.spec.kind === 'plan') {
 			// + the picked segments' width bars (a run with a section)
 			const r = handlesFor(one), ps = c.pathSel?.()
-			return one.type === 'shape' && ps?.shape === one.id ? { ...r, handles: [...r.handles, ...segWidthHandles(one, ps.segs, c.tol() * 1.5)] } : r
+			if (one.type !== 'shape') return r
+			// + a run's bend grips (its corners)
+			return { ...r, handles: [...r.handles, ...bendHandles(one, c.tol() * 2), ...(ps?.shape === one.id ? segWidthHandles(one, ps.segs, c.tol() * 1.5) : [])] }
 		}
 		// a selected sheet: its title block's logos have a height grip on the paper
 		if (c.space.spec.kind === 'sheet') {

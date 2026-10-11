@@ -171,6 +171,11 @@
 					<option value="">{heights ? `custom (Z ${mainZ ?? '—'})` : 'no level heights'}</option>
 					{#each Object.entries(PLACES) as [k, label] (k)}<option value={k}>{label}{placeOf(k as Place) ? ` (Z ${placeOf(k as Place)!.z})` : ''}</option>{/each}
 				</select></label>
+			{@const role = s.role}
+			<!-- its corners drawn as arcs (backlog "Bend radius"); each corner's round grip on the plan changes just that one -->
+			<label class="row" title="Every corner's radius (mm), drawn as an arc on the plan; blank / 0 = sharp. Drag a corner's round grip to change that one.">Bend radius
+				<input class="inp" type="number" min="0" step="10" value={role.bendRadius ?? ''} placeholder="sharp"
+					onchange={(e) => { const r = Math.max(0, Number(e.currentTarget.value) || 0); save('Bend radius', { ...s, role: { ...role, bendRadius: r || undefined } }) }} /></label>
 		{/if}
 	</PropGroup>
 {/if}

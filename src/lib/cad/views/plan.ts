@@ -4,6 +4,7 @@ import type { Id, Pt, Outlet, Rack, Underlay } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, byDrawOrder, outlineOf } from '../domain/shapes'
+import { corners, trimmedEnds } from '../domain/bends'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
@@ -232,6 +233,14 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 	const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
 	const w = s.section?.w ?? 50
 	const out: Prim[] = []
+	// corners with a radius (backlog "Bend radius"): the segments stop at the arc's tangent points, the arc joins them
+	const bends = corners(s), colour = s.style?.stroke ? { color: s.style.stroke } : {}
+	for (const bd of bends.values()) {
+		const n = nodes.get(bd.node)
+		if (bd.r <= 0 || (n?.levelId ?? s.levelId) !== levelId) continue
+		const segW = s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w)
+		out.push({ k: 'line', pts: bd.arc, w: Math.min(...segW), cls, src: s.id, ...colour })
+	}
 	for (const sg of s.geom.segs) {
 		const a = nodes.get(sg.a), b = nodes.get(sg.b)
 		if (!a || !b) continue
@@ -245,7 +254,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
 			// a segment's own size wins (a reducer); a run's own colour (several runs edited at once) over the tier's
-			out.push({ k: 'line', pts: [a, b], w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...(s.style?.stroke ? { color: s.style.stroke } : {}) })
+			out.push({ k: 'line', pts: trimmedEnds(bends, sg.id, a, b), w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...colour })
 		}
 	}
 	// the run's label sits along it, by the middle of its longest segment on this level (UX review L3: at the first node

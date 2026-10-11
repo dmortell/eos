@@ -2197,3 +2197,17 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the selected run has picked segments. Tests in `editor/handles.test.ts`. Live (Test Project, TR2 300 mm): picked
   segment 1–3, dragged the bar 20 px → W 680 on that segment only (Properties), the other 300; Undo → Firestore: TR2
   300 × 100, no per-segment section. Help: "Add a point to a run, or pick one segment".
+- **Bend radius (backlog, G270; "do 26"):** `domain/bends.ts` `corners(shape)` — a node where exactly two level
+  segments of the run meet (not straight on): its radius = the node's own `radius` (0 = sharp) else the run's new
+  `ContainmentRole.bendRadius`, cut to what fits (tangent points within half of each side); the arc as points, the
+  tangent points, the bisector. The plan (`views/plan.ts` `runPrims`) draws each segment to its tangent points
+  (`trimmedEnds`) and the arc between, in the run's width / colour. Properties › Size and height › **Bend radius**
+  (containment runs). `editor/handles.ts` `bendHandles(shape, gap)`: a round grip on each corner's bisector, `gap`
+  (2 × the pick tolerance, or half the width) in from the arc's middle so a sharp corner's grip is off its node grip;
+  dragged along the bisector it sets that node's `radius` (10 mm, Shift 50, Alt free; capped at what fits, on the
+  step), dropped again at the run's default. Lengths / routing / fill still measure to the corner. Tests in
+  `domain/bends.test.ts` (+ the segment-width test's types fixed). Live (Test Project, the 1F high trunk): Bend radius
+  300 → the L-corner drawn as an arc, its grip dragged in → 383 mm (= the most that fits, before the cap was put on
+  the step). **The undo didn't run:** editing handles.ts mid-test hot-reloaded the shell and emptied its history; the
+  trunk was put back in-page with `db.replace` (no `bendRadius`, no node radius) and checked. Memory saved. Help:
+  "Round a run's corners (bend radius)".
