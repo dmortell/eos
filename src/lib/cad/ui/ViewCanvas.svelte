@@ -39,6 +39,7 @@
 	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
 	import PortTip from './PortTip.svelte'
+	import OutletTip from './OutletTip.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
 	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
@@ -524,6 +525,7 @@
 	{/if}
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
 	{#if spec.kind === 'row'}<PortTip ix={project.index} {prims} {cursor} {cam} face={spec.face} dragging={toolDown || !!panning} />{/if}
+	{#if spec.kind === 'plan' && ws.toolId === 'select'}<OutletTip ix={project.index} {prims} {cursor} {cam} dragging={toolDown || !!panning} />{/if}
 	{#if ws.textEdit && active}{#key ws.textEdit}<TextEditBox {project} {ws} {space} {cam} {prims} frame={vpe ? { space: vpe.space, prims: vpe.prims, toPaper: vpe.toPaper } : undefined} />{/key}{/if}
 </div>
 

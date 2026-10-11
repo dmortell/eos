@@ -2370,3 +2370,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   mm apart; the strip shows the key (a swatch per room). Over the plan, under the selected outlet's green route. Test
   in `views/overlays.test.ts`. Live (Test Project 1F): 4 segments in 33IDF2's colour, the key "33IDF2"; toggled off.
   Help: "See every cable route on a plan".
+- **Usage colours and outlet tips (backlog, G016 / G038 / G062 / G137 / T024; "do 4"):** `domain/usages.ts`
+  `usageColour` (the settings entity's list). Plan: an outlet's symbol prims (not its label) take its usage colour
+  (`views/plan.ts`; the same rule as a layer colour: outlet symbols fill with it). Rack views: a port cabled to an
+  outlet gets a tint of that outlet's usage colour inside its edge (`port-usage`, 35 %, unpickable, drawn over the
+  cell under its label; the patched / linked edges stay) — screen and PDF. Plan tip: `views/portTip.ts`
+  `outletUnder` / `outletTip`, `ui/OutletTip.svelte` (Select tool, at once, the port tip's look): label, usage · tier ·
+  mount, each port → its panel port or "not allocated". Tests in `views/portTip.test.ts`. Live (Test Project 1F):
+  the tip on A.002 ("Desk · low · wall", 01A.002A → P3C · P3C-37 : 28 (rear) …); 58 tinted ports on 33IDF2 in three
+  usage colours. Help: "Usage colours and outlet tips".

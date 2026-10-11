@@ -16,6 +16,7 @@ import type { Bounds, Prim, Dash } from './display'
 import { DASHES } from './display'
 import { blockPrims } from './blocks'
 import { defaultOutletBlock, outletAttrs, insertAttrs, type Block } from '../domain/blocks'
+import { usageColour } from '../domain/usages'
 
 export interface PlanOpts {
 	/** 1:N — text and symbols are drawn at a constant paper size, so they scale with N. */
@@ -62,7 +63,11 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	}
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
 	out.push(...over)
-	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) out.push(...outletPrims(ot, k, o.blocks))
+	// outlets in their usage's colour (backlog "Usage colours and outlet tips"): the symbol, not its label
+	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) {
+		const col = usageColour((id) => ix.get(id), ot.usage)
+		out.push(...outletPrims(ot, k, o.blocks).map((p) => (col && p.k !== 'text' && p.k !== 'image' ? { ...p, color: col } : p)))
+	}
 	// section cut lines (Phase 6.2) on top
 	for (const sec of sectionsOn(ix, levelId)) out.push(...sectionMarks(sec, k))
 	return declutter(out)

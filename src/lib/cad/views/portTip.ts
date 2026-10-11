@@ -2,9 +2,9 @@
 // cable plugged into it (to an outlet port, or another panel's port: a tie / backbone) and the patch cords on it.
 // Pure; tested in portTip.test.ts. Shown by PortTip.svelte.
 import type { ProjectIndex } from '../domain/project'
-import type { PortRef } from '../domain/types'
+import type { Outlet, PortRef, ProjectSettings } from '../domain/types'
 import type { Prim } from './display'
-import { inPolygon } from '../editor/pick'
+import { inPolygon, primDist } from '../editor/pick'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
@@ -32,5 +32,29 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 		if (other) out.push(`cord → ${ix.portPlace(other)} · ${c.lengthM} m${c.status !== 'installed' ? ` · ${c.status}` : ''}`)
 	}
 	if (out.length === 1 && !label) out.push('not connected')
+	return out
+}
+
+/** The OUTLET under `p` on a plan (backlog "Usage colours and outlet tips"): the topmost prim of an outlet within
+ *  `tol` mm. */
+export function outletUnder(ix: ProjectIndex, prims: Prim[], p: { x: number; y: number }, tol: number): Outlet | null {
+	for (let i = prims.length - 1; i >= 0; i--) {
+		const q = prims[i]
+		if (!q.src || primDist(q, p) > tol) continue
+		const o = ix.get(q.src)
+		if (o?.type === 'outlet') return o
+	}
+	return null
+}
+
+/** The outlet tip's lines: its label, its usage · tier · mount, then each port's label and the panel port it's on. */
+export function outletTip(ix: ProjectIndex, o: Outlet): string[] {
+	const st = ix.get('settings') as ProjectSettings | undefined
+	const usage = st?.usages?.find((u) => u.id === o.usage)?.label ?? o.usage
+	const out = [o.label, [usage, o.tier, o.mount].filter(Boolean).join(' · ')]
+	for (const pt of o.ports) {
+		const far = ix.farEnd({ on: o.id, port: pt.port })
+		out.push(`${pt.label} → ${far ? ix.portPlace(far) : 'not allocated'}`)
+	}
 	return out
 }

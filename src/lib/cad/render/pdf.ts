@@ -41,7 +41,7 @@ const STYLES: Record<string, Style> = {
 	outlet: { stroke: '#1d4ed8', fill: '#3b82f6' }, 'outlet-high': { dash: [0.8, 0.5] },
 	device: { stroke: '#334155', fill: '#cbd5e1' }, 'device-panel': { fill: '#e0f2fe' }, 'device-switch': { fill: '#dcfce7' },
 	port: { stroke: '#94a3b8', fill: '#f8fafc' }, 'port-labelled': { fill: '#fef9c3' }, 'port-linked': { fill: '#e0f2fe', stroke: '#0284c7' }, 'port-patched': { stroke: '#16a34a' },
-	'port-reserved': { fill: '#f5f3ff', stroke: '#8b5cf6' }, 'port-stale': { stroke: '#dc2626' }, 'port-mid': { stroke: '#334155' },
+	'port-reserved': { fill: '#f5f3ff', stroke: '#8b5cf6' }, 'port-usage': { stroke: 'none', fillOpacity: 0.35 }, 'port-stale': { stroke: '#dc2626' }, 'port-mid': { stroke: '#334155' },
 	'port-label': { text: '#0c4a6e' }, 'pdu-inlet': { stroke: '#7f1d1d', fill: '#dc2626' }, 'pdu-socket': { stroke: '#1f2937', fill: '#f8fafc' }, 'u-label': { text: '#94a3b8' }, 'u-clash': { text: '#dc2626', bold: true }, 'device-label': { text: '#1e293b', bold: true }, 'on-fill': { text: '#ffffff', bold: true }, 'cover-withdrawn': { text: '#b91c1c' }, 'on-ports-small': { text: '#0f172a', bold: true }, 'device-stale': { text: '#b91c1c' },
 	cord: { width: 0.4, opacity: 0.85 }, 'cord-add': { dash: [1.5, 0.8] }, 'cord-replace': { dash: [2, 0.5, 0.5, 0.5, 0.5, 0.5] }, 'cord-remove': { dash: [0.5, 0.8], opacity: 0.5 },
 	'device-other': { stroke: '#a1a1aa', dash: [1, 0.7], fill: 'none' }, 'device-other-label': { text: '#a1a1aa' },
@@ -95,7 +95,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type
 		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
-		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')))) && p.fill
+		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls === 'port-usage' || p.cls.endsWith(' ink')))) && p.fill
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.cls.includes('on-fill') ? st.text : p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {

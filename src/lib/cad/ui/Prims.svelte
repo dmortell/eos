@@ -67,7 +67,7 @@
 			<!-- an outline with holes (a ring of runs): one path, even-odd, so the middle stays clear -->
 			<path d={ringsOf(p)} fill-rule="evenodd" class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && p.cls.startsWith('run-body') ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls === 'port-usage' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->
@@ -223,6 +223,8 @@
 	text.fill-label.fill-over { fill: #b91c1c; }
 	/* the route a selected outlet's cables take: green dashes, so it doesn't read as selected (selection is amber) */
 	/* every cable's route (the plan's Routes toggle), in its server room's colour */
+	/* a panel port cabled to an outlet: a light tint of its usage colour (backlog "Usage colours") */
+	.port-usage { stroke: none; fill-opacity: 0.35; pointer-events: none; }
 	.all-route { stroke-width: 3; opacity: 0.75; fill: none; stroke-linecap: round; }
 	.trace-route { stroke: #10b981; stroke-width: 4; stroke-dasharray: 8 5; opacity: 0.85; fill: none; stroke-linecap: round; }
 	.trace-port { fill: #f59e0b; fill-opacity: 0.35; stroke: #d97706; stroke-width: 2; }

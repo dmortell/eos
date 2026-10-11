@@ -51,3 +51,11 @@ export function usageUses(all: Iterable<Entity>, id: string): { outlets: number;
 /** The project's usages by label, A → Z (Dave 2026-10-05: in the Settings dialog and every dropdown). */
 export const sortedUsages = (st: Pick<ProjectSettings, 'usages'> | undefined): Usage[] =>
 	[...(st?.usages ?? [])].sort((a, b) => naturalCompare(a.label, b.label))
+
+/** A usage's colour from the project's list (the settings entity in `all`), for tinting outlets and their panel ports
+ *  (backlog "Usage colours and outlet tips"); undefined = no such usage / no colour. */
+export function usageColour(get: (id: string) => Entity | undefined, usage: string | undefined): string | undefined {
+	if (!usage) return undefined
+	const st = get('settings') as ProjectSettings | undefined
+	return st?.usages?.find((u) => u.id === usage)?.color
+}

@@ -10,6 +10,7 @@ import { changedSincePrinted } from '../domain/ports'
 import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
+import { usageColour } from '../domain/usages'
 
 export const RU_MM = 44.45
 const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
@@ -204,6 +205,10 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
+				// a port cabled to an outlet: a light tint of the outlet's usage colour, inside its edge (backlog "Usage colours")
+				const far = linked ? ix.farEnd(ref) : null, fo = far ? ix.get(far.on) : undefined
+				const tint = fo?.type === 'outlet' ? usageColour((id) => ix.get(id), fo.usage) : undefined
+				if (tint) out.push({ k: 'line', pts: [{ x: c.x + 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + c.h - 3 }, { x: c.x + 3, y: c.y + c.h - 3 }], closed: true, fill: true, cls: 'port-usage', color: tint })
 				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				if (!label) continue
 				const { full, short } = labelLines(label)
