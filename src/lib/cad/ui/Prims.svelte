@@ -13,6 +13,8 @@
 	let { prims, selected, k }: { prims: Prim[]; selected: Set<Id>; k?: number } = $props()
 
 	const ptsOf = (p: { pts: { x: number; y: number }[] }) => p.pts.map((q) => `${q.x},${q.y}`).join(' ')
+	const ringsOf = (p: { pts: { x: number; y: number }[]; holes?: { x: number; y: number }[][] }) =>
+		[p.pts, ...(p.holes ?? [])].map((r) => `M${r.map((q) => `${q.x},${q.y}`).join('L')}Z`).join('')
 	// a shape's own lineweight (paper mm → screen px at 96 dpi, as CAD shows lineweights) and line type (backlog "Shape style")
 	const lw = (p: Prim) => (p.k !== 'image' && p.weight ? `${Math.max(0.75, p.weight * 3.78)}px` : undefined)
 	const DASH = { dashed: [6, 4], dotted: [1.5, 3], dashdot: [8, 3, 1.5, 3] } as const
@@ -61,7 +63,10 @@
 		{@const href = hrefOf(p.url)}
 		{#if href}<image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : p.fit === 'centre' ? 'xMidYMid meet' : 'none'} clip-path={clipOf(p)} />{/if}
 	{:else if p.k === 'line'}
-		{#if p.closed}
+		{#if p.closed && p.holes?.length}
+			<!-- an outline with holes (a ring of runs): one path, even-odd, so the middle stays clear -->
+			<path d={ringsOf(p)} fill-rule="evenodd" class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && p.cls.startsWith('run-body') ? col : undefined} clip-path={clipOf(p)} />
+		{:else if p.closed}
 			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->

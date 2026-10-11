@@ -8,7 +8,9 @@ export const PLOT_SCALE = 100
 export type Prim = (
 	/** A polyline or polygon. `w` = a real width in drawing mm (a trunk, a wall); absent = a hairline. `sub` = a part of
 	 *  the source entity (a port number). */
-	| { k: 'line'; pts: Pt[]; closed?: boolean; fill?: boolean; w?: number; cls: string; src?: Id; sub?: string }
+	| { k: 'line'; pts: Pt[]; closed?: boolean; fill?: boolean; w?: number; cls: string; src?: Id; sub?: string
+		/** A closed, filled outline's holes (a ring of runs): drawn as edges, left unfilled (even-odd). */
+		holes?: Pt[][] }
 	| { k: 'circle'; c: Pt; r: number; fill?: boolean; cls: string; src?: Id; sub?: string }
 	/** Text: `size` in drawing mm (already scaled from paper mm by the generator). LOD: drawn only while the text is at
 	 *  least `minPx` and at most `maxPx` screen px tall (port labels: short form when small, full form when big). */

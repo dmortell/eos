@@ -5,7 +5,7 @@ import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, byDrawOrder, outlineOf } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
-import { outlineLoops, roundCorners, endCorners, type OutlineEdge } from '../domain/runOutline'
+import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
 import { layersOf, layerOf } from '../domain/layers'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
@@ -266,8 +266,9 @@ function runBodies(ix: ProjectIndex, shapes: Shape[], levelId: Id): { low: Prim[
 		if (!b.edges.length) continue
 		const r = Math.min(...b.edges.map((e) => e.w)) / 4, sharp = endCorners(b.edges)
 		const cls = `run-body${b.high ? ' run-high run-ceiling' : ''}${b.primary ? ' run-primary' : ''}`
-		for (const loop of outlineLoops(b.edges))
-			(b.high ? high : low).push({ k: 'line', pts: roundCorners(loop, r, sharp), closed: true, fill: true, cls, ...(b.layer ? { layer: b.layer } : {}), ...(b.color ? { color: b.color } : {}) })
+		// a ring of runs gives an outside loop and its hole: the hole goes with the loop round it, so it stays unfilled
+		for (const { outer, holes } of nestLoops(outlineLoops(b.edges).map((l) => roundCorners(l, r, sharp))))
+			(b.high ? high : low).push({ k: 'line', pts: outer, closed: true, fill: true, cls, ...(holes.length ? { holes } : {}), ...(b.layer ? { layer: b.layer } : {}), ...(b.color ? { color: b.color } : {}) })
 	}
 	return { low, high }
 }

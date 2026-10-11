@@ -166,8 +166,11 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 			pdf.moveTo(a.x, a.y)
 			for (const q of rest) pdf.lineTo(q.x, q.y)
 			if (p.closed) pdf.close()
+			// holes (a ring of runs): more closed subpaths, filled even-odd so they stay clear
+			const holes = p.closed ? p.holes ?? [] : []
+			for (const [h, ...hr] of holes) { if (!h) continue; pdf.moveTo(h.x, h.y); for (const q of hr) pdf.lineTo(q.x, q.y); pdf.close() }
 			const fill = p.closed && p.fill ? st.fill ?? STYLES.filled.fill : undefined
-			if (fill && fill !== 'none') { pdf.setFillColor(fill); if (stroke === 'none') pdf.fill(); else pdf.fillStroke() }
+			if (fill && fill !== 'none') { pdf.setFillColor(fill); if (holes.length) { if (stroke === 'none') pdf.fillEvenOdd(); else pdf.fillStrokeEvenOdd() } else if (stroke === 'none') pdf.fill(); else pdf.fillStroke() }
 			else pdf.stroke()
 		}
 		setClip(undefined)

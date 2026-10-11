@@ -111,6 +111,8 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 					...(p.w ? { constantWidth: p.w } : {}),
 				})
 				entities++
+				// holes (a ring of runs): their own closed outlines
+				for (const h of p.holes ?? []) { w.addLWPolyline(h.map((q) => ({ point: point2d(q.x, -q.y) })), { layerName: layer(p), ...lineType(p), flags: LWPolylineFlags.Closed }); entities++ }
 				break
 			}
 			case 'circle':

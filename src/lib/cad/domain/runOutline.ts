@@ -104,3 +104,23 @@ export function endCorners(edges: OutlineEdge[]): (p: Pt) => boolean {
 	const ends = [...deg.values()].filter((d) => d.n === 1)
 	return (p) => ends.some((d) => vlen(sub(p, d.p)) <= d.w / 2 + 1)
 }
+
+const area = (poly: Pt[]): number => poly.reduce((s, p, i) => s + cross(p, poly[(i + 1) % poly.length]), 0) / 2
+const inside = (p: Pt, poly: Pt[]): boolean => {
+	let on = false
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+		const a = poly[i], b = poly[j]
+		if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) on = !on
+	}
+	return on
+}
+/** Loops sorted into outsides and their holes: a loop inside an odd number of others is a hole of the smallest loop
+ *  round it (a ring of runs: its inside edge). */
+export function nestLoops(loops: Pt[][]): { outer: Pt[]; holes: Pt[][] }[] {
+	const big = loops.map((l) => ({ l, a: Math.abs(area(l)) })).sort((x, y) => y.a - x.a)
+	const within = big.map(({ l }, i) => big.slice(0, i).filter((o) => inside(l[0], o.l)).map((o) => o.l))
+	const out = new Map<Pt[], Pt[][]>()
+	big.forEach(({ l }, i) => { if (within[i].length % 2 === 0) out.set(l, []) })
+	big.forEach(({ l }, i) => { if (within[i].length % 2) out.get(within[i].at(-1)!)?.push(l) })
+	return [...out].map(([outer, holes]) => ({ outer, holes }))
+}

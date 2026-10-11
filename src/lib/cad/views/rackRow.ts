@@ -287,7 +287,7 @@ function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number,
 function liftPrim(p: Prim, dz: number): Prim {
 	const m = (q: { x: number; y: number }) => ({ x: q.x, y: q.y - dz })
 	switch (p.k) {
-		case 'line': return { ...p, pts: p.pts.map(m) }
+		case 'line': return { ...p, pts: p.pts.map(m), ...(p.holes ? { holes: p.holes.map((h) => h.map(m)) } : {}) }
 		case 'circle': return { ...p, c: m(p.c) }
 		case 'text': return { ...p, at: m(p.at) }
 		case 'image': return { ...p, y: p.y - dz }

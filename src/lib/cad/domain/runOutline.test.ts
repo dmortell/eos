@@ -1,6 +1,6 @@
 // Run outlines (backlog "Trunk drawing style"): bands walked into one outline with mitred joins, corners rounded.
 import { describe, it, expect } from 'vitest'
-import { outlineLoops, roundCorners, endCorners, type OutlineEdge } from './runOutline'
+import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from './runOutline'
 import type { Pt } from './types'
 
 const has = (poly: Pt[], x: number, y: number) => poly.some((p) => Math.abs(p.x - x) < 0.01 && Math.abs(p.y - y) < 0.01)
@@ -30,5 +30,15 @@ describe('run outlines', () => {
 		expect(has(r, 0, 50) && has(r, 0, -50)).toBe(true)        // the ends: still square
 		expect(has(r, 1050, -50)).toBe(false)                     // the outer corner: rounded off
 		expect(r.length).toBeGreaterThan(p.length)
+	})
+	it('a ring of runs: one outside with its hole (left unfilled); a separate run is its own outside', () => {
+		const sq = [[0, 0], [1000, 0], [1000, 1000], [0, 1000]].map(([x, y]) => ({ x, y }))
+		const ring: OutlineEdge[] = sq.map((a, i) => ({ a, b: sq[(i + 1) % 4], w: 100 }))
+		const far: OutlineEdge = { a: { x: 3000, y: 0 }, b: { x: 4000, y: 0 }, w: 100 }
+		const nest = nestLoops(outlineLoops([...ring, far]))
+		expect(nest.map((n) => n.holes.length).sort()).toEqual([0, 1])
+		const r = nest.find((n) => n.holes.length)!
+		expect(area(r.outer)).toBeCloseTo(1100 * 1100)
+		expect(area(r.holes[0])).toBeCloseTo(900 * 900)
 	})
 })

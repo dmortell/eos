@@ -127,7 +127,7 @@ function placePrim(p: Prim, t: ReturnType<typeof toPaper>, k: number, window?: B
 		clip = window ? { x0: Math.max(own.x0, window.x0), y0: Math.max(own.y0, window.y0), x1: Math.min(own.x1, window.x1), y1: Math.min(own.y1, window.y1) } : own
 	}
 	switch (p.k) {
-		case 'line': return { ...p, pts: p.pts.map(t), ...(p.w ? { w: p.w * k } : {}), src, clip }
+		case 'line': return { ...p, pts: p.pts.map(t), ...(p.holes ? { holes: p.holes.map((h) => h.map(t)) } : {}), ...(p.w ? { w: p.w * k } : {}), src, clip }
 		case 'circle': return { ...p, c: t(p.c), r: p.r * k, src, clip }
 		case 'text': return { ...p, at: t(p.at), size: p.size * k, src, clip }
 		case 'image': { const a = t({ x: p.x, y: p.y }); return { ...p, x: a.x, y: a.y, w: p.w * k, h: p.h * k, src, clip } }

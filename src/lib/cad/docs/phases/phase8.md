@@ -2278,3 +2278,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Fixes (Dave 2026-10-12):** the Racks window shows a nameless rack as its kind (and model) in grey italics, and Find a
   device shows a nameless device as its kind (search matches the kind too). New / edit device template: the "Saved to
   the device library…" note sits on its own line above the buttons.
+- **A ring of runs stays clear inside (Dave 2026-10-12, "see 1F plan"):** `domain/runOutline.ts` `nestLoops` sorts the
+  outline's loops into outsides and their holes (a loop inside an odd number of others is a hole of the smallest one
+  round it); a closed line prim takes `holes` — screen: one `<path>` with even-odd fill; PDF: the holes as more
+  subpaths, `fillEvenOdd` / `fillStrokeEvenOdd`; DXF: each hole its own closed polyline. Kept by the sheet, rack-row
+  and issue copies of a display list. Test in `domain/runOutline.test.ts`. Live (Test Project 1F): the high trunk loop
+  → its middle clear, the floorplan showing through.
