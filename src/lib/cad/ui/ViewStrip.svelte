@@ -20,11 +20,13 @@
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
-	let { project, ws, spec, levelId, sections, section, sheet, sheetsList, onspec, onfocus, toSheet, nav }: {
+	let { project, ws, spec, levelId, sections, section, sheet, sheetsList, onspec, onfocus, toSheet, nav, routeKey }: {
 		project: CadProject; ws: Workspace; spec: ViewSpec; levelId: string
 		sections: SectionCut[]; section?: SectionCut; sheet?: Sheet; sheetsList: Sheet[]
 		onspec: (s: ViewSpec) => void; onfocus?: () => void; toSheet: (target: string) => void
 		nav?: PaneNav
+		/** the Routes overlay's colours (its server rooms), when on */
+		routeKey?: { id: string; name: string; color: string }[]
 	} = $props()
 
 	const FACES = ['front', 'rear'] as const
@@ -91,6 +93,10 @@
 		{#if spec.kind === 'plan'}
 			<button class:on={!!project.settings?.grayFloorplans} title="Floorplans in black and white, so coloured markup stands out — for the whole project: on screen, sheets, PDFs and issues" onclick={toggleGray}>B/W</button>
 			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
+			<button class:on={ws.showRoutes} title="Every cable's route along the containment, coloured by its server room" onclick={() => (ws.showRoutes = !ws.showRoutes)}>Routes</button>
+			{#if ws.showRoutes && routeKey}
+				{#each routeKey as r (r.id)}<span class="rkey" title="Cables to {r.name}"><i style:background={r.color}></i>{r.name}</span>{:else}<span class="rkey">no routed cables here</span>{/each}
+			{/if}
 		{/if}
 	{:else if spec.kind === 'row'}
 		{@const row = spec}
@@ -130,6 +136,8 @@
 	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); white-space: nowrap; overflow: hidden; }
 	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
 	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.rkey { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--cad-muted); margin-left: 4px; }
+	.rkey i { width: 10px; height: 4px; border-radius: 2px; }
 	.views button.nav { padding: 0 5px; font-weight: 600; }
 	.views button.nav:disabled { opacity: 0.35; }
 	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }

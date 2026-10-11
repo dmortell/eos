@@ -98,6 +98,49 @@ export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, 
 	return out
 }
 
+/** Colours for server rooms on the all-routes overlay, in the rooms' name order. */
+const ROOM_COLOURS = ['#0ea5e9', '#f97316', '#a855f7', '#22c55e', '#e11d48', '#eab308', '#14b8a6', '#6366f1']
+
+/** EVERY horizontal cable's route on this level (backlog "Show all routes"; the plan's Routes toggle), coloured by its
+ *  server room (the panel end's room): each run segment once per room, rooms sharing a segment drawn side by side.
+ *  `rooms` = the colour of each room drawn (for the strip's key). */
+export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id): { prims: Prim[]; rooms: { id: Id; name: string; color: string }[] } {
+	const roomOf = (linkId: Id): Id | undefined => {
+		const l = ix.get(linkId)
+		if (l?.type !== 'link') return undefined
+		const d = ix.get(l.a.on), rack = d?.type === 'device' ? ix.get(d.rackId) : undefined
+		return rack?.type === 'rack' ? rack.spaceId : undefined
+	}
+	const bySeg = new Map<string, { a: Pt; b: Pt; rooms: Set<Id> }>()
+	for (const [linkId, r] of routes) {
+		const room = roomOf(linkId)
+		if (!room) continue
+		for (const x of r.segs) {
+			const key = `${x.shape}:${x.seg}`
+			let e = bySeg.get(key)
+			if (!e) {
+				const s = ix.get(x.shape)
+				if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
+				const g = s.geom, sg = g.segs.find((q) => q.id === x.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
+				if (!a || !b || (a.levelId ?? s.levelId) !== levelId || (b.levelId ?? s.levelId) !== levelId || Math.hypot(b.x - a.x, b.y - a.y) < 0.5) continue
+				bySeg.set(key, (e = { a, b, rooms: new Set() }))
+			}
+			e.rooms.add(room)
+		}
+	}
+	const all = [...new Set([...bySeg.values()].flatMap((e) => [...e.rooms]))].map((id) => ({ id, name: ix.nameOf(id) })).sort((p, q) => p.name.localeCompare(q.name, undefined, { numeric: true }))
+	const color = new Map(all.map((r, i) => [r.id, ROOM_COLOURS[i % ROOM_COLOURS.length]]))
+	const prims: Prim[] = []
+	for (const { a, b, rooms } of bySeg.values()) {
+		const list = all.filter((r) => rooms.has(r.id)), len = Math.hypot(b.x - a.x, b.y - a.y), nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len
+		list.forEach((r, i) => {
+			const off = (i - (list.length - 1) / 2) * 60   // side by side, 60 mm apart
+			prims.push({ k: 'line', pts: [{ x: a.x + nx * off, y: a.y + ny * off }, { x: b.x + nx * off, y: b.y + ny * off }], cls: 'all-route', color: color.get(r.id) })
+		})
+	}
+	return { prims, rooms: all.map((r) => ({ ...r, color: color.get(r.id)! })) }
+}
+
 /** The OTHER pane's work plane, drawn here: a depth line in plan, a height line in an elevation. */
 export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], depth: number, z: number, band?: { front: number; back: number }): Prim[] {
 	const b = unionBounds(prims.map(primBounds))

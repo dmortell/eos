@@ -41,7 +41,7 @@
 	import PortTip from './PortTip.svelte'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
+	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
@@ -123,6 +123,8 @@
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])
+	// the Routes toggle: every cable's route, coloured by server room (backlog "Show all routes")
+	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId) : null)
 	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
 	/** The work plane's grip and its value (views/overlays.ts): drag it (Select tool) to set the elevation's work depth /
 	 *  the plan's Z, 10 mm steps (Alt: free); double-click it in the plan → auto depth again. */
@@ -497,6 +499,7 @@
 			<Prims prims={wGripPrims} selected={new Set()} k={cam.k} />
 			<Prims prims={traceHighlight} selected={new Set()} k={cam.k} />
 			<Prims prims={fillOverlay} selected={new Set()} />
+			{#if allRoutes}<Prims prims={allRoutes.prims} selected={new Set()} />{/if}
 			<Prims prims={routeHighlight} selected={new Set()} />
 			<Prims prims={vpHighlight} selected={new Set()} />
 			{#if vpe && sheet}
@@ -514,7 +517,7 @@
 			{/if}
 		</g>
 	</svg>
-	<ViewStrip {project} {ws} {spec} {levelId} {sections} {section} {sheet} {sheetsList} {onspec} {onfocus} {toSheet} {nav} />
+	<ViewStrip {project} {ws} {spec} {levelId} {sections} {section} {sheet} {sheetsList} {onspec} {onfocus} {toSheet} {nav} routeKey={allRoutes?.rooms} />
 	{#if sheet && active}
 		{@const chipVp = vpe?.vp ?? (ws.selection.includes(sheet.id) ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined)}
 		{#if chipVp}<ViewportChip {project} {ws} {sheet} vp={chipVp} editing={!!vpe} {cam} onenter={() => enterVp(chipVp.id)} onexit={exitVp} />{/if}

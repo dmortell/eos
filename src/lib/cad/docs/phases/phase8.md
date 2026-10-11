@@ -2364,3 +2364,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   target, after)` (replaces `nudgeRack`) writes the row's whole hand order; another row → refused with a hint.
   Test in `views/rackRow.test.ts`. Live (Test Project 1F, IDF1 Row 1, synthetic drag events): R303 dropped on R301 →
   R303, R301, R302 (drop line shown); undone. Help: "Change the order of racks in a row".
+- **Show all routes (backlog, G049; "do 13"):** a **Routes** toggle on the plan strip (by Fill; `ws.showRoutes`, for the
+  session) draws every cable's route — `views/overlays.ts` `allRoutesOf`: each run segment once per server room (the
+  link's panel end's room), in that room's colour (8 in turn, rooms by name), rooms sharing a segment side by side 60
+  mm apart; the strip shows the key (a swatch per room). Over the plan, under the selected outlet's green route. Test
+  in `views/overlays.test.ts`. Live (Test Project 1F): 4 segments in 33IDF2's colour, the key "33IDF2"; toggled off.
+  Help: "See every cable route on a plan".

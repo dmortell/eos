@@ -109,6 +109,8 @@ export class Workspace {
 	renumberMode = $state<'number' | 'replace'>('number')
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
+	/** The plan's Routes overlay: every cable's route, coloured by server room (backlog "Show all routes"). */
+	showRoutes = $state(false)
 	/** Drafting switches in the status bar (UX05): SNAP = moves / points to the grid (step `grid` mm), OSNAP = object
 	 *  snaps, GRID = the grid drawn. Kept per browser. Alt still skips the snaps for one action. */
 	drafting = $state<Drafting>(loadDrafting())

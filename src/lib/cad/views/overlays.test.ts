@@ -1,6 +1,8 @@
 // The work plane's grip (views/overlays.ts): where it sits, and what dragging it sets.
 import { describe, it, expect } from 'vitest'
-import { workPlaneGrip, workPlaneAt, outletPortCells } from './overlays'
+import { workPlaneGrip, workPlaneAt, outletPortCells, allRoutesOf } from './overlays'
+import type { Route } from '../domain/routing'
+import type { Entity } from '../domain/drawing'
 import { rackRowDisplayList } from './rackRow'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -39,5 +41,21 @@ describe('the ports of outlets picked in the list', () => {
 		expect(lit(['O2'])).toEqual(['port-sel', 'port-sel'])   // O2's two ports: P1 3 and 4
 		expect(lit(['O1', 'O2'])).toHaveLength(4)
 		expect(lit(['P1'])).toEqual([])
+	})
+})
+
+describe('all routes (the plan’s Routes toggle)', () => {
+	it('every routed cable’s run segments, coloured by its server room, each segment once per room', () => {
+		const ix = new ProjectIndex(demoProject())
+		// two cables (to the same room) along the run T1's first segment
+		const t1 = ix.get('T1') as Extract<Entity, { type: 'shape' }>, seg = t1.geom.kind === 'path' ? t1.geom.segs[0].id : ''
+		const routes = new Map(['K1', 'K2'].map((id) => [id, { linkId: id, segs: [{ shape: 'T1', seg }] } as unknown as Route]))
+		const { prims, rooms } = allRoutesOf(ix, routes, 'L33')
+		expect(rooms.map((r) => r.name)).toEqual(['IDF-A'])
+		expect(prims).toHaveLength(1)                                     // one segment, one room: drawn once
+		expect(prims.every((p) => p.k === 'line' && p.cls === 'all-route' && p.color === rooms[0].color)).toBe(true)
+		const keys = prims.map((p) => JSON.stringify((p as { pts: unknown }).pts))
+		expect(new Set(keys).size).toBe(keys.length)                       // no segment twice for one room
+		expect(allRoutesOf(ix, routes, 'nowhere').prims).toEqual([])
 	})
 })

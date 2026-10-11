@@ -222,6 +222,8 @@
 	text.fill-label.fill-warn { fill: #92400e; }
 	text.fill-label.fill-over { fill: #b91c1c; }
 	/* the route a selected outlet's cables take: green dashes, so it doesn't read as selected (selection is amber) */
+	/* every cable's route (the plan's Routes toggle), in its server room's colour */
+	.all-route { stroke-width: 3; opacity: 0.75; fill: none; stroke-linecap: round; }
 	.trace-route { stroke: #10b981; stroke-width: 4; stroke-dasharray: 8 5; opacity: 0.85; fill: none; stroke-linecap: round; }
 	.trace-port { fill: #f59e0b; fill-opacity: 0.35; stroke: #d97706; stroke-width: 2; }
 	.cord-remove { stroke-dasharray: 2 3; opacity: 0.5; }
