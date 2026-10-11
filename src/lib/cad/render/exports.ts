@@ -1,5 +1,5 @@
 // Phase 3.6 spreadsheets: the patch schedule (+ cord BOM) and the cord-ID import, panel labels for label printers,
-// and the project BOM (+ rack BOM detail). Each has a PURE table builder (tested) and an `export…` that loads exceljs
+// the port map for VLAN assignment, and the project BOM (+ rack BOM detail). Each has a PURE table builder (tested) and an `export…` that loads exceljs
 // on demand and downloads the file.
 import type { ProjectIndex } from '../domain/project'
 import type { Cord, Device, Id, PortRef, Rack } from '../domain/types'
@@ -11,6 +11,7 @@ import { panelsInFillOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
 import { download, fileSafe } from './download'
 import { scheduleTotals, type CableRow } from '../domain/cableSchedule'
+import { portMapRows } from '../domain/portMap'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` }
@@ -205,6 +206,42 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 	download(await wb.xlsx.writeBuffer(), `PanelLabels-${fileSafe(projectName)}${room ? `-${fileSafe(room.name)}` : ''}-${today()}.xlsx`, XLSX)
 	const panels = ix.devices.filter((d) => d.kind === 'panel' && (!room || (ix.get(d.rackId) as Rack | undefined)?.spaceId === room.id)).map((d) => d.id)
 	return { rows: rows.length, panels }
+}
+
+// ── Port map (VLAN assignment) ────────────────────────────────────────────────────────────────────────────────────
+
+export const PORTMAP_HEAD = ['Room', 'Rack', 'Device', 'U', 'Port', 'Port Label', 'Outlet', 'Outlet Location', 'Patched To', 'Far End', 'Cord ID', 'Cord Status', 'VLAN', 'Notes']
+
+/** The port map (domain/portMap.ts) as Excel for the network engineers: every port of the chosen panels / switches,
+ *  a heading row per device, an empty VLAN column (highlighted) to fill in. Returns the ports written. */
+export async function exportPortMap(ix: ProjectIndex, projectName: string, deviceIds: Id[]): Promise<number> {
+	const rows = portMapRows(ix, deviceIds)
+	const ExcelJS = await import('exceljs')
+	const wb = new ExcelJS.Workbook()
+	const ws = wb.addWorksheet('Port map')
+	ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+	const head = ws.addRow(PORTMAP_HEAD)
+	head.font = { bold: true, size: 10 }
+	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+	;[12, 10, 22, 5, 6, 16, 14, 18, 26, 26, 12, 10, 10, 20].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+	const vlan = PORTMAP_HEAD.indexOf('VLAN') + 1
+	let dev = ''
+	for (const r of rows) {
+		if (r.deviceId !== dev) {
+			dev = r.deviceId
+			const h = ws.addRow([`${r.device} — ${r.rack} U${r.u}${r.room ? ` · ${r.room}` : ''}`])
+			ws.mergeCells(h.number, 1, h.number, PORTMAP_HEAD.length)
+			h.font = { bold: true, size: 10 }
+			h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+		}
+		const row = ws.addRow([r.room, r.rack, r.device, r.u, r.port, r.label, r.outlet, r.outletAt, r.patchedTo, r.farEnd, r.cordId, r.cordStatus, '', ''])
+		row.font = { size: 9, ...(r.outlet || r.patchedTo ? {} : { color: { argb: 'FF9CA3AF' } }) }
+		row.getCell(vlan).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }
+	}
+	ws.views = [{ state: 'frozen', ySplit: 1 }]
+	ws.headerFooter = { oddHeader: `&C&BPort map - ${projectName}`, oddFooter: '&L&D&RPage &P / &N' }
+	download(await wb.xlsx.writeBuffer(), `PortMap-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
+	return rows.length
 }
 
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────

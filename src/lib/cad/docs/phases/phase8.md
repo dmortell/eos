@@ -2157,3 +2157,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   add), Server room A (24 add), Bill of Materials; the new header; rows by From label (4A001-01, 4A001-02, 4A002-01 …).
   Help: "Import cord IDs from a returned patch schedule", "Edit cord IDs, status and notes in the patch list"; the
   export entry. Backlog: cord label batches are typed by hand (no generating).
+- **Port map for VLANs, Slice 1 — the list (`port-map-plan.md`, Dave 2026-10-11):** `domain/portMap.ts`
+  `portMapRows(ix, deviceIds)` / `portMapDevices` — every port of the chosen panels / switches (room → rack → top U
+  down): its label, the outlet(s) at the ends of its circuit (`traceCircuit`; both for a panel-to-panel cross-connect)
+  and where they are, **Patched To** = the other end of this port's cord with its label, **Far End** = a device port
+  beyond, the cord's ID and status. `render/exports.ts` `exportPortMap`: one sheet, a heading row per device, an empty
+  highlighted VLAN column. File › Export and Cabling › "Port map (VLAN) of the selected devices" (`Exports.svelte`
+  `portMap`: selected devices, a rack's devices, or a port pick's device; none → says so). First cut put the
+  cross-connect's far panel under "Via" with Patched To empty (both circuit ends were outlets) — Patched To is now the
+  cord's other end, whatever the circuit. Tests in `domain/portMap.test.ts`. Live (Test Project, P3C-37 selected):
+  48 ports; :6 → P3C-35:6, :15 → outlets 01A.004A / 01A.031B, patched to P3C-35:15 · 01A.031B; :17 → Patch Panel HL
+  :14. Help: "Port map for VLANs (Excel for network engineers)". The drawing (Slice 2) waits for P1–P4.
