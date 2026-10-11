@@ -148,15 +148,15 @@ export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] 
 /** The key of a rack's row in `Space.rackOrder`: its row's id, `none` for a rack in no row. */
 export const rowKey = (r: Pick<Rack, 'rowId'>): string => r.rowId ?? 'none'
 
-/** Move a rack one place along its row (the racks list's ▲ / ▼, backlog "Rack order in a row"): the room's hand order
- *  for that row, written in full (the current order with the two swapped). Null = it can't move that way. */
-export function nudgeRack(ix: ProjectIndex, rackId: Id, by: -1 | 1): Space | null {
-	const r = ix.get(rackId), space = r?.type === 'rack' ? ix.get(r.spaceId) : undefined
-	if (r?.type !== 'rack' || space?.type !== 'space') return null
-	const ids = racksInOrder(ix, r.spaceId).filter((x) => rowKey(x) === rowKey(r)).map((x) => x.id)
-	const i = ids.indexOf(rackId), j = i + by
-	if (i < 0 || j < 0 || j >= ids.length) return null
-	;[ids[i], ids[j]] = [ids[j], ids[i]]
+/** Move a rack before / after another of its row (dragged in the racks list, backlog "Rack order in a row"): the room's
+ *  hand order for that row, written in full. Null = not the same row (or itself). */
+export function moveRack(ix: ProjectIndex, rackId: Id, targetId: Id, after: boolean): Space | null {
+	const r = ix.get(rackId), t = ix.get(targetId), space = r?.type === 'rack' ? ix.get(r.spaceId) : undefined
+	if (r?.type !== 'rack' || t?.type !== 'rack' || space?.type !== 'space' || t.spaceId !== r.spaceId || rowKey(t) !== rowKey(r) || r.id === t.id) return null
+	const ids = racksInOrder(ix, r.spaceId).filter((x) => rowKey(x) === rowKey(r)).map((x) => x.id).filter((id) => id !== rackId)
+	const at = ids.indexOf(targetId)
+	if (at < 0) return null
+	ids.splice(at + (after ? 1 : 0), 0, rackId)
 	return { ...space, rackOrder: { ...space.rackOrder, [rowKey(r)]: ids } }
 }
 

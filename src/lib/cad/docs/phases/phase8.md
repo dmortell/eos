@@ -2359,3 +2359,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/outletTool.ts`; a port beyond the last outlet's count takes its first port's room; the **first outlet on a
   level** takes the level's server room when it has exactly one. Test in `editor/editor.test.ts`. Live (Test Project
   1F): the bar's Zone / Server room lists; an outlet's Zone → Zone A, undone. Help: "An outlet's zone and server room".
+- **Drag racks to reorder in the Racks window (backlog, Dave 2026-10-12; "do 10"):** the ▲ / ▼ buttons are gone; a rack
+  drags up / down its row (`DragReorder`, a ⠿ grip on hover, a drop line). `domain/devices.ts` `moveRack(ix, id,
+  target, after)` (replaces `nudgeRack`) writes the row's whole hand order; another row → refused with a hint.
+  Test in `views/rackRow.test.ts`. Live (Test Project 1F, IDF1 Row 1, synthetic drag events): R303 dropped on R301 →
+  R303, R301, R302 (drop line shown); undone. Help: "Change the order of racks in a row".

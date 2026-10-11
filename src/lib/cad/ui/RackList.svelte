@@ -5,7 +5,8 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Rack, RackRow } from '../domain/types'
 	import { naturalCompare } from '../domain/labels'
-	import { racksInOrder, newServerRoom, nextRoomName, nudgeRack, planOrder, rowKey } from '../domain/devices'
+	import { racksInOrder, newServerRoom, nextRoomName, moveRack, planOrder, rowKey } from '../domain/devices'
+	import { DragReorder } from '$lib'
 	import { markPrinted } from '../domain/ports'
 	import { exportPanelLabels } from '../render/exports'
 	import { exportFrameSheets } from '../render/frameSheets'
@@ -106,11 +107,12 @@
 		anchor = r.id
 		ws.select(e.ctrlKey || e.metaKey ? (selected.has(r.id) ? ws.selection.filter((x) => x !== r.id) : [...ws.selection, r.id]) : [r.id])
 	}
-	/** ▲ / ▼: one place along its row (the rack view's order), kept as the room's hand order for that row. */
-	function nudge(r: Rack, by: -1 | 1) {
-		const next = nudgeRack(project.index, r.id, by)
-		if (next) project.store.transact(`Rack order: ${r.name} ${by < 0 ? 'left' : 'right'}`, (tx) => tx.put(next))
-	}
+	/** Drag a rack up / down its row (the rack view's order, Dave 2026-10-12), kept as the room's hand order for that row. */
+	const drag = new DragReorder((id, targetId, after) => {
+		const next = moveRack(project.index, id, targetId, after), r = project.index.get<Rack>(id)
+		if (next) project.store.transact(`Rack order: ${r?.name ?? 'rack'}`, (tx) => tx.put(next))
+		else ws.say('A rack moves within its own row — set its row in Properties to move it to another')
+	}, (id) => groups.flatMap((g) => g.racks).findIndex((x) => x.id === id))
 	function resetOrder(spaceId: string, key: string, what: string) {
 		const s = project.index.get(spaceId)
 		if (s?.type === 'space') project.store.transact(`${what}: rack order from the plan`, (tx) => tx.put(planOrder(s, key)))
@@ -153,14 +155,11 @@
 					</span></div>
 			{:else if g.parts.length > 1 || g.hand.none}<div class="rowh"><span>No row</span>
 				{#if g.hand.none}<button class="place" title="Put these racks back in the plan's order (left to right as drawn)" onclick={() => resetOrder(g.space, 'none', g.name)}>↺ plan order</button>{/if}</div>{/if}
-		{#each part.racks as r, i (r.id)}
-			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row}>
+		{#each part.racks as r (r.id)}
+			<!-- dragged up / down its row: the rack view's order, fixed by hand where the plan gets it wrong -->
+			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row} {...drag.row(r.id)} class:drag-before={drag.isBefore(r.id)} class:drag-after={drag.isAfter(r.id)}>
+				<span class="grip" title="Drag up / down its row to change the rack view's order" aria-hidden="true">⠿</span>
 				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{#if r.name.trim()}{r.name}{:else}<span class="nameless">{r.kind}{r.model ? ` · ${r.model}` : ''}</span>{/if}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
-				<!-- the rack view's order, fixed by hand where the plan gets it wrong (backlog "Rack order in a row") -->
-				<span class="nudge">
-					<button disabled={i === 0} title="Move it one place left in the rack view (up this list)" onclick={() => nudge(r, -1)}>▲</button>
-					<button disabled={i === part.racks.length - 1} title="Move it one place right in the rack view (down this list)" onclick={() => nudge(r, 1)}>▼</button>
-				</span>
 				{#if !r.at}
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}
@@ -192,11 +191,10 @@
 	.rack.sel { background: var(--cad-pick); }
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
 	.nameless { color: var(--cad-muted); font-style: italic; }
+	.grip { visibility: hidden; cursor: grab; color: var(--cad-faint); font-size: 10px; padding-right: 2px; }
+	.rack:hover .grip { visibility: visible; }
+	.rack.drag-before { box-shadow: inset 0 2px 0 var(--cad-link, #2563eb); }
+	.rack.drag-after { box-shadow: inset 0 -2px 0 var(--cad-link, #2563eb); }
 	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
 	.place:hover, .place.armed { background: var(--cad-sel); }
-	.nudge { display: none; }
-	.rack:hover .nudge { display: inline-flex; }
-	.nudge button { font-size: 9px; color: var(--cad-muted); padding: 0 3px; border-radius: 3px; }
-	.nudge button:hover:not(:disabled) { color: #2563eb; background: var(--cad-sel); }
-	.nudge button:disabled { opacity: 0.25; }
 </style>
