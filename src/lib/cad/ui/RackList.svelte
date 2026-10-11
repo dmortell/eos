@@ -15,6 +15,7 @@
 	import SideSection from './SideSection.svelte'
 	import FindDevice from './FindDevice.svelte'
 	import ContextMenu from './ContextMenu.svelte'
+	import InlineName from './InlineName.svelte'
 	import type { MenuItem } from './cadMenus'
 
 	let { project, ws, levelId, projectName, onview }: { project: CadProject; ws: Workspace; levelId: string; projectName: string; onview?: (s: ViewSpec) => void } = $props()
@@ -72,13 +73,22 @@
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of r.panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Panel PDF failed: ${(e as Error).message}` }
 	}
+	// "+ Server room": a form in the list — which floor (the open one by default) and its name (Dave 2026-10-12)
+	let adding = $state<{ levelId: string; name: string; typed: boolean } | null>(null)
+	const floors = $derived([...project.index.levels].sort((a, b) => b.number - a.number || a.order - b.order))
+	function startAdd() { adding = { levelId, name: nextRoomName(project.index, levelId), typed: false } }
+	function pickFloor(id: string) { if (adding) adding = { ...adding, levelId: id, name: adding.typed ? adding.name : nextRoomName(project.index, id) } }
 	function addRoom() {
-		ws.askText('New server room name', nextRoomName(project.index, levelId), (t) => {
-			if (!t.trim()) return
-			const room = newServerRoom(project.index, levelId, t.trim())
-			project.store.transact(`New server room ${room.name}`, (tx) => tx.put(room))
-		})
+		const a = adding, name = a?.name.trim()
+		if (!a || !name) return
+		const room = newServerRoom(project.index, a.levelId, name)
+		project.store.transact(`New server room ${room.name}`, (tx) => tx.put(room))
+		adding = null
+		if (a.levelId !== levelId) ws.say(`${room.name} added on ${project.index.nameOf(a.levelId)} — open that floor to see it here`)
 	}
+	function focus(el: HTMLInputElement) { el.focus(); el.select() }
+	/** Keys stay in the form (not the plan's shortcuts); Esc closes it. */
+	function addKey(e: KeyboardEvent) { e.stopPropagation(); if (e.key === 'Escape') adding = null }
 	/** The room at a glance (its name's tooltip): "4F · 2 rows · 6 racks · 48 devices". */
 	function summary(spaceId: string, racks: Rack[]): string {
 		const room = project.index.get(spaceId) as { levelId?: string } | undefined
@@ -107,18 +117,26 @@
 	}
 	function rename(spaceId: string, name: string) {
 		const s = project.index.get(spaceId)
-		if (s?.type !== 'space') return
-		ws.askText('Room name', name, (t) => { if (t.trim() && t.trim() !== s.name) project.store.transact(`Rename room ${s.name} → ${t.trim()}`, (tx) => tx.put({ ...s, name: t.trim() })) })
+		if (s?.type === 'space') project.store.transact(`Rename room ${s.name} → ${name}`, (tx) => tx.put({ ...s, name }))
 	}
 </script>
 
 {#if roomMenu}<ContextMenu x={roomMenu.x} y={roomMenu.y} items={roomItems(roomMenu)} onclose={() => (roomMenu = null)} />{/if}
 <SideSection key="racks" title="Racks">
-	{#snippet actions()}<button title="Add a server room to this level (racks belong to a room)" onclick={addRoom}>+ Server room</button>{/snippet}
+	{#snippet actions()}<button title="Add a server room (racks belong to a room)" onclick={startAdd}>+ Server room</button>{/snippet}
+	{#if adding}
+		<!-- the new room: its floor and name; Enter adds, Esc closes -->
+		<div class="add">
+			<label>Floor <select value={adding.levelId} onchange={(e) => pickFloor(e.currentTarget.value)} onkeydown={addKey}>
+				{#each floors as l (l.id)}<option value={l.id}>{l.name}{l.id === levelId ? ' (open)' : ''}</option>{/each}</select></label>
+			<label>Name <input use:focus value={adding.name} oninput={(e) => { if (adding) adding = { ...adding, name: e.currentTarget.value, typed: true } }} onkeydown={(e) => { addKey(e); if (e.key === 'Enter') addRoom() }} /></label>
+			<span class="btns"><button onclick={() => (adding = null)}>Cancel</button><button class="go" disabled={!adding.name.trim()} onclick={addRoom}>Add room</button></span>
+		</div>
+	{/if}
 	<FindDevice {project} {ws} {onview} />
 	{#each groups as g (g.space)}
 		<div class="room">
-			<button class="roomname" title={summary(g.space, g.racks)} onclick={() => rename(g.space, g.name)}>{g.name}</button>
+			<InlineName value={g.name} title={summary(g.space, g.racks)} onsave={(t) => rename(g.space, t)} />
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
 				<button class="acts" title="Room actions (exports)" onclick={(e) => { const b = e.currentTarget.getBoundingClientRect(); roomMenu = { x: b.left, y: b.bottom + 2, space: g.space, name: g.name } }}>⋯</button>
@@ -128,7 +146,7 @@
 		{#each g.parts as part (part.row?.id ?? '')}
 			{#if part.row}
 				{@const row = part.row}
-				<div class="rowh"><span>{row.name} <span class="n">{part.racks.length}</span></span>
+				<div class="rowh"><span><InlineName value={row.name} title="Click to rename this row" onsave={(t) => project.store.transact(`Rename row ${row.name} → ${t}`, (tx) => tx.put({ ...row, name: t }))} /> <span class="n">{part.racks.length}</span></span>
 					<span>
 						{#if g.hand[row.id]}<button class="place" title="Put this row's racks back in the plan's order (left to right as drawn)" onclick={() => resetOrder(g.space, row.id, row.name)}>↺ plan order</button>{/if}
 						{#if onview}<button class="place" title="Open this row's rack view" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front', rowId: row.id })}>Row view</button>{/if}
@@ -157,8 +175,13 @@
 <style>
 	.acts { width: 1.6rem; color: var(--cad-muted); font-size: 12px; border-radius: 3px; }
 	.acts:hover { color: #2563eb; background: var(--cad-hover); }
-	.roomname { color: inherit; font-size: inherit; }
-	.roomname:hover { color: #2563eb; text-decoration: underline; }
+	.add { display: grid; gap: 3px; margin: 0 4px 6px; padding: 6px; font-size: 11px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-hover); }
+	.add label { display: grid; grid-template-columns: 2.6rem 1fr; align-items: center; gap: 4px; color: var(--cad-muted); }
+	.add select, .add input { min-width: 0; font-size: 12px; color: var(--cad-text); background: var(--cad-input); border: 1px solid var(--cad-line); border-radius: 3px; padding: 0 3px; }
+	.add .btns { display: flex; justify-content: flex-end; gap: 4px; }
+	.add .btns button { padding: 0 8px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); }
+	.add .btns .go { background: #2563eb; border-color: #2563eb; color: white; }
+	.add .btns .go:disabled { opacity: 0.5; }
 	.frame { margin-left: 6px; font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 3px; }
 	.room { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; color: var(--cad-faint); }
 	.rack { display: flex; align-items: center; justify-content: space-between; border-radius: 4px; padding: 0 4px; font-size: 12px; }

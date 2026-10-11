@@ -2294,3 +2294,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   synthetic paste of a generated PNG): the spinner, a box dragged at once (shown from the blob), the upload done in
   ~3 s; the same picture again → "already in Uploads … (not uploaded again)"; the `sha256` lookup finds it (a fresh
   session's path); Undo → gone; the upload deleted (UploadThing + its `files` doc) and checked.
+- **Server rooms and rows in the Racks window, not the status bar (Dave 2026-10-12):** "+ Server room" opens a form at
+  the top of the list — Floor (every level, top first; the open one marked and picked) and Name (`nextRoomName` for
+  that floor until typed over) — Add room / Enter, Cancel / Esc; added on another floor → says so. Room and row names
+  rename in place (new `ui/InlineName.svelte`: click → an input, Enter / clicking away saves, Esc keeps it).
+  Help: "Add or rename a server room or a row of racks". Live (Test Project 1F): the form (1F (open) picked, IDF 3;
+  4F → IDF 4; Esc), "IDF Test" added and renamed in place, a row renamed, all undone.
