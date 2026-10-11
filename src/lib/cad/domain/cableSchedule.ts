@@ -45,7 +45,8 @@ export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: C
 			over90: !!r?.over90, handSet: !!r?.handSet,
 			...(r?.problem ? { problem: r.problem } : {}),
 		}
-	}).sort((a, b) => KIND[a.kind] - KIND[b.kind] || naturalCompare(a.from, b.from) || naturalCompare(a.label, b.label))
+	// by label (Dave 2026-10-11), unlabelled last; then the kind and the panel end
+	}).sort((a, b) => +!a.label - +!b.label || naturalCompare(a.label, b.label) || KIND[a.kind] - KIND[b.kind] || naturalCompare(a.from, b.from))
 }
 
 /** The schedule's totals: links, installed metres (routed only), how many have no route / are over 90 m. */

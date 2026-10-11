@@ -168,5 +168,11 @@ describe('cable schedule (Dave: on screen, then Excel)', () => {
 		const k9 = rows.find((r) => r.linkId === 'K9')!
 		expect(k9.lengthM).toBeUndefined()
 		expect(scheduleTotals(rows)).toEqual({ links: 2, metres: 12, unrouted: 1, over90: 0 })
+		expect(rows.map((r) => r.label)).toEqual(['O1.A', 'O9.A'])   // by label
+	})
+	it('sorts by label, naturally, unlabelled last', () => {
+		const ix = project([outlet('O10', 'L1', 0, 0), link('K10', 'O10'), outlet('O2', 'L1', 0, 0), link('K2', 'O2', 2)])
+		const rows = cableSchedule(ix, routeLinks(ix, { slackM: 0, wastePct: 0 }), { slackM: 0, wastePct: 0 })
+		expect(rows.map((r) => r.linkId)).toEqual(['K2', 'K10'])
 	})
 })

@@ -2087,3 +2087,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   entry rather than only the ◆: pinned and patched are separate (an unpinned port can be patched), so the ◆ stays
   "pinned". Header: "Panel (◆ pinned · green patched)". Live (Test Project 1F): A.004 U37:15, A.005 U37:17, A.008
   U37:6 / U37:7 green — the green-edged ports on P3C-37. Help: in "Re-patch a cord, or start one from a port".
+- **Cable schedule sorted by label (Dave 2026-10-11):** the dialog and its Excel export list cables by label, in
+  natural order (O2 before O10), unlabelled last; ties by kind, then the panel end (was: kind, then panel end).
+  Test in `domain/routing.test.ts`.
