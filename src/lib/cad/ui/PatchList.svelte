@@ -10,6 +10,8 @@
 	import { patchList } from '../domain/reports'
 	import { importCordIds } from '../render/exports'
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
+	import CordLabelsDialog from './CordLabelsDialog.svelte'
+	import { Icon } from '$lib'
 	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
@@ -28,7 +30,7 @@
 	const room = $derived(t.scope === 'view' && inRoomView && roomId ? { id: roomId, name: project.index.nameOf(roomId) } : undefined)
 
 	// ── the cord BOM + Excel out (a dialog) and cord IDs back in (Phase 3.6) ──
-	let bomOpen = $state(false)
+	let bomOpen = $state(false), labelsOpen = $state(false)
 	let fileInput: HTMLInputElement | undefined = $state()
 	async function importIds(file: File | undefined) {
 		if (!file) return
@@ -148,8 +150,12 @@
 		{#if removed.length}<button class="btn" title="The cords marked for removal{room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)" onclick={() => runCordAction(project, ws, removed, 'installed')}>Purge removed ({removed.length})</button>{/if}
 		<input class="find" placeholder="Find…" bind:value={t.q} />
 		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
-		<button class="btn" title="The patch schedule as Excel — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}>Export…</button>
-		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
+		<!-- the files and records (Dave 2026-10-12: easy to find): the patch list out as Excel, the cord labels bought, cord IDs back in -->
+		<span class="files">
+			<button class="btn" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch list…</button>
+			<button class="btn" title="The patch cords bought, as batches of pre-printed labels per type, length and colour: labels used and free, cords still short, where the next order continues" onclick={() => (labelsOpen = true)}><Icon name="tag" size={12} /> Cord labels…</button>
+			<button class="btn" title="Read cord IDs back from a patch list (schedule) the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
+		</span>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 	</div>
 	<!-- always there (rows mustn't jump under the pointer when the first one is picked) -->
@@ -191,6 +197,7 @@
 </div>
 {#if menu}<ContextMenu x={menu.x} y={menu.y} items={cordActionMenu(project, ws, selCords)} onclose={() => (menu = null)} />{/if}
 {#if bomOpen}<PatchScheduleDialog {project} {projectName} {roomId} thisRoom={!!room} selected={selCords} shown={rowCords} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
+{#if labelsOpen}<CordLabelsDialog {project} onclose={() => (labelsOpen = false)} />{/if}
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
@@ -210,6 +217,8 @@
 	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
+	.files { margin-left: auto; display: inline-flex; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }
+	.files .btn { display: inline-flex; align-items: center; gap: 3px; }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	.ed { padding: 0 2px; }
 	.cell { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }

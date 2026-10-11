@@ -33,7 +33,7 @@
 	const floating = $derived(t.float && !t.max && !closed), max = $derived(t.max && !closed), folded = $derived(closed || (t.folded && !t.max))
 	/** Open the closed panel, unfolded. */
 	const open = () => { set({ folded: false }); panels.toggle('bottom') }
-	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['patch', 'Patch list'], ['sheets', 'Sheets'], ['links', 'Links']]
+	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['patch', 'Patching'], ['sheets', 'Sheets'], ['links', 'Links']]
 	/** The folded bar's summary: how many rows the open table has, and how many of them are selected. */
 	const summary = $derived.by(() => {
 		const sel = new Set(ws.selection), ix = project.index

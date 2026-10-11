@@ -44,7 +44,7 @@ export interface MenuCtx {
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
-	cordBom(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void
+	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	/** Insert › Image…: pick the picture, then the Image tool. */
@@ -127,10 +127,11 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'), tool('renumber', 'Renumber'),
 			'-',
 			{ label: 'Outlets table', run: () => c.openTable('outlets') },
-			{ label: 'Patch list', run: () => c.openTable('patch') },
+			{ label: 'Patching (patch list)', run: () => c.openTable('patch') },
 			{ label: 'Links table', run: () => c.openTable('links') },
 			'-',
 			{ label: 'Patch schedule / cord BOM…', run: c.cordBom },
+			{ label: 'Cord label batches…', title: 'The patch cords bought, as batches of pre-printed labels: used, free, short, the next order', run: c.cordLabels },
 			{ label: 'Port map view of the selected devices', title: 'The selected panels / switches drawn like their faceplates, each port with its number and the item at its far end — put it on a sheet with To sheet…', run: c.portMapView },
 			{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
 			{ label: 'Cable schedule…', run: c.cableSchedule },

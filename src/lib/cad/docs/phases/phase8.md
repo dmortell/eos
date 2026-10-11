@@ -2330,3 +2330,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `domain/cordBatches.test.ts`. Live (Test Project): + Batch, 2AR-0001 … 2AR-0100 → 100 labels, 0 used, next 2AR-0001;
   Cat6A · 1 m: 1 cord, 100 labels, next order 2AR-0101; uutp kinds short 2 / 12 / 17; undone (3 steps). Assigning a free
   label to a cord from its batch is not built (offered). Help: "Record the patch cords bought (label batches)".
+- **The Patching tab (Dave 2026-10-12, "users may not find export / label batches"):** the bottom table "Patch list" is
+  now **Patching** (Cabling › Patching (patch list)). Its bar ends with a group of the files and records: **Patch list…**
+  (was Export…: the schedule as Excel + the cord BOM), **Cord labels…** (the label batches, now their own dialog —
+  `ui/CordLabelsDialog.svelte`, also Cabling › Cord label batches…; out of the schedule dialog, back to 40rem) and
+  Import cord IDs…. Help: the tab's new names. Live: the tab, the three buttons, the Cord labels dialog.

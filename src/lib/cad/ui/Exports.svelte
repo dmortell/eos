@@ -9,6 +9,7 @@
 	import BomDialog from './BomDialog.svelte'
 	import CableScheduleDialog from './CableScheduleDialog.svelte'
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
+	import CordLabelsDialog from './CordLabelsDialog.svelte'
 	import { exportOutletSchedule } from '../render/outletSchedule'
 	import { planDisplayList } from '../views/plan'
 	import { displayListToDxf } from '../render/dxf'
@@ -42,7 +43,8 @@
 		try { const n = await exportPortMap(project.index, projectName, ids); tell(`Port map: ${n} ports — fill in the VLAN column`) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
-	let bomOpen = $state(false), cablesOpen = $state(false), cordsOpen = $state(false)
+	let bomOpen = $state(false), cablesOpen = $state(false), cordsOpen = $state(false), labelsOpen = $state(false)
+	export const openCordLabels = () => (labelsOpen = true)
 	export const openBom = () => (bomOpen = true)
 	export const openCables = () => (cablesOpen = true)
 	export const openCordBom = () => (cordsOpen = true)
@@ -51,4 +53,5 @@
 {#if bomOpen}<BomDialog {project} {projectName} onclose={() => (bomOpen = false)} ondone={tell} />{/if}
 {#if cablesOpen}<CableScheduleDialog {project} {projectName} onclose={() => (cablesOpen = false)} ondone={tell} />{/if}
 {#if cordsOpen}<PatchScheduleDialog {project} {projectName} {roomId} thisRoom={!!roomId} onclose={() => (cordsOpen = false)} ondone={tell} />{/if}
+{#if labelsOpen}<CordLabelsDialog {project} onclose={() => (labelsOpen = false)} />{/if}
 
