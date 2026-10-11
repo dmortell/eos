@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 57 entries (0 P1 · 0 P2 · 57 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 56 entries (0 P1 · 0 P2 · 56 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -94,7 +94,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 - [ ] **Join runs on draw** — A run drawn from another run's node is stored as joined and follows it. "Joined nodes move together" and "Split and join runs" may cover this; check after them. **P3 · M** (~80 lines). *cad today:* routing joins runs whose nodes touch, without storing a join (`cad/domain/routing.ts:2`). *From:* G271
 - [ ] **Paste a screenshot or picture** — An image on the clipboard is uploaded and placed as an image shape. Needs image shapes first (Drafting: markup kinds). **P3 · M** (~80 lines). *cad today:* missing. *From:* G233
 - [ ] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **P3 · M** (~80 lines). *cad today:* missing. *From:* G234
-- [ ] **Segment width grip** — Drag a bar on a selected segment's edge to set that segment's width (Shift = 50 mm steps). **P3 · M** (~60 lines). *cad today:* per-segment `section` exists in the data (`PathSeg.section`, `cad/domain/shapes.ts`), no grip. *From:* G253
 
 ## Drafting commands and input
 

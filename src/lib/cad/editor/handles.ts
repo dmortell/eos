@@ -18,7 +18,8 @@ export interface Handle {
 	shape: 'square' | 'round' | 'bar' | 'grip'
 	/** A bar's two ends (it's picked anywhere along them). */
 	span?: [Pt, Pt]
-	drag?: (p: Pt, free: boolean) => Entity
+	/** `free` = Alt (no rounding); `coarse` = Shift (bigger steps, where a handle has them). */
+	drag?: (p: Pt, free: boolean, coarse?: boolean) => Entity
 	click?: () => Entity
 	/** The undo step's name (default: Edit opening / Edit section). */
 	label?: string
@@ -52,6 +53,43 @@ export function handlesFor(e: Entity): { handles: Handle[]; decor: Prim[] } {
 	if (e.type === 'shape' && e.role?.kind === 'wall') return { handles: openingHandles(e), decor: [] }
 	if (e.type === 'section') return sectionHandles(e)
 	return { handles: [], decor: [] }
+}
+
+/**
+ * The picked segments' WIDTH bars (backlog "Segment width grip", G253): on a run with a section, a bar along each picked
+ * segment's edge (half its width from the centre line, on its left). Dragging one sets every picked segment's width
+ * to twice the pointer's distance from that centre line — 10 mm steps, Shift 50 mm, Alt free; at the run's own width
+ * the segment drops its own size. Plan, level runs only; a vertical (riser) segment has none, nor one whose edge is
+ * nearer its centre line than `minHalf` (zoom in).
+ */
+export function segWidthHandles(s: Shape, segIds: string[], minHalf = 0): Handle[] {
+	if (s.geom.kind !== 'path' || !s.section || s.sheetId || !segIds.length) return []
+	const geom = s.geom, base = s.section, at = new Map(geom.nodes.map((n) => [n.id, n]))
+	const out: Handle[] = []
+	for (const g of geom.segs) {
+		const a = at.get(g.a), b = at.get(g.b)
+		if (!segIds.includes(g.id) || !a || !b) continue
+		const len = Math.hypot(b.x - a.x, b.y - a.y)
+		if (len < 1) continue
+		const n = { x: -(b.y - a.y) / len, y: (b.x - a.x) / len }, half = (g.section ?? base).w / 2
+		if (half < minHalf) continue   // the edge too near the centre line at this zoom: the bar would take the segment's drag
+		const edge = (p: { x: number; y: number }) => ({ x: p.x + n.x * half, y: p.y + n.y * half })
+		const ea = edge(a), eb = edge(b)
+		out.push({
+			at: { x: (ea.x + eb.x) / 2, y: (ea.y + eb.y) / 2 }, shape: 'bar', span: [ea, eb], label: 'Segment width',
+			drag: (p, free, coarse) => {
+				const d = Math.abs((p.x - a.x) * n.x + (p.y - a.y) * n.y) * 2, step = coarse ? 50 : 10
+				const w = Math.max(step, free ? Math.round(d) : Math.round(d / step) * step)
+				const segs = geom.segs.map((x) => {
+					if (!segIds.includes(x.id)) return x
+					const next = { ...(x.section ?? base), w }
+					return next.w === base.w && next.h === base.h ? (({ section: _drop, ...rest }) => rest)(x) : { ...x, section: next }
+				})
+				return { ...s, geom: { ...geom, segs } }
+			},
+		})
+	}
+	return out
 }
 
 function openingHandles(s: Shape): Handle[] {

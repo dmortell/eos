@@ -20,7 +20,7 @@ import { RU_MM } from '../views/rackRow'
 import { devicesBetween } from '../domain/devices'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
-import { handlesFor, handleAt, type Handle } from './handles'
+import { handlesFor, handleAt, segWidthHandles, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf } from './pathSel'
 import { angleStep, axisLock } from './constrain'
@@ -181,7 +181,11 @@ export class SelectTool implements Tool {
 	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
 		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		if (!one) return { handles: [], decor: [] }
-		if (c.space.spec.kind === 'plan') return handlesFor(one)
+		if (c.space.spec.kind === 'plan') {
+			// + the picked segments' width bars (a run with a section)
+			const r = handlesFor(one), ps = c.pathSel?.()
+			return one.type === 'shape' && ps?.shape === one.id ? { ...r, handles: [...r.handles, ...segWidthHandles(one, ps.segs, c.tol() * 1.5)] } : r
+		}
 		// a selected sheet: its title block's logos have a height grip on the paper
 		if (c.space.spec.kind === 'sheet') {
 			// the picked logo's height grip, with its outline
@@ -378,7 +382,7 @@ export class SelectTool implements Tool {
 			// a bar keeps the press point's offset along it (no jump to the pointer)
 			const q = h.shape === 'bar' ? { x: h.at.x + e.p.x - start.x, y: h.at.y + e.p.y - start.y } : e.p
 			this.#gesture ??= c.store.begin(h.label ?? (this.#handle.base.type === 'section' ? 'Edit section' : 'Edit opening'))
-			this.#gesture.update((tx) => tx.put(drag(q, e.alt)))
+			this.#gesture.update((tx) => tx.put(drag(q, e.alt, e.shift)))
 			return
 		}
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put

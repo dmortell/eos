@@ -2188,3 +2188,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   several outlets that differ none is filled. In Outlet Properties for one outlet and for several (replacing the
   selects). The Outlet tool's bar ("as last" blank, one line) and the Outlets table keep their selects. Live (Test
   Project): A.002 shows Desk filled; Printer → set, Undo → Desk. Help: "Set an outlet's usage".
+- **Segment width grip (backlog, G253; "do 33"):** `editor/handles.ts` `segWidthHandles(shape, segIds, minHalf)` — a
+  run with a section, its picked segments: a bar along each one's edge (w/2 from the centre line, its left side), on the
+  plan. Dragging sets every picked segment's width to twice the pointer's distance from that centre line: 10 mm steps,
+  **Shift 50 mm**, Alt free; back at the run's width the segment drops its own `section`. No bar on a vertical segment,
+  a sheet's line, or when the edge is within 1.5 × the pick tolerance of the centre line (it would take the segment's
+  drag — zoom in). `Handle.drag(p, free, coarse)` gained Shift; the select tool adds the bars to the plan handles when
+  the selected run has picked segments. Tests in `editor/handles.test.ts`. Live (Test Project, TR2 300 mm): picked
+  segment 1–3, dragged the bar 20 px → W 680 on that segment only (Properties), the other 300; Undo → Firestore: TR2
+  300 × 100, no per-segment section. Help: "Add a point to a run, or pick one segment".

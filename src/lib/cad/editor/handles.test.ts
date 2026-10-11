@@ -1,7 +1,7 @@
 // Handles on the plan: slide / resize an opening, step its swing; move a section's ends, drag its depth.
 import { describe, it, expect } from 'vitest'
-import { handlesFor, handleAt } from './handles'
-import { makeWall } from '../domain/make'
+import { handlesFor, handleAt, segWidthHandles } from './handles'
+import { makeWall, makeRun } from '../domain/make'
 import { makeOpening } from '../domain/openings'
 import type { Shape, Opening } from '../domain/shapes'
 import type { SectionCut } from '../domain/drawing'
@@ -54,5 +54,26 @@ describe('section handles', () => {
 		expect(handles[2].drag!({ x: 900, y: -4567 }, false)).toMatchObject({ depth: 4600 })
 		expect(handles[2].drag!({ x: 900, y: 500 }, false)).toMatchObject({ depth: 100 })   // never behind the cut
 		expect(decor[0].k === 'line' && decor[0].pts).toEqual([{ x: 0, y: 0 }, { x: 5000, y: 0 }, { x: 5000, y: -3000 }, { x: 0, y: -3000 }])
+	})
+})
+
+describe('segment width bars (backlog "Segment width grip")', () => {
+	const run = makeRun('L', [{ x: 0, y: 0 }, { x: 2000, y: 0 }, { x: 2000, y: 2000 }], { w: 200, h: 50 }, { tier: 'low', form: 'trunk' })
+	const g = run.geom.kind === 'path' ? run.geom.segs : []
+	const widthOf = (s: Shape, i: number) => (s.geom.kind === 'path' ? s.geom.segs[i].section?.w ?? s.section?.w : 0)
+	it('a bar on the picked segment\'s edge; dragging sets its width in 10 mm steps (Shift 50, Alt free)', () => {
+		const [h] = segWidthHandles(run, [g[0].id])
+		expect(h).toMatchObject({ shape: 'bar', span: [{ x: 0, y: 100 }, { x: 2000, y: 100 }] })
+		expect(widthOf(h.drag!({ x: 500, y: 163 }, false), 0)).toBe(330)
+		expect(widthOf(h.drag!({ x: 500, y: 163 }, false, true), 0)).toBe(350)
+		expect(widthOf(h.drag!({ x: 500, y: 163 }, true), 0)).toBe(326)
+		expect(widthOf(h.drag!({ x: 500, y: 163 }, false), 1)).toBe(200)   // the other segment keeps the run's
+	})
+	it('back at the run\'s width the segment drops its own size; too thin at this zoom → no bar', () => {
+		const [h] = segWidthHandles(run, [g[0].id])
+		const s = h.drag!({ x: 0, y: 100 }, false)
+		expect(s.geom.kind === 'path' && s.geom.segs[0].section).toBeUndefined()
+		expect(segWidthHandles(run, [g[0].id], 150)).toEqual([])
+		expect(segWidthHandles(run, [])).toEqual([])
 	})
 })
