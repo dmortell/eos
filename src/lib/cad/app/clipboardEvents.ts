@@ -10,11 +10,13 @@ export interface ClipboardDeps {
 	ws: Workspace
 	/** The active pane's paste target (ViewCanvas.pasteTarget). */
 	target(): { kind: 'level' | 'sheet' | 'rack'; id: string } | null | undefined
+	/** A picture on the clipboard (a screenshot; backlog "Paste a screenshot or picture"): upload it and place it. */
+	image?(file: File): void
 	/** The active pane is a rack row (a paste there needs a rack under the mouse). */
 	inRow(): boolean
 }
 
-const typing = (t: EventTarget | null) => t instanceof Element && !!t.closest('input, select, textarea, [contenteditable]')
+const typing = (t: EventTarget | null) => typeof Element !== 'undefined' && t instanceof Element && !!t.closest('input, select, textarea, [contenteditable]')
 const items = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
 /** Cut never asks (Dave): Undo brings it all back; the message says what a paste won't (links, cords). */
@@ -25,7 +27,7 @@ function cutNow(project: CadProject, ws: Workspace, ids: string[]): void {
 	ws.say(`Cut ${items(ids.length)} — Ctrl+V pastes${lost ? `; their ${lost} don't come back with a paste (Undo does)` : ''}`)
 }
 
-export function clipboardEvents({ project, ws, target, inRow }: ClipboardDeps) {
+export function clipboardEvents({ project, ws, target, inRow, image }: ClipboardDeps) {
 	function copy(e: ClipboardEvent, cut: boolean): void {
 		if (typing(e.target) || window.getSelection()?.toString() || !ws.selection.length) return
 		const clip = makeClip(project.index, ws.selection, project.pid)
@@ -41,6 +43,9 @@ export function clipboardEvents({ project, ws, target, inRow }: ClipboardDeps) {
 	function paste(e: ClipboardEvent): void {
 		if (typing(e.target)) return
 		const clip = parseClip(e.clipboardData?.getData('text/plain') ?? '')
+		// no cad items, but a picture (a screenshot, an image copied in a browser): it goes in as an image
+		const pic = clip ? undefined : [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+		if (pic && image) { e.preventDefault(); image(pic); return }
 		if (!clip) return
 		e.preventDefault()
 		const to = target()

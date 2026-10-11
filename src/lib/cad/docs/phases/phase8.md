@@ -2251,3 +2251,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   unchanged. Tests in `domain/runOutline.test.ts`, `views/plan.test.ts`. Live (Test Project 1F): the high trunk cross
   → one dashed orange outline, arms joined, corners rounded; TR2 a faint blue band with its edge; clicking TR2 still
   selects it. Help: "How runs (trunks, trays, conduits) are drawn on the plan".
+- **Paste a screenshot or picture (backlog, G233; "do 31"):** `app/clipboardEvents.ts` — a paste with no cad items but an
+  image file on the clipboard goes to the new `image` hook (the browser's own paste stopped); `CadShell.pastePicture`:
+  where the Image tool works (plan, elevation, section, sheet) it stores the file like Insert › Image's uploads
+  (`storeFile`, the project's storage; named "Pasted YYYY-MM-DD HH.MM.SS.png") and arms the Image tool with it — drag
+  its box (Esc: leave it out). Elsewhere (a rack view) it says where pictures go. `typing()` guards `Element` (node
+  tests). Tests in `app/clipboardEvents.test.ts`. Live (Test Project, a synthetic paste of a generated PNG): in the rack
+  pane → refused, nothing uploaded; in the plan → uploaded, the tool armed, a box dragged → the picture on the plan
+  (Properties: Image "Pasted 2026-10-12 00.13.36.png"); Undo → gone; the upload deleted (UploadThing via
+  `/api/uploadthing/delete`, then its `files` doc) and checked. Help: "Paste a screenshot or a picture".

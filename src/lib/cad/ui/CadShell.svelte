@@ -32,6 +32,7 @@
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
 	import { clipboardEvents } from '../app/clipboardEvents'
+	import { storeFile } from '../app/projectFiles'
 	import ToolOptions from './ToolOptions.svelte'
 	import Exports from './Exports.svelte'
 	import TablesPanel from './TablesPanel.svelte'
@@ -407,7 +408,22 @@
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true),
 	})
-	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row' })
+	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Insert › Image's uploads (the project's
+	 *  files, listed in Uploads), then the Image tool is armed with it — drag its box where it goes. */
+	async function pastePicture(file: File) {
+		if (!toolWorksIn('image', activeKind, !!vpEditKind)) { ws.say('Paste a picture into a plan, an elevation, a section or a sheet'); return }
+		const d = new Date(), two = (n: number) => String(n).padStart(2, '0')
+		const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
+		const name = `Pasted ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}.${two(d.getSeconds())}.${ext}`
+		ws.say('Uploading the pasted picture…')
+		try {
+			const r = await storeFile(project.db, project.pid, new File([file], name, { type: file.type }), { storage: project.settings?.fileStorage, route: 'imageUploader' })
+			ws.imagePick = { fileId: r.id, name }
+			setTool('image')
+			ws.say(`Pasted picture (in Uploads as “${name}”): drag its box where it goes — Esc to leave it out`)
+		} catch (e) { project.error = `Couldn't upload the pasted picture: ${(e as Error).message}` }
+	}
+	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f) })
 
 
 </script>
