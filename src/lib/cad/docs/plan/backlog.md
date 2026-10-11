@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 40 entries (0 P1 · 0 P2 · 40 P3; 1 ⚡ quick win). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 39 entries (0 P1 · 0 P2 · 39 P3; 1 ⚡ quick win). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -45,7 +45,6 @@ Small, high-value work first; nothing big until Dave has answered the decisions 
 
 Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Batch 2).
 
-- [ ] **Zones and server rooms when placing outlets** — check result: the Outlet tool copies zone and server room from the last outlet, but nothing can set a zone (only the import does), and a first outlet on a level has no server room. Add a Zone select (the level's zone spaces) to outlet Properties and to the next-outlet defaults. **P3 · S** (~30 lines; Dave 2026-10-04: low priority). *cad today:* `zoneId` carried over in `cad/editor/tools.ts:371`, server room per port at `:374`; no zone field in the UI. *From:* T057
 - [ ] **Usage colours and outlet tips** — outlets on the plan and panel port cells tinted by usage colour; an instant tip (no delay) on an outlet showing its full label and usage. **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* the port count is drawn inside the outlet symbol (2026-10-06) and port tips come with "Port hover tips"; usage colours exist in settings but nothing draws them. *From:* G016, G038, G062, G137, T024
 
 ## Levels, plans and underlays

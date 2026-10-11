@@ -118,4 +118,28 @@ describe('the outlet tool', () => {
 		expect(placed.ports).toHaveLength(4)
 		expect(placed.ports.every((p) => p.cableType === 'cat6')).toBe(true)
 	})
+	it('zone and server room: the tool bar’s, else the last outlet’s; the first on a level takes its only server room', async () => {
+		const { EntityStore } = await import('../store/store')
+		const { OutletTool } = await import('./outletTool')
+		const store = new EntityStore()
+		// no outlets yet on the level: the first one placed
+		store.load(demoProject().filter((e) => e.type !== 'outlet' && e.type !== 'link'))
+		let sel: string[] = [], next = {}
+		const tool = new OutletTool(() => next)
+		const c: ToolCtx = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 },
+			snap: (p) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		}
+		tool.down({ p: { x: 5000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		const first = store.get(sel[0]) as Outlet
+		expect(first.zoneId).toBeUndefined()
+		expect(first.ports.every((p) => p.serverRoomId === 'SR-A')).toBe(true)   // the level's only server room
+		next = { zoneId: 'Z3' }
+		tool.down({ p: { x: 6000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		expect(store.get(sel[0])).toMatchObject({ zoneId: 'Z3' })
+		next = {}
+		tool.down({ p: { x: 7000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		expect(store.get(sel[0])).toMatchObject({ zoneId: 'Z3' })                   // as the last one
+	})
 })

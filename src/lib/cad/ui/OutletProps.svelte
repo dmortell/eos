@@ -71,6 +71,22 @@
 		newRoom = true   // its name in a box under the field (not the status bar)
 	}
 	let newRoom = $state(false)
+
+	/** The zones of the outlets' level (backlog "Zones and server rooms when placing outlets"); "+" makes a new one. */
+	const zones = $derived(project.index.spaces.filter((s) => s.kind === 'zone' && s.levelId === outlets[0]?.levelId).sort((a, b) => naturalCompare(a.name, b.name)))
+	let newZone = $state(false)
+	function setZone(value: string, select: HTMLSelectElement) {
+		if (value !== '+') { setOutlets('Zone', () => ({ zoneId: value || undefined })); return }
+		select.value = same((o) => o.zoneId ?? '') ?? '?'
+		newZone = true
+	}
+	function addZone(name: string) {
+		newZone = false
+		const levelId = outlets[0]?.levelId
+		if (!levelId) return
+		const zone: Space = { type: 'space', id: newId(), levelId, kind: 'zone', name, code: name.replace(/^zone\s*/i, '') || name, order: zones.length }
+		project.store.transact(`Zone ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(zone); for (const o of outlets) tx.put({ ...o, zoneId: zone.id }) })
+	}
 	function addRoom(name: string) {
 		newRoom = false
 		const levelId = outlets[0]?.levelId
@@ -129,6 +145,7 @@
 	</label>
 	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={same((o) => o.ports.length) ?? ''} placeholder="mixed" onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
 	{@render roomField()}
+	{@render zoneField()}
 {:else if outlets.length === 1}
 	{@const o = outlets[0]}
 	{@const lv = project.index.get(o.levelId)}
@@ -169,6 +186,7 @@
 			<label class="row">Y <input class="inp" type="number" value={Math.round(o.at.y)} onchange={(e) => put(o, 'Move', { at: { ...o.at!, y: Number(e.currentTarget.value) } })} /></label>
 		{/if}
 		{@render roomField()}
+		{@render zoneField()}
 	</PropGroup>
 	<PropGroup kind="outlet" title="Ports">
 		<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={o.ports.length} onchange={(e) => portCount([o], e.currentTarget)} /></label>
@@ -200,6 +218,17 @@
 		</select>
 	</label>
 	{#if newRoom}<div class="row"><span class="text-zinc-500">New room</span><NameInput wide placeholder="Its number or name — Enter adds it" onsave={addRoom} oncancel={() => (newRoom = false)} /></div>{/if}
+{/snippet}
+
+{#snippet zoneField()}
+	<label class="row" title="The zone of the floor it's in (the Z of its port labels in the Frames format) — the next outlets placed take it too">Zone
+		<select class="inp" value={same((o) => o.zoneId ?? '') ?? '?'} onchange={(e) => setZone(e.currentTarget.value, e.currentTarget)}>
+			<option value="?" disabled>mixed</option><option value="">—</option>
+			{#each zones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
+			<option value="+">New zone…</option>
+		</select>
+	</label>
+	{#if newZone}<div class="row"><span class="text-zinc-500">New zone</span><NameInput wide placeholder="Its name or code — Enter adds it" onsave={addZone} oncancel={() => (newZone = false)} /></div>{/if}
 {/snippet}
 
 <style>

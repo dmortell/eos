@@ -3,7 +3,7 @@
 import type { Id, Level, Outlet, Device } from '../domain/types'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { SelectTool } from '../editor/selectTool'
-import { OutletTool } from '../editor/outletTool'
+import { OutletTool, type OutletNext } from '../editor/outletTool'
 import type { PathSel } from '../editor/pathSel'
 import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
@@ -119,7 +119,7 @@ export class Workspace {
 	 *  focus set after a view switch still fits (Find: set it after the new view is up, or the old view takes it). */
 	focus = $state<Id | null>(null)
 	/** The Outlet tool's settings for the next outlet (tool bar); unset = like the last one placed. */
-	outletNext = $state.raw<{ ports?: number; tier?: Outlet['tier']; usage?: string; mount?: Outlet['mount']; cableType?: string }>({})
+	outletNext = $state.raw<OutletNext>({})
 	/** The user's hidden / locked / current layers (loaded by the app with the project id). */
 	readonly layers = new LayerPrefs()
 	/** A short status message (why a click was refused …); clears itself. */

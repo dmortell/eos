@@ -2353,3 +2353,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "Row 2" (as suggested) → the rack in it, Rename → "Row 2 renamed", undone; Save as template → "New device template"
   filled in, Cancel; Make block box + Esc; Number… → "P-01" + Esc; + From selection box + Esc; outlet New room box +
   Esc; the Line tool's point prompt in its new look.
+- **Zones and server rooms when placing outlets (backlog, T057; "do 3"):** Outlet Properties › **Zone** (the level's
+  zone spaces; New zone… adds one in a box under the field, the outlets join it). The Outlet tool's bar gets **Zone**
+  and **Server room** (the open level's rooms first; "as last" = like the last outlet) — `OutletNext` in
+  `editor/outletTool.ts`; a port beyond the last outlet's count takes its first port's room; the **first outlet on a
+  level** takes the level's server room when it has exactly one. Test in `editor/editor.test.ts`. Live (Test Project
+  1F): the bar's Zone / Server room lists; an outlet's Zone → Zone A, undone. Help: "An outlet's zone and server room".
