@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 46 entries (0 P1 · 0 P2 · 46 P3; 4 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 40 entries (0 P1 · 0 P2 · 40 P3; 1 ⚡ quick win). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -40,8 +40,6 @@ Small, high-value work first; nothing big until Dave has answered the decisions 
 
 **Done** (fixed in commit d033eeb4, 2026-10-02): G001, G002, G003, G004, G092, G101, G318
 
-- [ ] ⚡ **Journey data tidy-up (for Dave)** — Set server rooms on Journey outlet ports, place the IDF1 / IDF2 racks and VCMs, mark P3A / P3C as patch frames, delete the stray second `building` doc. **P3 · S** (Dave 2026-10-05: low priority) (data work in cad, no code). *cad today:* without server rooms these ports can't be allocated. *From:* P019
-- [ ] ⚡ **Review the LR import notes** — Go through the 161 notes the LR import left and fix what is wrong. **P3 · S** (Dave 2026-10-06: low priority) (reading; fixes as found). *cad today:* the notes are listed, not reviewed. *From:* P047
 
 ## Outlets, labels and numbering
 
@@ -49,13 +47,11 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 - [ ] **Zones and server rooms when placing outlets** — check result: the Outlet tool copies zone and server room from the last outlet, but nothing can set a zone (only the import does), and a first outlet on a level has no server room. Add a Zone select (the level's zone spaces) to outlet Properties and to the next-outlet defaults. **P3 · S** (~30 lines; Dave 2026-10-04: low priority). *cad today:* `zoneId` carried over in `cad/editor/tools.ts:371`, server room per port at `:374`; no zone field in the UI. *From:* T057
 - [ ] **Usage colours and outlet tips** — outlets on the plan and panel port cells tinted by usage colour; an instant tip (no delay) on an outlet showing its full label and usage. **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* the port count is drawn inside the outlet symbol (2026-10-06) and port tips come with "Port hover tips"; usage colours exist in settings but nothing draws them. *From:* G016, G038, G062, G137, T024
-- [ ] **Label format settings** — separator (default / all periods / all hyphens), include zone, include room, with a live preview, applied to new outlets and (on request) existing ones. A full template engine is T029's decision, below. **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* a Port labels format select (201.A / 201A / 201-A / 201.1 / 201-1) that can relabel existing ports (`cad/ui/OutletGrid.svelte:111`); imported `labelPatterns` are unused (`cad/domain/types.ts:268`). *From:* G130
 
 ## Levels, plans and underlays
 
 - [ ] ❓ **Embed Uploads in cad?** — the link is built (File › Uploads… opens it in a new tab, 2026-10-07). Still to decide: embed the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in a cad window / dialog. **P3 · L** (Dave 2026-10-07: "consider"; Uploads is its own route with its own PDF viewer state). *From:* Dave 2026-10-07
 - [ ] **Floor manager: server rooms, tenant areas, level numbers** — in the Floor manager, add / rename / delete each level's server rooms and tenant areas, and edit a level's number. **P3 · M** (Dave 2026-10-05: low priority) (~120 lines). *cad today:* the Floor manager (`cad/ui/FloorManager.svelte`, phase8 Batch 3) sets the range, gaps, names and heights; server rooms come only from the import or a rack's Properties. *From:* G030, G100, G125 (the range part is built)
-- [ ] **RCP (reflected ceiling plan)** — a plan view of a level that shows the ceiling: high runs, ceiling outlets / APs, risers, with floor-level items faded or hidden; can go on a sheet. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines, a filter on the plan generator). *cad today:* one plan view per level; high runs are drawn on top (`cad/views/plan.ts:43`) but nothing filters by height. *From:* T083
 
 ## Racks, devices and rack views
 
@@ -73,7 +69,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Containment, routing, risers and fill
 
 - [ ] ⚡ **Show all routes** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* a "Routes" toggle on the plan (like Fill) draws every outlet's route, coloured by server room. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines). *cad today:* real routes over the containment, drawn only for the selection (`cad/ui/ViewCanvas.svelte:125`). *From:* G049
-- [ ] **Fill % and cable count at penetrations** — a penetration shows the cables through it and its fill. **P3 · M** (Dave 2026-10-10: low priority) (~80 lines). *cad today:* the `penetration` role exists with a `source` run segment (`cad/domain/shapes.ts:114`) and the BOM counts it (`cad/domain/reports.ts:162`); there is no tool and no fill on it. Needs the penetrations decision (T145) first. *From:* T010
 - [ ] **Riser view control** — From / To floor; EPS rooms; HIGH / LOW tags; extend a riser to more floors (edit its far-end level). Dave: one riser view for now (no per-viewport floor choice). **P3 · M** (Dave 2026-10-05: low priority) (~150 lines). *cad today:* "Hide empty floors" is built (phase8 Batch 1): floors with no server room, and floors with no level, squeeze into break bands (`cad/views/riser.ts`, a riser-view toggle and a sheet viewport choice); node far-end levels are set only when drawing (`cad/editor/pathTool.ts:55`). *From:* G021, G145, G146, G194, G195, G277, G315, T073, T076
 - [ ] **Cable label and colour (riser view)** — an optional label and colour per backbone cable group (defaults: fibre amber, copper blue). **P3 · S** (~40 lines). *cad today:* groups are labelled "count × type · length" in one style (`cad/views/riser.ts:7`). *From:* G147
 - [ ] **High / low cables in the riser view** — each hop drawn at ceiling-plenum or floor-void height. **P3 · M** (~80 lines). *cad today:* the plans use real run heights, but the riser view draws groups at one fixed height. *From:* G149
@@ -121,7 +116,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Shell, navigation and touch
 
-- [ ] ⚡ **Finish the soft retire (7.5)** — *(Dave 2026-10-07: low priority — after the P1 / P2 items)* the title-bar menu stops linking Racks / Frames / Floorplans, the command palette stops offering old tools, and old routes show a "retired — use cad" banner. **P3 · S** (Dave 2026-10-05: low priority) (~40 lines across files outside cad). *cad today:* only the project page is done; the menu is in `lib/ui/Titlebar.svelte:13`. *From:* P043
 - [ ] **Project Properties** — edit the project's name, codes, client, address and description in Properties (needed by the title block's Site section). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* missing; cad only reads the name from `projects/{pid}` (`routes/projects/[pid]/cad/+page.svelte`). Where it lives is the open question "Where should the project details editor go?" below. *From:* G301
 - [ ] **Floor view presets** — quick buttons on a plan: Outlets (low), Outlets (high), Trunks, Fill rate. **P3 · M** (~80 lines). *cad today:* a Fill toggle only (`cad/ui/ViewCanvas.svelte`); presets were never wired in legacy either. *From:* G057
 - [ ] ❓ **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110
