@@ -21,6 +21,7 @@
 	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
+	import { portMapDisplayList } from '../views/portMap'
 	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
 	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet, Entity } from '../domain/drawing'
@@ -97,13 +98,15 @@
 			? rackRowDisplayList(project.index, spec, { cords: project.settings?.cordRoute })
 			: spec.kind === 'sheet'
 				? (sheet ? sheetDisplayList(project.index, sheet, sheetOpts) : [])
+				: spec.kind === 'portmap'
+					? portMapDisplayList(project.index, spec.deviceIds)
 				: spec.kind === 'riser'
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
 	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
-	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' ? drawn
+	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || spec.kind === 'portmap' ? drawn
 		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))

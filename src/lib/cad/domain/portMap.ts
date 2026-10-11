@@ -23,6 +23,9 @@ export interface PortMapRow {
 	patchedTo: string
 	/** A device port at the far end of the circuit beyond the cord (e.g. the switch behind a panel-to-panel tie). */
 	farEnd: string
+	/** What the drawing writes in the port (Dave 2026-10-11, P4: "the label of the item it is connected to on the far
+	 *  end"): the end of the circuit across this port's cord — else, unpatched, the other end of its cable. */
+	far?: { kind: 'outlet'; label: string } | { kind: 'device'; name: string; port: string }
 	cordId: string
 	/** The status of the cord on this port ('' = no cord): `add` = planned, not yet on site. */
 	cordStatus: Cord['status'] | ''
@@ -49,6 +52,13 @@ export function portMapRows(ix: ProjectIndex, deviceIds: Id[]): PortMapRow[] {
 			const other = cord && (isMe(cord.a) ? cord.b : cord.a)
 			const at = (r: { on: Id }) => { const o = ix.get(r.on) as { levelId: Id; roomId?: Id; zoneId?: Id }; return [ix.nameOf(o.levelId), ix.nameOf(o.roomId ?? o.zoneId)].filter(Boolean).join(' · ') }
 			const labelled = (r: { on: Id; port: number }) => { const l = ix.portLabel(r); return `${ix.portPlace(r)}${l ? ` · ${l}` : ''}` }
+			// the far item: the circuit's end on the cord's side (the cord's other end is next to this port in the trace)
+			const same = (x: { on: Id; port: number }, y?: { on: Id; port: number }) => !!y && x.on === y.on && x.port === y.port
+			const i = steps.findIndex((s) => isMe(s.ref))
+			const farRef = other ? (same(other, steps[i + 1]?.ref) ? steps[steps.length - 1].ref : same(other, steps[i - 1]?.ref) ? steps[0].ref : other) : (outlets[0] ?? ends[0])
+			const fe = farRef && ix.get(farRef.on)
+			const far: PortMapRow['far'] = fe?.type === 'outlet' ? { kind: 'outlet', label: ix.portLabel(farRef!) }
+				: fe?.type === 'device' ? { kind: 'device', name: fe.name, port: fe.portLabels?.[String(farRef!.port)] || String(farRef!.port) } : undefined
 			out.push({
 				deviceId: d.id, room, rack, device: d.name, u: d.u, port,
 				label: ix.portLabel({ on: d.id, port }),
@@ -58,8 +68,28 @@ export function portMapRows(ix: ProjectIndex, deviceIds: Id[]): PortMapRow[] {
 				farEnd: ends.filter((r) => ix.get(r.on)?.type === 'device' && !(other && r.on === other.on && r.port === other.port)).map((r) => ix.portPlace(r)).join(' / '),
 				cordId: cord?.cordId ?? '',
 				cordStatus: cord?.status ?? '',
+				...(far ? { far } : {}),
 			})
 		}
 	}
 	return out
+}
+
+/** The port map's name: "Port map · Switch 1, P3C-37" (three names at most, then "+N"). */
+export function portMapTitle(ix: ProjectIndex, ids: Id[]): string {
+	const names = ids.map((id) => ix.nameOf(id)).filter(Boolean)
+	return `Port map${names.length ? ` · ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''}` : ''}`
+}
+
+/** The devices a port map is of, from the selection: the selected devices with ports, a selected rack's, and the
+ *  device of a port pick (`portOn`), in the map's order. */
+export function portMapPick(ix: ProjectIndex, selection: Id[], portOn?: Id): Id[] {
+	const ids = new Set<Id>()
+	for (const id of selection) {
+		const e = ix.get(id)
+		if (e?.type === 'device') ids.add(id)
+		else if (e?.type === 'rack') for (const d of ix.devicesIn(id)) ids.add(d.id)
+	}
+	if (portOn) ids.add(portOn)
+	return portMapDevices(ix, [...ids]).map((d) => d.id)
 }

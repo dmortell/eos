@@ -9,6 +9,7 @@ import { newId } from '../domain/ids'
 import { repeatOn } from '../domain/repeatEdit'
 import { downloadSheetsPdf, unsupportedNote } from './sheetsPdf'
 import { specLabel, type ViewSpec } from '../views/space'
+import { portMapTitle } from '../domain/portMap'
 
 /** The sheets in print order (archived left out). */
 export const activeSheets = (project: CadProject): Sheet[] =>
@@ -54,11 +55,12 @@ export function viewTitle(project: CadProject, v: ViewSpec | undefined): string 
 	if (v.kind === 'sheet') { const sh = project.index.get(v.sheetId); return sh?.type === 'sheet' ? `${sh.number} ${sh.title}` : 'a sheet' }
 	if (v.kind === 'row') return `${project.index.nameOf(v.spaceId)} rack view`
 	if (v.kind === 'section') return `Section ${project.index.nameOf(v.sectionId)}`
+	if (v.kind === 'portmap') return portMapTitle(project.index, v.deviceIds)
 	return specLabel(v)
 }
 /** Is what this view shows still there (a deleted sheet / section isn't)? */
 export const viewExists = (project: CadProject, v: ViewSpec): boolean =>
-	v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : true
+	v.kind === 'sheet' ? !!project.index.get(v.sheetId) : v.kind === 'section' ? !!project.index.get(v.sectionId) : v.kind === 'portmap' ? v.deviceIds.some((id) => !!project.index.get(id)) : true
 
 /** F9 / F3 / F7 and the status bar: SNAP, OSNAP, GRID on / off, said. */
 export function toggleDrafting(ws: Workspace, k: 'snap' | 'osnap' | 'showGrid'): void {

@@ -19,8 +19,8 @@ export interface Tab {
 	fwd: TabView[]
 }
 
-/** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view. */
-export const viewKey = (v: TabView) => `${v.spec.kind === 'sheet' || v.spec.kind === 'riser' ? '' : v.levelId ?? ''}:${specKey(v.spec)}`
+/** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view / a port map. */
+export const viewKey = (v: TabView) => `${v.spec.kind === 'sheet' || v.spec.kind === 'riser' || v.spec.kind === 'portmap' ? '' : v.levelId ?? ''}:${specKey(v.spec)}`
 const copy = (v: TabView): TabView => JSON.parse(JSON.stringify(v))
 
 export class Tabs {

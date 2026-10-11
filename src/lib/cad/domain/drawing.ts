@@ -70,6 +70,9 @@ export type ViewSpec =
 	| { kind: 'riser'; hideEmpty?: boolean }
 	/** A section through a level along a cut line drawn on its plan (Phase 6.2, views/section.ts). */
 	| { kind: 'section'; sectionId: Id }
+	/** A port map of chosen panels / switches (port-map-plan.md, views/portMap.ts): each drawn like its faceplate, every
+	 *  port with its number and the item at its far end — for network engineers assigning VLANs. Paper mm at 1:1. */
+	| { kind: 'portmap'; deviceIds: Id[] }
 
 /** A window on a sheet onto one view, at a true scale. */
 export interface Viewport {

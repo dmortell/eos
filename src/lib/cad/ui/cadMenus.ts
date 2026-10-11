@@ -44,7 +44,7 @@ export interface MenuCtx {
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
-	cordBom(): void; portMap(): void; cableSchedule(): void; bom(): void
+	cordBom(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	/** Insert › Image…: pick the picture, then the Image tool. */
@@ -76,7 +76,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Bill of materials…', run: c.bom },
 			{ label: 'Cable schedule…', run: c.cableSchedule },
 			{ label: 'Patch schedule / cord BOM…', run: c.cordBom },
-			{ label: 'Port map (VLAN) of the selected devices', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
+			{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
 			'-',
 			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
@@ -131,7 +131,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Links table', run: () => c.openTable('links') },
 			'-',
 			{ label: 'Patch schedule / cord BOM…', run: c.cordBom },
-			{ label: 'Port map (VLAN) of the selected devices', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
+			{ label: 'Port map view of the selected devices', title: 'The selected panels / switches drawn like their faceplates, each port with its number and the item at its far end — put it on a sheet with To sheet…', run: c.portMapView },
+			{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
 			{ label: 'Cable schedule…', run: c.cableSchedule },
 			{ label: 'Bill of materials…', run: c.bom },
 		] },

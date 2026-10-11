@@ -1,6 +1,6 @@
 # Port map for network engineers (VLAN assignment) — plan for review
 
-**Status: Slice 1 (the list) BUILT 2026-10-11; Slice 2 (the drawing) waits for decisions P1–P4.** From backlog
+**Status: BUILT 2026-10-11 — Slice 1 (the list) and Slice 2 (the drawing); decisions P1–P4 below.** From backlog
 "Port map for network engineers (VLAN assignment)" (Dave 2026-10-11): a drawing of the selected patch-frame panels or
 network switches, each port labelled with the endpoint it is patched to, so network engineers can assign VLANs to the
 ports; and the same as a list.
@@ -27,24 +27,26 @@ outlet and the switch port.
 - From **File › Export** and **Cabling › Port map (VLAN) of the selected devices**: exports the selected panels / switches
   (select them in a rack view; any device with ports counts); with none selected it says so.
 
-## Slice 2 — the drawing (a viewport) · ~250 lines · waits for P1–P4
+## Slice 2 — the drawing (a view, and a viewport) · BUILT
 
-- A new view kind `{ kind: 'portmap'; deviceIds: Id[] }` (`views/portMap.ts`): each device drawn as an enlarged
-  faceplate — its ports in their real rows (e.g. 2 × 24), each port cell with its number and, beside it, the
-  endpoint text (P4) in small text; the device name and rack · U above it; devices stacked down the page.
-- Not to scale (it's a schematic); the viewport shows it at a fixed text size like the riser view.
-- Made from the selection: **Sheets › New port map sheet** (selected devices → a new sheet with one port-map
-  viewport) and the viewport picker's "Port map of the selection". Opens on screen as a view tab too.
-- The view updates as cords change (it's drawn from the model, like every view).
+- View kind `{ kind: 'portmap'; deviceIds: Id[] }` (`domain/drawing.ts`), drawn by `views/portMap.ts`
+  `portMapDisplayList`: each device like its faceplate — the ports where they are on it (the rack view's rows and
+  numbering: a 48-port 1U = 2 × 24), every port cell with its number (or the device's own port label) small in the
+  top-left corner and the far item's label stacked as big as fits (P4); the device name, rack · U · room above it;
+  devices stacked down the page, top U first. Paper mm at 1:1 (24 ports ≈ 290 mm: an A3 landscape at 1:1).
+- **Cabling › Port map view of the selected devices** opens it in the active pane (a tab; in the URL as
+  `portmap.<id>~<id>`). Its strip: the map's name, **Excel (VLAN)** (Slice 1 for these devices), **To sheet…** (the
+  usual: a new sheet or onto one, as a viewport). The viewport picker keeps it.
+- Drawn from the model like every view, so it follows the cords. A deleted device drops out; the view goes when all
+  of its devices are gone.
+- The Excel's columns (Dave 2026-10-11): Room · Rack · U · Port · Device · Port label, then Outlet · Outlet location ·
+  Patched To · Far End · Cord ID · Cord status · VLAN · Notes.
 
-## Decisions
+## Decisions (Dave 2026-10-11)
 
-- **P1 Where VLANs live.** (a) Only in the Excel the engineer fills in — CAD doesn't store them *(recommended for now,
-  as D8 for cord statuses)*; (b) a `vlan` per device port in CAD, read back from the returned Excel by a Key column
-  and shown on the drawing (≈ +120 lines).
-- **P2 The drawing.** (a) The faceplate with the endpoint text beside each port *(recommended)*; (b) a port table
-  per device drawn on the sheet (port · endpoint · VLAN boxes) — easier to read, less like the hardware.
-- **P3 Choosing the devices.** (a) The selection, stored in the viewport (add / remove later from its Properties)
-  *(recommended)*; (b) a whole rack / room's switches, kept up to date as devices are added.
-- **P4 The text at each port.** (a) The outlet label for a switch port, the switch port for a panel port
-  *(recommended — the thing at the other end)*; (b) always the outlet label (+ room); (c) both lines.
+- **P1** VLANs: **only in the Excel** — not stored in CAD yet.
+- **P2** The drawing: **the switch with its ports in the right positions**, each port's number (label) small in a
+  corner of the cell, and the label of the item it is connected to at the far end.
+- **P3** The devices: **just the selected ones** (stored in the view / viewport).
+- **P4** The far end (with P2): **the item at the other end** — across the port's cord: a switch port → the outlet
+  (through the panel); a panel port → the switch port (name + port); unpatched → the other end of its cable.

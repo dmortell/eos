@@ -10,6 +10,7 @@ import type { Id, Level, RackRow, Rack } from './types'
 import type { Sheet, SectionCut, Entity, SheetPackage } from './drawing'
 import type { ViewSpec } from '../views/space'
 import { naturalCompare } from './labels'
+import { portMapTitle } from './portMap'
 
 export interface NavNode {
 	key: string
@@ -120,6 +121,7 @@ export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string
 		case 'row': return `${ix.nameOf(spec.spaceId)} racks${spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : ''}`
 		case 'riser': return 'Riser view'
 		case 'sheet': return ix.nameOf(spec.sheetId)
+		case 'portmap': return portMapTitle(ix, spec.deviceIds)
 	}
 }
 

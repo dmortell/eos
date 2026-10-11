@@ -210,7 +210,7 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 
 // ── Port map (VLAN assignment) ────────────────────────────────────────────────────────────────────────────────────
 
-export const PORTMAP_HEAD = ['Room', 'Rack', 'Device', 'U', 'Port', 'Port Label', 'Outlet', 'Outlet Location', 'Patched To', 'Far End', 'Cord ID', 'Cord Status', 'VLAN', 'Notes']
+export const PORTMAP_HEAD = ['Room', 'Rack', 'U', 'Port', 'Device', 'Port Label', 'Outlet', 'Outlet Location', 'Patched To', 'Far End', 'Cord ID', 'Cord Status', 'VLAN', 'Notes']
 
 /** The port map (domain/portMap.ts) as Excel for the network engineers: every port of the chosen panels / switches,
  *  a heading row per device, an empty VLAN column (highlighted) to fill in. Returns the ports written. */
@@ -223,7 +223,7 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 	const head = ws.addRow(PORTMAP_HEAD)
 	head.font = { bold: true, size: 10 }
 	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
-	;[12, 10, 22, 5, 6, 16, 14, 18, 26, 26, 12, 10, 10, 20].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+	;[12, 10, 5, 6, 22, 16, 14, 18, 26, 26, 12, 10, 10, 20].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 	const vlan = PORTMAP_HEAD.indexOf('VLAN') + 1
 	let dev = ''
 	for (const r of rows) {
@@ -234,7 +234,7 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 			h.font = { bold: true, size: 10 }
 			h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
 		}
-		const row = ws.addRow([r.room, r.rack, r.device, r.u, r.port, r.label, r.outlet, r.outletAt, r.patchedTo, r.farEnd, r.cordId, r.cordStatus, '', ''])
+		const row = ws.addRow([r.room, r.rack, r.u, r.port, r.device, r.label, r.outlet, r.outletAt, r.patchedTo, r.farEnd, r.cordId, r.cordStatus, '', ''])
 		row.font = { size: 9, ...(r.outlet || r.patchedTo ? {} : { color: { argb: 'FF9CA3AF' } }) }
 		row.getCell(vlan).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }
 	}

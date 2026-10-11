@@ -3,6 +3,7 @@
        · a building view (plan, elevations, section, riser): Plan · Front · Rear · Left · Right · Riser, Section…, Fill,
          To sheet…;
        · a rack view: its room, Racks front / rear, one row or all, To sheet…;
+       · a port map: its devices, Excel (VLAN), To sheet…;
        · a sheet: its number, title and paper. -->
 <script lang="ts" module>
 	/** Back / forward for one pane: what each goes to (absent = nothing there), and the jump. */</script>
@@ -14,6 +15,8 @@
 	import type { Sheet, SectionCut } from '../domain/drawing'
 	import { specKey, specLabel, PLAN, type ViewSpec } from '../views/space'
 	import { FILL_LIMIT_PCT } from '../domain/fill'
+	import { portMapTitle } from '../domain/portMap'
+	import { exportPortMap } from '../render/exports'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
@@ -39,11 +42,12 @@
 		const on = st.cordRoute !== 'channels'
 		project.store.transact(on ? 'Cords along channels' : 'Cords straight', (tx) => tx.put({ ...st, cordRoute: on ? 'channels' : 'straight' }))
 	}
-	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet')
+	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && spec.kind !== 'portmap')
 	/** Where you are: "1F", "1F › IDF1", "S001 New sheet" (the riser view is the building's, not a level's). */
 	const crumbs = $derived.by((): { text: string; to?: ViewSpec }[] => {
 		if (spec.kind === 'sheet') return [{ text: sheet ? `${sheet.number} ${sheet.title}` : 'Sheet' }]
 		if (spec.kind === 'riser') return [{ text: 'Building' }]
+		if (spec.kind === 'portmap') return [{ text: portMapTitle(project.index, spec.deviceIds) }]
 		const lv = { text: project.index.nameOf(levelId), to: spec.kind === 'plan' ? undefined : PLAN }
 		return spec.kind === 'row' ? [lv, { text: project.index.nameOf(spec.spaceId) }] : [lv]
 	})
@@ -105,6 +109,9 @@
 		<!-- the rack view's context, as layers (your eye; a viewport freezes them): the room's lines, the other face -->
 		<button class:on={!ws.layers.hidden.has('sys:room-lines')} title="Floor, ceiling and slab lines — the server room's own floor / ceiling where set (a rack's Properties › Room floor / ceiling). The Room lines layer." onclick={() => ws.layers.toggleHidden('sys:room-lines')}>Room lines</button>
 		<button class:on={!ws.layers.hidden.has('sys:other-face')} title="Devices on the other face, drawn faint with (rear) / (front). The Other face layer." onclick={() => ws.layers.toggleHidden('sys:other-face')}>Other face</button>
+	{:else if spec.kind === 'portmap'}
+		{@const ids = spec.deviceIds}
+		<button title="The same ports as Excel for the network engineers: the outlet(s), what each port is patched to, the cord, and an empty VLAN column" onclick={() => exportPortMap(project.index, project.name, ids).then((n) => ws.say(`Port map: ${n} ports — fill in the VLAN column`), (e) => (project.error = `Excel export failed: ${(e as Error).message}`))}>Excel (VLAN)</button>
 	{:else if sheet}
 		<span class="room">{sheet.paper.size} {sheet.paper.orientation}</span>
 	{/if}

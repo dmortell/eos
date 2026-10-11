@@ -10,6 +10,7 @@
 	import { newId } from '../domain/ids'
 	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
+	import { portMapTitle } from '../domain/portMap'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import { printRevision, today } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
@@ -46,12 +47,12 @@
 	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}${v.view.spec.rowId ? `:${v.view.spec.rowId}` : ''}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : `elev:${v.view.spec.dir}`)
+	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}${v.view.spec.rowId ? `:${v.view.spec.rowId}` : ''}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : v.view.spec.kind === 'portmap' ? `portmap:${v.view.spec.deviceIds.join('~')}` : `elev:${v.view.spec.dir}`)
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
 	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	function setView(v: Viewport, key: string) {
 		const [kind, a, b, c] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
+		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'portmap' ? { kind: 'portmap', deviceIds: a.split('~') } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
 		const next = { ...v, view: { ...v.view, spec } }
 		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
 	}
@@ -102,6 +103,7 @@
 				{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}
 				<option value="riser">Risers (building)</option>
 				<option value="riser:compact">Risers (floors with server rooms)</option>
+				{#if vp.view.spec.kind === 'portmap'}<option value={viewKey(vp)}>{portMapTitle(project.index, vp.view.spec.deviceIds)}</option>{/if}
 			</select>
 		</label>
 		<label class="row">Scale 1:

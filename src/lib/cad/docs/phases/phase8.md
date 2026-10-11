@@ -2168,3 +2168,18 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   cord's other end, whatever the circuit. Tests in `domain/portMap.test.ts`. Live (Test Project, P3C-37 selected):
   48 ports; :6 → P3C-35:6, :15 → outlets 01A.004A / 01A.031B, patched to P3C-35:15 · 01A.031B; :17 → Patch Panel HL
   :14. Help: "Port map for VLANs (Excel for network engineers)". The drawing (Slice 2) waits for P1–P4.
+- **Port map for VLANs, Slice 2 — the drawing (`port-map-plan.md`; Dave's decisions P1–P4):** a new view kind
+  `{ kind: 'portmap'; deviceIds }` (`domain/drawing.ts`) drawn by `views/portMap.ts` `portMapDisplayList` — each device
+  like its faceplate, its ports where they are (the rack view's rows and numbering), every port with its number / own
+  label small in the top-left corner and the far item's label stacked as big as fits (paper mm at 1:1). The far item
+  (`PortMapRow.far`, `domain/portMap.ts`): the circuit's end across the port's cord (a switch port → the outlet
+  through the panel; a panel port → the switch port), unpatched → the other end of its cable. Cabling › "Port map
+  view of the selected devices" opens it as a tab (`portMapPick`: devices, a rack's devices, a port pick's device);
+  its strip: the name, Excel (VLAN), To sheet…. Wired through `specKey` / `specLabel` / `spaceOf` (no model, like the
+  riser), the URL (`portmap.<id>~<id>`), tabs (no level), `viewName`, `viewTitle` / `viewExists`, the sheet viewport
+  content and picker, ToolStrip (Select only), CadShell (level changes leave it alone). The Excel's columns are now Room
+  · Rack · U · Port · Device · Port label (Dave). VLANs stay in the Excel (P1). Tests in `views/portMap.test.ts`,
+  `app/urlState.test.ts`. Live (Test Project 33IDF2): Patch Panel LL + 24-Port Patch Panel + Network Switch 48p → the
+  view: switch :3 → 01A.022B, :22 → 01A.035A, :28 → 01A.025A (bottom row), the panel's outlet labels; To sheet › New
+  sheet → S008 at 1:1, viewport Properties "Port map · …"; undone — Firestore: sheets S001–S007, 35 cords (32 add, 3
+  remove) as before. Help: "Port map drawing of switches and panels (for VLANs)". Backlog entry removed (built).

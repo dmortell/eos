@@ -15,7 +15,7 @@
 	import { applyLayers } from '../views/layers'
 	import { download, fileSafe } from '../render/download'
 	import { exportPortMap } from '../render/exports'
-	import { portMapDevices } from '../domain/portMap'
+	import { portMapPick } from '../domain/portMap'
 
 	/** `roomId` = the cord BOM's "this room" (the open rack view's, else the selection's). */
 	let { project, ws, level, projectName, roomId }: { project: CadProject; ws: Workspace; level: Level | undefined; projectName: string; roomId?: string } = $props()
@@ -35,18 +35,11 @@
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
 		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`)
 	}
-	/** The port map (VLAN) of the selected panels / switches — a selected rack counts as its devices; a port pick as its
-	 *  device (port-map-plan.md Slice 1). */
-	export async function portMap() {
-		const ix = project.index, ids = new Set<string>()
-		for (const id of ws.selection) {
-			const e = ix.get(id)
-			if (e?.type === 'device') ids.add(id)
-			else if (e?.type === 'rack') for (const d of ix.devicesIn(id)) ids.add(d.id)
-		}
-		if (ws.portSel) ids.add(ws.portSel.on)
-		if (!portMapDevices(ix, [...ids]).length) { tell('Port map: select the panels or switches first (in a rack view), or their rack'); return }
-		try { const n = await exportPortMap(ix, projectName, [...ids]); tell(`Port map: ${n} ports — fill in the VLAN column`) }
+	/** The port map (VLAN) as Excel (port-map-plan.md): `ids` = a port map view's devices; else the selection's — a
+	 *  selected rack counts as its devices, a port pick as its device. */
+	export async function portMap(ids: string[] = portMapPick(project.index, ws.selection, ws.portSel?.on)) {
+		if (!ids.length) { tell('Port map: select the panels or switches first (in a rack view), or their rack'); return }
+		try { const n = await exportPortMap(project.index, projectName, ids); tell(`Port map: ${n} ports — fill in the VLAN column`) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
 	let bomOpen = $state(false), cablesOpen = $state(false), cordsOpen = $state(false)

@@ -45,6 +45,7 @@
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
+	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
 	import ToolStrip from './ToolStrip.svelte'
@@ -196,15 +197,26 @@
 		ws.levelId = id
 		ws.select([])
 		const p = panes[activePane]
-		const elsewhere = p.kind === 'sheet' || p.kind === 'riser' || (p.kind === 'row' && project.index.get(p.spaceId)?.type === 'space' && (project.index.get(p.spaceId) as { levelId: string }).levelId !== id)
+		const elsewhere = p.kind === 'sheet' || p.kind === 'riser' || p.kind === 'portmap' || (p.kind === 'row' && project.index.get(p.spaceId)?.type === 'space' && (project.index.get(p.spaceId) as { levelId: string }).levelId !== id)
 		if (elsewhere) setPane(activePane, PLAN)
+	}
+	/** The port map (port-map-plan.md): the selected panels / switches drawn in the active pane (a tab); its Excel — of
+	 *  the open map's devices when nothing is selected. */
+	function portMapView() {
+		const ids = portMapPick(project.index, ws.selection, ws.portSel?.on)
+		if (!ids.length) { ws.say('Port map: select the panels or switches first (in a rack view), or their rack'); return }
+		setPane(activePane, { kind: 'portmap', deviceIds: ids }, 'open')
+	}
+	function portMapExcel() {
+		const p = panes[activePane]
+		exportsRef?.portMap(p.kind === 'portmap' && !ws.selection.length ? p.deviceIds : undefined)
 	}
 	/** After undo / redo: select what changed; an edit on another level opens that level first (Dave), unless a sheet
 	 *  or the riser view (no one level) is showing. */
 	function showHistory(ids: string[]) {
 		const e = ids.length ? project.store.get(ids[0]) : undefined
 		const on = e?.type === 'device' ? (project.store.get(e.rackId) as { levelId?: string } | undefined)?.levelId : (e as { levelId?: string } | undefined)?.levelId
-		if (on && on !== ws.levelId && activeKind !== 'sheet' && activeKind !== 'riser' && project.levels.some((l) => l.id === on)) openLevel(on)
+		if (on && on !== ws.levelId && activeKind !== 'sheet' && activeKind !== 'riser' && activeKind !== 'portmap' && project.levels.some((l) => l.id === on)) openLevel(on)
 		ws.select(ids)
 	}
 	/** The room the patch list's "This room" means: the open rack view's, else the selected rack's / device's / cord's. */
@@ -339,7 +351,7 @@
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
-		cordBom: () => exportsRef?.openCordBom(), portMap: () => exportsRef?.portMap(), cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
+		cordBom: () => exportsRef?.openCordBom(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true), image: () => (imagePickOpen = true),
 		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
 		hasLevel: !!level, renameLevel: () => level && renameLevelOf(project, ws, level.id), deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
