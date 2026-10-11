@@ -132,7 +132,8 @@ export function removeCords(cs: Cord[]): { marked: Cord[]; deleted: Id[] } {
 /** "3 marked for removal, 2 deleted" — what removeCords did. */
 export const removedText = (r: { marked: Cord[]; deleted: Id[] }) => [r.marked.length ? `${r.marked.length} marked for removal` : '', r.deleted.length ? `${r.deleted.length} deleted (never installed)` : ''].filter(Boolean).join(', ')
 
-const sameEnd = (x: PortRef, y: PortRef) => x.on === y.on && x.port === y.port && (x.face ?? '') === (y.face ?? '')
+/** The same port and face. */
+export const sameEnd = (x: PortRef, y: PortRef) => x.on === y.on && x.port === y.port && (x.face ?? '') === (y.face ?? '')
 
 /**
  * Move one end of a cord. An installed cord becomes a `change` (remembering where it was); a planned one just moves.
@@ -178,6 +179,31 @@ export function installCord(c: Cord): Cord | null {
 	if (c.status === 'remove') return null
 	const { previous: _p, ...rest } = c
 	return { ...rest, status: 'installed' }
+}
+
+/** What the patch list (and Properties for several cords) does to the selected cords (patch-list-plan.md Slice 2). */
+export type CordAction = 'installed' | 'add' | 'remove' | 'restore' | 'delete'
+
+/**
+ * A bulk action as writes: Installed = done on site (a `remove` cord's record goes); Add = planned again (history
+ * forgotten); Remove = the install workflow (planned ones deleted, the others marked); Restore = back to the ends and
+ * status before the change / removal; Delete = the records go, no removal work. Cords it doesn't apply to are left.
+ */
+export function cordAction(cs: Cord[], a: CordAction): { put: Cord[]; del: Id[] } {
+	const put: Cord[] = [], del: Id[] = []
+	if (a === 'delete') return { put, del: cs.map((c) => c.id) }
+	if (a === 'remove') { const r = removeCords(cs); return { put: r.marked, del: r.deleted } }
+	for (const c of cs) {
+		if (a === 'installed' && c.status !== 'installed') { const n = installCord(c); if (n) put.push(n); else del.push(c.id) }
+		else if (a === 'add' && c.status !== 'add') put.push(setStatus(c, 'add'))
+		else if (a === 'restore' && c.previous) put.push(revertCord(c))
+	}
+	return { put, del }
+}
+
+/** A cable type on cords: its colour comes with it (as the legacy patch list did), else the cord keeps its own. */
+export function withCableType(c: Cord, type: { id: string; color?: string }): Cord {
+	return { ...c, cableType: type.id, ...(type.color ? { colour: type.color } : {}) }
 }
 
 /**

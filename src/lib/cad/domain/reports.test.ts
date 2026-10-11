@@ -41,6 +41,11 @@ describe('patch list', () => {
 		expect(rows.map((r) => [r.fromLabel, r.toLabel])).toEqual([['33-001.A', 'SW1-01'], ['33-001.B', 'SW1-02']])
 		expect(rows[0].from).toBe('A01 · Panel 1 : 1 (front)')
 	})
+	it('a moved end of a change says where it was (↶)', () => {
+		const ents = demoProject().map((e) => (e.id === 'C1' && e.type === 'cord' ? { ...e, status: 'change' as const, b: { on: 'SW1', port: 9 }, previous: { a: e.a, b: e.b, status: 'installed' as const } } : e))
+		const r = patchList(new ProjectIndex(ents)).find((x) => x.id === 'C1')!
+		expect([r.wasFrom, r.wasTo]).toEqual([undefined, new ProjectIndex(ents).portPlace({ on: 'SW1', port: 1 })])
+	})
 })
 
 describe('cord BOM', () => {

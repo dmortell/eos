@@ -2107,3 +2107,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     Installed; end dragged to 16 → CHANGE with "Was"; back to 15 → INSTALLED, no Revert; Remove → REMOVE; Revert →
     INSTALLED with no "Was"; status box → ADD — Firestore: add, no `previous`, 1 m (as before). Help: "Cord status:
     add, change, remove, installed".
+- **Patch list management, Slice 2 — act on the selected cords (`patch-list-plan.md`):** `cordAction` (domain/cords.ts)
+  = Installed (a `remove` cord's record goes) · Add · Remove (the workflow) · Restore · Delete (records out, no
+  removal work); `withCableType` (a type brings its colour — legacy; D5: no status change, D2). `ui/cordActions.ts`
+  runs one as an undo step (asks first when records go) and makes the right-click items; `ui/CordActions.svelte` =
+  the buttons with counts + Type / Color. In the patch list: a bar over the table, ALWAYS shown (a hint when nothing
+  is selected) — it first appeared on the first pick, pushed the rows down, and a Shift-click then landed on the
+  wrong row (live); right-click on the rows; Ctrl+A selects the shown rows; Purge removed (N) by the status chips;
+  `remove` rows struck through; ↶ on a moved end of a `change` (`PatchRow.wasFrom / wasTo`, hover = where it was).
+  Properties: several cords selected → a "Cords" group with the same. The Type box lists a cord's own type when the
+  project's list lacks it (as Cord Properties does). Tests in `domain/cords.test.ts`, `domain/reports.test.ts`. Live
+  (Test Project, all rooms): P3C-37:6 + :7 Shift-selected → bar + Properties "Cords"; Installed (2) → INSTALLED;
+  right-click → Add (2) / Remove (2) / Delete (2); Add (2) → back to ADD (as before). Help: "Mark cords installed,
+  restore or remove several at once".

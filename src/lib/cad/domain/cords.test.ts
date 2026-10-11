@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, bulkPatch, traceCircuit, snapToStandard, cordAt } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -112,6 +112,29 @@ describe('install workflow', () => {
 		expect(setStatus(installed(), 'remove')).toMatchObject({ status: 'remove', previous: { status: 'installed' } })
 		expect(setStatus(removeCord(installed())!, 'installed').status).toBe('installed')   // not deleted
 		expect(setStatus(moved, 'change')).toBe(moved)
+	})
+})
+
+describe('bulk actions on the selected cords (patch-list-plan.md Slice 2)', () => {
+	const base = ix().get('C1') as Cord
+	const add: Cord = { ...base, id: 'A' }, inst: Cord = { ...base, id: 'I', status: 'installed' }
+	const moved: Cord = { ...base, id: 'M', status: 'change', b: { on: 'SW1', port: 9 }, previous: { a: base.a, b: base.b, status: 'installed' } }
+	const gone: Cord = removeCord({ ...inst, id: 'R' })!
+	const all = [add, inst, moved, gone]
+	const ids = (r: { put: Cord[]; del: string[] }) => ({ put: r.put.map((c) => `${c.id}:${c.status}`), del: r.del })
+	it('Installed: done on site — a removed cord\'s record goes; installed ones are left', () => {
+		expect(ids(cordAction(all, 'installed'))).toEqual({ put: ['A:installed', 'M:installed'], del: ['R'] })
+		expect(cordAction([moved], 'installed').put[0].previous).toBeUndefined()
+	})
+	it('Add, Remove, Restore, Delete', () => {
+		expect(ids(cordAction(all, 'add'))).toEqual({ put: ['I:add', 'M:add', 'R:add'], del: [] })
+		expect(ids(cordAction(all, 'remove'))).toEqual({ put: ['I:remove', 'M:remove'], del: ['A'] })
+		expect(ids(cordAction(all, 'restore'))).toEqual({ put: ['M:installed', 'R:installed'], del: [] })
+		expect(ids(cordAction(all, 'delete'))).toEqual({ put: [], del: ['A', 'I', 'M', 'R'] })
+	})
+	it('a cable type brings its colour', () => {
+		expect(withCableType(inst, { id: 'cat6', color: '#f00' })).toMatchObject({ cableType: 'cat6', colour: '#f00', status: 'installed' })
+		expect(withCableType(inst, { id: 'x' }).colour).toBe(inst.colour)
 	})
 })
 

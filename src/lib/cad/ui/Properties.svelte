@@ -5,7 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity, Sheet } from '../domain/drawing'
-	import type { Id, Outlet, Rack, RackRow, Device, Space, PortGroup } from '../domain/types'
+	import type { Id, Outlet, Rack, RackRow, Device, Space, PortGroup, Cord } from '../domain/types'
 	import { groupsProblem, splitPanel, rangeLabel } from '../domain/portGroups'
 	import { placementProblem, deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, narrowDevice } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
@@ -13,6 +13,7 @@
 	import PortProps from './PortProps.svelte'
 	import DeviceCables from './DeviceCables.svelte'
 	import CordProps from './CordProps.svelte'
+	import CordActions from './CordActions.svelte'
 	import SheetProps from './SheetProps.svelte'
 	import SheetMultiProps from './SheetMultiProps.svelte'
 	import OutletProps from './OutletProps.svelte'
@@ -231,6 +232,8 @@
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
 		{#if devices.length > 1}<DeviceMultiProps {project} {ws} {devices} />{/if}
+		{@const cordsSel = items.filter((e): e is Cord => e.type === 'cord')}
+		{#if cordsSel.length > 1}<PropGroup kind="cord" title="Cords"><p class="text-zinc-500">{cordsSel.length} cords</p><CordActions {project} {ws} cords={cordsSel} column /></PropGroup>{/if}
 		{@const sheetsSel = items.filter((e): e is Sheet => e.type === 'sheet')}
 		{#if sheetsSel.length > 1}<SheetMultiProps {project} {ws} sheets={sheetsSel} />{/if}
 		{@const runs = items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind === 'path')}

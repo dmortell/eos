@@ -8,6 +8,7 @@ import type { ProjectIndex } from './project'
 import type { Id, Outlet, Cord } from './types'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
+import { sameEnd } from './cords'
 import { isVertical } from './shapes'
 import { rackBom } from './rackBom'
 import { routeLinks, cableMetres, cableSettings, boxNote, type Route } from './routing'
@@ -72,6 +73,9 @@ export interface PatchRow {
 	lengthM: number
 	cordId: string
 	notes: string
+	/** Where a moved end was (a `change`): shown as ↶ in the list. */
+	wasFrom?: string
+	wasTo?: string
 }
 
 export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): PatchRow[] {
@@ -87,6 +91,8 @@ export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): Patch
 			from: p.portPlace(c.a), fromLabel: p.portLabel(c.a),
 			to: p.portPlace(c.b), toLabel: p.portLabel(c.b),
 			cableType: c.cableType, colour: c.colour, lengthM: c.lengthM, cordId: c.cordId ?? '', notes: c.notes ?? '',
+			...(c.status === 'change' && c.previous && !sameEnd(c.previous.a, c.a) ? { wasFrom: p.portPlace(c.previous.a) } : {}),
+			...(c.status === 'change' && c.previous && !sameEnd(c.previous.b, c.b) ? { wasTo: p.portPlace(c.previous.b) } : {}),
 		}))
 		.sort((a, b) => naturalCompare(a.from, b.from))
 }

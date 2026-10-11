@@ -13,6 +13,9 @@
 	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
+	import CordActions from './CordActions.svelte'
+	import ContextMenu from './ContextMenu.svelte'
+	import { cordActionMenu, runCordAction } from './cordActions'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
 	/** `inRoomView` = a rack view is open: the list starts on its room (UX review R4); "All rooms" is one click away. */
@@ -52,9 +55,20 @@
 	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
 		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
-	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	/** The selected rows' cords — what the action bar and the right-click act on (patch-list-plan.md Slice 2). */
+	const selCords = $derived(rows.filter((r) => selected.has(r.id)).map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
+	/** Purge removed: every cord marked for removal in this scope is out on site — their records go. */
+	const removed = $derived(all.filter((r) => r.status === 'remove').map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
+	let menu = $state<{ x: number; y: number } | null>(null)
+	function rowMenu(id: string, e: MouseEvent) {
+		e.preventDefault()
+		if (!selected.has(id)) ws.select([id])
+		menu = { x: e.clientX, y: e.clientY }
+	}
+	/** ↑ / ↓ move the selection; Ctrl+A selects the shown rows; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
 		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))
@@ -94,11 +108,17 @@
 		{#each STATUSES as s (s)}
 			<button class="chip s-{s}" class:off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords">{s} {count[s]}</button>
 		{/each}
+		{#if removed.length}<button class="btn" title="The cords marked for removal{room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)" onclick={() => runCordAction(project, ws, removed, 'installed')}>Purge removed ({removed.length})</button>{/if}
 		<input class="find" placeholder="Find…" bind:value={t.q} />
 		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<button class="btn" title="Cords by type × length and status, and the Excel export (patch schedule + cord BOM)" onclick={() => (bomOpen = true)}>Cord BOM…</button>
 		<button class="btn" title="Read cord IDs back from a patch schedule the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
 		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
+	</div>
+	<!-- always there (rows mustn't jump under the pointer when the first one is picked) -->
+	<div class="actions selbar">
+		{#if selCords.length}<b>{selCords.length} selected:</b> <CordActions {project} {ws} cords={selCords} />
+		{:else}<span class="text-zinc-400">Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them</span>{/if}
 	</div>
 	<table class="w-full border-collapse">
 		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
@@ -106,10 +126,10 @@
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
-				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
-					<td class="px-2 py-0.5">{r.from}</td>
+				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.fromLabel || '—'}</td>
-					<td class="px-2">{r.to}</td>
+					<td class="px-2">{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>
 					<td class="px-2 font-mono text-zinc-600">{r.toLabel || '—'}</td>
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}</td>
 					<td class="px-2">{r.lengthM}</td>
@@ -123,6 +143,7 @@
 		</tbody>
 	</table>
 </div>
+{#if menu}<ContextMenu x={menu.x} y={menu.y} items={cordActionMenu(project, ws, selCords)} onclose={() => (menu = null)} />{/if}
 {#if bomOpen}<CordBomDialog {project} {projectName} {roomId} thisRoom={!!room} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
 
 <style>
@@ -131,6 +152,11 @@
 	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.chip { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px; text-transform: uppercase; border: 0; }
 	.chip.off { opacity: 0.35; }
+	.selbar { flex-wrap: wrap; min-height: 26px; }
+	/* marked for removal: still listed (the work order), struck through */
+	.gone td { text-decoration: line-through; opacity: 0.6; }
+	.gone td:nth-child(8) { text-decoration: none; }
+	.was { margin-left: 4px; color: #d97706; font-weight: 600; cursor: help; }
 	.s-add { background: #dcfce7; color: #166534; }
 	.s-change { background: #fef9c3; color: #854d0e; }
 	.s-remove { background: #fee2e2; color: #991b1b; }
