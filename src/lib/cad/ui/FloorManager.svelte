@@ -8,7 +8,8 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
-	import { floorName, floorNumbers, restack, planFloors, renameFloors, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
+	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
+	import NameInput from './NameInput.svelte'
 	import { levelContents } from '../editor/commands'
 	import { loadRiserHeights } from '../persist/import/legacyHeights'
 	import { newId } from '../domain/ids'
@@ -125,6 +126,34 @@
 		finally { busy = false }
 	}
 	const HKEYS: [keyof Heights, string][] = [['slabMm', 'Slab'], ['raisedFloorMm', 'Raised floor'], ['clearHeightMm', 'Clear height'], ['plenumMm', 'Plenum']]
+
+	// ── a floor's number, and its AREA plans (a tenant office on its own floorplan — Journey's 33F 3303 / 3307) ──
+	const areasOf = (l: Level) => levels.filter((x) => x.area && x.number === l.number).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+	/** Another number for a floor (its area plans follow); the building's range widens to take it. */
+	function renumber(l: Level, v: string) {
+		const n = Number(v), r = renumberFloor(levels, l.id, n)
+		if ('problem' in r) { ws.say(r.problem); return }
+		if (!r.put.length) return
+		lowest = Math.min(lowest, top, n); top = Math.max(lowest, top, n); skip = skip.filter((x) => x !== n)
+		const b = building
+		commit(`${l.name}: floor ${l.number} → ${n}`, r.put, b ? (tx) => tx.put({ ...b, floors: { ...b.floors, lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building) : NOOP, [], skip)
+	}
+	const rename = (l: Level, v: string) => { const t = v.trim(); if (t && t !== l.name) project.store.transact(`Rename ${l.name} → ${t}`, (tx) => tx.put({ ...l, name: t })) }
+	let addingArea = $state<Id | null>(null)
+	function addArea(l: Level, area: string) {
+		addingArea = null
+		if (areasOf(l).some((a) => a.area === area)) { ws.say(`${l.name} already has an area plan ${area}`); return }
+		const a = newAreaLevel(l, area, newId())
+		project.store.transact(`${l.name}: area plan ${area}`, (tx) => tx.put(a))
+		ws.say(`${a.name} added — its own plan (Navigator); give it a floorplan here`)
+	}
+	/** An empty area plan goes; one with something on it is deleted from the Navigator (it asks first). */
+	function removeArea(a: Level) {
+		const n = contents(a.id)
+		if (n) { ws.say(`${a.name} has ${n} item${n === 1 ? '' : 's'} — delete it in the Navigator (⋮ › Delete level…), which asks first`); return }
+		project.store.transact(`Delete area plan ${a.name}`, (tx) => { for (const u of underlaysOf(a)) tx.del(u.id); tx.del(a.id) })
+		if (ws.levelId === a.id) ws.levelId = main[0]?.id ?? null
+	}
 </script>
 
 {#snippet pages()}
@@ -163,49 +192,37 @@
 		<section>
 			<p class="h">Heights (mm) <span class="hint">· FFL is stacked from them, floor 1 stays where it is</span></p>
 			<table>
-				<thead><tr><th>Floor</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th><th title="The floorplan under this level's plan: a page of a project PDF, calibrated in Uploads (its crop is applied)">Floorplan <span class="hint">· X / Y offset (mm) per zone</span></th></tr></thead>
+				<thead><tr><th>Floor</th><th title="The floor's number (labels' F, the order of the floors); its area plans follow">No.</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th>FFL</th><th title="The floorplan under this level's plan: a page of a project PDF, calibrated in Uploads (its crop is applied)">Floorplan <span class="hint">· X / Y offset (mm) per zone</span></th></tr></thead>
 				<tbody>
 					<tr class="typ">
-						<td>Typical</td>
+						<td>Typical</td><td></td>
 						{#each HKEYS as [k] (k)}<td><input type="number" bind:value={typical[k]} /></td>{/each}
 						<td><button class="btn" onclick={applyTypical}>Apply to all</button></td>
 						<td></td>
 					</tr>
 					{#each main as l (l.id)}
-						{@const zones = underlaysOf(l)}
 						<tr>
-							<td><input class="name" value={l.name} onchange={(e) => { const t = e.currentTarget.value.trim(); if (t && t !== l.name) project.store.transact(`Rename ${l.name} → ${t}`, (tx) => tx.put({ ...l, name: t })) }} /></td>
+							<td class="nm"><input class="name" value={l.name} onchange={(e) => rename(l, e.currentTarget.value)} />
+								<button class="add" title="A separate plan of part of this floor — a tenant office on its own floorplan (e.g. 3303)" onclick={() => (addingArea = l.id)}>+ Area</button></td>
+							<td><input class="no" type="number" step="1" value={l.number} title="The floor's number — its area plans follow; a number another floor has is refused" onchange={(e) => { renumber(l, e.currentTarget.value); e.currentTarget.value = String(l.number) }} /></td>
 							{#each HKEYS as [k] (k)}<td><input type="number" min="0" value={l.heights[k]} onchange={(e) => setHeight(l, k, e.currentTarget.value)} /></td>{/each}
 							<td class="ffl">{(l.elevationMm / 1000).toFixed(3)}</td>
-							<td>
-								{#each zones as z (z.id)}
-									<div class="zone">
-										{#if zones.length > 1}<input class="zn" value={z.name ?? ''} placeholder="zone" title="Zone name" onchange={(e) => putZone(l, z, 'zone name', { name: e.currentTarget.value.trim() || undefined })} />{/if}
-										<select class="fp" value="{z.fileId}#{z.page ?? 1}" onchange={(e) => setFloorplan(l, e.currentTarget.value, z)}>
-											{#if !pdfs.some((f) => f.id === z.fileId)}<option value="{z.fileId}#{z.page ?? 1}">{z.fileId} p.{z.page ?? 1}</option>{/if}
-											{@render pages()}
-										</select>
-										<input class="off" type="number" step="100" value={z.origin?.x ?? 0} title="Move this floorplan right (mm)" onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} />
-										<input class="off" type="number" step="100" value={z.origin?.y ?? 0} title="Move this floorplan down (mm)" onchange={(e) => setOffset(l, z, 'y', e.currentTarget.value)} />
-										{#if oncalibrate}
-											{@const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]}
-											<!-- calibrate on the plan (not in Uploads): what it writes is the file's, shared with Uploads and other projects -->
-											<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
-												<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
-												<button onclick={() => oncalibrate(z, 'scale')} title="Click both ends of a distance you know, then type it">Scale</button>
-												<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
-											</span>
-										{/if}
-										<button class="x" title="Remove this floorplan" onclick={() => project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))}>✕</button>
-									</div>
-								{/each}
-								<!-- picking a page here adds it: the first floorplan, or another zone -->
-								<select class="fp add" value="" onchange={(e) => { setFloorplan(l, e.currentTarget.value); e.currentTarget.value = '' }}>
-									<option value="">{zones.length ? '+ Add zone…' : '—'}</option>
-									{@render pages()}
-								</select>
-							</td>
+							<td>{@render floorplans(l)}</td>
 						</tr>
+						<!-- its area plans: same number, heights and FFL; their own name and floorplans -->
+						{#each areasOf(l) as a (a.id)}
+							<tr class="area">
+								<td class="nm">↳ <input class="name" value={a.name} title="Area plan {a.area}" onchange={(e) => rename(a, e.currentTarget.value)} />
+									<button class="x" title={contents(a.id) ? `Has ${contents(a.id)} item(s) — delete it in the Navigator (asks first)` : 'Delete this (empty) area plan'} onclick={() => removeArea(a)}>✕</button></td>
+								<td class="hint">{a.area}</td>
+								<td colspan={HKEYS.length} class="hint">heights as {l.name}</td>
+								<td class="ffl">{(a.elevationMm / 1000).toFixed(3)}</td>
+								<td>{@render floorplans(a)}</td>
+							</tr>
+						{/each}
+						{#if addingArea === l.id}
+							<tr class="area"><td colspan={HKEYS.length + 4}>↳ <NameInput create placeholder="Area name or number (e.g. 3303) — Enter adds it" wide={false} onsave={(t) => addArea(l, t)} oncancel={() => (addingArea = null)} /></td></tr>
+						{/if}
 					{/each}
 				</tbody>
 			</table>
@@ -213,6 +230,36 @@
 		</section>
 	</div>
 </div>
+
+{#snippet floorplans(l: Level)}
+	{@const zones = underlaysOf(l)}
+		{#each zones as z (z.id)}
+			<div class="zone">
+				{#if zones.length > 1}<input class="zn" value={z.name ?? ''} placeholder="zone" title="Zone name" onchange={(e) => putZone(l, z, 'zone name', { name: e.currentTarget.value.trim() || undefined })} />{/if}
+				<select class="fp" value="{z.fileId}#{z.page ?? 1}" onchange={(e) => setFloorplan(l, e.currentTarget.value, z)}>
+					{#if !pdfs.some((f) => f.id === z.fileId)}<option value="{z.fileId}#{z.page ?? 1}">{z.fileId} p.{z.page ?? 1}</option>{/if}
+					{@render pages()}
+				</select>
+				<input class="off" type="number" step="100" value={z.origin?.x ?? 0} title="Move this floorplan right (mm)" onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} />
+				<input class="off" type="number" step="100" value={z.origin?.y ?? 0} title="Move this floorplan down (mm)" onchange={(e) => setOffset(l, z, 'y', e.currentTarget.value)} />
+				{#if oncalibrate}
+					{@const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]}
+					<!-- calibrate on the plan (not in Uploads): what it writes is the file's, shared with Uploads and other projects -->
+					<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
+						<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
+						<button onclick={() => oncalibrate(z, 'scale')} title="Click both ends of a distance you know, then type it">Scale</button>
+						<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
+					</span>
+				{/if}
+				<button class="x" title="Remove this floorplan" onclick={() => project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))}>✕</button>
+			</div>
+		{/each}
+		<!-- picking a page here adds it: the first floorplan, or another zone -->
+		<select class="fp add" value="" onchange={(e) => { setFloorplan(l, e.currentTarget.value); e.currentTarget.value = '' }}>
+			<option value="">{zones.length ? '+ Add zone…' : '—'}</option>
+			{@render pages()}
+		</select>
+{/snippet}
 
 <style>
 	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; }
@@ -226,6 +273,11 @@
 	input { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	input.pat { width: 5.5rem; font-family: ui-monospace, monospace; }
 	input.name { width: 7rem; }
+	input.no { width: 3.2rem; }
+	td.nm { white-space: nowrap; }
+	button.add { font-size: 10.5px; color: var(--cad-link, #2563eb); padding: 0 3px; }
+	tr.area td { color: var(--cad-muted, #52525b); }
+	tr.area input.name { width: 8.5rem; }
 	select.fp { max-width: 14rem; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
 	.zone { display: flex; gap: 2px; align-items: center; margin-bottom: 2px; }

@@ -2408,3 +2408,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`nearestIn`; the text grip sits close to the line's middle one). Properties: "Text and gaps back as drawn" once
   moved. Tests in `editor/shapeGrips.test.ts`. Live (Test Project 1F, the "1.07 m" dimension): the text dragged off its
   line, the lower extension line's start slid; both undone. Help: "Edit a dimension".
+- **Floor manager: level numbers and area plans (backlog, G030 / G100 / G125; "do 7" — its server-room part is covered by
+  the Racks window's + Server room / in-place renames and the Navigator's delete):** a **No.** column renumbers a floor
+  (`domain/floors.ts` `renumberFloor`: its area plans follow; a number another floor has, or not a whole number, is
+  refused; the form's range widens to take it, written to the building; FFL restacked). **+ Area** on a floor adds an
+  AREA plan (`newAreaLevel`: the floor's number, elevation and heights, "<floor> <area>", order floor + 0.5) named in a
+  box; area plans are listed under their floor (rename; their own floorplans, Origin / Scale / Crop — the floorplan
+  cell is now a snippet shared by both rows; ✕ deletes an empty one with its floorplans, else points to the
+  Navigator's Delete level…). Tests in `domain/floors.test.ts`. Live (Test Project): + Area "T1" on 2F → "2F T1"
+  (FFL 3.800, in the Navigator), renamed "2F Tenant T1", ✕ deleted; 3F → 4 refused ("4F is already floor 4"); 4F → 5
+  (FFL 15.200, the range 5F…), undone. Help: "Floors: range, names, heights, numbers, area plans".

@@ -82,3 +82,21 @@ export function renameFloors(levels: Level[], names: FloorNames): Level[] {
 		return name !== l.name ? [{ ...l, name }] : []
 	})
 }
+
+/** A new AREA plan of a floor (a tenant office drawn on its own floorplan, e.g. 33F's 3303): the floor's number,
+ *  elevation and heights, named "<floor> <area>", listed after it. */
+export function newAreaLevel(floor: Level, area: string, id: string): Level {
+	return { type: 'level', id, buildingId: floor.buildingId, number: floor.number, name: `${floor.name} ${area}`, order: floor.order + 0.5, elevationMm: floor.elevationMm, heights: { ...floor.heights }, area }
+}
+
+/** A floor given another number (Floor manager): it and its area plans; refused when the number isn't a whole number
+ *  or another floor has it. */
+export function renumberFloor(levels: Level[], floorId: string, n: number): { put: Level[] } | { problem: string } {
+	const f = levels.find((l) => l.id === floorId && !l.area)
+	if (!f) return { problem: 'No such floor' }
+	if (!Number.isInteger(n)) return { problem: 'A floor number is a whole number' }
+	if (n === f.number) return { put: [] }
+	const other = levels.find((l) => !l.area && l.number === n)
+	if (other) return { problem: `${other.name} is already floor ${n}` }
+	return { put: levels.filter((l) => l.number === f.number && (l.id === f.id || l.area)).map((l) => ({ ...l, number: n, order: l.area ? n + 0.5 : n })) }
+}

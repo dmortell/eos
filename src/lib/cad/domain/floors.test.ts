@@ -1,6 +1,6 @@
 // The Floor manager's rules: a range with gaps, names from a pattern, elevations stacked from the heights.
 import { describe, it, expect } from 'vitest'
-import { floorName, floorNumbers, restack, planFloors, renameFloors, DEFAULT_HEIGHTS, DEFAULT_NAMES } from './floors'
+import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES } from './floors'
 import type { Level } from './types'
 
 const lv = (number: number, extra: Partial<Level> = {}): Level => ({ type: 'level', id: `L${number}${extra.area ?? ''}`, buildingId: 'B', number, name: `${number}F`, order: number, elevationMm: 0, heights: { ...DEFAULT_HEIGHTS }, ...extra })
@@ -67,5 +67,19 @@ describe('setting the range', () => {
 	it('renaming from a pattern changes only what differs; areas keep their suffix', () => {
 		const r = renameFloors([lv(1, { name: '1F' }), lv(2, { name: 'old' }), lv(2, { area: '3307', name: 'x' })], { above: 'L{nn}', below: 'B{n}' })
 		expect(r.map((l) => l.name)).toEqual(['L01', 'L02', 'L02 3307'])
+	})
+})
+
+describe('area plans and floor numbers (Floor manager)', () => {
+	const lv = (id: string, number: number, area?: string): Level => ({ type: 'level', id, buildingId: 'B', number, name: area ? `${number}F ${area}` : `${number}F`, order: number, elevationMm: number * 4000, heights: { slabMm: 200, raisedFloorMm: 100, clearHeightMm: 2700, plenumMm: 800 }, ...(area ? { area } : {}) })
+	it('a new area plan takes its floor’s number, elevation and heights', () => {
+		expect(newAreaLevel(lv('F33', 33), '3303', 'A1')).toMatchObject({ id: 'A1', number: 33, name: '33F 3303', area: '3303', elevationMm: 132000, order: 33.5 })
+	})
+	it('a floor renumbered takes its area plans with it; a number in use is refused', () => {
+		const ls = [lv('F33', 33), lv('A', 33, '3303'), lv('F34', 34)]
+		const r = renumberFloor(ls, 'F33', 35)
+		expect('put' in r && r.put.map((l) => [l.id, l.number])).toEqual([['F33', 35], ['A', 35]])
+		expect(renumberFloor(ls, 'F33', 34)).toEqual({ problem: '34F is already floor 34' })
+		expect(renumberFloor(ls, 'F33', 2.5)).toMatchObject({ problem: expect.stringMatching(/whole/) })
 	})
 })
