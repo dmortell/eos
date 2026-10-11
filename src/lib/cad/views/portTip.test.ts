@@ -49,4 +49,8 @@ describe('outlet tips and usage colours (plan)', () => {
 		const row = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })
 		expect(row.filter((p) => p.k === 'line' && p.cls === 'port-usage' && p.color === '#2563eb').length).toBe(4)   // K1–K4 to the two desk outlets
 	})
+	it('the project can draw outlets by layer instead (Usage colours off)', () => {
+		const byLayer = new ProjectIndex([...demoProject(), { ...settings, outletColour: 'layer' } as Entity])
+		expect(planDisplayList(byLayer, 'L33', { scale: 100 }).filter((p) => p.src === 'O1').some((p) => p.color === '#2563eb')).toBe(false)
+	})
 })

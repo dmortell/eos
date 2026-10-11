@@ -33,6 +33,11 @@
 	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
 	/** Floorplans B/W ⇄ colour (a project setting: one undo step). */
+	/** Outlets in their usage colour ⇄ by layer (a project setting: one undo step). */
+	function toggleOutletColour() {
+		const st = project.settings
+		if (st) project.store.transact(st.outletColour === 'layer' ? 'Outlets in usage colours' : 'Outlets by layer colour', (tx) => tx.put({ ...st, outletColour: st.outletColour === 'layer' ? 'usage' : 'layer' }))
+	}
 	function toggleGray() {
 		const st = project.settings
 		if (st) project.store.transact(st.grayFloorplans ? 'Floorplans in colour' : 'Floorplans black and white', (tx) => tx.put({ ...st, grayFloorplans: !st.grayFloorplans }))
@@ -92,6 +97,7 @@
 		{/if}
 		{#if spec.kind === 'plan'}
 			<button class:on={!!project.settings?.grayFloorplans} title="Floorplans in black and white, so coloured markup stands out — for the whole project: on screen, sheets, PDFs and issues" onclick={toggleGray}>B/W</button>
+			<button class:on={project.settings?.outletColour !== 'layer'} title="Outlets in their usage's colour (on) or their layer's (off) — for the whole project: screen, sheets, PDFs" onclick={toggleOutletColour}>Usage colours</button>
 			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
 			<button class:on={ws.showRoutes} title="Every cable's route along the containment, coloured by its server room" onclick={() => (ws.showRoutes = !ws.showRoutes)}>Routes</button>
 			{#if ws.showRoutes && routeKey}

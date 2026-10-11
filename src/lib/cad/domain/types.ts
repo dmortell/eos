@@ -337,6 +337,8 @@ export interface ProjectSettings {
 	/** Floorplans in black and white — on screen, sheets, PDFs and issues — so coloured markup stands out (stored true /
 	 *  false, not removed, so a merge-save can't bring it back). */
 	grayFloorplans?: boolean
+	/** Outlets on plans drawn in their usage's colour ('usage', unset) or by their layer ('layer') — screen, sheets, PDFs. */
+	outletColour?: 'usage' | 'layer'
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
 	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */

@@ -2394,3 +2394,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   picked (lucide align / distribute icons added to `$lib/ui/Icon.svelte`). Tests in `editor/align.test.ts`. Live
   (Test Project 1F, three outlets): the row (distribute off — one of them isn't placed), Align left → "1 moved",
   undone. Help: "Align or distribute things".
+- **Outlets by usage or by layer colour (Dave 2026-10-12):** a project setting `outletColour` ('usage' — unset — or
+  'layer', stored both ways) switched by **Usage colours** on the plan strip (by B/W; one undo step); `views/plan.ts`
+  skips the usage colour when 'layer' (the layer's colour, else the class's, as before). Panel port tints in rack views
+  are unaffected. Test in `views/portTip.test.ts`. Live (Test Project 1F): on → three usage colours; off → none;
+  undone. Help: "Usage colours and outlet tips".
