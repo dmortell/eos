@@ -16,8 +16,20 @@ describe('patch schedule', () => {
 		expect(rows.map((r) => r.status)).toEqual(['remove', 'add'])
 		const c1 = rows[1].cells
 		expect(c1[0]).toBe(2)                       // the running "#"
-		expect(c1[1]).toBe('33-001.A')              // From Label: the outlet port label the panel port carries
+		expect(c1[PATCH_HEAD.indexOf('From Label')]).toBe('33-001.A')   // the outlet port label the panel port carries
 		expect(c1[PATCH_HEAD.length - 1]).toBe('C1') // Key = the cord's id
+	})
+	it('each end: device, label, then rack, U, face, port (Dave 2026-10-11)', () => {
+		expect(PATCH_HEAD.slice(1, 13)).toEqual(['From Device', 'From Label', 'From Rack', 'From U', 'From Face', 'From Port', 'To Device', 'To Label', 'To Rack', 'To U', 'To Face', 'To Port'])
+		const c1 = patchScheduleRows(ix()).find((r) => r.cells.at(-1) === 'C1')!.cells
+		expect(c1.slice(1, 7)).toEqual(['Panel 1', '33-001.A', 'A01', expect.any(Number), 'front', 1])
+	})
+	it('inside a status group: by From label, or the chosen order; blanks last', () => {
+		const ents = demoProject().map((e) => (e.id === 'C1' ? { ...(e as Cord), cordId: 'PC-9' } : e))
+		const i = ix(ents)
+		expect(cordsForSchedule(i, undefined, 'cordId').map((c) => c.id)).toEqual(['C1', 'C2'])   // C2 has no cord ID
+		const byLabel = cordsForSchedule(i).map((c) => i.portLabel(c.a) || '~')
+		expect(byLabel).toEqual([...byLabel].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })))
 	})
 })
 

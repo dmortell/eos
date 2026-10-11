@@ -8,7 +8,7 @@
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
 	import { naturalCompare } from '../domain/labels'
-	import { cordRoom, exportPatchSchedule, scheduleSheets } from '../render/exports'
+	import { cordRoom, exportPatchSchedule, scheduleSheets, SCHEDULE_SORTS, type ScheduleSort } from '../render/exports'
 
 	/** `roomId` = the open room (start there when `thisRoom`); `selected` / `shown` = the patch list's selected rows and
 	 *  the rows its filters show (offered when there are some). */
@@ -21,6 +21,7 @@
 	/** 'all' · 'room:<id>' · 'sel' · 'shown' */
 	let where = $state(untrack(() => (selected.length > 1 ? 'sel' : thisRoom && roomId ? `room:${roomId}` : 'all')))
 	let changesOnly = $state(false)
+	let sortBy = $state<ScheduleSort>('fromLabel')
 	let busy = $state(false)
 	const rooms = $derived([...new Set(project.index.cords.map((c) => cordRoom(project.index, c)).filter((r): r is string => !!r))]
 		.map((id) => ({ id, name: project.index.nameOf(id) })).sort((a, b) => naturalCompare(a.name, b.name)))
@@ -38,7 +39,7 @@
 		if (busy) return
 		busy = true
 		try {
-			const sheets = scheduleSheets(project.index, cords, perRoom, roomOf ? project.index.nameOf(roomOf) : where === 'sel' ? 'Selected' : 'Patch Schedule')
+			const sheets = scheduleSheets(project.index, cords, perRoom, roomOf ? project.index.nameOf(roomOf) : where === 'sel' ? 'Selected' : 'Patch Schedule', sortBy)
 			const tag = [where === 'all' ? '' : what, changesOnly ? 'changes' : ''].filter(Boolean).join('-')
 			const n = await exportPatchSchedule(project.index, projectName, sheets, typeLabel, tag)
 			ondone(`Patch schedule (${what}${perRoom && sheets.length > 1 ? `, ${sheets.length} sheets` : ''}): ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`)
@@ -60,6 +61,8 @@
 				{#if listed.length}<option value="shown">The rows the list shows ({listed.length})</option>{/if}
 			</select>
 			<label title="Only the work (add / change / remove), not the cords already installed — here and in the Excel"><input type="checkbox" bind:checked={changesOnly} /> changes only</label>
+			<label title="The order of the rows inside each status group (remove → change → add → installed) in the Excel">sort by
+				<select bind:value={sortBy}>{#each SCHEDULE_SORTS as [k, label] (k)}<option value={k}>{label}</option>{/each}</select></label>
 			<span class="grow"></span>
 			<button class="btn go" disabled={busy || !cords.length} title="The patch schedule (work order: remove → change → add → installed) and this cord BOM, as Excel" onclick={exportXlsx}>{busy ? 'Exporting…' : 'Export to Excel'}</button>
 		</section>

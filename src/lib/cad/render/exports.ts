@@ -23,8 +23,9 @@ const STATUS_TITLE: Record<Cord['status'], string> = { remove: 'REMOVE - pull th
 const STATUS_BG: Record<Cord['status'], string> = { add: 'FFDBEAFE', change: 'FFFEF3C7', remove: 'FFFEE2E2', installed: 'FFDCFCE7' }
 const STATUS_FG: Record<Cord['status'], string> = { add: 'FF2563EB', change: 'FFD97706', remove: 'FFDC2626', installed: 'FF16A34A' }
 
-export const PATCH_HEAD = ['#', 'From Label', 'From Rack', 'From Device', 'From U/Face', 'From Port', 'To Label', 'To Rack', 'To Device', 'To U/Face', 'To Port', 'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes', 'Was From', 'Was To', 'Key']
-const PATCH_WIDTHS = [4, 16, 10, 20, 10, 6, 16, 10, 20, 10, 6, 10, 8, 12, 9, 20, 24, 24, 14]
+/** Each end: device, label, then where it is — rack, U, face, port (Dave 2026-10-11). */
+export const PATCH_HEAD = ['#', 'From Device', 'From Label', 'From Rack', 'From U', 'From Face', 'From Port', 'To Device', 'To Label', 'To Rack', 'To U', 'To Face', 'To Port', 'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes', 'Was From', 'Was To', 'Key']
+const PATCH_WIDTHS = [4, 20, 16, 10, 5, 6, 6, 20, 16, 10, 5, 6, 6, 10, 8, 12, 9, 20, 24, 24, 14]
 
 /** The server room a cord is in (a cord stays in one room): its From end's rack's room. */
 export function cordRoom(ix: ProjectIndex, c: Cord): Id | undefined {
@@ -32,15 +33,23 @@ export function cordRoom(ix: ProjectIndex, c: Cord): Id | undefined {
 	return room(c.a) ?? room(c.b)
 }
 
-/** Cords in the export's order: by status group, then From (the port's place — D7: review after testing). */
-export function orderForSchedule(ix: ProjectIndex, cords: Cord[]): Cord[] {
-	return [...cords].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || naturalCompare(ix.portPlace(a.a), ix.portPlace(b.a)))
+/** The order inside each status group (the export dialog): From label (default, D7 review 2026-10-11), From place
+ *  (rack · U · port), To label, or cord ID. Blanks go last; ties fall back to the From place. */
+export type ScheduleSort = 'fromLabel' | 'fromPlace' | 'toLabel' | 'cordId'
+export const SCHEDULE_SORTS: [ScheduleSort, string][] = [['fromLabel', 'From label'], ['fromPlace', 'From rack / U / port'], ['toLabel', 'To label'], ['cordId', 'Cord ID']]
+
+/** Cords in the export's order: by status group, then `by`. */
+export function orderForSchedule(ix: ProjectIndex, cords: Cord[], by: ScheduleSort = 'fromLabel'): Cord[] {
+	const key = (c: Cord) => (by === 'fromLabel' ? ix.portLabel(c.a) : by === 'toLabel' ? ix.portLabel(c.b) : by === 'cordId' ? (c.cordId ?? '') : '')
+	const keys = new Map(cords.map((c) => [c.id, key(c)]))
+	const k = (c: Cord) => keys.get(c.id) ?? ''
+	return [...cords].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || +!k(a) - +!k(b) || naturalCompare(k(a), k(b)) || naturalCompare(ix.portPlace(a.a), ix.portPlace(b.a)))
 }
 
 /** The cords of a room (or all), in the export's order. */
-export function cordsForSchedule(ix: ProjectIndex, spaceId?: Id): Cord[] {
+export function cordsForSchedule(ix: ProjectIndex, spaceId?: Id, by?: ScheduleSort): Cord[] {
 	const inRoom = (r: PortRef) => { const d = ix.get(r.on); const rk = d?.type === 'device' ? (ix.get(d.rackId) as Rack | undefined) : undefined; return !spaceId || rk?.spaceId === spaceId }
-	return orderForSchedule(ix, ix.cords.filter((c) => inRoom(c.a) || inRoom(c.b)))
+	return orderForSchedule(ix, ix.cords.filter((c) => inRoom(c.a) || inRoom(c.b)), by)
 }
 
 /** One worksheet of the patch schedule: a room's cords (or a selection's). */
@@ -48,11 +57,11 @@ export interface ScheduleSheet { name: string; cords: Cord[] }
 
 /** The worksheets: a sheet per room (rooms A → Z; D4, Dave 2026-10-11), or one sheet for them all, each in the
  *  export's order. */
-export function scheduleSheets(ix: ProjectIndex, cords: Cord[], perRoom: boolean, name = 'Patch Schedule'): ScheduleSheet[] {
-	if (!perRoom) return [{ name, cords: orderForSchedule(ix, cords) }]
-	const by = new Map<Id | undefined, Cord[]>()
-	for (const c of cords) { const r = cordRoom(ix, c); by.set(r, [...(by.get(r) ?? []), c]) }
-	return [...by].map(([r, cs]) => ({ name: r ? ix.nameOf(r) : 'No room', cords: orderForSchedule(ix, cs) })).sort((a, b) => naturalCompare(a.name, b.name))
+export function scheduleSheets(ix: ProjectIndex, cords: Cord[], perRoom: boolean, name = 'Patch Schedule', by?: ScheduleSort): ScheduleSheet[] {
+	if (!perRoom) return [{ name, cords: orderForSchedule(ix, cords, by) }]
+	const rooms = new Map<Id | undefined, Cord[]>()
+	for (const c of cords) { const r = cordRoom(ix, c); rooms.set(r, [...(rooms.get(r) ?? []), c]) }
+	return [...rooms].map(([r, cs]) => ({ name: r ? ix.nameOf(r) : 'No room', cords: orderForSchedule(ix, cs, by) })).sort((a, b) => naturalCompare(a.name, b.name))
 }
 
 /** A worksheet name Excel accepts: ≤ 31 characters, none of : \ / ? * [ ], unique in the book. */
@@ -67,7 +76,7 @@ export function sheetName(name: string, taken: Set<string>): string {
 export function patchScheduleRows(ix: ProjectIndex, cords: Cord[] = cordsForSchedule(ix), typeLabel: (id: string) => string = (x) => x): { status: Cord['status']; cells: (string | number)[] }[] {
 	const end = (r: PortRef) => {
 		const d = ix.get(r.on) as Device | undefined
-		return [ix.portLabel(r), ix.nameOf(d?.rackId), d?.name ?? '', d ? `U${d.u} ${r.face ?? ''}`.trim() : '', r.port]
+		return [d?.name ?? '', ix.portLabel(r), ix.nameOf(d?.rackId), d?.u ?? '', r.face ?? '', r.port]
 	}
 	const was = (r?: PortRef) => (r ? ix.portPlace(r) : '')
 	return cords.map((c, i) => ({
@@ -122,7 +131,7 @@ function addPatchSheet(ws: import('exceljs').Worksheet, rows: { status: Cord['st
 		for (const r of group) {
 			const row = ws.addRow(r.cells)
 			row.font = { size: 9, ...(s === 'remove' ? { strike: true } : {}) }
-			row.getCell(15).font = { size: 9, color: { argb: STATUS_FG[s] } }
+			row.getCell(PATCH_HEAD.indexOf('Status') + 1).font = { size: 9, color: { argb: STATUS_FG[s] } }
 		}
 	}
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
@@ -141,10 +150,10 @@ export async function importCordIds(file: File, ix: ProjectIndex, spaceId?: Id):
 	// every schedule sheet (a sheet per room since 2026-10-11) — the ones whose header has a Cord ID column
 	const sheets = wb.worksheets.filter((w) => w.name !== 'Bill of Materials')
 	if (!sheets.length) throw new Error('No patch schedule sheet in that file')
-	const ordered = cordsForSchedule(ix, spaceId), ids = new Map<Id, string>()
+	const ordered = cordsForSchedule(ix, spaceId, 'fromPlace'), ids = new Map<Id, string>()   // old exports were in place order
 	let byKey = false
 	for (const ws of sheets) {
-		let cordCol = 14, keyCol = 0
+		let cordCol = PATCH_HEAD.indexOf('Cord ID') + 1, keyCol = 0
 		ws.getRow(1).eachCell((cell, col) => {
 			const h = String(cell.value ?? '').trim().toLowerCase()
 			if (h === 'cord id') cordCol = col

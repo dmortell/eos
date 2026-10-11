@@ -17,6 +17,7 @@
 	import CordMode from './CordMode.svelte'
 	import ContextMenu from './ContextMenu.svelte'
 	import { cordActionMenu, runCordAction } from './cordActions'
+	import { setStatus } from '../domain/cords'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
 	/** `inRoomView` = a rack view is open: the list starts on its room (UX review R4); "All rooms" is one click away. */
@@ -71,7 +72,7 @@
 	/** ↑ / ↓ move the selection; Ctrl+A selects the shown rows; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
-		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
+		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !(e.target instanceof Element && e.target.closest('input, select'))) { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
 		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))
@@ -102,6 +103,38 @@
 		ws.select(e.ctrlKey || e.metaKey ? (selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id]) : [id])
 	}
 	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
+
+	// ── inline editing (Dave's note on patch-list-plan.md): double-click a Cord ID, Status or Notes cell ──
+	type Field = 'cordId' | 'status' | 'notes'
+	const FIELDS: Field[] = ['cordId', 'status', 'notes']
+	let editing = $state<{ id: string; field: Field } | null>(null)
+	function edit(id: string, field: Field, e: MouseEvent) { e.stopPropagation(); editing = { id, field } }
+	const isEditing = (id: string, field: Field) => editing?.id === id && editing.field === field
+	/** Save one cell. The status goes through the install rules (setStatus). */
+	function save(id: string, field: Field, value: string) {
+		const c = project.index.get(id)
+		if (c?.type !== 'cord') return
+		if (field === 'status') { if (value !== c.status) project.store.transact('Cord status', (tx) => tx.put(setStatus(c, value as Cord['status']))); return }
+		const v = field === 'cordId' ? value.trim() : value
+		if (v === (c[field] ?? '')) return
+		project.store.transact(field === 'cordId' ? 'Cord ID' : 'Cord notes', (tx) => tx.put({ ...c, [field]: v || undefined }))
+	}
+	/** Leaving the box saves it — only while it is still the cell being edited (a key that moved on has saved it). */
+	function blurSave(id: string, field: Field, value: string) { if (isEditing(id, field)) { save(id, field, value); editing = null } }
+	/** Enter / Shift+Enter: save, then the same column on the next / previous row (typing a run of cord IDs);
+	 *  Tab / Shift+Tab: the next / previous cell (Cord ID → Status → Notes → the next row); Esc cancels. */
+	function editKey(e: KeyboardEvent, id: string, field: Field) {
+		e.stopPropagation()
+		if (e.key === 'Escape') { editing = null; return }
+		if (e.key !== 'Enter' && e.key !== 'Tab') return
+		e.preventDefault()
+		save(id, field, (e.currentTarget as HTMLInputElement | HTMLSelectElement).value)
+		const ids = rows.map((r) => r.id), i = ids.indexOf(id), back = e.shiftKey
+		if (e.key === 'Enter') { const n = ids[i + (back ? -1 : 1)]; editing = n ? { id: n, field } : null; return }
+		const k = i * FIELDS.length + FIELDS.indexOf(field) + (back ? -1 : 1), n = ids[Math.floor(k / FIELDS.length)]
+		editing = n && k >= 0 ? { id: n, field: FIELDS[k % FIELDS.length] } : null
+	}
+	const focus = (el: HTMLElement) => { el.focus(); if (el instanceof HTMLInputElement) el.select() }
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -137,9 +170,17 @@
 					<td class="px-2 font-mono text-zinc-600">{r.toLabel || '—'}</td>
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}</td>
 					<td class="px-2">{r.lengthM}</td>
-					<td class="px-2 font-mono">{r.cordId}</td>
-					<td class="px-2"><span class="chip s-{r.status}">{r.status}</span></td>
-					<td class="clip px-2 text-zinc-600" title={r.notes}>{r.notes}</td>
+					{#if isEditing(r.id, 'cordId')}
+						<td class="ed"><input class="cell font-mono" value={r.cordId} use:focus onkeydown={(e) => editKey(e, r.id, 'cordId')} onblur={(e) => blurSave(r.id, 'cordId', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="px-2 font-mono" title="Double-click to edit (Enter: next row · Tab: next cell)" ondblclick={(e) => edit(r.id, 'cordId', e)}>{r.cordId}</td>{/if}
+					{#if isEditing(r.id, 'status')}
+						<td class="ed"><select class="cell" value={r.status} use:focus onkeydown={(e) => editKey(e, r.id, 'status')} onblur={(e) => blurSave(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+							{#each STATUSES as s (s)}<option value={s}>{s}</option>{/each}
+						</select></td>
+					{:else}<td class="px-2" title="Double-click to set the status (the install rules apply: installed / add clear the history, remove keeps it)" ondblclick={(e) => edit(r.id, 'status', e)}><span class="chip s-{r.status}">{r.status}</span></td>{/if}
+					{#if isEditing(r.id, 'notes')}
+						<td class="ed"><input class="cell" value={r.notes} use:focus onkeydown={(e) => editKey(e, r.id, 'notes')} onblur={(e) => blurSave(r.id, 'notes', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="clip px-2 text-zinc-600" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => edit(r.id, 'notes', e)}>{r.notes}</td>{/if}
 				</tr>
 			{:else}
 				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
@@ -168,5 +209,7 @@
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
+	.ed { padding: 0 2px; }
+	.cell { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid #0002; }
 </style>

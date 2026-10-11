@@ -1,6 +1,6 @@
 # Patch list management — plan for review
 
-**Status: BUILT 2026-10-11 — slices 1–4 and D5 (decisions D1–D8 below); D7 (schedule order) to review after testing. Logged in
+**Status: BUILT 2026-10-11 — slices 1–4 and D5 (decisions D1–D8 below); D7 reviewed (From label, configurable); inline editing built. Logged in
 `../phases/phase8.md`.** Dave asked for:
 - the status of the selected patches can be set (e.g. Installed);
 - changes set the status automatically;
@@ -147,10 +147,10 @@ Every path that changes a cord goes through these rules, so the list, Properties
 - **D4** Full-list export: **a sheet per room** plus the BOM.
 - **D5** Bulk cable type / colour on the selected rows: **now** (no status change, D2).
 - **D6** F / T badges: **dropped**.
-- **D7** Keep sorting by the From port's place — **review after testing**.
+- **D7** Reviewed 2026-10-11: sort by the **From label** inside each group, or by From place / To label / cord ID (the dialog's "sort by"); columns per end: Device, Label, Rack, U, Face, Port.
 - **D8** Status back from the returned Excel: **not now**.
 - Dave's note on the gap table: inline editing in the list — consider it at least for cord ID, status and notes
-  (not in these slices).
+  — BUILT 2026-10-11: double-click Cord ID / Status / Notes; Enter / Shift+Enter down / up, Tab / Shift+Tab across.
 
 Not in this plan (still in `decisions.md` / `later.md` / `backlog.md`): hovering a cord (18), patch bench / by rule /
 port holds (82), the bulk preview and port counts (84b), a change log (131), patch schedule viewports on sheets,

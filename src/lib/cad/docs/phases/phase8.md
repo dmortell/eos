@@ -2141,3 +2141,19 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   cord, message shown; then Delete (1) → confirm, Planning — Firestore: 35 cords (32 add, 3 remove) as before;
   `newCordStatus: 'add'` is now stored (was unset — same meaning). Help: "Record the cords of a built site
   (Surveying)". **Slices 1–4 of `patch-list-plan.md` done.**
+- **Patch list follow-ups (Dave 2026-10-11):** (1) the Planning · Surveying toggle was unnoticeable — the picked side is
+  now primary blue (as the view strip's Racks front / rear). (2) **D7 reviewed:** the patch schedule sorts inside each
+  status group by the **From label** (blanks last, ties by From place), or by the dialog's "sort by" (From rack / U /
+  port, To label, cord ID) — `ScheduleSort`, `SCHEDULE_SORTS`, `orderForSchedule(ix, cords, by)`. (3) Columns per end:
+  **Device, Label, Rack, U, Face, Port** (U and Face split); the Status / Cord ID columns are found by header name
+  (the import's fallback too; its old-file "#" fallback keeps the place order). (4) **Inline editing** in the patch
+  list (Dave's note on the plan): double-click Cord ID / Status / Notes; Enter / Shift+Enter = save + the same cell
+  on the next / previous row, Tab / Shift+Tab = the next / previous cell (Cord ID → Status → Notes → next row), Esc
+  cancels, leaving saves (only the cell still being edited — a key that moved on has saved it already); the status
+  goes through `setStatus` and is saved on leaving (arrow keys on a closed select would otherwise save each step).
+  Ctrl+A in the list ignores the edit box. Tests in `render/exports.test.ts`. Live (Test Project): T-1 Enter T-2 Tab
+  Tab → in row 2's Notes; Shift+Tab ×2, cleared, Shift+Enter, cleared, Enter, Esc — Firestore: no cord IDs, 32 add /
+  3 remove as before. **Exported** (Dave OK'd): `Patching-Test_Project-20261011.xlsx` — sheets 33IDF2 (3 remove, 8
+  add), Server room A (24 add), Bill of Materials; the new header; rows by From label (4A001-01, 4A001-02, 4A002-01 …).
+  Help: "Import cord IDs from a returned patch schedule", "Edit cord IDs, status and notes in the patch list"; the
+  export entry. Backlog: cord label batches are typed by hand (no generating).

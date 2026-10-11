@@ -16,13 +16,12 @@
 
 <span class="mode" role="group" aria-label="New cords">
 	<button class:on={mode === 'add'} title="Planning a new install: new cords are ADD (to install)" onclick={() => set('add')}>Planning</button>
-	<button class:on={mode === 'installed'} class="survey" title="Surveying a built site: new cords are recorded as INSTALLED (already there)" onclick={() => set('installed')}>Surveying</button>
+	<button class:on={mode === 'installed'} title="Surveying a built site: new cords are recorded as INSTALLED (already there)" onclick={() => set('installed')}>Surveying</button>
 </span>
 
 <style>
 	.mode { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; font-size: 11px; vertical-align: middle; }
 	button { padding: 0 7px; background: var(--cad-input); color: var(--cad-muted); }
 	button + button { border-left: 1px solid var(--cad-line); }
-	button.on { background: #dcfce7; color: #166534; font-weight: 600; }
-	button.survey.on { background: #e4e4e7; color: #18181b; }
+	button.on { background: #2563eb; color: white; font-weight: 600; }
 </style>
