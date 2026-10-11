@@ -2284,3 +2284,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   subpaths, `fillEvenOdd` / `fillStrokeEvenOdd`; DXF: each hole its own closed polyline. Kept by the sheet, rack-row
   and issue copies of a display list. Test in `domain/runOutline.test.ts`. Live (Test Project 1F): the high trunk loop
   → its middle clear, the floorplan showing through.
+- **Pasted pictures: once, and placed while they upload (Dave 2026-10-12):** `app/pictureUploads.svelte.ts`
+  `PictureUploads.add` hashes the picture (SHA-256, kept on its file doc as `sha256`; `storeFile` takes `extra` fields);
+  the same bytes → the same file, from this session (even mid-upload) or the project's files (a `sha256` query, kept to
+  the project's own) — not uploaded again. A new one gets its file id at once (`freeFileId`, ids handed out this
+  session skipped), is shown from its own bytes (`PdfCache.showPicture`, an object URL) and the Image tool is armed
+  straight away; the upload goes on meanwhile — "Uploading picture…" with a spinner by Saved (`pending`); a failed
+  upload says so (Undo removes what was placed). Tests in `app/pictureUploads.test.ts`. Live (Test Project 1F, a
+  synthetic paste of a generated PNG): the spinner, a box dragged at once (shown from the blob), the upload done in
+  ~3 s; the same picture again → "already in Uploads … (not uploaded again)"; the `sha256` lookup finds it (a fresh
+  session's path); Undo → gone; the upload deleted (UploadThing + its `files` doc) and checked.

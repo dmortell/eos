@@ -34,7 +34,7 @@
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
 	import { clipboardEvents } from '../app/clipboardEvents'
-	import { storeFile } from '../app/projectFiles'
+	import { PictureUploads, firestorePictureDeps } from '../app/pictureUploads.svelte'
 	import ToolOptions from './ToolOptions.svelte'
 	import Exports from './Exports.svelte'
 	import TablesPanel from './TablesPanel.svelte'
@@ -443,19 +443,22 @@
 		ws.say(CALIB_SAY[mode])
 	}
 	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Insert › Image's uploads (the project's
-	 *  files, listed in Uploads), then the Image tool is armed with it — drag its box where it goes. */
+	 *  files, listed in Uploads) and the Image tool armed with it at once — drag its box where it goes while it uploads
+	 *  ("Uploading picture…" by Saved). The same picture pasted again is the same file: uploaded once. */
+	const pictures = new PictureUploads(firestorePictureDeps(project.db, project.pid, () => project.settings?.fileStorage, project.pdf.showPicture))
 	async function pastePicture(file: File) {
 		if (!toolWorksIn('image', activeKind, !!vpEditKind)) { ws.say('Paste a picture into a plan, an elevation, a section or a sheet'); return }
 		const d = new Date(), two = (n: number) => String(n).padStart(2, '0')
 		const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
 		const name = `Pasted ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}.${two(d.getSeconds())}.${ext}`
-		ws.say('Uploading the pasted picture…')
 		try {
-			const r = await storeFile(project.db, project.pid, new File([file], name, { type: file.type }), { storage: project.settings?.fileStorage, route: 'imageUploader' })
-			ws.imagePick = { fileId: r.id, name }
+			const r = await pictures.add(file, name)
+			ws.imagePick = { fileId: r.fileId, name: r.fileId }
 			setTool('image')
-			ws.say(`Pasted picture (in Uploads as “${name}”): drag its box where it goes — Esc to leave it out`)
-		} catch (e) { project.error = `Couldn't upload the pasted picture: ${(e as Error).message}` }
+			ws.say(r.fresh ? `Pasted picture: drag its box where it goes now — it uploads meanwhile (to Uploads as “${r.fileId}”) · Esc to leave it out`
+				: `Pasted picture — already in Uploads as “${r.fileId}” (not uploaded again): drag its box where it goes · Esc to leave it out`)
+			r.done.catch((e) => { project.error = `Couldn't upload the pasted picture “${r.fileId}”: ${(e as Error).message} — any you placed show only here; Undo removes them` })
+		} catch (e) { project.error = `Couldn't paste the picture: ${(e as Error).message}` }
 	}
 	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f) })
 
@@ -469,6 +472,7 @@
 	<MenuBar {menus}>
 		{#snippet right()}
 			<span class="saved text-xs">
+				{#if pictures.pending}<span class="uploading" title="A pasted picture is uploading — you can place it meanwhile"><span class="spin"></span>Uploading picture{pictures.pending > 1 ? `s (${pictures.pending})` : ''}…</span>{/if}
 				{#if project.error}<span class="text-red-600">{project.error}</span>
 				{:else if !project.loaded}Loading…
 				{:else if project.pendingWrites}Saving…{:else}Saved{/if}
@@ -606,6 +610,9 @@
 	.ib.on { background: #dbeafe; color: #1d4ed8; }
 	.ib.dim { color: var(--cad-faint); }
 	.saved { margin-left: 8px; min-width: 3.5rem; text-align: right; }
+	.uploading { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: #2563eb; }
+	.spin { width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+	@keyframes spin { to { transform: rotate(360deg); } }
 	.drop { position: absolute; top: 0; bottom: 0; width: 6px; background: #3b82f6; opacity: 0.6; z-index: 60; pointer-events: none; }
 	.drop-left { left: 0; }
 	.drop-right { right: 0; }

@@ -63,6 +63,8 @@ export class PdfCache {
 		if (!url && !this.#picJobs.has(key)) this.#picJobs.set(key, this.#renderPicture(r.fileId, r.page, key))
 		return url
 	}
+	/** Show this url for an image file's picture (a pasted picture, from its own bytes while it uploads). */
+	showPicture = (fileId: string, url: string): void => { this.#pics[`${fileId}#1`] = url }
 	/** The same, waiting for it (PDFs). */
 	pictureReady = async (ref: string): Promise<string | undefined> => {
 		const r = parsePictureRef(ref)

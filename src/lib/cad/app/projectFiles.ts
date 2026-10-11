@@ -66,7 +66,7 @@ export type FileStorage = 'uploadthing' | 'firebase'
 /** Upload a file to the project's file storage and list it in its Uploads (`files/{id}`; `provider` says where the
  *  bytes are, as in Uploads). `id` = the doc id (default: a free one from the file's name, which is also its name);
  *  `route` = UploadThing's route (images / PDFs). Firebase paths are laid out as Uploads does. */
-export async function storeFile(db: Firestore, pid: string, file: File, o: { storage?: FileStorage; route: 'imageUploader' | 'floorplanUploader'; id?: string }): Promise<{ id: string; url: string; key?: string }> {
+export async function storeFile(db: Firestore, pid: string, file: File, o: { storage?: FileStorage; route: 'imageUploader' | 'floorplanUploader'; id?: string; /** more fields for the file doc (a pasted picture's `sha256`) */ extra?: Record<string, unknown> }): Promise<{ id: string; url: string; key?: string }> {
 	let url: string, at: { provider: FileStorage; path: string; key?: string }
 	if (o.storage === 'firebase') {
 		const path = `projects/${pid}/uploads/${nanoid(8)}_${file.name}`, r = ref(getStorage(db.app), path)
@@ -81,6 +81,6 @@ export async function storeFile(db: Firestore, pid: string, file: File, o: { sto
 		at = { provider: 'uploadthing', path: res.key, key: res.key }
 	}
 	const id = o.id ?? (await freeFileId(db, file.name))
-	await setDoc(doc(db, 'files', id), { id, name: o.id ? file.name : id, url, ...at, type: file.type, size: file.size, projectId: pid, projectIds: [pid], uploadedAt: new Date() })
+	await setDoc(doc(db, 'files', id), { id, name: o.id ? file.name : id, url, ...at, type: file.type, size: file.size, projectId: pid, projectIds: [pid], uploadedAt: new Date(), ...o.extra })
 	return { id, url, ...(at.key ? { key: at.key } : {}) }
 }
