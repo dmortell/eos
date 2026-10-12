@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shared, countsText, selectionKinds, put, putMany, num, whole, text } from './propsKit'
+import { shared, countsText, selectionKinds, plainLines, put, putMany, num, whole, text } from './propsKit'
 import type { Entity } from '../domain/drawing'
 import type { Txn } from '../store/store'
 
@@ -53,6 +53,13 @@ describe('selectionKinds: a mixed selection by kind', () => {
 		expect(ks.map((k) => k.many)).toEqual(['walls', 'blocks'])
 		expect(selectionKinds([shape('a', 'path'), shape('b', 'path', 'containment')])[0].many).toBe('runs')
 		expect(selectionKinds([shape('a', 'path')])[0].one).toBe('line')
+	})
+	it('several plain lines get the line’s style fields (line type, lineweight, ends) — not a mix with a run or a wall', () => {
+		expect(plainLines([shape('a', 'path'), shape('b', 'path')])).toBe(true)
+		expect(plainLines([shape('a', 'path'), shape('b', 'path', 'containment')])).toBe(false)
+		expect(plainLines([shape('a', 'path', 'wall')])).toBe(false)
+		expect(plainLines([shape('a', 'rect')])).toBe(false)
+		expect(plainLines([])).toBe(false)
 	})
 })
 

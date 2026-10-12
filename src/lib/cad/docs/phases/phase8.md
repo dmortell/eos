@@ -3074,3 +3074,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   outlets found), Enter opens it — a search that matched only a device opened nothing; a click on a find no longer clears
   the search, so the double-click (keep the tab) works; unplaced outlets are found (their plan opens, selected; no fit);
   "N more" past the 15 shown (`domain/navTree.ts` `findItems` / `searchHits`, `ui/Navigator.svelte`); Help; tests.
+- **Q38** several plain lines selected get the line's style fields — line type, lineweight, start / end marks — not only
+  Color, as one line has (`ui/RunsMultiProps.svelte`; `plainLines` in `ui/propsKit.ts`, shared with LineStyle; test).

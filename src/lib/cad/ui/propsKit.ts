@@ -66,6 +66,9 @@ export function kindOf(e: Entity): [string, string] {
 }
 /** The icon for a kind of thing by its type ("rack"), for a header over several. */
 export const kindIcon = (type: string): string | undefined => KIND[type]?.[1]
+/** All plain lines (paths with no role: not a wall, trunk, conduit or tray) — they get the line's style fields (line
+ *  type, lineweight, end marks), one or several. */
+export const plainLines = (list: readonly Entity[]): boolean => list.length > 0 && list.every((e) => e.type === 'shape' && e.geom.kind === 'path' && !e.role)
 
 /** The store as the kit needs it (CadProject.store). */
 export interface PutStore { transact(label: string, fn: (tx: Txn) => void): unknown }

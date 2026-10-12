@@ -5,7 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape, LineEnd } from '../domain/shapes'
 	import { DASHES, WEIGHTS } from '../views/display'
-	import { shared, MIXED } from './propsKit'
+	import { shared, MIXED, plainLines } from './propsKit'
 
 	let { project, shapes }: { project: CadProject; shapes: Shape[] } = $props()
 
@@ -18,7 +18,7 @@
 	const NAMES: Record<string, string> = { '': 'Solid (by layer)', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot' }
 
 	// end marks (arrow / dot / tick) — plain lines only
-	const lines = $derived(shapes.every((s) => s.geom.kind === 'path' && !s.role))
+	const lines = $derived(plainLines(shapes))
 	const endA = $derived(keyOf((s) => s.style?.ends?.a ?? '')), endB = $derived(keyOf((s) => s.style?.ends?.b ?? ''))
 	const END_NAMES: Record<string, string> = { '': 'None', arrow: 'Arrow', dot: 'Dot', tick: 'Tick' }
 	function setEnd(which: 'a' | 'b', v: string) {

@@ -1,5 +1,6 @@
 <!-- SEVERAL RUNS at once (backlog "Edit several runs at once"): what they are (trunk / conduit / tray / wall / line),
-     their size, where they run (each from its own level's heights), their tier and color. A field shows the value
+     their size, where they run (each from its own level's heights), their tier and color (plain lines: line type,
+     lineweight and end marks too). A field shows the value
      they share, or "mixed"; an edit sets that one thing on every run, as one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -9,7 +10,8 @@
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import type { Level } from '../domain/types'
-	import { shared as sharedOf, MIXED } from './propsKit'
+	import { shared as sharedOf, MIXED, plainLines } from './propsKit'
+	import LineStyle from './LineStyle.svelte'
 	import { convertRun, kindOf, RUN_PLACES, placeNow, setRunPlace, type RunKind, type RunPlace } from '../domain/runEdit'
 
 	let { project, runs }: { project: CadProject; runs: Shape[] } = $props()
@@ -21,6 +23,7 @@
 	const place = $derived(shared((s) => placeNow(s, heightsOf(s)))), tier = $derived(shared((s) => (s.role?.kind === 'containment' ? s.role.tier : undefined)))
 	const colour = $derived(shared((s) => s.style?.stroke))
 	const containment = $derived(runs.every((s) => s.role?.kind === 'containment'))
+	const lines = $derived(plainLines(runs))
 	const sized = $derived(runs.every((s) => !!s.section))
 	const round = $derived(runs.every((s) => s.section?.round))
 
@@ -66,5 +69,7 @@
 {/if}
 <PropGroup kind="runs" title="Style">
 	<Field label="Color" title="Their own color on the plan (By layer = the tier's / layer's)">
-		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></Field>
+		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each(lines ? 'Line color' : 'Run color', (s) => withStyle(s, { stroke: v }))} /></Field>
+	<!-- plain lines: line type, lineweight and end marks too, as one line has -->
+	{#if lines}<LineStyle {project} shapes={runs} />{/if}
 </PropGroup>
