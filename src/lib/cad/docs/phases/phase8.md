@@ -3070,3 +3070,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q34** Project settings has its own Undo in the footer (its tooltip names the step; the status line says what was
   undone): the dialog's messages said "Undo brings it back" while the shell's Undo (keys, button, menu) sat behind the
   backdrop (`ui/SettingsDialog.svelte`); Help. No test (a button calling `project.undo()`).
+- **Q37** Ctrl+K: ↑ / ↓ move a highlight over everything the search shows that opens (tree rows, then the devices and
+  outlets found), Enter opens it — a search that matched only a device opened nothing; a click on a find no longer clears
+  the search, so the double-click (keep the tab) works; unplaced outlets are found (their plan opens, selected; no fit);
+  "N more" past the 15 shown (`domain/navTree.ts` `findItems` / `searchHits`, `ui/Navigator.svelte`); Help; tests.

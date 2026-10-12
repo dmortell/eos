@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { navTree, filterTree, pathTo, type NavNode } from './navTree'
+import { navTree, filterTree, pathTo, findItems, searchHits, type NavNode } from './navTree'
 import type { Entity, Sheet } from './drawing'
 
 const sheet: Sheet = { type: 'sheet', id: 'SH', number: 'S001', title: 'Plan', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, status: 'active',
@@ -41,6 +41,29 @@ describe('navigator tree', () => {
 		expect(labels(f)).not.toContain('Front elevation')
 		expect(f[0].kind).toBe('building')
 		expect(filterTree(navTree(ix()), 'zzz')).toEqual([])
+	})
+	it('Ctrl+K finds devices and outlets — unplaced outlets too (no fit), and says how many more past the cap', () => {
+		const loose = { type: 'outlet', id: 'OX', levelId: 'L33', zoneId: 'Z3', label: 'ZZ.9.001', tier: 'low', usage: 'desk', mount: 'floor', ports: [] } as unknown as Entity
+		const many = Array.from({ length: 4 }, (_, i) => ({ ...loose, id: `OX${i}`, label: `ZZ.9.10${i}`, at: { x: i, y: 0 } }) as Entity)
+		const p = new ProjectIndex([...demoProject(), loose, ...many])
+		const one = findItems(p, 'zz.9.001')
+		expect(one.items).toHaveLength(1)
+		expect(one.items[0]).toMatchObject({ select: 'OX', open: { levelId: 'L33', spec: { kind: 'plan' } } })
+		expect(one.items[0].focus).toBeUndefined()   // nothing drawn to fit to
+		expect(one.items[0].detail).toContain('not placed')
+		const capped = findItems(p, 'zz.9', 2)
+		expect(capped.items).toHaveLength(2)
+		expect(capped.more).toBe(3)
+		expect(findItems(p, 'switch').items[0]).toMatchObject({ select: 'SW1', focus: 'R1' })
+	})
+	it('Enter / ↑ / ↓ walk the search’s rows that open something, then the finds — a device-only match still opens', () => {
+		const p = ix()
+		const shown = filterTree(navTree(p), 'switch'), finds = findItems(p, 'switch').items
+		const hits = searchHits(shown, finds)
+		expect(hits.at(-1)?.select).toBe('SW1')
+		expect(hits.every((n) => !!n.open)).toBe(true)
+		const t = filterTree(navTree(p), 'a01')
+		expect(searchHits(t, []).map((n) => n.label)).toContain('A01')
 	})
 })
 

@@ -157,13 +157,24 @@ export function pathTo(nodes: NavNode[], match: (n: NavNode) => boolean, trail: 
 	return null
 }
 
+/** What a search's Enter and ↑ / ↓ walk: the rows it shows that open something (in tree order), then the devices and
+ *  outlets found — Enter on a search that matched only a device opened nothing. */
+export function searchHits(shown: NavNode[], finds: FindItem[]): NavNode[] {
+	const out: NavNode[] = []
+	const walk = (ns: NavNode[]) => { for (const n of ns) { if (n.open) out.push(n); walk(n.children ?? []) } }
+	walk(shown)
+	return [...out, ...finds]
+}
+
 /** Devices and outlets matching a search (review R56: Ctrl+K found only levels, views, sheets, rooms, racks — a device
  *  needed Racks › Find a device, an outlet the tables): rows that open a device's rack view (its side, zoomed to its
- *  rack) or an outlet's plan, with it selected. `focus` = what the view fits to. At most `max`. */
-export function findItems(ix: ProjectIndex, q: string, max = 15): (NavNode & { focus: Id })[] {
+ *  rack) or an outlet's plan, with it selected. `focus` = what the view fits to (none for an outlet not placed yet: its
+ *  plan opens with it selected). At most `max` `items`; `more` = how many matched past them (the list says so). */
+export type FindItem = NavNode & { focus?: Id }
+export function findItems(ix: ProjectIndex, q: string, max = 15): { items: FindItem[]; more: number } {
 	const w = q.trim().toLowerCase()
-	if (w.length < 2) return []
-	const out: (NavNode & { focus: Id })[] = []
+	if (w.length < 2) return { items: [], more: 0 }
+	const out: FindItem[] = []
 	for (const d of ix.devices) {
 		const r = ix.get<Rack>(d.rackId)
 		if (r?.type !== 'rack' || !`${d.name} ${d.model ?? ''}`.toLowerCase().includes(w)) continue
@@ -171,8 +182,9 @@ export function findItems(ix: ProjectIndex, q: string, max = 15): (NavNode & { f
 			open: { levelId: r.levelId, spec: { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' } } })
 	}
 	for (const o of ix.outlets) {
-		if (!o.label.toLowerCase().includes(w) || !o.at) continue
-		out.push({ key: `find:${o.id}`, kind: 'view', label: o.label, detail: `outlet · ${ix.nameOf(o.levelId)}`, select: o.id, focus: o.id, open: { levelId: o.levelId, spec: { kind: 'plan' } } })
+		if (!o.label.toLowerCase().includes(w)) continue
+		out.push({ key: `find:${o.id}`, kind: 'view', label: o.label, detail: `outlet · ${ix.nameOf(o.levelId)}${o.at ? '' : ' · not placed'}`, select: o.id, ...(o.at ? { focus: o.id } : {}), open: { levelId: o.levelId, spec: { kind: 'plan' } } })
 	}
-	return out.sort((a, b) => naturalCompare(a.label, b.label)).slice(0, max)
+	out.sort((a, b) => naturalCompare(a.label, b.label))
+	return { items: out.slice(0, max), more: Math.max(0, out.length - max) }
 }
