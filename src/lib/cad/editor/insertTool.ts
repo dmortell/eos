@@ -5,7 +5,7 @@
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
-import { insertAttrs, frontOf, type Block } from '../domain/blocks'
+import { insertAttrs, blockFace, faceFor, type Block } from '../domain/blocks'
 import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
@@ -41,7 +41,7 @@ export class InsertTool implements Tool {
 		}
 		const s = {
 			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
-			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
+			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
 		} as Shape
 		c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
 		this.#z = p.z
@@ -57,12 +57,13 @@ export class InsertTool implements Tool {
 	preview(c?: ToolCtx): Prim[] {
 		const b = this.blockOf(), h = this.#hover
 		if (!b || !h) return []
-		const spec = c?.space.spec, kind = spec?.kind, front = kind === 'elevation' || kind === 'section'
-		// on a sheet, over an elevation / section viewport: its front, at that viewport's scale (as it will be drawn)
+		// as it will be drawn: the view's face (plan symbol / front, faceFor); on a sheet over a viewport, that viewport's
+		// face and scale (it will be tied to it); unturned in plan, facing you in elevations
+		const spec = c?.space.spec, kind = spec?.kind ?? 'plan'
 		const sheet = spec?.kind === 'sheet' ? c!.store.get(spec.sheetId) : undefined
-		const vp = sheet?.type === 'sheet' && b.front ? viewportAt(sheet, h.view) : undefined
-		if (vp && (vp.view.spec.kind === 'elevation' || vp.view.spec.kind === 'section')) return blockPrims(frontOf(b), { at: h.view, scale: 1 / vp.scale }, 1, insertAttrs(b), '', 'draft')
-		return blockPrims(front ? frontOf(b) : b, { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you (its front) in elevations
+		const vp = sheet?.type === 'sheet' ? viewportAt(sheet, h.view) : undefined
+		if (vp) return blockPrims(blockFace(b, faceFor(vp.view.spec.kind)), { at: h.view, scale: 1 / vp.scale }, vp.scale, insertAttrs(b), '', 'draft')
+		return blockPrims(blockFace(b, faceFor(kind)), { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')
 	}
 
 	#place(e: PointerIn, c: ToolCtx): Place {

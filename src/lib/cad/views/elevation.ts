@@ -12,8 +12,7 @@ import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
-import { insertAttrs, frontOf, type Block } from '../domain/blocks'
-import { blockPrims } from './blocks'
+import type { Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
@@ -56,12 +55,13 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1 + (s.order ?? 0) * 1e-3, prims: shapePrims({ ...s, geom: g }, k) })   // draw order among them
 			continue
 		}
-		// a block insert placed in an elevation (a wall faceplate): its symbol at its height, facing the viewer; one
-		// placed on the plan is a plan symbol, not shown here
+		// a block insert placed in an elevation (a wall faceplate): drawn as on a plan (shapePrims), its front facing the
+		// viewer at its height — only in the view it was placed in (`frame`); one placed on the plan isn't shown here
 		if (s.geom.kind === 'insert') {
-			if (s.levelId !== levelId || !s.geom.inElevations) continue
-			const g = s.geom, b = o.blocks?.(g.blockId), p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, v = sp.fromWorld(p)
-			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(frontOf(b), { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape') })   // its front drawing, if it has one
+			const g = s.geom
+			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameFrame(g.frame, sp.frame)))) continue
+			const p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, { rot: _r, ...flat } = g
+			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks, 'front') })
 			continue
 		}
 		if (planDrawing(s)) continue

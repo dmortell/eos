@@ -16,6 +16,11 @@ export type Block = BlockDef & { annotative?: boolean; builtin?: boolean
 	front?: BlockShape[] }
 /** The block as an elevation / section draws it: its front drawing (real mm), if it has one. */
 export const frontOf = (b: Block): Block => (b.front ? { ...b, shapes: b.front, annotative: false } : b)
+/** How a view draws blocks: its PLAN symbol, or its FRONT (an elevation / section). Decided once, by the view's kind,
+ *  for every way a block is drawn — a plan, an elevation, a note in a viewport, the Insert ghost, the Blocks window. */
+export type BlockFace = 'plan' | 'front'
+export const faceFor = (viewKind: string): BlockFace => (viewKind === 'elevation' || viewKind === 'section' ? 'front' : 'plan')
+export const blockFace = (b: Block, face: BlockFace): Block => (face === 'front' ? frontOf(b) : b)
 
 const sh = (geom: Geometry, extra: Partial<BlockShape> = {}): BlockShape => ({ id: newId(), geom, ...extra })
 /** A straight line as a two-node path. */

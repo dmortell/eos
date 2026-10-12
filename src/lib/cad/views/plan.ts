@@ -15,7 +15,7 @@ import { rotate } from '../domain/conventions'
 import type { Bounds, Prim, Dash } from './display'
 import { DASHES } from './display'
 import { blockPrims } from './blocks'
-import { defaultOutletBlock, outletAttrs, insertAttrs, type Block } from '../domain/blocks'
+import { defaultOutletBlock, outletAttrs, insertAttrs, blockFace, type Block, type BlockFace } from '../domain/blocks'
 import { usageColour } from '../domain/usages'
 
 export interface PlanOpts {
@@ -47,8 +47,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
-	// (a shape drawn on an elevation's plane belongs to elevations, not the plan)
-	for (const s of [...shapes].sort(byDrawOrder)) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical')
+	// (a shape drawn on an elevation's plane belongs to elevations, not the plan; so does a block put on a wall there)
+	for (const s of [...shapes].sort(byDrawOrder)) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical' && !(s.geom.kind === 'insert' && s.geom.frame && s.geom.inElevations))
 		out.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, new Set([levelId]), k, o.blocks) : shapePrims(s, k, o.blocks)))
 	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
@@ -79,8 +79,9 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 
 /** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own colour
  *  (`style.stroke`, Properties → Colour) on all of them. */
-export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
-	const ps = basePrims(s, k, blocks), fill = s.style?.fill && FILLABLE.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
+/** `face`: how a block insert is drawn — its plan symbol, or its front drawing (elevations / sections: `faceFor`). */
+export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks'], face: BlockFace = 'plan'): Prim[] {
+	const ps = basePrims(s, k, blocks, face), fill = s.style?.fill && FILLABLE.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
 	return ownStyle(s, fill ? [fill, ...ps] : ps)
 }
 const FILLABLE = new Set(['rect', 'circle', 'ellipse', 'polygon'])
@@ -89,12 +90,12 @@ function regionFill(p: Prim | undefined, color: string): Prim | null {
 	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', color }
 	return null
 }
-function basePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
+function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined, face: BlockFace): Prim[] {
 	const g = s.geom, cls = s.role?.kind === 'wall' ? 'wall' : 'shape'
 	switch (g.kind) {
 		case 'insert': {
 			const b = blocks?.(g.blockId)
-			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
+			if (b) return blockPrims(blockFace(b, face), { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]
 		}
