@@ -68,12 +68,19 @@
 	const rowCords = $derived(rows.map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
 	/** Purge removed: every cord marked for removal in this scope is out on site — their records go. */
 	const removed = $derived(all.filter((r) => r.status === 'remove').map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
+	/** Asks first (the installer's list can't bring the records back — only Undo can): names how many cords go; yes is ONE undo step. */
+	function purgeRemoved() {
+		const cords = removed, n = cords.length
+		if (!n) return
+		ws.ask2(`Purge ${n} cord${n === 1 ? '' : 's'} marked for removal${room ? ` in ${room.name}` : ''}? ${n === 1 ? 'Its record goes' : 'Their records go'} — the installer’s list can’t bring ${n === 1 ? 'it' : 'them'} back (Undo does).`,
+			`Purge ${n} cord${n === 1 ? '' : 's'}`, () => runCordAction(project, ws, cords, 'installed'))
+	}
 	/** ⋯: the cord labels bought, cord IDs back in, and Purge removed. */
 	const more = $derived<MenuItem[]>([
 		{ label: 'Cord labels…', title: 'The patch cords bought, as batches of pre-printed labels per type, length and color: labels used and free, cords still short, where the next order continues', run: () => (labelsOpen = true) },
 		{ label: 'Import cord IDs…', title: 'Read cord IDs back from a patch list (schedule) the installer filled in', run: () => fileInput?.click() },
 		'-',
-		{ label: `Purge removed (${removed.length})`, disabled: !removed.length, title: `The cords marked for removal${room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)`, run: () => runCordAction(project, ws, removed, 'installed') },
+		{ label: `Purge removed (${removed.length})`, disabled: !removed.length, title: `The cords marked for removal${room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)`, run: purgeRemoved },
 	])
 	let menu = $state<{ x: number; y: number } | null>(null)
 	function rowMenu(id: string, e: MouseEvent) {
