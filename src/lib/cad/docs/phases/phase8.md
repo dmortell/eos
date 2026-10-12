@@ -3079,3 +3079,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q39** the Z / W / H typed for a drawing tool (trunk, conduit, wall, line, opening) come back when it is picked again
   this session — W / H per tool, Z per tool and level; `setTool` reset them at every pick (`app/workspace.svelte.ts`);
   Help; test.
+- **Q6** turned text in PDFs that is centred or right-aligned (vertical / slanted dimension values, turned notes, rack
+  labels) starts back along its turned baseline: jsPDF shifted x for `align` before turning, so it printed off its
+  anchor (`render/pdf.ts`; test reads the text matrix).

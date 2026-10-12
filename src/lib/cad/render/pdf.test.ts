@@ -57,6 +57,19 @@ describe('sheets to PDF', () => {
 		// its bottom-left corner (0.6 below the anchor's baseline) turned 90° clockwise about the anchor: (9.4, 10)
 		expect([x, y + h, w, rot]).toEqual([expect.closeTo(9.4, 6), expect.closeTo(10, 6), 20, -90])
 	})
+	it('turned centred / right-aligned text starts back along its turned baseline, not across it', async () => {
+		// the text matrix's origin (pt, PDF y up) of a 90°-turned label anchored start / middle / end at (50, 50) mm
+		const origin = async (anchor: 'start' | 'middle' | 'end') => {
+			const { pdf } = await pagesToPdf([{ w: 100, h: 100, prims: [{ k: 'text', at: { x: 50, y: 50 }, text: 'ABCDEF', size: 3, cls: 'label', anchor, rot: 90 }] }], noImages, { compress: false })
+			const m = /(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) Tm/.exec(pdf.output())!
+			return { x: +m[5] * 25.4 / 72, y: 100 - +m[6] * 25.4 / 72, w: pdf.getTextWidth('ABCDEF') }
+		}
+		const s = await origin('start'), c = await origin('middle'), e = await origin('end')
+		expect(s.x).toBeCloseTo(50, 2); expect(s.y).toBeCloseTo(50, 2)
+		// turned 90° clockwise the baseline runs down the page: the start moves up by half / all of the width
+		expect(c.x).toBeCloseTo(50, 2); expect(c.y).toBeCloseTo(50 - s.w / 2, 2)
+		expect(e.x).toBeCloseTo(50, 2); expect(e.y).toBeCloseTo(50 - s.w, 2)
+	})
 	it('screen-only things stay off the paper', () => {
 		expect(styleOf('paper').skip).toBe(true)
 		expect(styleOf('paper-margin').skip).toBe(true)

@@ -162,7 +162,12 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 				pdf.setFont('helvetica', st.bold ? 'bold' : 'normal')
 				pdf.setFontSize(p.size * PT_PER_MM)
 				pdf.setTextColor(st.text ?? '#0f172a')
-				pdf.text(t.text, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left', ...(p.rot ? { angle: -p.rot } : {}) })
+				if (!p.rot) { pdf.text(t.text, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left' }); continue }
+				// turned text: jsPDF shifts x for `align` BEFORE turning, so a centred / right-aligned label lands off its
+				// anchor; step back along the turned baseline ourselves and draw it left-aligned
+				const back = p.anchor === 'middle' ? 0.5 : p.anchor === 'end' ? 1 : 0
+				const a = (p.rot * Math.PI) / 180, wd = back ? pdf.getTextWidth(t.text) * back : 0
+				pdf.text(t.text, p.at.x - wd * Math.cos(a), p.at.y - wd * Math.sin(a), { angle: -p.rot })
 				continue
 			}
 			const stroke = st.stroke || INK
