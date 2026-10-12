@@ -70,7 +70,7 @@ describe('two runs joined into one (joinShapes / repointRefs)', () => {
 		const pen = { type: 'shape', id: 'P', levelId: 'L', role: { kind: 'penetration', diaMm: 50, through: 'wall', source: { run: 'B', seg: 'Bs', host: 'W' } }, geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 25 } } as unknown as Shape
 		const line = { type: 'shape', id: 'LN', levelId: 'L', geom: { kind: 'path', nodes: [{ id: 'q', x: 0, y: 0, z: 0, attach: 'B' }], segs: [] } } as unknown as Shape
 		const sheet = { type: 'sheet', id: 'S', viewports: [{ id: 'V', view: { levelId: 'L', spec: { kind: 'fill', shapeId: 'B', segId: 'Bs' } } }] } as unknown as Sheet
-		const out = new Map(repointRefs([link, outlet, leader, pen, line, sheet] as Entity[], 'B', () => 'A').map((e) => [e.id, e as never]))
+		const out = new Map<string, Entity>(repointRefs([link, outlet, leader, pen, line, sheet] as Entity[], 'B', () => 'A').map((e) => [e.id, e]))
 		expect((out.get('K') as Link).via).toEqual(['X', 'A'])
 		expect((out.get('O') as Outlet).hostShapeId).toBe('A')
 		expect((out.get('LD') as Shape).geom).toMatchObject({ attach: 'A' })
