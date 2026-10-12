@@ -9,4 +9,4 @@ export function download(data: BlobPart, filename: string, type: string): void {
 }
 
 /** A safe file name from free text ("Test Project 1F" → "Test_Project_1F"). */
-export const fileSafe = (s: string) => s.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'export'
+export const fileSafe = (s: string) => s.replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^_+|_+$/g, '') || 'export'
