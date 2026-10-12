@@ -67,6 +67,28 @@ describe('sheets', () => {
 	})
 })
 
+describe('notes follow the layer rules (Q41)', () => {
+	const vp = (frozen?: string[]) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 }, ...(frozen ? { frozen } : {}) })
+	const text = (id: string, vpId?: string): Shape => ({ type: 'shape', id, sheetId: 'SH', ...(vpId ? { vpId } : {}), geom: { kind: 'text', at: { x: 3000, y: 4000 }, text: 'Hi', size: 3.5 } } as Shape)
+	const has = (sh: Sheet, t: Shape, o = {}) => sheetDisplayList(new ProjectIndex([...demoProject(), sh, t]), sh, o).some((p) => p.src === t.id)
+	it('a paper note hides with its layer (the Notes layer eye); a tied note also with the viewport’s freeze', () => {
+		const sh = sheet({ viewports: [vp()] }), paper = text('N1'), tied = text('N2', 'V')
+		expect(has(sh, paper)).toBe(true)
+		expect(has(sh, paper, { hidden: ['sys:notes'] })).toBe(false)
+		expect(has(sh, tied)).toBe(true)
+		expect(has(sh, tied, { hidden: ['sys:notes'] })).toBe(false)
+		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), tied)).toBe(false)
+		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), paper)).toBe(true)   // frozen in the viewport only: paper notes are not in it
+	})
+	it('By-layer color: a note with no color of its own takes its layer’s', () => {
+		const sh = sheet({ viewports: [vp()] }), n = { ...text('N1'), layerId: 'RED' } as Shape, tied = { ...text('N2', 'V'), layerId: 'RED' } as Shape
+		const all = new ProjectIndex([...demoProject(), sh, n, tied, { type: 'layer', id: 'RED', name: 'Red', order: 500, color: '#dc2626' }])
+		const list = sheetDisplayList(all, sh)
+		expect(list.find((x) => x.src === 'N1')?.color).toBe('#dc2626')
+		expect(list.find((x) => x.src === 'N2')?.color).toBe('#dc2626')
+	})
+})
+
 describe('title block on a sheet (Pages model)', () => {
 	const texts = (prims: ReturnType<typeof sheetDisplayList>) => prims.flatMap((p) => (p.k === 'text' ? [p.text] : []))
 	it('a strip down the right, filled from the project and the sheet', () => {

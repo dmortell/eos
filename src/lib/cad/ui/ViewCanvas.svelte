@@ -120,7 +120,8 @@
 	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || isPaperSpec(spec) ? drawn
 		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
-	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
+	// (its notes and viewport content are layered inside sheetDisplayList; here only the lock keeps a locked layer's items unpicked)
+	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: ws.layers.locked.size ? applyLayers(raw, project.index, { locked: ws.layers.locked }).pick : raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
 	// on a sheet the paper and its windows share the sheet's id, so that isn't highlighted (the picked VIEWPORT is, below);
 	// what's drawn on the paper (lines, notes, shapes) is, like in a view (Dave: a selected line on a sheet showed nothing)

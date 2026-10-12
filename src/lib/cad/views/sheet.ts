@@ -155,13 +155,15 @@ export function onPaper(prims: Prim[], vp: Viewport): Prim[] {
 }
 
 /** A note on a sheet as paper prims: tied to a viewport → drawn in its view mm at 1:N, then onto the paper. */
-function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] {
-	const vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined
-	if (!vp) return shapePrims(s, 1, blocks)
+function notePrims(ix: ProjectIndex, s: Shape, sheet: Sheet, o: SheetOpts): Prim[] {
+	const blocks = o.blocks, vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined
+	// the layer rules, as a plan item gets them (Q41): hidden (your eye on screen; a tied note: the viewport's freeze too) and By-layer color
+	const layered = (prims: Prim[], hidden: Iterable<string>) => applyLayers(prims, ix, { hidden: new Set(hidden) }).draw
+	if (!vp) return layered(shapePrims(s, 1, blocks), o.hidden ?? [])
 	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
 	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
 	// a block put in an elevation / section viewport (a faceplate on its wall) is drawn as that view draws blocks
-	return shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)).map((p) => placePrim(p, t, k, clip, p.src))
+	return layered(shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)), [...(vp.frozen ?? []), ...(o.hidden ?? [])]).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
 /** The options as this sheet draws: its own B/W, usage colors and cord route over the project's old settings. */
@@ -197,7 +199,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	const shown = new Set(sheet.viewports.map((v) => v.view.levelId))   // a legend on the paper lists what its viewports show
 	const notes: Prim[] = []
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
-		notes.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, shown, 1, o.blocks) : notePrims(s, sheet, o.blocks)))
+		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(o.hidden ?? []) }).draw : notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
 	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, sheet, blocks: o.blocks, levels: shown })))
 	return out
