@@ -75,8 +75,10 @@
 	.tab.drop-after { box-shadow: inset -2px 0 0 #2563eb; }
 	.t { overflow: hidden; text-overflow: ellipsis; }
 	.pn { font-size: 9px; font-weight: 700; color: white; background: #2563eb; border-radius: 3px; padding: 0 4px; }
-	.x { display: inline-flex; padding: 2px; border-radius: 3px; visibility: hidden; color: var(--cad-muted); }
-	.tab:hover .x, .tab.on .x { visibility: visible; }
+	.x { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; min-height: 20px; border-radius: 3px; visibility: hidden; color: var(--cad-muted); }
+	/* on hover, the active / shown tab, a focused tab, and always on touch screens (review R81: no hover there) */
+	.tab:hover .x, .tab.on .x, .tab.shown .x, .tab:focus-within .x, .tab:focus-visible .x { visibility: visible; }
+	@media (hover: none) { .x { visibility: visible; } }
 	.x:hover { background: var(--cad-strong); color: var(--cad-text); }
 	.all { position: relative; display: flex; align-items: center; padding: 0 4px; border-left: 1px solid var(--cad-line); }
 	.more { display: inline-flex; padding: 3px; border-radius: 4px; color: var(--cad-muted); }
