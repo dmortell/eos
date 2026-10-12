@@ -204,4 +204,4 @@ is given. Paths are relative to `src/lib/cad/` unless they start with `routes/` 
 - [ ] **Q75 An image box always keeps the picture's proportions** (every resize). **P3 · S**
 - [ ] **Q76 Finish / Cancel for a path on touch** — chips while drawing a run / line on a touch screen, and a double-tap finishes. **P3 · S**
 - [ ] **Q77 Purge removed asks before purging** (Patch list). **P3 · S**
-- Not needed (Dave): VCM front depth (`frontProtrusionMm` is an offset the legacy Racks floorplan used, not needed in cad); settable dimension / leader text size and heads; a revision cloud from two corners. Q2 (rack labels "name (ports)" and a turned label on narrow kit) is waiting for Dave.
+- Not needed (Dave): VCM front depth (`frontProtrusionMm` is an offset the legacy Racks floorplan used, not needed in cad); settable dimension / leader text size and heads; a revision cloud from two corners. Rack labels (Dave): no port count after the name; kit 150 mm wide or less gets its name turned up its middle — built 2026-10-13 (`views/rackRow.ts` `NARROW_MM`).

@@ -219,3 +219,15 @@ describe('port cells and labels', () => {
 		expect(labelLines('UPLINK')).toEqual({ full: ['UPLINK'], short: ['UPLINK'] })
 	})
 })
+
+describe('narrow kit (Dave 2026-10-13)', () => {
+	it('a device 150 mm wide or less has its name turned up its middle; a wider one keeps it level; no port count', () => {
+		const rackId = (ix().racks.find((r) => r.spaceId === 'SR-A') as Rack).id
+		const thin = { type: 'device', id: 'VM1', rackId, name: 'VCM-1', kind: 'manager', u: 30, heightU: 6, face: 'front', portCount: 0, widthMm: 120 } as Entity
+		const wide = { type: 'device', id: 'W1', rackId, name: 'Shelf-1', kind: 'other', u: 20, heightU: 2, face: 'front', portCount: 0 } as Entity
+		const ps = view('front', [thin, wide])
+		const label = (src: string, name: string) => ps.find((p) => p.k === 'text' && p.src === src && p.text.startsWith(name))
+		expect(label('VM1', 'VCM-1')).toMatchObject({ rot: -90, text: 'VCM-1' })
+		expect((label('W1', 'Shelf-1') as { rot?: number } | undefined)?.rot).toBeUndefined()
+	})
+})

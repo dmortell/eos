@@ -17,6 +17,8 @@ const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears 
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
 const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
 const ON_PORTS_NAME_MM = 6.85 // a device name drawn over its ports: a 1U 48-port panel's stacked port label size
+/** Kit this narrow or less gets its name turned up its middle (the old Racks tool's rule). */
+export const NARROW_MM = 150
 const ROW_GAP = 800           // between rows in a room view
 const LABEL_MIN_PX = 7        // port labels start showing at this screen height
 const FULL_MIN_PX = 9         // and switch to the full stacked form here
@@ -188,11 +190,16 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			// behind its ports; the strip above a 1U panel's ports is only ~8 mm, too small to read); without, it sits in
 			// the device as before
 			const grid = portCell(d, 1, dx, z0), nameSize = Math.min(RU_MM * 0.35, (z1 - z0) * 0.4)
-			const nameText: Prim = grid
+			// narrow kit (≤ NARROW_MM, e.g. a vertical manager or a 0U strip in a frame): the name runs up its middle, turned —
+			// as the old Racks tool drew it (Dave 2026-10-13); no port count after it
+			const narrow = w <= NARROW_MM && z1 - z0 > w
+			const nameText: Prim = narrow
+				? { k: 'text', at: { x: dx + Math.min(w * 0.6, 40) * 0.35, y: -(z0 + z1) / 2 }, text: d.name + note, size: Math.min(w * 0.6, 40, (z1 - z0) / Math.max(4, d.name.length) * 1.4), anchor: 'middle', rot: -90, cls: nameCls, src: grid ? undefined : d.id, minPx: 6 }
+				: grid
 				// no src: drawn over the ports, it must not take their clicks (the device is picked by its body)
 				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, minPx: 6 }
 				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
-			if (!grid) out.push(nameText)
+			if (!grid || narrow) out.push(nameText)
 			let minLabel = Infinity   // the smallest port label: once it can be read, the name over the ports shrinks
 			let gx0 = Infinity, gx1 = -Infinity, gBottom = -Infinity   // the port grid's left / right edges and its bottom (view y)
 			for (let n = 1; n <= d.portCount; n++) {
@@ -230,7 +237,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			const ranges = (d.panel?.groups ?? []).map((g) => ({ g, c: portCell(d, g.from, dx, z0) })).filter((x) => x.c)
 			const names = ranges.length ? ranges.map(({ g, c }) => ({ text: rangeLabel(ix, d, g) + (g.from === ranges[0].g.from ? note : ''), top: -c!.y + (z1 - (-grid!.y)), x: c!.x === grid!.x ? dx - w / 2 + 4 : c!.x }))
 				: [{ text: d.name + note, top: z1, x: dx - w / 2 + 4 }]
-			if (grid && nameText.k === 'text') for (const nm of names) {
+			if (grid && !narrow && nameText.k === 'text') for (const nm of names) {
 				const t: Prim = { ...nameText, text: nm.text, at: { x: nm.x, y: -(nm.top - nameSize * 0.95) } }
 				if (minLabel === Infinity) out.push(t)
 				else {
