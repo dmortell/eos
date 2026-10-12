@@ -50,7 +50,7 @@
 	const one = $derived(items.length === 1 ? items[0] : undefined)
 	const kinds = $derived(one ? [] : selectionKinds(items))
 	/** Drawn shapes in the selection (not inserts) — what "Make block" can take. */
-	const blockable = $derived(items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'insert' && !!e.levelId))
+	const blockable = $derived(items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'insert' && (!!e.levelId || !!e.sheetId)))
 	const drawn = $derived(items.filter((e): e is Shape => e.type === 'shape'))
 	const NOTES = new Set(['text', 'leader', 'cloud', 'dimension'])
 </script>

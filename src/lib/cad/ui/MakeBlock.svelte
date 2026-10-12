@@ -7,7 +7,7 @@
 	import type { Shape } from '../domain/shapes'
 	import { untrack } from 'svelte'
 	import NameInput from './NameInput.svelte'
-	import { frontProblem } from '../domain/blocks'
+	import { frontProblem, paperBlockScale } from '../domain/blocks'
 
 	let { project, ws, shapes }: { project: CadProject; ws: Workspace; shapes: Shape[] } = $props()
 
@@ -20,9 +20,15 @@
 	async function make(name: string) {
 		naming = false
 		busy = true
+		const first = shapes[0], sh = first?.sheetId ? project.store.get(first.sheetId) : undefined
+		const k = paperBlockScale(shapes, sh?.type === 'sheet' ? sh : undefined), untied = !!first?.sheetId && !first.vpId   // read before the shapes go
 		try {
 			const id = front ? await project.makeBlockFront(shapes.map((s) => s.id), { name }) : await project.makeBlock(shapes.map((s) => s.id), name)
-			if (id) { ws.select([id]); if (front) ws.say(`Block ${name}: elevations and sections show its front drawing; place more with the Insert tool`) }
+			if (id) {
+				ws.select([id])
+				if (front) ws.say(`Block ${name}: elevations and sections show its front drawing; place more with the Insert tool`)
+				else if (untied) ws.say(k ? `Block ${name} made at model size (the sheet’s first viewport, 1:${k}); the insert on the paper shows it at the same size` : `Block ${name} made at paper size (the sheet has no viewport)`)
+			}
 		}
 		catch (e) { project.error = `Make block failed: ${(e as Error).message}` }
 		finally { busy = false }

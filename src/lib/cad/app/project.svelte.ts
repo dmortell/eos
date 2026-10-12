@@ -18,7 +18,7 @@ import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
-import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, frontBlock, frontProblem, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, frontBlock, frontProblem, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
 import type { ElevFrame } from '../domain/conventions'
 import { spaceOf, type ViewSpec } from '../views/space'
 import { sectionSpace } from '../views/section'
@@ -192,7 +192,8 @@ export class CadProject {
 	async makeBlock(ids: Id[], name: string): Promise<Id | null> {
 		const shapes = ids.map((id) => this.store.get(id)).filter((e): e is Shape => e?.type === 'shape' && e.geom.kind !== 'insert')
 		if (!shapes.length || !name.trim() || blockProblem(shapes)) return null
-		const { block, insert } = blockFromShapes(shapes, name.trim())
+		const sheet = shapes[0].sheetId ? this.store.get(shapes[0].sheetId) : undefined
+		const { block, insert } = blockFromShapes(shapes, name.trim(), paperBlockScale(shapes, sheet?.type === 'sheet' ? sheet : undefined))
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
 		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(insert) })
 		return insert.id

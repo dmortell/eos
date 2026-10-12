@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, blockProblem, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
+import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, blockProblem, paperBlockScale, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
 import { blockPrims } from '../views/blocks'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from './project'
@@ -64,6 +64,34 @@ describe('outlet symbols', () => {
 		const r = (k: number, annotative: boolean) => (blockPrims({ ...b, annotative }, { at: { x: 0, y: 0 } }, k, {}, 's', 'x').find((p) => p.k === 'circle') as { r: number }).r
 		expect(r(200, true)).toBe(2 * r(100, true))
 		expect(r(200, false)).toBe(r(100, false))
+	})
+})
+
+describe('make block from shapes on a sheet', () => {
+	const sheet = { type: 'sheet', id: 'S', viewports: [{ id: 'V', scale: 50 }] } as unknown as import('./drawing').Sheet
+	const tied = (geom: object) => ({ type: 'shape', id: 'a', sheetId: 'S', vpId: 'V', layerId: 'Y', geom }) as Shape
+	const paper = (geom: object) => ({ type: 'shape', id: 'b', sheetId: 'S', geom }) as Shape
+	it('shapes tied to a viewport stay in model mm and the insert stays tied', () => {
+		const r = tied({ kind: 'rect', centre: { x: 1000, y: 500 }, size: { x: 600, y: 400 } })
+		expect(blockProblem([r])).toBeNull()
+		expect(paperBlockScale([r], sheet)).toBeNull()
+		const { block, insert } = blockFromShapes([r], 'Desk', paperBlockScale([r], sheet))
+		expect(block.shapes[0].geom).toMatchObject({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 600, y: 400 } })
+		expect(insert).toMatchObject({ sheetId: 'S', vpId: 'V', layerId: 'Y', geom: { kind: 'insert', at: { x: 1000, y: 500 } } })
+		expect((insert.geom as { scale?: number }).scale).toBeUndefined()
+	})
+	it('untied paper shapes make the block at the first viewport’s scale, the insert shrinking it back', () => {
+		const r = paper({ kind: 'rect', centre: { x: 100, y: 50 }, size: { x: 20, y: 10 } })
+		const k = paperBlockScale([r], sheet)
+		expect(k).toBe(50)
+		const { block, insert } = blockFromShapes([r], 'Plate', k)
+		expect(block.shapes[0].geom).toMatchObject({ size: { x: 1000, y: 500 } })
+		expect(insert).toMatchObject({ sheetId: 'S', geom: { at: { x: 100, y: 50 }, scale: 1 / 50 } })
+		expect(insert.vpId).toBeUndefined()
+		expect(paperBlockScale([r], { ...sheet, viewports: [] })).toBeNull()   // no viewport: paper size
+	})
+	it('shapes from different places can’t be mixed', () => {
+		expect(blockProblem([tied({ kind: 'text', at: { x: 0, y: 0 }, text: 'a', sizeMm: 3 }), paper({ kind: 'text', at: { x: 0, y: 0 }, text: 'b', sizeMm: 3 })])).toMatch(/one place/)
 	})
 })
 

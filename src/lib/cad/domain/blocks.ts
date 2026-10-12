@@ -3,7 +3,7 @@
 // one global doc (`settings/cadBlocks`). ANNOTATIVE blocks (outlet symbols) are drawn in paper mm, so they keep their
 // printed size at any scale; others are real model mm (a desk, a rack shelf item).
 import type { Id, Pt, Outlet } from './types'
-import type { BlockDef } from './drawing'
+import type { BlockDef, Sheet } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
 import { moveGeometry, ellipsePts, placeGeometry, mirrorGeometry, sameFrame } from './shapes'
 import { project, unproject, type ElevFrame } from './conventions'
@@ -169,7 +169,31 @@ function pointsOf(g: Geometry): Pt[] {
  *  plan drawing (its insert's point is a plan point), so they would land on the plan, metres from where they were. */
 export function blockProblem(shapes: Shape[]): string | null {
 	if (shapes.some((s) => s.plane?.kind === 'vertical')) return 'Make block takes plan shapes — not ones drawn on an elevation or section'
+	// sheet shapes: from one sheet, and all tied to the same viewport or all untied (their units differ)
+	const f = shapes[0]
+	if (f && shapes.some((s) => s.sheetId !== f.sheetId || s.vpId !== f.vpId || !!s.levelId !== !!f.levelId)) return 'Make block takes shapes from one place — pick ones on the same sheet and viewport (or all on a plan)'
 	return null
+}
+
+/** The scale an UNTIED sheet shape's block is made at: the sheet's first viewport (1:N → the block is N x the paper
+ *  drawing, model mm), or null when it has none (the block is paper size). Tied shapes are in model mm already. */
+export function paperBlockScale(shapes: Shape[], sheet: Sheet | undefined): number | null {
+	if (!shapes.length || !shapes[0].sheetId || shapes[0].vpId) return null
+	return sheet?.viewports[0]?.scale ?? null
+}
+
+function scaleGeometry(g: Geometry, k: number): Geometry {
+	const m = (p: Pt): Pt => ({ x: p.x * k, y: p.y * k })
+	switch (g.kind) {
+		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, ...m(n) })) }
+		case 'text': return { ...g, at: m(g.at), ...(g.width ? { width: g.width * k } : {}) }
+		case 'leader': case 'cloud': case 'polygon': return { ...g, pts: g.pts.map(m) }
+		case 'rect': case 'image': return { ...g, centre: m(g.centre), size: { x: g.size.x * k, y: g.size.y * k } }
+		case 'ellipse': return { ...g, centre: m(g.centre), rx: g.rx * k, ry: g.ry * k }
+		case 'circle': case 'arc': return { ...g, centre: m(g.centre), r: g.r * k }
+		case 'dimension': return { ...g, a: m(g.a), b: m(g.b), offset: g.offset * k, ...(g.textAt ? { textAt: m(g.textAt) } : {}) }
+		case 'insert': case 'legend': return { ...g, at: m(g.at) }
+	}
 }
 
 /** Why these shapes can't become a block's FRONT drawing, or null: they must lie on the plane of ONE elevation or
@@ -231,7 +255,7 @@ export function frontBlock(shapes: Shape[], to: { blockId: Id } | { name: string
  * Turn model shapes into a block (local mm, origin = the middle of their extent) and the insert that replaces them.
  * The caller writes the block to the library and swaps the shapes for the insert in one undo step.
  */
-export function blockFromShapes(shapes: Shape[], name: string): { block: Block; insert: Shape } {
+export function blockFromShapes(shapes: Shape[], name: string, paperScale?: number | null): { block: Block; insert: Shape } {
 	const pts = shapes.flatMap((s) => pointsOf(s.geom))
 	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
 	const c = { x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2), y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2) }
@@ -239,11 +263,13 @@ export function blockFromShapes(shapes: Shape[], name: string): { block: Block; 
 		type: 'block', id: newId(), name, scope: 'global',
 		shapes: shapes.map((s): BlockShape => {
 			const { type: _t, groupId: _g, levelId: _l, viewId: _v, sheetId: _s, ...rest } = s as ShapeCore & { levelId?: Id; viewId?: Id; sheetId?: Id }
-			return { ...rest, geom: moveGeometry(s.geom, { x: -c.x, y: -c.y }) }
+			const g = moveGeometry(s.geom, { x: -c.x, y: -c.y })
+			return { ...rest, geom: paperScale ? scaleGeometry(g, paperScale) : g }   // untied paper shapes: the block is at model size
 		}),
 	}
 	const owner = shapes[0]
-	const insert = { type: 'shape', id: newId(), ...(owner.levelId ? { levelId: owner.levelId } : owner.viewId ? { viewId: owner.viewId } : { sheetId: owner.sheetId! }), geom: { kind: 'insert', blockId: block.id, at: c } } as Shape
+	const insert = { type: 'shape', id: newId(), ...(owner.levelId ? { levelId: owner.levelId } : owner.viewId ? { viewId: owner.viewId } : { sheetId: owner.sheetId!, ...(owner.vpId ? { vpId: owner.vpId } : {}) }), ...(owner.layerId ? { layerId: owner.layerId } : {}),
+		geom: { kind: 'insert', blockId: block.id, at: c, ...(paperScale ? { scale: 1 / paperScale } : {}) } } as Shape
 	return { block, insert }
 }
 
