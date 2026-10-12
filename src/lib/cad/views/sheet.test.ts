@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport, paperViewport, fitViewport, viewportContent } from './sheet'
 import { PAPER_PAD } from './paper'
-import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
+import { DEFAULT_TITLE_BLOCK, type ProjectDetails } from '../domain/titleBlock'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -89,7 +89,7 @@ describe('title block on a sheet (Pages model)', () => {
 	it('fills in from the Project details: client, site address, company, and the author on a blank Drawn (Review 2 Q42)', () => {
 		const details = { client: 'ACME Corp', address: '1-2-3 Shibuya', author: 'David Mortell', companyName: 'Journey', companyAddress: 'Tokyo' }
 		const template = { fields: [...DEFAULT_TITLE_BLOCK.fields, { key: 'client' as const, label: 'Client' }, { key: 'site' as const, label: 'Site' }] }
-		const cells = (s: Sheet, d = details, t: typeof template & { site?: string; company?: { name: string } } = template) =>
+		const cells = (s: Sheet, d: ProjectDetails = details, t: typeof template & { site?: string; company?: { name: string } } = template) =>
 			Object.fromEntries(sheetTitleBlock(ix(), s, { template: t, details: d }).cells.map((c) => [c.label, c.kind === 'company' ? c.lines?.join(' / ') : c.value]))
 		expect(cells(sheet())).toMatchObject({ Client: 'ACME Corp', Site: '1-2-3 Shibuya', Company: 'Journey / Tokyo', Drawn: 'DM' })
 		// the sheet's / template's own win
