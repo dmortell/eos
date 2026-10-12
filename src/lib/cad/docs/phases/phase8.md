@@ -2586,3 +2586,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`domain/devices.ts`); a saved view's own shapes load and confirm (its scope is watched; `app/project.svelte.ts`);
   the backup check uses the rack's own overlap rules (mount side, shelves, "may overlap"), skips 0U PDUs for fit and
   checks rack by rack (`domain/validate.ts`). Test in `editor/notes.test.ts`.
+- **R55 Right-click on something not selected** (Select tool, nothing being drawn) selects it and opens its menu (it
+  cleared the selection); on empty space it is still Esc (`ui/ViewCanvas.svelte`). Help: Keys.

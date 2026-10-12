@@ -103,7 +103,7 @@ export const SHORTCUTS: [string, string][] = [
 	['Edit a label in place', 'Double-click · F2'], ['…save and edit the next / previous', 'Tab / Shift+Tab'],
 	['Nudge (× 10 with Shift)', 'Arrow keys'], ['Zoom to fit', 'Home'], ['Page up / down (sideways: Shift)', 'PgUp / PgDn'],
 	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel'], ['15° steps / H-V / square', 'Shift while drawing or dragging (a dragged node keeps all its segments on 15°, a junction too)'],
-	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat) · right-click'],
+	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat) · right-click on empty space'], ['Commands for something (selects it first)', 'Right-click it (Select tool)'],
 	['Copy by dragging', 'Ctrl-drag'], ['Branch a run from a node', 'Ctrl-drag the node'], ['Pull a node off another run', 'Alt-drag the node'],
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],
 	['Back / forward (views in this pane)', 'Alt+← / Alt+→'], ['Hide / show every window', 'Ctrl+.'], ['Show / hide the tables', 'Ctrl+,'],

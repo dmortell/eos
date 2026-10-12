@@ -446,10 +446,15 @@
 			// a right CLICK (no drag) = Esc (Dave): the first ends what's being drawn (a run with 2+ points is kept, a
 			// half-made one dropped, an armed bulk patch / interconnect let go) and stays in the tool; the next, with
 			// nothing in progress, goes back to Select; in Select it clears the selection
-			// a right-click ON something selected (Select tool, nothing in progress) opens its menu (UX21)
-			if (click && ws.toolId === 'select' && ws.selection.length) {
+			// a right-click ON something (Select tool, nothing in progress) opens its menu (UX21); one not selected is
+			// selected first (Dave 2026-10-12: it cleared the selection instead)
+			if (click && ws.toolId === 'select') {
 				const c = ctx(), hit = pickAt(c.prims(), input(e).p, c.tol())
-				if (hit && ws.selection.includes(hit)) { ws.contextMenu = { x: e.clientX, y: e.clientY }; return }
+				if (hit && !(spec.kind === 'sheet' && hit === spec.sheetId)) {
+					if (!ws.selection.includes(hit)) ws.select([hit])
+					ws.contextMenu = { x: e.clientX, y: e.clientY }
+					return
+				}
 			}
 			if (click) {
 				const handled = ws.tool.key?.({ key: 'Escape' } as KeyboardEvent, ctx()) ?? false
