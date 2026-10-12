@@ -29,8 +29,7 @@
 	import type { CalibMode } from '../editor/calibrateTool'
 	import type { Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
-	import FloorManager from './FloorManager.svelte'
-	import SettingsDialog from './SettingsDialog.svelte'
+	import SettingsDialog, { type SettingsTab } from './SettingsDialog.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
@@ -45,7 +44,6 @@
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
-	import TitleBlockDialog from './TitleBlockDialog.svelte'
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
@@ -74,13 +72,13 @@
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
 	let imagePickOpen = $state(false)
 	let legacyOpen = $state(false)
-	let titleBlockOpen = $state(false), openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
+	let openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
 	/** A stored backup to restore (Project › Backups… › Restore…). */
 	let restoreSource = $state.raw<{ file: ProjectFile; name: string } | undefined>()
 	let exportsRef: Exports | undefined = $state()
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
-	ws.openTitleBlock = () => (titleBlockOpen = true)
+	ws.openTitleBlock = () => openSettings('sheets')
 	ws.restoreBackup = async (id) => {
 		try {
 			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined
@@ -309,8 +307,11 @@
 	const pickedFor = (k: ViewSpec['kind']) => { const t = panels.tableFor[k] as BottomTab | undefined; return t && TABLES.includes(t) ? t : undefined }
 	$effect(() => { const k = activeKind; untrack(() => (bottom = pickedFor(k) ?? BOTTOM_FOR[k] ?? 'outlets')) })
 	function pickBottom(t: BottomTab) { bottom = t; panels.tableFor[activeKind] = t; panels.save() }
-	let floorsOpen = $state(false)
-	let typesOpen = $state(false)
+	/** Project settings (one dialog, tabs): the menu entries open it on their tab. Hidden, not closed, while a floorplan
+	 *  is calibrated on the plan (its Origin / Scale / Crop), so it comes back as it was when the Calibrate tool ends. */
+	let settingsOpen = $state(false), settingsTab = $state<SettingsTab>('floors'), calibrating = $state(false)
+	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true }
+	$effect(() => { if (calibrating && ws.toolId !== 'calibrate') calibrating = false })
 
 	// Blocks opens with the Insert tool, unless you closed it this session (Racks no longer opens by itself in a rack
 	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
@@ -369,8 +370,8 @@
 		drafting: ws.drafting, toggleDrafting,
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
-		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true), image: () => (imagePickOpen = true),
-		floors: () => (floorsOpen = true), settings: () => (typesOpen = true), projectDetails,
+		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
+		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
@@ -430,9 +431,9 @@
 			return true
 		},
 	})
-	// ── calibrating a floorplan in place (backlog "Calibrate an image in place"): Floor manager › Origin / Scale / Crop
-	// arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE (Uploads' format) — not in
-	// the drawing's undo, so each change offers "Put it back" ──
+	// ── calibrating a floorplan in place (backlog "Calibrate an image in place"): Project settings › Plans & floorplans ›
+	// Origin / Scale / Crop arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE
+	// (Uploads' format) — not in the drawing's undo, so each change offers "Put it back" ──
 	ws.calibIO = {
 		calib: (u) => project.pdf.calib[`${u.fileId}#${u.page ?? 1}`],
 		write: (u, field, value, what) => {
@@ -455,7 +456,7 @@
 		crop: 'Click one corner of the part of the floorplan to keep — Esc stops',
 	}
 	function oncalibrate(u: Underlay, mode: CalibMode) {
-		floorsOpen = false
+		calibrating = true
 		if (u.levelId !== ws.levelId) openLevel(u.levelId)
 		if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN)
 		ws.calibTarget = { underlay: u, mode }
@@ -520,7 +521,7 @@
 
 	{#snippet winBody(id: WinId)}
 		<WindowBody {id} {project} {ws} {level} {projectName} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))}
-			on={{ navOpen, floors: () => (floorsOpen = true), settings: () => (typesOpen = true), newSheet, pdfAll: pdfAllSheets, pdf: pdfSheet,
+			on={{ navOpen, floors: () => openSettings('floors'), settings: () => openSettings('usages'), newSheet, pdfAll: pdfAllSheets, pdf: pdfSheet,
 				insert: (b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }, view: (s) => setPane(activePane, s) }} />
 	{/snippet}
 
@@ -566,9 +567,7 @@
 		{#if ws.toast}<div class="toast" role="status">{ws.toast}</div>{/if}
 	</main>
 
-	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} {oncalibrate} />{/if}
-	{#if typesOpen}<SettingsDialog {project} {ws} onclose={() => (typesOpen = false)} />{/if}
-	{#if titleBlockOpen}<TitleBlockDialog {project} onclose={() => (titleBlockOpen = false)} />{/if}
+	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {projectDetails} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />

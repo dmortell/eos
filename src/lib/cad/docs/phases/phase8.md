@@ -2711,3 +2711,22 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`views/blocks.ts` `blockPreview`). Test in `views/sheet.test.ts`. Seen on Journey's sheet 010 (view only, nothing
   written): its five faceplates now show plate, frame and sockets. Placed at their old insertion points, they are
   larger than the old symbols, so a few may want moving.
+- **R73 / R74 / R71 One Project settings dialog:** Project › Floors…, Project › Settings… and Sheets › Title block… are
+  now deep links into one dialog, Project settings (`ui/SettingsDialog.svelte`), with a tab list: Floors & heights ·
+  Plans & floorplans (`ui/FloorsPanel.svelte`, the old FloorManager's body) · Usages · Cable types · Lengths & labels ·
+  Sheets (categories + the title block template) · Files (`ui/SettingsPanel.svelte`, the old Settings body plus the
+  old TitleBlockDialog's editor), and Project details… under the tabs (closes it and opens the route's dialog).
+  FloorManager.svelte and TitleBlockDialog.svelte are gone. Calibrate (Origin / Scale / Crop) hides the dialog — no
+  dialog role while hidden, so Esc reaches the tool — and it comes back as it was when the tool ends. R74: the floor
+  range and the name patterns wait for Apply floors; changed, that section is tinted amber with "not applied" and a dot
+  on the tab, Apply floors is greyed when there's nothing to apply (enabled too when the levels don't match the range),
+  and closing asks "Apply the floor range?" (Apply / Discard / Cancel). Heights / No. / names save at once (labelled
+  so). Usages and cable types add the same way: type the code / name first, then Enter or + Add (a usage's code is
+  what outlets store and can't be renamed, so a placeholder code would stick; a duplicate is refused with a message).
+  R71 in these tabs: every delete here is undoable and happens at once with "— Undo brings it back" (floorplan ✕, empty
+  area plan ✕, usage / cable type ✕, floors removed by Apply, Rename all, Apply to all); nothing irreversible goes
+  without asking (sheet categories only retire; calibration has "Put it back"). A question asked from the dialog (the
+  relabel-ports offer, the close question) and the status message now show inside it — the drawing's question box and
+  status line sit under the backdrop. "New cords start as" stays in both Cable types and the Patching bar (same
+  setting, but a Patching-tab button Dave asked for). Help updated. Live (Test Project, worktree server): deep links,
+  tabs, the not-applied tint + close question, calibrate hide / return, Project details… checked.

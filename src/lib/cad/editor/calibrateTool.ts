@@ -1,8 +1,8 @@
 // The CALIBRATE tool (backlog "Calibrate an image in place", G289 — as the Pages / Uploads tools do it, on the
 // drawing): a floorplan underlay's ORIGIN (one click: that point becomes plan 0, 0), SCALE (two clicks a known
-// distance apart, then the real distance) or CROP (two corners). Armed from the Floor manager for one floorplan. It
-// writes the page's calibration in its file (`files/{id}.pages[n]`, Uploads' units: page points, mm per point), via
-// `write`; the plan redraws from the file. Pure maths below, tested in calibrateTool.test.ts.
+// distance apart, then the real distance) or CROP (two corners). Armed from Project settings › Plans & floorplans for
+// one floorplan. It writes the page's calibration in its file (`files/{id}.pages[n]`, Uploads' units: page points, mm
+// per point), via `write`; the plan redraws from the file. Pure maths below, tested in calibrateTool.test.ts.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Prim } from '../views/display'
 import type { Pt, Underlay } from '../domain/types'
@@ -43,7 +43,7 @@ export class CalibrateTool implements Tool {
 
 	down(e: PointerIn, c: ToolCtx): void {
 		const t = this.target(), cal = t && this.calib(t.underlay)
-		if (!t || !cal) { c.say?.(t ? 'The floorplan is still loading — try again in a moment' : 'Pick the floorplan in Project › Floor manager first'); return }
+		if (!t || !cal) { c.say?.(t ? 'The floorplan is still loading — try again in a moment' : 'Pick the floorplan in Project › Floors… › Plans & floorplans first'); return }
 		const p = e.p   // the floorplan's own points: no snapping to the drawing
 		if (t.mode === 'origin') {
 			const q = toPage(p, t.underlay, cal)

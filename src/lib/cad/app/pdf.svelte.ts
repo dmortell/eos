@@ -144,13 +144,13 @@ export class PdfCache {
 				const c = (fd.pages?.[page] ?? fd.pages?.[String(page)]) as PageCalib | undefined
 				const calibrated = !!Number(c?.scale?.scale)
 				// not scaled yet: shown as if drawn at 1:100 (a PDF point = 0.3528 mm on paper), so it can be calibrated in
-				// place (Floor manager › Origin / Scale / Crop, backlog "Calibrate an image in place")
+				// place (Project settings › Plans & floorplans › Origin / Scale / Crop, backlog "Calibrate an image in place")
 				const use: PageCalib = calibrated ? c! : { ...c, scale: { scale: PROVISIONAL_SF } }
 				const pl = placementFromCalib(use, r.width, r.height)
 				if (!pl) throw new Error('the page could not be placed')
 				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated }
 				if (calibrated) delete this.problems[key]
-				else this.problems[key] = 'the page is not calibrated — shown as if 1:100: Project › Floor manager › Scale (or Uploads)'
+				else this.problems[key] = 'the page is not calibrated — shown as if 1:100: Project › Floors… › Plans & floorplans › Scale (or Uploads)'
 				const old = this.#ready[key]?.url
 				this.#ready[key] = { url: r.objectUrl, ...pl }
 				if (old?.startsWith('blob:')) URL.revokeObjectURL(old)   // the re-rendered page replaces it (multi-MB)

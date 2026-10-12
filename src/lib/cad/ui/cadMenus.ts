@@ -70,7 +70,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 	const tool = (id: ToolId, label: string, key?: string): MenuItem => ({ label, key, disabled: !c.toolOk(id), run: () => c.tool(id), ...(c.toolOk(id) ? {} : { title: 'Not in this view' }) })
 	return [
 		{ label: 'File', items: [
-			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Floor manager) and the issued package PDFs live in Uploads (backlog "Uploads
+			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Project › Floors…) and the issued package PDFs live in Uploads (backlog "Uploads
 			// from inside cad": the link; embedding it is still to decide)
 			{ label: 'Open project…', key: 'Ctrl+O', run: c.openProject },
 			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
@@ -158,15 +158,15 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'New sheet', run: c.newSheet },
 			{ label: 'New sheet from this view', disabled: !c.canSheetFromView, run: c.sheetFromView },
 			'-',
-			{ label: 'Title block…', run: c.titleBlock },
+			{ label: 'Title block…', title: 'The project’s title block template — Project settings, tab Sheets', run: c.titleBlock },
 			{ label: 'Sheet register', run: () => c.openTable('sheets') },
 			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Project', items: [
 			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, description, logos — the title block shows them', run: c.projectDetails }] : []),
-			{ label: 'Floors…', title: "The building's floors, their names and heights", run: c.floors },
-			{ label: 'Settings… (usages, cable types, files)', run: c.settings },
+			{ label: 'Floors…', title: "The building's floors, their names and heights — Project settings, tab Floors & heights", run: c.floors },
+			{ label: 'Settings…', title: 'Project settings: floors, plans, usages, cable types, lengths & labels, sheets, files', run: c.settings },
 			{ label: 'Backups…', title: 'Back up the project or chosen models, restore, download or delete backups', run: c.backups },
 			'-',
 			{ label: 'Rename this level…', disabled: !c.hasLevel, run: c.renameLevel },

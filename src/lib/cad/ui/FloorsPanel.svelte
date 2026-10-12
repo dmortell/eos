@@ -1,10 +1,12 @@
-<!-- The Floor manager (Dave, 2026-10-03): the building's floors as a lowest–top range with the floors that don't exist
-     ticked off (no GF …), floor names from a pattern, and each floor's heights (slab, raised floor, clear height,
-     plenum) with "apply to all". Every change re-stacks the FFL elevations.
-     One edit = one undo step. Levels with something on them are never removed from here. Two tabs: Floors & heights,
-     and Plans & floorplans (each floor's plan and area plans, with the PDF pages under each). -->
+<!-- Project settings › FLOORS & HEIGHTS and PLANS & FLOORPLANS (the Floor manager, Dave 2026-10-03): the building's
+     floors as a lowest–top range with the floors that don't exist ticked off (no GF …), floor names from a pattern, and
+     each floor's heights (slab, raised floor, clear height, plenum) with "apply to all". Every change re-stacks the FFL
+     elevations. Plans & floorplans: each floor's plan and area plans, with the PDF pages under each.
+     One edit = one undo step. Levels with something on them are never removed from here.
+     The range and the name patterns wait for "Apply floors" (they add and remove levels); heights, No. and names save
+     at once. A range that differs from the applied one is tinted "not applied", and the dialog asks before closing
+     on it — so the panel stays mounted while another tab shows (`part` = null), keeping what was typed. -->
 <script lang="ts">
-	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
@@ -17,8 +19,9 @@
 	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
 	import type { CalibMode } from '../editor/calibrateTool'
 
-	/** `oncalibrate`: set a floorplan's origin / scale / crop on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
-	let { project, ws, onclose, oncalibrate }: { project: CadProject; ws: Workspace; onclose: () => void; oncalibrate?: (u: Underlay, mode: CalibMode) => void } = $props()
+	/** `part`: which tab shows (none = another tab of the dialog). `oncalibrate`: set a floorplan's origin / scale / crop
+	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
+	let { project, ws, part, oncalibrate }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void } = $props()
 
 	const building = $derived(project.store.ofType('building')[0] as Building | undefined)
 	const levels = $derived.by(() => { void project.rev; return project.store.ofType('level') })
@@ -39,6 +42,21 @@
 	let ground = $state(init.ground)
 	let typical = $state<Heights>({ ...init.heights })
 
+	// ── what's applied: the building's record (or, before the first Apply, what the form started from) ──
+	const applied = $derived.by(() => {
+		const f = building?.floors
+		return f ? { lo: f.lowest, hi: f.top, skip: f.skip ?? [], above: f.above ?? DEFAULT_NAMES.above, below: f.below ?? DEFAULT_NAMES.below, ground: f.ground ?? DEFAULT_NAMES.ground! } : init
+	})
+	const sameSet = (a: number[], b: number[]) => a.length === b.length && a.every((x) => b.includes(x))
+	/** The range / names typed here differ from the applied ones. */
+	const pending = $derived(lowest !== applied.lo || top !== applied.hi || !sameSet(skip, applied.skip) || above !== applied.above || below !== applied.below || ground !== applied.ground)
+	/** The levels don't match the range (a floor with no level, a level off the range): Apply has something to do. */
+	const want = $derived(new Set(floorNumbers(lowest, top, skip)))
+	const stale = $derived([...want].some((n) => !main.some((l) => l.number === n)) || levels.some((l) => !want.has(l.number)))
+	/** For the dialog: is there an unapplied range, and apply it. */
+	export function isPending(): boolean { return pending }
+	export function apply(): void { applyRange() }
+
 	// ── each level's floorplan: a calibrated page of a project PDF (Uploads); picking another replaces it ──
 	let pdfs = $state<PdfFile[]>([])
 	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }))
@@ -56,6 +74,10 @@
 	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
 		const o = { x: 0, y: 0, ...u.origin, [k]: Number(v) || 0 }
 		putZone(l, u, 'floorplan offset', { origin: o.x || o.y ? o : undefined })
+	}
+	function removeFloorplan(l: Level, z: Underlay) {
+		project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))
+		ws.say(`${l.name}: floorplan ${fileName(z.fileId)} removed — Undo brings it back`)
 	}
 
 	const range = $derived(floorNumbers(lowest, top).reverse())
@@ -94,13 +116,15 @@
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
 			(tx) => tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building), r.remove.map((l) => l.id), skip)
 		const parts = [r.add.length && `${r.add.length} added`, r.remove.length && `${r.remove.length} removed`].filter(Boolean)
-		ws.say(`${parts.join(', ') || 'No floors changed'}${r.keep.length ? ` · kept ${r.keep.map((l) => l.name).join(', ')} (they have content — delete them in the Levels list first)` : ''}`)
+		const undo = parts.length ? ' — Undo brings the floors back as they were' : ''
+		ws.say(`${parts.join(', ') || 'Floor range applied; no floors changed'}${undo}${r.keep.length ? ` · kept ${r.keep.map((l) => l.name).join(', ')} (they have content — delete them in the Levels list first)` : ''}`)
 	}
 
 	function renameAll() {
 		const r = renameFloors(levels, names)
 		if (!r.length) { ws.say('The names already match the pattern'); return }
 		project.store.transact(`Rename ${r.length} floors`, (tx) => { for (const l of r) tx.put(l) })
+		ws.say(`${r.length} floor${r.length === 1 ? '' : 's'} renamed — Undo brings the old names back`)
 	}
 
 	/** Heights belong to the floor: its area levels (separate plans of it) get the same. */
@@ -112,6 +136,7 @@
 	}
 	function applyTypical() {
 		if (!commit('Heights for every floor', levels.map((l) => ({ ...l, heights: { ...typical } })))) ws.say('Every floor already has these heights')
+		else ws.say('Every floor has these heights now — Undo brings back the ones they had')
 	}
 	const HKEYS: [keyof Heights, string][] = [['slabMm', 'Slab'], ['raisedFloorMm', 'Raised floor'], ['clearHeightMm', 'Clear height'], ['plenumMm', 'Plenum']]
 
@@ -135,16 +160,14 @@
 		project.store.transact(`${l.name}: area plan ${area}`, (tx) => tx.put(a))
 		ws.say(`${a.name} added — its own plan (Navigator); pick its floorplan here`)
 	}
-	/** An empty area plan goes; one with something on it is deleted from the Navigator (it asks first). */
+	/** An empty area plan goes at once (undoable); one with something on it is deleted from the Navigator (it asks first). */
 	function removeArea(a: Level) {
 		const n = contents(a.id)
 		if (n) { ws.say(`${a.name} has ${n} item${n === 1 ? '' : 's'} — delete it in the Navigator (⋮ › Delete level…), which asks first`); return }
 		project.store.transact(`Delete area plan ${a.name}`, (tx) => { for (const u of underlaysOf(a)) tx.del(u.id); tx.del(a.id) })
 		if (ws.levelId === a.id) ws.levelId = main[0]?.id ?? null
+		ws.say(`Area plan ${a.name} deleted — Undo brings it back`)
 	}
-
-	// two tabs (Dave, 2026-10-12: one wide table mixed area plans with extra floorplans, and scrolled sideways)
-	let tab = $state<'floors' | 'plans'>('floors')
 </script>
 
 {#snippet pages()}
@@ -156,84 +179,74 @@
 	{/each}
 {/snippet}
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" use:dialogFocus aria-label="Floors" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>Floors</b>
-			<div class="tabs" role="tablist">
-				<button role="tab" aria-selected={tab === 'floors'} class:on={tab === 'floors'} onclick={() => (tab = 'floors')}>Floors & heights</button>
-				<button role="tab" aria-selected={tab === 'plans'} class:on={tab === 'plans'} onclick={() => (tab = 'plans')}>Plans & floorplans</button>
-			</div>
-			<button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
-
-		{#if tab === 'floors'}
-		<section>
-			<p class="h">The building's floors</p>
-			<div class="row">
-				<label>Lowest <input type="number" bind:value={lowest} /></label>
-				<label>Top <input type="number" bind:value={top} /></label>
-				<label>Name <input class="pat" bind:value={above} title={'{n} = number, {nn} = two digits'} /></label>
-				<label>Basements <input class="pat" bind:value={below} title={'{n} = number without the minus'} /></label>
-				<label>Ground <input class="pat" bind:value={ground} title="The name of floor 0, when the building has one" /></label>
-			</div>
-			<p class="hint">Untick the floors that don't exist (e.g. GF). Blue = the floor has a level.</p>
-			<div class="chips">
-				{#each range as n (n)}
-					<button class="chip" class:off={skip.includes(n)} class:has={main.some((l) => l.number === n)} title={skip.includes(n) ? 'Not a floor of this building' : 'A floor of this building'} onclick={() => toggle(n)}>{floorName(n, names)}</button>
-				{/each}
-			</div>
-			<div class="row">
-				<button class="btn pri" onclick={applyRange}>Apply floors</button>
-				<button class="btn" title="Rename every level from the pattern (area plans keep their suffix)" onclick={renameAll}>Rename all from the pattern</button>
-			</div>
-		</section>
-
-		<section>
-			<p class="h">Heights (mm) <span class="hint">· FFL is stacked from them, floor 1 stays where it is</span></p>
-			<table>
-				<thead><tr><th>Floor</th><th title="The floor's number (labels' F, the order of the floors); its area plans follow">No.</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th class="ffl">FFL (m)</th></tr></thead>
-				<tbody>
-					<tr class="typ">
-						<td>Typical</td><td></td>
-						{#each HKEYS as [k] (k)}<td><input type="number" bind:value={typical[k]} /></td>{/each}
-						<td><button class="btn" onclick={applyTypical}>Apply to all</button></td>
-					</tr>
-					{#each main as l (l.id)}
-						{@const areas = areasOf(l)}
-						<tr>
-							<td class="nm"><input class="name" value={l.name} onchange={(e) => rename(l, e.currentTarget.value)} />
-								{#if areas.length}<span class="hint" title="Its area plans ({areas.map((a) => a.name).join(', ')}) have the same number and heights">+{areas.length} area</span>{/if}</td>
-							<td><input class="no" type="number" step="1" value={l.number} title="The floor's number — its area plans follow; a number another floor has is refused" onchange={(e) => { renumber(l, e.currentTarget.value); e.currentTarget.value = String(l.number) }} /></td>
-							{#each HKEYS as [k] (k)}<td><input type="number" min="0" value={l.heights[k]} onchange={(e) => setHeight(l, k, e.currentTarget.value)} /></td>{/each}
-							<td class="ffl">{(l.elevationMm / 1000).toFixed(3)}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</section>
-		{:else}
-		<section>
-			<p class="hint">Each floor has a <b>plan</b> (its level in the Navigator), drawn over its <b>floorplan</b> — a calibrated page of a project PDF. When the floor is drawn on two or more pages, add each one and move it into place with X / Y. An <b>area plan</b> is a separate plan of part of a floor, such as a tenant office with its own drawing (33F 3303): it has the floor's number and heights, and its own floorplans.</p>
-			{#each main as l (l.id)}
-				<div class="floor">
-					<div class="fhead"><b>{l.name}</b>
-						<button class="btn sm" title="A separate plan of part of this floor — a tenant office on its own floorplan (e.g. 3303)" onclick={() => (addingArea = l.id)}>+ Area plan</button></div>
-					{@render plan(l, null)}
-					{#each areasOf(l) as a (a.id)}{@render plan(a, l)}{/each}
-					{#if addingArea === l.id}
-						<div class="plan"><div class="pname">Area plan</div><div><NameInput create placeholder="e.g. 3303 — Enter adds it" wide={false} onsave={(t) => addArea(l, t)} oncancel={() => (addingArea = null)} /></div></div>
-					{/if}
-				</div>
+{#if part === 'floors'}
+	<section class:pending>
+		<p class="h">The building's floors <span class="hint">· the range and the names wait for Apply floors</span></p>
+		<div class="row">
+			<label>Lowest <input type="number" bind:value={lowest} /></label>
+			<label>Top <input type="number" bind:value={top} /></label>
+			<label>Name <input class="pat" bind:value={above} title={'{n} = number, {nn} = two digits'} /></label>
+			<label>Basements <input class="pat" bind:value={below} title={'{n} = number without the minus'} /></label>
+			<label>Ground <input class="pat" bind:value={ground} title="The name of floor 0, when the building has one" /></label>
+		</div>
+		<p class="hint">Untick the floors that don't exist (e.g. GF). Blue = the floor has a level.</p>
+		<div class="chips">
+			{#each range as n (n)}
+				<button class="chip" class:off={skip.includes(n)} class:has={main.some((l) => l.number === n)} title={skip.includes(n) ? 'Not a floor of this building' : 'A floor of this building'} onclick={() => toggle(n)}>{floorName(n, names)}</button>
 			{/each}
-		</section>
-		{/if}
-	</div>
-</div>
+		</div>
+		<div class="row">
+			<button class="btn pri" disabled={!pending && !stale} title={pending ? 'Add the floors of the range, remove the empty levels off it, keep the names' : stale ? 'The levels don’t match the range: add the floors with no level, remove the empty ones off it' : 'Nothing to apply — change the range or the names first'} onclick={applyRange}>Apply floors</button>
+			{#if pending}<span class="na" role="status">not applied</span>{/if}
+			<button class="btn" title="Rename every level from the pattern (area plans keep their suffix)" onclick={renameAll}>Rename all from the pattern</button>
+		</div>
+	</section>
+
+	<section>
+		<p class="h">Heights (mm) <span class="hint">· saved at once; FFL is stacked from them, floor 1 stays where it is</span></p>
+		<table>
+			<thead><tr><th>Floor</th><th title="The floor's number (labels' F, the order of the floors); its area plans follow">No.</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th class="ffl">FFL (m)</th></tr></thead>
+			<tbody>
+				<tr class="typ">
+					<td>Typical</td><td></td>
+					{#each HKEYS as [k] (k)}<td><input type="number" bind:value={typical[k]} /></td>{/each}
+					<td><button class="btn" title="Give every floor these heights (Undo brings back the ones they had)" onclick={applyTypical}>Apply to all</button></td>
+				</tr>
+				{#each main as l (l.id)}
+					{@const areas = areasOf(l)}
+					<tr>
+						<td class="nm"><input class="name" value={l.name} onchange={(e) => rename(l, e.currentTarget.value)} />
+							{#if areas.length}<span class="hint" title="Its area plans ({areas.map((a) => a.name).join(', ')}) have the same number and heights">+{areas.length} area</span>{/if}</td>
+						<td><input class="no" type="number" step="1" value={l.number} title="The floor's number — its area plans follow; a number another floor has is refused" onchange={(e) => { renumber(l, e.currentTarget.value); e.currentTarget.value = String(l.number) }} /></td>
+						{#each HKEYS as [k] (k)}<td><input type="number" min="0" value={l.heights[k]} onchange={(e) => setHeight(l, k, e.currentTarget.value)} /></td>{/each}
+						<td class="ffl">{(l.elevationMm / 1000).toFixed(3)}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</section>
+{:else if part === 'plans'}
+	<section>
+		<p class="hint">Each floor has a <b>plan</b> (its level in the Navigator), drawn over its <b>floorplan</b> — a calibrated page of a project PDF. When the floor is drawn on two or more pages, add each one and move it into place with X / Y. An <b>area plan</b> is a separate plan of part of a floor, such as a tenant office with its own drawing (33F 3303): it has the floor's number and heights, and its own floorplans.</p>
+		{#each main as l (l.id)}
+			<div class="floor">
+				<div class="fhead"><b>{l.name}</b>
+					<button class="btn sm" title="A separate plan of part of this floor — a tenant office on its own floorplan (e.g. 3303)" onclick={() => (addingArea = l.id)}>+ Area plan</button></div>
+				{@render plan(l, null)}
+				{#each areasOf(l) as a (a.id)}{@render plan(a, l)}{/each}
+				{#if addingArea === l.id}
+					<div class="plan"><div class="pname">Area plan</div><div><NameInput create placeholder="e.g. 3303 — Enter adds it" wide={false} onsave={(t) => addArea(l, t)} oncancel={() => (addingArea = null)} /></div></div>
+				{/if}
+			</div>
+		{/each}
+	</section>
+{/if}
 
 {#snippet plan(p: Level, floor: Level | null)}
 	<div class="plan">
 		{#if floor}
 			<div class="pname"><span class="tag" title="Area plan {p.area} of {floor.name}">Area</span><input class="name" value={p.name} title="The area plan's name" onchange={(e) => rename(p, e.currentTarget.value)} />
-				<button class="x" title={contents(p.id) ? `Has ${contents(p.id)} item(s) — delete it in the Navigator (asks first)` : 'Delete this (empty) area plan'} onclick={() => removeArea(p)}>✕</button></div>
+				<button class="x" title={contents(p.id) ? `Has ${contents(p.id)} item(s) — delete it in the Navigator (asks first)` : 'Delete this (empty) area plan (Undo brings it back)'} onclick={() => removeArea(p)}>✕</button></div>
 		{:else}
 			<div class="pname hint">Whole floor</div>
 		{/if}
@@ -261,7 +274,7 @@
 						<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
 					</span>
 				{/if}
-				<button class="x" title="Remove this floorplan" onclick={() => project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))}>✕</button>
+				<button class="x" title="Remove this floorplan (Undo brings it back)" onclick={() => removeFloorplan(l, z)}>✕</button>
 			</div>
 		{/each}
 		<!-- picking a page here adds it: the plan's floorplan, or another page of it (moved into place with X / Y) -->
@@ -272,23 +285,18 @@
 {/snippet}
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; }
-	.dlg { width: min(60rem, 96vw); max-height: 86vh; overflow-y: auto; overflow-x: hidden; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; gap: 16px; align-items: center; padding: 6px 12px 0; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.head > .x { margin-left: auto; align-self: center; }
-	.tabs { display: flex; gap: 2px; align-self: flex-end; }
-	.tabs button { padding: 4px 10px; border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; color: var(--cad-muted, #71717a); margin-bottom: -1px; }
-	.tabs button.on { border-color: var(--cad-line, #e4e4e7); background: var(--cad-panel, white); color: inherit; font-weight: 500; }
-	.tabs button:not(.on):hover { color: inherit; }
 	.floor { border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; padding: 4px 8px 6px; }
 	.fhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-	.plan { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 8px; align-items: start; padding: 3px 0; }
+	.plan { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 8px; align-items: start; padding: 3px 0; }
 	.plan + .plan { border-top: 1px dashed var(--cad-line, #e4e4e7); }
 	.pname { display: flex; align-items: center; gap: 4px; min-height: 20px; }
 	.tag { font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--cad-sel, #dbeafe); color: #1d4ed8; }
 	.btn.sm { font-size: 11px; padding: 0 6px; }
 	.x { color: var(--cad-muted, #71717a); }
 	section { padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); display: flex; flex-direction: column; gap: 6px; }
+	/* the range typed here isn't applied yet */
+	section.pending { background: color-mix(in srgb, #f59e0b 10%, var(--cad-panel, white)); box-shadow: inset 3px 0 0 #f59e0b; }
+	.na { font-size: 11px; font-weight: 600; color: #b45309; }
 	.h { font-weight: 600; }
 	.hint { color: var(--cad-muted, #71717a); font-weight: 400; }
 	.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
@@ -297,7 +305,7 @@
 	input.name { width: 7rem; }
 	input.no { width: 3.2rem; }
 	td.nm { white-space: nowrap; }
-	.pname input.name { width: 8rem; }
+	.pname input.name { width: 5.5rem; }
 	select.fp { width: 14rem; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
 	.zone { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 3px; }
@@ -317,6 +325,7 @@
 	.chip.off { text-decoration: line-through; opacity: 0.45; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 8px; background: var(--cad-input, white); }
 	.btn.pri { background: #2563eb; border-color: #2563eb; color: white; }
+	.btn:disabled { opacity: 0.45; cursor: default; }
 	table { border-collapse: collapse; }
 	th { text-align: left; font-weight: 500; color: var(--cad-muted, #71717a); padding: 2px 4px; }
 	td { padding: 1px 4px; }

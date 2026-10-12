@@ -150,7 +150,8 @@ export class Workspace {
 	align: (how: AlignHow) => void = () => {}
 	/** Set by the app: the view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
 	viewportView: () => Viewport['view'] | null = () => null
-	/** Set by the app: open the project's title block dialog (Sheets › Title block…, sheet Properties). */
+	/** Set by the app: open Project settings on its Sheets tab, with the title block template (Sheets › Title block…,
+	 *  sheet Properties). */
 	openTitleBlock: () => void = () => {}
 	/** Open the Restore dialog on a stored backup (an issue's, from the Issues list); set by the shell. */
 	restoreBackup: (backupId: string) => void = () => {}
@@ -173,8 +174,8 @@ export class Workspace {
 	/** What new cords start as: the project's Planning / Surveying toggle (settings.newCordStatus; CadShell keeps it in step). */
 	newCordStatus = $state<'add' | 'installed'>('add')
 	readonly cordTool = new CordTool(() => ({ ...this.cordDefaults, status: this.newCordStatus }), { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone())
-	/** The Calibrate tool's floorplan and step (Floor manager › Origin / Scale / Crop); the app sets how it reads a
-	 *  page's calibration and writes it (its file, not the store). */
+	/** The Calibrate tool's floorplan and step (Project settings › Plans & floorplans › Origin / Scale / Crop); the app
+	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
 	calibTarget = $state.raw<CalibTarget | null>(null)
 	calibIO: { calib: (u: Underlay) => PageCalibUsed | undefined; write: (u: Underlay, field: CalibMode, value: unknown, what: string) => void } = { calib: () => undefined, write: () => {} }
 	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), () => { this.calibTarget = null; this.toolId = 'select' })
