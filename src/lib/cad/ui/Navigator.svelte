@@ -5,6 +5,7 @@
      marked and its branch unfolded. Levels: rename / delete on hover; Floors…, Settings…, New sheet, PDF all on their
      headers. -->
 <script lang="ts">
+	import { KEYS } from './shellKeys'
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
 	import { untrack, tick } from 'svelte'
@@ -130,7 +131,7 @@
 <div class="nav">
 	<div class="find">
 		<Icon name="search" size={12} />
-		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack, device, outlet… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
+		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack, device, outlet… ({KEYS.find})" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
 	</div>
 	<div class="tree" role="tree" bind:this={treeEl}>
 		{#each shown as n (n.key)}{@render row(n, 0)}{/each}

@@ -6,6 +6,7 @@
        · a sheet: its number, title and paper. -->
 
 <script lang="ts">
+	import { KEYS } from './shellKeys'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { RackRow } from '../domain/types'
@@ -55,8 +56,8 @@
 
 <div class="views">
 	{#if nav}
-		<button class="nav" disabled={!nav.back} title={nav.back ? `Back to ${nav.back} (Alt+←)` : 'Back (Alt+←)'} onclick={() => { onfocus?.(); nav.go(-1) }}>‹</button>
-		<button class="nav" disabled={!nav.fwd} title={nav.fwd ? `Forward to ${nav.fwd} (Alt+→)` : 'Forward (Alt+→)'} onclick={() => { onfocus?.(); nav.go(1) }}>›</button>
+		<button class="nav" disabled={!nav.back} title={nav.back ? `Back to ${nav.back} (${KEYS.backView})` : `Back (${KEYS.backView})`} onclick={() => { onfocus?.(); nav.go(-1) }}>‹</button>
+		<button class="nav" disabled={!nav.fwd} title={nav.fwd ? `Forward to ${nav.fwd} (${KEYS.fwdView})` : `Forward (${KEYS.fwdView})`} onclick={() => { onfocus?.(); nav.go(1) }}>›</button>
 	{/if}
 	{#if up}<button class="crumb link" title="Open this level’s plan" onclick={() => go(PLAN)}>{up}</button>{/if}
 	<span class="sep"></span>

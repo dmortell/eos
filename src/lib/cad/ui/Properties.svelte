@@ -3,6 +3,7 @@
      inner groups as one item; each edit sets them all, one undo step. The shared field kit is propsKit.ts, ui/fields/
      and props.css. -->
 <script lang="ts">
+	import { KEYS } from './shellKeys'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Entity, Sheet } from '../domain/drawing'
@@ -85,8 +86,8 @@
 			<!-- groups: shapes that select and move as one (Ctrl+G / Ctrl+Shift+G); Make block from the drawn ones -->
 			<PropGroup kind="multi" title="Group and block">
 				<div class="acts">
-					{#if drawn.length >= 2}<button class="btn" title="Group these shapes: a click on one selects them all (Ctrl+G)" onclick={() => { const r = groupSelection(project.store, ws.selection); ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes`) }}>Group</button>{/if}
-					{#if drawn.some((s) => s.groupId)}<button class="btn" title="Take these shapes out of their group (Ctrl+Shift+G)" onclick={() => ws.say(`Ungrouped ${ungroupSelection(project.store, ws.selection)} shapes`)}>Ungroup</button>{/if}
+					{#if drawn.length >= 2}<button class="btn" title="Group these shapes: a click on one selects them all ({KEYS.group})" onclick={() => { const r = groupSelection(project.store, ws.selection); ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes`) }}>Group</button>{/if}
+					{#if drawn.some((s) => s.groupId)}<button class="btn" title="Take these shapes out of their group ({KEYS.ungroup})" onclick={() => ws.say(`Ungrouped ${ungroupSelection(project.store, ws.selection)} shapes`)}>Ungroup</button>{/if}
 				</div>
 				<MakeBlock {project} {ws} shapes={blockable} />
 			</PropGroup>

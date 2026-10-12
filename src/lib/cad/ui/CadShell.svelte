@@ -13,7 +13,7 @@
 	import { canRestore } from '../domain/restorePlan'
 	import { drawnOn, layersOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
-	import { shellKey, ARROWS } from './shellKeys'
+	import { shellKey, ARROWS, KEYS } from './shellKeys'
 	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
 	import { onDestroy, setContext, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
@@ -526,8 +526,8 @@
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
 		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={setTool} />
 		<span class="ml-auto"></span>
-		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
-		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
+		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
+		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>

@@ -2947,3 +2947,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (patched 12, linked 18) · free 4"), the rack view's port tip (foot line) and a rack's tooltip in the Racks list.
   Tests: `domain/cords.test.ts` (in step / fill / the end of the target, port use), `editor/racks.test.ts` (nothing
   written before OK, one undo step, Fill and Ctrl, Cancel), `views/portTip.test.ts`. Help updated.
+- **R85 step 3:** button tooltips that name a key read it from `KEYS` — status bar, tool strip, tab ✕, Back / Forward,
+  the Navigator's search, the tables' open / close, Undo / Redo, Group / Ungroup (dialogs' "Close (Esc)" stay as they
+  are). R85 done: one table of keys behind the shell, Help, the menus and the tooltips.

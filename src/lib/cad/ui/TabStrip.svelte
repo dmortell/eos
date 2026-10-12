@@ -2,6 +2,7 @@
      the active pane; in Split the tabs on show are marked 1 / 2. The preview tab's title is in italics (double-click it
      to keep it). × on hover or a middle-click closes; a right-click opens the tab menu; ⌄ lists every tab. -->
 <script lang="ts">
+	import { KEYS } from './shellKeys'
 	import { Icon, DragReorder } from '$lib'
 	import type { Tabs, Tab } from '../app/tabs.svelte'
 	import type { CadProject } from '../app/project.svelte'
@@ -42,7 +43,7 @@
 				<Icon name={ICON[t.view.spec.kind] ?? 'rect'} size={12} />
 				<span class="t">{title(t)}</span>
 				{#if panes === 2 && pane >= 0}<span class="pn">{pane + 1}</span>{/if}
-				<button class="x" title="Close (Alt+W, or a middle-click)" onclick={(e) => { e.stopPropagation(); onclose(t.id) }}><Icon name="x" size={11} /></button>
+				<button class="x" title="Close ({KEYS.closeTab}, or a middle-click)" onclick={(e) => { e.stopPropagation(); onclose(t.id) }}><Icon name="x" size={11} /></button>
 			</div>
 		{/each}
 	</div>
