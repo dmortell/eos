@@ -3076,3 +3076,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "N more" past the 15 shown (`domain/navTree.ts` `findItems` / `searchHits`, `ui/Navigator.svelte`); Help; tests.
 - **Q38** several plain lines selected get the line's style fields — line type, lineweight, start / end marks — not only
   Color, as one line has (`ui/RunsMultiProps.svelte`; `plainLines` in `ui/propsKit.ts`, shared with LineStyle; test).
+- **Q39** the Z / W / H typed for a drawing tool (trunk, conduit, wall, line, opening) come back when it is picked again
+  this session — W / H per tool, Z per tool and level; `setTool` reset them at every pick (`app/workspace.svelte.ts`);
+  Help; test.

@@ -330,14 +330,28 @@ export class Workspace {
 	textEdit = $state<Id | null>(null)
 	editText = (id: Id): void => { this.textEdit = id }
 
-	/** Switch tool, with the drawing defaults that suit it on this level (ADR 0006 work Z presets). The surface cancels
-	 *  the old tool first (it owns the tool context). */
+	/** Switch tool, with the drawing defaults that suit it on this level (ADR 0006 work Z presets) — or the Z / W / H
+	 *  typed the last time it was used this session. The surface cancels the old tool first (it owns the tool context). */
 	setTool(id: ToolId, level?: Level): void {
+		// the Z / W / H typed for the tool being left are kept for the session (they reset at each pick)
+		const own = this.#optsOwner
+		if (own) { this.#sizes.set(own.tool, { w: this.opts.w, h: this.opts.h }); this.#zs.set(`${own.tool}:${own.level}`, this.opts.z) }
+		this.#optsOwner = null
 		this.toolId = id
 		const h = heightsOf(level)
-		if (id === 'trunk' || id === 'conduit') this.opts = { z: h.clearHeightMm + h.plenumMm / 2, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
-		else if (id === 'wall') this.opts = { z: 0, w: 100, h: h.clearHeightMm }
-		else if (id === 'line') this.opts = { ...this.opts, z: 0 }
-		else if (id === 'opening') this.opts = { z: 0, w: 900, h: 2100 }
+		const d: DrawOpts | null = id === 'trunk' || id === 'conduit' ? { z: h.clearHeightMm + h.plenumMm / 2, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
+			: id === 'wall' ? { z: 0, w: 100, h: h.clearHeightMm }
+			: id === 'line' ? { ...this.opts, z: 0 }
+			: id === 'opening' ? { z: 0, w: 900, h: 2100 } : null
+		if (!d) return
+		// what was typed last time for this tool: W / H as they were; Z on this level (another level's heights differ)
+		const lv = level?.id ?? ''
+		this.opts = { ...d, ...this.#sizes.get(id), z: this.#zs.get(`${id}:${lv}`) ?? d.z }
+		this.#optsOwner = { tool: id, level: lv }
 	}
+	/** The drawing tool whose Z / W / H `opts` holds (saved when another tool is picked, however this one ended). */
+	#optsOwner: { tool: ToolId; level: string } | null = null
+	#sizes = new Map<ToolId, { w: number; h: number }>()
+	/** Z per tool and level. */
+	#zs = new Map<string, number>()
 }
