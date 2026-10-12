@@ -89,8 +89,15 @@
 	const toolKind = $derived(vpe ? vpe.vp.view.spec.kind : spec.kind)
 	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
 	const centre = $derived.by((): Pt => {
-		const b = unionBounds(planDisplayList(project.index, levelId, { scale: PLOT_SCALE }).map(primBounds))
-		return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }
+		// from the level's outlets, racks and drawn points (not a whole plan display list, rebuilt per change)
+		const ix = project.index, pts: Pt[] = []
+		for (const o of ix.outlets) if (o.levelId === levelId && o.at) pts.push(o.at)
+		for (const r of ix.racks) if (r.levelId === levelId && r.at) pts.push(r.at)
+		for (const sh of ix.shapes) if (sh.levelId === levelId && sh.geom.kind === 'path') for (const n of sh.geom.nodes) pts.push(n)
+		if (!pts.length) return { x: 0, y: 0 }
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+		for (const p of pts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) }
+		return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 }
 	})
 	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
@@ -124,7 +131,7 @@
 	const portHighlight = $derived(spec.kind === 'row' ? [...outletPortCells(project.index, prims, ws.selection), ...portCells(prims, ws.portSel)] : [])   // + the ports of outlets picked in the list
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
-	const routeHighlight = $derived(spec.kind === 'plan' ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])
+	const routeHighlight = $derived(spec.kind === 'plan' && (ws.selection.length || ws.portSel) ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])   // routes read only when there's something to show
 	// the Routes toggle: every cable's route, coloured by server room (backlog "Show all routes")
 	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId) : null)
 	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
@@ -191,9 +198,12 @@
 			const want = ws.focus, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
 			if (fb) { cam = fit(fb, w, h); fittedFor = RESTORED; ws.focus = null; return }   // RESTORED: no re-fit over it
 			if (!ps.length || !w || !h) return
+			// the content's bounds only when they're needed (not on every change, e.g. each frame of a drag)
+			const check = fittedFor === RESTORED && cams.firstCheck(vk)
+			if (!check && (fittedFor === key || fittedFor === RESTORED)) return
 			const b = contentBounds(ps)
 			// a restored camera that shows none of the content (UX13: a rack view opened cut off) fits once instead
-			if (fittedFor === RESTORED && b && cams.firstCheck(vk)) {
+			if (check && b) {
 				const v = visibleArea(cam, w, h)
 				if (v.x1 < b.x0 || v.x0 > b.x1 || v.y1 < b.y0 || v.y0 > b.y1) { cam = fit(b, w, h); return }
 			}

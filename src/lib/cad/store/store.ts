@@ -49,7 +49,9 @@ export class EntityStore {
 	get size(): number { return this.#map.size }
 	all(): Entity[] { return [...this.#map.values()] }
 	ofType<T extends EntityType>(type: T): Extract<Entity, { type: T }>[] {
-		return this.all().filter((e): e is Extract<Entity, { type: T }> => e.type === type)
+		const out: Extract<Entity, { type: T }>[] = []   // no copy of the whole map first (called in loops)
+		for (const e of this.#map.values()) if (e.type === type) out.push(e as Extract<Entity, { type: T }>)
+		return out
 	}
 	get canUndo(): boolean { return !this.readOnly && this.#undo.length > 0 }
 	get canRedo(): boolean { return !this.readOnly && this.#redo.length > 0 }

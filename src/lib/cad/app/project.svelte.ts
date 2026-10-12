@@ -59,8 +59,14 @@ export class CadProject {
 	index = $derived.by(() => { void this.rev; return new ProjectIndex(this.store.all()) })
 	levels = $derived.by((): Level[] => [...this.index.levels].sort((a, b) => a.order - b.order))
 	settings = $derived.by(() => { void this.rev; return this.store.get('settings') as ProjectSettings | undefined })
-	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data. */
-	routes = $derived.by(() => routeLinks(this.index, cableSettings(this.index)))
+	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data — but not on
+	 *  each frame of a drag (the whole project re-routed per pointer move): the last routes hold until it ends. */
+	#routesHeld: ReturnType<typeof routeLinks> | null = null
+	routes = $derived.by(() => {
+		const ix = this.index
+		if (this.store.busy && this.#routesHeld) return this.#routesHeld
+		return (this.#routesHeld = routeLinks(ix, cableSettings(ix)))
+	})
 	/** How full each run segment is from those routes (Phase 5.3). */
 	fills = $derived.by(() => fillBySegment(this.index, this.routes))
 	canUndo = $derived.by(() => { void this.rev; return this.store.canUndo })

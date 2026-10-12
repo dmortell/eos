@@ -109,7 +109,7 @@ export function allocate(ix: ProjectIndex, opts: AllocOpts = {}): Allocation {
 	const taken = new Set(ix.links.filter((l) => !dropped.has(l.id)).flatMap((l) => [opKey(l.a.on, l.a.port), opKey(l.b.on, l.b.port)]))
 
 	const byRoom = new Map<Id, Want[]>()
-	for (const w of wants) { const r = w.o.ports[w.port - 1].serverRoomId!; byRoom.set(r, [...(byRoom.get(r) ?? []), w]) }
+	for (const w of wants) { const r = w.o.ports[w.port - 1].serverRoomId!; const l = byRoom.get(r); if (l) l.push(w); else byRoom.set(r, [w]) }
 
 	for (const [roomId, roomWants] of byRoom) {
 		const name = ix.nameOf(roomId) || roomId
@@ -174,7 +174,8 @@ function fill(wants: Want[], slots: Slot[]): { placed: [Want, Slot][]; unplaced:
 		const s = take(queue(`r:${u}`, (x) => x.reserved === u)) ?? take(queue(`u:${u}`, (x) => !x.reserved && !!x.usages?.includes(u))) ?? take(queue('g', (x) => !x.reserved && !x.usages))
 		if (s) placed.push([w, s]); else unplaced.push(w)
 	}
-	return { placed: placed.sort((a, b) => slots.indexOf(a[1]) - slots.indexOf(b[1])), unplaced, left: slots.filter((s) => !used.has(s)) }
+	const at = new Map(slots.map((s, i) => [s, i]))   // a slot's place in panel order (indexOf in the sort was O(n²) on big rooms)
+	return { placed: placed.sort((a, b) => at.get(a[1])! - at.get(b[1])!), unplaced, left: slots.filter((s) => !used.has(s)) }
 }
 
 /** "Assign here": put these outlet ports, in order, on consecutive FREE ports of panels from a starting port (moving

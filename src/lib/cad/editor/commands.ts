@@ -53,9 +53,11 @@ export function deleteEntities(store: EntityStore, ids: Id[], also?: (tx: Txn) =
 	// Devices removed with their rack take their links / cords too.
 	for (const e of store.all()) if ((e.type === 'link' || e.type === 'cord') && (gone.has(e.a.on) || gone.has(e.b.on))) gone.add(e.id)
 	// a group whose shapes all go, goes too
+	const byGroup = new Map<Id, Id[]>()
+	for (const s of store.ofType('shape')) if (s.groupId) { const l = byGroup.get(s.groupId); if (l) l.push(s.id); else byGroup.set(s.groupId, [s.id]) }
 	for (const g of store.ofType('group')) {
-		const members = store.ofType('shape').filter((s) => s.groupId === g.id)
-		if (members.length && members.every((s) => gone.has(s.id))) gone.add(g.id)
+		const members = byGroup.get(g.id) ?? []
+		if (members.length && members.every((id) => gone.has(id))) gone.add(g.id)
 	}
 	store.transact(gone.size === 1 ? 'Delete' : `Delete ${gone.size} items`, (tx) => {
 		also?.(tx)   // e.g. a deleted section's viewports kept as elevations or taken off (one undo step with the delete)
