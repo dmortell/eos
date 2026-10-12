@@ -3007,3 +3007,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `showHistory`); a tab's ✕ shows on shown / focused tabs and on touch screens (`ui/TabStrip.svelte`); dialog footer
   buttons share one look (`ui/CadDialog.svelte` `.btn` / `.btn.go` / `.keys`); the sheet and keys tests import up
   front (an import inside a test ran past its timeout under load).
+- **R106 — any cord length:** a cord's Length (Properties) and a label batch's length are typed fields with the standard
+  lengths offered (a datalist), not a fixed list; a typed length locks (`ui/CordProps.svelte`, `ui/CordBatches.svelte`);
+  Help. The estimate from the racks still rounds up to a standard length.

@@ -43,9 +43,8 @@
 						<td><select value={b.cableType} onchange={(e) => edit(b, { cableType: e.currentTarget.value })}>
 							{#each sortedCableTypes(project.settings) as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 							{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === b.cableType)}<option value={b.cableType}>{b.cableType}</option>{/if}</select></td>
-						<td><select value={String(b.lengthM)} onchange={(e) => edit(b, { lengthM: Number(e.currentTarget.value) })}>
-							{#each STANDARD_LENGTHS as l (l)}<option value={String(l)}>{l} m</option>{/each}
-							{#if !STANDARD_LENGTHS.includes(b.lengthM)}<option value={String(b.lengthM)}>{b.lengthM} m</option>{/if}</select></td>
+						<td><input class="len" type="number" min="0.1" step="0.1" list="cad-batch-lengths" aria-label="Length (m)" value={b.lengthM}
+							onchange={(e) => { const m = Math.round(Number(e.currentTarget.value) * 100) / 100; if (m > 0) edit(b, { lengthM: m }); else e.currentTarget.value = String(b.lengthM) }} /> m</td>
 						<td><ColorPick value={b.colour} onchange={(v) => { if (v) edit(b, { colour: v }) }} /></td>
 						<td><input class="lbl" class:bad={!u.range && !!b.first && !!b.last} value={b.first} placeholder="2AR-0001" onchange={(e) => edit(b, { first: e.currentTarget.value.trim() })} /></td>
 						<td><input class="lbl" class:bad={!u.range && !!b.first && !!b.last} value={b.last} placeholder="2AR-0100" title={!u.range && b.first && b.last ? 'The first and last label need the same text before a number that counts up' : ''} onchange={(e) => edit(b, { last: e.currentTarget.value.trim() })} /></td>
@@ -60,6 +59,7 @@
 				{/each}
 			</tbody>
 		</table>
+		<datalist id="cad-batch-lengths">{#each STANDARD_LENGTHS as l (l)}<option value={l}></option>{/each}</datalist>
 	{/if}
 	{#if wrong.length}<p class="warn">{wrong.length} cord{wrong.length === 1 ? '' : 's'} carry a label from a batch of another type, length or color: {wrong.slice(0, 6).map((c) => c.cordId).join(', ')}{wrong.length > 6 ? ' …' : ''}</p>{/if}
 	{#if needs.length}
@@ -75,6 +75,7 @@
 </div>
 
 <style>
+	.len { width: 4.5rem; }
 	.cb { margin-top: 14px; }
 	.title { display: flex; align-items: baseline; gap: 8px; }
 	.title .hint { flex: 1; }

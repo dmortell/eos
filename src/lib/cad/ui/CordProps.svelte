@@ -65,10 +65,10 @@
 	<Field label="Color"><ColorPick value={c.colour} onchange={(v) => { if (!v) return; put('Cord color', { colour: v }); ws.cordDefaults.colour = v }} /></Field>
 	<Field label="Length" unit="m">
 		<span class="flex items-center gap-1">
-			<select class="inp" value={String(c.lengthM)} onchange={(e) => put('Cord length', { lengthM: Number(e.currentTarget.value), lengthLocked: true })}>
-				{#each STANDARD_LENGTHS as l (l)}<option value={String(l)}>{l}</option>{/each}
-				{#if !STANDARD_LENGTHS.includes(c.lengthM)}<option value={String(c.lengthM)}>{c.lengthM}</option>{/if}
-			</select>
+			<!-- any length can be typed (review R106, Dave); the standard ones are offered -->
+			<input class="inp w-16" type="number" min="0.1" step="0.1" list="cad-cord-lengths" aria-label="Cord length (m)" value={c.lengthM}
+				onchange={(e) => { const m = Math.round(Number(e.currentTarget.value) * 100) / 100; if (m > 0) put('Cord length', { lengthM: m, lengthLocked: true }); else e.currentTarget.value = String(c.lengthM) }} />
+			<datalist id="cad-cord-lengths">{#each STANDARD_LENGTHS as l (l)}<option value={l}></option>{/each}</datalist>
 			<label title="Locked = keeps this length when the ends move; unlocked = estimated from the racks ({auto} m now)"><input type="checkbox" checked={c.lengthLocked} onchange={(e) => put(e.currentTarget.checked ? 'Lock length' : 'Auto length', e.currentTarget.checked ? { lengthLocked: true } : { lengthLocked: false, lengthM: auto })} /> lock</label>
 		</span>
 	</Field>
