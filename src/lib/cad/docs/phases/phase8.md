@@ -2730,3 +2730,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   status line sit under the backdrop. "New cords start as" stays in both Cable types and the Patching bar (same
   setting, but a Patching-tab button Dave asked for). Help updated. Live (Test Project, worktree server): deep links,
   tabs, the not-applied tint + close question, calibrate hide / return, Project details… checked.
+- **R96 The global palette (title bar's Find) shows cad:** a "CAD" entry first; the project's cad levels ("1F plan") and
+  sheets open in cad (`?v=plan&level=…`, `?v=sheet.…`), read once by type from `cadEntities`; the older tools stay at
+  the end as "… (old tool)"; the legacy Sheets-tool sheets and Outlets floor links are gone from it
+  (`$lib/palette/CommandPalette.svelte`). Type-checked; not seen live (the shared browser was busy with the agents'
+  dev servers).

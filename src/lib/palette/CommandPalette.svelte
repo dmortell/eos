@@ -33,6 +33,7 @@
 		return qs ? `?${qs}` : ''
 	}
 
+	// the older tools (cad replaces them; Dave still refers to them — review R96 put cad first)
 	const TOOLS: { label: string; href: string; icon: string }[] = [
 		{ label: 'Sheets', href: 'sheets', icon: 'fileText' },
 		{ label: 'Floorplans', href: 'outlets', icon: 'mapPin' },
@@ -49,24 +50,23 @@
 		const out: Item[] = []
 		const qs = ctxQs()
 		if (pid) {
-			for (const t of TOOLS) out.push({ icon: t.icon, label: t.label, kind: 'Tool', url: `/projects/${pid}/${t.href}${t.href.includes('sheets') || t.href.includes('uploads') ? '' : qs}` })
+			out.push({ icon: 'layers', label: 'CAD', kind: 'Tool', url: `/projects/${pid}/cad`, keywords: 'cad drawing plan' })
+			for (const t of TOOLS) out.push({ icon: t.icon, label: `${t.label} (old tool)`, kind: 'Old tool', url: `/projects/${pid}/${t.href}${t.href.includes('sheets') || t.href.includes('uploads') ? '' : qs}` })
 		}
 		out.push({ icon: 'home', label: 'Projects home', kind: 'Nav', url: '/' })
 		try {
-			const [projects, sheets] = await Promise.all([
+			// cad's levels and sheets (one read each, by type), opened in cad
+			const ofType = (type: string) => new Promise<any[]>((res) => { const off = db.subscribeWhere(`projects/${pid}/cadEntities`, 'type', type, (d) => { off?.(); res(d) }) })
+			const [projects, levels, sheets] = await Promise.all([
 				db.getMany('projects'),
-				pid ? db.getMany(`projects/${pid}/sheets`) : Promise.resolve([]),
+				pid ? ofType('level') : Promise.resolve([]),
+				pid ? ofType('sheet') : Promise.resolve([]),
 			])
-			const sorted = (sheets as any[]).filter(s => s.title !== undefined || s.paper !== undefined)
-				.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-			for (const s of sorted) {
-				out.push({ icon: 'fileText', label: `${s.drawingNumber ? s.drawingNumber + '  ' : ''}${s.title ?? 'Untitled'}`, kind: 'Sheet', url: `/projects/${pid}/sheets/${s.id}`, keywords: 'sheet drawing' })
+			for (const l of (levels as any[]).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+				out.push({ icon: 'mapPin', label: `${l.name} plan`, kind: 'Level', url: `/projects/${pid}/cad?v=plan&level=${l.id}`, keywords: `floor level plan ${l.number ?? ''}` })
 			}
-			const cur = pid ? (projects as any[]).find(p => p.id === pid) : null
-			if (cur && Array.isArray(cur.floors)) {
-				for (const f of cur.floors) {
-					out.push({ icon: 'mapPin', label: `Floorplan ${f.number}F`, kind: 'Floor', url: `/projects/${pid}/outlets?floor=${f.number}`, keywords: `floor ${f.number}` })
-				}
+			for (const s of (sheets as any[]).filter((s) => s.status !== 'archived').sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+				out.push({ icon: 'fileText', label: `${s.number ? s.number + '  ' : ''}${s.title ?? 'Untitled'}`, kind: 'Sheet', url: `/projects/${pid}/cad?v=sheet.${s.id}`, keywords: 'sheet drawing' })
 			}
 			for (const p of (projects as any[])) {
 				if (!p.name) continue
