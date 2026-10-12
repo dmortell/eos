@@ -70,15 +70,15 @@ describe('line end marks (Markup kinds part 2)', () => {
 })
 
 describe('images (Markup kinds part 4)', () => {
-	it('a picture reference fitted in its box, and an unseen frame for clicks; resized by its grips like a box', () => {
+	it('a picture reference fitted in its box, and an unseen frame for clicks; resized by its grips, keeping its proportions', () => {
 		const img = { type: 'shape', id: 'I', sheetId: 'S', geom: { kind: 'image', fileId: 'plan.pdf', page: 2, centre: { x: 100, y: 50 }, size: { x: 80, y: 40 } } } as Shape
 		const [pic, frame] = shapePrims(img, 1)
 		expect(pic).toMatchObject({ k: 'image', url: 'picture:plan.pdf#2', x: 60, y: 30, w: 80, h: 40, fit: 'centre', src: 'I' })
 		expect(frame).toMatchObject({ k: 'line', closed: true, fill: true, cls: 'image-frame', src: 'I' })
 		expect(parsePictureRef('picture:plan.pdf#2')).toEqual({ fileId: 'plan.pdf', page: 2 })
 		expect(regionGrips(img.geom)).toHaveLength(8)
-		const g = dragRegionGrip(img, 2, { x: 160, y: 90 }, false).geom   // the bottom-right corner out: top-left stays
-		expect(g).toMatchObject({ kind: 'image', centre: { x: 110, y: 60 }, size: { x: 100, y: 60 } })
+		const g = dragRegionGrip(img, 2, { x: 160, y: 90 }, false).geom   // the bottom-right corner out: top-left stays, the 2:1 shape too
+		expect(g).toMatchObject({ kind: 'image', centre: { x: 120, y: 60 }, size: { x: 120, y: 60 } })
 	})
 })
 
