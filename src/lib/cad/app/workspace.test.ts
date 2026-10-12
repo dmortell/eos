@@ -37,6 +37,9 @@ describe('cord defaults (Review 2 Q35)', () => {
 		expect(ws.cordDefaults.colour).toBe('#00ff00')
 		ws.seedCordDefaults({ cordCableType: 'cat6', cordColour: '#ff0000' })   // changed in Settings
 		expect(ws.cordDefaults).toEqual({ cableType: 'cat6', colour: '#ff0000' })
+	})
+})
+
 describe('tool sizes', () => {
 	it('the Z / W / H typed for a tool come back when it is picked again (Z per level); untyped, the defaults', () => {
 		const ws = new Workspace()
