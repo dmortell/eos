@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
+import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, blockProblem, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
 import { blockPrims } from '../views/blocks'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from './project'
@@ -75,6 +75,12 @@ describe('make block / explode', () => {
 		expect(insert.geom).toMatchObject({ kind: 'insert', blockId: block.id, at: { x: 1000, y: 1000 } })
 		expect(block.shapes[0].geom).toMatchObject({ kind: 'rect', centre: { x: 0, y: 0 } })
 		expect(validateShape(insert)).toEqual([])
+	})
+	it('shapes drawn on an elevation’s plane can’t become a block (it would put them on the plan)', () => {
+		const plan = makeBox('L', { x: 1000, y: 1000 }, 600, 400, 0, 720)
+		const onWall = { ...makeBox('L', { x: 200, y: 1200 }, 70, 115, 0, 0), plane: { kind: 'vertical', frame: { o: { x: 0, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: 1 } }, depth: 0 } } as Shape
+		expect(blockProblem([plan])).toBeNull()
+		expect(blockProblem([plan, onWall])).toMatch(/elevation/)
 	})
 	it('exploding puts the same shapes back where they were (new ids, same geometry)', () => {
 		const a = makeBox('L', { x: 1000, y: 1000 }, 600, 400, 0, 720)

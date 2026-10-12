@@ -3117,3 +3117,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   They belonged to the old frame, which no view has, so they drew nowhere (`editor/behaviours.ts` `followSection` /
   `followSections`, called from the move tools, the Select tool's drag and section grips, Rotate / Mirror and the
   section's Flip; test).
+- **Q18** Make block refuses shapes drawn on an elevation / section's plane (Properties says why instead of offering
+  it): a block's insert point is a plan point, so their (u, z) points landed on the plan (`domain/blocks.ts`
+  `blockProblem`, `ui/Properties.svelte`, `app/project.svelte.ts` `makeBlock`; test).

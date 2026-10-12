@@ -161,6 +161,13 @@ function pointsOf(g: Geometry): Pt[] {
 	}
 }
 
+/** Why these shapes can't become a block, or null. Shapes drawn on an elevation / section's plane can't: a block is a
+ *  plan drawing (its insert's point is a plan point), so they would land on the plan, metres from where they were. */
+export function blockProblem(shapes: Shape[]): string | null {
+	if (shapes.some((s) => s.plane?.kind === 'vertical')) return 'Make block takes plan shapes — not ones drawn on an elevation or section'
+	return null
+}
+
 /**
  * Turn model shapes into a block (local mm, origin = the middle of their extent) and the insert that replaces them.
  * The caller writes the block to the library and swaps the shapes for the insert in one undo step.
