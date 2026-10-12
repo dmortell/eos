@@ -68,6 +68,18 @@ describe('paste', () => {
 		expect(r2).toMatchObject({ spaceId: room.id, name: 'A01' })
 		expect((other.find((e) => e.id !== r2.id && e.type === 'device' && (e as Device).panel) as Device).panel?.serverRoomId).toBe(room.id)
 	})
+	it('a pasted panel is not "printed": no printed-labels record, new reservation ids (Q25)', () => {
+		const i = ix(), clip = copy(i, ['R1'])
+		for (const e of clip.items) if (e.type === 'device' && e.panel) e.panel = { ...e.panel, labelsPrintedAt: 1, printedLabels: { '1': 'X' }, reservations: [{ id: 'RV', usage: 'desk', ports: [1] }] }
+		const panels = pasteClip(clip, target(i, { kind: 'level', id: 'L33' })).put.filter((e): e is Device => e.type === 'device' && !!e.panel)
+		expect(panels.length).toBeGreaterThan(0)
+		for (const d of panels) {
+			expect(d.panel).not.toHaveProperty('labelsPrintedAt')
+			expect(d.panel).not.toHaveProperty('printedLabels')
+			expect(d.panel!.reservations![0]).toMatchObject({ usage: 'desk', ports: [1] })
+			expect(d.panel!.reservations![0].id).not.toBe('RV')
+		}
+	})
 	it('references inside the copy follow; references the target lacks are dropped', () => {
 		const run = { type: 'shape', id: 'RUN', levelId: 'L33', geom: { kind: 'path', nodes: [{ id: 'a', x: 1000, y: 4000, z: 0, attach: 'O1' }, { id: 'b', x: 0, y: 0, z: 0, attach: 'O2' }], segs: [] } } as unknown as Shape
 		const i = ix([run]), put = pasteClip(copy(i, ['O1', 'RUN']), target(i, { kind: 'level', id: 'L34' })).put

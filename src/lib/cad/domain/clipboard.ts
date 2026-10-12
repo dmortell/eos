@@ -157,7 +157,7 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 				order: ix.racks.filter((x) => x.spaceId === spaceId).length + r.order, ...(r.at ? { at: move(r.at) } : {}) }
 		}
 		if (e.type === 'device') {
-			const dv = e as Device
+			const dv = fresh(e as Device)
 			if (!dv.panel?.serverRoomId || ok(dv.panel.serverRoomId)) return dv
 			const { serverRoomId, ...panel } = dv.panel, room = rooms.get(serverRoomId)
 			return { ...dv, panel: { ...panel, ...(room ? { serverRoomId: room } : {}) } }
@@ -189,6 +189,15 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	return { put: [...extra, ...made, ...newGroups, ...items], select, skipped }
 }
 
+/** A copied device is a new thing: its panel's printed-labels record belongs to the original (a copy would say its
+ *  labels changed since printing), and its port reservations are new records. */
+export function fresh(dv: Device): Device {
+	const p = dv.panel
+	if (!p) return dv
+	const { labelsPrintedAt: _a, printedLabels: _b, reservations, ...panel } = p
+	return { ...dv, panel: { ...panel, ...(reservations ? { reservations: reservations.map((r) => ({ ...r, id: newId() })) } : {}) } }
+}
+
 /** Devices into a rack, each at its own U (as-is); refused if any would overlap or not fit. A copied rack's devices
  *  come too (its contents into this rack). Links / cords never come. */
 function pasteDevices(clip: Clip, ix: ProjectIndex, rackId: Id): Pasted {
@@ -197,7 +206,7 @@ function pasteDevices(clip: Clip, ix: ProjectIndex, rackId: Id): Pasted {
 	const skipped = clip.items.length - devs.length
 	if (!rack || !devs.length) return { put: [], select: [], skipped }
 	const put = devs.map((dv): Device => {
-		const { panel, ...rest } = dv
+		const { panel, ...rest } = fresh(dv)
 		const room = panel?.serverRoomId === undefined || ix.get(panel.serverRoomId) ? panel : { ...panel, serverRoomId: rack.spaceId }
 		return { ...rest, id: newId(), rackId, ...(room ? { panel: room } : {}) }
 	})
