@@ -82,7 +82,7 @@ export function fillBands(ix: ProjectIndex, fills: Iterable<BandFill> | Map<stri
 }
 
 /** The cable routes (Phase 5) of the selected outlets / links / panel ports, drawn over the runs they use (plan). */
-export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, selection: Id[], ps: PortSel | null): Prim[] {
+export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, selection: Id[], ps: PortSel | null, estimates: readonly Estimate[] = []): Prim[] {
 	const links = new Set<string>()
 	for (const id of selection) {
 		const e = ix.get(id)
@@ -91,13 +91,19 @@ export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, 
 	}
 	if (ps) for (const n of ps.ports) { const l = ix.linkAt({ on: ps.on, port: n }); if (l) links.add(l.id) }
 	const out: Prim[] = []
-	for (const id of links) for (const r of routes.get(id)?.segs ?? []) {
-		const s = ix.get(r.shape)
-		if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
-		const g = s.geom, sg = g.segs.find((x) => x.id === r.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
-		if (!a || !b || ![a.levelId ?? s.levelId, b.levelId ?? s.levelId].includes(levelId)) continue
-		out.push(Math.hypot(b.x - a.x, b.y - a.y) < 0.5 ? { k: 'circle', c: a, r: 150, cls: 'trace-route' } : { k: 'line', pts: [a, b], cls: 'trace-route' })
+	const draw = (segs: Route['segs'], cls: string) => {
+		for (const r of segs) {
+			const s = ix.get(r.shape)
+			if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
+			const g = s.geom, sg = g.segs.find((x) => x.id === r.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
+			if (!a || !b || ![a.levelId ?? s.levelId, b.levelId ?? s.levelId].includes(levelId)) continue
+			out.push(Math.hypot(b.x - a.x, b.y - a.y) < 0.5 ? { k: 'circle', c: a, r: 150, cls } : { k: 'line', pts: [a, b], cls })
+		}
 	}
+	for (const id of links) draw(routes.get(id)?.segs ?? [], 'trace-route')
+	// a selected outlet's ESTIMATED cables (ports with no link), only where its room is set — a guessed room isn't shown as if it were known
+	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
+	for (const e of estimates) if (e.roomSet && outlets.has(e.outletId)) draw(e.segs, 'trace-route trace-route-est')
 	return out
 }
 

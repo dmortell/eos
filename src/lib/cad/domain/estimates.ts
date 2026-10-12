@@ -18,6 +18,8 @@ export interface Estimate {
 	cableType: string
 	/** The server room it goes to (see the header for how it is chosen). */
 	roomId?: Id
+	/** The room was SET on the outlet (a server room on one of its ports), not guessed from the zone / level / nearest run. */
+	roomSet?: boolean
 	/** The run segments walked, outlet end first (as a link's route). */
 	segs: Route['segs']
 	/** The route, mm: end drops + the path. */
@@ -26,6 +28,20 @@ export interface Estimate {
 	lengthM?: number
 	/** Why there is no estimate route. */
 	problem?: string
+}
+
+/** The ESTIMATED cables' metres by cable type, for the BOM: route + slack (each rounded up to the metre) + waste. Estimates
+ *  with no route are counted apart, as unrouted links are. Always to buy — an installed cable has a link, so no estimate. */
+export function estimateMetres(estimates: readonly Estimate[], cable: CableSettings = DEFAULT_CABLE): { type: string; metres: number; ports: number; unrouted: number }[] {
+	const by = new Map<string, { type: string; metres: number; ports: number; unrouted: number }>()
+	for (const e of estimates) {
+		const type = e.cableType || 'cable', row = by.get(type) ?? { type, metres: 0, ports: 0, unrouted: 0 }
+		row.ports++
+		if (e.lengthM != null) row.metres += e.lengthM
+		else row.unrouted++
+		by.set(type, row)
+	}
+	return [...by.values()].map((r) => ({ ...r, metres: Math.ceil(r.metres * (1 + cable.wastePct / 100)) }))
 }
 
 export interface Routing { routes: Map<Id, Route>; estimates: Estimate[] }
@@ -56,8 +72,8 @@ export function estimateCables(g: Graph, ix: ProjectIndex, cable: CableSettings 
 	const taps = new Map<string, Tap | null>()   // per outlet and room: its ports share it
 	for (const o of todo) for (const p of o.ports) {
 		if (ix.linkAt({ on: o.id, port: p.port })) continue
-		const roomId = roomOf(o, p.port)
-		const est = (r: Partial<Estimate>): void => { out.push({ outletId: o.id, port: p.port, cableType: p.cableType, ...(roomId ? { roomId } : {}), segs: [], ...r }) }
+		const roomId = roomOf(o, p.port), roomSet = !!roomId && o.ports.some((q) => q.serverRoomId === roomId && isRoom(ix, roomId))
+		const est = (r: Partial<Estimate>): void => { out.push({ outletId: o.id, port: p.port, cableType: p.cableType, ...(roomId ? { roomId } : {}), ...(roomSet ? { roomSet } : {}), segs: [], ...r }) }
 		if (!roomId) { est({ problem: 'no server room' }); continue }
 		const from = searchOf(roomId)
 		if (!from) { est({ problem: `${ix.nameOf(roomId) || 'its room'} has no placed rack or outline near a run` }); continue }
