@@ -3049,3 +3049,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Settings), not when the Cord tool is first picked — Patch to…, P and drag-to-patch made cat6a / blue cords before
   that; a type / color picked in between stays (`app/workspace.svelte.ts` `seedCordDefaults`, `ui/CadShell.svelte`;
   test).
+- **Q36** Delete says what it did: in the Properties header's words ("Deleted trunk T1", "Deleted cable", "Deleted
+  2 racks · 3 outlets" — not "shape" / "link" / "N items"; the question asks in the same words); an installed cord is
+  "marked for removal — it comes out on site", one already marked says so (and points at Purge removed); clearing a
+  port reservation says which ports. The header's kind words moved to `ui/propsKit.ts` `kindOf` so both use one list
+  (`app/selectionActions.ts` `deletedText`; test).

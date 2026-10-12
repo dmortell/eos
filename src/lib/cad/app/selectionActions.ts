@@ -5,7 +5,10 @@ import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import { deleteEntities, deleteViewport, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
-import { reservePorts } from '../domain/ports'
+import { reservePorts, portRanges } from '../domain/ports'
+import { removeCord } from '../domain/cords'
+import { kindOf, countsText, selectionKinds } from '../ui/propsKit'
+import type { Entity } from '../domain/drawing'
 import { reorderShapes } from '../domain/shapes'
 import { deleteRoom, deleteRow } from './navActions'
 
@@ -34,7 +37,11 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	const ps = ws.portSel, dev = ps ? project.store.get(ps.on) : undefined
 	if (ps) {
 		const next = dev?.type === 'device' ? reservePorts(dev, ps.ports, '', '') : null
-		if (next) project.store.transact('Clear reservation', (tx) => tx.put(next))
+		if (next && dev?.type === 'device') {
+			const held = (dev.panel?.reservations ?? []).flatMap((r) => r.ports).filter((n) => ps.ports.includes(n))
+			project.store.transact('Clear reservation', (tx) => tx.put(next))
+			ws.say(UNDONE(`Cleared the reservation on ${dev.name} port${held.length === 1 ? '' : 's'} ${portRanges(held)} (the device stays)`))
+		}
 		else ws.say('Delete on ports clears their reservation — none here. Click the device body to delete the device.')
 		return
 	}
@@ -64,12 +71,36 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 		return
 	}
 	const go = () => { deleteEntities(project.store, ids); ws.select([]) }
-	const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
-	const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
-	if (!also) { go(); ws.say(UNDONE(`Deleted ${what}`)); return }
+	const items = ids.map((id) => project.store.get(id)).filter((e): e is Entity => !!e)
+	const nameOf = (e: Entity) => e.type === 'sheet' ? e.number : e.type === 'shape' && e.geom.kind === 'insert' ? project.blockOf(e.geom.blockId)?.name ?? '' : project.index.nameOf(e.id)
+	const what = itemsText(items, nameOf)
+	if (!also) { const said = deletedText(items, nameOf); go(); ws.say(said); return }
 	const inst = installedCordsGoing(project.store, ids)
 	const warn = inst ? ` ${inst} of the cords ${inst === 1 ? 'is' : 'are'} installed: they go from the record, not into the removal list — export the changes first if the installer needs them.` : ''
 	ws.ask2(`Delete ${what} with ${also}?${warn} Undo brings them back.`, 'Delete', go)
+}
+/** "trunk T1" (one, in the Properties header's word) or "3 racks · 5 outlets" (several). */
+function itemsText(items: Entity[], nameOf: (e: Entity) => string): string {
+	if (items.length === 1) return `${kindOf(items[0])[0].toLowerCase()} ${nameOf(items[0])}`.trim()
+	return countsText(selectionKinds(items).map((k) => [k.items.length, k.one, k.many])) || `${items.length} items`
+}
+/** What a Delete of these did, in words: what went, the installed cords only marked for removal (they come out on
+ *  site — the delete keeps them on the record), cords already marked (nothing to do). */
+export function deletedText(items: Entity[], nameOf: (e: Entity) => string): string {
+	const marked = items.filter((e) => e.type === 'cord' && removeCord(e) !== null && removeCord(e) !== e)
+	const already = items.filter((e) => e.type === 'cord' && removeCord(e) === e)
+	const gone = items.filter((e) => !marked.includes(e) && !already.includes(e))
+	const parts: string[] = []
+	if (gone.length) parts.push(`Deleted ${itemsText(gone, nameOf)}`)
+	if (marked.length) {
+		const which = marked.length === 1 ? (items.length === 1 ? itemsText(marked, nameOf) : 'an installed patch cord') : `${marked.length} installed patch cords`
+		parts.push(`${parts.length ? 'marked' : 'Marked'} ${which} for removal — ${marked.length === 1 ? 'it comes' : 'they come'} out on site (the patch list shows ${marked.length === 1 ? 'it' : 'them'})`)
+	}
+	const changed = parts.length > 0
+	if (already.length) parts.push(`${already.length === 1 ? (items.length === 1 ? 'the patch cord is' : '1 patch cord is') : `${already.length} patch cords are`} already marked for removal${changed ? '' : ' — Purge removed (Patching ⋯) takes removed cords off the record'}`)
+	const text = parts.join(' · ')
+	const said = text.charAt(0).toUpperCase() + text.slice(1)
+	return changed ? UNDONE(said) : said
 }
 /** Ctrl+] / Ctrl+[ bring the selected shapes forward / send them back; with Shift to the front / back. */
 export function orderKey(project: CadProject, ws: Workspace, how: 'forward' | 'backward' | 'front' | 'back'): void {

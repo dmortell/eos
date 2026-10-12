@@ -7,32 +7,18 @@
 	import { Icon } from '$lib'
 	import { ALIGN_LABEL, type AlignHow } from '../editor/align'
 	import { canMove } from '../editor/behaviours'
-	import { selectionKinds, countsText } from './propsKit'
+	import { selectionKinds, countsText, kindOf, kindIcon } from './propsKit'
 
 	let { project, ws, items }: { project: CadProject; ws: Workspace; items: Entity[] } = $props()
 
 	const one = $derived(items.length === 1 ? items[0] : undefined)
 	const movable = $derived(items.filter(canMove).length)
 	const ALIGN: [AlignHow, string][] = [['left', 'alignLeftEdges'], ['centre', 'alignCentresX'], ['right', 'alignRightEdges'], ['top', 'alignTopEdges'], ['middle', 'alignMiddlesY'], ['bottom', 'alignBottomEdges'], ['across', 'distributeX'], ['down', 'distributeY']]
-	const KIND: Record<string, [string, string]> = {
-		outlet: ['Outlet', 'circleDot'], rack: ['Rack', 'server'], device: ['Device', 'pcCase'], sheet: ['Sheet', 'fileText'], cord: ['Patch cord', 'cable'],
-		section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], rackRow: ['Row of racks', 'rows'], level: ['Level', 'layers'],
-	}
-	const SHAPE: Record<string, [string, string]> = {
-		wall: ['Wall', 'brickWall'], containment: ['Run', 'route'], opening: ['Opening', 'opening'], riser: ['Riser', 'route'], penetration: ['Penetration', 'opening'],
-		path: ['Line', 'k-line'], rect: ['Rectangle', 'rect'], ellipse: ['Ellipse', 'ellipse'], circle: ['Circle', 'ellipse'], polygon: ['Polygon', 'polygon'],
-		text: ['Text', 'k-text'], leader: ['Leader', 'callout'], cloud: ['Cloud', 'highlighter'], dimension: ['Dimension', 'ruler'], legend: ['Legend', 'list'], insert: ['Block', 'package'], image: ['Image', 'image'],
-	}
 	const kind = $derived.by((): [string, string] => {
 		// several: what they are, "3 racks · 5 outlets"
-		if (!one) { const ks = selectionKinds(items); return [countsText(ks.map((k) => [k.items.length, k.one, k.many])), ks.length === 1 ? (KIND[ks[0].key]?.[1] ?? 'copy') : 'copy'] }
+		if (!one) { const ks = selectionKinds(items); return [countsText(ks.map((k) => [k.items.length, k.one, k.many])), ks.length === 1 ? (kindIcon(ks[0].key) ?? 'copy') : 'copy'] }
 		if (one.type === 'sheet' && ws.viewportId) return ['Viewport', 'panels']
-		if (one.type === 'space' && one.kind === 'server room') return ['Server room', 'server']
-		if (one.type === 'shape') {
-			const r = one.role?.kind === 'containment' ? (one.role.form === 'conduit' ? ['Conduit', 'rows'] : ['Trunk', 'route']) as [string, string] : undefined
-			return r ?? SHAPE[one.role?.kind ?? ''] ?? (one.extent ? ['Box', 'box'] : SHAPE[one.geom.kind] ?? [one.geom.kind, 'rect'])
-		}
-		return KIND[one.type] ?? [one.type, 'rect']
+		return kindOf(one)
 	})
 	const name = $derived.by(() => {
 		if (!one) return ''

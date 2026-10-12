@@ -45,6 +45,28 @@ export function selectionKinds(items: readonly Entity[]): SelKind[] {
 	})
 }
 
+const KIND: Record<string, [string, string]> = {
+	outlet: ['Outlet', 'circleDot'], rack: ['Rack', 'server'], device: ['Device', 'pcCase'], sheet: ['Sheet', 'fileText'], cord: ['Patch cord', 'cable'],
+	section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], rackRow: ['Row of racks', 'rows'], level: ['Level', 'layers'],
+}
+const SHAPE: Record<string, [string, string]> = {
+	wall: ['Wall', 'brickWall'], containment: ['Run', 'route'], opening: ['Opening', 'opening'], riser: ['Riser', 'route'], penetration: ['Penetration', 'opening'],
+	path: ['Line', 'k-line'], rect: ['Rectangle', 'rect'], ellipse: ['Ellipse', 'ellipse'], circle: ['Circle', 'ellipse'], polygon: ['Polygon', 'polygon'],
+	text: ['Text', 'k-text'], leader: ['Leader', 'callout'], cloud: ['Cloud', 'highlighter'], dimension: ['Dimension', 'ruler'], legend: ['Legend', 'list'], insert: ['Block', 'package'], image: ['Image', 'image'],
+}
+/** What one thing is called, and its icon — the Properties header's word, also used by messages about it ("Deleted
+ *  trunk T1"), so a thing has one name everywhere. */
+export function kindOf(e: Entity): [string, string] {
+	if (e.type === 'space' && e.kind === 'server room') return ['Server room', 'server']
+	if (e.type === 'shape') {
+		const r = e.role?.kind === 'containment' ? (e.role.form === 'conduit' ? ['Conduit', 'rows'] : ['Trunk', 'route']) as [string, string] : undefined
+		return r ?? SHAPE[e.role?.kind ?? ''] ?? (e.extent ? ['Box', 'box'] : SHAPE[e.geom.kind] ?? [e.geom.kind, 'rect'])
+	}
+	return KIND[e.type] ?? [e.type, 'rect']
+}
+/** The icon for a kind of thing by its type ("rack"), for a header over several. */
+export const kindIcon = (type: string): string | undefined => KIND[type]?.[1]
+
 /** The store as the kit needs it (CadProject.store). */
 export interface PutStore { transact(label: string, fn: (tx: Txn) => void): unknown }
 
