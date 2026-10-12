@@ -11,7 +11,7 @@ import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
 import { isVertical } from './shapes'
 import { rackBom } from './rackBom'
-import { routeLinks, cableMetres, cableSettings, boxNote, type Route } from './routing'
+import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
 // ── Outlet schedule ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -141,10 +141,6 @@ export function runLengths(p: ProjectIndex): RunLength[] {
 	return out
 }
 
-function levelElevation(p: ProjectIndex, levelId: Id | undefined): number {
-	const l = p.get(levelId)
-	return l?.type === 'level' ? l.elevationMm : 0
-}
 
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 

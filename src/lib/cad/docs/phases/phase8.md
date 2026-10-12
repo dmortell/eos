@@ -2699,3 +2699,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   group, when, run), in the old else-if order; the shell runs the first that matches, and Help's Keys and Function
   keys are built from it plus a list of mouse gestures and drawing-time keys (`ui/helpContent.ts`), so what Help shows
   is what the keys do. Menus and tooltips still have their own strings (steps 2 / 3). Test in `ui/shellKeys.test.ts`.
+- **R89, R87 (part):** a doc that leaves one scope's query because it moved to another scope (an item moved to
+  another level) is no longer deleted locally by the old query's "removed" (`persist/sync.ts`). Dead code gone: the
+  panels' unused `columns` / `rows` getters, ViewStrip's empty module script, reports' copy of `levelElevation` (it uses
+  routing's). (labels.ts `renumber` / `renumberOutlets` stay: their tests document the label rules.) Help: a
+  faceplate's front in elevations (for eos-d9's blocks change).

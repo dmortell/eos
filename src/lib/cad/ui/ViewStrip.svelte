@@ -4,8 +4,6 @@
        · a rack view: its room, Racks front / rear, one row or all, Display ▾, To sheet…;
        · a port map: its devices, Excel (VLAN), To sheet…;
        · a sheet: its number, title and paper. -->
-<script lang="ts" module>
-	/** Back / forward for one pane: what each goes to (absent = nothing there), and the jump. */</script>
 
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'

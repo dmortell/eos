@@ -30,6 +30,4 @@ export class Panels {
 	}
 	toggle(side: Side): void { this.shown[side] = !this.shown[side]; this.save() }
 
-	get columns(): string { return `${this.shown.left ? this.size.left : 0}px minmax(0, 1fr) ${this.shown.right ? this.size.right : 0}px` }
-	get rows(): string { return `2.25rem minmax(0, 1fr) ${this.shown.bottom ? this.size.bottom : 0}px` }
 }

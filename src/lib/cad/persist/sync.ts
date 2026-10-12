@@ -7,7 +7,7 @@
 // re-apply stale docs).
 import type { EntityStore, Change } from '../store/store'
 import type { Backend, RemoteDoc } from './backend'
-import { toDoc, fromDoc } from './docs'
+import { toDoc, fromDoc, scopeOf } from './docs'
 import { sameEntity } from '../domain/restorePlan'
 import type { Entity } from '../domain/drawing'
 import type { Id } from '../domain/types'
@@ -37,8 +37,11 @@ export class Sync {
 	 *  after the first delivery has been applied. */
 	watch(scopes: string[], onLoaded?: () => void): () => void {
 		let loaded = false
+		const mine = new Set(scopes)
 		const off = this.backend.subscribe(scopes, (docs) => {
-			this.#onRemote(docs)
+			// a doc that LEFT this query because it moved to another scope (an item moved to another level) isn't deleted:
+			// the other scope's listener has it (review R89 — its "removed" could come after the move and delete it here)
+			this.#onRemote(docs.filter((d) => { if (d.data) return true; const cur = this.store.get(d.id); return !cur || mine.has(scopeOf(cur)) }))
 			if (!loaded) { loaded = true; onLoaded?.() }
 		})
 		this.#unsubs.push(off)
