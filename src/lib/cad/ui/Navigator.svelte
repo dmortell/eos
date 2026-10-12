@@ -7,7 +7,7 @@
 <script lang="ts">
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
-	import { untrack } from 'svelte'
+	import { untrack, tick } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import { specKey, type ViewSpec } from '../views/space'
@@ -68,9 +68,12 @@
 			lastCurrent = key
 			const path = pathTo(tree, isCurrent)
 			if (path) { const n = new Set(open); for (const k of path.slice(0, -1)) n.add(k); open = n; save() }
+			// …and scrolls into sight (review R50: on a sheet the tree stayed on 1F)
+			void tick().then(() => treeEl?.querySelector('.row.cur')?.scrollIntoView({ block: 'nearest' }))
 		})
 	})
 	let lastCurrent = ''
+	let treeEl: HTMLDivElement | undefined = $state()
 
 	const renameLevel = (id: string) => renameLevelOf(project, ws, id)
 	const deleteLevel = (id: string) => deleteLevelOf(project, ws, id)
@@ -129,7 +132,7 @@
 		<Icon name="search" size={12} />
 		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack, device, outlet… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
 	</div>
-	<div class="tree" role="tree">
+	<div class="tree" role="tree" bind:this={treeEl}>
 		{#each shown as n (n.key)}{@render row(n, 0)}{/each}
 		{#if finds.length}
 			<p class="fh">Devices and outlets</p>

@@ -2929,3 +2929,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   reads either; old links open both panes on `level`). Help: a "Put two levels side by side" entry; the work-plane
   entry says "of the same level". Tests: `app/workspace.test.ts`, `app/tabs.test.ts` (two panes on two levels keep
   their tabs and histories), `app/urlState.test.ts` (levels round-trip; one level → no param).
+- **R50:** the Navigator scrolls the open view's row into sight as well as unfolding its branch (`ui/Navigator.svelte`);
+  the Blocks and Device library windows step aside (still open) in a view where their tool can't work, docked or
+  floating (`ui/CadShell.svelte` `offHere`); Help.

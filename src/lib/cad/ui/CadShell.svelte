@@ -258,6 +258,8 @@
 		return sh?.type === 'sheet' ? (sh.viewports.find((v) => v.id === e!.vpId)?.view.spec.kind ?? null) : null
 	})
 	const activeKind = $derived(vpEditKind ?? panes[activePane]?.kind ?? 'plan')
+	/** A library window whose tool can't work in this view steps aside until it can (review R50); it stays open. */
+	const offHere = (id: string) => (id === 'blocks' && !toolWorksIn('insert', activeKind, !!vpEditKind)) || (id === 'devices' && !toolWorksIn('device', activeKind, !!vpEditKind))
 	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
 	 *  looked at. Snapshots: the store freezes what it's given, and a $state proxy can't be frozen. */
 	type ModelView = { levelId: string; spec: Exclude<ViewSpec, { kind: 'sheet' }> }
@@ -346,7 +348,8 @@
 	/** Closed, their bar of tabs stays under the drawing (Dave 2026-10-10) — not when every window is hidden. */
 	const tablesBar = $derived(!panels.shown.bottom && !layout.allHidden)
 	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : tablesBar ? 29 : 0)
-	const dockW = (side: 'left' | 'right') => (layout.docked(side).length ? panels.size[side] : 0)
+	const docked = (side: 'left' | 'right') => layout.docked(side).filter((id) => !offHere(id))
+	const dockW = (side: 'left' | 'right') => (docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived(activeSheets(project))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
 	 *  selected. The spec is copied: the tree's comes from frozen store data. */
@@ -559,9 +562,9 @@
 
 	<!-- docked windows: the left and right columns (today's side panels), stacked -->
 	{#each ['left', 'right'] as const as side (side)}
-		<aside class="dock dock-{side}" class:gone={!layout.docked(side).length}>
+		<aside class="dock dock-{side}" class:gone={!docked(side).length}>
 			<ResizeHandle bind:value={panels.size[side]} side={side === 'left' ? 'right' : 'left'} min={170} max={560} onend={panels.save} />
-			{#each layout.docked(side) as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
+			{#each docked(side) as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
 		</aside>
 	{/each}
 
@@ -587,7 +590,7 @@
 				{/each}
 			</div>
 		{/if}
-		{#each layout.floating() as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
+		{#each layout.floating().filter((id) => !offHere(id)) as id (id)}<CadWindow {layout} {id} area={planEl}>{@render winBody(id)}</CadWindow>{/each}
 		{#if tablesShown && (panels.tables.float || panels.tables.max)}{@render tables()}{/if}
 		<!-- a window dragged to an edge docks there on release -->
 		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
