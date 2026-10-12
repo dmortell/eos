@@ -124,7 +124,7 @@
 	/** The sheets in one PDF, in the table's order. */
 	async function pdf(list: SheetRow[]) {
 		busy = true
-		try { const r = await downloadSheetsPdf(project, list.map((x) => sheetOf(x.id))); ws.say(`PDF: ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await downloadSheetsPdf(project, list.map((x) => sheetOf(x.id)), ws.monoPdf); ws.say(`PDF: ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}

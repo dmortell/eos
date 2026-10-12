@@ -3201,3 +3201,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `estimated` rows after the real ones (from = the room, to = the outlet port, italic, note "estimated"); `scheduleTotals`
   stays the real cables', `estimatedTotals` is the estimated ones, shown beside it in the dialog and in the Excel
   (Status column, a totals line). Help; tests (`domain/estimates.test.ts`).
+- **Q43** every sheet PDF honours File › Export › Monochrome PDFs: the sheet's Properties “PDF” button and the Sheets tab's
+  PDF button pass `ws.monoPdf` to `downloadSheetsPdf` as File › PDF always did (`ui/SheetProps.svelte`, `ui/SheetsTab.svelte`).

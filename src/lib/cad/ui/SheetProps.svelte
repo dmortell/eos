@@ -107,7 +107,7 @@
 	let busy = $state(false)
 	async function pdf() {
 		busy = true
-		try { const r = await downloadSheetsPdf(project, [s]); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await downloadSheetsPdf(project, [s], ws.monoPdf); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
