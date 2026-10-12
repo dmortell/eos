@@ -50,7 +50,7 @@
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
-	import ToolStrip from './ToolStrip.svelte'
+	import ToolStrip, { TOOL_GROUPS } from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 
@@ -295,7 +295,10 @@
 
 
 	/** The status bar's hint: the tool's, or (Select) the selected viewport's ways of working. */
-	const hint = $derived((ws.vpEdit ? 'Editing inside the viewport — Esc or a double-click outside it leaves · ' : '') + (ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
+	/** The options row's chips (review R53). */
+	const toolName = $derived(TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === ws.toolId)?.label.replace(/ \(.*\)$/, '') ?? ws.toolId)
+	const layerList = $derived(layersOf(project.index.layers).filter((l) => !l.system || ['sys:drawing', 'sys:walls'].includes(l.id)).sort((a, b) => a.order - b.order))
+	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
 
 
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
@@ -517,6 +520,15 @@
 	</div>
 
 	<div class="opts flex items-center gap-2 border-b border-zinc-200 bg-white px-2">
+		<!-- always on show (review R53): the active tool, the layer new items go on, and editing inside a viewport -->
+		<span class="chip tool" title="The active tool (Esc: back to Select)">{toolName}</span>
+		<label class="chip" title="The layer new lines, notes and blocks go on (walls, runs, outlets and racks go on their own)">Layer
+			<select value={ws.layers.current ?? ''} onchange={(e) => ws.layers.setCurrent(e.currentTarget.value || null)}>
+				<option value="">by kind</option>
+				{#each layerList as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</select>
+		</label>
+		{#if ws.vpEdit}<button class="chip vp" title="Leave the viewport (Esc, or a double-click outside it)" onclick={() => canvas?.leaveViewport()}>Editing in a viewport ✕</button>{/if}
 		<ToolOptions {project} {ws} {level} kind={activeKind} />
 		{#if hint}<span class="hint" title={hint}>{hint}</span>{/if}
 	</div>
@@ -619,6 +631,10 @@
 	}
 	.bar { grid-area: bar; }
 	.opts { grid-area: opts; min-width: 0; overflow: hidden; white-space: nowrap; }
+	.opts .chip { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 0 6px; border-radius: 4px; font-size: 11px; color: var(--cad-text); background: var(--cad-subtle, #f4f4f5); border: 1px solid var(--cad-line, #e4e4e7); white-space: nowrap; }
+	.opts .chip.tool { font-weight: 600; }
+	.opts .chip select { font-size: 11px; border: 0; background: transparent; color: inherit; }
+	.opts .chip.vp { background: #fef3c7; border-color: #f59e0b; }
 	.opts .hint { color: var(--cad-muted, #71717a); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
 	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }

@@ -2777,3 +2777,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   clipboard as a PNG — the SVG copied with its computed styles and its floorplan as a data url, drawn on a canvas at up
   to 2× (`ui/ViewCanvas.svelte` `copyPicture`). Live (Test Project): "Copied the view as a picture (1499 × 565 px)".
   Help: two entries.
+- **R53 Always-on chips:** the options row starts with the active tool's name, a **Layer** picker (where new lines,
+  notes and blocks go — "by kind", Walls, Drawing and the project's own layers; `ws.layers.setCurrent`) and, while
+  editing inside a viewport, an amber "Editing in a viewport ✕" that leaves it (the hint no longer carries that
+  prefix) (`ui/CadShell.svelte`). With the toast for "Drawn on …" (earlier today), the status line keeps prompts and
+  messages only.
