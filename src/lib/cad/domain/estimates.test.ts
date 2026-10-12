@@ -3,10 +3,12 @@
 // goes once the port is linked.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
-import { routeAll } from './estimates'
-import { panelZ, routeLinks } from './routing'
+import { routeAll, estimateMetres } from './estimates'
+import { bom } from './reports'
+import { cableSchedule, scheduleTotals, estimatedTotals } from './cableSchedule'
+import { panelZ, routeLinks, cableSettings } from './routing'
 import { fillBySegment, cableCountText, segKey } from './fill'
-import { allRoutesOf, fillBands } from '../views/overlays'
+import { allRoutesOf, fillBands, routesOf } from '../views/overlays'
 import type { Entity } from './drawing'
 import type { Shape } from './shapes'
 import type { Prim } from '../views/display'
@@ -133,5 +135,56 @@ describe('estimated cables (ports not linked yet)', () => {
 		expect(r.estimates).toHaveLength(750)
 		expect(r.estimates.every((e) => !e.problem)).toBe(true)
 		expect(ms).toBeLessThan(1500)
+	})
+})
+
+describe('estimates: selected outlet’s route, BOM, cable schedule', () => {
+	it('roomSet is true only for a room set on a port; selecting such an outlet highlights its estimated route, dashed', () => {
+		const ix = project([outlet('O1', 8000, 1500), outlet('O2', 8000, 1500, { room: null })])
+		const { routes, estimates } = routeAll(ix, CABLE)
+		expect(estimates.find((e) => e.outletId === 'O1')!.roomSet).toBe(true)
+		expect(estimates.find((e) => e.outletId === 'O2')!.roomSet).toBeUndefined()   // guessed from the level
+		const prims = routesOf(ix, routes, 'L1', ['O1'], null, estimates)
+		expect(prims.length).toBeGreaterThan(0)
+		expect(prims.every((q) => q.cls === 'trace-route trace-route-est')).toBe(true)
+		expect(routesOf(ix, routes, 'L1', ['O2'], null, estimates)).toEqual([])   // room not set: nothing
+		expect(routesOf(ix, routes, 'L1', [], null, estimates)).toEqual([])
+	})
+	it('a linked port shows its link’s route, not an estimate', () => {
+		const ix = project([outlet('O1', 8000, 1500, { ports: 2 }), link('K1', 'O1', 1)])
+		const { routes, estimates } = routeAll(ix, CABLE)
+		const prims = routesOf(ix, routes, 'L1', ['O1'], null, estimates)
+		expect(prims.filter((q) => q.cls === 'trace-route')).not.toHaveLength(0)
+		expect(prims.filter((q) => q.cls === 'trace-route trace-route-est')).not.toHaveLength(0)
+	})
+	it('estimateMetres: per cable type, with waste; no-route ones apart', () => {
+		const { estimates } = routeAll(project([outlet('O1', 8000, 1500, { ports: 2 }), outlet('O2', 8000, 20000)]), { slackM: 0.5, wastePct: 10 })
+		const ok = estimates.filter((e) => e.lengthM != null)
+		expect(ok).toHaveLength(2)
+		const [m] = estimateMetres(estimates, { slackM: 0.5, wastePct: 10 })
+		expect(m).toMatchObject({ type: 'cat6a', ports: 3, unrouted: 1 })
+		expect(m.metres).toBe(Math.ceil(ok.reduce((a, e) => a + e.lengthM!, 0) * 1.1))
+	})
+	it('the BOM lists estimated cable apart, in metres; a linked port’s estimate is gone and the installed link is left out', () => {
+		const ix = project([outlet('O1', 8000, 1500)])
+		const { routes, estimates } = routeAll(ix, CABLE)
+		const line = bom(ix, [], routes, estimates).find((l) => l.category === 'Cable')!
+		expect(line).toMatchObject({ unit: 'm', qty: estimateMetres(estimates, cableSettings(ix))[0].metres })
+		expect(line.item).toContain('estimated')
+		expect(bom(ix, [], routes).find((l) => l.category === 'Cable')).toBeUndefined()   // none given: none counted
+		const ix2 = project([outlet('O1', 8000, 1500), { ...link('K1', 'O1'), status: 'installed' }])
+		const r2 = routeAll(ix2, CABLE)
+		expect(r2.estimates).toEqual([])
+		expect(bom(ix2, [], r2.routes, r2.estimates).find((l) => l.category === 'Cable')).toBeUndefined()
+	})
+	it('the cable schedule has estimated rows after the real ones; totals keep them apart', () => {
+		const ix = project([outlet('O1', 8000, 1500, { ports: 2 }), link('K1', 'O1', 1)])
+		const { routes, estimates } = routeAll(ix, CABLE)
+		const rows = cableSchedule(ix, routes, CABLE, estimates)
+		expect(rows.map((r) => !!r.estimated)).toEqual([false, true])
+		expect(rows[1]).toMatchObject({ from: 'S', lengthM: estimates[0].lengthM, kind: 'horizontal', type: 'cat6a' })
+		expect(scheduleTotals(rows).links).toBe(1)
+		expect(estimatedTotals(rows)).toEqual({ cables: 1, metres: estimates[0].lengthM, unrouted: 0 })
+		expect(cableSchedule(ix, routes, CABLE).some((r) => r.estimated)).toBe(false)
 	})
 })

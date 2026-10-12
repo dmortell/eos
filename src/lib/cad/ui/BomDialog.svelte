@@ -21,7 +21,7 @@
 	let rack = $state<'consolidated' | 'byRow' | 'none'>('consolidated')
 	let busy = $state(false)
 
-	const lines = $derived(catalog ? bom(project.index, catalog, project.routes) : [])
+	const lines = $derived(catalog ? bom(project.index, catalog, project.routes, project.estimates) : [])
 	/** The rooms with racks, by level; `off` = the ones unticked (so every room is in at first, and a new one too). */
 	const groups = $derived(bomRooms(project.index))
 	const roomCount = $derived(groups.reduce((n, g) => n + g.rooms.length, 0))
@@ -48,7 +48,7 @@
 	async function exportXlsx() {
 		if (!catalog || busy) return
 		busy = true
-		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText }); ondone(`BOM: ${n} lines`); onclose() }
+		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText }, project.estimates); ondone(`BOM: ${n} lines`); onclose() }
 		catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}

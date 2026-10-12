@@ -11,6 +11,7 @@ import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
 import { isVertical } from './shapes'
 import { rackBom, makerModel } from './rackBom'
+import { estimateMetres, type Estimate } from './estimates'
 import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
@@ -150,9 +151,10 @@ export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
  * are rounded UP to whole metres per line. Cable comes from the routes (Phase 5); links with no route are counted
  * (unit 'ea') so they're not missed. `routes` = already computed ones (else routed here). Cable and cords are material
- * to buy: installed cables and cords aren't counted, only cords to add or replace.
+ * to buy: installed cables and cords aren't counted, only cords to add or replace. `estimates` = the ESTIMATED cables
+ * (outlet ports not linked yet, domain/estimates.ts), each its own line "— estimated": always to buy, and gone once linked.
  */
-export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>): BomLine[] {
+export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>, estimates: readonly Estimate[] = []): BomLine[] {
 	const lines = new Map<string, BomLine>(), notes = new Map<string, string>()
 	const add = (category: string, item: string, unit: BomLine['unit'], qty: number) => {
 		const k = `${category}|${item}|${unit}`
@@ -184,6 +186,11 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 		const item = `${m.type} (incl. ${cable.wastePct}% waste)`
 		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
 		if (m.unrouted) add('Cable', `${m.type} — no route, length unknown`, 'ea', m.unrouted)
+	}
+	for (const m of estimateMetres(estimates, cable)) {
+		const item = `${m.type} — estimated, not allocated yet (incl. ${cable.wastePct}% waste)`
+		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }
+		if (m.unrouted) add('Cable', `${m.type} — estimated, no route, length unknown`, 'ea', m.unrouted)
 	}
 	for (const c of p.cords) if (c.status === 'add' || c.status === 'replace') add('Patch cords', `${c.cableType} ${c.lengthM} m`, 'ea', 1)
 	for (const r of runLengths(p)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM)

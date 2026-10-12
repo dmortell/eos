@@ -11,7 +11,8 @@ import { rackBom, type RackBomLine } from '../domain/rackBom'
 import { panelsInFillOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
 import { download, fileSafe } from './download'
-import { scheduleTotals, type CableRow } from '../domain/cableSchedule'
+import { scheduleTotals, estimatedTotals, type CableRow } from '../domain/cableSchedule'
+import type { Estimate } from '../domain/estimates'
 import { portMapRows } from '../domain/portMap'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -252,8 +253,8 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
  *  = how they are named on the sheet (absent = every room). */
 export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][]; rooms?: string[]; roomsText?: string }
 
-export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }): Promise<number> {
-	const lines = o.materials ? bom(ix, catalog, routes) : []
+export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number> {
+	const lines = o.materials ? bom(ix, catalog, routes, estimates) : []
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	if (o.materials) {
@@ -295,17 +296,19 @@ export async function exportCableSchedule(rows: CableRow[], projectName: string)
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Cable schedule')
 	ws.addRow([`${projectName} - cable schedule`]).font = { bold: true, size: 12 }
-	const head = ws.addRow(['Label', 'Kind', 'From', 'To', 'Cable', 'Route (m)', 'Slack (m)', 'Length (m)', 'Over 90 m', 'Note'])
+	const head = ws.addRow(['Label', 'Kind', 'From', 'To', 'Cable', 'Route (m)', 'Slack (m)', 'Length (m)', 'Over 90 m', 'Status', 'Note'])
 	head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
 	head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
-	;[16, 11, 32, 32, 10, 10, 9, 10, 9, 36].forEach((w, i) => (ws.getColumn(i + 1).width = w))
+	;[16, 11, 32, 32, 10, 10, 9, 10, 9, 11, 36].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 	for (const r of rows) {
-		const row = ws.addRow([r.label, r.kind, r.from, r.to, r.type, r.routeM ?? '', r.slackM || '', r.lengthM ?? '', r.over90 ? 'YES' : '', r.problem ? `no route: ${r.problem}` : r.handSet ? 'length set by hand' : ''])
-		if (r.over90 || r.lengthM == null) row.font = { color: { argb: 'FFB91C1C' } }
+		const row = ws.addRow([r.label, r.kind, r.from, r.to, r.type, r.routeM ?? '', r.slackM || '', r.lengthM ?? '', r.over90 ? 'YES' : '', r.estimated ? 'estimated' : '', r.problem ? `no route: ${r.problem}` : r.handSet ? 'length set by hand' : ''])
+		if (r.over90 || (r.lengthM == null && !r.estimated)) row.font = { color: { argb: 'FFB91C1C' } }
+		else if (r.estimated) row.font = { italic: true, color: { argb: 'FF52525B' } }
 	}
-	const t = scheduleTotals(rows)
+	const t = scheduleTotals(rows), et = estimatedTotals(rows)
 	ws.addRow([])
 	ws.addRow([`${t.links} cables · ${t.metres} m installed (routed cables)${t.unrouted ? ` · ${t.unrouted} without a route` : ''}${t.over90 ? ` · ${t.over90} over 90 m` : ''}`]).font = { bold: true }
+	if (et.cables) ws.addRow([`+ ${et.cables} estimated cables (not allocated yet): ${et.metres} m${et.unrouted ? ` · ${et.unrouted} without a route` : ''}`]).font = { italic: true }
 	ws.views = [{ state: 'frozen', ySplit: 2 }]
 	download(await wb.xlsx.writeBuffer(), `Cables-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
 }

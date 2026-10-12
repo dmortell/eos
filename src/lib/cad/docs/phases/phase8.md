@@ -3191,3 +3191,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q7 follow-up (Dave):** on a plan, runs at different heights are not joined — dropping a node on another run's
   node at another height says "join them in an elevation view"; one that would have been absorbed just moves along
   (`domain/pathEdit.ts` `joinHeightProblem`, `editor/pathSel.ts`, `editor/dragParts.ts`, `editor/selectTool.ts`); test; Help.
+- **Q48 follow-up (Dave 2026-10-12): the selected outlet's estimated route, estimates in the BOM and the cable schedule.**
+  Selecting an outlet whose server room is SET on a port (`Estimate.roomSet` in `domain/estimates.ts` — not one guessed
+  from the zone / level / nearest run) draws its estimated routes with the selection highlight, finer green dashes
+  (`routesOf` in `views/overlays.ts`, class `trace-route-est` in `ui/Prims.svelte`). The BOM counts estimates
+  (`bom(ix, catalog, routes, estimates)`, `estimateMetres`): per cable type, a line "... - estimated, not allocated yet
+  (incl. N% waste)" in metres (+ a box note for copper) and a "no route" count; they are always to buy (a linked port's
+  estimate is gone, an installed link is still left out). The cable schedule (`cableSchedule(..., estimates)`) adds
+  `estimated` rows after the real ones (from = the room, to = the outlet port, italic, note "estimated"); `scheduleTotals`
+  stays the real cables', `estimatedTotals` is the estimated ones, shown beside it in the dialog and in the Excel
+  (Status column, a totals line). Help; tests (`domain/estimates.test.ts`).
