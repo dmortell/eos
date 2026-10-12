@@ -10,7 +10,7 @@ import { RackTool } from '../editor/rackTool'
 import { PathTool, type PathKind } from '../editor/pathTool'
 import { DeviceTool } from '../editor/deviceTool'
 import { AssignTool } from '../editor/assignTool'
-import { CordTool, type BulkFrom } from '../editor/cordTool'
+import { CordTool, type BulkFrom, type PatchPreview } from '../editor/cordTool'
 import { NoteTool, type NoteKind } from '../editor/noteTool'
 import { OpeningTool } from '../editor/openingTool'
 import { SectionTool } from '../editor/sectionTool'
@@ -191,7 +191,12 @@ export class Workspace {
 	readonly matchTool = new MatchTool()
 	/** What new cords start as: the project's Planning / Surveying toggle (settings.newCordStatus; CadShell keeps it in step). */
 	newCordStatus = $state<'add' | 'installed'>('add')
-	readonly cordTool = new CordTool(() => ({ ...this.cordDefaults, status: this.newCordStatus }), { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone())
+	/** A bulk patch's plan waiting for OK (ui/PatchPreview.svelte); null = none. */
+	patchPreview = $state.raw<PatchPreview | null>(null)
+	/** Bulk patch maps in step (false) or fills only the target's free ports (true) — kept as last chosen. */
+	patchFill = $state(false)
+	readonly cordTool = new CordTool(() => ({ ...this.cordDefaults, status: this.newCordStatus }), { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone(),
+		{ show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } })
 	/** The Calibrate tool's floorplan and step (Project settings › Plans & floorplans › Origin / Scale / Crop); the app
 	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
 	calibTarget = $state.raw<CalibTarget | null>(null)
@@ -229,6 +234,8 @@ export class Workspace {
 	}
 	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
 	patchFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face }) }
+	/** Patch to… from a whole device: all its ports, from its patching face (a panel's front). */
+	patchDevice(d: Device): void { this.#armBulk({ on: d.id, ports: Array.from({ length: d.portCount }, (_, i) => i + 1), face: d.face === 'rear' ? 'rear' : 'front' }) }
 	/** Arm an interconnect from these ports (backbone / tie cables, Phase 5): the next port clicked — in any room, on
 	 *  any floor — is where they start on the other panel. */
 	interconnectFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }) }

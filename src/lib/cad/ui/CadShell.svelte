@@ -53,6 +53,7 @@
 	import ToolStrip, { TOOL_GROUPS } from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
+	import PatchPreview from './PatchPreview.svelte'
 
 	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). */
 	let { pid, user, userName = '', projectName, ownerId, projectDetails }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void } = $props()
@@ -572,6 +573,7 @@
 	<main class="plan relative" bind:this={planEl}>
 		<TabStrip {tabs} {project} panes={panes.length} {activePane} onshow={(id) => showTab(id)} onclose={closeTab} onmenu={(id, x, y) => (tabMenu = { id, x, y })} />
 		<AskBox {ws} />
+		<PatchPreview {ws} />
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} />
 		{:else if level}

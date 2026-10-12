@@ -1,6 +1,6 @@
 // The port tip: place and label, the cable to its outlet, its cords; the port under the pointer in a rack view.
 import { describe, it, expect } from 'vitest'
-import { portTip, portUnder, outletUnder, outletTip } from './portTip'
+import { portTip, portTipUse, portUnder, outletUnder, outletTip } from './portTip'
 import { planDisplayList } from './plan'
 import type { Entity } from '../domain/drawing'
 import type { Outlet } from '../domain/types'
@@ -18,6 +18,7 @@ describe('port tips', () => {
 	})
 	it('an unused port says so', () => {
 		expect(portTip(ix, { on: 'P1', port: 20, face: 'front' }).at(-1)).toBe('not connected')
+		expect(portTipUse(ix, { on: 'P1', port: 20, face: 'front' })).toBe('Panel 1: 4 of 24 used · 20 free')
 	})
 	it('finds the port cell under a point in the rack view', () => {
 		const prims = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })

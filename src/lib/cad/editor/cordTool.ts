@@ -1,7 +1,8 @@
 // The cord tool (P, Phase 3.5): in a rack view click port A, then port B — a patch cord with the sticky type / colour,
 // status `add` and an estimated length. The gate is checked at each click and the reason shown when a port refuses.
 // The tool stays on for the next cord. BULK: armed with selected ports (Port Properties → Patch to…), one click on
-// the first target port patches them all in order.
+// the first target port plans them all in order and shows the plan (A port → B port, what's skipped) to OK first —
+// in step, or filling only the target's free ports (the sticky choice, Ctrl on the click for the other one).
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Prim } from '../views/display'
 import type { Cord, Id, PortRef } from '../domain/types'
@@ -13,6 +14,21 @@ import { coresOf } from '../domain/multicore'
 /** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
 export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link'; /** links only: more panels, in order, after the first */ more?: { on: Id; ports: number[] }[] }
 
+/** A bulk patch waiting for OK: the cords it would make, the A ports it skips and why; `fill` switches the mapping and
+ *  shows the plan again. One transaction on OK (one undo step). */
+export interface PatchPreview {
+	from: string; to: string
+	rows: { a: number; aLabel: string; b: number; bLabel: string }[]
+	skipped: string[]
+	fill: boolean
+	setFill(on: boolean): void
+	ok(): void
+	cancel(): void
+}
+
+/** Where the bulk preview is shown (the workspace) and the sticky in-step / fill choice. */
+export interface PatchPreviewHost { show(p: PatchPreview | null): void; fill(): boolean; setFill(on: boolean): void }
+
 export class CordTool implements Tool {
 	readonly id = 'cord'
 	readonly cursor = 'crosshair'
@@ -22,7 +38,7 @@ export class CordTool implements Tool {
 	/** `bulk`: ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
 	/** `linkType` = the cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
 	/** `done`: a bulk patch / link has been made (or Esc'd) — the workspace puts back the tool you had. */
-	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}) {}
+	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}, private previewHost?: PatchPreviewHost) {}
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
 
@@ -54,14 +70,32 @@ export class CordTool implements Tool {
 			return
 		}
 		if (this.bulk) {
-			const res = bulkPatch(c.index, this.bulk, { on: r.on, start: r.port, face: r.face }, this.defaults())
-			if (res.cords.length) {
-				c.store.transact(`Patch ${res.cords.length} cords`, (tx) => { for (const k of res.cords) tx.put(k) })
-				c.select(res.cords.map((k) => k.id))
+			const bulk = this.bulk, target = { on: r.on, start: r.port, face: r.face }
+			const plan = (fill: boolean) => bulkPatch(c.index, bulk, target, this.defaults(), { fill })
+			const write = (res: { cords: Cord[]; skipped: string[] }) => {
+				if (res.cords.length) {
+					c.store.transact(`Patch ${res.cords.length} cords`, (tx) => { for (const k of res.cords) tx.put(k) })
+					c.select(res.cords.map((k) => k.id))
+				}
+				c.say?.(`${res.cords.length} cord(s) added${this.defaults().status === 'installed' ? ' as INSTALLED (surveying)' : ''}${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
+				this.bulk = null
+				this.done()
 			}
-			c.say?.(`${res.cords.length} cord(s) added${this.defaults().status === 'installed' ? ' as INSTALLED (surveying)' : ''}${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
-			this.bulk = null
-			this.done()
+			const host = this.previewHost
+			// Ctrl on the click: the other mapping this time
+			const fill0 = (host?.fill() ?? false) !== e.ctrl
+			const first = plan(fill0)
+			// one port onto a free port needs no preview
+			if (!host || (first.cords.length === 1 && !first.skipped.length)) { write(first); return }
+			const name = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? `${c.index.nameOf(d.rackId)} · ${d.name}` : on }
+			const show = (fill: boolean, res = plan(fill)) => host.show({
+				from: name(bulk.on), to: name(r.on), fill, skipped: res.skipped,
+				rows: res.cords.map((k) => ({ a: k.a.port, aLabel: c.index.portLabel(k.a), b: k.b.port, bLabel: c.index.portLabel(k.b) })),
+				setFill: (on) => { host.setFill(on); show(on) },
+				ok: () => { host.show(null); write(res) },
+				cancel: () => { host.show(null); c.say?.('Nothing patched'); this.bulk = null; this.done() },
+			})
+			show(fill0, first)
 			return
 		}
 		if (!this.#first) {

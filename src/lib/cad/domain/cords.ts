@@ -226,10 +226,12 @@ export function withCableType(c: Cord, type: { id: string; color?: string }): Co
 }
 
 /**
- * Bulk patch: ports `from`… of device A, in order, to ports from `start` on device B — skipping any port on either
- * side that the gate refuses (taken, unlabelled). Stops when either device runs out of ports.
+ * Bulk patch: the ports of device A, in order, onto device B from port `start`. IN STEP (the default): the i-th port
+ * goes to `start + i`, a pair is skipped when either port is refused (taken, unlabelled), and it stops at B's last
+ * port. `fill`: only B's free ports are filled — a refused B port is passed over, so every free A port gets the next
+ * free B port. `skipped`: one reason per A port left unpatched (their count is what the preview shows as skipped).
  */
-export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear' }, b: { on: Id; start: number; face?: 'front' | 'rear' }, d: CordDefaults): { cords: Cord[]; skipped: string[] } {
+export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear' }, b: { on: Id; start: number; face?: 'front' | 'rear' }, d: CordDefaults, opts: { fill?: boolean } = {}): { cords: Cord[]; skipped: string[] } {
 	const devB = ix.get(b.on)
 	const cords: Cord[] = [], skipped: string[] = []
 	if (devB?.type !== 'device') return { cords, skipped: ['Not a device'] }
@@ -237,18 +239,49 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 	if (room) return { cords, skipped: [room] }
 	let nb = b.start
 	const usedB = new Set<number>()
-	for (const pa of a.ports) {
+	a.ports.forEach((pa, i) => {
 		const ra: PortRef = { on: a.on, port: pa, ...(a.face ? { face: a.face } : {}) }
+		if (!opts.fill) nb = b.start + i
+		if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no ${opts.fill ? 'free port left' : `port ${nb}`}`); return }
 		const pr = patchProblem(ix, ra)
-		if (pr) { skipped.push(pr); continue }
-		while (nb <= devB.portCount && (usedB.has(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
-		if (nb > devB.portCount) { skipped.push(`${devB.name} has no free port left`); break }
+		if (pr) { skipped.push(pr); return }
+		if (opts.fill) {
+			while (nb <= devB.portCount && (usedB.has(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
+			if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no free port left`); return }
+		} else {
+			const pb = patchProblem(ix, { on: b.on, port: nb })
+			if (pb) { skipped.push(`${ix.portPlace(ra)}: ${pb}`); return }
+		}
 		const rb: PortRef = { on: b.on, port: nb, ...(b.face ? { face: b.face } : {}) }
 		cords.push({ type: 'cord', id: newId(), kind: 'patch', a: ra, b: rb, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, ra, rb), lengthLocked: false, status: d.status ?? 'add' })
 		usedB.add(nb++)
-	}
+	})
 	return { cords, skipped }
 }
+
+/** How a device's ports are used: `patched` = a cord on it (either face; removed cords don't count), `linked` = a
+ *  permanent cable on it (to an outlet, a tie, backbone), `used` = either, `free` = neither. */
+export interface PortUse { ports: number; used: number; patched: number; linked: number; free: number }
+export function portUse(ix: ProjectIndex, d: Device): PortUse {
+	return portUseByDevice(ix).get(d.id) ?? { ports: d.portCount, used: 0, patched: 0, linked: 0, free: d.portCount }
+}
+/** Every device's port use in one pass (for a list of many racks). */
+export function portUseByDevice(ix: ProjectIndex): Map<Id, PortUse> {
+	const patched = new Map<Id, Set<number>>(), linked = new Map<Id, Set<number>>()
+	const mark = (m: Map<Id, Set<number>>, r: PortRef) => { let s = m.get(r.on); if (!s) m.set(r.on, (s = new Set())); s.add(r.port) }
+	for (const c of ix.cords) if (c.status !== 'remove') { mark(patched, c.a); mark(patched, c.b) }
+	for (const l of ix.links) { mark(linked, l.a); mark(linked, l.b) }
+	const out = new Map<Id, PortUse>()
+	for (const d of ix.devices) {
+		const ok = (n: number) => n >= 1 && n <= d.portCount
+		const p = [...(patched.get(d.id) ?? [])].filter(ok), l = [...(linked.get(d.id) ?? [])].filter(ok)
+		const used = new Set([...p, ...l]).size
+		out.set(d.id, { ports: d.portCount, used, patched: p.length, linked: l.length, free: d.portCount - used })
+	}
+	return out
+}
+/** "24 ports · used 20 (patched 12, linked 18) · free 4". */
+export const portUseText = (u: PortUse) => `${u.ports} port${u.ports === 1 ? '' : 's'} · used ${u.used} (patched ${u.patched}, linked ${u.linked}) · free ${u.free}`
 
 export interface TraceStep { ref: { on: Id; port: number }; via?: { kind: 'link' | 'cord'; id: Id } }
 

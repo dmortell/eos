@@ -5,6 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Outlet, PortRef, ProjectSettings } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from '../editor/pick'
+import { portUse } from '../domain/cords'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
@@ -33,6 +34,14 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 	}
 	if (out.length === 1 && !label) out.push('not connected')
 	return out
+}
+
+/** The tip's foot line: how the device's ports are used — "Panel 1: 4 of 24 used · 20 free" ('' off a device). */
+export function portTipUse(ix: ProjectIndex, r: PortRef): string {
+	const d = ix.get(r.on)
+	if (d?.type !== 'device' || !d.portCount) return ''
+	const u = portUse(ix, d)
+	return `${d.name}: ${u.used} of ${u.ports} used · ${u.free} free`
 }
 
 /** The OUTLET under `p` on a plan (backlog "Usage colours and outlet tips"): the topmost prim of an outlet within

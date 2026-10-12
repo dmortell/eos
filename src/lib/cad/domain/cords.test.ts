@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -151,19 +151,47 @@ describe('bulk actions on the selected cords (patch-list-plan.md Slice 2)', () =
 })
 
 describe('bulk patch', () => {
-	it('panel ports 3–4 to a switch from port 1: taken switch ports are skipped', () => {
-		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 1 }, D)
-		expect(r.cords.map((c) => `${c.a.port}→${c.b.port}`)).toEqual(['3→3', '4→4'])   // SW1:1 and :2 are taken by C1, C2
+	const pairs = (r: { cords: Cord[] }) => r.cords.map((c) => `${c.a.port}→${c.b.port}`)
+	it('in step (the default): the i-th port goes to start + i; a pair with a taken port on either side is skipped', () => {
+		// SW1:1 and :2 are taken by C1, C2
+		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 2 }, D)
+		expect(pairs(r)).toEqual(['4→3'])
+		expect(r.skipped).toEqual([expect.stringMatching(/Switch 1 port 2 is already patched/)])
+		const busyA = bulkPatch(ix(), { on: 'P1', ports: [1, 3], face: 'front' }, { on: 'SW1', start: 10 }, D)
+		expect(pairs(busyA)).toEqual(['3→11'])   // P1:1 is patched: skipped, and P1:3 keeps its step
+	})
+	it('in step: it stops at the target device’s last port, one skip per port left over', () => {
+		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 48 }, D)
+		expect(pairs(r)).toEqual(['3→48'])
+		expect(r.skipped).toEqual([expect.stringMatching(/Switch 1 has no port 49/)])
+	})
+	it('fill: only the target’s free ports are filled — taken ones are passed over', () => {
+		expect(pairs(bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 1 }, D, { fill: true }))).toEqual(['3→3', '4→4'])
+		const end = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 48 }, D, { fill: true })
+		expect([pairs(end), end.skipped]).toEqual([['3→48'], [expect.stringMatching(/no free port left/)]])
 	})
 	it('surveying a built site: new cords start as installed (one, or in bulk); planning (default) = add', () => {
 		expect(makeCord(ix(), { on: 'P1', port: 3, face: 'front' }, { on: 'SW1', port: 3 }, { ...D, status: 'installed' }).cord?.status).toBe('installed')
-		expect(bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 1 }, { ...D, status: 'installed' }).cords.map((c) => c.status)).toEqual(['installed', 'installed'])
-		expect(bulkPatch(ix(), { on: 'P1', ports: [3] }, { on: 'SW1', start: 1 }, D).cords[0].status).toBe('add')
+		expect(bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 3 }, { ...D, status: 'installed' }).cords.map((c) => c.status)).toEqual(['installed', 'installed'])
+		expect(bulkPatch(ix(), { on: 'P1', ports: [3] }, { on: 'SW1', start: 3 }, D).cords[0].status).toBe('add')
 	})
 	it('unlabelled panel ports are skipped with the reason', () => {
 		const r = bulkPatch(ix(), { on: 'P1', ports: [3, 10] }, { on: 'SW1', start: 5 }, D)
 		expect(r.cords).toHaveLength(1)
 		expect(r.skipped[0]).toMatch(/no label/)
+	})
+})
+
+describe('port use per device', () => {
+	it('used = patched or linked; free = neither; a cord marked for removal no longer uses its port', () => {
+		const i = ix(), p1 = i.get('P1') as Device, sw = i.get('SW1') as Device
+		// P1: outlet links on 1–4, cords on 1–2 · SW1: cords on 1–2
+		expect(portUse(i, p1)).toEqual({ ports: 24, used: 4, patched: 2, linked: 4, free: 20 })
+		expect(portUse(i, sw)).toEqual({ ports: 48, used: 2, patched: 2, linked: 0, free: 46 })
+		expect(portUseText(portUse(i, p1))).toBe('24 ports · used 4 (patched 2, linked 4) · free 20')
+		const gone = new ProjectIndex(demoProject().map((e) => (e.id === 'C2' ? { ...(e as Cord), status: 'remove' as const } : e)))
+		expect(portUse(gone, sw)).toMatchObject({ used: 1, free: 47 })
+		expect(portUseByDevice(i).get('SW1')).toEqual(portUse(i, sw))
 	})
 })
 

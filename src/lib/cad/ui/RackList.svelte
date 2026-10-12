@@ -8,6 +8,7 @@
 	import { racksInOrder, newServerRoom, nextRoomName, moveRack, planOrder, rowKey } from '../domain/devices'
 	import { DragReorder } from '$lib'
 	import { markPrinted } from '../domain/ports'
+	import { portUseByDevice } from '../domain/cords'
 	import { exportPanelLabels } from '../render/exports'
 	import { exportFrameSheets } from '../render/frameSheets'
 	import { downloadPanelSheets, unsupportedNote } from '../app/sheetsPdf'
@@ -96,6 +97,12 @@
 		const rows = new Set(racks.map((r) => r.rowId).filter(Boolean)).size, devs = racks.reduce((n, r) => n + project.index.devicesIn(r.id).length, 0)
 		return `${project.index.nameOf(room?.levelId)} · ${rows} row${rows === 1 ? '' : 's'} · ${racks.length} rack${racks.length === 1 ? '' : 's'} · ${devs} device${devs === 1 ? '' : 's'} — click to rename`
 	}
+	/** A rack's name tooltip: its devices, height and how its devices' ports are used. */
+	const uses = $derived(portUseByDevice(project.index))
+	function rackTip(r: Rack): string {
+		const ds = project.index.devicesIn(r.id), u = ds.reduce((t, d) => { const x = uses.get(d.id); return { used: t.used + (x?.used ?? 0), ports: t.ports + d.portCount } }, { used: 0, ports: 0 })
+		return `${ds.length} devices · ${r.heightU}U${u.ports ? ` · ports ${u.used} of ${u.ports} used, ${u.ports - u.used} free` : ''}${r.patchFrame ? ' · patch frame (takes outlets)' : ''}`
+	}
 	// click = one rack, Shift-click = every rack from the last one clicked (down the list), Ctrl-click = add / drop one
 	let anchor: string | null = null
 	function pick(r: Rack, e: MouseEvent) {
@@ -160,7 +167,7 @@
 			<!-- dragged up / down its row: the rack view's order, fixed by hand where the plan gets it wrong -->
 			<div class="rack" class:sel={selected.has(r.id)} class:inrow={!!part.row} {...drag.row(r.id)} class:drag-before={drag.isBefore(r.id)} class:drag-after={drag.isAfter(r.id)}>
 				<span class="grip" title="Drag up / down its row to change the rack view's order" aria-hidden="true">⠿</span>
-				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title="{project.index.devicesIn(r.id).length} devices · {r.heightU}U{r.patchFrame ? ' · patch frame (takes outlets)' : ''}">{#if r.name.trim()}{r.name}{:else}<span class="nameless">{r.kind}{r.model ? ` · ${r.model}` : ''}</span>{/if}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
+				<button class="name" onmousedown={(e) => { if (e.shiftKey) e.preventDefault() }} onclick={(e) => pick(r, e)} title={rackTip(r)}>{#if r.name.trim()}{r.name}{:else}<span class="nameless">{r.kind}{r.model ? ` · ${r.model}` : ''}</span>{/if}{#if r.patchFrame}<span class="frame">frame</span>{/if}</button>
 				{#if !r.at}
 					<button class="place" class:armed={ws.toolId === 'rack' && ws.rackTool.target === r.id} onclick={() => ws.placeRack(r.id)}>Place</button>
 				{/if}

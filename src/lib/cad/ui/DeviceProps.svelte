@@ -11,6 +11,7 @@
 	import { placementProblem, narrowDevice, templateFromDevice, type DeviceTemplate } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { repeatableEdit } from '../domain/repeatEdit'
+	import { portUse, portUseText } from '../domain/cords'
 	import { shared, put } from './propsKit'
 	import PropGroup from './PropGroup.svelte'
 	import PortProps from './PortProps.svelte'
@@ -123,6 +124,14 @@
 </PropGroup>
 <PropGroup kind="device" title="Ports and labels">
 	<NumberField label="Ports" min={0} value={dv((d) => d.portCount).value} mixed={dv((d) => d.portCount).mixed} onchange={(v) => v != null && Number.isInteger(v) && v >= 0 && setAll('Port count', { portCount: v })} />
+	{#if one?.portCount}
+		{@const d = one}
+		<!-- how its ports are used: patched = a cord on it, linked = a permanent cable (outlet, tie, backbone) -->
+		<p class="muted" title="Used = a cord or a permanent cable on the port (patched: a patch cord; linked: an outlet cable, tie or backbone). Free = neither.">{portUseText(portUse(project.index, d))}</p>
+		{#if d.kind !== 'pdu' && ws.portSel?.on !== d.id}
+			<div class="pt-1"><button class="link" title="Patch all this device's ports to another device: click its first port next — the cords are listed to OK before they're made" onclick={() => ws.patchDevice(d)}>⇄ Patch {d.portCount > 1 ? `all ${d.portCount} ports` : 'its port'} to…</button></div>
+		{/if}
+	{/if}
 	{#if devices.some((d) => d.portCount)}
 		<SelectField label="Numbering" value={dv((d) => d.portNumbering ?? 'row').value} mixed={dv((d) => d.portNumbering ?? 'row').mixed}
 			options={[['row', 'Across (2 beside 1)'], ['column', 'Down (2 under 1)']]} onchange={(v) => setAll('Port numbering', { portNumbering: v === 'column' ? 'column' : undefined })} />

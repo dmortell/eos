@@ -69,6 +69,7 @@ export interface KeyCommand {
 }
 const isPanel = (c: ShellKeyCtx, id: string) => { const d = c.project.index.get(id); return d?.type === 'device' && d.kind === 'panel' }
 const pd = (e: KeyboardEvent) => e.preventDefault()
+const patchable = (c: ShellKeyCtx, id: string) => { const d = c.project.index.get(id); return d?.type === 'device' && d.portCount > 0 && d.kind !== 'pdu' }
 
 export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Undo', keys: KEYS.undo, group: 'Edit', when: (e, _c, k, mod) => mod && k === 'z' && !e.shiftKey, run: (e, c) => { pd(e); c.showHistory(c.project.undo()) } },
@@ -87,6 +88,8 @@ export const KEY_COMMANDS: KeyCommand[] = [
 		run: (e, c) => { pd(e); c.ws.interconnectPanels(c.ws.selection.map((id) => c.project.index.get(id) as Device)) } },
 	// P / L with ports selected: Patch to… / Link to… (a panel's) — then click the other device's first port
 	{ label: 'Patch the selected ports to… (then click the first port on the other device)', keys: KEYS.patch, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'p' && !!c.ws.portSel, run: (e, c) => { pd(e); c.ws.patchFrom(c.ws.portSel!) } },
+	{ label: 'Patch all the selected device’s ports to… (then click the first port on the other device; the cords are listed to OK first)', keys: KEYS.patch, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'p' && !c.ws.portSel && c.ws.selection.length === 1 && patchable(c, c.ws.selection[0]),
+		run: (e, c) => { pd(e); c.ws.patchDevice(c.project.index.get(c.ws.selection[0]) as Device) } },
 	{ label: 'Link the selected panel ports to… (then click the first port on the other panel)', keys: KEYS.link, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'l' && !!c.ws.portSel && isPanel(c, c.ws.portSel.on), run: (e, c) => { pd(e); c.ws.interconnectFrom(c.ws.portSel!) } },
 	{ label: 'Rack view: the other face (front ↔ rear)', keys: KEYS.flip, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && !e.shiftKey && k === 'f' && c.flipFace(), run: (e) => pd(e) },
 	{ label: 'Help', keys: KEYS.help, group: 'Function keys', when: (e) => e.key === 'F1', run: (e, c) => { pd(e); c.help(false) } },

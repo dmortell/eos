@@ -62,8 +62,9 @@ share `patching/parts/PatchListPane.svelte`. The legacy outlets and racks tools 
 | Per-room export | have (open room only) | Slice 3 (any room) |
 | Changes-only export | CAD only | — |
 | Cord-ID import | have (better: by Key) | — |
-| Ports used / free counts | missing | not here (decision 84b) |
-| Port holds, patch by rule, port filter, bulk preview | missing | not here (decisions 82 / 84) |
+| Ports used / free counts | have (review R93: Device Properties, port tip, Racks list) | — |
+| Bulk preview | have (review R93) | — |
+| Port holds, patch by rule, port filter | missing | not here (decisions 82 / 84) |
 | Change log (who / when) | missing | not here (decision 131 open) |
 | F / T badges on a selected cord's ends | missing | dropped? The end grips now mark the ends (D6) |
 

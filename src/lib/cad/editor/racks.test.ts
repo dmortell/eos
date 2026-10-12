@@ -9,7 +9,7 @@ import { SelectTool } from './selectTool'
 import { RackTool } from './rackTool'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
-import { CordTool, type BulkFrom } from './cordTool'
+import { CordTool, type BulkFrom, type PatchPreview } from './cordTool'
 import { cordEndGrips, portPlus } from './portGrips'
 import { AssignTool } from './assignTool'
 import { deleteEntities, deleteImpact, impactText, installedCordsGoing } from './commands'
@@ -190,6 +190,32 @@ describe('devices in the rack row', () => {
 		bulk = { on: 'P1', ports: [4], face: 'front', kind: 'link' }
 		expect(tool.key({ key: 'Escape' } as KeyboardEvent)).toBe(true)
 		expect([bulk, done]).toEqual([null, 2])
+	})
+	it('Patch to… on several ports shows the cords first: nothing is written until OK, then one undo step; Fill / Ctrl fill only free ports', () => {
+		const busy: Cord = { type: 'cord', id: 'CX', kind: 'patch', a: { on: 'SW1', port: 4 }, b: { on: 'SW1', port: 40 }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'add' }
+		const h = harness(ROW, [busy])
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		let bulk: BulkFrom | null = { on: 'P1', ports: [3, 4], face: 'front' }, done = 0, shown = null as PatchPreview | null, fill = false
+		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++,
+			{ show: (p) => { shown = p }, fill: () => fill, setFill: (on) => { fill = on } })
+		const cords = () => h.store.ofType('cord').length, before = cords()
+		const rows = () => shown!.rows.map((r) => `${r.a}→${r.b}`)
+		tool.down(portOf('SW1', 3), h.ctx())   // in step: SW1:4 is taken, so P1:4 is skipped
+		expect([rows(), shown!.skipped.length, cords()]).toEqual([['3→3'], 1, before])
+		shown!.setFill(true)
+		expect([rows(), shown!.skipped.length, fill]).toEqual([['3→3', '4→5'], 0, true])
+		shown!.ok()
+		expect([shown, cords(), bulk, done]).toEqual([null, before + 2, null, 1])
+		h.store.undo()
+		expect(cords()).toBe(before)
+		// Ctrl on the click: the other mapping this time (fill is sticky on now → in step); Cancel writes nothing
+		bulk = { on: 'P1', ports: [3, 4], face: 'front' }
+		tool.down({ ...portOf('SW1', 3), ctrl: true }, h.ctx())
+		expect([rows(), shown!.fill]).toEqual([['3→3'], false])
+		shown!.cancel()
+		expect([shown, cords(), bulk, done]).toEqual([null, before, null, 2])
 	})
 	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (Dave: grips for repatching)', () => {
 		const h = harness(ROW)

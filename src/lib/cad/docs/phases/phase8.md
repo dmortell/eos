@@ -2935,3 +2935,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R57:** the view strip's breadcrumb goes (the tab names the view); a rack view and a port map, which have no Plan
   button, get "↑ 1F plan" (`ui/ViewStrip.svelte`). The other ways between views keep their roles: Navigator finds and
   opens, tabs are the open set, the strip switches between siblings.
+- **R93 Bulk patch preview, port use per device:** Patch to… on several ports (or P / Properties › Patch all … ports
+  to… on a whole device), then the first port on the other device, no longer writes at once: `editor/cordTool.ts`
+  plans with `domain/cords.ts` `bulkPatch` and `ui/PatchPreview.svelte` lists each cord (port → port, with labels) and
+  the ports skipped with their reasons; OK = one transaction (one undo step), Cancel / Esc = nothing. `bulkPatch` now
+  maps IN STEP by default (the i-th port → start + i; a pair skipped when either port is refused; it stops at the
+  target's last port) or `fill` (the old behavior: the target's taken ports are passed over); the dialog's "Fill free
+  ports only" is sticky (`ws.patchFill`) and Ctrl on the click flips it for that time. One port onto a free port
+  still patches at once. `portUse` / `portUseByDevice` count each device's ports patched (a non-removed cord), linked
+  (a permanent cable), used (either) and free; shown in Device Properties › Ports and labels ("24 ports · used 20
+  (patched 12, linked 18) · free 4"), the rack view's port tip (foot line) and a rack's tooltip in the Racks list.
+  Tests: `domain/cords.test.ts` (in step / fill / the end of the target, port use), `editor/racks.test.ts` (nothing
+  written before OK, one undo step, Fill and Ctrl, Cancel), `views/portTip.test.ts`. Help updated.
