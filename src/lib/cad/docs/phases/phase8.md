@@ -2623,3 +2623,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   floating at the top-left of the drawing, not docked under the Navigator (which they halved); a layout saved before
   carries over with those two closed until their tool opens them (`app/windows.svelte.ts`, layout key `cad-windows:3`).
   Live (Test Project): after a reload the Navigator has its height back; the Insert tool opens Blocks floating.
+- **R75 No window inside a window:** Layers, Blocks, Racks and Cables lost their old sidebar header ("▾ LAYERS" under
+  the window's own LAYERS title, whose fold left an empty window); their links (+ Layer, + Server room) stay at the
+  right (`ui/SideSection.svelte`). The Cables window says how to get cables when there are none (it was blank;
+  `ui/CableList.svelte`). Live (Test Project): Layers / Racks / Blocks windows checked.

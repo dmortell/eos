@@ -27,9 +27,12 @@
 			</button>
 		{/each}
 	</SideSection>
+{:else}
+	<p class="empty">No backbone or tie cables yet — link panels in a rack view (select ports, then L) and they're listed here.</p>
 {/if}
 
 <style>
+	.empty { padding: 0.5rem; font-size: 11px; color: var(--cad-muted); }
 	.row { display: grid; grid-template-columns: 0.7rem 1fr; align-items: center; gap: 0.4rem; width: 100%; padding: 2px 4px; border-radius: 4px; font-size: 12px; text-align: left; line-height: 1.25; }
 	.row:hover { background: var(--cad-hover); }
 	.row.picked { background: var(--cad-sel, #dbeafe); }
