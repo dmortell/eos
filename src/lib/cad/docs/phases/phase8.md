@@ -3099,3 +3099,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   shown there and exploded there) becomes its FRONT drawing on that view's plane at its height — it went onto the plan
   as the plan symbol (`domain/blocks.ts` `explodeInsert`, `app/project.svelte.ts` `explode` takes the active view;
   tests).
+- **Q13** a note untied from its viewport (the viewport deleted, its level deleted, its section retargeted) stays where
+  it showed at its printed size for every kind: lines (their nodes), blocks (the point; a symbol keeps its scale, a
+  model block shrinks by the drawing scale), pictures and legends were left in view mm — metres off the paper. `untie`
+  now lives in `domain/sheetEdit.ts` (`editor/noteTool.ts` re-exports it; `annotativeIn` in `domain/blocks.ts`; tests).

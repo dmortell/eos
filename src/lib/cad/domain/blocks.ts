@@ -22,6 +22,9 @@ export const frontOf = (b: Block): Block => (b.front ? { ...b, shapes: b.front, 
 export type BlockFace = 'plan' | 'front'
 export const faceFor = (viewKind: string): BlockFace => (viewKind === 'elevation' || viewKind === 'section' ? 'front' : 'plan')
 export const blockFace = (b: Block, face: BlockFace): Block => (face === 'front' ? frontOf(b) : b)
+/** Is this block drawn in paper mm (annotative) with this face? Only built-in symbols are; blocks people make from
+ *  model shapes are real mm. For code with no block library at hand (untying a note from a viewport). */
+export const annotativeIn = (blockId: Id, face: BlockFace): boolean => { const b = BUILTIN_BLOCKS.find((x) => x.id === blockId); return !!b && !!blockFace(b, face).annotative }
 
 const sh = (geom: Geometry, extra: Partial<BlockShape> = {}): BlockShape => ({ id: newId(), geom, ...extra })
 /** A straight line as a two-node path. */
