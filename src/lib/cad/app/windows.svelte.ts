@@ -22,17 +22,18 @@ export interface WinState {
 export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', devices: 'Device library', cables: 'Cables' }
 export const WIN_IDS = Object.keys(WIN_TITLES) as WinId[]
 
-const KEY = 'cad-windows:2'   // :2 — Blocks / Racks now open docked (a floating Racks covered the drawing)
+const KEY = 'cad-windows:3'   // :3 — Blocks / Device library float by the tool strip (Dave 2026-10-12); :2 layouts carry over
+const OLD_KEY = 'cad-windows:2'
 const DEFAULTS: Record<WinId, WinState> = {
 	navigator: { open: true, dock: 'left', order: 0, x: 16, y: 48, w: 240, h: 420, folded: false, z: 1 },
 	properties: { open: true, dock: 'right', order: 0, x: 900, y: 48, w: 280, h: 480, folded: false, z: 1 },
 	layers: { open: false, dock: null, order: 1, x: 260, y: 60, w: 260, h: 380, folded: false, z: 1 },
-	// Blocks and Racks open by themselves (the Insert tool, a rack view): docked under the Navigator, so they never land
-	// on the drawing; drag them out to float them
-	blocks: { open: false, dock: 'left', order: 2, x: 290, y: 80, w: 260, h: 420, folded: false, z: 1 },
+	// Blocks and the Device library open with their tool (Insert, Device): FLOATING near the tool strip, so they don't
+	// halve the Navigator (Dave 2026-10-12); Racks opens with a rack view, docked under the Navigator
+	blocks: { open: false, dock: null, order: 2, x: 12, y: 36, w: 260, h: 420, folded: false, z: 1 },
 	racks: { open: false, dock: 'left', order: 3, x: 320, y: 100, w: 240, h: 420, folded: false, z: 1 },
-	// its own window (Dave: the template list gets long): opens with the Device tool, docked under Racks
-	devices: { open: false, dock: 'left', order: 4, x: 340, y: 110, w: 240, h: 460, folded: false, z: 1 },
+	// its own window (Dave: the template list gets long): opens with the Device tool, floating like Blocks
+	devices: { open: false, dock: null, order: 4, x: 284, y: 36, w: 240, h: 460, folded: false, z: 1 },
 	cables: { open: false, dock: null, order: 5, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
 }
 const clone = (s: Record<WinId, WinState>) => Object.fromEntries(WIN_IDS.map((id) => [id, { ...s[id] }])) as Record<WinId, WinState>
@@ -57,7 +58,9 @@ export class WindowLayout {
 
 	constructor() {
 		try {
-			const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Record<WinId, Partial<WinState>>>
+			const own = localStorage.getItem(KEY), saved = JSON.parse(own ?? localStorage.getItem(OLD_KEY) ?? '{}') as Partial<Record<WinId, Partial<WinState>>>
+			// from a :2 layout, keep everything but where Blocks / Device library sit (they float now)
+			if (!own) for (const id of ['blocks', 'devices'] as const) if (saved[id]) saved[id] = { ...saved[id], dock: null, x: DEFAULTS[id].x, y: DEFAULTS[id].y, open: false }   // shut: they open with their tool
 			for (const id of WIN_IDS) if (saved[id]) this.wins[id] = { ...DEFAULTS[id], ...saved[id] }
 		} catch { /* nothing saved, or storage blocked: the defaults */ }
 	}

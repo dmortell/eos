@@ -2619,3 +2619,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Undo / Redo off the row); the status bar keeps its line for prompts and messages (`ui/CadShell.svelte`). Live (Test
   Project): the strip fits; Display ▾ opens with the plan's four; the Outlet tool's options on the new row. Help: the
   entries that named strip buttons.
+- **R49 (part) Tool libraries float (Dave 2026-10-12):** Blocks (Insert tool) and the Device library (Device tool) open
+  floating at the top-left of the drawing, not docked under the Navigator (which they halved); a layout saved before
+  carries over with those two closed until their tool opens them (`app/windows.svelte.ts`, layout key `cad-windows:3`).
+  Live (Test Project): after a reload the Navigator has its height back; the Insert tool opens Blocks floating.
