@@ -85,7 +85,7 @@ export interface Underlay {
 	levelId: Id
 	fileId: string
 	page?: number
-	/** A level can have several floorplans, one per zone (Dave: 33F = the 3303 and 3307 PDFs); its name in the Floor
+	/** A level can have several floorplans (a floor drawn on several PDF pages); its name in the Floor
 	 *  manager. */
 	name?: string
 	/** Where the page's calibrated origin sits in the plan (default 0, 0): moves a zone's floorplan off the others when

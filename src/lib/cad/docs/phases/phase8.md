@@ -2418,3 +2418,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Navigator's Delete level…). Tests in `domain/floors.test.ts`. Live (Test Project): + Area "T1" on 2F → "2F T1"
   (FFL 3.800, in the Navigator), renamed "2F Tenant T1", ✕ deleted; 3F → 4 refused ("4F is already floor 4"); 4F → 5
   (FFL 15.200, the range 5F…), undone. Help: "Floors: range, names, heights, numbers, area plans".
+- **Dimension text in mm up to 10 m; Reset handles; the Floor manager in two tabs (Dave 2026-10-12):** `dimensionPrims`
+  writes the length in mm below 10 m (was 1 m), then "12.5 m"; the Properties placeholder too. The dimension's
+  "Text and gaps back as drawn" link is now a **Reset handles** button. The Floor manager (one wide table that mixed
+  "+ Area" with "+ Add zone…" and scrolled sideways) is split: **Floors & heights** (range, names, heights, No., FFL;
+  a "+n area" hint by a floor with area plans) and **Plans & floorplans** (a card per floor: "Whole floor" and each
+  area plan — tagged Area, renamed, ✕ — with its floorplans: name, PDF page, X / Y, Origin / Scale / Crop, ✕;
+  "Choose a floorplan…" / "+ Another page…"; "+ Area plan" per floor; a short explanation of plan / floorplan / area
+  plan on top). Extra floorplans on a plan are named "Floorplan n" (was "Zone n"). Live (Test Project): both tabs
+  without a sideways scrollbar; + Area plan → its name box, Esc cancels. Help: "Floors…", "Edit a dimension".

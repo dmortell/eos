@@ -26,13 +26,13 @@ const at = (x: number, y: number) => ({ p: { x, y }, shift: false, ctrl: false, 
 const texts = (ps: ReturnType<typeof dimensionPrims>) => ps.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
 
 describe('dimensions', () => {
-	it('the length in mm below a metre, else m; horizontal / vertical measure one direction only', () => {
+	it('the length in mm below 10 m, else m; horizontal / vertical measure one direction only', () => {
 		const d = (b: { x: number; y: number }, mode: DimMode = 'aligned') => texts(dimensionPrims({ kind: 'dimension', a: { x: 0, y: 0 }, b, mode, offset: 500 }, 100, 'D'))
 		expect(d({ x: 450, y: 0 })).toEqual(['450'])
-		expect(d({ x: 3000, y: 4000 })).toEqual(['5.00 m'])
+		expect(d({ x: 3000, y: 4000 })).toEqual(['5000'])
 		expect(d({ x: 12500, y: 0 })).toEqual(['12.5 m'])
-		expect(d({ x: 3000, y: 4000 }, 'horizontal')).toEqual(['3.00 m'])
-		expect(d({ x: 3000, y: 4000 }, 'vertical')).toEqual(['4.00 m'])
+		expect(d({ x: 3000, y: 4000 }, 'horizontal')).toEqual(['3000'])
+		expect(d({ x: 3000, y: 4000 }, 'vertical')).toEqual(['4000'])
 	})
 	it('the tool on a plan: two points, then the line\'s place → a dimension in the level\'s model, one undo step', () => {
 		const h = harness(PLAN), t = new DimTool(() => 'horizontal')
@@ -40,7 +40,7 @@ describe('dimensions', () => {
 		const s = h.store.get(h.sel()[0]) as Shape
 		expect(s.geom).toEqual({ kind: 'dimension', a: { x: 0, y: 0 }, b: { x: 2400, y: 300 }, mode: 'horizontal', offset: -600 })
 		expect(h.store.undoLabels).toEqual(['Dimension'])
-		expect(texts(planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).filter((p) => p.src === s.id) as never)).toEqual(['2.40 m'])
+		expect(texts(planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).filter((p) => p.src === s.id) as never)).toEqual(['2400'])
 	})
 })
 
