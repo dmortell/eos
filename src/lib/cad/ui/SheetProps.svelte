@@ -8,7 +8,6 @@
 	import type { RackRow } from '../domain/types'
 	import { defaultViewport, contentCentre, fitViewport, SCALES } from '../views/sheet'
 	import { newId } from '../domain/ids'
-	import { deleteViewport, deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { sectionsOn } from '../views/section'
 	import { portMapTitle } from '../domain/portMap'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
@@ -45,16 +44,6 @@
 		newText = ''
 	}
 	const setChange = (id: string, patch: Partial<SheetChange>) => putSheet('Edit change note', { changes: (s.changes ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) })
-	/** Notes tied to it go back on the paper where they showed. */
-	/** Delete this sheet, after saying what goes with it (its viewports and notes). */
-	function deleteSheet() {
-		const also = impactText(deleteImpact(project.store, [s.id]))
-		ws.ask2(`Delete sheet ${s.number} ${s.title}${also ? ` with ${also}` : ''}? Undo brings it back.`, 'Delete sheet', () => { deleteEntities(project.store, [s.id]); ws.select([]) })
-	}
-	function removeViewport(v: Viewport) {
-		deleteViewport(project.store, s, v)
-		ws.selectViewport(null)
-	}
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
 	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}${v.view.spec.rowId ? `:${v.view.spec.rowId}` : ''}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : v.view.spec.kind === 'portmap' ? `portmap:${v.view.spec.deviceIds.join('~')}` : `elev:${v.view.spec.dir}`)
@@ -94,7 +83,7 @@
 </script>
 
 {#if vp}
-	<!-- groups (UX review "Properties groups"): View · Window; Delete below them -->
+	<!-- groups (UX review "Properties groups"): View · Window (Delete: the header’s, or the Delete key) -->
 	<PropGroup kind="viewport" title="View">
 		<label class="row">Level
 			<select class="inp" value={vp.view.levelId} onchange={(e) => setLevel(vp, e.currentTarget.value)}>
@@ -145,7 +134,6 @@
 		<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>
 		<label class="row">Locked <span><input type="checkbox" checked={!!vp.locked} onchange={(e) => putVp(e.currentTarget.checked ? 'Lock viewport' : 'Unlock viewport', { locked: e.currentTarget.checked || undefined })} /> can't be moved</span></label>
 	</PropGroup>
-	<div class="acts"><button class="btn del" onclick={() => removeViewport(vp)}>Delete viewport</button></div>
 {:else}
 	<!-- groups: General · Paper · Viewports · Issued revisions; the actions below them -->
 	<PropGroup kind="sheet" title="General">
@@ -192,7 +180,7 @@
 		<label class="row" title="Cords in rack views along the cable channels (off = straight lines)">Cord channels <span><input type="checkbox" checked={look.channels} onchange={(e) => putSheet(e.currentTarget.checked ? 'Sheet cords along channels' : 'Sheet cords straight', { cordRoute: e.currentTarget.checked ? 'channels' : 'straight' })} /> in rack views</span></label>
 	</PropGroup>
 	<PropGroup kind="sheet" title="Viewports">
-		<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click a frame on the paper to pick one, double-click inside to edit in it</p>
+		<p class="text-zinc-500" title="Click a frame on the paper to pick one; double-click inside to edit in it">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'}</p>
 		<div class="acts"><button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button></div>
 	</PropGroup>
 	<!-- change history (backlog T102): what changed, when and who asked, between issues; issuing moves them onto the
@@ -231,7 +219,6 @@
 	<div class="acts">
 		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
 		<button class="btn" title="A copy with its viewports and notes (no number, no revisions), right after it" onclick={() => ws.select(duplicateSheets(project, [s.id]))}>Duplicate</button>
-		<button class="btn del" title="Delete this sheet (asks first; Undo brings it back)" onclick={deleteSheet}>Delete sheet</button>
 	</div>
 {/if}
 

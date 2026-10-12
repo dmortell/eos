@@ -76,7 +76,6 @@
 		<ColorPick value={s.style?.fill ?? 'none'} allowNone onchange={(v) => setStyle(v && v !== 'none' ? 'Text background' : 'No text background', { fill: v && v !== 'none' ? v : undefined })} /></div>
 {/if}
 </PropGroup>
-<p class="text-zinc-500">Drag to move · Delete removes it</p>
 
 <style>
 	.btn { justify-self: start; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }

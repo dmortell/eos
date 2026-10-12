@@ -1,5 +1,6 @@
 <!-- A placed BLOCK (an insert): General (its layer) · Position (rotation, scale, Z — its height above the floor, where
-     it shows in elevations — and whether it shows there) · Attributes · Block (explode it into its shapes). -->
+     it shows in elevations — and whether it shows there) · Attributes · Block (explode it into its shapes). Deleting
+     the block from the LIBRARY (every project, no undo) is the Blocks window's, not here beside the header's Delete. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -35,11 +36,16 @@
 	<InsertAttrs {project} inserts={[s]} />
 	{#if b}
 		<PropGroup kind="block" title="Block">
-			<div class="acts"><button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(s.id))}>Explode</button></div>
-			{#if !b.builtin && !b.retired}
-				<div class="acts"><button class="btn del" title="Delete the block from the library (all projects): it can't be picked any more, but drawings that use it keep it"
-					onclick={() => ws.ask2(`Delete block ${b.name} from the library (every project)? Inserts already placed keep drawing it. This can't be undone.`, 'Delete block', () => project.retireBlock(b.id))}>Delete block…</button></div>
-			{:else if b.retired}<p class="muted">Deleted from the library (kept here)</p>{/if}
+			<div class="acts">
+				<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(s.id))}>Explode</button>
+				<button class="lnk" title="The block library (every project): place more of it, or delete your own blocks from it (✕ on its row)" onclick={() => ws.openWindow('blocks')}>Blocks window ›</button>
+			</div>
+			{#if b.retired}<p class="muted">Deleted from the library (kept here)</p>{/if}
 		</PropGroup>
 	{/if}
 {/if}
+
+<style>
+	.lnk { font-size: 11px; color: var(--cad-link, #2563eb); }
+	.lnk:hover { text-decoration: underline; }
+</style>

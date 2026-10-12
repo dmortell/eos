@@ -31,11 +31,18 @@
 	import ShapesMultiProps from './ShapesMultiProps.svelte'
 	import BackboneProps from './BackboneProps.svelte'
 	import MakeBlock from './MakeBlock.svelte'
+	import ViewBasics from './ViewBasics.svelte'
+	import type { ViewSpec } from '../views/space'
 	import RoomProps from './RoomProps.svelte'
 	import RackRowProps from './RackRowProps.svelte'
 	import './props.css'
 
-	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
+	let { project, ws, current, onfloors }: {
+		project: CadProject; ws: Workspace
+		/** What the active pane shows: with nothing selected, its basics (a sheet's paper, a level's heights). */
+		current?: { levelId?: string; spec: ViewSpec }
+		onfloors?: () => void
+	} = $props()
 
 	const items = $derived(ws.selection.map((id) => project.index.get(id)).filter((e): e is Entity => !!e))
 	const one = $derived(items.length === 1 ? items[0] : undefined)
@@ -67,7 +74,7 @@
 		<RenumberPanel {project} {ws} open={ws.renumberMode === 'replace'} />
 	{/if}
 	{#if !items.length}
-		<p class="text-zinc-400">Nothing selected.</p>
+		<ViewBasics {project} {ws} {current} {onfloors} />
 	{:else if !one}
 		{#each kinds as k (k.key)}
 			{#if kinds.length > 1}

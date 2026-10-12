@@ -35,7 +35,7 @@
 {#if id === 'navigator'}
 	<Navigator {project} {ws} {current} onopen={on.navOpen} {tabbed} onfloors={on.floors} onsettings={on.settings} onnewsheet={on.newSheet} onpdfall={on.pdfAll} onpdf={on.pdf} />
 {:else if id === 'properties'}
-	<Properties {project} {ws} />
+	<Properties {project} {ws} {current} onfloors={on.floors} />
 	<ImportNotes {project} {ws} />
 {:else if id === 'layers'}
 	<div class="p-2"><LayersPanel {project} {ws} /></div>

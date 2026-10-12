@@ -98,8 +98,7 @@
 	}
 </script>
 
-<p class="pt-1 font-semibold">Port{sel.ports.length > 1 ? 's' : ''} {portRanges(sel.ports)} <span class="font-normal text-zinc-500">({sel.face})</span></p>
-<p class="text-zinc-500">Click a port · Shift-click a range · Ctrl-click to add or drop one</p>
+<p class="pt-1 font-semibold" title="Click a port · Shift-click a range · Ctrl-click to add or drop one">Port{sel.ports.length > 1 ? 's' : ''} {portRanges(sel.ports)} <span class="font-normal text-zinc-500">({sel.face})</span></p>
 <div class="acts main">
 	<!-- click (or P / I, or right-click a port), then click the first port; or DRAG the button onto that port in a rack view (backlog "Bulk patching by drag") -->
 	<button title="Patch these ports to another device: click its first port next — or drag this onto that port (busy / unlabelled ports are skipped)" onclick={() => ws.patchFrom(sel)}

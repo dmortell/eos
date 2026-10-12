@@ -6,7 +6,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { DeviceTemplate } from '../domain/devices'
+	import { templateFromDevice, type DeviceTemplate } from '../domain/devices'
 	import { naturalCompare } from '../domain/labels'
 	import TemplateDialog from './TemplateDialog.svelte'
 
@@ -36,9 +36,13 @@
 	// ── the builder (backlog "Device library builder"): a new template, one edited (a built-in: copied), one deleted ──
 	/** null = closed; 'new' = from scratch; a template = edit it (a built-in starts a new one). */
 	let editing = $state<DeviceTemplate | 'new' | null>(null)
+	/** A new template filled in from the selected device (its size, kind, ports …). */
+	let fromDevice = $state<DeviceTemplate | null>(null)
+	const picked = $derived.by(() => { const e = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; return e?.type === 'device' ? e : undefined })
 	async function save(t: DeviceTemplate) {
-		const isNew = editing === 'new' || (editing !== null && editing.builtin)
+		const isNew = editing === 'new' || fromDevice !== null || (editing !== null && editing.builtin)
 		editing = null
+		fromDevice = null
 		try { await project.putTemplate(t); ws.say(`${t.name}: ${isNew ? 'added to' : 'saved in'} the device library`) }
 		catch (e) { project.error = `Couldn't save the template: ${(e as Error).message}` }
 	}
@@ -49,10 +53,12 @@
 </script>
 
 {#if editing}<TemplateDialog from={editing === 'new' ? undefined : editing} onsave={save} onclose={() => (editing = null)} />{/if}
+{#if fromDevice}<TemplateDialog from={fromDevice} fresh onsave={save} onclose={() => (fromDevice = null)} />{/if}
 <div class="lib">
 	<div class="top">
 		<input class="find" placeholder="Find a template…" bind:value={q} />
 		<button class="new" title="Make a device template from scratch (name, kind, U, ports, maker, model) — for every project" onclick={() => (editing = 'new')}>+ New</button>
+		{#if picked}<button class="new" title="A new template from the selected device {picked.name} (its size, kind, ports …) — for every project" onclick={() => (fromDevice = templateFromDevice(picked, picked.name))}>+ From {picked.name}</button>{/if}
 	</div>
 	{#each groups as g (g.k)}
 		<p class="kind">{g.label}</p>
@@ -75,7 +81,7 @@
 
 <style>
 	.top { display: flex; gap: 4px; align-items: center; margin: 2px 0 4px; }
-	.new { flex: 0 0 auto; font-size: 11px; color: #2563eb; padding: 0 6px; border-radius: 3px; }
+	.new { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #2563eb; padding: 0 6px; border-radius: 3px; }
 	.new:hover { background: var(--cad-sel); }
 	.row { display: flex; align-items: center; }
 	.row .tpl { flex: 1; min-width: 0; }

@@ -88,7 +88,7 @@
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.ct { font-size: 11px; color: var(--cad-faint); }
 	.del { visibility: hidden; font-size: 10px; color: var(--cad-faint); }
-	.row:hover .del { visibility: visible; }
+	.row:hover .del, .row:focus-within .del, .row.on .del { visibility: visible; }
 	.del:hover { color: #dc2626; }
 	.none { padding: 2px 4px; font-size: 11px; color: var(--cad-faint); }
 </style>

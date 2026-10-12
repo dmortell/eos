@@ -4,25 +4,19 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { RackRow } from '../domain/types'
-	import NameInput from './NameInput.svelte'
+	import InlineName from './InlineName.svelte'
 
 	let { project, ws, rowId }: { project: CadProject; ws: Workspace; rowId: string } = $props()
 
 	const row = $derived(project.index.get<RackRow>(rowId))
 	const count = $derived(project.index.racks.filter((r) => r.rowId === rowId).length)
 	const put = (label: string, patch: Partial<RackRow>) => { const r = row; if (r?.type === 'rackRow') project.store.transact(label, (tx) => tx.put({ ...r, ...patch })) }
-	let renaming = $state(false)
 </script>
 
 {#if row?.type === 'rackRow'}
 	<div class="rowbox">
-		{#if renaming}
-			{@const was = row.name}
-			<NameInput value={was} title="Row name — Enter saves, Esc cancels" onsave={(t) => { renaming = false; put(`Rename row ${was} → ${t}`, { name: t }) }} oncancel={() => (renaming = false)} />
-		{:else}
-			<span class="text-zinc-500">{row.name} · {count} rack{count === 1 ? '' : 's'}</span>
-			<button class="lnk" title="Rename this row" onclick={() => (renaming = true)}>Rename</button>
-		{/if}
+		<!-- renamed by clicking its name, as in the Racks window -->
+		<span><InlineName value={row.name} title="Click to rename this row" onsave={(t) => put(`Rename row ${row.name} → ${t}`, { name: t })} /> · {count} rack{count === 1 ? '' : 's'}</span>
 		<label title="Aisle containment: hot (HAC), cold (CAC) or both — adds the matching caps, kits and end panels to the rack BOM">Containment
 			<select value={row.containment ?? 'none'} onchange={(e) => put('Row containment', { containment: e.currentTarget.value === 'none' ? undefined : (e.currentTarget.value as RackRow['containment']) })}>
 				<option value="none">none</option><option value="hac">hot aisle (HAC)</option><option value="cac">cold aisle (CAC)</option><option value="combined">both</option>
@@ -32,6 +26,5 @@
 
 <style>
 	.rowbox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 2px 6.75rem; font-size: 11px; color: var(--cad-muted); }
-	.lnk { color: var(--cad-link); }
 	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
 </style>

@@ -156,6 +156,8 @@ export class Workspace {
 	/** Set by the app: open Project settings on its Sheets tab, with the title block template (Sheets › Title block…,
 	 *  sheet Properties). */
 	openTitleBlock: () => void = () => {}
+	/** Open one of the shell's windows ('blocks', 'devices' …: app/windows.svelte.ts WinId); set by the shell. */
+	openWindow: (id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables') => void = () => {}
 	/** Open the Restore dialog on a stored backup (an issue's, from the Issues list); set by the shell. */
 	restoreBackup: (backupId: string) => void = () => {}
 	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */

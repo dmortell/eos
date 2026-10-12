@@ -49,7 +49,8 @@
 	{:else if c.previous}<p class="text-zinc-500">Was: {end(c.previous.a)} → {end(c.previous.b)} ({c.previous.status})</p>{/if}
 	<div class="acts">
 		{#if c.status !== 'installed'}<button title={c.status === 'remove' ? 'Taken out on site — the record goes' : 'Done on site'} onclick={install}>{c.status === 'remove' ? 'Removed on site' : 'Installed'}</button>{/if}
-		{#if c.status !== 'remove'}<button title={c.status === 'add' ? 'Not installed yet — deleted outright' : 'Mark it to come out on site'} onclick={remove}>{c.status === 'add' ? 'Delete' : 'Remove'}</button>{/if}
+		<!-- a planned (add) cord is just deleted: the header's Delete / the Delete key -->
+		{#if c.status !== 'remove' && c.status !== 'add'}<button title="Mark it to come out on site — it stays in the record until Removed on site (the Delete key does the same)" onclick={remove}>Mark for removal</button>{/if}
 		{#if c.previous}<button title="Back to the ends and status before the change / removal" onclick={() => set('Revert cord', revertCord(c))}>Revert</button>{/if}
 	</div>
 </PropGroup>

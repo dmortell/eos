@@ -79,6 +79,7 @@
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
 	ws.openTitleBlock = () => openSettings('sheets')
+	ws.openWindow = (id) => layout.open(id)
 	ws.restoreBackup = async (id) => {
 		try {
 			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined

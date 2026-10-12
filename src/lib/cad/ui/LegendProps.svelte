@@ -35,7 +35,7 @@
 	<LayerPick {project} ids={[s.id]} />
 	</PropGroup>
 	<PropGroup kind="legend" title="Rows">
-	<p class="muted">{shown.size} of {all.length}
+	<p class="muted" title="Rows shown of the symbols in use and the layers with something on them — the legend updates itself as the drawing changes">{shown.size} of {all.length}
 		<button class="lnk" onclick={() => setGeom('Legend: all symbols', { rows: undefined })}>All symbols</button>
 		<button class="lnk" onclick={() => setGeom('Legend: no rows', { rows: [] })}>None</button></p>
 	{#each all as r (r.key)}
@@ -48,7 +48,6 @@
 		<p class="text-zinc-500">Nothing on {s.sheetId ? 'the levels its viewports show' : 'this level'} yet.</p>
 	{/each}
 	</PropGroup>
-	<p class="text-zinc-500">Drag to move · Delete removes it · it updates itself</p>
 {/if}
 
 <style>

@@ -61,7 +61,6 @@
 {/if}
 </PropGroup>
 {/if}
-<p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
 
 <style>
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }

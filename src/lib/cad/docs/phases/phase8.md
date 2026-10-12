@@ -2848,3 +2848,24 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     screen / PDF can't draw a turned picture yet.
   - Help: "Give a layer a color", "Turn a rectangle, box or ellipse"; the sheets how-to names the single sheet's
     Category / Discipline / Tags.
+- **R66 (P1) / R70 Library actions out of Properties, one Delete, quieter panels (step 4):**
+  - A placed block's Properties no longer has **Delete block…** (it deleted the library block for every project, no
+    undo, a few px from the header's Delete): its Block group has Explode and a **Blocks window ›** link
+    (`ws.openWindow`, set by the shell). Deleting stays in the Blocks window (✕, asks first); its ✕ now also shows on
+    keyboard focus and on the picked block, not only on hover.
+  - **Save as template** belongs to the Device library: with one device selected the library shows **+ From <its
+    name>** (the template form filled in from it, a new template); the device's Properties keep a small "Save as
+    template…" link in Product and size.
+  - Body Delete buttons that repeated the header's went: SheetProps' **Delete sheet** and **Delete viewport** (the
+    header's bin / the Delete key do both, asking as before). A cord's button is the install workflow's and stays,
+    relabelled **Mark for removal**, and is gone for a planned (add) cord, which Delete just deletes. A room's Delete
+    room… stays in its actions (the R65 brief asked for it).
+  - Static help lines became tooltips: the port selection hint (on the Ports heading), a sheet's viewport hint (on the
+    count), the legend's "it updates itself" (on its count); the "Drag to move · Delete removes it" lines of notes,
+    legends and sections went (Help says it). Section and legend titles that repeated the header went in step 2.
+  - One rename gesture for a row under a rack's Row field: click its name (`InlineName`, as in the Racks window), no
+    separate Rename link.
+  - **Nothing selected**: Properties shows the active view's basics (`ui/ViewBasics.svelte`) — a level's name, FFL and
+    heights with **Floors…**, or a sheet's number, title, paper and viewports with **Select sheet**.
+  - Help: "Delete a block from the library", the device-template how-to (+ From …), the cord how-to (Mark for
+    removal), the Properties how-to (empty state, one Delete), the row rename.
