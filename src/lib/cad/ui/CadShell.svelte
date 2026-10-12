@@ -51,7 +51,7 @@
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
 	import { longPress } from './longPress'
-	import { WindowLayout, type WinId } from '../app/windows.svelte'
+	import { WindowLayout, WIN_TITLES, type WinId } from '../app/windows.svelte'
 	import ToolStrip, { TOOL_GROUPS } from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
@@ -206,8 +206,10 @@
 	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
 		if (c.source !== 'local' || ['select', 'move', 'copy', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
-		const msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), layersOf(project.index.layers))
-		if (msg) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
+		const info = layersOf(project.index.layers), msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), info)
+		// the Layer chip already says it when a layer is picked: only a shape that went somewhere ELSE is news (Q55)
+		const cur = ws.layers.current ? info.find((l) => l.id === ws.layers.current)?.name : undefined
+		if (msg && msg !== (cur ? `Drawn on the ${cur} layer` : null)) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
 	}))
 	/** The tab menu (a right-click on a tab). */
 	let tabMenu = $state<{ id: string; x: number; y: number } | null>(null)
@@ -412,7 +414,7 @@
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
-		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
+		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 	}))
 
@@ -434,6 +436,11 @@
 	$effect(() => { const d = project.settings?.defaults; untrack(() => ws.seedCordDefaults(d)) })
 	// Planning / Surveying (a project setting): what the cord tool's new cords start as
 	$effect(() => { ws.newCordStatus = project.settings?.newCordStatus ?? 'add' })
+	/** Help › a tool's button: in a view it doesn't work in, say so (it used to drop back to Select silently). */
+	function helpTool(id: ToolId) {
+		if (!toolWorksIn(id, activeKind, !!vpEditKind)) { const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id; ws.say(`The ${n} tool doesn’t work in this view — open a plan to use it`); return }
+		setTool(id)
+	}
 	function setTool(id: ToolId) {
 		canvas?.cancel()
 		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order
@@ -623,7 +630,7 @@
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
-	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
+	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />

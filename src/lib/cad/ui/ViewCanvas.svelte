@@ -46,6 +46,7 @@
 	import { applyAlign, type AlignHow } from '../editor/align'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
+	import { TOOL_GROUPS } from './ToolStrip.svelte'
 	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
@@ -443,7 +444,7 @@
 			if (ANNOTATION_TOOLS.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
 		}
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
-		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${ws.toolId} tool doesn't work in this view`); return }
+		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === ws.toolId)?.label.replace(/ \(.*\)$/, '') ?? ws.toolId} tool doesn’t work in this view`); return }
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
 		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))

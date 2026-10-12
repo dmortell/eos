@@ -265,7 +265,7 @@
 					</tr>
 				{/each}
 			{:else}
-				<tr><td colspan="12" class="px-2 py-3 faint">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
+				<tr><td colspan="12" class="px-2 py-3 faint">{sheets.length ? 'No sheets match.' : 'No sheets yet — use + New in the Navigator’s Sheets list (Window › Navigator).'}</td></tr>
 			{/each}
 		</tbody>
 	</table>

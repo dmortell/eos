@@ -27,7 +27,7 @@
 	const tell = (t: string) => ws.say(t)
 
 	export async function outletSchedule(all: boolean) {
-		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }) }
+		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }); tell(`Outlet schedule exported (${all || !level ? 'all levels' : level.name})`) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
 	/** Frame label sheets (Excel) for every server room on this level, or on all levels (Q47). */

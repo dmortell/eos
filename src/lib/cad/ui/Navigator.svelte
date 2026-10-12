@@ -123,6 +123,7 @@
 	function archiveSheet(id: string) {
 		const sh = project.index.get(id)
 		if (sh?.type === 'sheet') project.store.transact(`Archive ${sh.number}`, (tx) => tx.put({ ...sh, status: 'archived' }))
+		if (sh?.type === 'sheet') ws.say(`${sh.number} archived — Undo brings it back (Tables › Sheets shows archived ones)`)
 	}
 	const renameSection = (id: string) => { ws.navRename = { id } }
 	/** F2 on a focused row renames it (UX review L4). */
