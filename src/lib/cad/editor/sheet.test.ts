@@ -8,6 +8,10 @@ import { SelectTool } from './selectTool'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet, Viewport } from '../domain/drawing'
+// imported up front: an import inside a test counts against its 5 s timeout and failed once under load (review follow-up)
+import { PathTool } from './pathTool'
+import { InsertTool } from './insertTool'
+import { BUILTIN_BLOCKS } from '../domain/blocks'
 
 const VP: Viewport = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 } }
 const SHEET: Sheet = { type: 'sheet', id: 'SH', number: 'S001', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [VP], status: 'active' }
@@ -75,8 +79,7 @@ describe('viewports on a sheet', () => {
 })
 
 describe('lines and blocks on a sheet belong to the viewport they start in (backlog)', () => {
-	it('a line started inside a viewport is tied to it in its view mm; on the paper it stays paper', async () => {
-		const { PathTool } = await import('./pathTool')
+	it('a line started inside a viewport is tied to it in its view mm; on the paper it stays paper', () => {
 		const h = harness(), t = new PathTool('line'), ev = (x: number, y: number) => ({ p: { x, y }, shift: false, ctrl: false, alt: true })
 		t.down(ev(100, 100), h.ctx()); t.down(ev(110, 100), h.ctx()); t.finish(h.ctx())
 		const line = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'path' && s.sheetId === 'SH')!
@@ -92,9 +95,7 @@ describe('lines and blocks on a sheet belong to the viewport they start in (back
 		const paper = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'path' && s.sheetId === 'SH' && !s.vpId)!
 		expect(paper.geom.kind === 'path' && paper.geom.nodes.map((n) => n.x)).toEqual([300, 320])
 	})
-	it('a block dropped inside a viewport is tied to it', async () => {
-		const { InsertTool } = await import('./insertTool')
-		const { BUILTIN_BLOCKS } = await import('../domain/blocks')
+	it('a block dropped inside a viewport is tied to it', () => {
 		const h = harness(), t = new InsertTool(() => BUILTIN_BLOCKS[0])
 		t.down({ p: { x: 100, y: 100 }, shift: false, ctrl: false, alt: false }, h.ctx())
 		const ins = h.ctx().store.ofType('shape').find((s) => s.geom.kind === 'insert')!
