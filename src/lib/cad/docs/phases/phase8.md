@@ -2428,5 +2428,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   plan on top). Extra floorplans on a plan are named "Floorplan n" (was "Zone n"). Live (Test Project): both tabs
   without a sideways scrollbar; + Area plan → its name box, Esc cancels. Help: "Floors…", "Edit a dimension".
 - **No "Heights from the old Risers tool" in the Floor manager (Dave 2026-10-12):** the button and its handler are gone
-  (`persist/import/legacyHeights.ts` stays, unused by the UI, with its test). Live (Test Project): the dialog opens
+  (and `persist/import/legacyHeights.ts` with its test, removed). Live (Test Project): the dialog opens
   without it.
