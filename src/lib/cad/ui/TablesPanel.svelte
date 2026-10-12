@@ -49,18 +49,20 @@
 		e.preventDefault()
 		const start = { x: e.clientX, y: e.clientY, wx: t.x, wy: t.y }
 		const move = (m: PointerEvent) => { t.x = Math.round(start.wx + m.clientX - start.x); t.y = Math.round(Math.max(0, start.wy + m.clientY - start.y)) }
-		const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); clamp(); panels.save() }
+		drag(move)
+	}
+	/** A drag's moves until the pointer is let go — or taken away (pointercancel: a palm, a system gesture). */
+	function drag(move: (m: PointerEvent) => void) {
+		const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); clamp(); panels.save() }
 		window.addEventListener('pointermove', move)
 		window.addEventListener('pointerup', up)
+		window.addEventListener('pointercancel', up)
 	}
 	function cornerDown(e: PointerEvent) {
 		if (e.button !== 0) return
 		e.preventDefault(); e.stopPropagation()
 		const start = { x: e.clientX, y: e.clientY, w: t.w, h: t.h }
-		const move = (m: PointerEvent) => { t.w = Math.round(Math.max(360, start.w + m.clientX - start.x)); t.h = Math.round(Math.max(140, start.h + m.clientY - start.y)) }
-		const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); clamp(); panels.save() }
-		window.addEventListener('pointermove', move)
-		window.addEventListener('pointerup', up)
+		drag((m) => { t.w = Math.round(Math.max(360, start.w + m.clientX - start.x)); t.h = Math.round(Math.max(140, start.h + m.clientY - start.y)) })
 	}
 	/** A floating panel stays reachable inside the drawing area (and after the browser shrinks). */
 	function clamp() {
@@ -122,7 +124,8 @@
 	.tables.max { position: absolute; inset: 0; z-index: 40; height: auto; }
 	.tables.folded { height: auto; }
 	header { display: flex; align-items: center; gap: 4px; height: 28px; flex: 0 0 auto; padding: 0 4px; border-bottom: 1px solid var(--cad-line); background: var(--cad-subtle); user-select: none; }
-	.floating header { cursor: grab; }
+	/* floating, its bar and corner drag by a finger too: the browser mustn't scroll the page instead */
+	.floating header { cursor: grab; touch-action: none; }
 	.tabs { display: flex; gap: 2px; }
 	.tabs button { font-size: 12px; padding: 2px 10px; border-radius: 5px; color: var(--cad-muted); }
 	.tabs button:hover { background: var(--cad-hover); color: var(--cad-text); }
@@ -151,6 +154,7 @@
 	.body :global(td.ed) { padding: 0 2px; }
 	.body :global(.ed-box) { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); outline: none; }
 	.body :global(input.ed-box) { field-sizing: content; min-width: 6rem; max-width: 24rem; }   /* as wide as what it holds */
-	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
+	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
 		background: linear-gradient(135deg, transparent 50%, var(--cad-faint, #a1a1aa) 50%, transparent 60%, transparent 70%, var(--cad-faint, #a1a1aa) 70%, transparent 80%); }
+	@media (any-pointer: coarse) { .corner { width: 16px; height: 16px; } }
 </style>

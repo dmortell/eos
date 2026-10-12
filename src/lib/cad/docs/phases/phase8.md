@@ -3136,3 +3136,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   aren't draggable (the system's drag lift fired on the same press). Help. Not tried on a device.
 - **Q52b** ⋮ on a tab opens its menu under it (the right-click's: close others / to the right, other pane, To sheet):
   shown on the active tab, and on every tab of a touch screen (`@media (hover: none)`) (`ui/TabStrip.svelte`); Help.
+- **Q52c** a finger drags the resize handles and the floating tables: `touch-action: none` on the panel-edge handles
+  (`ui/ResizeHandle.svelte`) and the floating tables' bar and corner (`ui/TablesPanel.svelte`; the window title, its
+  corner and the split bar had it). On a touch screen (`any-pointer: coarse`) the 5 px edge handles and split bar are
+  grabbed by a wider invisible strip (~15 px, mostly towards their own panel — a dock clips what sticks out), the
+  corners are 16 px, a window's title bar 30 px with 24 px buttons. Every one of these drags is pointer events and now
+  ends on `pointercancel` too (a palm / system gesture left the tables' drag listening) (`ui/CadWindow.svelte`,
+  `ui/SplitBar.svelte`); Help. Not tried on a device.

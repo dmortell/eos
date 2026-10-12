@@ -1,5 +1,5 @@
 <!-- A drag handle on a panel's edge (copied from workspace/parts/ResizeHandle.svelte): drag to resize; `onend` once
-     the drag is over (to save the size). -->
+     the drag is over (to save the size). Pointer events, so a finger or a pen drags it too. -->
 <script lang="ts">
 	let {
 		orientation = 'vertical',
@@ -48,7 +48,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="absolute z-20 transition-colors {dragging ? 'bg-blue-500/40' : 'hover:bg-blue-500/30'}"
+	class="rh absolute z-20 transition-colors {dragging ? 'bg-blue-500/40' : 'hover:bg-blue-500/30'}"
 	class:cursor-col-resize={orientation === 'vertical'}
 	class:cursor-row-resize={orientation === 'horizontal'}
 	class:top-0={side === 'right' || side === 'left'}
@@ -63,5 +63,19 @@
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
 	role="separator"
+	data-side={side}
 	aria-orientation={orientation}
 ></div>
+
+<style>
+	/* a finger drags it (the browser mustn't scroll instead); on a touch screen the 5 px strip is grabbed by ~14 px more,
+	   mostly towards its own panel (a dock clips what sticks out of it) */
+	.rh { touch-action: none; }
+	@media (any-pointer: coarse) {
+		.rh::before { content: ''; position: absolute; }
+		.rh[data-side='right']::before { inset: 0 -4px 0 -10px; }
+		.rh[data-side='left']::before { inset: 0 -10px 0 -4px; }
+		.rh[data-side='top']::before { inset: -4px 0 -10px 0; }
+		.rh[data-side='bottom']::before { inset: -10px 0 -4px 0; }
+	}
+</style>

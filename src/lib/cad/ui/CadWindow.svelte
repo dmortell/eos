@@ -61,9 +61,10 @@
 		try { el.setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		const start = { x: e.clientX, y: e.clientY, w: s.w, h: s.h }
 		const move = (m: PointerEvent) => layout.resize(id, start.w + m.clientX - start.x, start.h + m.clientY - start.y)
-		const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); layout.save() }
+		const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); layout.save() }
 		el.addEventListener('pointermove', move)
 		el.addEventListener('pointerup', up)
+		el.addEventListener('pointercancel', up)   // taken away (a palm, a system gesture): the size so far stays
 	}
 	function floatOut() {
 		const r = area?.getBoundingClientRect()
@@ -111,4 +112,10 @@
 	.body :global(table), .body :global(input), .body :global(textarea) { user-select: text; }
 	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
 		background: linear-gradient(135deg, transparent 50%, var(--cad-faint, #a1a1aa) 50%, transparent 60%, transparent 70%, var(--cad-faint, #a1a1aa) 70%, transparent 80%); border-radius: 0 0 6px 0; }
+	/* a finger grabs the corner and the title by a bigger area on a touch screen */
+	@media (any-pointer: coarse) {
+		.corner { width: 16px; height: 16px; }
+		header { height: 30px; }
+		header button { width: 24px; height: 24px; }
+	}
 </style>
