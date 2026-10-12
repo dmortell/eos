@@ -49,7 +49,7 @@ describe('routing speed (Q56): same graph, same taps', () => {
 				if (drop <= 10_000 && (!best || drop < best.drop)) best = { seg: i, drop }
 			})
 			const got = outletTap(g, ix, o, 'SR-A')
-			expect(got?.seg).toBe(best?.seg)
+			expect(got?.seg).toBe((best as { seg: number } | null)?.seg)
 		}
 	})
 })

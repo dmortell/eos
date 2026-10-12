@@ -30,7 +30,7 @@
 	const shown = $derived(plan ? withCodes(plan, codes) : null)
 	const problems = $derived((shown ?? []).map((r) => (r.changed ? revCodeProblem(r.sheet, r.rev) : null)).filter((x): x is string => !!x))
 	/** Issuing a package: its last issue — sheets added since, and ones withdrawn (in it then, not now). */
-	const last = $derived(pkg ? lastIssueOf(pkg, [...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue')) : undefined)
+	const last = $derived(pkg ? lastIssueOf(pkg, project.index.ofType('issue')) : undefined)
 	const added = $derived(new Set(last ? sheets.filter((s) => !last.sheets.some((x) => x.sheetId === s.id)).map((s) => s.id) : []))
 	const withdrawn = $derived(last ? last.sheets.filter((x) => !sheets.some((s) => s.id === x.sheetId)).map((x) => ({ sheetId: x.sheetId, number: x.number, title: x.title, rev: x.rev })) : [])
 	function applyAll() { if (!plan || !setAll.trim()) return; codes = Object.fromEntries(plan.filter((r) => r.changed).map((r) => [r.sheet.id, setAll.trim()])) }

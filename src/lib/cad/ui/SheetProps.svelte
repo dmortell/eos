@@ -28,7 +28,7 @@
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
 	const vp = $derived(s.viewports.find((v) => v.id === ws.viewportId))
-	const issuedIn = $derived(issuesOfSheet([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue'), s.id))
+	const issuedIn = $derived(issuesOfSheet(project.index.ofType('issue'), s.id))
 	const levels = $derived(project.levels)
 	// category / discipline / tags, as several sheets have them (SheetMultiProps)
 	const cats = $derived(ordered(project.sheetCategories))
@@ -70,7 +70,7 @@
 		}
 	}
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
-	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	const rowsOf = (spaceId: string) => project.index.ofType('rackRow').filter((e) => e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	/** A room's racks that have patch panels (a port grid of each). */
 	const panelRacksOf = (spaceId: string) => racksInOrder(project.index, spaceId).filter((r) => project.index.devices.some((d) => d.rackId === r.id && d.kind === 'panel' && d.portCount > 0))
 	/** The devices with ports in a rack, from the top U down (a port grid of one). */

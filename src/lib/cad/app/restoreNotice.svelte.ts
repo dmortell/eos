@@ -56,7 +56,7 @@ export class RestoreNotices {
 		store.readOnly = ro
 		if (other && n.state === 'done' && !this.#cleared.has(n.id) && Date.now() - n.at < ABANDONED_MS) { this.#cleared.add(n.id); store.clearHistory(); changed = true }
 		// only a real change redraws (the 15 s tick bumping it every time rebuilt every view and kept preview tabs)
-		if (changed) this.project.rev++
+		if (changed) { this.project.rev++; this.project.dataRev++ }
 	}
 
 	/** This tab wrote it. */

@@ -15,7 +15,7 @@ import { portMapTitle } from '../domain/portMap'
 
 /** The sheets in print order (archived left out). */
 export const activeSheets = (project: CadProject): Sheet[] =>
-	[...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet' && e.status !== 'archived').sort((a, b) => a.order - b.order)
+	project.index.ofType('sheet').filter((e) => e.status !== 'archived').sort((a, b) => a.order - b.order)
 
 /** A new blank sheet (the next number), one undo step, selected; its id. */
 export function newSheetIn(project: CadProject, ws: Workspace): Id {

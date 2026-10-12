@@ -12,6 +12,9 @@ export interface Step { label: string; ops: Op[]; sel?: Id[] }
 export type ChangeSource = 'local' | 'gesture' | 'undo' | 'redo' | 'remote' | 'load'
 /** `final` = the ops are settled and should be persisted (false while a gesture is still moving). */
 export interface Change { source: ChangeSource; label?: string; ops: Op[]; final: boolean }
+/** Does this change settle the data (a commit, undo, remote edit, or a rollback after its gesture ended) — rather than
+ *  being one frame of a drag still moving? Readers that don't need the live drag wait for these (Q59). */
+export const settles = (c: Change, busy: boolean): boolean => c.final || !busy
 
 export interface Txn {
 	get(id: Id): Entity | undefined

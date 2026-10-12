@@ -25,7 +25,7 @@ const col = (p: CadProject) => `projects/${p.pid}/cadIssued`
 /** The floorplans these sheets show, rendered (frozen lists and PDFs must not miss one still rendering). */
 export async function placeUnderlays(project: CadProject, sheets: Sheet[]): Promise<void> {
 	const levels = new Set(sheets.flatMap((s) => s.viewports.map((v) => v.view.levelId)))
-	const us = [...project.index.byId.values()].filter((e): e is Underlay => e.type === 'underlay' && levels.has(e.levelId))
+	const us = project.index.ofType('underlay').filter((e) => levels.has(e.levelId))
 	await Promise.all(us.map((u) => project.pdf.placed(u)))
 }
 

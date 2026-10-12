@@ -175,7 +175,7 @@
 	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
 	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
-		[...project.index.byId.values()].some((u) => u.type === 'underlay' && u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
+		project.dataIndex.ofType('underlay').some((u) => u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
 
 	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the
 	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */

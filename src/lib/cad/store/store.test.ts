@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EntityStore, type Change } from './store'
+import { EntityStore, settles, type Change } from './store'
 import { makeBox, makeText } from '../domain/make'
 import type { Shape } from '../domain/shapes'
 
@@ -178,5 +178,26 @@ describe('a transaction that throws (review R21 / R88)', () => {
 		expect(xOf(s, 'a')).toBe(0)
 		expect(s.get('b')).toBeUndefined()
 		expect(s.undoLabels).toEqual(['Add'])
+	})
+})
+
+describe('settling changes (Q59: readers that skip drag frames)', () => {
+	const run = (end: 'commit' | 'rollback') => {
+		const s = new EntityStore(), settled: string[] = []
+		s.transact('Add', (tx) => tx.put(box('a')))
+		s.subscribe((c) => { if (settles(c, s.busy)) settled.push(c.source) })
+		const g = s.begin('Drag')
+		for (let i = 1; i <= 60; i++) g.update((tx) => tx.put(moved(tx.get('a') as Shape, i)))
+		expect(settled).toEqual([])   // 60 frames, none settled
+		if (end === 'commit') g.commit(); else g.rollback()
+		return settled
+	}
+	it('a drag settles once, when it is committed', () => expect(run('commit')).toEqual(['local']))
+	it('a rolled-back drag settles once too (the data went back)', () => expect(run('rollback')).toEqual(['gesture']))
+	it('a plain edit and an undo settle', () => {
+		const s = new EntityStore(), settled: string[] = []
+		s.subscribe((c) => { if (settles(c, s.busy)) settled.push(c.source) })
+		s.transact('Add', (tx) => tx.put(box('a'))); s.undo()
+		expect(settled).toEqual(['local', 'undo'])
 	})
 })

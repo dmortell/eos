@@ -22,7 +22,7 @@
 	/** `panel`: the Issue panel while issuing (over the table, as in the register). */
 	let { project, ws, seg, panel, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; seg?: Snippet; panel?: Snippet; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
-	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
+	const issues = $derived([...project.index.ofType('issue')].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
 	const owner = $derived(canRestore(project.ownerId, project.user))
 	/** The issue whose details are being edited in its row (Edit / Done). */
@@ -41,7 +41,7 @@
 	}
 	/** An issue from before packages (Dave D9): a list package of its sheets, and the issue linked to it — one undo step. */
 	function makePackage(i: Issue) {
-		const order = Math.max(0, ...[...project.index.byId.values()].filter((e): e is SheetPackage => e.type === 'package').map((p) => p.order)) + 10
+		const order = Math.max(0, ...project.index.ofType('package').map((p) => p.order)) + 10
 		const p = packageFromIssue(i, newId(), order)
 		project.store.transact(`Package from ${i.name}`, (tx) => { tx.put(p); tx.put({ ...i, packageId: p.id }) })
 		ws.say(`Package “${p.name}” made from ${i.name} — its next issue shows what changed since`)

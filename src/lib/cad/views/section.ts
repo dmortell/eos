@@ -82,4 +82,4 @@ export function sectionMarks(sec: SectionCut, k: number): Prim[] {
 }
 
 export const sectionsOn = (ix: ProjectIndex, levelId: Id): SectionCut[] =>
-	[...ix.byId.values()].filter((e): e is SectionCut => e.type === 'section' && e.levelId === levelId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+	ix.ofType('section').filter((e) => e.levelId === levelId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))

@@ -41,7 +41,7 @@
 	const sameRoom = $derived(rk((r) => r.spaceId))
 	const sameRow = $derived(rk((r) => r.rowId))
 	// via the index (reactive); rows are few, so a scan is fine
-	const rowsIn = (spaceId: Id) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	const rowsIn = (spaceId: Id) => project.index.ofType('rackRow').filter((e) => e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	/** Rooms a rack can stand in: the server rooms of its level (and wherever it is now). */
 	/** Racks from several levels have no room in common to move to (Review 2 Q2: the list was the first one's level). */
 	const oneLevel = $derived(racks.every((r) => r.levelId === racks[0]?.levelId))

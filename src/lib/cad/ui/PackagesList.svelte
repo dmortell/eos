@@ -33,9 +33,9 @@
 	} = $props()
 
 	let showArchived = $state(false), editing = $state<string | null>(null)
-	const all = $derived([...project.index.byId.values()].filter((e): e is SheetPackage => e.type === 'package').sort((a, b) => a.order - b.order))
+	const all = $derived([...project.index.ofType('package')].sort((a, b) => a.order - b.order))
 	const list = $derived(all.filter((p) => showArchived || !p.archived))
-	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue'))
+	const issues = $derived(project.index.ofType('issue'))
 	const numbers = $derived(issueNumbers(issues))
 	const catName = (id: string) => project.sheetCategories.find((c) => c.id === id)?.label ?? id
 	const nameOf = (k: 'cat' | 'id', id: string) => (k === 'cat' ? catName(id) : project.index.nameOf(id) || id)

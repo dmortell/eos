@@ -38,8 +38,8 @@
 	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['patch', 'Patching'], ['sheets', 'Sheets'], ['links', 'Links']]
 	/** The folded bar's summary: how many rows the open table has, and how many of them are selected. */
 	const summary = $derived.by(() => {
-		const sel = new Set(ws.selection), ix = project.index
-		const list = tab === 'outlets' ? ix.outlets.filter((o) => o.levelId === level?.id) : tab === 'patch' ? ix.cords : tab === 'links' ? [...ix.byId.values()].filter((e) => e.type === 'link') : [...ix.byId.values()].filter((e) => e.type === 'sheet')
+		const sel = new Set(ws.selection), ix = project.dataIndex   // the count holds still during a drag
+		const list = tab === 'outlets' ? ix.outlets.filter((o) => o.levelId === level?.id) : tab === 'patch' ? ix.cords : tab === 'links' ? ix.links : ix.ofType('sheet')
 		const n = list.filter((e) => sel.has(e.id)).length
 		return `${list.length}${n ? ` · ${n} selected` : ''}`
 	})

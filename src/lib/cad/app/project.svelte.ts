@@ -2,10 +2,11 @@
 // project and destroyed with it (no module-level state — the Pages singletons leaked across projects).
 import { DEFAULT_SHEET_CATEGORIES, type SheetCategory } from '../domain/sheetCategories'
 import type { Firestore } from 'firebase/firestore'
-import { EntityStore, type UndoResult } from '../store/store'
+import { EntityStore, settles, type UndoResult } from '../store/store'
 import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
 import { PROJECT_SCOPE, levelScope, viewScope, sheetScope } from '../persist/docs'
+import { untrack } from 'svelte'
 import { ProjectIndex } from '../domain/project'
 import { cableSettings } from '../domain/routing'
 import { routeAll, type Routing } from '../domain/estimates'
@@ -66,9 +67,14 @@ export class CadProject {
 	readonly pdf: PdfCache
 	/** Bumped on every store change; everything derived reads it. */
 	rev = $state(0)
+	/** Bumped on FINAL changes only (a commit, an undo, a remote edit, a rollback) — not on each frame of a drag. For
+	 *  readers that don't need the live drag (Navigator, tables, counts): read `dataIndex` / this, not `rev` / `index`. */
+	dataRev = $state(0)
 	loaded = $state(false)
 	error = $state<string | null>(null)
 	index = $derived.by(() => { void this.rev; return new ProjectIndex(this.store.all()) })
+	/** The index as of the last final change: it holds still while a drag runs. */
+	dataIndex = $derived.by((): ProjectIndex => { void this.dataRev; return untrack(() => this.index) })
 	levels = $derived.by((): Level[] => [...this.index.levels].sort((a, b) => a.order - b.order))
 	settings = $derived.by(() => { void this.rev; return this.store.get('settings') as ProjectSettings | undefined })
 	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data — but not on
@@ -116,7 +122,7 @@ export class CadProject {
 		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> })
 		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> })
 		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null })
-		this.#off = this.store.subscribe(() => { this.rev++; this.#watchLevels() })
+		this.#off = this.store.subscribe((c) => { this.rev++; if (settles(c, this.store.busy)) this.dataRev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
 			user, client: this.client, onPending: (n) => this.#pending(n),
 			onError: (e) => { this.#failed = true; this.error = `Saving failed: ${(e as Error).message ?? e}` },

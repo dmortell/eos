@@ -34,7 +34,7 @@
 	 *  rooms picked. */
 	const rows = $derived.by((): [string | null, string][] => {
 		const inRoom = (id: string) => !rooms || rooms.includes(id)
-		const rs = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && inRoom(e.spaceId))
+		const rs = project.index.ofType('rackRow').filter((e) => inRoom(e.spaceId))
 			.sort((a, b) => naturalCompare(project.index.nameOf(a.spaceId), project.index.nameOf(b.spaceId)) || a.order - b.order)
 		const out: [string | null, string][] = rs.map((r) => [r.id, `${project.index.nameOf(r.spaceId)} · ${r.name}`])
 		if (project.index.racks.some((r) => !r.rowId && inRoom(r.spaceId))) out.push([null, 'No row'])

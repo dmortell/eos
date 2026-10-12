@@ -12,7 +12,7 @@
 	let { project }: { project: CadProject } = $props()
 
 	const list = $derived(project.sheetCategories)
-	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
+	const sheets = $derived(project.index.ofType('sheet'))
 	const uses = $derived.by(() => { const m = new Map<string, number>(); for (const s of sheets) { if (!s.kind) continue; const id = categoryOf(s, list).id; m.set(id, (m.get(id) ?? 0) + 1) } return m })
 	const strays = $derived(strayKinds(sheets, list))
 	let label = $state(''), code = $state('')

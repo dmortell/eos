@@ -35,7 +35,7 @@
 
 	/** The global list (retired ones left out of pickers; they still name sheets that use them). */
 	const cats = $derived(ordered(project.sheetCategories))
-	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
+	const sheets = $derived(project.dataIndex.ofType('sheet'))
 	let by = $state<GroupBy>('none')
 	let fCats = $state<string[]>([]), fLevels = $state<string[]>([]), fRooms = $state<string[]>([]), fTags = $state<string[]>([])
 	/** Active / Archived as chips (both on = all). */
@@ -166,8 +166,8 @@
 
 	// issuing (4.6): the selection, frozen when the panel opens
 	let issuing = $state.raw<Sheet[] | null>(null), issuingPkg = $state.raw<SheetPackage | undefined>(undefined), show = $state<'register' | 'packages' | 'issues'>('register')
-	const issueCount = $derived([...project.index.byId.values()].filter((e) => e.type === 'issue').length)
-	const packageCount = $derived([...project.index.byId.values()].filter((e) => e.type === 'package' && !e.archived).length)
+	const issueCount = $derived(project.dataIndex.ofType('issue').length)
+	const packageCount = $derived(project.dataIndex.ofType('package').filter((e) => !e.archived).length)
 	function startIssue() {
 		if (!picked.length) { ws.say('Select the sheets for the package'); return }
 		issuingPkg = undefined

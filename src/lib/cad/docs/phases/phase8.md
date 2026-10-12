@@ -3226,3 +3226,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   1,300 estimates) 2,563 -> 92 ms; at 840 segments 305 -> 44 ms. Routes, estimates and fills are byte-identical
   (`bench/genRoute.ts`; `domain/routingSpeed.test.ts` compares the graph and every outlet's tap with the plain scans).
   Left: the Dijkstra per rack / panel height, and re-routing only the changed levels.
+- **Q59** side panels no longer rebuild on each drag frame: `project.dataRev` / `project.dataIndex` change on final
+  changes only (`settles(change, busy)` in `store/store.ts`: a commit, undo, remote edit, or a rollback after its gesture
+  ended — a 60-frame drag settles once). The Navigator tree and finds, the Layers panel counts, the Tables bar count,
+  the Sheets tab lists and `floorplanPending` read them. `ProjectIndex.ofType(type)` is a typed list built with the
+  index; 21 of the `[...byId.values()].filter(type)` spreads (Issues / Packages / Sheets lists, rack rows, navTree, …)
+  use it (copy before sorting). Measured on 12,400 entities: a sheets list 0.13 ms -> 0.01 ms; the real saving is the
+  panels not re-running per frame (a drag over a 1,000-outlet project re-ran navTree, layer counts and every list
+  each frame). Left: layer counts / tables that show live drag values still read `index`; the other
+  `byId.values()` loops (legend, layers, plan) are single passes over everything on purpose.

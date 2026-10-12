@@ -42,7 +42,7 @@
 	/** The tab already names the view, so no breadcrumb (review R57); a rack view and a port map, which have no Plan
 	 *  button in this strip, get one way up: "↑ 1F plan". */
 	const up = $derived(spec.kind === 'row' || spec.kind === 'portmap' ? `↑ ${project.index.nameOf(levelId)} plan` : '')
-	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	const rowsOf = (spaceId: string) => project.index.ofType('rackRow').filter((e) => e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 </script>
 
 <div class="views">

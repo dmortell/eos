@@ -23,7 +23,7 @@
 	const set = (label: string, patch: Partial<Space>) => put(project.store, room, label, patch)
 
 	// ── rows: in their order ──
-	const rows = $derived([...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === room.id).sort((a, b) => a.order - b.order))
+	const rows = $derived(project.index.ofType('rackRow').filter((e) => e.spaceId === room.id).sort((a, b) => a.order - b.order))
 	const racks = $derived(project.index.racks.filter((r) => r.spaceId === room.id))
 	const inRow = (id: string) => racks.filter((r) => r.rowId === id).length
 	/** Swap a row with its neighbour (the rack view's row order); orders renumbered 0, 1, 2 … */

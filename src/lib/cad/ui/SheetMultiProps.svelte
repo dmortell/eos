@@ -17,7 +17,7 @@
 	let { project, ws, sheets }: { project: CadProject; ws: Workspace; sheets: Sheet[] } = $props()
 
 	const cats = $derived(ordered(project.sheetCategories))
-	const packages = $derived([...project.index.byId.values()].filter((e): e is SheetPackage => e.type === 'package' && !e.archived && !!e.sheetIds).sort((a, b) => a.order - b.order))
+	const packages = $derived(project.index.ofType('package').filter((e) => !e.archived && !!e.sheetIds).sort((a, b) => a.order - b.order))
 	/** What they share; undefined when mixed (`mixed()` says which). */
 	const same = <V,>(get: (s: Sheet) => V): V | undefined => shared(sheets, get).value
 	const mixed = <V,>(get: (s: Sheet) => V) => shared(sheets, get).mixed

@@ -36,7 +36,7 @@
 			const sp = project.index.get(space), hand = sp?.type === 'space' ? sp.rackOrder ?? {} : {}
 			const sorted = rs.sort((a, b) => (hand[rowKey(a)] ? 0 : Number(!!a.at) - Number(!!b.at)) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
 			// the room › row › rack tree (backlog "Rack tree and row views"): its rows in order, then racks in no row
-			const rows = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === space).sort((a, b) => a.order - b.order)
+			const rows = project.index.ofType('rackRow').filter((e) => e.spaceId === space).sort((a, b) => a.order - b.order)
 			const parts = rows.length ? [...rows.map((row) => ({ row, racks: sorted.filter((r) => r.rowId === row.id) })), { row: null, racks: sorted.filter((r) => !r.rowId || !rows.some((x) => x.id === r.rowId)) }].filter((x) => x.row || x.racks.length) : [{ row: null, racks: sorted }]
 			return { space, name: project.index.nameOf(space) || 'No room', racks: sorted, parts, hand }
 		}).sort((a, b) => naturalCompare(a.name, b.name))

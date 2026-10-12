@@ -21,10 +21,18 @@ export class ProjectIndex {
 	readonly shapes: Shape[] = []
 	readonly layers: Layer[] = []
 	#linkAt = new Map<string, Link>()
+	#byType = new Map<string, Entity[]>()
+
+	/** Every entity of one type, in store order — a typed list built with the index (copy it before sorting). */
+	ofType<T extends Entity['type']>(type: T): Extract<Entity, { type: T }>[] {
+		return (this.#byType.get(type) ?? []) as Extract<Entity, { type: T }>[]
+	}
 
 	constructor(entities: Iterable<Entity>) {
 		for (const e of entities) {
 			this.byId.set(e.id, e)
+			const same = this.#byType.get(e.type)
+			if (same) same.push(e); else this.#byType.set(e.type, [e])
 			switch (e.type) {
 				case 'outlet': this.outlets.push(e); break
 				case 'device': this.devices.push(e); break

@@ -28,7 +28,7 @@ export interface NavNode {
 }
 
 const ELEV: ['front' | 'rear' | 'left' | 'right', string][] = [['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right']]
-const all = <T extends Entity['type']>(ix: ProjectIndex, t: T) => [...ix.byId.values()].filter((e) => e.type === t) as Extract<Entity, { type: T }>[]
+const all = <T extends Entity['type']>(ix: ProjectIndex, t: T) => [...ix.ofType(t)] as Extract<Entity, { type: T }>[]
 
 /** How the Sheets node groups its sheets (the Navigator's choice, per project in this browser). */
 export interface NavOpts { sheetsBy?: 'place' | 'category' | 'level' | 'package'; categories?: SheetCategory[] }

@@ -21,7 +21,7 @@
 	let q = $state('')
 	const all = $derived(layersOf(project.index.layers))
 	const rows = $derived(q.trim() ? all.filter((l) => l.name.toLowerCase().includes(q.trim().toLowerCase())) : all)
-	const counts = $derived(layerCounts(project.index))
+	const counts = $derived(layerCounts(project.dataIndex))   // final changes only: not recounted on each frame of a drag
 	// the picked viewport — or the one being edited inside (its ❄ freeze is what prints)
 	const sheet = $derived(ws.vpEdit ? project.index.get<Sheet>(ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
 	const vp = $derived(sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === (ws.vpEdit?.vpId ?? ws.viewportId)) : undefined)

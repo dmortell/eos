@@ -45,10 +45,11 @@
 	let sheetsBy = $state<SheetsBy>((() => { try { return (localStorage.getItem(byKey()) as SheetsBy | null) ?? 'place' } catch { return 'place' } })())
 	function groupSheets(b: SheetsBy) { sheetsBy = b; try { localStorage.setItem(byKey(), b) } catch { /* blocked */ } }
 	const states = $derived(issueStatesOf(project))
-	const tree = $derived.by(() => { void project.rev; return navTree(project.index, { sheetsBy, categories: project.sheetCategories }) })
+	// final changes only (dataRev): the tree does not rebuild on each frame of a drag
+	const tree = $derived.by(() => navTree(project.dataIndex, { sheetsBy, categories: project.sheetCategories }))
 	const shown = $derived(filterTree(tree, q))
 	/** Devices and outlets matching the search too (review R56), under the tree's matches. */
-	const finds = $derived.by(() => { void project.rev; return findItems(project.index, q) })
+	const finds = $derived.by(() => findItems(project.dataIndex, q))
 	// a find opens and the results stay (a double-click then keeps its tab; Esc clears the search)
 	function openFind(n: FindItem, keep = false) { onopen(n, keep); if (n.focus) ws.focus = n.focus }
 	/** Enter / ↑ / ↓ in the search: the highlighted row of everything it shows that opens (tree rows, then finds). */
@@ -181,7 +182,7 @@
 		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
 			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
-			{#if n.kind === 'sheet' && n.id}{@const sh = project.index.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last issue ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
+			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last issue ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{/if}
 		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}
