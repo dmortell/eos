@@ -83,7 +83,7 @@
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+A selects the shown rows; Ctrl+C copies the
 	 *  shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !(e.target instanceof Element && e.target.closest('input, select'))) { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
 		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
@@ -106,7 +106,7 @@
 	})
 	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (tableKit.RowPick, as every table)
 	const rp = new RowPick()
-	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, rows.map((r) => r.id), ws.selection, ws.select)
+	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal)
 	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
 
 	// ── inline editing (Dave's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes

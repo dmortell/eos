@@ -28,3 +28,12 @@ export function fit(b: Bounds, w: number, h: number, pad = 24): Camera {
 
 /** What a `w` × `h` px view shows through this camera, in drawing mm. */
 export const visibleArea = (c: Camera, w: number, h: number): Bounds => ({ x0: -c.x / c.k, y0: -c.y / c.k, x1: (w - c.x) / c.k, y1: (h - c.y) / c.k })
+
+/** Bring `b` into view gently (a row picked in a table, review R52): null when it's already wholly in view (`pad` px
+ *  in from the edges); else the same zoom, panned so it's in the middle — or, bigger than the view, fitted to it. */
+export function reveal(c: Camera, b: Bounds, w: number, h: number, pad = 24): Camera | null {
+	const v = visibleArea(c, w, h), m = pad / c.k
+	if (b.x0 >= v.x0 + m && b.x1 <= v.x1 - m && b.y0 >= v.y0 + m && b.y1 <= v.y1 - m) return null
+	if ((b.x1 - b.x0) * c.k > w - 2 * pad || (b.y1 - b.y0) * c.k > h - 2 * pad) return fit(b, w, h, pad)
+	return { k: c.k, x: w / 2 - ((b.x0 + b.x1) / 2) * c.k, y: h / 2 - ((b.y0 + b.y1) / 2) * c.k }
+}

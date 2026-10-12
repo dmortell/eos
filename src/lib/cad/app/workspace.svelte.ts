@@ -260,6 +260,11 @@ export class Workspace {
 		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet
 		if (!ids.length) this.renumberMode = 'number'   // Find / replace lasts while its items stay selected
 	}
+	/** Bumped by a pick in a table: the active view pans the selection into view when it's off-screen (review R52 —
+	 *  a pick on the drawing is already in view, so only the tables bump it). */
+	reveal = $state(0)
+	/** Select from a table: as `select`, and the drawing shows it. */
+	selectAndReveal = (ids: Id[]): void => { this.select(ids); if (ids.length) this.reveal++ }
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
 	/** The viewport selected on the selected sheet (null = the sheet itself). */
 	viewportId = $state<Id | null>(null)

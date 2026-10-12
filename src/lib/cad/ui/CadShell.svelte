@@ -352,6 +352,8 @@
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
+	// a row picked in a table: the active view pans it into view when it's off-screen (R52); only the pick re-runs this
+	$effect(() => { if (ws.reveal) untrack(() => void tick().then(() => canvas?.revealSelection())) })
 	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({

@@ -31,7 +31,7 @@
 	import { spaceOf, specKey, specLabel, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
-	import { toModel, zoomAt, panBy, fit, visibleArea, type Camera } from '../editor/camera'
+	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { TouchNav } from '../editor/touch'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
@@ -240,6 +240,16 @@
 		if (!b) return false
 		const m = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1) * 0.25
 		cam = fit({ x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }, w, h)
+		return true
+	}
+	/** A row picked in a table (R52): what this view draws of the selection, panned into view if it's off-screen
+	 *  (zoomed out only when it can't fit). False = nothing of it here. */
+	export function revealSelection(): boolean {
+		const sel = new Set(ws.selection), src = vpe ? onPaper(vpe.prims, vpe.vp) : prims
+		const b = unionBounds(src.filter((p) => p.src && sel.has(p.src)).map(primBounds))
+		if (!b || !w || !h) return false
+		const next = reveal(cam, b, w, h)
+		if (next) cam = next
 		return true
 	}
 	export function zoomExtents(): void {

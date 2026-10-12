@@ -40,7 +40,7 @@
 	const nSel = $derived(rows.filter((o) => selected.has(o.id)).length)
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Level', 'Label', 'Usage', 'Tier', 'Mount', 'Ports', 'Server room', 'Panel', 'Length (m)'], rows.map((o) => [project.index.nameOf(o.levelId), o.label, o.usage, o.tier, o.mount, o.ports.map((p) => p.label).join(' '), roomName(o.ports[0]?.serverRoomId), o.ports.map((p) => panelOf(o, p.port).text).join(' '), o.ports.map((p) => routeOf(o, p.port)?.lengthM ?? '').join(' ')]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const usages = $derived(sortedUsages(project.settings))
@@ -139,7 +139,7 @@
 
 	// ── selection (tableKit.RowPick): click = one, Shift = the range from the last clicked (other things selected stay), Ctrl = add / drop one ──
 	const rp = new RowPick()
-	const pick = (o: Outlet, e: MouseEvent) => rp.pick(o.id, e, rows.map((r) => r.id), ws.selection, ws.select, ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet'))
+	const pick = (o: Outlet, e: MouseEvent) => rp.pick(o.id, e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal, ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet'))
 
 	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001"): the Renumber panel's Find / replace, on
 	// the selected outlets, else the ones shown here ──

@@ -42,7 +42,7 @@
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, shown.map((r) => r.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, shown.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Kind', 'Panel end', 'Other end', 'Label', 'Cable type', 'Length (m)', 'Status'], rows.map((r) => [r.kind, r.a, r.b, r.label, r.cableType, r.lengthM, r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const types = $derived([...new Set(all.map((r) => r.cableType).filter(Boolean))].sort())
@@ -58,7 +58,7 @@
 	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (tableKit.RowPick, as every table)
 	const rp = new RowPick()
 	const shown = $derived(rows.slice(0, limit))
-	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, shown.map((r) => r.id), ws.selection, ws.select)
+	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, shown.map((r) => r.id), ws.selection, ws.selectAndReveal)
 	// ── editing in place (tableKit.CellEdit): double-click the cable type or status, or F2 / Enter on the selected row ──
 	type Field = 'type' | 'status'
 	const FIELDS: Field[] = ['type', 'status']

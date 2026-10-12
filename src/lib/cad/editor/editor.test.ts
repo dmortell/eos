@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toModel, toScreen, zoomAt, fit } from './camera'
+import { toModel, toScreen, zoomAt, fit, reveal } from './camera'
 import { pickAt, pickInside, pickTouching } from './pick'
 import { moveBy, canMove } from './behaviours'
 import { planDisplayList } from '../views/plan'
@@ -23,6 +23,18 @@ describe('camera', () => {
 		const a = toScreen(c, { x: 0, y: 0 }), b = toScreen(c, { x: 10000, y: 5000 })
 		expect(a.x).toBeGreaterThanOrEqual(19); expect(b.x).toBeLessThanOrEqual(981)
 		expect(a.y).toBeGreaterThanOrEqual(19); expect(b.y).toBeLessThanOrEqual(581)
+	})
+	it('reveal leaves a thing in view alone, pans an off-screen one to the middle at the same zoom, fits a big one', () => {
+		const c = { x: 0, y: 0, k: 0.1 }   // shows 0…10000 × 0…6000 mm in a 1000 × 600 px view
+		expect(reveal(c, { x0: 1000, y0: 1000, x1: 1500, y1: 1500 }, 1000, 600)).toBe(null)
+		const far = { x0: 30000, y0: 20000, x1: 30500, y1: 20400 }
+		const p = reveal(c, far, 1000, 600)!
+		expect(p.k).toBe(0.1)
+		const mid = toScreen(p, { x: 30250, y: 20200 })
+		expect(mid.x).toBeCloseTo(500); expect(mid.y).toBeCloseTo(300)
+		const big = reveal(c, { x0: -50000, y0: 0, x1: 50000, y1: 1000 }, 1000, 600)!
+		expect(big.k).toBeLessThan(0.1)
+		expect(toScreen(big, { x: -50000, y: 0 }).x).toBeGreaterThanOrEqual(23)
 	})
 })
 
