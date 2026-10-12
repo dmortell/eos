@@ -1,5 +1,6 @@
 // HELP's words (backlog "Help (F1 / ?)", UX22): how-to answers, keys and mouse, function keys. Keep this current with
 // every user-visible feature or key (Dave). The tools list comes from the tool strip (TOOL_GROUPS) and the hints.
+import { KEY_COMMANDS } from './shellKeys'
 
 export interface HowTo { q: string; a: string; featured?: boolean }
 
@@ -98,21 +99,16 @@ export const HOWTO: HowTo[] = [
 	{ q: 'Bring in a drawing from Pages or the Sheets tool', a: 'File › Import legacy drawings… lists this project’s Pages models and Sheets-tool sheets (reading them changes nothing). Tick a Pages model to bring its boxes and walls (untick either) onto the level picked beside it — each goes on the cad layer of the same name, made if missing (a new layer starts frozen in the sheets that already exist); its opening boxes (doors, holes) become openings in the imported wall they sit in (a door-height one is a door, swinging as in Pages; one in no imported wall stays a box); its conduits and 2D shapes stay behind. Tick a sheet for a cad sheet with the same title, number and paper: its viewport shows the picked level’s plan or elevation, and its annotations come as notes tied to the viewport. An elevation clipped to a box (a comms room elevation) comes as a section on that box, named from the sheet (e.g. Comms1), so only what is inside the box shows. An odd scale (1:20.16) snaps to the nearest standard one, centred as before. The dialog lists what will come and what is left out (e.g. annotations on layers hidden in that viewport). Import is one undo step; things already imported are skipped, so importing again adds only what’s new.' },
 ]
 
-export const SHORTCUTS: [string, string][] = [
-	['Find a level, view, sheet, room, rack', 'Ctrl+K'], ['Open another project', 'Ctrl+O'], ['Undo / Redo', 'Ctrl+Z / Ctrl+Y'], ['Delete the selection', 'Delete'], ['Copy / Cut / Paste', 'Ctrl+C / X / V'], ['Paste with its middle at the pointer', 'Ctrl+Shift+V'],
-	['Select all in this view', 'Ctrl+A'], ['Group / Ungroup', 'Ctrl+G / Ctrl+Shift+G'],
-	['Draw order: forward / to front', 'Ctrl+] / Ctrl+Shift+]'], ['Draw order: backward / to back', 'Ctrl+[ / Ctrl+Shift+['],
-	['Edit a label in place', 'Double-click · F2'], ['…save and edit the next / previous', 'Tab / Shift+Tab'],
-	['Nudge (× 10 with Shift)', 'Arrow keys'], ['Zoom to fit', 'Home'], ['Page up / down (sideways: Shift)', 'PgUp / PgDn'],
+/** The keyboard: from the shell's own list (ui/shellKeys.ts KEY_COMMANDS — what Help shows is what the keys do), plus
+ *  the mouse and the keys tools take while drawing. */
+const MOUSE: [string, string][] = [
+	['Copy / Cut / Paste', 'Ctrl+C / X / V'], ['Paste with its middle at the pointer', 'Ctrl+Shift+V'],
 	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel'], ['15° steps / H-V / square', 'Shift while drawing or dragging (a dragged node keeps all its segments on 15°, a junction too)'],
-	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat) · right-click on empty space'], ['Commands for something (selects it first)', 'Right-click it (Select tool)'],
+	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel what is drawn · deselect', 'Right-click on empty space'], ['Commands for something (selects it first)', 'Right-click it (Select tool)'],
 	['Copy by dragging', 'Ctrl-drag'], ['Branch a run from a node', 'Ctrl-drag the node'], ['Pull a node off another run', 'Alt-drag the node'],
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],
-	['Back / forward (views in this pane)', 'Alt+← / Alt+→'], ['Close the tab · next / previous tab · tab 1…9', 'Alt+W · Alt+PgDn / Alt+PgUp · Alt+1…9'], ['Zoom to the selection', 'Shift+Home'], ['Redo (also)', 'Ctrl+Shift+Z'], ['Delete the selection (also)', 'Backspace (Select tool)'], ['Rack view: the other face (front ↔ rear)', 'F'], ['Patch / Link the selected ports to…', 'P / L (then click the first port on the other device)'], ['Hide / show every window', 'Ctrl+.'], ['Show / hide the tables', 'Ctrl+,'],
 	['Rack view: focus a rack / the whole row', 'Double-click a rack / empty space'], ['Answer a question box', 'Enter = yes · Esc = Cancel'],
 ]
+export const SHORTCUTS: [string, string][] = [...KEY_COMMANDS.filter((k) => k.group !== 'Function keys').map((k): [string, string] => [k.label, k.keys]), ...MOUSE]
 
-export const FKEYS: [string, string][] = [
-	['F1', 'Help (this)'], ['F2', 'Edit the selected label in place'], ['F3', 'OSNAP: object snaps on / off'], ['F4', 'Repeat the last device edit on the selected devices'],
-	['F7', 'GRID: draw the grid'], ['F9', 'SNAP: grid snap on / off'],
-]
+export const FKEYS: [string, string][] = KEY_COMMANDS.filter((k) => k.group === 'Function keys').map((k): [string, string] => [k.keys, k.label])

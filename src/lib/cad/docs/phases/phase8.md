@@ -2693,3 +2693,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   there); the plan keeps the edge-on plan symbol. Data faceplates are unchanged (no front drawing yet). Test in
   `domain/blocks.test.ts`. Live (Test Project 1F front elevation): power dual placed — plate, frame, two sockets;
   undone. (Help not touched: another session was editing helpContent.ts.)
+- **R85 step 1 (Dave: step by step) — one list of keyboard commands:** `ui/shellKeys.ts` `KEY_COMMANDS` (label, keys,
+  group, when, run), in the old else-if order; the shell runs the first that matches, and Help's Keys and Function
+  keys are built from it plus a list of mouse gestures and drawing-time keys (`ui/helpContent.ts`), so what Help shows
+  is what the keys do. Menus and tooltips still have their own strings (steps 2 / 3). Test in `ui/shellKeys.test.ts`.
