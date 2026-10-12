@@ -9,7 +9,8 @@
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
 	import { lastIssueOf } from '../domain/packages'
-	import { previewIssue, issuePackage, today } from '../app/issue'
+	import { previewIssue, issuePackage, freshSheets, today } from '../app/issue'
+	import { runToken } from '../app/runToken'
 	import { unsupportedNote } from '../app/sheetsPdf'
 
 	/** `pkg` = issuing a PACKAGE (sheets-organising slice 6): its name, purpose and recipients fill the form, and the
@@ -35,12 +36,19 @@
 	const withdrawn = $derived(last ? last.sheets.filter((x) => !sheets.some((s) => s.id === x.sheetId)).map((x) => ({ sheetId: x.sheetId, number: x.number, title: x.title, rev: x.rev })) : [])
 	function applyAll() { if (!plan || !setAll.trim()) return; codes = Object.fromEntries(plan.filter((r) => r.changed).map((r) => [r.sheet.id, setAll.trim()])) }
 	// re-checked when the sheets or the first rev change (not on every project edit)
+	// A run token: a slow older preview finishing after a newer one must not replace it (nor one after the panel closed).
+	const runs = runToken()
 	$effect(() => {
 		const list = sheets, f = first
 		untrack(() => {
 			plan = null
-			previewIssue(project, list, f.trim() || 'A').then((p) => { plan = p }, (e) => { err = (e as Error).message })
+			const current = runs.start()
+			// the sheets as they are now, not as they were when the panel opened
+			let fresh: Sheet[]
+			try { fresh = freshSheets(project, list) } catch (e) { err = (e as Error).message; return }
+			previewIssue(project, fresh, f.trim() || 'A').then((p) => { if (current()) plan = p }, (e) => { if (current()) err = (e as Error).message })
 		})
+		return () => runs.cancel()
 	})
 	async function issue() {
 		if (!name.trim()) { err = 'Name the package'; return }

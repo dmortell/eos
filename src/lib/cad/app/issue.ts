@@ -4,7 +4,7 @@
 // Firebase Storage, Settings › Files; + `files/{id}`, so it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
 import { coverPages, type CoverRow } from '../views/transmittalPage'
 import type { Id } from '../domain/types'
-import { doc, getDoc, writeBatch } from 'firebase/firestore'
+import { doc, getDoc, runTransaction } from 'firebase/firestore'
 import type { CadProject } from './project.svelte'
 import { storeFile } from './projectFiles'
 import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
@@ -40,22 +40,48 @@ export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 	}))
 }
 
+/** The listed sheets as the store has them now (same order); a sheet deleted meanwhile is an error, not a silent skip. */
+export function freshSheets(project: CadProject, listed: Sheet[]): Sheet[] {
+	return listed.map((s) => {
+		const cur = project.store.get(s.id)
+		if (cur?.type !== 'sheet') throw new Error(`${s.number || s.title} no longer exists — close the Issue panel and select the sheets again`)
+		return cur
+	})
+}
+
 /** Which of these sheets would get a new revision. */
 export async function previewIssue(project: CadProject, sheets: Sheet[], first: string): Promise<IssuePlanRow[]> {
 	await placeUnderlays(project, sheets)
 	return planIssue(sheets, (s) => fingerprint(frozenNow(project, s)), first)
 }
 
-async function saveFrozen(project: CadProject, sheet: Sheet, rev: string, issueId: string, prims: Prim[]): Promise<void> {
+/** Why a frozen copy of (sheet, rev) can't be written: another issue already froze it (issued revisions are final —
+ *  Review 2 Q61). A copy left by an issue that was never recorded (its upload failed) doesn't count: it is replaced. */
+function frozenTaken(project: CadProject, head: { issueId?: string } | undefined, sheet: { number?: string; title?: string }, rev: string): string | null {
+	if (!head) return null
+	const by = head.issueId ? project.store.get(head.issueId) : undefined
+	return by?.type === 'issue' ? `${sheet.number || sheet.title}: revision ${rev} was already issued (${by.name}) — use another revision code` : null
+}
+
+/** Before anything is written: is a frozen copy of this (sheet, rev) already taken by a recorded issue? */
+async function frozenConflict(project: CadProject, sheet: Sheet, rev: string): Promise<string | null> {
+	return frozenTaken(project, (await getDoc(doc(project.db, col(project), key(sheet.id, rev)))).data(), sheet, rev)
+}
+
+export async function saveFrozen(project: CadProject, sheet: Sheet, rev: string, issueId: string, prims: Prim[]): Promise<void> {
 	const chunks = splitChunks(JSON.stringify(prims)), k = key(sheet.id, rev)
 	// its floorplan files' settings as they are now: a reprint draws them like this, whatever is masked / hidden later
 	const ids = [...new Set(prims.flatMap((p) => (p.k === 'image' ? [parseUnderlayRef(p.url)?.fileId] : []).filter((x): x is string => !!x)))]
 	const files: Record<string, FileSnapshot> = {}
 	for (const id of ids) { const fd = (await getDoc(doc(project.db, 'files', id))).data(); if (fd?.url) files[id] = fileSnapshot(fd) }
-	const b = writeBatch(project.db)
-	b.set(doc(project.db, col(project), k), { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts: chunks.length, at: Date.now(), ...(ids.length ? { files: JSON.stringify(files) } : {}) })
-	chunks.forEach((json, i) => b.set(doc(project.db, col(project), `${k}~p${i}`), { json }))
-	await b.commit()
+	// checked and written in one transaction: two people issuing the same revision can't both win
+	await runTransaction(project.db, async (tx) => {
+		const headRef = doc(project.db, col(project), k)
+		const why = frozenTaken(project, (await tx.get(headRef)).data(), sheet, rev)
+		if (why) throw new Error(why)
+		tx.set(headRef, { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts: chunks.length, at: Date.now(), ...(ids.length ? { files: JSON.stringify(files) } : {}) })
+		chunks.forEach((json, i) => tx.set(doc(project.db, col(project), `${k}~p${i}`), { json }))
+	})
 }
 async function loadFrozen(project: CadProject, sheetId: string, rev: string): Promise<PdfPage> {
 	const k = key(sheetId, rev), head = (await getDoc(doc(project.db, col(project), k))).data()
@@ -110,10 +136,14 @@ export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: str
 /** Issue these sheets as one package: bump the changed ones (frozen at the new revision), take the rest as last
  *  issued, draw the package PDF from the frozen lists, upload it, then record it all (one undo step for the sheets
  *  and the issue; the frozen copies and the file stay). Throws — before anything is recorded — if the upload fails. */
-export async function issuePackage(project: CadProject, sheets: Sheet[], f: IssueForm): Promise<IssueResult> {
+export async function issuePackage(project: CadProject, listed: Sheet[], f: IssueForm): Promise<IssueResult> {
+	// the sheets as they are NOW, not as they were when the Issue panel opened (edits and other people's issues since)
+	const sheets = freshSheets(project, listed)
 	const plan = withCodes(await previewIssue(project, sheets, f.first), f.codes)
 	// a typed code must be new for its sheet — checked before anything is written
 	for (const r of plan) { const why = r.changed ? revCodeProblem(r.sheet, r.rev) : null; if (why) throw new Error(why) }
+	// …and no recorded issue may already hold a frozen copy of it (saveFrozen checks again, in its transaction)
+	for (const r of plan) { const why = r.changed ? await frozenConflict(project, r.sheet, r.rev) : null; if (why) throw new Error(why) }
 	const issueId = newId(), number = nextIssueNumber(project.store.ofType('issue'))
 	// the backup first: if it fails, nothing has been written yet
 	const backup = f.backup ? await storeBackup(project, `${issueTag(number)}: ${f.name}`, 'all', { issueId }) : null
@@ -155,6 +185,8 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}
+	// someone issued the same revision while this ran (the PDF is already uploaded; the frozen copies are theirs or ours)
+	for (const b of bumped) { const cur = project.store.get(b.id); if (cur?.type === 'sheet' && cur.revisions?.some((r) => r.code === b.rev.code)) throw new Error(`${cur.number || cur.title} got revision ${b.rev.code} meanwhile (another issue) — nothing was recorded; issue again`) }
 	project.store.transact(`Issue ${f.name}`, (tx) => {
 		for (const b of bumped) { const cur = tx.get(b.id); if (cur?.type === 'sheet') tx.put(issuedRevision(cur, b.rev)) }
 		tx.put(issue)
