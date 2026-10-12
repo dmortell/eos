@@ -39,6 +39,11 @@ describe('rack BOM', () => {
 	})
 	it('white racks get the white kit', () => {
 		expect(containmentKitSku(ar4p, 'White')).toBe('AR4P-AC-KITWH')
+		// the Color picker writes hex (Review 2 Q1)
+		expect(containmentKitSku(ar4p, '#ffffff')).toBe('AR4P-AC-KITWH')
+		expect(containmentKitSku(ar4p, '#F4F4F5')).toBe('AR4P-AC-KITWH')
+		expect(containmentKitSku(ar4p, '#18181b')).toBe('AR4P-AC-KIT')
+		expect(containmentKitSku(ar4p, '#fde68a')).toBe('AR4P-AC-KIT')
 	})
 	it('the project BOM carries the rack lines', () => {
 		const lines = bom(ix([row('none'), rack('A', 0, { catalogId: ar4p.id })]), PANDUIT_SEED)

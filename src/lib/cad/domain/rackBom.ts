@@ -13,10 +13,22 @@ import { racksInOrder } from './devices'
 export type RackBomGroup = 'Rack' | 'Rack accessory' | 'VCM' | 'VCM accessory' | 'Row accessory' | 'Desk / shelf'
 export interface RackBomLine { sku: string; group: RackBomGroup; description: string; qty: number; note?: string; url?: string }
 
+/** A rack color that orders the white kit: the word (catalogue colors), or a light, unsaturated hex from the Color picker
+ *  (Review 2 Q1: `#ffffff` racks got the black kit). */
+export function isWhite(c: string): boolean {
+	const t = c.trim().toLowerCase()
+	if (t === 'white' || t === 'wh') return true
+	const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(t)
+	if (!m) return false
+	const h = m[1].length === 3 ? [...m[1]].map((x) => x + x).join('') : m[1]
+	const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+	return Math.min(r, g, b) >= 200 && Math.max(r, g, b) - Math.min(r, g, b) <= 40
+}
+
 /** The family + color containment kit of a rack product (AR4P / R4P; 96-in R4P racks have their own). */
 export function containmentKitSku(p: CatalogProduct | undefined, colour: string | undefined): string | null {
 	if (!p) return null
-	const white = (colour ?? p.color ?? 'Black').toLowerCase() === 'white'
+	const white = isWhite(colour ?? p.color ?? 'Black')
 	if (p.family === 'AR4P') return white ? 'AR4P-AC-KITWH' : 'AR4P-AC-KIT'
 	if (p.family === 'R4P') {
 		const tall = p.ru === 52 || /96/.test(p.sku)
