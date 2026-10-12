@@ -5,6 +5,7 @@ import type { Id, Outlet, Device, Rack, Link, Cord, PortRef, ProjectSettings } f
 import type { Shape } from './shapes'
 import { ownerOf } from './shapes'
 import { cablesOf, coresOf } from './multicore'
+import { sidesOf, sharesU, overlapAllowed } from './devices'
 
 export interface Issue { id: Id; code: string; message: string; severity: 'error' | 'warning' }
 
@@ -91,14 +92,16 @@ export function validateProject(entities: Iterable<Entity>): Issue[] {
 	for (const d of devices) {
 		const rack = byId.get(d.rackId) as Rack | undefined
 		if (!rack || rack.type !== 'rack') { out.push(err(d.id, 'device-rack', 'Device is in a missing rack')); continue }
-		if (d.u < 1 || d.u + d.heightU - 1 > rack.heightU) out.push(err(d.id, 'device-fit', `${d.name} (U${d.u}, ${d.heightU}U) does not fit a ${rack.heightU}U rack`))
+		// a PDU is a vertical 0U strip beside the rails: it takes no rack units
+		if (d.kind !== 'pdu' && (d.u < 1 || d.u + d.heightU - 1 > rack.heightU)) out.push(err(d.id, 'device-fit', `${d.name} (U${d.u}, ${d.heightU}U) does not fit a ${rack.heightU}U rack`))
 	}
-	// A PDU is a vertical 0U strip beside the rails: it takes no rack units, so it never overlaps.
-	const faces = (d: Device) => (d.kind === 'pdu' || d.face === 'none' ? [] : d.face === 'both' ? ['front', 'rear'] : [d.face])
-	for (let i = 0; i < devices.length; i++) for (let j = i + 1; j < devices.length; j++) {
-		const a = devices[i], b = devices[j]
-		if (a.rackId !== b.rackId || !faces(a).some((f) => faces(b).includes(f))) continue
-		if (a.u <= b.u + b.heightU - 1 && b.u <= a.u + a.heightU - 1) out.push(err(b.id, 'device-overlap', `${b.name} overlaps ${a.name} in the rack`))
+	// overlaps, by the rack's own rules (devices.ts: mount side, shelves, "may overlap"), one rack at a time
+	const byRack = new Map<Id, Device[]>()
+	for (const d of devices) { const l = byRack.get(d.rackId); if (l) l.push(d); else byRack.set(d.rackId, [d]) }
+	for (const list of byRack.values()) for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+		const a = list[i], b = list[j]
+		if (!sidesOf(a).some((f) => sidesOf(b).includes(f)) || !sharesU(a, b) || overlapAllowed(a, b)) continue
+		out.push(err(b.id, 'device-overlap', `${b.name} overlaps ${a.name} in the rack`))
 	}
 
 	// Links and cords reach real ports.

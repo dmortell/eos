@@ -59,12 +59,40 @@ export function deleteEntities(store: EntityStore, ids: Id[], also?: (tx: Txn) =
 		const members = byGroup.get(g.id) ?? []
 		if (members.length && members.every((id) => gone.has(id))) gone.add(g.id)
 	}
+	const fixed = unlinkFrom(store.all(), gone)
 	store.transact(gone.size === 1 ? 'Delete' : `Delete ${gone.size} items`, (tx) => {
 		also?.(tx)   // e.g. a deleted section's viewports kept as elevations or taken off (one undo step with the delete)
+		for (const e of fixed) tx.put(e)   // what pointed at them lets go, in the same step (Undo puts it back)
 		for (const id of gone) tx.del(id)
 		for (const c of marked) if (!gone.has(c.id)) tx.put(c)
 	})
 	return gone.size + marked.length
+}
+
+/** What still points at deleted things, let go: a link's chosen runs, a run node's / leader's attachment, an outlet's
+ *  host wall, a port's or panel's server room. (Left, routing said "can't reach a chosen run" and tips showed
+ *  rooms that were gone.) */
+export function unlinkFrom(all: Iterable<Entity>, gone: Set<Id>): Entity[] {
+	const out: Entity[] = []
+	for (const e of all) {
+		if (gone.has(e.id)) continue
+		if (e.type === 'link' && e.via != null) {
+			const via = (Array.isArray(e.via) ? e.via : [e.via]).filter((id) => !gone.has(id))
+			if (via.length !== (Array.isArray(e.via) ? e.via.length : 1)) { const { via: _, ...rest } = e; out.push(via.length ? { ...rest, via: Array.isArray(e.via) ? via : via[0] } : rest) }
+		} else if (e.type === 'shape' && e.geom.kind === 'path' && e.geom.nodes.some((n) => n.attach && gone.has(n.attach))) {
+			out.push({ ...e, geom: { ...e.geom, nodes: e.geom.nodes.map((n) => (n.attach && gone.has(n.attach) ? (({ attach: _, ...rest }) => rest)(n) : n)) } })
+		} else if (e.type === 'shape' && e.geom.kind === 'leader' && e.geom.attach && gone.has(e.geom.attach)) {
+			const { attach: _, ...geom } = e.geom
+			out.push({ ...e, geom })
+		} else if (e.type === 'outlet' && ((e.hostShapeId && gone.has(e.hostShapeId)) || e.ports.some((p) => p.serverRoomId && gone.has(p.serverRoomId)))) {
+			const { hostShapeId, ...rest } = e
+			out.push({ ...rest, ...(hostShapeId && !gone.has(hostShapeId) ? { hostShapeId } : {}), ports: e.ports.map((p) => (p.serverRoomId && gone.has(p.serverRoomId) ? (({ serverRoomId: _, ...q }) => q)(p) : p)) })
+		} else if (e.type === 'device' && e.panel?.serverRoomId && gone.has(e.panel.serverRoomId)) {
+			const { serverRoomId: _, ...panel } = e.panel
+			out.push({ ...e, panel })
+		}
+	}
+	return out
 }
 
 /** Group the selected shapes (Ctrl+G): one undo step. Returns how many, or a reason it can't. */

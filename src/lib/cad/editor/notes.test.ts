@@ -7,7 +7,7 @@ import { demoProject } from '../domain/fixtures'
 import { type ToolCtx } from './tools'
 import { SelectTool } from './selectTool'
 import { NoteTool, untie } from './noteTool'
-import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff } from './commands'
+import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff, unlinkFrom } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
@@ -191,5 +191,20 @@ describe('deleting a level (review R18)', () => {
 		expect(store.undoLabels.at(-1)).toMatch(/^Delete/)
 		store.undo()
 		expect((store.get('SH') as Sheet).viewports).toHaveLength(2)
+	})
+})
+
+describe('deleting lets go of what points at it (review R26)', () => {
+	it('a link’s chosen run, a leader’s attachment and a port’s server room go; the rest stays', () => {
+		const ents = [
+			{ type: 'link', id: 'K', kind: 'horizontal', a: { on: 'P', port: 1 }, b: { on: 'O', port: 1 }, status: 'design', via: ['R1', 'R2'] },
+			{ type: 'shape', id: 'LD', levelId: 'L', geom: { kind: 'leader', pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], attach: 'O2' } },
+			{ type: 'outlet', id: 'O', levelId: 'L', label: 'A', tier: 'low', usage: 'desk', mount: 'floor', ports: [{ port: 1, label: 'A.a', serverRoomId: 'SR' }] },
+		] as unknown as Parameters<typeof unlinkFrom>[0]
+		const out = unlinkFrom(ents, new Set(['R1', 'O2', 'SR']))
+		const byId = new Map(out.map((e) => [e.id, e as unknown as Record<string, any>]))
+		expect(byId.get('K')!.via).toEqual(['R2'])
+		expect(byId.get('LD')!.geom.attach).toBeUndefined()
+		expect(byId.get('O')!.ports[0].serverRoomId).toBeUndefined()
 	})
 })

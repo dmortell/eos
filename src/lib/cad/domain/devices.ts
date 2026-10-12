@@ -252,6 +252,9 @@ export function moveRacksToLevel(ix: ProjectIndex, racks: Rack[], levelId: Id): 
 			to = target.id
 		}
 		for (const r of mine) out.push({ ...r, levelId, spaceId: to, at: undefined, ...(to === spaceId ? {} : { rowId: undefined }) })
+		// panels that named the old room as the one they serve now serve the new one (else allocation kept filling them
+		// from the old room's outlets)
+		if (to !== spaceId) for (const d of ix.devices) if (mine.some((r) => r.id === d.rackId) && d.panel?.serverRoomId === spaceId) out.push({ ...d, panel: { ...d.panel, serverRoomId: to } })
 	}
 	return out
 }

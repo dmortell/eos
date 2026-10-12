@@ -5,7 +5,7 @@ import type { Firestore } from 'firebase/firestore'
 import { EntityStore, type UndoResult } from '../store/store'
 import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
-import { PROJECT_SCOPE, levelScope, sheetScope } from '../persist/docs'
+import { PROJECT_SCOPE, levelScope, viewScope, sheetScope } from '../persist/docs'
 import { ProjectIndex } from '../domain/project'
 import { routeLinks, cableSettings } from '../domain/routing'
 import { fillBySegment } from '../domain/fill'
@@ -114,7 +114,8 @@ export class CadProject {
 
 	/** A level's plan data loads with its level, a sheet's paper notes with its sheet (ADR 0003 scopes). */
 	#watchLevels(): void {
-		const scopes = [...this.store.ofType('level').map((l) => levelScope(l.id)), ...this.store.ofType('sheet').map((s) => sheetScope(s.id))]
+		// …and a saved view's own shapes with the view (they were never loaded or confirmed: "Saving…" stayed on)
+		const scopes = [...this.store.ofType('level').map((l) => levelScope(l.id)), ...this.store.ofType('sheet').map((s) => sheetScope(s.id)), ...this.store.ofType('view').map((v) => viewScope(v.id))]
 		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s], () => { this.loadedScopes[s] = true }) }
 	}
 

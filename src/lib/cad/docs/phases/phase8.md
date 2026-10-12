@@ -2580,3 +2580,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   ∞ columns) — the label sheet's cells shrink when a row has more than 24; a remote doc that differs only in key order
   isn't a change (`persist/sync.ts` uses `sameEntity`); Ctrl+] / Ctrl+[ (draw order) go by the character typed, so they
   work on a JIS keyboard (`ui/shellKeys.ts`). Tests in `domain/renumber.test.ts`, `persist/chunks.test.ts`.
+- **R26–R29 Data tidiness:** a delete lets go of what points at the deleted things, in the same undo step — a link's
+  chosen runs, a run node's / leader's attachment, an outlet's host wall, a port's / panel's server room
+  (`editor/commands.ts` `unlinkFrom`); racks moved into another room take their panels' "serves" room with them
+  (`domain/devices.ts`); a saved view's own shapes load and confirm (its scope is watched; `app/project.svelte.ts`);
+  the backup check uses the rack's own overlap rules (mount side, shelves, "may overlap"), skips 0U PDUs for fit and
+  checks rack by rack (`domain/validate.ts`). Test in `editor/notes.test.ts`.
