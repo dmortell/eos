@@ -3010,3 +3010,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R106 — any cord length:** a cord's Length (Properties) and a label batch's length are typed fields with the standard
   lengths offered (a datalist), not a fixed list; a typed length locks (`ui/CordProps.svelte`, `ui/CordBatches.svelte`);
   Help. The estimate from the racks still rounds up to a standard length.
+
+## Review 2 fixes (backlog.md "Review 2")
+
+- **Q1** a white rack (the word, or a light, unsaturated hex from the Color picker) orders the white containment kit
+  (`domain/rackBom.ts` `isWhite`; test).
+- **Q2** racks moved to another room (Room, New server room…) take their panels' served room with them; Room is off for
+  racks on several levels (`domain/devices.ts` `racksToRoom`, `ui/RackProps.svelte`; test).
+- **Q3** auto cord lengths take a port's column as the rack view draws it — column-numbered switches went to the wrong
+  cable channel (`domain/cords.ts` `portColumn` / `portSide`; test).
+- **Q4** Floors settings read `project.rev` for the building (stale skip after Apply; a new building per Apply).
+- **Q29** an error shows beside Saved / Saving…, with ✕; a saving error clears once the next writes go through
+  (`app/project.svelte.ts`, `ui/CadShell.svelte`).
