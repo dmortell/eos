@@ -3,7 +3,7 @@
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
-import { deleteEntities, levelContents, levelViewports, levelViewportsOff, deleteImpact, impactText } from '../editor/commands'
+import { deleteEntities, levelContents, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
 export function renameLevel(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
@@ -35,18 +35,28 @@ export function deleteLevel(project: CadProject, ws: Workspace, id: string): voi
 }
 // ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
 export function renameRoom(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
-/** A room goes with its racks (and their devices, links, cords) and rows; outlet ports and panels that name it as
- *  their server room keep the id but show none (said in the question). An empty room just goes (Undo brings it back). */
+/** A room goes with its racks (and their devices, links, cords) and rows; the sheet viewports showing it come off;
+ *  outlet ports, panels and runs that name it as their server room let go (said in the question). An empty room, shown
+ *  nowhere, just goes (Undo brings it back). */
 export function deleteRoom(project: CadProject, ws: Workspace, id: string): void {
 	const r = project.index.get(id)
 	if (r?.type !== 'space') return
-	const racks = project.index.racks.filter((k) => k.spaceId === id).map((k) => k.id)
-	const rows = [...project.index.byId.values()].filter((e) => e.type === 'rackRow' && e.spaceId === id).map((e) => e.id)
+	const racksIn = () => project.store.ofType('rack').filter((k) => k.spaceId === id).map((k) => k.id)
+	const rowsIn = () => project.store.all().filter((e) => e.type === 'rackRow' && e.spaceId === id).map((e) => e.id)
+	const racks = racksIn(), rows = rowsIn(), vps = roomViewports(project.store, id)
 	const ports = project.index.outlets.reduce((n, o) => n + o.ports.filter((pt) => pt.serverRoomId === id).length, 0)
-	const go = () => deleteEntities(project.store, [id, ...rows, ...racks])
+	const runs = project.index.shapes.filter((s) => s.role?.kind === 'containment' && s.role.serves?.includes(id)).length
+	// what's in it NOW (a rack added while the question was open goes too), not when asked
+	const go = () => deleteEntities(project.store, [id, ...rowsIn(), ...racksIn()], roomViewportsOff(project.store, id))
 	const also = [racks.length ? `${racks.length} rack${racks.length === 1 ? '' : 's'} (with their devices, links and cords)` : '', impactText(deleteImpact(project.store, racks)) ?? ''].filter(Boolean)[0]
-	if (!racks.length && !ports) { go(); ws.say(`Deleted room ${r.name}${rows.length ? ` (and its ${rows.length} empty row${rows.length === 1 ? '' : 's'})` : ''} — Undo brings it back`); return }
-	ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : ''} Undo brings it back.`, 'Delete room', go)
+	if (!racks.length && !ports && !runs && !vps.length) { go(); ws.say(`Deleted room ${r.name}${rows.length ? ` (and its ${rows.length} empty row${rows.length === 1 ? '' : 's'})` : ''} — Undo brings it back`); return }
+	const sheets = new Set(vps.map((v) => v.sheet.id)).size
+	const notes = [
+		ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : '',
+		runs ? ` ${runs} run${runs === 1 ? '' : 's'} serve${runs === 1 ? 's' : ''} it — it's taken off what ${runs === 1 ? 'it serves' : 'they serve'} (a run serving only it then serves every room).` : '',
+		vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : '',
+	].join('')
+	ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${notes} Undo brings it back.`, 'Delete room', go)
 }
 /** A row of racks goes; its racks stay in the room, in no row (and its hand order goes). One undo step. */
 export function deleteRow(project: CadProject, id: string): void {

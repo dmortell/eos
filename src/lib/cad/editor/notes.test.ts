@@ -7,7 +7,7 @@ import { demoProject } from '../domain/fixtures'
 import { type ToolCtx } from './tools'
 import { SelectTool } from './selectTool'
 import { NoteTool, untie } from './noteTool'
-import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff, unlinkFrom } from './commands'
+import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff, roomViewports, roomViewportsOff, unlinkFrom } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
@@ -191,6 +191,26 @@ describe('deleting a level (review R18)', () => {
 		expect(store.undoLabels.at(-1)).toMatch(/^Delete/)
 		store.undo()
 		expect((store.get('SH') as Sheet).viewports).toHaveLength(2)
+	})
+})
+
+describe('deleting a server room (Review 2 Q17)', () => {
+	const vp = (id: string, spec: Sheet['viewports'][number]['view']['spec']) => ({ id, view: { levelId: 'L33', spec }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 50, centre: { x: 0, y: 0 } }) as Sheet['viewports'][number]
+	const run = (id: string, serves: string[]) => ({ type: 'shape', id, levelId: 'L33', geom: { kind: 'path', nodes: [] }, role: { kind: 'containment', form: 'tray', tier: 'high', serves } }) as unknown as Shape
+	it('its rack view, patch schedule and port sheets come off their sheets; runs stop serving it; one undo step', () => {
+		const store = new EntityStore()
+		const vps = [vp('ROW', { kind: 'row', spaceId: 'SR-A', face: 'front' }), vp('SCH', { kind: 'schedule', table: 'patch', spaceId: 'SR-A' }), vp('PRT', { kind: 'ports', rackId: 'R1' }),
+			vp('ALL', { kind: 'schedule', table: 'patch' }), vp('PLAN', { kind: 'plan' })]
+		store.load([...demoProject(), { ...SHEET, viewports: vps }, run('T1', ['SR-A']), run('T2', ['SR-A', 'SR-B'])])
+		expect(roomViewports(store, 'SR-A').map((h) => h.vp.id)).toEqual(['ROW', 'SCH', 'PRT'])
+		deleteEntities(store, ['SR-A', 'R1'], roomViewportsOff(store, 'SR-A'))
+		expect((store.get('SH') as Sheet).viewports.map((v) => v.id)).toEqual(['ALL', 'PLAN'])
+		const serves = (id: string) => ((store.get(id) as Shape).role as { serves?: string[] }).serves
+		expect(serves('T1')).toBeUndefined()   // it served only that room: every room now
+		expect(serves('T2')).toEqual(['SR-B'])
+		store.undo()
+		expect((store.get('SH') as Sheet).viewports).toHaveLength(5)
+		expect(serves('T1')).toEqual(['SR-A'])
 	})
 })
 

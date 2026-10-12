@@ -3036,3 +3036,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q11** a cable type that only links (outlet cables, ties, backbone) use can't be deleted — it was, and fill, cores,
   the riser and the BOM then guessed; Settings › Cable types' Used by counts links too (`domain/cableTypes.ts`
   `cableTypeUses` / `cantDelete`, `ui/SettingsPanel.svelte`; test).
+- **Q17** deleting a server room takes the sheet viewports showing it off their sheets (its rack view, its patch
+  schedule, its racks' port sheets; tied notes back on the paper) and takes it off the rooms runs serve (a run that
+  served only it serves every room again — any delete lets go of `serves`, in `unlinkFrom`); the racks and rows go as
+  they are when Delete is clicked, not when asked; the question says how many runs / viewports (`editor/commands.ts`
+  `roomViewports` / `roomViewportsOff`, `app/navActions.ts` `deleteRoom`; test).

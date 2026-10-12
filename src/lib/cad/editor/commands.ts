@@ -70,8 +70,8 @@ export function deleteEntities(store: EntityStore, ids: Id[], also?: (tx: Txn) =
 }
 
 /** What still points at deleted things, let go: a link's chosen runs, a run node's / leader's attachment, an outlet's
- *  host wall, a port's or panel's server room. (Left, routing said "can't reach a chosen run" and tips showed
- *  rooms that were gone.) */
+ *  host wall, a port's or panel's server room, the rooms a run serves (a run left serving only a gone room serves
+ *  every room again). (Left, routing said "can't reach a chosen run" and tips showed rooms that were gone.) */
 export function unlinkFrom(all: Iterable<Entity>, gone: Set<Id>): Entity[] {
 	const out: Entity[] = []
 	for (const e of all) {
@@ -79,11 +79,19 @@ export function unlinkFrom(all: Iterable<Entity>, gone: Set<Id>): Entity[] {
 		if (e.type === 'link' && e.via != null) {
 			const via = (Array.isArray(e.via) ? e.via : [e.via]).filter((id) => !gone.has(id))
 			if (via.length !== (Array.isArray(e.via) ? e.via.length : 1)) { const { via: _, ...rest } = e; out.push(via.length ? { ...rest, via: Array.isArray(e.via) ? via : via[0] } : rest) }
-		} else if (e.type === 'shape' && e.geom.kind === 'path' && e.geom.nodes.some((n) => n.attach && gone.has(n.attach))) {
-			out.push({ ...e, geom: { ...e.geom, nodes: e.geom.nodes.map((n) => (n.attach && gone.has(n.attach) ? (({ attach: _, ...rest }) => rest)(n) : n)) } })
-		} else if (e.type === 'shape' && e.geom.kind === 'leader' && e.geom.attach && gone.has(e.geom.attach)) {
-			const { attach: _, ...geom } = e.geom
-			out.push({ ...e, geom })
+		} else if (e.type === 'shape') {
+			let s = e
+			if (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.attach && gone.has(n.attach)))
+				s = { ...s, geom: { ...s.geom, nodes: s.geom.nodes.map((n) => (n.attach && gone.has(n.attach) ? (({ attach: _, ...rest }) => rest)(n) : n)) } }
+			if (s.geom.kind === 'leader' && s.geom.attach && gone.has(s.geom.attach)) {
+				const { attach: _, ...geom } = s.geom
+				s = { ...s, geom }
+			}
+			if (s.role?.kind === 'containment' && s.role.serves?.some((id) => gone.has(id))) {
+				const serves = s.role.serves.filter((id) => !gone.has(id))
+				s = { ...s, role: { ...s.role, serves: serves.length ? serves : undefined } }
+			}
+			if (s !== e) out.push(s)
 		} else if (e.type === 'outlet' && ((e.hostShapeId && gone.has(e.hostShapeId)) || e.ports.some((p) => p.serverRoomId && gone.has(p.serverRoomId)))) {
 			const { hostShapeId, ...rest } = e
 			out.push({ ...rest, ...(hostShapeId && !gone.has(hostShapeId) ? { hostShapeId } : {}), ports: e.ports.map((p) => (p.serverRoomId && gone.has(p.serverRoomId) ? (({ serverRoomId: _, ...q }) => q)(p) : p)) })
@@ -142,13 +150,28 @@ export function retargetSectionViewports(store: EntityStore, ix: ProjectIndex, s
 
 /** The sheet viewports drawing this level (plans, elevations, sections and rack rows of it). */
 export function levelViewports(store: EntityStore, levelId: Id): { sheet: Sheet; vp: Viewport }[] {
-	return store.ofType('sheet').flatMap((sheet) => sheet.viewports.filter((v) => v.view.levelId === levelId).map((vp) => ({ sheet, vp })))
+	return viewportsWhere(store, (v) => v.view.levelId === levelId)
 }
+const viewportsWhere = (store: EntityStore, hit: (v: Viewport) => boolean): { sheet: Sheet; vp: Viewport }[] =>
+	store.ofType('sheet').flatMap((sheet) => sheet.viewports.filter(hit).map((vp) => ({ sheet, vp })))
 /** Inside a level's delete: its viewports come off their sheets (notes tied to them go back on the paper) — else the
  *  sheets would keep printing an empty view. */
 export function levelViewportsOff(store: EntityStore, levelId: Id): (tx: Txn) => void {
+	return viewportsOff(store, () => levelViewports(store, levelId))
+}
+/** The sheet viewports showing this server room: its racks (rack view), its patch schedule, its racks' port sheets. */
+export function roomViewports(store: EntityStore, roomId: Id): { sheet: Sheet; vp: Viewport }[] {
+	const racks = new Set(store.ofType('rack').filter((r) => r.spaceId === roomId).map((r) => r.id))
+	return viewportsWhere(store, ({ view: { spec } }) =>
+		(spec.kind === 'row' || spec.kind === 'schedule') ? spec.spaceId === roomId : spec.kind === 'ports' && racks.has(spec.rackId))
+}
+/** Inside a room's delete: the viewports showing it come off their sheets (tied notes back on the paper). */
+export function roomViewportsOff(store: EntityStore, roomId: Id): (tx: Txn) => void {
+	return viewportsOff(store, () => roomViewports(store, roomId))
+}
+function viewportsOff(store: EntityStore, find: () => { sheet: Sheet; vp: Viewport }[]): (tx: Txn) => void {
 	return (tx) => {
-		const hits = levelViewports(store, levelId)
+		const hits = find()
 		for (const sheet of new Set(hits.map((h) => h.sheet))) {
 			const off = new Set(hits.filter((h) => h.sheet === sheet).map((h) => h.vp.id))
 			for (const n of store.ofType('shape')) if (n.sheetId === sheet.id && n.vpId && off.has(n.vpId)) tx.put(untie(n, sheet.viewports.find((v) => v.id === n.vpId)!))
