@@ -73,6 +73,10 @@
 		<button class:on={ws.drafting.osnap} title="OSNAP ({KEYS.osnap}): snap to nodes, midpoints, centres, outlets and racks" onclick={() => flip('osnap')}>OSNAP</button>
 		<button class:on={ws.drafting.showGrid} title="GRID ({KEYS.grid}): draw the grid (plans, elevations, sections)" onclick={() => flip('showGrid')}>GRID</button>
 	</div>
+	<div class="toggles">
+		<button class:on={ws.inputMode === 'eos'} title={ws.inputMode === 'eos' ? 'EOS input: the wheel pans (Shift: sideways, Ctrl / Alt + wheel zooms); press-drag draws a line, run segment or dimension, a click works too. Click for ACAD input (wheel zooms, click the points).' : 'ACAD input: the wheel zooms, click the points. Click for EOS input (wheel pans, press-drag draws).'}
+			aria-pressed={ws.inputMode === 'eos'} onclick={ws.toggleInputMode}>{ws.inputMode === 'eos' ? 'EOS' : 'ACAD'}</button>
+	</div>
 	{#if v}
 		<span class="scale" title="{v.mmPerPx} mm a pixel">{v.scale} · {v.zoom}%{v.extra ? ` · ${v.extra}` : ''}</span>
 	{/if}

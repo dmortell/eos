@@ -34,6 +34,7 @@ import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 import type { RepeatEdit } from '../domain/repeatEdit'
 import { CalibrateTool, type CalibTarget, type CalibMode } from '../editor/calibrateTool'
+import { parseInputMode, INPUT_MODE_KEY, type InputMode } from '../editor/inputMode'
 import type { Underlay } from '../domain/types'
 import type { PageCalibUsed } from './pdf.svelte'
 
@@ -146,6 +147,13 @@ export class Workspace {
 	/** File › Export › Monochrome PDFs (decision T121): sheet PDFs in black ink, kept per browser. */
 	monoPdf = $state((() => { try { return localStorage.getItem('cad-mono-pdf') === '1' } catch { return false } })())
 	toggleMonoPdf = (): void => { this.monoPdf = !this.monoPdf; try { localStorage.setItem('cad-mono-pdf', this.monoPdf ? '1' : '0') } catch { /* storage blocked */ } }
+	/** ACAD (wheel zooms, click-click) or EOS (wheel pans, press-drag draws): this user's choice, kept per browser (editor/inputMode.ts). */
+	inputMode = $state<InputMode>((() => { try { return parseInputMode(localStorage.getItem(INPUT_MODE_KEY)) } catch { return 'acad' } })())
+	toggleInputMode = (): void => {
+		this.inputMode = this.inputMode === 'eos' ? 'acad' : 'eos'
+		try { localStorage.setItem(INPUT_MODE_KEY, this.inputMode) } catch { /* storage blocked */ }
+		this.say(this.inputMode === 'eos' ? 'EOS input: the wheel pans (Ctrl / Alt + wheel zooms), press-drag draws' : 'ACAD input: the wheel zooms, click the points')
+	}
 	/** The plan / rack view strip's B/W, Usage colors and Cord channels: this user's screen only, kept per browser. */
 	screen = $state<ScreenLook>(loadScreen())
 	toggleScreen(k: keyof ScreenLook): void {

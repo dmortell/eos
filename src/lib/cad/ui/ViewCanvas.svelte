@@ -1,7 +1,7 @@
 <!-- One view surface: a plan or an elevation of the open level (switch with the buttons at the top left). It generates
      the view's display list, draws it, and routes input — left button → the active tool (points in VIEW mm; the view
      space turns them into model points), right / middle drag → pan, a right CLICK → the same as Esc (on a thing: its menu; a long-press on
-     touch too), wheel → zoom.
+     touch too), wheel → zoom (EOS input mode: pan; press-drag draws, editor/pressDrag.ts).
      With a second pane open, each shows the other's work plane (ADR 0006): the plan shows the elevation's work depth
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
@@ -34,6 +34,8 @@
 	import { snapThroughViewport } from '../editor/noteTool'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
+	import { wheelAction } from '../editor/inputMode'
+	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
 	import { TouchNav } from '../editor/touch'
 	import { LONG_PRESS_SLOP } from './longPress'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
@@ -364,6 +366,10 @@
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
 	let cursor = $state<Pt | null>(null)
 	let toolDown = $state(false)
+	/** EOS input: a press-drag with a click tool (line, run, dimension) → the clicks it takes (editor/pressDrag.ts). One
+	 *  place for it: the tools never know. `pdActive` = this press went through it (so its move / release do too). */
+	const pdrag = new PressDragInput((e) => { ws.tool.down(e, ctx()); ws.tool.up(e, ctx()) })
+	let pdActive = false
 	/** The tool's cursor for what's under the pointer (Select: crosshair on a grip, move on what moves). */
 	const cursorCss = $derived.by(() => { void tick; return ws.tool.cursorNow?.() ?? ws.tool.cursor })
 	/** Length · angle · Δ in the status bar while drawing a run / line (from its last point) or dragging (from where the
@@ -451,6 +457,12 @@
 		if (why) { ws.say(why); return }
 		toolDown = true
 		if (e.pointerType !== 'mouse') held = { id: e.pointerId, at: local(e) }
+		if (ws.inputMode === 'eos' && PRESS_DRAG_TOOLS.has(ws.toolId) && e.pointerType !== 'touch') {
+			pdActive = true
+			pdrag.down(input(e, count), local(e), !!ws.tool.lastPoint?.(ctx())); tick++
+			return
+		}
+		pdActive = false
 		ws.tool.down(input(e, count), ctx()); tick++
 	}
 	function onMove(e: PointerEvent) {
@@ -479,6 +491,7 @@
 			if (Math.hypot(s.x - held.at.x, s.y - held.at.y) <= LONG_PRESS_SLOP) return
 			held = null
 		}
+		if (pdActive) pdrag.move(local(e))
 		if (toolDown) ws.tool.move(input(e), ctx())
 		else ws.tool.hover?.(input(e), ctx())
 		tick++
@@ -507,6 +520,7 @@
 		}
 		if (vpPan) { vpPan.g?.commit(ws.selection); vpPan = null; return }
 		if (wDrag) { wDrag = false; ws.say(wGrip?.what === 'depth' ? `Work depth ${ws.depth} — what you draw in the elevation goes there · double-click the grip: auto` : `Work Z ${ws.opts.z} — what you draw in the plan goes at this height`); return }
+		if (pdActive) { pdActive = false; toolDown = false; pdrag.up(input(e), local(e)); tick++; return }
 		if (toolDown) { toolDown = false; ws.tool.up(input(e), ctx()); tick++ }
 	}
 
@@ -517,7 +531,10 @@
 		if (!el) return
 		const onWheel = (e: WheelEvent) => {
 			e.preventDefault()
-			if (!((e.altKey || ws.vpContentNav) && rescale(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), Math.exp(-e.deltaY * 0.0015))
+			// ACAD: the wheel zooms. EOS: it pans; Ctrl / Alt / Meta (or the right button held) + wheel zooms (editor/inputMode.ts)
+			const a = wheelAction(ws.inputMode, e, panning?.button === 2)
+			if (a.kind === 'pan') { cam = panBy(cam, a.dx, a.dy); return }
+			if (!((e.altKey || ws.vpContentNav) && rescale(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), a.factor)
 		}
 		el.addEventListener('wheel', onWheel, { passive: false })
 		return () => el.removeEventListener('wheel', onWheel)
@@ -551,7 +568,7 @@
 	/** Esc with nothing selected, while editing inside a viewport: leave it. */
 	export function leaveViewport(): void { exitVp() }
 	/** Esc / a cancelled pointer: whatever the press started goes back (a tool's drag, a viewport pan, the work grip). */
-	export function cancel(): void { vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
+	export function cancel(): void { pdrag.cancel(); pdActive = false; vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
 	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what
 	 *  it was doing rather than commit it where it was. Nothing pressed (after a normal pointerup) = nothing to do. */
 	function onCancel(e: PointerEvent) {
