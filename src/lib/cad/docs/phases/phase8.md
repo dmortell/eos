@@ -2974,3 +2974,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   notes go with it (`ui/SheetsTab.svelte`); an empty level shown nowhere just goes (`app/navActions.ts`); plain
   Delete (an item, an opening, a viewport — via the header's Delete — a row, an empty room) and Delete layer now say
   so. Help updated (unlinking a run of devices, cord actions, allocation, deleting a level / room).
+- **R81 (rest) Hover-only actions outside the tables:** the row actions that showed on hover only now also show on a
+  row with the focus (`:focus-within`, so Tab reaches them), on the picked / current / selected row, and always on a
+  touch screen (`@media (hover: none)`, iPad), with 20 px hit areas: Blocks' ✕ (`BlockManager`), the Device library's
+  ✎ / ⧉ / ✕ (now `visibility`, so the row no longer jumps), Layers' ✎ (and every layer icon 20 px), RackList's drag
+  grip (+ 20 px ⋯ / Place / Rack view buttons), and the Navigator's ✎ (+ 20 px row actions). Help: "hover (or
+  select) the row", "Hover (or tab to) a template".

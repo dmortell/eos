@@ -180,7 +180,7 @@
 </SideSection>
 
 <style>
-	.acts { width: 1.6rem; color: var(--cad-muted); font-size: 12px; border-radius: 3px; }
+	.acts { width: 1.6rem; min-height: 20px; color: var(--cad-muted); font-size: 12px; border-radius: 3px; }
 	.acts:hover { color: #2563eb; background: var(--cad-hover); }
 	.add { display: grid; gap: 3px; margin: 0 4px 6px; padding: 6px; font-size: 11px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-hover); }
 	.add label { display: grid; grid-template-columns: 2.6rem 1fr; align-items: center; gap: 4px; color: var(--cad-muted); }
@@ -199,10 +199,12 @@
 	.rack.sel { background: var(--cad-pick); }
 	.name { text-align: left; flex: 1; padding: 1px 4px; }
 	.nameless { color: var(--cad-muted); font-style: italic; }
+	/* the drag grip: on hover, and on a selected row or one with the focus; always on a touch screen */
 	.grip { visibility: hidden; cursor: grab; color: var(--cad-faint); font-size: 10px; padding-right: 2px; }
-	.rack:hover .grip { visibility: visible; }
+	.rack:hover .grip, .rack:focus-within .grip, .rack.sel .grip { visibility: visible; }
+	@media (hover: none) { .grip { visibility: visible; } }
 	.rack.drag-before { box-shadow: inset 0 2px 0 var(--cad-link, #2563eb); }
 	.rack.drag-after { box-shadow: inset 0 -2px 0 var(--cad-link, #2563eb); }
-	.place { font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
+	.place { min-height: 20px; font-size: 11px; color: #2563eb; padding: 0 4px; border-radius: 3px; }
 	.place:hover, .place.armed { background: var(--cad-sel); }
 </style>

@@ -193,11 +193,13 @@
 	.k-level .t { font-weight: 600; }
 	.dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #2563eb; opacity: 0.6; }
 	.d { font-size: 10px; color: var(--cad-faint); white-space: nowrap; }
-	.act { padding: 0 4px; font-size: 11px; color: var(--cad-faint); border-radius: 3px; }
+	.act { min-width: 20px; min-height: 20px; padding: 0 4px; font-size: 11px; color: var(--cad-faint); border-radius: 3px; }
 	.act.txt { color: var(--cad-muted); }
 	.act.more { font-weight: 700; opacity: 0.55; }
-	.act.ren { display: none; }
-	.row:hover .act.ren { display: inline-flex; }
+	/* ✎: on hover, and on the current / selected row or one with the focus (keyboard); always on a touch screen */
+	.act.ren { display: none; align-items: center; justify-content: center; }
+	.row:hover .act.ren, .row:focus-within .act.ren, .row.cur .act.ren, .row.sel .act.ren { display: inline-flex; }
+	@media (hover: none) { .act.ren { display: inline-flex; } }
 	.row:hover .act { color: var(--cad-link, #2563eb); opacity: 1; }
 	.act:hover { background: var(--cad-hover); }
 	.none { padding: 8px; color: var(--cad-faint); }

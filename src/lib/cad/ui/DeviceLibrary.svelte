@@ -85,9 +85,11 @@
 	.new:hover { background: var(--cad-sel); }
 	.row { display: flex; align-items: center; }
 	.row .tpl { flex: 1; min-width: 0; }
-	.acts { display: none; flex: 0 0 auto; }
-	.row:hover .acts { display: inline-flex; }
-	.acts button { font-size: 11px; color: var(--cad-muted); padding: 0 4px; border-radius: 3px; }
+	/* ✎ / ⧉ / ✕: on hover, and on the armed row or one with the focus (keyboard); always on a touch screen */
+	.acts { display: inline-flex; visibility: hidden; flex: 0 0 auto; }
+	.row:hover .acts, .row:focus-within .acts, .row:has(.tpl.on) .acts { visibility: visible; }
+	@media (hover: none) { .acts { visibility: visible; } }
+	.acts button { min-width: 20px; min-height: 20px; font-size: 11px; color: var(--cad-muted); padding: 0 4px; border-radius: 3px; }
 	.acts button:hover { color: #2563eb; background: var(--cad-sel); }
 	.find { flex: 1; min-width: 0; margin: 0; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 6px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.kind { padding: 4px 4px 0; font-size: 11px; color: var(--cad-faint); }

@@ -147,7 +147,7 @@
 <style>
 	.search { width: 100%; margin-bottom: 0.25rem; padding: 1px 4px; font-size: 12px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 	.note { padding: 0 0.25rem 0.25rem; font-size: 10px; color: var(--cad-faint); }
-	.row { display: flex; align-items: center; gap: 0.2rem; padding: 0 2px; font-size: 12px; border-radius: 3px; }
+	.row { display: flex; align-items: center; gap: 1px; padding: 0 2px; font-size: 12px; border-radius: 3px; }
 	/* the current layer is highlighted like the open level in LEVELS */
 	.row.cur { background: var(--cad-sel); }
 	.nm { flex: 1; min-width: 0; }
@@ -157,15 +157,16 @@
 	.off .nm { color: var(--cad-faint); text-decoration: line-through; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
 	.ct { font-size: 10px; color: var(--cad-faint); min-width: 1.1rem; text-align: right; }
-	.sw { flex: none; display: inline-flex; line-height: 0; }
+	.sw { flex: none; display: inline-flex; line-height: 0; margin-right: 3px; }
 	.sw :global(.cp-btn .sw) { width: 0.75rem; height: 0.75rem; border-radius: 2px; }
 	.sw.dflt :global(.cp-btn .sw) { border-radius: 50%; transform: scale(0.85); }
-	.ic { display: inline-flex; padding: 1px; color: var(--cad-faint); border-radius: 2px; }
-	.ic:hover { color: var(--cad-text); }
+	.ic { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; min-height: 20px; padding: 0; color: var(--cad-faint); border-radius: 3px; }
+	.ic:hover { color: var(--cad-text); background: var(--cad-hover); }
 	.ic.on { color: var(--cad-link); }
-	.ic.ln { align-items: center; }
+	/* ✎: on hover, and on the current layer's row or one with the focus (keyboard); always on a touch screen */
 	.ren { visibility: hidden; }
-	.row:hover .ren { visibility: visible; }
+	.row:hover .ren, .row:focus-within .ren, .row.cur .ren { visibility: visible; }
+	@media (hover: none) { .ren { visibility: visible; } }
 	.sub { display: flex; gap: 0.25rem; padding: 1px 2px 3px 1.1rem; }
 	.sub select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 </style>
