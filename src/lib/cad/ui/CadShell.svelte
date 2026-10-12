@@ -55,7 +55,8 @@
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 
-	let { pid, user, userName = '', projectName, ownerId }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string } = $props()
+	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). */
+	let { pid, user, userName = '', projectName, ownerId, projectDetails }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void } = $props()
 
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
@@ -357,7 +358,7 @@
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => (titleBlockOpen = true), image: () => (imagePickOpen = true),
-		floors: () => (floorsOpen = true), settings: () => (typesOpen = true),
+		floors: () => (floorsOpen = true), settings: () => (typesOpen = true), projectDetails,
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id), toggle: (id) => layout.toggle(id), reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'),

@@ -2477,3 +2477,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Grips (`shapeGrips.ts`): start, middle, end — one dragged, the arc goes through the other two (Shift on an end: 15°).
   Tests in `editor/shapeTool.test.ts`. Live (Test Project 1F): an arc over a desk row, its middle grip dragged up
   (rounder), both undone. Help: "Draw an arc"; the tool's tooltip says arc.
+- **Project details (backlog "Project Properties", G301; decision "Where should the project details editor go?" = (b) a
+  dialog):** Project › **Project details…** opens the projects page's `ProjectSettingsDialog` (name, description,
+  codes, client, address, logos, company, members) — hosted by the cad ROUTE (`routes/projects/[pid]/cad/+page.svelte`,
+  which already watched `projects/{pid}`; now it keeps the whole doc) and passed to CadShell as `projectDetails`, so
+  `lib/cad` doesn't import a route (the Sheets tool does the same). cad's own title block stays its template (its Site
+  field is the template's). Live (Test Project): the menu item opens the dialog over cad with the project's details;
+  closed unsaved. Help: "Project details".

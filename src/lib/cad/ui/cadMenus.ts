@@ -51,6 +51,8 @@ export interface MenuCtx {
 	image(): void
 	// Project
 	floors(): void; settings(): void; backups(): void
+	/** The project's details (name, codes, client, address, logos — the projects page's dialog); absent = not offered. */
+	projectDetails?: () => void
 	hasLevel: boolean; renameLevel(): void; deleteLevel(): void
 	// Window / Help
 	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
@@ -147,6 +149,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Project', items: [
+			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, description, logos — the title block shows them', run: c.projectDetails }] : []),
 			{ label: 'Floors…', title: "The building's floors, their names and heights", run: c.floors },
 			{ label: 'Settings… (usages, cable types, files)', run: c.settings },
 			{ label: 'Backups…', title: 'Back up the project or chosen models, restore, download or delete backups', run: c.backups },

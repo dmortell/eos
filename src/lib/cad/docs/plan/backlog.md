@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 23 entries (0 P1 · 0 P2 · 23 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 22 entries (0 P1 · 0 P2 · 22 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -99,7 +99,6 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Shell, navigation and touch
 
-- [ ] **Project Properties** — edit the project's name, codes, client, address and description in Properties (needed by the title block's Site section). **P3 · M** (Dave 2026-10-05: low priority) (~80 lines). *cad today:* missing; cad only reads the name from `projects/{pid}` (`routes/projects/[pid]/cad/+page.svelte`). Where it lives is the open question "Where should the project details editor go?" below. *From:* G301
 - [ ] **Floor view presets** — quick buttons on a plan: Outlets (low), Outlets (high), Trunks, Fill rate. **P3 · M** (~80 lines). *cad today:* a Fill toggle only (`cad/ui/ViewCanvas.svelte`); presets were never wired in legacy either. *From:* G057
 - [ ] ❓ **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110
 
