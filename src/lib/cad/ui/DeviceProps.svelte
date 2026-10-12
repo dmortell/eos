@@ -8,7 +8,7 @@
 	import type { Device, PortGroup, Rack } from '../domain/types'
 	import { sortedUsages } from '../domain/usages'
 	import { groupsProblem, splitPanel, rangeLabel } from '../domain/portGroups'
-	import { placementProblem, narrowDevice, templateFromDevice, type DeviceTemplate } from '../domain/devices'
+	import { placementProblem, narrowDevice, templateFromDevice, beyondPorts, beyondPortsText, type DeviceTemplate } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { repeatableEdit } from '../domain/repeatEdit'
 	import { portUse, portUseText } from '../domain/cords'
@@ -34,8 +34,9 @@
 	const allPdus = $derived(devices.every((d) => d.kind === 'pdu'))
 	const nonePdu = $derived(devices.every((d) => d.kind !== 'pdu'))
 
-	/** Set it on every device; refused (with the reason) when any would overlap or run off its rack. F4 repeats it. */
-	function set(label: string, patch: (d: Device) => Partial<Device>) {
+	/** Set it on every device; refused (with the reason) when any would overlap or run off its rack. F4 repeats it.
+	 *  `drop`: entities that go in the same step (the links / cords on ports a lower port count takes away). */
+	function set(label: string, patch: (d: Device) => Partial<Device>, drop: string[] = []) {
 		const next = devices.map((d) => ({ ...d, ...patch(d) }))
 		const others = project.index.devices.filter((d) => !devices.some((x) => x.id === d.id))
 		for (const n of next) {
@@ -43,11 +44,21 @@
 			const problem = r?.type === 'rack' ? placementProblem(n, r, [...others, ...next.filter((x) => x.id !== n.id)]) : null
 			if (problem) { ws.say(problem); return }
 		}
-		project.store.transact(devices.length > 1 ? `${label} (${devices.length} devices)` : label, (tx) => { for (const n of next) tx.put(n) })
+		project.store.transact(devices.length > 1 ? `${label} (${devices.length} devices)` : label, (tx) => { for (const id of drop) tx.del(id); for (const n of next) tx.put(n) })
 		// taken from the first: the change, not this event's closure
 		if (devices[0]) ws.lastDeviceEdit = repeatableEdit(devices[0], label, patch(devices[0])) ?? ws.lastDeviceEdit
 	}
 	const setAll = (label: string, patch: Partial<Device>) => set(label, () => patch)
+
+	/** Fewer ports take the links and cords on the ports that go with them, in the same step — asked first, saying what. */
+	function setPorts(n: number) {
+		const going = beyondPorts(project.index, devices.map((d) => ({ id: d.id, portCount: n })))
+		const drop = [...going.links, ...going.cords].map((e) => e.id)
+		if (!drop.length) { setAll('Port count', { portCount: n }); return }
+		const name = one ? one.name : `${devices.length} devices`
+		ws.ask2(`${name}: ${n} ports — ${beyondPortsText(going)} on the ports that go will be deleted. Undo brings them back.`, 'Remove ports',
+			() => set('Port count', () => ({ portCount: n }), drop))
+	}
 
 	function setUsage(d: Device, usage: string, on: boolean) {
 		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
@@ -123,7 +134,7 @@
 	{#if one}<div class="acts ind"><button class="lnk" title="Save this device's size, ports and kind as a new template in the Device library (every project)" onclick={() => (tplFrom = templateFromDevice(one, one.name))}>Save as template…</button></div>{/if}
 </PropGroup>
 <PropGroup kind="device" title="Ports and labels">
-	<NumberField label="Ports" min={0} value={dv((d) => d.portCount).value} mixed={dv((d) => d.portCount).mixed} onchange={(v) => v != null && Number.isInteger(v) && v >= 0 && setAll('Port count', { portCount: v })} />
+	<NumberField label="Ports" min={0} value={dv((d) => d.portCount).value} mixed={dv((d) => d.portCount).mixed} onchange={(v) => v != null && Number.isInteger(v) && v >= 0 && setPorts(v)} />
 	{#if one?.portCount}
 		{@const d = one}
 		<!-- how its ports are used: patched = a cord on it, linked = a permanent cable (outlet, tie, backbone) -->

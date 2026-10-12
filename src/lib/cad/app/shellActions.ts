@@ -7,6 +7,7 @@ import type { Device, Id } from '../domain/types'
 import { blankSheet } from '../views/sheet'
 import { newId } from '../domain/ids'
 import { repeatOn } from '../domain/repeatEdit'
+import { beyondPorts, beyondPortsText } from '../domain/devices'
 import { downloadSheetsPdf, unsupportedNote } from './sheetsPdf'
 import { specLabel, isPaperSpec, type ViewSpec } from '../views/space'
 import { viewName } from '../domain/navTree'
@@ -38,8 +39,14 @@ export function repeatDeviceEdit(project: CadProject, ws: Workspace): void {
 	const devices = ws.selection.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
 	if (!devices.length) { ws.say(`F4: select the devices to repeat "${edit.label}" on`); return }
 	const r = repeatOn(edit, devices, project.index.devices, (id) => { const x = project.index.get(id); return x?.type === 'rack' ? x : undefined })
-	if (r.next.length) project.store.transact(`${edit.label} (repeated on ${r.next.length})`, (tx) => { for (const n of r.next) tx.put(n) })
-	ws.say(`Repeated "${edit.label}" on ${r.next.length} device${r.next.length === 1 ? '' : 's'}${r.skipped.length ? ` · skipped ${r.skipped.join('; ')}` : ''}`)
+	// fewer ports: the links / cords on the ports that go are deleted in the same step — asked first
+	const going = beyondPorts(project.index, r.next), drop = [...going.links, ...going.cords].map((e) => e.id)
+	const go = () => {
+		if (r.next.length) project.store.transact(`${edit.label} (repeated on ${r.next.length})`, (tx) => { for (const id of drop) tx.del(id); for (const n of r.next) tx.put(n) })
+		ws.say(`Repeated "${edit.label}" on ${r.next.length} device${r.next.length === 1 ? '' : 's'}${r.skipped.length ? ` · skipped ${r.skipped.join('; ')}` : ''}`)
+	}
+	if (drop.length) ws.ask2(`${edit.label}: ${beyondPortsText(going)} on the ports that go will be deleted. Undo brings them back.`, 'Repeat', go)
+	else go()
 }
 
 /** "12 selected (outlets)" for the status bar (UX review V3). */

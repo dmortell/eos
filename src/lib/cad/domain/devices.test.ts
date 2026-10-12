@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU, deviceCounts, moveRacksToLevel, racksToRoom } from './devices'
+import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU, deviceCounts, moveRacksToLevel, racksToRoom, beyondPorts, beyondPortsText } from './devices'
 import { ProjectIndex } from './project'
-import type { Device, Rack } from './types'
+import type { Device, Rack, Link, Cord } from './types'
 import type { Entity } from './drawing'
 
 const rack: Rack = { type: 'rack', id: 'R', levelId: 'L', spaceId: 'S', order: 0, name: 'A01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 }
@@ -73,6 +73,18 @@ describe('rack placement rules', () => {
 		expect((out.find((e) => e.id === pp.id) as Device).panel?.serverRoomId).toBe('S2')
 		expect(out.some((e) => e.id === 'PP2')).toBe(false)   // it served another room on purpose: left alone
 		expect(racksToRoom(ix, [ix.get('R') as Rack], 'S')).toEqual([])
+	})
+	it('fewer ports take the links and cords on the ports that go — not those on ports that stay (Review 2 Q9)', () => {
+		const pp = at('builtin:panel-24', 40), sw = at('builtin:switch-48', 38)
+		const link = (id: string, port: number): Link => ({ type: 'link', id, kind: 'tie', a: { on: pp.id, port }, b: { on: 'X', port: 1 }, status: 'design' })
+		const cord = (id: string, port: number, status: Cord['status'] = 'add'): Cord => ({ type: 'cord', id, kind: 'patch', a: { on: sw.id, port: 1 }, b: { on: pp.id, port, face: 'front' }, cableType: 'cat6a', colour: 'blue', lengthM: 1, lengthLocked: false, status })
+		const ix = new ProjectIndex([rack, pp, sw, link('L12', 12), link('L13', 13), cord('C12', 12), cord('C20', 20, 'installed')] as Entity[])
+		const going = beyondPorts(ix, [{ id: pp.id, portCount: 12 }])
+		expect(going.links.map((l) => l.id)).toEqual(['L13'])
+		expect(going.cords.map((c) => c.id)).toEqual(['C20'])
+		expect(beyondPortsText(going)).toMatch(/^1 link and 1 cord \(1 installed/)
+		expect(beyondPorts(ix, [{ id: pp.id, portCount: 24 }])).toEqual({ links: [], cords: [] })
+		expect(beyondPortsText({ links: [], cords: [] })).toBe('')
 	})
 	it('device counts read by kind, most first, singular for one', () => {
 		const ds = [at('builtin:panel-24', 42), at('builtin:panel-24', 41), at('builtin:switch-48', 39)]

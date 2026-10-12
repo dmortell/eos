@@ -3026,3 +3026,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   else 0 — in the elevation (it went by tier), routing, Properties, moves (`moveBy` takes a lookup for the level) and
   pastes. One table of default level heights: `heightsOf(level)` / `DEFAULT_HEIGHTS` (`domain/floors.ts`), used by the
   elevation, riser, section, openings, the draw tools' defaults and the legacy importer; tests.
+- **Q9** fewer ports on a device take the links and cords on the ports that go, in the same step — asked first, saying
+  how many (installed cords named); F4 repeating a port count asks the same (`domain/devices.ts` `beyondPorts`,
+  `ui/DeviceProps.svelte`, `app/shellActions.ts`; test).

@@ -1,6 +1,6 @@
 // Devices in racks (Phase 3.2): GLOBAL device templates (Dave: global, like blocks — built-ins here, the rest in
 // `settings/cadDeviceTemplates`), making a device from a template, and the placement rules a rack enforces.
-import type { Id, Device, DeviceKind, Rack, Pt, Space } from './types'
+import type { Id, Device, DeviceKind, Rack, Pt, Space, Link, Cord } from './types'
 import type { ProjectIndex } from './project'
 import type { Entity } from './drawing'
 import { newId } from './ids'
@@ -270,6 +270,24 @@ export function racksToRoom(ix: ProjectIndex, racks: Rack[], spaceId: Id): Entit
 		for (const d of ix.devicesIn(r.id)) if (d.panel?.serverRoomId === r.spaceId) out.push({ ...d, panel: { ...d.panel, serverRoomId: spaceId } })
 	}
 	return out
+}
+
+/** The links and cords on ports that a new port count takes away: each device in `next` (its new count) against what's
+ *  plugged into its ports above that count — they go with the ports, in the same step (Review 2 Q9). */
+export function beyondPorts(ix: ProjectIndex, next: Pick<Device, 'id' | 'portCount'>[]): { links: Link[]; cords: Cord[] } {
+	const count = new Map(next.map((d) => [d.id, d.portCount]))
+	const gone = (e: { a: { on: Id; port: number }; b: { on: Id; port: number } }) =>
+		[e.a, e.b].some((r) => count.has(r.on) && r.port > count.get(r.on)!)
+	return { links: ix.links.filter(gone), cords: ix.cords.filter(gone) }
+}
+
+/** "3 links and 2 cords" for the question (installed cords named: they leave the record, not into the removal list), or
+ *  '' when nothing goes. */
+export function beyondPortsText(going: { links: Link[]; cords: Cord[] }): string {
+	const n = (k: number, w: string) => `${k} ${w}${k === 1 ? '' : 's'}`
+	const parts = [going.links.length ? n(going.links.length, 'link') : '', going.cords.length ? n(going.cords.length, 'cord') : ''].filter(Boolean)
+	const inst = going.cords.filter((c) => c.status === 'installed').length
+	return parts.join(' and ') + (inst ? ` (${inst} installed — ${inst === 1 ? 'it goes' : 'they go'} from the record, not into the removal list)` : '')
 }
 
 /** The name a new server room is offered: "IDF 1", "IDF 2" … */
