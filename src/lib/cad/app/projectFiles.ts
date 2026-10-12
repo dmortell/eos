@@ -1,6 +1,6 @@
 // The project's uploaded files, live: its PDFs (for picking a level's floorplan) and images (logos). A file belongs to a
 // project through the legacy `projectId` or the newer `projectIds` list ($lib/files.ts), so both are watched and
-// merged. Issue PDFs (no page count) are left out of the PDFs. `storeFile` uploads cad's own files (issue PDFs, logos).
+// merged. Issue PDFs (`issue-…`) are left out of the PDFs. `storeFile` uploads cad's own files (issue PDFs, logos).
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where, type DocumentData, type Firestore } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { genUploader } from 'uploadthing/client'
@@ -11,7 +11,8 @@ export interface PdfFile {
 	id: string
 	name: string
 	pageCount: number
-	/** Per page: calibrated in Uploads (origin + scale) — only those can be placed. */
+	/** Per page: calibrated (origin + scale, in Uploads or the Floors dialog). An uncalibrated page is placed as if 1:100
+	 *  until its scale is set. */
 	calibrated: Record<number, boolean>
 }
 
@@ -33,10 +34,12 @@ function watchProjectFiles(db: Firestore, pid: string, cb: (docs: { id: string; 
 
 export function watchProjectPdfs(db: Firestore, pid: string, cb: (files: PdfFile[]) => void): () => void {
 	return watchProjectFiles(db, pid, (docs) => cb(docs.flatMap(({ id, data: x }) => {
-		if (!x.pageCount) return []
-		const calibrated: Record<number, boolean> = {}
-		for (let n = 1; n <= x.pageCount; n++) { const p = x.pages?.[n]; calibrated[n] = !!(p?.origin && p?.scale?.scale) }
-		return [{ id, name: x.name ?? id, pageCount: x.pageCount, calibrated }]
+		// a PDF the Uploads viewer hasn't opened has no page count yet (its first page is offered); issue PDFs aren't floorplans
+		const pdf = x.type === 'application/pdf' || /\.pdf$/i.test(String(x.name ?? id))
+		if (id.startsWith('issue-') || (!x.pageCount && !pdf)) return []
+		const pageCount = Number(x.pageCount) || 1, calibrated: Record<number, boolean> = {}
+		for (let n = 1; n <= pageCount; n++) { const p = x.pages?.[n]; calibrated[n] = !!(p?.origin && p?.scale?.scale) }
+		return [{ id, name: x.name ?? id, pageCount, calibrated }]
 	}).sort((a, b) => a.name.localeCompare(b.name))))
 }
 

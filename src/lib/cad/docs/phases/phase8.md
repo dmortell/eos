@@ -2536,3 +2536,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   tied to them go back on the paper), in the same undo step; the question says how many viewports on how many sheets
   (`editor/commands.ts` `levelContents`, `levelViewports`, `levelViewportsOff`; `app/navActions.ts`). Test in
   `editor/notes.test.ts`.
+- **R24b A fresh PDF can be used as a floorplan from cad:** the Floors dialog's picker offers uncalibrated pages (shown
+  as if 1:100 until Origin / Scale / Crop there calibrate them) and PDFs the Uploads viewer never opened (no page
+  count yet: page 1); issue PDFs (`issue-…`) stay out (`app/projectFiles.ts`, `ui/FloorManager.svelte`). Help:
+  "Calibrate a floorplan on the plan".

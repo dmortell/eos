@@ -150,7 +150,8 @@
 {#snippet pages()}
 	{#each pdfs as f (f.id)}
 		{#each Array.from({ length: f.pageCount }, (_, i) => i + 1) as n (n)}
-			<option value="{f.id}#{n}" disabled={!f.calibrated[n]}>{f.name}{f.pageCount > 1 ? ` p.${n}` : ""}{f.calibrated[n] ? "" : " (calibrate in Uploads)"}</option>
+			<!-- an uncalibrated page can be picked: it shows as if 1:100, and Origin / Scale / Crop here calibrate it in place -->
+			<option value="{f.id}#{n}">{f.name}{f.pageCount > 1 ? ` p.${n}` : ""}{f.calibrated[n] ? "" : " (not calibrated — set its scale here)"}</option>
 		{/each}
 	{/each}
 {/snippet}
