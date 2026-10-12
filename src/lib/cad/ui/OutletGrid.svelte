@@ -3,7 +3,7 @@
      (the port labels that start with the old outlet label). -->
 <script lang="ts">
 	import { sortedUsages } from '../domain/usages'
-	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
+	import { TableState, arrowSelect, selectAllRows, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import TableFrame from './TableFrame.svelte'
 	import StatusChip from './StatusChip.svelte'
@@ -40,7 +40,7 @@
 	const nSel = $derived(rows.filter((o) => selected.has(o.id)).length)
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection) || selectAllRows(e, rows.map((o) => o.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Level', 'Label', 'Usage', 'Tier', 'Mount', 'Ports', 'Server room', 'Panel', 'Length (m)'], rows.map((o) => [project.index.nameOf(o.levelId), o.label, o.usage, o.tier, o.mount, o.ports.map((p) => p.label).join(' '), roomName(o.ports[0]?.serverRoomId), o.ports.map((p) => panelOf(o, p.port).text).join(' '), o.ports.map((p) => routeOf(o, p.port)?.lengthM ?? '').join(' ')]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const usages = $derived(sortedUsages(project.settings))

@@ -1,6 +1,6 @@
 // The tables' shared sort / filter / keys (UX review T5–T7).
 import { describe, it, expect } from 'vitest'
-import { TableState, arrowSelect, RowPick, nextCell, CellEdit } from './tableKit.svelte'
+import { TableState, arrowSelect, selectAllRows, RowPick, nextCell, CellEdit } from './tableKit.svelte'
 
 const rows = [{ id: 'a', label: 'A.10', n: 3 }, { id: 'b', label: 'A.2', n: 1 }, { id: 'c', label: 'B.1', n: 2 }]
 const cols = { label: (r: (typeof rows)[number]) => r.label, n: (r: (typeof rows)[number]) => r.n }
@@ -41,6 +41,16 @@ describe('table kit', () => {
 		key('ArrowUp'); key('ArrowUp')
 		expect(sel).toEqual(['a'])
 		expect(key('x')).toBe(false)
+	})
+	it('Ctrl+A in a table picks its shown rows (not the whole drawing); in a cell’s box it’s the box’s', () => {
+		let sel: string[] = []
+		const key = (o: Partial<KeyboardEvent> & { target?: unknown }) => selectAllRows({ key: 'a', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, target: null, ...o } as unknown as KeyboardEvent, ['a', 'b'], (x) => { sel = x })
+		expect(key({})).toBe(true)
+		expect(sel).toEqual(['a', 'b'])
+		sel = []
+		expect(key({ target: { closest: () => ({}) } })).toBe(false)   // typing in a cell
+		expect(key({ ctrlKey: false })).toBe(false)
+		expect(sel).toEqual([])
 	})
 	it('a click picks one row, Shift-click the range from it (keeping what the table doesn’t list), Ctrl-click adds / drops', () => {
 		const rp = new RowPick(), ids = ['a', 'b', 'c', 'd']

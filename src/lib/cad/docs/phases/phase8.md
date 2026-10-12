@@ -3064,3 +3064,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   new-room form and the tables' Esc; tests.
 - **Q32** Ctrl+C / Ctrl+X / Ctrl+V leave the drawing alone while a dialog is open or mid-drag (the store's gesture is
   open), as the shell keys do — a cut behind Project settings deleted the selection unseen (`app/clipboardEvents.ts`; test).
+- **Q33** Ctrl+A in the Outlets, Links, Sheets (and Patch list) table picks its shown rows (`selectAllRows` in
+  `ui/tableKit.svelte.ts`); TableFrame keeps Ctrl+A from the shell in every table (Packages, Issues too) — it selected
+  the whole drawing, and the next Delete removed every shape in the view; Help; test.

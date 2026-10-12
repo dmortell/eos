@@ -1,13 +1,14 @@
 <!-- Every table's frame (review R79): one bar of a fixed layout over a scrolling table —
        [scope] [Find] [filter chips] · count | what acts on the selection (only with one; a hint without) | ⋯
      The bar stays put while the table scrolls under it (its header row sticks to the top of the scroll). The keys
-     (↑ / ↓, F2, Ctrl+C …) go to `onkeydown` on the whole frame. -->
+     (↑ / ↓, F2, Ctrl+A, Ctrl+C …) go to `onkeydown` on the whole frame. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 	import type { TableState } from './tableKit.svelte'
 	import type { MenuItem } from './cadMenus'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import MoreMenu from './MoreMenu.svelte'
+	import { typingIn } from './keyGuards'
 
 	let { label, t, view, lead, chips, count, countTitle = 'Shown · in this scope · selected', nSel = 0, sel, hint, tail, more = [], top, onkeydown, children }: {
 		/** The table's name, for screen readers. */
@@ -33,10 +34,16 @@
 		onkeydown?: (e: KeyboardEvent) => void
 		children: Snippet
 	} = $props()
+	// Ctrl+A is the table's (its rows: `selectAllRows` in the table's keys), never the drawing's select-all — a table
+	// with no rows to pick (Packages, Issues) still keeps it from the shell
+	function key(e: KeyboardEvent) {
+		onkeydown?.(e)
+		if (!e.defaultPrevented && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typingIn(e.target)) { e.preventDefault(); e.stopPropagation() }
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="frame text-xs" tabindex="0" role="grid" aria-label={label} {onkeydown}>
+<div class="frame text-xs" tabindex="0" role="grid" aria-label={label} onkeydown={key}>
 	<div class="bar">
 		{@render lead?.()}
 		{#if t}

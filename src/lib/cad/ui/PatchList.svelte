@@ -12,7 +12,7 @@
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
 	import CordLabelsDialog from './CordLabelsDialog.svelte'
 	import { Icon } from '$lib'
-	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
+	import { TableState, arrowSelect, selectAllRows, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import TableFrame from './TableFrame.svelte'
 	import type { MenuItem } from './cadMenus'
@@ -84,7 +84,7 @@
 	 *  shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
-		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !(e.target instanceof Element && e.target.closest('input, select'))) { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
+		if (selectAllRows(e, rows.map((r) => r.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))

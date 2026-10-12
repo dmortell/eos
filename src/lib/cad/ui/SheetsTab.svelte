@@ -20,7 +20,7 @@
 	import IssuesList from './IssuesList.svelte'
 	import PackagesList from './PackagesList.svelte'
 	import ChipPick from './ChipPick.svelte'
-	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
+	import { TableState, arrowSelect, selectAllRows, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import TableFrame from './TableFrame.svelte'
 	import type { MenuItem } from './cadMenus'
@@ -95,7 +95,7 @@
 	})
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (as the other tables). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, shownIds, ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, shownIds, ws.selection, ws.select) || ed.tableKey(e, ws.selection) || selectAllRows(e, shownIds, ws.select)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['#', 'No.', 'Title', 'Category', 'Level', 'Room', 'Discipline', 'Rev', 'Size', 'Scale', 'Tags', 'Status'],
 			(picked.length ? picked : rows).map((r) => [r.order, r.number, r.title, r.category, r.level, r.room, r.discipline, r.rev, r.size, r.scale, r.tags.join(', '), r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}

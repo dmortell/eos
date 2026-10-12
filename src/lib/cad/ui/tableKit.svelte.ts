@@ -66,6 +66,14 @@ export function arrowSelect(e: KeyboardEvent, ids: string[], selection: string[]
 	return true
 }
 
+/** Ctrl+A in a table: the shown rows, not the whole drawing (the shell's Ctrl+A — a Delete after it removed every
+ *  shape in the view); true = handled. */
+export function selectAllRows(e: KeyboardEvent, ids: string[], select: (ids: string[]) => void): boolean {
+	if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'a' || typing(e)) return false
+	select(ids)
+	return true
+}
+
 /** Ctrl+C in a table: the shown rows (with the header) as tab-separated text. */
 export function copyRows(e: KeyboardEvent, head: string[], rows: (string | number | undefined)[][], say: (m: string) => void): boolean {
 	if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c' || typing(e)) return false

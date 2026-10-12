@@ -7,7 +7,7 @@
 	import type { Link } from '../domain/types'
 	import { linkRows, type LinkRow } from '../domain/cableList'
 	import { deleteEntities } from '../editor/commands'
-	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
+	import { TableState, arrowSelect, selectAllRows, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import TableFrame from './TableFrame.svelte'
 	import StatusChip from './StatusChip.svelte'
@@ -42,7 +42,7 @@
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, shown.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
+		if (arrowSelect(e, shown.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection) || selectAllRows(e, shown.map((r) => r.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Kind', 'Panel end', 'Other end', 'Label', 'Cable type', 'Length (m)', 'Status'], rows.map((r) => [r.kind, r.a, r.b, r.label, r.cableType, r.lengthM, r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const types = $derived([...new Set(all.map((r) => r.cableType).filter(Boolean))].sort())
