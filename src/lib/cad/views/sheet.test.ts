@@ -79,6 +79,13 @@ describe('title block on a sheet (Pages model)', () => {
 		const frame = prims.find((p) => p.k === 'line' && p.cls === 'tb-frame')
 		expect(frame && frame.k === 'line' && Math.max(...frame.pts.map((q) => q.x))).toBe(410)   // up to the right margin
 	})
+	it('an imported date field shows until the sheet has a dated revision — then the revision’s date (Review 2 Q20)', () => {
+		const date = (s: Sheet) => sheetTitleBlock(ix(), s).cells.find((c) => c.label === 'Date')?.value
+		const old = { titleBlock: { fields: { date: '2025-03-01' } } }
+		expect(date(sheet(old))).toBe('2025-03-01')
+		expect(date(sheet({ ...old, revisions: [{ code: 'A', date: '' }] }))).toBe('2025-03-01')
+		expect(date(sheet({ ...old, revisions: [{ code: 'A', date: '' }, { code: 'B', date: '2026-10-12' }] }))).toBe('2026-10-12')
+	})
 	it('a band along the bottom, or hidden on this sheet; new viewports stay clear of it', () => {
 		const band = { fields: DEFAULT_TITLE_BLOCK.fields, layout: 'horizontal' as const }
 		const a = drawingArea(ix(), sheet(), { template: band })

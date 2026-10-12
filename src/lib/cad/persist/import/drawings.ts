@@ -275,16 +275,23 @@ function frozenOf(src: DrawingsSource, v: LegacyVp, layers: LayerPlan): Id[] {
 	return [...out]
 }
 
-/** The Sheets title block's per-sheet fields → cad's (null = "use the project's" → left out); hidden stays hidden. */
+/** The Sheets title block's per-sheet fields → cad's (null = "use the project's" → left out); hidden stays hidden.
+ *  Its date is the current revision's (revisionsOf) — a stored date field would print over every later revision's
+ *  date; only a sheet with no revisions keeps it as a field. */
 function titleBlockOf(d: LegacySheetDoc): Pick<Sheet, 'titleBlock'> {
 	if (d.titleBlock === null) return { titleBlock: { hidden: true } }
-	const map: Record<string, string> = { drawnBy: 'drawn', checkedBy: 'checked', approvedBy: 'approved', date: 'date' }
+	const map: Record<string, string> = { drawnBy: 'drawn', checkedBy: 'checked', approvedBy: 'approved', ...(hasRevisions(d) ? {} : { date: 'date' }) }
 	const fields = Object.fromEntries(Object.entries(d.titleBlock?.fields ?? {}).filter(([k, v]) => map[k] && v).map(([k, v]) => [map[k], v as string]))
 	return Object.keys(fields).length ? { titleBlock: { fields } } : {}
 }
 
+const hasRevisions = (d: LegacySheetDoc) => (d.revisions ?? []).some((r) => r?.code) || !!d.currentRevision?.trim()
+
 function revisionsOf(d: LegacySheetDoc): Pick<Sheet, 'revisions'> {
 	const revs = (d.revisions ?? []).filter((r) => r?.code).map((r) => ({ code: r.code, date: r.date ?? '', ...(r.note ? { note: r.note } : {}), ...(r.by ? { by: r.by } : {}) }))
 	if (!revs.length && d.currentRevision?.trim()) revs.push({ code: d.currentRevision.trim(), date: '' })
+	// the title block's date belongs to the current revision when that has none
+	const date = d.titleBlock?.fields?.date?.trim(), last = revs.at(-1)
+	if (date && last && !last.date) last.date = date
 	return revs.length ? { revisions: revs } : {}
 }

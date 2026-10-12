@@ -59,7 +59,8 @@ export interface SheetOpts {
 }
 
 /** What the title block's auto fields show for a sheet (ADR: values are filled at render time, never stored). The
- *  sheet's own `titleBlock.fields` override any of them ("Drawn" is usually set there). */
+ *  sheet's own `titleBlock.fields` override any of them ("Drawn" is usually set there) — except the date once the sheet
+ *  has a dated revision: a date field (only ever imported from a Sheets-tool sheet) would print over every later issue. */
 export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''): TbContext {
 	const scales = [...new Set(s.viewports.filter((v) => !isPaperSpec(v.view.spec)).map((v) => v.scale))]   // a table on paper has no scale
 	const places = [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))]
@@ -71,6 +72,7 @@ export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''):
 		place: places.join(' / '),
 		...(last ? { rev: last.code, date: last.date } : {}),
 		...s.titleBlock?.fields,
+		...(last?.date ? { date: last.date } : {}),
 	}
 }
 

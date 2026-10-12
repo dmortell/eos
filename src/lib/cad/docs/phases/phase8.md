@@ -3041,3 +3041,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   served only it serves every room again — any delete lets go of `serves`, in `unlinkFrom`); the racks and rows go as
   they are when Delete is clicked, not when asked; the question says how many runs / viewports (`editor/commands.ts`
   `roomViewports` / `roomViewportsOff`, `app/navActions.ts` `deleteRoom`; test).
+- **Q20** a Sheets-tool sheet's date no longer prints forever: the title block shows the latest revision's date once
+  there is a dated one, over a stored date field (only the importer ever wrote one — so Journey's sheets need no
+  clean-up); the importer puts the date on the current revision when that has none, and keeps it as a field only on a
+  sheet with no revisions (`views/sheet.ts` `titleBlockContext`, `persist/import/drawings.ts`; tests).

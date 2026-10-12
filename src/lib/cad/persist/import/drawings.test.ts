@@ -211,6 +211,17 @@ describe('planDrawings (the whole import, one transaction\'s worth)', () => {
 		expect(p.notes.some((t) => t.includes('grid'))).toBe(true)
 		expect(p.notes.some((t) => t.includes('hidden'))).toBe(true)
 	})
+	it('the Sheets title block’s date goes on the current revision, not into a field that would print over later ones (Review 2 Q20)', () => {
+		const withDate = (extra: object) => ({ ...src, sheets: [{ ...src.sheets[0], titleBlock: { fields: { drawnBy: 'DM', date: '2025-03-01' } }, ...extra }] })
+		const sheetOf = (s: DrawingsSource) => planDrawings(s, choice, existing, { makeId: id }).entities.find((e) => e.type === 'sheet' && e.importedFrom === 'sheets:jd') as Sheet
+		const revd = sheetOf(withDate({ currentRevision: 'A' }))
+		expect(revd.titleBlock?.fields).toEqual({ drawn: 'DM' })
+		expect(revd.revisions).toEqual([{ code: 'A', date: '2025-03-01' }])
+		// a revision with its own date keeps it
+		expect(sheetOf(withDate({ revisions: [{ code: 'B', date: '2025-06-01' }] })).revisions).toEqual([{ code: 'B', date: '2025-06-01' }])
+		// no revisions: the date stays a field (until one is issued)
+		expect(sheetOf(withDate({})).titleBlock?.fields).toEqual({ drawn: 'DM', date: '2025-03-01' })
+	})
 	it('importing again adds nothing that is already there', () => {
 		const first = planDrawings(src, choice, existing, { makeId: id })
 		const again = planDrawings(src, choice, [...existing, ...first.entities], { makeId: id })
