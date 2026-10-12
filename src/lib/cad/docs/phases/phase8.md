@@ -2690,8 +2690,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   real mm (`domain/blocks.ts` `Block.front`, `powerFront`): a 70 × 115 plate, a 50 × 90 frame for the sockets, each
   socket two upright prong lines over an earth circle (single: one socket; dual: two, one above the other). An insert
   placed on a wall in an elevation / section draws it (`frontOf` in `views/elevation.ts`, and the Insert tool's ghost
-  there); the plan keeps the edge-on plan symbol. Data faceplates are unchanged (no front drawing yet). Test in
-  `domain/blocks.test.ts`. Live (Test Project 1F front elevation): power dual placed — plate, frame, two sockets;
+  there); the plan keeps the edge-on plan symbol. Data faceplates too (Dave, same day): the same plate and frame, a
+  14 × 12 rectangle per RJ45 socket (`plateFront`, `power` / `rj45`). Test in
+  `domain/blocks.test.ts`. Live (Test Project 1F front elevation): power dual and data dual placed — plate, frame, two
+  sockets each;
   undone. (Help not touched: another session was editing helpContent.ts.)
 - **R85 step 1 (Dave: step by step) — one list of keyboard commands:** `ui/shellKeys.ts` `KEY_COMMANDS` (label, keys,
   group, when, run), in the old else-if order; the shell runs the first that matches, and Help's Keys and Function

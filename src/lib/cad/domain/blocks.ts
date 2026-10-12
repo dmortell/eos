@@ -84,19 +84,22 @@ function faceplates(): Block[] {
 			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(1.1)], ...(front ? { front } : {}) }
 	}
 	return [
-		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)]),
-		make('builtin:faceplate-data-2', 'Faceplate - data, dual', 2, (x) => [data(x)]),
-		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins, powerFront([0])),
-		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins, powerFront([-22, 22])),
+		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)], plateFront([0], rj45)),
+		make('builtin:faceplate-data-2', 'Faceplate - data, dual', 2, (x) => [data(x)], plateFront([-22, 22], rj45)),
+		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins, plateFront([0], power)),
+		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins, plateFront([-22, 22], power)),
 	]
 }
 
-/** A power faceplate from the front (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and
- *  each socket (centred at y = `cy`) two short upright lines for its prongs over a circle for its earth. Real mm. */
-function powerFront(cys: number[]): BlockShape[] {
-	const socket = (cy: number): BlockShape[] => [seg(-6.35, cy - 9, -6.35, cy - 1), seg(6.35, cy - 9, 6.35, cy - 1), sh({ kind: 'circle', centre: { x: 0, y: cy + 6 }, r: 2.5 })]
+/** A faceplate from the front (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and a socket
+ *  centred at each y in `cys` (one above the other). Real mm. */
+function plateFront(cys: number[], socket: (cy: number) => BlockShape[]): BlockShape[] {
 	return [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 70, y: 115 } }), sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 50, y: 90 } }), ...cys.flatMap(socket)]
 }
+/** A power socket: two short upright lines for its prongs over a circle for its earth. */
+function power(cy: number): BlockShape[] { return [seg(-6.35, cy - 9, -6.35, cy - 1), seg(6.35, cy - 9, 6.35, cy - 1), sh({ kind: 'circle', centre: { x: 0, y: cy + 6 }, r: 2.5 })] }
+/** A data socket: a small rectangle for its RJ45 jack. */
+function rj45(cy: number): BlockShape[] { return [sh({ kind: 'rect', centre: { x: 0, y: cy }, size: { x: 14, y: 12 } })] }
 
 /** The block that draws an outlet when it names none: by usage, then tier, then mount. */
 export function defaultOutletBlock(o: Pick<Outlet, 'mount' | 'tier' | 'usage'>): Id {

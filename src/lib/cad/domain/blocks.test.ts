@@ -44,7 +44,7 @@ describe('outlet symbols', () => {
 		const width = (b: Block) => (b.shapes[0].geom as { size: { x: number } }).size.x
 		expect(width(fp[1])).toBeGreaterThan(width(fp[0]))
 	})
-	it('a power faceplate from the front (elevations): a 70 × 115 plate, a 50 × 90 frame, each socket two prongs and an earth — real mm', () => {
+	it('faceplates from the front (elevations): a 70 × 115 plate, a 50 × 90 frame; power sockets two prongs and an earth, data an RJ45 — real mm', () => {
 		const dual = frontOf(lib.get('builtin:faceplate-power-2')!)
 		expect(dual.annotative).toBe(false)
 		const sizes = dual.shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
@@ -54,7 +54,10 @@ describe('outlet symbols', () => {
 		const ps = blockPrims(dual, { at: { x: 1000, y: -1200 } }, 50, {}, 'I', 'shape')   // at 1:50 still 70 mm wide
 		const plate = ps.find((p) => p.k === 'line' && p.closed)
 		expect(plate?.k === 'line' && Math.max(...plate.pts.map((q) => q.x)) - Math.min(...plate.pts.map((q) => q.x))).toBe(70)
-		expect(frontOf(lib.get('builtin:faceplate-data-1')!).shapes).toBe(lib.get('builtin:faceplate-data-1')!.shapes)   // no front drawing: the symbol
+		// a data faceplate: the same plate and frame, an RJ45 rectangle per socket
+		const data = frontOf(lib.get('builtin:faceplate-data-2')!).shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
+		expect(data).toEqual([{ x: 70, y: 115 }, { x: 50, y: 90 }, { x: 14, y: 12 }, { x: 14, y: 12 }])
+		expect(frontOf(lib.get('builtin:outlet-box')!).shapes).toBe(lib.get('builtin:outlet-box')!.shapes)   // no front drawing: the symbol
 	})
 	it('an annotative block scales with the drawing; a model block does not', () => {
 		const b = lib.get('builtin:outlet-box')!
