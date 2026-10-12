@@ -296,13 +296,19 @@ export interface TraceStep { ref: { on: Id; port: number }; via?: { kind: 'link'
  * The circuit through a port: across links (outlet ↔ panel rear, panel ↔ panel ties) and cords (panel front ↔
  * switch …), treating a panel port's front and rear as one point. Returned in order from one end to the other.
  */
-export function traceCircuit(ix: ProjectIndex, start: { on: Id; port: number }): TraceStep[] {
-	const edges = new Map<string, { to: { on: Id; port: number }; kind: 'link' | 'cord'; id: Id }[]>()
+export type CircuitEdges = Map<string, { to: { on: Id; port: number }; kind: 'link' | 'cord'; id: Id }[]>
+/** The link + cord adjacency, port to port. Build it once and pass it to `traceCircuit` when tracing many ports. */
+export function circuitEdges(ix: ProjectIndex): CircuitEdges {
+	const edges: CircuitEdges = new Map()
 	const add = (x: { on: Id; port: number }, y: { on: Id; port: number }, kind: 'link' | 'cord', id: Id) => {
-		edges.set(key(x), [...(edges.get(key(x)) ?? []), { to: { on: y.on, port: y.port }, kind, id }])
+		const k = key(x), e = { to: { on: y.on, port: y.port }, kind, id }, list = edges.get(k)
+		if (list) list.push(e); else edges.set(k, [e])
 	}
 	for (const l of ix.links) { add(l.a, l.b, 'link', l.id); add(l.b, l.a, 'link', l.id) }
 	for (const c of ix.cords) if (c.status !== 'remove') { add(c.a, c.b, 'cord', c.id); add(c.b, c.a, 'cord', c.id) }
+	return edges
+}
+export function traceCircuit(ix: ProjectIndex, start: { on: Id; port: number }, edges: CircuitEdges = circuitEdges(ix)): TraceStep[] {
 	// walk to one end first, then back across to the other, so the result reads end to end
 	const walk = (from: { on: Id; port: number }): TraceStep[] => {
 		const seen = new Set([key(from)]), out: TraceStep[] = [{ ref: from }]

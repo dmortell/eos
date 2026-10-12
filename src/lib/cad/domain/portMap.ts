@@ -3,7 +3,7 @@
 // engineers can assign VLANs. Pure; tested in portMap.test.ts. The Excel is render/exports.ts `exportPortMap`.
 import type { ProjectIndex } from './project'
 import type { Cord, Device, Id, Rack } from './types'
-import { traceCircuit } from './cords'
+import { traceCircuit, circuitEdges } from './cords'
 import { naturalCompare } from './labels'
 
 export interface PortMapRow {
@@ -40,15 +40,19 @@ export function portMapDevices(ix: ProjectIndex, ids: Id[]): Device[] {
 
 export function portMapRows(ix: ProjectIndex, deviceIds: Id[]): PortMapRow[] {
 	const out: PortMapRow[] = []
+	// the adjacency and the first live cord on each port, built once for the whole map (not per port)
+	const edges = circuitEdges(ix)
+	const cordAt = new Map<string, Cord>()
+	for (const c of ix.cords) if (c.status !== 'remove') for (const r of [c.a, c.b]) { const k = `${r.on}:${r.port}`; if (!cordAt.has(k)) cordAt.set(k, c) }
 	for (const d of portMapDevices(ix, deviceIds)) {
 		const room = ix.nameOf((ix.get(d.rackId) as Rack | undefined)?.spaceId), rack = ix.nameOf(d.rackId)
 		for (let port = 1; port <= (d.portCount ?? 0); port++) {
-			const steps = traceCircuit(ix, { on: d.id, port })
+			const steps = traceCircuit(ix, { on: d.id, port }, edges)
 			const isMe = (r: { on: Id; port: number }) => r.on === d.id && r.port === port
 			// the circuit's two ends, other than this port: outlets, and device ports
 			const ends = [...new Set([0, steps.length - 1])].map((i) => steps[i].ref).filter((r) => !isMe(r))
 			const outlets = ends.filter((r) => ix.get(r.on)?.type === 'outlet')
-			const cord = ix.cords.find((c) => c.status !== 'remove' && (isMe(c.a) || isMe(c.b)))
+			const cord = cordAt.get(`${d.id}:${port}`)
 			const other = cord && (isMe(cord.a) ? cord.b : cord.a)
 			const at = (r: { on: Id }) => { const o = ix.get(r.on) as { levelId: Id; roomId?: Id; zoneId?: Id }; return [ix.nameOf(o.levelId), ix.nameOf(o.roomId ?? o.zoneId)].filter(Boolean).join(' · ') }
 			const labelled = (r: { on: Id; port: number }) => { const l = ix.portLabel(r); return `${ix.portPlace(r)}${l ? ` · ${l}` : ''}` }
