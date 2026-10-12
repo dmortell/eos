@@ -3183,3 +3183,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   shows the step again. Snapping lands on the line without float dust (3 × 44.45 = 133.35), and the drawn grid counts
   lines by number (`editor/snap.ts` `onGrid` / `gridStepOf` / `GRID_STEPS`, `editor/tools.ts` `snapPt`,
   `ui/canvasInfo.ts` `gridLines`, `ui/StatusBar.svelte`; a bad stored step loads as 10). Help; test.
+- **Q51** the riser view's floor range left the per-person Display ▾ menu: it is in the riser view's Properties with
+  nothing selected (Riser view › Floors lowest – top, "for everyone on this project (sheets too)"; the undo step says
+  "(for everyone)"); Display keeps Hide empty floors (the view's own) and a line saying where the floors went
+  (`ui/ViewBasics.svelte`, `views/riser.ts` `withRiserEnd`, `ui/ViewStrip.svelte`). Planning · Surveying says "for
+  everyone" beside the toggle, in its titles and its undo step (`ui/CordMode.svelte`). Help; test.

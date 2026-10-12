@@ -38,15 +38,6 @@
 		dispOpen = !dispOpen
 	}
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
-	/** The riser view's floor range (a project setting: one undo step); blank = the lowest / top floor. */
-	const floorsUp = $derived.by(() => { void project.rev; return project.store.ofType('level').filter((l) => !l.area).sort((a, b) => a.number - b.number) })
-	function setRiserRange(end: 'from' | 'to', v: string) {
-		const st = project.settings
-		if (!st) return
-		const { [end]: _, ...rest } = st.riser ?? {}
-		const riser = { ...rest, ...(v === '' ? {} : { [end]: Number(v) }) }
-		project.store.transact(`Riser view ${end === 'from' ? 'from' : 'to'} ${v === '' ? (end === 'from' ? 'the lowest floor' : 'the top floor') : floorsUp.find((l) => l.number === Number(v))?.name ?? v}`, (tx) => tx.put({ ...st, riser }))
-	}
 	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && !isPaperSpec(spec))
 	/** The tab already names the view, so no breadcrumb (review R57); a rack view and a port map, which have no Plan
 	 *  button in this strip, get one way up: "↑ 1F plan". */
@@ -126,14 +117,10 @@
 				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
 			{/if}
 		{:else if spec.kind === 'riser'}
-			{@const rr = project.settings?.riser}
 			{@const hide = !!spec.hideEmpty}
 			<label title="Squeeze the floors that have no server room into break marks"><input type="checkbox" checked={hide} onchange={() => go({ kind: 'riser', ...(hide ? {} : { hideEmpty: true }) })} /> Hide empty floors</label>
-			<label class="num" title="The riser view's floors, for the whole project (sheets too)">Floors
-				<select value={rr?.from ?? ''} onchange={(e) => setRiserRange('from', e.currentTarget.value)}><option value="">lowest</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
-				–
-				<select value={rr?.to ?? ''} onchange={(e) => setRiserRange('to', e.currentTarget.value)}><option value="">top</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
-			</label>
+			<!-- the floor range is the project's (everyone's riser view), so it lives in Properties, not here -->
+			<span class="dnote">Which floors: Properties, with nothing selected (for everyone)</span>
 		{:else if spec.kind === 'row'}
 			<label title="Cords along the cable channels: down to the side channel, across through the nearest horizontal manager (off = straight lines). Your screen only (a sheet has its own: Properties › Display)."><input type="checkbox" checked={ws.screen.cordChannels} onchange={() => ws.toggleScreen('cordChannels')} /> Cord channels</label>
 			<label title="Floor, ceiling and slab lines — the server room's own floor / ceiling where set. The Room lines layer."><input type="checkbox" checked={!ws.layers.hidden.has('sys:room-lines')} onchange={() => ws.layers.toggleHidden('sys:room-lines')} /> Room lines</label>
@@ -166,5 +153,4 @@
 	.dpop { position: fixed; z-index: 41; display: flex; flex-direction: column; gap: 4px; min-width: 11rem; padding: 6px 8px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); }
 	.dpop label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 	.dpop .keys { display: flex; flex-wrap: wrap; gap: 2px 6px; padding-left: 20px; }
-	.dpop select { font-size: 11px; }
-</style>
+	.dpop .dnote { font-size: 11px; color: var(--cad-muted); white-space: nowrap; }</style>

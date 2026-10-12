@@ -1,7 +1,7 @@
 // The riser view: floors, rooms at their racks' x, risers between levels, backbone groups with counts and lengths.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from '../domain/project'
-import { riserDisplayList, riserShafts, backboneKey, mediaColour, FIBRE_COLOUR, COPPER_COLOUR } from './riser'
+import { riserDisplayList, riserShafts, backboneKey, mediaColour, withRiserEnd, FIBRE_COLOUR, COPPER_COLOUR } from './riser'
 import type { Entity } from '../domain/drawing'
 
 const level = (id: string, name: string, e: number) => ({ type: 'level', id, name, number: 1, elevationMm: e, order: 1, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } })
@@ -98,5 +98,11 @@ describe('riser view', () => {
 		const own = riserDisplayList(new ProjectIndex([...ents, { type: 'settings', id: 'settings', cableTypes: [], usages: [], defaults: {}, riser: { groups: { [key]: { label: 'Backbone A', color: '#16a34a' } } } } as unknown as Entity]))
 		expect(own.find((p) => p.k === 'text' && p.cls === 'backbone-label')).toMatchObject({ text: 'Backbone A', color: '#16a34a' })
 		expect(mediaColour(new ProjectIndex(ents), 'OM4 24c')).toBe(FIBRE_COLOUR)
+	})
+	it('the floor range (riser view Properties): one end set or cleared, the other and the groups kept (Review 2 Q51)', () => {
+		const groups = { k: { label: 'A' } }
+		expect(withRiserEnd(undefined, 'from', 3)).toEqual({ from: 3 })
+		expect(withRiserEnd({ from: 3, groups }, 'to', 12)).toEqual({ from: 3, to: 12, groups })
+		expect(withRiserEnd({ from: 3, to: 12, groups }, 'from', null)).toEqual({ to: 12, groups })
 	})
 })

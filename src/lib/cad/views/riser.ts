@@ -28,6 +28,14 @@ const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450
 export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean }
 
 const settingsOf = (ix: ProjectIndex) => ix.get('settings') as ProjectSettings | undefined
+
+/** The riser settings with one end of the floor range set to a floor number, or cleared (null = the lowest / top
+ *  floor); the groups stay. Properties of the riser view sets it — a project setting, so every riser view and its
+ *  viewports show the same floors. */
+export function withRiserEnd(riser: ProjectSettings['riser'], end: 'from' | 'to', n: number | null): NonNullable<ProjectSettings['riser']> {
+	const { [end]: _, ...rest } = riser ?? {}
+	return n === null ? rest : { ...rest, [end]: n }
+}
 /** A backbone group's style key: its two racks and cable type (stable while routes change). */
 export function backboneKey(ix: ProjectIndex, l: Link): string | null {
 	const rackOf = (on: Id) => { const d = ix.get<Device>(on); return d?.type === 'device' ? d.rackId : undefined }
