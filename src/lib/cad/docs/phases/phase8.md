@@ -2564,3 +2564,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   left the rest unsent) (`persist/firestore.ts`); a failed write stops waiting for its echoes, so "Saving…" clears and
   other people's changes to those items apply again, and the error is reported (`persist/sync.ts`). Test in
   `persist/sync.test.ts`.
+- **R22 Someone else's change during your drag:** the store holds a remote change to what the drag is moving until
+  the drag ends (the next frame put the drag's start back over it, and Esc then showed the pre-drag copy while the
+  server kept theirs); rolled back, it applies; committed, the drag wins (it's written after) — a change to anything
+  else applies at once (`store/store.ts`). Tests in `store/store.test.ts`.

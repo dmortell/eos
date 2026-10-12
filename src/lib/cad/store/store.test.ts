@@ -145,3 +145,27 @@ describe('read-only while someone else restores', () => {
 		expect(s.canUndo).toBe(false)
 	})
 })
+
+describe('other people’s changes during a drag (review R22)', () => {
+	it('rolled back: the remote change to the dragged item shows once the drag ends', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		const g = s.begin('Drag')
+		g.update((tx) => tx.put(moved(tx.get('a') as Shape, 300)))
+		s.applyRemote([moved(s.get('a') as Shape, 777)])
+		g.update((tx) => tx.put(moved(tx.get('a') as Shape, 400)))
+		expect(xOf(s, 'a')).toBe(400)   // the drag still shows
+		g.rollback()
+		expect(xOf(s, 'a')).toBe(777)   // not the pre-drag 0
+	})
+	it('committed: the drag wins (it is written after); a remote change to something else applies at once', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => { tx.put(box('a')); tx.put(box('b', 50)) })
+		const g = s.begin('Drag')
+		g.update((tx) => tx.put(moved(tx.get('a') as Shape, 300)))
+		s.applyRemote([moved(s.get('a') as Shape, 777), moved(s.get('b') as Shape, 999)])
+		expect(xOf(s, 'b')).toBe(999)
+		g.commit()
+		expect(xOf(s, 'a')).toBe(300)
+	})
+})

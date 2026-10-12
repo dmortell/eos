@@ -99,6 +99,15 @@ export class EntityStore {
 	/** A drag is open (begin … commit / rollback): undo / redo wait, and edits queue until it ends. */
 	get busy(): boolean { return !!this.#gesture }
 	#afterGesture: (() => void)[] = []
+	#heldRemote = new Map<Id, Entity | null>()
+	/** After a drag: other people's changes it held. Rolled back: all apply. Committed: those to what it changed are
+	 *  dropped — the commit is written after them and wins on the server too. */
+	#releaseRemote(changed: Set<Id>): void {
+		if (!this.#heldRemote.size) return
+		const held = [...this.#heldRemote].filter(([id]) => !changed.has(id))
+		this.#heldRemote.clear()
+		this.applyRemote(held.flatMap(([, e]) => (e ? [e] : [])), held.flatMap(([id, e]) => (e ? [] : [id])))
+	}
 	#flushAfterGesture(): void { const q = this.#afterGesture.splice(0); for (const f of q) f() }
 
 	/** A drag: changes show live, one undo step on commit, Esc restores the start. */
@@ -132,6 +141,7 @@ export class EntityStore {
 					this.#push(step)
 					this.#emit({ source: 'local', label, ops, final: true })
 				}
+				this.#releaseRemote(new Set(ops.map((o) => o.id)))
 				this.#flushAfterGesture()
 				return step
 			},
@@ -140,6 +150,7 @@ export class EntityStore {
 				this.#gesture = null
 				const ops = restore()
 				if (ops.length) this.#emit({ source: 'gesture', label, ops, final: false })
+				this.#releaseRemote(new Set())
 				this.#flushAfterGesture()
 			},
 		}
@@ -164,8 +175,16 @@ export class EntityStore {
 		return res
 	}
 
-	/** Changes from other people. They never enter the undo history. */
+	/** Changes from other people. They never enter the undo history. One to something a drag is moving waits for the
+	 *  drag to end (else the drag's next frame put its start back over it, and Esc lost it): `#releaseRemote`. */
 	applyRemote(puts: Entity[], dels: Id[] = []): void {
+		const g = this.#gesture
+		if (g) {
+			const held = (id: Id) => g.base.has(id)
+			for (const e of puts) if (held(e.id)) this.#heldRemote.set(e.id, e)
+			for (const id of dels) if (held(id)) this.#heldRemote.set(id, null)
+			puts = puts.filter((e) => !held(e.id)); dels = dels.filter((id) => !held(id))
+		}
 		const ops: Op[] = []
 		for (const e of puts) { const f = this.#seal(e); ops.push({ id: e.id, before: this.#map.get(e.id) ?? null, after: f }); this.#map.set(e.id, f) }
 		for (const id of dels) { const was = this.#map.get(id); if (was) { ops.push({ id, before: was, after: null }); this.#map.delete(id) } }
