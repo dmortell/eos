@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice, portColumn, portSide } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -54,6 +54,13 @@ describe('length', () => {
 		expect(far).toBeGreaterThan(near)
 		const rear = cordLength(ix([sw2]), { on: 'P1', port: 1, face: 'front' }, { on: 'SW2', port: 1, face: 'rear' })
 		expect(rear).toBeGreaterThan(far)
+	})
+	it('a column-numbered switch: a port is in the column the rack view draws it (Review 2 Q3)', () => {
+		const col = { ...sw2, portCount: 48, portNumbering: 'column' as const }
+		// 13 / 14 sit in column 7 — the left half — not 13 / 14; 37 / 38 in column 19, the right half
+		expect([portColumn(col, 13), portSide(col, 13), portSide(col, 14), portSide(col, 37)]).toEqual([6, 'left', 'left', 'right'])
+		// row numbering is unchanged: 13 is on the right
+		expect(portSide({ ...col, portNumbering: undefined }, 13)).toBe('right')
 	})
 	it('rack to rack uses the plan distance when both racks are placed', () => {
 		const r2 = (x: number): Rack => ({ type: 'rack', id: 'R2', levelId: 'L33', spaceId: 'SR-A', order: 1, name: 'A02', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y: 0 } })

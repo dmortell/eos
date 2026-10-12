@@ -3,14 +3,14 @@
 // stock lengths, bulk patching, and the circuit trace (outlet → link → panel → cord → switch …).
 import type { Id, Cord, Device, PortRef, Rack } from './types'
 import type { ProjectIndex } from './project'
-import { racksInOrder } from './devices'
+import { racksInOrder, portGrid, portAt } from './devices'
 import { newId } from './ids'
 
 export const STANDARD_LENGTHS = [0.3, 0.5, 1, 1.5, 2, 3, 5, 7, 10, 15, 20, 30]
 /** A raw length snapped UP to a stock cord length (the longest when it's longer than all). */
 export const snapToStandard = (m: number) => STANDARD_LENGTHS.find((l) => l >= m) ?? STANDARD_LENGTHS[STANDARD_LENGTHS.length - 1]
 
-const RU = 44.45, RAIL_W = 482.6, RACK_GAP = 200, PORTS_PER_ROW = 24
+const RU = 44.45, RAIL_W = 482.6, RACK_GAP = 200
 const SLACK_SAME_RU = 2, SLACK_CROSS_RU = 5
 
 /** `status`: what a new cord starts as — `add` (planning a new install) or `installed` (surveying a built site), the
@@ -47,6 +47,11 @@ export function roomProblem(ix: ProjectIndex, a: { on: Id }, b: { on: Id }): str
 	return `A patch cord stays in one room (${ix.nameOf(ra)} ≠ ${ix.nameOf(rb)}) — use Link to… for cables between rooms`
 }
 
+/** A port's column as the rack view draws it (portGrid / portAt), and the cable channel it goes to — a column-numbered
+ *  switch's port 13 is in column 7, on the LEFT (Review 2 Q3: `(port − 1) % 24` put it on the right). */
+export function portColumn(d: Device, port: number): number { const g = portGrid(d); return portAt(d.portNumbering, port, g.rows, g.cols)[1] }
+export function portSide(d: Device, port: number): 'left' | 'right' { return portColumn(d, port) < portGrid(d).cols / 2 ? 'left' : 'right' }
+
 /**
  * Estimated cord length in metres, snapped up to stock (the Patching tool's model, on real mm geometry): down/up the
  * rack between the two U positions; across to the side channel from each port; through the nearest horizontal
@@ -59,9 +64,11 @@ export function cordLength(ix: ProjectIndex, a: PortRef, b: PortRef): number {
 	const ra = ix.get(da.rackId) as Rack | undefined, rb = ix.get(db.rackId) as Rack | undefined
 	if (!ra || !rb) return 0
 	const uOf = (d: Device) => d.u + (d.heightU - 1) / 2
-	const cols = (d: Device) => Math.min(Math.max(d.portCount, 1), PORTS_PER_ROW)
-	const col = (d: Device, port: number) => (port - 1) % cols(d)
-	const left = (d: Device, port: number) => col(d, port) < cols(d) / 2
+	// the port's column as the rack view draws it (portGrid / portAt): a column-numbered switch's port 13 is in column 7,
+	// not 13 (Review 2 Q3)
+	const cols = (d: Device) => portGrid(d).cols
+	const col = portColumn
+	const left = (d: Device, port: number) => portSide(d, port) === 'left'
 	const toChannel = (d: Device, port: number) => { const w = RAIL_W / cols(d), c = col(d, port); return left(d, port) ? (c + 0.5) * w : (cols(d) - c - 0.5) * w }
 	const managers = (r: Rack) => ix.devicesIn(r.id).filter((d) => d.kind === 'manager').map(uOf)
 	const nearest = (us: number[], u: number) => us.reduce((best, x) => (Math.abs(x - u) < Math.abs(best - u) ? x : best), us[0])
