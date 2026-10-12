@@ -3263,3 +3263,4 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 ## Backlog P3 fixes
 
 - **Q21** a `{DATE}` field no longer marks issued sheets "Changed since" at midnight: `frozenNow` passes the sheet's last issue date as `fieldDate` (`views/sheet.ts`), so the fingerprint is stable and the issue freezes the issue date. Test in `views/sheet.test.ts`.
+- **Q22** Renumber with a number group the first label doesn't have (e.g. group 2 of "R01") no longer copies that label onto every item: `renumberEntities` leaves such a type out. Test in `domain/renumber.test.ts`.

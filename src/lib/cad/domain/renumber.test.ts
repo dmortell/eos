@@ -23,6 +23,11 @@ describe('renumber', () => {
 			['A.050', 'A.050.A'], ['A.051', 'A.051.A'], ['A.052', '01A.052A'], 'R053',   // the rack keeps a rack's format
 		])
 	})
+	it('a number group the first label does not have changes nothing (no label copied onto every item) (Q22)', () => {
+		const items = [rack('a', 'R01'), rack('b', 'R02'), rack('c', 'R03')]
+		expect(renumberEntities(items, { start: 5, group: 1 })).toEqual([])
+		expect(renumberEntities(items, { start: 5, group: 0 }).map((e) => (e as Rack).name)).toEqual(['R05', 'R06', 'R07'])
+	})
 	it('only what changes is returned; things without a label are not renumberable', () => {
 		expect(renumberEntities([outlet('a', '33-005', 0, 0)], { start: 5 })).toEqual([])
 		expect([renumberable(note('n')), renumberable(note('m', 'A1'))]).toEqual([false, true])

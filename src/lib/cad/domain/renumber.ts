@@ -56,6 +56,7 @@ export function renumberEntities(items: Entity[], o: RenumberOpts): Entity[] {
 	return items.flatMap((e, i): Entity[] => {
 		const old = labelOf(e)
 		if (old === undefined) return []
+		if (numberAt(template.get(e.type)!, group) === undefined) return []   // the format has no such number group: nothing to renumber (it used to copy the first label onto every item)
 		const label = setNumber(template.get(e.type)!, o.start + i * step, group, o.pad)
 		if (label === old) return []
 		if (e.type === 'outlet') return [{ ...e, label, ports: e.ports.map((p) => ({ ...p, label: portFollows(p.label, old, label, group) })) }]
