@@ -81,4 +81,17 @@ describe('table kit', () => {
 		ed.start('a', 'usage')
 		expect(ed.is('a', 'usage')).toBe(true)
 	})
+	it('Japanese IME: Enter / Esc mid-conversion neither save nor cancel the cell, nor start an edit', () => {
+		const saved: string[] = []
+		const ed = new CellEdit<'label'>({ fields: () => ['label'], ids: () => ['a'], save: (id, f, v) => saved.push(`${id}.${f}=${v}`) })
+		const box = { value: '東京', closest: () => null }
+		const ime = (k: string) => ({ key: k, isComposing: true, keyCode: 229, target: box, currentTarget: box, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, stopPropagation() {}, preventDefault() {} }) as unknown as KeyboardEvent
+		expect(ed.tableKey(ime('Enter'), ['a'])).toBe(false)
+		ed.start('a', 'label')
+		ed.key(ime('Enter'), 'a', 'label')
+		ed.key(ime('Escape'), 'a', 'label')
+		expect(saved).toEqual([])
+		expect(ed.is('a', 'label')).toBe(true)   // still editing
+		expect(arrowSelect(ime('ArrowDown'), ['a', 'b'], ['a'], () => { throw new Error('moved') })).toBe(false)
+	})
 })

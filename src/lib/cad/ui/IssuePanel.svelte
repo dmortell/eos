@@ -2,6 +2,7 @@
      revision when changed since its last issue, else as last issued), the package fields, then Issue → frozen copies,
      the package PDF uploaded to file storage, revisions recorded. -->
 <script lang="ts">
+	import { enterKey } from './keyGuards'
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -69,7 +70,7 @@
 		<label title="A cover page first in the PDF: the project, the issue, who gets it and the drawing register (the first sheet's size, with the title block)"><input type="checkbox" bind:checked={cover} /> Cover page</label>
 		<label title="Keep a backup of the whole project with this issue, so it can be restored from the Issues list later. Each one is a full copy of the project: tick it only for an issue you may need to go back to."><input type="checkbox" bind:checked={backup} /> Back up the project with this issue</label>
 		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
-		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => e.key === 'Enter' && applyAll()} onchange={applyAll} /></label>
+		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => enterKey(e) && applyAll()} onchange={applyAll} /></label>
 		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>
 		<button class="btn" disabled={busy} onclick={() => onclose()}>Cancel</button>
 	</div>

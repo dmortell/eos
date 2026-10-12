@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { toggleDrafting } from '../app/shellActions'
 	import { KEYS } from './shellKeys'
+	import { composing } from './keyGuards'
 	import type { Workspace } from '../app/workspace.svelte'
 
 	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
@@ -27,6 +28,7 @@
 		else input.select()
 	})
 	function key(e: KeyboardEvent) {
+		if (composing(e)) return   // Enter / Esc commit or cancel the IME's conversion, not the answer
 		// a typed point (UX19): a length, then Tab, then the angle — "1200" Tab "45" = @1200<45 from the last point
 		if (e.key === 'Tab' && ws.prompt?.text && ws.prompt.label.startsWith('Point') && input && !input.value.includes('<') && /^@?-?\d+(\.\d+)?$/.test(input.value.trim())) {
 			e.preventDefault()

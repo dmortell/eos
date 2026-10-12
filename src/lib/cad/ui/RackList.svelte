@@ -1,6 +1,7 @@
 <!-- The racks of the open level, by server room. A rack not yet on the plan has "Place" (the next click puts it
      there); a placed rack is selected by clicking its name. -->
 <script lang="ts">
+	import { composing, enterKey } from './keyGuards'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Rack, RackRow } from '../domain/types'
@@ -90,7 +91,7 @@
 	}
 	function focus(el: HTMLInputElement) { el.focus(); el.select() }
 	/** Keys stay in the form (not the plan's shortcuts); Esc closes it. */
-	function addKey(e: KeyboardEvent) { e.stopPropagation(); if (e.key === 'Escape') adding = null }
+	function addKey(e: KeyboardEvent) { e.stopPropagation(); if (e.key === 'Escape' && !composing(e)) adding = null }
 	/** The room at a glance (its name's tooltip): "4F · 2 rows · 6 racks · 48 devices". */
 	function summary(spaceId: string, racks: Rack[]): string {
 		const room = project.index.get(spaceId) as { levelId?: string } | undefined
@@ -138,7 +139,7 @@
 		<div class="add">
 			<label>Floor <select value={adding.levelId} onchange={(e) => pickFloor(e.currentTarget.value)} onkeydown={addKey}>
 				{#each floors as l (l.id)}<option value={l.id}>{l.name}{l.id === levelId ? ' (open)' : ''}</option>{/each}</select></label>
-			<label>Name <input use:focus value={adding.name} oninput={(e) => { if (adding) adding = { ...adding, name: e.currentTarget.value, typed: true } }} onkeydown={(e) => { addKey(e); if (e.key === 'Enter') addRoom() }} /></label>
+			<label>Name <input use:focus value={adding.name} oninput={(e) => { if (adding) adding = { ...adding, name: e.currentTarget.value, typed: true } }} onkeydown={(e) => { addKey(e); if (enterKey(e)) addRoom() }} /></label>
 			<span class="btns"><button onclick={() => (adding = null)}>Cancel</button><button class="go" disabled={!adding.name.trim()} onclick={addRoom}>Add room</button></span>
 		</div>
 	{/if}

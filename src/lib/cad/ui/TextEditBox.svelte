@@ -15,6 +15,7 @@
 	import { labelKind, labelOf, withLabel } from '../domain/labelEdit'
 	import { readingOrder } from '../domain/labels'
 	import { untrack } from 'svelte'
+	import { composing } from './keyGuards'
 
 	/** `frame` = editing inside a sheet viewport: its view's space and prims (view mm), and view mm → paper mm (backlog
 	 *  "Edit labels inside a viewport"); the box goes where the words show on the paper. */
@@ -93,6 +94,7 @@
 	}
 	function key(k: KeyboardEvent): void {
 		k.stopPropagation()   // typing here is not a shortcut
+		if (composing(k)) return   // Enter / Esc / Tab commit or cancel the IME's conversion, not the edit
 		if (k.key === 'Enter' && (!k.shiftKey || !at?.multi)) { k.preventDefault(); save() }
 		else if (k.key === 'Tab') { k.preventDefault(); step(k.shiftKey) }
 		else if (k.key === 'Escape') { done = true; ws.textEdit = null }

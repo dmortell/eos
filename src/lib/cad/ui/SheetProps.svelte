@@ -3,6 +3,7 @@
      schedule, a fill section), scale 1:N, window position and size, centre, label, frame, lock. Every
      edit is one undo step. -->
 <script lang="ts">
+	import { enterKey } from './keyGuards'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, Viewport } from '../domain/drawing'
@@ -214,7 +215,7 @@
 		<Field label="Tags">
 			<span class="tags">
 				{#each s.tags ?? [] as t (t)}<span class="tag">{t}<button title="Take this tag off" aria-label="Take the tag {t} off" onclick={() => setTag(t, false)}>×</button></span>{/each}
-				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (e.key === 'Enter' && t) { setTag(t, true); e.currentTarget.value = '' } }} />
+				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (enterKey(e) && t) { setTag(t, true); e.currentTarget.value = '' } }} />
 			</span></Field>
 		<!-- this sheet's own title-block settings; the template is the project's -->
 		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
@@ -258,8 +259,8 @@
 				<button class="btn del" title="Remove this note" aria-label="Remove the change note of {c.date}" onclick={() => putSheet('Remove change note', { changes: (s.changes ?? []).filter((x) => x.id !== c.id) })}>×</button></div>
 		{/each}
 		<div class="chg"><span class="text-zinc-500">{today()}</span>
-			<input class="inp" bind:value={newText} placeholder="what changed" aria-label="New change: what changed" onkeydown={(e) => e.key === 'Enter' && addChange()} />
-			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" aria-label="New change: asked by" onkeydown={(e) => e.key === 'Enter' && addChange()} />
+			<input class="inp" bind:value={newText} placeholder="what changed" aria-label="New change: what changed" onkeydown={(e) => enterKey(e) && addChange()} />
+			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" aria-label="New change: asked by" onkeydown={(e) => enterKey(e) && addChange()} />
 			<button class="btn" disabled={!newText.trim()} title="Note this change; the next issue records it on the new revision" onclick={addChange}>Add</button></div>
 	</PropGroup>
 	{#if s.revisions?.length}

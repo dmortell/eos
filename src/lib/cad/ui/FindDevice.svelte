@@ -2,6 +2,7 @@
      from the whole project. Enter (or a click) opens that room's rack view on the device's side, zoomed to its rack, with
      the device selected. -->
 <script lang="ts">
+	import { composing } from './keyGuards'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Device, Rack } from '../domain/types'
@@ -30,6 +31,7 @@
 		ws.focus = r.id   // the whole rack in view, the device picked in it — set once the rack view is up (else the plan takes it)
 	}
 	function key(e: KeyboardEvent) {
+		if (composing(e)) return   // the IME's ↑ / ↓ / Enter / Esc (picking, committing a conversion)
 		if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(at + 1, hits.length - 1) }
 		else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(at - 1, 0) }
 		else if (e.key === 'Enter' && hits[at]) { e.preventDefault(); open(hits[at].d, hits[at].r!) }

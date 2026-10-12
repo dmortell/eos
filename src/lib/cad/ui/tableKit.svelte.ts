@@ -3,6 +3,7 @@
 // ↑ / ↓ move the selection; Ctrl+C copies the shown rows as tab-separated text for Excel. One way to pick rows
 // (`RowPick`) and one way to edit a cell in place (`CellEdit`, the patch list's), in every table.
 import { naturalCompare } from '../domain/labels'
+import { composing, typingIn } from './keyGuards'
 
 export type Scope = 'view' | 'sel' | 'all'
 export const SCOPES: [Scope, string][] = [['view', 'This view'], ['sel', 'Selection'], ['all', 'All']]
@@ -52,8 +53,9 @@ export class TableState {
 	}
 }
 
-/** A key typed into a field of the table (an input, a select) is the field's, not the table's. */
-const typing = (e: KeyboardEvent) => typeof Element !== 'undefined' && e.target instanceof Element && !!e.target.closest('input, select, textarea')
+/** A key typed into a field of the table (an input, a select) is the field's, not the table's; mid-conversion (IME)
+ *  it is the IME's. */
+const typing = (e: KeyboardEvent) => composing(e) || typingIn(e.target)
 
 /** ↑ / ↓ in a table: the selection moves to the row above / below the (first) selected one; true = handled. */
 export function arrowSelect(e: KeyboardEvent, ids: string[], selection: string[], select: (ids: string[]) => void): boolean {
@@ -145,6 +147,7 @@ export class CellEdit<F extends string = string> {
 	/** A key in the cell's box. When the editing ends the table gets the focus back (↑ / ↓ go on from there). */
 	key = (e: KeyboardEvent, id: string, field: F): void => {
 		e.stopPropagation()
+		if (composing(e)) return   // Enter / Esc commit / cancel the IME's conversion, not the cell
 		const box = e.currentTarget as HTMLInputElement | HTMLSelectElement, grid = box.closest<HTMLElement>('[role="grid"]')
 		if (e.key === 'Escape') { e.preventDefault(); this.at = null; grid?.focus(); return }
 		if (e.key !== 'Enter' && e.key !== 'Tab') return

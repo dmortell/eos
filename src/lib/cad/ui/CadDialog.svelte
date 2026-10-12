@@ -11,6 +11,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 	import { backdropClose, dialogFocus } from './backdrop'
+	import { composing } from './keyGuards'
 
 	let { title = '', label, hint, width = '40rem', height, top = '6vh', flush = false, hidden = false, locked = false, outside = true,
 		onclose, onescape, onkeydown, head, bar, footer, children, el = $bindable() }: {
@@ -30,6 +31,7 @@
 	const mine = (e: KeyboardEvent) => (e.target as Element | null)?.closest?.('[role=dialog]') === el || e.target === el
 
 	function key(e: KeyboardEvent) {
+		if (composing(e)) return   // mid-conversion (IME) Esc / Enter are the IME's: no closing, no OK
 		onkeydown?.(e)
 		if (e.defaultPrevented || !mine(e)) return
 		if (e.key === 'Escape') {

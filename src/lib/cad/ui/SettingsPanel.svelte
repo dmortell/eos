@@ -10,6 +10,7 @@
      Adding a usage or a cable type takes its code / name first (Enter or + Add): a usage's code is what outlets store
      and can't be renamed, so it's never a placeholder; cable types work the same way, for one habit. -->
 <script lang="ts">
+	import { enterKey } from './keyGuards'
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import type { CadProject } from '../app/project.svelte'
@@ -118,7 +119,7 @@
 		</tbody>
 	</table>
 	<div class="foot">
-		<input class="code" placeholder="New code (e.g. CAM)" title="The code outlets and panels store — it can't be changed later; the label can" bind:value={newCode} onkeydown={(e) => e.key === 'Enter' && addUsage()} />
+		<input class="code" placeholder="New code (e.g. CAM)" title="The code outlets and panels store — it can't be changed later; the label can" bind:value={newCode} onkeydown={(e) => enterKey(e) && addUsage()} />
 		<button class="btn" disabled={!newCode.trim()} onclick={addUsage}>+ Add usage</button>
 	</div>
 {:else if tab === 'lengths'}
@@ -160,7 +161,7 @@
 		</tbody>
 	</table>
 	<div class="foot">
-		<input class="code" placeholder="New type (e.g. Cat6A)" bind:value={newType} onkeydown={(e) => e.key === 'Enter' && addType()} />
+		<input class="code" placeholder="New type (e.g. Cat6A)" bind:value={newType} onkeydown={(e) => enterKey(e) && addType()} />
 		<button class="btn" disabled={!newType.trim()} onclick={addType}>+ Add type</button>
 	</div>
 	<div class="foot">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { composing } from './keyGuards'
 	// cad: File › Open project… (Ctrl+O) — ported from the Pages tool (backlog "Open project (Ctrl+O)"); picking one
 	// opens it in cad. Pick a project from Firestore `projects` — the same collection and
 	// filters as the app's Projects page (src/routes/projects/Projects.svelte): trashed projects hidden, a
@@ -47,6 +48,7 @@
 
 	function choose(p: Project | undefined) { if (p) { onpick?.(p.id); onclose?.() } }
 	function onKey(e: KeyboardEvent) {
+		if (composing(e)) return   // the IME's ↑ / ↓ / Enter (picking, committing a conversion)
 		if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, results.length - 1) }
 		else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0) }
 		else if (e.key === 'Enter') { e.preventDefault(); choose(results[sel]) }

@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import { composing, typingIn } from './keyGuards'
 	import { KEYS } from './shellKeys'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -79,7 +80,7 @@
 	const set = (patch: Partial<typeof t>) => { Object.assign(t, patch); panels.save() }
 </script>
 
-<svelte:window onkeydowncapture={(e) => { if (t.max && e.key === 'Escape' && !(e.target instanceof Element && e.target.closest('input, select, textarea'))) { e.preventDefault(); e.stopPropagation(); set({ max: false }) } }} />
+<svelte:window onkeydowncapture={(e) => { if (t.max && e.key === 'Escape' && !composing(e) && !typingIn(e.target)) { e.preventDefault(); e.stopPropagation(); set({ max: false }) } }} />
 
 <section class="tables" class:floating class:max class:folded class:closed
 	style:left={floating ? `${t.x}px` : undefined} style:top={floating ? `${t.y}px` : undefined}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enterKey } from './keyGuards'
 	// The PROJECT's title-block template (domain/titleBlock.ts), edited from a sheet's Properties: sections, border,
 	// layout, logo text + images, the drawing office's lines, then the fields in order — relabel, full / half width,
 	// drag to reorder, remove, add an auto-filled field or a custom one with fixed text. Ported from Pages'
@@ -92,7 +93,7 @@
 		upload(k, new File([b], `${k}-logo.${ext}`, { type: b.type }), lg.h ?? 10, lg.src)
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value
-	const blurOnEnter = (e: KeyboardEvent) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }
+	const blurOnEnter = (e: KeyboardEvent) => { if (enterKey(e)) (e.currentTarget as HTMLInputElement).blur() }
 </script>
 
 <div class="prop-sec">Title block · project template</div>

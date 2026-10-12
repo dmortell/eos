@@ -1,6 +1,6 @@
 // The guards the key handlers share.
 import { describe, it, expect } from 'vitest'
-import { askKey, typingIn } from './keyGuards'
+import { askKey, typingIn, composing, enterKey } from './keyGuards'
 
 /** A stand-in element: its tag, and the selectors `closest` finds it (or an ancestor) by. */
 const el = (tagName: string, ...matches: string[]) => ({ tagName, closest: (sel: string) => (matches.some((m) => sel.includes(m)) ? {} : null) })
@@ -27,5 +27,14 @@ describe('key guards', () => {
 		expect(askKey({ key: 'Escape', target: answerBtn })).toBe('cancel')
 		expect(askKey({ key: 'Escape', target: field })).toBe(null)
 		expect(askKey({ key: 'x', target: body })).toBe(null)
+	})
+	it('Japanese IME: Enter / Esc mid-conversion are the IME’s (isComposing, or keyCode 229 on the Enter that commits)', () => {
+		expect(composing({ isComposing: true, keyCode: 13 })).toBe(true)
+		expect(composing({ isComposing: false, keyCode: 229 })).toBe(true)
+		expect(composing({ isComposing: false, keyCode: 13 })).toBe(false)
+		expect(enterKey({ key: 'Enter', isComposing: true })).toBe(false)
+		expect(enterKey({ key: 'Enter', keyCode: 13 })).toBe(true)
+		expect(askKey({ key: 'Enter', target: body, isComposing: true })).toBe(null)
+		expect(askKey({ key: 'Escape', target: body, keyCode: 229 })).toBe(null)
 	})
 })

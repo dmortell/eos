@@ -4,6 +4,7 @@
      Restore brings it back. Typed categories found on this project's sheets can be added. Saved straight to the global
      doc (not on this project's undo history). -->
 <script lang="ts">
+	import { enterKey } from './keyGuards'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import { ordered, addCategory, moveCategory, strayKinds, categoryOf, type SheetCategory } from '../domain/sheetCategories'
@@ -41,8 +42,8 @@
 	</tbody>
 </table>
 <div class="foot">
-	<input class="lbl2" placeholder="New category" bind:value={label} onkeydown={(e) => e.key === 'Enter' && add()} />
-	<input class="code" placeholder="Code" bind:value={code} onkeydown={(e) => e.key === 'Enter' && add()} />
+	<input class="lbl2" placeholder="New category" bind:value={label} onkeydown={(e) => enterKey(e) && add()} />
+	<input class="code" placeholder="Code" bind:value={code} onkeydown={(e) => enterKey(e) && add()} />
 	<button class="btn" disabled={!label.trim() || busy} onclick={() => add()}>+ Add category</button>
 </div>
 {#if strays.length}

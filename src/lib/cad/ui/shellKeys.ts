@@ -8,6 +8,7 @@ import type { Panels } from '../app/panels.svelte'
 import type { Tabs } from '../app/tabs.svelte'
 import type ViewCanvas from './ViewCanvas.svelte'
 import { labelKind } from '../domain/labelEdit'
+import { composing, typingIn } from './keyGuards'
 import type { Device } from '../domain/types'
 
 /** Arrow keys nudge the selection (view directions: y down). */
@@ -118,7 +119,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 ]
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
-	if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
+	if (composing(e) || typingIn(e.target)) return
 	// a dialog open: its keys are its own (Esc closes it); the drawing behind it gets none (Delete, Ctrl+Z, arrows …)
 	if (document.querySelector('[role=dialog]')) return
 	const { project } = c, canvas = c.canvas()
