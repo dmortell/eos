@@ -5,6 +5,7 @@
 	import type { Id } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
 	import { layersOf, layerOf, defaultLayer } from '../domain/layers'
+	import { MIXED } from './propsKit'
 
 	let { project, ids }: { project: CadProject; ids: Id[] } = $props()
 
@@ -31,7 +32,7 @@
 	<label class="row" title="The layer it's on — pick another to move {items.length === 1 ? 'it' : 'them'}">
 		<span>Layer</span>
 		<select value={on} onchange={(e) => move((e.currentTarget as HTMLSelectElement).value)}>
-			{#if !on}<option value="" disabled>(mixed)</option>{/if}
+			{#if !on}<option value="" disabled>{MIXED}</option>{/if}
 			{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 		</select>
 	</label>

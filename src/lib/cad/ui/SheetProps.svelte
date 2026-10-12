@@ -17,12 +17,20 @@
 	import { duplicateSheets } from '../app/sheetActions'
 	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
 	import type { Issue, SheetChange } from '../domain/drawing'
+	import { ordered, categoryOf } from '../domain/sheetCategories'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
 	const vp = $derived(s.viewports.find((v) => v.id === ws.viewportId))
 	const issuedIn = $derived(issuesOfSheet([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue'), s.id))
 	const levels = $derived(project.levels)
+	// category / discipline / tags, as several sheets have them (SheetMultiProps)
+	const cats = $derived(ordered(project.sheetCategories))
+	const autoCat = $derived(categoryOf({ viewports: s.viewports }, cats).label)
+	function setTag(t: string, on: boolean) {
+		const cur = s.tags ?? [], next = on ? [...new Set([...cur, t])] : cur.filter((x) => x !== t)
+		putSheet(on ? `Tag ${t}` : `Untag ${t}`, { tags: next.length ? next : undefined })
+	}
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
 	/** How it draws: its own setting, else the project's old one (as it prints). */
 	const look = $derived({ gray: s.gray ?? !!project.settings?.grayFloorplans, byUsage: (s.outletColour ?? project.settings?.outletColour) !== 'layer', channels: (s.cordRoute ?? project.settings?.cordRoute) === 'channels' })
@@ -143,6 +151,18 @@
 	<PropGroup kind="sheet" title="General">
 		<label class="row">Number <input class="inp font-mono" value={s.number} onchange={(e) => putSheet('Sheet number', { number: e.currentTarget.value.trim() })} /></label>
 		<label class="row">Title <input class="inp" value={s.title} onchange={(e) => putSheet('Sheet title', { title: e.currentTarget.value.trim() })} /></label>
+		<label class="row" title="Its category in the sheet register (Auto: worked out from its viewports)">Category
+			<select class="inp" value={s.kind ?? ''} onchange={(e) => putSheet('Sheet category', { kind: e.currentTarget.value || undefined })}>
+				<option value="">Auto ({autoCat})</option>
+				{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+				{#if s.kind && !cats.some((c) => c.id === s.kind)}<option value={s.kind}>{s.kind}</option>{/if}
+			</select></label>
+		<label class="row">Discipline <input class="inp" value={s.discipline ?? ''} placeholder="—" onchange={(e) => putSheet('Sheet discipline', { discipline: e.currentTarget.value.trim() || undefined })} /></label>
+		<div class="row"><span>Tags</span>
+			<span class="tags">
+				{#each s.tags ?? [] as t (t)}<span class="tag">{t}<button title="Take this tag off" onclick={() => setTag(t, false)}>×</button></span>{/each}
+				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (e.key === 'Enter' && t) { setTag(t, true); e.currentTarget.value = '' } }} />
+			</span></div>
 		<!-- this sheet's own title-block settings; the template is the project's -->
 		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 		<!-- the approvals, for templates that show them (Title block template… › add Checked / Approved) -->
@@ -216,6 +236,11 @@
 {/if}
 
 <style>
+	.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+	.tag { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border-radius: 8px; background: var(--cad-hover); font-size: 11px; }
+	.tag button { color: var(--cad-muted); padding: 0 3px; }
+	.tag button:hover { color: #dc2626; }
+	.tagin { width: 5rem; flex: 1; }
 	.win { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
 	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }

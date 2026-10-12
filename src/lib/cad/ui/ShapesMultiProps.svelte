@@ -1,7 +1,7 @@
-<!-- SEVERAL DRAWN SHAPES at once (backlog "Edit several at once"): their colour, text size (texts), Z (shapes and
-     inserts on a level's plan) and height (boxes). A field shows the value they share, or "mixed"; an edit sets it on
-     every shape it applies to, as one undo step. Layer is the Layer row below (LayerPick); several runs have their own
-     fields too (RunsMultiProps). -->
+<!-- SEVERAL DRAWN SHAPES at once (backlog "Edit several at once"; not runs — RunsMultiProps): their layer, color, line
+     type, fill, text size (texts), rotation (rectangles, ellipses), Z (shapes and blocks on a level's plan), whether
+     blocks show in elevations, height and doors (boxes), block attributes. A field shows the value they share, or
+     "mixed"; an edit sets it on every shape it applies to, as one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import { withFill, type Shape } from '../domain/shapes'
@@ -34,13 +34,15 @@
 	const inserts = $derived(shapes.filter((s) => s.geom.kind === 'insert'))
 	/** Blocks placed on a level's plan: they can show in elevations too. */
 	const placed = $derived(inserts.filter((s) => s.levelId))
+	/** Rectangles (boxes) and ellipses: they turn about their centre. */
+	const turnable = $derived(shapes.filter((s) => s.geom.kind === 'rect' || s.geom.kind === 'ellipse'))
 	function clearColour(s: Shape): Shape {
 		const { stroke: _s, ...st } = s.style ?? {}
 		return { ...s, style: Object.keys(st).length ? st : undefined }
 	}
 </script>
 
-<!-- the same groups as one shape's: General · Style · Box and position · Attributes (blocks) -->
+<!-- the same groups as one shape's: General · Style · Position · Box · Attributes (blocks) -->
 <PropGroup kind="shapes" title="General">
 	<LayerPick {project} ids={shapes.map((s) => s.id)} />
 </PropGroup>
@@ -59,23 +61,32 @@
 			<input class="inp" type="number" min="1" step="0.5" value={size ?? ''} placeholder={size === null ? MIXED : ''} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= 1) each(texts, 'Text size', (s) => ({ ...s, geom: { ...s.geom, sizeMm: v } as Shape['geom'] })) }} /></label>
 	{/if}
 </PropGroup>
-{#if onPlan.length || regions.length || placed.length}
-	<PropGroup kind="shapes" title="Box and position">
+{#if onPlan.length || turnable.length || placed.length}
+	<PropGroup kind="shapes" title="Position">
+		{#if turnable.length}
+			{@const rot = shared(turnable, (s) => (s.geom.kind === 'rect' || s.geom.kind === 'ellipse' ? (s.geom.rot ?? 0) : 0))}
+			<label class="row" title="The {turnable.length} rectangle{turnable.length === 1 ? '' : 's'} / ellipse{turnable.length === 1 ? '' : 's'} turned about {turnable.length === 1 ? 'its' : 'each one’s'} centre, clockwise">Rotation (°)
+				<input class="inp" type="number" step="15" value={rot ?? ''} placeholder={rot === null ? MIXED : ''} onchange={(e) => { const v = Number(e.currentTarget.value); if (e.currentTarget.value.trim() !== '' && Number.isFinite(v)) each(turnable, 'Rotate', (s) => ({ ...s, geom: { ...s.geom, rot: ((v % 360) + 360) % 360 || undefined } as Shape['geom'] })) }} /></label>
+		{/if}
 		{#if onPlan.length}
 			{@const z = shared(onPlan, zOf)}
 			<label class="row" title="Height above the floor of the {onPlan.length} on the plan (a box's base, a block's height in elevations)">Z (mm)
 				<input class="inp" type="number" step="10" value={z ?? ''} placeholder={z === null ? MIXED : ''} onchange={(e) => { const v = e.currentTarget.value; if (v.trim() !== '') each(onPlan, 'Z', (s) => withZ(s, Number(v))) }} /></label>
-		{/if}
-		{#if regions.length}
-			{@const h = shared(regions, (s) => s.extent ?? 0)}
-			<label class="row" title="How tall the {regions.length} box{regions.length === 1 ? '' : 'es'} are (0 = flat)">Height (mm)
-				<input class="inp" type="number" min="0" step="10" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => { const v = Math.max(0, Number(e.currentTarget.value)); each(regions, 'Height', (s) => ({ ...s, extent: v || undefined })) }} /></label>
 		{/if}
 		{#if placed.length}
 			{@const on = (s: Shape) => s.geom.kind === 'insert' && !!s.geom.inElevations}
 			<label class="row" title="Show these blocks in elevations and sections too (wall faceplates); otherwise only on the plan">Elevations
 				<span><input type="checkbox" checked={placed.every(on)} indeterminate={placed.some(on) && !placed.every(on)}
 					onchange={(e) => { const v = e.currentTarget.checked || undefined; each(placed, v ? 'Show in elevations' : 'Plan only', (s) => ({ ...s, geom: { ...s.geom, inElevations: v } } as Shape)) }} /> show in elevations</span></label>
+		{/if}
+	</PropGroup>
+{/if}
+{#if regions.length}
+	<PropGroup kind="shapes" title="Box">
+		{#if regions.length}
+			{@const h = shared(regions, (s) => s.extent ?? 0)}
+			<label class="row" title="How tall the {regions.length} box{regions.length === 1 ? '' : 'es'} are (0 = flat)">Height (mm)
+				<input class="inp" type="number" min="0" step="10" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => { const v = Math.max(0, Number(e.currentTarget.value)); each(regions, 'Height', (s) => ({ ...s, extent: v || undefined })) }} /></label>
 		{/if}
 		{#if regions.some((s) => s.geom.kind === 'rect')}<RackDoors {project} boxes={regions} />{/if}
 	</PropGroup>

@@ -13,6 +13,7 @@
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { Icon, DragReorder } from '$lib'
 	import SideSection from './SideSection.svelte'
+	import ColorPick from './ColorPick.svelte'
 	import NameInput from './NameInput.svelte'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
@@ -96,14 +97,14 @@
 	{@const off = ws.layers.hidden.has(l.id)}
 	{@const locked = ws.layers.locked.has(l.id)}
 	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
-		<!-- a square = a colour set on the layer (applied to its items); a round dot = the default, the colour its items
-		     already draw in (not forced on them) -->
-		<label class="sw" title={l.color ? 'Layer color: its items draw in it (unless they have their own) — right-click to go back to the default'
+		<!-- a square = a color set on the layer (applied to its items); a round dot = the default, the color its items
+		     already draw in (not forced on them). cad's color picker, as in Properties; its By layer = back to the default -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<span class="sw" class:dflt={!l.color} title={l.color ? 'Layer color: its items draw in it (unless they have their own) — By layer (or right-click) goes back to the default'
 			: l.look ? 'Default color: how its items draw now — click to set a layer color' : 'No color — click to set one'}
 			oncontextmenu={(e) => { e.preventDefault(); if (l.color) setColour(l, undefined) }}>
-			<input type="color" value={l.color ?? l.look ?? '#888888'} onchange={(e) => setColour(l, (e.currentTarget as HTMLInputElement).value)} />
-			<span style:background={l.color ?? l.look ?? 'transparent'} class:none={!l.color && !l.look} class:dflt={!l.color}></span>
-		</label>
+			<ColorPick compact value={l.color ?? l.look} allowByLayer title="{l.name}: layer color" onchange={(v) => { if (v !== l.color) setColour(l, v) }} />
+		</span>
 		{#if renaming === l.id}
 			<NameInput wide value={l.name} title="Layer name" onsave={(t) => { renaming = null; put(`Rename layer ${l.name}`, record(l, { name: t })) }} oncancel={() => (renaming = null)} />
 		{:else}
@@ -155,11 +156,9 @@
 	.off .nm { color: var(--cad-faint); text-decoration: line-through; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
 	.ct { font-size: 10px; color: var(--cad-faint); min-width: 1.1rem; text-align: right; }
-	.sw { flex: none; position: relative; width: 0.75rem; height: 0.75rem; cursor: pointer; }
-	.sw input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-	.sw span { display: block; width: 100%; height: 100%; border-radius: 2px; border: 1px solid var(--cad-line); }
-	.sw span.dflt { border-radius: 50%; transform: scale(0.8); border: none; }
-	.sw span.none { background: repeating-linear-gradient(45deg, transparent 0 2px, var(--cad-line) 2px 3px) !important; }
+	.sw { flex: none; display: inline-flex; line-height: 0; }
+	.sw :global(.cp-btn .sw) { width: 0.75rem; height: 0.75rem; border-radius: 2px; }
+	.sw.dflt :global(.cp-btn .sw) { border-radius: 50%; transform: scale(0.85); }
 	.ic { display: inline-flex; padding: 1px; color: var(--cad-faint); border-radius: 2px; }
 	.ic:hover { color: var(--cad-text); }
 	.ic.on { color: var(--cad-link); }

@@ -43,7 +43,7 @@
 				<button class:on={(g.align ?? 'left') === a} title="{label} of its point" onclick={() => setGeom('Text align', { align: a === 'left' ? undefined : a })}>{label}</button>
 			{/each}
 		</span></span>
-	<label class="row" title="A box width: the text wraps inside it (and is cut off at its sides). Blank = no box, lines as typed. On a sheet paper mm, on a drawing its mm.">Box width
+	<label class="row" title="A box width: the text wraps inside it (and is cut off at its sides). Blank = no box, lines as typed. On a sheet paper mm, on a drawing its mm.">Box width (mm)
 		<input class="inp" type="number" min="1" value={g.width ?? ''} placeholder="none" onchange={(e) => { const v = Number(e.currentTarget.value); setGeom(v > 0 ? 'Text box width' : 'No text box', { width: v > 0 ? v : undefined }) }} /></label>
 {:else if g.kind === 'leader'}
 	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing. {FIELDS_TIP}">Text

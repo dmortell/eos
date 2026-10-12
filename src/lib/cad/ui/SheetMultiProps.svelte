@@ -1,6 +1,6 @@
 <!-- SEVERAL SHEETS in Properties (sheets-organising slice 3): category, discipline, a tag added to / taken off them
      all, paper size and orientation, drawn by, archive / restore, add to a package, duplicate. A field they disagree on
-     shows "(mixed)". One undo step per edit. -->
+     shows "mixed". One undo step per edit. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -45,12 +45,12 @@
 			{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
 		</select></label>
 	<label class="row">Discipline <input class="inp" value={same((s) => s.discipline ?? '') ?? ''} placeholder={mixed((s) => s.discipline ?? '') ? MIXED : '—'} onchange={(e) => set('Sheet discipline', () => ({ discipline: e.currentTarget.value.trim() || undefined }))} /></label>
-	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.drawn ?? '') ? MIXED : 'initials'}
-		onchange={(e) => { const v = e.currentTarget.value.trim(); set('Drawn by', (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: v } } })) }} /></label>
-	<div class="row"><span>Tag</span>
+	<div class="row"><span>Tags</span>
 		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" />
 			<button class="btn" disabled={!tag.trim()} title="Add this tag to every selected sheet" onclick={() => tagAll(true)}>+</button>
 			<button class="btn" disabled={!tag.trim()} title="Take this tag off every selected sheet" onclick={() => tagAll(false)}>−</button></span></div>
+	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.drawn ?? '') ? MIXED : 'initials'}
+		onchange={(e) => { const v = e.currentTarget.value.trim(); set('Drawn by', (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: v } } })) }} /></label>
 </PropGroup>
 <PropGroup kind="sheets" title="Paper">
 	<label class="row">Size

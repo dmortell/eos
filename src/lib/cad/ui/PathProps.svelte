@@ -11,6 +11,7 @@
 	import RunFill from './RunFill.svelte'
 	import WallOpenings from './WallOpenings.svelte'
 	import MakeBlock from './MakeBlock.svelte'
+	import { shared, MIXED } from './propsKit'
 	import { withStyle } from '../domain/shapes'
 	import { insideOf, DEFAULT_WALL_MM } from '../domain/fill'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, servableRooms, toggleServes, type RunPlace } from '../domain/runEdit'
@@ -140,8 +141,8 @@
 			{#if s.section && kind !== 'line'}
 				<!-- their own size (a reducer, a taller wall panel): blank = mixed; "as run" drops it -->
 				<span class="segsize">
-					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" value={segShared('w') ?? ''} placeholder="mixed" onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
-					{#if !s.section.round}<label>H <input type="number" value={segShared('h') ?? ''} placeholder="mixed" onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
+					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" value={segShared('w') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
+					{#if !s.section.round}<label>H <input type="number" value={segShared('h') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
 					{#if pickedSegs.some((g) => g.section)}<button class="btn" title="Back to the run's own size" onclick={() => setSegSection(null)}>as run</button>{/if}
 				</span>
 			{/if}
@@ -180,15 +181,15 @@
 {#if s.section || s.role?.kind === 'containment'}
 	<PropGroup kind={kind} title="Size and height">
 		{#if s.section}
-			<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'}
+			<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'} (mm)
 				<input class="inp" type="number" value={s.section.w} onchange={(e) => setSection({ w: Number(e.currentTarget.value) })} /></label>
 			{#if !s.section.round}
-				<label class="row">Height <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
+				<label class="row">Height (mm) <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
 			{/if}
 			{#if s.role?.kind === 'containment'}
 				{@const ins = insideOf(s.section)}
 				<!-- what fill is worked out against: blank = the outside less a 3 mm wall each side (legacy Fill rate) -->
-				<div class="row" title="The inside size fill is worked out against (mm). Blank: the outside less a {DEFAULT_WALL_MM} mm wall each side.">Inside
+				<div class="row" title="The inside size fill is worked out against. Blank: the outside less a {DEFAULT_WALL_MM} mm wall each side.">Inside (mm)
 					<span class="inside">
 						<input class="inp" type="number" min="1" aria-label="Inside width" value={s.section.inner?.w ?? ''} placeholder={String(ins.w)} onchange={(e) => setInner('w', e.currentTarget.value)} />
 						{#if !s.section.round}× <input class="inp" type="number" min="1" aria-label="Inside height" value={s.section.inner?.h ?? ''} placeholder={String(ins.h)} onchange={(e) => setInner('h', e.currentTarget.value)} />{/if}
@@ -204,7 +205,7 @@
 				</select></label>
 			{@const role = s.role}
 			<!-- its corners drawn as arcs (backlog "Bend radius"); each corner's round grip on the plan changes just that one -->
-			<label class="row" title="Every corner's radius (mm), drawn as an arc on the plan; blank / 0 = sharp. Drag a corner's round grip to change that one.">Bend radius
+			<label class="row" title="Every corner's radius (mm), drawn as an arc on the plan; blank / 0 = sharp. Drag a corner's round grip to change that one.">Bend radius (mm)
 				<input class="inp" type="number" min="0" step="10" value={role.bendRadius ?? ''} placeholder="sharp"
 					onchange={(e) => { const r = Math.max(0, Number(e.currentTarget.value) || 0); save('Bend radius', { ...s, role: { ...role, bendRadius: r || undefined } }) }} /></label>
 		{/if}
@@ -240,7 +241,8 @@
 {/if}
 <PropGroup kind={kind} title="Nodes">
 	<p class="text-zinc-500">{nodes.length} nodes, {vertical} vertical</p>
-	<label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>
+	{@const allZ = shared(nodes, (n) => n.z)}
+	<label class="row" title="Every node's height above the floor (FFL) — typing one sets them all">Z, all nodes (mm) <input class="inp" type="number" value={allZ.value ?? ''} placeholder={allZ.mixed ? MIXED : ''} onchange={(e) => { const t = e.currentTarget.value; if (t.trim() !== '' && Number.isFinite(Number(t))) setAllZ(Number(t)) }} /></label>
 	<div class="space-y-0.5">
 		{#each nodes as n, i (n.id)}
 			<div class="node">

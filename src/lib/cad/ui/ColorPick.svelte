@@ -1,16 +1,18 @@
-<!-- cad's colour field (Dave 2026-10-05: "use a dropdown selector like the one in Pages"): the shared $lib ColorPicker — a
-     swatch button opening a grid of colours plus Custom — dressed in cad's theme. `allowByLayer` adds "By layer" (the
-     shape's own colour cleared: undefined), `allowNone` adds "None" ('none'). -->
+<!-- cad's color field (Dave 2026-10-05: "use a dropdown selector like the one in Pages"): the shared $lib ColorPicker — a
+     swatch button opening a grid of colors plus Custom — dressed in cad's theme. `allowByLayer` adds "By layer" (the
+     shape's own color cleared: undefined), `allowNone` adds "None" ('none'). `compact`: the swatch alone (a layer's
+     row), its grid opening to the right. -->
 <script lang="ts">
 	import ColorPicker from '$lib/ui/ColorPicker.svelte'
 
-	let { value, onchange, allowNone = false, allowByLayer = false, mixed = false, title = 'Color' }: {
+	let { value, onchange, allowNone = false, allowByLayer = false, mixed = false, title = 'Color', compact = false }: {
 		value?: string
 		onchange: (v: string | undefined) => void
 		allowNone?: boolean
 		allowByLayer?: boolean
 		mixed?: boolean
 		title?: string
+		compact?: boolean
 	} = $props()
 
 	/** The Sheets tool's layer palette (rainbow, then browns / greys / black; Dave 2026-10-05), plus a bright yellow
@@ -22,7 +24,7 @@
 	]
 </script>
 
-<span class="cc"><ColorPicker {value} {onchange} {allowNone} {allowByLayer} {mixed} {title} colors={COLORS} cols={7} /></span>
+<span class="cc" class:compact><ColorPicker {value} {onchange} {allowNone} {allowByLayer} {mixed} {title} colors={COLORS} cols={7} /></span>
 
 <style>
 	/* the picker reads Pages' theme variables: give it cad's */
@@ -31,4 +33,8 @@
 		--panel: var(--cad-panel, white); --input: var(--cad-input, white); --text: var(--cad-text, #18181b); --line: var(--cad-line, #e4e4e7);
 		--hover: var(--cad-hover, #f4f4f5); --muted: var(--cad-muted, #71717a); --accent: #2563eb; --accent-dim: #93c5fd;
 	}
+	.cc.compact { display: inline-block; min-width: 0; }
+	.compact :global(.cp-btn) { padding: 1px; border-color: transparent; background: none; gap: 0; }
+	.compact :global(.cp-lbl), .compact :global(.cp-btn > svg) { display: none; }
+	.compact :global(.cp-pop) { left: 0; right: auto; }
 </style>

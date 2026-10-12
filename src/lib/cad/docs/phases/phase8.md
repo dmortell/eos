@@ -2830,3 +2830,21 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   name, containment, a link to its room, its racks in the rack view's order (a click selects one), Open row view.
   Delete (key / header) on a room = `deleteRoom`, on a row = new `deleteRow` (its racks stay, in no row; its hand order
   goes). The Racks window keeps its own controls. Help: the room / row and floor / ceiling how-tos.
+- **R68 / R67 / R69 Same labels, same fields for one and many, rotation (step 3):**
+  - Labels carry their unit and "Z" means height above the floor: a run's Width / Thickness / Diameter (mm), Height
+    (mm), Inside (mm), Bend radius (mm), "Z, all nodes (mm)" (it now shows their shared Z, "mixed" otherwise); an
+    outlet's and a block's "Height (Z…)" → **Z (mm)**; a note's Box width (mm); Lineweight (mm); racks' Rotation (°).
+    One MIXED word everywhere in Properties (Layer, cord type, segment sizes had "(mixed)" / own copies); run tiers
+    read Low / High / Wall as elsewhere.
+  - The Layers panel's color is cad's ColorPick (the grid + Custom, as in Properties) instead of the browser's color
+    input — `ColorPick` `compact` (the swatch alone, its grid opening to the right); By layer = back to the default,
+    the round "default" dot kept.
+  - One sheet's General has **Category** (Auto shows what it works out), **Discipline** and **Tags** (chips with ×, a
+    box that adds on Enter), in the order several sheets show them (Category · Discipline · Tags · Drawn). Outlets,
+    devices (Mount, PDU side / inlets / sockets now for several) and racks (Product, Color now for several) were made
+    one-for-1-and-n in step 2.
+  - **Rotation (°)** for rectangles (boxes) and ellipses — one (ShapeProps › Position, with a box's Z) or several
+    (ShapesMultiProps › Position, each about its own centre). Images: left — the image prim has no rotation, so the
+    screen / PDF can't draw a turned picture yet.
+  - Help: "Give a layer a color", "Turn a rectangle, box or ellipse"; the sheets how-to names the single sheet's
+    Category / Discipline / Tags.

@@ -9,6 +9,7 @@
 	import { withCableType } from '../domain/cords'
 	import { cordActionsFor, runCordAction } from './cordActions'
 	import ColorPick from './ColorPick.svelte'
+	import { MIXED } from './propsKit'
 
 	let { project, ws, cords, column = false }: { project: CadProject; ws: Workspace; cords: Cord[]; column?: boolean } = $props()
 
@@ -35,7 +36,7 @@
 	</span>
 	<label class="fld" title="The cable type of {n} — its colour comes with it">Type
 		<select class="inp" value={sameType ?? ''} onchange={(e) => setType(e.currentTarget.value)}>
-			{#if !sameType}<option value="">mixed</option>{/if}
+			{#if !sameType}<option value="">{MIXED}</option>{/if}
 			{#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 			{#if sameType && !types.some((t) => t.id === sameType)}<option value={sameType}>{sameType}</option>{/if}
 		</select>

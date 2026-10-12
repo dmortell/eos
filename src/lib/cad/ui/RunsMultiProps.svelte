@@ -58,7 +58,7 @@
 			<label class="row">Tier
 				<select class="inp" value={tier ?? 'mixed'} onchange={(e) => { const t = e.currentTarget.value; if (t !== 'mixed') each('Run tier', (s) => (s.role?.kind === 'containment' ? { ...s, role: { ...s.role, tier: t as 'low' | 'high' | 'wall' } } : null)) }}>
 					{#if tier === null}<option value="mixed">{MIXED}</option>{/if}
-					<option value="low">low</option><option value="high">high</option><option value="wall">wall</option>
+					<option value="low">Low</option><option value="high">High</option><option value="wall">Wall</option>
 				</select></label>
 		{/if}
 	</PropGroup>
