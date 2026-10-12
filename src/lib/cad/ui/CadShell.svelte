@@ -241,7 +241,12 @@
 	function showHistory(ids: string[]) {
 		const e = ids.length ? project.store.get(ids[0]) : undefined
 		const on = e?.type === 'device' ? (project.store.get(e.rackId) as { levelId?: string } | undefined)?.levelId : (e as { levelId?: string } | undefined)?.levelId
-		if (on && on !== ws.levelId && activeKind !== 'sheet' && activeKind !== 'riser' && !isPaperKind(activeKind) && project.levels.some((l) => l.id === on)) openLevel(on)
+		if (on && on !== ws.levelId && activeKind !== 'sheet' && activeKind !== 'riser' && !isPaperKind(activeKind) && project.levels.some((l) => l.id === on)) {
+			// the other pane already shows that level: work there instead of turning this pane to it (review follow-up)
+			const other = panes.findIndex((p, i) => i !== activePane && ws.paneLevels[i] === on && p.kind !== 'sheet' && p.kind !== 'riser' && !isPaperSpec(p))
+			if (other >= 0) ws.pane = other
+			else openLevel(on)
+		}
 		ws.select(ids)
 	}
 	/** The room the patch list's "This room" means: the open rack view's, else the selected rack's / device's / cord's. */
