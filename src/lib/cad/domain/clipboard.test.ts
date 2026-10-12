@@ -29,6 +29,12 @@ describe('copy', () => {
 		const n = copy(ix([sheet, note]), ['N']).items[0] as Shape
 		expect(n.vpId).toBeUndefined()
 		expect(n.geom.kind === 'text' && n.geom.at).toEqual({ x: 60, y: 50 })   // centre 50,50 + 1000 / 100
+		// a box and a circle keep the size they showed at (2000 × 1000 at 1:100 = 20 × 10 paper mm)
+		const box = { ...note, id: 'B', geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 2000, y: 1000 } } } as Shape
+		const ring = { ...note, id: 'C', geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 500 } } as Shape
+		const [b, c] = copy(ix([sheet, box, ring]), ['B', 'C']).items as Shape[]
+		expect(b.geom).toMatchObject({ centre: { x: 50, y: 50 }, size: { x: 20, y: 10 } })
+		expect(c.geom).toMatchObject({ centre: { x: 50, y: 50 }, r: 5 })
 	})
 })
 

@@ -3103,3 +3103,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   it showed at its printed size for every kind: lines (their nodes), blocks (the point; a symbol keeps its scale, a
   model block shrinks by the drawing scale), pictures and legends were left in view mm — metres off the paper. `untie`
   now lives in `domain/sheetEdit.ts` (`editor/noteTool.ts` re-exports it; `annotativeIn` in `domain/blocks.ts`; tests).
+- **Q14** copying notes tied to a viewport (Ctrl+C, Ctrl-copy in Move / Rotate / Mirror, paste at the cursor) keeps
+  their printed size: the clip used to move only their points, so a 2000 × 1000 box at 1:100 came out 170 × 110 and
+  circles, ellipses, text widths and dimension offsets kept their view-mm sizes; it now uses `untie`
+  (`domain/clipboard.ts`; test).

@@ -9,6 +9,7 @@ import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { newServerRoom, placementProblem } from './devices'
+import { untie } from './sheetEdit'
 
 export const CLIP_MARK = 'eos-cad-clip/1'
 
@@ -22,26 +23,14 @@ export interface Clip {
 	layers: Layer[]
 }
 
-/** Every {x, y} point inside a value (any geometry kind) mapped by `f` — to untie a note (moving uses moveGeometry,
- *  which knows each kind). */
-function mapPts<T>(v: T, f: (p: Pt) => Pt): T {
-	if (Array.isArray(v)) return v.map((x) => mapPts(x, f)) as T
-	if (!v || typeof v !== 'object') return v
-	const o = v as Record<string, unknown>
-	const out: Record<string, unknown> = {}
-	for (const k in o) out[k] = mapPts(o[k], f)
-	if (typeof o.x === 'number' && typeof o.y === 'number') Object.assign(out, f({ x: o.x, y: o.y }))
-	return out as T
-}
-
-/** A note drawn inside a viewport, as plain paper points (a copy isn't tied to a viewport). */
-function untie(s: Shape, ix: ProjectIndex): Shape {
+/** A note drawn inside a viewport, as plain paper shapes where it showed, at its printed size (a copy isn't tied to a
+ *  viewport). */
+function untieNote(s: Shape, ix: ProjectIndex): Shape {
 	if (!s.sheetId || !s.vpId) return s
 	const vp = ix.get<Sheet>(s.sheetId)?.viewports.find((v) => v.id === s.vpId)
+	if (vp) return untie(s, vp)
 	const { vpId: _, ...rest } = s
-	if (!vp) return rest as Shape
-	const mx = vp.rect.x + vp.rect.w / 2, my = vp.rect.y + vp.rect.h / 2, k = 1 / vp.scale
-	return { ...rest, geom: mapPts(s.geom, (p) => ({ x: mx + (p.x - vp.centre.x) * k, y: my + (p.y - vp.centre.y) * k })) } as Shape
+	return rest as Shape
 }
 
 /** The selection as a clip: plan items (shapes, outlets, racks with their devices), sheet notes, or devices on their
@@ -56,7 +45,7 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 			: e.type === 'outlet' || e.type === 'rack' ? { kind: 'level', id: e.levelId } : e.type === 'device' ? { kind: 'rack', id: e.rackId } : null
 		if (!at || (from && (from.kind !== at.kind || (from.kind !== 'rack' && from.id !== at.id)))) continue
 		from = at
-		items.push(e.type === 'shape' ? untie(e, ix) : e)
+		items.push(e.type === 'shape' ? untieNote(e, ix) : e)
 		if (e.type === 'rack') items.push(...ix.devices.filter((d) => d.rackId === e.id))
 	}
 	if (!from || !items.length) return null
