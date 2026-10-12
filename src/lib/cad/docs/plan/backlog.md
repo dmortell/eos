@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 5 entries (0 P1 · 1 P2 · 4 P3; 0 ⚡ quick wins) — 14 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 0 entries (0 P1 · 0 P2 · 0 P3; 0 ⚡ quick wins) — 14 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -199,9 +199,9 @@ is given. Paths are relative to `src/lib/cad/` unless they start with `routes/` 
 
 ### Q-H. Decisions on the Q50 / Q55 leftovers (Dave 2026-10-13)
 
-- [ ] **Q73 Faceplates show only on the view they were drawn on** — revert the 2026-10-13 change that ticks "show in elevations" when a block with a front drawing is placed on a plan; the 2026-10-10 rule stands (a block placed on a plan shows only on the plan, one placed in an elevation only there). **P2 · S**
-- [ ] **Q74 Make block from shapes on a sheet** — blocks made from sheet shapes are usable anywhere (most often in viewports and models, not on paper). **P3 · S–M**
-- [ ] **Q75 An image box always keeps the picture's proportions** (every resize). **P3 · S**
-- [ ] **Q76 Finish / Cancel for a path on touch** — chips while drawing a run / line on a touch screen, and a double-tap finishes. **P3 · S**
-- [ ] **Q77 Purge removed asks before purging** (Patch list). **P3 · S**
+- [x] **Q73 Faceplates show only on the view they were drawn on** — revert the 2026-10-13 change that ticks "show in elevations" when a block with a front drawing is placed on a plan; the 2026-10-10 rule stands (a block placed on a plan shows only on the plan, one placed in an elevation only there). **P2 · S** **Done 2026-10-13** (`../phases/phase8.md`).
+- [x] **Q74 Make block from shapes on a sheet** — blocks made from sheet shapes are usable anywhere (most often in viewports and models, not on paper). **P3 · S–M** **Done 2026-10-13** (`../phases/phase8.md`).
+- [x] **Q75 An image box always keeps the picture's proportions** (every resize). **P3 · S** **Done 2026-10-13** (`../phases/phase8.md`).
+- [x] **Q76 Finish / Cancel for a path on touch** — chips while drawing a run / line on a touch screen, and a double-tap finishes. **P3 · S** **Done 2026-10-13** (`../phases/phase8.md`).
+- [x] **Q77 Purge removed asks before purging** (Patch list). **P3 · S** **Done 2026-10-13** (`../phases/phase8.md`).
 - Not needed (Dave): VCM front depth (`frontProtrusionMm` is an offset the legacy Racks floorplan used, not needed in cad); settable dimension / leader text size and heads; a revision cloud from two corners. Rack labels (Dave): no port count after the name; kit 150 mm wide or less gets its name turned up its middle — built 2026-10-13 (`views/rackRow.ts` `NARROW_MM`).
