@@ -3235,3 +3235,27 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   panels not re-running per frame (a drag over a 1,000-outlet project re-ran navTree, layer counts and every list
   each frame). Left: layer counts / tables that show live drag values still read `index`; the other
   `byId.values()` loops (legend, layers, plan) are single passes over everything on purpose.
+- **Q60** every Firestore listener has an error callback (a permission error stops a listener for good). `Backend.subscribe`
+  takes `onError`; `Sync` reports it (`onListenError(e, scopes)`, and `watch`'s third argument) and `CadProject` shows
+  "Lost the live connection to …" in `project.error` and ends Loading (`loaded` / `loadedScopes` are set, so there is no
+  spinner for ever). The global block / template / category docs, `RestoreNotices` (a restore elsewhere would not pause
+  this tab), the project file lists (`watchProjectPdfs` / `watchProjectImages` take `onError`: FloorsPanel,
+  ImagePickDialog, LogoPicker), the PDF watcher (`problems['watch:<file>']`), BackupsDialog and OpenProjectDialog
+  (`db.subscribeMany` got an optional `onError`) do the same. `MemoryBackend` gets `failListeners()` and now sends
+  "removed" to the old scope when a doc moves (so R89's guard is exercised). Tests: `persist/sync.test.ts`,
+  `persist/firestore.test.ts`, `app/restoreNotice.test.ts` (fake timers).
+- **Q61** issuing starts from the sheets as they are now: `issuePackage` re-reads them (`freshSheets`; a sheet deleted
+  meanwhile stops it), refuses a revision a recorded issue already froze before the backup or any write, and
+  `saveFrozen` checks that inside a transaction (a copy left by a run that was never recorded is replaced, so a retry
+  can reuse the code); the sheets' revisions are checked once more just before the issue is recorded. The Issue panel's
+  preview re-reads the sheets and ignores a stale run (`app/runToken.ts`). `ui/SheetsTab.svelte` is unchanged: its
+  selection copy is only the list of ids, everything is re-read at issue time. Test: `app/issue.test.ts`.
+- **Q62** tests for the risky code: `app/backups.test.ts` (settle / timeouts, stored backup round trip, incomplete and
+  garbled backups, rename / delete, restore as one undo step, owner and other-project refusals, gzip file),
+  `persist/sync.test.ts` (scope moves in both listener orders, pending writes, failed writes),
+  `app/restoreNotice.test.ts`, `app/clipboardFlow.test.ts` (copy / cut / paste through the real store, the
+  Ctrl+Shift+V window), `render/patchRoundTrip.test.ts` (patch schedule export -> filled Cord ID column -> import, one
+  sheet and a sheet per room), `render/pdf.test.ts` (clip save / restore balance). No bug found in the code under test.
+- **Q63** imports moved out of test bodies to the top of the file: overlap, drawing, editor, style, transmittalPage,
+  exports (exceljs), and elevation, plan, pictureUploads. None of those files uses `vi.mock`, so there is no ordering
+  constraint.
