@@ -7,7 +7,7 @@
 // re-apply stale docs).
 import type { EntityStore, Change } from '../store/store'
 import type { Backend, RemoteDoc } from './backend'
-import { toDoc, fromDoc, scopeOf } from './docs'
+import { toDoc, fromDoc, scopeOf, type StoredDoc } from './docs'
 import { sameEntity } from '../domain/restorePlan'
 import type { Entity } from '../domain/drawing'
 import type { Id } from '../domain/types'
@@ -43,7 +43,7 @@ export class Sync {
 		const off = this.backend.subscribe(scopes, (docs) => {
 			// a doc that LEFT this query because it moved to another scope (an item moved to another level) isn't deleted:
 			// the other scope's listener has it (review R89 — its "removed" could come after the move and delete it here)
-			this.#onRemote(docs.filter((d) => { if (d.data) return true; const cur = this.store.get(d.id); return !cur || mine.has(scopeOf(cur)) }))
+			this.#onRemote(docs.filter((d) => { if (d.data) return true; const cur = this.store.get(d.id); if (!cur) return true; try { return mine.has(scopeOf(cur)) } catch { return false } }))
 			if (!loaded) { loaded = true; onLoaded?.() }
 		}, (e) => { this.opts.onListenError?.(e, scopes); onFailed?.(e) })
 		this.#unsubs.push(off)
@@ -60,12 +60,17 @@ export class Sync {
 	#onLocal(c: Change): void {
 		if (!c.final || c.source === 'remote' || c.source === 'load' || c.source === 'gesture') return
 		const now = this.opts.now?.() ?? Date.now()
-		const docs: RemoteDoc[] = c.ops.map((op) => {
+		const docs: RemoteDoc[] = []
+		for (const op of c.ops) {
 			const rev = (this.#revs.get(op.id) ?? 0) + 1
+			let data: StoredDoc | null = null
+			try { data = op.after ? toDoc(op.after, { rev, updatedAt: now, updatedBy: this.opts.user, ...(this.opts.client ? { client: this.opts.client } : {}) }) : null }
+			catch (e) { this.opts.onError?.(e); continue }   // an ownerless shape: refused, not saved to a scope nobody loads
 			this.#revs.set(op.id, rev)
 			this.#pending.set(op.id, rev)
-			return { id: op.id, data: op.after ? toDoc(op.after, { rev, updatedAt: now, updatedBy: this.opts.user, ...(this.opts.client ? { client: this.opts.client } : {}) }) : null }
-		})
+			docs.push({ id: op.id, data })
+		}
+		if (!docs.length && c.ops.length) return
 		this.#notify()
 		const p = this.backend.write(docs)
 			.catch((e) => {
@@ -88,7 +93,9 @@ export class Sync {
 		for (const d of docs) {
 			const mine = this.#pending.get(d.id)
 			if (d.data) {
-				const { entity, meta } = fromDoc(d.data)
+				const parsed = fromDoc(d.data)
+				if (!parsed) continue   // a bad doc: warned about, not loaded
+				const { entity, meta } = parsed
 				if (meta.updatedBy === this.opts.user && mine !== undefined && meta.rev >= mine) { this.#pending.delete(d.id); this.#revs.set(d.id, meta.rev); continue }
 				if (mine !== undefined) continue
 				this.#revs.set(d.id, Math.max(meta.rev, this.#revs.get(d.id) ?? 0))

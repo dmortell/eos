@@ -21,7 +21,11 @@ export const sheetScope = (id: Id) => `sheet:${id}`
  */
 export function scopeOf(e: Entity): string {
 	switch (e.type) {
-		case 'shape': return e.levelId ? levelScope(e.levelId) : e.viewId ? viewScope(e.viewId) : sheetScope(e.sheetId!)
+		case 'shape':
+			if (e.levelId) return levelScope(e.levelId)
+			if (e.viewId) return viewScope(e.viewId)
+			if (e.sheetId) return sheetScope(e.sheetId)
+			throw new Error(`shape ${e.id} has no owner (levelId / viewId / sheetId) - it would be saved to a scope nobody loads`)
 		case 'outlet':
 		case 'underlay':
 			return levelScope(e.levelId)
@@ -47,7 +51,12 @@ export function toDoc(e: Entity, meta: Meta): StoredDoc {
 	return { ...stripUndefined(e as unknown as Record<string, unknown>), scope: scopeOf(e), ...meta } as StoredDoc
 }
 
-export function fromDoc(d: StoredDoc): { entity: Entity; meta: Meta } {
+/** A stored doc as an entity, or null (with a console warning) when it isn't one: not an object, no string id / type, or
+ *  no numeric rev. Firestore data is whatever any client or script wrote; a bad doc is skipped instead of entering the
+ *  store (where it would throw in the first view that reads it). */
+export function fromDoc(d: StoredDoc): { entity: Entity; meta: Meta } | null {
+	const bad = !d || typeof d !== 'object' ? 'not an object' : typeof d.id !== 'string' || !d.id ? 'no id' : typeof d.type !== 'string' || !d.type ? 'no type' : typeof d.rev !== 'number' ? 'no rev' : null
+	if (bad) { console.warn(`cad: skipping a bad cadEntities doc (${bad})`, d?.id ?? d); return null }
 	const entity: Record<string, unknown> = {}
 	for (const [k, v] of Object.entries(d)) if (!META_KEYS.has(k)) entity[k] = v
 	return { entity: entity as unknown as Entity, meta: { rev: d.rev, updatedAt: d.updatedAt, updatedBy: d.updatedBy, ...(d.client ? { client: String(d.client) } : {}) } }

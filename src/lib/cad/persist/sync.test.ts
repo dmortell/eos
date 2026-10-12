@@ -1,5 +1,5 @@
 // Two people on one project, through the in-memory server: what ADR 0003 promises.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { EntityStore, type Change } from '../store/store'
 import { MemoryBackend, type Backend } from './backend'
 import { Sync } from './sync'
@@ -24,16 +24,52 @@ describe('docs', () => {
 		const b = box('a')
 		const d = toDoc(b, { rev: 3, updatedAt: 1, updatedBy: 'u' })
 		expect(d.scope).toBe('level:L1')
-		expect(fromDoc(d).entity).toEqual(stripUndefined(b))
-		expect(fromDoc(d).meta.rev).toBe(3)
+		expect(fromDoc(d)!.entity).toEqual(stripUndefined(b))
+		expect(fromDoc(d)!.meta.rev).toBe(3)
 	})
 	it('a shape on a sheet loads with the sheet; an outlet with its level; a rack with the project', () => {
 		expect(scopeOf(makeText({ sheetId: 'S' }, { x: 0, y: 0 }, 'x'))).toBe('sheet:S')
 		expect(scopeOf({ type: 'outlet', id: 'o', levelId: 'L2', label: '1', tier: 'low', usage: 'desk', mount: 'floor', ports: [] })).toBe('level:L2')
 		expect(scopeOf({ type: 'rack', id: 'r', levelId: 'L2', spaceId: 's', order: 0, name: 'R', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 })).toBe('project')
 	})
+	it('a bad doc is dropped with a warning, not loaded', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		const good = toDoc(box('a'), { rev: 1, updatedAt: 1, updatedBy: 'u' })
+		for (const bad of [{ ...good, id: undefined }, { ...good, type: 5 }, { ...good, rev: 'x' }, null, 'junk'] as unknown[]) expect(fromDoc(bad as never)).toBeNull()
+		expect(warn).toHaveBeenCalledTimes(5)
+		warn.mockRestore()
+	})
+	it('a shape with no owner cannot be given a scope (it would save to one nobody loads)', () => {
+		const orphan = { ...makeText({ sheetId: 'S' }, { x: 0, y: 0 }, 'x'), sheetId: undefined } as unknown as Shape
+		expect(() => scopeOf(orphan)).toThrow(/no owner/)
+		expect(() => toDoc(orphan, { rev: 1, updatedAt: 1, updatedBy: 'u' })).toThrow()
+	})
 	it('strips undefined at every depth (Firestore rejects it)', () => {
 		expect(stripUndefined({ a: 1, b: undefined, c: { d: undefined, e: [{ f: undefined, g: 2 }] } })).toEqual({ a: 1, c: { e: [{ g: 2 }] } })
+	})
+})
+
+describe('bad data around the sync', () => {
+	it('a bad doc on the server is skipped; its neighbours still load', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		const server = new MemoryBackend()
+		server.docs.set('good', toDoc(box('good', 5), { rev: 1, updatedAt: 1, updatedBy: 'u' }))
+		server.docs.set('bad', { scope: 'level:L1', rev: 1, updatedAt: 1, updatedBy: 'u', geom: {} } as never)
+		const A = client(server, 'alice'); await tick()
+		expect(xOf(A.store, 'good')).toBe(5)
+		expect(A.store.has('bad')).toBe(false)
+		warn.mockRestore()
+	})
+	it('an ownerless shape is refused with an error, not saved; the others in the change are', async () => {
+		const server = new MemoryBackend(), errors: unknown[] = []
+		const store = new EntityStore(), sync = new Sync(store, server, { user: 'alice', onError: (e) => errors.push(e) })
+		sync.watch([levelScope('L1'), PROJECT_SCOPE])
+		const orphan = { ...box('o'), levelId: undefined } as unknown as Shape
+		store.transact('Add', (tx) => { tx.put(box('a')); tx.put(orphan) })
+		await sync.flush(); await tick()
+		expect(errors).toHaveLength(1)
+		expect([...server.docs.keys()]).toEqual(['a'])
+		expect(sync.pending).toBe(0)
 	})
 })
 
@@ -209,7 +245,7 @@ describe('pending writes', () => {
 		await sync.flush(); await tick()
 		expect(sync.pending).toBe(0)
 		expect(xOf(store, 'a')).toBe(10)
-		expect(fromDoc(server.docs.get('a')!).entity).toMatchObject({ geom: { centre: { x: 10 } } })
+		expect(fromDoc(server.docs.get('a')!)!.entity).toMatchObject({ geom: { centre: { x: 10 } } })
 	})
 	it('a delete clears its pending mark when it settles (there is no echo of a delete to wait for)', async () => {
 		const server = new MemoryBackend(), A = client(server, 'alice')
