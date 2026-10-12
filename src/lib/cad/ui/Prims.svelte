@@ -125,6 +125,8 @@
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
 	.viewport-bg.filled { fill: #ffffff; stroke: none; }
 	text.note { fill: #0f172a; }
+	text.note-b { font-weight: 700; }
+	text.note-i { font-style: italic; }
 	.note-bg { stroke: none; fill: #ffffff; }
 	.shape-fill { stroke: none; }
 	.dim { stroke: #0f172a; stroke-width: 1; fill: none; }

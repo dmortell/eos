@@ -15,6 +15,7 @@ import { rotate } from '../domain/conventions'
 import type { Bounds, Prim, Dash } from './display'
 import { DASHES } from './display'
 import { blockPrims } from './blocks'
+import { markdownPrims } from './markdown'
 import { defaultOutletBlock, outletAttrs, insertAttrs, blockFace, type Block, type BlockFace } from '../domain/blocks'
 import { usageColour } from '../domain/usages'
 
@@ -134,6 +135,11 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined, 
 		case 'text': {
 			// one prim per line (backlog "Text options": multi-line, aligned on its anchor point), lines going down the text
 			const size = g.sizeMm * k, lh = size * LINE, r = ((g.rot ?? 0) * Math.PI) / 180, anchor = ANCHOR[g.align ?? 'left']
+			// a MARKDOWN text: headings, lists, bold / italic and tables laid out in its box (views/markdown.ts)
+			if (g.markdown) {
+				const m = markdownPrims(g, k, s.id)
+				return s.style?.fill ? [textBox(g.at, Array(m.lines).fill(''), size, g.rot, s.style.fill, s.id, anchor, m.w), ...m.prims] : m.prims
+			}
 			// a text with a WIDTH wraps inside it (backlog "Text that fills a box"), and an unturned one is clipped to it
 			const lines = g.width ? g.text.split('\n').flatMap((p) => wrapLine(p, size, g.width!)) : g.text.split('\n')
 			const x0 = g.at.x - (anchor === 'middle' ? g.width! / 2 : anchor === 'end' ? g.width! : 0)

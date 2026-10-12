@@ -25,7 +25,7 @@ export type ImageLoader = (url: string, kind: 'photo' | 'logo', gray?: boolean) 
  *  `ascent` = mm from the top of the picture to the baseline. */
 export type TextRaster = (text: string, sizeMm: number, color: string, bold: boolean) => Promise<{ data: string; w: number; h: number; ascent: number } | null>
 
-interface Style { stroke?: string; fill?: string; text?: string; width?: number; dash?: number[]; bold?: boolean; skip?: boolean; opacity?: number; /** the fill's own (else `opacity`) */ fillOpacity?: number }
+interface Style { stroke?: string; fill?: string; text?: string; width?: number; dash?: number[]; bold?: boolean; italic?: boolean; skip?: boolean; opacity?: number; /** the fill's own (else `opacity`) */ fillOpacity?: number }
 
 const INK = '#334155'
 /** Class → PDF style (later classes on a prim win). Widths in mm; hairlines are 0.15 mm. */
@@ -56,7 +56,7 @@ const STYLES: Record<string, Style> = {
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
 	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-eps': { stroke: '#0f766e', fill: '#f0fdfa', width: 0.2, dash: [1.2, 0.8] }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
 	'riser-break': { stroke: '#94a3b8' }, backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
-	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, ink: { fill: '#0f172a' }, 'image-frame': { skip: true }, 'line-tick': { width: 0.3 }, cloud: { stroke: '#dc2626', width: 0.3 },
+	note: { text: '#0f172a' }, 'note-b': { bold: true }, 'note-i': { italic: true }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, ink: { fill: '#0f172a' }, 'image-frame': { skip: true }, 'line-tick': { width: 0.3 }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 
 /** Line types on paper (mm). */
@@ -165,7 +165,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 					rasterised.add(p.text)
 					continue
 				}
-				pdf.setFont('helvetica', st.bold ? 'bold' : 'normal')
+				pdf.setFont('helvetica', st.bold && st.italic ? 'bolditalic' : st.bold ? 'bold' : st.italic ? 'italic' : 'normal')
 				pdf.setFontSize(p.size * PT_PER_MM)
 				pdf.setTextColor(st.text ?? '#0f172a')
 				if (!p.rot) { pdf.text(t.text, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left' }); continue }
