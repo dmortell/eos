@@ -46,8 +46,8 @@ export async function previewRestore(project: CadProject, file: ProjectFile, par
  *  edit made since the preview is restored too. Returns the summary. */
 export async function applyRestore(project: CadProject, file: ProjectFile, parts: Parts, what: string): Promise<RestorePreview> {
 	if (!canRestore(project.ownerId, project.user)) throw new Error('Only the project owner can restore this project')
-	const p = await previewRestore(project, file, parts)
 	await project.addMissingBlocks(file.library?.blocks ?? [])
+	const p = await previewRestore(project, file, parts)   // planned last, on the data as it is now
 	project.store.transact(`Restore ${p.label} from ${what}`, (tx) => {
 		for (const id of p.plan.del) tx.del(id)
 		for (const e of p.plan.put) tx.put(e)

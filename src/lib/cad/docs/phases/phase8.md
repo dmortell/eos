@@ -2568,3 +2568,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the drag ends (the next frame put the drag's start back over it, and Esc then showed the pre-drag copy while the
   server kept theirs); rolled back, it applies; committed, the drag wins (it's written after) — a change to anything
   else applies at once (`store/store.ts`). Tests in `store/store.test.ts`.
+- **R23 Writes made from an old copy:** issuing puts each new revision on the sheet as it is when the issue is
+  recorded (it wrote copies taken before the frozen saves, PDF and upload, so edits made meanwhile were lost); a
+  restore is planned after the missing blocks are added; deleting a level takes what is on it when Delete level is
+  pressed, not when it was asked (`app/issue.ts`, `app/backups.ts`, `app/navActions.ts`).

@@ -26,7 +26,7 @@ export function deleteLevel(project: CadProject, ws: Workspace, id: string): voi
 	const sheets = new Set(vps.map((v) => v.sheet.id)).size
 	const vpText = vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : ''
 	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)?${vpText} Undo brings it back.`, 'Delete level', () => {
-		deleteEntities(project.store, [l.id, ...on], levelViewportsOff(project.store, l.id))
+		deleteEntities(project.store, [l.id, ...levelContents(project.store.all(), l.id)], levelViewportsOff(project.store, l.id))   // what's on it NOW (not when asked)
 		if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
 	})
 }

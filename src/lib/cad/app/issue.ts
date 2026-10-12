@@ -98,16 +98,17 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 	const issueId = newId(), number = nextIssueNumber(project.store.ofType('issue'))
 	// the backup first: if it fails, nothing has been written yet
 	const backup = f.backup ? await storeBackup(project, `${issueTag(number)}: ${f.name}`, 'all', { issueId }) : null
-	const bumped: Sheet[] = [], pages: PdfPage[] = []
+	// what each bumped sheet gets: its new revision — put on the sheet as it is when the issue is recorded, seconds of
+	// saving / drawing / uploading later (a copy taken now would overwrite edits made meanwhile)
+	const bumped: { id: string; rev: Parameters<typeof issuedRevision>[1] }[] = [], pages: PdfPage[] = []
 	for (const row of plan) {
 		if (!row.changed) { pages.push(await loadFrozen(project, row.sheet.id, row.rev)); continue }
 		// frozen as it shows once issued (the title block reads the new rev / date); its change notes go onto the revision
 		const desc = f.descs?.[row.sheet.id]?.trim(), extra = { ...(desc ? { desc } : {}), ...(f.by?.trim() ? { by: f.by.trim() } : {}) }
 		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
 		const prims = frozenNow(project, next)
-		const done = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) })
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)
-		bumped.push(done)
+		bumped.push({ id: row.sheet.id, rev: { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) } })
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
 	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue
@@ -135,7 +136,10 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}
-	project.store.transact(`Issue ${f.name}`, (tx) => { for (const s of bumped) tx.put(s); tx.put(issue) })
+	project.store.transact(`Issue ${f.name}`, (tx) => {
+		for (const b of bumped) { const cur = tx.get(b.id); if (cur?.type === 'sheet') tx.put(issuedRevision(cur, b.rev)) }
+		tx.put(issue)
+	})
 	return { issue, unsupported, rasterised }
 }
 
