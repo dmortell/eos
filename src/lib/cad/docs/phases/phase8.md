@@ -3134,3 +3134,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (if it wasn't) and opens its menu — the right-click's code, now one `menuAt` (`ui/ViewCanvas.svelte`). Touch screens
   (`hover: none`): no iOS callout / word selection on a long press (tables included; fields keep theirs), and tabs
   aren't draggable (the system's drag lift fired on the same press). Help. Not tried on a device.
+- **Q52b** ⋮ on a tab opens its menu under it (the right-click's: close others / to the right, other pane, To sheet):
+  shown on the active tab, and on every tab of a touch screen (`@media (hover: none)`) (`ui/TabStrip.svelte`); Help.

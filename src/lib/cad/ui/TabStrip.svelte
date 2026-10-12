@@ -1,6 +1,7 @@
 <!-- The DRAWING TABS strip (UX review D1): one strip over the drawing, shared by both panes. A click shows the tab in
      the active pane; in Split the tabs on show are marked 1 / 2. The preview tab's title is in italics (double-click it
-     to keep it). × on hover or a middle-click closes; a right-click opens the tab menu; ⌄ lists every tab. -->
+     to keep it). × on hover or a middle-click closes; a right-click (a long press on touch) or ⋮ (on the active tab; every tab
+     on a touch screen) opens the tab menu; ⌄ lists every tab. -->
 <script lang="ts">
 	import { KEYS } from './shellKeys'
 	import { Icon, DragReorder } from '$lib'
@@ -46,6 +47,9 @@
 				<Icon name={ICON[t.view.spec.kind] ?? 'rect'} size={12} />
 				<span class="t">{title(t)}</span>
 				{#if panes === 2 && pane >= 0}<span class="pn">{pane + 1}</span>{/if}
+				<!-- the tab menu without a right button (a tablet): under the ⋮ -->
+				<button class="dots" title="Tab menu (or a right-click / long press on the tab)" aria-label="Tab menu"
+					onclick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); onmenu(t.id, r.left, r.bottom) }}><Icon name="ellipsisVertical" size={12} /></button>
 				<button class="x" title="Close ({KEYS.closeTab}, or a middle-click)" onclick={(e) => { e.stopPropagation(); onclose(t.id) }}><Icon name="x" size={11} /></button>
 			</div>
 		{/each}
@@ -82,7 +86,11 @@
 	/* on hover, the active / shown tab, a focused tab, and always on touch screens (review R81: no hover there) */
 	.tab:hover .x, .tab.on .x, .tab.shown .x, .tab:focus-within .x, .tab:focus-visible .x { visibility: visible; }
 	@media (hover: none) { .x { visibility: visible; } }
-	.x:hover { background: var(--cad-strong); color: var(--cad-text); }
+	.x:hover, .dots:hover { background: var(--cad-strong); color: var(--cad-text); }
+	/* ⋮ (the tab menu): on the active tab, and on every tab of a touch screen */
+	.dots { display: none; align-items: center; justify-content: center; min-width: 20px; min-height: 20px; border-radius: 3px; color: var(--cad-muted); }
+	.tab.on .dots { display: inline-flex; }
+	@media (hover: none) { .dots { display: inline-flex; } }
 	.all { position: relative; display: flex; align-items: center; padding: 0 4px; border-left: 1px solid var(--cad-line); }
 	.more { display: inline-flex; padding: 3px; border-radius: 4px; color: var(--cad-muted); }
 	.more:hover { background: var(--cad-hover); }
