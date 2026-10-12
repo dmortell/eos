@@ -1,5 +1,5 @@
-<!-- The strip over a pane (split out of ViewCanvas, UX12): back / forward through the views this pane showed, a
-     breadcrumb of where you are, then only the buttons that fit the view —
+<!-- The strip over a pane (split out of ViewCanvas, UX12): back / forward through the views this pane showed (the tab
+     names the view, so no breadcrumb — R57; "↑ 1F plan" in a rack view or port map), then only the buttons that fit —
        · a building view (plan, elevations, section, riser): Plan · Elevation… · Riser · Section…, Display ▾, To sheet…;
        · a rack view: its room, Racks front / rear, one row or all, Display ▾, To sheet…;
        · a port map: its devices, Excel (VLAN), To sheet…;
@@ -11,9 +11,7 @@
 	import type { RackRow } from '../domain/types'
 	import type { Sheet, SectionCut } from '../domain/drawing'
 	import { specLabel, PLAN, isPaperSpec, type ViewSpec } from '../views/space'
-	import { viewName } from '../domain/navTree'
 	import { FILL_LIMIT_PCT } from '../domain/fill'
-	import { portMapTitle } from '../domain/portMap'
 	import { exportPortMap } from '../render/exports'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
@@ -49,15 +47,9 @@
 		project.store.transact(`Riser view ${end === 'from' ? 'from' : 'to'} ${v === '' ? (end === 'from' ? 'the lowest floor' : 'the top floor') : floorsUp.find((l) => l.number === Number(v))?.name ?? v}`, (tx) => tx.put({ ...st, riser }))
 	}
 	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && !isPaperSpec(spec))
-	/** Where you are: "1F", "1F › IDF1", "S001 New sheet" (the riser view is the building's, not a level's). */
-	const crumbs = $derived.by((): { text: string; to?: ViewSpec }[] => {
-		if (spec.kind === 'sheet') return [{ text: sheet ? `${sheet.number} ${sheet.title}` : 'Sheet' }]
-		if (spec.kind === 'riser') return [{ text: 'Building' }]
-		if (spec.kind === 'portmap') return [{ text: portMapTitle(project.index, spec.deviceIds) }]
-		if (isPaperSpec(spec)) return [{ text: viewName(project.index, spec) }]
-		const lv = { text: project.index.nameOf(levelId), to: spec.kind === 'plan' ? undefined : PLAN }
-		return spec.kind === 'row' ? [lv, { text: project.index.nameOf(spec.spaceId) }] : [lv]
-	})
+	/** The tab already names the view, so no breadcrumb (review R57); a rack view and a port map, which have no Plan
+	 *  button in this strip, get one way up: "↑ 1F plan". */
+	const up = $derived(spec.kind === 'row' || spec.kind === 'portmap' ? `↑ ${project.index.nameOf(levelId)} plan` : '')
 	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 </script>
 
@@ -66,11 +58,7 @@
 		<button class="nav" disabled={!nav.back} title={nav.back ? `Back to ${nav.back} (Alt+←)` : 'Back (Alt+←)'} onclick={() => { onfocus?.(); nav.go(-1) }}>‹</button>
 		<button class="nav" disabled={!nav.fwd} title={nav.fwd ? `Forward to ${nav.fwd} (Alt+→)` : 'Forward (Alt+→)'} onclick={() => { onfocus?.(); nav.go(1) }}>›</button>
 	{/if}
-	{#each crumbs as c, i (i)}
-		{#if i}<span class="crumb-sep">›</span>{/if}
-		{#if c.to}{@const to = c.to}<button class="crumb link" title="Open {c.text}'s plan" onclick={() => go(to)}>{c.text}</button>
-		{:else}<span class="crumb">{c.text}</span>{/if}
-	{/each}
+	{#if up}<button class="crumb link" title="Open this level’s plan" onclick={() => go(PLAN)}>{up}</button>{/if}
 	<span class="sep"></span>
 	{#if building}
 		<button class:on={spec.kind === 'plan'} onclick={() => go(PLAN)}>Plan</button>
@@ -170,10 +158,8 @@
 	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; }
 	.num { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: #52525b; }
 	.num input { width: 4.2rem; font-size: 11px; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; }
-	.crumb { font-size: 11px; font-weight: 600; color: #3f3f46; padding: 0 2px; }
 	.views button.crumb.link { border: 0; background: none; color: #1d4ed8; font-weight: 600; padding: 0 2px; }
 	.views button.crumb.link:hover { text-decoration: underline; }
-	.crumb-sep { font-size: 11px; color: #a1a1aa; }
 	.views .tosheet { margin-left: auto; max-width: 9rem; }
 	.dback { position: fixed; inset: 0; z-index: 40; background: transparent; cursor: default; }
 	.dpop { position: fixed; z-index: 41; display: flex; flex-direction: column; gap: 4px; min-width: 11rem; padding: 6px 8px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); }

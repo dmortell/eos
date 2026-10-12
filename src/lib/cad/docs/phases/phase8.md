@@ -2932,3 +2932,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R50:** the Navigator scrolls the open view's row into sight as well as unfolding its branch (`ui/Navigator.svelte`);
   the Blocks and Device library windows step aside (still open) in a view where their tool can't work, docked or
   floating (`ui/CadShell.svelte` `offHere`); Help.
+- **R57:** the view strip's breadcrumb goes (the tab names the view); a rack view and a port map, which have no Plan
+  button, get "↑ 1F plan" (`ui/ViewStrip.svelte`). The other ways between views keep their roles: Navigator finds and
+  opens, tabs are the open set, the strip switches between siblings.
