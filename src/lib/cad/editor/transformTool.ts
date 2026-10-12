@@ -113,7 +113,7 @@ export class TransformTool implements Tool {
 					if (en) tx.put(applyXf(en, xf, (x) => tx.get(x)))
 				}
 				for (const sh of followAttachedMap(c.store.ofType('shape') as Shape[], new Set(ids), xfPt(xf))) tx.put(sh)   // runs ending on them follow
-				followSections(tx, was, c.store.ofType('shape'))   // notes on a turned section's plane go with it
+				followSections(tx, was, c.store.ofType('shape'), new Set(ids))   // notes on a turned section's plane go with it
 			})
 			c.select(ids)
 		}

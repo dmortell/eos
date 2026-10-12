@@ -140,7 +140,7 @@ function anchorOf(g: Geometry): Pt {
  * size and stays readable (a flip mirrors where it is, not its letters); a line's nodes and a block's point are model
  * points already, so only their frame changes. The changed shapes.
  */
-export function followSection(shapes: Shape[], was: SectionCut, now: SectionCut): Shape[] {
+export function followSection(shapes: Shape[], was: SectionCut, now: SectionCut, moved?: ReadonlySet<Id>): Shape[] {
 	const fa = sectionFrame(was).f, fb = sectionFrame(now).f
 	if (sameFrame(fa, fb) && fa.n.x === fb.n.x && fa.n.y === fb.n.y) return []
 	const out: Shape[] = []
@@ -148,6 +148,17 @@ export function followSection(shapes: Shape[], was: SectionCut, now: SectionCut)
 		if (s.levelId !== was.levelId) continue
 		const g = s.geom
 		if (g.kind === 'insert' && g.frame && sameFrame(g.frame, fa)) { out.push({ ...s, geom: { ...g, frame: fb } }); continue }
+		// a note mirrored WITH its section keeps its own mirrored frame, whose origin is the section's old start while the
+		// section's new one is its old end: same plane, so only its frame's description moves along u (Q69)
+		if (moved?.has(s.id) && s.plane?.kind === 'vertical' && !sameFrame(s.plane.frame, fa)) {
+			const f = s.plane.frame, dx = f.o.x - fb.o.x, dy = f.o.y - fb.o.y, du = dx * fb.t.x + dy * fb.t.y
+			const near = (p: number, q: number) => Math.abs(p - q) < 1e-6
+			if (near(f.t.x, fb.t.x) && near(f.t.y, fb.t.y) && near(f.n.x, fb.n.x) && near(f.n.y, fb.n.y) && near(dx * fb.n.x + dy * fb.n.y, 0)) {
+				const g = s.geom
+				out.push({ ...s, plane: { ...s.plane, frame: fb }, geom: g.kind === 'path' || near(du, 0) ? g : moveGeometry(g, { x: du, y: 0 }) })
+			}
+			continue
+		}
 		if (s.plane?.kind !== 'vertical' || !sameFrame(s.plane.frame, fa)) continue
 		if (g.kind === 'path') {
 			const n0 = g.nodes[0]
@@ -164,11 +175,11 @@ export function followSection(shapes: Shape[], was: SectionCut, now: SectionCut)
 
 /** Sections changed in a transaction: what is drawn on their planes follows (`followSection`), read and written
  *  through `tx`. `was` = the changed entities as they were before (non-sections are skipped). */
-export function followSections(tx: { get(id: Id): Entity | undefined; put(e: Entity): void }, was: (Entity | undefined)[], shapes: Shape[]): void {
+export function followSections(tx: { get(id: Id): Entity | undefined; put(e: Entity): void }, was: (Entity | undefined)[], shapes: Shape[], moved?: ReadonlySet<Id>): void {
 	for (const w of was) {
 		if (w?.type !== 'section') continue
 		const now = tx.get(w.id)
 		if (now?.type !== 'section' || now === w) continue
-		for (const s of followSection(shapes.map((x) => (tx.get(x.id) as Shape | undefined) ?? x), w, now)) tx.put(s)
+		for (const s of followSection(shapes.map((x) => (tx.get(x.id) as Shape | undefined) ?? x), w, now, moved)) tx.put(s)
 	}
 }

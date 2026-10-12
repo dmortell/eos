@@ -9,7 +9,7 @@ import type { ToolCtx } from './tools'
 import type { Shape } from '../domain/shapes'
 import type { SectionCut } from '../domain/drawing'
 import { sectionFrame, sectionDisplayList } from '../views/section'
-import { followSection } from './behaviours'
+import { followSection, mirrorEntity } from './behaviours'
 
 const box = { type: 'shape', id: 'B', levelId: 'L33', geom: { kind: 'rect', centre: { x: 100, y: 100 }, size: { x: 50, y: 50 } } } as Shape
 
@@ -82,5 +82,17 @@ describe('what is drawn on a section’s plane follows the section', () => {
 		const [n] = followSection([note], sec, { ...sec, flip: true })
 		expect(n.geom).toMatchObject({ at: { x: 4000, y: 1500 } })
 		expect(n.plane).toMatchObject({ frame: sectionFrame({ ...sec, flip: true }).f })
+	})
+	it('mirrored together with its note (Q69): the note ends up on the mirrored section’s own frame, in the same place', () => {
+		const A = { x: 2000, y: -500 }, B = { x: 2000, y: 500 }   // the mirror line
+		const was = sec, now = mirrorEntity(sec, A, B), moved = mirrorEntity(note, A, B)
+		const [n] = followSection([moved], was, now, new Set(['N']))
+		const fb = sectionFrame(now).f
+		expect(n.plane).toMatchObject({ frame: fb })
+		// the note's world point is unchanged by the re-description: it is where the mirrored note was
+		const world = (fr: typeof fb, u: number) => ({ x: fr.o.x + u * fr.t.x, y: fr.o.y + u * fr.t.y })
+		const u0 = (moved.geom as { at: { x: number } }).at.x, u1 = (n.geom as { at: { x: number } }).at.x
+		const w0 = world((moved.plane as { frame: typeof fb }).frame, u0), w1 = world(fb, u1)
+		expect(w1.x).toBeCloseTo(w0.x); expect(w1.y).toBeCloseTo(w0.y)
 	})
 })
