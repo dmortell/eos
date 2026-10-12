@@ -7,7 +7,8 @@
 //   → the rack: from a run serving its room (each run's nearest point; the cheapest one wins) — plan distance to the
 //            rack, then the height to the panel's U.
 // Backbone / tie links route rack to rack the same way. Length (5.2) = route + slack at the outlet, rounded up;
-// waste % is a BOM matter (reports.ts). Pure; tested in routing.test.ts.
+// waste % is a BOM matter (reports.ts). Outlet ports with no link yet get an ESTIMATED cable over the same graph
+// (domain/estimates.ts). Pure; tested in routing.test.ts.
 import { outletZ } from './floors'
 import type { Id, Outlet, Rack, Device, Level, Link } from './types'
 import type { Shape, PathNode } from './shapes'
@@ -237,7 +238,38 @@ export function cableSettings(ix: ProjectIndex): CableSettings {
 
 /** Every link's route and length. */
 export function routeLinks(ix: ProjectIndex, cable: CableSettings = DEFAULT_CABLE): Map<Id, Route> {
-	const g = buildGraph(ix), out = new Map<Id, Route>()
+	return routeLinksOn(buildGraph(ix), ix, cable)
+}
+
+/** The cheapest way from a search (`from`, grown from rack taps) to one of `ends`: onto an end tap's piece from a node
+ *  the search reached, or straight along the segment when a rack tap is on the same one. Null = not connected. */
+export function bestEnd(g: Graph, from: Stage, ends: Tap[]): { cost: number; node: number; tap: Tap } | null {
+	let best: { cost: number; node: number; tap: Tap } | null = null
+	for (const tp of ends) {
+		const s = g.segs[tp.seg], list = g.piecesOf.get(segKey(s.shape.id, s.seg)) ?? []
+		const pc = list.map((k) => g.pieces[k]).find((p) => tp.t >= p.t0 - 1e-9 && tp.t <= p.t1 + 1e-9)
+		if (!pc) continue
+		for (const [node, tt] of [[pc.a, pc.t0], [pc.b, pc.t1]] as const) {
+			const c = from.d[node] + Math.abs(tp.t - tt) * s.len + tp.dropMm
+			if (c < (best?.cost ?? Infinity)) best = { cost: c, node, tap: tp }
+		}
+		for (const rt of from.taps) if (rt.seg === tp.seg) {
+			const c = rt.dropMm + Math.abs(rt.t - tp.t) * s.len + tp.dropMm
+			if (c < (best?.cost ?? Infinity)) best = { cost: c, node: -1, tap: tp }
+		}
+	}
+	return best && Number.isFinite(best.cost) ? best : null
+}
+
+/** The segments walked for `bestEnd`'s answer, far end first. */
+export function bestSegs(g: Graph, from: Stage, best: { node: number; tap: Tap }): Route['segs'] {
+	const endSeg = g.segs[best.tap.seg]
+	return dedupe([{ shape: endSeg.shape.id, seg: endSeg.seg }, ...(best.node >= 0 ? walk(g, from, best.node) : [])])
+}
+
+/** `routeLinks` over a graph already built (the estimates share it: domain/estimates.ts). */
+export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = DEFAULT_CABLE): Map<Id, Route> {
+	const out = new Map<Id, Route>()
 	const deviceOf = (id: Id) => ix.get<Device>(id)
 	const rackOfDevice = (d: Device | undefined) => (d ? ix.get<Rack>(d.rackId) : undefined)
 	// one Dijkstra per (rack, panel height): cheap at these sizes, and shared by the panel's links
@@ -286,24 +318,10 @@ export function routeLinks(ix: ProjectIndex, cable: CableSettings = DEFAULT_CABL
 			continue
 		}
 		// cost at each end tap: reach its segment's piece ends from the rack, or (same segment as a rack tap) go along it
-		let best: { cost: number; node: number; tap: Tap; direct?: Tap } | null = null
-		for (const tp of ends) {
-			const s = g.segs[tp.seg], list = g.piecesOf.get(segKey(s.shape.id, s.seg)) ?? []
-			const pc = list.map((k) => g.pieces[k]).find((p) => tp.t >= p.t0 - 1e-9 && tp.t <= p.t1 + 1e-9)
-			if (!pc) continue
-			for (const [node, tt] of [[pc.a, pc.t0], [pc.b, pc.t1]] as const) {
-				const c = from.d[node] + Math.abs(tp.t - tt) * s.len + tp.dropMm
-				if (c < (best?.cost ?? Infinity)) best = { cost: c, node, tap: tp }
-			}
-			for (const rt of from.taps) if (rt.seg === tp.seg) {
-				const c = rt.dropMm + Math.abs(rt.t - tp.t) * s.len + tp.dropMm
-				if (c < (best?.cost ?? Infinity)) best = { cost: c, node: -1, tap: tp, direct: rt }
-			}
-		}
-		if (!best || !Number.isFinite(best.cost)) { finish({ segs: [], problem: 'the runs at the two ends are not connected' }); continue }
+		const best = bestEnd(g, from, ends)
+		if (!best) { finish({ segs: [], problem: 'the runs at the two ends are not connected' }); continue }
 		// the segments walked, from the far end back to the rack
-		const endSeg = g.segs[best.tap.seg]
-		finish({ segs: dedupe([{ shape: endSeg.shape.id, seg: endSeg.seg }, ...(best.node >= 0 ? walk(g, from, best.node) : [])]), routeMm: best.cost })
+		finish({ segs: bestSegs(g, from, best), routeMm: best.cost })
 	}
 	return out
 }
@@ -324,7 +342,8 @@ export const viaList = (l: Pick<Link, 'via'>): Id[] => (Array.isArray(l.via) ? l
  *  each other twice collapse to one. */
 export const viaValue = (ids: Id[]): Link['via'] => { const v = ids.filter((x, i) => x && x !== ids[i - 1]); return v.length > 1 ? v : v[0] }
 
-type Stage = ReturnType<typeof fromTaps> & { taps: Tap[] }
+/** A search grown from taps, with the taps it grew from. */
+export type Stage = ReturnType<typeof fromTaps> & { taps: Tap[] }
 /** ALONG one run: its pieces only, walked as directed pieces that never turn straight back on the one just walked
  *  (a dead end stops there), starting from wherever `from` reaches it. `d` = the cheapest arrival at each node after at
  *  least one piece; `back(n)` = the pieces walked to `n` (last first) and the node it joined the run at. */

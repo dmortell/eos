@@ -22,6 +22,7 @@ describe('fill section on paper', () => {
 		expect(t.some((x) => x.startsWith('12 × cat6a'))).toBe(true)
 		expect(t).toContain('2 × power  Ø10 (by hand)')
 		expect(t).toContain('94×44 inside · section 1:2')   // 100 × 50 less 3 mm walls fits 80 × 60 mm at 1:2
+		expect(t).toContain('14 cables')                    // none estimated: no "· N estimated"
 		// 14 cables in the picture (then a color key per type), inside the 47 × 22 mm the inside is drawn at
 		const cables = ps.filter((p) => p.k === 'circle' && p.cls === 'fill-cable')
 		expect(cables).toHaveLength(14 + 2)

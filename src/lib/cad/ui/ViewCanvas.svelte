@@ -135,7 +135,7 @@
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' && (ws.selection.length || ws.portSel) ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])   // routes read only when there's something to show
 	// the Routes toggle: every cable's route, colored by server room (backlog "Show all routes")
-	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId) : null)
+	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId, project.estimates) : null)
 	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
 	/** The work plane's grip and its value (views/overlays.ts): drag it (Select tool) to set the elevation's work depth /
 	 *  the plan's Z, 10 mm steps (Alt: free); double-click it in the plan → auto depth again. */

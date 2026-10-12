@@ -3143,3 +3143,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   corners are 16 px, a window's title bar 30 px with 24 px buttons. Every one of these drags is pointer events and now
   ends on `pointercancel` too (a palm / system gesture left the tables' drag listening) (`ui/CadWindow.svelte`,
   `ui/SplitBar.svelte`); Help. Not tried on a device.
+- **Q48** estimated cables before allocation: every outlet port with no link yet gets an estimated cable to its server
+  room, routed as a link (same graph, `outletTap`: its tier, its room's runs, 10 m reach), ending at the room's patch
+  frames (every placed rack when none is marked; the room outline's centre when none is placed) — one Dijkstra per room
+  from all its frames' `rackTaps`, shared by its estimates. The room: the port's own, else another port's of the outlet,
+  else its zone's most common, else the level's only server room, else the one room the nearest run serves. Links and
+  estimates come from ONE routing pass over one graph (`routeAll` in `domain/estimates.ts`; `routeLinksOn`, `bestEnd`
+  shared from `domain/routing.ts`); `project.routing` holds both through drags. Fill counts them as `SegFill.est`
+  (Properties › Fill "12 × cat6a (4 estimated)" / "12 cables · 4 estimated", the fill section on paper, the plan's
+  bands "35% · 4 est."); Display ▾ › Routes draws a room's estimate-only segments dashed and lighter. A port's estimate
+  goes when it is linked. Usage N/A and unplaced outlets get none. Perf: 1000 outlets × 2 ports over 800 segments,
+  2000 estimates ≈ 0.1 s on top of a 30 ms graph (2000 links over the same graph: 0.18 s). Help; tests.

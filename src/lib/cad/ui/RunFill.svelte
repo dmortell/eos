@@ -8,7 +8,7 @@
 	import type { Shape, HandCables } from '../domain/shapes'
 	import type { Workspace } from '../app/workspace.svelte'
 	import PropGroup from './PropGroup.svelte'
-	import { fillTone, packCables, cableOd, cableColor, FILL_LIMIT_PCT, segKey } from '../domain/fill'
+	import { fillTone, packCables, cableOd, cableColor, cableCountText, FILL_LIMIT_PCT, segKey } from '../domain/fill'
 	import { activeSheets } from '../app/shellActions'
 	import { viewToSheet } from '../app/sheetActions'
 
@@ -29,9 +29,13 @@
 	const pct = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` : 'no section size')
 	const types = $derived([...new Set(segs.flatMap((x) => Object.keys(x.f!.cables)))])
 	const colourOf = (t: string) => cableColor(project.settings, types, t)
-	/** "20 × cat6a (2 by hand)", "4 × power (by hand)". */
-	const cablesText = (c: Record<string, number>, hand: Record<string, number> = {}) =>
-		Object.entries(c).map(([t, n]) => `${n} × ${t}${hand[t] ? (hand[t] === n ? ' (by hand)' : ` (${hand[t]} by hand)`) : ''}`).join(', ')
+	/** "20 × cat6a (2 by hand)", "4 × power (by hand)", "12 × cat6a (4 estimated)". */
+	const cablesText = (c: Record<string, number>, hand: Record<string, number> = {}, est: Record<string, number> = {}) =>
+		Object.entries(c).map(([t, n]) => {
+			const of = (m: number | undefined, what: string) => (m ? (m === n ? what : `${m} ${what}`) : '')
+			const notes = [of(hand[t], 'by hand'), of(est[t], 'estimated')].filter(Boolean)
+			return `${n} × ${t}${notes.length ? ` (${notes.join(', ')})` : ''}`
+		}).join(', ')
 
 	/** The section shown, as a viewport on a sheet (a new one, or that one), which then opens with it picked. */
 	const sheets = $derived(activeSheets(project))
@@ -78,7 +82,7 @@
 				<tr class="pick" class:worst={x === worst} class:on={x === shown} title="Show this segment's section (and pick it in the view)" onclick={() => ws.selectPath({ shape: s.id, nodes: [], segs: [x.g.id] })}>
 					<td class="text-zinc-400">seg {x.i}</td>
 					<td class="font-mono tone-{fillTone(x.f!.pct)}">{pct(x.f!.pct)}</td>
-					<td class="text-zinc-600">{cablesText(x.f!.cables, x.f!.hand)}</td>
+					<td class="text-zinc-600" title={cableCountText(x.f!)}>{cablesText(x.f!.cables, x.f!.hand, x.f!.est)}</td>
 				</tr>
 			{/each}
 		</tbody>
@@ -90,7 +94,7 @@
 			{#if p.round}<circle r={p.w / 2} class="wall" />{:else}<rect x={-p.w / 2} y={-p.h / 2} width={p.w} height={p.h} class="wall" />{/if}
 			{#each p.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
 		</svg>
-		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}</p>
+		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}</p>
 		<select class="inp tosheet" value="" title="This segment’s section, its fill % and its cables as a viewport on a sheet (at 1:1, the section at a true scale)" onchange={(e) => { toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">Put on sheet…</option>
 			<option value="new">New sheet</option>

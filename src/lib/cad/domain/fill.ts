@@ -1,5 +1,6 @@
 // CONTAINMENT FILL (Phase 5.3): how full each run segment is from the cables ROUTED through it (domain/routing.ts),
-// plus the cables added to a run by hand (`ContainmentRole.extra`).
+// plus the estimated ones (outlet ports not linked yet, domain/estimates.ts) and the cables added to a run by hand
+// (`ContainmentRole.extra`).
 // A cable counts as a SQUARE of its outer diameter (d², Dave) against the section's inside area (`inner`, else the
 // section less a 3 mm wall; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
@@ -8,6 +9,7 @@ import type { Id, ProjectSettings } from './types'
 import type { Section, Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import type { Route } from './routing'
+import type { Estimate } from './estimates'
 import { cableKey } from './multicore'
 
 export const FILL_LIMIT_PCT = 40
@@ -47,6 +49,8 @@ export interface SegFill {
 	cables: Record<string, number>
 	/** Of those, the ones added by hand, per type. */
 	hand?: Record<string, number>
+	/** Of those, the ESTIMATED ones (outlet ports not linked yet, domain/estimates.ts), per type. */
+	est?: Record<string, number>
 	/** Outer Ø (mm) per type where a hand-added row set its own. */
 	od?: Record<string, number>
 	cableMm2: number; areaMm2: number
@@ -55,8 +59,8 @@ export interface SegFill {
 }
 export const segKey = (shape: Id, seg: Id) => `${shape}:${seg}`
 
-/** The fill of every run segment that has cables routed through it or added by hand. */
-export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT): Map<string, SegFill> {
+/** The fill of every run segment that has cables routed through it, estimated through it or added by hand. */
+export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT, estimates: readonly Estimate[] = []): Map<string, SegFill> {
 	const st = ix.get<ProjectSettings>('settings'), settings = st?.type === 'settings' ? st : undefined
 	const out = new Map<string, SegFill>()
 	const entry = (shape: Id, seg: Id, s = ix.get<Shape>(shape)): SegFill => {
@@ -82,6 +86,18 @@ export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct
 			f.cableMm2 += d * d
 		}
 	}
+	// estimated cables: one per unlinked outlet port, along its estimated route
+	for (const e of estimates) {
+		if (e.problem) continue
+		const d = cableOd(settings, e.cableType)
+		for (const { shape, seg } of e.segs) {
+			const f = entry(shape, seg)
+			f.cables[e.cableType] = (f.cables[e.cableType] ?? 0) + 1
+			const est = (f.est ??= {})
+			est[e.cableType] = (est[e.cableType] ?? 0) + 1
+			f.cableMm2 += d * d
+		}
+	}
 	// cables added by hand: on one segment, or on every segment of the run
 	for (const s of ix.shapes) {
 		if (s.role?.kind !== 'containment' || !s.role.extra?.length || s.geom.kind !== 'path') continue
@@ -103,6 +119,15 @@ export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct
 		f.over = f.pct > limitPct
 	}
 	return out
+}
+
+const sum = (r: Record<string, number> | undefined) => Object.values(r ?? {}).reduce((a, n) => a + n, 0)
+/** How many of a segment's cables are estimates. */
+export const estCount = (f: Pick<SegFill, 'est'>): number => sum(f.est)
+/** "12 cables · 4 estimated" — the estimated part only when there are some. */
+export function cableCountText(f: Pick<SegFill, 'cables' | 'est'>): string {
+	const n = sum(f.cables), e = estCount(f)
+	return `${n} cable${n === 1 ? '' : 's'}${e ? ` · ${e} estimated` : ''}`
 }
 
 /** The fullest segment of each run. */

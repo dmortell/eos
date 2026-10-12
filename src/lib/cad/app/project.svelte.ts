@@ -7,7 +7,8 @@ import { Sync } from '../persist/sync'
 import { FirestoreBackend } from '../persist/firestore'
 import { PROJECT_SCOPE, levelScope, viewScope, sheetScope } from '../persist/docs'
 import { ProjectIndex } from '../domain/project'
-import { routeLinks, cableSettings } from '../domain/routing'
+import { cableSettings } from '../domain/routing'
+import { routeAll, type Routing } from '../domain/estimates'
 import { fillBySegment } from '../domain/fill'
 import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
@@ -64,14 +65,18 @@ export class CadProject {
 	settings = $derived.by(() => { void this.rev; return this.store.get('settings') as ProjectSettings | undefined })
 	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data — but not on
 	 *  each frame of a drag (the whole project re-routed per pointer move): the last routes hold until it ends. */
-	#routesHeld: ReturnType<typeof routeLinks> | null = null
-	routes = $derived.by(() => {
+	#routingHeld: Routing | null = null
+	/** The links' routes and the unlinked outlet ports' ESTIMATED cables, from one routing pass over one graph. */
+	routing = $derived.by((): Routing => {
 		const ix = this.index
-		if (this.store.busy && this.#routesHeld) return this.#routesHeld
-		return (this.#routesHeld = routeLinks(ix, cableSettings(ix)))
+		if (this.store.busy && this.#routingHeld) return this.#routingHeld
+		return (this.#routingHeld = routeAll(ix, cableSettings(ix)))
 	})
-	/** How full each run segment is from those routes (Phase 5.3). */
-	fills = $derived.by(() => fillBySegment(this.index, this.routes))
+	routes = $derived(this.routing.routes)
+	/** Estimated cables: every outlet port with no link yet, routed to its server room (domain/estimates.ts). */
+	estimates = $derived(this.routing.estimates)
+	/** How full each run segment is from those routes and estimates (Phase 5.3). */
+	fills = $derived.by(() => fillBySegment(this.index, this.routes, undefined, this.estimates))
 	canUndo = $derived.by(() => { void this.rev; return this.store.canUndo })
 	canRedo = $derived.by(() => { void this.rev; return this.store.canRedo })
 

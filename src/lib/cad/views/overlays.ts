@@ -7,11 +7,12 @@ import type { Id, Pt } from '../domain/types'
 import type { Entity } from '../domain/drawing'
 import type { PortSel } from '../editor/tools'
 import type { Route } from '../domain/routing'
+import type { Estimate } from '../domain/estimates'
 import type { ViewSpec } from './space'
 import { primBounds, unionBounds } from './display'
 import { spaceOf } from './space'
 import { traceCircuit } from '../domain/cords'
-import { fillTone } from '../domain/fill'
+import { fillTone, estCount } from '../domain/fill'
 
 /** The selected ports (rack rows), a tint over their cells — then their labels and the panel's name (drawn over its
  *  ports) again on top, so neither is lost under the highlight (Dave 2026-10-07). */
@@ -63,17 +64,19 @@ export function circuitOf(ix: ProjectIndex, prims: Prim[], selection: Id[], ps: 
 	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace'), ...namesOver(prims, devs)]   // labels and names over the cells
 }
 
-/** Fill overlay (Phase 5.3, plan): each run segment with cables in it as a band in its fill tone, with its %. */
-export function fillBands(ix: ProjectIndex, fills: Iterable<{ shape: Id; seg: Id; pct: number }> | Map<string, { shape: Id; seg: Id; pct: number }>, levelId: Id, plotScale: number): Prim[] {
+type BandFill = { shape: Id; seg: Id; pct: number; est?: Record<string, number> }
+/** Fill overlay (Phase 5.3, plan): each run segment with cables in it as a band in its fill tone, with its % — and how
+ *  many of its cables are estimates ("35% · 4 est."). */
+export function fillBands(ix: ProjectIndex, fills: Iterable<BandFill> | Map<string, BandFill>, levelId: Id, plotScale: number): Prim[] {
 	const out: Prim[] = []
 	for (const f of fills instanceof Map ? fills.values() : fills) {
 		const s = ix.get(f.shape)
 		if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
 		const g = s.geom, sg = g.segs.find((x) => x.id === f.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
 		if (!a || !b || (a.levelId ?? s.levelId) !== levelId || Math.hypot(b.x - a.x, b.y - a.y) < 0.5) continue
-		const tone = fillTone(f.pct), w = (sg?.section ?? s.section)?.w ?? 100
+		const tone = fillTone(f.pct), w = (sg?.section ?? s.section)?.w ?? 100, est = estCount(f)
 		out.push({ k: 'line', pts: [a, b], w: Math.max(w, 150), cls: `fill-band fill-${tone}` })
-		out.push({ k: 'text', at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, text: Number.isFinite(f.pct) ? `${Math.round(f.pct)}%` : 'no size', size: 2.2 * plotScale, anchor: 'middle', cls: `fill-label fill-${tone}` })
+		out.push({ k: 'text', at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, text: `${Number.isFinite(f.pct) ? `${Math.round(f.pct)}%` : 'no size'}${est ? ` · ${est} est.` : ''}`, size: 2.2 * plotScale, anchor: 'middle', cls: `fill-label fill-${tone}` })
 	}
 	return out
 }
@@ -103,19 +106,24 @@ const ROOM_COLOURS = ['#0ea5e9', '#f97316', '#a855f7', '#22c55e', '#e11d48', '#e
 
 /** EVERY horizontal cable's route on this level (backlog "Show all routes"; the plan's Routes toggle), colored by its
  *  server room (the panel end's room): each run segment once per room, rooms sharing a segment drawn side by side.
- *  `rooms` = the color of each room drawn (for the strip's key). */
-export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id): { prims: Prim[]; rooms: { id: Id; name: string; color: string }[] } {
+ *  ESTIMATED cables (unlinked outlet ports) are drawn dashed and lighter where a room has only estimates on a
+ *  segment. `rooms` = the color of each room drawn (for the strip's key). */
+export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, estimates: readonly Estimate[] = []): { prims: Prim[]; rooms: { id: Id; name: string; color: string }[] } {
 	const roomOf = (linkId: Id): Id | undefined => {
 		const l = ix.get(linkId)
 		if (l?.type !== 'link') return undefined
 		const d = ix.get(l.a.on), rack = d?.type === 'device' ? ix.get(d.rackId) : undefined
 		return rack?.type === 'rack' ? rack.spaceId : undefined
 	}
-	const bySeg = new Map<string, { a: Pt; b: Pt; rooms: Set<Id> }>()
-	for (const [linkId, r] of routes) {
-		const room = roomOf(linkId)
+	// per segment: its rooms, each true = a linked cable, false = estimates only
+	const bySeg = new Map<string, { a: Pt; b: Pt; rooms: Map<Id, boolean> }>()
+	const cables: [Id | undefined, Route['segs'], boolean][] = [
+		...[...routes].map(([linkId, r]): [Id | undefined, Route['segs'], boolean] => [roomOf(linkId), r.segs, true]),
+		...estimates.map((e): [Id | undefined, Route['segs'], boolean] => [e.roomId, e.segs, false]),
+	]
+	for (const [room, segs, linked] of cables) {
 		if (!room) continue
-		for (const x of r.segs) {
+		for (const x of segs) {
 			const key = `${x.shape}:${x.seg}`
 			let e = bySeg.get(key)
 			if (!e) {
@@ -123,19 +131,19 @@ export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: I
 				if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
 				const g = s.geom, sg = g.segs.find((q) => q.id === x.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
 				if (!a || !b || (a.levelId ?? s.levelId) !== levelId || (b.levelId ?? s.levelId) !== levelId || Math.hypot(b.x - a.x, b.y - a.y) < 0.5) continue
-				bySeg.set(key, (e = { a, b, rooms: new Set() }))
+				bySeg.set(key, (e = { a, b, rooms: new Map() }))
 			}
-			e.rooms.add(room)
+			e.rooms.set(room, linked || !!e.rooms.get(room))
 		}
 	}
-	const all = [...new Set([...bySeg.values()].flatMap((e) => [...e.rooms]))].map((id) => ({ id, name: ix.nameOf(id) })).sort((p, q) => p.name.localeCompare(q.name, undefined, { numeric: true }))
+	const all = [...new Set([...bySeg.values()].flatMap((e) => [...e.rooms.keys()]))].map((id) => ({ id, name: ix.nameOf(id) })).sort((p, q) => p.name.localeCompare(q.name, undefined, { numeric: true }))
 	const color = new Map(all.map((r, i) => [r.id, ROOM_COLOURS[i % ROOM_COLOURS.length]]))
 	const prims: Prim[] = []
 	for (const { a, b, rooms } of bySeg.values()) {
 		const list = all.filter((r) => rooms.has(r.id)), len = Math.hypot(b.x - a.x, b.y - a.y), nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len
 		list.forEach((r, i) => {
 			const off = (i - (list.length - 1) / 2) * 60   // side by side, 60 mm apart
-			prims.push({ k: 'line', pts: [{ x: a.x + nx * off, y: a.y + ny * off }, { x: b.x + nx * off, y: b.y + ny * off }], cls: 'all-route', color: color.get(r.id) })
+			prims.push({ k: 'line', pts: [{ x: a.x + nx * off, y: a.y + ny * off }, { x: b.x + nx * off, y: b.y + ny * off }], cls: rooms.get(r.id) ? 'all-route' : 'all-route all-route-est', color: color.get(r.id) })
 		})
 	}
 	return { prims, rooms: all.map((r) => ({ ...r, color: color.get(r.id)! })) }

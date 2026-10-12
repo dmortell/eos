@@ -6,7 +6,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Id, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from './display'
-import { cableColor, cableOd, fillTone, insideOf, packCables, segKey, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
+import { cableColor, cableCountText, cableOd, fillTone, insideOf, packCables, segKey, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
 
 /** The section's scales (1:N): the closest at which it fits a 80 × 60 mm box. */
 const SCALES = [1, 2, 5, 10, 20], BOX_W = 80, BOX_H = 60
@@ -46,13 +46,15 @@ export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id,
 		out.push({ k: 'text', at: { x: 0, y }, text: `${pctText(f.pct)} full (limit ${FILL_LIMIT_PCT}%)`, size: 3, cls: 'legend-title', color: TONE[fillTone(f.pct)] })
 		const inside = insideOf(sec)
 		out.push(note(y += 4.5, `${sec.round ? `Ø${inside.w}` : `${inside.w}×${inside.h}`} inside · section 1:${n}`))
+		out.push(note(y += 4, cableCountText(f)))
 		if (p.dropped) out.push(note(y += 4, `${p.dropped} cable${p.dropped === 1 ? '' : 's'} don’t fit`, TONE.over))
 	} else out.push(note(y += 1, `${pctText(f.pct)} — the run has no section size`, TONE.over))
 	// the cables by type, each with its color
 	const label = (t: string) => settings?.cableTypes.find((c) => c.id === t)?.label ?? t
 	for (const [t, n] of Object.entries(f.cables)) {
 		y += 4
-		const hand = f.hand?.[t], by = hand ? (hand === n ? ' (by hand)' : ` (${hand} by hand)`) : ''
+		const of = (m: number | undefined, what: string) => (m ? (m === n ? what : `${m} ${what}`) : '')
+		const notes = [of(f.hand?.[t], 'by hand'), of(f.est?.[t], 'estimated')].filter(Boolean), by = notes.length ? ` (${notes.join(', ')})` : ''
 		out.push({ k: 'circle', c: { x: 1.2, y: y - 0.9 }, r: 1.1, fill: true, cls: 'fill-cable', color: cableColor(settings, runTypes, t) })
 		out.push({ k: 'text', at: { x: 3.5, y }, text: `${n} × ${label(t)}  Ø${od(t)}${by}`, size: 2.5, cls: 'legend-text' })
 	}

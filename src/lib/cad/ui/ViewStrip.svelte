@@ -112,8 +112,8 @@
 		{#if spec.kind === 'plan'}
 			<label title="Floorplans in black and white, so colored markup stands out — your screen only (a sheet has its own: Properties › Display)"><input type="checkbox" checked={ws.screen.gray} onchange={() => ws.toggleScreen('gray')} /> B/W floorplans</label>
 			<label title="Outlets in their usage's color (on) or their layer's (off) — your screen only (a sheet has its own)"><input type="checkbox" checked={ws.screen.byUsage} onchange={() => ws.toggleScreen('byUsage')} /> Usage colors</label>
-			<label title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)"><input type="checkbox" checked={ws.showFill} onchange={() => (ws.showFill = !ws.showFill)} /> Fill</label>
-			<label title="Every cable's route along the containment, colored by its server room"><input type="checkbox" checked={ws.showRoutes} onchange={() => (ws.showRoutes = !ws.showRoutes)} /> Routes</label>
+			<label title="Color runs by how full they are from the cables routed through them, estimated ones for unlinked outlet ports included (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)"><input type="checkbox" checked={ws.showFill} onchange={() => (ws.showFill = !ws.showFill)} /> Fill</label>
+			<label title="Every cable's route along the containment, colored by its server room — dashed and lighter: estimated cables for outlet ports not linked yet"><input type="checkbox" checked={ws.showRoutes} onchange={() => (ws.showRoutes = !ws.showRoutes)} /> Routes</label>
 			{#if ws.showRoutes && routeKey}
 				<div class="keys">{#each routeKey as r (r.id)}<span class="rkey" title="Cables to {r.name}"><i style:background={r.color}></i>{r.name}</span>{:else}<span class="rkey">no routed cables here</span>{/each}</div>
 			{/if}
