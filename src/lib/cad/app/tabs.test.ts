@@ -38,7 +38,7 @@ describe('drawing tabs', () => {
 	})
 	it('two panes on two levels keep their own tabs and histories (2F plan beside 3F plan)', () => {
 		const t = new Tabs('p')
-		const a = t.ensure(0, plan('2F')), b = t.ensure(1, plan('3F'))
+		const a = t.ensure(0, plan('2F'))!, b = t.ensure(1, plan('3F'))!
 		expect(b.id).not.toBe(a.id)
 		// each pane synced with ITS level: neither tab moves (one shared level turned pane 2's 3F tab into 2F)
 		t.sync(0, plan('2F')); t.sync(1, plan('3F'))
@@ -74,6 +74,23 @@ describe('drawing tabs', () => {
 		const again = new Tabs('dup')
 		vi.unstubAllGlobals()
 		expect([again.list.length, again.paneTab[0]]).toEqual([3, a.id])
+	})
+	it('a plan whose level isn’t known yet never becomes a tab (it read "Plan (current level)" and wouldn’t open)', () => {
+		const t = new Tabs('p')
+		const noLevel: TabView = { spec: { kind: 'plan' } }
+		t.ensure(0, noLevel)                       // cad opened before the levels loaded
+		t.sync(0, noLevel)
+		expect(t.list).toHaveLength(0)
+		t.sync(0, plan('L1'))                      // the level arrives
+		expect(t.list.map((x) => x.view)).toEqual([plan('L1')])
+		t.go(0, noLevel)
+		expect(t.list.map((x) => x.view)).toEqual([plan('L1')])
+		// one saved before this fix is dropped on load, and a pane that showed it shows nothing (its level's tab follows)
+		const saved = JSON.stringify({ list: [{ id: 'A', view: plan('L1') }, { id: 'B', view: noLevel }], paneTab: ['B', 'A'] })
+		vi.stubGlobal('localStorage', { getItem: () => saved, setItem: () => {} })
+		const again = new Tabs('orphan')
+		vi.unstubAllGlobals()
+		expect([again.list.map((x) => x.id), again.paneTab]).toEqual([['A'], [null, 'A']])
 	})
 	it('a dragged tab goes before / after another; the pane keeps showing its tab', () => {
 		const t = new Tabs('p')

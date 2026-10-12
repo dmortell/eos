@@ -21,7 +21,12 @@ export interface Tab {
 
 /** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view / a paper view
  *  (a port map, a schedule …). */
-export const viewKey = (v: TabView) => `${v.spec.kind === 'sheet' || v.spec.kind === 'riser' || isPaperSpec(v.spec) ? '' : v.levelId ?? ''}:${specKey(v.spec)}`
+/** A view drawn on one level (a plan, an elevation, a section, a rack view) — not a sheet, the riser or paper. */
+const levelBound = (v: TabView) => !(v.spec.kind === 'sheet' || v.spec.kind === 'riser' || isPaperSpec(v.spec))
+/** A level-bound view whose level isn't known yet (cad opened before the levels loaded): never a tab of its own — it
+ *  showed as a "Plan (current level)" tab that a click couldn't open (the pane went to the level's own tab). */
+export const unplaced = (v: TabView) => levelBound(v) && !v.levelId
+export const viewKey = (v: TabView) => `${levelBound(v) ? v.levelId ?? '' : ''}:${specKey(v.spec)}`
 const copy = (v: TabView): TabView => JSON.parse(JSON.stringify(v))
 
 export class Tabs {
@@ -37,8 +42,8 @@ export class Tabs {
 			// two tabs on one view (saved before switching views checked for an open tab) become one: the first
 			const first = new Map<string, string>(), same = new Map<string, string>()
 			for (const t of Array.isArray(s.list) ? s.list : []) { const k = viewKey(t.view), f = first.get(k); if (f) same.set(t.id, f); else first.set(k, t.id) }
-			if (Array.isArray(s.list)) this.list = s.list.filter((t) => !same.has(t.id)).map((t) => ({ ...t, back: [], fwd: [] }))
-			if (Array.isArray(s.paneTab)) this.paneTab = [0, 1].map((k) => { const p = s.paneTab![k] ?? null; return p && same.has(p) ? same.get(p)! : p })
+			if (Array.isArray(s.list)) this.list = s.list.filter((t) => !same.has(t.id) && !unplaced(t.view)).map((t) => ({ ...t, back: [], fwd: [] }))
+			if (Array.isArray(s.paneTab)) this.paneTab = [0, 1].map((k) => { const p = s.paneTab![k] ?? null, q = p && same.has(p) ? same.get(p)! : p; return this.get(q) ? q : null })
 		} catch { /* nothing saved, or storage blocked */ }
 	}
 	/** The list and which tab each pane shows (not the histories). */
@@ -50,8 +55,9 @@ export class Tabs {
 
 	/** The tab pane `i` shows, made to match `view`: its own tab if it shows that view, else a tab with that view,
 	 *  else a new (kept) one. Used on load and whenever a pane's view changes outside the tabs. */
-	ensure(i: number, view: TabView): Tab {
+	ensure(i: number, view: TabView): Tab | undefined {
 		const cur = this.of(i)
+		if (unplaced(view)) return cur
 		if (cur && viewKey(cur.view) === viewKey(view)) return cur
 		const same = this.list.find((t) => viewKey(t.view) === viewKey(view))
 		const t = same ?? this.#add({ id: newId(), view: copy(view), back: [], fwd: [] }, i)
@@ -71,6 +77,7 @@ export class Tabs {
 	/** The view in pane `i`'s tab changes (its strip, a level, To sheet): the old view goes on its Back list — unless
 	 *  another tab is open on that view: the pane shows that tab. */
 	go(i: number, view: TabView): void {
+		if (unplaced(view)) return
 		const t = this.of(i)
 		if (!t) { this.ensure(i, view); return }
 		if (viewKey(t.view) === viewKey(view)) { t.view = copy(view); this.save(); return }
@@ -82,6 +89,7 @@ export class Tabs {
 	}
 	/** Keep the tab's view in step with what its pane shows, without history (a level picked elsewhere). */
 	sync(i: number, view: TabView): void {
+		if (unplaced(view)) return
 		const t = this.of(i)
 		if (!t) { this.ensure(i, view); return }
 		if (viewKey(t.view) !== viewKey(view) && !this.#toOpen(i, t, view)) { t.view = copy(view); this.save() }

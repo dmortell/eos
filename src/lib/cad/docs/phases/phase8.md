@@ -2997,3 +2997,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   routes; Racks, ports and patching; Sheets and issuing; Layers and blocks; Project, floors and files (`HOWTO_AREAS`;
   every how-to names its `area`, so a new one can't be left out). The two "order of racks" answers are one; the two
   port map answers are named apart ("a drawing" / "the Excel for VLANs"). Keys come from `KEYS` (R85).
+- **Fix — a "Plan (current level)" tab that wouldn't open:** cad opened without a level in the URL (the palette, a plain
+  `/cad` link) made a tab for the plan before the levels loaded, so it had no level; once the level came the pane went
+  to that level's own tab, and a click on the orphan bounced back there. A level-bound view with no level never
+  becomes a tab now, and one saved like that is dropped on load (`app/tabs.svelte.ts` `unplaced`; test).
