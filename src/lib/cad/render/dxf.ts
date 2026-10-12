@@ -53,9 +53,21 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 		if (!made.has(`lt:${t.name}`)) { made.add(`lt:${t.name}`); w.addLType(t.name, t.text, t.el.map((n) => n * paperScale)) }
 		return { lineType: t.name }
 	}
+	// a project layer's name as DXF takes it: no < > / \ " : ; ? * | = ` (AutoCAD refuses the file), and unique ignoring
+	// case (DXF names are case-insensitive: "Walls" and "WALLS" would merge)
+	const dxfName = new Map<string, string>(), usedUpper = new Set(Object.values(LAYERS).map((l) => l.name).concat(HIGH.name, '0'))
+	const ownName = (id: string, name: string): string => {
+		let n = dxfName.get(id)
+		if (n) return n
+		const base = name.replace(/[<>/\\":;?*|=`]/g, '_').trim() || 'LAYER'
+		n = base
+		for (let i = 2; usedUpper.has(n.toUpperCase()); i++) n = `${base}_${i}`
+		usedUpper.add(n.toUpperCase()); dxfName.set(id, n)
+		return n
+	}
 	const layer = (p: Exclude<Prim, { k: 'image' }>) => {
 		const own = p.layer ? names?.get(p.layer) : undefined
-		const l = own ? { name: own, aci: 7 } : layerOf(p.cls)
+		const l = own ? { name: ownName(p.layer!, own), aci: 7 } : layerOf(p.cls)
 		if (l.name !== '0' && !made.has(l.name)) { made.add(l.name); w.addLayer(l.name, l.aci, 'CONTINUOUS') }
 		return l.name
 	}
@@ -73,7 +85,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 		for (const q of def.prims) {
 			if (q.k === 'line' && q.pts.length >= 2) blk.addLWPolyline(q.pts.map((v) => ({ point: point2d(v.x, -v.y) })), { layerName: '0', ...(q.closed ? { flags: LWPolylineFlags.Closed } : {}) })
 			else if (q.k === 'circle') blk.addCircle(point3d(q.c.x, -q.c.y, 0), Math.max(0.01, q.r), { layerName: '0' })
-			else if (q.k === 'text' && q.text) blk.addText(point3d(q.at.x, -q.at.y, 0), Math.max(0.1, q.size), q.text, { layerName: '0', ...textAlign(q.anchor, point3d(q.at.x, -q.at.y, 0)), ...(q.rot ? { rotation: -q.rot } : {}) })
+			else if (q.k === 'text' && q.text) blk.addText(point3d(q.at.x, -q.at.y, 0), Math.max(0.1, q.size), oneLine(q.text), { layerName: '0', ...textAlign(q.anchor, point3d(q.at.x, -q.at.y, 0)), ...(q.rot ? { rotation: -q.rot } : {}) })
 		}
 		for (const a of def.attdefs) blk.addAttdef(point3d(a.at.x, -a.at.y, 0), Math.max(0.1, a.size), a.tag, '', { layerName: '0', ...textAlign(a.anchor, point3d(a.at.x, -a.at.y, 0)), ...(a.rot ? { rotation: -a.rot } : {}) })
 		d = { name, attdefs: def.attdefs }
@@ -93,7 +105,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 		for (const a of d.attdefs) {
 			const lx = a.at.x * ins.scale, ly = -a.at.y * ins.scale
 			const pos = point3d(at.x + lx * cos - ly * sin, at.y + lx * sin + ly * cos, 0)
-			w.addAttrib(pos, Math.max(0.1, a.size * ins.scale), a.tag, fillAttrs(a.template, ins.attrs), ref, { layerName: layer(p), ...textAlign(a.anchor, pos), ...((a.rot ?? 0) + ins.rot ? { rotation: -((a.rot ?? 0) + ins.rot) } : {}) })
+			w.addAttrib(pos, Math.max(0.1, a.size * ins.scale), a.tag, oneLine(fillAttrs(a.template, ins.attrs)), ref, { layerName: layer(p), ...textAlign(a.anchor, pos), ...((a.rot ?? 0) + ins.rot ? { rotation: -((a.rot ?? 0) + ins.rot) } : {}) })
 		}
 		entities++
 		return true
@@ -121,17 +133,23 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 				break
 			case 'text': {
 				if (!p.text) break
-				const at = point3d(p.at.x, -p.at.y, 0)
+				// a TEXT is one line (a newline inside a value breaks the file): several lines → one TEXT each, 1.4 × size apart
+				const lines = p.text.split(/\r?\n/), size = Math.max(1, p.size), r = ((p.rot ?? 0) * Math.PI) / 180
 				const centred = p.anchor === 'middle' || p.anchor === 'end'
-				w.addText(at, Math.max(1, p.size), p.text, {
-					layerName: layer(p), ...lineType(p),
-					...(p.rot ? { rotation: -p.rot } : {}),
-					...(centred ? {
-						horizontalAlignment: p.anchor === 'middle' ? TextHorizontalAlignment.Center : TextHorizontalAlignment.Right,
-						verticalAlignment: TextVerticalAlignment.BaseLine, secondAlignmentPoint: at,
-					} : {}),
+				lines.forEach((line, i) => {
+					if (!line) return
+					const dy = i * size * 1.4   // down the text's own lines (y down), turned with it
+					const at = point3d(p.at.x - dy * Math.sin(r), -(p.at.y + dy * Math.cos(r)), 0)
+					w.addText(at, size, line, {
+						layerName: layer(p), ...lineType(p),
+						...(p.rot ? { rotation: -p.rot } : {}),
+						...(centred ? {
+							horizontalAlignment: p.anchor === 'middle' ? TextHorizontalAlignment.Center : TextHorizontalAlignment.Right,
+							verticalAlignment: TextVerticalAlignment.BaseLine, secondAlignmentPoint: at,
+						} : {}),
+					})
+					entities++
 				})
-				entities++
 				break
 			}
 			case 'image':
@@ -141,6 +159,9 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	}
 	return { text: w.stringify(), entities, skippedImages }
 }
+
+/** A DXF group value can't hold a newline. */
+const oneLine = (t: string) => t.replace(/\s*\r?\n\s*/g, ' ')
 
 /** A text's DXF alignment from its anchor (centred / right texts align on their point). */
 function textAlign(anchor: 'start' | 'middle' | 'end' | undefined, at: ReturnType<typeof point3d>) {

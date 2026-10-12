@@ -69,6 +69,15 @@ describe('make block / explode', () => {
 		expect(back.id).not.toBe(a.id)
 		expect(back.extent).toBe(720)
 	})
+	it('exploding a turned, scaled insert on a sheet keeps its turn, size, owner and layer', () => {
+		const a = makeBox('L', { x: 0, y: 0 }, 600, 400, 0, 720)
+		const { block } = blockFromShapes([a], 'Desk')
+		const ins = { type: 'shape', id: 'i', sheetId: 'S', vpId: 'V', layerId: 'Y', geom: { kind: 'insert', blockId: block.id, at: { x: 100, y: 50 }, rot: 90, scale: 2 } } as Shape
+		const [back] = explodeInsert(ins, block) as Shape[]
+		expect(back).toMatchObject({ sheetId: 'S', vpId: 'V', layerId: 'Y' })
+		expect(back.levelId).toBeUndefined()
+		expect(back.geom).toMatchObject({ kind: 'rect', centre: { x: 100, y: 50 }, size: { x: 1200, y: 800 }, rot: 90 })
+	})
 })
 
 describe('drawing symbols (Markup kinds part 5)', () => {

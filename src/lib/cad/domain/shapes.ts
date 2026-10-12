@@ -208,6 +208,31 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 	}
 }
 
+/** Geometry in a block's own mm placed at `at`, turned `rot` degrees (clockwise on screen, as inserts are) and scaled by
+ *  `scale` — what an insert draws, as shapes (explode). Heights (path z) are kept. */
+export function placeGeometry(g: Geometry, at: Pt, rot = 0, scale = 1): Geometry {
+	const r = (rot * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r)
+	const P = (p: Pt): Pt => ({ x: at.x + (p.x * c - p.y * sn) * scale, y: at.y + (p.x * sn + p.y * c) * scale })
+	const turn = (a?: number) => ((a ?? 0) + rot) % 360 || undefined
+	switch (g.kind) {
+		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, ...P(n) })) }
+		case 'rect': case 'image': return { ...g, centre: P(g.centre), size: { x: g.size.x * scale, y: g.size.y * scale }, rot: turn(g.rot) }
+		case 'circle': return { ...g, centre: P(g.centre), r: g.r * scale }
+		case 'ellipse': return { ...g, centre: P(g.centre), rx: g.rx * scale, ry: g.ry * scale, rot: turn(g.rot) }
+		case 'arc': return { ...g, centre: P(g.centre), r: g.r * scale, start: g.start + rot, end: g.end + rot }
+		case 'polygon': return { ...g, pts: g.pts.map(P) }
+		case 'text': return { ...g, at: P(g.at), sizeMm: g.sizeMm * scale, rot: turn(g.rot), ...(g.width ? { width: g.width * scale } : {}) }
+		case 'dimension': {
+			const mode = rot && (g.mode === 'horizontal' || g.mode === 'vertical') ? 'rotated' : g.mode
+			const angle = mode === 'rotated' ? (g.mode === 'vertical' ? 90 : g.mode === 'horizontal' ? 0 : g.angle ?? 0) + rot : g.angle
+			return { ...g, a: P(g.a), b: P(g.b), offset: g.offset * scale, mode, ...(angle != null ? { angle } : {}), ...(g.textAt ? { textAt: P(g.textAt) } : {}) }
+		}
+		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(P) }
+		case 'insert': return { ...g, at: P(g.at), rot: turn(g.rot), scale: (g.scale ?? 1) * scale }
+		case 'legend': return { ...g, at: P(g.at) }
+	}
+}
+
 /** A closed region's outline in its own 2D space (a box's corners, an ellipse's / circle's points, a polygon). */
 export function outlineOf(g: Geometry): Pt[] | null {
 	switch (g.kind) {

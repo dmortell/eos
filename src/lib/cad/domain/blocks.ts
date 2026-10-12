@@ -5,7 +5,7 @@
 import type { Id, Pt, Outlet } from './types'
 import type { BlockDef } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
-import { moveGeometry, ellipsePts } from './shapes'
+import { moveGeometry, ellipsePts, placeGeometry } from './shapes'
 import { newId } from './ids'
 import { isDataField } from './fields'
 
@@ -157,9 +157,16 @@ export function blockFromShapes(shapes: Shape[], name: string): { block: Block; 
 	return { block, insert }
 }
 
-/** "Explode": an insert → ordinary shapes in place (a COPIED block, edited freely afterwards). */
-export function explodeInsert(ins: Shape, block: Block): Shape[] {
+/** "Explode": an insert → ordinary shapes in place (a COPIED block, edited freely afterwards), drawn as the insert was:
+ *  turned, scaled (× `k`, the drawing scale, for an annotative block), with the insert's owner, layer and height.
+ *  `k` = what the view draws annotative blocks at (a plan: PLOT_SCALE; paper: 1). */
+export function explodeInsert(ins: Shape, block: Block, k = 1): Shape[] {
 	if (ins.geom.kind !== 'insert') return []
-	const { at } = ins.geom
-	return block.shapes.map((s) => ({ ...s, type: 'shape', id: newId(), ...(ins.levelId ? { levelId: ins.levelId } : {}), geom: moveGeometry(s.geom, at) }) as Shape)
+	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (block.annotative ? k : 1)
+	const owner = ins.levelId ? { levelId: ins.levelId } : ins.viewId ? { viewId: ins.viewId } : { sheetId: ins.sheetId!, ...(ins.vpId ? { vpId: ins.vpId } : {}) }
+	return block.shapes.map((b) => {
+		const geom = placeGeometry(b.geom, at, rot, s)
+		const lifted = z && geom.kind === 'path' ? { ...geom, nodes: geom.nodes.map((n) => ({ ...n, z: n.z + z })) } : geom
+		return { ...b, type: 'shape', id: newId(), ...owner, ...(ins.layerId ? { layerId: ins.layerId } : {}), geom: lifted } as Shape
+	})
 }

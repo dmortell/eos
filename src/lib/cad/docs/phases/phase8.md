@@ -2514,3 +2514,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Smaller: Backspace with no points drawn reaches Delete; a locked item picked with Ctrl, then Ctrl let go,
     no longer drags the runs on it; a leader / cloud double-click adds no 0-length edge; a section's ends can't meet;
     items someone else deletes leave the selection (and an open text box).
+- **R17, R20, R21 Data and output fixes:**
+  - Explode draws the shapes as the insert was: turned, scaled (× the drawing scale for annotative blocks), with
+    the insert's owner (a sheet / viewport insert exploded into shapes with no owner, never drawn or reloaded), layer
+    and height (`domain/shapes.ts` `placeGeometry`, `domain/blocks.ts` `explodeInsert`).
+  - DXF: a project layer's name is made safe (no `< > / \ " : ; ? * | = `` — AutoCAD refused the file) and unique
+    ignoring case; a text of several lines goes out as one TEXT per line, block texts / attributes on one line
+    (`render/dxf.ts`).
+  - A transaction that throws puts back what it wrote (it left the store half-changed, unsaved, with no undo step)
+    (`store/store.ts`).
+  - Tests in `domain/blocks.test.ts`, `render/dxf.test.ts`.

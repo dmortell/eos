@@ -85,7 +85,7 @@ export class EntityStore {
 		if (this.#gesture) { this.#afterGesture.push(() => this.transact(label, fn, sel)); return null }
 		if (this.#refused()) return null
 		const base = new Map<Id, Entity | null>()
-		fn(this.#txn(base))
+		try { fn(this.#txn(base)) } catch (e) { this.#putBack(base); throw e }   // all or nothing: no half-made edit
 		const ops = this.#settle(base)
 		if (!ops.length) return null
 		const step = { label, ops, ...(sel ? { sel } : {}) }
@@ -117,7 +117,7 @@ export class EntityStore {
 			update: (fn) => {
 				if (this.#gesture !== g) throw new Error('This gesture has already ended')
 				restore()
-				fn(this.#txn(g.base))
+				try { fn(this.#txn(g.base)) } catch (e) { restore(); throw e }
 				this.#emit({ source: 'gesture', label, ops: this.#settle(g.base, false), final: false })
 			},
 			commit: (sel) => {
@@ -171,6 +171,9 @@ export class EntityStore {
 	}
 
 	// ── Internals ───────────────────────────────────────────────────────────────────────────────────────────────────
+
+	/** Undo what a transaction wrote before it threw. */
+	#putBack(base: Map<Id, Entity | null>): void { for (const [id, was] of base) this.#write(id, was) }
 
 	#txn(base: Map<Id, Entity | null>): Txn {
 		const touch = (id: Id) => { if (!base.has(id)) base.set(id, this.#map.get(id) ?? null) }

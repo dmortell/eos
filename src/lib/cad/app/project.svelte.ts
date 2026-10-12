@@ -17,6 +17,7 @@ import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
+import { PLOT_SCALE } from '../views/display'
 import { stripUndefined } from '../persist/docs'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { printedPanelsAffected, portRanges } from '../domain/ports'
@@ -161,7 +162,7 @@ export class CadProject {
 		if (ins?.type !== 'shape' || ins.geom.kind !== 'insert') return []
 		const b = this.blockOf(ins.geom.blockId)
 		if (!b) return []
-		const shapes = explodeInsert(ins, b)
+		const shapes = explodeInsert(ins, b, ins.sheetId ? 1 : PLOT_SCALE)   // annotative blocks: as the view draws them
 		this.store.transact(`Explode ${b.name}`, (tx) => { tx.del(insertId); for (const s of shapes) tx.put(s) })
 		return shapes.map((s) => s.id)
 	}
