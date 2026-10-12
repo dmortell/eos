@@ -3,9 +3,11 @@
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Pt } from '../domain/types'
-import { makeClip, parseClip, pasteClip, clipCentre } from '../domain/clipboard'
+import { makeClip, makeViewportClip, parseClip, pasteClip, clipCentre } from '../domain/clipboard'
 import { pastedNote, readableClip } from '../domain/pasteText'
-import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
+import { deleteEntities, deleteImpact, deleteViewports, impactText } from '../editor/commands'
+import type { Sheet } from '../domain/drawing'
+import { pickPasted } from './sheetActions'
 
 export interface ClipboardDeps {
 	project: CadProject
@@ -65,6 +67,21 @@ export function clipboardEvents({ project, ws, target, inRow, image, note, curso
 	const notMine = (e: ClipboardEvent) => typing(e.target) || dialogOpen() || !!project.store?.busy
 	function copy(e: ClipboardEvent, cut: boolean): void {
 		if (notMine(e) || window.getSelection()?.toString() || !ws.selection.length) return
+		// viewports picked on the selected sheet: they go with their views and tied notes
+		const sheet = ws.selection.length === 1 && ws.viewportId ? project.index.get<Sheet>(ws.selection[0]) : undefined
+		const vclip = sheet?.type === 'sheet' ? makeViewportClip(project.index, sheet.id, ws.pickedViewports, project.pid) : null
+		if (sheet?.type === 'sheet' && vclip) {
+			e.preventDefault()
+			e.clipboardData?.setData('text/plain', JSON.stringify(vclip))
+			const n = vclip.viewports!.length, what = n === 1 ? 'viewport' : `${n} viewports`
+			if (cut) {
+				deleteViewports(project.store, sheet, vclip.viewports!, true)
+				ws.selectViewport(null)
+				ws.say(`Cut ${what} — Ctrl+V pastes (Undo brings ${n === 1 ? 'it' : 'them'} back)`)
+			}
+			else ws.say(`Copied ${what} — Ctrl+V pastes (on a sheet: here, another sheet, tab or project)`)
+			return
+		}
 		const clip = makeClip(project.index, ws.selection, project.pid)
 		if (!clip) { ws.say('Copy takes plan items (shapes, outlets, racks), notes on a sheet, or devices'); return }
 		// what was picked (a copied rack's devices come along with it)
@@ -121,10 +138,10 @@ export function clipboardEvents({ project, ws, target, inRow, image, note, curso
 		if (shifted && to.kind !== 'rack' && !d) ws.say('Point at where it goes, then Ctrl+Shift+V — pasted in place')
 		const r = pasteClip(clip, { pid: project.pid, ix: project.index, to, d })
 		if (r.problem) { ws.say(r.problem); return }
-		const elsewhere = to.kind === 'sheet' ? 'only notes paste onto a sheet' : to.kind === 'rack' ? 'only devices paste into a rack' : 'notes paste onto a sheet, devices into a rack'
+		const elsewhere = to.kind === 'sheet' ? 'only notes paste onto a sheet' : to.kind === 'rack' ? 'only devices paste into a rack' : 'notes and viewports paste onto a sheet, devices into a rack'
 		if (!r.put.length) { ws.say(`Nothing here takes these — ${elsewhere}`); return }
-		project.store.transact(`Paste ${items(r.select.length)}`, (tx) => r.put.forEach((x) => tx.put(x)), ws.selection)
-		ws.select(r.select)
+		project.store.transact(r.viewports ? `Paste ${r.viewports.length === 1 ? 'viewport' : `${r.viewports.length} viewports`}` : `Paste ${items(r.select.length)}`, (tx) => r.put.forEach((x) => tx.put(x)), ws.selection)
+		pickPasted(ws, r)
 		if (r.skipped) ws.say(`${items(r.skipped)} left out — ${elsewhere}`)
 	}
 	return { copy: (e: ClipboardEvent) => copy(e, false), cut: (e: ClipboardEvent) => copy(e, true), paste, pasteText, key }

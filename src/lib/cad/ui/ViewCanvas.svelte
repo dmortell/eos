@@ -132,7 +132,7 @@
 	const selected = $derived(new Set(spec.kind === 'sheet' ? ws.selection.filter((id) => id !== spec.sheetId) : ws.selection))
 	// the picked viewport: its frame and (unlocked) corner grips, a constant size on screen
 	const vpHighlight = $derived(spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId) ? []
-		: viewportHighlight(prims, ws.viewportId, !!sheet?.viewports.find((v) => v.id === ws.viewportId)?.locked, 4 / cam.k))
+		: ws.pickedViewports.flatMap((id) => viewportHighlight(prims, id, !!sheet?.viewports.find((v) => v.id === id)?.locked, 4 / cam.k)))
 	/** Overlays over the drawing (views/overlays.ts): selected ports, a cord's circuit, fill bands, routes, the other
 	 *  pane's work plane. */
 	const portHighlight = $derived(spec.kind === 'row' ? [...outletPortCells(project.index, prims, ws.selection), ...portCells(prims, ws.portSel)] : [])   // + the ports of outlets picked in the list
@@ -308,7 +308,7 @@
 		const step = toolKind === 'row' ? 1 : toolKind === 'sheet' ? (big ? 10 : 1) : big ? 500 : 50
 		// a viewport picked on the sheet: its window moves (1 / 10 paper mm)
 		const why = spec.kind === 'sheet' && ws.viewportId && !ws.vpEdit && ws.selection.length === 1 && ws.selection[0] === spec.sheetId
-			? nudger.pressViewport(project.store, spec.sheetId, ws.viewportId, { x: dx * step, y: dy * step })
+			? nudger.pressViewport(project.store, spec.sheetId, ws.pickedViewports, { x: dx * step, y: dy * step })
 			: nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, vpe ? vpe.space : space)
 		if (why) ws.say(why)
 	}
@@ -339,7 +339,7 @@
 			...(kind === 'sheet' && !f && sheet ? { sheetSnap: (p: Pt, alt: boolean) => (alt || !ws.drafting.osnap ? null : snapThroughViewport(project.index, sheet, p, tol * 1.5)) } : {}),
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
-			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
+			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, selectViewports: ws.selectViewports, viewportId: () => ws.viewportId, viewportIds: () => ws.pickedViewports, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			pathSel: () => ws.pathSel, selectPath: ws.selectPath, editText: ws.editText,   // inside a viewport too: the box maps onto the paper
 			...(kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, (f ? f.vp.view.spec : spec) as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts, armPorts: (s: PortSel, k: 'cord' | 'link') => (k === 'link' ? ws.interconnectFrom(s) : ws.patchFrom(s)) } : {}),
@@ -650,7 +650,7 @@
 	</svg>
 	<ViewStrip {project} {ws} {spec} {levelId} {sections} {section} {sheet} {sheetsList} {onspec} {onfocus} {toSheet} {nav} routeKey={allRoutes?.rooms} />
 	{#if sheet && active}
-		{@const chipVp = vpe?.vp ?? (ws.selection.includes(sheet.id) ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined)}
+		{@const chipVp = vpe?.vp ?? (ws.selection.includes(sheet.id) && !ws.vpMore.length ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined)}
 		{#if chipVp}<ViewportChip {project} {ws} {sheet} vp={chipVp} editing={!!vpe} {cam} onenter={() => enterVp(chipVp.id)} onexit={exitVp} />{/if}
 	{/if}
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}

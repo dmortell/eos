@@ -14,7 +14,7 @@ import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode, copySegs, splitSegRefs } from '../domain/pathEdit'
 import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
-import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
+import { makeClip, makeViewportClip, pasteClip, type Clip, type Pasted } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../views/rackRow'
 import { devicesBetween } from '../domain/devices'
@@ -87,7 +87,9 @@ export class SelectTool implements Tool {
 	#portRange: { on: Id; face: 'front' | 'rear'; anchor: number } | null = null
 	/** A viewport being dragged on a sheet (the sheet as it was at the press): moved, resized by a corner, or its view
 	 *  panned (Ctrl). */
-	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number } | null = null
+	#vp: { sheet: Sheet; vpId: Id; mode: 'move' | 'resize' | 'pan'; corner?: number; /** every picked viewport a move takes along */ ids?: Id[]; /** Ctrl-drag: the picked ones stay, copies move */ copy?: boolean; /** Ctrl-click on a picked one: dropped from the pick on release when it wasn't dragged */ drop?: Id } | null = null
+	/** The viewports a Ctrl-drag copied (made on the first move). */
+	#vpCopy: Pasted | null = null
 	/** The lines that viewport's edges snap to, taken once per drag. */
 	#vpLines: { xs: number[]; ys: number[] } | null = null
 
@@ -268,7 +270,7 @@ export class SelectTool implements Tool {
 				if (sh?.type === 'sheet' && inside) { c.select([sh.id]); c.selectViewport(inside.id); c.enterViewport(inside.id); return }
 			}
 			// the selected viewport first: a corner grip resizes it, Alt-drag inside pans its view (T126: Ctrl-drag copies)
-			const cur = c.viewportId?.(), curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
+			const cur = c.viewportIds?.().length === 1 ? c.viewportId?.() : null, curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 			const sel = curSheet?.type === 'sheet' && cur ? curSheet.viewports.find((v) => v.id === cur) : undefined
 			if (curSheet?.type === 'sheet' && sel && !sel.locked) {
 				const r = sel.rect, corners = [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }]
@@ -286,11 +288,16 @@ export class SelectTool implements Tool {
 			if (sheet?.type === 'sheet') {
 				c.select([sheet.id])
 				const vp = sub ? sheet.viewports.find((v) => v.id === sub) : undefined
-				c.selectViewport(vp ? vp.id : null)
-				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.enterViewport(vp.id); return }   // double-click: edit inside it
+				const here = this.#before.length === 1 && this.#before[0] === sheet.id, picked = here ? c.viewportIds?.() ?? [] : [], inPick = !!vp && picked.includes(vp.id)
+				// Ctrl-click adds a viewport to the pick (on a picked one it drops it on release, unless it's dragged: a copy)
+				if (vp && e.ctrl && (e.count ?? 1) < 2) { if (!inPick) c.selectViewport(vp.id, true) }
+				else if (!(vp && inPick && picked.length > 1)) c.selectViewport(vp ? vp.id : null)   // pressing one of several picked keeps them (they move together)
+				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.selectViewport(vp.id); c.enterViewport(vp.id); return }   // double-click: edit inside it
 				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked) · double-click to edit inside it'
 					: 'Viewport: drag to move · a corner resizes · double-click edits inside it · Pan / zoom content (or Alt) pans / scales its view')
-				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move' }; this.#start = e.p }
+				const now = c.viewportIds?.() ?? []
+				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move', ids: now.includes(vp.id) ? now : [vp.id], ...(e.ctrl ? { copy: true } : {}), ...(e.ctrl && inPick ? { drop: vp.id } : {}) }; this.#start = e.p }
+				else if (vp && e.ctrl && inPick) this.#vp = { sheet, vpId: vp.id, mode: 'move', ids: [], drop: vp.id }   // a locked one: only the pick toggles
 				else if (!vp) this.#marquee = e.p   // the bare paper: a click selects the sheet, a drag windows its notes
 				return
 			}
@@ -423,16 +430,28 @@ export class SelectTool implements Tool {
 		}
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
 		if (this.#vp && this.#start) {
-			const { sheet, vpId, mode, corner } = this.#vp, raw = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
+			const { sheet, vpId, mode, corner, copy } = this.#vp, raw = { x: Math.round(e.p.x - this.#start.x), y: Math.round(e.p.y - this.#start.y) }
 			if (!this.#gesture && Math.hypot(raw.x, raw.y) < c.tol()) return
 			// its edges snap to the paper, the margin, the title block and the other viewports, else a 5 mm grid (Alt: free;
 			// Shift-square resizes aren't snapped)
 			const v0 = sheet.viewports.find((v) => v.id === vpId)
 			const d = mode === 'pan' || e.alt || (mode === 'resize' && e.shift) || !v0 ? raw
 				: snapViewportDrag(v0, mode, raw, this.#vpLines ??= viewportSnapLines(c.prims(), vpId), c.tol(), corner)
-			this.#gesture ??= c.store.begin(mode === 'resize' ? 'Resize viewport' : mode === 'pan' ? 'Pan viewport' : 'Move viewport')
+			// every picked, unlocked viewport moves by the same step (a Ctrl-drag leaves them and moves copies of them, with
+			// their views and tied notes)
+			const moving = new Set(mode === 'move' ? (this.#vp.ids ?? [vpId]).filter((id) => sheet.viewports.some((v) => v.id === id && !v.locked)) : [vpId])
+			if (copy && mode === 'move' && moving.size) {
+				this.#vpCopy ??= pasteClip(makeViewportClip(c.index, sheet.id, [...moving], '')!, { pid: '', ix: c.index, to: { kind: 'sheet', id: sheet.id }, d: { x: 0, y: 0 } })
+				const made = this.#vpCopy, ids = new Set(made.viewports ?? [])
+				this.#gesture ??= c.store.begin(ids.size === 1 ? 'Copy viewport' : `Copy ${ids.size} viewports`)
+				this.#gesture.update((tx) => {
+					for (const x of made.put) tx.put(x.type === 'sheet' ? { ...x, viewports: x.viewports.map((v) => (ids.has(v.id) ? dragViewport(v, 'move', d) : v)) } : x)
+				})
+				return
+			}
+			this.#gesture ??= c.store.begin(mode === 'resize' ? 'Resize viewport' : mode === 'pan' ? 'Pan viewport' : moving.size > 1 ? `Move ${moving.size} viewports` : 'Move viewport')
 			const next = (v: Sheet['viewports'][number]) => dragViewport(v, mode, d, corner, e.shift)   // the view stays put on the paper
-			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vpId ? next(v) : v)) }))
+			this.#gesture.update((tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (moving.has(v.id) ? next(v) : v)) }))
 			return
 		}
 		if (this.#grip) {
@@ -567,8 +586,10 @@ export class SelectTool implements Tool {
 			if (h.selects) c.selectOpening?.(base.id, h.selects)   // a click on a hole selects it
 			else if (h.click) { const click = h.click; c.store.transact('Door swing', (tx) => tx.put(click())) }
 		}
+		if (!this.#gesture && this.#vp?.drop) c.selectViewport?.(this.#vp.drop, true)   // Ctrl-click on a picked viewport: drop it from the pick
 		if (this.#gesture) {
 			this.#gesture.commit(this.#before)
+			if (this.#vpCopy?.viewports) c.selectViewports?.(this.#vpCopy.viewports)   // the copies are picked
 			if (this.#copied.length) c.select(this.#copied)
 			if (this.#grip) c.selectPath?.(null)   // its nodes may have joined others
 			if (this.#joined) c.say?.(`Joined ${this.#joined === 1 ? "the node" : `${this.#joined} nodes`} to the one it was dropped on · Ctrl+Z undoes`)
@@ -593,7 +614,17 @@ export class SelectTool implements Tool {
 			// left → right: what it encloses (window); right → left: what it touches (crossing)
 			const b = box(this.#marquee, e.p), ids = e.p.x < this.#marquee.x ? pickTouching(c.prims(), b) : pickInside(c.prims(), b)
 			const grouped = withGroups(c.index.shapes, ids)
-			c.select(e.ctrl ? [...new Set([...c.selection, ...grouped])] : grouped)
+			// on a sheet: the viewports whose window the box encloses (right → left: touches) are picked, with the sheet
+			const spec = c.space.spec, sh = spec.kind === 'sheet' ? c.store.get(spec.sheetId) : undefined
+			const hit = sh?.type === 'sheet' && c.selectViewports ? sh.viewports.filter((v) => (e.p.x < this.#marquee!.x
+				? v.rect.x < b.x1 && v.rect.x + v.rect.w > b.x0 && v.rect.y < b.y1 && v.rect.y + v.rect.h > b.y0
+				: v.rect.x >= b.x0 && v.rect.x + v.rect.w <= b.x1 && v.rect.y >= b.y0 && v.rect.y + v.rect.h <= b.y1)).map((v) => v.id) : []
+			if (sh?.type === 'sheet' && hit.length && c.selectViewports) {
+				const had = e.ctrl && c.selection.length === 1 && c.selection[0] === sh.id ? c.viewportIds?.() ?? [] : []
+				c.select([sh.id]); c.selectViewports([...new Set([...had, ...hit])])
+				c.say?.(`${hit.length === 1 ? 'Viewport' : `${hit.length} viewports`} picked — drag to move, Ctrl-drag to copy, Delete removes, Ctrl+C copies`)
+			}
+			else c.select(e.ctrl ? [...new Set([...c.selection, ...grouped])] : grouped)
 		}
 		this.#reset(c)
 	}
@@ -677,7 +708,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
+		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpCopy = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
 		this.#followers = new Map(); this.#absorbed = 0; this.#joinRefused = null; this.#segDrag = null; this.#segPick = null; this.#portRange = null
 		c.setMarquee(null)
 	}

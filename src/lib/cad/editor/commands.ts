@@ -181,10 +181,16 @@ function viewportsOff(store: EntityStore, find: () => { sheet: Sheet; vp: Viewpo
 }
 
 /** Take one viewport off its sheet; the notes tied to it go back on the paper where they showed. One undo step. */
-export function deleteViewport(store: EntityStore, sheet: Sheet, vp: Viewport): void {
-	store.transact('Delete viewport', (tx) => {
-		tx.put({ ...sheet, viewports: sheet.viewports.filter((x) => x.id !== vp.id) })
-		for (const n of store.ofType('shape')) if (n.sheetId === sheet.id && n.vpId === vp.id) tx.put(untie(n, vp))
+export function deleteViewport(store: EntityStore, sheet: Sheet, vp: Viewport): void { deleteViewports(store, sheet, [vp]) }
+/** Several viewports in one step. Their notes stay on the paper (untied), or with `withNotes` go too (Cut). */
+export function deleteViewports(store: EntityStore, sheet: Sheet, vps: Viewport[], withNotes = false): void {
+	const gone = new Map(vps.map((v) => [v.id, v]))
+	store.transact(vps.length === 1 ? 'Delete viewport' : `Delete ${vps.length} viewports`, (tx) => {
+		tx.put({ ...sheet, viewports: sheet.viewports.filter((x) => !gone.has(x.id)) })
+		for (const n of store.ofType('shape')) {
+			const vp = n.sheetId === sheet.id && n.vpId ? gone.get(n.vpId) : undefined
+			if (vp) { if (withNotes) tx.del(n.id); else tx.put(untie(n, vp)) }
+		}
 	})
 }
 

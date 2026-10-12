@@ -63,8 +63,11 @@ export interface ToolCtx {
 	/** Ask for text (the tool-bar prompt); `apply` runs on Enter. */
 	askText?(label: string, value: string, apply: (t: string) => void): void
 	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
-	selectViewport?(id: Id | null): void
+	selectViewport?(id: Id | null, toggle?: boolean): void
 	viewportId?(): Id | null
+	/** Every viewport picked (Ctrl-click, a window on the paper); the first is `viewportId`. */
+	viewportIds?(): Id[]
+	selectViewports?(ids: Id[]): void
 	/** Sheet views only: edit the model inside this viewport (a double-click on it). */
 	enterViewport?(id: Id): void
 	/** Sheet views only: "Pan / zoom content" is on — a drag inside the selected viewport pans it, no Alt needed. */

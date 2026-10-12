@@ -10,6 +10,7 @@ import type ViewCanvas from './ViewCanvas.svelte'
 import { labelKind } from '../domain/labelEdit'
 import { composing, typingIn } from './keyGuards'
 import type { Device } from '../domain/types'
+import { duplicateViewports } from '../app/sheetActions'
 
 /** Arrow keys nudge the selection (view directions: y down). */
 export const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
@@ -48,7 +49,7 @@ function bracket(e: KeyboardEvent): ']' | '[' | null {
 
 /** Every key's label, once (review R85 step 2): the keyboard list below, the menus and the tooltips all show these. */
 export const KEYS = {
-	undo: 'Ctrl+Z', redo: 'Ctrl+Y', redoAlt: 'Ctrl+Shift+Z', cut: 'Ctrl+X', copy: 'Ctrl+C', paste: 'Ctrl+V', pasteAtCursor: 'Ctrl+Shift+V',
+	undo: 'Ctrl+Z', redo: 'Ctrl+Y', redoAlt: 'Ctrl+Shift+Z', cut: 'Ctrl+X', copy: 'Ctrl+C', paste: 'Ctrl+V', pasteAtCursor: 'Ctrl+Shift+V', duplicate: 'Ctrl+D',
 	del: 'Delete', delAlt: 'Backspace', selectAll: 'Ctrl+A', group: 'Ctrl+G', ungroup: 'Ctrl+Shift+G',
 	toFront: 'Ctrl+Shift+]', forward: 'Ctrl+]', backward: 'Ctrl+[', toBack: 'Ctrl+Shift+[',
 	editLabel: 'F2', repeatDevice: 'F4', help: 'F1', keys: '?', osnap: 'F3', grid: 'F7', snap: 'F9',
@@ -76,6 +77,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Undo', keys: KEYS.undo, group: 'Edit', when: (e, _c, k, mod) => mod && k === 'z' && !e.shiftKey, run: (e, c) => { pd(e); c.showHistory(c.project.undo()) } },
 	{ label: 'Redo', keys: `${KEYS.redo} · ${KEYS.redoAlt}`, group: 'Edit', when: (e, _c, k, mod) => mod && (k === 'y' || (k === 'z' && e.shiftKey)), run: (e, c) => { pd(e); c.showHistory(c.project.redo()) } },
 	{ label: 'Select all in this view', keys: KEYS.selectAll, group: 'Edit', when: (_e, _c, k, mod) => mod && k === 'a', run: (e, c) => { pd(e); c.canvas()?.selectAll() } },
+	{ label: 'Duplicate the picked viewports (with their views and notes)', keys: KEYS.duplicate, group: 'Edit', when: (_e, c, k, mod) => mod && k === 'd' && c.ws.pickedViewports.length > 0, run: (e, c) => { pd(e); duplicateViewports(c.project, c.ws) } },
 	{ label: 'Group / Ungroup', keys: `${KEYS.group} / ${KEYS.ungroup}`, group: 'Edit', when: (_e, _c, k, mod) => mod && k === 'g', run: (e, c) => { pd(e); c.groupKey(e.shiftKey) } },
 	// F2: edit the selected thing's words in place (a text, a leader, an outlet's label, a rack's name, a run's label)
 	{ label: 'Edit the selected label in place (Tab / Shift+Tab: save, then the next / previous)', keys: `${KEYS.editLabel} · double-click`, group: 'Function keys', when: (e, c) => e.key === 'F2' && c.ws.selection.length === 1,

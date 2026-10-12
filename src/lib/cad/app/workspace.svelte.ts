@@ -303,7 +303,7 @@ export class Workspace {
 		if (this.pathSel && !(ids.length === 1 && ids[0] === this.pathSel.shape)) this.pathSel = null
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
-		if (ids.length !== 1) this.viewportId = null   // a viewport is picked within ONE selected sheet
+		if (ids.length !== 1) { this.viewportId = null; this.vpMore = [] }   // viewports are picked within ONE selected sheet
 		if (!ids.length) this.renumberMode = 'number'   // Find / replace lasts while its items stay selected
 	}
 	/** Bumped by a pick in a table: the active view pans the selection into view when it's off-screen (review R52 —
@@ -314,6 +314,10 @@ export class Workspace {
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
 	/** The viewport selected on the selected sheet (null = the sheet itself). */
 	viewportId = $state<Id | null>(null)
+	/** The other viewports picked with it (Ctrl-click, a window on the paper): `viewportId` is the first. */
+	vpMore = $state<Id[]>([])
+	/** Every viewport picked on the selected sheet. */
+	get pickedViewports(): Id[] { return this.viewportId ? [this.viewportId, ...this.vpMore] : [] }
 	/** Editing the model INSIDE a sheet viewport (UX review S5): double-click it; Esc / a double-click outside leaves. */
 	vpEdit = $state<{ sheetId: Id; vpId: Id } | null>(null)
 	/** "Pan / zoom content" (Dave: instead of Alt): a drag inside the selected / edited viewport pans its view and the
@@ -329,7 +333,12 @@ export class Workspace {
 	navRename = $state<{ id: string; field?: 'title' | 'number' } | null>(null)
 	/** The right-click menu on the selection (UX21), at a screen point; null = closed. */
 	contextMenu = $state<{ x: number; y: number } | null>(null)
-	selectViewport = (id: Id | null): void => { this.viewportId = id }
+	/** `toggle` = Ctrl-click: add it to the picked viewports, or drop it when it is already one. */
+	selectViewport = (id: Id | null, toggle = false): void => {
+		if (toggle && id) this.selectViewports(this.pickedViewports.includes(id) ? this.pickedViewports.filter((x) => x !== id) : [...this.pickedViewports, id])
+		else this.selectViewports(id ? [id] : [])
+	}
+	selectViewports = (ids: Id[]): void => { this.viewportId = ids[0] ?? null; this.vpMore = ids.slice(1) }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)
 	/** `alt` = a second answer (two ways to go on, e.g. keep a section's viewports as elevations, or delete them). */

@@ -3,7 +3,7 @@
 // and the Edit menu all call these.
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
-import { deleteEntities, deleteViewport, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
+import { deleteEntities, deleteViewports, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
 import { pieceRefs } from '../domain/pathEdit'
 import { reservePorts, portRanges } from '../domain/ports'
@@ -29,10 +29,10 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 		return
 	}
 	const sheet = ws.viewportId && ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
-	const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined
-	if (sheet?.type === 'sheet' && vp) {
-		deleteViewport(project.store, sheet, vp); ws.selectViewport(null)
-		ws.say(UNDONE(`Deleted the viewport from sheet ${sheet.number} (its notes stay on the sheet)`))
+	const vps = sheet?.type === 'sheet' ? sheet.viewports.filter((v) => ws.pickedViewports.includes(v.id)) : []
+	if (sheet?.type === 'sheet' && vps.length) {
+		deleteViewports(project.store, sheet, vps); ws.selectViewport(null)
+		ws.say(UNDONE(vps.length === 1 ? `Deleted the viewport from sheet ${sheet.number} (its notes stay on the sheet)` : `Deleted ${vps.length} viewports from sheet ${sheet.number} (their notes stay on the sheet)`))
 		return
 	}
 	const ps = ws.portSel, dev = ps ? project.store.get(ps.on) : undefined

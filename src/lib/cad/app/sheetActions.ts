@@ -10,6 +10,7 @@ import type { Workspace } from './workspace.svelte'
 import type { ViewSpec } from '../views/space'
 import type { Bounds } from '../views/display'
 import { blankSheet, viewViewport } from '../views/sheet'
+import { makeViewportClip, pasteClip, type Pasted } from '../domain/clipboard'
 
 /** Duplicate these sheets (with their viewports and paper notes; no number, no revisions, each after its original),
  *  one undo step; the copies' ids. */
@@ -20,6 +21,26 @@ export function duplicateSheets(project: CadProject, ids: Id[]): Id[] {
 	const made = sheets.map((s) => duplicateSheet(s, shapes, newId))
 	project.store.transact(sheets.length === 1 ? `Duplicate ${sheets[0].number || sheets[0].title}` : `Duplicate ${sheets.length} sheets`, (tx) => { for (const d of made) { tx.put(d.sheet); for (const n of d.notes) tx.put(n) } })
 	return made.map((d) => d.sheet.id)
+}
+
+/** What a viewport paste says after it: the sheet selected with the new viewports picked. */
+export function pickPasted(ws: Workspace, r: Pasted): void {
+	if (!r.viewports?.length) { ws.select(r.select); return }
+	ws.select(r.select); ws.selectViewports(r.viewports)
+	const n = r.viewports.length
+	ws.say(`${n === 1 ? 'Viewport' : `${n} viewports`} pasted${r.reset ? ` — ${r.reset === 1 ? 'its' : 'their'} level or view isn’t in this project, so ${r.reset === 1 ? 'it shows' : 'they show'} a plan: Fit in Properties` : ''} · Undo takes ${n === 1 ? 'it' : 'them'} off`)
+}
+
+/** Ctrl+D: a copy of the picked viewports (with their views and tied notes) a little to one side on the same sheet,
+ *  one undo step; the copies are picked. False = no viewport is picked. */
+export function duplicateViewports(project: CadProject, ws: Workspace): boolean {
+	const sheet = ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined
+	const clip = sheet?.type === 'sheet' ? makeViewportClip(project.index, sheet.id, ws.pickedViewports, project.pid) : null
+	if (!sheet || !clip) return false
+	const r = pasteClip(clip, { pid: project.pid, ix: project.index, to: { kind: 'sheet', id: sheet.id } })
+	project.store.transact(`Duplicate ${clip.viewports!.length === 1 ? 'viewport' : `${clip.viewports!.length} viewports`}`, (tx) => r.put.forEach((x) => tx.put(x)))
+	pickPasted(ws, r)
+	return true
 }
 
 /** Number these sheets in print order from a pattern ("RE-01" → RE-01, RE-02 …), one undo step. */

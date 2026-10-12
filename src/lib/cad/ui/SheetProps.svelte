@@ -27,7 +27,9 @@
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
-	const vp = $derived(s.viewports.find((v) => v.id === ws.viewportId))
+	const vp = $derived(ws.vpMore.length ? undefined : s.viewports.find((v) => v.id === ws.viewportId))
+	/** Several picked (Ctrl-click, a window on the paper): the group below, not one viewport's rows. */
+	const many = $derived(ws.vpMore.length ? s.viewports.filter((v) => ws.pickedViewports.includes(v.id)) : [])
 	const issuedIn = $derived(issuesOfSheet(project.index.ofType('issue'), s.id))
 	const levels = $derived(project.levels)
 	// category / discipline / tags, as several sheets have them (SheetMultiProps)
@@ -128,7 +130,11 @@
 	}
 </script>
 
-{#if vp}
+{#if many.length}
+	<PropGroup kind="viewport" title="Viewports picked">
+		<p class="text-zinc-500">{many.length} viewports picked. Drag one to move them all, Ctrl-drag to leave copies, arrow keys nudge them; Ctrl+C / X / V, Ctrl+D copy, cut, paste and duplicate them with their views and tied notes; Delete removes them. Click one frame (or a row in the list) to work on it alone.</p>
+	</PropGroup>
+{:else if vp}
 	<!-- groups (UX review "Properties groups"): View · Window (Delete: the header’s, or the Delete key) -->
 	<PropGroup kind="viewport" title="View">
 		<label class="row">Level

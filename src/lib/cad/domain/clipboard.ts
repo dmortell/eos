@@ -4,7 +4,7 @@
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
 import type { Id, Pt, Rack, Device, Space, Level } from './types'
 import { outletZ } from './floors'
-import type { Entity, Layer, Sheet, Group } from './drawing'
+import type { Entity, Layer, Sheet, Group, Viewport } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
@@ -20,6 +20,10 @@ export interface Clip {
 	/** Where it was copied from: a level's plan, a sheet's paper, or a rack (devices on their own). */
 	from: { kind: 'level' | 'sheet' | 'rack'; id: Id }
 	items: Entity[]
+	/** Viewports copied from a sheet (`items` then holds the notes tied to them, still tied), with their levels' names
+	 *  (another project's levels have other ids). */
+	viewports?: Viewport[]
+	levelNames?: Record<Id, string>
 	/** The project layers the items are on (system layers need no record). */
 	layers: Layer[]
 }
@@ -54,6 +58,19 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 	return { mark: CLIP_MARK, pid, from, items, layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
 }
 
+/** The picked viewports of a sheet as a clip: each with its view, and the notes tied to it (they stay tied). */
+export function makeViewportClip(ix: ProjectIndex, sheetId: Id, vpIds: Id[], pid: string): Clip | null {
+	const sheet = ix.get<Sheet>(sheetId)
+	const viewports = sheet?.type === 'sheet' ? sheet.viewports.filter((v) => vpIds.includes(v.id)) : []
+	if (!sheet || !viewports.length) return null
+	const have = new Set(viewports.map((v) => v.id))
+	const items = ix.shapes.filter((x) => x.sheetId === sheetId && !!x.vpId && have.has(x.vpId))
+	const used = new Set(items.map((e) => e.layerId).filter(Boolean))
+	const levelNames: Record<Id, string> = {}
+	for (const v of viewports) { const l = ix.get<Level>(v.view.levelId); if (l) levelNames[l.id] = l.name }
+	return { mark: CLIP_MARK, pid, from: { kind: 'sheet', id: sheetId }, items, viewports, levelNames, layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
+}
+
 export function parseClip(text: string): Clip | null {
 	try {
 		const c = JSON.parse(text) as Clip
@@ -64,6 +81,11 @@ export function parseClip(text: string): Clip | null {
 /** The middle of what a clip holds (its points' box) — Ctrl+Shift+V puts it at the cursor. Null = no points (devices). */
 export function clipCentre(clip: Clip): Pt | null {
 	const pts: Pt[] = []
+	if (clip.viewports?.length) {   // viewports: their windows on the paper (the tied notes are in view mm)
+		for (const v of clip.viewports) pts.push({ x: v.rect.x, y: v.rect.y }, { x: v.rect.x + v.rect.w, y: v.rect.y + v.rect.h })
+		const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+		return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
+	}
 	for (const e of clip.items) {
 		if ((e.type === 'outlet' || e.type === 'rack') && e.at) pts.push(e.at)
 		if (e.type !== 'shape') continue
@@ -95,20 +117,36 @@ export interface PasteTarget {
 }
 
 /** `problem` = why nothing was pasted (devices that don't fit the rack). */
-export interface Pasted { put: Entity[]; select: Id[]; skipped: number; problem?: string }
+export interface Pasted { put: Entity[]; select: Id[]; skipped: number; problem?: string
+	/** The viewports a paste made on the sheet (they are picked, with the sheet selected); `reset` = how many had to show
+	 *  the plan instead (their room, section or level isn't in this project). */
+	viewports?: Id[]; reset?: number }
+
+/** Where a pasted viewport's view points: the same level, else the level of the same name, else the first; a view of
+ *  something this project doesn't have becomes the plan. */
+function viewHere(ix: ProjectIndex, clip: Clip, v: Viewport): { view: Viewport['view']; reset: boolean } {
+	const lv = ix.get<Level>(v.view.levelId) ?? ix.levels.find((l) => l.name === clip.levelNames?.[v.view.levelId]) ?? ix.levels[0]
+	const sp = v.view.spec, has = (id: Id | undefined) => !id || !!ix.get(id)
+	const ok = sp.kind === 'row' ? has(sp.spaceId) && has(sp.rowId) : sp.kind === 'section' ? has(sp.sectionId) : sp.kind === 'ports' ? has(sp.rackId) && has(sp.deviceId)
+		: sp.kind === 'fill' ? has(sp.shapeId) : sp.kind === 'portmap' ? sp.deviceIds.every(has) : sp.kind === 'schedule' ? has(sp.spaceId) : true
+	const same = lv?.id === v.view.levelId
+	return ok && lv ? { view: { levelId: lv.id, spec: sp }, reset: false } : { view: { levelId: lv?.id ?? v.view.levelId, spec: { kind: 'plan' } }, reset: !same || !ok }
+}
 
 /** What a paste writes (new records only) and selects. */
 export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const { ix, to } = t, toLevel = to.kind === 'level'
 	if (to.kind === 'rack') return pasteDevices(clip, ix, to.id)
+	const sheet = to.kind === 'sheet' ? ix.get<Sheet>(to.id) : undefined
+	const vps = sheet?.type === 'sheet' ? clip.viewports ?? [] : []
 	const racks = new Set(clip.items.filter((e) => e.type === 'rack').map((e) => e.id))
 	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || (e.type === 'device' && racks.has(e.rackId)) || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
 	const kept = clip.items.filter(fits)
-	const skipped = clip.items.length - kept.length
-	if (!kept.length) return { put: [], select: [], skipped }
+	const skipped = clip.items.length - kept.length + (clip.viewports?.length ?? 0) - vps.length
+	if (!kept.length && !vps.length) return { put: [], select: [], skipped }
 
 	// new ids; every reference to a copied item (a device's rack, a run attached to a copied outlet) follows
-	const ids = new Map(kept.map((e) => [e.id, newId()]))
+	const ids = new Map([...kept, ...vps].map((e) => [e.id, newId()]))
 	const re = new RegExp(`"(${[...ids.keys()].map((s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|')})"`, 'g')
 	let items = JSON.parse(JSON.stringify(kept).replace(re, (_, id: string) => `"${ids.get(id)}"`)) as Entity[]
 
@@ -126,6 +164,7 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 
 	const onLevel = (id: Id | undefined) => !!id && (ix.get(id) as { levelId?: Id } | undefined)?.levelId === to.id
 	const copied = new Set(ids.values())
+	const newVps = new Set(vps.map((v) => ids.get(v.id)!))
 	const ok = (id: Id | undefined) => !!id && (copied.has(id) || onLevel(id))
 	const rooms = new Map<Id, Id>(), made: Space[] = []
 	const roomFor = (old: Id): Id => {
@@ -165,7 +204,8 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		const s = e as Shape
 		// on an elevation's plane its points are (u, z): a plan move goes along the plane, and up (as moveBy)
 		const along = s.plane?.kind === 'vertical' && s.geom.kind !== 'path' ? s.plane.frame.t : null
-		let geom = moveGeometry(s.geom, along ? { x: d.x * along.x + d.y * along.y, y: dz } : d)
+		// a note tied to a copied viewport is in that viewport's view mm: it moves with the viewport, not by `d`
+		let geom = s.vpId && newVps.has(s.vpId) ? s.geom : moveGeometry(s.geom, along ? { x: d.x * along.x + d.y * along.y, y: dz } : d)
 		if (geom.kind === 'path') geom = { ...geom, nodes: geom.nodes.map((n) => {
 			const { attach, levelId, ...m } = n
 			return { ...m, ...(ok(attach) ? { attach } : {}), ...(levelId && levelId !== sourceLevel ? { levelId } : {}) }
@@ -185,6 +225,18 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		return { ...e, groupId: groups.get(e.groupId)! }
 	})
 	const newGroups = [...groups.values()].map((id): Group => ({ type: 'group', id }))
+	if (sheet?.type === 'sheet' && vps.length) {
+		// the same sheet, no move given (Ctrl+V, Ctrl+D): a little to one side, or it would sit exactly on the original
+		const away = !t.d && clip.from.kind === 'sheet' && clip.from.id === to.id ? 10 : 0
+		let reset = 0
+		const made = vps.map((v): Viewport => {
+			const { number: _n, ...rest } = v, h = viewHere(ix, clip, v)
+			if (h.reset) reset++
+			return { ...rest, id: ids.get(v.id)!, view: h.view, rect: { ...v.rect, x: v.rect.x + d.x + away, y: v.rect.y + d.y + away } }
+		})
+		const picked = made.map((v) => v.id)
+		return { put: [...extra, ...newGroups, { ...sheet, viewports: [...sheet.viewports, ...made] }, ...items], select: [sheet.id], skipped, viewports: picked, reset }
+	}
 	const select = items.filter((e) => e.type !== 'device').map((e) => e.id)
 	return { put: [...extra, ...made, ...newGroups, ...items], select, skipped }
 }

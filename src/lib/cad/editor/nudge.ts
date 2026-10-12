@@ -51,16 +51,17 @@ export class Nudge {
 
 	/** One press on a sheet with a viewport picked (backlog "Viewport handling" part 4): its window moves `d` paper mm
 	 *  (the view stays put on the paper). A locked one stays. */
-	pressViewport(store: EntityStore, sheetId: Id, vpId: Id, d: Pt): string | null {
-		const sheet = store.get(sheetId)
-		const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === vpId) : undefined
-		if (sheet?.type !== 'sheet' || !vp) return null
-		if (vp.locked) return 'Viewport locked — unlock it in Properties to move it'
+	pressViewport(store: EntityStore, sheetId: Id, vpIds: Id | Id[], d: Pt): string | null {
+		const sheet = store.get(sheetId), want = new Set(Array.isArray(vpIds) ? vpIds : [vpIds])
+		const vps = sheet?.type === 'sheet' ? sheet.viewports.filter((v) => want.has(v.id)) : []
+		if (sheet?.type !== 'sheet' || !vps.length) return null
+		const free = new Set(vps.filter((v) => !v.locked).map((v) => v.id))
+		if (!free.size) return vps.length === 1 ? 'Viewport locked — unlock it in Properties to move it' : 'Those viewports are locked — unlock them in Properties to move them'
 		const sum = { x: this.#sum.x + d.x, y: this.#sum.y + d.y }
 		this.#g ??= store.begin('Nudge viewport')
 		this.#g.update((tx) => {   // each update starts again from before the burst: the whole sum
 			const s = tx.get(sheetId) as Sheet
-			tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vpId ? { ...v, rect: { ...v.rect, x: v.rect.x + sum.x, y: v.rect.y + sum.y } } : v)) })
+			tx.put({ ...s, viewports: s.viewports.map((v) => (free.has(v.id) ? { ...v, rect: { ...v.rect, x: v.rect.x + sum.x, y: v.rect.y + sum.y } } : v)) })
 		})
 		this.#sum = sum
 		clearTimeout(this.#timer)

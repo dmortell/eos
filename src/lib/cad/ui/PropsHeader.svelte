@@ -17,7 +17,7 @@
 	const kind = $derived.by((): [string, string] => {
 		// several: what they are, "3 racks · 5 outlets"
 		if (!one) { const ks = selectionKinds(items); return [countsText(ks.map((k) => [k.items.length, k.one, k.many])), ks.length === 1 ? (kindIcon(ks[0].key) ?? 'copy') : 'copy'] }
-		if (one.type === 'sheet' && ws.viewportId) return ['Viewport', 'panels']
+		if (one.type === 'sheet' && ws.viewportId) return [ws.vpMore.length ? `${ws.pickedViewports.length} viewports` : 'Viewport', 'panels']
 		return kindOf(one)
 	})
 	const name = $derived.by(() => {
