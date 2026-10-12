@@ -138,7 +138,15 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 					const r = rasters.get(rasterKey(p, st))
 					if (!r) { unsupported.add(p.text); continue }
 					const x = p.anchor === 'middle' ? p.at.x - r.w / 2 : p.anchor === 'end' ? p.at.x - r.w : p.at.x
-					pdf.addImage(r.data, 'PNG', x, p.at.y - r.ascent, r.w, r.h, undefined, 'FAST')
+					if (!p.rot) pdf.addImage(r.data, 'PNG', x, p.at.y - r.ascent, r.w, r.h, undefined, 'FAST')
+					else {
+						// turned text: jsPDF turns an image about its bottom-left corner, so put that corner where it lands when
+						// the text turns about its own anchor (`rot` clockwise on paper, like pdf.text's angle −rot)
+						const a = (p.rot * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a)
+						const dx = x - p.at.x, dy = r.h - r.ascent   // the bottom-left corner from the anchor, unturned
+						const bl = { x: p.at.x + dx * c - dy * sn, y: p.at.y + dx * sn + dy * c }
+						pdf.addImage(r.data, 'PNG', bl.x, bl.y - r.h, r.w, r.h, undefined, 'FAST', -p.rot)
+					}
 					rasterised.add(p.text)
 					continue
 				}

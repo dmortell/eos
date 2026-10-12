@@ -2556,3 +2556,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   default work depth comes from the level's outlets / racks / points, not a whole plan display list; `ofType` doesn't
   copy the whole store first; a delete maps groups once (was O(groups × shapes)); allocation sorts by a slot index
   (was `indexOf` in the sort, ~3×10⁸ steps at 6,600 ports). Live (Test Project): plan ⇄ front elevation, no errors.
+- **R19 Turned Japanese text in PDFs:** text the PDF fonts can't show goes in as a picture; a turned one (a rotated
+  note, slanted dimension text, a turned label) was printed level and off its place — now the picture turns about the
+  text's anchor, as real text does (`render/pdf.ts`). Test in `render/pdf.test.ts`.

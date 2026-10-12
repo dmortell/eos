@@ -1,7 +1,8 @@
 // Sheets → PDF (Phase 4.3): one page per sheet at its paper size, vector text, images embedded, unsupported text
 // reported. Runs jspdf headless (no images: the loader is a stub).
 import { freeze } from '../domain/issue'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { jsPDF } from 'jspdf'
 import { pagesToPdf, sheetPages, pdfText, styleOf } from './pdf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -45,6 +46,16 @@ describe('sheets to PDF', () => {
 		expect(asked).toEqual(['東京都港区'])                  // only the text the fonts can't show
 		expect(r.rasterised).toEqual(['東京都港区'])
 		expect(r.unsupported).toEqual([])
+	})
+	it('turned Japanese text: the picture turns about the text’s anchor, as real text does', async () => {
+		const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+		const raster = async () => ({ data: PNG, w: 20, h: 3, ascent: 2.4 })
+		const spy = vi.spyOn((jsPDF as unknown as { API: { addImage: (...a: unknown[]) => unknown } }).API, 'addImage')   // a plugin method
+		await pagesToPdf([{ w: 100, h: 100, prims: [{ k: 'text', at: { x: 10, y: 10 }, text: '東京', size: 2, cls: 'label', rot: 90 }] }], noImages, { rasterText: raster })
+		const [, , x, y, w, h, , , rot] = spy.mock.calls.at(-1) as unknown as [unknown, string, number, number, number, number, unknown, unknown, number]
+		spy.mockRestore()
+		// its bottom-left corner (0.6 below the anchor's baseline) turned 90° clockwise about the anchor: (9.4, 10)
+		expect([x, y + h, w, rot]).toEqual([expect.closeTo(9.4, 6), expect.closeTo(10, 6), 20, -90])
 	})
 	it('screen-only things stay off the paper', () => {
 		expect(styleOf('paper').skip).toBe(true)
