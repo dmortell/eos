@@ -3067,3 +3067,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q33** Ctrl+A in the Outlets, Links, Sheets (and Patch list) table picks its shown rows (`selectAllRows` in
   `ui/tableKit.svelte.ts`); TableFrame keeps Ctrl+A from the shell in every table (Packages, Issues too) — it selected
   the whole drawing, and the next Delete removed every shape in the view; Help; test.
+- **Q34** Project settings has its own Undo in the footer (its tooltip names the step; the status line says what was
+  undone): the dialog's messages said "Undo brings it back" while the shell's Undo (keys, button, menu) sat behind the
+  backdrop (`ui/SettingsDialog.svelte`); Help. No test (a button calling `project.undo()`).

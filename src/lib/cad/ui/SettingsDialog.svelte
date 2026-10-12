@@ -5,7 +5,7 @@
      Edits save at once (one undo step each) except the floor range, which waits for Apply floors: closing on an
      unapplied range asks "Apply the floor range?". A question asked from here (ws.ask2) and the status message show in
      the dialog, since the drawing's own question box and status line sit under the backdrop; the question box's keys
-     (Enter / Esc) still answer it. While a floorplan is calibrated on the plan the dialog is hidden (`hidden`), and it
+     (Enter / Esc) still answer it. The footer's Undo undoes the last step (the shell's Undo is behind the backdrop). While a floorplan is calibrated on the plan the dialog is hidden (`hidden`), and it
      comes back as it was when the Calibrate tool ends. -->
 <script module lang="ts">
 	export type SettingsTab = 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'sheets' | 'files'
@@ -47,11 +47,16 @@
 	})
 	// take `apply` BEFORE clearing: the {@const} below reads ws.confirm, which is null once cleared
 	function answer(apply: () => void) { ws.confirm = null; apply() }
+	// the messages here say "Undo brings it back", but the shell's keys and buttons are behind the backdrop: the
+	// footer's Undo (its tooltip says which step — it may be one made in the drawing before the dialog opened)
+	const lastStep = $derived.by(() => { void project.rev; return project.store.undoLabels.at(-1) })
+	function undo() { const step = lastStep; project.undo(); if (step) ws.say(`Undone: ${step}`) }
 </script>
 
 <!-- hidden while calibrating: no dialog role then, so the drawing gets its keys (Esc stops the Calibrate tool) -->
 <CadDialog title="Project settings" width="64rem" height="min(46rem, 86vh)" flush {hidden} bind:el={dlg} onclose={() => requestClose()}>
-		{#snippet footer()}<div class="msg" role="status">{ws.message ?? ''}</div>{/snippet}
+		{#snippet footer()}<div class="msg" role="status">{ws.message ?? ''}</div>
+			<button class="btn" disabled={!project.canUndo} title={lastStep ? `Undo: ${lastStep}` : 'Nothing to undo'} onclick={undo}>Undo</button>{/snippet}
 		<div class="cols">
 			<div class="tabs" role="tablist" aria-orientation="vertical">
 				{#each TABS as [id, label] (id)}
