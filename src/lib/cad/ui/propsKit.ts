@@ -22,6 +22,29 @@ export function countsText(counts: readonly (readonly [number, string, string?])
 	return counts.filter(([n]) => n > 0).map(([n, one, many]) => `${n} ${n === 1 ? one : (many ?? `${one}s`)}`).join(' · ')
 }
 
+/** One kind of thing in a selection, for Properties (a group each) and its header ("3 racks · 5 outlets"). */
+export interface SelKind { key: 'outlet' | 'rack' | 'device' | 'cord' | 'sheet' | 'run' | 'shape' | 'other'; one: string; many: string; items: Entity[] }
+
+/** The selection split by kind, in a fixed order. Runs and lines (paths) are one kind, the other drawn shapes another
+ *  (named "blocks" / "texts" when they are all that). */
+export function selectionKinds(items: readonly Entity[]): SelKind[] {
+	const by = new Map<SelKind['key'], Entity[]>()
+	for (const e of items) {
+		const k: SelKind['key'] = e.type === 'outlet' || e.type === 'rack' || e.type === 'device' || e.type === 'cord' || e.type === 'sheet' ? e.type
+			: e.type === 'shape' ? (e.geom.kind === 'path' ? 'run' : 'shape') : 'other'
+		by.set(k, [...(by.get(k) ?? []), e])
+	}
+	const ORDER: SelKind['key'][] = ['outlet', 'rack', 'device', 'cord', 'sheet', 'run', 'shape', 'other']
+	return ORDER.filter((k) => by.has(k)).map((key) => {
+		const list = by.get(key)!
+		const shapes = list.filter((e) => e.type === 'shape')
+		const [one, many] = key === 'run' ? (shapes.every((s) => !s.role) ? ['line', 'lines'] : shapes.every((s) => s.role?.kind === 'wall') ? ['wall', 'walls'] : ['run', 'runs'])
+			: key === 'shape' ? (shapes.every((s) => s.geom.kind === 'insert') ? ['block', 'blocks'] : shapes.every((s) => s.geom.kind === 'text') ? ['text', 'texts'] : ['shape', 'shapes'])
+			: key === 'cord' ? ['patch cord', 'patch cords'] : key === 'other' ? ['item', 'items'] : [key, `${key}s`]
+		return { key, one, many, items: list }
+	})
+}
+
 /** The store as the kit needs it (CadProject.store). */
 export interface PutStore { transact(label: string, fn: (tx: Txn) => void): unknown }
 

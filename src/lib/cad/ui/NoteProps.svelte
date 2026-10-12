@@ -6,6 +6,7 @@
 	import { dimLine } from '../views/plan'
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
+	import LayerPick from './LayerPick.svelte'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
@@ -65,6 +66,7 @@
 		<div class="row"><span></span><button class="btn" title="Its text centred over its line again, and the extension lines' usual gaps (the grips moved them)" onclick={() => { const { textAt: _t, gapA: _a, gapB: _b, ...rest } = g; put('Reset dimension handles', { geom: rest as Shape['geom'] }) }}>Reset handles</button></div>
 	{/if}
 {/if}
+<LayerPick {project} ids={[s.id]} />
 </PropGroup>
 <PropGroup kind="note" title="Style">
 <div class="row" title="The note's color (its lines and text); By layer = its layer's / the usual color">Color

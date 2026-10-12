@@ -7,6 +7,7 @@
 	import { sectionViewports } from '../editor/commands'
 	import { newId } from '../domain/ids'
 	import { sectionViewport } from '../views/sheet'
+	import PropGroup from './PropGroup.svelte'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: SectionCut } = $props()
 
@@ -35,11 +36,14 @@
 	}
 </script>
 
-<p class="font-semibold">Section {s.name}</p>
+<PropGroup kind="section" title="General">
 <label class="row">Name <input class="inp" value={s.name} onchange={(e) => e.currentTarget.value.trim() && put('Section name', { name: e.currentTarget.value.trim() })} /></label>
 <label class="row">Depth (mm) <input class="inp" type="number" min="100" step="100" value={s.depth} onchange={(e) => { const n = Number(e.currentTarget.value); if (n) put('Section depth', { depth: Math.max(100, n) }) }} /></label>
 <label class="row">Looks <span><button class="btn" title="Look the other way" onclick={() => put('Flip section', { flip: !s.flip || undefined })}>Flip</button></span></label>
-<button class="btn" onclick={() => ws.openView({ kind: 'section', sectionId: s.id })}>Open section {s.name}</button>
+<div class="acts"><button class="btn" onclick={() => ws.openView({ kind: 'section', sectionId: s.id })}>Open section {s.name}</button></div>
+</PropGroup>
+{#if sheets.length || shownOn.length}
+<PropGroup kind="section" title="On sheets">
 {#if sheets.length}
 	<label class="row" title="A new viewport on that sheet showing this section, sized to the cut at the largest scale that fits">Sheet
 		<span class="flex gap-1">
@@ -51,10 +55,11 @@
 {/if}
 {#if shownOn.length}
 	<!-- the viewports that show this section: a click opens that sheet with the viewport selected -->
-	<p class="pt-1 font-semibold">On sheets <span class="font-normal text-zinc-400">({shownOn.length})</span></p>
 	{#each shownOn as h (h.vp.id)}
 		<button class="link" title="Open {h.sheet.number} with this viewport selected" onclick={() => openOn(h.sheet, h.vp)}>{h.sheet.number} {h.sheet.title} · 1:{h.vp.scale}</button>
 	{/each}
+{/if}
+</PropGroup>
 {/if}
 <p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
 

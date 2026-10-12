@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape } from '../domain/shapes'
 	import { blockAttrDefs } from '../domain/blocks'
+	import PropGroup from './PropGroup.svelte'
 	import { shared, MIXED } from './propsKit'
 
 	let { project, inserts }: { project: CadProject; inserts: Shape[] } = $props()
@@ -41,7 +42,7 @@
 </script>
 
 {#if defs.length}
-	<p class="pt-1 font-semibold">Attributes</p>
+	<PropGroup kind="block" title="Attributes">
 	{#each defs as d (d.tag)}
 		{@const v = shared(d.on, (s) => s.geom.attrs?.[d.tag] ?? '')}
 		{@const hid = d.on.filter((s) => s.geom.hidden?.includes(d.tag)).length}
@@ -51,6 +52,7 @@
 			<label class="sh" title="Shown on the drawing (unticked: kept as data, not drawn)"><input type="checkbox" checked={hid === 0} indeterminate={hid > 0 && hid < d.on.length} onchange={(e) => setShown(d.tag, d.on, e.currentTarget.checked)} /> shown</label>
 		</div>
 	{/each}
+	</PropGroup>
 {/if}
 
 <style>

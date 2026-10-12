@@ -3,8 +3,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 
-	let { kind, title, children }: { kind: string; title: string; children: Snippet } = $props()
-	const key = () => `cad:pg:${kind}:${title}`
+	/** `id`: what its open / folded state is remembered by, when the title changes ("3 racks"); default the title. */
+	let { kind, title, id, children }: { kind: string; title: string; id?: string; children: Snippet } = $props()
+	const key = () => `cad:pg:${kind}:${id ?? title}`
 	let open = $state(read())
 	function read(): boolean { try { return localStorage.getItem(key()) !== '0' } catch { return true } }
 	function toggle() { open = !open; try { localStorage.setItem(key(), open ? '1' : '0') } catch { /* storage blocked */ } }

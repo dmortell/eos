@@ -6,6 +6,8 @@
 	import type { Shape } from '../domain/shapes'
 	import type { Sheet } from '../domain/drawing'
 	import { legendCandidates, legendShown } from '../domain/legend'
+	import PropGroup from './PropGroup.svelte'
+	import LayerPick from './LayerPick.svelte'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
@@ -27,10 +29,13 @@
 </script>
 
 {#if g}
-	<p class="font-semibold">Legend</p>
+	<PropGroup kind="legend" title="General">
 	<label class="row">Title <input class="inp" value={g.title ?? ''} placeholder="LEGEND" onchange={(e) => setGeom('Legend title', { title: e.currentTarget.value.trim() || undefined })} /></label>
 	<label class="row" title="Its text size on paper (mm)">Size (mm) <input class="inp" type="number" min="1" step="0.5" value={g.sizeMm ?? 2.5} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= 1) setGeom('Legend size', { sizeMm: v }) }} /></label>
-	<p class="pt-1 font-semibold">Rows <span class="font-normal text-zinc-500">({shown.size} of {all.length})</span>
+	<LayerPick {project} ids={[s.id]} />
+	</PropGroup>
+	<PropGroup kind="legend" title="Rows">
+	<p class="muted">{shown.size} of {all.length}
 		<button class="lnk" onclick={() => setGeom('Legend: all symbols', { rows: undefined })}>All symbols</button>
 		<button class="lnk" onclick={() => setGeom('Legend: no rows', { rows: [] })}>None</button></p>
 	{#each all as r (r.key)}
@@ -42,6 +47,7 @@
 	{:else}
 		<p class="text-zinc-500">Nothing on {s.sheetId ? 'the levels its viewports show' : 'this level'} yet.</p>
 	{/each}
+	</PropGroup>
 	<p class="text-zinc-500">Drag to move · Delete removes it · it updates itself</p>
 {/if}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shared, countsText, put, putMany, num, whole, text } from './propsKit'
+import { shared, countsText, selectionKinds, put, putMany, num, whole, text } from './propsKit'
 import type { Entity } from '../domain/drawing'
 import type { Txn } from '../store/store'
 
@@ -41,6 +41,21 @@ describe('countsText: what a mixed selection is', () => {
 	})
 })
 
+describe('selectionKinds: a mixed selection by kind', () => {
+	const shape = (id: string, geom: string, role?: string) => ({ type: 'shape', id, geom: { kind: geom }, ...(role ? { role: { kind: role } } : {}) }) as unknown as Entity
+	it('splits by kind in a fixed order, so the header reads "3 racks · 5 outlets"', () => {
+		const ks = selectionKinds([rack('r1', 'cabinet'), { type: 'outlet', id: 'o1' } as unknown as Entity, rack('r2', 'vcm')])
+		expect(ks.map((k) => [k.key, k.items.length])).toEqual([['outlet', 1], ['rack', 2]])
+		expect(countsText(ks.map((k) => [k.items.length, k.one, k.many]))).toBe('1 outlet · 2 racks')
+	})
+	it('names paths and shapes by what they all are', () => {
+		const ks = selectionKinds([shape('a', 'path', 'wall'), shape('b', 'path', 'wall'), shape('c', 'insert'), shape('d', 'insert')])
+		expect(ks.map((k) => k.many)).toEqual(['walls', 'blocks'])
+		expect(selectionKinds([shape('a', 'path'), shape('b', 'path', 'containment')])[0].many).toBe('runs')
+		expect(selectionKinds([shape('a', 'path')])[0].one).toBe('line')
+	})
+})
+
 describe('put / putMany: one undo step per edit', () => {
 	it('put changes one item in one step', () => {
 		const st = fakeStore()
@@ -62,7 +77,7 @@ describe('put / putMany: one undo step per edit', () => {
 	})
 	it('nothing selected: no step', () => {
 		const st = fakeStore()
-		putMany(st, [], 'X', {})
+		putMany(st, [] as Entity[], 'X', {})
 		expect(st.steps).toHaveLength(0)
 	})
 })

@@ -4,6 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Opening, Shape } from '../domain/shapes'
 	import type { Workspace } from '../app/workspace.svelte'
+	import PropGroup from './PropGroup.svelte'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
 	const selId = $derived(ws.openingSel?.wallId === s.id ? ws.openingSel.openingId : null)
@@ -20,13 +21,13 @@
 </script>
 
 {#if s.role?.kind === 'wall'}
+<PropGroup kind="wall" title="Height and openings">
 	{@const role = s.role}
 	<label class="flex items-center gap-1 pt-1" title="Full height from the structural slab to the slab above (IDF / UPS rooms): follows the level's floor heights">
 		<input type="checkbox" checked={!!role.slabToSlab} onchange={(e) => { const on = e.currentTarget.checked; project.store.transact(on ? 'Wall slab to slab' : 'Wall to its own height', (tx) => tx.put({ ...s, role: { ...role, slabToSlab: on || undefined } })) }} />
 		Slab to slab</label>
-{/if}
 {#if ops.length}
-	<p class="pt-1 font-semibold">Openings <span class="font-normal text-zinc-500">({ops.length}) · drag their grips on the plan</span></p>
+	<p class="muted" title="Drag their grips on the plan">{ops.length} opening{ops.length === 1 ? '' : 's'}</p>
 	{#each ops as o, i (o.id)}
 		<!-- the selected hole (clicked on the plan) is highlighted; a click on a row selects that hole -->
 		<div class="op" class:on={o.id === selId} role="presentation" onmousedown={() => ws.selectOpening(s.id, o.id)}>
@@ -47,6 +48,8 @@
 			</div>
 		</div>
 	{/each}
+{/if}
+</PropGroup>
 {/if}
 
 <style>

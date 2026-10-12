@@ -7,6 +7,7 @@
 	import { Icon } from '$lib'
 	import { ALIGN_LABEL, type AlignHow } from '../editor/align'
 	import { canMove } from '../editor/behaviours'
+	import { selectionKinds, countsText } from './propsKit'
 
 	let { project, ws, items }: { project: CadProject; ws: Workspace; items: Entity[] } = $props()
 
@@ -23,7 +24,8 @@
 		text: ['Text', 'k-text'], leader: ['Leader', 'callout'], cloud: ['Cloud', 'highlighter'], dimension: ['Dimension', 'ruler'], legend: ['Legend', 'list'], insert: ['Block', 'package'], image: ['Image', 'image'],
 	}
 	const kind = $derived.by((): [string, string] => {
-		if (!one) return [`${items.length} items`, 'copy']
+		// several: what they are, "3 racks · 5 outlets"
+		if (!one) { const ks = selectionKinds(items); return [countsText(ks.map((k) => [k.items.length, k.one, k.many])), ks.length === 1 ? (KIND[ks[0].key]?.[1] ?? 'copy') : 'copy'] }
 		if (one.type === 'sheet' && ws.viewportId) return ['Viewport', 'panels']
 		if (one.type === 'shape') {
 			const r = one.role?.kind === 'containment' ? (one.role.form === 'conduit' ? ['Conduit', 'rows'] : ['Trunk', 'route']) as [string, string] : undefined

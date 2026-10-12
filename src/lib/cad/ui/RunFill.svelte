@@ -6,6 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape, HandCables } from '../domain/shapes'
 	import type { Workspace } from '../app/workspace.svelte'
+	import PropGroup from './PropGroup.svelte'
 	import { fillTone, packCables, cableOd, FILL_LIMIT_PCT, segKey } from '../domain/fill'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
@@ -51,7 +52,8 @@
 	}
 </script>
 
-<p class="pt-1 font-semibold">Fill <span class="font-normal text-zinc-500">limit {FILL_LIMIT_PCT}% · cables as d²</span></p>
+<PropGroup kind="run" title="Fill">
+<p class="muted" title="The fullest segment governs; each cable counts as its outer Ø squared">Limit {FILL_LIMIT_PCT}% · cables as d²</p>
 {#if !segs.length}
 	<p class="text-zinc-500">No cables routed through this run or added by hand.</p>
 {:else}
@@ -76,7 +78,8 @@
 		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}</p>
 	{/if}
 {/if}
-<p class="pt-1 font-semibold">Cables by hand <span class="font-normal text-zinc-500">added to the routed ones</span></p>
+</PropGroup>
+<PropGroup kind="run" title="Cables by hand">
 <datalist id="cad-hand-types">{#each project.settings?.cableTypes ?? [] as c (c.id)}<option value={c.id}>{c.label}</option>{/each}</datalist>
 {#each extra as h, i (i)}
 	<div class="hand">
@@ -92,6 +95,7 @@
 	</div>
 {/each}
 <div class="pt-0.5"><button class="btn" title="Cables that aren't routed links — before routes exist, or power / coax: count × type on the whole run (or the picked segment)" onclick={addRow}>Add cables</button></div>
+</PropGroup>
 
 <style>
 	.hand { display: grid; grid-template-columns: 3rem auto 1fr 3.6rem 4.6rem auto; align-items: center; gap: 3px; margin-bottom: 2px; }

@@ -8,6 +8,9 @@
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
+	import RunFill from './RunFill.svelte'
+	import WallOpenings from './WallOpenings.svelte'
+	import MakeBlock from './MakeBlock.svelte'
 	import { withStyle } from '../domain/shapes'
 	import { insideOf, DEFAULT_WALL_MM } from '../domain/fill'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, servableRooms, toggleServes, type RunPlace } from '../domain/runEdit'
@@ -172,6 +175,7 @@
 			</span>
 		</div>
 	{/if}
+	{#if s.levelId}<MakeBlock {project} {ws} shapes={[s]} />{/if}
 </PropGroup>
 {#if s.section || s.role?.kind === 'containment'}
 	<PropGroup kind={kind} title="Size and height">
@@ -213,6 +217,9 @@
 		<LineStyle {project} shapes={[s]} />
 	</PropGroup>
 {/if}
+<!-- a run's fill and its cables by hand, a wall's height and openings: above the long Segments / Nodes lists -->
+{#if s.role?.kind === 'containment'}<RunFill {project} {ws} {s} />{/if}
+{#if s.role?.kind === 'wall'}<WallOpenings {project} {ws} {s} />{/if}
 <!-- each segment's length and the total (backlog "Segment lengths"; 3D: a drop counts its height) -->
 <PropGroup kind={kind} title="Segments">
 	{#each lengths.segs as g (g.id)}

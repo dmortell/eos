@@ -5,6 +5,8 @@
 	import type { CadProject } from '../app/project.svelte'
 	import { withStyle, type Shape } from '../domain/shapes'
 	import ColorPick from './ColorPick.svelte'
+	import PropGroup from './PropGroup.svelte'
+	import LayerPick from './LayerPick.svelte'
 	import type { Level } from '../domain/types'
 	import { shared as sharedOf, MIXED } from './propsKit'
 	import { convertRun, kindOf, RUN_PLACES, placeNow, setRunPlace, type RunKind, type RunPlace } from '../domain/runEdit'
@@ -29,30 +31,39 @@
 	const setSize = (k: 'w' | 'h', v: number) => v > 0 && each(k === 'w' ? 'Run width' : 'Run height', (s) => (s.section ? { ...s, section: { ...s.section, [k]: v, ...(s.section.round ? { w: v, h: v } : {}) } } : null))
 </script>
 
-<p class="pt-1 font-semibold">{runs.length} runs</p>
-<label class="row">Kind
-	<select class="inp" value={kind ?? ''} onchange={(e) => e.currentTarget.value && each('Convert runs', (s) => convertRun(s, e.currentTarget.value as RunKind))}>
-		{#if kind === null}<option value="">{MIXED}</option>{/if}
-		<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option><option value="conduit">Conduit</option><option value="tray">Tray</option>
-	</select></label>
-{#if sized}
-	<label class="row">{round ? 'Diameter' : 'Width'} (mm) <input class="inp" type="number" min="1" value={w ?? ''} placeholder={w === null ? MIXED : ''} onchange={(e) => setSize('w', Number(e.currentTarget.value))} /></label>
-	{#if !round}<label class="row">Height (mm) <input class="inp" type="number" min="1" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => setSize('h', Number(e.currentTarget.value))} /></label>{/if}
-{/if}
-{#if containment}
-	<label class="row" title="Each run from its own level's heights (the nodes at its main height; drops keep their ends)">Location
-		<select class="inp" value={place ?? 'mixed'} onchange={(e) => { const p = e.currentTarget.value; if (p === 'by-tier') each('Runs to their tier’s height', byTier); else if (p in RUN_PLACES) each(`Runs ${RUN_PLACES[p as RunPlace]}`, (s) => setRunPlace(s, heightsOf(s), p as RunPlace)) }}>
-			{#if place === null}<option value="mixed">{MIXED}</option>{/if}
-			<option value="">custom</option>
-			{#each Object.entries(RUN_PLACES) as [k, label] (k)}<option value={k}>{label}</option>{/each}
-			<!-- a mix of high and low runs (an import put them all at one height): each to where its tier runs -->
-			<option value="by-tier">each by its tier (high: plenum · low: under floor)</option>
+<!-- the same groups as one run's: General · Size and height · Style -->
+<PropGroup kind="runs" title="General">
+	<label class="row">Kind
+		<select class="inp" value={kind ?? ''} onchange={(e) => e.currentTarget.value && each('Convert runs', (s) => convertRun(s, e.currentTarget.value as RunKind))}>
+			{#if kind === null}<option value="">{MIXED}</option>{/if}
+			<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option><option value="conduit">Conduit</option><option value="tray">Tray</option>
 		</select></label>
-	<label class="row">Tier
-		<select class="inp" value={tier ?? 'mixed'} onchange={(e) => { const t = e.currentTarget.value; if (t !== 'mixed') each('Run tier', (s) => (s.role?.kind === 'containment' ? { ...s, role: { ...s.role, tier: t as 'low' | 'high' | 'wall' } } : null)) }}>
-			{#if tier === null}<option value="mixed">{MIXED}</option>{/if}
-			<option value="low">low</option><option value="high">high</option><option value="wall">wall</option>
-		</select></label>
+	<LayerPick {project} ids={runs.map((s) => s.id)} />
+</PropGroup>
+{#if sized || containment}
+	<PropGroup kind="runs" title="Size and height">
+		{#if sized}
+			<label class="row">{round ? 'Diameter' : 'Width'} (mm) <input class="inp" type="number" min="1" value={w ?? ''} placeholder={w === null ? MIXED : ''} onchange={(e) => setSize('w', Number(e.currentTarget.value))} /></label>
+			{#if !round}<label class="row">Height (mm) <input class="inp" type="number" min="1" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => setSize('h', Number(e.currentTarget.value))} /></label>{/if}
+		{/if}
+		{#if containment}
+			<label class="row" title="Each run from its own level's heights (the nodes at its main height; drops keep their ends)">Location
+				<select class="inp" value={place ?? 'mixed'} onchange={(e) => { const p = e.currentTarget.value; if (p === 'by-tier') each('Runs to their tier’s height', byTier); else if (p in RUN_PLACES) each(`Runs ${RUN_PLACES[p as RunPlace]}`, (s) => setRunPlace(s, heightsOf(s), p as RunPlace)) }}>
+					{#if place === null}<option value="mixed">{MIXED}</option>{/if}
+					<option value="">custom</option>
+					{#each Object.entries(RUN_PLACES) as [k, label] (k)}<option value={k}>{label}</option>{/each}
+					<!-- a mix of high and low runs (an import put them all at one height): each to where its tier runs -->
+					<option value="by-tier">each by its tier (high: plenum · low: under floor)</option>
+				</select></label>
+			<label class="row">Tier
+				<select class="inp" value={tier ?? 'mixed'} onchange={(e) => { const t = e.currentTarget.value; if (t !== 'mixed') each('Run tier', (s) => (s.role?.kind === 'containment' ? { ...s, role: { ...s.role, tier: t as 'low' | 'high' | 'wall' } } : null)) }}>
+					{#if tier === null}<option value="mixed">{MIXED}</option>{/if}
+					<option value="low">low</option><option value="high">high</option><option value="wall">wall</option>
+				</select></label>
+		{/if}
+	</PropGroup>
 {/if}
-<div class="row" title="Their own color on the plan (By layer = the tier's / layer's)">Color
-	<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></div>
+<PropGroup kind="runs" title="Style">
+	<div class="row" title="Their own color on the plan (By layer = the tier's / layer's)">Color
+		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></div>
+</PropGroup>

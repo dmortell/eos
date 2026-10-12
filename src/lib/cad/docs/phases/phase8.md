@@ -2804,3 +2804,17 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (ColorPick). The `.row` / `.inp` / `.btn` / `.acts` look is `ui/props.css`, imported once by Properties (wrapper
   class `cad-props`, `:where()` so a component's own rule still wins); the copies in 12 Props files are gone. Several
   racks' fields are the first built from the kit.
+- **R62 / R63 / R64 Properties groups (step 2), and Properties as a dispatcher (R86's last part):** `ui/Properties.svelte`
+  (565 → ~110 lines) only picks the kind's component; the inline editors became `RackProps` (one rack or several:
+  the same four groups), `DeviceProps` (one device or several — it replaces `DeviceMultiProps`), `InsertProps` and
+  `ShapeProps`; "Make block…" with its name box is `MakeBlock`. Every field is in a group: a shape's Height / Z / Back
+  line / Doors in **Box**, its Color / line type / Fill in **Style**; an insert's Rotation / Scale / Z / Elevations in
+  **Position**, Attributes and Explode in their own groups; Make block in **General**; the **Layer** row in General
+  for every kind that has one (outlets, racks, shapes, notes, legends, runs). A run's **Fill** and **Cables by hand**
+  (`RunFill`) and a wall's **Height and openings** (`WallOpenings`) come before Segments / Nodes, inside PathProps.
+  Legends and sections are grouped too (their duplicate titles went). Several selected: one group per kind ("3 racks",
+  "5 outlets"; `propsKit` `selectionKinds`, tested) with the same inner groups as one item — multi-outlets now in
+  one outlet's groups and order — then **Group and block** (Group / Ungroup / Make block); a single kind has no outer
+  group. The header says "3 racks · 5 outlets" instead of "8 items" (`PropsHeader`). The Renumber group renders
+  after the header (it sat above it, so the header jumped). `PropGroup` takes an `id` for remembering its fold when
+  the title carries a count. Help: "Edit several things at once (Properties)".

@@ -17,6 +17,7 @@
 	import UsageButtons from './UsageButtons.svelte'
 	import NameInput from './NameInput.svelte'
 	import { outletZ } from '../domain/routing'
+	import LayerPick from './LayerPick.svelte'
 	import { shared, MIXED, num } from './propsKit'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
@@ -107,47 +108,55 @@
 	</p>
 {/if}
 {#if outlets.length > 1}
-	<label class="row">Tier
-		<select class="inp" value={pick((o) => o.tier, '')} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
-			{#if isMixed((o) => o.tier)}<option value="">{MIXED}</option>{/if}<option value="low">Low</option><option value="high">High</option>
-		</select>
-	</label>
-	<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
-	<div class="row">Usage
-		<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
-	</div>
-	<label class="row">Mount
-		<select class="inp" value={pick((o) => o.mount, '' as Outlet['mount'])} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
-			{#if isMixed((o) => o.mount)}<option value="">{MIXED}</option>{/if}
-			{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
-		</select>
-	</label>
-	<!-- the cable its ports take (backlog "Cable type per outlet"): one pick sets every port -->
-	<label class="row">Cable
-		<select class="inp" value={pick((o) => cableOf(o) ?? '?', '?')} onchange={(e) => { const t = e.currentTarget.value; setOutlets('Cable type', (o) => ({ ports: o.ports.map((p) => ({ ...p, cableType: t })) })) }}>
-			{#if pick((o) => cableOf(o) ?? '?', '?') === '?'}<option value="?" disabled>{MIXED}</option>{/if}
-			{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
-		</select>
-	</label>
-	<label class="row">Server room
-		<select class="inp" value={pick((o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?'), '?')}
-			onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
-			<option value="?" disabled>{MIXED}</option><option value="">—</option>
-			{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-		</select>
-	</label>
-	<label class="row">Height (Z, mm) <input class="inp" type="number" value={pick((o) => o.z, undefined) ?? ''} placeholder={isMixed((o) => o.z) ? MIXED : ''} onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) setOutlets('Height', () => ({ z })) }} /></label>
-	<label class="row" title="Show them in elevations and sections too (on a wall); otherwise only on the plan">Elevations
-		<span><input type="checkbox" checked={outlets.every((o) => o.inElevations)} indeterminate={outlets.some((o) => o.inElevations) && !outlets.every((o) => o.inElevations)}
-			onchange={(e) => { const on = e.currentTarget.checked; setOutlets(on ? 'Show in elevations' : 'Plan only', () => ({ inElevations: on || undefined })) }} /> show in elevations</span>
-	</label>
-	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={pick((o) => o.ports.length, undefined) ?? ''} placeholder={isMixed((o) => o.ports.length) ? MIXED : ''} onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
-	{@render roomField()}
-	{@render zoneField()}
+	<!-- the same groups and order as one outlet's; a field shows what they share or "mixed", an edit sets them all -->
+	<PropGroup kind="outlet" title="General">
+		<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
+		<div class="row">Usage
+			<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
+		</div>
+		<label class="row">Tier
+			<select class="inp" value={pick((o) => o.tier, '')} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
+				{#if isMixed((o) => o.tier)}<option value="">{MIXED}</option>{/if}<option value="low">Low</option><option value="high">High</option>
+			</select>
+		</label>
+		<label class="row">Mount
+			<select class="inp" value={pick((o) => o.mount, '' as Outlet['mount'])} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
+				{#if isMixed((o) => o.mount)}<option value="">{MIXED}</option>{/if}
+				{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
+			</select>
+		</label>
+		<!-- the cable its ports take (backlog "Cable type per outlet"): one pick sets every port -->
+		<label class="row">Cable
+			<select class="inp" value={pick((o) => cableOf(o) ?? '?', '?')} onchange={(e) => { const t = e.currentTarget.value; setOutlets('Cable type', (o) => ({ ports: o.ports.map((p) => ({ ...p, cableType: t })) })) }}>
+				{#if pick((o) => cableOf(o) ?? '?', '?') === '?'}<option value="?" disabled>{MIXED}</option>{/if}
+				{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+			</select>
+		</label>
+		<LayerPick {project} ids={outlets.map((o) => o.id)} />
+	</PropGroup>
+	<PropGroup kind="outlet" title="Position">
+		<label class="row" title="Height above the floor (FFL); blank = the default for each one's mount">Z (mm) <input class="inp" type="number" value={pick((o) => o.z, undefined) ?? ''} placeholder={isMixed((o) => o.z) ? MIXED : 'mount default'} onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) setOutlets('Height', () => ({ z })) }} /></label>
+		<label class="row" title="Show them in elevations and sections too (on a wall); otherwise only on the plan">Elevations
+			<span><input type="checkbox" checked={outlets.every((o) => o.inElevations)} indeterminate={outlets.some((o) => o.inElevations) && !outlets.every((o) => o.inElevations)}
+				onchange={(e) => { const on = e.currentTarget.checked; setOutlets(on ? 'Show in elevations' : 'Plan only', () => ({ inElevations: on || undefined })) }} /> show in elevations</span>
+		</label>
+		{@render roomField()}
+		{@render zoneField()}
+	</PropGroup>
+	<PropGroup kind="outlet" title="Ports">
+		<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={pick((o) => o.ports.length, undefined) ?? ''} placeholder={isMixed((o) => o.ports.length) ? MIXED : ''} onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
+		<label class="row">Server room
+			<select class="inp" value={pick((o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?'), '?')}
+				onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
+				<option value="?" disabled>{MIXED}</option><option value="">—</option>
+				{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+			</select>
+		</label>
+	</PropGroup>
 {:else if outlets.length === 1}
 	{@const o = outlets[0]}
 	{@const lv = project.index.get(o.levelId)}
-	<!-- groups (UX review "Outlet Properties still flat"): General · Position · Ports · Circuit; the layer is below -->
+	<!-- groups (UX review "Outlet Properties still flat"): General (with its layer) · Position · Ports · Circuit -->
 	<PropGroup kind="outlet" title="General">
 		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
 		<div class="row">Usage <UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} /></div>
@@ -173,10 +182,11 @@
 				{#if o.blockId && project.blockOf(o.blockId)?.retired}<option value={o.blockId}>{project.blockOf(o.blockId)?.name} (retired)</option>{/if}
 			</select>
 		</label>
+		<LayerPick {project} ids={[o.id]} />
 	</PropGroup>
 	<PropGroup kind="outlet" title="Position">
 		<!-- a blank height shows the default it uses (a floor box 0, a wall outlet 300, a ceiling one the ceiling) -->
-		<label class="row" title="Height above FFL (mm); blank = the default for its mount">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) put(o, 'Height', { z }) }} /></label>
+		<label class="row" title="Height above the floor (FFL); blank = the default for its mount">Z (mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) put(o, 'Height', { z }) }} /></label>
 		<label class="row" title="Show it in elevations and sections too (on a wall); otherwise only on the plan">Elevations
 			<span><input type="checkbox" checked={!!o.inElevations} onchange={(e) => put(o, e.currentTarget.checked ? 'Show in elevations' : 'Plan only', { inElevations: e.currentTarget.checked || undefined })} /> show in elevations</span></label>
 		{#if o.at}
