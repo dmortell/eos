@@ -10,7 +10,8 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { RackRow } from '../domain/types'
 	import type { Sheet, SectionCut } from '../domain/drawing'
-	import { specLabel, PLAN, type ViewSpec } from '../views/space'
+	import { specLabel, PLAN, isPaperSpec, type ViewSpec } from '../views/space'
+	import { viewName } from '../domain/navTree'
 	import { FILL_LIMIT_PCT } from '../domain/fill'
 	import { portMapTitle } from '../domain/portMap'
 	import { exportPortMap } from '../render/exports'
@@ -47,12 +48,13 @@
 		const riser = { ...rest, ...(v === '' ? {} : { [end]: Number(v) }) }
 		project.store.transact(`Riser view ${end === 'from' ? 'from' : 'to'} ${v === '' ? (end === 'from' ? 'the lowest floor' : 'the top floor') : floorsUp.find((l) => l.number === Number(v))?.name ?? v}`, (tx) => tx.put({ ...st, riser }))
 	}
-	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && spec.kind !== 'portmap')
+	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && !isPaperSpec(spec))
 	/** Where you are: "1F", "1F › IDF1", "S001 New sheet" (the riser view is the building's, not a level's). */
 	const crumbs = $derived.by((): { text: string; to?: ViewSpec }[] => {
 		if (spec.kind === 'sheet') return [{ text: sheet ? `${sheet.number} ${sheet.title}` : 'Sheet' }]
 		if (spec.kind === 'riser') return [{ text: 'Building' }]
 		if (spec.kind === 'portmap') return [{ text: portMapTitle(project.index, spec.deviceIds) }]
+		if (isPaperSpec(spec)) return [{ text: viewName(project.index, spec) }]
 		const lv = { text: project.index.nameOf(levelId), to: spec.kind === 'plan' ? undefined : PLAN }
 		return spec.kind === 'row' ? [lv, { text: project.index.nameOf(spec.spaceId) }] : [lv]
 	})

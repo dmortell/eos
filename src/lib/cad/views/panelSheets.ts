@@ -26,12 +26,12 @@ function fitSize(lines: string[], cw = CELL_W): number {
 	return Math.min(2.6, (cw - 1.2) / (chars * 0.58), (CELL_H - 4.2) / (lines.length * 1.2))
 }
 
-function panelPrims(ix: ProjectIndex, d: Device, y0: number): Prim[] {
+function panelPrims(ix: ProjectIndex, d: Device, y0: number, x0 = M): Prim[] {   // x0: the left edge (a page's margin; 0 on a sheet)
 	const out: Prim[] = [], g = grid(d)
 	const CW = g.cols > 24 ? (CELL_W * 24) / g.cols : CELL_W   // more than 24 a row (a 72-port 1U panel: 2 × 36) still fits the page
-	out.push({ k: 'text', at: { x: M, y: y0 + 4 }, text: `${ix.nameOf(d.rackId)} · ${d.name} · U${d.u} · ${d.portCount} ports`, size: 3.2, cls: 'device-label', src: d.id })
+	out.push({ k: 'text', at: { x: x0, y: y0 + 4 }, text: `${ix.nameOf(d.rackId)} · ${d.name} · U${d.u} · ${d.portCount} ports`, size: 3.2, cls: 'device-label', src: d.id })
 	for (let n = 1; n <= d.portCount; n++) {
-		const [r, c] = g.at(n), x = M + c * CW, y = y0 + TITLE_H + r * CELL_H
+		const [r, c] = g.at(n), x = x0 + c * CW, y = y0 + TITLE_H + r * CELL_H
 		const label = ix.portLabel({ on: d.id, port: n })
 		out.push({ k: 'line', pts: [{ x, y }, { x: x + CW, y }, { x: x + CW, y: y + CELL_H }, { x, y: y + CELL_H }], closed: true, fill: true, cls: label ? 'port port-labelled' : 'port', src: d.id, sub: String(n) })
 		out.push({ k: 'text', at: { x: x + 0.8, y: y + 2.2 }, text: String(n), size: 1.8, cls: 'u-label' })
@@ -39,6 +39,19 @@ function panelPrims(ix: ProjectIndex, d: Device, y0: number): Prim[] {
 		const lines = labelLines(label).full, size = fitSize(lines, CW), lh = size * 1.2, top = y + 2.6 + (CELL_H - 2.6 - lines.length * lh) / 2 + size
 		lines.forEach((t, i) => out.push({ k: 'text', at: { x: x + CW / 2, y: top + i * lh }, text: t, size, anchor: 'middle', cls: 'port-label' }))
 	}
+	return out
+}
+
+/** A PORT GRID on a sheet (backlog "More viewport types"; the old Drawings tool's "Frame detail"): a rack's patch
+ *  panels from the top U down — a frame, in the Frames tool — or one device, drawn as the printed sheets draw them,
+ *  in paper mm from (0, 0). */
+export function portGridDisplayList(ix: ProjectIndex, rackId: Id, deviceId?: Id): Prim[] {
+	const one = deviceId ? ix.get<Device>(deviceId) : undefined
+	const devices = deviceId ? (one?.type === 'device' && one.portCount > 0 ? [one] : [])
+		: ix.devices.filter((d) => d.rackId === rackId && d.kind === 'panel' && d.portCount > 0).sort((a, b) => b.u + b.heightU - (a.u + a.heightU))
+	const out: Prim[] = []
+	let y = 0
+	for (const d of devices) { out.push(...panelPrims(ix, d, y, 0)); y += TITLE_H + grid(d).rows * CELL_H + GAP }
 	return out
 }
 

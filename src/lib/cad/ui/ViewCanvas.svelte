@@ -21,14 +21,14 @@
 	import { Nudge } from '../editor/nudge'
 	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
-	import { portMapDisplayList } from '../views/portMap'
+	import { paperDisplayList } from '../views/paper'
 	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
 	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet, Entity } from '../domain/drawing'
 	import { similarTo } from '../domain/similar'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
-	import { spaceOf, specKey, specLabel, type ViewSpec, type WorkPlane } from '../views/space'
+	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
@@ -82,7 +82,7 @@
 	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
 	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
-	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes, hidden: ws.layers.hidden, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })   // a sheet's own look wins (sheetLook)
+	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, routes: project.routes, fills: project.fills, hidden: ws.layers.hidden, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })   // a sheet's own look wins (sheetLook)
 	/** Editing the model inside one of this sheet's viewports (UX review S5): its view's space, prims and paper maps. */
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
 	/** What the tools work in: the edited viewport's view, else this pane's. */
@@ -107,15 +107,15 @@
 			? rackRowDisplayList(project.index, spec, { cords: ws.screen.cordChannels ? 'channels' : 'straight' })
 			: spec.kind === 'sheet'
 				? (sheet ? sheetDisplayList(project.index, sheet, sheetOpts) : [])
-				: spec.kind === 'portmap'
-					? portMapDisplayList(project.index, spec.deviceIds)
+				: isPaperSpec(spec)
+					? paperDisplayList(project.index, spec, { fills: project.fills })
 				: spec.kind === 'riser'
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
 	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
-	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || spec.kind === 'portmap' ? drawn
+	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || isPaperSpec(spec) ? drawn
 		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
 	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
@@ -221,7 +221,7 @@
 		if (!r) return
 		onspec({ kind: 'sheet', sheetId: r.sheet.id })
 		ws.selectViewport(r.vpId)
-		ws.say(`${specLabel(spec)} on ${r.sheet.number} at 1:${r.scale} — drag the viewport into place, resize it by a corner`)
+		ws.say(`${specLabel(spec)} on ${r.sheet.number}${isPaperSpec(spec) ? '' : ` at 1:${r.scale}`} — drag the viewport into place, resize it by a corner`)
 	}
 
 	/** Double-click a rack in a rack view: fit it; off a rack: the whole row. */

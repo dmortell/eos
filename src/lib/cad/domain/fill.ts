@@ -19,6 +19,13 @@ export function cableOd(settings: ProjectSettings | undefined, type: string): nu
 	return t?.diameterMm ?? DEFAULT_OD[type.toLowerCase()] ?? (t?.media === 'fibre' ? 3 : 7)
 }
 
+/** The colors a fill picture draws cables in when their type has none set (Settings › Cable types). */
+const CABLE_COLORS = ['#2563eb', '#eab308', '#16a34a', '#db2777', '#7c3aed', '#0891b2']
+/** A cable type's color in a fill picture: its own, else the next of a palette by its place among `types`. */
+export function cableColor(settings: ProjectSettings | undefined, types: string[], type: string): string {
+	return settings?.cableTypes.find((c) => c.id === type)?.color || CABLE_COLORS[Math.max(0, types.indexOf(type)) % CABLE_COLORS.length]
+}
+
 /** A run's wall when its inside size isn't set (the legacy Fill rate tool's default, Dave 2026-10-12). */
 export const DEFAULT_WALL_MM = 3
 /** A section's inside size: its own `inner`, else the outside less a 3 mm wall each side. */

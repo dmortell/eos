@@ -2884,3 +2884,25 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   its ends; a shape on an elevation plane turns / mirrors its frame; notes tied to a viewport turn about the pivot in
   that viewport's view mm. Icons: `rotateRight` (lucide RotateCw, already mapped) and a new `flip` (FlipHorizontal2).
   Hints, Help ("Rotate or mirror items"). Tests: `domain/shapes.test.ts`, `editor/transformTool.test.ts`.
+- **R95 More viewport types (backlog "More viewport types" + "Fill-rate drawing as a viewport from a trunk"):** three
+  new PAPER views (`views/space.ts` `isPaperSpec`, with the port map: paper mm at 1:1, no level of their own, no
+  model, no scale on the viewport label or in the title block's Scale), drawn by one switch (`views/paper.ts`) in a
+  pane and in a sheet viewport alike, so the sheet PDF prints them (DXF still exports the plan only, as before).
+  `{ kind: 'ports', rackId, deviceId? }` — a rack's patch panels (a "frame", the old Drawings tool's Frame detail)
+  top U down, or one device, each port with its number and label as the printed panel sheets draw them
+  (`views/panelSheets.ts` `portGridDisplayList`). `{ kind: 'schedule', table: 'patch', spaceId?, start? }` — the
+  patch list as a ruled table (`views/schedule.ts`): the Excel's cords, order and cells (`render/exports.ts`
+  `patchScheduleRows`), grouped remove → installed under colored status headings, columns sized to their text (face,
+  cord ID, notes and the "was" ends only when some cord has one); it shows the rows that fit its window and ends
+  "… N more cords: from #k", and Properties › From cord starts another viewport there. `{ kind: 'fill', shapeId,
+  segId }` — a run segment's inside with its cables packed in at a true scale (1:1 – 1:20 to fit 80 × 60 mm), its % in
+  the fill tone, inside size and cables by type in the colors Properties › Fill uses (`domain/fill.ts` `cableColor`,
+  shared now) (`views/fillSection.ts`). Sheet Properties › View offers each server room's racks with panels as
+  "… port grid" (+ Panel: all / one device) and each room's (or every room's) patch schedule; switching to or from
+  paper fits it (1:1 from the window's top-left; back to a model view: a scale that fits). Properties › Fill › Put on
+  sheet… puts the shown segment on a new or chosen sheet (`views/sheet.ts` `paperViewport`: 1:1, sized to what it
+  draws, in the drawing area's corner); a pane's To sheet… does the same for any paper view. Also wired: tabs, URL
+  (`ports.` / `schedule.patch.` / `fill.`), Navigator names, the strip's crumb, Select in these views. Tests:
+  `views/schedule.test.ts` (each cord's from / to, the "… more" split and its continuation), `views/fillSection.test.ts`
+  (the % is fillBySegment's), `panelSheets.test.ts` / `sheet.test.ts` (port grid, 1:1 placement, no scale). Help
+  updated. Left: a survey photo viewport (backlog).

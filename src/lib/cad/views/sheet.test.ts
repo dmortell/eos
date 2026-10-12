@@ -1,6 +1,7 @@
 // Sheets (Phase 4.1): paper at true size, viewports drawing their view at 1:N into a clipped window.
 import { describe, it, expect } from 'vitest'
-import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport } from './sheet'
+import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport, paperViewport, fitViewport, viewportContent } from './sheet'
+import { PAPER_PAD } from './paper'
 import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
 import { ProjectIndex } from '../domain/project'
@@ -119,5 +120,29 @@ describe('a sheet draws with its own look (Dave 2026-10-12: per sheet, not the p
 		const project = { gray: true, byUsage: true, cords: 'channels' as const }
 		expect(sheetLook(base, project)).toMatchObject(project)
 		expect(sheetLook({ ...base, gray: false, outletColour: 'layer', cordRoute: 'straight' }, project)).toMatchObject({ gray: false, byUsage: false, cords: 'straight' })
+	})
+})
+
+describe('paper viewports: a port grid, a patch schedule, a fill section (review R95)', () => {
+	const texts = (prims: ReturnType<typeof sheetDisplayList>) => prims.flatMap((p) => (p.k === 'text' ? [p.text] : []))
+	it('a patch schedule goes on at 1:1 in the drawing area’s corner, its rows on the paper, titled without a scale', () => {
+		const s = sheet(), a = drawingArea(ix(), s)
+		const vp = paperViewport(ix(), s, { levelId: 'L33', spec: { kind: 'schedule', table: 'patch', spaceId: 'SR-A' } }, 'V')
+		expect(vp.scale).toBe(1)
+		expect(vp.rect).toMatchObject({ x: a.x + 5, y: a.y + 5 })
+		expect(fitViewport(ix(), vp)).toEqual({ scale: 1, centre: vp.centre })
+		expect(toPaper(vp)({ x: 0, y: 0 })).toEqual({ x: vp.rect.x + PAPER_PAD, y: vp.rect.y + PAPER_PAD })   // its top-left just inside the window
+		const prims = sheetDisplayList(ix(), sheet({ viewports: [vp] }))
+		expect(texts(prims)).toEqual(expect.arrayContaining(['33-001.A', 'SW1-01', 'Patch schedule · IDF-A']))
+		expect(prims.find((p) => p.k === 'text' && p.cls === 'viewport-label')).toMatchObject({ text: 'Patch schedule · IDF-A' })
+		// every row fits the window it was sized to
+		expect(viewportContent(ix(), vp).some((p) => p.k === 'text' && p.text.startsWith('…'))).toBe(false)
+	})
+	it('a rack’s port grid shows its panels’ port labels; it adds no scale to the title block', () => {
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'ports' as const, rackId: 'R1' } }, rect: { x: 20, y: 20, w: 300, h: 100 }, scale: 1, centre: { x: 146, y: 46 } }
+		const plan = { id: 'P', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 130, w: 100, h: 100 }, scale: 100, centre: { x: 0, y: 0 } }
+		const s = sheet({ viewports: [vp, plan] })
+		expect(texts(sheetDisplayList(ix(), s))).toEqual(expect.arrayContaining(['A01 · Panel 1 · U40 · 24 ports', '33', '001', 'A01 port grid']))
+		expect(sheetTitleBlock(ix(), s).cells.find((c) => c.label === 'Scale')?.value).toBe('1:100')
 	})
 })

@@ -1,12 +1,16 @@
 <!-- A sheet (Phase 4.1): its number, title and paper; or, with a viewport picked on it, that viewport — what it shows
-     (level + plan / elevation / a room's racks), scale 1:N, window position and size, centre, label, frame, lock. Every
+     (level + plan / elevation / a room's racks / a section / the riser, or paper: a rack's port grid, a room's patch
+     schedule, a fill section), scale 1:N, window position and size, centre, label, frame, lock. Every
      edit is one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, Viewport } from '../domain/drawing'
-	import type { RackRow } from '../domain/types'
+	import type { RackRow, Device } from '../domain/types'
 	import { defaultViewport, contentCentre, fitViewport, SCALES } from '../views/sheet'
+	import { isPaperSpec } from '../views/space'
+	import { racksInOrder } from '../domain/devices'
+	import { viewName } from '../domain/navTree'
 	import { newId } from '../domain/ids'
 	import { sectionsOn } from '../views/section'
 	import { portMapTitle } from '../domain/portMap'
@@ -45,21 +49,58 @@
 	}
 	const setChange = (id: string, patch: Partial<SheetChange>) => putSheet('Edit change note', { changes: (s.changes ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) })
 
-	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear
-	const viewKey = (v: Viewport) => (v.view.spec.kind === 'row' ? `row:${v.view.spec.spaceId}:${v.view.spec.face}${v.view.spec.rowId ? `:${v.view.spec.rowId}` : ''}` : v.view.spec.kind === 'plan' ? 'plan' : v.view.spec.kind === 'riser' ? (v.view.spec.hideEmpty ? 'riser:compact' : 'riser') : v.view.spec.kind === 'section' ? `section:${v.view.spec.sectionId}` : v.view.spec.kind === 'portmap' ? `portmap:${v.view.spec.deviceIds.join('~')}` : `elev:${v.view.spec.dir}`)
+	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear, its
+	// sections, the riser; on paper: a rack's port grid, a room's patch schedule (a fill section comes from a run's
+	// Properties › Fill, a port map from its pane's To sheet…)
+	function viewKey(v: Viewport): string {
+		const s = v.view.spec
+		switch (s.kind) {
+			case 'row': return `row:${s.spaceId}:${s.face}${s.rowId ? `:${s.rowId}` : ''}`
+			case 'plan': return 'plan'
+			case 'riser': return s.hideEmpty ? 'riser:compact' : 'riser'
+			case 'section': return `section:${s.sectionId}`
+			case 'portmap': return `portmap:${s.deviceIds.join('~')}`
+			case 'ports': return `ports:${s.rackId}`
+			case 'schedule': return `schedule:${s.spaceId ?? 'all'}`
+			case 'fill': return `fill:${s.shapeId}:${s.segId}`
+			case 'elevation': return `elev:${s.dir}`
+		}
+	}
 	const rooms = $derived(vp ? project.index.spaces.filter((x) => x.kind === 'server room' && x.levelId === vp.view.levelId) : [])
 	const rowsOf = (spaceId: string) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
-	function setView(v: Viewport, key: string) {
+	/** A room's racks that have patch panels (a port grid of each). */
+	const panelRacksOf = (spaceId: string) => racksInOrder(project.index, spaceId).filter((r) => project.index.devices.some((d) => d.rackId === r.id && d.kind === 'panel' && d.portCount > 0))
+	/** The devices with ports in a rack, from the top U down (a port grid of one). */
+	const portDevicesOf = (rackId: string) => project.index.devices.filter((d): d is Device => d.rackId === rackId && d.portCount > 0).sort((a, b) => b.u + b.heightU - (a.u + a.heightU))
+	function specOf(key: string): Viewport['view']['spec'] {
 		const [kind, a, b, c] = key.split(':')
-		const spec: Viewport['view']['spec'] = kind === 'plan' ? { kind: 'plan' } : kind === 'riser' ? { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) } : kind === 'section' ? { kind: 'section', sectionId: a } : kind === 'portmap' ? { kind: 'portmap', deviceIds: a.split('~') } : kind === 'elev' ? { kind: 'elevation', dir: a as 'front' } : { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
-		const next = { ...v, view: { ...v.view, spec } }
-		putVp('Viewport view', { view: next.view, centre: contentCentre(project.index, next) })
+		switch (kind) {
+			case 'plan': return { kind: 'plan' }
+			case 'riser': return { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) }
+			case 'section': return { kind: 'section', sectionId: a }
+			case 'portmap': return { kind: 'portmap', deviceIds: a.split('~') }
+			case 'ports': return { kind: 'ports', rackId: a }
+			case 'schedule': return { kind: 'schedule', table: 'patch', ...(a === 'all' ? {} : { spaceId: a }) }
+			case 'fill': return { kind: 'fill', shapeId: a, segId: b }
+			case 'elev': return { kind: 'elevation', dir: a as 'front' }
+			default: return { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
+		}
 	}
+	/** Show another view in it: centred on its content; to or from paper (drawn at 1:1) also a scale that fits. */
+	function showIn(v: Viewport, label: string, view: Viewport['view']) {
+		const next = { ...v, view }
+		putVp(label, isPaperSpec(view.spec) || isPaperSpec(v.view.spec) ? { view, ...fitViewport(project.index, next) } : { view, centre: contentCentre(project.index, next) })
+	}
+	const setView = (v: Viewport, key: string) => showIn(v, 'Viewport view', { ...v.view, spec: specOf(key) })
 	function setLevel(v: Viewport, levelId: string) {
-		const spec = v.view.spec.kind === 'row' || v.view.spec.kind === 'section' ? { kind: 'plan' as const } : v.view.spec   // a room's racks / a section belong to their level
-		const next = { ...v, view: { levelId, spec } }
-		putVp('Viewport level', { view: next.view, centre: contentCentre(project.index, next) })
+		// a room's racks, a section, a rack's ports, a room's schedule and a run's fill belong to their level
+		const s = v.view.spec, own = s.kind === 'row' || s.kind === 'section' || s.kind === 'ports' || s.kind === 'fill' || (s.kind === 'schedule' && !!s.spaceId)
+		showIn(v, 'Viewport level', { levelId, spec: own ? { kind: 'plan' } : s })
 	}
+	/** A paper view's own setting (a port grid's device, a schedule's first cord), keeping where it sits. */
+	const setSpec = (v: Viewport, label: string, spec: Viewport['view']['spec']) => putVp(label, { view: { ...v.view, spec } })
+	/** The picker has no entry for it (a fill section; a port grid of a rack on another level): list it as it is. */
+	const offPicker = (v: Viewport) => v.view.spec.kind === 'fill' || (v.view.spec.kind === 'ports' && !rooms.some((r) => panelRacksOf(r.id).some((rk) => viewKey(v) === `ports:${rk.id}`)))
 	let busy = $state(false)
 	async function pdf() {
 		busy = true
@@ -103,8 +144,30 @@
 				<option value="riser">Risers (building)</option>
 				<option value="riser:compact">Risers (floors with server rooms)</option>
 				{#if vp.view.spec.kind === 'portmap'}<option value={viewKey(vp)}>{portMapTitle(project.index, vp.view.spec.deviceIds)}</option>{/if}
+				<!-- paper: drawn at 1:1, from the window's top-left -->
+				{#each rooms as r (r.id)}
+					{#each panelRacksOf(r.id) as rk (rk.id)}<option value="ports:{rk.id}">{r.name} · {rk.name} port grid</option>{/each}
+					<option value="schedule:{r.id}">{r.name} patch schedule</option>
+				{/each}
+				<option value="schedule:all">Patch schedule (all rooms)</option>
+				{#if offPicker(vp)}<option value={viewKey(vp)}>{viewName(project.index, vp.view.spec, vp.view.levelId)}</option>{/if}
 			</select>
 		</label>
+		{#if vp.view.spec.kind === 'ports'}
+			{@const ps = vp.view.spec}
+			<label class="row" title="All the rack's patch panels (a frame), or one device's ports">Panel
+				<select class="inp" value={ps.deviceId ?? ''} onchange={(e) => { const { deviceId: _, ...rest } = ps; setSpec(vp, 'Port grid panel', e.currentTarget.value ? { ...rest, deviceId: e.currentTarget.value } : rest) }}>
+					<option value="">All patch panels</option>
+					{#each portDevicesOf(ps.rackId) as d (d.id)}<option value={d.id}>{d.name} (U{d.u})</option>{/each}
+				</select>
+			</label>
+		{:else if vp.view.spec.kind === 'schedule'}
+			{@const ss = vp.view.spec}
+			<label class="row" title="The first cord (#) it shows: a long schedule goes on in another viewport from where this one stops">From cord
+				<input class="inp" type="number" min="1" value={ss.start ?? 1} onchange={(e) => { const n = Math.max(1, Math.round(num(e.currentTarget.value)) || 1); const { start: _, ...rest } = ss; setSpec(vp, 'Schedule from cord', n > 1 ? { ...rest, start: n } : rest) }} />
+			</label>
+		{/if}
+		{#if !isPaperSpec(vp.view.spec)}
 		<label class="row">Scale 1:
 			<span class="flex gap-1">
 				<select class="inp" value={SCALES.includes(vp.scale) ? String(vp.scale) : ''} onchange={(e) => e.currentTarget.value && putVp('Viewport scale', { scale: num(e.currentTarget.value) })}>
@@ -114,6 +177,7 @@
 				<input class="inp w-16" type="number" min="1" value={vp.scale} title="Custom 1:N" onchange={(e) => num(e.currentTarget.value) > 0 && putVp('Viewport scale', { scale: num(e.currentTarget.value) })} />
 			</span>
 		</label>
+		{/if}
 		<label class="row">Label <input class="inp" value={vp.label ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport label', { label: e.currentTarget.value.trim() || undefined })} /></label>
 	</PropGroup>
 	<PropGroup kind="viewport" title="Window">

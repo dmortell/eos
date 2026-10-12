@@ -4,7 +4,7 @@
 // view in the PREVIEW tab (reused by the next single click); a double-click, an edit, or a double-click on the tab
 // keeps it. Each tab has its own Back / Forward. Kept per project in this browser.
 import type { Id } from '../domain/types'
-import { specKey, type ViewSpec } from '../views/space'
+import { specKey, isPaperSpec, type ViewSpec } from '../views/space'
 import { newId } from '../domain/ids'
 
 export interface TabView { levelId?: Id; spec: ViewSpec }
@@ -19,8 +19,9 @@ export interface Tab {
 	fwd: TabView[]
 }
 
-/** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view / a port map. */
-export const viewKey = (v: TabView) => `${v.spec.kind === 'sheet' || v.spec.kind === 'riser' || v.spec.kind === 'portmap' ? '' : v.levelId ?? ''}:${specKey(v.spec)}`
+/** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view / a paper view
+ *  (a port map, a schedule …). */
+export const viewKey = (v: TabView) => `${v.spec.kind === 'sheet' || v.spec.kind === 'riser' || isPaperSpec(v.spec) ? '' : v.levelId ?? ''}:${specKey(v.spec)}`
 const copy = (v: TabView): TabView => JSON.parse(JSON.stringify(v))
 
 export class Tabs {

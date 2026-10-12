@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 22 entries (0 P1 · 0 P2 · 22 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 21 entries (0 P1 · 0 P2 · 21 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -87,8 +87,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 ## Sheets and viewports
 
 - [ ] **Viewport handling** — work with viewports like other shapes. Parts: (1) select several (Ctrl-click, marquee on empty paper; Delete removes them all); (2) copy / cut / paste / duplicate (Ctrl+C / X / V / D) with views and notes, across sheets and projects; (3) Ctrl-drag leaves a copy; (4)–(6) built 2026-10-10 (nudge, edge snap, Fit picks the scale — `../phases/phase8.md`); (7) scale and align the content with touch (the mouse is done: Alt-drag pans, Alt+wheel steps the scale); (8) viewport numbers, a viewport list and "open source view". **P3 · L** (Dave 2026-10-06: low priority) (~330 lines left). *cad today:* one viewport at a time (`cad/editor/tools.ts:142`, `cad/app/workspace.svelte.ts:116`), moves snap to 0.5 mm (`cad/editor/tools.ts:270`), Fit only re-centres (`cad/ui/SheetProps.svelte:101`), Alt-drag pans the content. *From:* G022, G152, G153, G154, G207, G215, G307, G308, G310, T086
-- [ ] **Fill-rate drawing as a viewport from a trunk** — in a run's Properties → Fill, "Put on sheet…" makes a viewport of that segment's fill section (the packed-cables picture, with its % and cable list) on a chosen sheet. **P3 · S** (Dave 2026-10-05: low priority; ~60 lines, after "More viewport types" adds the fill-section view). *cad today:* Properties → Fill draws the section of the picked / fullest segment (`cad/ui/RunFill.svelte`); no viewport kind for it. *From:* Dave 2026-10-05
-- [ ] **More viewport types** — put on a sheet: a single frame's / rack's port grid, a patch schedule, fill sections, a survey photo and an image. **P3 · L** (Dave 2026-10-06: low priority) (~330 lines). *cad today:* the picker offers plan, 4 elevations, whole rooms' racks, one row of a room's racks, sections and the riser (one project-wide floor range, `settings.riser`, 2026-10-12) (`cad/ui/SheetProps.svelte`). *From:* G023, G210, G211
+- [ ] **More viewport types: a survey photo** — put a photo survey's photo (with its pins) on a sheet as a viewport. **P3 · M** (Dave 2026-10-06: low priority). *cad today:* the picker offers plan, 4 elevations, whole rooms' racks, one row of a room's racks, sections, the riser and, on paper (1:1), a rack's / panel's port grid and a room's patch schedule; a run's Properties › Fill puts a fill section on a sheet (2026-10-12, review R95, `cad/ui/SheetProps.svelte`, `cad/views/paper.ts`); a plain image goes on the paper with the Image tool. *From:* G023, G210, G211
 
 ## Revisions, issue and backups
 

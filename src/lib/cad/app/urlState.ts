@@ -1,6 +1,7 @@
 // What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (Dave): the level, each
 // pane's view and the active pane. `?level=<id>&v=plan,front&a=1` — views: plan | front | rear | left | right |
-// row.<spaceId>.<face>[.<rowId>] | sheet.<sheetId> | portmap.<deviceId>~<deviceId>…. Cameras (pan / zoom) stay per session.
+// row.<spaceId>.<face>[.<rowId>] | sheet.<sheetId> | portmap.<deviceId>~<deviceId>… | ports.<rackId>[.<deviceId>] |
+// schedule.patch.<spaceId|all>[.<start>] | fill.<shapeId>.<segId>. Cameras (pan / zoom) stay per session.
 import type { ViewSpec } from '../views/space'
 import type { ElevDir } from '../domain/conventions'
 
@@ -15,6 +16,9 @@ export function encodeSpec(s: ViewSpec): string {
 		case 'riser': return s.hideEmpty ? 'riser.compact' : 'riser'
 		case 'section': return `section.${s.sectionId}`
 		case 'portmap': return `portmap.${s.deviceIds.join('~')}`
+		case 'ports': return ['ports', s.rackId, ...(s.deviceId ? [s.deviceId] : [])].join('.')
+		case 'schedule': return ['schedule', s.table, s.spaceId ?? 'all', ...(s.start && s.start > 1 ? [s.start] : [])].join('.')
+		case 'fill': return `fill.${s.shapeId}.${s.segId}`
 	}
 }
 
@@ -28,6 +32,9 @@ export function decodeSpec(t: string): ViewSpec | null {
 	if (k === 'sheet' && a) return { kind: 'sheet', sheetId: a }
 	if (k === 'section' && a) return { kind: 'section', sectionId: a }
 	if (k === 'portmap' && a) return { kind: 'portmap', deviceIds: a.split('~') }
+	if (k === 'ports' && a) return { kind: 'ports', rackId: a, ...(b ? { deviceId: b } : {}) }
+	if (k === 'schedule' && a === 'patch' && b) return { kind: 'schedule', table: 'patch', ...(b === 'all' ? {} : { spaceId: b }), ...(Number(c) > 1 ? { start: Number(c) } : {}) }
+	if (k === 'fill' && a && b) return { kind: 'fill', shapeId: a, segId: b }
 	return null
 }
 

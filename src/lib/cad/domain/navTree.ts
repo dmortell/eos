@@ -127,6 +127,9 @@ export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string
 		case 'riser': return 'Riser view'
 		case 'sheet': return ix.nameOf(spec.sheetId)
 		case 'portmap': return portMapTitle(ix, spec.deviceIds)
+		case 'ports': return `${ix.nameOf(spec.rackId) || '(rack gone)'}${spec.deviceId ? ` · ${ix.nameOf(spec.deviceId) || '(gone)'}` : ''} port grid`
+		case 'schedule': return `Patch schedule${spec.spaceId ? ` · ${ix.nameOf(spec.spaceId) || '(room gone)'}` : ' (all rooms)'}${spec.start && spec.start > 1 ? ` from #${spec.start}` : ''}`
+		case 'fill': { const s = ix.get(spec.shapeId); const i = s?.type === 'shape' && s.geom.kind === 'path' ? s.geom.segs.findIndex((g) => g.id === spec.segId) : -1; return `Fill · ${ix.nameOf(spec.shapeId) || '(run gone)'}${i >= 0 ? ` seg ${i + 1}` : ''}` }
 	}
 }
 

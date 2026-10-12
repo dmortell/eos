@@ -26,11 +26,42 @@ export interface ViewSpace {
 }
 
 export const PLAN: ViewSpec = { kind: 'plan' }
-export const specKey = (s: ViewSpec) => (s.kind === 'plan' ? 'plan' : s.kind === 'riser' ? 'riser' : s.kind === 'portmap' ? `portmap:${s.deviceIds.join('~')}` : s.kind === 'section' ? `section:${s.sectionId}` : s.kind === 'row' ? `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}` : s.kind === 'sheet' ? `sheet:${s.sheetId}` : s.dir)
-export const specLabel = (s: ViewSpec) => (s.kind === 'plan' ? 'Plan' : s.kind === 'riser' ? 'Riser' : s.kind === 'portmap' ? 'Port map' : s.kind === 'section' ? 'Section' : s.kind === 'row' ? `Racks ${s.face}` : s.kind === 'sheet' ? 'Sheet' : s.dir[0].toUpperCase() + s.dir.slice(1))
+export function specKey(s: ViewSpec): string {
+	switch (s.kind) {
+		case 'plan': return 'plan'
+		case 'riser': return 'riser'
+		case 'portmap': return `portmap:${s.deviceIds.join('~')}`
+		case 'ports': return `ports:${s.rackId}:${s.deviceId ?? ''}`
+		case 'schedule': return `schedule:${s.table}:${s.spaceId ?? ''}:${s.start ?? 1}`
+		case 'fill': return `fill:${s.shapeId}:${s.segId}`
+		case 'section': return `section:${s.sectionId}`
+		case 'row': return `row:${s.spaceId}:${s.rowId ?? ''}:${s.face}`
+		case 'sheet': return `sheet:${s.sheetId}`
+		case 'elevation': return s.dir
+	}
+}
+export function specLabel(s: ViewSpec): string {
+	switch (s.kind) {
+		case 'plan': return 'Plan'
+		case 'riser': return 'Riser'
+		case 'portmap': return 'Port map'
+		case 'ports': return 'Port grid'
+		case 'schedule': return 'Patch schedule'
+		case 'fill': return 'Fill section'
+		case 'section': return 'Section'
+		case 'row': return `Racks ${s.face}`
+		case 'sheet': return 'Sheet'
+		case 'elevation': return s.dir[0].toUpperCase() + s.dir.slice(1)
+	}
+}
+
+/** The views drawn in paper mm at 1:1 with no model behind them (a port map, a port grid, a schedule, a fill
+ *  section): no level of their own to follow, no model to edit, no scale to print. */
+export const isPaperKind = (k: ViewSpec['kind']): k is 'portmap' | 'ports' | 'schedule' | 'fill' => k === 'portmap' || k === 'ports' || k === 'schedule' || k === 'fill'
+export const isPaperSpec = (s: ViewSpec): s is Extract<ViewSpec, { kind: 'portmap' | 'ports' | 'schedule' | 'fill' }> => isPaperKind(s.kind)
 
 export function spaceOf(spec: ViewSpec, origin: Pt = { x: 0, y: 0 }): ViewSpace {
-	if (spec.kind === 'row' || spec.kind === 'riser' || spec.kind === 'portmap') {
+	if (spec.kind === 'row' || spec.kind === 'riser' || isPaperSpec(spec)) {
 		// A rack row is laid out along the view, not at plan positions: there is no model x / y to give back yet (the
 		// riser and port map views neither).
 		// Dragging maps to no model movement (devices move by U in the device tool, slice 3.2).

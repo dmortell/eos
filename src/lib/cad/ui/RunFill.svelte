@@ -1,13 +1,16 @@
 <!-- A run's FILL (Phase 5.3): each segment with cables routed through it — its % (the fullest governs), the cables
      by type — and a segment's section with its cables packed in (the legacy Fill rate picture): the fullest, or the one
-     picked — a click on its row (Dave 2026-10-05: only the first could be looked at) or on it in the view. Below: the
+     picked — a click on its row (Dave 2026-10-05: only the first could be looked at) or on it in the view; "Put on
+     sheet…" makes that section a viewport (views/fillSection.ts) on a new or chosen sheet. Below: the
      cables added to the run BY HAND (backlog T080) — count × type, own Ø, the whole run or one segment. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape, HandCables } from '../domain/shapes'
 	import type { Workspace } from '../app/workspace.svelte'
 	import PropGroup from './PropGroup.svelte'
-	import { fillTone, packCables, cableOd, FILL_LIMIT_PCT, segKey } from '../domain/fill'
+	import { fillTone, packCables, cableOd, cableColor, FILL_LIMIT_PCT, segKey } from '../domain/fill'
+	import { activeSheets } from '../app/shellActions'
+	import { viewToSheet } from '../app/sheetActions'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
 
@@ -24,12 +27,24 @@
 		return sec && shown ? { sec, p: packCables(sec, shown.f!.cables, od) } : null
 	})
 	const pct = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` : 'no section size')
-	const COLOURS = ['#2563eb', '#eab308', '#16a34a', '#db2777', '#7c3aed', '#0891b2']
 	const types = $derived([...new Set(segs.flatMap((x) => Object.keys(x.f!.cables)))])
-	const colourOf = (t: string) => project.settings?.cableTypes.find((c) => c.id === t)?.color || COLOURS[types.indexOf(t) % COLOURS.length]
+	const colourOf = (t: string) => cableColor(project.settings, types, t)
 	/** "20 × cat6a (2 by hand)", "4 × power (by hand)". */
 	const cablesText = (c: Record<string, number>, hand: Record<string, number> = {}) =>
 		Object.entries(c).map(([t, n]) => `${n} × ${t}${hand[t] ? (hand[t] === n ? ' (by hand)' : ` (${hand[t]} by hand)`) : ''}`).join(', ')
+
+	/** The section shown, as a viewport on a sheet (a new one, or that one), which then opens with it picked. */
+	const sheets = $derived(activeSheets(project))
+	function toSheet(target: string) {
+		if (!target || !shown || !s.levelId) return
+		const seg = shown.i, name = s.label || 'Run'   // read before the sheet opens: the selection (and this panel) changes
+		const r = viewToSheet(project, ws, { levelId: s.levelId, spec: { kind: 'fill', shapeId: s.id, segId: shown.g.id } }, { x0: 0, y0: 0, x1: 0, y1: 0 }, target)
+		if (!r) return
+		ws.openView({ kind: 'sheet', sheetId: r.sheet.id })
+		ws.select([r.sheet.id])
+		ws.selectViewport(r.vpId)
+		ws.say(`${name} seg ${seg}’s fill is on ${r.sheet.number} — drag it into place`)
+	}
 
 	// cables by hand: one undo step per edit
 	const extra = $derived(s.role?.kind === 'containment' ? (s.role.extra ?? []) : [])
@@ -76,6 +91,11 @@
 			{#each p.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
 		</svg>
 		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}</p>
+		<select class="inp tosheet" value="" title="This segment’s section, its fill % and its cables as a viewport on a sheet (at 1:1, the section at a true scale)" onchange={(e) => { toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
+			<option value="">Put on sheet…</option>
+			<option value="new">New sheet</option>
+			{#each sheets as x (x.id)}<option value={x.id}>On {x.number} {x.title}</option>{/each}
+		</select>
 	{/if}
 {/if}
 </PropGroup>
@@ -109,6 +129,7 @@
 	.on td { background: var(--cad-sel, #dbeafe); }
 	td { padding: 0 4px; font-size: 11px; }
 	.section { width: 100%; max-height: 140px; margin-top: 4px; }
+	.tosheet { width: auto; margin-top: 2px; }
 	.wall { fill: #f8fafc; stroke: #64748b; stroke-width: 1; }
 	.cable { stroke: white; stroke-width: 0.4; opacity: 0.9; }
 </style>

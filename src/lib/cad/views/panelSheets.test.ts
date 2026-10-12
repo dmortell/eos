@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Device } from '../domain/types'
-import { panelPages } from './panelSheets'
+import { panelPages, portGridDisplayList } from './panelSheets'
 import { pagesToPdf } from '../render/pdf'
 
 const o = { title: 'Demo · IDF-A', date: '2026-10-06' }
@@ -34,5 +34,15 @@ describe('printed panel sheets', () => {
 		const { pdf, unsupported } = await pagesToPdf(pages, async () => null)
 		expect(unsupported).toEqual([])
 		expect(pdf.getNumberOfPages()).toBe(1)
+	})
+	it('a port grid (a sheet viewport): a rack’s panels from (0, 0), or one device', () => {
+		const ix = new ProjectIndex(demoProject())
+		const rack = portGridDisplayList(ix, 'R1')
+		expect(rack.filter((x) => x.k === 'line' && x.src === 'P1')).toHaveLength(24)   // panels only: the switch is left out
+		expect(rack.some((x) => x.src === 'SW1')).toBe(false)
+		expect(Math.min(...rack.flatMap((x) => (x.k === 'line' ? x.pts.map((q) => q.x) : [])))).toBe(0)
+		const sw = portGridDisplayList(ix, 'R1', 'SW1')
+		expect(sw.filter((x) => x.k === 'line' && x.src === 'SW1')).toHaveLength(48)
+		expect(sw.filter((x) => x.k === 'text' && x.cls === 'port-label').slice(0, 2).map((x) => x.k === 'text' && x.text)).toEqual(['SW1', '01'])   // its own label, stacked
 	})
 })

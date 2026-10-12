@@ -9,17 +9,18 @@ import { byDrawOrder } from '../domain/shapes'
 import { nextLabel } from '../domain/labels'
 import { faceFor } from '../domain/blocks'
 import type { ProjectIndex } from '../domain/project'
-import type { Prim, Bounds } from './display'
+import { primBounds, unionBounds, type Prim, type Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
 import { riserDisplayList, type RiserOpts } from './riser'
-import { portMapDisplayList } from './portMap'
+import { paperDisplayList, PAPER_PAD, type PaperOpts } from './paper'
 import { sectionDisplayList } from './section'
-import { spaceOf } from './space'
+import { spaceOf, isPaperSpec } from './space'
 import { applyLayers } from './layers'
 import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
+import { scheduleTitle } from './schedule'
 import { fieldCtx, withFields } from '../domain/fields'
 import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
 
@@ -53,12 +54,14 @@ export interface SheetOpts {
 	hidden?: Iterable<string>
 	/** Cable routes for a riser viewport (else routed here). */
 	routes?: RiserOpts['routes']
+	/** The project's fills, for a fill-section viewport (else worked out from the routes). */
+	fills?: PaperOpts['fills']
 }
 
 /** What the title block's auto fields show for a sheet (ADR: values are filled at render time, never stored). The
  *  sheet's own `titleBlock.fields` override any of them ("Drawn" is usually set there). */
 export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''): TbContext {
-	const scales = [...new Set(s.viewports.map((v) => v.scale))]
+	const scales = [...new Set(s.viewports.filter((v) => !isPaperSpec(v.view.spec)).map((v) => v.scale))]   // a table on paper has no scale
 	const places = [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))]
 	const last = s.revisions?.at(-1)
 	return {
@@ -97,7 +100,7 @@ function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec, { cords: o.cords })
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
-	if (spec.kind === 'portmap') return portMapDisplayList(ix, spec.deviceIds)
+	if (isPaperSpec(spec)) return paperDisplayList(ix, spec, { fills: o.fills, routes: o.routes, fit: vp.rect.h * vp.scale - 2 * PAPER_PAD })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray, byUsage: o.byUsage })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale, blocks: o.blocks })
@@ -178,7 +181,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
 		const label = vp.label ?? autoLabel(ix, vp)
-		if (label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: `${label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
+		if (label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: isPaperSpec(vp.view.spec) ? label : `${label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}
 	// the title block over the viewports (a window that strays under it is covered, as in Pages)
 	out.push(...titleBlockPrims(sheetTitleBlock(ix, sheet, o), w, h, m).prims)
@@ -192,10 +195,14 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	return out
 }
 
-/** The title a viewport gets when none is typed: a section reads "SECTION A-A". */
+/** The title a viewport gets when none is typed: a section reads "SECTION A-A"; a port grid its rack (and panel),
+ *  a schedule its room. */
 function autoLabel(ix: ProjectIndex, vp: Viewport): string | undefined {
-	if (vp.view.spec.kind !== 'section') return undefined
-	const s = ix.get(vp.view.spec.sectionId)
+	const spec = vp.view.spec
+	if (spec.kind === 'ports') return `${ix.nameOf(spec.rackId) || '(rack gone)'}${spec.deviceId ? ` · ${ix.nameOf(spec.deviceId) || '(gone)'}` : ''} port grid`
+	if (spec.kind === 'schedule') return `${scheduleTitle(ix, spec.spaceId)}${spec.start && spec.start > 1 ? ` (from #${spec.start})` : ''}`
+	if (spec.kind !== 'section') return undefined
+	const s = ix.get(spec.sectionId)
 	return s?.type === 'section' ? `SECTION ${s.name}-${s.name}` : undefined   // plain hyphen (Dave): PDF fonts have no ′
 }
 
@@ -214,6 +221,7 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 	const a = drawingArea(ix, sheet, o), inset = 5
 	const w = Math.max(1, visible.x1 - visible.x0), h = Math.max(1, visible.y1 - visible.y0)
 	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
+	if (isPaperSpec(view.spec)) return paperViewport(ix, sheet, view, id, o)   // paper is drawn at 1:1, from its top-left
 	const scale = SCALES.find((n) => w / n <= roomW && h / n <= roomH) ?? SCALES.at(-1)!
 	return {
 		id, view, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
@@ -255,6 +263,7 @@ export function contentCentre(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {})
 /** "Fit" (backlog "Viewport handling" part 6): centred on what its view shows, at the largest standard scale at which
  *  that fits its window (the window stays). An empty view keeps its centre and scale. */
 export function fitViewport(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Pick<Viewport, 'centre' | 'scale'> {
+	if (isPaperSpec(vp.view.spec)) return paperFit(vp)
 	if (!contentBounds(ix, vp, o)) return { centre: vp.centre, scale: vp.scale }
 	const b = boxViewport(ix, vp.view, vp.rect, vp.id, o)
 	return { centre: b.centre, scale: b.scale }
@@ -275,9 +284,29 @@ function contentBounds(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Bound
 /** A viewport drawn as a box on the paper (backlog "Viewport tool"): it shows `view`, centred on its content, at the
  *  largest standard scale at which that fits the box (1:100 when the view is empty). */
 export function boxViewport(ix: ProjectIndex, view: Viewport['view'], rect: Viewport['rect'], id: Id, o: SheetOpts = {}): Viewport {
-	const vp: Viewport = { id, view, rect, scale: 100, centre: { x: 0, y: 0 } }, b = contentBounds(ix, vp, o)
+	const vp: Viewport = { id, view, rect, scale: 100, centre: { x: 0, y: 0 } }
+	if (isPaperSpec(view.spec)) return { ...vp, ...paperFit(vp) }
+	const b = contentBounds(ix, vp, o)
 	if (!b) return vp
 	const w = Math.max(1, b.x1 - b.x0), h = Math.max(1, b.y1 - b.y0)
 	const scale = SCALES.find((n) => w / n <= rect.w && h / n <= rect.h) ?? SCALES.at(-1)!
 	return { ...vp, scale, centre: { x: Math.round((b.x0 + b.x1) / 2), y: Math.round((b.y0 + b.y1) / 2) } }
+}
+
+/** A paper view (a schedule, a port grid, a fill section: each drawn from (0, 0)) in its window: at 1:1, its
+ *  top-left PAPER_PAD in from the window's. */
+export function paperFit(vp: Pick<Viewport, 'rect'>): Pick<Viewport, 'centre' | 'scale'> {
+	return { scale: 1, centre: { x: vp.rect.w / 2 - PAPER_PAD, y: vp.rect.h / 2 - PAPER_PAD } }
+}
+
+/** A paper view put on a sheet (Properties › Fill › Put on sheet…, a schedule or port grid from its pane): at 1:1,
+ *  sized to what it draws (never past the drawing area: a long schedule shows what fits and says how many more), in
+ *  the area's top-left corner. */
+export function paperViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], id: Id, o: SheetOpts = {}): Viewport {
+	const a = drawingArea(ix, sheet, o), inset = 5
+	const room = { x: a.x + inset, y: a.y + inset, w: a.w - 2 * inset, h: a.h - 2 * inset }
+	// what it draws, text included (its extent, not just its anchor)
+	const b = unionBounds(viewportContent(ix, { id, view, rect: room, scale: 1, centre: { x: 0, y: 0 } }, o).filter((p) => p.k !== 'image').map(primBounds))
+	const rect = b ? { ...room, w: Math.min(room.w, Math.ceil(b.x1 + 2 * PAPER_PAD)), h: Math.min(room.h, Math.ceil(b.y1 + 2 * PAPER_PAD)) } : { ...room, w: 100, h: 60 }
+	return { id, view, rect, ...paperFit({ rect }) }
 }
