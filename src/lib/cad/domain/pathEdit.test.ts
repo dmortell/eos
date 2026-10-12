@@ -1,6 +1,6 @@
 // Segment lengths of a run / wall (3D: a drop counts its height), and their total.
 import { describe, it, expect } from 'vitest'
-import { segmentLengths, splitRunsAt, runZAt, joinShapes, repointRefs, pieces, pieceRefs } from './pathEdit'
+import { segmentLengths, splitRunsAt, runZAt, splitSegRefs, joinShapes, repointRefs, pieces, pieceRefs } from './pathEdit'
 import type { Shape, ContainmentRole } from './shapes'
 import type { Entity, Sheet } from './drawing'
 import type { Link, Outlet } from './types'
@@ -29,6 +29,15 @@ describe('a run drawn to the middle of another (splitRunsAt)', () => {
 		expect(splitRunsAt([trunk], 'L', [{ x: 1500, y: 0, z: 0 }])).toEqual([])      // a low run under it doesn't meet it
 		expect(splitRunsAt([trunk], 'L2', [{ x: 1500, y: 0, z: 2600 }])).toEqual([])
 		expect(splitRunsAt([{ ...trunk, role: undefined } as Shape], 'L', [{ x: 1500, y: 0, z: 2600 }])).toEqual([])
+	})
+	it('both halves keep the hand cables tied to the split segment; a penetration on the far half names it', () => {
+		const tied = { ...trunk, role: { ...trunk.role, extra: [{ type: 'Power', n: 2, seg: 's1' }, { type: 'Cat6', n: 6 }] } } as Shape
+		const [t] = splitRunsAt([tied], 'L', [{ x: 1500, y: 0, z: 2600 }])
+		const g = t.geom as { segs: { id: string }[] }, second = g.segs.find((x) => x.id !== 's1')!.id
+		expect((t.role as ContainmentRole).extra).toEqual([{ type: 'Power', n: 2, seg: 's1' }, { type: 'Power', n: 2, seg: second }, { type: 'Cat6', n: 6 }])
+		const pen = (id: string, x: number) => ({ type: 'shape', id, levelId: 'L', role: { kind: 'penetration', diaMm: 50, through: 'wall', source: { run: 'T', seg: 's1', host: 'W' } }, geom: { kind: 'circle', centre: { x, y: 0 }, r: 25 } }) as unknown as Shape
+		const out = splitSegRefs([pen('near', 700), pen('far', 3000)], tied, t)
+		expect(out.map((e) => [e.id, ((e as Shape).role as { source: { seg: string } }).source.seg])).toEqual([['far', second]])
 	})
 	it('drawn at another height, the new run drops to it: runZAt finds the run’s height under the point', () => {
 		expect(runZAt([trunk], 'L', { x: 1500, y: 0 }, 2950)).toBe(2600)

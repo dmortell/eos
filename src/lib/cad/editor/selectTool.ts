@@ -12,7 +12,7 @@ import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching, primDist } from './pick'
 import { moveBy, canMove, followAttached } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
-import { insertNode, copySegs } from '../domain/pathEdit'
+import { insertNode, copySegs, splitSegRefs } from '../domain/pathEdit'
 import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
@@ -665,7 +665,8 @@ export class SelectTool implements Tool {
 		}
 		if (!best || best.t < 0.02 || best.t > 0.98) return false
 		const { seg, t } = best
-		c.store.transact('Insert node', (tx) => tx.put(insertNode(s, seg, t)))
+		const next = insertNode(s, seg, t), refs = splitSegRefs(c.store.ofType('shape'), s, next)
+		c.store.transact('Insert node', (tx) => { tx.put(next); for (const e of refs) tx.put(e) })
 		return true
 	}
 

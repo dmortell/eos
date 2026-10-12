@@ -4,7 +4,7 @@
 // (or cancels with < 2 points) and stays in the tool; a second Esc goes back to Select. A right-click = Esc. Snapping onto an outlet or rack ATTACHES the node so it follows it.
 import type { Id, Pt } from '../domain/types'
 import type { Prim } from '../views/display'
-import type { Section } from '../domain/shapes'
+import type { Section, Shape } from '../domain/shapes'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { snapMark } from './tools'
 import type { Snap } from './snap'
@@ -12,7 +12,7 @@ import { makePath, toWall, toContainment } from '../domain/make'
 import { angleStep } from './constrain'
 import { newId } from '../domain/ids'
 import { placeNote } from './noteTool'
-import { splitRunsAt, runZAt } from '../domain/pathEdit'
+import { splitRunsAt, runZAt, splitSegRefs } from '../domain/pathEdit'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
 
@@ -132,7 +132,9 @@ export class PathTool implements Tool {
 		// a trunk / conduit drawn from / to the middle of another run's segment: that run gets a node there (they join)
 		const ends = joins ? [pts[0], pts[pts.length - 1]].filter((p) => !p.levelId) : []
 		const split = ends.length ? splitRunsAt(c.store.ofType('shape'), c.levelId, ends) : []
-		c.store.transact(`Draw ${this.id}`, (tx) => { tx.put(shape); split.forEach((x) => tx.put(x)) })
+		// a penetration accepted on a split segment names the half it lies on
+		const refs = split.flatMap((x) => splitSegRefs(c.store.ofType('shape'), c.store.get(x.id) as Shape, x))
+		c.store.transact(`Draw ${this.id}`, (tx) => { tx.put(shape); split.forEach((x) => tx.put(x)); refs.forEach((e) => tx.put(e)) })
 		c.select([shape.id])
 		if (split.length) c.say?.(`Joined to ${split.map((x) => x.label || 'a run').join(', ')} (a node added there)`)
 	}

@@ -1,6 +1,6 @@
 // Editing a path's graph (walls, runs, lines alike — ADR 0007: one code path for every path). Pure: each returns a
 // new shape. Nodes are model points (x, y, z, optional level / attach).
-import type { Id } from './types'
+import type { Id, Pt } from './types'
 import type { Shape, PathNode, PathSeg, ContainmentRole, HandCables } from './shapes'
 import type { Entity } from './drawing'
 import { newId } from './ids'
@@ -10,8 +10,9 @@ type PathGeom = Extract<Shape['geom'], { kind: 'path' }>
 const geomOf = (s: Shape): PathGeom => { if (s.geom.kind !== 'path') throw new Error('Not a path'); return s.geom }
 const withGeom = (s: Shape, g: PathGeom): Shape => ({ ...s, geom: g })
 
-/** Split a segment at `t` (0..1 from its `a` end): a new node between, two segments for one. Openings stay on the
- *  half they were on is a later refinement; here the segment keeps its section override on both halves. */
+/** Split a segment at `t` (0..1 from its `a` end): a new node between, two segments for one (the first keeps the
+ *  segment's id). Both halves keep its section override and the hand cables tied to it. Openings stay on the half
+ *  they were on is a later refinement. What names the segment from outside: `splitSegRefs`. */
 export function insertNode(s: Shape, segId: Id, t: number, id: Id = newId()): Shape {
 	const g = geomOf(s)
 	const seg = g.segs.find((x) => x.id === segId)
@@ -19,9 +20,41 @@ export function insertNode(s: Shape, segId: Id, t: number, id: Id = newId()): Sh
 	const a = g.nodes.find((n) => n.id === seg.a)!, b = g.nodes.find((n) => n.id === seg.b)!
 	const k = Math.max(0, Math.min(1, t))
 	const n: PathNode = { id, x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, ...(a.levelId && a.levelId === b.levelId ? { levelId: a.levelId } : {}) }
-	const extra = seg.section ? { section: seg.section } : {}
-	const segs: PathSeg[] = g.segs.flatMap((x) => (x.id === segId ? [{ id: x.id, a: x.a, b: n.id, ...extra }, { id: newId(), a: n.id, b: x.b, ...extra }] : [x]))
-	return withGeom(s, { ...g, nodes: [...g.nodes, n], segs })
+	const extra = seg.section ? { section: seg.section } : {}, second = newId()
+	const segs: PathSeg[] = g.segs.flatMap((x) => (x.id === segId ? [{ id: x.id, a: x.a, b: n.id, ...extra }, { id: second, a: n.id, b: x.b, ...extra }] : [x]))
+	const role = s.role?.kind === 'containment' && s.role.extra?.some((h) => h.seg === segId)
+		? { role: { ...s.role, extra: s.role.extra.flatMap((h) => (h.seg === segId ? [h, { ...h, seg: second }] : [h])) } } : {}
+	return { ...withGeom(s, { ...g, nodes: [...g.nodes, n], segs }), ...role }
+}
+
+/** After segments of run `before` were split (`after`; the first half keeps the id): a penetration accepted on a split
+ *  segment names the half it lies on — the original or a new segment on the same line, whichever its centre is
+ *  nearer. The changed penetrations, to put in the same transaction. */
+export function splitSegRefs(all: Iterable<Entity>, before: Shape, after: Shape): Entity[] {
+	if (before.geom.kind !== 'path' || after.geom.kind !== 'path') return []
+	const old = new Set(before.geom.segs.map((x) => x.id)), fresh = after.geom.segs.filter((x) => !old.has(x.id))
+	if (!fresh.length) return []
+	const at = new Map(after.geom.nodes.map((n) => [n.id, n])), was = new Map(before.geom.nodes.map((n) => [n.id, n]))
+	const dist = (p: Pt, a: Pt, b: Pt) => { const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2)) : 0; return Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y) }
+	const onLine = (p: Pt, a: Pt, b: Pt) => { const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy); return L > 0 && Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / L < 1 }
+	const out: Entity[] = []
+	for (const e of all) {
+		if (e.type !== 'shape' || e.role?.kind !== 'penetration' || e.role.source?.run !== before.id) continue
+		const src = e.role.source, orig = before.geom.segs.find((x) => x.id === src.seg)
+		const c = e.geom.kind === 'circle' || e.geom.kind === 'rect' || e.geom.kind === 'ellipse' ? e.geom.centre : null
+		if (!orig || !c) continue
+		const oa = was.get(orig.a), ob = was.get(orig.b)
+		if (!oa || !ob) continue
+		let best = src.seg, bestD = Infinity
+		for (const x of [after.geom.segs.find((q) => q.id === src.seg)!, ...fresh]) {
+			const a = at.get(x?.a ?? ''), b = at.get(x?.b ?? '')
+			if (!a || !b || !onLine(a, oa, ob) || !onLine(b, oa, ob)) continue
+			const d = dist(c, a, b)
+			if (d < bestD) { best = x.id; bestD = d }
+		}
+		if (best !== src.seg) out.push({ ...e, role: { ...e.role, source: { ...src, seg: best } } })
+	}
+	return out
 }
 
 /** Containment runs on `levelId` with a segment passing THROUGH one of `ends` (plan within 0.5 mm, height within 1 mm,
@@ -44,8 +77,8 @@ export function splitRunsAt(shapes: Shape[], levelId: Id, ends: { x: number; y: 
 				return t > 0 && t < 1 && Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y) < 0.5 && Math.abs(a.z + (b.z - a.z) * t - p.z) < 1
 			})
 			if (!seg) continue
-			const id = newId(), split = geomOf(insertNode(cur, seg.id, 0.5, id))
-			cur = withGeom(cur, { ...split, nodes: split.nodes.map((n) => (n.id === id ? { ...n, x: p.x, y: p.y, z: p.z } : n)) })
+			const id = newId(), next = insertNode(cur, seg.id, 0.5, id), split = geomOf(next)
+			cur = withGeom(next, { ...split, nodes: split.nodes.map((n) => (n.id === id ? { ...n, x: p.x, y: p.y, z: p.z } : n)) })
 		}
 		if (cur !== s) out.push(cur)
 	}

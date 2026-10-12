@@ -3090,3 +3090,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `joinShapes` / `repointRefs`, `editor/dragParts.ts`). A run split into pieces (Delete / Disconnect on picked nodes or
   segments) sends its segment-tied hand cables, penetrations and fill sections with their segment's piece (`pieces`,
   `pieceRefs`; tests).
+- **Q8** a run split where another run is drawn to the middle of a segment (or a node double-clicked in) keeps the
+  hand cables tied to that segment on both halves, and a penetration accepted on it names the half it lies on
+  (`domain/pathEdit.ts` `insertNode` / `splitSegRefs`, `editor/pathTool.ts`, `editor/selectTool.ts`; test).
