@@ -3,15 +3,17 @@
 	import { onMount, onDestroy } from 'svelte'
 	import { Icon, Firestore, Titlebar, MetalButton } from '$lib'
 	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
-	import { PdfState } from './PdfState.svelte'
+	import { PdfState } from '$lib/pdf/PdfState.svelte'
 	import DimensionLine from './DimensionLine.svelte'
 	import { dragDimension, isHorizontal } from './DimensionLine'
 
-	let { url, name, fileDoc = $bindable(), initialTool = null, onclose }: {
+	let { url, name, fileDoc = $bindable(), initialTool = null, embedded = false, onclose }: {
 		url: string
 		name: string
 		fileDoc: any
 		initialTool?: string | null
+		/** inside a dialog (cad): fills its box instead of the screen, no title bar; the host sends Esc to `escape()` */
+		embedded?: boolean
 		onclose: () => void
 	} = $props()
 
@@ -43,8 +45,13 @@
 	let pageH = $state(0)
 
 	// Container dimensions
-	let cw = $state(800)
-	let ch = $state(600)
+	// the window's size, or (embedded in a dialog) the viewer's own box
+	let winW = $state(800)
+	let winH = $state(600)
+	let boxW = $state(0)
+	let boxH = $state(0)
+	let cw = $derived(embedded && boxW ? boxW : winW)
+	let ch = $derived(embedded && boxH ? boxH : winH)
 
 	const RENDER_SCALE = 2
 
@@ -645,15 +652,18 @@
 		zoom = newZoom
 	}
 
+	/** Esc: step back one level (pick mode, layers panel, tool), then leave the viewer. */
+	export function escape() {
+		if (layerPickMode) { layerPickMode = false; clearIdentify() }
+		else if (showLayersPanel) showLayersPanel = false
+		else if (activeTool) { activeTool = null; dirty = false }
+		else onclose()
+	}
+
 	function onKeyDown(e: KeyboardEvent) {
 		const tag = (e.target as HTMLElement).tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
-		if (e.key === 'Escape') {
-			if (layerPickMode) { layerPickMode = false; clearIdentify() }
-			else if (showLayersPanel) showLayersPanel = false
-			else if (activeTool) { activeTool = null; dirty = false }
-			else onclose()
-		}
+		if (e.key === 'Escape') escape()
 		else if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPage(pageNum - 1)
 		else if (e.key === 'ArrowRight' || e.key === 'PageDown') goToPage(pageNum + 1)
 		else if (e.key === 'Home') fitToView()
@@ -685,13 +695,13 @@
 	}
 </script>
 
-<svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onKeyDown} />
+<svelte:window bind:innerWidth={winW} bind:innerHeight={winH} onkeydown={onKeyDown} />
 
 <!-- <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} /> -->
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen bg-gray-300 flex flex-col relative" oncontextmenu={e => e.preventDefault()}>
-	<Titlebar title='PDF Viewer' />
+<div class="{embedded ? 'h-full' : 'h-screen'} bg-gray-300 flex flex-col relative" bind:clientWidth={boxW} bind:clientHeight={boxH} oncontextmenu={e => e.preventDefault()}>
+	{#if !embedded}<Titlebar title='PDF Viewer' />{/if}
 	<!-- Toolbar -->
 	<div class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
 		<button class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700" onclick={onclose} title="Back (Esc)">

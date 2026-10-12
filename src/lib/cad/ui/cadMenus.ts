@@ -80,7 +80,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Project › Floors…) and the issued package PDFs live in Uploads (backlog "Uploads
 			// from inside cad": the link; embedding it is still to decide)
 			{ label: 'Open project…', key: KEYS.openProject, run: c.openProject },
-			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
+			{ label: 'Uploads…', title: 'Upload and set up floorplan PDFs (origin, scale, crop, masks, layers) without leaving cad', run: c.uploads },
 			{ label: 'Photo surveys…', title: 'Open this project’s photo surveys in a new tab', run: c.surveys },
 			'-',
 			{ label: 'Download backup…', title: 'Save the whole project or chosen models as a file', run: () => c.backup('download') },

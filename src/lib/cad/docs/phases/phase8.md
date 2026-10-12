@@ -3299,3 +3299,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `domain/navTree -> views/space`, `views/overlays -> editor/tools` (type or unlisted). Test-only exports are marked
   "(Used by tests only.)"; `dev/dryRun.listProjects` and the stale DockColumn comment removed; `IMPORTED_AT` is
   computed per import run. Not done: the as-issued floorplan cache (`app/pdf.svelte.ts`, R39 part).
+
+## Features (Dave 2026-10-13)
+
+- **Uploads in cad** — File › Uploads… opens `ui/UploadsDialog.svelte` (a large CadDialog) hosting the Uploads tool. The tool moved to `$lib/uploads/` (`Uploads.svelte`, `PdfViewer.svelte`, `DimensionLine`, `provider.ts`, `uploader.ts`, new `deleteFile.ts`), with `embedded` (no title bar, fills its box) and `onopen` (Uploads) props; the `/uploads` route and its `[fileid]` page use the same components, and `uploads/provider.ts` / `uploader.ts` re-export so the older tools keep working. A file opens in the viewer inside the dialog; Esc steps back (viewer tool, file list, close). Same Firestore `files/{id}` docs, so edits show in cad at once.

@@ -41,11 +41,14 @@
 		scale?: { distance: number; scale: number; units: string; x1: number; y1: number; x2: number; y2: number; offset: number }
 	}
 
-	let { files = [], projectName = '', projectId = '', ondelete }: {
+	let { files = [], projectName = '', projectId = '', ondelete, embedded = false, onopen }: {
 		files: FileDoc[]
 		projectName?: string
 		projectId?: string
 		ondelete?: (file: FileDoc) => void
+		/** inside a dialog (cad): fills its box, no title bar; opening a file goes to `onopen` instead of the route */
+		embedded?: boolean
+		onopen?: (file: FileDoc, tool?: string) => void
 	} = $props()
 
 	$inspect(files)
@@ -301,6 +304,7 @@
 
 	function openFile(file: FileDoc, tool?: string) {
 		if (CAD_FILE.test(file.name ?? file.id)) { toast('No preview for DXF / DWG yet — it is stored here for Pages (DXF import is on the way)'); return }
+		if (onopen) { onopen(file, tool); return }
 		const url = `/projects/${projectId}/uploads/${encodeURIComponent(file.id)}` + (tool ? `?tool=${tool}` : '')
 		goto(url)
 	}
@@ -375,12 +379,12 @@
 	}
 </script>
 
-<Titlebar menu={true} title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
+{#if !embedded}<Titlebar menu={true} title={projectName ? `${projectName} — Uploads` : 'Uploads'} />{/if}
 
 <input bind:this={fileInput} type="file" accept=".pdf,image/*,.dxf,.dwg" multiple class="hidden" onchange={onInputChange} disabled={storageFull} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="flex-1 overflow-hidden flex flex-col bg-gray-50" style="height: calc(100vh - 33px)"
+<div class="flex-1 overflow-hidden flex flex-col bg-gray-50" style="height: {embedded ? '100%' : 'calc(100vh - 33px)'}"
 	ondrop={onDrop} ondragover={onDragOver} ondragleave={onDragLeave}>
 
 	<!-- Toolbar -->

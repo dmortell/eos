@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import { Firestore, Spinner } from '$lib';
-	import PdfViewer from '../parts/PdfViewer.svelte';
+	import PdfViewer from '$lib/uploads/PdfViewer.svelte';
 
 	let db = new Firestore();
 	let fileDoc = $state(/** @type {any} */ (null));

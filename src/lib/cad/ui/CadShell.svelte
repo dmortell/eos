@@ -46,6 +46,7 @@
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import ImagePickDialog from './ImagePickDialog.svelte'
+	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import { portMapPick } from '../domain/portMap'
@@ -73,7 +74,7 @@
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
-	let imagePickOpen = $state(false)
+	let imagePickOpen = $state(false), uploadsOpen = $state(false)
 	let legacyOpen = $state(false)
 	let openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
 	/** A stored backup to restore (Project › Backups… › Restore…). */
@@ -396,7 +397,7 @@
 	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
-		outletSchedule: (all) => exportsRef?.outletSchedule(all), frameSheets: (all) => exportsRef?.frameSheets(all), panelLabels: (all) => exportsRef?.panelLabels(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true),
+		outletSchedule: (all) => exportsRef?.outletSchedule(all), frameSheets: (all) => exportsRef?.frameSheets(all), panelLabels: (all) => exportsRef?.panelLabels(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => (uploadsOpen = true), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true),
 		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
@@ -625,6 +626,7 @@
 
 	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {projectDetails} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
+	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
