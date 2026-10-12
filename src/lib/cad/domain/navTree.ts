@@ -153,3 +153,23 @@ export function pathTo(nodes: NavNode[], match: (n: NavNode) => boolean, trail: 
 	}
 	return null
 }
+
+/** Devices and outlets matching a search (review R56: Ctrl+K found only levels, views, sheets, rooms, racks — a device
+ *  needed Racks › Find a device, an outlet the tables): rows that open a device's rack view (its side, zoomed to its
+ *  rack) or an outlet's plan, with it selected. `focus` = what the view fits to. At most `max`. */
+export function findItems(ix: ProjectIndex, q: string, max = 15): (NavNode & { focus: Id })[] {
+	const w = q.trim().toLowerCase()
+	if (w.length < 2) return []
+	const out: (NavNode & { focus: Id })[] = []
+	for (const d of ix.devices) {
+		const r = ix.get<Rack>(d.rackId)
+		if (r?.type !== 'rack' || !`${d.name} ${d.model ?? ''}`.toLowerCase().includes(w)) continue
+		out.push({ key: `find:${d.id}`, kind: 'rack', label: d.name.trim() || d.kind, detail: `${r.name} · U${d.u} · ${ix.nameOf(r.levelId)}`, select: d.id, focus: r.id,
+			open: { levelId: r.levelId, spec: { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' } } })
+	}
+	for (const o of ix.outlets) {
+		if (!o.label.toLowerCase().includes(w) || !o.at) continue
+		out.push({ key: `find:${o.id}`, kind: 'view', label: o.label, detail: `outlet · ${ix.nameOf(o.levelId)}`, select: o.id, focus: o.id, open: { levelId: o.levelId, spec: { kind: 'plan' } } })
+	}
+	return out.sort((a, b) => naturalCompare(a.label, b.label)).slice(0, max)
+}

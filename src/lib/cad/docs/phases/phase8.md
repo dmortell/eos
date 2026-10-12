@@ -2671,3 +2671,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `later.md` (T145 answered; North arrow's wrong G id), `backlog.md` (the riser floor range is settled: one
   project-wide range), ADR 0004 (rack placement comes from `rackPlacements`), `docs/firestore-structure.md` (Pages
   models, Pages sheets, global blocks).
+- **R56 Ctrl+K finds devices and outlets too:** the Navigator search lists matching devices (by name / model) and
+  outlets (by label) under the tree's matches, "Devices and outlets"; a click opens the device's rack view on its
+  side zoomed to its rack, or the outlet's plan zoomed to it, with it selected (double-click keeps the tab)
+  (`domain/navTree.ts` `findItems`, `ui/Navigator.svelte`). Live (Test Project): "A.00" lists six outlets; A.001
+  opens 1F's plan on it, selected.

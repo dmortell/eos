@@ -11,7 +11,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import { specKey, type ViewSpec } from '../views/space'
-	import { navTree, filterTree, pathTo, type NavNode, type NavOpts } from '../domain/navTree'
+	import { navTree, filterTree, pathTo, findItems, type NavNode, type NavOpts } from '../domain/navTree'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf, applyRename } from '../app/navActions'
 	import NameInput from './NameInput.svelte'
 	import { Icon } from '$lib'
@@ -43,6 +43,9 @@
 	const states = $derived(issueStatesOf(project))
 	const tree = $derived.by(() => { void project.rev; return navTree(project.index, { sheetsBy, categories: project.sheetCategories }) })
 	const shown = $derived(filterTree(tree, q))
+	/** Devices and outlets matching the search too (review R56), under the tree's matches. */
+	const finds = $derived.by(() => { void project.rev; return findItems(project.index, q) })
+	function openFind(n: NavNode & { focus: string }, keep = false) { onopen(n, keep); ws.focus = n.focus; q = ''; search?.blur() }
 
 	// which branches are open: kept per project in this browser; a search opens everything it shows
 	const storeKey = () => `cad-nav:${project.pid}`
@@ -124,11 +127,17 @@
 <div class="nav">
 	<div class="find">
 		<Icon name="search" size={12} />
-		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
+		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack, device, outlet… (Ctrl+K)" bind:value={q} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); q = ''; search?.blur() } else if (e.key === 'Enter') { const n = firstOpen(shown); if (n) onopen(n, e.ctrlKey || e.metaKey) } }} />
 	</div>
 	<div class="tree" role="tree">
 		{#each shown as n (n.key)}{@render row(n, 0)}{/each}
-		{#if q && !shown.length}<p class="none">Nothing matches “{q}”.</p>{/if}
+		{#if finds.length}
+			<p class="fh">Devices and outlets</p>
+			{#each finds as f (f.key)}
+				<button class="fr" title="Open it, selected (double-click: keep the tab)" onclick={() => openFind(f)} ondblclick={() => openFind(f, true)}><Icon name={f.kind === 'rack' ? 'server' : 'circleDot'} size={12} /><span class="t">{f.label}</span><span class="d">{f.detail}</span></button>
+			{/each}
+		{/if}
+		{#if q && !shown.length && !finds.length}<p class="none">Nothing matches “{q}”.</p>{/if}
 	</div>
 </div>
 
@@ -188,5 +197,10 @@
 	.row:hover .act { color: var(--cad-link, #2563eb); opacity: 1; }
 	.act:hover { background: var(--cad-hover); }
 	.none { padding: 8px; color: var(--cad-faint); }
+	.fh { margin: 6px 4px 2px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; color: var(--cad-muted); }
+	.fr { display: flex; align-items: center; gap: 5px; width: 100%; padding: 1px 4px 1px 18px; border-radius: 4px; text-align: left; color: var(--cad-text); }
+	.fr:hover { background: var(--cad-hover); }
+	.fr :global(svg) { flex: 0 0 auto; color: var(--cad-faint); }
+	.fr .d { margin-left: auto; padding-left: 6px; }
 	.chg { color: #d97706; font-size: 9px; margin-left: 2px; }
 </style>
