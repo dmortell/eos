@@ -2735,3 +2735,39 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the end as "… (old tool)"; the legacy Sheets-tool sheets and Outlets floor links are gone from it
   (`$lib/palette/CommandPalette.svelte`). Type-checked; not seen live (the shared browser was busy with the agents'
   dev servers).
+- **R77–R81, R52 The tables (Dave 2026-10-12: "Dialogs + tables"):**
+  - **R80 look:** headers, row lines and grey text from the `--cad-*` tokens (`ui/TablesPanel.svelte`; they were
+    Tailwind zinc, unreadable in Kestrel Dark), a selected row in the dark theme uses `--cad-sel`; `SortTh` has a real
+    button (Tab reaches it, Enter sorts); one `ui/StatusChip.svelte` for cord statuses, link kinds, issue states and
+    the filter chips (the CSS was copied in CordProps / PatchList / Links / Sheets; Cord Properties' status box uses its
+    `toneStyle`); Links shows "N more not drawn … Show all (N)" instead of stopping silently at 500 rows.
+  - **R77 Sheets on `tableKit`:** remembered sort, a third header click goes back to the print order, All /
+    Selection scope (`TableState` takes a default column and the scopes a table offers), Active / Archived as chips.
+    Packages and Issues stay views of the Sheets tab — not tabs of their own: they share the register's selection,
+    chips and the Issue panel, and issuing / re-issuing jumps between them — each on one bar starting with the
+    Sheets · Packages · Issues switch.
+  - **R78 one inline-edit model** (`ui/tableKit.svelte.ts`): `RowPick` (click / Shift range / Ctrl toggle — Links
+    toggled on Shift) and `CellEdit` (double-click or F2 / Enter on the selected row edits a cell; Enter / Tab save and
+    move on (`nextCell`), Esc cancels, leaving saves once; the table gets the focus back) — the patch list's model, now
+    in Outlets (label, usage, tier, server room), Sheets (number, title, category, discipline, tags; a double-click
+    elsewhere on a row still opens the sheet) and Links (cable type, status), which show text until edited. So a
+    click on an Outlets cell selects the row (it started editing). Handled ↑ / ↓ / F2 / Enter stop at the table (an
+    arrow also reached the shell, which — by reading the code — nudged the newly picked item on the plan); Enter on a
+    focused button presses it.
+  - **R79 one bar** (`ui/TableFrame.svelte`): `[scope] [Find] [chips] · count | selection actions (a hint without a
+    selection) | ⋯` (`ui/MoreMenu.svelte`, the right-click menu's look), fixed over the scrolling table (its header
+    row sticks under it). Outlets: Allocate N / Re-allocate… / Assign N → port… / Find/replace… on the selection; ⋯
+    Allocate / Re-allocate this level, Re-allocate pinned links too, Find / replace in the shown; No panel yet and
+    no-route chips. Patching: status chips; the cord actions on the selection; New cords (Planning · Surveying) and
+    Patch list… stay visible (Dave: easy to find); ⋯ Cord labels…, Import cord IDs…, Purge removed (N). Sheets: ▲▼,
+    PDF, Issue…, Duplicate, Archive / Restore, Delete on the selection; ⋯ PDF / Excel of the rows shown, Issue state
+    column, Group by. Links: design / installed chips (were a select), Remove N on the selection. Packages: + From
+    selection on a register selection, ⋯ + From chips. Issues: ⋯ Issue register (all / latest only).
+  - **R81 (tables):** the Links row ✕ shows on a selected or focused row too; row buttons, filter chips, cord actions
+    and Planning · Surveying get a 20 px hit area.
+  - **R52 pick in a table → on the drawing:** `editor/camera.ts` `reveal` (null when in view; else the same zoom
+    centered on it, or a fit when it's bigger than the view); `ws.selectAndReveal` bumps `ws.reveal`, the shell runs the
+    active view's `revealSelection` — Outlets, Patching and Links picks (click, ↑ / ↓), not picks on the drawing.
+  - Tests in `ui/tableKit.test.ts` (default sort / scopes, RowPick, nextCell, CellEdit) and `editor/editor.test.ts`
+    (reveal). Not checked live (the worktree's dev server has no signed-in session). Help: "The tables' bar", "Edit
+    cells in the tables", the Tables keys in Shortcuts, and the paths that moved into ⋯.

@@ -1,5 +1,5 @@
 <!-- A STATUS CHIP, the same in every table and in Properties: a cord's status (add / change / replace / remove /
-     installed), a link's kind (run / tie / backbone), a sheet's issue state. Its own pale background and dark text, so
+     installed), a link’s kind and status, a sheet’s issue state, a filter (No panel yet …). Its own pale background and dark text, so
      it reads the same in the light and dark themes. With `onclick` it's a filter toggle (`off` = hidden rows). -->
 <script lang="ts" module>
 	const TONES: Record<string, [string, string]> = {
