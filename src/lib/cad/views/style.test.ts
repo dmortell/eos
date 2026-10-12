@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest'
 import { shapePrims } from './plan'
 import { displayListToDxf } from '../render/dxf'
+import { logoHandles, logoBoxes, logoAt } from '../editor/logoHandles'
+import { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 
 const rect = { type: 'shape', id: 'R', levelId: 'L', style: { stroke: '#dc2626', weightMm: 0.5, dash: 'dashed', fill: '#fde047' }, geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 100, y: 50 } } } as Shape
@@ -34,8 +36,6 @@ describe('doors on boxes', () => {
 
 describe('logo grips on the paper', () => {
 	it('a picked logo has a grip (the resize-grip style) on its bottom edge; dragging it sets the logo\'s height', async () => {
-		const { logoHandles, logoBoxes, logoAt } = await import('../editor/logoHandles')
-		const { ProjectIndex } = await import('../domain/project')
 		const sheet = { type: 'sheet', id: 'S', number: 'S1', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' }
 		const settings = { type: 'settings', id: 'settings', portSuffix: 'alpha', usages: [], cableTypes: [], defaults: {}, titleBlock: { fields: [{ key: 'logo', logo: 'company', label: 'Our logo', wide: true }], logos: { company: { src: 'https://x/logo.png', h: 10 } } } }
 		const ix = new ProjectIndex([sheet as never]), [b] = logoBoxes(ix, sheet as never, settings as never)

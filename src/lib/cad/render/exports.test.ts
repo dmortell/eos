@@ -1,5 +1,6 @@
 // Phase 3.6 spreadsheets: the tables they write, and cord IDs coming back.
 import { describe, it, expect } from 'vitest'
+import ExcelJS from 'exceljs'
 import { patchScheduleRows, panelLabelRows, roomsWithRacks, importCordIds, cordsForSchedule, scheduleSheets, sheetName, cordRoom, PATCH_HEAD } from './exports'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -75,10 +76,9 @@ describe('patch changes in the schedule (backlog check, Dave)', () => {
 	})
 })
 
-// exceljs takes a few seconds to load the first time
+// exceljs is imported at the top of the file (a few seconds the first time, but not inside a test)
 describe('cord IDs back from the vendor', { timeout: 30000 }, () => {
 	async function sheet(rows: (string | number)[][], head = PATCH_HEAD): Promise<File> {
-		const ExcelJS = await import('exceljs')
 		const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Patch Schedule')
 		ws.addRow(head)
 		for (const r of rows) ws.addRow(r)
@@ -93,7 +93,6 @@ describe('cord IDs back from the vendor', { timeout: 30000 }, () => {
 		expect([...r.ids]).toEqual([['C2', 'PC-0002'], ['C1', 'PC-0001']])
 	})
 	it('reads every room sheet of the book (not the Bill of Materials)', async () => {
-		const ExcelJS = await import('exceljs')
 		const wb = new ExcelJS.Workbook()
 		for (const [name, r] of [['IDF-A', row(1, 'PC-1', 'C1')], ['IDF-B', row(1, 'PC-2', 'C2')]] as const) { const ws = wb.addWorksheet(name); ws.addRow(PATCH_HEAD); ws.addRow(r) }
 		wb.addWorksheet('Bill of Materials').addRow(['Cable Type', 'Length (m)', 'Status', 'Quantity'])

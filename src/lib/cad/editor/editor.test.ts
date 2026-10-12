@@ -4,6 +4,8 @@ import { pickAt, pickInside, pickTouching } from './pick'
 import { moveBy, canMove } from './behaviours'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from '../domain/project'
+import { EntityStore } from '../store/store'
+import { OutletTool } from './outletTool'
 import { demoProject } from '../domain/fixtures'
 import type { Outlet } from '../domain/types'
 import type { ToolCtx } from './tools'
@@ -93,8 +95,6 @@ describe('moving', () => {
 
 describe('the outlet tool', () => {
 	it('places the next label, skipping labels already used on the level', async () => {
-		const { EntityStore } = await import('../store/store')
-		const { OutletTool } = await import('./outletTool')
 		const store = new EntityStore()
 		store.load(demoProject())
 		const index = new ProjectIndex(store.all())
@@ -112,8 +112,6 @@ describe('the outlet tool', () => {
 		expect(placed.ports.map((p) => p.label)).toEqual(['33-003.A', '33-003.B'])
 	})
 	it('what the tool bar sets for the next outlet wins over the last one; the rest still follows the last', async () => {
-		const { EntityStore } = await import('../store/store')
-		const { OutletTool } = await import('./outletTool')
 		const store = new EntityStore()
 		store.load(demoProject())
 		let sel: string[] = []
@@ -131,8 +129,6 @@ describe('the outlet tool', () => {
 		expect(placed.ports.every((p) => p.cableType === 'cat6')).toBe(true)
 	})
 	it('zone and server room: the tool bar’s, else the last outlet’s; the first on a level takes its only server room', async () => {
-		const { EntityStore } = await import('../store/store')
-		const { OutletTool } = await import('./outletTool')
 		const store = new EntityStore()
 		// no outlets yet on the level: the first one placed
 		store.load(demoProject().filter((e) => e.type !== 'outlet' && e.type !== 'link'))

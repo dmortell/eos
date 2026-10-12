@@ -1,6 +1,6 @@
 // Pasted pictures: the same bytes are one file (uploaded once); a new one gets its id at once and uploads meanwhile.
 import { describe, it, expect } from 'vitest'
-import { PictureUploads, type PictureDeps } from './pictureUploads.svelte'
+import { PictureUploads, sha256, type PictureDeps } from './pictureUploads.svelte'
 
 const png = (s: string) => new File([s], 'image.png', { type: 'image/png' })
 
@@ -36,7 +36,6 @@ describe('pasted pictures', () => {
 		expect(t.uploads).toEqual(['Pasted 1.png', 'Pasted 1 (2).png'])
 	})
 	it('a picture already in the project (an earlier session) is used, not uploaded', async () => {
-		const { sha256 } = await import('./pictureUploads.svelte')
 		const t = deps({ [await sha256(png('a'))]: 'Pasted old.png' }), p = new PictureUploads(t.d)
 		expect(await p.add(png('a'), 'Pasted 3.png')).toMatchObject({ fileId: 'Pasted old.png', fresh: false })
 		expect(t.uploads).toEqual([])

@@ -7,6 +7,7 @@ import { snapAt, gridSnap, gridStepOf, GRID_STEPS } from './snap'
 import { pathGrips, moveNodes, joinDropped } from './grips'
 import { followAttached } from './behaviours'
 import { PathTool } from './pathTool'
+import { RackTool } from './rackTool'
 import { snapPt, type ToolCtx, type DrawOpts } from './tools'
 import { SelectTool } from './selectTool'
 import { toLine, toContainment } from '../domain/make'
@@ -163,7 +164,6 @@ describe('grips', () => {
 
 describe('placing a rack', () => {
 	it('puts the chosen rack where you click (its centre), selects it, and hands back to Select', async () => {
-		const { RackTool } = await import('./rackTool')
 		const h = harness()
 		let done = false
 		const tool = new RackTool(() => { done = true })

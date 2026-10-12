@@ -1,6 +1,6 @@
 // What the plan draws, and in what order (later = on top).
 import { describe, it, expect } from 'vitest'
-import { planDisplayList, shapePrims } from './plan'
+import { planDisplayList, shapePrims, rackDoorPrims, declutter } from './plan'
 import { parsePictureRef } from '../domain/issue'
 import { regionGrips, dragRegionGrip } from '../editor/shapeGrips'
 import { ProjectIndex } from '../domain/project'
@@ -29,8 +29,7 @@ describe('plan draw order', () => {
 	})
 })
 
-describe('rack doors on the plan', async () => {
-	const { rackDoorPrims } = await import('./plan')
+describe('rack doors on the plan', () => {
 	const p = (x: number, y: number) => ({ x, y })   // not rotated, at 0,0
 	const rack = (doors: object) => ({ type: 'rack', id: 'R', levelId: 'L', spaceId: 'S', order: 1, name: 'R', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x: 0, y: 0 }, doors }) as never
 	it('a single front door hinged left (as seen facing the front) opens outward to +y; split = two leaves', () => {
@@ -46,7 +45,6 @@ describe('rack doors on the plan', async () => {
 
 describe('labels that collide (UX review L3)', () => {
 	it('a riser / run label moves down clear of the labels already there; rack and outlet labels stay', async () => {
-		const { declutter } = await import('./plan')
 		const t = (text: string, x: number, y: number, cls: string) => ({ k: 'text' as const, at: { x, y }, text, size: 100, cls })
 		const out = declutter([t('R311', 0, 0, 'label'), t('+2105', 0, 0, 'riser-label'), t('+2600', 0, 0, 'riser-label'), t('TR1', 0, 0, 'label run-label')])
 		const ys = out.map((p) => (p.k === 'text' ? p.at.y : 0))

@@ -13,6 +13,8 @@ import type { Entity } from '../domain/drawing'
 import type { Outlet, Rack } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
+import { makeWall } from '../domain/make'
+import { makeOpening } from '../domain/openings'
 
 /** The demo's outlets as if placed in an elevation (on a wall): only those show in elevations. */
 const onWalls = (): Entity[] => demoProject().map((e) => (e.type === 'outlet' ? { ...e, inElevations: true } : e))
@@ -180,8 +182,6 @@ describe('risers in floor elevations', () => {
 
 describe('openings in elevations', () => {
 	it('a wall face is solid around a door: beside it and above it, nothing in the hole; the hole is outlined', async () => {
-		const { makeWall } = await import('../domain/make')
-		const { makeOpening } = await import('../domain/openings')
 		const w = makeWall('L1', [{ x: 0, y: 0 }, { x: 4000, y: 0 }], 100, 2600)
 		const seg = w.geom.kind === 'path' ? w.geom.segs[0].id : ''
 		const wall = { ...w, id: 'W', role: { kind: 'wall', openings: [makeOpening(seg, 1500, { width: 900, z: 0, h: 2100 })] } }

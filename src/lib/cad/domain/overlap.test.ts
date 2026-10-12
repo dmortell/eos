@@ -2,6 +2,7 @@
 // same side; the rack view marks those Us.
 import { describe, it, expect } from 'vitest'
 import { placementProblem, clashUs } from './devices'
+import { startDeviceDrag, dragDevices } from '../editor/deviceDrag'
 import type { Device, Rack } from './types'
 
 const rack = { type: 'rack', id: 'R', name: 'A01', heightU: 42, depthMm: 1000, widthMm: 600 } as Rack
@@ -24,7 +25,6 @@ describe('U overlaps', () => {
 
 describe('0U PDUs (Dave, 2026-10-05)', () => {
 	it('dragged across the rack it goes to the other side; a small drag keeps its side', async () => {
-		const { startDeviceDrag, dragDevices } = await import('../editor/deviceDrag')
 		const pdu = dev('P', 1, 30, { kind: 'pdu', face: 'none' })
 		const g = startDeviceDrag([pdu]), rackOf = () => rack
 		const across = dragDevices(g, 0, undefined, false, [pdu], rackOf, { dx: 400, face: 'front' })

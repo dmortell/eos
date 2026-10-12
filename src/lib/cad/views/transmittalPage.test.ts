@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { coverPages, type CoverRow } from './transmittalPage'
 import { paperSize } from './sheet'
+import { pagesToPdf } from '../render/pdf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Sheet } from '../domain/drawing'
@@ -33,7 +34,6 @@ describe('cover page', () => {
 
 describe('cover page as PDF', () => {
 	it('prints with the PDF fonts (nothing drawn as a picture), one page per register page', async () => {
-		const { pagesToPdf } = await import('../render/pdf')
 		const pages = coverPages(new ProjectIndex(demoProject()), first, data(60), { projectName: 'Test' })
 		const { pdf, unsupported } = await pagesToPdf(pages, async () => null)
 		expect(unsupported).toEqual([])
