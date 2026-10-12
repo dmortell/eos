@@ -36,6 +36,18 @@ describe('drawing tabs', () => {
 		t.closeOthers(s1.id)
 		expect(t.list.map((x) => viewKey(x.view))).toEqual([viewKey(sheet('S1'))])
 	})
+	it('two panes on two levels keep their own tabs and histories (2F plan beside 3F plan)', () => {
+		const t = new Tabs('p')
+		const a = t.ensure(0, plan('2F')), b = t.ensure(1, plan('3F'))
+		expect(b.id).not.toBe(a.id)
+		// each pane synced with ITS level: neither tab moves (one shared level turned pane 2's 3F tab into 2F)
+		t.sync(0, plan('2F')); t.sync(1, plan('3F'))
+		expect(t.of(0)?.id).toBe(a.id)
+		expect(t.of(1)?.view).toEqual(plan('3F'))
+		t.go(1, { levelId: '3F', spec: { kind: 'elevation', dir: 'front' } })
+		expect(t.nav(1, -1, yes)).toEqual(plan('3F'))
+		expect(t.of(0)?.view).toEqual(plan('2F'))
+	})
 	it('the preview tab shown in the other pane is not taken over', () => {
 		const t = new Tabs('p')
 		t.ensure(0, plan('L1')); t.ensure(1, plan('L2'))

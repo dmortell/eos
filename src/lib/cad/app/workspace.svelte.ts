@@ -1,4 +1,4 @@
-// Per-user, per-project session state (ADR 0003 "view and user state"): which level is open, the active tool, its
+// Per-user, per-project session state (ADR 0003 "view and user state"): which level each pane shows, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level, Outlet, Device } from '../domain/types'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
@@ -75,7 +75,19 @@ function loadScreen(): ScreenLook {
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
 
 export class Workspace {
-	levelId = $state<Id | null>(null)
+	/** Each pane's level (Dave: 2F plan beside 3F plan, area plan 3303 beside 3307) and which pane is active.
+	 *  `levelId` is the ACTIVE pane's: whatever reads or sets "the open level" (Properties, the tools, the tables,
+	 *  Floors, the Navigator, Project › Rename this level…) works on the pane you're in. */
+	paneLevels = $state<(Id | null)[]>([null, null])
+	pane = $state(0)
+	get levelId(): Id | null { return this.paneLevels[this.pane] ?? null }
+	set levelId(id: Id | null) { this.paneLevels[this.pane] = id }
+	/** One pane → two: the new pane starts on the same level. Two → one: the active pane stays, with its level. */
+	setPaneCount(n: 1 | 2): void {
+		if (n === 2) { this.paneLevels[1] = this.paneLevels[0]; return }
+		this.paneLevels[0] = this.levelId
+		this.pane = 0
+	}
 	toolId = $state<ToolId>('select')
 	/** Replaced wholesale, never mutated ($state.raw: identity changes are the signal). */
 	selection = $state.raw<Id[]>([])

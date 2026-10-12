@@ -1,5 +1,6 @@
-// What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (Dave): the level, each
-// pane's view and the active pane. `?level=<id>&v=plan,front&a=1` — views: plan | front | rear | left | right |
+// What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (Dave): the active pane's
+// level, each pane's view, the active pane and — split on two levels — each pane's level.
+// `?level=<id>&v=plan,front&a=1[&levels=<id0>,<id1>]` — views: plan | front | rear | left | right |
 // row.<spaceId>.<face>[.<rowId>] | sheet.<sheetId> | portmap.<deviceId>~<deviceId>… | ports.<rackId>[.<deviceId>] |
 // schedule.patch.<spaceId|all>[.<start>] | fill.<shapeId>.<segId>. Cameras (pan / zoom) stay per session.
 import type { ViewSpec } from '../views/space'
@@ -38,14 +39,17 @@ export function decodeSpec(t: string): ViewSpec | null {
 	return null
 }
 
-export interface ViewState { levelId: string | null; panes: ViewSpec[]; active: number }
+/** `levelId` = the active pane's level; `paneLevels` = each pane's (written only when two panes show two levels). */
+export interface ViewState { levelId: string | null; panes: ViewSpec[]; active: number; paneLevels?: (string | null)[] }
 
 export function readViewState(params: URLSearchParams): Partial<ViewState> {
 	const panes = (params.get('v') ?? '').split(',').map(decodeSpec).filter((s): s is ViewSpec => !!s).slice(0, 2)
 	const active = Number(params.get('a') ?? 0)
+	const levels = (params.get('levels') ?? '').split(',').map((l) => l || null)
 	return {
 		...(params.get('level') ? { levelId: params.get('level') } : {}),
 		...(panes.length ? { panes, active: active >= 0 && active < panes.length ? active : 0 } : {}),
+		...(panes.length === 2 && levels.length === 2 && levels.some((l) => l) ? { paneLevels: levels } : {}),
 	}
 }
 
@@ -55,5 +59,11 @@ export function writeViewState(params: URLSearchParams, s: ViewState): URLSearch
 	if (s.levelId) out.set('level', s.levelId); else out.delete('level')
 	out.set('v', s.panes.map(encodeSpec).join(','))
 	if (s.active) out.set('a', String(s.active)); else out.delete('a')
+	const lv = s.paneLevels
+	if (s.panes.length === 2 && lv && (lv[0] ?? null) !== (lv[1] ?? null)) out.set('levels', [lv[0] ?? '', lv[1] ?? ''].join(','))
+	else out.delete('levels')
 	return out
 }
+
+/** Each pane's level on load: its own from `levels`, else the one `level` (a link from before panes had their own). */
+export const paneLevelsOf = (s: Partial<ViewState>): (string | null)[] => [0, 1].map((k) => s.paneLevels?.[k] ?? s.levelId ?? null)

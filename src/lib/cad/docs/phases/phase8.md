@@ -2914,3 +2914,18 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R85 step 2 — one table of key labels:** `ui/shellKeys.ts` `KEYS` (undo, redo, group, draw order, F-keys, tabs,
   view keys …); the keyboard list (and so Help) and every menu / right-click / tab menu key read it
   (`ui/cadMenus.ts`), so a key named in a menu is the key the shell runs. Step 3 (button tooltips) next.
+- **R47 A level per pane (Dave agreed: "area plans make it more useful: 3303 beside 3307"):** `app/workspace.svelte.ts`
+  keeps `paneLevels` (one per pane) and `pane` (the active one); `levelId` is now a getter / setter on the ACTIVE
+  pane's entry, so everything that reads or sets the open level (Properties, the tools' ToolCtx via each canvas's own
+  `levelId`, the Outlets table, Navigator current, Floors, Project › Rename this level…, Find, undo's level switch)
+  works on the pane you're in without changes. `setPaneCount`: Split starts the new pane on the same level; unsplit
+  keeps the active pane with its level. `ui/CadShell.svelte`: each `ViewCanvas` gets its pane's level; a click in a
+  pane makes it active (its level becomes `ws.levelId`); `showTab` / Back / Forward set THAT pane's level (Open in the
+  other pane no longer changes the active one); the tab-sync effect uses each pane's own level, so a "3F plan" tab in
+  pane 2 no longer turns into 2F after a click in pane 1; a pane whose level was deleted shows the active pane's. The
+  other pane's work plane (green line / grip) shows only when both panes are on one level; a new viewport takes the
+  other pane's view with ITS level (or the last model view with the level it was on). URL (`app/urlState.ts`):
+  `level` stays the active pane's; `levels=<id0>,<id1>` is added only when two panes show two levels (`paneLevelsOf`
+  reads either; old links open both panes on `level`). Help: a "Put two levels side by side" entry; the work-plane
+  entry says "of the same level". Tests: `app/workspace.test.ts`, `app/tabs.test.ts` (two panes on two levels keep
+  their tabs and histories), `app/urlState.test.ts` (levels round-trip; one level → no param).

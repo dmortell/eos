@@ -18,7 +18,7 @@
 	import { onDestroy, setContext, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState, goto } from '$app/navigation'
-	import { readViewState, writeViewState } from '../app/urlState'
+	import { readViewState, writeViewState, paneLevelsOf } from '../app/urlState'
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
 	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
@@ -98,28 +98,34 @@
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 
-	// the view state comes back from the URL on a refresh (Dave): level, the panes' views, the active pane
+	// the view state comes back from the URL on a refresh (Dave): each pane's level and view, the active pane
 	const fromUrl = readViewState(page.url.searchParams)
-	if (fromUrl.levelId) ws.levelId = fromUrl.levelId
+	ws.paneLevels = paneLevelsOf(fromUrl)
+	ws.pane = fromUrl.active ?? 0
 
-	/** One or two panes side by side, each a plan or an elevation of the open level; the active one takes keys. */
+	/** One or two panes side by side, each a view of its own level; the active one takes keys, and its
+	 *  level is `ws.levelId`. */
 	let panes = $state<ViewSpec[]>(fromUrl.panes ?? [PLAN])
-	let activePane = $state(fromUrl.active ?? 0)
+	const activePane = $derived(ws.pane)
 	/** The drawing tabs (UX review D1): one list for both panes; each pane shows one. */
 	// svelte-ignore state_referenced_locally
 	const tabs = new Tabs(pid)
 	// svelte-ignore state_referenced_locally
-	panes.forEach((v, i) => tabs.ensure(i, { levelId: ws.levelId ?? undefined, spec: v }))
+	panes.forEach((v, i) => tabs.ensure(i, { levelId: ws.paneLevels[i] ?? undefined, spec: v }))
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
+	/** The level each pane draws: its own, else (gone, not loaded yet) the active pane's. */
+	const paneLevelIds = $derived(panes.map((_, i) => (project.levels.some((l) => l.id === ws.paneLevels[i]) ? ws.paneLevels[i]! : level?.id)))
+	/** A level from a tab / history that still exists, for pane `i`. */
+	const setPaneLevel = (i: number, id: string | undefined) => { if (id && project.index.get(id)) ws.paneLevels[i] = id }
 	let panesEl: HTMLDivElement | undefined = $state()
 
 
 	function toggleSplit() {
 		canvas?.cancel()
-		if (panes.length === 2) { panes = [panes[activePane]]; activePane = 0 }
-		else { panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; activePane = 0 }
+		if (panes.length === 2) { panes = [panes[activePane]]; ws.setPaneCount(1) }
+		else { ws.setPaneCount(2); panes = [panes[0], panes[0].kind === 'plan' ? { kind: 'elevation', dir: 'front' } : PLAN]; ws.pane = 0 }
 	}
 	/** Show a view in a pane. The selection follows (UX09): what neither pane draws any more is let go, so Properties
 	 *  always describes something you can see. */
@@ -128,7 +134,7 @@
 	function setPane(i: number, s: ViewSpec, how: 'go' | 'nav' | 'open' | 'keep' | 'show' = 'go') {
 		canvases[i]?.cancel()
 		ws.vpEdit = null   // another view: no longer editing inside a viewport
-		const view: TabView = { levelId: ws.levelId ?? undefined, spec: $state.snapshot(s) as ViewSpec }
+		const view: TabView = { levelId: ws.paneLevels[i] ?? undefined, spec: $state.snapshot(s) as ViewSpec }
 		if (how === 'go') tabs.go(i, view)
 		else if (how === 'open' || how === 'keep') tabs.open(i, view, how === 'keep', project.rev)
 		panes[i] = s
@@ -144,17 +150,17 @@
 	function navPane(i: number, dir: -1 | 1) {
 		const v = tabs.nav(i, dir, (x) => exists(x.spec))
 		if (!v) return
-		if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId
+		setPaneLevel(i, v.levelId)
 		setPane(i, $state.snapshot(v.spec) as ViewSpec, 'nav')
 	}
 	const navOf = (i: number) => { const t = tabs.of(i); return { back: viewName(t?.back.at(-1)?.spec), fwd: viewName(t?.fwd.at(-1)?.spec), go: (d: -1 | 1) => navPane(i, d) } }
-	/** Show a tab in a pane (its level first). */
+	/** Show a tab in a pane (its level first — that pane's only). */
 	function showTab(id: string, i = activePane) {
 		const t = tabs.get(id)
 		if (!t) return
 		tabs.paneTab[i] = id
 		tabs.save()
-		if (t.view.levelId && project.index.get(t.view.levelId)) ws.levelId = t.view.levelId
+		setPaneLevel(i, t.view.levelId)
 		setPane(i, $state.snapshot(t.view.spec) as ViewSpec, 'show')
 	}
 	/** Close a tab: the panes that showed it show the tab beside it, or (none left) the open level's plan. */
@@ -163,10 +169,10 @@
 		tabs.close(id)
 		before.forEach((p, i) => { if (p === id && i < panes.length) { const next = tabs.paneTab[i]; if (next) showTab(next, i); else setPane(i, PLAN) } })
 	}
-	// what a pane shows is what its tab holds (a level picked elsewhere changes the tab's view, without history)
+	// what a pane shows is what its tab holds (a level picked elsewhere changes the tab's view, without history) — each
+	// pane's own level: a click in the other pane changes nothing here
 	$effect(() => {
-		const lv = ws.levelId ?? undefined
-		panes.forEach((v, i) => { const view = { levelId: lv, spec: $state.snapshot(v) as ViewSpec }; untrack(() => tabs.sync(i, view)) })
+		panes.forEach((v, i) => { const view = { levelId: ws.paneLevels[i] ?? undefined, spec: $state.snapshot(v) as ViewSpec }; untrack(() => tabs.sync(i, view)) })
 	})
 	// something someone else deleted leaves the selection (and its open text box): no "3 selected" of things gone
 	$effect(() => project.store.subscribe((c) => {
@@ -254,12 +260,12 @@
 	const activeKind = $derived(vpEditKind ?? panes[activePane]?.kind ?? 'plan')
 	/** What a new viewport shows (the Viewport tool): the other pane's view, else the last plan / elevation / rack view
 	 *  looked at. Snapshots: the store freezes what it's given, and a $state proxy can't be frozen. */
-	let lastModel: Exclude<ViewSpec, { kind: 'sheet' }> | null = null
-	$effect(() => { const p = panes[activePane]; if (p && p.kind !== 'sheet') lastModel = $state.snapshot(p) as typeof lastModel })
+	type ModelView = { levelId: string; spec: Exclude<ViewSpec, { kind: 'sheet' }> }
+	let lastModel: ModelView | null = null
+	$effect(() => { const p = panes[activePane], lv = ws.levelId; if (p && p.kind !== 'sheet' && lv) lastModel = { levelId: lv, spec: $state.snapshot(p) as ModelView['spec'] } })
 	ws.viewportView = () => {
-		const other = panes.length === 2 ? panes[1 - activePane] : undefined
-		const spec = other && other.kind !== 'sheet' ? ($state.snapshot(other) as typeof lastModel) : lastModel
-		return spec && ws.levelId ? { levelId: ws.levelId, spec } : null
+		const o = 1 - activePane, other = panes.length === 2 ? panes[o] : undefined, lv = paneLevelIds[o]
+		return other && other.kind !== 'sheet' && lv ? { levelId: lv, spec: $state.snapshot(other) as ModelView['spec'] } : lastModel
 	}
 	// switching to a view the current tool doesn't work in drops back to Select
 	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind, !!vpEditKind)) untrack(() => setTool('select')) })
@@ -268,7 +274,7 @@
 	// Compared with the ADDRESS BAR (location), not page.url: after a replaceState page.url can lag, and a switch back
 	// to what the stale copy said was skipped (Dave: plan → sheet sometimes left v=plan).
 	$effect(() => {
-		const state = { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane }
+		const state = { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane, paneLevels: panes.map((_, i) => ws.paneLevels[i] ?? null) }
 		const url = new URL(location.href)
 		const next = writeViewState(url.searchParams, state)
 		if (next.toString() === url.searchParams.toString()) return
@@ -290,10 +296,13 @@
 		untrack(() => { ws.focus = r.id; ws.levelId = r.levelId; setPane(activePane, { kind: 'row', spaceId: r.spaceId, face: 'front' }); ws.select([r.id]) })
 	})
 
-	/** Open the first level once levels arrive (and if the open one disappears). */
+	/** Open the first level once levels arrive (and if the open one disappears); a pane whose level went shows the
+	 *  active pane's. */
 	$effect(() => {
-		const lv = project.levels
-		if (lv.length && !lv.some((l) => l.id === ws.levelId)) ws.levelId = lv[0].id
+		const lv = project.levels, ok = (id: string | null) => lv.some((l) => l.id === id)
+		if (!lv.length) return
+		if (!ok(ws.levelId)) ws.levelId = lv[0].id
+		panes.forEach((_, i) => { if (!ok(ws.paneLevels[i])) ws.paneLevels[i] = ws.levelId })
 	})
 
 
@@ -517,7 +526,7 @@
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
-		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation)"><Icon name="columns" size={15} /></button>
+		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>
 		<button class="ib {tablesShown ? '' : 'dim'}" onclick={() => panels.toggle('bottom')} title="{tablesShown ? 'Hide' : 'Show'} the tables (outlets, patch list, sheets, links) — Ctrl+,"><Icon name="panelBottom" size={15} /></button>
 		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="eyeSlash" size={15} /></button>
 	</div>
@@ -570,9 +579,10 @@
 						<SplitBar {panels} container={panesEl} />
 					{/if}
 					<div class="pane" style:flex={panes.length === 2 ? `${i === 0 ? panels.split : 1 - panels.split} 1 0` : undefined}>
-						<ViewCanvas bind:this={canvases[i]} {project} {ws} levelId={level.id} {spec}
-							other={panes.length === 2 ? panes[1 - i] : undefined} active={activePane === i}
-							onspec={(s) => setPane(i, s)} onfocus={() => (activePane = i)} nav={navOf(i)} />
+						<!-- each pane its own level; the other's work plane shows only when both are on the same one -->
+						<ViewCanvas bind:this={canvases[i]} {project} {ws} levelId={paneLevelIds[i] ?? level.id} {spec}
+							other={panes.length === 2 && paneLevelIds[1 - i] === paneLevelIds[i] ? panes[1 - i] : undefined} active={activePane === i}
+							onspec={(s) => setPane(i, s)} onfocus={() => (ws.pane = i)} nav={navOf(i)} />
 					</div>
 				{/each}
 			</div>
