@@ -20,7 +20,7 @@ import { spaceOf, isPaperSpec } from './space'
 import { applyLayers } from './layers'
 import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
-import { scheduleTitle } from './schedule'
+import { scheduleTitle, patchScheduleLayout } from './schedule'
 import { fieldCtx, withFields } from '../domain/fields'
 import { fillTitleBlock, shownTitleBlock, withDetails, drawnFallback, type TbContext, type TbShown, type TitleBlockTemplate, type ProjectDetails } from '../domain/titleBlock'
 
@@ -46,6 +46,8 @@ export interface SheetOpts {
 	projectName?: string; template?: TitleBlockTemplate
 	/** What {DATE} fields read (YYYY-MM-DD); absent = today. An issued sheet reads its last issue date, so midnight does not change its print. */
 	fieldDate?: string
+	/** The sheet's viewports, for one that carries on from another (a patch schedule continued: `spec.after`). */
+	vps?: Viewport[]
 	/** The Project details the title block falls back on (client, site address, author, company). */
 	details?: ProjectDetails
 	/** Floorplans in black and white, outlets by usage color, cords along the channels — the project's old settings
@@ -107,11 +109,24 @@ export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {
 	return applyLayers(viewContent(ix, vp, o), ix, { hidden, sort: vp.view.spec.kind === 'plan' }).draw
 }
 
+const paperFitOf = (vp: Viewport) => vp.rect.h * vp.scale - 2 * PAPER_PAD
+
+/** Where a patch schedule viewport starts: its own From cord, or — when it continues another viewport — the cord that
+ *  one stops before (so growing or shrinking the first never drops or repeats a cord). A broken or looping chain falls back to the own start. */
+function scheduleStart(ix: ProjectIndex, vp: Viewport, vps: Viewport[] | undefined, seen = new Set<string>()): number | undefined {
+	const spec = vp.view.spec
+	if (spec.kind !== 'schedule') return undefined
+	const prev = spec.after && !seen.has(vp.id) ? vps?.find((v) => v.id === spec.after) : undefined
+	if (!prev || prev.view.spec.kind !== 'schedule' || prev.view.spec.spaceId !== spec.spaceId) return spec.start
+	seen.add(vp.id)
+	return patchScheduleLayout(ix, spec.spaceId, scheduleStart(ix, prev, vps, seen), { fit: paperFitOf(prev) }).next ?? Infinity
+}
+
 function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec, { cords: o.cords })
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
-	if (isPaperSpec(spec)) return paperDisplayList(ix, spec, { fills: o.fills, routes: o.routes, fit: vp.rect.h * vp.scale - 2 * PAPER_PAD })
+	if (isPaperSpec(spec)) return paperDisplayList(ix, spec, { fills: o.fills, routes: o.routes, fit: paperFitOf(vp), start: spec.kind === 'schedule' ? scheduleStart(ix, vp, o.vps) : undefined })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray, byUsage: o.byUsage })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale, blocks: o.blocks })
@@ -189,7 +204,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: 'viewport-bg' })
 		// text fields ({LEVEL}, {COUNT:…}, domain/fields.ts) read the viewport's level (a riser: the whole project)
 		const ctx = fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
-		for (const p of withFields(viewportContent(ix, vp, o), ctx)) out.push(placePrim(p, t, k, clip))
+		for (const p of withFields(viewportContent(ix, vp, { ...o, vps: sheet.viewports }), ctx)) out.push(placePrim(p, t, k, clip))
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
@@ -213,7 +228,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 function autoLabel(ix: ProjectIndex, vp: Viewport): string | undefined {
 	const spec = vp.view.spec
 	if (spec.kind === 'ports') return `${ix.nameOf(spec.rackId) || '(rack gone)'}${spec.deviceId ? ` · ${ix.nameOf(spec.deviceId) || '(gone)'}` : ''} port grid`
-	if (spec.kind === 'schedule') return `${scheduleTitle(ix, spec.spaceId)}${spec.start && spec.start > 1 ? ` (from #${spec.start})` : ''}`
+	if (spec.kind === 'schedule') return `${scheduleTitle(ix, spec.spaceId)}${spec.after ? ' (continued)' : spec.start && spec.start > 1 ? ` (from #${spec.start})` : ''}`
 	if (spec.kind !== 'section') return undefined
 	const s = ix.get(spec.sectionId)
 	return s?.type === 'section' ? `SECTION ${s.name}-${s.name}` : undefined   // plain hyphen (Dave): PDF fonts have no ′

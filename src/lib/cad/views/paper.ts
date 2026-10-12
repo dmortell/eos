@@ -23,13 +23,15 @@ export interface PaperOpts {
 	routes?: Map<Id, Route>
 	/** The height (mm) a schedule may take: its viewport's window less the padding; none = every row. */
 	fit?: number
+	/** The first cord a schedule shows, when it isn't the spec's own `start` (a viewport continued from another). */
+	start?: number
 }
 
 export function paperDisplayList(ix: ProjectIndex, spec: PaperSpec, o: PaperOpts = {}): Prim[] {
 	switch (spec.kind) {
 		case 'portmap': return portMapDisplayList(ix, spec.deviceIds)
 		case 'ports': return portGridDisplayList(ix, spec.rackId, spec.deviceId)
-		case 'schedule': return patchScheduleDisplayList(ix, spec.spaceId, spec.start, { fit: o.fit })
+		case 'schedule': return patchScheduleDisplayList(ix, spec.spaceId, o.start ?? spec.start, { fit: o.fit })
 		case 'fill': return fillSectionDisplayList(ix, spec.shapeId, spec.segId, o.fills ?? fillsHere(ix, o.routes))
 	}
 }

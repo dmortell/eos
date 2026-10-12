@@ -3276,3 +3276,4 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q68** `withDetails` fills a missing title-block logo from the Project details (`logoUrl`, `companyLogoUrl` and heights). Test in `domain/titleBlock.test.ts`.
 - **Q69** `followSection(…, moved)`: a note mirrored with its section is re-described on the section’s new frame. Test in `editor/moveTool.test.ts`.
 - **Q72** the Racks window’s room ⋯ menu has panel labels / frame sheets for this level and all levels.
+- **Q67** a patch-schedule viewport continued from a typed "From cord" number dropped or repeated a cord when the viewport before it changed size. New `after` on the schedule spec (Properties › Continue from): the viewport starts where the previous one stops (`scheduleStart` in `views/sheet.ts`, `patchScheduleLayout().next`). A start past the end now shows an empty table. Test in `views/sheet.test.ts`; Help updated.

@@ -86,7 +86,7 @@ export type ViewSpec =
 	| { kind: 'ports'; rackId: Id; deviceId?: Id }
 	/** A table drawn on paper (views/schedule.ts): the patch schedule of a server room (none = every room), from cord
 	 *  `start` (1-based; a long schedule goes on over several viewports). Paper mm at 1:1. */
-	| { kind: 'schedule'; table: 'patch'; spaceId?: Id; start?: number }
+	| { kind: 'schedule'; table: 'patch'; spaceId?: Id; start?: number; /** carries on from where this viewport (of the same sheet) stops; wins over `start` */ after?: Id }
 	/** A run segment's section with its cables packed in, its fill % and its cables (views/fillSection.ts). Paper mm
 	 *  at 1:1, the section at a true scale. */
 	| { kind: 'fill'; shapeId: Id; segId: Id }

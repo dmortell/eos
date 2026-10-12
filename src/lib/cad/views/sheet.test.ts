@@ -180,6 +180,22 @@ describe('paper viewports: a port grid, a patch schedule, a fill section (review
 		// every row fits the window it was sized to
 		expect(viewportContent(ix(), vp).some((p) => p.k === 'text' && p.text.startsWith('…'))).toBe(false)
 	})
+	it('a schedule viewport continued from another starts where that one stops, however tall it is (Q67)', () => {
+		const cords = Array.from({ length: 30 }, (_, i) => ({ type: 'cord', id: `CX${i}`, kind: 'patch', a: { on: 'P1', port: 5 + i, face: 'front' }, b: { on: 'SW1', port: 5 + i }, cableType: 'cat6a', colour: '#000', lengthM: 2, lengthLocked: false, status: 'installed' }))
+		const i = new ProjectIndex([...demoProject(), ...cords] as never)
+		const spec = { kind: 'schedule' as const, table: 'patch' as const, spaceId: 'SR-A' }
+		const mk = (h: number) => {
+			const a = { id: 'A', view: { levelId: 'L33', spec }, rect: { x: 10, y: 10, w: 300, h }, scale: 1, centre: { x: 0, y: 0 } }
+			const b = { id: 'B', view: { levelId: 'L33', spec: { ...spec, after: 'A' } }, rect: { x: 10, y: 150, w: 300, h: 100 }, scale: 1, centre: { x: 0, y: 0 } }
+			return [a, b]
+		}
+		const nums = (vps: ReturnType<typeof mk>, id: string) => viewportContent(i, vps.find((v) => v.id === id)!, { vps }).flatMap((p) => (p.k === 'text' && p.cls === 'legend-text' && p.at.x < 2 && /^\d+$/.test(p.text) ? [Number(p.text)] : []))
+		for (const h of [60, 90]) {
+			const vps = mk(h), a = nums(vps, 'A'), b = nums(vps, 'B')
+			expect(a.length).toBeGreaterThan(0)
+			expect(b[0]).toBe(a.at(-1)! + 1)   // no cord dropped or repeated, whatever the first one's height
+		}
+	})
 	it('a rack’s port grid shows its panels’ port labels; it adds no scale to the title block', () => {
 		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'ports' as const, rackId: 'R1' } }, rect: { x: 20, y: 20, w: 300, h: 100 }, scale: 1, centre: { x: 146, y: 46 } }
 		const plan = { id: 'P', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 130, w: 100, h: 100 }, scale: 100, centre: { x: 0, y: 0 } }

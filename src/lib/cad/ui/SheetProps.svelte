@@ -168,9 +168,17 @@
 			</label>
 		{:else if vp.view.spec.kind === 'schedule'}
 			{@const ss = vp.view.spec}
-			<label class="row" title="The first cord (#) it shows: a long schedule goes on in another viewport from where this one stops">From cord
+			<label class="row" title="A long schedule goes on in another viewport from where the one before it stops — it follows when that one grows or shrinks">Continue from
+				<select class="inp" value={ss.after ?? ''} onchange={(e) => { const { after: _, ...rest } = ss; setSpec(vp, 'Schedule continues', e.currentTarget.value ? { ...rest, after: e.currentTarget.value } : rest) }}>
+					<option value="">(a cord number)</option>
+					{#each s.viewports.filter((o) => o.id !== vp.id && o.view.spec.kind === 'schedule' && o.view.spec.spaceId === ss.spaceId) as o (o.id)}<option value={o.id}>{o.label ?? 'Patch schedule'} @ {Math.round(o.rect.x)},{Math.round(o.rect.y)}</option>{/each}
+				</select>
+			</label>
+			{#if !ss.after}
+			<label class="row" title="The first cord (#) it shows">From cord
 				<input class="inp" type="number" min="1" value={ss.start ?? 1} onchange={(e) => { const n = Math.max(1, Math.round(num(e.currentTarget.value)) || 1); const { start: _, ...rest } = ss; setSpec(vp, 'Schedule from cord', n > 1 ? { ...rest, start: n } : rest) }} />
 			</label>
+			{/if}
 		{/if}
 		{#if !isPaperSpec(vp.view.spec)}
 		<label class="row">Scale 1:

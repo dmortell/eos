@@ -33,11 +33,17 @@ export function scheduleTitle(ix: ProjectIndex, spaceId?: Id): string {
 type Line = { kind: 'head'; status: Cord['status']; n: number } | { kind: 'row'; status: Cord['status']; cells: string[] }
 
 export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefined, start = 1, o: ScheduleOpts = {}): Prim[] {
+	return patchScheduleLayout(ix, spaceId, start, o).prims
+}
+
+/** The schedule drawn from cord `start`, and `next`: the cord # the next viewport carries on from (none = everything is shown;
+ *  `rows + 1` when `start` is already past the end). */
+export function patchScheduleLayout(ix: ProjectIndex, spaceId: Id | undefined, start = 1, o: ScheduleOpts = {}): { prims: Prim[]; next?: number } {
 	const st = ix.get<ProjectSettings>('settings')
 	const typeLabel = (id: string) => cableTypeLabel(st?.type === 'settings' ? st : undefined, id)
 	const rows = patchScheduleRows(ix, cordsForSchedule(ix, spaceId), typeLabel).map((r) => ({ status: r.status, cells: r.cells.map(String) }))
 	const out: Prim[] = [{ k: 'text', at: { x: 0, y: 4 }, text: scheduleTitle(ix, spaceId), size: 3.5, cls: 'legend-title' }]
-	if (!rows.length) { out.push({ k: 'text', at: { x: 0, y: 9 }, text: 'No patch cords', size: 2.5, cls: 'legend-text' }); return out }
+	if (!rows.length) { out.push({ k: 'text', at: { x: 0, y: 9 }, text: 'No patch cords', size: 2.5, cls: 'legend-text' }); return { prims: out } }
 	const count = (s: Cord['status']) => rows.filter((r) => r.status === s).length
 	out.push({ k: 'text', at: { x: 0, y: 8.5 }, text: STATUS_ORDER.filter(count).map((s) => `${count(s)} ${s}`).join(' · '), size: 2.5, cls: 'legend-text' })
 
@@ -48,7 +54,7 @@ export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefin
 	const fitText = (t: string, w: number) => { const n = Math.floor((w - 2 * PAD) / CHAR); return t.length > n ? `${t.slice(0, Math.max(1, n - 1))}…` : t }
 
 	// the lines from cord `start` on: each status group's heading, then its cords
-	const from = Math.max(0, Math.min(rows.length - 1, Math.round(start) - 1)), lines: Line[] = []
+	const from = Math.max(0, Math.round(start) - 1), lines: Line[] = []   // past the end: nothing left to show
 	for (const s of STATUS_ORDER) {
 		const group = rows.map((r, i) => ({ r, i })).filter((x) => x.r.status === s && x.i >= from)
 		if (!group.length) continue
@@ -67,6 +73,7 @@ export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefin
 	cols.forEach(([, h], c) => out.push({ k: 'text', at: { x: xs[c] + PAD, y: TOP + ROW - 1.1 }, text: h, size: SIZE, cls: 'legend-title' }))
 	// column rules down each run of cord rows (not through the status headings, which span the table)
 	let y = TOP + ROW, runTop = y
+	if (!lines.length) out.push({ k: 'text', at: { x: PAD, y: y + ROW - 1.1 }, text: 'All cords are shown in the viewports before this one', size: SIZE, cls: 'legend-text' })
 	const colRules = (y0: number, y1: number) => { if (y1 > y0) for (const x of xs.slice(1, -1)) out.push({ k: 'line', pts: [{ x, y: y0 }, { x, y: y1 }], cls: 'legend-rule' }) }
 	colRules(TOP, y)
 	for (const l of shown) {
@@ -79,9 +86,10 @@ export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefin
 		y += ROW
 	}
 	colRules(runTop, y)
+	let next: number | undefined = from >= rows.length ? rows.length + 1 : undefined
 	if (more) {
-		const next = Number(lines.filter((l) => l.kind === 'row')[drawn]?.cells[0] ?? 0)
-		out.push({ k: 'text', at: { x: 0, y: bottom + FOOT - 0.5 }, text: `… ${more} more cord${more === 1 ? '' : 's'}: from #${next} in another viewport (Properties › From cord)`, size: 2.5, cls: 'legend-text' })
+		next = Number(lines.filter((l) => l.kind === 'row')[drawn]?.cells[0] ?? 0)
+		out.push({ k: 'text', at: { x: 0, y: bottom + FOOT - 0.5 }, text: `… ${more} more cord${more === 1 ? '' : 's'}: from #${next} in another viewport (Properties › Continue from)`, size: 2.5, cls: 'legend-text' })
 	}
-	return out
+	return { prims: out, next }
 }
