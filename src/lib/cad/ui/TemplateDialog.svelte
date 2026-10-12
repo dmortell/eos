@@ -63,7 +63,4 @@
 	label { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 6px; }
 	input, select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; min-width: 0; }
 	.hint { margin: 0; padding: 0 12px 8px; color: var(--cad-muted, #71717a); font-size: 11px; }
-	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
-	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }
-	.btn:disabled { opacity: 0.5; }
 </style>

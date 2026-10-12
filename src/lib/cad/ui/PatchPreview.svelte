@@ -41,11 +41,9 @@
 			</div>
 		{/if}
 		{#snippet footer()}
-			<div class="row">
-				<button class="yes" disabled={!p.rows.length} onclick={() => p.ok()}>Patch {p.rows.length}</button>
-				<button onclick={() => p.cancel()}>Cancel</button>
-				<span class="keys">Enter · Esc</span>
-			</div>
+			<span class="keys">Enter · Esc</span>
+			<button class="btn" onclick={() => p.cancel()}>Cancel</button>
+			<button class="btn go" disabled={!p.rows.length} onclick={() => p.ok()}>Patch {p.rows.length}</button>
 		{/snippet}
 	</CadDialog>
 {/if}
@@ -58,10 +56,4 @@
 	.arr { color: var(--cad-faint, #a1a1aa); }
 	.none { margin: 0; color: var(--cad-muted, #71717a); }
 	.skipped { color: #92400e; font-size: 11px; margin-top: 6px; }
-	.row { display: flex; align-items: center; gap: 6px; }
-	button { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); color: inherit; }
-	button.yes { background: #2563eb; border-color: #1d4ed8; color: #fff; font-weight: 600; }
-	button.yes:disabled { opacity: 0.5; }
-	button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
-	.keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 </style>

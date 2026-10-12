@@ -86,4 +86,12 @@
 	.cad-dlg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 12px 12px; }
 	.cad-dlg-body.flush { padding: 0; }
 	.cad-dlg-foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); }
+	/* the footer's buttons, one look in every dialog: Cancel, then the action (.go) on the right; .keys = a key reminder */
+	.cad-dlg-foot :global(.btn) { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); color: inherit; font-size: 12px; }
+	.cad-dlg-foot :global(.btn:hover:not(:disabled)) { background: var(--cad-hover); }
+	.cad-dlg-foot :global(.btn.go) { background: #2563eb; border-color: #1d4ed8; color: #fff; font-weight: 600; }
+	.cad-dlg-foot :global(.btn.go:hover:not(:disabled)) { background: #1d4ed8; }
+	.cad-dlg-foot :global(.btn:disabled) { opacity: 0.5; }
+	.cad-dlg-foot :global(.btn:focus-visible) { outline: 2px solid #2563eb; outline-offset: 1px; }
+	.cad-dlg-foot :global(.keys) { margin-right: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 </style>
