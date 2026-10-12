@@ -35,7 +35,7 @@ describe('a box’s floor-tile grid', () => {
 		expect(ls[3]).toEqual([{ x: -1000, y: -50 }, { x: 1000, y: -50 }])
 	})
 	it('a box on the plan draws its tiles inside itself; a box without tiles draws none', () => {
-		const lines = (s: Shape) => shapePrims(s, 1).filter((p) => p.cls === 'tile-line')
+		const lines = (s: Shape) => shapePrims(s, 1).filter((p) => p.k !== 'image' && p.cls === 'tile-line')
 		expect(lines(box()).length).toBe(0)
 		const t = lines(box({ tiles: DEFAULT_TILES }))
 		expect(t.length).toBe(5)
@@ -45,7 +45,7 @@ describe('a box’s floor-tile grid', () => {
 		expect(t.every((q) => q.src === 'B1')).toBe(true)
 	})
 	it('a turned box turns its tiles with it', () => {
-		const t = shapePrims(box({ tiles: { mm: 1000, dx: 0, dy: 0 } }, 90), 1).filter((p) => p.cls === 'tile-line')
+		const t = shapePrims(box({ tiles: { mm: 1000, dx: 0, dy: 0 } }, 90), 1).filter((p) => p.k !== 'image' && p.cls === 'tile-line')
 		expect(t.length).toBe(1 + 1)   // 2000 wide → one line at 1000; 1300 tall → one at 1000
 		const first = t[0]
 		// the vertical (local) line is horizontal once turned a quarter
