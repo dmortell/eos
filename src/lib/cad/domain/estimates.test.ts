@@ -146,7 +146,7 @@ describe('estimates: selected outlet’s route, BOM, cable schedule', () => {
 		expect(estimates.find((e) => e.outletId === 'O2')!.roomSet).toBeUndefined()   // guessed from the level
 		const prims = routesOf(ix, routes, 'L1', ['O1'], null, estimates)
 		expect(prims.length).toBeGreaterThan(0)
-		expect(prims.every((q) => q.cls === 'trace-route trace-route-est')).toBe(true)
+		expect(prims.every((q) => q.k !== 'image' && q.cls === 'trace-route trace-route-est')).toBe(true)
 		expect(routesOf(ix, routes, 'L1', ['O2'], null, estimates)).toEqual([])   // room not set: nothing
 		expect(routesOf(ix, routes, 'L1', [], null, estimates)).toEqual([])
 	})
@@ -154,8 +154,8 @@ describe('estimates: selected outlet’s route, BOM, cable schedule', () => {
 		const ix = project([outlet('O1', 8000, 1500, { ports: 2 }), link('K1', 'O1', 1)])
 		const { routes, estimates } = routeAll(ix, CABLE)
 		const prims = routesOf(ix, routes, 'L1', ['O1'], null, estimates)
-		expect(prims.filter((q) => q.cls === 'trace-route')).not.toHaveLength(0)
-		expect(prims.filter((q) => q.cls === 'trace-route trace-route-est')).not.toHaveLength(0)
+		expect(prims.filter((q) => q.k !== 'image' && q.cls === 'trace-route')).not.toHaveLength(0)
+		expect(prims.filter((q) => q.k !== 'image' && q.cls === 'trace-route trace-route-est')).not.toHaveLength(0)
 	})
 	it('estimateMetres: per cable type, with waste; no-route ones apart', () => {
 		const { estimates } = routeAll(project([outlet('O1', 8000, 1500, { ports: 2 }), outlet('O2', 8000, 20000)]), { slackM: 0.5, wastePct: 10 })
