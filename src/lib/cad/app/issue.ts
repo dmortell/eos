@@ -7,6 +7,7 @@ import type { Id } from '../domain/types'
 import { doc, getDoc, writeBatch } from 'firebase/firestore'
 import type { CadProject } from './project.svelte'
 import { storeFile } from './projectFiles'
+import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
 import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
@@ -47,8 +48,12 @@ export async function previewIssue(project: CadProject, sheets: Sheet[], first: 
 
 async function saveFrozen(project: CadProject, sheet: Sheet, rev: string, issueId: string, prims: Prim[]): Promise<void> {
 	const chunks = splitChunks(JSON.stringify(prims)), k = key(sheet.id, rev)
+	// its floorplan files' settings as they are now: a reprint draws them like this, whatever is masked / hidden later
+	const ids = [...new Set(prims.flatMap((p) => (p.k === 'image' ? [parseUnderlayRef(p.url)?.fileId] : []).filter((x): x is string => !!x)))]
+	const files: Record<string, FileSnapshot> = {}
+	for (const id of ids) { const fd = (await getDoc(doc(project.db, 'files', id))).data(); if (fd?.url) files[id] = fileSnapshot(fd) }
 	const b = writeBatch(project.db)
-	b.set(doc(project.db, col(project), k), { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts: chunks.length, at: Date.now() })
+	b.set(doc(project.db, col(project), k), { sheetId: sheet.id, rev, issueId, ...paperSize(sheet), parts: chunks.length, at: Date.now(), ...(ids.length ? { files: JSON.stringify(files) } : {}) })
 	chunks.forEach((json, i) => b.set(doc(project.db, col(project), `${k}~p${i}`), { json }))
 	await b.commit()
 }
@@ -56,8 +61,17 @@ async function loadFrozen(project: CadProject, sheetId: string, rev: string): Pr
 	const k = key(sheetId, rev), head = (await getDoc(doc(project.db, col(project), k))).data()
 	if (!head) throw new Error(`no frozen copy of ${sheetId} rev ${rev}`)
 	const parts = await Promise.all(Array.from({ length: head.parts as number }, (_, i) => getDoc(doc(project.db, col(project), `${k}~p${i}`))))
-	return { w: head.w, h: head.h, prims: JSON.parse(parts.map((p) => p.data()?.json ?? '').join('')) }
+	const prims = JSON.parse(parts.map((p) => p.data()?.json ?? '').join('')) as Prim[]
+	// with its floorplans' settings as issued (copies frozen before 2026-10-12 have none: the file as it is now)
+	const files = head.files ? (JSON.parse(head.files as string) as Record<string, FileSnapshot>) : {}
+	return { w: head.w, h: head.h, prims: prims.map((p) => {
+		const ref = p.k === 'image' ? parseUnderlayRef(p.url) : null
+		return ref && files[ref.fileId] ? { ...p, url: asWasRef(ref.fileId, ref.page, files[ref.fileId]) } : p
+	}) }
 }
+/** An image url standing for "this floorplan page, drawn with these settings" (resolved by frozenImages). */
+const AS_WAS = 'aswas:'
+const asWasRef = (fileId: string, page: number, fd: FileSnapshot) => `${AS_WAS}${encodeURIComponent(JSON.stringify({ fileId, page, fd }))}`
 
 /** Images in a sheet's PDF: an image shape's `picture:` reference is loaded from its file first. */
 export const pictureLoader = (project: CadProject): ImageLoader => async (url, kind, gray) => {
@@ -69,6 +83,11 @@ export const pictureLoader = (project: CadProject): ImageLoader => async (url, k
 /** Images in frozen lists: a floorplan reference is rendered from its file again (a picture loaded from its file). */
 const frozenImages = (project: CadProject): ImageLoader => async (url, kind, gray) => {
 	if (url.startsWith(PICTURE_REF)) return pictureLoader(project)(url, kind, gray)
+	if (url.startsWith(AS_WAS)) {
+		const { fileId, page, fd } = JSON.parse(decodeURIComponent(url.slice(AS_WAS.length))) as { fileId: string; page: number; fd: FileSnapshot }
+		const img = await project.pdf.imageAsWas(fileId, page, fd)
+		return img ? browserImageLoader(img, kind, gray) : null
+	}
 	const ref = parseUnderlayRef(url)
 	if (!ref) return browserImageLoader(url, kind, gray)
 	const pl = await project.pdf.placed(ref)

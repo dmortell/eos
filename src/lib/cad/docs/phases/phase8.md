@@ -2680,3 +2680,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `uploads/parts/PdfState.svelte.ts` re-exports it so the older tools (Pages, Sheets, Outlets, Drawings, surveys) keep
   working (`app/pdf.svelte.ts`). (Drawings' use of `lib/versioning` stays — it goes with Drawings.) Live: cad's
   floorplan, Uploads and Outlets load.
+- **R24c Issued sheets reprint their floorplans as issued:** a frozen copy keeps a snapshot of each floorplan file's
+  settings (url, pages with their masks, PDF layers, markups) and a reprint — a package with an unchanged sheet, an
+  issue's PDF again, a sheet's revision — draws the floorplan from that, not from whatever is masked / hidden since
+  (`app/issue.ts` `saveFrozen` / `loadFrozen`, `app/pdf.svelte.ts` `imageAsWas`). Copies frozen before today have no
+  snapshot and reprint as before. (R24d left as is: cad measures a calibration line along its length, which is right;
+  Uploads measures along x or y.)

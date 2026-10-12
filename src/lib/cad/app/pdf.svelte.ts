@@ -17,6 +17,11 @@ export const PROVISIONAL_SF = (25.4 / 72) * 100
 
 /** Where a rendered page (w × h px) sits in plan mm: the calibration origin lands on plan (0, 0). The page's crop
  *  (rendered px, the same space as the origin — as the outlets / model3d tools read it) becomes a clip. */
+/** What an issued sheet keeps of a floorplan file, to reprint it as it was: its url and the settings that change its
+ *  picture (masks are in `pages`; PDF layers; markups). */
+export interface FileSnapshot { url: string; pages?: Record<string, unknown>; hiddenLayers?: string[]; hideMarkups?: boolean }
+export const fileSnapshot = (fd: Record<string, unknown>): FileSnapshot => ({ url: String(fd.url), ...(fd.pages ? { pages: fd.pages as Record<string, unknown> } : {}), ...(Array.isArray(fd.hiddenLayers) ? { hiddenLayers: fd.hiddenLayers as string[] } : {}), ...(fd.hideMarkups ? { hideMarkups: true } : {}) })
+
 export function placementFromCalib(c: PageCalib | undefined, w: number, h: number): Omit<Placed, 'url'> | null {
 	const sf = Number(c?.scale?.scale)
 	if (!sf || !w || !h) return null
@@ -102,6 +107,23 @@ export class PdfCache {
 			for (const key of new Set([...Object.keys(this.#ready), ...this.#jobs.keys()])) if (key.startsWith(`${fileId}#`)) this.#jobs.set(key, this.#render(fileId, Number(key.split('#')[1]), key))
 		}))
 	}
+	/** A floorplan page drawn with the file's settings AS THEY WERE (`fd`: a snapshot kept with an issued sheet — its
+	 *  masks / PDF layers / markups then), for reprinting it as issued (review R24c). Cached per snapshot. */
+	#asWas = new Map<string, Promise<string | undefined>>()
+	imageAsWas = (fileId: string, page: number, fd: FileSnapshot): Promise<string | undefined> => {
+		const k = `${fileId}#${page}@${JSON.stringify(fd)}`
+		let job = this.#asWas.get(k)
+		if (!job) {
+			job = (async () => {
+				const pdf = new PdfState()
+				pdf.applyFileSettings(fd)
+				try { await pdf.load(fd.url); return (await pdf.renderToObjectUrl(page, RENDER_SCALE)).objectUrl } catch { return undefined } finally { pdf.destroy() }
+			})()
+			this.#asWas.set(k, job)
+		}
+		return job
+	}
+
 	destroy(): void {
 		for (const off of this.#watching.values()) off()
 		this.#watching.clear()
