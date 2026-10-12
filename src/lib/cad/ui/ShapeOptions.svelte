@@ -1,4 +1,4 @@
-<!-- The Shape / Box tools' options in the tool bar: rectangle / ellipse / polygon; a polygon's sides and whether the
+<!-- The Shape / Box tools' options in the tool bar: rectangle / ellipse / polygon (the Shape tool: arc too); a polygon's sides and whether the
      click after its centre is a corner (inscribed) or an edge's middle (circumscribed). The Box tool (`box`) adds the
      height it stands up to and its base Z (backlog "Box / desk tool": a desk is 750 from the floor). -->
 <script lang="ts">
@@ -14,6 +14,7 @@
 <label class="opt">{box ? 'Footprint' : 'Shape'}
 	<select value={o.kind} onchange={(e) => set({ kind: e.currentTarget.value as ShapeKind })}>
 		<option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="polygon">Polygon</option>
+		{#if !box}<option value="arc">Arc (3 points)</option>{/if}
 	</select></label>
 {#if o.kind === 'polygon'}
 	<label class="opt" title="Number of sides (3–12)">Sides <input type="number" min="3" max="12" value={o.sides} onchange={(e) => set({ sides: Math.max(3, Math.min(12, Number(e.currentTarget.value) || 6)) })} /></label>
@@ -26,7 +27,11 @@
 	<label class="opt" title="How tall it is (mm) — shows in elevations and sections">Height <input type="number" min="1" step="10" value={o.height ?? 750} onchange={(e) => set({ height: Math.max(1, Number(e.currentTarget.value) || 750) })} /></label>
 	<label class="opt" title="Its base above the floor (mm)">Z <input type="number" step="10" value={o.z ?? 0} onchange={(e) => set({ z: Number(e.currentTarget.value) || 0 })} /></label>
 {/if}
-<span class="hint">{o.kind === 'polygon' ? 'click the centre, then a corner' : 'corner to corner'} · Shift: {o.kind === 'rect' ? 'square' : o.kind === 'ellipse' ? 'circle' : '15° steps'}</span>
+{#if o.kind === 'arc'}
+	<span class="hint">click its start, a point it passes through, then its end · Esc cancels</span>
+{:else}
+	<span class="hint">{o.kind === 'polygon' ? 'click the centre, then a corner' : 'corner to corner'} · Shift: {o.kind === 'rect' ? 'square' : o.kind === 'ellipse' ? 'circle' : '15° steps'}</span>
+{/if}
 
 <style>
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }

@@ -6,7 +6,7 @@ import type { Pt } from '../domain/types'
 import type { Shape, Geometry } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { ViewSpace } from '../views/space'
-import { outlineOf, sameFrame } from '../domain/shapes'
+import { outlineOf, sameFrame, arcPoints, arcThrough } from '../domain/shapes'
 import { toPaper, fromPaper } from '../views/sheet'
 import { dimLine, dimOffset } from '../views/plan'
 import { angleStep } from './constrain'
@@ -50,6 +50,7 @@ export function regionGrips(g: Geometry): Pt[] {
 		return [{ x: rx, y: 0 }, { x: 0, y: ry }, { x: -rx, y: 0 }, { x: 0, y: -ry }].map((p) => add(g.centre, rot(p, a)))
 	}
 	if (g.kind === 'polygon') return g.pts
+	if (g.kind === 'arc') return arcPoints(g)   // its start, middle and end: drag one, the arc goes through the others
 	// notes (backlog "Edit line and note end points"): a leader's / cloud's points; a dimension's two measured points
 	// and the middle of its dimension line (drag it to move the line nearer / further)
 	if (g.kind === 'leader' || g.kind === 'cloud') return g.pts
@@ -78,6 +79,12 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 		}
 		const at = shift ? angleStep(i === 0 ? g.b : g.a, q) : q
 		return { ...s, geom: i === 0 ? { ...g, a: r1p(at) } : { ...g, b: r1p(at) } }
+	}
+	if (g.kind === 'arc') {
+		const pts = arcPoints(g)
+		pts[i] = shift && i !== 1 ? angleStep(pts[i === 0 ? 2 : 0], q) : q
+		const next = arcThrough(pts[0], pts[1], pts[2])
+		return next ? { ...s, geom: next } : s
 	}
 	if (g.kind === 'circle') return { ...s, geom: { ...g, r: Math.max(1, r1(Math.hypot(q.x - g.centre.x, q.y - g.centre.y))) } }
 	if (g.kind === 'ellipse') {

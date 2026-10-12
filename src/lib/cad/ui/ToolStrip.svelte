@@ -5,7 +5,7 @@
 	import type { ToolId } from '../app/workspace.svelte'
 	export const TOOL_GROUPS: { name: string; tools: { id: ToolId; label: string; icon: string }[] }[] = [
 		{ name: 'Select / modify', tools: [{ id: 'select', label: 'Select (Esc)', icon: 'k-select' }, { id: 'move', label: 'Move', icon: 'move' }, { id: 'copy', label: 'Copy', icon: 'copy' }] },
-		{ name: 'Draw', tools: [{ id: 'line', label: 'Line', icon: 'k-line' }, { id: 'shape', label: 'Shape (rectangle, ellipse, polygon)', icon: 'rect' }, { id: 'box', label: 'Box / desk', icon: 'box' }, { id: 'dimension', label: 'Dimension', icon: 'ruler' }] },
+		{ name: 'Draw', tools: [{ id: 'line', label: 'Line', icon: 'k-line' }, { id: 'shape', label: 'Shape (rectangle, ellipse, polygon, arc)', icon: 'rect' }, { id: 'box', label: 'Box / desk', icon: 'box' }, { id: 'dimension', label: 'Dimension', icon: 'ruler' }] },
 		{ name: 'Annotate', tools: [{ id: 'text', label: 'Text', icon: 'k-text' }, { id: 'leader', label: 'Leader', icon: 'callout' }, { id: 'cloud', label: 'Revision cloud', icon: 'highlighter' }, { id: 'legend', label: 'Legend', icon: 'list' }, { id: 'insert', label: 'Insert a block', icon: 'package' }] },
 		{ name: 'Building', tools: [{ id: 'wall', label: 'Wall', icon: 'brickWall' }, { id: 'opening', label: 'Opening (door, window, hole)', icon: 'opening' }, { id: 'section', label: 'Section', icon: 'scan' }] },
 		{ name: 'Cabling', tools: [{ id: 'outlet', label: 'Outlet', icon: 'circleDot' }, { id: 'trunk', label: 'Trunk', icon: 'route' }, { id: 'conduit', label: 'Conduit', icon: 'rows' }, { id: 'rack', label: 'Rack', icon: 'server' }, { id: 'device', label: 'Device', icon: 'pcCase' }, { id: 'cord', label: 'Patch cord', icon: 'cable' }, { id: 'renumber', label: 'Renumber', icon: 'tag' }] },

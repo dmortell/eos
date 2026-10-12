@@ -10,6 +10,8 @@ import { elevationDisplayList } from '../views/elevation'
 import { planDisplayList } from '../views/plan'
 import type { ToolCtx } from './tools'
 import type { Shape } from '../domain/shapes'
+import { arcThrough, arcPoints } from '../domain/shapes'
+import { dragRegionGrip } from './shapeGrips'
 
 const opts = (o: Partial<ShapeOpts> = {}): ShapeOpts => ({ kind: 'rect', sides: 6, inscribed: true, ...o })
 
@@ -63,6 +65,21 @@ describe('the Shape tool', () => {
 		expect(s).toMatchObject({ levelId: 'L33', geom: { kind: 'rect', size: { x: 400, y: 200 } } })
 		expect(h.store.undoLabels).toEqual(['Draw rect'])
 		expect(planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).some((p) => p.src === s.id)).toBe(true)
+	})
+	it('an arc: start, a point on it, end → through all three; drawn on the plan; its middle grip reshapes it', () => {
+		const h = harness(PLAN), t = new ShapeTool(() => opts({ kind: 'arc' }))
+		t.down(at(-1000, 0), h.ctx()); t.up(at(-1000, 0), h.ctx()); t.down(at(0, -1000), h.ctx()); t.down(at(1000, 0), h.ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom).toEqual({ kind: 'arc', centre: { x: 0, y: 0 }, r: 1000, start: 180, end: 0 })   // clockwise on screen, over the top
+		expect(h.store.undoLabels).toEqual(['Draw arc'])
+		const line = planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).find((p) => p.src === s.id)
+		expect(line?.k === 'line' && Math.min(...line.pts.map((q) => Math.round(q.y)))).toBe(-1000)
+		// the other way round (through the bottom) when the middle point is there
+		expect(arcThrough({ x: -1000, y: 0 }, { x: 0, y: 1000 }, { x: 1000, y: 0 })).toMatchObject({ start: 0, end: 180 })
+		expect(arcThrough({ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 })).toBeNull()
+		const [, mid] = arcPoints(s.geom as never)
+		expect(Math.abs(Math.round(mid.x))).toBe(0)
+		expect(dragRegionGrip(s, 1, { x: 0, y: -500 }, false).geom).toMatchObject({ kind: 'arc', r: 1250 })   // flatter: through (0, −500)
 	})
 	it('on an elevation: drag → on the view\'s plane at the work depth, drawn in elevations, not on the plan', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, h = harness(spec), t = new ShapeTool(() => opts({ kind: 'ellipse' }))

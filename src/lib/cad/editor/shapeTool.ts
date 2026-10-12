@@ -1,6 +1,7 @@
 // The SHAPE tool (backlog "Markup kinds" part 1, "Regular polygons"; Dave 2026-10-05): a RECTANGLE (corner to
 // corner), an ELLIPSE (in that box) or a regular POLYGON (centre, then a corner — or an edge's middle when
-// circumscribed). Click-click or press-drag-release; Shift = a square / a circle / the polygon turned in 15° steps.
+// circumscribed), or an ARC through three clicks (start, a point on it, end). Click-click or press-drag-release; Shift =
+// a square / a circle / the polygon turned in 15° steps.
 // Where it lands:
 //  - a plan: the level's model, in plan mm (on the current layer);
 //  - an elevation / section: the level's model, ON the view's vertical plane at the work depth, points in (u, z);
@@ -10,12 +11,12 @@ import type { Pt } from '../domain/types'
 import type { Shape, Geometry } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { Prim } from '../views/display'
-import { outlineOf } from '../domain/shapes'
+import { outlineOf, arcThrough, arcPts } from '../domain/shapes'
 import { newId } from '../domain/ids'
 import { fromPaper, viewportAt } from '../views/sheet'
 import { angleStep, squareCorner } from './constrain'
 
-export type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'image'
+export type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'image' | 'arc'
 export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number
 	/** the Image tool (backlog "Markup kinds" part 4): the picture — a file in Uploads and its page */ image?: { fileId: string; page?: number } }
 
@@ -44,6 +45,7 @@ export class ShapeTool implements Tool {
 	readonly cursor = 'crosshair'
 	#a: Pt | null = null
 	#b: Pt | null = null
+	#m: Pt | null = null
 	#shift = false
 	#press: Pt | null = null
 
@@ -55,8 +57,17 @@ export class ShapeTool implements Tool {
 		if (c.space.spec.kind === 'sheet') return e.alt ? e.p : { x: Math.round(e.p.x * 2) / 2, y: Math.round(e.p.y * 2) / 2 }
 		return c.snap(e.p, e.alt).p
 	}
+	/** An ARC (backlog "Arc"): three clicks — its start, a point it passes through, its end. */
+	#arc(): boolean { return this.id === 'shape' && this.opts().kind === 'arc' }
 	down(e: PointerIn, c: ToolCtx): void {
 		const p = this.#pt(e, c)
+		if (this.#arc()) {
+			if (!this.#a) { this.#a = this.#b = p; return }
+			if (!this.#m) { this.#m = this.#b = p; return }
+			this.#b = p
+			this.#commit(c)
+			return
+		}
 		if (!this.#a) { this.#a = p; this.#b = p; this.#press = e.p; return }
 		this.#b = p; this.#shift = e.shift
 		this.#commit(c)
@@ -65,17 +76,17 @@ export class ShapeTool implements Tool {
 	hover(e: PointerIn, c: ToolCtx): void { if (this.#a) { this.#b = this.#pt(e, c); this.#shift = e.shift } }
 	/** Press-drag-release draws it in one go; a click (no drag) waits for the second click. */
 	up(e: PointerIn, c: ToolCtx): void {
-		if (this.#a && this.#press && Math.hypot(e.p.x - this.#press.x, e.p.y - this.#press.y) > c.tol() * 2) {
+		if (this.#a && this.#press && !this.#arc() && Math.hypot(e.p.x - this.#press.x, e.p.y - this.#press.y) > c.tol() * 2) {
 			this.#b = this.#pt(e, c); this.#shift = e.shift
 			this.#commit(c)
 		}
 		this.#press = null
 	}
-	cancel(): void { this.#a = this.#b = this.#press = null }
+	cancel(): void { this.#a = this.#b = this.#m = this.#press = null }
 	key(e: KeyboardEvent): boolean { if (e.key === 'Escape' && this.#a) { this.cancel(); return true } return false }
 
 	#commit(c: ToolCtx): void {
-		const a = this.#a, b = this.#b
+		const a = this.#a, b = this.#b, m = this.#m
 		this.cancel()
 		if (!a || !b) return
 		const spec = c.space.spec, o = this.opts()
@@ -91,8 +102,8 @@ export class ShapeTool implements Tool {
 			owner = { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) } }
 			map = (p) => ({ x: p.x, y: -p.y })   // view (u, −z) → the plane's (u, z)
 		} else { c.say?.('Shapes go on plans, elevations, sections and sheets'); return }
-		const geom = shapeGeom(o, map(a), map(b), this.#shift)
-		if (!geom) return
+		const geom = o.kind === 'arc' && this.id === 'shape' ? (m ? arcThrough(map(a), map(m), map(b)) : null) : shapeGeom(o, map(a), map(b), this.#shift)
+		if (!geom) { if (o.kind === 'arc') c.say?.('An arc needs three points not in a line'); return }
 		// a box: a footprint with a height, standing at its Z (shows in elevations and sections as a box)
 		const box = this.id === 'box' && spec.kind === 'plan' ? { extent: Math.max(1, o.height ?? 750), ...(o.z ? { plane: { kind: 'plan', z: o.z } } : {}) } : {}
 		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom, ...box } as Shape
@@ -105,6 +116,10 @@ export class ShapeTool implements Tool {
 	preview(): Prim[] {
 		const a = this.#a, b = this.#b
 		if (!a || !b) return []
+		if (this.#arc()) {
+			const arc = this.#m ? arcThrough(a, this.#m, b) : null
+			return [{ k: 'line', pts: arc ? arcPts(arc) : [a, ...(this.#m ? [this.#m] : []), b], cls: 'draft' }]
+		}
 		const g = shapeGeom(this.opts(), a, b, this.#shift), out = g && outlineOf(g)
 		return out ? [{ k: 'line', pts: out, closed: true, cls: 'draft' }] : []
 	}

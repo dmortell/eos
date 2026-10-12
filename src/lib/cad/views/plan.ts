@@ -3,7 +3,7 @@
 import type { Id, Pt, Outlet, Rack, Underlay, ProjectSettings } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts, byDrawOrder, outlineOf } from '../domain/shapes'
+import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
 import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
 import { layersOf, layerOf } from '../domain/layers'
@@ -127,6 +127,7 @@ function basePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]
 		case 'ellipse': return [{ k: 'line', pts: ellipsePts(g), closed: true, fill: !!s.extent, cls, src: s.id }]
 		case 'polygon': return [{ k: 'line', pts: g.pts, closed: true, fill: !!s.extent, cls, src: s.id }]
+		case 'arc': return [{ k: 'line', pts: arcPts(g), cls, src: s.id }]
 		case 'text': {
 			// one prim per line (backlog "Text options": multi-line, aligned on its anchor point), lines going down the text
 			const size = g.sizeMm * k, lh = size * LINE, r = ((g.rot ?? 0) * Math.PI) / 180, anchor = ANCHOR[g.align ?? 'left']

@@ -2468,3 +2468,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   to TR1 (a node added there)". Routing already treated
   such a tee as joined. Tests in `domain/pathEdit.test.ts`. Live (Test Project 1F): a trunk at Z 2950 from TR1's
   midpoint (TR1 at 2590) → joined, a drop added; dragging the junction moved both; both undone. Help: "Draw a run".
+- **Arc (backlog, G241; Dave 2026-10-12: "add arc to the shape dropdown for the rect tool"):** Shape tool › Shape: **Arc
+  (3 points)** (not in the Box tool's footprints) — click its start, a point it passes through, its end; the preview
+  follows. `domain/shapes.ts` `arcThrough` (the circle through three points; clockwise on screen from start to end, or
+  the other way round when the middle point says so; null when in a line), `arcPoints` (start / middle / end), `arcPts`
+  (a polyline, ~5° steps). Drawn by `shapePrims` (plan, sheets, PDF / DXF through the prims); on an elevation's plane
+  `viewGeom` re-fits it through its three points as seen there; a viewport's note put back on paper scales its radius.
+  Grips (`shapeGrips.ts`): start, middle, end — one dragged, the arc goes through the other two (Shift on an end: 15°).
+  Tests in `editor/shapeTool.test.ts`. Live (Test Project 1F): an arc over a desk row, its middle grip dragged up
+  (rounder), both undone. Help: "Draw an arc"; the tool's tooltip says arc.

@@ -19,7 +19,7 @@ export function untie(s: Shape, vp: Viewport): Shape {
 	const geom = g.kind === 'text' ? { ...g, at: t(g.at), ...(g.width ? { width: g.width * k } : {}) } : g.kind === 'leader' || g.kind === 'cloud' || g.kind === 'polygon' ? { ...g, pts: g.pts.map(t) }
 		: g.kind === 'rect' ? { ...g, centre: t(g.centre), size: { x: g.size.x * k, y: g.size.y * k } }
 		: g.kind === 'ellipse' ? { ...g, centre: t(g.centre), rx: g.rx * k, ry: g.ry * k }
-		: g.kind === 'circle' ? { ...g, centre: t(g.centre), r: g.r * k }
+		: g.kind === 'circle' || g.kind === 'arc' ? { ...g, centre: t(g.centre), r: g.r * k }
 		// a dimension keeps the real length it measured in the view (on paper it would measure paper mm)
 		: g.kind === 'dimension' ? { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLine(g).len)}`, ...(g.textAt ? { textAt: t(g.textAt) } : {}), ...(g.gapA != null ? { gapA: g.gapA * k } : {}), ...(g.gapB != null ? { gapB: g.gapB * k } : {}) } : g
 	const { vpId: _drop, ...rest } = s as Shape & { vpId?: string }

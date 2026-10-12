@@ -222,6 +222,36 @@ export function outlineOf(g: Geometry): Pt[] | null {
 	}
 }
 
+type Arc = Extract<Geometry, { kind: 'arc' }>
+const deg = (r: number) => (r * 180) / Math.PI
+const cw = (a: number) => ((a % 360) + 360) % 360
+/** An arc's sweep (degrees clockwise on screen, from `start` to `end`); a full turn when they meet. */
+const sweepOf = (g: Arc) => cw(g.end - g.start) || 360
+const onArc = (g: Arc, a: number): Pt => ({ x: g.centre.x + g.r * Math.cos((a * Math.PI) / 180), y: g.centre.y + g.r * Math.sin((a * Math.PI) / 180) })
+
+/** The arc through three points (start, one on it, end — backlog "Arc"); null when they're in a line. */
+export function arcThrough(a: Pt, m: Pt, b: Pt): Arc | null {
+	const d = 2 * (a.x * (m.y - b.y) + m.x * (b.y - a.y) + b.x * (a.y - m.y))
+	if (Math.abs(d) < 1e-9) return null
+	const s = (p: Pt) => p.x * p.x + p.y * p.y
+	const c = { x: (s(a) * (m.y - b.y) + s(m) * (b.y - a.y) + s(b) * (a.y - m.y)) / d, y: (s(a) * (b.x - m.x) + s(m) * (a.x - b.x) + s(b) * (m.x - a.x)) / d }
+	const ang = (p: Pt) => deg(Math.atan2(p.y - c.y, p.x - c.x))
+	const r1 = (v: number) => Math.round(v * 10) / 10, r3 = (v: number) => Math.round(v * 1000) / 1000
+	const [sa, ma, ea] = [ang(a), ang(m), ang(b)]
+	// clockwise from a to b — unless the middle point isn't on that way round: then clockwise from b to a
+	const through = cw(ma - sa) < cw(ea - sa)
+	return { kind: 'arc', centre: { x: r1(c.x), y: r1(c.y) }, r: r1(Math.hypot(a.x - c.x, a.y - c.y)), start: r3(cw(through ? sa : ea)), end: r3(cw(through ? ea : sa)) }
+}
+/** An arc's start, middle and end points (its grips). */
+export function arcPoints(g: Arc): [Pt, Pt, Pt] {
+	return [onArc(g, g.start), onArc(g, g.start + sweepOf(g) / 2), onArc(g, g.start + sweepOf(g))]
+}
+/** An arc as a polyline of about one point per 5°. */
+export function arcPts(g: Arc): Pt[] {
+	const sw = sweepOf(g), n = Math.max(2, Math.ceil(sw / 5))
+	return Array.from({ length: n + 1 }, (_, i) => onArc(g, g.start + (sw * i) / n))
+}
+
 /** An ellipse as a closed outline of `n` points (drawing, PDF, DXF and picking use straight lines). */
 export function ellipsePts(g: { centre: Pt; rx: number; ry: number; rot?: number }, n = 72): Pt[] {
 	const r = ((g.rot ?? 0) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)

@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 24 entries (0 P1 · 0 P2 · 24 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 23 entries (0 P1 · 0 P2 · 23 P3; 0 ⚡ quick wins). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -70,9 +70,8 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Drafting commands and input
 
-- [ ] **More snaps** — Intersection, perpendicular and nearest. (The split of a run drawn to from / to the middle of another's segment was built 2026-10-12 — it works with these snaps once they exist.) **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
+- [ ] **More snaps** — Intersection, perpendicular and nearest. (The split of a run drawn from / to the middle of another's segment was built 2026-10-12 — it works with these snaps once they exist.) **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264
-- [ ] **Arc** — Arc through three points; snapped, gripped, moved like any shape. **P3 · M** (~80 lines). *cad today:* arc geometry exists but is not drawn (`cad/views/plan.ts:95` falls to `default`). *From:* G241
 - [ ] **TRIM** — Click part of a line to cut it back to the shapes that cross it. **P3 · M** (~100 lines). *cad today:* missing. *From:* G245
 - [ ] **EXTEND** — Grow a line end to the next shape. **P3 · M** (~80 lines, shares the crossing code with TRIM). *cad today:* missing. *From:* G246
 - [ ] ❓ **Markdown notes block** — A note with headings, bullet / numbered lists, tables and bold / italic, wrapped in a box; paste from Word / Excel. Answer to "how much code?": about 250 lines (layout into text lines, plus PDF / DXF output), on top of "Text that fills a box". **P3 · L** (~250 lines). *cad today:* `markdown` flag in the data, unused (`cad/domain/shapes.ts:73`). *From:* G184, G328, T143

@@ -5,7 +5,7 @@
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isFlat, isVertical, outlineOf, ownFrame, sameFrame } from '../domain/shapes'
+import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, arcPoints, arcThrough } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle, lineEnds } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
@@ -136,6 +136,8 @@ function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
 	switch (g.kind) {
 		case 'text': return { ...g, at: to(g.at) }
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(to) }
+		// an arc: through its three points as seen here (the view's y-down turns it the other way round)
+		case 'arc': { const [a, m, b] = arcPoints(g).map(to); return arcThrough(a, m, b) }
 		case 'dimension': {
 			const a = to(g.a), b = to(g.b), a2 = to(dimLine(g).a2), t = g.textAt ? { textAt: to(g.textAt) } : {}
 			if (g.mode === 'horizontal') return { ...g, a, b, ...t, offset: a2.y - a.y }
