@@ -49,7 +49,7 @@
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; }
 	.fld { display: flex; align-items: center; gap: 4px; }
 	.column .fld { display: grid; grid-template-columns: 6.5rem 1fr; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.btn.danger { color: #b91c1c; }
 	.inp { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }

@@ -143,6 +143,8 @@
 	.body :global(tbody > tr) { border-bottom: 1px solid var(--cad-line); }
 	.body :global(.muted) { color: var(--cad-muted); }
 	.body :global(.faint) { color: var(--cad-faint); }
+	/* buttons in rows (✕, Show, Number…, a group's name) big enough to hit: 20 px at least */
+	.body :global(tbody button) { min-height: 20px; min-width: 20px; }
 	/* a cell being edited (tableKit.CellEdit), the same box in every table */
 	.body :global(td.ed) { padding: 0 2px; }
 	.body :global(.ed-box) { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); outline: none; }

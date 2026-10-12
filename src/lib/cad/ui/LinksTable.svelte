@@ -125,8 +125,9 @@
 <style>
 	.hov:hover { background: var(--cad-hover); }
 	.s-installed { color: #166534; }
-	.del { visibility: hidden; color: var(--cad-faint); padding: 0 4px; }
-	tr:hover .del { visibility: visible; }
+	/* the row's ✕: on hover, and on a selected row or one with the focus (keyboard, iPad: no hover) */
+	.del { visibility: hidden; color: var(--cad-faint); padding: 0 4px; min-width: 20px; min-height: 20px; }
+	tr:hover .del, tr:focus-within .del, tr.row-sel .del { visibility: visible; }
 	.del:hover { color: #dc2626; }
 	.more { color: var(--cad-link); text-decoration: underline; min-height: 20px; }
 </style>

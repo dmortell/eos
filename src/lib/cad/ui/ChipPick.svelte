@@ -23,8 +23,8 @@
 <style>
 	.chip { position: relative; display: inline-flex; align-items: center; border: 1px solid var(--cad-line); border-radius: 10px; background: var(--cad-input); white-space: nowrap; }
 	.chip.on { border-color: #93c5fd; background: #dbeafe; color: #1e3a8a; }
-	.lbl { padding: 0 8px; color: inherit; }
-	.x { padding: 0 6px 0 0; color: inherit; opacity: 0.7; }
+	.lbl { min-height: 20px; padding: 0 8px; color: inherit; }
+	.x { min-width: 20px; min-height: 20px; padding: 0 4px 0 0; color: inherit; opacity: 0.7; }
 	.x:hover { opacity: 1; }
 	.pop { position: absolute; top: 100%; left: 0; z-index: 20; min-width: 10rem; max-height: 16rem; overflow: auto; display: flex; flex-direction: column; gap: 1px;
 		padding: 4px 6px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-panel); box-shadow: 0 4px 12px rgb(0 0 0 / 0.15); color: var(--cad-text); }

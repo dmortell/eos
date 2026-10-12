@@ -21,7 +21,7 @@
 
 <style>
 	.mode { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; font-size: 11px; vertical-align: middle; }
-	button { padding: 0 7px; background: var(--cad-input); color: var(--cad-muted); }
+	button { min-height: 20px; padding: 0 7px; background: var(--cad-input); color: var(--cad-muted); }
 	button + button { border-left: 1px solid var(--cad-line); }
 	button.on { background: #2563eb; color: white; font-weight: 600; }
 </style>
