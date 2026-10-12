@@ -3,6 +3,7 @@
      while drawing, the cursor), the drafting switches (SNAP + grid step, OSNAP, GRID; F9 / F3 / F7), the scale, the
      zoom and Fit. -->
 <script lang="ts">
+	import { toggleDrafting } from '../app/shellActions'
 	import type { Workspace } from '../app/workspace.svelte'
 
 	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
@@ -13,7 +14,8 @@
 
 	/** Grid steps (mm); 44.45 = one rack unit. */
 	const STEPS = [1, 5, 10, 25, 50, 100, 250, 500, 1000]
-	const flip = (k: 'snap' | 'osnap' | 'showGrid') => { ws.drafting[k] = !ws.drafting[k]; ws.saveDrafting() }
+	/** As F9 / F3 / F7 do: the switch, and a word saying it (review R61: a click toggled silently). */
+	const flip = (k: 'snap' | 'osnap' | 'showGrid') => toggleDrafting(ws, k)
 
 	let input: HTMLInputElement | undefined = $state()
 	// focus the prompt when it opens: a number is selected (type over it); typed text keeps its first character

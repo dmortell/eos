@@ -2906,3 +2906,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `views/schedule.test.ts` (each cord's from / to, the "… more" split and its continuation), `views/fillSection.test.ts`
   (the % is fillBySegment's), `panelSheets.test.ts` / `sheet.test.ts` (port grid, 1:1 placement, no scale). Help
   updated. Left: a survey photo viewport (backlog).
+- **R51, R61, R83, R88 (part):** a tool group with nothing that works in the view folds to one faint "⋯" (its title
+  lists the group) instead of a row of greyed icons (`ui/ToolStrip.svelte`); clicking SNAP / OSNAP / GRID in the status
+  bar says it, as F9 / F3 / F7 do (`ui/StatusBar.svelte`); the Patching tab's button is "Patch schedule · cord BOM…",
+  the same name as the menu and the dialog (`ui/PatchList.svelte`, Help); a test that a throwing transaction leaves
+  nothing behind (`store/store.test.ts`).

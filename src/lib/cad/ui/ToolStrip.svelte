@@ -27,11 +27,17 @@
 <div class="strip" role="toolbar" aria-label="Tools">
 	{#each TOOL_GROUPS as g, gi (g.name)}
 		{#if gi}<span class="sep" role="separator"></span>{/if}
-		{#each g.tools as t (t.id)}
-			{@const ok = toolWorksIn(t.id, kind, onSheet)}
-			<button class="tool" class:on={tool === t.id} class:off={!ok} aria-label={t.label}
-				title={ok ? t.label : `${t.label} — works in ${where(t.id)}`} onclick={() => ok && onTool(t.id)}><Icon name={t.icon} size={16} /></button>
-		{/each}
+		{#if g.tools.some((t) => toolWorksIn(t.id, kind, onSheet))}
+			{#each g.tools as t (t.id)}
+				{@const ok = toolWorksIn(t.id, kind, onSheet)}
+				<button class="tool" class:on={tool === t.id} class:off={!ok} aria-label={t.label}
+					title={ok ? t.label : `${t.label} — works in ${where(t.id)}`} onclick={() => ok && onTool(t.id)}><Icon name={t.icon} size={16} /></button>
+			{/each}
+		{:else}
+			<!-- a group with nothing that works in this view folds to one faint stub (review R51: 19 of 23 tools greyed in a
+			     rack view); it keeps its place, so the strip doesn't jump -->
+			<span class="tool off stub" title="{g.name}: {g.tools.map((t) => t.label.replace(/ \(.*\)$/, '')).join(', ')} — not in this view">⋯</span>
+		{/if}
 	{/each}
 </div>
 
@@ -42,5 +48,6 @@
 	.tool.on { background: #dbeafe; color: #1d4ed8; box-shadow: inset 0 0 0 1px #93c5fd; }
 	.tool.off { opacity: 0.3; cursor: default; }
 	.tool.off:hover { background: none; }
+	.stub { font-size: 13px; letter-spacing: 1px; }
 	.sep { width: 1px; height: 18px; margin: 0 5px; background: var(--cad-line); }
 </style>

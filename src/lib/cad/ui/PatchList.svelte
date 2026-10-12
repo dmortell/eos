@@ -138,7 +138,7 @@
 	{#snippet tail()}
 		<!-- what new cords start as, shown where cords are listed (D1); the patch list out (Dave 2026-10-12: easy to find) -->
 		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
-		<button class="tb" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch list…</button>
+		<button class="tb" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch schedule · cord BOM…</button>
 	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>

@@ -169,3 +169,14 @@ describe('other people’s changes during a drag (review R22)', () => {
 		expect(xOf(s, 'a')).toBe(300)
 	})
 })
+
+describe('a transaction that throws (review R21 / R88)', () => {
+	it('leaves nothing half-written and records no step', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		expect(() => s.transact('Bad', (tx) => { tx.put(moved(tx.get('a') as Shape, 500)); tx.put(box('b')); throw new Error('boom') })).toThrow('boom')
+		expect(xOf(s, 'a')).toBe(0)
+		expect(s.get('b')).toBeUndefined()
+		expect(s.undoLabels).toEqual(['Add'])
+	})
+})
