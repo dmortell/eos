@@ -66,7 +66,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Selection and editing
 
-- [ ] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **P3 · M** (~80 lines). *cad today:* missing. *From:* G234
+- [ ] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **Dave 2026-10-12 todo: Ctrl+V after copying text in another app pastes a text box** (plain text → a text shape at the pointer, on the plan / sheet; `app/clipboardEvents.ts` paste today ignores non-cad text). **P3 · M** (~80 lines). *cad today:* missing (pictures paste; plain text does nothing). *From:* G234, Dave 2026-10-12
 
 ## Drafting commands and input
 
