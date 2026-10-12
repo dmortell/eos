@@ -2676,3 +2676,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   side zoomed to its rack, or the outlet's plan zoomed to it, with it selected (double-click keeps the tab)
   (`domain/navTree.ts` `findItems`, `ui/Navigator.svelte`). Live (Test Project): "A.00" lists six outlets; A.001
   opens 1F's plan on it, selected.
+- **R11 cad no longer imports from the Uploads route:** `PdfState` moved to `$lib/pdf/PdfState.svelte.ts`; the old
+  `uploads/parts/PdfState.svelte.ts` re-exports it so the older tools (Pages, Sheets, Outlets, Drawings, surveys) keep
+  working (`app/pdf.svelte.ts`). (Drawings' use of `lib/versioning` stays — it goes with Drawings.) Live: cad's
+  floorplan, Uploads and Outlets load.

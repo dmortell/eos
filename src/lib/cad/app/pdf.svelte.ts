@@ -2,7 +2,7 @@
 // (`files/{id}.pages[page]`: origin in rendered px, `scale.scale` = mm per rendered px). One cache per open project
 // (no module state). Placement maths from pages/ui/render/pdfRaster (`placementFromCalib`).
 import { doc, getDoc, onSnapshot, type Firestore } from 'firebase/firestore'
-import { PdfState } from '../../../routes/projects/[pid]/uploads/parts/PdfState.svelte'
+import { PdfState } from '$lib/pdf/PdfState.svelte'
 import type { Underlay } from '../domain/types'
 import { parsePictureRef } from '../domain/issue'
 
