@@ -126,7 +126,6 @@ const MOUSE: [string, string][] = [
 	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel what is drawn · deselect', 'Right-click on empty space'], ['Commands for something (selects it first)', 'Right-click it (Select tool)'],
 	['Copy by dragging', 'Ctrl-drag'], ['Branch a run from a node', 'Ctrl-drag the node'], ['Pull a node off another run', 'Alt-drag the node'],
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],
-	['Back / forward (views in this pane)', 'Alt+← / Alt+→'], ['Hide / show every window', 'Ctrl+.'], ['Show / hide the tables', 'Ctrl+,'],
 	['Tables: pick rows', 'Click · Shift-click a range · Ctrl-click one more'], ['Tables: next / previous row', '↓ / ↑'], ['Tables: edit a cell', 'Double-click · F2 / Enter (the selected row)'],
 	['Tables: save, then the next row / cell', 'Enter / Tab (Shift: back) · Esc cancels'], ['Tables: copy the rows for Excel', 'Ctrl+C'],
 	['Rack view: focus a rack / the whole row', 'Double-click a rack / empty space'], ['Answer a question box', 'Enter = yes · Esc = Cancel'],

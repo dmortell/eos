@@ -23,3 +23,13 @@ describe('the keys (review R85 step 1: one list for the shell and Help)', () => 
 		}
 	})
 })
+
+describe('Help lists each key once', () => {
+	it('no two rows of the keys list share a label (a duplicate throws in the Help dialog’s keyed list)', async () => {
+		const { SHORTCUTS, FKEYS, HOWTO } = await import('./helpContent')
+		const dup = (xs: string[]) => xs.filter((x, i) => xs.indexOf(x) !== i)
+		expect(dup(SHORTCUTS.map(([a]) => a))).toEqual([])
+		expect(dup(FKEYS.map(([k]) => k))).toEqual([])
+		expect(dup(HOWTO.map((h) => h.q))).toEqual([])
+	})
+})
