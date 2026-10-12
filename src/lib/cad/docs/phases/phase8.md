@@ -3203,3 +3203,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (Status column, a totals line). Help; tests (`domain/estimates.test.ts`).
 - **Q43** every sheet PDF honours File › Export › Monochrome PDFs: the sheet's Properties “PDF” button and the Sheets tab's
   PDF button pass `ws.monoPdf` to `downloadSheetsPdf` as File › PDF always did (`ui/SheetProps.svelte`, `ui/SheetsTab.svelte`).
+- **Q53** dark mode: the fixed light blues / zinc greys in the menus, context menu, tab strip, tool / status / table bars,
+  chips, Help's featured card and the view strip became `--cad-*` tokens; new tokens `--cad-sel-line`, `--cad-sel-text`,
+  `--cad-feature` (light + Kestrel Dark in `ui/CadShell.svelte`); the shell's top bars use `--cad-panel` / `--cad-line`.
+  Solid blue accents (primary buttons, focus rings) and the drawing canvas keep their colors.

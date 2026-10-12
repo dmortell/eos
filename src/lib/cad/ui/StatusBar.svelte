@@ -93,18 +93,18 @@
 	.prompt input { width: 5rem; border: 1px solid #d97706; border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-size: 12px; outline: 2px solid rgb(245 158 11 / 0.35); }
 	.prompt input.wide { width: 12rem; font-family: ui-monospace, monospace; }
 	.keys { font-size: 10px; opacity: 0.7; }
-	.ro { color: #1d4ed8; font-weight: 600; font-size: 12px; }
+	.ro { color: var(--cad-link, #1d4ed8); font-weight: 600; font-size: 12px; }
 	.xy { font-family: ui-monospace, Consolas, monospace; color: var(--cad-text); min-width: 9rem; }
 	.toggles { display: flex; align-items: center; gap: 2px; }
 	.toggles button { padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: 0.04em; color: var(--cad-faint); border: 1px solid transparent; }
 	.toggles button:hover { background: var(--cad-hover); }
-	.toggles button.on { color: #1d4ed8; background: #dbeafe; border-color: #93c5fd; }
+	.toggles button.on { color: var(--cad-link, #1d4ed8); background: var(--cad-sel, #dbeafe); border-color: var(--cad-sel-line, #93c5fd); }
 	.toggles .step { width: 4.5rem; font-size: 10px; padding: 0 2px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
 	.scale { color: var(--cad-muted); }
-	.selc { padding: 0 6px; border-radius: 4px; color: #1d4ed8; background: #dbeafe; font-weight: 600; }
+	.selc { padding: 0 6px; border-radius: 4px; color: var(--cad-link, #1d4ed8); background: var(--cad-sel, #dbeafe); font-weight: 600; }
 	.selc:hover { background: #bfdbfe; }
 	.load { display: inline-flex; align-items: center; gap: 4px; color: var(--cad-muted); }
-	.spin { width: 10px; height: 10px; border: 2px solid #93c5fd; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+	.spin { width: 10px; height: 10px; border: 2px solid var(--cad-sel-line, #93c5fd); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 	@keyframes spin { to { transform: rotate(360deg); } }
 	.fit { padding: 0 7px; border-radius: 4px; }
 	.fit:hover { background: var(--cad-hover); color: var(--cad-text); }

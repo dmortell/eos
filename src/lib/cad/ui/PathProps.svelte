@@ -269,7 +269,7 @@
 	/* one node per row: index, x, y, z, drop */
 	.segsize { display: inline-flex; gap: 6px; align-items: center; }
 	.segsize input { width: 4rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
-	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; }
+	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: var(--cad-sel, #dbeafe); color: var(--cad-sel-text, #1e3a8a); }
 	.seg { display: grid; grid-template-columns: 3rem 1fr 4rem; align-items: center; gap: 0.25rem; font-size: 11px; }
 	.seg.total { border-top: 1px solid var(--cad-line); padding-top: 2px; font-weight: 600; }
 	.node { display: grid; grid-template-columns: 1.5rem 1fr 1fr 4.5rem 1.6rem 1.6rem; align-items: center; gap: 0.25rem; font-size: 11px; }

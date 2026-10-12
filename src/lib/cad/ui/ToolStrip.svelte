@@ -46,7 +46,7 @@
 	.strip { display: flex; align-items: center; gap: 1px; }
 	.tool { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--cad-muted); }
 	.tool:hover { background: var(--cad-hover); color: var(--cad-text); }
-	.tool.on { background: #dbeafe; color: #1d4ed8; box-shadow: inset 0 0 0 1px #93c5fd; }
+	.tool.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); box-shadow: inset 0 0 0 1px var(--cad-sel-line, #93c5fd); }
 	.tool.off { opacity: 0.3; cursor: default; }
 	.tool.off:hover { background: none; }
 	.stub { font-size: 13px; letter-spacing: 1px; }

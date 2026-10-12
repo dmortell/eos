@@ -39,12 +39,12 @@
 </div>
 
 <style>
-	.tick { width: 14px; flex: none; color: #2563eb; font-size: 11px; }
+	.tick { width: 14px; flex: none; color: var(--cad-link, #2563eb); font-size: 11px; }
 	.menu-root { display: contents; }
 	.backdrop { position: fixed; inset: 0; z-index: 95; background: none; border: none; cursor: default; }
 	.pop { position: fixed; z-index: 96; min-width: 210px; padding: 4px; background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 14px 36px rgb(0 0 0 / 0.22); font-size: 12px; }
 	.item { display: flex; align-items: center; width: 100%; padding: 4px 8px; border-radius: 4px; text-align: left; color: var(--cad-text); }
-	.item:hover:not(:disabled) { background: #dbeafe; }
+	.item:hover:not(:disabled) { background: var(--cad-sel, #dbeafe); }
 	.item:disabled { color: var(--cad-faint); }
 	.lbl { flex: 1; white-space: nowrap; }
 	.key { margin-left: 18px; font-size: 11px; color: var(--cad-muted); white-space: nowrap; }

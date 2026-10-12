@@ -24,5 +24,5 @@
 	.split-bar { position: relative; z-index: 1; flex: 0 0 5px; cursor: col-resize; background: var(--cad-line); touch-action: none; }
 	/* a finger grabs it by 15 px on a touch screen (the bar still draws 5 px) */
 	@media (any-pointer: coarse) { .split-bar::before { content: ''; position: absolute; inset: 0 -5px; } }
-	.split-bar:hover { background: #93c5fd; }
+	.split-bar:hover { background: var(--cad-sel-line, #93c5fd); }
 </style>

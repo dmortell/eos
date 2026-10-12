@@ -39,7 +39,7 @@
 <style>
 	.rn { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 92; max-width: min(40rem, 92vw); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 14px; border-radius: 8px; font-size: 12px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.25); border: 1px solid; }
 	.rn-pending, .rn-running { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
-	.rn-done { background: #eff6ff; border-color: #2563eb; color: #1e3a8a; }
+	.rn-done { background: var(--cad-feature, #eff6ff); border-color: var(--cad-link, #2563eb); color: var(--cad-sel-text, #1e3a8a); }
 	.rn-cancelled { background: var(--cad-panel, white); border-color: var(--cad-line, #e4e4e7); color: var(--cad-text, #18181b); }
 	.rn button { margin-left: auto; border: 1px solid currentColor; border-radius: 4px; padding: 0 8px; background: none; color: inherit; }
 </style>

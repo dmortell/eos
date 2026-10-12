@@ -41,13 +41,13 @@
 </div>
 
 <style>
-	.chip { position: absolute; z-index: 15; display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 6px; background: color-mix(in srgb, var(--cad-panel, #fff) 92%, transparent); border: 1px solid #93c5fd; box-shadow: 0 2px 8px rgb(0 0 0 / 0.12); font-size: 11px; color: var(--cad-muted, #52525b); white-space: nowrap; }
+	.chip { position: absolute; z-index: 15; display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 6px; background: color-mix(in srgb, var(--cad-panel, #fff) 92%, transparent); border: 1px solid var(--cad-sel-line, #93c5fd); box-shadow: 0 2px 8px rgb(0 0 0 / 0.12); font-size: 11px; color: var(--cad-muted, #52525b); white-space: nowrap; }
 	select { font-size: 11px; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; background: var(--cad-input, #fff); color: var(--cad-text); }
 	button { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 4px; border: 1px solid transparent; }
 	button:hover:not(:disabled) { background: var(--cad-hover, #f4f4f5); }
-	button.on { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+	button.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); border-color: var(--cad-sel-line, #93c5fd); }
 	button.done { background: #2563eb; color: white; }
 	/* the hover's pale background left white text unreadable (Dave): dark text on it */
-	button.done:hover:not(:disabled) { background: #dbeafe; color: #1e3a8a; }
+	button.done:hover:not(:disabled) { background: var(--cad-sel, #dbeafe); color: var(--cad-sel-text, #1e3a8a); }
 	button:disabled { opacity: 0.4; }
 </style>

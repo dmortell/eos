@@ -81,14 +81,14 @@
 	.title:hover, .title.open { background: var(--cad-hover); }
 	.pop { position: absolute; top: 100%; left: 0; min-width: 230px; margin-top: 2px; padding: 4px; z-index: 72; background: var(--cad-panel); border: 1px solid var(--cad-line); border-radius: 6px; box-shadow: 0 14px 36px rgb(0 0 0 / 0.22); }
 	.item { display: flex; align-items: center; width: 100%; padding: 4px 8px 4px 4px; border-radius: 4px; text-align: left; color: var(--cad-text); }
-	.item:hover:not(:disabled) { background: #dbeafe; }
+	.item:hover:not(:disabled) { background: var(--cad-sel, #dbeafe); }
 	.item:disabled { color: var(--cad-faint); }
-	.tick { width: 16px; color: #2563eb; font-size: 11px; }
+	.tick { width: 16px; color: var(--cad-link, #2563eb); font-size: 11px; }
 	.lbl { flex: 1; white-space: nowrap; }
 	.key { margin-left: 18px; font-size: 11px; color: var(--cad-muted); white-space: nowrap; }
 	.sep { height: 1px; margin: 4px 6px; background: var(--cad-line); }
 	.subwrap { position: relative; }
-	.item.on { background: #dbeafe; }
+	.item.on { background: var(--cad-sel, #dbeafe); }
 	.pop.sub { top: -5px; left: 100%; margin: 0 0 0 2px; }
 	.grow { flex: 1; }
 </style>

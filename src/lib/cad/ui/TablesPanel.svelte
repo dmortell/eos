@@ -129,12 +129,12 @@
 	.tabs { display: flex; gap: 2px; }
 	.tabs button { font-size: 12px; padding: 2px 10px; border-radius: 5px; color: var(--cad-muted); }
 	.tabs button:hover { background: var(--cad-hover); color: var(--cad-text); }
-	.tabs button.on { background: #dbeafe; color: #1d4ed8; font-weight: 600; }
+	.tabs button.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); font-weight: 600; }
 	.sum { margin-left: 8px; font-size: 11px; color: var(--cad-muted); white-space: nowrap; }
 	.grow { flex: 1; }
 	.ib { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px; color: var(--cad-muted); }
 	.ib:hover { background: var(--cad-hover); color: var(--cad-text); }
-	.ib.on { background: #dbeafe; color: #1d4ed8; }
+	.ib.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); }
 	.body { flex: 1; min-height: 0; overflow: auto; }
 	/* every table as wide as its content, from the left (Dave: stretched to the panel, spare width went to whatever
 	   column could grow — an empty Tags, a 370 px Notes — while Level got 49 px) */

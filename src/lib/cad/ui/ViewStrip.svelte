@@ -132,21 +132,21 @@
 <style>
 	/* a strip over the top of the pane, above the drawing (Dave: rack labels showed through the buttons) */
 	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); white-space: nowrap; overflow: hidden; }
-	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
-	.views button.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--cad-input, white); border: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #52525b); }
+	.views button.on { background: #2563eb; border-color: var(--cad-link, #2563eb); color: white; }
 	.rkey { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--cad-muted); margin-left: 4px; }
 	.rkey i { width: 10px; height: 4px; border-radius: 2px; }
 	.views button.nav { padding: 0 5px; font-weight: 600; }
 	.views button.nav:disabled { opacity: 0.35; }
-	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); border: 1px solid #e4e4e7; color: #52525b; }
-	.views .secs.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.views .secs { font-size: 11px; padding: 0 2px; border-radius: 4px; background: var(--cad-input, white); border: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #52525b); }
+	.views .secs.on { background: #2563eb; border-color: var(--cad-link, #2563eb); color: white; }
 	/* the open list keeps plain options (they inherited the blue "on" look: every row looked picked) */
-	.views .secs option { background: white; color: #18181b; }
-	.views .sep { width: 1px; align-self: stretch; background: #d4d4d8; margin: 0 4px; }
-	.views .room { font-size: 11px; color: #52525b; padding: 0 2px; }
-	.num { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: #52525b; }
-	.num input { width: 4.2rem; font-size: 11px; border: 1px solid #e4e4e7; border-radius: 4px; padding: 0 3px; background: white; }
-	.views button.crumb.link { border: 0; background: none; color: #1d4ed8; font-weight: 600; padding: 0 2px; }
+	.views .secs option { background: var(--cad-panel, white); color: var(--cad-text, #18181b); }
+	.views .sep { width: 1px; align-self: stretch; background: var(--cad-line, #d4d4d8); margin: 0 4px; }
+	.views .room { font-size: 11px; color: var(--cad-muted, #52525b); padding: 0 2px; }
+	.num { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--cad-muted, #52525b); }
+	.num input { width: 4.2rem; font-size: 11px; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; padding: 0 3px; background: var(--cad-input, white); color: var(--cad-text); }
+	.views button.crumb.link { border: 0; background: none; color: var(--cad-link, #1d4ed8); font-weight: 600; padding: 0 2px; }
 	.views button.crumb.link:hover { text-decoration: underline; }
 	.views .tosheet { margin-left: auto; max-width: 9rem; }
 	.dback { position: fixed; inset: 0; z-index: 40; background: transparent; cursor: default; }

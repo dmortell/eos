@@ -76,13 +76,13 @@
 <style>
 	.tabs { display: flex; gap: 2px; margin: 0 4px 4px; font-size: 11px; }
 	.tabs button { flex: 1; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; color: var(--cad-muted); }
-	.tabs button.on { background: #2563eb; border-color: #2563eb; color: white; }
+	.tabs button.on { background: #2563eb; border-color: var(--cad-link, #2563eb); color: white; }
 	.find { width: calc(100% - 8px); margin: 0 4px 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.cat { padding: 2px 4px 0; font-size: 10px; color: var(--cad-faint); text-transform: capitalize; }
 	.row { display: grid; grid-template-columns: 1fr 20px; align-items: center; gap: 0.3rem; padding: 0 4px; border-radius: 4px; }
 	.row.here { grid-template-columns: 1fr auto 20px; }
 	.row:hover { background: var(--cad-hover); }
-	.row.on { background: #dbeafe; }
+	.row.on { background: var(--cad-sel, #dbeafe); }
 	.pick { display: grid; grid-template-columns: 1.4rem 1fr; align-items: center; gap: 0.35rem; text-align: left; font-size: 12px; padding: 1px 0; min-width: 0; }
 	.pv { width: 1.3rem; height: 1.3rem; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

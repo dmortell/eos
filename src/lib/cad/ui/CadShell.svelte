@@ -529,7 +529,7 @@
 	</MenuBar>
 
 	<!-- tools and their options -->
-	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
+	<div class="bar flex items-center gap-1 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
 		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={setTool} />
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
@@ -541,7 +541,7 @@
 		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="eyeSlash" size={15} /></button>
 	</div>
 
-	<div class="opts flex items-center gap-2 border-b border-zinc-200 bg-white px-2">
+	<div class="opts flex items-center gap-2 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
 		<!-- always on show (review R53): the active tool, the layer new items go on, and editing inside a viewport -->
 		<span class="chip tool" title="The active tool (Esc: back to Select)">{toolName}</span>
 		<label class="chip" title="The layer new lines, notes and blocks go on (walls, runs, outlets and racks go on their own)">Layer
@@ -618,7 +618,7 @@
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
 	<!-- the tables docked under the drawing (floating / maximised they sit in the drawing area, above) -->
-	<section class="grid-panel relative border-t border-zinc-200 bg-white" class:gone={!tablesDocked && !tablesBar}>
+	<section class="grid-panel relative border-t border-[var(--cad-line)] bg-[var(--cad-panel)]" class:gone={!tablesDocked && !tablesBar}>
 		{#if tablesDocked}
 			<ResizeHandle orientation="horizontal" bind:value={panels.size.bottom} side="top" min={80} max={700} onend={panels.save} />
 			{@render tables()}
@@ -647,8 +647,11 @@
 		--cad-sel: var(--t-sel, #dbeafe);
 		--cad-pick: #fef3c7;
 		--cad-link: #1d4ed8;
+		--cad-sel-line: #93c5fd;   /* the border of a selected / "on" control */
+		--cad-sel-text: #1e3a8a;   /* its text on --cad-sel */
+		--cad-feature: #eff6ff;    /* a featured card (Help) */
 	}
-	:global(:root[data-theme='kestrel-dark']) .shell { --cad-pick: #3a3320; --cad-link: #79b8ff; }
+	:global(:root[data-theme='kestrel-dark']) .shell { --cad-pick: #3a3320; --cad-link: #79b8ff; --cad-sel-line: #3b6aa8; --cad-sel-text: #cfe3ff; --cad-feature: #1c2a3f; }
 	/* Layout lives here, not in Tailwind arbitrary classes: the panel sizes belong to the component. */
 	.shell {
 		display: grid;
@@ -671,7 +674,7 @@
 	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
 	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
 	/* a selected row, the same in every table (UX review V2): the drawing's selection blue, a bar on its left */
-	.shell :global(tr.row-sel) { background: #dbeafe !important; box-shadow: inset 3px 0 0 #2563eb; }
+	.shell :global(tr.row-sel) { background: var(--cad-sel, #dbeafe) !important; box-shadow: inset 3px 0 0 #2563eb; }
 	:global(:root[data-theme='kestrel-dark']) .shell :global(tr.row-sel) { background: var(--cad-sel) !important; }
 	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	/* on a touch screen a long press is a right-click (ui/longPress.ts): not the system's word selection / callout too */
@@ -686,10 +689,10 @@
 	.ib { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--cad-muted); }
 	.ib:hover:not(:disabled) { background: var(--cad-hover); color: var(--cad-text); }
 	.ib:disabled { opacity: 0.35; }
-	.ib.on { background: #dbeafe; color: #1d4ed8; }
+	.ib.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); }
 	.ib.dim { color: var(--cad-faint); }
 	.saved { margin-left: 8px; min-width: 3.5rem; text-align: right; }
-	.uploading { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: #2563eb; }
+	.uploading { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: var(--cad-link, #2563eb); }
 	.spin { width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 	@keyframes spin { to { transform: rotate(360deg); } }
 	.drop { position: absolute; top: 0; bottom: 0; width: 6px; background: #3b82f6; opacity: 0.6; z-index: 60; pointer-events: none; }

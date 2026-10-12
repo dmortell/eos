@@ -97,7 +97,7 @@
 	.back { position: fixed; inset: 0; z-index: 60; background: none; border: 0; cursor: default; }
 	.list { position: absolute; right: 0; top: 100%; z-index: 61; min-width: 240px; max-height: 60vh; overflow: auto; padding: 4px; background: var(--cad-panel, white); border: 1px solid var(--cad-line); border-radius: 6px; box-shadow: 0 12px 30px rgb(0 0 0 / 0.2); }
 	.item { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 8px; border-radius: 4px; font-size: 12px; text-align: left; color: var(--cad-text); white-space: nowrap; }
-	.item:hover { background: #dbeafe; }
+	.item:hover { background: var(--cad-sel, #dbeafe); }
 	.item.on { font-weight: 600; }
 	.item.preview { font-style: italic; }
 </style>
