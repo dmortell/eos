@@ -5,7 +5,7 @@
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
 	import CadDialog from './CadDialog.svelte'
-	import { HOWTO, SHORTCUTS, FKEYS } from './helpContent'
+	import { HOWTO, HOWTO_AREAS, SHORTCUTS, FKEYS } from './helpContent'
 	import { TOOL_GROUPS } from './ToolStrip.svelte'
 	import type { ToolId } from '../app/workspace.svelte'
 
@@ -17,7 +17,9 @@
 	$effect(() => { void tick().then(() => { input?.focus(); if (keys) keysEl?.scrollIntoView({ block: 'start' }) }) })
 	const hit = (...t: string[]) => { const w = q.trim().toLowerCase(); return !w || t.some((x) => x.toLowerCase().includes(w)) }
 	let opened = $state<string | null>(HOWTO.find((h) => h.featured)?.q ?? null)
-	const howto = $derived(HOWTO.filter((h) => hit(h.q, h.a)))
+	const howto = $derived(HOWTO.filter((h) => hit(h.q, h.a, HOWTO_AREAS[h.area])))
+	/** The how-tos by area, in HOWTO_AREAS' order (review R84). */
+	const areas = $derived((Object.keys(HOWTO_AREAS) as (keyof typeof HOWTO_AREAS)[]).map((a) => ({ a, name: HOWTO_AREAS[a], items: howto.filter((h) => h.area === a) })).filter((g) => g.items.length))
 	const shortcuts = $derived(SHORTCUTS.filter(([a, b]) => hit(a, b)))
 	const fkeys = $derived(FKEYS.filter(([a, b]) => hit(a, b)))
 	const tools = $derived(TOOL_GROUPS.map((g) => ({ name: g.name, tools: g.tools.filter((t) => hit(t.label, hints[t.id] ?? '', g.name)) })).filter((g) => g.tools.length))
@@ -31,11 +33,14 @@
 		<div class="body">
 			{#if howto.length}
 				<h3>How do I…</h3>
-				{#each howto as h (h.q)}
-					<div class="how" class:open={opened === h.q || !!q.trim()} class:featured={h.featured}>
-						<button class="how-q" onclick={() => (opened = opened === h.q ? null : h.q)}>{h.q}{#if h.featured}<span class="star">★ very useful</span>{/if}</button>
-						{#if opened === h.q || q.trim()}<p>{h.a}</p>{/if}
-					</div>
+				{#each areas as g (g.a)}
+					<h4>{g.name}</h4>
+					{#each g.items as h (h.q)}
+						<div class="how" class:open={opened === h.q || !!q.trim()} class:featured={h.featured}>
+							<button class="how-q" onclick={() => (opened = opened === h.q ? null : h.q)}>{h.q}{#if h.featured}<span class="star">★ very useful</span>{/if}</button>
+							{#if opened === h.q || q.trim()}<p>{h.a}</p>{/if}
+						</div>
+					{/each}
 				{/each}
 			{/if}
 			{#if shortcuts.length}
@@ -67,6 +72,7 @@
 	.q { flex: 1; min-width: 0; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 5px; padding: 4px 8px; font-size: 12px; background: var(--cad-input, white); color: var(--cad-text); }
 	.body { padding: 4px 16px 14px; font-size: 12px; line-height: 1.5; }
 	h3 { margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cad-faint, #a1a1aa); }
+	h4 { margin: 10px 0 2px; font-size: 11px; font-weight: 600; color: var(--cad-text, #3f3f46); }
 	p { margin: 4px 0; color: var(--cad-muted, #52525b); }
 	code { font-family: ui-monospace, Consolas, monospace; color: #1d4ed8; font-size: 11px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2px 18px; }

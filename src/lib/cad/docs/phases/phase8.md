@@ -2993,3 +2993,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R60:** "colour" → "color" in every comment, string and piece of markup text under `src/lib/cad` (63 files; done
   with the TypeScript scanner so identifiers were never touched). Stored field names stay (`Cord.colour`,
   `Sheet.outletColour`, `usageColour` …), as do a few local names.
+- **R84:** Help's how-tos come in seven groups — Drawing and editing; Views, tabs and windows; Plans: runs, outlets and
+  routes; Racks, ports and patching; Sheets and issuing; Layers and blocks; Project, floors and files (`HOWTO_AREAS`;
+  every how-to names its `area`, so a new one can't be left out). The two "order of racks" answers are one; the two
+  port map answers are named apart ("a drawing" / "the Excel for VLANs"). Keys come from `KEYS` (R85).
