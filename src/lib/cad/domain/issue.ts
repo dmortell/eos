@@ -2,7 +2,7 @@
 // file references) and its fingerprint, and the plan of a package — which sheets get a new revision (changed since
 // their last issue) and which go at the revision they were last issued at. The app part (Firestore, upload, PDF) is
 // app/issue.ts.
-import type { Prim } from '../views/display'
+import type { Prim } from './prim'
 import type { Issue, Sheet, SheetChange } from './drawing'
 
 /** The revision after `code`: none → `first`; a trailing number counts up keeping its width (P01 → P02, 9 → 10);

@@ -5,7 +5,7 @@ import { collection, doc, getDoc, onSnapshot, query, setDoc, where, type Documen
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { genUploader } from 'uploadthing/client'
 import { nanoid } from 'nanoid'
-import type { OurFileRouter } from '../../../routes/api/uploadthing/uploadthing'
+import type { OurFileRouter } from '$lib/files/uploadRouter'
 
 export interface PdfFile {
 	id: string

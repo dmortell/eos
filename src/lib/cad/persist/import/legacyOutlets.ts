@@ -5,7 +5,7 @@ import type { Outlet, Rack } from '../../domain/types'
 import type { Shape, Section, ContainmentRole, PathNode } from '../../domain/shapes'
 import { portLabelsFor } from '../../domain/labels'
 import { floorOfDocId, type ImportCtx } from './ctx'
-import { DEFAULT_HEIGHTS } from './legacy'
+import { DEFAULT_HEIGHTS } from '../../domain/floors'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy docs are untyped Firestore data */
 const MOUNTS = new Set(['wall', 'floor', 'box'])

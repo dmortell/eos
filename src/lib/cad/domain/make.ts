@@ -1,5 +1,6 @@
 // Constructors and conversions for shapes (ADR 0007). Tools and importers build shapes through these so the
-// invariants `validateShape` checks hold from the start.
+// invariants `validateShape` checks hold from the start. (makeBox / makeText / makeWall are used by tests and fixtures
+// only; the app creates its shapes through the tools and importers.)
 import { newId } from './ids'
 import type { Id, Pt, Tier } from './types'
 import type { Shape, ShapeCore, Owner, PathNode, PathSeg, Section, Plane, ContainmentRole, Role } from './shapes'

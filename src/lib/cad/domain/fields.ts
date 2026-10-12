@@ -7,13 +7,11 @@
 import type { Id, Level } from './types'
 import type { ProjectIndex } from './project'
 import type { Sheet } from './drawing'
-import { defaultOutletBlock, type Block } from './blocks'
-import type { Prim } from '../views/display'
+import { defaultOutletBlock, DATA_FIELDS, isDataField, type Block } from './blocks'
+export { DATA_FIELDS, isDataField }
+import type { Prim } from './prim'
 
-export const DATA_FIELDS = ['PROJECT', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] as const
 const FIELD = /\{(PROJECT|LEVEL|SHEET|SHEET_TITLE|DATE)\}|\{COUNT:([^}]+)\}/g
-/** Is this `{TAG}` a data field (not a block attribute an insert fills)? */
-export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 
 export interface FieldCtx { values: Partial<Record<(typeof DATA_FIELDS)[number], string>>; count: (name: string) => number }
 

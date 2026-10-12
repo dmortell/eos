@@ -3,7 +3,7 @@
 // or right column (stacked, today's side panels), or floating over the drawing (moved by its title, resized by its
 // corner). The layout is per user, per browser (localStorage), with Reset. Floating windows are kept on screen when
 // the browser window shrinks (Dave: "be careful to handle browser window resizing"). Pure state; ui/CadWindow.svelte
-// and ui/DockColumn.svelte draw it.
+// draws it.
 
 export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'devices' | 'cables'
 export type Dock = 'left' | 'right'

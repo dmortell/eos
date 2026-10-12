@@ -21,7 +21,7 @@ import type { Route } from '../domain/routing'
 import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
 import { cableKey } from '../domain/multicore'
-import { inPolygon } from '../editor/pick'
+import { inPolygon } from './primGeom'
 import type { Prim } from './display'
 
 const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450

@@ -1,18 +1,12 @@
 // READ-ONLY dry run of the legacy import against a real project (Phase 1 exit check). Run it in the browser on the
 // dev server:   const m = await import('/src/lib/cad/dev/dryRun.ts'); await m.dryRun('<pid>')
-// It only calls getDoc / getDocs. Nothing is written anywhere.
-import { collection, getDocs } from 'firebase/firestore'
+// It only reads (getDoc / getDocs, through load()). Nothing is written anywhere.
 import { firestore } from '../../db.svelte'
 import { importLegacy, type LegacySource } from '../persist/import/legacy'
 import { loadLegacy as load } from '../persist/import/load'
 import { ProjectIndex } from '../domain/project'
 import { validateProject } from '../domain/validate'
 import { outletSchedule, patchList, bom, runLengths } from '../domain/reports'
-
-export async function listProjects(): Promise<{ id: string; name: string; floors: number }[]> {
-	const snap = await getDocs(collection(firestore, 'projects'))
-	return snap.docs.filter((d) => !d.data().deleted).map((d) => ({ id: d.id, name: d.data().name, floors: (d.data().floors ?? []).length }))
-}
 
 export const loadLegacy = (pid: string): Promise<LegacySource> => load(firestore, pid)
 

@@ -131,7 +131,7 @@ export function cableCountText(f: Pick<SegFill, 'cables' | 'est'>): string {
 	return `${n} cable${n === 1 ? '' : 's'}${e ? ` · ${e} estimated` : ''}`
 }
 
-/** The fullest segment of each run. */
+/** The fullest segment of each run. (Used by tests only.) */
 export function fillByRun(fills: Map<string, SegFill>): Map<Id, SegFill> {
 	const out = new Map<Id, SegFill>()
 	for (const f of fills.values()) { const cur = out.get(f.shape); if (!cur || f.pct > cur.pct) out.set(f.shape, f) }

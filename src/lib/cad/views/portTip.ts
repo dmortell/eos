@@ -4,7 +4,7 @@
 import type { ProjectIndex } from '../domain/project'
 import type { Outlet, PortRef, ProjectSettings } from '../domain/types'
 import type { Prim } from './display'
-import { inPolygon, primDist } from '../editor/pick'
+import { inPolygon, primDist } from './primGeom'
 import { portUse } from '../domain/cords'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */

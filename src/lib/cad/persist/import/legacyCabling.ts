@@ -10,9 +10,9 @@ import { generatePortLabels } from '../../../elevation/frames/engine'
 import { floorOfDocId, type ImportCtx } from './ctx'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy docs are untyped Firestore data */
-const IMPORTED_AT = Date.now()
 
 export function importCabling(c: ImportCtx): void {
+	const importedAt = Date.now()   // per import run (was computed once at module load)
 	const settings = c.entities.find((e): e is ProjectSettings => e.type === 'settings')
 	const outletsByLoc = new Map<string, Outlet>()   // `${floor}:${locationId}` → outlet
 	const usedLocPorts = new Set<string>()           // across every room of a floor, not per racks doc
@@ -25,7 +25,7 @@ export function importCabling(c: ImportCtx): void {
 	for (const [docId, rd] of Object.entries(c.src.racks)) {
 		const f = floorOfDocId(c.src.pid, docId)
 		if (!f?.room || !rd) continue
-		const devices = importRacks(c, docId, f.floor, f.room, rd)
+		const devices = importRacks(c, docId, f.floor, f.room, rd, importedAt)
 		const fd = c.src.frames[docId.replace(/_R[A-Z]$/, '')]
 		if (fd) importAllocation(c, docId, f.floor, f.room, fd, rd, outletsByLoc, devices, usedLocPorts)
 	}
@@ -75,7 +75,7 @@ function importLocations(c: ImportCtx, floor: number, fd: any, out: Map<string, 
 
 const DEVICE_KINDS = new Set(['panel', 'switch', 'server', 'manager', 'shelf', 'pdu', 'enclosure', 'other'])
 
-function importRacks(c: ImportCtx, docId: string, floor: number, room: string, rd: any): Map<string, Device> {
+function importRacks(c: ImportCtx, docId: string, floor: number, room: string, rd: any, importedAt: number): Map<string, Device> {
 	const devices = new Map<string, Device>()
 	for (const r of rd.rows ?? []) {
 		const row: RackRow = { type: 'rackRow', id: c.id(`row:${docId}:${r.id}`), spaceId: c.serverRoom(floor, room), name: r.label ?? 'Row', order: 0, ...(r.defaults?.containment ? { containment: r.defaults.containment } : {}) }
@@ -103,7 +103,7 @@ function importRacks(c: ImportCtx, docId: string, floor: number, room: string, r
 			...(d.portType ? { portType: d.portType } : {}), ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}),
 			...(d.offsetX ? { offsetX: d.offsetX } : {}), ...(d.color ? { color: d.color } : {}), ...(portLabels ? { portLabels } : {}),
 			...(d.maker ? { maker: String(d.maker) } : {}), ...(d.model ? { model: String(d.model) } : {}),
-			...(kind === 'panel' ? { panel: { tier: d.patchLevel === 'high' ? 'high' : 'low', ...(d.serverRoom ? { serverRoomId: c.serverRoom(floor, d.serverRoom) } : {}), ...(d.labelsPrinted ? { labelsPrintedAt: IMPORTED_AT } : {}) } } : {}),
+			...(kind === 'panel' ? { panel: { tier: d.patchLevel === 'high' ? 'high' : 'low', ...(d.serverRoom ? { serverRoomId: c.serverRoom(floor, d.serverRoom) } : {}), ...(d.labelsPrinted ? { labelsPrintedAt: importedAt } : {}) } } : {}),
 		}
 		c.add(dev)
 		devices.set(d.id, dev)

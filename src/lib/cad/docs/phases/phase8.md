@@ -3279,3 +3279,23 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q67** a patch-schedule viewport continued from a typed "From cord" number dropped or repeated a cord when the viewport before it changed size. New `after` on the schedule spec (Properties › Continue from): the viewport starts where the previous one stops (`scheduleStart` in `views/sheet.ts`, `patchScheduleLayout().next`). A start past the end now shows an empty table. Test in `views/sheet.test.ts`; Help updated.
 - **Q70** splitting a wall (`insertNode`, also used by `splitRunsAt`) left every opening on the first half, whatever its position; openings past the cut now move to the new second segment with `at` measured from its start. Test in `domain/pathEdit.test.ts`.
 - **Q71** DXF export skipped images silently (only a count). DXF can only reference an image file, and a floorplan here is a rendered page, so each image is now kept as a closed frame and a note on layer `A-IMAGE` (counted in `skippedImages`; the Exports message says the picture isn’t included). No real IMAGE entity: it would need a file. Test in `render/render.test.ts`.
+- **Q64** one cable type lookup: `cableTypeOf` / `cableTypeLabel` / `cableMedia` in `domain/cableTypes.ts` replace the
+  ten hand-written ones (a type is found by id, then label; the fibre guess is one regex; an unlisted fibre-ish name
+  gets the fibre Ø in `cableOd`). `render/styleDrift.test.ts` checks that every class `ui/Prims.svelte` styles is in
+  `render/pdf.ts`'s table (or listed screen-only) and that the colors agree; it found `riser-break` missing on paper
+  (added). `room-line`, `run-label`, `device-pdu` and `fill-cable` are marker classes with no look, on screen or paper.
+  propsKit `put` / `num` replace the local copies in CordProps, NoteProps, OutletProps, RowProps, SheetsTab (the
+  other `num`s round or clamp, so they stay).
+- **Q65** `fromDoc` returns null with a console warning for a doc without a string id / type or a numeric rev, and
+  `Sync` skips it; `scopeOf` throws for an ownerless shape, `Sync` reports it through `onError` and saves the rest.
+  Tests in `persist/sync.test.ts`.
+- **Q66** `Prim` and its companions moved to `domain/prim.ts` (`views/display.ts` re-exports them), so `domain/fields`
+  / `issue` no longer import `views/`; `inPolygon` / `primDist` / `segDist` moved to `views/primGeom.ts` (`editor/pick`
+  re-exports), so `views/portTip` and `riser` don't import `editor/`; the upload router moved to
+  `$lib/files/uploadRouter.ts` (the route file re-exports it). Runtime cycles gone (checked with a small import-graph
+  script: `fields <-> blocks` via `DATA_FIELDS` / `isDataField` now in `blocks`, `plan -> elevation -> section -> plan`
+  via the new `views/sectionMarks.ts`, `legacy <-> legacyOutlets` via `domain/floors`). Left: four type-only cycles
+  (portGroups/project, restoreNotice/project, pdf/panelSheets/paper/sheet, ViewStrip/ViewCanvas/shellKeys) and
+  `domain/navTree -> views/space`, `views/overlays -> editor/tools` (type or unlisted). Test-only exports are marked
+  "(Used by tests only.)"; `dev/dryRun.listProjects` and the stale DockColumn comment removed; `IMPORTED_AT` is
+  computed per import run. Not done: the as-issued floorplan cache (`app/pdf.svelte.ts`, R39 part).

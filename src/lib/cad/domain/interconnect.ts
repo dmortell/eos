@@ -35,7 +35,7 @@ export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[];
 	return { links: intoCables(links, o.cores ?? 1), skipped }
 }
 
-/** Runs that can be a cable's "via": risers (a vertical segment between two levels) first, by label. */
+/** Runs that can be a cable's "via": risers (a vertical segment between two levels) first, by label. (Used by tests only.) */
 export function riserRuns(ix: ProjectIndex): { id: Id; label: string }[] {
 	return ix.shapes.filter((s) => {
 		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') return false

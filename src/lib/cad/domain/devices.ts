@@ -304,7 +304,7 @@ export function deviceCounts(devices: Device[]): string {
 	return [...n].sort((a, b) => b[1] - a[1]).map(([k, c]) => `${c} ${KIND_NAMES[k][c === 1 ? 0 : 1]}`).join(' · ') || 'no devices'
 }
 
-/** The lowest free U where a `heightU` device fits on `face`, scanning from the TOP down (the allocation order too). */
+/** The lowest free U where a `heightU` device fits on `face`, scanning from the TOP down (the allocation order too). (Used by tests only.) */
 export function firstFreeU(rack: Rack, others: Device[], heightU: number, face: Device['face']): number | null {
 	for (let u = rack.heightU - heightU + 1; u >= 1; u--) {
 		const probe = { id: '_', rackId: rack.id, name: '', kind: 'other', u, heightU, face, portCount: 0, type: 'device' } as Device

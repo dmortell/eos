@@ -55,7 +55,7 @@ export function namedFrame(dir: ElevDir, o: Pt = { x: 0, y: 0 }): ElevFrame {
 	return frameFromNormal(NAMED_N[dir], o)
 }
 
-/** A frame looking ALONG the plan direction `lookDeg` (e.g. 270 = up the sheet = the 'front' view). */
+/** A frame looking ALONG the plan direction `lookDeg` (e.g. 270 = up the sheet = the 'front' view). (Used by tests only.) */
 export function frameLooking(lookDeg: number, o: Pt = { x: 0, y: 0 }): ElevFrame {
 	const look = dirOf(lookDeg)
 	return frameFromNormal({ x: clean(-look.x), y: clean(-look.y) }, o)
@@ -74,7 +74,7 @@ export function unproject(f: ElevFrame, p: { u: number; v: number }, depth: numb
 	return { x: f.o.x + p.u * f.t.x + depth * f.n.x, y: f.o.y + p.u * f.t.y + depth * f.n.y, z: p.v }
 }
 
-/** The plan angle of a frame's t axis — the `rot` an upright box drawn on that elevation gets (its width runs along u). */
+/** The plan angle of a frame's t axis — the `rot` an upright box drawn on that elevation gets (its width runs along u). (Used by tests only.) */
 export function frameRot(f: ElevFrame): number {
 	return norm360(Math.atan2(f.t.y, f.t.x) / DEG)
 }
@@ -84,7 +84,7 @@ export function rackFrontNormal(rack: { rot?: number }): Pt {
 	return rotate({ x: 0, y: 1 }, rack.rot ?? 0)
 }
 
-/** The elevation that looks straight at a rack's front. */
+/** The elevation that looks straight at a rack's front. (Used by tests only.) */
 export function rackFrontFrame(rack: { at: Pt; rot?: number }): ElevFrame {
 	return frameFromNormal(rackFrontNormal(rack), rack.at)
 }

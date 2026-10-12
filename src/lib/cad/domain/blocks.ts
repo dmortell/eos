@@ -8,7 +8,11 @@ import type { ShapeCore, Shape, Geometry } from './shapes'
 import { moveGeometry, ellipsePts, placeGeometry, mirrorGeometry } from './shapes'
 import { project, unproject, type ElevFrame } from './conventions'
 import { newId } from './ids'
-import { isDataField } from './fields'
+
+/** The `{TAG}`s that are DATA fields (drawing fields, filled from the project), not block attributes an insert fills. */
+export const DATA_FIELDS = ['PROJECT', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] as const
+/** Is this `{TAG}` a data field (not a block attribute an insert fills)? */
+export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 
 export type BlockShape = BlockDef['shapes'][number]
 export type Block = BlockDef & { annotative?: boolean; builtin?: boolean
