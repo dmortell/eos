@@ -58,26 +58,26 @@
 <!-- the register of every issue for the PM (backlog): a sheet per row, an issue per column, or the latest only -->
 <div class="bar">
 	<button class="btn" disabled={!issues.length} title="Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel" onclick={() => register()}>Issue register (Excel)</button>
-	<label class="text-zinc-500" title="One column: each sheet's last revision, issue and date"><input type="checkbox" bind:checked={latestOnly} /> latest only</label>
+	<label class="muted" title="One column: each sheet's last revision, issue and date"><input type="checkbox" bind:checked={latestOnly} /> latest only</label>
 </div>
 <datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
 <table class="w-full border-collapse">
-	<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+	<thead>
 		<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
 	</thead>
 	<tbody>
 		{#each issues as i (i.id)}
-			<tr class="border-b border-zinc-100 align-top">
+			<tr class="align-top">
 				<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
 				<td class="px-2 font-mono">{i.date}</td>
 				{#if editing === i.id}
 					<!-- the package's details (backlog "Edit package details"): the frozen copies and the PDF stay as issued -->
 					<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue name', { name: e.currentTarget.value.trim() })} />
-						<input class="cell w-full text-zinc-500" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
+						<input class="cell w-full muted" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
 					<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue purpose', { purpose: e.currentTarget.value.trim() })} /></td>
 					<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Issue to', { to: e.currentTarget.value.trim() || undefined })} /></td>
 				{:else}
-					<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block text-zinc-500">{i.note}</span>{/if}</td>
+					<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block muted">{i.note}</span>{/if}</td>
 					<td class="px-2">{i.purpose}</td>
 					<td class="px-2">{i.to ?? ''}</td>
 				{/if}
@@ -94,7 +94,7 @@
 				</td>
 			</tr>
 		{:else}
-			<tr><td colspan="8" class="px-2 py-3 text-zinc-400">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
+			<tr><td colspan="8" class="px-2 py-3 faint">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
 		{/each}
 	</tbody>
 </table>

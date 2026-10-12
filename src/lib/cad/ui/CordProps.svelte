@@ -10,6 +10,7 @@
 	import Trace from './Trace.svelte'
 	import ColorPick from './ColorPick.svelte'
 	import PropGroup from './PropGroup.svelte'
+	import { toneStyle } from './StatusChip.svelte'
 
 	let { project, ws, c }: { project: CadProject; ws: Workspace; c: Cord } = $props()
 
@@ -37,7 +38,7 @@
 <PropGroup kind="cord" title="Ends">
 	<div class="ends">
 		<!-- any status, to fix a mistake (backlog "Set any status"); the buttons below are the install workflow -->
-		<span class="k">Status</span><span><select class="stsel status s-{c.status}" value={c.status} title="Set the status directly (to fix a mistake) — the buttons below follow the install workflow"
+		<span class="k">Status</span><span><select class="stsel status" style={toneStyle(c.status)} value={c.status} title="Set the status directly (to fix a mistake) — the buttons below follow the install workflow"
 			onchange={(e) => set('Cord status', setStatus(c, e.currentTarget.value as Cord['status']))}>
 			{#each CORD_STATUSES as st (st)}<option value={st}>{st}</option>{/each}
 		</select></span>
@@ -85,11 +86,6 @@
 	.stsel { border: 1px solid transparent; cursor: pointer; }
 	.stsel:hover { border-color: var(--cad-line); }
 	.status { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 4px; text-transform: uppercase; }
-	.s-add { background: #dcfce7; color: #166534; }
-	.s-change { background: #fef9c3; color: #854d0e; }
-	.s-remove { background: #fee2e2; color: #991b1b; }
-	.s-replace { background: #f3e8ff; color: #7e22ce; }
-	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; }

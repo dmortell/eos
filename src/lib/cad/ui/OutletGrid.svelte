@@ -148,14 +148,14 @@
 	<div class="actions">
 		<ScopeSelect {t} view={project.index.nameOf(levelId) || 'This level'} />
 		<input class="find" placeholder="Find…" bind:value={t.q} />
-		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
+		<span class="faint" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
 		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
 		<label class="pin" title="Re-allocate the PINNED links too (hand placements, imported ones) — when the outlets changed. Patched panel ports still stay."><input type="checkbox" bind:checked={withPinned} /> incl. pinned</label>
 		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
 		<button title="Find and replace in outlet labels or port labels — plain text or a pattern (the selected outlets, else the ones shown): Properties › Find / replace" onclick={findReplace}>Find/replace…</button>
 		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
-		{#if routed.n}<span class="text-zinc-500" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
+		{#if routed.n}<span class="muted" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
 		{#if routed.none}<button class="chip" class:on={noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)}>{routed.none} no route</button>{/if}
 		{#if routed.over}<b class="text-red-600">{routed.over} over 90 m</b>{/if}
 		{#if issues.length}
@@ -163,7 +163,7 @@
 		{/if}
 	</div>
 	<table class="w-full border-collapse">
-		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+		<thead>
 			<tr>
 				{#if t.scope !== 'view'}<th class="px-2 py-1">Level</th>{/if}
 				<SortTh {t} key="label" cls="px-2 py-1">Label</SortTh><SortTh {t} key="usage">Usage</SortTh><SortTh {t} key="tier">Tier</SortTh><SortTh {t} key="mount">Mount</SortTh>
@@ -173,8 +173,8 @@
 		<tbody>
 			{#each rows as o (o.id)}
 				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr bind:this={rowEls[o.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(o.id)} draggable="true" ondragstart={(e) => dragOutlets(e, o)} ondragend={() => ws.endDrag()} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
-					{#if t.scope !== 'view'}<td class="px-2 text-zinc-500">{project.index.nameOf(o.levelId)}</td>{/if}
+				<tr bind:this={rowEls[o.id]} class="hov" class:row-sel={selected.has(o.id)} draggable="true" ondragstart={(e) => dragOutlets(e, o)} ondragend={() => ws.endDrag()} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+					{#if t.scope !== 'view'}<td class="px-2 muted">{project.index.nameOf(o.levelId)}</td>{/if}
 					<td class="px-2 py-0.5">
 						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
 							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
@@ -192,7 +192,7 @@
 						</select>
 					</td>
 					<td class="px-2">{o.mount}</td>
-					<td class="px-2 font-mono text-zinc-600">{o.ports.map((p) => p.label).join('  ')}</td>
+					<td class="px-2 font-mono muted">{o.ports.map((p) => p.label).join('  ')}</td>
 					<td class="px-2">
 						{#if o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId)}
 							<select class="bg-transparent" value={o.ports[0]?.serverRoomId ?? ''} onchange={(e) => setRoom(o, e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
@@ -201,7 +201,7 @@
 							</select>
 						{:else}<span title="Ports go to different server rooms — set them per port in Properties">mixed</span>{/if}
 					</td>
-					<td class="px-2 font-mono text-zinc-600">
+					<td class="px-2 font-mono muted">
 						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'} class:patched={!!at.patched} title={at.patched ? `Patched to ${at.patched}` : undefined}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
 					</td>
 					<td class="px-2 font-mono">
@@ -211,7 +211,7 @@
 					<td class="px-2">{o.at ? '✓' : ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="10" class="px-2 py-3 text-zinc-400">{all.length ? 'No outlets match.' : t.scope === 'sel' ? 'No outlets selected.' : 'No outlets here yet — use the Outlet tool on the plan.'}</td></tr>
+				<tr><td colspan="10" class="px-2 py-3 faint">{all.length ? 'No outlets match.' : t.scope === 'sel' ? 'No outlets selected.' : 'No outlets here yet — use the Outlet tool on the plan.'}</td></tr>
 			{/each}
 		</tbody>
 	</table>

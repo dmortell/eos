@@ -137,6 +137,12 @@
 	.body :global(td.clip) { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	/* rows a little taller and easier to hit (T1) */
 	.body :global(td) { height: 20px; }
+	/* every table's look from the theme tokens, so the dark theme reads too (headers were Tailwind's light grey) */
+	.body :global(thead) { position: sticky; top: 0; z-index: 1; background: var(--cad-hover); color: var(--cad-muted); text-align: left; }
+	.body :global(thead th) { font-weight: 600; box-shadow: inset 0 -1px 0 var(--cad-line); }
+	.body :global(tbody > tr) { border-bottom: 1px solid var(--cad-line); }
+	.body :global(.muted) { color: var(--cad-muted); }
+	.body :global(.faint) { color: var(--cad-faint); }
 	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
 		background: linear-gradient(135deg, transparent 50%, var(--cad-faint, #a1a1aa) 50%, transparent 60%, transparent 70%, var(--cad-faint, #a1a1aa) 70%, transparent 80%); }
 </style>

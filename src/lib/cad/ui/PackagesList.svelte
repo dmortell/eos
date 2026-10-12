@@ -75,14 +75,14 @@
 <div class="bar">
 	<button class="btn" title="A package of the sheets selected in the register (a list, in print order)" onclick={fromSelection}>+ From selection ({selectedSheets.length})</button>
 	<button class="btn" title="A package of every sheet matching the register's chips now and later (a rule)" onclick={fromChips}>+ From chips</button>
-	<label class="text-zinc-500"><input type="checkbox" bind:checked={showArchived} /> archived</label>
+	<label class="muted"><input type="checkbox" bind:checked={showArchived} /> archived</label>
 	{#if naming}
-		<span class="text-zinc-500">New package {naming.rule ? '(rule)' : `of ${naming.sheetIds?.length ?? 0} sheet${naming.sheetIds?.length === 1 ? '' : 's'}`}:</span>
+		<span class="muted">New package {naming.rule ? '(rule)' : `of ${naming.sheetIds?.length ?? 0} sheet${naming.sheetIds?.length === 1 ? '' : 's'}`}:</span>
 		<NameInput create value={naming.value} placeholder="Its name — Enter makes it" title="Enter: make it · Esc: cancel" onsave={create} oncancel={() => (naming = null)} />
 	{/if}
 </div>
 <table class="w-full border-collapse">
-	<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+	<thead>
 		<tr><th class="px-2 py-1">Package</th><th class="px-2">Holds</th><th class="px-2">Sheets</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Last issue</th><th class="px-2">Since then</th><th></th></tr>
 	</thead>
 	<tbody>
@@ -90,9 +90,9 @@
 			{@const m = packageMembers(p, rows)}
 			{@const last = lastIssueOf(p, issues)}
 			{@const d = sinceLastIssue(m, last)}
-			<tr class="border-b border-zinc-100 align-top" class:archived={p.archived}>
+			<tr class="align-top" class:archived={p.archived}>
 				<td class="px-2"><input class="cell w-40 font-semibold" value={p.name} onchange={(e) => e.currentTarget.value.trim() && put({ ...p, name: e.currentTarget.value.trim() }, 'Package name')} /></td>
-				<td class="px-2 text-zinc-500">{p.rule ? `Rule: ${ruleText(p.rule, nameOf)}` : 'List'}</td>
+				<td class="px-2 muted">{p.rule ? `Rule: ${ruleText(p.rule, nameOf)}` : 'List'}</td>
 				<td class="px-2" title={m.map((r) => `${r.number} ${r.title}`).join('\n')}>{m.length}</td>
 				<td class="px-2">{p.purpose ?? '—'}</td>
 				<td class="px-2">{p.recipients?.map((r) => r.name).join(', ') || '—'}</td>
@@ -109,7 +109,7 @@
 				</td>
 			</tr>
 			{#if editing === p.id}
-				<tr class="edit border-b border-zinc-200"><td colspan="8" class="px-2 py-1">
+				<tr class="edit"><td colspan="8" class="px-2 py-1">
 					<div class="form">
 						<label>Purpose <input class="cell w-48" list="cad-purposes" value={p.purpose ?? ''} placeholder="For construction" onchange={(e) => put({ ...p, purpose: e.currentTarget.value.trim() || undefined }, 'Package purpose')} /></label>
 						<label title="One per line: Name, Organisation">Recipients <textarea class="cell" rows="2" value={recipientsText(p.recipients)} placeholder="Name, Org" onchange={(e) => put({ ...p, recipients: parseRecipients(e.currentTarget.value) }, 'Package recipients')}></textarea></label>
@@ -132,7 +132,7 @@
 				</td></tr>
 			{/if}
 		{:else}
-			<tr><td colspan="8" class="px-2 py-3 text-zinc-400">No packages yet — select sheets (or pick chips) in the register, then + From selection / + From chips.</td></tr>
+			<tr><td colspan="8" class="px-2 py-3 faint">No packages yet — select sheets (or pick chips) in the register, then + From selection / + From chips.</td></tr>
 		{/each}
 	</tbody>
 </table>

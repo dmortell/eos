@@ -26,6 +26,7 @@
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { ISSUE_STATE_TEXT } from '../domain/issue'
 	import NameInput from './NameInput.svelte'
+	import StatusChip from './StatusChip.svelte'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview: (s: ViewSpec) => void } = $props()
 
@@ -155,11 +156,11 @@
 		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
 		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />
 		{#if tagOptions.length}<ChipPick label="Tag" options={tagOptions} bind:picked={fTags} />{/if}
-		<label class="text-zinc-500" title="Show each sheet's issue state — worked out in the background (draws every issued sheet)"><input type="checkbox" bind:checked={showState} /> Issue state{#if states.busy}…{/if}</label>
+		<label class="muted" title="Show each sheet's issue state — worked out in the background (draws every issued sheet)"><input type="checkbox" bind:checked={showState} /> Issue state{#if states.busy}…{/if}</label>
 		{#if showState}<ChipPick label="State" options={STATE_OPTIONS} bind:picked={fStates} />{/if}
 		{#if chips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = [] }}>Clear</button>{/if}
-		<label class="text-zinc-500">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
-		<span class="text-zinc-400">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
+		<label class="muted">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
+		<span class="faint">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
 		<span class="seg" title="Print order: move the selected sheets earlier / later (the table sorts by # so you see it; the PDF follows the table)">
 			<button disabled={!picked.length} onclick={() => move(-1)}>▲</button><button disabled={!picked.length} onclick={() => move(1)}>▼</button>
 		</span>
@@ -179,7 +180,7 @@
 		<PackagesList {project} {ws} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
 	{:else}
 	<table class="w-full border-collapse">
-		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+		<thead>
 			<tr>
 				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" title={k === 'order' ? 'The print order — sorted by this, drag rows to reorder' : undefined} onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
 				{#if showState}<th class="px-2">Issue</th>{/if}<th class="px-2">Tags</th><th class="px-2">Status</th>
@@ -187,14 +188,14 @@
 		</thead>
 		<tbody>
 			{#each groups as g (g.key)}
-				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="text-zinc-400">{g.rows.length}</span>
-					{#if numbering === g.key}<span class="text-zinc-500">Number {g.rows.length} sheets from</span> <NameInput create value={firstNumber(g.key)} title="The first number (RE-01 → RE-02, RE-03 …) — Enter numbers them in print order · Esc cancels" onsave={(t) => numberGroup(g, t)} oncancel={() => (numbering = null)} />
+				{#if by !== 'none'}<tr class="grp"><td colspan="12"><button class="gh" title="Select this group's sheets" onclick={() => ws.select(g.rows.map((r) => r.id))}>{g.label}</button> <span class="faint">{g.rows.length}</span>
+					{#if numbering === g.key}<span class="muted">Number {g.rows.length} sheets from</span> <NameInput create value={firstNumber(g.key)} title="The first number (RE-01 → RE-02, RE-03 …) — Enter numbers them in print order · Esc cancels" onsave={(t) => numberGroup(g, t)} oncancel={() => (numbering = null)} />
 					{:else}<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => (numbering = g.key)}>Number…</button>{/if}</td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
-					<tr class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
+					<tr class="hov" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
 						draggable={sort.key === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
-						<td class="px-2 font-mono text-zinc-400">{r.order}</td>
+						<td class="px-2 font-mono faint">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<td class="px-2"><input class="cell" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
 						<!-- its own category, or "auto" = the one its viewports make it (grey) -->
@@ -210,13 +211,13 @@
 						<td class="px-2 font-mono">{r.rev || '—'}</td>
 						<td class="px-2">{r.size}</td>
 						<td class="px-2">{r.scale}</td>
-						{#if showState}<td class="px-2 whitespace-nowrap"><span class="st st-{stateOf(r)}">{stateText(r)}</span></td>{/if}
+						{#if showState}<td class="px-2 whitespace-nowrap"><StatusChip tone={stateOf(r)} label={stateText(r)} upper={false} /></td>{/if}
 						<td class="px-2"><input class="cell" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
-						<td class="px-2 text-zinc-500">{r.status}</td>
+						<td class="px-2 muted">{r.status}</td>
 					</tr>
 				{/each}
 			{:else}
-				<tr><td colspan="12" class="px-2 py-3 text-zinc-400">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
+				<tr><td colspan="12" class="px-2 py-3 faint">{sheets.length ? 'No sheets match.' : 'No sheets yet — Sheets → + New in the left panel.'}</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -247,12 +248,6 @@
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }
 	tr[draggable='true'] { cursor: grab; }
-	.st { border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: 600; }
-	.st-not-issued { background: #fef9c3; color: #854d0e; }
-	.st-issued { background: #dcfce7; color: #166534; }
-	.st-changed { background: #ffedd5; color: #9a3412; }
-	.st-superseded { background: #e4e4e7; color: #52525b; }
-	.st-unknown { color: var(--cad-faint); }
 	tr.drop td { box-shadow: inset 0 2px 0 #2563eb; }
 	.gn { margin-left: 8px; font-weight: 400; color: var(--cad-faint); }
 	.gn:hover { color: #2563eb; }

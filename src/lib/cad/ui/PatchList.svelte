@@ -16,6 +16,7 @@
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import CordActions from './CordActions.svelte'
+	import StatusChip from './StatusChip.svelte'
 	import CordMode from './CordMode.svelte'
 	import ContextMenu from './ContextMenu.svelte'
 	import { cordActionMenu, runCordAction } from './cordActions'
@@ -143,13 +144,13 @@
 <div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Patch list" onkeydown={tableKey}>
 	<div class="actions">
 		<ScopeSelect {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} />
-		<span class="text-zinc-500" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
+		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
 		{#each STATUSES as s (s)}
-			<button class="chip s-{s}" class:off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords">{s} {count[s]}</button>
+			<StatusChip tone={s} label="{s} {count[s]}" off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords" />
 		{/each}
 		{#if removed.length}<button class="btn" title="The cords marked for removal{room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)" onclick={() => runCordAction(project, ws, removed, 'installed')}>Purge removed ({removed.length})</button>{/if}
 		<input class="find" placeholder="Find…" bind:value={t.q} />
-		<span class="text-zinc-400" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
+		<span class="faint" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
 		<!-- the files and records (Dave 2026-10-12: easy to find): the patch list out as Excel, the cord labels bought, cord IDs back in -->
 		<span class="files">
 			<button class="btn" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch list…</button>
@@ -161,20 +162,20 @@
 	<!-- always there (rows mustn't jump under the pointer when the first one is picked) -->
 	<div class="actions selbar">
 		{#if selCords.length}<b>{selCords.length} selected:</b> <CordActions {project} {ws} cords={selCords} />
-		{:else}<span class="text-zinc-400">Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them</span>{/if}
+		{:else}<span class="faint">Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them</span>{/if}
 	</div>
 	<table class="w-full border-collapse">
-		<thead class="sticky top-0 bg-zinc-100 text-left text-zinc-600">
+		<thead>
 			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh><SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
 				{@const rep = r.status === 'replace' ? replacedText(project.index.get<Cord>(r.id)!, typeLabel) : ''}
-				<tr bind:this={rowEls[r.id]} class="hov border-b border-zinc-100" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
-					<td class="px-2 font-mono text-zinc-600">{r.fromLabel || '—'}</td>
+					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>
 					<td class="px-2">{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>
-					<td class="px-2 font-mono text-zinc-600">{r.toLabel || '—'}</td>
+					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
 					{#if isEditing(r.id, 'cordId')}
@@ -184,13 +185,13 @@
 						<td class="ed"><select class="cell" value={r.status} use:focus onkeydown={(e) => editKey(e, r.id, 'status')} onblur={(e) => blurSave(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
 							{#each STATUSES as s (s)}<option value={s}>{s}</option>{/each}
 						</select></td>
-					{:else}<td class="px-2" title="Double-click to set the status (the install rules apply: installed / add clear the history, remove keeps it)" ondblclick={(e) => edit(r.id, 'status', e)}><span class="chip s-{r.status}">{r.status}</span></td>{/if}
+					{:else}<td class="px-2" title="Double-click to set the status (the install rules apply: installed / add clear the history, remove keeps it)" ondblclick={(e) => edit(r.id, 'status', e)}><StatusChip tone={r.status} label={r.status} /></td>{/if}
 					{#if isEditing(r.id, 'notes')}
 						<td class="ed"><input class="cell" value={r.notes} use:focus onkeydown={(e) => editKey(e, r.id, 'notes')} onblur={(e) => blurSave(r.id, 'notes', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
-					{:else}<td class="clip px-2 text-zinc-600" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => edit(r.id, 'notes', e)}>{r.notes}</td>{/if}
+					{:else}<td class="clip px-2 muted" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => edit(r.id, 'notes', e)}>{r.notes}</td>{/if}
 				</tr>
 			{:else}
-				<tr><td colspan="9" class="px-2 py-3 text-zinc-400">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
+				<tr><td colspan="9" class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -203,18 +204,11 @@
 	.hov:hover { background: var(--cad-hover); }
 	div[role='grid']:focus { outline: none; }
 	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
-	.chip { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px; text-transform: uppercase; border: 0; }
-	.chip.off { opacity: 0.35; }
 	.selbar { flex-wrap: wrap; min-height: 26px; }
 	/* marked for removal: still listed (the work order), struck through */
 	.gone td { text-decoration: line-through; opacity: 0.6; }
 	.gone td:nth-child(8) { text-decoration: none; }
 	.was { margin-left: 4px; color: #d97706; font-weight: 600; cursor: help; }
-	.s-add { background: #dcfce7; color: #166534; }
-	.s-change { background: #fef9c3; color: #854d0e; }
-	.s-remove { background: #fee2e2; color: #991b1b; }
-	.s-replace { background: #f3e8ff; color: #7e22ce; }
-	.s-installed { background: #e4e4e7; color: #3f3f46; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover { background: var(--cad-hover); }
 	.files { margin-left: auto; display: inline-flex; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }

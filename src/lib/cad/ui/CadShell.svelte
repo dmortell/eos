@@ -627,6 +627,7 @@
 	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
 	/* a selected row, the same in every table (UX review V2): the drawing's selection blue, a bar on its left */
 	.shell :global(tr.row-sel) { background: #dbeafe !important; box-shadow: inset 3px 0 0 #2563eb; }
+	:global(:root[data-theme='kestrel-dark']) .shell :global(tr.row-sel) { background: var(--cad-sel) !important; }
 	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
 	.gone { display: none !important; }
 	/* one or two views side by side */
