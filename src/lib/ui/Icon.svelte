@@ -17,7 +17,7 @@ import {
 	Save, ScrollText, Share2, Square, Slash, Search, Server, Snowflake, Sun, SwitchCamera, ScanBarcode,
 	Trash2, Triangle, Type, TextAlignStart, TextAlignCenter, TextAlignEnd, TriangleAlert,
 	Scaling, Settings, Star, Undo, Rows3, Waypoints, X,
-	Tag, Funnel, FolderPlus, Sparkles,
+	Tag, Funnel, FolderPlus, Sparkles, Columns2, Maximize2, PictureInPicture2,
 } from '@lucide/svelte';
 
 let lucide: Record<string, any> = {
@@ -48,7 +48,7 @@ let lucide: Record<string, any> = {
 	spinner: LoaderCircle, square: Square, star: Star, start: TextAlignStart,
 	snowflake: Snowflake, sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo, url: Link,
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
-	tag: Tag, funnel: Funnel, folderPlus: FolderPlus, sparkles: Sparkles,
+	tag: Tag, funnel: Funnel, folderPlus: FolderPlus, sparkles: Sparkles, columns: Columns2, maximize: Maximize2, pip: PictureInPicture2,
 }
 
 // Kestrel CAD icon set (kestrel-adoption.md A2): 109 outline glyphs, same visual

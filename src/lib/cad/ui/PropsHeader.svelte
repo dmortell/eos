@@ -51,7 +51,7 @@
 		<b>{kind[0]}</b>{#if name}<span class="n" title={name}>{name}</span>{/if}
 		{#if layer}<span class="l" title="Layer">{layer}</span>{/if}
 	</div>
-	<button title="Select everything in this view like the selection (Edit › Select similar)" onclick={() => ws.selectSimilar()}><Icon name="copy" size={13} /></button>
+	<button title="Select everything in this view like the selection (Edit › Select similar)" onclick={() => ws.selectSimilar()}><Icon name="sparkles" size={13} /></button>
 	<button class="del" title="Delete (the Delete key) — asks first when more goes with it; Undo brings it back" onclick={ws.remove}><Icon name="trash" size={13} /></button>
 </div>
 {#if movable >= 2}

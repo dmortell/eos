@@ -2627,3 +2627,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the window's own LAYERS title, whose fold left an empty window); their links (+ Layer, + Server room) stay at the
   right (`ui/SideSection.svelte`). The Cables window says how to get cables when there are none (it was blank;
   `ui/CableList.svelte`). Live (Test Project): Layers / Racks / Blocks windows checked.
+- **R58 One icon per meaning:** Split = two columns, Hide every window = eye-off, float a window / the tables =
+  picture-in-picture, maximise the tables = maximise, Select similar = sparkles (they shared panels / expand / copy with
+  the Viewport tool, the Copy tool and each other) (`$lib/ui/Icon.svelte` + `columns`, `maximize`, `pip`).

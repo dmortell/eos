@@ -96,9 +96,9 @@
 			<button class="ib" title="Open the tables (Ctrl+,)" onclick={open}><Icon name="chevronUp" size={13} /></button>
 		{:else}
 			{#if !t.max}<button class="ib" title={t.folded ? 'Unfold' : 'Fold to this bar'} onclick={() => set({ folded: !t.folded })}><Icon name={t.folded ? 'chevronUp' : 'chevronDown'} size={13} /></button>{/if}
-			<button class="ib" class:on={t.max} title={t.max ? 'Back to the drawing (Esc)' : 'Maximise: the table fills the drawing area'} onclick={() => set({ max: !t.max, folded: false })}><Icon name="expand" size={13} /></button>
+			<button class="ib" class:on={t.max} title={t.max ? 'Back to the drawing (Esc)' : 'Maximise: the table fills the drawing area'} onclick={() => set({ max: !t.max, folded: false })}><Icon name="maximize" size={13} /></button>
 			{#if !t.max}
-				<button class="ib" title={t.float ? 'Dock it under the drawing' : 'Float it over the drawing (move and resize it)'} onclick={() => { set({ float: !t.float }); clamp() }}><Icon name={t.float ? 'panelBottom' : 'panels'} size={13} /></button>
+				<button class="ib" title={t.float ? 'Dock it under the drawing' : 'Float it over the drawing (move and resize it)'} onclick={() => { set({ float: !t.float }); clamp() }}><Icon name={t.float ? 'panelBottom' : 'pip'} size={13} /></button>
 			{/if}
 			<button class="ib" title="Close the tables to their tabs (Ctrl+, or a tab brings them back)" onclick={() => { set({ max: false }); panels.toggle('bottom') }}><Icon name="x" size={13} /></button>
 		{/if}

@@ -81,7 +81,7 @@
 		{#if actions}<span class="acts">{@render actions()}</span>{/if}
 		<button title={s.folded ? 'Unfold' : 'Fold to the title'} onclick={() => layout.fold(id)}><Icon name={s.folded ? 'chevronDown' : 'chevronUp'} size={12} /></button>
 		{#if docked}
-			<button title="Float it over the drawing" onclick={floatOut}><Icon name="expand" size={12} /></button>
+			<button title="Float it over the drawing" onclick={floatOut}><Icon name="pip" size={12} /></button>
 		{:else}
 			<button title="Dock on the left" onclick={() => layout.dock(id, 'left')}><Icon name="panelLeft" size={12} /></button>
 			<button title="Dock on the right" onclick={() => layout.dock(id, 'right')}><Icon name="sidebar" size={12} /></button>
