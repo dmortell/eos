@@ -3029,3 +3029,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q9** fewer ports on a device take the links and cords on the ports that go, in the same step — asked first, saying
   how many (installed cords named); F4 repeating a port count asks the same (`domain/devices.ts` `beyondPorts`,
   `ui/DeviceProps.svelte`, `app/shellActions.ts`; test).
+- **Q10** allocation, Assign → port… and dragging ports leave a panel port with a hand label or in a labelled range of
+  ports free (it's for something else; the outlet's label would replace what it shows), and say which (an allocation
+  issue "N free panel ports left free …"; Assign / drag name the ports passed over) (`domain/allocate.ts`
+  `labelledPort`; Help; tests).

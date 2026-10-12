@@ -520,7 +520,7 @@ export class SelectTool implements Tool {
 		if (d?.type !== 'device' || d.kind !== 'panel') { c.say?.('Not moved — drop the ports on a panel port in this view'); return }
 		const start = hit && hit.k !== 'image' && hit.sub ? Number(hit.sub) : 1
 		const r = movePorts(c.index, pm.sel, { on: d.id, port: start })
-		const kept = r.patched.length ? ` · ${r.patched.length} patched port(s) stay — take their cords off first` : ''
+		const kept = (r.patched.length ? ` · ${r.patched.length} patched port(s) stay — take their cords off first` : '') + (r.skipped ? ` · passed over labelled ports ${r.skipped}` : '')
 		if (!r.add.length) { c.say?.(`Nothing moved — no outlets on those ports, or no free ports from there${kept}`); return }
 		c.store.transact(`Move ${r.add.length} port(s) to ${d.name}`, (tx) => { for (const id of r.remove) tx.del(id); for (const l of r.add) tx.put(l) })
 		const here = r.add.filter((l) => l.a.on === d.id).map((l) => l.a.port)

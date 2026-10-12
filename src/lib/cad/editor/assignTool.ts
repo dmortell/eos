@@ -23,12 +23,14 @@ export class AssignTool implements Tool {
 		const outlets = this.outlets.map((id) => c.index.get(id)).filter((o) => o?.type === 'outlet').sort((a, b) => naturalCompare(a!.label, b!.label))
 		const wants = outlets.flatMap((o) => (o!.type === 'outlet' ? o!.ports.map((p) => ({ outletId: o!.id, port: p.port })) : []))
 		const r = assignFrom(c.index, wants, { on: d.id, port: sub ? Number(sub) : 1 })
-		if (!r.add.length) { c.say?.('No free panel ports from there'); return }
+		if (!r.add.length) { c.say?.(`No free panel ports from there${r.skipped ? ` (labelled ports are left alone: ${r.skipped})` : ''}`); return }
 		this.apply(`Assign ${outlets.length} outlet(s) to ${d.name}`, r.add, r.remove)
 		// a hand placement may cross tiers on purpose — say so rather than refuse
 		const tier = d.panel?.tier ?? 'low', crossed = outlets.filter((o) => o!.type === 'outlet' && o!.tier !== tier).length
-		if (r.left) c.say?.(`${r.left} port(s) didn't fit — the panels after that one are full`)
-		else if (crossed) c.say?.(`Note: ${crossed} ${tier === 'high' ? 'low' : 'high'}-level outlet(s) now on a ${tier}-level panel`)
+		const passed = r.skipped ? ` · passed over labelled ports ${r.skipped}` : ''
+		if (r.left) c.say?.(`${r.left} port(s) didn't fit — the panels after that one are full${passed}`)
+		else if (crossed) c.say?.(`Note: ${crossed} ${tier === 'high' ? 'low' : 'high'}-level outlet(s) now on a ${tier}-level panel${passed}`)
+		else if (passed) c.say?.(`Assigned${passed} (a hand label or a labelled range: kept for what they're labelled)`)
 		this.outlets = []
 		this.done()
 	}

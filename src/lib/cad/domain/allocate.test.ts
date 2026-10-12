@@ -148,3 +148,26 @@ describe('assign by hand', () => {
 		expect(r.add.every((l) => l.pinned)).toBe(true)
 	})
 })
+
+describe('labelled panel ports (Review 2 Q10)', () => {
+	const labelP1 = (extra: Partial<Device>) => base().map((e) => (e.id === 'P1' ? ({ ...e, ...extra } as Device) : e))
+	it('allocation leaves ports with a hand label or in a labelled range free, and says so', () => {
+		const ents = labelP1({ portLabels: { '1': 'UPLINK-1' }, panel: { tier: 'low', groups: [{ from: 13, to: 24, label: 'P3A-R302' }] } })
+		const r = run([...ents, ...outlets(7)])
+		const p1 = onPanel(r.add, 'P1')
+		expect(p1(1)).toBeUndefined()
+		expect([p1(2), p1(12)]).toEqual(['A.001:1', 'A.006:1'])
+		expect(p1(13)).toBeUndefined()
+		expect(onPanel(r.add, 'P2')(1)).toBe('A.006:2')
+		const why = r.issues.find((i) => i.kind === 'labelled-skipped')
+		expect(why?.text).toContain('P1 1, 13–24')
+	})
+	it('Assign passes over labelled ports and names them', () => {
+		const ix = new ProjectIndex([...labelP1({ portLabels: { '3': 'UPLINK-1' } }), ...outlets(2)])
+		const r = assignFrom(ix, [{ outletId: 'A.001', port: 1 }, { outletId: 'A.001', port: 2 }, { outletId: 'A.002', port: 1 }], { on: 'P1', port: 2 })
+		expect(r.add.map((l) => l.a.port)).toEqual([2, 4, 5])
+		expect(r.skipped).toBe('P1 3')
+		// a labelled port past the last one used isn't mentioned
+		expect(assignFrom(ix, [{ outletId: 'A.002', port: 2 }], { on: 'P1', port: 1 }).skipped).toBe('')
+	})
+})
