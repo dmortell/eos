@@ -80,7 +80,7 @@ export type Geometry =
 	/** Tip first. `attach` makes the tip follow an entity (an outlet, a rack, a shape). */
 	| { kind: 'leader'; pts: Pt[]; text?: string; attach?: Id; /** A callout's frame round its words (backlog "Callouts"); absent = none. */ border?: 'underline' | 'box' }
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
-	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number }
+	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number; /** the picture's own width ÷ height: its box keeps it on every resize (older images: the box's ratio when first resized) */ ratio?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
 	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (Dave 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (Dave 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame; /** A sheet or web page this marker opens (double-click); each insert has its own target. */ link?: InsertLink }
 	/** A LEGEND (backlog "Legend on the drawing"): a table of the symbols / layers in use on its level (a sheet: the levels

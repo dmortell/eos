@@ -19,7 +19,7 @@ import { angleStep, squareCorner } from './constrain'
 
 export type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'image' | 'arc'
 export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number
-	/** the Image tool (backlog "Markup kinds" part 4): the picture — a file in Uploads and its page */ image?: { fileId: string; page?: number } }
+	/** the Image tool (backlog "Markup kinds" part 4): the picture — a file in Uploads and its page */ image?: { fileId: string; page?: number; ratio?: number } }
 
 /** The shape from two points (corner / corner, or centre / corner) in one 2D space; `shift` = square / circle /
  *  15° steps. Null when it would be empty. */
@@ -32,11 +32,17 @@ export function shapeGeom(o: ShapeOpts, a: Pt, b0: Pt, shift: boolean): Geometry
 		const R = o.inscribed ? d : d / Math.cos(Math.PI / n), start = Math.atan2(b.y - a.y, b.x - a.x) + (o.inscribed ? 0 : Math.PI / n)
 		return { kind: 'polygon', pts: Array.from({ length: n }, (_, i) => ({ x: r1(a.x + R * Math.cos(start + (i * 2 * Math.PI) / n)), y: r1(a.y + R * Math.sin(start + (i * 2 * Math.PI) / n)) })) }
 	}
-	const b = shift ? squareCorner(a, b0) : b0
+	let b = shift ? squareCorner(a, b0) : b0
+	// a picture of a known shape: the largest box of ITS proportions inside the dragged one, from the first corner
+	const ratio = o.kind === 'image' ? o.image?.ratio : undefined
+	if (ratio && ratio > 0) {
+		const fw = Math.abs(b.x - a.x), fh = Math.abs(b.y - a.y), w1 = Math.min(fw, fh * ratio)
+		b = { x: a.x + Math.sign(b.x - a.x || 1) * w1, y: a.y + Math.sign(b.y - a.y || 1) * (w1 / ratio) }
+	}
 	const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y), centre = { x: r1((a.x + b.x) / 2), y: r1((a.y + b.y) / 2) }
 	if (w < 1e-6 || h < 1e-6) return null
 	if (o.kind === 'rect') return { kind: 'rect', centre, size: { x: r1(w), y: r1(h) } }
-	if (o.kind === 'image') return o.image ? { kind: 'image', fileId: o.image.fileId, ...(o.image.page && o.image.page !== 1 ? { page: o.image.page } : {}), centre, size: { x: r1(w), y: r1(h) } } : null
+	if (o.kind === 'image') return o.image ? { kind: 'image', fileId: o.image.fileId, ...(o.image.page && o.image.page !== 1 ? { page: o.image.page } : {}), centre, size: { x: r1(w), y: r1(h) }, ...(ratio && ratio > 0 ? { ratio } : {}) } : null
 	return shift ? { kind: 'circle', centre, r: r1(w / 2) } : { kind: 'ellipse', centre, rx: r1(w / 2), ry: r1(h / 2) }
 }
 const r1 = (v: number) => Math.round(v * 10) / 10

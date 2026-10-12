@@ -128,7 +128,7 @@ export class Workspace {
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0 })
 	/** The Image tool's picture (Insert › Image…): its file in Uploads and page, and its name for the hint. */
-	imagePick = $state<{ fileId: string; page?: number; name: string } | null>(null)
+	imagePick = $state<{ fileId: string; page?: number; name: string; /** the picture's width ÷ height, once measured */ ratio?: number } | null>(null)
 	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
 	dimMode = $state<DimMode>('aligned')
 	/** The block the Insert tool places (picked in the Blocks list). */

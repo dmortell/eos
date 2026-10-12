@@ -58,6 +58,9 @@ export function regionGrips(g: Geometry): Pt[] {
 	return []
 }
 
+/** A picture's width ÷ height: the one stored from its file, else its box's. */
+const imageRatio = (g: Extract<Geometry, { kind: 'image' }>) => (g.ratio && g.ratio > 0 ? g.ratio : g.size.x / g.size.y)
+
 /** The shape with grip `i` dragged to `q` (its own space). */
 export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shape {
 	const g = s.geom
@@ -101,7 +104,11 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 		// a corner: the opposite one stays where it is
 		const corners = [{ x: -hx, y: -hy }, { x: hx, y: -hy }, { x: hx, y: hy }, { x: -hx, y: hy }], o = corners[(i + 2) % 4]
 		let d = sub(lq, o)
-		if (shift) { const m = Math.max(Math.abs(d.x), Math.abs(d.y)); d = { x: Math.sign(d.x || 1) * m, y: Math.sign(d.y || 1) * m } }
+		if (g.kind === 'image') {
+			// a picture keeps its proportions: the larger of the two pulls sets the size
+			const r = imageRatio(g), w = Math.max(Math.abs(d.x), Math.abs(d.y) * r)
+			d = { x: Math.sign(d.x || 1) * w, y: Math.sign(d.y || 1) * (w / r) }
+		} else if (shift) { const m = Math.max(Math.abs(d.x), Math.abs(d.y)); d = { x: Math.sign(d.x || 1) * m, y: Math.sign(d.y || 1) * m } }
 		const size = { x: Math.max(1, r1(Math.abs(d.x))), y: Math.max(1, r1(Math.abs(d.y))) }
 		return { ...s, geom: { ...g, size, centre: r1p(world({ x: o.x + d.x / 2, y: o.y + d.y / 2 })) } }
 	}
@@ -109,6 +116,11 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 	const axis = i === 4 || i === 6 ? 'y' : 'x', sign = i === 4 || i === 7 ? -1 : 1, h = axis === 'x' ? hx : hy
 	const fixed = -sign * h, moved = axis === 'x' ? lq.x : lq.y, len = Math.max(1, r1(Math.abs(moved - fixed))), mid = (moved + fixed) / 2
 	const c = world(axis === 'x' ? { x: mid, y: 0 } : { x: 0, y: mid })
+	if (g.kind === 'image') {
+		// the other side follows (about the middle of the edge), so the picture keeps its proportions
+		const r = imageRatio(g), size = axis === 'x' ? { x: len, y: r1(len / r) } : { x: r1(len * r), y: len }
+		return { ...s, geom: { ...g, size, centre: r1p(c) } }
+	}
 	return { ...s, geom: { ...g, size: axis === 'x' ? { x: len, y: g.size.y } : { x: g.size.x, y: len }, centre: r1p(c) } }
 }
 

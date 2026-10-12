@@ -8,6 +8,27 @@ import type { Shape } from '../domain/shapes'
 const shape = (geom: Shape['geom'], extra: Partial<Shape> = {}) => ({ type: 'shape', id: 'S', levelId: 'L', geom, ...extra }) as Shape
 const rect = shape({ kind: 'rect', centre: { x: 200, y: 100 }, size: { x: 400, y: 200 } })   // 0,0 → 400,200
 
+describe('an image box keeps the picture’s proportions', () => {
+	const img = shape({ kind: 'image', fileId: 'F', centre: { x: 200, y: 100 }, size: { x: 400, y: 200 }, ratio: 2 })   // 0,0 → 400,200
+	const size = (s: Shape) => (s.geom as { size: { x: number; y: number } }).size
+	it('a corner drag sets the size from the larger pull, the opposite corner stays', () => {
+		const r = dragRegionGrip(img, 2, { x: 600, y: 250 }, false)
+		expect(size(r)).toEqual({ x: 600, y: 300 })
+		expect(r.geom).toMatchObject({ centre: { x: 300, y: 150 } })
+		expect(size(dragRegionGrip(img, 2, { x: 500, y: 600 }, false))).toEqual({ x: 1200, y: 600 })
+	})
+	it('an edge drag changes the other side with it, about the middle', () => {
+		const r = dragRegionGrip(img, 5, { x: 800, y: 40 }, false)
+		expect(size(r)).toEqual({ x: 800, y: 400 })
+		expect(r.geom).toMatchObject({ centre: { x: 400, y: 100 } })
+		expect(size(dragRegionGrip(img, 4, { x: 0, y: -100 }, false))).toEqual({ x: 600, y: 300 })
+	})
+	it('an older image without a stored ratio keeps its box’s', () => {
+		const old = shape({ kind: 'image', fileId: 'F', centre: { x: 200, y: 100 }, size: { x: 400, y: 200 } })
+		expect(size(dragRegionGrip(old, 5, { x: 800, y: 0 }, false))).toEqual({ x: 800, y: 400 })
+	})
+})
+
 describe('region grips', () => {
 	it('a rectangle: 4 corners then 4 edge middles', () => {
 		expect(regionGrips(rect.geom)).toEqual([

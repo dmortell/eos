@@ -93,3 +93,12 @@ describe('the Shape tool', () => {
 		expect(planDisplayList(ix, 'L33', { scale: 100 }).some((p) => p.src === s.id)).toBe(false)
 	})
 })
+
+describe('an image box of a known picture', () => {
+	it('is the largest box of its proportions inside the dragged one, from the first corner, and keeps the ratio', () => {
+		const o: ShapeOpts = { kind: 'image', sides: 4, inscribed: true, image: { fileId: 'F', ratio: 2 } }
+		expect(shapeGeom(o, { x: 0, y: 0 }, { x: 1000, y: 200 }, false)).toMatchObject({ size: { x: 400, y: 200 }, centre: { x: 200, y: 100 }, ratio: 2 })
+		expect(shapeGeom(o, { x: 0, y: 0 }, { x: -300, y: -900 }, false)).toMatchObject({ size: { x: 300, y: 150 }, centre: { x: -150, y: -75 } })
+		expect(shapeGeom({ ...o, image: { fileId: 'F' } }, { x: 0, y: 0 }, { x: 1000, y: 200 }, false)).toMatchObject({ size: { x: 1000, y: 200 } })   // ratio not measured: as dragged
+	})
+})

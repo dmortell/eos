@@ -46,6 +46,7 @@
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
 	import ImagePickDialog from './ImagePickDialog.svelte'
+	import { pictureRef } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
@@ -511,6 +512,17 @@
 	 *  files, listed in Uploads) and the Image tool armed with it at once — drag its box where it goes while it uploads
 	 *  ("Uploading picture…" by Saved). The same picture pasted again is the same file: uploaded once. */
 	const pictures = new PictureUploads(firestorePictureDeps(project.db, project.pid, () => project.settings?.fileStorage, project.pdf.showPicture))
+	/** Measure the picked picture's width ÷ height (a PDF page: as rendered) and keep it on the pick: its box then keeps it. */
+	async function measurePick(fileId: string, page?: number) {
+		try {
+			const url = await project.pdf.pictureReady(pictureRef(fileId, page ?? 1))
+			if (!url) return
+			const img = new Image()
+			img.src = url
+			await img.decode()
+			if (img.naturalWidth && img.naturalHeight && ws.imagePick?.fileId === fileId && ws.imagePick.page === page) ws.imagePick = { ...ws.imagePick, ratio: img.naturalWidth / img.naturalHeight }
+		} catch { /* no ratio: the box is as dragged, and keeps ITS shape when resized */ }
+	}
 	async function pastePicture(file: File) {
 		if (!toolWorksIn('image', activeKind, !!vpEditKind)) { ws.say('Paste a picture into a plan, an elevation, a section or a sheet'); return }
 		const d = new Date(), two = (n: number) => String(n).padStart(2, '0')
@@ -519,6 +531,7 @@
 		try {
 			const r = await pictures.add(file, name)
 			ws.imagePick = { fileId: r.fileId, name: r.fileId }
+			void measurePick(r.fileId)
 			setTool('image')
 			ws.say(r.fresh ? `Pasted picture: drag its box where it goes now — it uploads meanwhile (to Uploads as “${r.fileId}”) · Esc to leave it out`
 				: `Pasted picture — already in Uploads as “${r.fileId}” (not uploaded again): drag its box where it goes · Esc to leave it out`)
@@ -625,7 +638,7 @@
 	</main>
 
 	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {projectDetails} />{/if}
-	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
+	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />
