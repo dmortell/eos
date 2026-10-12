@@ -5,6 +5,7 @@
 	import OpenProjectDialog from './OpenProjectDialog.svelte'
 	import BackupDialog from './BackupDialog.svelte'
 	import BackupsWindow from './BackupsWindow.svelte'
+	import LegacyDrawingsDialog from './LegacyDrawingsDialog.svelte'
 	import { backupsCol, loadBackup, type BackupHead } from '../app/backups'
 	import { doc, getDoc } from 'firebase/firestore'
 	import type { ProjectFile } from '../persist/file'
@@ -72,6 +73,7 @@
 	const layout = new WindowLayout()
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
 	let imagePickOpen = $state(false)
+	let legacyOpen = $state(false)
 	let titleBlockOpen = $state(false), openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
 	/** A stored backup to restore (Project › Backups… › Restore…). */
 	let restoreSource = $state.raw<{ file: ProjectFile; name: string } | undefined>()
@@ -353,7 +355,7 @@
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
 		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'), openProject: () => (openProjectOpen = true),
-		backup: (m) => { restoreSource = undefined; backupOpen = m }, backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
+		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
 		paste: () => ws.say('Paste with Ctrl+V (the browser lets a page paste only from the keyboard)'),
@@ -568,6 +570,7 @@
 	<RestoreNotice {project} />
 	{#if backupsOpen}<BackupsWindow {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
+	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}

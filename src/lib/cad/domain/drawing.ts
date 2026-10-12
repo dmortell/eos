@@ -60,6 +60,8 @@ export interface Sheet {
 	gray?: boolean
 	outletColour?: 'usage' | 'layer'
 	cordRoute?: 'channels' | 'straight'
+	/** Brought in from a Sheets-tool sheet (`sheets:<sheetId>`, File › Import legacy drawings): importing it again skips it. */
+	importedFrom?: string
 }
 
 /** What a pane or a viewport shows: the plan, a named elevation, or a server room's racks (front / rear). The same

@@ -189,6 +189,9 @@ export interface ShapeCore {
 	/** A box / cabinet's doors (backlog "Door swings on other objects"), as racks have: drawn open on the plan, front = its
 	 *  local +y (the back line is −y). */
 	doors?: { front?: 'single' | 'split'; rear?: 'single' | 'split'; hinge?: 'left' | 'right' }
+	/** Brought in from a legacy drawing (File › Import legacy drawings): `pages:<modelId>:<objId>` or
+	 *  `sheets:<sheetId>:<annotationId>` — so importing the same item again skips it instead of doubling it. */
+	importedFrom?: string
 }
 
 export type Shape = ShapeCore & Owner

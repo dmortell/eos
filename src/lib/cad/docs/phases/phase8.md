@@ -2588,3 +2588,20 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   checks rack by rack (`domain/validate.ts`). Test in `editor/notes.test.ts`.
 - **R55 Right-click on something not selected** (Select tool, nothing being drawn) selects it and opens its menu (it
   cleared the selection); on empty space it is still Esc (`ui/ViewCanvas.svelte`). Help: Keys.
+- **Import legacy drawings (Dave: a FEW Journey drawings, once, by choice — not a bulk importer):** File › **Import
+  legacy drawings…** (`ui/LegacyDrawingsDialog.svelte`) reads, read-only (`persist/import/legacyDrawings.ts`), the
+  project's Pages models, Sheets-tool sheets, `models3d/{pid}` and `sheetLayers`; lists models (boxes / walls ticks, a
+  level each, preselected from the name: "Zone 3303" → 33F 3303) and sheets (a level each, from the Outlets doc's
+  floor or the model3d model's name); previews counts + notes; Import = ONE transaction. Pure mapping in
+  `persist/import/drawings.ts` (+ `drawingsPages.ts`, `drawingsSheets.ts`, tests in `drawings.test.ts`): a prism → a box
+  (corner → centre, rot kept; n-gon → polygon), a wall → a wall path (segment overrides → segment sections), layers by
+  name (Walls = sys:walls; missing ones made and frozen in existing sheets); rack prisms left out. A sheet → a cad sheet
+  (number, title, paper, title-block Drawn / Checked / Approved, revisions), its outlets / model3d viewport → a plan /
+  named elevation viewport at the same rect, scale and pan (Sheets-tool real mm = cad view mm, so no transform; a
+  fitted model3d viewport frames its clip box; a fitted Outlets one uses cad's fit), hidden fixed layers → frozen; its
+  annotations → notes tied to the viewport (dimension, rect, ellipse, text, callout → leader, line, cloud, legend,
+  elevation tag / detail / outlet → built-in symbol inserts, faceplate / door / north → shapes); hidden-layer ones,
+  grids, images and photo markers are left out and listed. Stamped `importedFrom` (Shape, Sheet), so a re-import skips
+  what's there. Dry run on Journey's real data: Zone 3303 → 60 boxes (R01 left out) + 3 walls, new layers Furniture /
+  Openings; the 5 sheets → 99 of their 100 annotations (the legend is on a layer hidden in its viewport). Help: "Bring
+  in a drawing from Pages or the Sheets tool".

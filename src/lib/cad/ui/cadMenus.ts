@@ -24,6 +24,8 @@ export interface MenuCtx {
 	/** Download backup… / Restore from file… (ADR 0008); only the owner restores. */
 	backup(mode: 'download' | 'restore'): void
 	canRestore: boolean
+	/** File › Import legacy drawings…: chosen Pages models / Sheets-tool sheets of this project, once. */
+	legacyDrawings(): void
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -70,6 +72,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Download backup…', title: 'Save the whole project or chosen models as a file', run: () => c.backup('download') },
 			{ label: 'Restore from file…', disabled: !c.canRestore, title: c.canRestore ? 'Put models back as they were in a backup file' : 'Only the project owner can restore', run: () => c.backup('restore') },
+			'-',
+			{ label: 'Import legacy drawings…', title: 'Bring chosen Pages models (boxes, walls) and Sheets-tool sheets of this project into cad — one undo step', run: c.legacyDrawings },
 			'-',
 			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
 			{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
