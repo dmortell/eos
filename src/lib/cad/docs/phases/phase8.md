@@ -2464,6 +2464,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   segment within 0.5 mm in plan) joins it, with no key needed (as ending on a node already did): `domain/pathEdit.ts`
   `splitRunsAt` gives that run a node exactly there (two segments for one), so the junction moves both
   (`followersOf`); when the heights differ, `runZAt` finds the run's height and the new run gets a drop / rise to it
-  at that end first. One undo step with the drawing; "Joined to TR1 (a node added there)". Routing already treated
+  at that end first (on a plan only — an elevation draws its heights as meant). One undo step with the drawing; "Joined
+  to TR1 (a node added there)". Routing already treated
   such a tee as joined. Tests in `domain/pathEdit.test.ts`. Live (Test Project 1F): a trunk at Z 2950 from TR1's
   midpoint (TR1 at 2590) → joined, a drop added; dragging the junction moved both; both undone. Help: "Draw a run".

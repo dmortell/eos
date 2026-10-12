@@ -109,7 +109,7 @@ export class PathTool implements Tool {
 		}
 		// a trunk / conduit started or ended ON another run at another height: a drop / rise to it at that end, so they meet
 		const joins = (this.id === 'trunk' || this.id === 'conduit') && !close
-		if (joins) {
+		if (joins && c.space.spec.kind === 'plan') {   // (an elevation draws heights as meant)
 			const runs = c.store.ofType('shape')
 			const dropAt = (p: Pick) => { const z = p.levelId ? null : runZAt(runs, c.levelId, p, p.z); return z !== null && Math.abs(z - p.z) >= 1 ? { x: p.x, y: p.y, z } : null }
 			const last = dropAt(pts[pts.length - 1]), first = dropAt(pts[0])
