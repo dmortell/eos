@@ -4,7 +4,10 @@
 // BLOCKS (backlog "DXF blocks as BLOCK + INSERT"): given the block library, every placed block (an outlet's symbol, an
 // insert — prims carrying `ins`) goes out as ONE INSERT of a BLOCK written once, its {TAG} texts as ATTDEF / ATTRIB, so
 // AutoCAD can count them. A hidden attribute is written empty (the writer can't set the invisible flag).
-import { DxfWriter, LWPolylineFlags, Units, point2d, point3d, TextHorizontalAlignment, TextVerticalAlignment } from '@tarikjabiri/dxf'
+// LINEWEIGHTS: a shape's own lineweight (paper mm) is written as group 370 (hundredths of a mm, the nearest of DXF's
+// standard weights), put in by wrapping the entity's `dxfy` since the writer has no option for it. FILLS: a region's
+// fill (`shape-fill`) is a solid HATCH of its color.
+import { DxfWriter, LWPolylineFlags, Units, point2d, point3d, TextHorizontalAlignment, TextVerticalAlignment, HatchBoundaryPaths, HatchPolylineBoundary, HatchEdgesTypeData, HatchPredefinedPatterns, TrueColor, vertex } from '@tarikjabiri/dxf'
 import type { Prim, Dash, BlockInstance } from '../views/display'
 import type { Block } from '../domain/blocks'
 import { fillAttrs } from '../domain/blocks'
@@ -33,6 +36,27 @@ export function layerOf(cls: string): { name: string; aci: number } {
 	return LAYERS[cls.split(/\s+/)[0]] ?? { name: '0', aci: 7 }
 }
 
+/** DXF's standard lineweights (group 370, hundredths of a mm). */
+const LINEWEIGHTS = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211]
+/** The standard DXF lineweight (hundredths of a mm) nearest a paper lineweight in mm. */
+export function dxfLineweight(mm: number): number {
+	const h = mm * 100
+	return LINEWEIGHTS.reduce((best, w) => (Math.abs(w - h) < Math.abs(best - h) ? w : best))
+}
+/** Gives an entity a lineweight: group 370 goes in the AcDbEntity part, just before its own subclass marker. */
+function withLineweight<T extends object>(e: T, mm: number | undefined): T {
+	if (!mm || mm <= 0) return e
+	const code = dxfLineweight(mm), x = e as unknown as { dxfy(dx: { subclassMarker(n: string): void; push(code: number, v: unknown): void }): void }
+	const base = x.dxfy.bind(x)
+	x.dxfy = (dx) => {
+		const marker = dx.subclassMarker.bind(dx)
+		let done = false
+		dx.subclassMarker = (n: string) => { if (!done && n !== 'AcDbEntity') { done = true; dx.push(370, code) } marker(n) }
+		try { base(dx) } finally { dx.subclassMarker = marker }
+	}
+	return e
+}
+
 export interface DxfResult { text: string; entities: number; skippedImages: number }
 
 /** `names` = the project's own layers (id → name): their items go on a DXF layer of that name; everything else keeps
@@ -42,7 +66,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	w.setUnits(Units.Millimeters)
 	const made = new Set<string>()
 	// a shape's own line type (backlog "Shape style"): DXF linetypes made on first use, dash lengths as on paper (mm) ×
-	// the drawing's scale. (DXF lineweights aren't written: this writer has no field for them.)
+	// the drawing's scale.
 	const LTYPE: Record<Dash, { name: string; text: string; el: number[] }> = {
 		dashed: { name: 'DASHED', text: '__ __ __', el: [2, -1] }, dotted: { name: 'DOTTED', text: '. . . .', el: [0.3, -0.8] },
 		dashdot: { name: 'DASHDOT', text: '__ . __ .', el: [3, -1, 0.3, -1] },
@@ -110,25 +134,42 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 		entities++
 		return true
 	}
+	// a region's fill as a solid HATCH of its color: its outline (a polygon or a circle) is the boundary
+	const fillOf = (p: Exclude<Prim, { k: 'image' | 'text' }>): boolean => {
+		const paths = new HatchBoundaryPaths()
+		if (p.k === 'line') {
+			if (p.pts.length < 3) return false
+			const b = new HatchPolylineBoundary()
+			for (const q of p.pts) b.add(vertex(q.x, -q.y))
+			paths.addPolylineBoundary(b)
+		} else {
+			const e = new HatchEdgesTypeData()
+			e.addArcEdgeData(point2d(p.c.x, -p.c.y), Math.max(0.01, p.r), 0, 360, true)
+			paths.addEdgesTypeData(e)
+		}
+		w.addHatch(paths, { name: HatchPredefinedPatterns.SOLID }, { layerName: layer(p), ...(p.color ? { trueColor: String(TrueColor.fromHex(p.color)) } : {}) })
+		return true
+	}
 	for (const p of prims) {
-		if (p.k !== 'image' && p.cls === 'shape-fill') continue   // a region's fill: DXF gets the outline only (no hatch yet)
+		if ((p.k === 'line' || p.k === 'circle') && p.cls === 'shape-fill') { if (fillOf(p)) entities++; continue }
+		if (p.k !== 'image' && p.cls === 'shape-fill') continue   // a region's fill: a solid hatch under its outline
 		if (p.k !== 'image' && p.cls.split(' ').includes('run-hit')) continue   // a run's pick bands: DXF gets its outline (run-body)
 		if (p.k !== 'image' && p.ins && insertOf(p, p.ins)) continue
 		switch (p.k) {
 			case 'line': {
 				if (p.pts.length < 2) break
-				w.addLWPolyline(p.pts.map((q) => ({ point: point2d(q.x, -q.y) })), {
+				withLineweight(w.addLWPolyline(p.pts.map((q) => ({ point: point2d(q.x, -q.y) })), {
 					layerName: layer(p), ...lineType(p),
 					...(p.closed ? { flags: LWPolylineFlags.Closed } : {}),
 					...(p.w ? { constantWidth: p.w } : {}),
-				})
+				}), p.weight)
 				entities++
 				// holes (a ring of runs): their own closed outlines
 				for (const h of p.holes ?? []) { w.addLWPolyline(h.map((q) => ({ point: point2d(q.x, -q.y) })), { layerName: layer(p), ...lineType(p), flags: LWPolylineFlags.Closed }); entities++ }
 				break
 			}
 			case 'circle':
-				w.addCircle(point3d(p.c.x, -p.c.y, 0), Math.max(0.01, p.r), { layerName: layer(p), ...lineType(p) })
+				withLineweight(w.addCircle(point3d(p.c.x, -p.c.y, 0), Math.max(0.01, p.r), { layerName: layer(p), ...lineType(p) }), p.weight)
 				entities++
 				break
 			case 'text': {

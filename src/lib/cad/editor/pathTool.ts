@@ -11,6 +11,7 @@ import type { Snap } from './snap'
 import { makePath, toWall, toContainment } from '../domain/make'
 import { angleStep } from './constrain'
 import { newId } from '../domain/ids'
+import { styleProp } from '../domain/shapeDefaults'
 import { placeNote } from './noteTool'
 import { splitRunsAt, runZAt, splitSegRefs } from '../domain/pathEdit'
 
@@ -126,7 +127,7 @@ export class PathTool implements Tool {
 		// a LINE drawn on an elevation / section lies on its plane and belongs to that view only (shapes.ts ownFrame)
 		const spec = c.space.spec, onView = this.id === 'line' && c.space.frame && (spec.kind === 'elevation' || spec.kind === 'section')
 			? { plane: { kind: 'vertical' as const, frame: c.space.frame, depth: Math.round(c.work.depth) } } : {}
-		const shape = this.id === 'line' ? { ...line, ...onView, ...(c.layerId ? { layerId: c.layerId } : {}) }
+		const shape = this.id === 'line' ? { ...line, ...onView, ...(c.layerId ? { layerId: c.layerId } : {}), ...styleProp(c.settings, c.index.layers, c.layerId) }
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
 			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
 		// a trunk / conduit drawn from / to the middle of another run's segment: that run gets a node there (they join)

@@ -13,6 +13,7 @@ import type { Sheet } from '../domain/drawing'
 import type { Prim } from '../views/display'
 import { outlineOf, arcThrough, arcPts } from '../domain/shapes'
 import { newId } from '../domain/ids'
+import { styleProp } from '../domain/shapeDefaults'
 import { fromPaper, viewportAt } from '../views/sheet'
 import { angleStep, squareCorner } from './constrain'
 
@@ -106,7 +107,7 @@ export class ShapeTool implements Tool {
 		if (!geom) { if (o.kind === 'arc') c.say?.('An arc needs three points not in a line'); return }
 		// a box: a footprint with a height, standing at its Z (shows in elevations and sections as a box)
 		const box = this.id === 'box' && spec.kind === 'plan' ? { extent: Math.max(1, o.height ?? 750), ...(o.z ? { plane: { kind: 'plan', z: o.z } } : {}) } : {}
-		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom, ...box } as Shape
+		const s = { type: 'shape', id: newId(), ...owner, ...(c.layerId && spec.kind !== 'sheet' ? { layerId: c.layerId } : {}), geom, ...box, ...(o.kind === 'image' ? {} : styleProp(c.settings, c.index.layers, spec.kind === 'sheet' ? null : c.layerId)) } as Shape
 		const name = this.id === 'box' ? 'box' : o.kind === 'image' ? 'image' : o.kind === 'polygon' ? `${Math.round(o.sides)}-sided polygon` : geom.kind
 		c.store.transact(`Draw ${name}`, (tx) => tx.put(s))
 		c.select([s.id])

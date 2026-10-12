@@ -342,6 +342,10 @@ export interface ProjectSettings {
 	/** The riser view (one per project, so its sheets show the same — views/riser.ts): the floor numbers it shows (unset
 	 *  = the lowest / top floor), and each backbone group's own label / color, by `backboneKey` (its racks + type). */
 	riser?: { from?: number; to?: number; groups?: Record<string, { label?: string; color?: string }> }
+	/** What new lines, boxes, circles and the like start with (Project settings › Drawing): color, line type ('' = solid)
+	 *  and lineweight (paper mm; 0 = the default), except where their layer sets it. Always stored whole ('' / 0 = by kind),
+	 *  so a merge-save can't bring a cleared value back. */
+	shapeStyle?: { color: string; dash: string; weightMm: number }
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
 	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */

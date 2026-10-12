@@ -25,8 +25,9 @@
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 	import type { FileStorage } from '../app/projectFiles'
 	import CordMode from './CordMode.svelte'
+	import { DASHES, WEIGHTS } from '../views/display'
 
-	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'sheets' | 'files' } = $props()
+	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files' } = $props()
 
 	const st = $derived(project.settings)
 	const types = $derived(sortedCableTypes(st))
@@ -81,6 +82,10 @@
 		if (edits.length) ws.ask2(`New outlets will be labelled like ${portLabelsFor('201', 1, style, sep)[0]}. Relabel the ports of ${edits.length} existing outlet(s) too? (imported / hand-made labels are left as they are)`, 'Relabel',
 			() => project.relabel(`Relabel ports of ${edits.length} outlets`, edits, ws.ask2))
 	}
+	// ── drawing style: what new shapes start with ──
+	const look = $derived(st?.shapeStyle ?? { color: '', dash: '', weightMm: 0 })
+	const DASH_NAMES: Record<string, string> = { '': 'Solid (by kind)', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot' }
+	const setLook = (label: string, patch: Partial<NonNullable<ProjectSettings['shapeStyle']>>) => save(label, (s) => ({ ...s, shapeStyle: { ...look, ...patch } }))
 	// ── the title block template ──
 	function setTemplate(t: TitleBlockTemplate) {
 		const s = project.settings
@@ -132,6 +137,21 @@
 			<span><input class="num" type="number" min="0" step="0.1" value={cable.slackM} onchange={(e) => setCable({ slackM: Math.max(0, Number(e.currentTarget.value) || 0) })} /> m</span></label>
 		<label title="Waste added to the cable metres in the BOM">Waste in the BOM
 			<span><input class="num" type="number" min="0" step="1" value={cable.wastePct} onchange={(e) => setCable({ wastePct: Math.max(0, Number(e.currentTarget.value) || 0) })} /> %</span></label>
+	</div>
+{:else if tab === 'drawing'}
+	<div class="form">
+		<label title="The line color of new lines, boxes, circles and the like. By layer = as now: the color of the layer they land on">Color
+			<span><ColorPick value={look.color || undefined} allowByLayer onchange={(v) => setLook('Default shape color', { color: v ?? '' })} /></span></label>
+		<label title="The line type of new shapes">Line type
+			<select value={look.dash} onchange={(e) => setLook('Default line type', { dash: e.currentTarget.value })}>
+				{#each ['', ...DASHES] as d (d)}<option value={d}>{DASH_NAMES[d]}</option>{/each}
+			</select></label>
+		<label title="The lineweight of new shapes on paper (mm)">Lineweight
+			<select value={String(look.weightMm)} onchange={(e) => setLook('Default lineweight', { weightMm: Number(e.currentTarget.value) || 0 })}>
+				<option value="0">Default weight</option>
+				{#each WEIGHTS as w (w)}<option value={String(w)}>{w} mm</option>{/each}
+			</select></label>
+		<p class="wide text-zinc-500">What a new line, box, circle, ellipse, polygon or arc starts with. It is set on the shape when you draw it, except for what its layer sets itself (a layer’s own color, line type or lineweight rule). Shapes already drawn don’t change; Properties changes a shape any time.</p>
 	</div>
 {:else if tab === 'files'}
 	<div class="form">

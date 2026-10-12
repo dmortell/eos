@@ -1,6 +1,6 @@
 <!-- PROJECT SETTINGS: everything project-wide in one dialog with a tab list (it was three: Floors…, Settings… and
      Title block…). Floors & heights · Plans & floorplans (FloorsPanel) · Usages · Cable types · Lengths & labels ·
-     Sheets (categories + the title block template) · Files (SettingsPanel), and a link to Project details… (the
+     Drawing style (the look new shapes start with) · Sheets (categories + the title block template) · Files (SettingsPanel), and a link to Project details… (the
      projects page's dialog, which the route hosts). The menu entries open it on their tab.
      Edits save at once (one undo step each) except the floor range, which waits for Apply floors: closing on an
      unapplied range asks "Apply the floor range?". A question asked from here (ws.ask2) and the status message show in
@@ -8,7 +8,7 @@
      (Enter / Esc) still answer it. The footer's Undo undoes the last step (the shell's Undo is behind the backdrop). While a floorplan is calibrated on the plan the dialog is hidden (`hidden`), and it
      comes back as it was when the Calibrate tool ends. -->
 <script module lang="ts">
-	export type SettingsTab = 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'sheets' | 'files'
+	export type SettingsTab = 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'
 </script>
 
 <script lang="ts">
@@ -26,7 +26,7 @@
 		oncalibrate?: (u: Underlay, mode: CalibMode) => void; projectDetails?: () => void
 	} = $props()
 
-	const TABS: [SettingsTab, string][] = [['floors', 'Floors & heights'], ['plans', 'Plans & floorplans'], ['usages', 'Usages'], ['cables', 'Cable types'], ['lengths', 'Lengths & labels'], ['sheets', 'Sheets'], ['files', 'Files']]
+	const TABS: [SettingsTab, string][] = [['floors', 'Floors & heights'], ['plans', 'Plans & floorplans'], ['usages', 'Usages'], ['cables', 'Cable types'], ['lengths', 'Lengths & labels'], ['drawing', 'Drawing style'], ['sheets', 'Sheets'], ['files', 'Files']]
 	let dlg: HTMLElement | undefined = $state()
 	let floors: ReturnType<typeof FloorsPanel> | undefined = $state()
 	let yesBtn: HTMLButtonElement | undefined = $state()
