@@ -73,4 +73,9 @@ describe('B/W floorplans in the PDF', () => {
 		expect(calls).toEqual([['u', undefined], ['u', true]])
 		expect(freeze([{ ...img, gray: true }])[0]).toMatchObject({ gray: true })
 	})
+	it('monochrome: pictures asked for gray (T121)', async () => {
+		const calls: (boolean | undefined)[] = []
+		await pagesToPdf([{ w: 100, h: 100, prims: [{ k: 'image', url: 'u', x: 0, y: 0, w: 10, h: 10 }] }], async (_u, _k, gray) => { calls.push(gray); return null }, { mono: true })
+		expect(calls).toEqual([true])
+	})
 })

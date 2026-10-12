@@ -125,6 +125,9 @@ export class Workspace {
 	 *  snaps, GRID = the grid drawn. Kept per browser. Alt still skips the snaps for one action. */
 	drafting = $state<Drafting>(loadDrafting())
 	saveDrafting(): void { try { localStorage.setItem(DRAFTING_KEY, JSON.stringify(this.drafting)) } catch { /* storage blocked */ } }
+	/** File › Export › Monochrome PDFs (decision T121): sheet PDFs in black ink, kept per browser. */
+	monoPdf = $state((() => { try { return localStorage.getItem('cad-mono-pdf') === '1' } catch { return false } })())
+	toggleMonoPdf = (): void => { this.monoPdf = !this.monoPdf; try { localStorage.setItem('cad-mono-pdf', this.monoPdf ? '1' : '0') } catch { /* storage blocked */ } }
 	/** The plan / rack view strip's B/W, Usage colors and Cord channels: this user's screen only, kept per browser. */
 	screen = $state<ScreenLook>(loadScreen())
 	toggleScreen(k: keyof ScreenLook): void {

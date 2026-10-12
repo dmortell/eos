@@ -25,7 +25,7 @@ export function newSheetIn(project: CadProject, ws: Workspace): Id {
 
 /** These sheets as one PDF (downloaded), said in the status bar. */
 export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Sheet[]): Promise<void> {
-	try { const r = await downloadSheetsPdf(project, sheets); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
+	try { const r = await downloadSheetsPdf(project, sheets, ws.monoPdf); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
 	catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 }
 

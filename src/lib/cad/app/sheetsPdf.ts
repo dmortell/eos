@@ -8,16 +8,16 @@ import { placeUnderlays, pictureLoader } from './issue'
 import { panelPages } from '../views/panelSheets'
 import type { Device } from '../domain/types'
 
-export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[]): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
+export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono = false): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
 	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, mono })
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
 }
 
-export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[]): Promise<{ pages: number; unsupported: string[]; rasterised: string[] }> {
-	const r = await sheetsPdfBlob(project, sheets)
-	const name = sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`
+export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] }> {
+	const r = await sheetsPdfBlob(project, sheets, mono)
+	const name = `${sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`
 	download(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf')
 	return { pages: r.pages, unsupported: r.unsupported, rasterised: r.rasterised }
 }

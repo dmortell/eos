@@ -80,18 +80,27 @@ const shownOnPaper = (p: Prim) => p.k !== 'text' || ((p.minPx === undefined || p
 const PT_PER_MM = 72 / 25.4
 
 /** Draw pages into a new PDF. Returns the PDF and the texts that couldn't be shown (fonts). */
-export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
+/** Monochrome: every line and text black; a fill light grey (paper and white stay white). */
+const WHITE = /^(#fff(fff)?|white)$/i
+function monoStyle(st: Style): Style {
+	const ink = (c?: string) => (c && c !== 'none' ? '#000000' : c)
+	return { ...st, stroke: ink(st.stroke), text: '#000000', ...(st.fill && st.fill !== 'none' && !WHITE.test(st.fill) ? { fill: '#d4d4d4' } : {}) }
+}
+
+export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster; /** all ink black, fills light grey, pictures grey (decision T121: cheap prints) */ mono?: boolean } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
 	const first = pages[0] ?? { w: 420, h: 297, prims: [] }
 	const pdf = new jsPDF({ unit: 'mm', format: [first.w, first.h], orientation: first.w > first.h ? 'landscape' : 'portrait', compress: o.compress ?? true })
 	const unsupported = new Set<string>(), rasterised = new Set<string>()
 	const images = new Map<string, Awaited<ReturnType<ImageLoader>>>()
-	const imgKey = (q: { url: string; gray?: boolean }) => (q.gray ? `gray:${q.url}` : q.url)
-	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit ? 'logo' : 'photo', q.gray))
+	const mono = !!o.mono
+	const imgKey = (q: { url: string; gray?: boolean }) => (q.gray || mono ? `gray:${q.url}` : q.url)
+	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit ? 'logo' : 'photo', mono ? true : q.gray))
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
 	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
 	// the prim's own / layer colour over its class style, as on screen: outline, text, a filled circle or outlet symbol
-	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => {
+	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => (mono ? monoStyle(colourStyle(p)) : colourStyle(p))
+	const colourStyle = (p: Exclude<Prim, { k: 'image' }>): Style => {
 		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type
 		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
