@@ -22,7 +22,8 @@
 	import ChipPick from './ChipPick.svelte'
 	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
-	import ScopeSelect from './ScopeSelect.svelte'
+	import TableFrame from './TableFrame.svelte'
+	import type { MenuItem } from './cadMenus'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { duplicateSheets, numberSheets } from '../app/sheetActions'
 	import { issueStatesOf } from '../app/issueStates.svelte'
@@ -116,8 +117,8 @@
 		const ids = picked.map((r) => r.id), also = impactText(deleteImpact(project.store, ids))
 		ws.ask2(`Delete ${ids.length === 1 ? `sheet ${sheetOf(ids[0]).number}` : `${ids.length} sheets`}${also ? ` with ${also}` : ''}? Undo brings them back.`, 'Delete', () => { deleteEntities(project.store, ids); ws.select([]) })
 	}
-	async function pdf() {
-		const list = picked.length ? picked : rows
+	/** The sheets in one PDF, in the table's order. */
+	async function pdf(list: SheetRow[]) {
 		busy = true
 		try { const r = await downloadSheetsPdf(project, list.map((x) => sheetOf(x.id))); ws.say(`PDF: ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
@@ -148,7 +149,16 @@
 		const changed = sortDir === 1 ? moveBefore(sheets, ids, id) : moveBefore(sheets, ids, rows[rows.findIndex((r) => r.id === id) - 1]?.id ?? null)
 		if (changed.length) project.store.transact(`Print order (${ids.length} sheet${ids.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
-	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
+	const nChips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length + fStates.length)
+	/** ⋯: the PDF / Excel of the rows shown, the Issue state column, Group by. */
+	const more = $derived<MenuItem[]>([
+		{ label: busy ? 'PDF…' : `PDF of the ${rows.length} sheets shown`, disabled: busy || !rows.length, title: 'The sheets the table shows in one PDF, in its order (select some for a PDF of those)', run: () => pdf(rows) },
+		{ label: `Excel: the register (${picked.length ? `${picked.length} selected` : `${rows.length} shown`})`, title: 'The register as Excel: the selected sheets, else the rows shown', run: excel },
+		'-',
+		{ label: `Issue state column${states.busy ? '…' : ''}`, checked: showState, title: 'Show each sheet’s issue state — worked out in the background (draws every issued sheet); a State chip filters by it', run: () => { showState = !showState; if (!showState) fStates = [] } },
+		'-',
+		...GROUPS.map(([g, label]): MenuItem => ({ label: g === 'none' ? 'No groups' : `Group by ${label}`, checked: by === g, run: () => (by = g) })),
+	])
 
 	// issuing (4.6): the selection, frozen when the panel opens
 	let issuing = $state.raw<Sheet[] | null>(null), issuingPkg = $state.raw<SheetPackage | undefined>(undefined), show = $state<'register' | 'packages' | 'issues'>('register')
@@ -171,42 +181,39 @@
 	</span>
 {/snippet}
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Sheets" onkeydown={tableKey}>
-	{#if show === 'register'}
-	<div class="actions">
-		{@render seg()}
-		<ScopeSelect {t} />
-		<input class="find" placeholder="Find…" bind:value={t.q} />
+{#snippet issuePanel()}
+	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={(issued) => { issuing = null; issuingPkg = undefined; if (issued) show = 'issues' }} />{/key}{/if}
+{/snippet}
+
+{#if show === 'issues'}
+	<IssuesList {project} {ws} {seg} panel={issuePanel} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
+{:else if show === 'packages'}
+	<PackagesList {project} {ws} {seg} panel={issuePanel} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
+{:else}
+<TableFrame label="Sheets" {t} lead={seg} top={issuePanel} onkeydown={tableKey} {more} countTitle="Shown · sheets · selected"
+	count="{rows.length} of {sheets.length}{picked.length ? ` · ${picked.length} selected` : ''}" nSel={picked.length}
+	hint="Select sheets (click · Shift · Ctrl) to print, issue, order, archive or delete them — double-click one to open it">
+	{#snippet chips()}
 		<StatusChip tone="active" label="Active {statusCount.active}" off={!showStatus.active} upper={false} title="Show / hide the active sheets" onclick={() => (showStatus.active = !showStatus.active)} />
 		<StatusChip tone="archived" label="Archived {statusCount.archived}" off={!showStatus.archived} upper={false} title="Show / hide the archived sheets" onclick={() => (showStatus.archived = !showStatus.archived)} />
 		<ChipPick label="Category" options={catOptions} bind:picked={fCats} />
 		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
 		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />
 		{#if tagOptions.length}<ChipPick label="Tag" options={tagOptions} bind:picked={fTags} />{/if}
-		<label class="muted" title="Show each sheet's issue state — worked out in the background (draws every issued sheet)"><input type="checkbox" bind:checked={showState} /> Issue state{#if states.busy}…{/if}</label>
-		{#if showState}<ChipPick label="State" options={STATE_OPTIONS} bind:picked={fStates} />{/if}
-		{#if chips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = [] }}>Clear</button>{/if}
-		<label class="muted">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
-		<span class="faint" title="Shown · sheets · selected">{rows.length} of {sheets.length}{picked.length ? ` · ${picked.length} selected` : ''}</span>
+		{#if showState}<ChipPick label="State{states.busy ? '…' : ''}" options={STATE_OPTIONS} bind:picked={fStates} />{/if}
+		{#if nChips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = []; fStates = [] }}>Clear</button>{/if}
+	{/snippet}
+	{#snippet sel()}
 		<span class="seg" title="Print order: move the selected sheets earlier / later (the table sorts by # so you see it; the PDF follows the table)">
-			<button disabled={!picked.length} onclick={() => move(-1)}>▲</button><button disabled={!picked.length} onclick={() => move(1)}>▼</button>
+			<button aria-label="Earlier in the print order" onclick={() => move(-1)}>▲</button><button aria-label="Later in the print order" onclick={() => move(1)}>▼</button>
 		</span>
-		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF, in the table's order" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
-		{#if showStatus.active}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
-		<button class="btn" disabled={!picked.length} title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
-		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
-		{#if showStatus.archived}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
-		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
-		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
-	</div>
-	{/if}
-	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={(issued) => { issuing = null; issuingPkg = undefined; if (issued) show = 'issues' }} />{/key}{/if}
-	{#if show === 'issues'}
-		<IssuesList {project} {ws} {seg} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
-	{:else if show === 'packages'}
-		<PackagesList {project} {ws} {seg} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
-	{:else}
+		<button class="tb" disabled={busy} title="The selected sheets in one PDF, in the table's order" onclick={() => pdf(picked)}>{busy ? 'PDF…' : 'PDF'}</button>
+		<button class="tb" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
+		<button class="tb" title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
+		{#if picked.some((r) => r.status === 'active')}<button class="tb" onclick={() => setStatus('archived')}>Archive</button>{/if}
+		{#if picked.some((r) => r.status === 'archived')}<button class="tb" onclick={() => setStatus('active')}>Restore</button>{/if}
+		<button class="tb danger" title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
+	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
 			<tr>
@@ -258,22 +265,17 @@
 			{/each}
 		</tbody>
 	</table>
-	{/if}
-</div>
+</TableFrame>
+{/if}
 
 <style>
-	div[role='grid']:focus { outline: none; }
 	.hov:hover { background: var(--cad-hover); }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; }
-	.seg button { padding: 0 8px; font-weight: 600; color: var(--cad-muted); }
+	.seg button { min-height: 20px; padding: 0 8px; font-weight: 600; color: var(--cad-muted); background: var(--cad-input); }
+	.seg button + button { border-left: 1px solid var(--cad-line); }
+	.seg button:hover { color: var(--cad-text); }
 	.seg button.on { background: var(--cad-strong); color: var(--cad-text); }
-	.actions { position: sticky; left: 0; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover:not(:disabled) { background: var(--cad-hover); }
-	.btn:disabled { opacity: 0.4; }
-	.clear { color: #2563eb; }
-	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
-	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
+	.clear { color: #2563eb; min-height: 20px; }
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }

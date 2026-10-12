@@ -14,11 +14,16 @@
 	import { issueNumbers, issueTag, ISSUE_PURPOSES } from '../domain/issue'
 	import { newId } from '../domain/ids'
 	import NameInput from './NameInput.svelte'
+	import TableFrame from './TableFrame.svelte'
+	import StatusChip from './StatusChip.svelte'
+	import type { MenuItem } from './cadMenus'
 
-	let { project, ws, seg, rows, filter, busy, onissue }: {
+	let { project, ws, seg, panel, rows, filter, busy, onissue }: {
 		project: CadProject; ws: Workspace
 		/** The Sheets tab's Sheets · Packages · Issues switch, first in this view's one-line bar. */
 		seg?: Snippet
+		/** The Issue panel while issuing (over the table, as in the register). */
+		panel?: Snippet
 		/** Every sheet's register row (the package rules match over them). */
 		rows: SheetRow[]
 		/** The register's chips now ("+ From chips" saves them as a rule). */
@@ -72,19 +77,27 @@
 		if (next.length === cur.length && add) { ws.say('Select sheets in the register to add'); return }
 		put({ ...p, sheetIds: next }, `${p.name}: ${add ? 'add' : 'remove'} ${ids.length} sheet(s)`)
 	}
+	const more = $derived<MenuItem[]>([{ label: '+ From chips (a rule)…', title: 'A package of every sheet matching the register’s chips now and later (a rule)', run: fromChips }])
 	function duplicate(p: SheetPackage) { put({ ...structuredClone($state.snapshot(p)) as SheetPackage, id: newId(), name: `${p.name} (copy)`, order: nextOrder(), archived: undefined }, `Duplicate ${p.name}`) }
 </script>
 
-<div class="bar">
-	{@render seg?.()}
-	<button class="btn" title="A package of the sheets selected in the register (a list, in print order)" onclick={fromSelection}>+ From selection ({selectedSheets.length})</button>
-	<button class="btn" title="A package of every sheet matching the register's chips now and later (a rule)" onclick={fromChips}>+ From chips</button>
-	<label class="muted"><input type="checkbox" bind:checked={showArchived} /> archived</label>
-	{#if naming}
-		<span class="muted">New package {naming.rule ? '(rule)' : `of ${naming.sheetIds?.length ?? 0} sheet${naming.sheetIds?.length === 1 ? '' : 's'}`}:</span>
-		<NameInput create value={naming.value} placeholder="Its name — Enter makes it" title="Enter: make it · Esc: cancel" onsave={create} oncancel={() => (naming = null)} />
-	{/if}
-</div>
+<TableFrame label="Packages" lead={seg} count="{list.length} package{list.length === 1 ? '' : 's'}" countTitle="Packages shown" nSel={selectedSheets.length} {more}
+	hint="Select sheets in the register for a package of them — or ⋯ › + From chips for a rule">
+	{#snippet chips()}
+		<StatusChip tone="archived" label="Archived {all.length - all.filter((p) => !p.archived).length}" upper={false} off={!showArchived} title="Show / hide the archived packages" onclick={() => (showArchived = !showArchived)} />
+	{/snippet}
+	{#snippet sel()}
+		<button class="tb" title="A package of the sheets selected in the register (a list, in print order)" onclick={fromSelection}>+ From selection ({selectedSheets.length})</button>
+	{/snippet}
+	{#snippet top()}
+		{#if naming}
+			<div class="naming">
+				<span class="muted">New package {naming.rule ? '(rule)' : `of ${naming.sheetIds?.length ?? 0} sheet${naming.sheetIds?.length === 1 ? '' : 's'}`}:</span>
+				<NameInput create value={naming.value} placeholder="Its name — Enter makes it" title="Enter: make it · Esc: cancel" onsave={create} oncancel={() => (naming = null)} />
+			</div>
+		{/if}
+		{@render panel?.()}
+	{/snippet}
 <table class="w-full border-collapse">
 	<thead>
 		<tr><th class="px-2 py-1">Package</th><th class="px-2">Holds</th><th class="px-2">Sheets</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Last issue</th><th class="px-2">Since then</th><th></th></tr>
@@ -140,11 +153,12 @@
 		{/each}
 	</tbody>
 </table>
+</TableFrame>
 <datalist id="cad-purposes">{#each ISSUE_PURPOSES as x (x)}<option value={x}></option>{/each}</datalist>
 
 <style>
-	.bar { display: flex; align-items: center; gap: 6px; padding: 3px 8px; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.naming { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.btn:disabled { opacity: 0.4; }
 	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }

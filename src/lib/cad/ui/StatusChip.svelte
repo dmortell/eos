@@ -6,7 +6,7 @@
 		add: ['#dcfce7', '#166534'], change: ['#fef9c3', '#854d0e'], remove: ['#fee2e2', '#991b1b'], replace: ['#f3e8ff', '#7e22ce'], installed: ['#e4e4e7', '#3f3f46'],
 		run: ['#e0f2fe', '#075985'], tie: ['#f3e8ff', '#6b21a8'], backbone: ['#ffedd5', '#9a3412'],
 		'not-issued': ['#fef9c3', '#854d0e'], issued: ['#dcfce7', '#166534'], changed: ['#ffedd5', '#9a3412'], superseded: ['#e4e4e7', '#52525b'],
-		active: ['#dcfce7', '#166534'], archived: ['#e4e4e7', '#52525b'],
+		active: ['#dcfce7', '#166534'], archived: ['#e4e4e7', '#52525b'], design: ['#e0f2fe', '#075985'], warn: ['#fef3c7', '#92400e'], bad: ['#fee2e2', '#b91c1c'],
 	}
 	/** The tone's colors as an inline style (for a select styled as a chip, as Cord Properties' status box). */
 	export const toneStyle = (tone: string): string => { const c = TONES[tone]; return c ? `background:${c[0]};color:${c[1]}` : '' }

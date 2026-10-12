@@ -9,7 +9,7 @@
 	import { deleteEntities } from '../editor/commands'
 	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
-	import ScopeSelect from './ScopeSelect.svelte'
+	import TableFrame from './TableFrame.svelte'
 	import StatusChip from './StatusChip.svelte'
 
 	/** `levelId` = the open level ("This view": links with an end on it). */
@@ -17,7 +17,8 @@
 
 	const KINDS = ['run', 'tie', 'backbone'] as const
 	let show = $state<Record<LinkRow['kind'], boolean>>({ run: true, tie: true, backbone: true })
-	let status = $state<'' | Link['status']>('')
+	const STATUSES = ['design', 'installed'] as const
+	let showStatus = $state<Record<Link['status'], boolean>>({ design: true, installed: true })
 	const t = new TableState('links')
 	/** How many rows are drawn: a big project has thousands of runs — the rest come with a narrower filter, or Show all. */
 	let limit = $state(500)
@@ -35,7 +36,8 @@
 		})
 	})
 	const count = $derived(Object.fromEntries(KINDS.map((k) => [k, all.filter((r) => r.kind === k).length])) as Record<LinkRow['kind'], number>)
-	const rows = $derived(t.apply(all.filter((r) => show[r.kind] && (!status || r.status === status)), (r) => `${r.a} ${r.b} ${r.label} ${r.cableType}`,
+	const statusCount = $derived(Object.fromEntries(STATUSES.map((s) => [s, all.filter((r) => r.status === s).length])) as Record<Link['status'], number>)
+	const rows = $derived(t.apply(all.filter((r) => show[r.kind] && showStatus[r.status]), (r) => `${r.a} ${r.b} ${r.label} ${r.cableType}`,
 		{ kind: (r) => r.kind, a: (r) => r.a, b: (r) => r.b, label: (r) => r.label, type: (r) => r.cableType, len: (r) => r.lengthM ?? -1, status: (r) => r.status }))
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
@@ -69,25 +71,27 @@
 			else if (value !== l.status) edit(id, 'Link status', { status: value as Link['status'] })
 		},
 	})
-	function remove(id: string) {
-		deleteEntities(project.store, [id])
-		ws.say('Link removed · Ctrl+Z brings it back')
+	function remove(ids: string[]) {
+		deleteEntities(project.store, ids)
+		ws.say(`${ids.length === 1 ? 'Link' : `${ids.length} links`} removed · Ctrl+Z brings ${ids.length === 1 ? 'it' : 'them'} back`)
 	}
+	const selLinks = $derived(rows.filter((r) => selected.has(r.id)).map((r) => r.id))
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Links" onkeydown={tableKey}>
-	<div class="actions">
-		<ScopeSelect {t} view={levelId ? project.index.nameOf(levelId) : 'This view'} />
+<TableFrame label="Links" {t} view={levelId ? project.index.nameOf(levelId) : 'This view'} onkeydown={tableKey}
+	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selLinks.length}
+	hint="Select links (click · Shift · Ctrl) to remove them — double-click a cable type or status to change it">
+	{#snippet chips()}
 		{#each KINDS as k (k)}
 			<StatusChip tone={k} label="{k} {count[k]}" off={!show[k]} onclick={() => (show[k] = !show[k])} title="Show / hide {k}s" />
 		{/each}
-		<select class="btn" bind:value={status} title="Only design or only installed links">
-			<option value="">any status</option><option value="design">design</option><option value="installed">installed</option>
-		</select>
-		<input class="find" placeholder="Find…" bind:value={t.q} />
-		<span class="faint" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
-	</div>
+		{#each STATUSES as s (s)}
+			<StatusChip tone={s} label="{s} {statusCount[s]}" off={!showStatus[s]} onclick={() => (showStatus[s] = !showStatus[s])} title="Show / hide the {s} links" />
+		{/each}
+	{/snippet}
+	{#snippet sel()}
+		<button class="tb danger" title="Remove the selected links (Ctrl+Z undoes)" onclick={() => remove(selLinks)}>Remove {selLinks.length}</button>
+	{/snippet}
 	<datalist id="cad-link-types">{#each types as t (t)}<option value={t}></option>{/each}</datalist>
 	<table class="w-full border-collapse">
 		<thead>
@@ -108,7 +112,7 @@
 						<td class="ed"><select class="ed-box" value={r.status} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'status')} onblur={(e) => ed.blur(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
 							<option value="design">design</option><option value="installed">installed</option></select></td>
 					{:else}<td class="px-2" class:s-installed={r.status === 'installed'} title="Double-click to set the status" ondblclick={(e) => ed.start(r.id, 'status', e)}>{r.status}</td>{/if}
-					<td class="px-1"><button class="del" title="Remove this link (Ctrl+Z undoes)" onclick={(e) => { e.stopPropagation(); remove(r.id) }}>✕</button></td>
+					<td class="px-1"><button class="del" title="Remove this link (Ctrl+Z undoes)" onclick={(e) => { e.stopPropagation(); remove([r.id]) }}>✕</button></td>
 				</tr>
 			{:else}
 				<tr><td colspan="8" class="px-2 py-3 faint">No links{all.length ? ' match' : ' yet — allocate outlets, or link panels from a port (Link to…)'}.</td></tr>
@@ -116,14 +120,10 @@
 			{#if rows.length > limit}<tr><td colspan="8" class="px-2 py-2 faint">{rows.length - limit} more not drawn — narrow it with Find or the chips, or <button class="more" title="Draw every row (slower on a big project)" onclick={(e) => { e.stopPropagation(); limit = Infinity }}>Show all ({rows.length})</button></td></tr>{/if}
 		</tbody>
 	</table>
-</div>
+</TableFrame>
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
-	div[role='grid']:focus { outline: none; }
-	.actions { position: sticky; left: 0; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	.s-installed { color: #166534; }
 	.del { visibility: hidden; color: var(--cad-faint); padding: 0 4px; }
 	tr:hover .del { visibility: visible; }

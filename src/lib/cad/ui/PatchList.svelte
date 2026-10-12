@@ -14,7 +14,8 @@
 	import { Icon } from '$lib'
 	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
-	import ScopeSelect from './ScopeSelect.svelte'
+	import TableFrame from './TableFrame.svelte'
+	import type { MenuItem } from './cadMenus'
 	import CordActions from './CordActions.svelte'
 	import StatusChip from './StatusChip.svelte'
 	import CordMode from './CordMode.svelte'
@@ -66,6 +67,13 @@
 	const rowCords = $derived(rows.map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
 	/** Purge removed: every cord marked for removal in this scope is out on site — their records go. */
 	const removed = $derived(all.filter((r) => r.status === 'remove').map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
+	/** ⋯: the cord labels bought, cord IDs back in, and Purge removed. */
+	const more = $derived<MenuItem[]>([
+		{ label: 'Cord labels…', title: 'The patch cords bought, as batches of pre-printed labels per type, length and color: labels used and free, cords still short, where the next order continues', run: () => (labelsOpen = true) },
+		{ label: 'Import cord IDs…', title: 'Read cord IDs back from a patch list (schedule) the installer filled in', run: () => fileInput?.click() },
+		'-',
+		{ label: `Purge removed (${removed.length})`, disabled: !removed.length, title: `The cords marked for removal${room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)`, run: () => runCordAction(project, ws, removed, 'installed') },
+	])
 	let menu = $state<{ x: number; y: number } | null>(null)
 	function rowMenu(id: string, e: MouseEvent) {
 		e.preventDefault()
@@ -117,30 +125,21 @@
 	const ed = new CellEdit<Field>({ fields: () => FIELDS, ids: () => rows.map((r) => r.id), save })
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Patch list" onkeydown={tableKey}>
-	<div class="actions">
-		<ScopeSelect {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} />
-		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
+<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
+<TableFrame label="Patch list" {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} onkeydown={tableKey} {more}
+	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selCords.length}
+	hint="Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them">
+	{#snippet chips()}
 		{#each STATUSES as s (s)}
 			<StatusChip tone={s} label="{s} {count[s]}" off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords" />
 		{/each}
-		{#if removed.length}<button class="btn" title="The cords marked for removal{room ? ` in ${room.name}` : ''} are out on site: their records go (asks first)" onclick={() => runCordAction(project, ws, removed, 'installed')}>Purge removed ({removed.length})</button>{/if}
-		<input class="find" placeholder="Find…" bind:value={t.q} />
-		<span class="faint" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
-		<!-- the files and records (Dave 2026-10-12: easy to find): the patch list out as Excel, the cord labels bought, cord IDs back in -->
-		<span class="files">
-			<button class="btn" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch list…</button>
-			<button class="btn" title="The patch cords bought, as batches of pre-printed labels per type, length and colour: labels used and free, cords still short, where the next order continues" onclick={() => (labelsOpen = true)}><Icon name="tag" size={12} /> Cord labels…</button>
-			<button class="btn" title="Read cord IDs back from a patch list (schedule) the installer filled in" onclick={() => fileInput?.click()}>Import cord IDs…</button>
-		</span>
-		<input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
-	</div>
-	<!-- always there (rows mustn't jump under the pointer when the first one is picked) -->
-	<div class="actions selbar">
-		{#if selCords.length}<b>{selCords.length} selected:</b> <CordActions {project} {ws} cords={selCords} />
-		{:else}<span class="faint">Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them</span>{/if}
-	</div>
+	{/snippet}
+	{#snippet sel()}<CordActions {project} {ws} cords={selCords} />{/snippet}
+	{#snippet tail()}
+		<!-- what new cords start as, shown where cords are listed (D1); the patch list out (Dave 2026-10-12: easy to find) -->
+		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
+		<button class="tb" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch list…</button>
+	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
 			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh><SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
@@ -172,24 +171,16 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
+</TableFrame>
 {#if menu}<ContextMenu x={menu.x} y={menu.y} items={cordActionMenu(project, ws, selCords)} onclose={() => (menu = null)} />{/if}
 {#if bomOpen}<PatchScheduleDialog {project} {projectName} {roomId} thisRoom={!!room} selected={selCords} shown={rowCords} onclose={() => (bomOpen = false)} ondone={(m) => ws.say(m)} />{/if}
 {#if labelsOpen}<CordLabelsDialog {project} onclose={() => (labelsOpen = false)} />{/if}
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
-	div[role='grid']:focus { outline: none; }
-	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
-	.selbar { flex-wrap: wrap; min-height: 26px; }
 	/* marked for removal: still listed (the work order), struck through */
 	.gone td { text-decoration: line-through; opacity: 0.6; }
 	.gone td:nth-child(8) { text-decoration: none; }
 	.was { margin-left: 4px; color: #d97706; font-weight: 600; cursor: help; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
-	.files { margin-left: auto; display: inline-flex; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }
-	.files .btn { display: inline-flex; align-items: center; gap: 3px; }
-	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid #0002; }
 </style>

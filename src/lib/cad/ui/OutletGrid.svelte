@@ -5,7 +5,9 @@
 	import { sortedUsages } from '../domain/usages'
 	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
-	import ScopeSelect from './ScopeSelect.svelte'
+	import TableFrame from './TableFrame.svelte'
+	import StatusChip from './StatusChip.svelte'
+	import type { MenuItem } from './cadMenus'
 	import { untrack } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -107,8 +109,9 @@
 	let issues = $state<string[]>([])
 	/** Re-allocate the pinned (hand-placed) links too. */
 	let withPinned = $state(false)
-	function runAllocate(reallocate: boolean) {
-		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
+	/** The selected outlets — or, `level` (⋯ › … this level), every outlet on the level. */
+	function runAllocate(reallocate: boolean, level = false) {
+		const ids = level ? [] : ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')
 		const scope = ids.length ? { outletIds: ids } : { levelId }
 		const r = allocate(project.index, { ...scope, reallocate, includePinned: reallocate && withPinned })
 		issues = r.issues.map((i) => i.text)
@@ -148,27 +151,35 @@
 	}
 
 	// (the port label format, slack and waste moved to Project › Settings › Lengths & labels — UX review T4)
+
+	/** ⋯: the whole level's allocation, the pinned switch for Re-allocate, Find / replace over the rows shown. */
+	const more = $derived<MenuItem[]>([
+		{ label: 'Allocate this level', title: 'Cable every unallocated outlet port on this level to a panel of its server room: racks in row order, top U down. Existing links stay.', run: () => runAllocate(false, true) },
+		{ label: 'Re-allocate this level…', title: 'Drop the UNPINNED links on this level and allocate again from scratch. Pinned and patched ports stay.', run: () => runAllocate(true, true) },
+		{ label: 'Re-allocate pinned links too', checked: withPinned, title: 'Re-allocate the PINNED links too (hand placements, imported ones) — when the outlets changed. Patched panel ports still stay.', run: () => (withPinned = !withPinned) },
+		'-',
+		{ label: `Find / replace in the ${rows.length} shown…`, disabled: !rows.length, title: 'Find and replace in outlet labels or port labels — plain text or a pattern: Properties › Find / replace', run: () => { ws.select(rows.map((o) => o.id)); findReplace() } },
+	])
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Outlets" onkeydown={tableKey}>
-	<div class="actions">
-		<ScopeSelect {t} view={project.index.nameOf(levelId) || 'This level'} />
-		<input class="find" placeholder="Find…" bind:value={t.q} />
-		<span class="faint" title="Shown · in this scope · selected">{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}</span>
-		<button title="Cable every unallocated outlet port (of the selected outlets, else this level) to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate{selectedOutlets ? ` ${selectedOutlets}` : ''}</button>
-		<button title="Drop the UNPINNED links (of the selection, else this level) and allocate again from scratch. Pinned and patched ports stay." onclick={() => runAllocate(true)}>Re-allocate…</button>
-		<label class="pin" title="Re-allocate the PINNED links too (hand placements, imported ones) — when the outlets changed. Patched panel ports still stay."><input type="checkbox" bind:checked={withPinned} /> incl. pinned</label>
-		<button title="Put the selected outlets on panel ports by hand: choose outlets here, then click the first panel port in a rack view. Hand placements are pinned." onclick={assign}>Assign {selectedOutlets || ''} → port…</button>
-		<button title="Find and replace in outlet labels or port labels — plain text or a pattern (the selected outlets, else the ones shown): Properties › Find / replace" onclick={findReplace}>Find/replace…</button>
-		<label class="fmt" title="Only outlets with a port that isn't on a panel port yet (e.g. added after install)"><input type="checkbox" bind:checked={unassigned} /> No panel yet{unassigned ? ` (${rows.length})` : ''}</label>
+<TableFrame label="Outlets" {t} view={project.index.nameOf(levelId) || 'This level'} onkeydown={tableKey} {more}
+	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selectedOutlets}
+	hint="Select outlets (click · Shift · Ctrl) to allocate, assign or rename them — or drag them onto a panel · ⋯ for the whole level">
+	{#snippet chips()}
+		<StatusChip tone="warn" label="No panel yet{unassigned ? ` (${rows.length})` : ''}" upper={false} off={!unassigned} title="Show only the outlets with a port that isn't on a panel port yet (e.g. added after install)" onclick={() => (unassigned = !unassigned)} />
+		{#if routed.none}<StatusChip tone="bad" label="{routed.none} no route" upper={false} off={!noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)} />{/if}
 		{#if routed.n}<span class="muted" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
-		{#if routed.none}<button class="chip" class:on={noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)}>{routed.none} no route</button>{/if}
-		{#if routed.over}<b class="text-red-600">{routed.over} over 90 m</b>{/if}
+		{#if routed.over}<b class="over90">{routed.over} over 90 m</b>{/if}
 		{#if issues.length}
 			<details class="issues"><summary>{issues.length} allocation issue{issues.length > 1 ? 's' : ''}</summary><ul>{#each issues as t, i (i)}<li>{t}</li>{/each}</ul></details>
 		{/if}
-	</div>
+	{/snippet}
+	{#snippet sel()}
+		<button class="tb" title="Cable every unallocated port of the selected outlets to a panel of its server room: racks in row order, top U down. Existing links stay." onclick={() => runAllocate(false)}>Allocate {selectedOutlets}</button>
+		<button class="tb" title="Drop the selected outlets’ UNPINNED links and allocate again from scratch. Pinned and patched ports stay (⋯ › Re-allocate pinned links too)." onclick={() => runAllocate(true)}>Re-allocate…</button>
+		<button class="tb" title="Put the selected outlets on panel ports by hand: click the first panel port in a rack view (or drag the rows onto it). Hand placements are pinned." onclick={assign}>Assign {selectedOutlets} → port…</button>
+		<button class="tb" title="Find and replace in the selected outlets’ labels or port labels — plain text or a pattern: Properties › Find / replace" onclick={findReplace}>Find/replace…</button>
+	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
 			<tr>
@@ -220,24 +231,16 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
+</TableFrame>
 
 <style>
 	.hov:hover { background: var(--cad-hover); }
-	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 9rem; background: var(--cad-input); color: var(--cad-text); }
-	div[role='grid']:focus { outline: none; }
-	.actions { position: sticky; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
-	.actions button { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.actions button:hover { background: var(--cad-hover); }
-	.issues { color: #b45309; }
+	.over90 { color: #dc2626; }
+	.issues { position: relative; color: #b45309; }
 	.issues summary { cursor: pointer; }
 	.issues ul { position: absolute; z-index: 5; max-height: 10rem; overflow: auto; background: var(--cad-pick); border: 1px solid var(--cad-line); border-radius: 4px; padding: 4px 8px; color: var(--cad-text); }
 	.pp { margin-right: 10px; white-space: nowrap; }
-	.chip { border: 1px solid #fca5a5 !important; color: #b91c1c !important; font-weight: 600; }
-	.chip.on { background: #fee2e2 !important; }
-	.fmt { display: inline-flex; gap: 4px; align-items: center; color: var(--cad-muted); }
 	.pp.none { color: var(--cad-faint); }
 	.pp.patched { color: #16a34a; font-weight: 600; }   /* a cord in that panel port: the rack view's green edge */
 	.pp.over, .pp.bad { color: #dc2626; font-weight: 600; }
-	.pin { display: inline-flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 </style>

@@ -15,9 +15,12 @@
 	import { exportIssueRegister } from '../render/issueRegister'
 	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 	import { canRestore } from '../domain/restorePlan'
+	import TableFrame from './TableFrame.svelte'
+	import type { MenuItem } from './cadMenus'
 
 	/** `seg`: the Sheets tab's Sheets · Packages · Issues switch, first in this view's one-line bar. */
-	let { project, ws, seg, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; seg?: Snippet; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
+	/** `panel`: the Issue panel while issuing (over the table, as in the register). */
+	let { project, ws, seg, panel, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; seg?: Snippet; panel?: Snippet; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
@@ -44,10 +47,15 @@
 		ws.say(`Package “${p.name}” made from ${i.name} — its next issue shows what changed since`)
 		onpackages()
 	}
-	let latestOnly = $state(false)
-	async function register() {
+	/** `latestOnly`: one column, each sheet's last revision, issue and date. */
+	async function register(latestOnly: boolean) {
 		try { await exportIssueRegister(issues, project.name, latestOnly) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
+	/** ⋯: the issue register for the PM (backlog), every issue or the latest revisions only. */
+	const more = $derived<MenuItem[]>([
+		{ label: 'Issue register (Excel)', disabled: !issues.length, title: 'Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel', run: () => register(false) },
+		{ label: 'Issue register, latest only (Excel)', disabled: !issues.length, title: 'One column: each sheet’s last revision, issue and date', run: () => register(true) },
+	])
 	async function reprint(i: Issue) {
 		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
@@ -58,12 +66,8 @@
 </script>
 
 <!-- the register of every issue for the PM (backlog): a sheet per row, an issue per column, or the latest only -->
-<div class="bar">
-	{@render seg?.()}
-	<button class="btn" disabled={!issues.length} title="Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel" onclick={() => register()}>Issue register (Excel)</button>
-	<label class="muted" title="One column: each sheet's last revision, issue and date"><input type="checkbox" bind:checked={latestOnly} /> latest only</label>
-</div>
 <datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
+<TableFrame label="Issues" lead={seg} top={panel} count="{issues.length} issue{issues.length === 1 ? '' : 's'}" countTitle="Every issue, newest first" {more}>
 <table class="w-full border-collapse">
 	<thead>
 		<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
@@ -101,12 +105,12 @@
 		{/each}
 	</tbody>
 </table>
+</TableFrame>
 
 <style>
-	.bar { display: flex; align-items: center; gap: 8px; padding: 3px 8px; }
 	.pk { font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
 	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.btn:disabled { opacity: 0.4; }
 	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; }
