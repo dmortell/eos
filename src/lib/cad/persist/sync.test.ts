@@ -149,7 +149,7 @@ describe('a listener that fails (Q60)', () => {
 })
 
 describe('an item moved to another scope (review R89)', () => {
-	const onLevel = (e: Shape, levelId: string): Shape => ({ ...e, levelId })
+	const onLevel = (e: Shape, levelId: string): Shape => ({ ...e, levelId }) as Shape
 	function watcher(server: MemoryBackend, order: string[]) {
 		const store = new EntityStore(), changes: Change[] = []
 		const sync = new Sync(store, server, { user: 'carol' })
@@ -176,7 +176,7 @@ describe('an item moved to another scope (review R89)', () => {
 		A.store.transact('Add', (tx) => tx.put(box('a')))
 		await A.sync.flush(); await tick()
 		expect(B.store.has('a')).toBe(true)
-		A.store.transact('Move to L2', (tx) => tx.put({ ...(tx.get('a') as Shape), levelId: 'L2' }))
+		A.store.transact('Move to L2', (tx) => tx.put({ ...(tx.get('a') as Shape), levelId: 'L2' } as Shape))
 		await A.sync.flush(); await tick()
 		expect(B.store.has('a')).toBe(false)
 	})

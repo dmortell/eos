@@ -24,7 +24,7 @@ async function exported(perRoom: boolean): Promise<ExcelJS.Workbook> {
 	const n = await exportPatchSchedule(ix, 'Proj', scheduleSheets(ix, ix.cords, perRoom))
 	expect(n).toBe(3)
 	const wb = new ExcelJS.Workbook()
-	await wb.xlsx.load(saved.data as ArrayBuffer)
+	await wb.xlsx.load(saved.data as unknown as ArrayBuffer)
 	return wb
 }
 const keyCol = PATCH_HEAD.indexOf('Key') + 1, idCol = PATCH_HEAD.indexOf('Cord ID') + 1

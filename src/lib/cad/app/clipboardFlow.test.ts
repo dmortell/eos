@@ -16,10 +16,11 @@ function app(opts: { target?: { kind: 'level' | 'sheet' | 'rack'; id: string } |
 	store.transact('seed', (tx) => { for (const e of [...demoProject(), L34]) tx.put(e) })
 	store.clearHistory()
 	const said: string[] = []
-	const ws = { selection: [] as string[], say: (t: string) => said.push(t), select(ids: string[]) { this.selection = ids } } as unknown as Workspace & { selection: string[]; select(ids: string[]): void }
+	const ws = { selection: [] as string[], say: (t: string) => said.push(t), select: (ids: string[]) => { ws.selection = ids } }
+	const wsAs = ws as unknown as Workspace
 	const project = { pid: 'P', store, get index() { return new ProjectIndex(store.all()) } } as unknown as CadProject
 	const target = opts.target === undefined ? { kind: 'level' as const, id: 'L34' } : opts.target
-	const cb = clipboardEvents({ project, ws, target: () => target, inRow: () => false, cursor: () => opts.cursor ?? null, dialogOpen: () => false })
+	const cb = clipboardEvents({ project, ws: wsAs,target: () => target, inRow: () => false, cursor: () => opts.cursor ?? null, dialogOpen: () => false })
 	return { store, ws, said, cb }
 }
 const copyEvent = () => {
