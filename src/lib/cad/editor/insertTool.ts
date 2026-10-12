@@ -41,8 +41,7 @@ export class InsertTool implements Tool {
 		}
 		const s = {
 			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
-			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : b.front ? { inElevations: true } : {}),   // a block with a front drawing shows it in elevations and sections at its height (untick in Properties)
-			 ...(Object.keys(attrs).length ? { attrs } : {}) },
+			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
 		} as Shape
 		c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
 		this.#z = p.z
