@@ -51,6 +51,17 @@ describe('issue', () => {
 		expect(fingerprint(f)).toBe(fingerprint(freeze([{ ...a[0], src: 'other' } as Prim, a[1]])))
 		expect(fingerprint(f)).not.toBe(fingerprint(freeze([a[0], { ...a[1], text: 'R312' } as Prim])))
 		expect(parseUnderlayRef(underlayRef('L33 Plan.pdf', 2))).toEqual({ fileId: 'L33 Plan.pdf', page: 2 })
+	})
+	it('freeze keeps what a print needs: colour, lineweight and line type — and a style change shows in the fingerprint', () => {
+		const line: Prim = { k: 'line', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }], cls: 'drawing', color: '#c00', weight: 0.5, dash: 'dashed' }
+		const ring: Prim = { k: 'circle', c: { x: 0, y: 0 }, r: 2, cls: 'outlet', color: '#0a0', weight: 0.35, dash: 'dotted' }
+		const text: Prim = { k: 'text', at: { x: 0, y: 0 }, text: 'A', size: 2.5, cls: 'label', color: '#00c' }
+		expect(freeze([line, ring, text])).toEqual([
+			{ k: 'line', pts: line.pts, cls: 'drawing', color: '#c00', weight: 0.5, dash: 'dashed' },
+			{ k: 'circle', c: { x: 0, y: 0 }, r: 2, cls: 'outlet', color: '#0a0', weight: 0.35, dash: 'dotted' },
+			{ k: 'text', at: { x: 0, y: 0 }, text: 'A', size: 2.5, cls: 'label', color: '#00c' },
+		])
+		expect(fingerprint(freeze([line]))).not.toBe(fingerprint(freeze([{ ...line, dash: undefined } as Prim])))
 		expect(parseUnderlayRef('https://x/y.png')).toBeNull()
 	})
 	it('a package bumps sheets never issued or changed since; the rest go as last issued', () => {

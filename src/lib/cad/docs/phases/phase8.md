@@ -2484,3 +2484,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `lib/cad` doesn't import a route (the Sheets tool does the same). cad's own title block stays its template (its Site
   field is the template's). Live (Test Project): the menu item opens the dialog over cad with the project's details;
   closed unsaved. Help: "Project details".
+
+## Review fixes (`../plan/review-2026-10-12.md`, Dave 2026-10-12: "start fixing the bugs")
+
+- **R15 Issued PDFs keep styles:** `domain/issue.ts` `freeze` keeps each prim's colour, lineweight and line type (it
+  kept line colour only), so issue PDFs print dashed / weighted / layer-coloured items as File › PDF does, and a
+  style-only change marks a sheet changed. Sheets issued before this read "Changed since" once (Dave: he'll handle
+  it). Test in `domain/issue.test.ts`.

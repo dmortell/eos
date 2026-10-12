@@ -47,9 +47,10 @@ const rp = (p: { x: number; y: number }) => ({ x: r2(p.x), y: r2(p.y) })
 export function freeze(prims: Prim[]): Prim[] {
 	return prims.map((p): Prim => {
 		const clip = p.clip ? { x0: r2(p.clip.x0), y0: r2(p.clip.y0), x1: r2(p.clip.x1), y1: r2(p.clip.y1) } : undefined
-		const base = { cls: (p as { cls?: string }).cls, ...(clip ? { clip } : {}) }
+		// the style a print needs: own / layer colour, lineweight, line type (views/layers.ts puts them on the prim)
+		const base = { cls: (p as { cls?: string }).cls, ...(clip ? { clip } : {}), ...(p.color ? { color: p.color } : {}), ...(p.weight ? { weight: p.weight } : {}), ...(p.dash ? { dash: p.dash } : {}) }
 		switch (p.k) {
-			case 'line': return { k: 'line', pts: p.pts.map(rp), ...(p.closed ? { closed: true } : {}), ...(p.holes ? { holes: p.holes.map((h) => h.map(rp)) } : {}), ...(p.fill ? { fill: true } : {}), ...(p.w ? { w: r2(p.w) } : {}), ...(p.color ? { color: p.color } : {}), ...base } as Prim
+			case 'line': return { k: 'line', pts: p.pts.map(rp), ...(p.closed ? { closed: true } : {}), ...(p.holes ? { holes: p.holes.map((h) => h.map(rp)) } : {}), ...(p.fill ? { fill: true } : {}), ...(p.w ? { w: r2(p.w) } : {}), ...base } as Prim
 			case 'circle': return { k: 'circle', c: rp(p.c), r: r2(p.r), ...(p.fill ? { fill: true } : {}), ...base } as Prim
 			case 'text': return { k: 'text', at: rp(p.at), text: p.text, size: r2(p.size), ...(p.anchor ? { anchor: p.anchor } : {}), ...(p.rot ? { rot: p.rot } : {}), ...(p.minPx != null ? { minPx: p.minPx } : {}), ...(p.maxPx != null ? { maxPx: p.maxPx } : {}), ...base } as Prim
 			case 'image': return { k: 'image', url: p.url, x: r2(p.x), y: r2(p.y), w: r2(p.w), h: r2(p.h), ...(p.opacity != null ? { opacity: p.opacity } : {}), ...(p.fit ? { fit: p.fit } : {}), ...(p.gray ? { gray: true } : {}), ...(clip ? { clip } : {}) } as Prim
