@@ -2605,3 +2605,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   what's there. Dry run on Journey's real data: Zone 3303 → 60 boxes (R01 left out) + 3 walls, new layers Furniture /
   Openings; the 5 sheets → 99 of their 100 annotations (the legend is on a layer hidden in its viewport). Help: "Bring
   in a drawing from Pages or the Sheets tool".
+- **Several runs › Location › "each by its tier"** (Dave 2026-10-12, for the Journey repair): high runs to the ceiling
+  plenum, low runs under the floor, wall runs on the wall — each from its own level's heights, one undo step
+  (`ui/RunsMultiProps.svelte`). **Journey repaired with it** (review R13b), after a whole-project backup "Before
+  run-height repair (review R13b)": its 14 imported runs sat at Z −300 — 30F (6) and 33F 3303 (8) each selected with
+  Ctrl+A → 9 high at Z 2950, 5 low at Z −150 (checked in Firestore). Help: "Put several runs at their heights at once".

@@ -22,6 +22,8 @@
 	function each(label: string, f: (s: Shape) => Shape | null) {
 		project.store.transact(`${label} (${runs.length} runs)`, (tx) => { for (const s of runs) { const n = f(s); if (n) tx.put(n) } })
 	}
+	/** Each run where its own tier runs: high → the ceiling plenum, low → under the floor, wall → on the wall. */
+	const byTier = (s: Shape) => (s.role?.kind === 'containment' ? setRunPlace(s, heightsOf(s), s.role.tier === 'high' ? 'plenum' : s.role.tier === 'wall' ? 'wall' : 'floor') : null)
 	const setSize = (k: 'w' | 'h', v: number) => v > 0 && each(k === 'w' ? 'Run width' : 'Run height', (s) => (s.section ? { ...s, section: { ...s.section, [k]: v, ...(s.section.round ? { w: v, h: v } : {}) } } : null))
 </script>
 
@@ -37,10 +39,12 @@
 {/if}
 {#if containment}
 	<label class="row" title="Each run from its own level's heights (the nodes at its main height; drops keep their ends)">Location
-		<select class="inp" value={place ?? 'mixed'} onchange={(e) => { const p = e.currentTarget.value as RunPlace; if (p in RUN_PLACES) each(`Runs ${RUN_PLACES[p]}`, (s) => setRunPlace(s, heightsOf(s), p)) }}>
+		<select class="inp" value={place ?? 'mixed'} onchange={(e) => { const p = e.currentTarget.value; if (p === 'by-tier') each('Runs to their tier’s height', byTier); else if (p in RUN_PLACES) each(`Runs ${RUN_PLACES[p as RunPlace]}`, (s) => setRunPlace(s, heightsOf(s), p as RunPlace)) }}>
 			{#if place === null}<option value="mixed">mixed</option>{/if}
 			<option value="">custom</option>
 			{#each Object.entries(RUN_PLACES) as [k, label] (k)}<option value={k}>{label}</option>{/each}
+			<!-- a mix of high and low runs (an import put them all at one height): each to where its tier runs -->
+			<option value="by-tier">each by its tier (high: plenum · low: under floor)</option>
 		</select></label>
 	<label class="row">Tier
 		<select class="inp" value={tier ?? 'mixed'} onchange={(e) => { const t = e.currentTarget.value; if (t !== 'mixed') each('Run tier', (s) => (s.role?.kind === 'containment' ? { ...s, role: { ...s.role, tier: t as 'low' | 'high' | 'wall' } } : null)) }}>
