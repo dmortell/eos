@@ -87,3 +87,16 @@ wanted. *From:* ids as in `backlog.md`.
 - **Function keys** — not needed (Dave 2026-10-07). *From:* G300
 - **Floorplan zones: rotate and drag** — not required (Dave 2026-10-09); zones keep the typed X / Y offset in the Floor manager. *From:* Dave 2026-10-04
 - **Several buildings in one project** — not required (Dave 2026-10-09: "I'll make a different project per building"). *From:* T054
+
+## From the review of 2026-10-12 (`review-2026-10-12.md`; Dave: "later")
+
+- **Command line** (R91) — commands by name, aliases, Space repeats (Pages had ~110). P052. *From:* review R91
+- **OFFSET / ARRAY / SCALE / STRETCH** (R92) — Rotate and Mirror are being built; the rest later. *From:* review R92, P054
+- **Labels and presets** (R98b) — auto labels for generated views ("RACKS 3F SR-1 FRONT", T033), named height presets
+  for any item (T147), revision rows as a project setting (T129), reserved-port count and "reserved for X" in the port
+  tip, a section's linked-viewports list (G312), penetration tool (T145), Kanban "New task" (T122), the outlet table's
+  Room / Zone column (T055), new cord color from its cable type, default cord color editor. *From:* review R98
+- **Smaller partials** (R99) — riser lanes that fit the shaft, per-floor hide, a riser text tool; all fill sections in
+  one list, the section drawing's wall and Ø; crop Clear / handles; label along a line; copy a sheet to another
+  project; node X / Y editable; Frame Excel rear face. *From:* review R99
+
