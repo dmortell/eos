@@ -121,6 +121,8 @@ export interface Layer {
 	color?: string
 	weightMm?: number
 	dash?: string
+	/** A heading the layers panel files it under (with a group eye); absent = ungrouped, or the name's prefix before "/". */
+	group?: string
 	order: number
 }
 

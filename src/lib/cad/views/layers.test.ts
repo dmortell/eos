@@ -7,7 +7,7 @@ import { viewportContent } from './sheet'
 import { displayListToDxf } from '../render/dxf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { layersOf, layerOf, defaultLayer, drawnOn, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS } from '../domain/layers'
+import { layersOf, layerOf, defaultLayer, drawnOn, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS, groupOf, groupLayers, withPreset, targetIds, togglePick, rangePick } from '../domain/layers'
 import type { Entity, Layer, Viewport } from '../domain/drawing'
 import type { Outlet } from '../domain/types'
 
@@ -138,5 +138,40 @@ describe('port labels layer (Dave 2026-10-07)', () => {
 		expect(drawnOn([sh({ levelId: 'L1' }), sh({ levelId: 'L1', role: { kind: 'wall' } })], ls)).toBe('Drawn on the Drawing, Walls layers')
 		expect(drawnOn([sh({ sheetId: 'SH' })], ls)).toBeNull()
 		expect(drawnOn([], ls)).toBeNull()
+	})
+})
+
+describe('layer groups, presets and multi-select', () => {
+	const ls = layersOf([{ ...layer('A', 500), name: 'IDF1/Outlets' }, { ...layer('B', 510), name: 'IDF1/Trunks' }, { ...layer('C', 520), name: 'Comms', group: 'Other' }])
+	it('a layer is under its own group, else its name’s prefix before a slash, else none', () => {
+		expect(ls.filter((l) => !l.system).map(groupOf)).toEqual(['IDF1', 'IDF1', 'Other'])
+		expect(groupOf({ name: 'Walls' })).toBeUndefined()
+		expect(groupOf({ name: '/odd' })).toBeUndefined()
+	})
+	it('the panel lists the ungrouped layers first, then each group, all in drawing order', () => {
+		const g = groupLayers(ls)
+		expect(g[0].name).toBeNull()
+		expect(g[0].layers.length).toBe(SYSTEM_LAYERS.length)
+		expect(g.slice(1).map((x) => [x.name, x.layers.map((l) => l.id)])).toEqual([['IDF1', ['A', 'B']], ['Other', ['C']]])
+	})
+	it('a restyle record of a system layer can file it in a group', () => {
+		expect(layersOf([{ ...layer('sys:walls', 15), group: 'Building' }]).find((l) => l.id === 'sys:walls')?.group).toBe('Building')
+	})
+	it('saving a preset under an existing name replaces it (any case)', () => {
+		const a = withPreset([], 'Power', ['x']), b = withPreset(a, 'power', ['y', 'z'])
+		expect(b).toEqual([{ name: 'power', hidden: ['y', 'z'] }])
+	})
+	it('a change to one of several picked layers is made to all of them; to an unpicked one, just it', () => {
+		const picked = new Set(['A', 'B'])
+		expect(targetIds(picked, 'A')).toEqual(['A', 'B'])
+		expect(targetIds(picked, 'C')).toEqual(['C'])
+		expect(targetIds(new Set(['A']), 'A')).toEqual(['A'])
+	})
+	it('Ctrl-click toggles a pick; Shift-click picks the range from the anchor', () => {
+		expect([...togglePick(new Set(['A']), 'B')]).toEqual(['A', 'B'])
+		expect([...togglePick(new Set(['A', 'B']), 'A')]).toEqual(['B'])
+		const order = ['A', 'B', 'C', 'D']
+		expect([...rangePick(order, 'D', 'B')].sort()).toEqual(['B', 'C', 'D'])
+		expect([...rangePick(order, null, 'C')]).toEqual(['C'])
 	})
 })

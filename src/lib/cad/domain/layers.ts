@@ -8,7 +8,7 @@ import type { Entity, Layer, Sheet } from './drawing'
 /** `color` = the layer's color, applied to its items; `look` = a system layer's default: the color its items
  *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colors that mean something: an
  *  unrouted backbone's red, a rack's ports and U numbers). */
-export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean; /** The lineweight (paper mm) and line type its items use when they set none ("By layer"). */ weightMm?: number; dash?: string }
+export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean; /** The lineweight (paper mm) and line type its items use when they set none ("By layer"). */ weightMm?: number; dash?: string; /** The panel heading it sits under (see `groupOf`). */ group?: string }
 
 /** The system layers, bottom to top (the order the plan draws them; Dave: pairs together, Floorplans first). */
 export const SYSTEM_LAYERS: LayerInfo[] = ([
@@ -34,7 +34,7 @@ export function nextLayerColour(records: Layer[]): string {
 /** The project's layers: the system ones (restyled by a record with their id) and its own, by order. */
 export function layersOf(records: Layer[]): LayerInfo[] {
 	const own = new Map(records.map((r) => [r.id, r]))
-	const look = (r: Layer) => ({ ...(r.color ? { color: r.color } : {}), ...(r.weightMm ? { weightMm: r.weightMm } : {}), ...(r.dash ? { dash: r.dash } : {}) })
+	const look = (r: Layer) => ({ ...(r.color ? { color: r.color } : {}), ...(r.weightMm ? { weightMm: r.weightMm } : {}), ...(r.dash ? { dash: r.dash } : {}), ...(r.group ? { group: r.group } : {}) })
 	const sys = SYSTEM_LAYERS.map((s) => { const r = own.get(s.id); return r ? { ...s, order: r.order, ...look(r) } : s })
 	const custom = records.filter((r) => !r.id.startsWith('sys:')).map((r): LayerInfo => ({ id: r.id, name: r.name, order: r.order, ...look(r), system: false }))
 	return [...sys, ...custom].sort((a, b) => a.order - b.order)
@@ -122,4 +122,54 @@ export function freezeInExisting(sheets: Sheet[], layerId: Id): Sheet[] {
 	return sheets.filter((s) => s.viewports.length).map((s) => ({
 		...s, viewports: s.viewports.map((v) => (v.frozen?.includes(layerId) ? v : { ...v, frozen: [...(v.frozen ?? []), layerId] })),
 	}))
+}
+
+/** The heading a layer is filed under: its own group, else the part of its name before a "/" ("IDF1/Outlets" → IDF1). */
+export function groupOf(l: Pick<LayerInfo, 'name' | 'group'>): string | undefined {
+	if (l.group) return l.group
+	const i = l.name.indexOf('/')
+	return i > 0 && l.name.slice(0, i).trim() ? l.name.slice(0, i).trim() : undefined
+}
+
+/** The layers as the panel lists them: the ungrouped ones first, then each group (in order of its first layer), every
+ *  list keeping the drawing order. */
+export function groupLayers<T extends Pick<LayerInfo, 'name' | 'group'>>(ls: T[]): { name: string | null; layers: T[] }[] {
+	const out: { name: string | null; layers: T[] }[] = [{ name: null, layers: [] }], by = new Map<string, T[]>()
+	for (const l of ls) {
+		const g = groupOf(l)
+		if (!g) { out[0].layers.push(l); continue }
+		let list = by.get(g)
+		if (!list) { list = []; by.set(g, list); out.push({ name: g, layers: list }) }
+		list.push(l)
+	}
+	return out.filter((g) => g.layers.length)
+}
+
+/** A saved set of shown layers (per user and project): the layers hidden when it was saved. */
+export interface LayerPreset { name: string; hidden: Id[] }
+
+/** Presets with one saved under `name` (replacing a same-named one, ignoring case), hidden = the current eye states. */
+export function withPreset(presets: LayerPreset[], name: string, hidden: Iterable<Id>): LayerPreset[] {
+	const key = name.trim().toLowerCase()
+	const rest = presets.filter((p) => p.name.toLowerCase() !== key)
+	return [...rest, { name: name.trim(), hidden: [...hidden] }]
+}
+
+/** The layers a row click on `id` acts on: every picked layer when `id` is one of several picked, else just `id`. */
+export function targetIds(picked: ReadonlySet<Id>, id: Id): Id[] {
+	return picked.size > 1 && picked.has(id) ? [...picked] : [id]
+}
+
+/** Ctrl-click: `id` added to / removed from the picked set. */
+export function togglePick(picked: ReadonlySet<Id>, id: Id): Set<Id> {
+	const s = new Set(picked)
+	if (!s.delete(id)) s.add(id)
+	return s
+}
+
+/** Shift-click: every layer between the anchor and `id` in the listed order (just `id` without a usable anchor). */
+export function rangePick(order: readonly Id[], anchor: Id | null, id: Id): Set<Id> {
+	const a = anchor ? order.indexOf(anchor) : -1, b = order.indexOf(id)
+	if (a < 0 || b < 0) return new Set([id])
+	return new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1))
 }

@@ -1,13 +1,16 @@
 <!-- The layers list (docs/plan/layers.md) in drawing order: the first row (Floorplans) draws at the bottom. The eye and lock are the user's own (this browser, this
      project — nobody else's view changes); the color, name and order are the project's (undoable). With a viewport
      picked on a sheet, the snowflake freezes a layer in THAT viewport (stored: it prints); Shift = every viewport on the
-     sheet. Click a name to make it the current layer (highlighted like the open level), where new lines go. -->
+     sheet. Click a name to make it the current layer (highlighted like the open level), where new lines go.
+     Ctrl-click / Shift-click names to pick several: the eye, lock, color and line type then change all of them (one undo
+     step). Layers sit under group headings (a group field, or a name like "IDF1/Outlets"); a group's eye hides its layers.
+     Presets save the eye states under a name (this browser, this project). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Id } from '../domain/types'
 	import type { Layer, Sheet } from '../domain/drawing'
-	import { layersOf, layerOf, nextLayerColour, freezeInExisting, type LayerInfo } from '../domain/layers'
+	import { layersOf, layerOf, nextLayerColour, freezeInExisting, groupLayers, targetIds, togglePick, rangePick, type LayerInfo } from '../domain/layers'
 	import { layerCounts } from '../views/layers'
 	import { newId } from '../domain/ids'
 	import { DASHES, WEIGHTS } from '../views/display'
@@ -21,6 +24,18 @@
 	let q = $state('')
 	const all = $derived(layersOf(project.index.layers))
 	const rows = $derived(q.trim() ? all.filter((l) => l.name.toLowerCase().includes(q.trim().toLowerCase())) : all)
+	const groups = $derived(groupLayers(rows))
+	const flat = $derived(groups.flatMap((g) => g.layers.map((l) => l.id)))   // the order on screen, for Shift-click ranges
+	// Ctrl / Shift-clicked names: a change to one of them is made to all of them
+	let picked = $state.raw<ReadonlySet<Id>>(new Set()), anchor: Id | null = null
+	const targets = (l: LayerInfo): LayerInfo[] => { const ids = new Set(targetIds(picked, l.id)); return all.filter((x) => ids.has(x.id)) }
+	/** A name click with Ctrl / Shift picks (true); a plain click clears the picks and goes on to make it current. */
+	function pick(l: LayerInfo, e: MouseEvent): boolean {
+		if (e.shiftKey) picked = rangePick(flat, anchor, l.id)
+		else if (e.ctrlKey || e.metaKey) { picked = togglePick(picked, l.id); anchor = l.id }
+		else { if (picked.size) picked = new Set(); anchor = l.id; return false }
+		return true
+	}
 	const counts = $derived(layerCounts(project.dataIndex))   // final changes only: not recounted on each frame of a drag
 	// the picked viewport — or the one being edited inside (its ❄ freeze is what prints)
 	const sheet = $derived(ws.vpEdit ? project.index.get<Sheet>(ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
@@ -34,6 +49,7 @@
 		if (!next.color) delete next.color
 		if (!next.weightMm) delete next.weightMm
 		if (!next.dash) delete next.dash
+		if (!next.group) delete next.group
 		return next
 	}
 	const put = (label: string, ...ls: Layer[]) => project.store.transact(label, (tx) => ls.forEach((l) => tx.put(l)))
@@ -56,7 +72,16 @@
 		ws.layers.forget(l.id)
 		ws.say(`Layer ${l.name} deleted — Undo brings it back`)
 	}
-	const setColour = (l: LayerInfo, color: string | undefined) => put(`${l.name} color`, record(l, { color }))
+	const many = (ls: LayerInfo[], what: string) => (ls.length > 1 ? `${ls.length} layers ${what}` : `${ls[0].name} ${what}`)
+	const setColour = (l: LayerInfo, color: string | undefined) => { const ls = targets(l); put(many(ls, 'color'), ...ls.map((x) => record(x, { color }))) }
+	const restyle = (l: LayerInfo, what: string, change: Partial<Layer>) => { const ls = targets(l); put(many(ls, what), ...ls.map((x) => record(x, change))) }
+	// a group heading: the picked layers go under it; "-" takes them out
+	let grouping = $state(false)
+	function setGroup(name: string): void {
+		grouping = false
+		const ls = all.filter((l) => picked.has(l.id)), group = name.trim() === '-' ? undefined : name.trim()
+		if (ls.length) put(group ? `Group ${ls.length} layers as ${group}` : `Ungroup ${ls.length} layers`, ...ls.map((x) => record(x, { group })))
+	}
 	// the layer's line type and lineweight (backlog "Layer line type and lineweight"): its items without their own use them
 	let styling = $state<Id | null>(null)
 	const DASH_NAMES: Record<string, string> = { '': 'Solid', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot' }
@@ -64,13 +89,27 @@
 
 	// hiding or locking a layer lets go of its selected items (Delete / Properties mustn't act on what you can't see
 	// or have locked); showing / unlocking leaves the selection alone
-	function letGo(id: Id): void {
-		const known = new Set(all.map((l) => l.id))
-		const keep = ws.selection.filter((s) => { const e = project.index.get(s); return !e || layerOf(e, known) !== id })
+	function letGo(ids: Id[]): void {
+		const known = new Set(all.map((l) => l.id)), gone = new Set(ids)
+		const keep = ws.selection.filter((s) => { const e = project.index.get(s); const on = e && layerOf(e, known); return !on || !gone.has(on) })
 		if (keep.length !== ws.selection.length) ws.select(keep)
 	}
-	function hide(l: LayerInfo): void { ws.layers.toggleHidden(l.id); if (ws.layers.hidden.has(l.id)) letGo(l.id) }
-	function lock(l: LayerInfo): void { ws.layers.toggleLocked(l.id); if (ws.layers.locked.has(l.id)) letGo(l.id) }
+	/** The eye on one layer — or all the picked ones, set to the opposite of what the clicked one shows. */
+	function hide(l: LayerInfo): void { setEye(targets(l).map((x) => x.id), !ws.layers.hidden.has(l.id)) }
+	function lock(l: LayerInfo): void { const ids = targets(l).map((x) => x.id), on = !ws.layers.locked.has(l.id); ws.layers.setLocked(ids, on); if (on) letGo(ids) }
+	function setEye(ids: Id[], off: boolean): void { ws.layers.setHidden(ids, off); if (off) letGo(ids) }
+	/** A group's eye: all hidden → show them all; otherwise hide them all. */
+	const groupOff = (ls: LayerInfo[]) => ls.every((l) => ws.layers.hidden.has(l.id))
+	// presets: the eye states under a name
+	let savingPreset = $state(false), preset = $state('')
+	function applyPreset(name: string): void {
+		preset = name
+		if (!name) return
+		letGo(ws.layers.applyPreset(name))
+		ws.say(`Layers: ${name}`)
+	}
+	function savePreset(name: string): void { savingPreset = false; ws.layers.savePreset(name); preset = name; ws.say(`Preset ${name} saved (the layers shown now)`) }
+	function deletePreset(): void { ws.layers.deletePreset(preset); preset = '' }
 
 	function freeze(l: LayerInfo, every: boolean): void {
 		if (!sheet || !vp) return
@@ -93,11 +132,38 @@
 {#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={() => (adding = true)}>+ Layer</button>{/snippet}
 {#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
 {#if vp}<p class="note">👁 hides on screen · ❄ = frozen in this viewport (prints) · Shift = every viewport on the sheet</p>{/if}
-{#each rows as l (l.id)}
+<div class="presets">
+	{#if savingPreset}<NameInput wide create placeholder="Preset name — Enter saves the layers shown now" onsave={savePreset} oncancel={() => (savingPreset = false)} />
+	{:else}
+		<select title="Presets: sets of shown layers saved under a name (for you, in this project)" aria-label="Layer preset" value={preset} onchange={(e) => applyPreset(e.currentTarget.value)}>
+			<option value="">Presets…</option>
+			{#each ws.layers.presets as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
+		</select>
+		<button class="ic" title="Save the layers shown now as a preset" onclick={() => (savingPreset = true)}><Icon name="plus" size={12} /></button>
+		{#if preset}<button class="ic" title="Delete the preset {preset}" onclick={deletePreset}><Icon name="trash" size={11} /></button>{/if}
+	{/if}
+</div>
+{#if picked.size > 1}
+	<div class="presets">
+		<span class="nm">{picked.size} layers picked</span>
+		{#if grouping}<NameInput wide create placeholder="Group name ( - = none)" onsave={setGroup} oncancel={() => (grouping = false)} />
+		{:else}<button class="btn" title="File the picked layers under a heading" onclick={() => (grouping = true)}>Group…</button>{/if}
+		<button class="btn" onclick={() => (picked = new Set())}>Clear</button>
+	</div>
+{/if}
+{#each groups as g (g.name ?? '')}
+	{#if g.name}
+		<div class="row grp" title="A group: its eye hides or shows all {g.layers.length} layers">
+			<span class="nm">{g.name}</span>
+			<span class="ct">{g.layers.length}</span>
+			<button class="ic" title={groupOff(g.layers) ? 'Show the group (only for you)' : 'Hide the group (only for you)'} onclick={() => setEye(g.layers.map((l) => l.id), !groupOff(g.layers))}><Icon name={groupOff(g.layers) ? 'eyeSlash' : 'eye'} size={12} /></button>
+		</div>
+	{/if}
+{#each g.layers as l (l.id)}
 	{@const n = counts.get(l.id) ?? 0}
 	{@const off = ws.layers.hidden.has(l.id)}
 	{@const locked = ws.layers.locked.has(l.id)}
-	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
+	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:pick={picked.has(l.id)} class:ing={!!g.name} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
 		<!-- a square = a color set on the layer (applied to its items); a round dot = the default, the color its items
 		     already draw in (not forced on them). cad's color picker, as in Properties; its By layer = back to the default -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -111,8 +177,8 @@
 		{:else}
 		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 		<span class="nm"
-			title={[l.name, canBeCurrent(l) ? 'click: make it the current layer (new lines go here)' : '', l.system ? '' : '✎: rename'].filter(Boolean).join(' — ')}
-			onclick={() => { if (canBeCurrent(l)) ws.layers.setCurrent(l.id === 'sys:drawing' ? null : l.id) }}>{l.name}</span>
+			title={[l.name, canBeCurrent(l) ? 'click: make it the current layer (new lines go here) · Ctrl / Shift-click: pick several' : '', l.system ? '' : '✎: rename'].filter(Boolean).join(' — ')}
+			onclick={(e) => { if (!pick(l, e) && canBeCurrent(l)) ws.layers.setCurrent(l.id === 'sys:drawing' ? null : l.id) }}>{l.name}</span>
 		{/if}
 		{#if !l.system}
 			<button class="ic ren" title="Rename this layer" onclick={() => rename(l)}><Icon name="edit" size={11} /></button>
@@ -131,15 +197,16 @@
 	</div>
 	{#if styling === l.id}
 		<div class="sub">
-			<select title="Line type of this layer's items (unless they set their own)" aria-label="{l.name}: line type" value={l.dash ?? ''} onchange={(e) => put(`${l.name} line type`, record(l, { dash: e.currentTarget.value || undefined }))}>
+			<select title="Line type of this layer's items (unless they set their own)" aria-label="{l.name}: line type" value={l.dash ?? ''} onchange={(e) => restyle(l, 'line type', { dash: e.currentTarget.value || undefined })}>
 				{#each ['', ...DASHES] as d (d)}<option value={d}>{DASH_NAMES[d]}</option>{/each}
 			</select>
-			<select title="Lineweight of this layer's items on paper (unless they set their own) — prints as set" aria-label="{l.name}: lineweight" value={String(l.weightMm ?? 0)} onchange={(e) => put(`${l.name} lineweight`, record(l, { weightMm: Number(e.currentTarget.value) || undefined }))}>
+			<select title="Lineweight of this layer's items on paper (unless they set their own) — prints as set" aria-label="{l.name}: lineweight" value={String(l.weightMm ?? 0)} onchange={(e) => restyle(l, 'lineweight', { weightMm: Number(e.currentTarget.value) || undefined })}>
 				<option value="0">Default weight</option>
 				{#each WEIGHTS as w (w)}<option value={String(w)}>{w} mm</option>{/each}
 			</select>
 		</div>
 	{/if}
+{/each}
 {/each}
 {#if adding}<div class="row new"><NameInput wide placeholder="New layer name — Enter adds it" onsave={add} oncancel={() => (adding = false)} /></div>{/if}
 </SideSection>
@@ -167,6 +234,12 @@
 	.ren { visibility: hidden; }
 	.row:hover .ren, .row:focus-within .ren, .row.cur .ren { visibility: visible; }
 	@media (hover: none) { .ren { visibility: visible; } }
+	.presets { display: flex; align-items: center; gap: 2px; padding: 0 2px 3px; font-size: 12px; }
+	.presets select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
+	.btn { padding: 0 6px; font-size: 11px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
+	.row.pick { box-shadow: inset 2px 0 0 var(--cad-link); background: var(--cad-hover); }
+	.row.grp { font-weight: 600; color: var(--cad-muted, #71717a); margin-top: 3px; }
+	.row.ing { padding-left: 10px; }
 	.sub { display: flex; gap: 0.25rem; padding: 1px 2px 3px 1.1rem; }
 	.sub select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 </style>
