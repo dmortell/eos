@@ -23,7 +23,7 @@ describe('sheets', () => {
 	})
 	it('a numbered viewport shows its number in a small circle above its top-left corner; an unnumbered one shows none', () => {
 		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 40, y: 50, w: 200, h: 150 }, scale: 100, centre: { x: 0, y: 0 } }
-		const tag = (v: typeof vp & { number?: string }) => sheetDisplayList(ix(), sheet({ viewports: [v] })).filter((p) => p.cls === 'viewport-no' || (p.k === 'text' && p.text === '3'))
+		const tag = (v: typeof vp & { number?: string }) => sheetDisplayList(ix(), sheet({ viewports: [v] })).filter((p) => (p.k !== 'image' && p.cls === 'viewport-no') || (p.k === 'text' && p.text === '3'))
 		expect(tag(vp)).toEqual([])
 		const t = tag({ ...vp, number: ' 3 ' })
 		expect(t.map((p) => p.k)).toEqual(['circle', 'text'])
