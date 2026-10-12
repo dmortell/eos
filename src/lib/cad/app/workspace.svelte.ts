@@ -172,6 +172,16 @@ export class Workspace {
 
 	get tool(): Tool { return this.tools[this.toolId] }
 
+	/** A passing note that clears itself (bottom of the drawing): what doesn't need the status bar's line — it no longer
+	 *  hides the hint, a viewport-edit prefix or a tool's own message (Dave 2026-10-12: "Drawn on the … layer"). */
+	toast = $state<string | null>(null)
+	#toastTimer: ReturnType<typeof setTimeout> | undefined
+	notify = (msg: string): void => {
+		this.toast = msg
+		clearTimeout(this.#toastTimer)
+		this.#toastTimer = setTimeout(() => { this.toast = null }, 2500)
+	}
+
 	say = (msg: string): void => {
 		this.message = msg
 		clearTimeout(this.#msgTimer)

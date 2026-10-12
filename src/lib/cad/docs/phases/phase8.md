@@ -2540,3 +2540,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   as if 1:100 until Origin / Scale / Crop there calibrate them) and PDFs the Uploads viewer never opened (no page
   count yet: page 1); issue PDFs (`issue-…`) stay out (`app/projectFiles.ts`, `ui/FloorManager.svelte`). Help:
   "Calibrate a floorplan on the plan".
+- **R53 (part) "Drawn on the … layer" is a toast** (Dave 2026-10-12): `ws.notify` shows it at the bottom of the
+  drawing for 2.5 s, so the status line keeps the tool hint, the "Editing inside the viewport —" prefix and a tool's
+  own message posted after it ("Joined to TR1 …") (`app/workspace.svelte.ts`, `ui/CadShell.svelte`). Live (Test
+  Project): a line drawn → the toast, the hint stays; undone.

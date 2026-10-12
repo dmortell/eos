@@ -184,7 +184,7 @@
 	$effect(() => project.store.subscribe((c) => {
 		if (c.source !== 'local' || ['select', 'move', 'copy', 'match'].includes(ws.toolId)) return
 		const msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), layersOf(project.index.layers))
-		if (msg) ws.say(msg)
+		if (msg) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
 	}))
 	/** The tab menu (a right-click on a tab). */
 	let tabMenu = $state<{ id: string; x: number; y: number } | null>(null)
@@ -557,6 +557,7 @@
 		{#if tablesShown && (panels.tables.float || panels.tables.max)}{@render tables()}{/if}
 		<!-- a window dragged to an edge docks there on release -->
 		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
+		{#if ws.toast}<div class="toast" role="status">{ws.toast}</div>{/if}
 	</main>
 
 	{#if floorsOpen}<FloorManager {project} {ws} onclose={() => (floorsOpen = false)} {oncalibrate} />{/if}
@@ -635,4 +636,5 @@
 	.drop-left { left: 0; }
 	.drop-right { right: 0; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
+	.toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 30; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel); border: 1px solid var(--cad-line); box-shadow: 0 2px 8px rgb(0 0 0 / 0.15); pointer-events: none; }
 </style>
