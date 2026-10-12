@@ -6,7 +6,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { type ToolCtx } from './tools'
 import { SelectTool } from './selectTool'
-import { NoteTool, untie } from './noteTool'
+import { NoteTool, untie, snapThroughViewport } from './noteTool'
 import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff, roomViewports, roomViewportsOff, unlinkFrom } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
@@ -226,5 +226,18 @@ describe('deleting lets go of what points at it (review R26)', () => {
 		expect(byId.get('K')!.via).toEqual(['R2'])
 		expect(byId.get('LD')!.geom.attach).toBeUndefined()
 		expect(byId.get('O')!.ports[0].serverRoomId).toBeUndefined()
+	})
+})
+
+describe('dimensions on a sheet snap to what a viewport shows (Q44)', () => {
+	it('a paper point near an outlet in a plan viewport lands on the outlet (through the viewport); far from it, nothing', () => {
+		const ix = new ProjectIndex(demoProject()), o = ix.outlets[0], vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 300, h: 200 }, scale: 100, centre: { x: o.at!.x, y: o.at!.y } }
+		const sheet: Sheet = { ...SHEET, viewports: [vp] }
+		const onPaper = { x: 20 + 150, y: 20 + 100 }    // the outlet sits at the window's middle
+		const near = snapThroughViewport(ix, sheet, { x: onPaper.x + 0.4, y: onPaper.y - 0.3 }, 1)
+		expect(near?.x).toBeCloseTo(onPaper.x, 6)
+		expect(near?.y).toBeCloseTo(onPaper.y, 6)
+		expect(snapThroughViewport(ix, sheet, { x: onPaper.x + 30, y: onPaper.y + 30 }, 1)).toBeNull()
+		expect(snapThroughViewport(ix, sheet, { x: 400, y: 280 }, 1)).toBeNull()   // outside every viewport
 	})
 })

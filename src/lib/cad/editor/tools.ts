@@ -42,6 +42,8 @@ export interface ToolCtx {
 	/** `skip` = shapes left out (the ones being edited); `dragged` = their nodes being dragged: their OTHER nodes still
 	 *  snap (so a node can be dropped on one to join them). */
 	snap(p: Pt, alt: boolean, skip?: Id | Id[], dragged?: Id[]): Snap
+	/** On a sheet's paper: the paper point of an object snap in the viewport under `p` (notes and dimensions, Q44); null = none. */
+	sheetSnap?(p: Pt, alt: boolean): Pt | null
 	/** Nodes / segments picked within the selected run (Delete removes them; Properties acts on them). */
 	pathSel?(): PathSel | null
 	selectPath?(s: PathSel | null): void

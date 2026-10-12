@@ -9,7 +9,9 @@ import type { Shape } from '../domain/shapes'
 import { newId } from '../domain/ids'
 import { pickPrim } from './pick'
 import type { Sheet, Viewport } from '../domain/drawing'
-import { fromPaper, toPaper, viewportAt } from '../views/sheet'
+import { fromPaper, toPaper, viewportAt, viewportContent } from '../views/sheet'
+import { snapAt, snapToPrims } from './snap'
+import type { ProjectIndex } from '../domain/project'
 import { cloudPts } from '../views/plan'
 import { PLOT_SCALE } from '../views/display'
 
@@ -54,8 +56,18 @@ export function placeNote(c: ToolCtx, pts: Pt[]): { owner: Record<string, unknow
 		return { owner: { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) }, ...layer }, pts: pts.map((p) => ({ x: p.x, y: -p.y })) }
 	return null
 }
-/** A point for a note: paper snaps to 0.5 mm; a drawing to its object snaps / grid. */
-export const notePoint = (e: PointerIn, c: ToolCtx): Pt => (c.space.spec.kind === 'sheet' ? snap(e.p) : c.snap(e.p, e.alt).p)
+/** An object snap of what a viewport shows, for a paper point over it (Q44): the point is looked up in the viewport's
+ *  view (a plan: the level's outlets, racks, shape centres, run nodes; else the view's drawn vertices) and comes back
+ *  on the paper. Null = no viewport there, or nothing within `tolPaper` paper mm. */
+export function snapThroughViewport(ix: ProjectIndex, sheet: Sheet, p: Pt, tolPaper: number): Pt | null {
+	const vp = viewportAt(sheet, p)
+	if (!vp) return null
+	const q = fromPaper(vp)(p), tol = tolPaper * vp.scale, spec = vp.view.spec
+	const sn = spec.kind === 'plan' ? snapAt(ix, vp.view.levelId, q, tol, { noGrid: true }) : snapToPrims(viewportContent(ix, vp), q, tol, { noGrid: true })
+	return sn.kind === 'grid' ? null : toPaper(vp)(sn.p)
+}
+/** A point for a note: paper snaps to what a viewport shows there, else 0.5 mm; a drawing to its object snaps / grid. */
+export const notePoint = (e: PointerIn, c: ToolCtx): Pt => (c.space.spec.kind === 'sheet' ? (c.sheetSnap?.(e.p, e.alt) ?? snap(e.p)) : c.snap(e.p, e.alt).p)
 const snap = (p: Pt): Pt => ({ x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 })   // 0.5 mm on paper
 
 export class NoteTool implements Tool {

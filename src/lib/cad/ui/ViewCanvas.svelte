@@ -31,6 +31,7 @@
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
+	import { snapThroughViewport } from '../editor/noteTool'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { TouchNav } from '../editor/touch'
@@ -327,6 +328,7 @@
 				// nodes themselves, and the midpoints of segments they move, would snap to the cursor
 				return dragged && skip ? snapDragged(sn, p, tol * 1.5, project.index, skip, dragged, (q) => sp.fromWorld(q)) : sn
 			},
+			...(kind === 'sheet' && !f && sheet ? { sheetSnap: (p: Pt, alt: boolean) => (alt || !ws.drafting.osnap ? null : snapThroughViewport(project.index, sheet, p, tol * 1.5)) } : {}),
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, viewportId: () => ws.viewportId, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
