@@ -13,6 +13,11 @@ describe('DXF export', () => {
 		expect(text).toContain('\nLOW_ A_V_2\n')
 		expect(text).not.toContain('Low: A/V')
 	})
+	it('a layer name with a comma is made safe (a comma breaks the file’s layer table in AutoCAD) (Q24)', () => {
+		const { text } = displayListToDxf([{ k: 'line', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }], cls: 'shape', layer: 'a' }], new Map([['a', 'Walls, new']]))
+		expect(text).toContain('\nWalls_ new\n')
+		expect(text).not.toContain('Walls, new')
+	})
 	it('a text of several lines becomes one TEXT per line (a newline would break the file)', () => {
 		const { text, entities } = displayListToDxf([{ k: 'text', at: { x: 0, y: 0 }, text: 'First\nSecond', size: 2.5, cls: 'note' }])
 		expect(entities).toBe(2)

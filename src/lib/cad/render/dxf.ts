@@ -59,7 +59,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	const ownName = (id: string, name: string): string => {
 		let n = dxfName.get(id)
 		if (n) return n
-		const base = name.replace(/[<>/\\":;?*|=`]/g, '_').trim() || 'LAYER'
+		const base = name.replace(/[<>/\\":;?*|=`,]/g, '_').trim() || 'LAYER'
 		n = base
 		for (let i = 2; usedUpper.has(n.toUpperCase()); i++) n = `${base}_${i}`
 		usedUpper.add(n.toUpperCase()); dxfName.set(id, n)
