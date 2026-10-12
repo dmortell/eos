@@ -128,7 +128,7 @@ const MOUSE: [string, string][] = [
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],
 	['Tables: pick rows', 'Click · Shift-click a range · Ctrl-click one more'], ['Tables: next / previous row', '↓ / ↑'], ['Tables: edit a cell', 'Double-click · F2 / Enter (the selected row)'],
 	['Tables: save, then the next row / cell', 'Enter / Tab (Shift: back) · Esc cancels'], ['Tables: copy the rows for Excel', 'Ctrl+C'],
-	['Rack view: focus a rack / the whole row', 'Double-click a rack / empty space'], ['Answer a question box', 'Enter = yes · Esc = Cancel'],
+	['Rack view: focus a rack / the whole row', 'Double-click a rack / empty space'], ['Answer a question box', 'Enter = yes · Esc = Cancel (not while typing in a field)'],
 ]
 export const SHORTCUTS: [string, string][] = [...KEY_COMMANDS.filter((k) => k.group !== 'Function keys').map((k): [string, string] => [k.label, k.keys]), ...MOUSE]
 

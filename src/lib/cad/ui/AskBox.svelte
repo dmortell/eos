@@ -1,19 +1,24 @@
 <!-- A QUESTION over the drawing (UX04): "Delete rack R301 with 12 devices…?" used to sit in the tool bar's text slot,
      easy to miss. Now a small box at the top middle of the drawing, with its answers: Enter = the first (yes), Esc =
-     Cancel. Nothing else changes until it's answered (the keys go to it). -->
+     Cancel. Its first answer takes the focus, unless a field is being typed in (it keeps the focus, and its Enter stays
+     its own) or a dialog is open (Project settings shows its own copy); Enter answers only from the box or the page. -->
 <script lang="ts">
 	import type { Workspace } from '../app/workspace.svelte'
+	import { askKey, typingIn } from './keyGuards'
 
 	let { ws }: { ws: Workspace } = $props()
 	const q = $derived(ws.confirm)
 	let yesBtn: HTMLButtonElement | undefined = $state()
-	$effect(() => { if (q && yesBtn) yesBtn.focus() })
+	$effect(() => { if (q && yesBtn && !typingIn(document.activeElement) && !document.querySelector('[role=dialog]')) yesBtn.focus() })
 	// take `apply` BEFORE clearing: q is derived from ws.confirm and is null once it's cleared
 	function answer(apply: () => void) { ws.confirm = null; apply() }
 	function key(e: KeyboardEvent) {
 		if (!q) return
-		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ws.confirm = null }
-		else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); e.stopPropagation(); answer(q.apply) }
+		const a = askKey(e)
+		if (!a) return
+		e.preventDefault(); e.stopPropagation()
+		if (a === 'cancel') ws.confirm = null
+		else answer(q.apply)
 	}
 </script>
 

@@ -3054,3 +3054,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "marked for removal — it comes out on site", one already marked says so (and points at Purge removed); clearing a
   port reservation says which ports. The header's kind words moved to `ui/propsKit.ts` `kindOf` so both use one list
   (`app/selectionActions.ts` `deletedText`; test).
+- **Q30** Enter answers the open question only with the focus in its box or on the page, and the box takes the focus
+  only when no field is being typed in — Enter in a search, a cell or a field no longer says yes to "Delete level 3F?";
+  Esc cancels unless a field is being typed in (`ui/keyGuards.ts` `askKey`, `ui/AskBox.svelte`; test).
