@@ -29,6 +29,9 @@ export class FirestoreBackend implements Backend {
 	}
 
 	async write(docs: RemoteDoc[]): Promise<void> {
+		// every batch committed at once, in order (the SDK queues them): awaiting each before building the next let an
+		// edit made meanwhile land first and then be overwritten by a later batch; and one failure left the rest unsent
+		const commits: Promise<void>[] = []
 		for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
 			const batch = writeBatch(this.db)
 			for (const d of docs.slice(i, i + BATCH_LIMIT)) {
@@ -36,7 +39,9 @@ export class FirestoreBackend implements Backend {
 				if (d.data) batch.set(ref, d.data)
 				else batch.delete(ref)
 			}
-			await batch.commit()
+			commits.push(batch.commit())
 		}
+		const failed = (await Promise.allSettled(commits)).find((r): r is PromiseRejectedResult => r.status === 'rejected')
+		if (failed) throw failed.reason
 	}
 }

@@ -2559,3 +2559,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R19 Turned Japanese text in PDFs:** text the PDF fonts can't show goes in as a picture; a turned one (a rotated
   note, slanted dimension text, a turned label) was printed level and off its place — now the picture turns about the
   text's anchor, as real text does (`render/pdf.ts`). Test in `render/pdf.test.ts`.
+- **R16 Large writes:** a write of more than 500 docs commits all its batches at once, in order (it awaited each
+  before building the next, so an edit made meanwhile landed first and was then overwritten, and one failed batch
+  left the rest unsent) (`persist/firestore.ts`); a failed write stops waiting for its echoes, so "Saving…" clears and
+  other people's changes to those items apply again, and the error is reported (`persist/sync.ts`). Test in
+  `persist/sync.test.ts`.

@@ -109,3 +109,17 @@ describe('two people, one project', () => {
 		expect(C.store.size).toBe(1)
 	})
 })
+
+describe('a write that fails (review R16)', () => {
+	it('stops waiting for its echo: Saving… clears and the error is reported', async () => {
+		const server = new MemoryBackend()
+		server.write = async () => { throw new Error('permission denied') }
+		const store = new EntityStore(), errors: unknown[] = []
+		const sync = new Sync(store, server, { user: 'u', onError: (e) => errors.push(e) })
+		store.transact('Add', (tx) => tx.put(makeBox('L', { x: 0, y: 0 }, 600, 600, 0, 720)))
+		expect(sync.pending).toBe(1)
+		await sync.flush()
+		expect(sync.pending).toBe(0)
+		expect(errors).toHaveLength(1)
+	})
+})

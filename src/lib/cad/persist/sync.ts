@@ -62,7 +62,11 @@ export class Sync {
 		})
 		this.#notify()
 		const p = this.backend.write(docs)
-			.catch((e) => this.opts.onError?.(e))
+			.catch((e) => {
+				// not saved: stop waiting for echoes that won't come (Saving… cleared, other people's changes to them apply)
+				for (const d of docs) if (this.#pending.get(d.id) === this.#revs.get(d.id)) this.#pending.delete(d.id)
+				this.opts.onError?.(e)
+			})
 			.finally(() => {
 				this.#inflight.delete(p)
 				for (const d of docs) if (d.data === null && this.#pending.get(d.id) === this.#revs.get(d.id)) this.#pending.delete(d.id)
