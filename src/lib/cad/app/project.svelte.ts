@@ -97,8 +97,8 @@ export class CadProject {
 		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null })
 		this.#off = this.store.subscribe(() => { this.rev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
-			user, client: this.client, onPending: (n) => { this.pendingWrites = n },
-			onError: (e) => { this.error = `Saving failed: ${(e as Error).message ?? e}` },
+			user, client: this.client, onPending: (n) => this.#pending(n),
+			onError: (e) => { this.#failed = true; this.error = `Saving failed: ${(e as Error).message ?? e}` },
 		})
 		this.#watched.add(PROJECT_SCOPE)
 		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true })
@@ -121,6 +121,14 @@ export class CadProject {
 
 	/** Writes not yet confirmed by the server (kept current by Sync — a write can finish with no store change). */
 	pendingWrites = $state(0)
+	/** A write failed since the writes last started (Review 2 Q29: "Saving failed" stayed for good). */
+	#failed = false
+	#pending(n: number): void {
+		if (n > 0 && this.pendingWrites === 0) this.#failed = false
+		this.pendingWrites = n
+		// every write since went through: a saving error is over
+		if (n === 0 && !this.#failed && this.error?.startsWith('Saving failed')) this.error = null
+	}
 
 	/** Undo / redo return what they brought back or changed (still there afterwards), for the caller to select. */
 	undo(): Id[] { const r = this.store.undo(); if (r?.skipped.length) this.error = `Undo skipped ${r.skipped.length} item(s) someone else changed since`; return this.#touched(r) }
