@@ -488,7 +488,7 @@
 <svelte:window onkeydown={(e) => { clipboard.key(e); onKey(e) }} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
 <div class="shell bg-zinc-50 text-sm" style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
-	style:grid-template-rows="1.75rem 2.25rem minmax(0, 1fr) {tablesRow}px 1.6rem">
+	style:grid-template-rows="1.75rem 2.25rem 1.75rem minmax(0, 1fr) {tablesRow}px 1.6rem">
 	<MenuBar {menus}>
 		{#snippet right()}
 			<span class="saved text-xs">
@@ -503,7 +503,6 @@
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-zinc-200 bg-white px-2">
 		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={setTool} />
-		<ToolOptions {project} {ws} {level} kind={activeKind} />
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo (Ctrl+Z) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo (Ctrl+Y) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
@@ -512,6 +511,11 @@
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation)"><Icon name="panels" size={15} /></button>
 		<button class="ib {tablesShown ? '' : 'dim'}" onclick={() => panels.toggle('bottom')} title="{tablesShown ? 'Hide' : 'Show'} the tables (outlets, patch list, sheets, links) — Ctrl+,"><Icon name="panelBottom" size={15} /></button>
 		<button class="ib {layout.allHidden ? 'on' : ''}" onclick={() => (layout.allHidden = !layout.allHidden)} title="{layout.allHidden ? 'Show' : 'Hide'} every window and the tables — Ctrl+."><Icon name="expand" size={15} /></button>
+	</div>
+
+	<div class="opts flex items-center gap-2 border-b border-zinc-200 bg-white px-2">
+		<ToolOptions {project} {ws} {level} kind={activeKind} />
+		{#if hint}<span class="hint" title={hint}>{hint}</span>{/if}
 	</div>
 
 	{#snippet winBody(id: WinId)}
@@ -584,7 +588,7 @@
 		{:else if tablesBar}{@render tables(true)}{/if}
 	</section>
 
-	<StatusBar {ws} {hint} onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} />
+	<StatusBar {ws} hint="" onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} />
 </div>
 
 <style>
@@ -610,9 +614,11 @@
 		display: grid;
 		height: calc(100dvh - 28px);   /* the page's title bar is 28px: no gap under the status bar (Dave) */
 		/* column / row sizes come from Panels (resizable, hideable) */
-		grid-template-areas: 'menu menu menu' 'bar bar bar' 'dleft plan dright' 'dleft grid dright' 'status status status';
+		grid-template-areas: 'menu menu menu' 'bar bar bar' 'opts opts opts' 'dleft plan dright' 'dleft grid dright' 'status status status';
 	}
 	.bar { grid-area: bar; }
+	.opts { grid-area: opts; min-width: 0; overflow: hidden; white-space: nowrap; }
+	.opts .hint { color: var(--cad-muted, #71717a); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
 	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }
 	.dock-right { grid-area: dright; border-left: 1px solid var(--cad-line); }

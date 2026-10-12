@@ -2610,3 +2610,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`ui/RunsMultiProps.svelte`). **Journey repaired with it** (review R13b), after a whole-project backup "Before
   run-height repair (review R13b)": its 14 imported runs sat at Z −300 — 30F (6) and 33F 3303 (8) each selected with
   Ctrl+A → 9 high at Z 2950, 5 low at Z −150 (checked in Firestore). Help: "Put several runs at their heights at once".
+- **R43 The view strip and the tool row no longer overflow (Dave 2026-10-12: Display ▾ popover; options on their own
+  row):** a building view's strip is Plan · Elevation… (Front / Rear / Left / Right) · Riser · Section… · **Display ▾**,
+  with To sheet… pinned at the right; Display ▾ holds what that view shows on your screen — a plan: B/W floorplans,
+  Usage colors, Fill, Routes (its key under it); an elevation: the depth band; the riser view: Hide empty floors and
+  its floors; a rack view: Cord channels, Room lines, Other face (`ui/ViewStrip.svelte`). The active tool's options
+  and its hint have a row of their own under the tools (the Outlet tool's 7 fields and the Cord tool's sentence pushed
+  Undo / Redo off the row); the status bar keeps its line for prompts and messages (`ui/CadShell.svelte`). Live (Test
+  Project): the strip fits; Display ▾ opens with the plan's four; the Outlet tool's options on the new row. Help: the
+  entries that named strip buttons.

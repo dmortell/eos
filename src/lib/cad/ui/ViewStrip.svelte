@@ -1,8 +1,7 @@
 <!-- The strip over a pane (split out of ViewCanvas, UX12): back / forward through the views this pane showed, a
      breadcrumb of where you are, then only the buttons that fit the view —
-       · a building view (plan, elevations, section, riser): Plan · Front · Rear · Left · Right · Riser, Section…, Fill,
-         To sheet…;
-       · a rack view: its room, Racks front / rear, one row or all, To sheet…;
+       · a building view (plan, elevations, section, riser): Plan · Elevation… · Riser · Section…, Display ▾, To sheet…;
+       · a rack view: its room, Racks front / rear, one row or all, Display ▾, To sheet…;
        · a port map: its devices, Excel (VLAN), To sheet…;
        · a sheet: its number, title and paper. -->
 <script lang="ts" module>
@@ -13,7 +12,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { RackRow } from '../domain/types'
 	import type { Sheet, SectionCut } from '../domain/drawing'
-	import { specKey, specLabel, PLAN, type ViewSpec } from '../views/space'
+	import { specLabel, PLAN, type ViewSpec } from '../views/space'
 	import { FILL_LIMIT_PCT } from '../domain/fill'
 	import { portMapTitle } from '../domain/portMap'
 	import { exportPortMap } from '../render/exports'
@@ -30,7 +29,16 @@
 	} = $props()
 
 	const FACES = ['front', 'rear'] as const
-	const VIEWS: ViewSpec[] = [PLAN, { kind: 'elevation', dir: 'front' }, { kind: 'elevation', dir: 'rear' }, { kind: 'elevation', dir: 'left' }, { kind: 'elevation', dir: 'right' }, { kind: 'riser' }]
+	const DIRS = ['front', 'rear', 'left', 'right'] as const
+	type Dir = (typeof DIRS)[number]
+	/** The Display ▾ menu: what this view shows on YOUR screen (review R43 — the strip overflowed). Placed fixed under
+	 *  its button, so the strip (overflow hidden) doesn't cut it off. */
+	let dispOpen = $state(false), dispAt = $state({ x: 0, y: 0 })
+	function openDisplay(e: MouseEvent) {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+		dispAt = { x: r.left, y: r.bottom + 2 }
+		dispOpen = !dispOpen
+	}
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
 	/** The riser view's floor range (a project setting: one undo step); blank = the lowest / top floor. */
 	const floorsUp = $derived.by(() => { void project.rev; return project.store.ofType('level').filter((l) => !l.area).sort((a, b) => a.number - b.number) })
@@ -65,9 +73,13 @@
 	{/each}
 	<span class="sep"></span>
 	{#if building}
-		{#each VIEWS as v (specKey(v))}
-			<button class:on={specKey(v) === specKey(spec)} onclick={() => go(v)}>{specLabel(v)}</button>
-		{/each}
+		<button class:on={spec.kind === 'plan'} onclick={() => go(PLAN)}>Plan</button>
+		<select class="secs" class:on={spec.kind === 'elevation'} value={spec.kind === 'elevation' ? spec.dir : ''} title="This level seen from the front, rear, left or right"
+			onchange={(e) => { const d = e.currentTarget.value; if (d) go({ kind: 'elevation', dir: d as Dir }) }}>
+			<option value="">Elevation…</option>
+			{#each DIRS as d (d)}<option value={d}>{specLabel({ kind: 'elevation', dir: d })}</option>{/each}
+		</select>
+		<button class:on={spec.kind === 'riser'} title="The building's risers and backbone, floor by floor" onclick={() => { if (spec.kind !== 'riser') go({ kind: 'riser' }) }}>Riser</button>
 		{#if sections.length || section}
 			<select class="secs" class:on={!!section} value={section?.id ?? ''} title="Sections on this level (draw one with the Section tool on the plan)"
 				onchange={(e) => { if (e.currentTarget.value) go({ kind: 'section', sectionId: e.currentTarget.value }) }}>
@@ -75,34 +87,7 @@
 				{#each sections as s (s.id)}<option value={s.id}>Section {s.name}</option>{/each}
 			</select>
 		{/if}
-		{#if spec.kind === 'elevation'}
-			<!-- the depth band (UX14, a test): around the work depth; nearer is left out, further fades; the plan shows it in Split -->
-			<button class:on={ws.band.on} title="Depth band: show only what's near the work depth — nearer is left out, further is faded (Split with the plan to see the band)" onclick={() => (ws.band.on = !ws.band.on)}>Band</button>
-			{#if ws.band.on}
-				<label class="num" title="Where the band is: the work depth (mm along the view; blank = the middle of the floor)">at <input type="number" step="100" value={ws.depth ?? ''} placeholder="auto" onchange={(e) => (ws.depth = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} /></label>
-				<label class="num" title="How far the band reaches towards you (mm)">front <input type="number" min="0" step="100" bind:value={ws.band.front} /></label>
-				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
-			{/if}
-		{/if}
-		{#if spec.kind === 'riser'}
-			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => go({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) })}>Hide empty floors</button>
-			<!-- the floors it shows: the project's (one riser view — its sheet viewports show the same) -->
-			{@const rr = project.settings?.riser}
-			<label class="num" title="The riser view's floors, for the whole project (sheets too)">Floors
-				<select class="secs" value={rr?.from ?? ''} onchange={(e) => setRiserRange('from', e.currentTarget.value)}><option value="">lowest</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
-				–
-				<select class="secs" value={rr?.to ?? ''} onchange={(e) => setRiserRange('to', e.currentTarget.value)}><option value="">top</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
-			</label>
-		{/if}
-		{#if spec.kind === 'plan'}
-			<button class:on={ws.screen.gray} title="Floorplans in black and white, so colored markup stands out — your screen only (a sheet has its own: its Properties › Display)" onclick={() => ws.toggleScreen('gray')}>B/W</button>
-			<button class:on={ws.screen.byUsage} title="Outlets in their usage's color (on) or their layer's (off) — your screen only (a sheet has its own: its Properties › Display)" onclick={() => ws.toggleScreen('byUsage')}>Usage colors</button>
-			<button class:on={ws.showFill} title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)" onclick={() => (ws.showFill = !ws.showFill)}>Fill</button>
-			<button class:on={ws.showRoutes} title="Every cable's route along the containment, coloured by its server room" onclick={() => (ws.showRoutes = !ws.showRoutes)}>Routes</button>
-			{#if ws.showRoutes && routeKey}
-				{#each routeKey as r (r.id)}<span class="rkey" title="Cables to {r.name}"><i style:background={r.color}></i>{r.name}</span>{:else}<span class="rkey">no routed cables here</span>{/each}
-			{/if}
-		{/if}
+		<button class="disp" class:on={dispOpen} title="What this view shows on your screen" onclick={openDisplay}>Display ▾</button>
 	{:else if spec.kind === 'row'}
 		{@const row = spec}
 		{#each FACES as f (f)}
@@ -115,11 +100,7 @@
 				{#each rows as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
 			</select>
 		{/if}
-		<!-- how cords are drawn on YOUR screen: straight, or along the cable channels (a sheet has its own) -->
-		<button class:on={ws.screen.cordChannels} title="Cords along the cable channels: down to the side channel, across through the nearest horizontal manager (off = straight lines). Your screen only (a sheet has its own: its Properties › Display)." onclick={() => ws.toggleScreen('cordChannels')}>Cord channels</button>
-		<!-- the rack view's context, as layers (your eye; a viewport freezes them): the room's lines, the other face -->
-		<button class:on={!ws.layers.hidden.has('sys:room-lines')} title="Floor, ceiling and slab lines — the server room's own floor / ceiling where set (a rack's Properties › Room floor / ceiling). The Room lines layer." onclick={() => ws.layers.toggleHidden('sys:room-lines')}>Room lines</button>
-		<button class:on={!ws.layers.hidden.has('sys:other-face')} title="Devices on the other face, drawn faint with (rear) / (front). The Other face layer." onclick={() => ws.layers.toggleHidden('sys:other-face')}>Other face</button>
+		<button class="disp" class:on={dispOpen} title="What this rack view shows on your screen" onclick={openDisplay}>Display ▾</button>
 	{:else if spec.kind === 'portmap'}
 		{@const ids = spec.deviceIds}
 		<button title="The same ports as Excel for the network engineers: the outlet(s), what each port is patched to, the cord, and an empty VLAN column" onclick={() => exportPortMap(project.index, project.name, ids).then((n) => ws.say(`Port map: ${n} ports — fill in the VLAN column`), (e) => (project.error = `Excel export failed: ${(e as Error).message}`))}>Excel (VLAN)</button>
@@ -128,13 +109,49 @@
 	{/if}
 	{#if spec.kind !== 'sheet'}
 		<!-- this view as it is (centred where you're looking) onto a sheet: a new one, or one that's there -->
-		<select class="secs" value="" title="Put this view on a sheet, centred where you're looking, at a scale that fits" onchange={(e) => { onfocus?.(); toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
+		<select class="secs tosheet" value="" title="Put this view on a sheet, centred where you're looking, at a scale that fits" onchange={(e) => { onfocus?.(); toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">To sheet…</option>
 			<option value="new">New sheet from this view</option>
 			{#each sheetsList as s (s.id)}<option value={s.id}>On {s.number} {s.title}</option>{/each}
 		</select>
 	{/if}
 </div>
+
+{#if dispOpen}
+	<button class="dback" aria-label="Close the Display menu" onclick={() => (dispOpen = false)}></button>
+	<div class="dpop" style:left="{dispAt.x}px" style:top="{dispAt.y}px" role="menu" tabindex="-1" onkeydown={(e) => { if (e.key === 'Escape') dispOpen = false }}>
+		{#if spec.kind === 'plan'}
+			<label title="Floorplans in black and white, so colored markup stands out — your screen only (a sheet has its own: Properties › Display)"><input type="checkbox" checked={ws.screen.gray} onchange={() => ws.toggleScreen('gray')} /> B/W floorplans</label>
+			<label title="Outlets in their usage's color (on) or their layer's (off) — your screen only (a sheet has its own)"><input type="checkbox" checked={ws.screen.byUsage} onchange={() => ws.toggleScreen('byUsage')} /> Usage colors</label>
+			<label title="Color runs by how full they are from the cables routed through them (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)"><input type="checkbox" checked={ws.showFill} onchange={() => (ws.showFill = !ws.showFill)} /> Fill</label>
+			<label title="Every cable's route along the containment, colored by its server room"><input type="checkbox" checked={ws.showRoutes} onchange={() => (ws.showRoutes = !ws.showRoutes)} /> Routes</label>
+			{#if ws.showRoutes && routeKey}
+				<div class="keys">{#each routeKey as r (r.id)}<span class="rkey" title="Cables to {r.name}"><i style:background={r.color}></i>{r.name}</span>{:else}<span class="rkey">no routed cables here</span>{/each}</div>
+			{/if}
+		{:else if spec.kind === 'elevation'}
+			<!-- the depth band (UX14): around the work depth; nearer is left out, further fades; the plan shows it in Split -->
+			<label title="Show only what's near the work depth — nearer is left out, further is faded (Split with the plan to see the band)"><input type="checkbox" checked={ws.band.on} onchange={() => (ws.band.on = !ws.band.on)} /> Depth band</label>
+			{#if ws.band.on}
+				<label class="num" title="Where the band is: the work depth (mm along the view; blank = the middle of the floor)">at <input type="number" step="100" value={ws.depth ?? ''} placeholder="auto" onchange={(e) => (ws.depth = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} /></label>
+				<label class="num" title="How far the band reaches towards you (mm)">front <input type="number" min="0" step="100" bind:value={ws.band.front} /></label>
+				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
+			{/if}
+		{:else if spec.kind === 'riser'}
+			{@const rr = project.settings?.riser}
+			{@const hide = !!spec.hideEmpty}
+			<label title="Squeeze the floors that have no server room into break marks"><input type="checkbox" checked={hide} onchange={() => go({ kind: 'riser', ...(hide ? {} : { hideEmpty: true }) })} /> Hide empty floors</label>
+			<label class="num" title="The riser view's floors, for the whole project (sheets too)">Floors
+				<select value={rr?.from ?? ''} onchange={(e) => setRiserRange('from', e.currentTarget.value)}><option value="">lowest</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
+				–
+				<select value={rr?.to ?? ''} onchange={(e) => setRiserRange('to', e.currentTarget.value)}><option value="">top</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
+			</label>
+		{:else if spec.kind === 'row'}
+			<label title="Cords along the cable channels: down to the side channel, across through the nearest horizontal manager (off = straight lines). Your screen only (a sheet has its own: Properties › Display)."><input type="checkbox" checked={ws.screen.cordChannels} onchange={() => ws.toggleScreen('cordChannels')} /> Cord channels</label>
+			<label title="Floor, ceiling and slab lines — the server room's own floor / ceiling where set. The Room lines layer."><input type="checkbox" checked={!ws.layers.hidden.has('sys:room-lines')} onchange={() => ws.layers.toggleHidden('sys:room-lines')} /> Room lines</label>
+			<label title="Devices on the other face, drawn faint with (rear) / (front). The Other face layer."><input type="checkbox" checked={!ws.layers.hidden.has('sys:other-face')} onchange={() => ws.layers.toggleHidden('sys:other-face')} /> Other face</label>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	/* a strip over the top of the pane, above the drawing (Dave: rack labels showed through the buttons) */
@@ -157,4 +174,10 @@
 	.views button.crumb.link { border: 0; background: none; color: #1d4ed8; font-weight: 600; padding: 0 2px; }
 	.views button.crumb.link:hover { text-decoration: underline; }
 	.crumb-sep { font-size: 11px; color: #a1a1aa; }
+	.views .tosheet { margin-left: auto; max-width: 9rem; }
+	.dback { position: fixed; inset: 0; z-index: 40; background: transparent; cursor: default; }
+	.dpop { position: fixed; z-index: 41; display: flex; flex-direction: column; gap: 4px; min-width: 11rem; padding: 6px 8px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); }
+	.dpop label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+	.dpop .keys { display: flex; flex-wrap: wrap; gap: 2px 6px; padding-left: 20px; }
+	.dpop select { font-size: 11px; }
 </style>
