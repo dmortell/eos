@@ -105,6 +105,10 @@ export class PdfCache {
 			if (was === undefined || was === sig) return
 			// redraw its pages — also the ones that failed (no url yet, not calibrated …): the change may have fixed them
 			for (const key of new Set([...Object.keys(this.#ready), ...this.#jobs.keys()])) if (key.startsWith(`${fileId}#`)) this.#jobs.set(key, this.#render(fileId, Number(key.split('#')[1]), key))
+		}, (e) => {
+			// the live check for a changed origin / scale / layers has stopped: the pages already drawn stay as they are
+			this.problems[`watch:${fileId}`] = `lost the live connection to this file (${(e as Error)?.message ?? e}) — reload the page to see changes made in Uploads`
+			this.#watching.delete(fileId)
 		}))
 	}
 	/** A floorplan page drawn with the file's settings AS THEY WERE (`fd`: a snapshot kept with an issued sheet — its

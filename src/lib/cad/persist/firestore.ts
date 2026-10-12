@@ -14,7 +14,7 @@ export class FirestoreBackend implements Backend {
 
 	#col() { return collection(this.db, 'projects', this.pid, CAD_COLLECTION) }
 
-	subscribe(scopes: string[], onDocs: (docs: RemoteDoc[]) => void): () => void {
+	subscribe(scopes: string[], onDocs: (docs: RemoteDoc[]) => void, onError?: (e: unknown) => void): () => void {
 		const offs: (() => void)[] = []
 		for (let i = 0; i < scopes.length; i += IN_LIMIT) {
 			const q = query(this.#col(), where('scope', 'in', scopes.slice(i, i + IN_LIMIT)))
@@ -23,7 +23,7 @@ export class FirestoreBackend implements Backend {
 				const docs = snap.docChanges().map((ch) => ({ id: ch.doc.id, data: ch.type === 'removed' ? null : (ch.doc.data() as StoredDoc) }))
 				if (docs.length || first) onDocs(docs)
 				first = false
-			}))
+			}, (e) => onError?.(e)))
 		}
 		return () => { for (const off of offs) off() }
 	}

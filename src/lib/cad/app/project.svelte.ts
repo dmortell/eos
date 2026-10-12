@@ -119,21 +119,28 @@ export class CadProject {
 
 	constructor(readonly pid: string, readonly db: Firestore, readonly user: string) {
 		this.pdf = new PdfCache(db)
-		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> })
-		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> })
-		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null })
+		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> }, this.#listenFailed('the block library'))
+		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> }, this.#listenFailed('the device templates'))
+		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null }, this.#listenFailed('the sheet categories'))
 		this.#off = this.store.subscribe((c) => { this.rev++; if (settles(c, this.store.busy)) this.dataRev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
 			user, client: this.client, onPending: (n) => this.#pending(n),
 			onError: (e) => { this.#failed = true; this.error = `Saving failed: ${(e as Error).message ?? e}` },
+			onListenError: (e, scopes) => this.#listenFailed(scopes.includes(PROJECT_SCOPE) ? 'the project' : 'part of the drawing')(e),
 		})
 		this.#watched.add(PROJECT_SCOPE)
-		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true })
+		// a failed first listener ends "Loading…" too (with the error shown), instead of a blank drawing for ever
+		this.#sync.watch([PROJECT_SCOPE], () => { this.loaded = true }, () => { this.loaded = true })
 		this.notices = new RestoreNotices(this)
 	}
 
 	/** Restores announced to everyone in the project (ADR 0008 §6). */
 	readonly notices: RestoreNotices
+
+	/** A listener failed (a permission error stops it for good): say so, where "Saved" is. */
+	#listenFailed(what: string): (e: unknown) => void {
+		return (e) => { this.error = `Lost the live connection to ${what}: ${(e as Error)?.message ?? e} — reload the page, and check you can open this project` }
+	}
 
 	/** Scopes whose first snapshot has arrived (a plan waits for its level's before fitting the view). */
 	loadedScopes = $state<Record<string, true>>({})
@@ -143,7 +150,7 @@ export class CadProject {
 	#watchLevels(): void {
 		// …and a saved view's own shapes with the view (they were never loaded or confirmed: "Saving…" stayed on)
 		const scopes = [...this.store.ofType('level').map((l) => levelScope(l.id)), ...this.store.ofType('sheet').map((s) => sheetScope(s.id)), ...this.store.ofType('view').map((v) => viewScope(v.id))]
-		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s], () => { this.loadedScopes[s] = true }) }
+		for (const s of scopes) if (!this.#watched.has(s)) { this.#watched.add(s); this.#sync.watch([s], () => { this.loadedScopes[s] = true }, () => { this.loadedScopes[s] = true }) }
 	}
 
 	/** Writes not yet confirmed by the server (kept current by Sync — a write can finish with no store change). */

@@ -41,7 +41,9 @@ export class RestoreNotices {
 	sawComing = (id: string) => this.#seen.has(id)
 
 	constructor(private project: CadProject) {
-		this.#off = onSnapshot(ref(project.db, project.pid), (s) => { this.notice = (s.data() as Notice | undefined) ?? null; this.#apply() })
+		this.#off = onSnapshot(ref(project.db, project.pid), (s) => { this.notice = (s.data() as Notice | undefined) ?? null; this.#apply() },
+			// without it a restore running elsewhere would not pause this session (editing through it)
+			(e) => { project.error = `Lost the live connection to restore notices (a restore elsewhere would not pause this tab): ${(e as Error)?.message ?? e}` })
 		this.#tick = setInterval(() => this.#apply(), 15_000)   // an abandoned run frees the others
 	}
 

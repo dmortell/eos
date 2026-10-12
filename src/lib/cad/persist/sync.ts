@@ -21,6 +21,8 @@ export interface SyncOpts {
 	onError?: (e: unknown) => void
 	/** Called whenever the number of unconfirmed writes changes (a "Saving… / Saved" indicator). */
 	onPending?: (n: number) => void
+	/** Called when a listener fails (permission denied …): it has stopped, so that scope won't load or update. */
+	onListenError?: (e: unknown, scopes: string[]) => void
 }
 
 export class Sync {
@@ -34,8 +36,8 @@ export class Sync {
 	}
 
 	/** Start listening to some scopes (a level when its plan opens, a sheet when it opens …). `onLoaded` runs once,
-	 *  after the first delivery has been applied. */
-	watch(scopes: string[], onLoaded?: () => void): () => void {
+	 *  after the first delivery has been applied; `onFailed` if the listener fails (then it never will). */
+	watch(scopes: string[], onLoaded?: () => void, onFailed?: (e: unknown) => void): () => void {
 		let loaded = false
 		const mine = new Set(scopes)
 		const off = this.backend.subscribe(scopes, (docs) => {
@@ -43,7 +45,7 @@ export class Sync {
 			// the other scope's listener has it (review R89 — its "removed" could come after the move and delete it here)
 			this.#onRemote(docs.filter((d) => { if (d.data) return true; const cur = this.store.get(d.id); return !cur || mine.has(scopeOf(cur)) }))
 			if (!loaded) { loaded = true; onLoaded?.() }
-		})
+		}, (e) => { this.opts.onListenError?.(e, scopes); onFailed?.(e) })
 		this.#unsubs.push(off)
 		return off
 	}

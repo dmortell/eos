@@ -1,7 +1,7 @@
 // Two people on one project, through the in-memory server: what ADR 0003 promises.
 import { describe, it, expect } from 'vitest'
 import { EntityStore, type Change } from '../store/store'
-import { MemoryBackend } from './backend'
+import { MemoryBackend, type Backend } from './backend'
 import { Sync } from './sync'
 import { toDoc, fromDoc, scopeOf, levelScope, PROJECT_SCOPE, stripUndefined } from './docs'
 import { makeBox, makeText } from '../domain/make'
@@ -121,5 +121,119 @@ describe('a write that fails (review R16)', () => {
 		await sync.flush()
 		expect(sync.pending).toBe(0)
 		expect(errors).toHaveLength(1)
+	})
+})
+
+describe('a listener that fails (Q60)', () => {
+	it('reports the scopes, runs onFailed, and never says "loaded"', async () => {
+		const server = new MemoryBackend(), store = new EntityStore(), lost: string[][] = []
+		const sync = new Sync(store, server, { user: 'u', onListenError: (_e, scopes) => lost.push(scopes) })
+		let loaded = 0, failed: unknown = null
+		sync.watch([PROJECT_SCOPE], () => loaded++, (e) => (failed = e))
+		server.failListeners(new Error('Missing or insufficient permissions'), PROJECT_SCOPE)
+		await tick()
+		expect(lost).toEqual([[PROJECT_SCOPE]])
+		expect((failed as Error).message).toMatch(/permissions/)
+		expect(loaded).toBe(0)
+	})
+	it('only the failing scope is reported; the others keep working', async () => {
+		const server = new MemoryBackend(), store = new EntityStore(), lost: string[][] = []
+		const sync = new Sync(store, server, { user: 'u', onListenError: (_e, scopes) => lost.push(scopes) })
+		sync.watch([levelScope('L1')]); sync.watch([levelScope('L2')])
+		server.failListeners(new Error('denied'), levelScope('L2'))
+		expect(lost).toEqual([[levelScope('L2')]])
+		await server.write([{ id: 'a', data: toDoc(box('a', 5), { rev: 1, updatedAt: 1, updatedBy: 'bob' }) }])
+		await tick()
+		expect(xOf(store, 'a')).toBe(5)
+	})
+})
+
+describe('an item moved to another scope (review R89)', () => {
+	const onLevel = (e: Shape, levelId: string): Shape => ({ ...e, levelId })
+	function watcher(server: MemoryBackend, order: string[]) {
+		const store = new EntityStore(), changes: Change[] = []
+		const sync = new Sync(store, server, { user: 'carol' })
+		for (const l of order) sync.watch([levelScope(l)])
+		store.subscribe((c) => changes.push(c))
+		return { store, sync, changes }
+	}
+	for (const order of [['L1', 'L2'], ['L2', 'L1']]) {
+		it(`moved from L1 to L2 by someone else, listeners added ${order.join(' then ')}: still there, in its new place`, async () => {
+			const server = new MemoryBackend(), A = client(server, 'alice')
+			A.store.transact('Add', (tx) => tx.put(box('a', 3)))
+			await A.sync.flush()
+			const W = watcher(server, order)
+			await tick()
+			expect(W.store.has('a')).toBe(true)
+			A.store.transact('Move to L2', (tx) => tx.put(onLevel(tx.get('a') as Shape, 'L2')))
+			await A.sync.flush(); await tick()
+			expect(W.store.has('a')).toBe(true)
+			expect((W.store.get('a') as Shape).levelId).toBe('L2')
+		})
+	}
+	it('a listener that gets only the "removed" (nobody watches the new level) does remove it', async () => {
+		const server = new MemoryBackend(), A = client(server, 'alice'), B = client(server, 'bob')
+		A.store.transact('Add', (tx) => tx.put(box('a')))
+		await A.sync.flush(); await tick()
+		expect(B.store.has('a')).toBe(true)
+		A.store.transact('Move to L2', (tx) => tx.put({ ...(tx.get('a') as Shape), levelId: 'L2' }))
+		await A.sync.flush(); await tick()
+		expect(B.store.has('a')).toBe(false)
+	})
+	it('a real delete still removes it, whichever listener hears it', async () => {
+		const server = new MemoryBackend(), A = client(server, 'alice')
+		A.store.transact('Add', (tx) => tx.put(box('a')))
+		await A.sync.flush()
+		const W = watcher(server, ['L2', 'L1'])
+		await tick()
+		A.store.transact('Delete', (tx) => tx.del('a'))
+		await A.sync.flush(); await tick()
+		expect(W.store.has('a')).toBe(false)
+	})
+})
+
+describe('pending writes', () => {
+	it('while our write is in flight, someone else’s copy of the same entity is ignored; ours lands after and wins', async () => {
+		const server = new MemoryBackend()
+		const slow: Backend = { subscribe: (s, cb, e) => server.subscribe(s, cb, e), write: async (d) => { await tick(); await tick(); return server.write(d) } }
+		const store = new EntityStore()
+		const sync = new Sync(store, slow, { user: 'alice' })
+		sync.watch([levelScope('L1')])
+		store.transact('Add', (tx) => tx.put(box('a')))
+		await sync.flush(); await tick()
+		store.transact('Alice moves', (tx) => tx.put(moved(tx.get('a') as Shape, 10)))
+		expect(sync.pending).toBe(1)
+		await server.write([{ id: 'a', data: toDoc(moved(box('a'), 99), { rev: 50, updatedAt: 1, updatedBy: 'bob' }) }])
+		await tick()
+		expect(xOf(store, 'a')).toBe(10)           // bob’s copy ignored while ours is pending
+		await sync.flush(); await tick()
+		expect(sync.pending).toBe(0)
+		expect(xOf(store, 'a')).toBe(10)
+		expect(fromDoc(server.docs.get('a')!).entity).toMatchObject({ geom: { centre: { x: 10 } } })
+	})
+	it('a delete clears its pending mark when it settles (there is no echo of a delete to wait for)', async () => {
+		const server = new MemoryBackend(), A = client(server, 'alice')
+		A.store.transact('Add', (tx) => tx.put(box('a')))
+		await A.sync.flush(); await tick()
+		A.store.transact('Delete', (tx) => tx.del('a'))
+		expect(A.sync.pending).toBe(1)
+		await A.sync.flush()
+		expect(A.sync.pending).toBe(0)
+	})
+	it('after a failed write the edit stays local and later remote changes to it apply again', async () => {
+		const server = new MemoryBackend(), store = new EntityStore(), errors: unknown[] = []
+		const real = server.write.bind(server)
+		let fail = true
+		server.write = async (d) => { if (fail) throw new Error('offline'); return real(d) }
+		const sync = new Sync(store, server, { user: 'alice', onError: (e) => errors.push(e) })
+		sync.watch([levelScope('L1')])
+		store.transact('Add', (tx) => tx.put(box('a')))
+		await sync.flush()
+		expect(errors).toHaveLength(1)
+		expect(store.has('a')).toBe(true)
+		fail = false
+		await real([{ id: 'a', data: toDoc(box('a', 40), { rev: 9, updatedAt: 1, updatedBy: 'bob' }) }])
+		await tick()
+		expect(xOf(store, 'a')).toBe(40)
 	})
 })

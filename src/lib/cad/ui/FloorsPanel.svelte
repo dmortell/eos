@@ -60,7 +60,7 @@
 
 	// ── each level's floorplan: a calibrated page of a project PDF (Uploads); picking another replaces it ──
 	let pdfs = $state<PdfFile[]>([])
-	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }))
+	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }, (e) => { project.error = `Lost the live list of floorplan files: ${(e as Error)?.message ?? e}` }))
 	// a plan can have several floorplans (a floor drawn on two sheets), each moved into place by its own X / Y offset
 	const underlaysOf = (l: Level) => { void project.rev; return project.store.ofType('underlay').filter((u) => u.levelId === l.id) }
 	const fileName = (id: string) => pdfs.find((f) => f.id === id)?.name ?? id

@@ -11,7 +11,8 @@
 	let images = $state<ImageFile[]>([]), pdfs = $state<PdfFile[]>([]), pages = $state<Record<string, number>>({})
 	let busy = $state(false), err = $state(''), find = $state('')
 	$effect(() => {
-		const offs = [watchProjectImages(project.db, project.pid, (f) => (images = f)), watchProjectPdfs(project.db, project.pid, (f) => (pdfs = f))]
+		const failed = (e: unknown) => { err = `Lost the live list of files: ${(e as Error)?.message ?? e}` }
+		const offs = [watchProjectImages(project.db, project.pid, (f) => (images = f), failed), watchProjectPdfs(project.db, project.pid, (f) => (pdfs = f), failed)]
 		return () => offs.forEach((off) => off())
 	})
 	const match = (name: string) => !find.trim() || name.toLowerCase().includes(find.trim().toLowerCase())

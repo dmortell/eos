@@ -20,12 +20,12 @@
 	function autofocus(node: HTMLInputElement) { tick().then(() => node.focus()) }
 
 	let projects = $state<Project[]>([])
-	let loading = $state(true)
+	let loading = $state(true), loadError = $state('')
 	let query = $state('')
 	let mine = $state(false)
 	let sel = $state(0)
 	$effect(() => {
-		const unsub = db.subscribeMany('projects', (data) => { projects = data as unknown as Project[]; loading = false })
+		const unsub = db.subscribeMany('projects', (data) => { projects = data as unknown as Project[]; loading = false }, (e) => { loadError = `Could not load the projects: ${(e as Error)?.message ?? e}`; loading = false })
 		return () => { unsub?.() }
 	})
 
@@ -68,7 +68,9 @@
 		</div>
 	{/snippet}
 		<div class="op-list">
-			{#if loading}
+			{#if loadError}
+				<div class="op-empty">{loadError}</div>
+			{:else if loading}
 				<div class="op-empty">Loading projects…</div>
 			{:else}
 				{#each results as p, i (p.id)}

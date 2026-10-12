@@ -8,8 +8,9 @@ export interface RemoteDoc { id: Id; data: StoredDoc | null }
 
 export interface Backend {
 	/** Calls back with the current docs in `scopes` (once, even when there are none — that is the "loaded" signal),
-	 *  then with every change to them. Returns an unsubscribe. */
-	subscribe(scopes: string[], onDocs: (docs: RemoteDoc[]) => void): () => void
+	 *  then with every change to them. Returns an unsubscribe. `onError` runs when the listener fails (permission denied
+	 *  …): it has stopped for good then. */
+	subscribe(scopes: string[], onDocs: (docs: RemoteDoc[]) => void, onError?: (e: unknown) => void): () => void
 	/** Write a batch: set each `data`, delete where `data` is null. */
 	write(docs: RemoteDoc[]): Promise<void>
 }
@@ -20,11 +21,16 @@ export interface Backend {
  */
 export class MemoryBackend implements Backend {
 	readonly docs = new Map<Id, StoredDoc>()
-	#subs = new Set<{ scopes: Set<string>; cb: (docs: RemoteDoc[]) => void }>()
+	#subs = new Set<{ scopes: Set<string>; cb: (docs: RemoteDoc[]) => void; onError?: (e: unknown) => void }>()
 	writes = 0
 
-	subscribe(scopes: string[], cb: (docs: RemoteDoc[]) => void): () => void {
-		const sub = { scopes: new Set(scopes), cb }
+	/** Tests: every listener whose scopes include `scope` (any, if omitted) fails and stops, as a denied Firestore one does. */
+	failListeners(e: unknown, scope?: string): void {
+		for (const sub of [...this.#subs]) if (!scope || sub.scopes.has(scope)) { this.#subs.delete(sub); sub.onError?.(e) }
+	}
+
+	subscribe(scopes: string[], cb: (docs: RemoteDoc[]) => void, onError?: (e: unknown) => void): () => void {
+		const sub = { scopes: new Set(scopes), cb, onError }
 		this.#subs.add(sub)
 		const initial = [...this.docs.values()].filter((d) => sub.scopes.has(d.scope)).map((d) => ({ id: d.id, data: d }))
 		queueMicrotask(() => { if (this.#subs.has(sub)) cb(initial) })
@@ -33,16 +39,17 @@ export class MemoryBackend implements Backend {
 
 	async write(docs: RemoteDoc[]): Promise<void> {
 		this.writes += docs.length
-		const changed: { doc: RemoteDoc; scope: string }[] = []
+		const changed: { doc: RemoteDoc; scope: string; was?: string }[] = []
 		for (const d of docs) {
 			const prev = this.docs.get(d.id)
 			if (d.data) this.docs.set(d.id, structuredClone(d.data))
 			else this.docs.delete(d.id)
-			changed.push({ doc: { id: d.id, data: d.data ? structuredClone(d.data) : null }, scope: d.data?.scope ?? prev?.scope ?? '' })
+			changed.push({ doc: { id: d.id, data: d.data ? structuredClone(d.data) : null }, scope: d.data?.scope ?? prev?.scope ?? '', was: prev?.scope })
 		}
 		queueMicrotask(() => {
 			for (const sub of this.#subs) {
-				const mine = changed.filter((c) => sub.scopes.has(c.scope)).map((c) => c.doc)
+				// like Firestore: a doc that moved out of the listener's scope arrives there as "removed"
+				const mine = changed.flatMap((c): RemoteDoc[] => sub.scopes.has(c.scope) ? [c.doc] : c.doc.data && c.was !== undefined && sub.scopes.has(c.was) ? [{ id: c.doc.id, data: null }] : [])
 				if (mine.length) sub.cb(mine)
 			}
 		})

@@ -19,7 +19,7 @@
 	} = $props()
 
 	let heads = $state.raw<BackupHead[]>([]), loading = $state(true)
-	$effect(() => onSnapshot(query(backupsCol(project), orderBy('at', 'desc')), (s) => { heads = s.docs.map((d) => d.data() as BackupHead); loading = false }))
+	$effect(() => onSnapshot(query(backupsCol(project), orderBy('at', 'desc')), (s) => { heads = s.docs.map((d) => d.data() as BackupHead); loading = false }, (e) => { error = `Lost the live list of backups: ${(e as Error)?.message ?? e}`; loading = false }))
 
 	let sort = $state<'newest' | 'largest'>('newest')
 	const list = $derived(sort === 'newest' ? heads : [...heads].sort((a, b) => b.bytes - a.bytes))

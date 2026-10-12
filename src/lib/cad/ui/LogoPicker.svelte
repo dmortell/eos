@@ -11,7 +11,8 @@
 	} = $props()
 
 	let files = $state<ImageFile[] | null>(null)
-	$effect(() => watchProjectImages(db, pid, (f) => { files = f }))
+	let err = $state('')
+	$effect(() => watchProjectImages(db, pid, (f) => { files = f }, (e) => { err = `Lost the live list of images: ${(e as Error)?.message ?? e}` }))
 	function upload(e: Event) {
 		const input = e.currentTarget as HTMLInputElement, f = input.files?.[0]
 		input.value = ''
@@ -26,7 +27,8 @@
 			<span class="grow"></span>
 		{/snippet}
 		<div class="grid">
-			{#if files === null}<p class="hint">Loading…</p>
+			{#if err}<p class="hint">{err}</p>
+			{:else if files === null}<p class="hint">Loading…</p>
 			{:else}
 				{#each files as f (f.id)}
 					<button class="img" title={f.name} onclick={() => { onpick(f); onclose() }}><img src={f.url} alt={f.name} /><span>{f.name}</span></button>

@@ -137,12 +137,12 @@ export class Firestore {
             callback?.(data)
         });
     }
-    subscribeMany(path: string, callback: (data: DocWithId[]) => void): () => void {
+    subscribeMany(path: string, callback: (data: DocWithId[]) => void, onError?: (e: unknown) => void): () => void {
         const q = query(collection(firestore, path));
         return onSnapshot(q, (snap) => {
             const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             callback?.(data)
-        });
+        }, (e) => onError?.(e));
     }
     async getOne(path: string, id: string): Promise<DocWithId | null> {
         const snap = await getDoc(doc(firestore, path, id));
