@@ -41,7 +41,7 @@ describe('text pasted from another app', () => {
 		expect(h.sel()).toEqual([id])
 		h.store.undo()
 		expect(h.store.get(id)).toBeUndefined()
-		expect(h.store.get(pasteTextNote(h.ctx(), { x: 1, y: 1 }, { text: 'plain' })!)!.geom).not.toHaveProperty('markdown')
+		expect((h.store.get(pasteTextNote(h.ctx(), { x: 1, y: 1 }, { text: 'plain' })!) as Shape).geom).not.toHaveProperty('markdown')
 	})
 })
 

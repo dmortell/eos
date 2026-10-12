@@ -1,7 +1,7 @@
 // Text to and from office apps: pasted text / tables → notes; copied items → readable words.
 import { describe, it, expect } from 'vitest'
 import { pastedNote, parseTsv, htmlTable, toMarkdownTable, readableClip } from './pasteText'
-import type { Entity } from './types'
+import type { Entity } from './drawing'
 
 describe('pasted text', () => {
 	it('plain text stays a plain note, trailing blank lines dropped', () => {

@@ -1,6 +1,6 @@
 // TEXT TO AND FROM OFFICE APPS (backlog "Text to and from office apps"): what Ctrl+V does with text copied in another
 // app (Word, Excel, a browser) and what Ctrl+C leaves for them. Pure.
-import type { Entity } from './types'
+import type { Entity } from './drawing'
 
 /** What a paste of foreign text becomes: a note, as markdown when it was a table. */
 export interface PastedText { text: string; markdown: boolean }
