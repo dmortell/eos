@@ -416,8 +416,9 @@
 		return { n: s.ports.length, patch: () => ws.patchFrom(s), ...(d.kind === 'panel' ? { interconnect: () => ws.interconnectFrom(s) } : {}) }
 	}
 
-	/** The cord defaults start from the project's settings once, then stay as last chosen (sticky). */
-	let cordDefaultsSet = false
+	/** The cord defaults come from the project's settings on load (and when they change there), then stay as last
+	 *  chosen — Patch to… / P / drag-to-patch use them without the Cord tool being picked first. */
+	$effect(() => { const d = project.settings?.defaults; untrack(() => ws.seedCordDefaults(d)) })
 	// Planning / Surveying (a project setting): what the cord tool's new cords start as
 	$effect(() => { ws.newCordStatus = project.settings?.newCordStatus ?? 'add' })
 	function setTool(id: ToolId) {
@@ -426,10 +427,6 @@
 		if (id === 'match') { const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; ws.matchTool.source = one?.type === 'shape' ? one.id : null }
 		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
-		if (id === 'cord' && !cordDefaultsSet && project.settings) {
-			ws.cordDefaults = { cableType: project.settings.defaults.cordCableType, colour: project.settings.defaults.cordColour }
-			cordDefaultsSet = true
-		}
 		ws.setTool(id, level)
 	}
 

@@ -185,6 +185,17 @@ export class Workspace {
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
 	/** Sticky cord defaults: the last type / color chosen stays for the next cord (the Patching tool's habit). */
 	cordDefaults = $state<CordDefaults>({ cableType: 'cat6a', colour: '#3b82f6' })
+	/** The project's cord defaults last taken in (a JSON key): taken when the project loads and when they change in
+	 *  Settings — every way of making cords (the Cord tool, Patch to…, P, drag-to-patch) starts from them; between
+	 *  those, the last type / color chosen stays. */
+	#seededCords = ''
+	seedCordDefaults(d: { cordCableType?: string; cordColour?: string } | undefined): void {
+		if (!d?.cordCableType && !d?.cordColour) return
+		const key = JSON.stringify([d.cordCableType, d.cordColour])
+		if (key === this.#seededCords) return
+		this.#seededCords = key
+		this.cordDefaults = { cableType: d.cordCableType || this.cordDefaults.cableType, colour: d.cordColour || this.cordDefaults.colour }
+	}
 	/** The cable type for new interconnects (ties, backbone) — its own, kept as last chosen ('' = the cord type). */
 	linkType = $state('')
 	bulkFrom = $state.raw<BulkFrom | null>(null)

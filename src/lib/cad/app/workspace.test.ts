@@ -23,3 +23,18 @@ describe('each pane has its own level', () => {
 		expect(ws.levelId).toBe('3F')
 	})
 })
+
+describe('cord defaults (Review 2 Q35)', () => {
+	it('come from the project on load — before the Cord tool is ever picked — and again when the project changes them; a choice in between stays', () => {
+		const ws = new Workspace()
+		ws.seedCordDefaults(undefined)   // settings not loaded yet
+		expect(ws.cordDefaults).toEqual({ cableType: 'cat6a', colour: '#3b82f6' })
+		ws.seedCordDefaults({ cordCableType: 'om4', cordColour: '#ff0000' })
+		expect(ws.cordDefaults).toEqual({ cableType: 'om4', colour: '#ff0000' })
+		ws.cordDefaults.colour = '#00ff00'   // picked in the cord bar: sticky
+		ws.seedCordDefaults({ cordCableType: 'om4', cordColour: '#ff0000' })   // the same settings again (another edit)
+		expect(ws.cordDefaults.colour).toBe('#00ff00')
+		ws.seedCordDefaults({ cordCableType: 'cat6', cordColour: '#ff0000' })   // changed in Settings
+		expect(ws.cordDefaults).toEqual({ cableType: 'cat6', colour: '#ff0000' })
+	})
+})

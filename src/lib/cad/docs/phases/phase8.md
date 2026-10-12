@@ -3045,3 +3045,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   there is a dated one, over a stored date field (only the importer ever wrote one — so Journey's sheets need no
   clean-up); the importer puts the date on the current revision when that has none, and keeps it as a field only on a
   sheet with no revisions (`views/sheet.ts` `titleBlockContext`, `persist/import/drawings.ts`; tests).
+- **Q35** the project's cord type and color are taken in when the project loads (and again when they change in
+  Settings), not when the Cord tool is first picked — Patch to…, P and drag-to-patch made cat6a / blue cords before
+  that; a type / color picked in between stays (`app/workspace.svelte.ts` `seedCordDefaults`, `ui/CadShell.svelte`;
+  test).
