@@ -3062,3 +3062,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   dialog (CadDialog), the cell editor and table keys (tableKit), the in-place text box, name inputs, the status-bar
   prompt, the Navigator / Find device / Open project searches, the settings and sheet add-rows, the title block, the
   new-room form and the tables' Esc; tests.
+- **Q32** Ctrl+C / Ctrl+X / Ctrl+V leave the drawing alone while a dialog is open or mid-drag (the store's gesture is
+  open), as the shell keys do — a cut behind Project settings deleted the selection unseen (`app/clipboardEvents.ts`; test).

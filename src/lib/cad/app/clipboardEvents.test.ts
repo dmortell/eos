@@ -30,4 +30,19 @@ describe('paste', () => {
 		expect(got).toEqual([])
 		expect(ev.prevented()).toBe(false)
 	})
+	it('a dialog open, or mid-drag: cut and paste leave the drawing behind alone (the browser keeps the key)', () => {
+		const got: File[] = []
+		const pic = new File([new Uint8Array([1])], 'image.png', { type: 'image/png' })
+		const sel = { say: () => {}, selection: ['s1'] } as unknown as Workspace
+		const open = clipboardEvents({ project: {} as CadProject, ws: sel, target: () => null, inRow: () => false, image: (f) => got.push(f), dialogOpen: () => true })
+		const ev = pasteEvent('', [pic])
+		open.paste(ev.e)
+		const cutEv = pasteEvent('', [])
+		open.cut(cutEv.e)   // would read the selection and delete it — it returns first
+		expect(got).toEqual([])
+		expect(ev.prevented() || cutEv.prevented()).toBe(false)
+		const busy = clipboardEvents({ project: { store: { busy: true } } as unknown as CadProject, ws, target: () => null, inRow: () => false, image: (f) => got.push(f), dialogOpen: () => false })
+		busy.paste(pasteEvent('', [pic]).e)
+		expect(got).toEqual([])
+	})
 })

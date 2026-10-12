@@ -17,9 +17,12 @@ export interface ClipboardDeps {
 	inRow(): boolean
 	/** The pointer in the active pane, in the paste target's own points (plan / paper mm); null = not over it. */
 	cursor?(): Pt | null
+	/** A dialog is open (default: a [role=dialog] in the page). */
+	dialogOpen?(): boolean
 }
 
 const typing = (t: EventTarget | null) => typeof Element !== 'undefined' && t instanceof Element && !!t.closest('input, select, textarea, [contenteditable]')
+const anyDialog = () => typeof document !== 'undefined' && !!document.querySelector('[role=dialog]')
 const items = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
 /** Cut never asks (Dave): Undo brings it all back; the message says what a paste won't (links, cords). */
@@ -30,14 +33,17 @@ function cutNow(project: CadProject, ws: Workspace, ids: string[]): void {
 	ws.say(`Cut ${items(ids.length)} — Ctrl+V pastes${lost ? `; their ${lost} don't come back with a paste (Undo does)` : ''}`)
 }
 
-export function clipboardEvents({ project, ws, target, inRow, image, cursor }: ClipboardDeps) {
+export function clipboardEvents({ project, ws, target, inRow, image, cursor, dialogOpen = anyDialog }: ClipboardDeps) {
 	// Ctrl+Shift+V (backlog "Paste at the cursor"): the paste event doesn't say Shift, so the key down before it does
 	let atCursorUntil = 0
 	function key(e: KeyboardEvent): void {
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') atCursorUntil = e.shiftKey ? Date.now() + 1000 : 0
 	}
+	/** Not the drawing's: a dialog open (as the shell keys, the drawing behind it is left alone — a cut or paste there
+	 *  changed it unseen), or mid-drag (the store's gesture is open). */
+	const notMine = (e: ClipboardEvent) => typing(e.target) || dialogOpen() || !!project.store?.busy
 	function copy(e: ClipboardEvent, cut: boolean): void {
-		if (typing(e.target) || window.getSelection()?.toString() || !ws.selection.length) return
+		if (notMine(e) || window.getSelection()?.toString() || !ws.selection.length) return
 		const clip = makeClip(project.index, ws.selection, project.pid)
 		if (!clip) { ws.say('Copy takes plan items (shapes, outlets, racks), notes on a sheet, or devices'); return }
 		// what was picked (a copied rack's devices come along with it)
@@ -49,7 +55,7 @@ export function clipboardEvents({ project, ws, target, inRow, image, cursor }: C
 		else ws.say(`Copied ${items(ids.length)} — Ctrl+V pastes (here, another level, sheet, tab or project)`)
 	}
 	function paste(e: ClipboardEvent): void {
-		if (typing(e.target)) return
+		if (notMine(e)) return
 		const clip = parseClip(e.clipboardData?.getData('text/plain') ?? '')
 		// no cad items, but a picture (a screenshot, an image copied in a browser): it goes in as an image
 		const pic = clip ? undefined : [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
