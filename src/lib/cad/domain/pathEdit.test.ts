@@ -1,6 +1,6 @@
 // Segment lengths of a run / wall (3D: a drop counts its height), and their total.
 import { describe, it, expect } from 'vitest'
-import { segmentLengths, splitRunsAt, runZAt, splitSegRefs, joinShapes, joinHeightProblem, repointRefs, pieces, pieceRefs } from './pathEdit'
+import { insertNode, segmentLengths, splitRunsAt, runZAt, splitSegRefs, joinShapes, joinHeightProblem, repointRefs, pieces, pieceRefs } from './pathEdit'
 import type { Shape, ContainmentRole } from './shapes'
 import type { Entity, Sheet } from './drawing'
 import type { Link, Outlet } from './types'
@@ -13,6 +13,20 @@ describe('segment lengths', () => {
 		const r = segmentLengths(s)
 		expect(r.segs.map((g) => [g.from, g.to, g.len, g.vertical])).toEqual([[1, 2, 3000, false], [2, 3, 4000, false], [3, 4, 2600, true]])
 		expect(r.total).toBe(9600)
+	})
+})
+
+describe('splitting a wall (insertNode)', () => {
+	it('its openings go to the half they sit on, measured from that half’s start (Q70)', () => {
+		const n = (id: string, x: number) => ({ id, x, y: 0, z: 0 })
+		const op = (id: string, at: number) => ({ id, segId: 's1', at, width: 900, z: 0, h: 2100 })
+		const wall = { type: 'shape', id: 'W', levelId: 'L', role: { kind: 'wall', openings: [op('o1', 1000), op('o2', 3000)] },
+			geom: { kind: 'path', nodes: [n('a', 0), n('b', 4000)], segs: [{ id: 's1', a: 'a', b: 'b' }] } } as unknown as Shape
+		const r = insertNode(wall, 's1', 0.5, 'm')
+		const segs = (r.geom as { segs: { id: string; a: string }[] }).segs, second = segs.find((x) => x.a === 'm')!.id
+		const ops = (r.role as unknown as { openings: { id: string; segId: string; at: number }[] }).openings
+		expect(ops.find((o) => o.id === 'o1')).toMatchObject({ segId: 's1', at: 1000 })
+		expect(ops.find((o) => o.id === 'o2')).toMatchObject({ segId: second, at: 1000 })
 	})
 })
 

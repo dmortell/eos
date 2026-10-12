@@ -24,7 +24,11 @@ export function insertNode(s: Shape, segId: Id, t: number, id: Id = newId()): Sh
 	const segs: PathSeg[] = g.segs.flatMap((x) => (x.id === segId ? [{ id: x.id, a: x.a, b: n.id, ...extra }, { id: second, a: n.id, b: x.b, ...extra }] : [x]))
 	const role = s.role?.kind === 'containment' && s.role.extra?.some((h) => h.seg === segId)
 		? { role: { ...s.role, extra: s.role.extra.flatMap((h) => (h.seg === segId ? [h, { ...h, seg: second }] : [h])) } } : {}
-	return { ...withGeom(s, { ...g, nodes: [...g.nodes, n], segs }), ...role }
+	// a wall's openings go to the half they sit on (by their centre); on the second half, measured from its own start
+	const cut = k * Math.hypot(b.x - a.x, b.y - a.y)
+	const wall = s.role?.kind === 'wall' && s.role.openings.some((o) => o.segId === segId && o.at >= cut)
+		? { role: { ...s.role, openings: s.role.openings.map((o) => (o.segId === segId && o.at >= cut ? { ...o, segId: second, at: o.at - cut } : o)) } } : {}
+	return { ...withGeom(s, { ...g, nodes: [...g.nodes, n], segs }), ...role, ...wall }
 }
 
 /** After segments of run `before` were split (`after`; the first half keeps the id): a penetration accepted on a split
