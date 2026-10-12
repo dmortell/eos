@@ -21,6 +21,14 @@ describe('sheets', () => {
 		const w = (p: (typeof plate)[number]) => (p.k === 'line' ? Math.max(...p.pts.map((q) => q.x)) - Math.min(...p.pts.map((q) => q.x)) : 0)
 		expect(plate.map(w).map((x) => Math.round(x * 10) / 10)).toEqual([3.5, 2.5])   // the plate, its frame
 	})
+	it('a numbered viewport shows its number in a small circle above its top-left corner; an unnumbered one shows none', () => {
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 40, y: 50, w: 200, h: 150 }, scale: 100, centre: { x: 0, y: 0 } }
+		const tag = (v: typeof vp & { number?: string }) => sheetDisplayList(ix(), sheet({ viewports: [v] })).filter((p) => p.cls === 'viewport-no' || (p.k === 'text' && p.text === '3'))
+		expect(tag(vp)).toEqual([])
+		const t = tag({ ...vp, number: ' 3 ' })
+		expect(t.map((p) => p.k)).toEqual(['circle', 'text'])
+		expect(t[0]).toMatchObject({ c: { x: 44, y: 46 } })
+	})
 	it('A3 landscape is 420 × 297 mm; the paper and its margin are drawn', () => {
 		expect(paperSize(sheet())).toEqual({ w: 420, h: 297 })
 		expect(paperSize(sheet({ paper: { size: 'A1', orientation: 'portrait', marginMm: 10 } }))).toEqual({ w: 594, h: 841 })

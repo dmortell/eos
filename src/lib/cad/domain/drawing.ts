@@ -104,6 +104,8 @@ export interface Viewport {
 	/** The view point (in the view's own drawing space) at the viewport centre. */
 	centre: Pt
 	label?: string
+	/** Its number on the sheet ("1", "A"): shown in a small tag at the window's top-left, listed in the sheet's Properties. */
+	number?: string
 	locked?: boolean
 	border?: boolean
 	/** Per-viewport tweaks to generated content, keyed by entity id: hide it, nudge its label. */

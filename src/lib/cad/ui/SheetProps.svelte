@@ -108,6 +108,8 @@
 	const setSpec = (v: Viewport, label: string, spec: Viewport['view']['spec']) => putVp(label, { view: { ...v.view, spec } })
 	/** The picker has no entry for it (a fill section; a port grid of a rack on another level): list it as it is. */
 	const offPicker = (v: Viewport) => v.view.spec.kind === 'fill' || (v.view.spec.kind === 'ports' && !rooms.some((r) => panelRacksOf(r.id).some((rk) => viewKey(v) === `ports:${rk.id}`)))
+	/** The view a viewport shows, in its own tab (the chip's “Open view”, from the list too). */
+	const openSource = (v: Viewport) => ws.openInTab({ levelId: v.view.levelId, spec: $state.snapshot(v.view.spec) })
 	let busy = $state(false)
 	async function pdf() {
 		busy = true
@@ -130,9 +132,22 @@
 	}
 </script>
 
+{#snippet vpList()}
+		<!-- the list: click a row to pick that viewport (Ctrl-click: add it); the arrow opens its source view in a tab -->
+		{#each s.viewports as v (v.id)}
+			<div class="vrow" class:on={ws.pickedViewports.includes(v.id)}>
+				<button class="pick" title="Pick this viewport (Ctrl-click: add it to the pick)" onclick={(e) => ws.selectViewport(v.id, e.ctrlKey || e.metaKey)}>
+					<span class="no font-mono">{v.number ?? '·'}</span><span class="nm">{v.label || viewName(project.index, v.view.spec, v.view.levelId)}</span>{#if !isPaperSpec(v.view.spec)}<span class="sc">1:{v.scale}</span>{/if}
+				</button>
+				<button class="btn" title="Open source view: this viewport's view in its own tab" aria-label="Open the source view of {v.label || viewName(project.index, v.view.spec, v.view.levelId)}" onclick={() => openSource(v)}>Open</button>
+			</div>
+		{/each}
+{/snippet}
+
 {#if many.length}
 	<PropGroup kind="viewport" title="Viewports picked">
 		<p class="text-zinc-500">{many.length} viewports picked. Drag one to move them all, Ctrl-drag to leave copies, arrow keys nudge them; Ctrl+C / X / V, Ctrl+D copy, cut, paste and duplicate them with their views and tied notes; Delete removes them. Click one frame (or a row in the list) to work on it alone.</p>
+		{@render vpList()}
 	</PropGroup>
 {:else if vp}
 	<!-- groups (UX review "Properties groups"): View · Window (Delete: the header’s, or the Delete key) -->
@@ -198,6 +213,8 @@
 		</label>
 		{/if}
 		<label class="row">Label <input class="inp" value={vp.label ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport label', { label: e.currentTarget.value.trim() || undefined })} /></label>
+		<label class="row" title="Shown in a small circle at the window's top-left (blank: none)">Number <input class="inp w-16" value={vp.number ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport number', { number: e.currentTarget.value.trim() || undefined })} /></label>
+		<div class="acts"><button class="btn" title="Open this viewport's view (the model view it shows) in its own tab" onclick={() => openSource(vp)}>Open source view</button></div>
 	</PropGroup>
 	<PropGroup kind="viewport" title="Window">
 		<Field label="Window" unit="mm">
@@ -217,6 +234,7 @@
 		<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>
 		<label class="row">Locked <span><input type="checkbox" checked={!!vp.locked} onchange={(e) => putVp(e.currentTarget.checked ? 'Lock viewport' : 'Unlock viewport', { locked: e.currentTarget.checked || undefined })} /> can't be moved</span></label>
 	</PropGroup>
+	<PropGroup kind="viewport" title="Viewports on this sheet">{@render vpList()}</PropGroup>
 {:else}
 	<!-- groups: General · Paper · Viewports · Issued revisions; the actions below them -->
 	<PropGroup kind="sheet" title="General">
@@ -264,6 +282,7 @@
 	</PropGroup>
 	<PropGroup kind="sheet" title="Viewports">
 		<p class="text-zinc-500" title="Click a frame on the paper to pick one; double-click inside to edit in it">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'}</p>
+		{@render vpList()}
 		<div class="acts"><button class="btn" title="A viewport onto the open level's plan; pick it to change its view, scale and window" onclick={addViewport}>Add viewport</button></div>
 	</PropGroup>
 	<!-- change history (backlog T102): what changed, when and who asked, between issues; issuing moves them onto the
@@ -311,6 +330,11 @@
 	.tag button { color: var(--cad-muted); padding: 0 3px; }
 	.tag button:hover { color: #dc2626; }
 	.tagin { width: 5rem; flex: 1; }
+	.vrow { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; border-radius: 4px; }
+	.vrow.on { background: var(--cad-sel, #dbeafe); }
+	.vrow .pick { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 4px; text-align: left; align-items: center; min-width: 0; padding: 1px 2px; }
+	.vrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.vrow .sc { color: var(--cad-muted); }
 	.win { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
 	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }

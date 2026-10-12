@@ -208,6 +208,11 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
+		// its number, in a small circle above the window's top-left corner
+		if (vp.number?.trim()) {
+			const c = { x: r.x + 4, y: r.y - 4 }
+			out.push({ k: 'circle', c, r: 3.2, cls: 'viewport-no' }, { k: 'text', at: { x: c.x, y: c.y + 1.1 }, text: vp.number.trim(), size: 3.2, anchor: 'middle', cls: 'viewport-label' })
+		}
 		const label = vp.label ?? autoLabel(ix, vp)
 		if (label) out.push({ k: 'text', at: { x: r.x, y: r.y + r.h + 5 }, text: isPaperSpec(vp.view.spec) ? label : `${label}  1:${vp.scale}`, size: 3.5, cls: 'viewport-label' })
 	}
