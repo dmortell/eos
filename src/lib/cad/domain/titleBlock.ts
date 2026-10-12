@@ -124,7 +124,9 @@ export function withLogoFields(t: TitleBlockTemplate | undefined): TbField[] {
 /** The projects page's Project details that the title block falls back on (as the Sheets tool did): the client and
  *  the site address as auto fields, the author for a blank Drawn, the drawing office's block when the template has
  *  none of its own. Not stored in cad — the shell hands them in. */
-export interface ProjectDetails { client?: string; address?: string; author?: string; companyName?: string; companyAddress?: string; companyContact?: string }
+export interface ProjectDetails { client?: string; address?: string; author?: string; companyName?: string; companyAddress?: string; companyContact?: string
+	/** The projects page's logos: the client's (`logoUrl`) and the company's, with their heights in paper mm. */
+	logoUrl?: string; companyLogoUrl?: string; logoHeightMm?: number; companyLogoHeightMm?: number }
 
 /** The template with the Project details filled in where it leaves them blank: the company block (when the template
  *  has no name, address or contact) and the site address. A blank template becomes the default one. */
@@ -133,8 +135,12 @@ export function withDetails(t: TitleBlockTemplate | undefined, d: ProjectDetails
 	const own = t?.company, blankCo = ![own?.name, own?.address, own?.contact].some((s) => s?.trim())
 	const company = { name: d.companyName?.trim(), address: d.companyAddress?.trim(), contact: d.companyContact?.trim() }
 	const useCo = blankCo && Object.values(company).some(Boolean), useSite = !t?.site?.trim() && !!d.address?.trim()
-	if (!useCo && !useSite) return t
-	return { ...(t ?? DEFAULT_TITLE_BLOCK), ...(useCo ? { company } : {}), ...(useSite ? { site: d.address!.trim() } : {}) }
+	// a logo the template has no image for comes from the Project details (Q68)
+	const logo = (own: TbLogo | undefined, url: string | undefined, h: number | undefined): TbLogo | undefined => (!own?.src && url?.trim() ? { src: url.trim(), h: h && h > 0 ? h : own?.h } : undefined)
+	const co = logo(t?.logos?.company, d.companyLogoUrl, d.companyLogoHeightMm), cl = logo(t?.logos?.client, d.logoUrl, d.logoHeightMm)
+	if (!useCo && !useSite && !co && !cl) return t
+	return { ...(t ?? DEFAULT_TITLE_BLOCK), ...(useCo ? { company } : {}), ...(useSite ? { site: d.address!.trim() } : {}),
+		...(co || cl ? { logos: { ...t?.logos, ...(co ? { company: co } : {}), ...(cl ? { client: cl } : {}) } } : {}) }
 }
 
 /** What a blank Drawn shows: the Project details' author — a name or an email as initials, initials as typed — else

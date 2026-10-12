@@ -1,7 +1,7 @@
 // Ported from Pages' titleBlock.test.ts, with the model (domain/titleBlock.ts); the logo images, logo text and company
 // block are fields since 2026-10-05 (Dave: placed and dragged like the others).
 import { describe, it, expect } from 'vitest'
-import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, shownTitleBlock, withLogoFields, isFixedField } from './titleBlock'
+import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, shownTitleBlock, withLogoFields, isFixedField, withDetails } from './titleBlock'
 
 const keys = (fs: ReturnType<typeof withLogoFields>) => fs.map((f) => (f.key === 'logo' ? `logo:${f.logo}` : f.key))
 
@@ -62,5 +62,20 @@ describe('approvals and site (backlog)', () => {
 		expect(cells.find((c) => c.label === 'Approved')?.value).toBe('—')
 		expect(cells.find((c) => c.label === 'Site')).toMatchObject({ value: '1-2-3 Chiyoda, Tokyo', wide: true })
 		expect(fillTitleBlock(DEFAULT_TITLE_BLOCK, { checked: 'AB', site: 'x' })).toEqual(fillTitleBlock(DEFAULT_TITLE_BLOCK, {}))
+	})
+})
+
+describe('logos from the Project details (Q68)', () => {
+	it('fills a logo the template has no image for, keeps one it has', () => {
+		const d = { logoUrl: 'client.png', companyLogoUrl: 'co.png', companyLogoHeightMm: 14 }
+		const t = withDetails(undefined, d)!
+		expect(t.logos?.company).toEqual({ src: 'co.png', h: 14 })
+		expect(t.logos?.client?.src).toBe('client.png')
+		const own = withDetails({ ...DEFAULT_TITLE_BLOCK, logos: { company: { src: 'own.png', h: 8 } } }, d)!
+		expect(own.logos?.company).toEqual({ src: 'own.png', h: 8 })
+		expect(own.logos?.client?.src).toBe('client.png')
+	})
+	it('no logos in the details changes nothing', () => {
+		expect(withDetails(DEFAULT_TITLE_BLOCK, { client: 'A' })).toBe(DEFAULT_TITLE_BLOCK)
 	})
 })
