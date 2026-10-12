@@ -2,7 +2,7 @@
 import type { ToolId } from '../app/workspace.svelte'
 
 export const HINT: Partial<Record<ToolId, string>> = {
-	insert: 'Click to place the block (pick it in Blocks, left) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
+	insert: 'Click to place the block (pick it in the Blocks window) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 	move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
 	copy: 'Select first · click a base point, then each place for a copy (snaps · Shift 15° · type @dx,dy) · Enter / Esc ends',
 	dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
@@ -20,10 +20,10 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
 	opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 	rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
-	device: 'In a rack view (Racks list → Rack view): click a rack at the U for the device · drag devices with Select to move them',
+	device: 'In a rack view (Window › Racks › Rack view): pick a template in the Device library, then click a rack at the U for the device · drag devices with Select to move them',
 	assign: 'Click a panel port in a rack view — the chosen outlets go on from there (the panel itself: from its first free port; pinned) · Esc cancels',
 	cord: 'In a rack view: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',
-	match: 'Click shapes to give them the source’s layer and look (colour, fill, line type, lineweight, text size) · no source selected: click it first · Esc / right-click ends',
+	match: 'Click shapes to give them the source’s layer and look (color, fill, line type, lineweight, text size) · no source selected: click it first · Esc / right-click ends',
 	renumber: 'Click outlets, racks or labelled shapes in order · click a picked one to go back to it · Backspace drops the last · start / step in Properties, then Renumber · Esc / right-click ends',
 	text: 'Click where the text goes and type over "Text" · click a text to edit it · Enter saves, Shift+Enter = new line',
 	leader: 'Press at the tip and drag to where the words go (a callout) — or click the tip, then bends, Enter ends · then type its words on the drawing · border in Properties · Backspace undoes a point',

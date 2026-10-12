@@ -2662,3 +2662,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   open now opens it (it closed both: the hover had already switched); the right-click menu shows ✓ for a choice that's
   on (the Navigator's "Group by …") (`ui/ContextMenu.svelte`). Live (Test Project): File › Export ▸ opens; File → Edit
   switches. Help: menu paths.
+- **R84 (part) Help fixes:** stale tool hints ("pick it in Blocks, left", "Racks list → Rack view") corrected; Keys gains
+  Alt+W / Alt+PgUp / PgDn / Alt+1…9, Shift+Home, Ctrl+Shift+Z, Backspace = delete, and F / P / L move from "Function
+  keys" to Keys; the two "order of racks" entries are one (`ui/toolHints.ts`, `ui/helpContent.ts`). (Its "File ›
+  Export" now exists.)
