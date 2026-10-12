@@ -11,6 +11,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Sheet, SheetPackage } from '../domain/drawing'
+	import { put as kitPut } from './propsKit'
 	import type { ViewSpec } from '../views/space'
 	import { sheetRows, filterRows, sortRows, groupRows, moveInPrintOrder, moveBefore, type SortKey, type GroupBy, type SheetRow } from '../domain/sheetList'
 	import { ordered } from '../domain/sheetCategories'
@@ -99,7 +100,7 @@
 		if (copyRows(e, ['#', 'No.', 'Title', 'Category', 'Level', 'Room', 'Discipline', 'Rev', 'Size', 'Scale', 'Tags', 'Status'],
 			(picked.length ? picked : rows).map((r) => [r.order, r.number, r.title, r.category, r.level, r.room, r.discipline, r.rev, r.size, r.scale, r.tags.join(', '), r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
-	const put = (r: { id: string }, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
+	const put = (r: { id: string }, label: string, patch: Partial<Sheet>) => kitPut(project.store, sheetOf(r.id), label, patch)
 
 	function setStatus(s: Sheet['status']) {
 		if (!picked.length) return

@@ -5,6 +5,7 @@
 // a later cord (`start`). Pure; tested in schedule.test.ts.
 import type { ProjectIndex } from '../domain/project'
 import type { Cord, Id, ProjectSettings } from '../domain/types'
+import { cableTypeLabel } from '../domain/cableTypes'
 import type { Prim } from './display'
 import { cordsForSchedule, patchScheduleRows, STATUS_ORDER, STATUS_TITLE, STATUS_FG } from '../render/exports'
 
@@ -32,8 +33,8 @@ export function scheduleTitle(ix: ProjectIndex, spaceId?: Id): string {
 type Line = { kind: 'head'; status: Cord['status']; n: number } | { kind: 'row'; status: Cord['status']; cells: string[] }
 
 export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefined, start = 1, o: ScheduleOpts = {}): Prim[] {
-	const st = ix.get<ProjectSettings>('settings'), types = st?.type === 'settings' ? st.cableTypes : []
-	const typeLabel = (id: string) => types.find((t) => t.id === id)?.label ?? id
+	const st = ix.get<ProjectSettings>('settings')
+	const typeLabel = (id: string) => cableTypeLabel(st?.type === 'settings' ? st : undefined, id)
 	const rows = patchScheduleRows(ix, cordsForSchedule(ix, spaceId), typeLabel).map((r) => ({ status: r.status, cells: r.cells.map(String) }))
 	const out: Prim[] = [{ k: 'text', at: { x: 0, y: 4 }, text: scheduleTitle(ix, spaceId), size: 3.5, cls: 'legend-title' }]
 	if (!rows.length) { out.push({ k: 'text', at: { x: 0, y: 9 }, text: 'No patch cords', size: 2.5, cls: 'legend-text' }); return out }

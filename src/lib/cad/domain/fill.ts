@@ -6,6 +6,7 @@
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
 // tested in fill.test.ts.
 import type { Id, ProjectSettings } from './types'
+import { cableTypeOf, cableMedia } from './cableTypes'
 import type { Section, Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import type { Route } from './routing'
@@ -17,15 +18,15 @@ export const FILL_LIMIT_PCT = 40
 export const DEFAULT_OD: Record<string, number> = { cat6a: 9, cat6: 7, cat5e: 6, os2: 3, om3: 3, om4: 3, fibre: 3, 'mpo-12': 4 }
 
 export function cableOd(settings: ProjectSettings | undefined, type: string): number {
-	const t = settings?.cableTypes.find((c) => c.id === type)
-	return t?.diameterMm ?? DEFAULT_OD[type.toLowerCase()] ?? (t?.media === 'fibre' ? 3 : 7)
+	const t = cableTypeOf(settings, type)
+	return t?.diameterMm ?? DEFAULT_OD[type.toLowerCase()] ?? (cableMedia(settings, type) === 'fibre' ? 3 : 7)
 }
 
 /** The colors a fill picture draws cables in when their type has none set (Settings › Cable types). */
 const CABLE_COLORS = ['#2563eb', '#eab308', '#16a34a', '#db2777', '#7c3aed', '#0891b2']
 /** A cable type's color in a fill picture: its own, else the next of a palette by its place among `types`. */
 export function cableColor(settings: ProjectSettings | undefined, types: string[], type: string): string {
-	return settings?.cableTypes.find((c) => c.id === type)?.color || CABLE_COLORS[Math.max(0, types.indexOf(type)) % CABLE_COLORS.length]
+	return cableTypeOf(settings, type)?.color || CABLE_COLORS[Math.max(0, types.indexOf(type)) % CABLE_COLORS.length]
 }
 
 /** A run's wall when its inside size isn't set (the legacy Fill rate tool's default, Dave 2026-10-12). */

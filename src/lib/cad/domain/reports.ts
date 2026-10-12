@@ -6,6 +6,7 @@
 //  - bom:            quantities by item for a quote (no prices — Dave, 2026-10-02)
 import type { ProjectIndex } from './project'
 import type { Id, Outlet, Cord } from './types'
+import { cableMedia } from './cableTypes'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
@@ -180,7 +181,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	// cable: routed (or hand-set) lengths + waste %, in metres with a box estimate; links with no route counted apart
 	const cable = cableSettings(p)
 	const settings = p.get('settings')
-	const media = (type: string) => (settings?.type === 'settings' ? settings.cableTypes.find((t) => t.id === type)?.media : undefined) ?? (/fib|om\d|os\d|sm|mm/i.test(type) ? 'fibre' : 'copper')
+	const media = (type: string) => cableMedia(settings?.type === 'settings' ? settings : undefined, type) ?? 'copper'
 	// only what is to be bought: cables already installed and cords already in place (or only moved / taken out) aren't
 	for (const m of cableMetres(p, routes ?? routeLinks(p, cable), cable, p.links.filter((l) => l.status !== 'installed'))) {
 		const item = `${m.type} (incl. ${cable.wastePct}% waste)`

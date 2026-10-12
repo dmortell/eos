@@ -6,6 +6,7 @@
 	import CadDialog from './CadDialog.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Cord } from '../domain/types'
+	import { cableTypeLabel } from '../domain/cableTypes'
 	import { cordBom } from '../domain/reports'
 	import { CORD_STATUSES } from '../domain/cords'
 	import { naturalCompare } from '../domain/labels'
@@ -27,7 +28,7 @@
 	const rooms = $derived([...new Set(project.index.cords.map((c) => cordRoom(project.index, c)).filter((r): r is string => !!r))]
 		.map((id) => ({ id, name: project.index.nameOf(id) })).sort((a, b) => naturalCompare(a.name, b.name)))
 	const roomOf = $derived(where.startsWith('room:') ? where.slice(5) : undefined)
-	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
+	const typeLabel = (id: string) => cableTypeLabel(project.settings, id)
 	const picked = $derived(where === 'sel' ? selected : where === 'shown' ? listed : roomOf ? project.index.cords.filter((c) => cordRoom(project.index, c) === roomOf) : project.index.cords)
 	const cords = $derived(picked.filter((c) => !changesOnly || c.status !== 'installed'))
 	const what = $derived(where === 'sel' ? 'selected' : where === 'shown' ? 'shown' : roomOf ? project.index.nameOf(roomOf) : 'all rooms')

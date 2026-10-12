@@ -2,10 +2,11 @@
      (auto unless locked), cord ID, notes, and the install workflow — add → installed; installed → change / remove
      (marked, not deleted); revert a change or removal. -->
 <script lang="ts">
-	import { sortedCableTypes } from '../domain/cableTypes'
+	import { sortedCableTypes, cableTypeLabel } from '../domain/cableTypes'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Cord } from '../domain/types'
+	import { put as kitPut } from './propsKit'
 	import { cordLength, installCord, revertCord, removeCord, setStatus, traceCircuit, STANDARD_LENGTHS, CORD_STATUSES, replacedText } from '../domain/cords'
 	import Trace from './Trace.svelte'
 	import ColorPick from './ColorPick.svelte'
@@ -15,13 +16,13 @@
 
 	let { project, ws, c }: { project: CadProject; ws: Workspace; c: Cord } = $props()
 
-	const put = (label: string, patch: Partial<Cord>) => project.store.transact(label, (tx) => tx.put({ ...c, ...patch }))
+	const put = (label: string, patch: Partial<Cord>) => kitPut(project.store, c, label, patch)
 	/** the whole cord (status rules drop `previous`, which a patch over `c` would keep) */
 	const set = (label: string, next: Cord) => project.store.transact(label, (tx) => tx.put(next))
 	const end = (r: Cord['a']) => project.index.portPlace(r)   // includes the face
 	const label = (r: Cord['a']) => project.index.portLabel(r)
 	const auto = $derived(cordLength(project.index, c.a, c.b))
-	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
+	const typeLabel = (id: string) => cableTypeLabel(project.settings, id)
 	const steps = $derived(traceCircuit(project.index, { on: c.a.on, port: c.a.port }))
 
 	function install() {

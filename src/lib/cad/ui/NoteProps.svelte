@@ -5,13 +5,14 @@
 	import type { Shape } from '../domain/shapes'
 	import { dimLine } from '../views/plan'
 	import ColorPick from './ColorPick.svelte'
+	import { put as kitPut, num } from './propsKit'
 	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
-	const put = (label: string, patch: Partial<Shape>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch } as Shape))
+	const put = (label: string, patch: Partial<Shape>) => kitPut(project.store, s, label, patch)
 	const g = $derived(s.geom)
 	const setGeom = (label: string, patch: Record<string, unknown>) => put(label, { geom: { ...s.geom, ...patch } as Shape['geom'] })
 	function setStyle(label: string, patch: { stroke?: string; fill?: string }) {
@@ -19,7 +20,6 @@
 		for (const k of Object.keys(st) as (keyof typeof st)[]) if (st[k] === undefined) delete st[k]
 		put(label, { style: Object.keys(st).length ? st : undefined })
 	}
-	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
 	/** mm per point. */
 	const PT = 25.4 / 72
 	const TITLE = { text: 'Text', leader: 'Leader', cloud: 'Revision cloud', dimension: 'Dimension' } as Record<string, string>

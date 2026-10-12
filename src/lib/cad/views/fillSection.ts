@@ -6,6 +6,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Id, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from './display'
+import { cableTypeLabel } from '../domain/cableTypes'
 import { cableColor, cableCountText, cableOd, fillTone, insideOf, packCables, segKey, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
 
 /** The section's scales (1:N): the closest at which it fits a 80 × 60 mm box. */
@@ -51,7 +52,7 @@ export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id,
 		if (p.capped) out.push(note(y += 4, `first ${p.cables.length + p.dropped} drawn (${p.capped} more not shown)`))
 	} else out.push(note(y += 1, `${pctText(f.pct)} — the run has no section size`, TONE.over))
 	// the cables by type, each with its color
-	const label = (t: string) => settings?.cableTypes.find((c) => c.id === t)?.label ?? t
+	const label = (t: string) => cableTypeLabel(settings, t)
 	for (const [t, n] of Object.entries(f.cables)) {
 		y += 4
 		const of = (m: number | undefined, what: string) => (m ? (m === n ? what : `${m} ${what}`) : '')

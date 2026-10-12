@@ -7,6 +7,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import { untrack } from 'svelte'
 	import type { Cord } from '../domain/types'
+	import { cableTypeLabel } from '../domain/cableTypes'
 	import { patchList } from '../domain/reports'
 	import { importCordIds } from '../render/exports'
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
@@ -107,7 +108,7 @@
 	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (tableKit.RowPick, as every table)
 	const rp = new RowPick()
 	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal)
-	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
+	const typeLabel = (id: string) => cableTypeLabel(project.settings, id)
 
 	// ── inline editing (Dave's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes
 	// cell, or F2 / Enter on the selected row; Enter runs down a column (typing a run of cord IDs), Tab along the row ──

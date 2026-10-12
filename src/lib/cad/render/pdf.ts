@@ -55,7 +55,7 @@ const STYLES: Record<string, Style> = {
 	opening: { stroke: '#475569', width: 0.15 }, 'opening-swing': { stroke: '#475569', width: 0.13 }, 'rack-door': { stroke: '#475569', width: 0.13 }, 'opening-hole': { fill: '#ffffff', stroke: '#475569', width: 0.15 },
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
 	'riser-room': { stroke: '#2563eb', fill: '#eff6ff', width: 0.2 }, 'riser-eps': { stroke: '#0f766e', fill: '#f0fdfa', width: 0.2, dash: [1.2, 0.8] }, 'riser-shaft': { stroke: '#b45309', fill: '#fef3c7', width: 0.2 }, 'rv-label': { text: '#44403c' },
-	backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
+	'riser-break': { stroke: '#94a3b8' }, backbone: { stroke: '#7c3aed', width: 0.35 }, 'backbone-none': { stroke: '#dc2626', width: 0.35, dash: [1.2, 1] }, 'backbone-label': { text: '#5b21b6' },
 	note: { text: '#0f172a' }, 'note-bg': { stroke: 'none', fill: '#ffffff' }, 'shape-fill': { stroke: 'none' }, dim: { stroke: '#0f172a', width: 0.18 }, 'dim-tick': { width: 0.3 }, 'dim-text': { text: '#0f172a' }, leader: { stroke: '#0f172a', width: 0.2 }, 'leader-head': { fill: '#0f172a' }, ink: { fill: '#0f172a' }, 'image-frame': { skip: true }, 'line-tick': { width: 0.3 }, cloud: { stroke: '#dc2626', width: 0.3 },
 }
 

@@ -3,11 +3,12 @@
      Cabling › Cord label batches…. -->
 <script lang="ts">
 	import CadDialog from './CadDialog.svelte'
+	import { cableTypeLabel } from '../domain/cableTypes'
 	import type { CadProject } from '../app/project.svelte'
 	import CordBatches from './CordBatches.svelte'
 
 	let { project, onclose }: { project: CadProject; onclose: () => void } = $props()
-	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
+	const typeLabel = (id: string) => cableTypeLabel(project.settings, id)
 </script>
 
 <CadDialog title="Cord labels · batches bought" label="Cord labels" width="58rem" top="5vh" {onclose}>

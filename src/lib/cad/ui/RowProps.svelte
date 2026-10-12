@@ -4,13 +4,14 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { RackRow } from '../domain/types'
+	import { put as kitPut } from './propsKit'
 	import InlineName from './InlineName.svelte'
 
 	let { project, ws, rowId }: { project: CadProject; ws: Workspace; rowId: string } = $props()
 
 	const row = $derived(project.index.get<RackRow>(rowId))
 	const count = $derived(project.index.racks.filter((r) => r.rowId === rowId).length)
-	const put = (label: string, patch: Partial<RackRow>) => { const r = row; if (r?.type === 'rackRow') project.store.transact(label, (tx) => tx.put({ ...r, ...patch })) }
+	const put = (label: string, patch: Partial<RackRow>) => { const r = row; if (r?.type === 'rackRow') kitPut(project.store, r, label, patch) }
 </script>
 
 {#if row?.type === 'rackRow'}

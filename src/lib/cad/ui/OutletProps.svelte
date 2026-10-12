@@ -19,7 +19,7 @@
 	import NameInput from './NameInput.svelte'
 	import { outletZ } from '../domain/routing'
 	import LayerPick from './LayerPick.svelte'
-	import { shared, MIXED, num } from './propsKit'
+	import { shared, MIXED, num, put as kitPut } from './propsKit'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
 
@@ -28,7 +28,7 @@
 	const outletBlocks = $derived([...project.blocks.values()].filter((b) => (b.category === 'outlet' || !b.builtin) && !b.retired))
 	const MOUNTS: Outlet['mount'][] = ['floor', 'wall', 'box', 'desk', 'ceiling']
 
-	const put = (o: Outlet, label: string, patch: Partial<Outlet>) => project.store.transact(label, (tx) => tx.put({ ...o, ...patch }))
+	const put = (o: Outlet, label: string, patch: Partial<Outlet>) => kitPut(project.store, o, label, patch)
 	function setPort(o: Outlet, i: number, patch: Partial<Outlet['ports'][number]>) {
 		put(o, `Port ${o.ports[i].label}`, { ports: o.ports.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
 	}

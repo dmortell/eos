@@ -3,6 +3,7 @@
 // many cores it has (`cores` in Settings › Cable types; absent = 1). The cores share the cable's type, route, length
 // and status; fill, the BOM, the cable schedule, the cable list and the riser view count the cable ONCE. Pure.
 import type { Id, Link, ProjectSettings } from './types'
+import { cableTypeOf } from './cableTypes'
 import { newId } from './ids'
 
 /** The cable a link belongs to: its multi-core cable, else the link itself (a single-core cable). */
@@ -10,7 +11,7 @@ export const cableKey = (l: Pick<Link, 'id' | 'cable'>): Id => l.cable ?? l.id
 
 /** A cable type's core count (1 = an ordinary cable). */
 export function coresOf(settings: Pick<ProjectSettings, 'cableTypes'> | undefined, type: string | undefined): number {
-	const n = type ? settings?.cableTypes.find((t) => t.id === type)?.cores : undefined
+	const n = type ? cableTypeOf(settings, type)?.cores : undefined
 	return n && n > 1 ? Math.floor(n) : 1
 }
 

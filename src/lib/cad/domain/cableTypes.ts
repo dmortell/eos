@@ -37,3 +37,21 @@ export function newCableTypeId(label: string, taken: string[]): string {
 /** The project's cable types by label, A → Z (Dave 2026-10-05: in the Settings dialog and every dropdown). */
 export const sortedCableTypes = (st: Pick<ProjectSettings, 'cableTypes'> | undefined): CableType[] =>
 	[...(st?.cableTypes ?? [])].sort((a, b) => naturalCompare(a.label, b.label))
+
+type Types = Pick<ProjectSettings, 'cableTypes'> | undefined
+/** The cable type an id (or, for a type written by name in an import / a link, its label) refers to. THE one lookup:
+ *  labels, diameters, colors, core counts and media all go through it. */
+export function cableTypeOf(st: Types, idOrLabel: string | undefined): CableType | undefined {
+	if (!idOrLabel) return undefined
+	const list = st?.cableTypes ?? []
+	return list.find((t) => t.id === idOrLabel) ?? list.find((t) => t.label === idOrLabel)
+}
+/** A type's label, the id itself when it isn't in the list. */
+export const cableTypeLabel = (st: Types, id: string): string => cableTypeOf(st, id)?.label ?? id
+/** Fibre or copper (or 'other'): the type's own `media`, else guessed from its name (OM4, OS2, SMF, Cat6a …); undefined
+ *  when neither says. */
+export function cableMedia(st: Types, type: string | undefined): CableType['media'] | undefined {
+	if (!type) return undefined
+	return cableTypeOf(st, type)?.media
+		?? (/om\d|os\d|fib|smf|mmf|core|\b(sm|mm)\b/i.test(type) ? 'fibre' : /cat|utp|stp|copper/i.test(type) ? 'copper' : undefined)
+}

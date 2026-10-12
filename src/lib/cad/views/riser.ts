@@ -13,6 +13,7 @@
 // tier), each group's own label and color (settings.riser.groups; default fibre amber, copper blue) and each floor's
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
 import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
+import { cableMedia } from '../domain/cableTypes'
 import { heightsOf } from '../domain/floors'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
@@ -47,8 +48,7 @@ export const FIBRE_COLOUR = '#d97706', COPPER_COLOUR = '#2563eb'
 /** A cable type's default riser color: fibre amber, copper blue (its media in settings, else guessed from its name). */
 export function mediaColour(ix: ProjectIndex, type: string | undefined): string | undefined {
 	if (!type) return undefined
-	const media = settingsOf(ix)?.cableTypes?.find((t) => t.id === type || t.label === type)?.media
-		?? (/om\d|os\d|fib|smf|mmf|core/i.test(type) ? 'fibre' : /cat|utp|stp|copper/i.test(type) ? 'copper' : undefined)
+	const media = cableMedia(settingsOf(ix), type)
 	return media === 'fibre' ? FIBRE_COLOUR : media === 'copper' ? COPPER_COLOUR : undefined
 }
 
