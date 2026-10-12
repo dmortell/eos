@@ -132,7 +132,9 @@ function replaceMatchingGroup(label: string, oldText: string, newText: string, g
 }
 
 /** Natural sort ("A.2" before "A.10") — for grids and for "renumber in current order". */
-export const naturalCompare = (a: string, b: string): number => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+// one collator for every call: `localeCompare` with options builds a new one each time (~25x slower in a sort)
+const naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+export const naturalCompare = (a: string, b: string): number => naturalCollator.compare(a, b)
 
 /** Reading order for "renumber by position": rows top to bottom (within `rowTol` mm), then left to right. */
 export function readingOrder<T>(items: T[], at: (t: T) => { x: number; y: number } | undefined, rowTol = 500): T[] {
