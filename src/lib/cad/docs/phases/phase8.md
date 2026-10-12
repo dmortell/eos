@@ -2642,3 +2642,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   imported wall stays a box with a note; walls from an earlier import host them too. Odd viewport scales snap to the
   nearest standard scale by ratio (1:20.16 → 1:20, 1:35.74 → 1:50), centre kept; notes keep the sizes they were drawn
   at. A sheet whose viewport's floor doesn't match a level goes by its title ("3307 Sensaphone" → 33F 3307).
+- **Journey: legacy drawings imported (Dave 2026-10-12, review R1–R5):** File › Import legacy drawings… run on
+  Journey — Pages model Zone 3303's boxes and walls onto 33F 3303 (58 boxes, 3 walls, the door and hole as openings in
+  them, new layer Furniture; rack box R01 left out) and the Sheets-tool sheets 3303 Sensaphone (→ 33F 3303), 3307
+  Sensaphone (→ 33F 3307), 30F Sensaphone (→ 30F), Comms1 elevation and 3303 Comms 2 Elevation (sections Comms1 / Comms 2
+  on 33F 3303, at 1:20 and 1:50), 105 tied notes — one undo step. Checked: the Comms1 sheet shows its section with the
+  walls, furniture and red notes. Everything else in Journey's Pages / Sheets / Drawings / model3d data stays behind
+  (Dave: not needed).
