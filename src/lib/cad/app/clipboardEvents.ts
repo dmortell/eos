@@ -56,6 +56,16 @@ export function clipboardEvents({ project, ws, target, inRow, image, cursor }: C
 		if (pic && image) { e.preventDefault(); image(pic); return }
 		if (!clip) return
 		e.preventDefault()
+		pasteClipHere(clip)
+	}
+	/** Edit › Paste (no key, so no paste event): the clipboard's text read on request. False = no cad items in it. */
+	function pasteText(text: string): boolean {
+		const clip = parseClip(text)
+		if (!clip) return false
+		pasteClipHere(clip)
+		return true
+	}
+	function pasteClipHere(clip: NonNullable<ReturnType<typeof parseClip>>): void {
 		const to = target()
 		if (!to) { ws.say(inRow() ? 'Point at a rack, then paste: devices go into the rack under the mouse' : 'Paste into a plan, onto a sheet (notes), or into a rack (devices)'); return }
 		// as-is: same place, same labels (Dave); Ctrl+Shift+V: its middle at the cursor
@@ -72,5 +82,5 @@ export function clipboardEvents({ project, ws, target, inRow, image, cursor }: C
 		ws.select(r.select)
 		if (r.skipped) ws.say(`${items(r.skipped)} left out — ${elsewhere}`)
 	}
-	return { copy: (e: ClipboardEvent) => copy(e, false), cut: (e: ClipboardEvent) => copy(e, true), paste, key }
+	return { copy: (e: ClipboardEvent) => copy(e, false), cut: (e: ClipboardEvent) => copy(e, true), paste, pasteText, key }
 }

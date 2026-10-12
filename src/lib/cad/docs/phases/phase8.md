@@ -2782,3 +2782,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   editing inside a viewport, an amber "Editing in a viewport ✕" that leaves it (the hint no longer carries that
   prefix) (`ui/CadShell.svelte`). With the toast for "Drawn on …" (earlier today), the status line keeps prompts and
   messages only.
+- **Blocks drawn one way; elevation blocks only in their elevation (Dave 2026-10-12):** how a view draws a block — its
+  plan symbol or its front — is decided once (`domain/blocks.ts` `faceFor(viewKind)` / `blockFace`) and every path
+  draws through `shapePrims(…, face)`: the plan, an elevation / section (its insert branch now only projects the point
+  into the view, then `shapePrims(…, 'front')`), a note in a viewport (`notePrims`: the viewport's face), the Insert
+  ghost (the view's, or the viewport's under it on a sheet, at its scale) and the Blocks window (`blockPreview(b,
+  face)`). A block placed from the Blocks list in an elevation / section records that view (`insert.frame`) and shows
+  ONLY there: not on the plan (unless unticked from "show in elevations"), not in other elevations. Older elevation
+  inserts (no frame) still show in every elevation and on the plan. Tests in `editor/insertTool.test.ts`. Help: "What
+  a plan shows in elevations".
+- **R61 (part) Edit › Paste works:** it reads the clipboard on request and pastes cad items as Ctrl+V does (it only
+  said "press Ctrl+V") (`app/clipboardEvents.ts` `pasteText`, `ui/CadShell.svelte`).

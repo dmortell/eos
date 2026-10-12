@@ -364,7 +364,7 @@
 		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
-		paste: () => ws.say('Paste with Ctrl+V (the browser lets a page paste only from the keyboard)'),
+		paste: () => { navigator.clipboard.readText().then((t) => { if (!clipboard.pasteText(t)) ws.say('Nothing from cad on the clipboard — copy items first (Ctrl+C)') }, () => ws.say('The browser didn’t let the page read the clipboard — use Ctrl+V')) },
 		remove: deleteSelected, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
 		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
