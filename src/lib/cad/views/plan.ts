@@ -25,8 +25,10 @@ export interface PlanOpts {
 	underlay?: (u: Underlay) => { url: string; x: number; y: number; w: number; h: number; clip?: Bounds } | undefined
 	/** The block library (built-ins + global). Without it outlets draw as plain circles. */
 	blocks?: (id: Id) => Block | undefined
-	/** Floorplans in black and white (the project's B/W setting): on screen, in sheets and in PDFs. */
+	/** Floorplans in black and white (on screen: the user's B/W; a sheet: its own setting). */
 	gray?: boolean
+	/** Outlets in their usage's colour (true) or their layer's (false); absent = the project's old setting. */
+	byUsage?: boolean
 }
 
 /** Paper sizes (mm) of plan symbols. */
@@ -64,8 +66,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
 	out.push(...over)
 	// outlets in their usage's colour (backlog "Usage colours and outlet tips"): the symbol, not its label — unless the
-	// project draws them by layer (the plan strip's Usage colours, off)
-	const byUsage = (ix.get('settings') as ProjectSettings | undefined)?.outletColour !== 'layer'
+	// view draws them by layer (Usage colours off: the user's on screen, the sheet's on paper)
+	const byUsage = o.byUsage ?? (ix.get('settings') as ProjectSettings | undefined)?.outletColour !== 'layer'
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) {
 		const col = byUsage ? usageColour((id) => ix.get(id), ot.usage) : undefined
 		out.push(...outletPrims(ot, k, o.blocks).map((p) => (col && p.k !== 'text' && p.k !== 'image' ? { ...p, color: col } : p)))

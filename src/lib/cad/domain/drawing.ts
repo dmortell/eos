@@ -54,6 +54,12 @@ export interface Sheet {
 	discipline?: string
 	tags?: string[]
 	status: 'active' | 'archived'
+	/** How this sheet draws (Dave 2026-10-12: a per-sheet setting, not the project's; absent = the project's old
+	 *  setting, so sheets made before print as they did): floorplans black and white, outlets in their usage's
+	 *  colour or their layer's, cords in rack views along the cable channels or straight. */
+	gray?: boolean
+	outletColour?: 'usage' | 'layer'
+	cordRoute?: 'channels' | 'straight'
 }
 
 /** What a pane or a viewport shows: the plan, a named elevation, or a server room's racks (front / rear). The same

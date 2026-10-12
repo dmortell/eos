@@ -24,6 +24,8 @@
 	const issuedIn = $derived(issuesOfSheet([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue'), s.id))
 	const levels = $derived(project.levels)
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
+	/** How it draws: its own setting, else the project's old one (as it prints). */
+	const look = $derived({ gray: s.gray ?? !!project.settings?.grayFloorplans, byUsage: (s.outletColour ?? project.settings?.outletColour) !== 'layer', channels: (s.cordRoute ?? project.settings?.cordRoute) === 'channels' })
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
 	// change notes since the last issue: add one (dated today), edit or remove
@@ -162,6 +164,12 @@
 			</span>
 		</label>
 		<label class="row">Margin (mm) <input class="inp" type="number" min="0" value={s.paper.marginMm} onchange={(e) => putSheet('Paper margin', { paper: { ...s.paper, marginMm: Math.max(0, num(e.currentTarget.value)) } })} /></label>
+	</PropGroup>
+	<!-- how this sheet draws (screen, PDF, issues) — its own, not the plan strip's (that's each user's screen) -->
+	<PropGroup kind="sheet" title="Display">
+		<label class="row" title="Floorplans on this sheet in black and white, so colored markup stands out">B/W <span><input type="checkbox" checked={look.gray} onchange={(e) => putSheet(e.currentTarget.checked ? 'Sheet floorplans black and white' : 'Sheet floorplans in color', { gray: e.currentTarget.checked })} /> floorplans</span></label>
+		<label class="row" title="Outlets in their usage's color (on) or their layer's (off)">Usage colors <span><input type="checkbox" checked={look.byUsage} onchange={(e) => putSheet(e.currentTarget.checked ? 'Sheet outlets in usage colors' : 'Sheet outlets by layer color', { outletColour: e.currentTarget.checked ? 'usage' : 'layer' })} /> outlets</span></label>
+		<label class="row" title="Cords in rack views along the cable channels (off = straight lines)">Cord channels <span><input type="checkbox" checked={look.channels} onchange={(e) => putSheet(e.currentTarget.checked ? 'Sheet cords along channels' : 'Sheet cords straight', { cordRoute: e.currentTarget.checked ? 'channels' : 'straight' })} /> in rack views</span></label>
 	</PropGroup>
 	<PropGroup kind="sheet" title="Viewports">
 		<p class="text-zinc-500">{s.viewports.length} viewport{s.viewports.length === 1 ? '' : 's'} · click a frame on the paper to pick one, double-click inside to edit in it</p>

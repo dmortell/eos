@@ -42,9 +42,10 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
-	/** Floorplans in black and white (the project's B/W setting). */
+	/** Floorplans in black and white, outlets by usage colour, cords along the channels — the project's old settings
+	 *  here; each sheet's own (sheetLook) win. */
 	gray?: boolean
-	/** Cords in rack views along the cable channels (the project's setting). */
+	byUsage?: boolean
 	cords?: 'channels' | 'straight'
 	/** On screen only: the layers the user hides with the eye (Dave: hiding a layer didn't hide it in viewports); the
 	 *  PDF leaves this out — what prints is each viewport's ❄ freeze. */
@@ -97,7 +98,7 @@ function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
 	if (spec.kind === 'portmap') return portMapDisplayList(ix, spec.deviceIds)
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
-	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray })
+	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray, byUsage: o.byUsage })
 	return elevationDisplayList(ix, v.levelId, spaceOf(spec), { scale: vp.scale, blocks: o.blocks })
 }
 
@@ -150,7 +151,13 @@ function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] 
 	return shapePrims(s, vp.scale, blocks).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
-export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = {}): Prim[] {
+/** The options as this sheet draws: its own B/W, usage colours and cord route over the project's old settings. */
+export function sheetLook(sheet: Sheet, o: SheetOpts): SheetOpts {
+	return { ...o, gray: sheet.gray ?? o.gray, byUsage: sheet.outletColour ? sheet.outletColour === 'usage' : o.byUsage, cords: sheet.cordRoute ?? o.cords }
+}
+
+export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts = {}): Prim[] {
+	const o = sheetLook(sheet, o0)
 	const { w, h } = paperSize(sheet), m = sheet.paper.marginMm
 	const rect = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]
 	const out: Prim[] = [

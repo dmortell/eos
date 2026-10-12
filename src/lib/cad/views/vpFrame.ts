@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Id, Pt } from '../domain/types'
 import type { Sheet, Viewport, SectionCut } from '../domain/drawing'
 import type { Prim, Bounds } from './display'
-import { viewportContent, toPaper, fromPaper, type SheetOpts } from './sheet'
+import { viewportContent, sheetLook, toPaper, fromPaper, type SheetOpts } from './sheet'
 import { sectionSpace } from './section'
 import { spaceOf, type ViewSpace } from './space'
 
@@ -29,7 +29,7 @@ export function viewportFrame(ix: ProjectIndex, sheet: Sheet, vpId: Id, o: Sheet
 	if (spec.kind === 'section' && sec?.type !== 'section') return null
 	const space = sec?.type === 'section' ? sectionSpace(sec) : spaceOf(spec)
 	const r = vp.rect
-	return { vp, space, levelId: vp.view.levelId, prims: viewportContent(ix, vp, o), toPaper: toPaper(vp), fromPaper: fromPaper(vp), window: { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h } }
+	return { vp, space, levelId: vp.view.levelId, prims: viewportContent(ix, vp, sheetLook(sheet, o)), toPaper: toPaper(vp), fromPaper: fromPaper(vp), window: { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h } }
 }
 
 export const inWindow = (f: VpFrame, p: Pt) => p.x >= f.window.x0 && p.x <= f.window.x1 && p.y >= f.window.y0 && p.y <= f.window.y1

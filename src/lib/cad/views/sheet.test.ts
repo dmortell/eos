@@ -1,6 +1,6 @@
 // Sheets (Phase 4.1): paper at true size, viewports drawing their view at 1:N into a clipped window.
 import { describe, it, expect } from 'vitest'
-import { sheetDisplayList, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport } from './sheet'
+import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport } from './sheet'
 import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -101,5 +101,14 @@ describe('title block on a sheet (Pages model)', () => {
 		const vp = defaultViewport(ix(), sheet(), 'L33', 'V')
 		expect(vp.scale).toBe(100)
 		expect(Math.abs(vp.centre.x - 0)).toBeGreaterThan(100)              // not the origin: the demo outlets sit around x 1000–6000
+	})
+})
+
+describe('a sheet draws with its own look (Dave 2026-10-12: per sheet, not the project)', () => {
+	const base = { type: 'sheet', id: 'S', number: '1', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' } as Sheet
+	it('its own B/W, usage colors and cord route win; absent = the project setting it was made under', () => {
+		const project = { gray: true, byUsage: true, cords: 'channels' as const }
+		expect(sheetLook(base, project)).toMatchObject(project)
+		expect(sheetLook({ ...base, gray: false, outletColour: 'layer', cordRoute: 'straight' }, project)).toMatchObject({ gray: false, byUsage: false, cords: 'straight' })
 	})
 })

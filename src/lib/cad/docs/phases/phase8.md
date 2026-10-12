@@ -2544,3 +2544,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   drawing for 2.5 s, so the status line keeps the tool hint, the "Editing inside the viewport —" prefix and a tool's
   own message posted after it ("Joined to TR1 …") (`app/workspace.svelte.ts`, `ui/CadShell.svelte`). Live (Test
   Project): a line drawn → the toast, the hint stays; undone.
+- **R42 B/W, Usage colors and Cord channels: per user on screen, per sheet on paper (Dave 2026-10-12):** the plan /
+  rack-view strip's buttons are this user's screen only, kept in the browser (`ws.screen`, `app/workspace.svelte.ts`;
+  no undo step, nobody else's view changes); each sheet has its own in Properties › **Display** (`Sheet.gray /
+  outletColour / cordRoute`, `views/sheet.ts` `sheetLook` — used for the sheet on screen, edited viewports, PDFs and
+  issues). A sheet without its own keeps the project's old setting, so existing sheets print as before. Test in
+  `views/sheet.test.ts`. Live (Test Project): B/W on the plan strip toggles with no undo step. Help: the three entries.

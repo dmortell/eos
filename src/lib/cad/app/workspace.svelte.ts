@@ -61,6 +61,15 @@ function loadDrafting(): Drafting {
 	try { return { ...d, ...JSON.parse(localStorage.getItem(DRAFTING_KEY) ?? '{}') } } catch { return d }
 }
 
+/** How plans and rack views look ON SCREEN for this user (Dave 2026-10-12: a personal toggle, not a project setting —
+ *  sheets have their own): floorplans black and white, outlets in their usage's colour, cords along the channels. */
+export interface ScreenLook { gray: boolean; byUsage: boolean; cordChannels: boolean }
+const SCREEN_KEY = 'cad-screen'
+function loadScreen(): ScreenLook {
+	const d: ScreenLook = { gray: false, byUsage: true, cordChannels: false }
+	try { return { ...d, ...JSON.parse(localStorage.getItem(SCREEN_KEY) ?? '{}') } } catch { return d }
+}
+
 /** The tool-bar prompt: a number (rise to Z, riser level) or a typed point (text). `apply` gets the raw text. */
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
 
@@ -116,6 +125,12 @@ export class Workspace {
 	 *  snaps, GRID = the grid drawn. Kept per browser. Alt still skips the snaps for one action. */
 	drafting = $state<Drafting>(loadDrafting())
 	saveDrafting(): void { try { localStorage.setItem(DRAFTING_KEY, JSON.stringify(this.drafting)) } catch { /* storage blocked */ } }
+	/** The plan / rack view strip's B/W, Usage colors and Cord channels: this user's screen only, kept per browser. */
+	screen = $state<ScreenLook>(loadScreen())
+	toggleScreen(k: keyof ScreenLook): void {
+		this.screen = { ...this.screen, [k]: !this.screen[k] }
+		try { localStorage.setItem(SCREEN_KEY, JSON.stringify(this.screen)) } catch { /* storage blocked */ }
+	}
 	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
 	viewInfo = $state.raw<ViewInfo | null>(null)
 	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a
