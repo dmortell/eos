@@ -94,14 +94,20 @@ export class PdfCache {
 	#watch(fileId: string): void {
 		if (this.#watching.has(fileId)) return
 		this.#watching.set(fileId, onSnapshot(doc(this.db, 'files', fileId), (s) => {
-			const fd = s.data(), sig = JSON.stringify([fd?.url, fd?.pages, fd?.hiddenLayers])
+			const fd = s.data(), sig = JSON.stringify([fd?.url, fd?.pages, fd?.hiddenLayers, fd?.hideMarkups])
 			const was = this.#seen.get(fileId)
 			this.#seen.set(fileId, sig)
 			if (was === undefined || was === sig) return
-			for (const key of Object.keys(this.#ready)) if (key.startsWith(`${fileId}#`)) this.#jobs.set(key, this.#render(fileId, Number(key.split('#')[1]), key))
+			// redraw its pages — also the ones that failed (no url yet, not calibrated …): the change may have fixed them
+			for (const key of new Set([...Object.keys(this.#ready), ...this.#jobs.keys()])) if (key.startsWith(`${fileId}#`)) this.#jobs.set(key, this.#render(fileId, Number(key.split('#')[1]), key))
 		}))
 	}
-	destroy(): void { for (const off of this.#watching.values()) off(); this.#watching.clear() }
+	destroy(): void {
+		for (const off of this.#watching.values()) off()
+		this.#watching.clear()
+		for (const r of Object.values(this.#ready)) if (r.url.startsWith('blob:')) URL.revokeObjectURL(r.url)
+		for (const u of Object.values(this.#pics)) if (u.startsWith('blob:')) URL.revokeObjectURL(u)
+	}
 
 	async #render(fileId: string, page: number, key: string): Promise<void> {
 		this.#watch(fileId)
@@ -123,7 +129,9 @@ export class PdfCache {
 				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated }
 				if (calibrated) delete this.problems[key]
 				else this.problems[key] = 'the page is not calibrated — shown as if 1:100: Project › Floor manager › Scale (or Uploads)'
+				const old = this.#ready[key]?.url
 				this.#ready[key] = { url: r.objectUrl, ...pl }
+				if (old?.startsWith('blob:')) URL.revokeObjectURL(old)   // the re-rendered page replaces it (multi-MB)
 			} finally { pdf.destroy() }
 		} catch (e) {
 			this.problems[key] = (e as Error).message

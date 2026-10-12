@@ -165,8 +165,9 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 	const snap = (p: Pt, free: boolean) => ({ x: r10(p.x, free), y: r10(p.y, free) })
 	return {
 		handles: [
-			{ at: sec.a, shape: 'square', drag: (p, free) => ({ ...sec, a: snap(p, free) }) },
-			{ at: sec.b, shape: 'square', drag: (p, free) => ({ ...sec, b: snap(p, free) }) },
+			// an end can't land on the other (a 0-length line has no direction: the section would see nothing)
+			{ at: sec.a, shape: 'square', drag: (p, free) => { const a = snap(p, free); return Math.hypot(a.x - sec.b.x, a.y - sec.b.y) < 100 ? sec : { ...sec, a } } },
+			{ at: sec.b, shape: 'square', drag: (p, free) => { const b = snap(p, free); return Math.hypot(b.x - sec.a.x, b.y - sec.a.y) < 100 ? sec : { ...sec, b } } },
 			{ at: far(mid), shape: 'round', drag: (p, free) => {
 				const d = (p.x - mid.x) * look.x + (p.y - mid.y) * look.y
 				return { ...sec, depth: Math.max(100, free ? Math.round(d) : Math.round(d / 100) * 100) }

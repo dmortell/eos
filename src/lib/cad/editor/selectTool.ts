@@ -487,7 +487,8 @@ export class SelectTool implements Tool {
 			const d0 = { x: e.p.x - this.#start.x, y: e.p.y - this.#start.y }, d = e.shift ? axisLock(d0) : d0   // Shift: H / V
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			const s = c.space.deltaToWorld(snapPt(d, e.alt, c.space.spec.kind === 'sheet' ? 0.5 : c.grid ?? 10))
-			const moved = new Set(this.#ids), clip = e.ctrl ? this.#clip : null
+			// what really moves (a locked / fixed item picked with Ctrl, then Ctrl let go, stays — and so do runs on it)
+			const moved = new Set(this.#ids.filter((id) => { const en = c.store.get(id); return !!en && (c.rowHit || canMove(en)) })), clip = e.ctrl ? this.#clip : null
 			this.#gesture ??= c.store.begin(clip ? 'Copy' : this.#ids.length === 1 ? 'Move' : `Move ${this.#ids.length} items`)
 			this.#copied = []
 			this.#gesture.update((tx) => {

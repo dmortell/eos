@@ -272,11 +272,12 @@
 	/** An arrow key: the selection moves 50 mm (`big`: 500 mm; Dave: 1 mm was too small) in this view; on a sheet's
 	 *  paper 1 / 10 mm; a rack row moves devices 1 U. */
 	export function nudge(dx: number, dy: number, big: boolean): void {
-		const step = spec.kind === 'row' ? 1 : spec.kind === 'sheet' ? (big ? 10 : 1) : big ? 500 : 50
+		// editing inside a viewport: the model view's own step and directions (an elevation's up is z), not the paper's
+		const step = toolKind === 'row' ? 1 : toolKind === 'sheet' ? (big ? 10 : 1) : big ? 500 : 50
 		// a viewport picked on the sheet: its window moves (1 / 10 paper mm)
 		const why = spec.kind === 'sheet' && ws.viewportId && !ws.vpEdit && ws.selection.length === 1 && ws.selection[0] === spec.sheetId
 			? nudger.pressViewport(project.store, spec.sheetId, ws.viewportId, { x: dx * step, y: dy * step })
-			: nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, space)
+			: nudger.press(project.store, ws.selection, { x: dx * step, y: dy * step }, vpe ? vpe.space : space)
 		if (why) ws.say(why)
 	}
 	export function endNudge(): void { nudger.end() }
@@ -478,7 +479,7 @@
 	export function typed(text: string): string | null {
 		const tool = ws.tool
 		if (!tool.typed) return 'This tool takes no typed points'
-		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor, spec.kind === 'elevation')
+		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor, toolKind === 'elevation' || toolKind === 'section')   // y = height, as the readout shows
 		if (r.kind === 'error') return r.message
 		tool.typed(r.p, ctx()); tick++
 		return null

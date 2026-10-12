@@ -58,7 +58,7 @@ export class PathTool implements Tool {
 	key(e: KeyboardEvent, c: ToolCtx): boolean {
 		if (e.key === 'Enter') { this.finish(c); return true }
 		if (e.key.toLowerCase() === 'c' && this.pts.length >= 3) { this.finish(c, true); return true }   // close it
-		if (e.key === 'Backspace') { this.pts.pop(); return true }
+		if (e.key === 'Backspace' && this.pts.length) { this.pts.pop(); return true }   // none: it deletes the selection
 		if (e.key.toLowerCase() === 'r' && this.pts.length) {
 			c.ask('Rise / drop to Z (mm above FFL)', c.opts.z, (z) => this.riseTo(z, c))
 			return true

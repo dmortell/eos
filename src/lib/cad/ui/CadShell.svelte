@@ -165,14 +165,24 @@
 		const lv = ws.levelId ?? undefined
 		panes.forEach((v, i) => { const view = { levelId: lv, spec: $state.snapshot(v) as ViewSpec }; untrack(() => tabs.sync(i, view)) })
 	})
-	// an edit made while a preview tab is on show keeps that tab
-	$effect(() => {
-		const r = project.rev
-		untrack(() => { const t = tabs.of(activePane); if (t?.preview && t.rev !== undefined && r > t.rev) tabs.keep(t.id) })
-	})
+	// something someone else deleted leaves the selection (and its open text box): no "3 selected" of things gone
+	$effect(() => project.store.subscribe((c) => {
+		if (c.source !== 'remote') return
+		const gone = new Set(c.ops.filter((o) => o.before && !o.after).map((o) => o.id))
+		if (!gone.size) return
+		untrack(() => {
+			if (ws.selection.some((id) => gone.has(id))) ws.select(ws.selection.filter((id) => !gone.has(id)))
+			if (ws.textEdit && gone.has(ws.textEdit)) ws.textEdit = null
+		})
+	}))
+	// an edit made (here, by this user) while a preview tab is on show keeps that tab — not someone else's change
+	$effect(() => project.store.subscribe((c) => {
+		if (c.source !== 'local') return
+		untrack(() => { const t = tabs.of(activePane); if (t?.preview) tabs.keep(t.id) })
+	}))
 	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
-		if (!(c.source === 'local' || (c.source === 'gesture' && c.final)) || ['select', 'move', 'copy', 'match'].includes(ws.toolId)) return
+		if (c.source !== 'local' || ['select', 'move', 'copy', 'match'].includes(ws.toolId)) return
 		const msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), layersOf(project.index.layers))
 		if (msg) ws.say(msg)
 	}))

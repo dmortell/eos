@@ -51,9 +51,12 @@ export class RestoreNotices {
 		const n = this.notice, store = this.project.store
 		if (n && isLive(n)) this.#seen.add(n.id)
 		const other = !!n && !this.mine(n)
-		store.readOnly = other && n.state === 'running' && isLive(n) ? `${n.by.name || 'Someone'} is restoring ${n.parts} — editing is paused until it's done` : null
-		if (other && n.state === 'done' && !this.#cleared.has(n.id) && Date.now() - n.at < ABANDONED_MS) { this.#cleared.add(n.id); store.clearHistory() }
-		this.project.rev++
+		const ro = other && n.state === 'running' && isLive(n) ? `${n.by.name || 'Someone'} is restoring ${n.parts} — editing is paused until it's done` : null
+		let changed = ro !== store.readOnly
+		store.readOnly = ro
+		if (other && n.state === 'done' && !this.#cleared.has(n.id) && Date.now() - n.at < ABANDONED_MS) { this.#cleared.add(n.id); store.clearHistory(); changed = true }
+		// only a real change redraws (the 15 s tick bumping it every time rebuilt every view and kept preview tabs)
+		if (changed) this.project.rev++
 	}
 
 	/** This tab wrote it. */

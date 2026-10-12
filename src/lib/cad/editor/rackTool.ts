@@ -59,7 +59,7 @@ export class RackTool implements Tool {
 	/** The footprint of the rack about to be placed or drawn, under the cursor. */
 	preview(c: ToolCtx): Prim[] {
 		const t = this.target ? c.store.get(this.target) : undefined
-		const r = t?.type === 'rack' ? t : this.last ?? c.index.racks.filter((x) => x.levelId === c.levelId).at(-1)
+		const r = t?.type === 'rack' ? t : (this.last?.levelId === c.levelId ? this.last : null) ?? c.index.racks.filter((x) => x.levelId === c.levelId).at(-1)   // as `down` draws it
 		if (!r || !this.#hover) return []
 		const hw = (r.widthMm ?? 600) / 2, hd = (r.depthMm ?? 1000) / 2, h = this.#hover, rot = r.rot ?? 0
 		const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, y]) => { const q = rotateBy({ x, y }, rot); return { x: h.x + q.x, y: h.y + q.y } })

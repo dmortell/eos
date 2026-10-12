@@ -87,7 +87,8 @@ export class NoteTool implements Tool {
 			this.#textAt = p
 			return
 		}
-		this.#pts.push(p)
+		const last = this.#pts.at(-1)
+		if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 1e-6) this.#pts.push(p)   // a double-click's second press: not a 0-length edge
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
 	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }

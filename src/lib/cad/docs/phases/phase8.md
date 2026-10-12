@@ -2501,3 +2501,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - `ui/ViewCanvas.svelte`: `pointercancel` / lost pointer capture roll the press back (they committed it); `cancel()`
     also rolls back a viewport pan and the work-plane grip.
   - Tests in `store/store.test.ts`. Live (Test Project): Project › Settings opens focused, Esc closes it.
+- **R35–R39, R24a Editor fixes:**
+  - The Outlet tool numbers and fills in from the last outlet only while on its level (on 4F it made "3-011" with
+    3F's zone and server room); the Rack tool's ghost likewise (`editor/outletTool.ts`, `editor/rackTool.ts`).
+  - The restore notice's 15 s tick bumps `project.rev` only when read-only / history really changed (it rebuilt
+    every view every 15 s); a preview tab is kept by this user's own edits only, not by any change
+    (`app/restoreNotice.svelte.ts`, `ui/CadShell.svelte`).
+  - Arrow nudges inside an edited viewport use the model view's step and directions (an elevation's up = z); typed
+    points treat y as height in sections too (`ui/ViewCanvas.svelte`).
+  - Floorplans: hiding markups in Uploads redraws open cad views; a re-rendered page frees the old image; a page
+    that failed to render is tried again when its file changes (`app/pdf.svelte.ts`).
+  - Smaller: Backspace with no points drawn reaches Delete; a locked item picked with Ctrl, then Ctrl let go,
+    no longer drags the runs on it; a leader / cloud double-click adds no 0-length edge; a section's ends can't meet;
+    items someone else deletes leave the selection (and an open text box).
