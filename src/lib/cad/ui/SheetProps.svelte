@@ -42,6 +42,8 @@
 	const look = $derived({ gray: s.gray ?? !!project.settings?.grayFloorplans, byUsage: (s.outletColour ?? project.settings?.outletColour) !== 'layer', channels: (s.cordRoute ?? project.settings?.cordRoute) === 'channels' })
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
 	const num = (v: string) => Number(v)
+	/** A cleared number box keeps the value (it isn't 0): put it back and say nothing changed (Q40). */
+	const blank = (e: Event & { currentTarget: HTMLInputElement }, was: number) => { if (e.currentTarget.value.trim()) return false; e.currentTarget.value = String(was); return true }
 	// change notes since the last issue: add one (dated today), edit or remove
 	let newText = $state(''), newAsked = $state('')
 	$effect(() => { void s.id; newText = ''; newAsked = '' })   // another sheet picked: start empty
@@ -187,14 +189,14 @@
 		<Field label="Window" unit="mm">
 			<span class="win">
 				{#each ['x', 'y', 'w', 'h'] as const as k (k)}
-					<label>{k.toUpperCase()} <input class="inp" type="number" value={Math.round(vp.rect[k])} onchange={(e) => putVp('Viewport window', { rect: { ...vp.rect, [k]: Math.max(k === 'w' || k === 'h' ? 10 : -1e6, num(e.currentTarget.value)) } })} /></label>
+					<label>{k.toUpperCase()} <input class="inp" type="number" value={Math.round(vp.rect[k])} onchange={(e) => !blank(e, Math.round(vp.rect[k])) && putVp('Viewport window', { rect: { ...vp.rect, [k]: Math.max(k === 'w' || k === 'h' ? 10 : -1e6, num(e.currentTarget.value)) } })} /></label>
 				{/each}
 			</span>
 		</Field>
 		<Field label="Centre">
 			<span class="flex gap-1">
-				<input class="inp" type="number" title="X (view mm)" aria-label="Centre X (view mm)" value={Math.round(vp.centre.x)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, x: num(e.currentTarget.value) } })} />
-				<input class="inp" type="number" title="Y (view mm)" aria-label="Centre Y (view mm)" value={Math.round(vp.centre.y)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, y: num(e.currentTarget.value) } })} />
+				<input class="inp" type="number" title="X (view mm)" aria-label="Centre X (view mm)" value={Math.round(vp.centre.x)} onchange={(e) => !blank(e, Math.round(vp.centre.x)) && putVp('Viewport centre', { centre: { ...vp.centre, x: num(e.currentTarget.value) } })} />
+				<input class="inp" type="number" title="Y (view mm)" aria-label="Centre Y (view mm)" value={Math.round(vp.centre.y)} onchange={(e) => !blank(e, Math.round(vp.centre.y)) && putVp('Viewport centre', { centre: { ...vp.centre, y: num(e.currentTarget.value) } })} />
 				<button class="btn" title="Centre on what the view shows, at the largest standard scale (1:N) at which it fits the window" onclick={() => putVp('Fit viewport', fitViewport(project.index, vp))}>Fit</button>
 			</span>
 		</Field>

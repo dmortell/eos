@@ -112,6 +112,7 @@
 	}
 
 	function applyRange() {
+		if (lowest > top) [lowest, top] = [top, lowest]   // a backwards range is the same floors the right way round (Q40)
 		const b: Building = building ?? { type: 'building', id: newId(), name: project.name || 'Building', order: 0 }
 		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id }, contents, newId)
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
@@ -148,9 +149,12 @@
 		const n = Number(v), r = renumberFloor(levels, l.id, n)
 		if ('problem' in r) { ws.say(r.problem); return }
 		if (!r.put.length) return
-		lowest = Math.min(lowest, top, n); top = Math.max(lowest, top, n); skip = skip.filter((x) => x !== n)
+		// the APPLIED range widens to take the number; a range typed but not yet applied stays as typed (Q40)
+		const a = applied, wasPending = pending
+		const lo = Math.min(a.lo, a.hi, n), hi = Math.max(a.lo, a.hi, n), sk = a.skip.filter((x) => x !== n)
+		if (!wasPending) { lowest = lo; top = hi; skip = sk }
 		const b = building
-		commit(`${l.name}: floor ${l.number} → ${n}`, r.put, b ? (tx) => tx.put({ ...b, floors: { ...b.floors, lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building) : NOOP, [], skip)
+		commit(`${l.name}: floor ${l.number} → ${n}`, r.put, b ? (tx) => tx.put({ ...b, floors: { ...b.floors, lowest: lo, top: hi, skip: sk.length ? [...sk] : undefined, above: a.above, below: a.below, ground: a.ground } } as Building) : NOOP, [], sk)
 	}
 	const rename = (l: Level, v: string) => { const t = v.trim(); if (t && t !== l.name) project.store.transact(`Rename ${l.name} → ${t}`, (tx) => tx.put({ ...l, name: t })) }
 	let addingArea = $state<Id | null>(null)

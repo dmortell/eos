@@ -87,7 +87,7 @@
 		{#if regions.length}
 			{@const h = shared(regions, (s) => s.extent ?? 0)}
 			<label class="row" title="How tall the {regions.length} box{regions.length === 1 ? '' : 'es'} are (0 = flat)">Height (mm)
-				<input class="inp" type="number" min="0" step="10" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => { const v = Math.max(0, Number(e.currentTarget.value)); each(regions, 'Height', (s) => ({ ...s, extent: v || undefined })) }} /></label>
+				<input class="inp" type="number" min="0" step="10" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => { if (!e.currentTarget.value.trim()) { e.currentTarget.value = h === null ? '' : String(h); return } const v = Math.max(0, Number(e.currentTarget.value)); each(regions, 'Height', (s) => ({ ...s, extent: v || undefined })) }} /></label>
 		{/if}
 		{#if regions.some((s) => s.geom.kind === 'rect')}<RackDoors {project} boxes={regions} />{/if}
 	</PropGroup>

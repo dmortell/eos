@@ -143,8 +143,8 @@
 			{#if s.section && kind !== 'line'}
 				<!-- their own size (a reducer, a taller wall panel): blank = mixed; "as run" drops it -->
 				<span class="segsize">
-					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" aria-label={s.section.round ? 'Picked segments’ diameter (mm)' : 'Picked segments’ width (mm)'} value={segShared('w') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
-					{#if !s.section.round}<label>H <input type="number" aria-label="Picked segments’ height (mm)" value={segShared('h') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
+					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" aria-label={s.section.round ? 'Picked segments’ diameter (mm)' : 'Picked segments’ width (mm)'} value={segShared('w') ?? ''} placeholder={MIXED} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSegSection({ w: Number(v) }); else e.currentTarget.value = String(segShared('w') ?? '') }} /></label>
+					{#if !s.section.round}<label>H <input type="number" aria-label="Picked segments’ height (mm)" value={segShared('h') ?? ''} placeholder={MIXED} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSegSection({ h: Number(v) }); else e.currentTarget.value = String(segShared('h') ?? '') }} /></label>{/if}
 					{#if pickedSegs.some((g) => g.section)}<button class="btn" title="Back to the run's own size" onclick={() => setSegSection(null)}>as run</button>{/if}
 				</span>
 			{/if}
@@ -184,9 +184,9 @@
 	<PropGroup kind={kind} title="Size and height">
 		{#if s.section}
 			<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'} (mm)
-				<input class="inp" type="number" value={s.section.w} onchange={(e) => setSection({ w: Number(e.currentTarget.value) })} /></label>
+				<input class="inp" type="number" value={s.section.w} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSection({ w: Number(v) }); else e.currentTarget.value = String(s.section?.w ?? '') }} /></label>
 			{#if !s.section.round}
-				<label class="row">Height (mm) <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
+				<label class="row">Height (mm) <input class="inp" type="number" value={s.section.h} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSection({ h: Number(v) }); else e.currentTarget.value = String(s.section?.h ?? '') }} /></label>
 			{/if}
 			{#if s.role?.kind === 'containment'}
 				{@const ins = insideOf(s.section)}
@@ -251,7 +251,7 @@
 				<span class="text-zinc-400">{i + 1}</span>
 				<span class="font-mono text-zinc-500">{Math.round(n.x)}</span>
 				<span class="font-mono text-zinc-500">{Math.round(n.y)}</span>
-				<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" aria-label="Node {i + 1} Z (mm above FFL)" onchange={(e) => setZ(n.id, Number(e.currentTarget.value))} />
+				<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" aria-label="Node {i + 1} Z (mm above FFL)" onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number.isFinite(Number(v))) setZ(n.id, Number(v)); else e.currentTarget.value = String(n.z) }} />
 				<button class="rounded border text-zinc-500 hover:bg-zinc-100" title="Add a drop / rise here" aria-label="Add a drop / rise at node {i + 1}" onclick={() => drop(n)}>↕</button>
 				<button class="rounded border text-zinc-500 hover:bg-red-50 hover:text-red-700" title="Delete this point (a point in the middle of a run is healed)" aria-label="Delete node {i + 1}" onclick={() => removePoint(n.id)}>✕</button>
 			</div>

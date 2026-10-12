@@ -7,6 +7,7 @@
 	let { kind, title, id, children }: { kind: string; title: string; id?: string; children: Snippet } = $props()
 	const key = () => `cad:pg:${kind}:${id ?? title}`
 	let open = $state(read())
+	$effect(() => { open = read() })   // another kind / group: its own remembered state (Q40)
 	function read(): boolean { try { return localStorage.getItem(key()) !== '0' } catch { return true } }
 	function toggle() { open = !open; try { localStorage.setItem(key(), open ? '1' : '0') } catch { /* storage blocked */ } }
 </script>

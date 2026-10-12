@@ -129,6 +129,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 		canvas?.endNudge()
 		if (project.store.busy) { e.preventDefault(); if (e.key === 'Escape') canvas?.cancel(); return }
 	}
+	if (project.store.busy && ARROWS[e.key]) { e.preventDefault(); return }   // a nudge mid-drag would fight the drag (Q40)
 	if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
 	if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); c.typePoint(e.key); return }
 	const k = e.key.toLowerCase()
