@@ -45,7 +45,7 @@ describe('dimensions', () => {
 })
 
 describe('notes on plans and elevations', () => {
-	it('a text on a plan belongs to the level; its colour and background box show', () => {
+	it('a text on a plan belongs to the level; its color and background box show', () => {
 		const h = harness(PLAN, 'RISER HERE'), t = new NoteTool('text')
 		t.down(at(500, 500), h.ctx()); t.up(at(500, 500), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape

@@ -1,6 +1,6 @@
-<!-- A backbone cable picked (in the riser view, where a group of them is one line): its GROUP's label and colour in the
+<!-- A backbone cable picked (in the riser view, where a group of them is one line): its GROUP's label and color in the
      riser view — the project's (settings.riser.groups by views/riser.ts backboneKey), so every riser viewport shows the
-     same. Blank label = "24 × cat6a · 12m"; By layer colour = by its cable type (fibre amber, copper blue). -->
+     same. Blank label = "24 × cat6a · 12m"; By layer color = by its cable type (fibre amber, copper blue). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Link } from '../domain/types'

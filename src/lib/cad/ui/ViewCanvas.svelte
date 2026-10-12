@@ -132,7 +132,7 @@
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
 	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' && (ws.selection.length || ws.portSel) ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel) : [])   // routes read only when there's something to show
-	// the Routes toggle: every cable's route, coloured by server room (backlog "Show all routes")
+	// the Routes toggle: every cable's route, colored by server room (backlog "Show all routes")
 	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId) : null)
 	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
 	/** The work plane's grip and its value (views/overlays.ts): drag it (Select tool) to set the elevation's work depth /
@@ -583,7 +583,7 @@
 			<Prims prims={vpHighlight} selected={new Set()} />
 			{#if vpe && sheet}
 				{@const ps = paperSize(sheet)}{@const r = vpe.window}
-				<!-- editing inside a viewport: the paper dims round it, its frame in the selection colour -->
+				<!-- editing inside a viewport: the paper dims round it, its frame in the selection color -->
 				<path class="vp-dim" fill-rule="evenodd" d="M0 0H{ps.w}V{ps.h}H0Z M{r.x0} {r.y0}H{r.x1}V{r.y1}H{r.x0}Z" />
 				<rect class="vp-edit" x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} vector-effect="non-scaling-stroke" />
 				<Prims prims={vpSelected} selected={selSet} />

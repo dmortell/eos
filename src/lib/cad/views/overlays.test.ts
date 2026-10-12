@@ -45,7 +45,7 @@ describe('the ports of outlets picked in the list', () => {
 })
 
 describe('all routes (the plan’s Routes toggle)', () => {
-	it('every routed cable’s run segments, coloured by its server room, each segment once per room', () => {
+	it('every routed cable’s run segments, colored by its server room, each segment once per room', () => {
 		const ix = new ProjectIndex(demoProject())
 		// two cables (to the same room) along the run T1's first segment
 		const t1 = ix.get('T1') as Extract<Entity, { type: 'shape' }>, seg = t1.geom.kind === 'path' ? t1.geom.segs[0].id : ''

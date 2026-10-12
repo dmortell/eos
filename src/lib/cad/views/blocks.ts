@@ -13,7 +13,7 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 	const out: Prim[] = []
 	for (const sh of b.shapes) {
 		const fill = sh.style?.fill === 'solid'
-		// a solid part of a symbol is filled with its line colour (`ink`); an outlet's fills as outlets do
+		// a solid part of a symbol is filled with its line color (`ink`); an outlet's fills as outlets do
 		const fcls = fill && !cls.startsWith('outlet') ? `${cls} ink` : cls
 		const g = sh.geom
 		switch (g.kind) {

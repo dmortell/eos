@@ -22,7 +22,7 @@ describe('cord label batches', () => {
 		expect(u.wrong.map((c) => c.cordId)).toEqual(['2AR-0002'])
 		expect(batchUse([batch('X1', 'X3')], [])[0]).toMatchObject({ free: 3, next: 'X1' })
 	})
-	it('per type × length × colour: cords against labels bought, the shortfall and where the next order continues', () => {
+	it('per type × length × color: cords against labels bought, the shortfall and where the next order continues', () => {
 		const cords = [...Array.from({ length: 5 }, (_, i) => cord(`2AR-000${i + 1}`)), cord(undefined, { lengthM: 3 })]
 		const needs = labelNeeds([batch('2AR-0001', '2AR-0003', { delivered: 3 })], cords)
 		expect(needs.find((n) => n.lengthM === 2)).toMatchObject({ cords: 5, labels: 3, delivered: 3, short: 2, nextOrder: '2AR-0004' })

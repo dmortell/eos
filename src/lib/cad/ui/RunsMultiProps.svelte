@@ -1,5 +1,5 @@
 <!-- SEVERAL RUNS at once (backlog "Edit several runs at once"): what they are (trunk / conduit / tray / wall / line),
-     their size, where they run (each from its own level's heights), their tier and colour. A field shows the value
+     their size, where they run (each from its own level's heights), their tier and color. A field shows the value
      they share, or "mixed"; an edit sets that one thing on every run, as one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'

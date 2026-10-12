@@ -9,7 +9,7 @@ describe('usages', () => {
 		{ type: 'outlet', id: 'O1', usage: 'desk' }, { type: 'outlet', id: 'O2', usage: 'RS' }, { type: 'outlet', id: 'O3', usage: 'CAM' },
 		{ type: 'device', id: 'D1', panel: { usages: ['FR'], reservations: [{ id: 'r', usage: 'WC', ports: [1] }] } },
 	] as unknown as Entity[]
-	it('the codes outlets and panels use; the ones the list lacks are added with the old tools\' colours', () => {
+	it('the codes outlets and panels use; the ones the list lacks are added with the old tools\' colors', () => {
 		expect([...usageCodes(ents)].sort()).toEqual(['CAM', 'FR', 'RS', 'WC', 'desk'])
 		const list = withUsagesMet([{ id: 'desk', label: 'Desk', color: '#3b82f6' }], usageCodes(ents))
 		expect(list.map((u) => u.id)).toEqual(['desk', 'RS', 'CAM', 'FR', 'WC'])

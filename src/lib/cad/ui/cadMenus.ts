@@ -112,7 +112,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Select all', key: KEYS.selectAll, run: c.selectAll },
 			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
-			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (colour, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
+			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
 			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
 			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',

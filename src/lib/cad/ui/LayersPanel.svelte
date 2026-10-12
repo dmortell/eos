@@ -1,5 +1,5 @@
 <!-- The layers list (docs/plan/layers.md) in drawing order: the first row (Floorplans) draws at the bottom. The eye and lock are the user's own (this browser, this
-     project — nobody else's view changes); the colour, name and order are the project's (undoable). With a viewport
+     project — nobody else's view changes); the color, name and order are the project's (undoable). With a viewport
      picked on a sheet, the snowflake freezes a layer in THAT viewport (stored: it prints); Shift = every viewport on the
      sheet. Click a name to make it the current layer (highlighted like the open level), where new lines go. -->
 <script lang="ts">

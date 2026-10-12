@@ -10,7 +10,7 @@
 // Positions are real where the data has them; the view is a schematic (cable lengths come from the plans' routes).
 // Riser view control (Dave 2026-10-12): the project's floor range (settings.riser from / to — one riser view, so
 // sheets show the same), an EPS box round each riser on every floor it passes, HIGH / LOW on a riser's label (its
-// tier), each group's own label and colour (settings.riser.groups; default fibre amber, copper blue) and each floor's
+// tier), each group's own label and color (settings.riser.groups; default fibre amber, copper blue) and each floor's
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
 import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
@@ -35,7 +35,7 @@ export function backboneKey(ix: ProjectIndex, l: Link): string | null {
 	return `${a < b ? a : b}|${a < b ? b : a}|${l.cableType ?? ''}`
 }
 export const FIBRE_COLOUR = '#d97706', COPPER_COLOUR = '#2563eb'
-/** A cable type's default riser colour: fibre amber, copper blue (its media in settings, else guessed from its name). */
+/** A cable type's default riser color: fibre amber, copper blue (its media in settings, else guessed from its name). */
 export function mediaColour(ix: ProjectIndex, type: string | undefined): string | undefined {
 	if (!type) return undefined
 	const media = settingsOf(ix)?.cableTypes?.find((t) => t.id === type || t.label === type)?.media

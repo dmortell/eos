@@ -623,7 +623,7 @@
 </div>
 
 <style>
-	/* Colour tokens for cad's panels, lists and dialogs: today's light colors, or the app theme's when one is set
+	/* Color tokens for cad's panels, lists and dialogs: today's light colors, or the app theme's when one is set
 	   (kestrel.css --t-*), so Kestrel Dark stays readable. The drawing canvas keeps its own (white, like paper). */
 	.shell {
 		--cad-panel: var(--t-surface, white);

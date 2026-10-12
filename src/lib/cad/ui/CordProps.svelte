@@ -1,4 +1,4 @@
-<!-- A patch cord (Phase 3.5): its ends (with the labels they carry), the circuit it is part of, type / colour / length
+<!-- A patch cord (Phase 3.5): its ends (with the labels they carry), the circuit it is part of, type / color / length
      (auto unless locked), cord ID, notes, and the install workflow — add → installed; installed → change / remove
      (marked, not deleted); revert a change or removal. -->
 <script lang="ts">
@@ -46,7 +46,7 @@
 		<span class="k">From</span><span>{end(c.a)}<br /><span class="font-mono text-zinc-500">{label(c.a) || '—'}</span></span>
 		<span class="k">To</span><span>{end(c.b)}<br /><span class="font-mono text-zinc-500">{label(c.b) || '—'}</span></span>
 	</div>
-	{#if c.status === 'replace'}<p class="text-zinc-500">Replaces the cord there now{replacedText(c, typeLabel) ? ` — ${replacedText(c, typeLabel)}` : ': set the new type, colour or length below'}</p>
+	{#if c.status === 'replace'}<p class="text-zinc-500">Replaces the cord there now{replacedText(c, typeLabel) ? ` — ${replacedText(c, typeLabel)}` : ': set the new type, color or length below'}</p>
 	{:else if c.previous}<p class="text-zinc-500">Was: {end(c.previous.a)} → {end(c.previous.b)} ({c.previous.status})</p>{/if}
 	<div class="acts">
 		{#if c.status !== 'installed'}<button title={c.status === 'remove' ? 'Taken out on site — the record goes' : 'Done on site'} onclick={install}>{c.status === 'remove' ? 'Removed on site' : 'Installed'}</button>{/if}

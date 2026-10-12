@@ -1,6 +1,6 @@
 // FRAME LABEL SHEETS in Excel (backlog G097 / G131 / T050) — the Frames / Elevations export, from cad's racks: a
 // worksheet per frame or one per room, each rack as RU rows (two Excel rows per U) × 24 port columns, every port its
-// label, coloured by the usage of the outlet it goes to; reserved ports in their usage's colour; other devices as one
+// label, colored by the usage of the outlet it goes to; reserved ports in their usage's color; other devices as one
 // merged block; racks side by side with their bottoms aligned; A3 landscape fitted to one page, footer = file name and
 // page. `frameRacks` is the pure layout (tested in frameSheets.test.ts); `frameWorkbook` writes it with ExcelJS.
 import type { Workbook, Worksheet, Cell, Border, Borders, Fill, PaperSize } from 'exceljs'
@@ -62,7 +62,7 @@ export function frameRacks(ix: ProjectIndex, spaceId: Id): FrameRoom {
 
 const RACK_COLS = COLS + 1, RACK_GAP = 1, ROWS_PER_U = 2
 const argb = (hex: string) => `FF${hex.replace('#', '').toUpperCase().padEnd(6, '0').slice(0, 6)}`
-/** A usage colour's cell fill (a light tint) and text (the colour, darkened a little). */
+/** A usage color's cell fill (a light tint) and text (the color, darkened a little). */
 function tones(hex: string | undefined): { bg: string; text: string } {
 	const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '')
 	if (!m) return { bg: 'FFDBEAFE', text: 'FF2563EB' }

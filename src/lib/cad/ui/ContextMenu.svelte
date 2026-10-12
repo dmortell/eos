@@ -16,7 +16,7 @@
 	// on the backdrop: the first one within a moment of opening is that same right-click, not a new one (UX review R1)
 	const opened = performance.now()
 	function backdropMenu(e: MouseEvent) { e.preventDefault(); if (performance.now() - opened > 400) onclose() }
-	/** Shown from cad's root (its theme colours, no filter): inside a floating window (its backdrop-filter)
+	/** Shown from cad's root (its theme colors, no filter): inside a floating window (its backdrop-filter)
 	 *  `position: fixed` would be relative to the window, not the screen. */
 	function toRoot(node: HTMLElement) { (node.parentElement?.closest('.shell') ?? document.body).appendChild(node); return { destroy: () => node.remove() } }
 </script>

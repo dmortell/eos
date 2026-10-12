@@ -168,7 +168,7 @@ export function setStatus(c: Cord, s: Cord['status']): Cord {
 	const { previous: _p, ...rest } = c
 	if (s === 'installed' || s === 'add') return { ...rest, status: s }
 	if (s === 'remove') return removeCord(c) ?? { ...rest, status: 'remove', previous: { a: c.a, b: c.b, status: c.status } }
-	// replace: the cord as it is now is what comes out (its type, colour, length) — change those next
+	// replace: the cord as it is now is what comes out (its type, color, length) — change those next
 	if (s === 'replace') return { ...c, status: s, previous: { ...(c.previous ?? { a: c.a, b: c.b, status: c.status }), cableType: c.cableType, colour: c.colour, lengthM: c.lengthM } }
 	return { ...c, status: s }
 }
@@ -220,7 +220,7 @@ export function cordAction(cs: Cord[], a: CordAction): { put: Cord[]; del: Id[] 
 	return { put, del }
 }
 
-/** A cable type on cords: its colour comes with it (as the legacy patch list did), else the cord keeps its own. */
+/** A cable type on cords: its color comes with it (as the legacy patch list did), else the cord keeps its own. */
 export function withCableType(c: Cord, type: { id: string; color?: string }): Cord {
 	return { ...c, cableType: type.id, ...(type.color ? { colour: type.color } : {}) }
 }

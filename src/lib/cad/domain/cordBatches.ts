@@ -1,5 +1,5 @@
-// CORD LABEL BATCHES (backlog "Cord label batches by type, length and colour", Dave 2026-10-11): the patch cords bought,
-// as batches of pre-printed labels per type × length × colour — "2AR-0001 to 2AR-0100" = 100 × 2 m CAT6A red. The labels
+// CORD LABEL BATCHES (backlog "Cord label batches by type, length and color", Dave 2026-10-11): the patch cords bought,
+// as batches of pre-printed labels per type × length × color — "2AR-0001 to 2AR-0100" = 100 × 2 m CAT6A red. The labels
 // are typed by hand (the client's format); a batch's range is its first and last label: the same text before a number
 // that counts up. From the cords' Cord IDs: which labels of each batch are used and which are free, the cords still
 // short of a label against the batches, and where the next order continues (the label after the last one bought).
@@ -27,7 +27,7 @@ export function inRange(r: LabelRange, label: string): number | null {
 	return s && s.prefix === r.prefix && s.n >= r.from && s.n <= r.to ? s.n : null
 }
 
-/** One cord type × length × colour (a batch's, a cord's). */
+/** One cord type × length × color (a batch's, a cord's). */
 export const cordKey = (x: { cableType: string; lengthM: number; colour: string }) => `${x.cableType}|${x.lengthM}|${x.colour.toLowerCase()}`
 
 export interface BatchUse {
@@ -35,7 +35,7 @@ export interface BatchUse {
 	range: LabelRange | null
 	/** labels in the range */
 	count: number
-	/** cords carrying one of its labels; those of another type, length or colour are `wrong` */
+	/** cords carrying one of its labels; those of another type, length or color are `wrong` */
 	used: Cord[]
 	wrong: Cord[]
 	free: number
@@ -75,7 +75,7 @@ export interface LabelNeed {
 	nextOrder?: string
 }
 
-/** Per type × length × colour: cords against labels bought, and where the next order continues. */
+/** Per type × length × color: cords against labels bought, and where the next order continues. */
 export function labelNeeds(batches: CordBatch[], cords: Cord[]): LabelNeed[] {
 	const by = new Map<string, LabelNeed & { top?: { r: LabelRange; n: number } }>()
 	const at = (x: { cableType: string; lengthM: number; colour: string }) => {

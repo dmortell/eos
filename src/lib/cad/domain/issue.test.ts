@@ -52,7 +52,7 @@ describe('issue', () => {
 		expect(fingerprint(f)).not.toBe(fingerprint(freeze([a[0], { ...a[1], text: 'R312' } as Prim])))
 		expect(parseUnderlayRef(underlayRef('L33 Plan.pdf', 2))).toEqual({ fileId: 'L33 Plan.pdf', page: 2 })
 	})
-	it('freeze keeps what a print needs: colour, lineweight and line type — and a style change shows in the fingerprint', () => {
+	it('freeze keeps what a print needs: color, lineweight and line type — and a style change shows in the fingerprint', () => {
 		const line: Prim = { k: 'line', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }], cls: 'drawing', color: '#c00', weight: 0.5, dash: 'dashed' }
 		const ring: Prim = { k: 'circle', c: { x: 0, y: 0 }, r: 2, cls: 'outlet', color: '#0a0', weight: 0.35, dash: 'dotted' }
 		const text: Prim = { k: 'text', at: { x: 0, y: 0 }, text: 'A', size: 2.5, cls: 'label', color: '#00c' }

@@ -56,7 +56,7 @@
 		{ label: 'Export panel labels (Excel)…', title: 'Every port label as a list, for the label printer', run: () => labels(m.space, m.name) },
 		{ label: 'Print panels with labels (PDF)…', title: 'The panels drawn with their labels, for the installer', run: () => panelPdf(m.space, m.name) },
 		'-',
-		{ label: 'Frame label sheets (Excel), a sheet per frame', title: 'RU rows × 24 ports, labels coloured by usage (A3)', run: () => frames(m.space, m.name, false) },
+		{ label: 'Frame label sheets (Excel), a sheet per frame', title: 'RU rows × 24 ports, labels colored by usage (A3)', run: () => frames(m.space, m.name, false) },
 		{ label: 'Frame label sheets (Excel), one sheet for the room', title: 'The room’s frames side by side, bottoms aligned (A3)', run: () => frames(m.space, m.name, true) },
 	]
 	/** The room's frames as label sheets in Excel (the Frames tool's grid layout): a sheet per frame or one for the room. */

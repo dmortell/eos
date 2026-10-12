@@ -38,7 +38,7 @@ export interface LegacySheetDoc {
 export interface Clip { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }
 
 export const PT = 25.4 / 72
-/** The Sheets tool drew an annotation with no colour in red. */
+/** The Sheets tool drew an annotation with no color in red. */
 const RED = '#dc2626'
 const DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']
 const r2 = (v: number) => Math.round(v * 100) / 100

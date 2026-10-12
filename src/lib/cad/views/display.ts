@@ -21,7 +21,7 @@ export type Prim = (
 ) & {
 	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
 	clip?: Bounds
-	/** Overrides the class colour: the item's own (a patch cord's colour), else its layer's (views/layers.ts). */
+	/** Overrides the class color: the item's own (a patch cord's color), else its layer's (views/layers.ts). */
 	color?: string
 	/** A shape's own lineweight (paper mm) and line type (backlog "Shape style"); absent = its class's. */
 	weight?: number

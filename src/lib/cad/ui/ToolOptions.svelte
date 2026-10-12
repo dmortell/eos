@@ -1,6 +1,6 @@
 <!-- The active tool's options (split out of CadShell): sizes and heights for runs and walls (with the level's named
      Locations for trunks / conduits, UX20), outlet / shape / dimension options, the opening's size and swing, the
-     block to insert, the device template, the cord's type and colour. Nothing for tools without options. -->
+     block to insert, the device template, the cord's type and color. Nothing for tools without options. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace, ToolId } from '../app/workspace.svelte'

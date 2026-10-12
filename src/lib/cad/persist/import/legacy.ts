@@ -43,7 +43,7 @@ export function importLegacy(src: LegacySource, makeId?: () => string): ImportRe
 }
 
 /** Every usage code the outlets and panels came with goes in the usage list (it starts with a fixed 5, so RS / FR /
- *  WC / LK / custom types showed as raw codes); renamed and recoloured later in Settings → Usages. */
+ *  WC / LK / custom types showed as raw codes); renamed and recolored later in Settings → Usages. */
 function addUsagesMet(c: ImportCtx): void {
 	const i = c.entities.findIndex((e) => e.type === 'settings')
 	if (i < 0) return

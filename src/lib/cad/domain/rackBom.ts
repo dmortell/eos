@@ -1,7 +1,7 @@
 // The rack BOM (Phase 3.6): racks, VCMs and their containment accessories by SKU — the Racks tool's Panduit
 // row-builder rules (racks/parts/bom.ts), on cad's records:
 //  - each rack / VCM: 1× its SKU (its catalogue product, else a description so it isn't missed);
-//  - with row containment (HAC / CAC / combined) and a catalogue product: top caps, the family + colour containment
+//  - with row containment (HAC / CAC / combined) and a catalogue product: top caps, the family + color containment
 //    kit (racks), blanking (PatchRunner VCMs);
 //  - each contained row: one end-panel kit per side, from the first VCM that names one.
 // Lines with the same SKU and role add up. The catalogue is passed in (domain code doesn't load it).
@@ -13,7 +13,7 @@ import { racksInOrder } from './devices'
 export type RackBomGroup = 'Rack' | 'Rack accessory' | 'VCM' | 'VCM accessory' | 'Row accessory' | 'Desk / shelf'
 export interface RackBomLine { sku: string; group: RackBomGroup; description: string; qty: number; note?: string; url?: string }
 
-/** The family + colour containment kit of a rack product (AR4P / R4P; 96-in R4P racks have their own). */
+/** The family + color containment kit of a rack product (AR4P / R4P; 96-in R4P racks have their own). */
 export function containmentKitSku(p: CatalogProduct | undefined, colour: string | undefined): string | null {
 	if (!p) return null
 	const white = (colour ?? p.color ?? 'Black').toLowerCase() === 'white'

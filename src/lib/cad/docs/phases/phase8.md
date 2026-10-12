@@ -2990,3 +2990,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   and its Layout / Add rows (`<label>`) and Show chips (a labelled group), RackDoors' second select, Layers' line type
   / lineweight, the status bar's grid step; the Color pickers in the cord bar and tool options are labelled groups.
   ("Riser colour" reads "Riser color".)
+- **R60:** "colour" → "color" in every comment, string and piece of markup text under `src/lib/cad` (63 files; done
+  with the TypeScript scanner so identifiers were never touched). Stored field names stay (`Cord.colour`,
+  `Sheet.outletColour`, `usageColour` …), as do a few local names.

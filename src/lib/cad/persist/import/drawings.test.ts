@@ -112,7 +112,7 @@ describe('Sheets annotations → notes tied to the viewport', () => {
 		expect(g.sizeMm).toBeCloseTo(25.4)
 		expect(g.at.y).toBeCloseTo(200 + 25.4 * 50)
 	})
-	it('a rect keeps its box and fill; no colour = the Sheets tool\'s red', () => {
+	it('a rect keeps its box and fill; no color = the Sheets tool\'s red', () => {
 		const { shapes } = annotationShapes({ id: 'r', kind: 'rect', x: 4192, y: -2179, w: 200, h: 437, fill: '#16a34a' }, owner, 100, 'k', id)
 		expect(shapes[0].geom).toEqual({ kind: 'rect', centre: { x: 4292, y: -1960.5 }, size: { x: 200, y: 437 } })
 		expect(shapes[0].style).toEqual({ stroke: '#dc2626', fill: '#16a34a' })

@@ -70,7 +70,7 @@ describe('the rack row', () => {
 		expect(cls('SW1', 1)).toContain('port-patched')
 		expect(cls('P1', 3)).not.toContain('port-patched')   // linked, not patched
 	})
-	it('patch cords are drawn between their ports, in their own colour, on their face only', () => {
+	it('patch cords are drawn between their ports, in their own color, on their face only', () => {
 		const cords = (face: 'front' | 'rear') => view(face).filter((p) => p.k === 'line' && p.cls.startsWith('cord'))
 		expect(cords('front')).toHaveLength(2)
 		expect(cords('front')[0]).toMatchObject({ color: '#3b82f6' })

@@ -1,5 +1,5 @@
 <!-- A NOTE's properties (text, leader, revision cloud, dimension) — on a sheet, a plan or an elevation: its words and
-     size, its colour, a text's background (backlog "Notes on plans and diagrams"), a dimension's kind and text. -->
+     size, its color, a text's background (backlog "Notes on plans and diagrams"), a dimension's kind and text. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape } from '../domain/shapes'

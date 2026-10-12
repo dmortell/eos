@@ -98,7 +98,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
 	const rasters = new Map<string, Awaited<ReturnType<TextRaster>>>()
 	const rasterKey = (p: Extract<Prim, { k: 'text' }>, st: Style) => `${p.text}|${p.size}|${st.text ?? ''}|${st.bold ? 1 : 0}`
-	// the prim's own / layer colour over its class style, as on screen: outline, text, a filled circle or outlet symbol
+	// the prim's own / layer color over its class style, as on screen: outline, text, a filled circle or outlet symbol
 	const styleFor = (p: Exclude<Prim, { k: 'image' }>): Style => (mono ? monoStyle(colourStyle(p)) : colourStyle(p))
 	const colourStyle = (p: Exclude<Prim, { k: 'image' }>): Style => {
 		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type

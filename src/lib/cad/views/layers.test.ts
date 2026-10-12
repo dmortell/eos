@@ -1,4 +1,4 @@
-// Layers (docs/plan/layers.md), as behaviour: what each item is on, and what hiding / locking / colouring a layer does.
+// Layers (docs/plan/layers.md), as behaviour: what each item is on, and what hiding / locking / coloring a layer does.
 import { describe, it, expect } from 'vitest'
 import { applyLayers, layerCounts, layerMap } from './layers'
 import { planDisplayList } from './plan'
@@ -42,7 +42,7 @@ describe('what layer an item is on', () => {
 	})
 })
 
-describe('hiding, locking and colouring', () => {
+describe('hiding, locking and coloring', () => {
 	it('hiding Outlets (low) takes the outlets AND their labels away', () => {
 		const i = ix(), all = plan(i)
 		expect(all.some((p) => p.src === 'O1' && p.k === 'text')).toBe(true)
@@ -61,13 +61,13 @@ describe('hiding, locking and colouring', () => {
 		expect(pick.some((p) => p.src === 'O1')).toBe(false)
 		expect(pick.some((p) => p.src === 'T1')).toBe(true)
 	})
-	it('a layer’s colour recolours its items; an item’s own colour (a patch cord) wins', () => {
+	it('a layer’s color recolors its items; an item’s own color (a patch cord) wins', () => {
 		const i = ix([layer('sys:cords', 80, '#f00'), layer('sys:racks', 50, '#0a0')])
 		const { draw } = applyLayers(rackRowDisplayList(i, { spaceId: 'SR-A', face: 'front' }), i)
 		expect(draw.find((p) => p.src === 'C1')?.color).toBe('#3b82f6')
 		expect(draw.find((p) => p.src === 'R1')?.color).toBe('#0a0')
 	})
-	it('only a layer with a colour set recolours; a system layer’s default colour is not forced on its items', () => {
+	it('only a layer with a color set recolors; a system layer’s default color is not forced on its items', () => {
 		const i = ix(), { draw } = applyLayers(plan(i), i)
 		expect(SYSTEM_LAYERS.every((l) => l.look)).toBe(true)
 		expect(draw.find((p) => p.src === 'O1')?.color).toBeUndefined()
@@ -83,7 +83,7 @@ describe('hiding, locking and colouring', () => {
 		const j = ix([{ ...layer('sys:cont-low', 50), weightMm: 1 }]), band = applyLayers(plan(j), j).draw.find((p) => p.src === 'T1' && p.k === 'line' && p.w)
 		expect(band && 'weight' in band).toBe(false)
 	})
-	it('new project layers take the next unused palette colour', () => {
+	it('new project layers take the next unused palette color', () => {
 		expect(nextLayerColour([])).toBe(LAYER_PALETTE[0])
 		expect(nextLayerColour([layer('IDF1', 500, LAYER_PALETTE[0]), layer('sys:walls', 20, LAYER_PALETTE[1])])).toBe(LAYER_PALETTE[1])
 	})

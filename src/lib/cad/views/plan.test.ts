@@ -99,7 +99,7 @@ describe('runs as one outline (backlog "Trunk drawing style")', () => {
 		const bands = planDisplayList(new ProjectIndex([...demoProject(), a, b]), 'L33', { scale: 100 }).filter((p) => p.src === 'A' && p.k === 'line')
 		expect(bands.every((p) => p.k === 'line' && p.cls.includes('run-hit'))).toBe(true)
 	})
-	it('a high run: dashed (ceiling); a primary run: stronger; a run of another colour: its own outline', () => {
+	it('a high run: dashed (ceiling); a primary run: stronger; a run of another color: its own outline', () => {
 		const hi = run('H', [{ x: 0, y: 5000 }, { x: 2000, y: 5000 }], { role: { kind: 'containment', form: 'trunk', tier: 'high', primary: true } } as Partial<Shape>)
 		const red = run('R', [{ x: 2000, y: 0 }, { x: 4000, y: 0 }], { style: { stroke: '#ff0000' } } as Partial<Shape>)
 		const cls = bodies([hi, run('A', [{ x: 0, y: 0 }, { x: 2000, y: 0 }]), red]).map((p) => (p.k === 'line' ? `${p.cls}${p.color ? ` ${p.color}` : ''}` : ''))

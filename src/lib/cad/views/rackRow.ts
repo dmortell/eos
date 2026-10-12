@@ -204,7 +204,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
-				// a port cabled to an outlet: a light tint of the outlet's usage colour, inside its edge (backlog "Usage colours")
+				// a port cabled to an outlet: a light tint of the outlet's usage color, inside its edge (backlog "Usage colors")
 				const far = linked ? ix.farEnd(ref) : null, fo = far ? ix.get(far.on) : undefined
 				const tint = fo?.type === 'outlet' ? usageColour((id) => ix.get(id), fo.usage) : undefined
 				if (tint) out.push({ k: 'line', pts: [{ x: c.x + 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + c.h - 3 }, { x: c.x + 3, y: c.y + c.h - 3 }], closed: true, fill: true, cls: 'port-usage', color: tint })

@@ -44,7 +44,7 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
-	/** Floorplans in black and white, outlets by usage colour, cords along the channels — the project's old settings
+	/** Floorplans in black and white, outlets by usage color, cords along the channels — the project's old settings
 	 *  here; each sheet's own (sheetLook) win. */
 	gray?: boolean
 	byUsage?: boolean
@@ -90,7 +90,7 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 }
 
 /** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale), with
- *  the layers frozen in it left out and layer colours applied (the user's own eye doesn't reach paper). */
+ *  the layers frozen in it left out and layer colors applied (the user's own eye doesn't reach paper). */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
 	const hidden = new Set([...(vp.frozen ?? []), ...(o.hidden ?? [])])
 	return applyLayers(viewContent(ix, vp, o), ix, { hidden, sort: vp.view.spec.kind === 'plan' }).draw
@@ -156,7 +156,7 @@ function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] 
 	return shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
-/** The options as this sheet draws: its own B/W, usage colours and cord route over the project's old settings. */
+/** The options as this sheet draws: its own B/W, usage colors and cord route over the project's old settings. */
 export function sheetLook(sheet: Sheet, o: SheetOpts): SheetOpts {
 	return { ...o, gray: sheet.gray ?? o.gray, byUsage: sheet.outletColour ? sheet.outletColour === 'usage' : o.byUsage, cords: sheet.cordRoute ?? o.cords }
 }

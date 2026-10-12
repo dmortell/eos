@@ -1,4 +1,4 @@
-// The cord tool (P, Phase 3.5): in a rack view click port A, then port B — a patch cord with the sticky type / colour,
+// The cord tool (P, Phase 3.5): in a rack view click port A, then port B — a patch cord with the sticky type / color,
 // status `add` and an estimated length. The gate is checked at each click and the reason shown when a port refuses.
 // The tool stays on for the next cord. BULK: armed with selected ports (Port Properties → Patch to…), one click on
 // the first target port plans them all in order and shows the plan (A port → B port, what's skipped) to OK first —

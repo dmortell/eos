@@ -55,8 +55,8 @@
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
 	{@const col = p.color}
-	<!-- col = the item's / its layer's colour, kept when selected (the selection is drawn over it). Polygons take it as
-	     their outline, and as their fill only in outlet symbols (a coloured Racks layer mustn't fill rack bodies solid
+	<!-- col = the item's / its layer's color, kept when selected (the selection is drawn over it). Polygons take it as
+	     their outline, and as their fill only in outlet symbols (a colored Racks layer mustn't fill rack bodies solid
 	     over their devices). -->
 	{#if shown(p)}
 	{#if p.k === 'image'}
@@ -107,7 +107,7 @@
 	.centre { opacity: 1; stroke-width: 1.5; }
 	.run { stroke: #0ea5e9; opacity: 0.55; }
 	.run-high { stroke: #f97316; }
-	/* runs as one outline each (backlog "Trunk drawing style"): a faint fill in the run's colour, a thin edge; dashed in the
+	/* runs as one outline each (backlog "Trunk drawing style"): a faint fill in the run's color, a thin edge; dashed in the
 	   ceiling, stronger when primary. The runs' own bands are invisible over it — they pick and select a run */
 	.run-hit { opacity: 0; }
 	.run-body { fill: #0ea5e9; fill-opacity: 0.2; stroke: #0ea5e9; stroke-width: 1.25; stroke-linejoin: round; }
@@ -128,7 +128,7 @@
 	text.dim-text { fill: #0f172a; }
 	.leader { stroke: #0f172a; }
 	.leader-head.filled { fill: #0f172a; }
-	/* filled with the line's own colour (line end marks, a symbol's solid parts) */
+	/* filled with the line's own color (line end marks, a symbol's solid parts) */
 	.ink.filled { fill: #0f172a; }
 	/* an image's frame: unseen, it takes the clicks and shows the selection */
 	.image-frame { fill: transparent; stroke: none; }
@@ -223,8 +223,8 @@
 	text.fill-label.fill-warn { fill: #92400e; }
 	text.fill-label.fill-over { fill: #b91c1c; }
 	/* the route a selected outlet's cables take: green dashes, so it doesn't read as selected (selection is amber) */
-	/* every cable's route (the plan's Routes toggle), in its server room's colour */
-	/* a panel port cabled to an outlet: a light tint of its usage colour (backlog "Usage colours") */
+	/* every cable's route (the plan's Routes toggle), in its server room's color */
+	/* a panel port cabled to an outlet: a light tint of its usage color (backlog "Usage colors") */
 	.port-usage { stroke: none; fill-opacity: 0.35; pointer-events: none; }
 	.all-route { stroke-width: 3; opacity: 0.75; fill: none; stroke-linecap: round; }
 	.trace-route { stroke: #10b981; stroke-width: 4; stroke-dasharray: 8 5; opacity: 0.85; fill: none; stroke-linecap: round; }
@@ -264,7 +264,7 @@
 	/* what a click would take (UX06): a thin light-blue outline */
 	.hover { stroke: #60a5fa; stroke-width: 3; stroke-opacity: 0.8; fill: none; }
 	text.hover { fill: #2563eb; stroke: none; }
-	/* an outlet's port count in the middle of its symbol: white on a filled symbol (over its layer colour and the
+	/* an outlet's port count in the middle of its symbol: white on a filled symbol (over its layer color and the
 	   selection), dark with a halo sized to the text (em, so it doesn't grow with the zoom) on an outline one */
 	text.on-fill { fill: #ffffff !important; font-weight: 600; }
 	text.port-count { paint-order: stroke; stroke: #ffffff; stroke-width: 0.25em; stroke-linejoin: round; }

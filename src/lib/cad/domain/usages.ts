@@ -7,7 +7,7 @@ import { naturalCompare } from './labels'
 
 export type Usage = ProjectSettings['usages'][number]
 
-/** The legacy tools' colours for their location types (frames/parts/exportExcel.ts), for codes met on import. */
+/** The legacy tools' colors for their location types (frames/parts/exportExcel.ts), for codes met on import. */
 const LEGACY_COLOURS: Record<string, string> = {
 	desk: '#2563eb', AP: '#16a34a', PR: '#ea580c', RS: '#9333ea', FR: '#dc2626', WC: '#0891b2', TV: '#db2777', LK: '#d97706', 'N/A': '#999999',
 }
@@ -27,7 +27,7 @@ export function usageCodes(all: Iterable<Entity>): Set<string> {
 	return out
 }
 
-/** The list with every code in `codes` it doesn't have added (label = the code, the legacy colour when known). */
+/** The list with every code in `codes` it doesn't have added (label = the code, the legacy color when known). */
 export function withUsagesMet(list: Usage[], codes: Iterable<string>): Usage[] {
 	const have = new Set(list.map((u) => u.id)), out = [...list]
 	for (const id of codes) {
@@ -52,8 +52,8 @@ export function usageUses(all: Iterable<Entity>, id: string): { outlets: number;
 export const sortedUsages = (st: Pick<ProjectSettings, 'usages'> | undefined): Usage[] =>
 	[...(st?.usages ?? [])].sort((a, b) => naturalCompare(a.label, b.label))
 
-/** A usage's colour from the project's list (the settings entity in `all`), for tinting outlets and their panel ports
- *  (backlog "Usage colours and outlet tips"); undefined = no such usage / no colour. */
+/** A usage's color from the project's list (the settings entity in `all`), for tinting outlets and their panel ports
+ *  (backlog "Usage colors and outlet tips"); undefined = no such usage / no color. */
 export function usageColour(get: (id: string) => Entity | undefined, usage: string | undefined): string | undefined {
 	if (!usage) return undefined
 	const st = get('settings') as ProjectSettings | undefined

@@ -40,7 +40,7 @@ function namesOver(prims: Prim[], devices: Id[]): Prim[] {
 	return prims.filter((p) => p.k === 'text' && !p.src && p.cls.includes('on-ports') && bodies.some((b) => p.at.x >= b.x0 && p.at.x <= b.x1 && p.at.y >= b.y0 && p.at.y <= b.y1))
 }
 
-/** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer colour: the
+/** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer color: the
  *  class decides). */
 function labelsOf(prims: Prim[], keys: Set<string>, cls: string): Prim[] {
 	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.cls === 'port-label' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls, src: undefined, color: undefined }] : []))
@@ -57,7 +57,7 @@ export function circuitOf(ix: ProjectIndex, prims: Prim[], selection: Id[], ps: 
 	const ports = new Set(steps.map((s) => `${s.ref.on}:${s.ref.port}`))
 	if (ps?.ports.length === 1) ports.delete(`${ps.on}:${ps.ports[0]}`)   // the selected port itself: blue, not blue over amber
 	const lines = prims.flatMap((p) => p.k !== 'line' ? [] :
-		p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline colour: the trace look wins
+		p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline color: the trace look wins
 		p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
 	const devs = [...new Set(steps.map((s) => s.ref.on))]
 	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace'), ...namesOver(prims, devs)]   // labels and names over the cells
@@ -98,12 +98,12 @@ export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, 
 	return out
 }
 
-/** Colours for server rooms on the all-routes overlay, in the rooms' name order. */
+/** Colors for server rooms on the all-routes overlay, in the rooms' name order. */
 const ROOM_COLOURS = ['#0ea5e9', '#f97316', '#a855f7', '#22c55e', '#e11d48', '#eab308', '#14b8a6', '#6366f1']
 
-/** EVERY horizontal cable's route on this level (backlog "Show all routes"; the plan's Routes toggle), coloured by its
+/** EVERY horizontal cable's route on this level (backlog "Show all routes"; the plan's Routes toggle), colored by its
  *  server room (the panel end's room): each run segment once per room, rooms sharing a segment drawn side by side.
- *  `rooms` = the colour of each room drawn (for the strip's key). */
+ *  `rooms` = the color of each room drawn (for the strip's key). */
 export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id): { prims: Prim[]; rooms: { id: Id; name: string; color: string }[] } {
 	const roomOf = (linkId: Id): Id | undefined => {
 		const l = ix.get(linkId)

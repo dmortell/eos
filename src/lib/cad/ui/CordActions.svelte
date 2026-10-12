@@ -1,5 +1,5 @@
 <!-- Several selected cords (patch-list-plan.md Slice 2): Installed · Add · Remove · Restore · Delete, each with how many
-     it touches, and their cable type / colour (D5: no status change; a type brings its colour). In the patch list's
+     it touches, and their cable type / color (D5: no status change; a type brings its color). In the patch list's
      bar and in Properties. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -26,7 +26,7 @@
 	}
 	function setColour(v: string | undefined) {
 		if (!v) return
-		project.store.transact(`Cord colour (${n})`, (tx) => { for (const c of cords) tx.put({ ...c, colour: v }) })
+		project.store.transact(`Cord color (${n})`, (tx) => { for (const c of cords) tx.put({ ...c, colour: v }) })
 	}
 </script>
 
@@ -34,7 +34,7 @@
 	<span class="acts">
 		{#each acts as x (x.a)}<button class="btn" class:danger={x.a === 'delete'} title={x.title} onclick={() => runCordAction(project, ws, cords, x.a)}>{x.label} ({x.n})</button>{/each}
 	</span>
-	<label class="fld" title="The cable type of {n} — its colour comes with it">Type
+	<label class="fld" title="The cable type of {n} — its color comes with it">Type
 		<select class="inp" value={sameType ?? ''} onchange={(e) => setType(e.currentTarget.value)}>
 			{#if !sameType}<option value="">{MIXED}</option>{/if}
 			{#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}

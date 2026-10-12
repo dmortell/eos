@@ -1,5 +1,5 @@
 <!-- "Cables (n)" (backlog "Backbone cable list"): the project's backbone and tie cables, one row per panel pair and
-     cable type — its colour, "n × type" and "1F → 4F (2 transit)". A click selects its links (their routes light up
+     cable type — its color, "n × type" and "1F → 4F (2 transit)". A click selects its links (their routes light up
      on the plan; Ctrl adds to the selection). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'

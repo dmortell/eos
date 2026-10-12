@@ -1,6 +1,6 @@
 <!-- CORD LABEL BATCHES (backlog, Dave 2026-10-11) in the Patch schedule · cord BOM dialog: the patch cords bought, a row
-     per batch of pre-printed labels typed by hand (type, length, colour, first … last label, ordered, delivered), with
-     what the cords' Cord IDs use of it; then per type × length × colour the cords against the labels bought, the
+     per batch of pre-printed labels typed by hand (type, length, color, first … last label, ordered, delivered), with
+     what the cords' Cord IDs use of it; then per type × length × color the cords against the labels bought, the
      shortfall and where the next order continues. Kept in the project settings (one undo step per edit). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -32,10 +32,10 @@
 </script>
 
 <div class="cb">
-	<div class="title"><b>Cord label batches</b><span class="hint">the cords bought, with their labels as printed — e.g. 2AR-0001 to 2AR-0100</span><button class="btn" onclick={add} title="Add a batch (a type × length × colour still short of labels first, from where its last order ended)">+ Batch</button></div>
+	<div class="title"><b>Cord label batches</b><span class="hint">the cords bought, with their labels as printed — e.g. 2AR-0001 to 2AR-0100</span><button class="btn" onclick={add} title="Add a batch (a type × length × color still short of labels first, from where its last order ended)">+ Batch</button></div>
 	{#if batches.length}
 		<table>
-			<thead><tr><th>Type</th><th>Length</th><th>Colour</th><th>First label</th><th>Last label</th><th class="n" title="Labels in the range">Labels</th><th class="n">Ordered</th><th class="n">Delivered</th><th class="n" title="Cords whose Cord ID is in the range">Used</th><th class="n">Free</th><th title="The next free label after the last one used">Next</th><th></th></tr></thead>
+			<thead><tr><th>Type</th><th>Length</th><th>Color</th><th>First label</th><th>Last label</th><th class="n" title="Labels in the range">Labels</th><th class="n">Ordered</th><th class="n">Delivered</th><th class="n" title="Cords whose Cord ID is in the range">Used</th><th class="n">Free</th><th title="The next free label after the last one used">Next</th><th></th></tr></thead>
 			<tbody>
 				{#each uses as u (u.batch.id)}
 					{@const b = u.batch}
@@ -61,10 +61,10 @@
 			</tbody>
 		</table>
 	{/if}
-	{#if wrong.length}<p class="warn">{wrong.length} cord{wrong.length === 1 ? '' : 's'} carry a label from a batch of another type, length or colour: {wrong.slice(0, 6).map((c) => c.cordId).join(', ')}{wrong.length > 6 ? ' …' : ''}</p>{/if}
+	{#if wrong.length}<p class="warn">{wrong.length} cord{wrong.length === 1 ? '' : 's'} carry a label from a batch of another type, length or color: {wrong.slice(0, 6).map((c) => c.cordId).join(', ')}{wrong.length > 6 ? ' …' : ''}</p>{/if}
 	{#if needs.length}
 		<table class="needs">
-			<thead><tr><th>Type · length · colour</th><th class="n" title="Cords of this kind (not being removed)">Cords</th><th class="n" title="Labels ordered in its batches">Labels</th><th class="n">Delivered</th><th class="n" title="Cords more than the labels ordered">Short</th><th title="The label after the last one bought — where the next order continues">Next order from</th></tr></thead>
+			<thead><tr><th>Type · length · color</th><th class="n" title="Cords of this kind (not being removed)">Cords</th><th class="n" title="Labels ordered in its batches">Labels</th><th class="n">Delivered</th><th class="n" title="Cords more than the labels ordered">Short</th><th title="The label after the last one bought — where the next order continues">Next order from</th></tr></thead>
 			<tbody>
 				{#each needs as n (n.key)}
 					<tr><td><span class="sw" style:background={n.colour}></span>{typeLabel(n.cableType)} · {n.lengthM} m</td><td class="n">{n.cords}</td><td class="n">{n.labels}</td><td class="n">{n.delivered}</td><td class="n" class:short={n.short > 0}>{n.short || ''}</td><td class="mono">{n.nextOrder ?? '—'}</td></tr>

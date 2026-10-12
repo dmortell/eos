@@ -86,7 +86,7 @@ describe('riser view', () => {
 		expect(shaft?.k === 'line' && -Math.min(...shaft.pts.map((q) => q.y))).toBe(3800 + 2600 + 700 + 200)   // cut at 2F's slab above
 		expect(cut.some((p) => p.k === 'line' && p.cls === 'backbone')).toBe(false)   // its other end (4F) isn't shown
 	})
-	it('a backbone group: its own label and colour; else fibre amber / copper blue; each hop in the floor void for low runs', () => {
+	it('a backbone group: its own label and color; else fibre amber / copper blue; each hop in the floor void for low runs', () => {
 		const key = backboneKey(new ProjectIndex(ents), ents.find((e) => e.id === 'B1') as never)!
 		expect(key).toBe('R1|R4|cat6a')
 		const plain = riserDisplayList(new ProjectIndex(ents))

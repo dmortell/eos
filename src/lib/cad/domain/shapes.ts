@@ -441,11 +441,11 @@ export function reorderShapes(all: Shape[], ids: string[], how: 'forward' | 'bac
 	return out
 }
 
-/** The shape with its own line colour / fill set; undefined or 'none' takes it off (By layer / no fill). */
+/** The shape with its own line color / fill set; undefined or 'none' takes it off (By layer / no fill). */
 export function withStyle(s: Shape, patch: { stroke?: string; fill?: string }): Shape {
 	const st: NonNullable<Shape['style']> = { ...s.style }
 	for (const k of ['stroke', 'fill'] as const) if (k in patch) { const v = patch[k]; if (v && v !== 'none') st[k] = v; else delete st[k] }
 	return { ...s, style: Object.keys(st).length ? st : undefined }
 }
-/** A region with its fill colour set ('none' / undefined = no fill; Properties → Fill). */
+/** A region with its fill color set ('none' / undefined = no fill; Properties → Fill). */
 export const withFill = (s: Shape, fill: string | undefined): Shape => withStyle(s, { fill })

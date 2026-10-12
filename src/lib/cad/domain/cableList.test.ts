@@ -22,7 +22,7 @@ const ents: Entity[] = [
 ]
 
 describe('cable list', () => {
-	it('one group per panel pair and type: lowest floor first, transit floors counted, jacket colours', () => {
+	it('one group per panel pair and type: lowest floor first, transit floors counted, jacket colors', () => {
 		const g = cableGroups(new ProjectIndex(ents))
 		expect(g.map((x) => [x.kind, x.links.length, x.type, x.floors])).toEqual([
 			['tie', 1, 'OM4', '1F'],

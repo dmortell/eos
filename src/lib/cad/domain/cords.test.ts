@@ -144,7 +144,7 @@ describe('bulk actions on the selected cords (patch-list-plan.md Slice 2)', () =
 		expect(ids(cordAction(all, 'restore'))).toEqual({ put: ['M:installed', 'R:installed'], del: [] })
 		expect(ids(cordAction(all, 'delete'))).toEqual({ put: [], del: ['A', 'I', 'M', 'R'] })
 	})
-	it('a cable type brings its colour', () => {
+	it('a cable type brings its color', () => {
 		expect(withCableType(inst, { id: 'cat6', color: '#f00' })).toMatchObject({ cableType: 'cat6', colour: '#f00', status: 'installed' })
 		expect(withCableType(inst, { id: 'x' }).colour).toBe(inst.colour)
 	})

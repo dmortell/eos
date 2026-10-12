@@ -1,4 +1,4 @@
-// Shape style: a shape's own line colour, lineweight and line type reach its prims (Dave, 2026-10-05).
+// Shape style: a shape's own line color, lineweight and line type reach its prims (Dave, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { shapePrims } from './plan'
 import { displayListToDxf } from '../render/dxf'
@@ -7,13 +7,13 @@ import type { Shape } from '../domain/shapes'
 const rect = { type: 'shape', id: 'R', levelId: 'L', style: { stroke: '#dc2626', weightMm: 0.5, dash: 'dashed', fill: '#fde047' }, geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 100, y: 50 } } } as Shape
 
 describe('shape style', () => {
-	it('the outline takes colour, weight and line type; the fill keeps its own colour and none of them', () => {
+	it('the outline takes color, weight and line type; the fill keeps its own color and none of them', () => {
 		const [fill, outline] = shapePrims(rect, 100)
 		expect(fill).toMatchObject({ cls: 'shape-fill', color: '#fde047' })
 		expect(fill).not.toHaveProperty('weight')
 		expect(outline).toMatchObject({ color: '#dc2626', weight: 0.5, dash: 'dashed' })
 	})
-	it('a text takes only the colour', () => {
+	it('a text takes only the color', () => {
 		const t = { type: 'shape', id: 'T', levelId: 'L', style: { stroke: '#2563eb', weightMm: 0.7, dash: 'dotted' }, geom: { kind: 'text', at: { x: 0, y: 0 }, text: 'A', sizeMm: 2 } } as Shape
 		const [p] = shapePrims(t, 100)
 		expect(p).toMatchObject({ color: '#2563eb' })

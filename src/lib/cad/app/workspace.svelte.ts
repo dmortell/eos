@@ -63,7 +63,7 @@ function loadDrafting(): Drafting {
 }
 
 /** How plans and rack views look ON SCREEN for this user (Dave 2026-10-12: a personal toggle, not a project setting —
- *  sheets have their own): floorplans black and white, outlets in their usage's colour, cords along the channels. */
+ *  sheets have their own): floorplans black and white, outlets in their usage's color, cords along the channels. */
 export interface ScreenLook { gray: boolean; byUsage: boolean; cordChannels: boolean }
 const SCREEN_KEY = 'cad-screen'
 function loadScreen(): ScreenLook {
@@ -132,7 +132,7 @@ export class Workspace {
 	renumberMode = $state<'number' | 'replace'>('number')
 	/** The plan's Fill overlay (Phase 5.3). */
 	showFill = $state(false)
-	/** The plan's Routes overlay: every cable's route, coloured by server room (backlog "Show all routes"). */
+	/** The plan's Routes overlay: every cable's route, colored by server room (backlog "Show all routes"). */
 	showRoutes = $state(false)
 	/** Drafting switches in the status bar (UX05): SNAP = moves / points to the grid (step `grid` mm), OSNAP = object
 	 *  snaps, GRID = the grid drawn. Kept per browser. Alt still skips the snaps for one action. */
@@ -182,7 +182,7 @@ export class Workspace {
 	/** Set by the app (it owns the store): how the assign tool writes. */
 	applyLinks: (label: string, add: Link[], remove: Id[]) => void = () => {}
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
-	/** Sticky cord defaults: the last type / colour chosen stays for the next cord (the Patching tool's habit). */
+	/** Sticky cord defaults: the last type / color chosen stays for the next cord (the Patching tool's habit). */
 	cordDefaults = $state<CordDefaults>({ cableType: 'cat6a', colour: '#3b82f6' })
 	/** The cable type for new interconnects (ties, backbone) — its own, kept as last chosen ('' = the cord type). */
 	linkType = $state('')

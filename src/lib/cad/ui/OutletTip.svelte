@@ -1,4 +1,4 @@
-<!-- The OUTLET TIP over a plan (backlog "Usage colours and outlet tips"): at once (no delay), beside the pointer, for the
+<!-- The OUTLET TIP over a plan (backlog "Usage colors and outlet tips"): at once (no delay), beside the pointer, for the
      outlet under it — its label, usage · tier · mount, and each port with the panel port it's on (views/portTip.ts).
      Hidden while a button is held (dragging) and off the outlets. Same look as the port tip. -->
 <script lang="ts">

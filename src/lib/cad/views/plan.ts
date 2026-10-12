@@ -27,7 +27,7 @@ export interface PlanOpts {
 	blocks?: (id: Id) => Block | undefined
 	/** Floorplans in black and white (on screen: the user's B/W; a sheet: its own setting). */
 	gray?: boolean
-	/** Outlets in their usage's colour (true) or their layer's (false); absent = the project's old setting. */
+	/** Outlets in their usage's color (true) or their layer's (false); absent = the project's old setting. */
 	byUsage?: boolean
 }
 
@@ -65,8 +65,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	}
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
 	out.push(...over)
-	// outlets in their usage's colour (backlog "Usage colours and outlet tips"): the symbol, not its label — unless the
-	// view draws them by layer (Usage colours off: the user's on screen, the sheet's on paper)
+	// outlets in their usage's color (backlog "Usage colors and outlet tips"): the symbol, not its label — unless the
+	// view draws them by layer (Usage colors off: the user's on screen, the sheet's on paper)
 	const byUsage = o.byUsage ?? (ix.get('settings') as ProjectSettings | undefined)?.outletColour !== 'layer'
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) {
 		const col = byUsage ? usageColour((id) => ix.get(id), ot.usage) : undefined
@@ -77,15 +77,15 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	return declutter(out)
 }
 
-/** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own colour
- *  (`style.stroke`, Properties → Colour) on all of them. */
+/** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own color
+ *  (`style.stroke`, Properties → Color) on all of them. */
 /** `face`: how a block insert is drawn — its plan symbol, or its front drawing (elevations / sections: `faceFor`). */
 export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks'], face: BlockFace = 'plan'): Prim[] {
 	const ps = basePrims(s, k, blocks, face), fill = s.style?.fill && FILLABLE.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
 	return ownStyle(s, fill ? [fill, ...ps] : ps)
 }
 const FILLABLE = new Set(['rect', 'circle', 'ellipse', 'polygon'])
-/** A region's fill (Properties → Fill): its outline again, filled with the colour, drawn under it. */
+/** A region's fill (Properties → Fill): its outline again, filled with the color, drawn under it. */
 function regionFill(p: Prim | undefined, color: string): Prim | null {
 	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', color }
 	return null
@@ -154,8 +154,8 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined, 
 	}
 }
 
-/** A shape's own style on all its prims: its line colour, lineweight and line type (backlog "Shape style"); a text's
- *  background box and a region's fill keep theirs, and text takes only the colour. */
+/** A shape's own style on all its prims: its line color, lineweight and line type (backlog "Shape style"); a text's
+ *  background box and a region's fill keep theirs, and text takes only the color. */
 export function ownStyle(s: Shape, ps: Prim[]): Prim[] {
 	const st = s.style ?? {}, dash = st.dash && (DASHES as string[]).includes(st.dash) ? (st.dash as Dash) : undefined
 	if (!st.stroke && !st.weightMm && !dash) return ps
@@ -245,9 +245,9 @@ export function passesThrough(ix: ProjectIndex, s: Shape, levelId: Id): boolean 
 
 /**
  * The runs' BODIES (backlog "Trunk drawing style", G048 / G187, the legacy outlets tool's look): every level segment
- * of the containment runs as a band, the bands of runs on the same layer, tier, colour and weight walked into ONE
+ * of the containment runs as a band, the bands of runs on the same layer, tier, color and weight walked into ONE
  * outline (runs that meet at a point join; domain/runOutline.ts), its corners rounded (a quarter of the width; square
- * ends stay), filled faintly in the run's colour. High (ceiling) runs dashed, primary runs stronger. A corner's bend
+ * ends stay), filled faintly in the run's color. High (ceiling) runs dashed, primary runs stronger. A corner's bend
  * radius (domain/bends.ts) shapes the outline. No source: the runs' own bands (drawn invisibly over it) are what
  * picks and selects them; the outline carries its layer so hiding the layer hides it.
  */
@@ -312,7 +312,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			const text = la !== lb ? `Riser ${levelName(la)} ↕ ${levelName(lb)}` : `↕ ${fmtZ(lo)} → ${fmtZ(hi)}`
 			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
-			// a segment's own size wins (a reducer); a run's own colour (several runs edited at once) over the tier's
+			// a segment's own size wins (a reducer); a run's own color (several runs edited at once) over the tier's
 			out.push({ k: 'line', pts: trimmedEnds(bends, sg.id, a, b), w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...colour })
 		}
 	}

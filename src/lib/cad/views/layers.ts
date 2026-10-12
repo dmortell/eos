@@ -1,5 +1,5 @@
 // Layers over a finished display list (docs/plan/layers.md): one pass after the generator, so no generator knows about
-// layers. Each prim goes on its source's layer; hidden layers drop out, a layer's colour (and lineweight / line type)
+// layers. Each prim goes on its source's layer; hidden layers drop out, a layer's color (and lineweight / line type)
 // applies where the item has none of its own, locked layers stay drawn (and snap) but can't be picked, and a plan paints in layer order.
 import type { Id } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'

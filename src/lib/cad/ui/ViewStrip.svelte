@@ -22,7 +22,7 @@
 		sections: SectionCut[]; section?: SectionCut; sheet?: Sheet; sheetsList: Sheet[]
 		onspec: (s: ViewSpec) => void; onfocus?: () => void; toSheet: (target: string) => void
 		nav?: PaneNav
-		/** the Routes overlay's colours (its server rooms), when on */
+		/** the Routes overlay's colors (its server rooms), when on */
 		routeKey?: { id: string; name: string; color: string }[]
 	} = $props()
 

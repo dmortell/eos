@@ -6,7 +6,7 @@ import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
 import { cableKey, coreLabels, coresOf } from './multicore'
 
-/** A cable type's jacket colour, by the usual conventions (singlemode yellow, OM3 / OM4 aqua, OM5 lime, OM1 / OM2
+/** A cable type's jacket color, by the usual conventions (singlemode yellow, OM3 / OM4 aqua, OM5 lime, OM1 / OM2
  *  orange); copper and anything else grey-blue. */
 export function cableColour(type = ''): string {
 	const t = type.toUpperCase()

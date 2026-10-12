@@ -10,7 +10,7 @@ import type { Block } from '../domain/blocks'
 import { fillAttrs } from '../domain/blocks'
 import { blockDefinition } from '../views/blocks'
 
-/** DXF layer + colour (ACI) for a prim class (its first word). */
+/** DXF layer + color (ACI) for a prim class (its first word). */
 const LAYERS: Record<string, { name: string; aci: number }> = {
 	outlet: { name: 'E-OUTLETS', aci: 5 },
 	run: { name: 'E-CONTAINMENT', aci: 4 },

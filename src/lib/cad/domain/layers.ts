@@ -1,12 +1,12 @@
 // Layers (docs/plan/layers.md): ONE list — the system layers below (in code, in the plan's drawing order) plus the
-// project's own `Layer` records. A record with a system layer's id restyles it (colour, order). Every item is on a
+// project's own `Layer` records. A record with a system layer's id restyles it (color, order). Every item is on a
 // layer: its own `layerId` if that layer exists, else the default for its kind — so existing data needs no migration.
 // Who sees what is NOT stored here: the eye / lock are per user (the workspace), a viewport's freeze is on the sheet.
 import type { Id } from './types'
 import type { Entity, Layer, Sheet } from './drawing'
 
-/** `color` = the layer's colour, applied to its items; `look` = a system layer's default: the colour its items
- *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colours that mean something: an
+/** `color` = the layer's color, applied to its items; `look` = a system layer's default: the color its items
+ *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colors that mean something: an
  *  unrouted backbone's red, a rack's ports and U numbers). */
 export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean; /** The lineweight (paper mm) and line type its items use when they set none ("By layer"). */ weightMm?: number; dash?: string }
 
@@ -21,10 +21,10 @@ export const SYSTEM_LAYERS: LayerInfo[] = ([
 	['sys:room-lines', 'Room lines', '#64748b'], ['sys:other-face', 'Other face', '#94a3b8'],
 ] as const).map(([id, name, look], i) => ({ id, name, look, order: (i + 1) * 10, system: true }))
 
-/** Colours for new project layers, in turn (distinct from the system defaults where possible). */
+/** Colors for new project layers, in turn (distinct from the system defaults where possible). */
 export const LAYER_PALETTE = ['#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#ca8a04', '#db2777', '#4f46e5', '#65a30d', '#0d9488']
 
-/** The next palette colour no project layer uses yet (round again when all are taken). */
+/** The next palette color no project layer uses yet (round again when all are taken). */
 export function nextLayerColour(records: Layer[]): string {
 	const used = new Set(records.filter((r) => !r.id.startsWith('sys:')).map((r) => r.color))
 	const own = records.filter((r) => !r.id.startsWith('sys:')).length

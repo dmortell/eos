@@ -1,4 +1,4 @@
-<!-- The patch list (Phase 3.5): every cord, from / to with the labels they carry, type, colour, length, ID, status.
+<!-- The patch list (Phase 3.5): every cord, from / to with the labels they carry, type, color, length, ID, status.
      Status chips filter (the install workflow at a glance); a row click selects the cord, and a cord (or a port's
      cord) selected in a rack view is highlighted here and scrolled into view. "Export…" opens the patch schedule export with
      the Excel export (ui/PatchScheduleDialog.svelte). -->

@@ -1,4 +1,4 @@
-<!-- USAGE BUTTONS (backlog "Usage buttons", G128): one button per usage of the project's list, in its colour, instead of
+<!-- USAGE BUTTONS (backlog "Usage buttons", G128): one button per usage of the project's list, in its color, instead of
      a select — the picked one filled. "—" = none (draws nothing under the symbol). A value the list doesn't have shows
      as its own button; `mixed` (several outlets that differ) picks none. -->
 <script lang="ts">

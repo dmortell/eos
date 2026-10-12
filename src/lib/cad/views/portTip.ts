@@ -44,7 +44,7 @@ export function portTipUse(ix: ProjectIndex, r: PortRef): string {
 	return `${d.name}: ${u.used} of ${u.ports} used · ${u.free} free`
 }
 
-/** The OUTLET under `p` on a plan (backlog "Usage colours and outlet tips"): the topmost prim of an outlet within
+/** The OUTLET under `p` on a plan (backlog "Usage colors and outlet tips"): the topmost prim of an outlet within
  *  `tol` mm. */
 export function outletUnder(ix: ProjectIndex, prims: Prim[], p: { x: number; y: number }, tol: number): Outlet | null {
 	for (let i = prims.length - 1; i >= 0; i--) {

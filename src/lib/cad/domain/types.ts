@@ -296,10 +296,10 @@ export interface Cord {
 	colour: string
 	lengthM: number
 	lengthLocked: boolean
-	/** `replace` (set by hand): swap the cord for another — other type, colour or length — at the same ends. */
+	/** `replace` (set by hand): swap the cord for another — other type, color or length — at the same ends. */
 	status: 'add' | 'remove' | 'change' | 'replace' | 'installed'
 	/** The endpoints and status before a re-patch / soft delete, so it can be reverted; a `replace` also keeps the cord
-	 *  it swaps out (its type, colour, length). */
+	 *  it swaps out (its type, color, length). */
 	previous?: { a: PortRef; b: PortRef; status: Cord['status']; cableType?: string; colour?: string; lengthM?: number }
 	cordId?: string
 	notes?: string
@@ -334,13 +334,13 @@ export interface ProjectSettings {
 	/** What new patch cords start as: 'add' (Planning a new install; unset = this) or 'installed' (Surveying a built
 	 *  site — recording what is there). Stored both ways, not removed, so a merge-save can't bring it back. */
 	newCordStatus?: 'add' | 'installed'
-	/** Floorplans in black and white — on screen, sheets, PDFs and issues — so coloured markup stands out (stored true /
+	/** Floorplans in black and white — on screen, sheets, PDFs and issues — so colored markup stands out (stored true /
 	 *  false, not removed, so a merge-save can't bring it back). */
 	grayFloorplans?: boolean
-	/** Outlets on plans drawn in their usage's colour ('usage', unset) or by their layer ('layer') — screen, sheets, PDFs. */
+	/** Outlets on plans drawn in their usage's color ('usage', unset) or by their layer ('layer') — screen, sheets, PDFs. */
 	outletColour?: 'usage' | 'layer'
 	/** The riser view (one per project, so its sheets show the same — views/riser.ts): the floor numbers it shows (unset
-	 *  = the lowest / top floor), and each backbone group's own label / colour, by `backboneKey` (its racks + type). */
+	 *  = the lowest / top floor), and each backbone group's own label / color, by `backboneKey` (its racks + type). */
 	riser?: { from?: number; to?: number; groups?: Record<string, { label?: string; color?: string }> }
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'

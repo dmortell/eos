@@ -66,7 +66,7 @@ describe('sheets to PDF', () => {
 })
 
 describe('B/W floorplans in the PDF', () => {
-	it('a gray image is asked for gray, apart from the same image in colour; issues keep the flag', async () => {
+	it('a gray image is asked for gray, apart from the same image in color; issues keep the flag', async () => {
 		const calls: [string, boolean | undefined][] = []
 		const img = { k: 'image' as const, url: 'u', x: 0, y: 0, w: 10, h: 10 }
 		await pagesToPdf([{ w: 100, h: 100, prims: [img, { ...img, gray: true }] }], async (url, _k, gray) => { calls.push([url, gray]); return null })
