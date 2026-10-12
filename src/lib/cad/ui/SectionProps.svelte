@@ -59,10 +59,7 @@
 <p class="text-zinc-500">Drag the cut line to move it · Delete removes it</p>
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
-	.btn:hover { background: var(--cad-hover); }
 	.link { display: block; width: 100%; text-align: left; padding: 0 4px; border-radius: 3px; color: var(--cad-link, #2563eb); }
 	.link:hover { background: var(--cad-hover); text-decoration: underline; }
 </style>

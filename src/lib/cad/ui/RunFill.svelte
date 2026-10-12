@@ -96,9 +96,6 @@
 <style>
 	.hand { display: grid; grid-template-columns: 3rem auto 1fr 3.6rem 4.6rem auto; align-items: center; gap: 3px; margin-bottom: 2px; }
 	.inp { width: 100%; min-width: 0; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
-	.btn.del:hover { color: #dc2626; }
 	.tone-ok { color: #15803d; }
 	.tone-warn { color: #b45309; font-weight: 600; }
 	.tone-over { color: #dc2626; font-weight: 700; }

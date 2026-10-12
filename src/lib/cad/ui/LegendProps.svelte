@@ -46,8 +46,6 @@
 {/if}
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.pick { display: flex; align-items: center; gap: 0.35rem; font-size: 12px; }
 	.nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.ct { font-size: 11px; color: var(--cad-faint); }

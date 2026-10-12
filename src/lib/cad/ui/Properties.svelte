@@ -44,6 +44,12 @@
 	import BackboneProps from './BackboneProps.svelte'
 	import RunFill from './RunFill.svelte'
 	import WallOpenings from './WallOpenings.svelte'
+	import { shared } from './propsKit'
+	import NumberField from './fields/NumberField.svelte'
+	import TextField from './fields/TextField.svelte'
+	import SelectField from './fields/SelectField.svelte'
+	import CheckField from './fields/CheckField.svelte'
+	import './props.css'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
@@ -62,11 +68,8 @@
 	// ── several selected: common fields ──
 	const outlets = $derived(items.filter((e): e is Outlet => e.type === 'outlet'))
 	const devices = $derived(items.filter((e): e is Device => e.type === 'device'))
-	/** The value they all share, or undefined when it differs (shown as "mixed"). */
-	function same<T, V>(list: T[], get: (t: T) => V): V | undefined {
-		const v = list.length ? get(list[0]) : undefined
-		return list.every((t) => get(t) === v) ? v : undefined
-	}
+	/** What the selected racks share (or mixed). */
+	const rk = <V,>(f: (r: Rack) => V) => shared(racks, f)
 	function setRacks(label: string, patch: Partial<Rack>) {
 		const v = Object.values(patch)[0]
 		if (typeof v === 'number' && !Number.isFinite(v)) return
@@ -190,7 +193,7 @@
 {/snippet}
 {#if tplFrom}<TemplateDialog from={tplFrom} fresh onsave={putTemplate} onclose={() => (tplFrom = null)} />{/if}
 
-<div class="space-y-1 p-3 text-xs">
+<div class="cad-props space-y-1 p-3 text-xs">
 	{#if ws.toolId === 'renumber'}
 		<RenumberPanel {project} {ws} open />
 	{:else if items.filter(renumberable).length > 1 || (ws.renumberMode === 'replace' && items.some(renumberable))}
@@ -224,31 +227,20 @@
 		{/if}
 		{#if racks.length > 1}
 			<p class="text-zinc-500">{deviceCounts(racks.flatMap((r) => project.index.devicesIn(r.id)))} in {racks.length} racks</p>
-			<label class="row">Level
-				<select class="inp" value={same(racks, (r) => r.levelId) ?? ''} onchange={(e) => e.currentTarget.value && moveToLevel(racks, e.currentTarget.value)}>
-					{#if !same(racks, (r) => r.levelId)}<option value="">mixed</option>{/if}
-					{#each project.levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-				</select>
-			</label>
-			<!-- common rack fields: a value shown when they all share it, blank ("mixed") when they don't; an edit sets all -->
-			<label class="row">Kind
-				<select class="inp" value={same(racks, (r) => r.kind) ?? ''} onchange={(e) => e.currentTarget.value && setRacks('Rack kind', { kind: e.currentTarget.value as Rack['kind'] })}>
-					{#if !same(racks, (r) => r.kind)}<option value="">mixed</option>{/if}
-					{#each RACK_KINDS as k (k)}<option value={k}>{k}</option>{/each}
-				</select>
-			</label>
-			<label class="row">Maker <input class="inp" value={same(racks, (r) => r.maker ?? '') ?? ''} placeholder={same(racks, (r) => r.maker ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack maker', { maker: e.currentTarget.value.trim() || undefined })} /></label>
-			<label class="row">Model <input class="inp" value={same(racks, (r) => r.model ?? '') ?? ''} placeholder={same(racks, (r) => r.model ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack model', { model: e.currentTarget.value.trim() || undefined })} /></label>
-			<label class="row">Notes <input class="inp" value={same(racks, (r) => r.notes ?? '') ?? ''} placeholder={same(racks, (r) => r.notes ?? '') === undefined ? 'mixed' : ''} onchange={(e) => setRacks('Rack notes', { notes: e.currentTarget.value.trim() || undefined })} /></label>
-			<label class="row">Width (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.widthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack width', { widthMm: Number(e.currentTarget.value) })} /></label>
-			<label class="row">Depth (mm) <input class="inp" type="number" min="100" value={same(racks, (r) => r.depthMm) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack depth', { depthMm: Number(e.currentTarget.value) })} /></label>
-			<label class="row">Height (U) <input class="inp" type="number" min="1" value={same(racks, (r) => r.heightU) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rack height', { heightU: Number(e.currentTarget.value) })} /></label>
-			<label class="row">Height (mm) <input class="inp" type="number" value={same(racks, (r) => r.heightMm) ?? ''} placeholder="mixed / from U" onchange={(e) => setRacks('Rack height', { heightMm: num(e.currentTarget.value) })} /></label>
-			<label class="row">Rotation <input class="inp" type="number" value={same(racks, (r) => r.rot ?? 0) ?? ''} placeholder="mixed" onchange={(e) => setRacks('Rotate racks', { rot: Number(e.currentTarget.value) })} /></label>
-			<label class="row">Patch frame
-				<span><input type="checkbox" checked={racks.every((r) => r.patchFrame)} indeterminate={racks.some((r) => r.patchFrame) && !racks.every((r) => r.patchFrame)}
-					onchange={(e) => setRacks(e.currentTarget.checked ? 'Patch frames' : 'Not patch frames', { patchFrame: e.currentTarget.checked || undefined })} /> takes outlets</span>
-			</label>
+
+			<SelectField label="Level" value={rk((r) => r.levelId).value} mixed={rk((r) => r.levelId).mixed} options={project.levels.map((l) => [l.id, l.name] as const)} onchange={(v) => moveToLevel(racks, v)} />
+			<!-- common rack fields: a value shown when they all share it, "mixed" when they don't; an edit sets all -->
+			<SelectField label="Kind" value={rk((r) => r.kind).value} mixed={rk((r) => r.kind).mixed} options={RACK_KINDS.map((k) => [k, k] as const)} onchange={(v) => setRacks('Rack kind', { kind: v as Rack['kind'] })} />
+			<TextField label="Maker" value={rk((r) => r.maker).value} mixed={rk((r) => r.maker).mixed} onchange={(v) => setRacks('Rack maker', { maker: v || undefined })} />
+			<TextField label="Model" value={rk((r) => r.model).value} mixed={rk((r) => r.model).mixed} onchange={(v) => setRacks('Rack model', { model: v || undefined })} />
+			<TextField label="Notes" value={rk((r) => r.notes).value} mixed={rk((r) => r.notes).mixed} onchange={(v) => setRacks('Rack notes', { notes: v || undefined })} />
+			<NumberField label="Width" unit="mm" min={100} value={rk((r) => r.widthMm).value} mixed={rk((r) => r.widthMm).mixed} onchange={(v) => setRacks('Rack width', { widthMm: v })} />
+			<NumberField label="Depth" unit="mm" min={100} value={rk((r) => r.depthMm).value} mixed={rk((r) => r.depthMm).mixed} onchange={(v) => setRacks('Rack depth', { depthMm: v })} />
+			<NumberField label="Height" unit="U" min={1} value={rk((r) => r.heightU).value} mixed={rk((r) => r.heightU).mixed} onchange={(v) => setRacks('Rack height', { heightU: v })} />
+			<NumberField label="Height" unit="mm" blank placeholder="from U" value={rk((r) => r.heightMm).value} mixed={rk((r) => r.heightMm).mixed} onchange={(v) => setRacks('Rack height', { heightMm: v })} />
+			<NumberField label="Rotation" unit="°" value={rk((r) => r.rot ?? 0).value} mixed={rk((r) => r.rot ?? 0).mixed} onchange={(v) => setRacks('Rotate racks', { rot: v })} />
+			<CheckField label="Patch frame" text="takes outlets" checked={racks.every((r) => r.patchFrame)} mixed={racks.some((r) => r.patchFrame) && !racks.every((r) => r.patchFrame)}
+				onchange={(on) => setRacks(on ? 'Patch frames' : 'Not patch frames', { patchFrame: on || undefined })} />
 			<RackDoors {project} {racks} />
 		{/if}
 		{#if outlets.length > 1}<OutletProps {project} {ws} {outlets} />{/if}
@@ -557,12 +549,7 @@
 <style>
 	.usages { display: flex; flex-wrap: wrap; gap: 2px 8px; }
 	.usages label { white-space: nowrap; }
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	/* a split-label range: first port – last port, its label (the rest of the width), ✕ */
 	.range { display: grid; grid-template-columns: 3rem auto 3rem minmax(0, 1fr) auto; align-items: center; gap: 0.25rem; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
-	.btn.del:hover { color: #dc2626; }
 	.ports-first { border: 1px solid #bfdbfe; background: color-mix(in srgb, #2563eb 5%, var(--cad-panel, #fff)); border-radius: 6px; padding: 0 8px 6px; margin: 4px 0 8px; }
 </style>

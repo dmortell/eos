@@ -78,11 +78,7 @@
 
 <style>
 	.btn { justify-self: start; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; width: fit-content; }
 	.seg button { padding: 0 8px; color: var(--cad-muted); }
 	.seg button.on { background: #2563eb; color: white; }
-	textarea.inp { resize: vertical; font-family: inherit; }
 </style>

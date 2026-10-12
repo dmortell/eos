@@ -8,13 +8,16 @@
 	import { ordered } from '../domain/sheetCategories'
 	import { duplicateSheets } from '../app/sheetActions'
 	import PropGroup from './PropGroup.svelte'
+	import { shared, MIXED } from './propsKit'
 
 	let { project, ws, sheets }: { project: CadProject; ws: Workspace; sheets: Sheet[] } = $props()
 
 	const cats = $derived(ordered(project.sheetCategories))
 	const packages = $derived([...project.index.byId.values()].filter((e): e is SheetPackage => e.type === 'package' && !e.archived && !!e.sheetIds).sort((a, b) => a.order - b.order))
-	function same<V>(get: (s: Sheet) => V): V | undefined { const v = get(sheets[0]); return sheets.every((s) => get(s) === v) ? v : undefined }
-	const MIXED = '*mixed'
+	/** What they share; undefined when mixed (`mixed()` says which). */
+	const same = <V,>(get: (s: Sheet) => V): V | undefined => shared(sheets, get).value
+	const mixed = <V,>(get: (s: Sheet) => V) => shared(sheets, get).mixed
+	const MIXED_KEY = '\u0000mixed'
 	function set(label: string, patch: (s: Sheet) => Partial<Sheet>) {
 		project.store.transact(`${label} (${sheets.length} sheets)`, (tx) => { for (const s of sheets) tx.put({ ...s, ...patch(s) }) })
 	}
@@ -36,13 +39,13 @@
 
 <PropGroup kind="sheets" title="General">
 	<label class="row">Category
-		<select class="inp" value={same((s) => s.kind ?? '') ?? MIXED} onchange={(e) => set('Sheet category', () => ({ kind: e.currentTarget.value || undefined }))}>
-			{#if same((s) => s.kind ?? '') === undefined}<option value={MIXED} disabled>(mixed)</option>{/if}
+		<select class="inp" value={mixed((s) => s.kind ?? '') ? MIXED_KEY : same((s) => s.kind ?? '')} onchange={(e) => set('Sheet category', () => ({ kind: e.currentTarget.value || undefined }))}>
+			{#if mixed((s) => s.kind ?? '')}<option value={MIXED_KEY} disabled>{MIXED}</option>{/if}
 			<option value="">Auto (from its viewports)</option>
 			{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
 		</select></label>
-	<label class="row">Discipline <input class="inp" value={same((s) => s.discipline ?? '') ?? ''} placeholder={same((s) => s.discipline ?? '') === undefined ? '(mixed)' : '—'} onchange={(e) => set('Sheet discipline', () => ({ discipline: e.currentTarget.value.trim() || undefined }))} /></label>
-	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={same((s) => s.titleBlock?.fields?.drawn ?? '') === undefined ? '(mixed)' : 'initials'}
+	<label class="row">Discipline <input class="inp" value={same((s) => s.discipline ?? '') ?? ''} placeholder={mixed((s) => s.discipline ?? '') ? MIXED : '—'} onchange={(e) => set('Sheet discipline', () => ({ discipline: e.currentTarget.value.trim() || undefined }))} /></label>
+	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.drawn ?? '') ? MIXED : 'initials'}
 		onchange={(e) => { const v = e.currentTarget.value.trim(); set('Drawn by', (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: v } } })) }} /></label>
 	<div class="row"><span>Tag</span>
 		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" />
@@ -52,12 +55,12 @@
 <PropGroup kind="sheets" title="Paper">
 	<label class="row">Size
 		<span class="flex gap-1">
-			<select class="inp" value={same((s) => s.paper.size) ?? MIXED} onchange={(e) => { const v = e.currentTarget.value as Sheet['paper']['size']; set('Paper size', (s) => ({ paper: { ...s.paper, size: v } })) }}>
-				{#if same((s) => s.paper.size) === undefined}<option value={MIXED} disabled>(mixed)</option>{/if}
+			<select class="inp" value={same((s) => s.paper.size) ?? MIXED_KEY} onchange={(e) => { const v = e.currentTarget.value as Sheet['paper']['size']; set('Paper size', (s) => ({ paper: { ...s.paper, size: v } })) }}>
+				{#if mixed((s) => s.paper.size)}<option value={MIXED_KEY} disabled>{MIXED}</option>{/if}
 				{#each ['A0', 'A1', 'A2', 'A3', 'A4'] as z (z)}<option value={z}>{z}</option>{/each}
 			</select>
-			<select class="inp" value={same((s) => s.paper.orientation) ?? MIXED} onchange={(e) => { const v = e.currentTarget.value as 'landscape' | 'portrait'; set('Paper orientation', (s) => ({ paper: { ...s.paper, orientation: v } })) }}>
-				{#if same((s) => s.paper.orientation) === undefined}<option value={MIXED} disabled>(mixed)</option>{/if}
+			<select class="inp" value={same((s) => s.paper.orientation) ?? MIXED_KEY} onchange={(e) => { const v = e.currentTarget.value as 'landscape' | 'portrait'; set('Paper orientation', (s) => ({ paper: { ...s.paper, orientation: v } })) }}>
+				{#if mixed((s) => s.paper.orientation)}<option value={MIXED_KEY} disabled>{MIXED}</option>{/if}
 				<option value="landscape">landscape</option><option value="portrait">portrait</option>
 			</select>
 		</span></label>
@@ -75,11 +78,5 @@
 </div>
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.inp.w-auto { width: auto; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover:not(:disabled) { background: var(--cad-hover); }
-	.btn:disabled { opacity: 0.4; }
-	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
 </style>

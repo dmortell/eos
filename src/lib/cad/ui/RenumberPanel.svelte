@@ -121,7 +121,6 @@
 <style>
 	.rn { display: flex; flex-direction: column; gap: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.rn > :global(* + *) { margin-top: 4px; }
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.inp { width: 100%; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	.pv { max-height: 12rem; overflow: auto; padding-left: 1.4rem; list-style: decimal; }
 	.same { color: var(--cad-muted, #a1a1aa); }

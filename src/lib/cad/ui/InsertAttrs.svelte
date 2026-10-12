@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Shape } from '../domain/shapes'
 	import { blockAttrDefs } from '../domain/blocks'
+	import { shared, MIXED } from './propsKit'
 
 	let { project, inserts }: { project: CadProject; inserts: Shape[] } = $props()
 
@@ -19,7 +20,6 @@
 		}
 		return [...by.values()]
 	})
-	const shared = <T,>(xs: Ins[], f: (s: Ins) => T): T | null => { const v = new Set(xs.map(f)); return v.size === 1 ? [...v][0] : null }
 
 	function each(xs: Ins[], label: string, f: (g: Ins['geom']) => Ins['geom']) {
 		project.store.transact(xs.length > 1 ? `${label} (${xs.length})` : label, (tx) => { for (const s of xs) tx.put({ ...s, geom: f(s.geom) }) })
@@ -47,7 +47,7 @@
 		{@const hid = d.on.filter((s) => s.geom.hidden?.includes(d.tag)).length}
 		<div class="att" title="{d.tag}{d.on.length < list.length ? ` (${d.on.length} of the ${list.length} have it)` : ''}">
 			<span class="nm">{d.label}</span>
-			<input class="inp" value={v ?? ''} placeholder={v === null ? 'mixed' : (d.default ?? '')} onchange={(e) => setValue(d.tag, d.on, e.currentTarget.value.trim())} />
+			<input class="inp" value={v.value ?? ''} placeholder={v.mixed ? MIXED : (d.default ?? '')} onchange={(e) => setValue(d.tag, d.on, e.currentTarget.value.trim())} />
 			<label class="sh" title="Shown on the drawing (unticked: kept as data, not drawn)"><input type="checkbox" checked={hid === 0} indeterminate={hid > 0 && hid < d.on.length} onchange={(e) => setShown(d.tag, d.on, e.currentTarget.checked)} /> shown</label>
 		</div>
 	{/each}
@@ -56,6 +56,5 @@
 <style>
 	.att { display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 0.25rem; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.sh { font-size: 11px; color: var(--cad-muted); white-space: nowrap; }
 </style>

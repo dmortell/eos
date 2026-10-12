@@ -1,0 +1,17 @@
+/* The Properties look, shared by every Props component (imported once, by ui/Properties.svelte, whose wrapper has the
+   class cad-props). :where() keeps these at the lowest specificity, so a component's own scoped rule still wins. */
+
+/* a field: its label in the left column, the control beside it */
+:where(.cad-props) .row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: 0.25rem; }
+:where(.cad-props) .inp { width: 100%; min-width: 0; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
+:where(.cad-props) textarea.inp { resize: vertical; font-family: inherit; }
+:where(.cad-props) .btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+:where(.cad-props) .btn:hover:not(:disabled) { background: var(--cad-hover); }
+:where(.cad-props) .btn:disabled { opacity: 0.4; }
+:where(.cad-props) .btn.del:hover { color: #dc2626; }
+/* a row of action buttons, in the control column when it follows fields */
+:where(.cad-props) .acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
+:where(.cad-props) .acts.ind { padding-left: 6.75rem; }
+/* a value with its unit after it, or two small inputs side by side */
+:where(.cad-props) .pair { display: flex; align-items: center; gap: 0.25rem; }
+:where(.cad-props) .muted { color: var(--cad-muted); }

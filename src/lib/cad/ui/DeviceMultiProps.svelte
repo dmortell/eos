@@ -7,13 +7,13 @@
 	import type { Device } from '../domain/types'
 	import { placementProblem } from '../domain/devices'
 	import DeviceCables from './DeviceCables.svelte'
+	import { shared, MIXED, num, text, whole } from './propsKit'
 
 	let { project, ws, devices }: { project: CadProject; ws: Workspace; devices: Device[] } = $props()
 
-	function same<V>(get: (d: Device) => V): V | undefined {
-		const v = devices.length ? get(devices[0]) : undefined
-		return devices.every((d) => get(d) === v) ? v : undefined
-	}
+	/** What they share; undefined when mixed (`mixed()` says which). */
+	const same = <V,>(get: (d: Device) => V): V | undefined => shared(devices, get).value
+	const mixed = <V,>(get: (d: Device) => V) => shared(devices, get).mixed
 	function set(label: string, patch: (d: Device) => Partial<Device>) {
 		const next = devices.map((d) => ({ ...d, ...patch(d) }))
 		const others = project.index.devices.filter((d) => !devices.some((x) => x.id === d.id))
@@ -27,42 +27,38 @@
 		if (devices[0]) ws.lastDeviceEdit = repeatableEdit(devices[0], label, patch(devices[0])) ?? ws.lastDeviceEdit
 	}
 	const KINDS: Device['kind'][] = ['panel', 'switch', 'manager', 'server', 'shelf', 'pdu', 'enclosure', 'other']
-	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
-	const text = (v: string) => v.trim() || undefined
-	/** A typed whole number ≥ min, else nothing changes. */
-	const whole = (v: string, min: number) => { const n = Number(v); return v.trim() !== '' && Number.isInteger(n) && n >= min ? n : null }
 </script>
 
 <p class="pt-1 font-semibold">{devices.length} devices</p>
-<label class="row">Name <input class="inp" value={same((d) => d.name) ?? ''} placeholder="mixed" onchange={(e) => { const t = e.currentTarget.value.trim(); if (t) set('Rename devices', () => ({ name: t })) }} /></label>
+<label class="row">Name <input class="inp" value={same((d) => d.name) ?? ''} placeholder={mixed((d) => d.name) ? MIXED : ''} onchange={(e) => { const t = e.currentTarget.value.trim(); if (t) set('Rename devices', () => ({ name: t })) }} /></label>
 <label class="row">Kind
 	<select class="inp" value={same((d) => d.kind) ?? ''} onchange={(e) => { const kind = e.currentTarget.value as Device['kind']; if (kind) set('Device kind', () => ({ kind })) }}>
-		{#if !same((d) => d.kind)}<option value="">mixed</option>{/if}
+		{#if mixed((d) => d.kind)}<option value="">{MIXED}</option>{/if}
 		{#each KINDS as k (k)}<option value={k}>{k}</option>{/each}
 	</select>
 </label>
 <label class="row">Face
 	<select class="inp" value={same((d) => d.face) ?? ''} onchange={(e) => set('Device face', () => ({ face: e.currentTarget.value as Device['face'] }))}>
-		{#if !same((d) => d.face)}<option value="">mixed</option>{/if}
+		{#if mixed((d) => d.face)}<option value="">{MIXED}</option>{/if}
 		{#each ['front', 'rear', 'both', 'none'] as f (f)}<option value={f}>{f}</option>{/each}
 	</select>
 </label>
-<label class="row">Height (U) <input class="inp" type="number" min="1" value={same((d) => d.heightU) ?? ''} placeholder="mixed" onchange={(e) => { const n = whole(e.currentTarget.value, 1); if (n) set('Device height', () => ({ heightU: n })) }} /></label>
-<label class="row">Ports <input class="inp" type="number" min="0" value={same((d) => d.portCount) ?? ''} placeholder="mixed" onchange={(e) => { const n = whole(e.currentTarget.value, 0); if (n !== null) set('Port count', () => ({ portCount: n })) }} /></label>
+<label class="row">Height (U) <input class="inp" type="number" min="1" value={same((d) => d.heightU) ?? ''} placeholder={mixed((d) => d.heightU) ? MIXED : ''} onchange={(e) => { const n = whole(e.currentTarget.value, 1); if (n) set('Device height', () => ({ heightU: n })) }} /></label>
+<label class="row">Ports <input class="inp" type="number" min="0" value={same((d) => d.portCount) ?? ''} placeholder={mixed((d) => d.portCount) ? MIXED : ''} onchange={(e) => { const n = whole(e.currentTarget.value, 0); if (n !== null) set('Port count', () => ({ portCount: n })) }} /></label>
 <label class="row">Numbering
 	<select class="inp" value={same((d) => d.portNumbering ?? 'row') ?? ''} onchange={(e) => set('Port numbering', () => ({ portNumbering: e.currentTarget.value === 'column' ? 'column' : undefined }))}>
-		{#if !same((d) => d.portNumbering ?? 'row')}<option value="">mixed</option>{/if}
+		{#if mixed((d) => d.portNumbering ?? 'row')}<option value="">{MIXED}</option>{/if}
 		<option value="row">Across (2 beside 1)</option><option value="column">Down (2 under 1)</option>
 	</select>
 </label>
-<label class="row">Width (mm) <input class="inp" type="number" min="10" value={same((d) => d.widthMm) ?? ''} placeholder={same((d) => d.widthMm) === undefined && devices.every((d) => !d.widthMm) ? '19-inch' : 'mixed'} onchange={(e) => set('Device width', () => ({ widthMm: num(e.currentTarget.value) }))} /></label>
-<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={same((d) => d.depthMm) ?? ''} placeholder="mixed" onchange={(e) => set('Device depth', () => ({ depthMm: num(e.currentTarget.value) }))} /></label>
-<label class="row">Maker <input class="inp" value={same((d) => d.maker ?? '') ?? ''} placeholder={same((d) => d.maker ?? '') === undefined ? 'mixed' : ''} onchange={(e) => set('Device maker', () => ({ maker: text(e.currentTarget.value) }))} /></label>
-<label class="row">Model <input class="inp" value={same((d) => d.model ?? '') ?? ''} placeholder={same((d) => d.model ?? '') === undefined ? 'mixed' : ''} onchange={(e) => set('Device model', () => ({ model: text(e.currentTarget.value) }))} /></label>
+<label class="row">Width (mm) <input class="inp" type="number" min="10" value={same((d) => d.widthMm) ?? ''} placeholder={mixed((d) => d.widthMm) ? MIXED : '19-inch'} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) set('Device width', () => ({ widthMm: v })) }} /></label>
+<label class="row">Depth (mm) <input class="inp" type="number" min="10" value={same((d) => d.depthMm) ?? ''} placeholder={mixed((d) => d.depthMm) ? MIXED : ''} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) set('Device depth', () => ({ depthMm: v })) }} /></label>
+<label class="row">Maker <input class="inp" value={same((d) => d.maker ?? '') ?? ''} placeholder={mixed((d) => d.maker ?? '') ? MIXED : ''} onchange={(e) => set('Device maker', () => ({ maker: text(e.currentTarget.value) }))} /></label>
+<label class="row">Model <input class="inp" value={same((d) => d.model ?? '') ?? ''} placeholder={mixed((d) => d.model ?? '') ? MIXED : ''} onchange={(e) => set('Device model', () => ({ model: text(e.currentTarget.value) }))} /></label>
 {#if devices.every((d) => d.kind === 'panel')}
 	<label class="row">Tier
 		<select class="inp" value={same((d) => d.panel?.tier ?? 'low') ?? ''} onchange={(e) => { const tier = e.currentTarget.value as 'low' | 'high'; set('Panel tier', (d) => ({ panel: { ...d.panel, tier } })) }}>
-			{#if !same((d) => d.panel?.tier ?? 'low')}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
+			{#if mixed((d) => d.panel?.tier ?? 'low')}<option value="">{MIXED}</option>{/if}<option value="low">Low</option><option value="high">High</option>
 		</select>
 	</label>
 {/if}
@@ -73,10 +69,8 @@
 <DeviceCables {project} {ws} {devices} />
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	/* as Port Properties' Link to… : big, blue, with its key */
 	.link { border: 1px solid #1d4ed8; border-radius: 4px; background: #2563eb; color: #fff; font-weight: 600; font-size: 12px; padding: 2px 8px; }
 	.link:hover { background: #1d4ed8; }
 	.link kbd { font: 10px ui-monospace, monospace; border: 1px solid #ffffff80; border-radius: 3px; padding: 0 3px; margin-left: 2px; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 </style>

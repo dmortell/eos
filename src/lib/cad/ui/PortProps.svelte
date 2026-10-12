@@ -14,6 +14,7 @@
 	import { viaList, viaValue } from '../domain/routing'
 	import type { Device, Link } from '../domain/types'
 	import { cablesOf } from '../domain/multicore'
+	import { shared, MIXED } from './propsKit'
 
 	let { project, ws, sel }: { project: CadProject; ws: Workspace; sel: PortSel } = $props()
 
@@ -62,11 +63,10 @@
 		const lo = Math.min(...ls), hi = Math.max(...ls)
 		return `${lo === hi ? `${lo}m` : `${lo}–${hi}m`}${ls.length > 1 ? ` · total ${ls.reduce((a, b) => a + b, 0)}m` : ''}${none ? ` · ${none} no route` : ''}`
 	})
-	const same = <T,>(xs: T[]) => (xs.every((x) => x === xs[0]) ? xs[0] : '*')
-	// the runs these cables must pass through, in order (a riser for diversity, or a whole route by hand)
-	const viasShown = $derived.by(() => { const v = same(cables.map((l) => viaList(l).join(','))); return v === '*' ? null : v ? v.split(',') : [] })
+	// the runs these cables must pass through, in order (a riser for diversity, or a whole route by hand); null = mixed
+	const viasShown = $derived.by(() => { const v = shared(cables, (l) => viaList(l).join(',')); return v.mixed ? null : v.value ? v.value.split(',') : [] })
 	const runs = $derived(containmentRuns(project.index))
-	const handShown = $derived.by(() => { const h = same(cables.map((l) => l.lengthM ?? '')); return h === '*' ? '' : h })
+	const hand = $derived(shared(cables, (l) => l.lengthM))
 	function setVias(ids: string[]) {
 		const v = viaValue(ids), names = viaList({ via: v }).map((id) => project.index.nameOf(id) || 'a run')
 		project.store.transact(names.length ? `Route ${cablesOf(cables).length} cable(s) through ${names.join(' → ')}` : 'Route by the shortest way', (tx) => { for (const l of withCores) tx.put({ ...l, via: v }) })
@@ -114,14 +114,14 @@
 	{@const r0 = project.routes.get(cables[0].id)}
 	{@const nCables = cablesOf(cables).length}
 	<p class="pt-1 font-semibold">Cable{nCables > 1 ? `s (${nCables})` : ''} <span class="font-normal text-zinc-500">{[...new Set(cables.map((l) => l.kind))].join(' / ')} · {cables[0].cableType ?? ''}{nCables !== cables.length || cables[0].cable ? ` · ${cables.length} core${cables.length === 1 ? '' : 's'} here` : ''}</span></p>
-	<div class="row"><span>Length</span><span class="font-mono" class:text-red-600={cables.some((l) => project.routes.get(l.id)?.problem || project.routes.get(l.id)?.over90)}>{lengthText}</span></div>
+	<div class="prow"><span>Length</span><span class="font-mono" class:text-red-600={cables.some((l) => project.routes.get(l.id)?.problem || project.routes.get(l.id)?.over90)}>{lengthText}</span></div>
 	{#if cables.length === 1 && r0?.problem}<p class="text-red-600">No route: {r0.problem}</p>{/if}
 	<!-- route set by hand (backlog G148 / T078): the runs / risers to pass through, in order from the panel end;
 	     routing takes the shortest way between them -->
-	<div class="row" title="Runs and risers these cables must pass through, in order from the panel: e.g. a second riser for diversity, or a whole route. Routing takes the shortest way to, between and from them. None = the shortest route.">
+	<div class="prow" title="Runs and risers these cables must pass through, in order from the panel: e.g. a second riser for diversity, or a whole route. Routing takes the shortest way to, between and from them. None = the shortest route.">
 		<span>Route through</span>
 		<span class="vias">
-			{#if viasShown === null}<span class="text-zinc-500">(mixed) <button class="x" title="Clear: route every one the shortest way" onclick={() => setVias([])}>clear</button></span>
+			{#if viasShown === null}<span class="text-zinc-500">{MIXED} <button class="x" title="Clear: route every one the shortest way" onclick={() => setVias([])}>clear</button></span>
 			{:else}
 				{#each viasShown as id, i (i)}
 					<span class="via"><span class="text-zinc-400">{i + 1}</span>
@@ -137,8 +137,8 @@
 			</select>
 		</span>
 	</div>
-	<label class="row" title="A length typed by hand (as-built, or where the containment isn't drawn); blank = the routed length">By hand (m)
-		<input class="inp w-16" type="number" min="0" step="1" value={handShown} placeholder="routed" onchange={(e) => setHand(e.currentTarget.value)} /></label>
+	<label class="prow" title="A length typed by hand (as-built, or where the containment isn't drawn); blank = the routed length">By hand (m)
+		<input class="inp w-16" type="number" min="0" step="1" value={hand.value ?? ''} placeholder={hand.mixed ? MIXED : 'routed'} onchange={(e) => setHand(e.currentTarget.value)} /></label>
 {/if}
 {#if sel.ports.length === 1}
 	<Trace {project} steps={traceCircuit(project.index, { on: sel.on, port: sel.ports[0] })} />
@@ -183,6 +183,7 @@
 	.acts kbd { font: 10px ui-monospace, monospace; border: 1px solid #ffffff80; border-radius: 3px; padding: 0 3px; margin-left: 2px; }
 	.from { color: var(--cad-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
-	.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }
-	.row select, .row .inp { max-width: 9rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); }
+	/* a cable field: its name left, the value right (narrower than a Properties row) */
+	.prow { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }
+	.prow select, .prow .inp { max-width: 9rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); }
 </style>

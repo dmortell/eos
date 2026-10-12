@@ -86,8 +86,6 @@
 	.stsel { border: 1px solid transparent; cursor: pointer; }
 	.stsel:hover { border-color: var(--cad-line); }
 	.status { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 4px; text-transform: uppercase; }
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; }
 	.acts button { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.acts button:hover { background: var(--cad-hover); }

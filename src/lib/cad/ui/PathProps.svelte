@@ -252,14 +252,10 @@
 <style>
 	.inside { display: flex; align-items: center; gap: 0.25rem; }
 	.inside .inp { width: 4.5rem; }
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.serves { display: flex; flex-wrap: wrap; gap: 2px 8px; }
 	.serves label { white-space: nowrap; }
 	.serves .hint { color: var(--cad-faint); }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	/* one node per row: index, x, y, z, drop */
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
 	.segsize { display: inline-flex; gap: 6px; align-items: center; }
 	.segsize input { width: 4rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 	.picked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; }

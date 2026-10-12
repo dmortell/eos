@@ -17,6 +17,7 @@
 	import UsageButtons from './UsageButtons.svelte'
 	import NameInput from './NameInput.svelte'
 	import { outletZ } from '../domain/routing'
+	import { shared, MIXED, num } from './propsKit'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
 
@@ -26,15 +27,12 @@
 	const MOUNTS: Outlet['mount'][] = ['floor', 'wall', 'box', 'desk', 'ceiling']
 
 	const put = (o: Outlet, label: string, patch: Partial<Outlet>) => project.store.transact(label, (tx) => tx.put({ ...o, ...patch }))
-	const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
 	function setPort(o: Outlet, i: number, patch: Partial<Outlet['ports'][number]>) {
 		put(o, `Port ${o.ports[i].label}`, { ports: o.ports.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
 	}
-	/** The value they all share, or undefined when it differs (shown as "mixed"). */
-	function same<V>(get: (o: Outlet) => V): V | undefined {
-		const v = outlets.length ? get(outlets[0]) : undefined
-		return outlets.every((o) => get(o) === v) ? v : undefined
-	}
+	/** The value they all share, or `mixedAs` when they differ. */
+	const pick = <V,>(get: (o: Outlet) => V, mixedAs: V): V => { const sh = shared(outlets, get); return sh.mixed ? mixedAs : (sh.value as V) }
+	const isMixed = <V,>(get: (o: Outlet) => V) => shared(outlets, get).mixed
 	const cableTypes = $derived(sortedCableTypes(project.settings))
 	/** The cable every port of the outlet takes (undefined: its ports differ). */
 	const cableOf = (o: Outlet): string | undefined => { const t = o.ports[0]?.cableType; return o.ports.every((p) => p.cableType === t) ? t : undefined }
@@ -67,7 +65,7 @@
 	const rooms = $derived(project.index.spaces.filter((s) => s.kind === 'room' && s.levelId === outlets[0]?.levelId).sort((a, b) => naturalCompare(a.name, b.name)))
 	function setRoom(value: string, select: HTMLSelectElement) {
 		if (value !== '+') { setOutlets('Room', () => ({ roomId: value || undefined })); return }
-		select.value = same((o) => o.roomId ?? '') ?? '?'
+		select.value = pick((o) => o.roomId ?? '', '?')
 		newRoom = true   // its name in a box under the field (not the status bar)
 	}
 	let newRoom = $state(false)
@@ -77,7 +75,7 @@
 	let newZone = $state(false)
 	function setZone(value: string, select: HTMLSelectElement) {
 		if (value !== '+') { setOutlets('Zone', () => ({ zoneId: value || undefined })); return }
-		select.value = same((o) => o.zoneId ?? '') ?? '?'
+		select.value = pick((o) => o.zoneId ?? '', '?')
 		newZone = true
 	}
 	function addZone(name: string) {
@@ -105,45 +103,45 @@
 	{@const o = outlets.find((x) => x.id === portFix[0].id)}
 	<p class="warn" title="A panel port linked to one of these shows the port's label — it doesn't match the outlet">
 		{portFix.length === 1 ? 'Its' : `${portFix.length} outlets'`} port labels don't match {portFix.length === 1 ? 'its label' : 'their labels'} ({o?.label}: {o?.ports[0]?.label} …)
-		<button class="btn" title="Label those ports from the outlet's label again (e.g. 245.A, 245.B) — ports that contain the label are left alone; Undo puts them back" onclick={fixPorts}>Ports from label</button>
+		<button class="wbtn" title="Label those ports from the outlet's label again (e.g. 245.A, 245.B) — ports that contain the label are left alone; Undo puts them back" onclick={fixPorts}>Ports from label</button>
 	</p>
 {/if}
 {#if outlets.length > 1}
 	<label class="row">Tier
-		<select class="inp" value={same((o) => o.tier) ?? ''} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
-			{#if !same((o) => o.tier)}<option value="">mixed</option>{/if}<option value="low">Low</option><option value="high">High</option>
+		<select class="inp" value={pick((o) => o.tier, '')} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
+			{#if isMixed((o) => o.tier)}<option value="">{MIXED}</option>{/if}<option value="low">Low</option><option value="high">High</option>
 		</select>
 	</label>
 	<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
 	<div class="row">Usage
-		<UsageButtons {usages} value={same((o) => o.usage ?? '')} mixed={same((o) => o.usage ?? '') === undefined} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
+		<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
 	</div>
 	<label class="row">Mount
-		<select class="inp" value={same((o) => o.mount) ?? ''} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
-			{#if !same((o) => o.mount)}<option value="">mixed</option>{/if}
+		<select class="inp" value={pick((o) => o.mount, '' as Outlet['mount'])} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
+			{#if isMixed((o) => o.mount)}<option value="">{MIXED}</option>{/if}
 			{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
 		</select>
 	</label>
 	<!-- the cable its ports take (backlog "Cable type per outlet"): one pick sets every port -->
 	<label class="row">Cable
-		<select class="inp" value={same((o) => cableOf(o) ?? '?') ?? '?'} onchange={(e) => { const t = e.currentTarget.value; setOutlets('Cable type', (o) => ({ ports: o.ports.map((p) => ({ ...p, cableType: t })) })) }}>
-			{#if (same((o) => cableOf(o) ?? '?') ?? '?') === '?'}<option value="?" disabled>mixed</option>{/if}
+		<select class="inp" value={pick((o) => cableOf(o) ?? '?', '?')} onchange={(e) => { const t = e.currentTarget.value; setOutlets('Cable type', (o) => ({ ports: o.ports.map((p) => ({ ...p, cableType: t })) })) }}>
+			{#if pick((o) => cableOf(o) ?? '?', '?') === '?'}<option value="?" disabled>{MIXED}</option>{/if}
 			{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 		</select>
 	</label>
 	<label class="row">Server room
-		<select class="inp" value={same((o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?')) ?? '?'}
+		<select class="inp" value={pick((o) => (o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId) ? o.ports[0]?.serverRoomId ?? '' : '?'), '?')}
 			onchange={(e) => { const id = e.currentTarget.value || undefined; setOutlets('Server room', (o) => ({ ports: o.ports.map((p) => ({ ...p, serverRoomId: id })) })) }}>
-			<option value="?" disabled>mixed</option><option value="">—</option>
+			<option value="?" disabled>{MIXED}</option><option value="">—</option>
 			{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
 		</select>
 	</label>
-	<label class="row">Height (Z, mm) <input class="inp" type="number" value={same((o) => o.z) ?? ''} placeholder="mixed" onchange={(e) => setOutlets('Height', () => ({ z: num(e.currentTarget.value) }))} /></label>
+	<label class="row">Height (Z, mm) <input class="inp" type="number" value={pick((o) => o.z, undefined) ?? ''} placeholder={isMixed((o) => o.z) ? MIXED : ''} onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) setOutlets('Height', () => ({ z })) }} /></label>
 	<label class="row" title="Show them in elevations and sections too (on a wall); otherwise only on the plan">Elevations
 		<span><input type="checkbox" checked={outlets.every((o) => o.inElevations)} indeterminate={outlets.some((o) => o.inElevations) && !outlets.every((o) => o.inElevations)}
 			onchange={(e) => { const on = e.currentTarget.checked; setOutlets(on ? 'Show in elevations' : 'Plan only', () => ({ inElevations: on || undefined })) }} /> show in elevations</span>
 	</label>
-	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={same((o) => o.ports.length) ?? ''} placeholder="mixed" onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
+	<label class="row">Ports <input class="inp" type="number" min="1" max="48" value={pick((o) => o.ports.length, undefined) ?? ''} placeholder={isMixed((o) => o.ports.length) ? MIXED : ''} onchange={(e) => portCount(outlets, e.currentTarget)} /></label>
 	{@render roomField()}
 	{@render zoneField()}
 {:else if outlets.length === 1}
@@ -163,7 +161,7 @@
 		</label>
 		<label class="row">Cable
 			<select class="inp" value={cableOf(o) ?? '?'} onchange={(e) => { const t = e.currentTarget.value; put(o, 'Cable type', { ports: o.ports.map((p) => ({ ...p, cableType: t })) }) }}>
-				{#if !cableOf(o)}<option value="?" disabled>mixed</option>{/if}
+				{#if !cableOf(o)}<option value="?" disabled>{MIXED}</option>{/if}
 				{#each cableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
 				{#if cableOf(o) && !cableTypes.some((t) => t.id === cableOf(o))}<option value={cableOf(o)}>{cableOf(o)}</option>{/if}
 			</select>
@@ -178,7 +176,7 @@
 	</PropGroup>
 	<PropGroup kind="outlet" title="Position">
 		<!-- a blank height shows the default it uses (a floor box 0, a wall outlet 300, a ceiling one the ceiling) -->
-		<label class="row" title="Height above FFL (mm); blank = the default for its mount">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => put(o, 'Height', { z: num(e.currentTarget.value) })} /></label>
+		<label class="row" title="Height above FFL (mm); blank = the default for its mount">Height (Z, mm) <input class="inp" type="number" value={o.z ?? ''} placeholder="{outletZ({ ...o, z: undefined }, lv?.type === 'level' ? lv : undefined)} — {o.mount} default" onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) put(o, 'Height', { z }) }} /></label>
 		<label class="row" title="Show it in elevations and sections too (on a wall); otherwise only on the plan">Elevations
 			<span><input type="checkbox" checked={!!o.inElevations} onchange={(e) => put(o, e.currentTarget.checked ? 'Show in elevations' : 'Plan only', { inElevations: e.currentTarget.checked || undefined })} /> show in elevations</span></label>
 		{#if o.at}
@@ -211,8 +209,8 @@
 
 {#snippet roomField()}
 	<label class="row" title="The room it's in (a numbered office room — not its server room)">Room
-		<select class="inp" value={same((o) => o.roomId ?? '') ?? '?'} onchange={(e) => setRoom(e.currentTarget.value, e.currentTarget)}>
-			<option value="?" disabled>mixed</option><option value="">—</option>
+		<select class="inp" value={pick((o) => o.roomId ?? '', '?')} onchange={(e) => setRoom(e.currentTarget.value, e.currentTarget)}>
+			<option value="?" disabled>{MIXED}</option><option value="">—</option>
 			{#each rooms as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
 			<option value="+">New room…</option>
 		</select>
@@ -222,8 +220,8 @@
 
 {#snippet zoneField()}
 	<label class="row" title="The zone of the floor it's in (the Z of its port labels in the Frames format) — the next outlets placed take it too">Zone
-		<select class="inp" value={same((o) => o.zoneId ?? '') ?? '?'} onchange={(e) => setZone(e.currentTarget.value, e.currentTarget)}>
-			<option value="?" disabled>mixed</option><option value="">—</option>
+		<select class="inp" value={pick((o) => o.zoneId ?? '', '?')} onchange={(e) => setZone(e.currentTarget.value, e.currentTarget)}>
+			<option value="?" disabled>{MIXED}</option><option value="">—</option>
 			{#each zones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
 			<option value="+">New zone…</option>
 		</select>
@@ -232,9 +230,7 @@
 {/snippet}
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.warn { margin: 2px 0 6px; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #92400e; background: #fef3c7; }
-	.btn { margin-left: 4px; border: 1px solid #d97706; border-radius: 4px; padding: 0 6px; background: white; color: #92400e; }
-	.btn:hover { background: #fffbeb; }
+	.wbtn { margin-left: 4px; border: 1px solid #d97706; border-radius: 4px; padding: 0 6px; background: white; color: #92400e; }
+	.wbtn:hover { background: #fffbeb; }
 </style>

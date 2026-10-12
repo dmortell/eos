@@ -2793,3 +2793,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   a plan shows in elevations".
 - **R61 (part) Edit › Paste works:** it reads the clipboard on request and pastes cad items as Ctrl+V does (it only
   said "press Ctrl+V") (`app/clipboardEvents.ts` `pasteText`, `ui/CadShell.svelte`).
+- **R86 Properties field kit (step 1, the foundation):** `ui/propsKit.ts` — `shared(list, f)` → `{ value, mixed }`
+  (one meaning of "the value they share"; it replaces the `same()` / `shared()` / `'*'` helpers of Properties,
+  OutletProps, DeviceMultiProps, SheetMultiProps, LineStyle, InsertAttrs, RunsMultiProps, ShapesMultiProps, RackDoors
+  and PortProps), one `MIXED` word ("mixed" — no more "(mixed)"), `put` / `putMany` (one undo step, "Label (3
+  racks)"), `num` / `text` / `whole`; tests in `ui/propsKit.test.ts`. Shared fields in `ui/fields/`: `Field` (the
+  6.5rem label column, "Label (unit)", the label's id for the control's `aria-labelledby`), `NumberField` (unit, the
+  default as the placeholder, blank → default when allowed; the box shows the data again after a refused edit),
+  `TextField`, `SelectField` ("mixed" option, extra options), `CheckField` (half-ticked when mixed), `ColorField`
+  (ColorPick). The `.row` / `.inp` / `.btn` / `.acts` look is `ui/props.css`, imported once by Properties (wrapper
+  class `cad-props`, `:where()` so a component's own rule still wins); the copies in 12 Props files are gone. Several
+  racks' fields are the first built from the kit.

@@ -38,5 +38,4 @@
 
 <style>
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; font-size: 12px; }
-	.btn:hover { background: var(--cad-hover); }
 </style>

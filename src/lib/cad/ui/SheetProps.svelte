@@ -216,13 +216,8 @@
 {/if}
 
 <style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 	.win { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
 	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
-	.btn.del:hover { color: #dc2626; }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
 	.rev { display: grid; grid-template-columns: 2.2rem 5.5rem 1fr auto; align-items: center; gap: 4px; }
 	.chg { display: grid; grid-template-columns: 4.6rem 1fr 4.5rem auto; align-items: center; gap: 4px; margin-bottom: 2px; }

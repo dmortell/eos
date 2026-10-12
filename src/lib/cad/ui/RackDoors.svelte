@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Rack } from '../domain/types'
 	import type { Shape } from '../domain/shapes'
+	import { shared as sharedOf, MIXED } from './propsKit'
 
 	let { project, racks = [], boxes = [] }: { project: CadProject; racks?: Rack[]; boxes?: Shape[] } = $props()
 
@@ -13,8 +14,8 @@
 	const cabinets = $derived<(Rack | Shape)[]>([...racks.filter((r) => r.kind === 'cabinet' || r.kind === 'vcm'), ...boxes.filter((s) => s.geom.kind === 'rect')])
 	/** The value every cabinet shares, or `null` when they differ. */
 	function shared<K extends keyof Doors>(k: K): Doors[K] | null {
-		const vs = new Set(cabinets.map((r) => r.doors?.[k]))
-		return vs.size === 1 ? [...vs][0] : null
+		const r = sharedOf(cabinets, (c) => c.doors?.[k])
+		return r.mixed ? null : (r.value as Doors[K])
 	}
 	const front = $derived(shared('front')), rear = $derived(shared('rear')), hinge = $derived(shared('hinge'))
 	const anySingle = $derived(cabinets.some((r) => r.doors?.front === 'single' || r.doors?.rear === 'single'))
@@ -35,11 +36,11 @@
 	<label class="row" title={cabinets.length < racks.length ? `Sets the ${cabinets.length} cabinets; the other racks have no doors` : undefined}>Doors
 		<span class="flex gap-1">
 			<select class="inp" title="Front door" value={front === null ? 'mixed' : (front ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ front: face(e.currentTarget.value) })}>
-				{#if front === null}<option value="mixed">front: mixed</option>{/if}
+				{#if front === null}<option value="mixed">front: {MIXED}</option>{/if}
 				<option value="">front: none</option><option value="single">front: single</option><option value="split">front: split</option>
 			</select>
 			<select class="inp" title="Rear door" value={rear === null ? 'mixed' : (rear ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ rear: face(e.currentTarget.value) })}>
-				{#if rear === null}<option value="mixed">rear: mixed</option>{/if}
+				{#if rear === null}<option value="mixed">rear: {MIXED}</option>{/if}
 				<option value="">rear: none</option><option value="single">rear: single</option><option value="split">rear: split</option>
 			</select>
 		</span>
@@ -47,13 +48,8 @@
 	{#if anySingle}
 		<label class="row" title="The side a single door hangs on, as seen standing at that face">Hinge
 			<select class="inp" value={hinge === null ? 'mixed' : (hinge ?? 'left')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ hinge: e.currentTarget.value === 'right' ? 'right' : undefined })}>
-				{#if hinge === null}<option value="mixed">mixed</option>{/if}
+				{#if hinge === null}<option value="mixed">{MIXED}</option>{/if}
 				<option value="left">left</option><option value="right">right</option>
 			</select></label>
 	{/if}
 {/if}
-
-<style>
-	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
-	.inp { width: 100%; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
-</style>
