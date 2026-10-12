@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import { cableTypeUses, cantDelete, newCableTypeId } from './cableTypes'
-import type { ProjectSettings } from './types'
+import type { ProjectSettings, Link } from './types'
 
 const settings = { type: 'settings', id: 'settings', portSuffix: 'alpha', usages: [],
 	cableTypes: [{ id: 'cat6a', label: 'Cat6A', media: 'copper', color: '#3b82f6' }, { id: 'om4', label: 'OM4', media: 'fibre', color: '#22d3ee' }, { id: 'cat5e', label: 'Cat5e', media: 'copper', color: '#999999' }],
@@ -17,6 +17,13 @@ describe('cable types', () => {
 		expect(cantDelete(u)).toMatch(/^used by \d+ outlet ports/)
 		expect(cantDelete(cableTypeUses(ix, settings, 'om4'))).toBe('the default for new outlets or cords')
 		expect(cantDelete(cableTypeUses(ix, settings, 'cat5e'))).toBeNull()
+	})
+	it('a type only links use can\'t be deleted either (Review 2 Q11)', () => {
+		const tie: Link = { type: 'link', id: 'T1', kind: 'tie', a: { on: 'X', port: 1 }, b: { on: 'Y', port: 1 }, cableType: 'cat5e', status: 'design' }
+		const u = cableTypeUses(new ProjectIndex([...demoProject(), tie]), settings, 'cat5e')
+		expect(u).toMatchObject({ ports: 0, links: 1, cords: 0 })
+		expect(cantDelete(u)).toBe('used by 1 link')
+		expect(cantDelete({ ports: 2, links: 3, cords: 1, isDefault: false })).toBe('used by 2 outlet ports, 3 links and 1 cord')
 	})
 	it('a new type\'s id comes from its label, made unique', () => {
 		expect(newCableTypeId('Cat6A STP', [])).toBe('cat6a-stp')

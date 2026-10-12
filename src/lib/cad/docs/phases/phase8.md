@@ -3033,3 +3033,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   ports free (it's for something else; the outlet's label would replace what it shows), and say which (an allocation
   issue "N free panel ports left free …"; Assign / drag name the ports passed over) (`domain/allocate.ts`
   `labelledPort`; Help; tests).
+- **Q11** a cable type that only links (outlet cables, ties, backbone) use can't be deleted — it was, and fill, cores,
+  the riser and the BOM then guessed; Settings › Cable types' Used by counts links too (`domain/cableTypes.ts`
+  `cableTypeUses` / `cantDelete`, `ui/SettingsPanel.svelte`; test).

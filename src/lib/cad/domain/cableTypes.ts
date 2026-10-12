@@ -1,26 +1,28 @@
 // The project's CABLE TYPES (backlog "Cable types editor", Dave 2026-10-05): what uses one (so it can't be deleted
 // from under them) and a new type's id. The list lives in `settings.cableTypes`; outlet ports and cords refer to a
-// type by id, and the project's defaults name one for new outlets / cords. Links carry their own free-text type.
+// type by id, and the project's defaults name one for new outlets / cords. Links (outlet cables, ties, backbone) name
+// one too — fill, cores, the riser and the BOM read it.
 import type { ProjectSettings } from './types'
 import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
 
 export type CableType = ProjectSettings['cableTypes'][number]
 
-/** How many outlet ports and cords use the type, and whether it's a default for new ones. */
-export function cableTypeUses(ix: ProjectIndex, settings: ProjectSettings, id: string): { ports: number; cords: number; isDefault: boolean } {
+/** How many outlet ports, links and cords use the type, and whether it's a default for new ones. */
+export function cableTypeUses(ix: ProjectIndex, settings: ProjectSettings, id: string): { ports: number; links: number; cords: number; isDefault: boolean } {
 	let ports = 0
 	for (const o of ix.outlets) for (const p of o.ports) if (p.cableType === id) ports++
 	return {
-		ports, cords: ix.cords.filter((c) => c.cableType === id).length,
+		ports, links: ix.links.filter((l) => l.cableType === id).length, cords: ix.cords.filter((c) => c.cableType === id).length,
 		isDefault: settings.defaults.outletCableType === id || settings.defaults.cordCableType === id,
 	}
 }
 
-/** Why a type can't be deleted ("used by 120 outlet ports and 4 cords"), or null when it can. */
+/** Why a type can't be deleted ("used by 120 outlet ports, 6 links and 4 cords"), or null when it can. */
 export function cantDelete(u: ReturnType<typeof cableTypeUses>): string | null {
-	const parts = [u.ports && `${u.ports} outlet port${u.ports === 1 ? '' : 's'}`, u.cords && `${u.cords} cord${u.cords === 1 ? '' : 's'}`].filter(Boolean)
-	if (parts.length) return `used by ${parts.join(' and ')}`
+	const n = (k: number, w: string) => k ? `${k} ${w}${k === 1 ? '' : 's'}` : ''
+	const parts = [n(u.ports, 'outlet port'), n(u.links, 'link'), n(u.cords, 'cord')].filter(Boolean)
+	if (parts.length) return `used by ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]}`
 	return u.isDefault ? 'the default for new outlets or cords' : null
 }
 

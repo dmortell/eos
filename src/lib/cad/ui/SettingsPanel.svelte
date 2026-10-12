@@ -153,7 +153,7 @@
 					<td><ColorPick value={t.color} onchange={(v) => v && setType(t.id, 'Cable color', { color: v })} /></td>
 					<td><input class="num" type="number" min="1" step="1" value={t.cores ?? ''} placeholder="1" onchange={(e) => { const v = Math.floor(Number(e.currentTarget.value)); setType(t.id, 'Cable cores', { cores: v > 1 ? v : undefined }) }} /></td>
 					<td><input class="num" type="number" min="1" step="0.1" value={t.diameterMm ?? ''} placeholder="—" onchange={(e) => { const v = Number(e.currentTarget.value); setType(t.id, 'Cable diameter', { diameterMm: v > 0 ? v : undefined }) }} /></td>
-					<td class="text-zinc-500">{u ? [u.ports && `${u.ports} ports`, u.cords && `${u.cords} cords`].filter(Boolean).join(' · ') || '—' : ''}</td>
+					<td class="text-zinc-500">{u ? [u.ports && `${u.ports} ports`, u.links && `${u.links} links`, u.cords && `${u.cords} cords`].filter(Boolean).join(' · ') || '—' : ''}</td>
 					<td><button class="del" disabled={!!why} title={why ? `Can't delete: ${why}` : 'Delete this type (Undo brings it back)'} onclick={() => removeType(t)}>✕</button></td>
 				</tr>
 			{/each}
