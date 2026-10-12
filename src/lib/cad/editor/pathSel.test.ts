@@ -25,7 +25,7 @@ describe('joining two runs', () => {
 	const A = trunk('A', [[0, 0], [1000, 0]]), B = trunk('B', [[1000, 500], [1000, 1500], [2000, 1500]])
 	it('a node dropped on another run of the same kind joins them into one run (A keeps its id)', () => {
 		const atB = { ...A, geom: { kind: 'path', nodes: [{ id: 'A0', x: 0, y: 0, z: 2900 }, { id: 'A1', x: 1000, y: 1500, z: 2900 }], segs: [{ id: 'As0', a: 'A0', b: 'A1' }] } } as Shape
-		const j = joinAcross(atB, ['A1'], [B], spaceOf(PLAN))!
+		const j = joinAcross(atB, ['A1'], [B], spaceOf(PLAN)) as { shape: Shape; absorbed: string }
 		expect(j.absorbed).toBe('B')
 		expect(ids(j.shape)).toEqual({ nodes: ['A0', 'B0', 'B1', 'B2'], segs: ['A0-B1', 'B0-B1', 'B1-B2'] })   // three segments meet at B1
 	})

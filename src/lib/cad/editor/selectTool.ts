@@ -57,6 +57,8 @@ export class SelectTool implements Tool {
 	/** Other runs' nodes sitting on the dragged ones (they move along): shape → node ids; a run the drop joined in. */
 	#followers = new Map<Id, Id[]>()
 	#absorbed = 0
+	/** a plan join refused (runs at different heights, Review 2 Q7): said when the drag ends */
+	#joinRefused: string | null = null
 	/** A selected segment being dragged whole: its run and end nodes. */
 	/** Picked segments dragged whole; `copy` (Ctrl) = those segments copied as a new run instead. */
 	#segDrag: { shape: Id; nodes: Id[]; copy?: Id[] } | null = null
@@ -448,7 +450,7 @@ export class SelectTool implements Tool {
 			const gs = c.store.get(shape), space = (gs?.type === 'shape' && this.#pathSpace(c, gs)) || c.space
 			this.#gesture.update((tx) => {
 				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space, shapes: c.store.ofType('shape'), all: () => c.store.all() })
-				if (!branch) { this.#joined = r.joined; this.#absorbed = r.absorbed }
+				if (!branch) { this.#joined = r.joined; this.#absorbed = r.absorbed; this.#joinRefused = r.refused ?? null }
 			})
 		} else if (this.#segDrag && this.#start) {
 			// a selected segment (or several) dragged whole: their end nodes move by the drag; other runs' nodes on them too
@@ -570,6 +572,7 @@ export class SelectTool implements Tool {
 			if (this.#copied.length) c.select(this.#copied)
 			if (this.#grip) c.selectPath?.(null)   // its nodes may have joined others
 			if (this.#joined) c.say?.(`Joined ${this.#joined === 1 ? "the node" : `${this.#joined} nodes`} to the one it was dropped on · Ctrl+Z undoes`)
+			else if (this.#joinRefused) c.say?.(this.#joinRefused)
 			else if (this.#absorbed) c.say?.(`Joined ${this.#absorbed === 1 ? 'the two runs' : `${this.#absorbed + 1} runs`} into one · Ctrl+Z undoes · click the node, then Disconnect (Properties) to separate them`)
 		}
 		// a click on a grip picks that node (Ctrl-click: adds / drops it — Ctrl-DRAG still branches); a click on a
@@ -675,7 +678,7 @@ export class SelectTool implements Tool {
 
 	#reset(c: ToolCtx): void {
 		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
-		this.#followers = new Map(); this.#absorbed = 0; this.#segDrag = null; this.#segPick = null; this.#portRange = null
+		this.#followers = new Map(); this.#absorbed = 0; this.#joinRefused = null; this.#segDrag = null; this.#segPick = null; this.#portRange = null
 		c.setMarquee(null)
 	}
 }

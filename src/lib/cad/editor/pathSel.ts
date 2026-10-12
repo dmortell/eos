@@ -4,7 +4,7 @@
 import type { Id, Pt } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { ViewSpace } from '../views/space'
-import { canJoin, joinShapes, removeNode, removeSegs, pieces, splitAtNode } from '../domain/pathEdit'
+import { canJoin, joinShapes, joinHeightProblem, removeNode, removeSegs, pieces, splitAtNode } from '../domain/pathEdit'
 
 export interface PathSel { shape: Id; nodes: Id[]; segs: Id[] }
 
@@ -64,8 +64,10 @@ export function followersOf(shapes: Shape[], s: Shape, nodeIds: Id[]): Map<Id, I
 }
 
 /** A dragged node (grip) now on a node of ANOTHER run of the same kind (not one moving with it): the two become one
- *  run, `moved`'s id kept. Each dragged node joins the other run's node nearest in height. */
-export function joinAcross(moved: Shape, nodeIds: Id[], others: Shape[], sp: ViewSpace): { shape: Shape; absorbed: Id } | null {
+ *  run, `moved`'s id kept. Each dragged node joins the other run's node nearest in height — on a plan only at the same
+ *  height (else `refused` says to join them in an elevation, Review 2 Q7). */
+export function joinAcross(moved: Shape, nodeIds: Id[], others: Shape[], sp: ViewSpace): { shape: Shape; absorbed: Id } | { refused: string } | null {
+	let refused: string | null = null
 	if (!isPath(moved)) return null
 	const mine = moved.geom.nodes.filter((n) => nodeIds.includes(n.id))
 	if (!mine.length) return null
@@ -75,8 +77,10 @@ export function joinAcross(moved: Shape, nodeIds: Id[], others: Shape[], sp: Vie
 		const targets = o.geom.nodes.filter((n) => { const q = sp.fromWorld(n); return Math.abs(q.x - p.x) < 0.5 && Math.abs(q.y - p.y) < 0.5 })
 		if (!targets.length) continue
 		const pairs = mine.map((n): [Id, Id] => [n.id, [...targets].sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0].id])
+		const problem = sp.spec.kind === 'plan' ? joinHeightProblem(moved, o, pairs) : null
+		if (problem) { refused ??= problem; continue }
 		const shape = joinShapes(moved, o, pairs)
 		if (shape) return { shape, absorbed: o.id }
 	}
-	return null
+	return refused ? { refused } : null
 }

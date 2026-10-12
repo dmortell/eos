@@ -1,6 +1,6 @@
 // Segment lengths of a run / wall (3D: a drop counts its height), and their total.
 import { describe, it, expect } from 'vitest'
-import { segmentLengths, splitRunsAt, runZAt, splitSegRefs, joinShapes, repointRefs, pieces, pieceRefs } from './pathEdit'
+import { segmentLengths, splitRunsAt, runZAt, splitSegRefs, joinShapes, joinHeightProblem, repointRefs, pieces, pieceRefs } from './pathEdit'
 import type { Shape, ContainmentRole } from './shapes'
 import type { Entity, Sheet } from './drawing'
 import type { Link, Outlet } from './types'
@@ -51,6 +51,12 @@ describe('two runs joined into one (joinShapes / repointRefs)', () => {
 		type: 'shape', id, levelId: 'L', role: { kind: 'containment', form: 'trunk', tier: 'high', ...role },
 		geom: { kind: 'path', nodes: [n(`${id}0`, ...a), n(`${id}1`, ...b)], segs: [{ id: `${id}s`, a: `${id}0`, b: `${id}1` }] }, ...more,
 	}) as unknown as Shape
+	it('on a plan, runs at different heights are not joined — join them in an elevation (Review 2 Q7, Dave)', () => {
+		const A = run('A', [0, 0], [1000, 0], {}), B = run('B', [1000, 0], [1000, 1000], { tier: 'low' })
+		expect(joinHeightProblem(A, B, [['B0', 'A1']])).toBeNull()   // both at Z 2600
+		const low = { ...B, geom: { ...(B.geom as { nodes: { z: number }[] }), nodes: (B.geom as { nodes: { id: string; x: number; y: number; z: number }[] }).nodes.map((q) => ({ ...q, z: 300 })) } } as unknown as Shape
+		expect(joinHeightProblem(A, low, [['B0', 'A1']])).toMatch(/different heights.*elevation/)
+	})
 	it('keeps the absorbed run’s hand cables (on its own segments), served rooms, primary and label', () => {
 		const A = run('A', [0, 0], [1000, 0], { extra: [{ type: 'Cat6', n: 4 }], serves: ['SR1'] })
 		const B = run('B', [1000, 0], [1000, 1000], { extra: [{ type: 'Coax', n: 2 }, { type: 'Power', n: 1, seg: 'Bs' }], serves: ['SR2'], primary: true }, { label: 'T-2' })

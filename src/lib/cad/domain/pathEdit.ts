@@ -157,6 +157,18 @@ export function mergeNode(s: Shape, fromId: Id, intoId: Id): Shape | null {
 	return { ...withGeom(s, { ...g, nodes, segs }), ...openings }
 }
 
+/** Joining on a PLAN: the node pairs must be at the same height — runs at different heights are joined by hand in an
+ *  elevation (Dave 2026-10-12, Review 2 Q7: a plan join merged a low run into a high one and lost its tier).
+ *  Null = fine; else the message to show. */
+export function joinHeightProblem(a: Shape, b: Shape, pairs: [Id, Id][]): string | null {
+	const at = (id: Id) => (geomOf(a).nodes.find((n) => n.id === id) ?? geomOf(b).nodes.find((n) => n.id === id))?.z
+	for (const [x, y] of pairs) {
+		const zx = at(x), zy = at(y)
+		if (zx != null && zy != null && Math.abs(zx - zy) > 1) return `Not joined: the runs are at different heights (Z ${Math.round(zx)} / ${Math.round(zy)}) — join them in an elevation view`
+	}
+	return null
+}
+
 /** Two paths can become one when they are the same kind of thing: two trunks, two walls, two lines. */
 export function canJoin(a: Shape, b: Shape): boolean {
 	if (a.geom.kind !== 'path' || b.geom.kind !== 'path' || a.id === b.id) return false

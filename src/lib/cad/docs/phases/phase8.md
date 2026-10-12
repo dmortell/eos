@@ -3188,3 +3188,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "(for everyone)"); Display keeps Hide empty floors (the view's own) and a line saying where the floors went
   (`ui/ViewBasics.svelte`, `views/riser.ts` `withRiserEnd`, `ui/ViewStrip.svelte`). Planning · Surveying says "for
   everyone" beside the toggle, in its titles and its undo step (`ui/CordMode.svelte`). Help; test.
+- **Q7 follow-up (Dave):** on a plan, runs at different heights are not joined — dropping a node on another run's
+  node at another height says "join them in an elevation view"; one that would have been absorbed just moves along
+  (`domain/pathEdit.ts` `joinHeightProblem`, `editor/pathSel.ts`, `editor/dragParts.ts`, `editor/selectTool.ts`); test; Help.

@@ -7,7 +7,7 @@ import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
 import { primBounds, unionBounds, type Prim } from '../views/display'
 import { moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
-import { branchFrom, canJoin, joinShapes, repointRefs } from '../domain/pathEdit'
+import { branchFrom, canJoin, joinShapes, joinHeightProblem, repointRefs } from '../domain/pathEdit'
 import { joinAcross } from './pathSel'
 
 type Viewport = Sheet['viewports'][number]
@@ -68,7 +68,7 @@ export function snapViewportDrag(v: Viewport, mode: 'move' | 'resize', d: Pt, li
 export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Entity): void; del(id: Id): void }, o: {
 	shape: Id; grip: Grip; branch: Id | undefined | null; sn: Snap; home: boolean; followers: Map<Id, Id[]>; space: ViewSpace
 	shapes: Shape[]; /** every entity at the gesture's start (read lazily: only a join needs them) */ all: () => Entity[]
-}): { joined: number; absorbed: number } {
+}): { joined: number; absorbed: number; refused?: string } {
 	const { shape, grip, branch, sn, home, followers: fol, space } = o
 	const s = tx.get(shape) as Shape
 	if (branch && s.geom.kind === 'path') {
@@ -86,7 +86,10 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 		const f = tx.get(fid) as Shape | undefined
 		if (!f || !canJoin(base, f) || base.geom.kind !== 'path') continue
 		const mine = base.geom.nodes.filter((n) => grip.nodeIds.includes(n.id)), theirs = f.geom.kind === 'path' ? f.geom.nodes.filter((n) => ids.includes(n.id)) : []
-		const m = joinShapes(base, f, theirs.map((n): [Id, Id] => [n.id, [...mine].sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0].id]))
+		const pairs = theirs.map((n): [Id, Id] => [n.id, [...mine].sort((a, b) => Math.abs(a.z - n.z) - Math.abs(b.z - n.z))[0].id])
+		// on a plan only runs at the same height become one (Review 2 Q7); one at another height just moves along
+		if (plan && joinHeightProblem(base, f, pairs)) continue
+		const m = joinShapes(base, f, pairs)
 		if (m) { base = m; absorbed.push(fid); tx.del(fid) }
 	}
 	const moved = plan ? moveNodes(base, grip.nodeIds, sn.p, sn.attach ?? (home ? undefined : null)) : moveNodesBy(base, grip.nodeIds, d)
@@ -98,7 +101,8 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 	// dropped on another node of the path (snapped onto it): JOIN them — shows while dragging, undone by dragging on
 	const j = joinDropped(moved, grip.nodeIds, space)
 	// …or on a node of ANOTHER run of the same kind: the two runs become one (cables choosing that run follow)
-	const across = j.joined ? null : joinAcross(j.shape, grip.nodeIds, o.shapes.filter((x) => x.id !== shape && !fol.has(x.id)), space)
+	const tried = j.joined ? null : joinAcross(j.shape, grip.nodeIds, o.shapes.filter((x) => x.id !== shape && !fol.has(x.id)), space)
+	const across = tried && 'shape' in tried ? tried : null
 	if (across) { tx.del(across.absorbed); absorbed.push(across.absorbed) }
 	tx.put(across?.shape ?? j.shape)
 	// what named a joined-in run (a cable that chose it — a backbone's riser —, a node or leader attached to it, a
@@ -107,5 +111,5 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 		const now = () => o.all().flatMap((e) => tx.get(e.id) ?? [])
 		for (const id of absorbed) for (const e of repointRefs(now(), id, () => shape)) tx.put(e)
 	}
-	return { joined: j.joined, absorbed: absorbed.length }
+	return { joined: j.joined, absorbed: absorbed.length, ...(tried && 'refused' in tried ? { refused: tried.refused } : {}) }
 }
