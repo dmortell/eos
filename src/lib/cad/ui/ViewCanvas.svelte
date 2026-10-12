@@ -36,7 +36,7 @@
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { wheelAction } from '../editor/inputMode'
 	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
-	import { TouchNav } from '../editor/touch'
+	import { TouchNav, pinchContent, settleScale, type ContentGesture } from '../editor/touch'
 	import { LONG_PRESS_SLOP } from './longPress'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
@@ -406,7 +406,29 @@
 	// svelte-ignore state_referenced_locally
 	const lib = libraryDrop({ ws, ok: () => dropTakes(ws.dragArm, spec.kind, !!vpe), input: (e) => input(e), ctx, surface: () => svg, changed: () => tick++, focus: () => onfocus?.() })
 	// touch (editor/touch.ts): two fingers pan / pinch anywhere; one finger on empty space pans with Select, a tap clears
-	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
+	/** Two fingers inside the viewport being edited (or the one picked, with Pan / zoom content on): its VIEW pans and
+	 *  scales, not the camera (backlog "Viewport handling" 7). One undo step; the scale settles on a standard 1:N. */
+	function contentGesture(mid: Pt): ContentGesture | null {
+		const sh = sheet
+		if (!sh || spec.kind !== 'sheet') return null
+		const id = vpe?.vp.id ?? (ws.vpContentNav && !ws.vpMore.length && ws.selection.includes(sh.id) ? ws.viewportId : null)
+		const vp = id ? sh.viewports.find((v) => v.id === id) : undefined, p = toModel(cam, mid)
+		if (!vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return null
+		const c0 = cam
+		let g: ReturnType<typeof project.store.begin> | null = null
+		const put = (centre: Pt, scale: number) => { g ??= project.store.begin('Pan / scale viewport'); g.update((tx) => tx.put({ ...sh, viewports: sh.viewports.map((v) => (v.id === vp.id ? { ...v, centre, scale } : v)) })) }
+		let last: { centre: Pt; scale: number } | null = null
+		return {
+			update: (a0, b0, a1, b1) => { last = pinchContent(vp, toModel(c0, a0), toModel(c0, b0), toModel(c0, a1), toModel(c0, b1)); put(last.centre, last.scale) },
+			end: () => {
+				if (!g || !last) return
+				const scale = settleScale(last.scale)
+				if (scale !== last.scale) put(last.centre, scale)
+				g.commit(ws.selection); ws.say(`Viewport view at 1:${scale}`)
+			},
+		}
+	}
+	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, content: contentGesture, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
 		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpe.prims, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })
 	/** A finger / pen press given to the tool: its moves wait until it has gone further than a long-press allows, so a
 	 *  finger held still (a long-press = right-click, ui/longPress.ts) never starts a drag or a marquee first. */

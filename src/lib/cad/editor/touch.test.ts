@@ -1,6 +1,6 @@
 // Touch: pinch about the fingers' midpoint, one-finger pan on empty space, a tap clears, a finger on a thing passes.
 import { describe, it, expect } from 'vitest'
-import { pinchCamera, TouchNav } from './touch'
+import { pinchCamera, pinchContent, settleScale, TouchNav, type ContentGesture } from './touch'
 import type { Camera } from './camera'
 
 const host = (empty = true) => {
@@ -38,5 +38,35 @@ describe('touch', () => {
 		expect(b.nav.down(1, { x: 10, y: 10 })).toBe(false)
 		expect(b.nav.move(1, { x: 20, y: 10 })).toBe(false)
 		expect(b.nav.up(1)).toBe(false)
+	})
+})
+
+describe('touch on a viewport’s content', () => {
+	const vp = { rect: { x: 0, y: 0, w: 200, h: 100 }, centre: { x: 5000, y: 5000 }, scale: 100 }
+	it('spreading two fingers zooms the view in (a smaller 1:N), keeping the view point under their midpoint', () => {
+		const r = pinchContent(vp, { x: 90, y: 50 }, { x: 110, y: 50 }, { x: 80, y: 50 }, { x: 120, y: 50 })
+		expect(r.scale).toBe(50)
+		// the midpoint (100, 50) is the window's middle: the view point there is the centre, and stays
+		expect(r.centre).toEqual({ x: 5000, y: 5000 })
+	})
+	it('moving two fingers together pans the view the other way by paper mm × scale', () => {
+		const r = pinchContent(vp, { x: 90, y: 50 }, { x: 110, y: 50 }, { x: 100, y: 50 }, { x: 120, y: 50 })
+		expect(r.scale).toBe(100)
+		expect(r.centre).toEqual({ x: 4000, y: 5000 })
+	})
+	it('the scale settles on a standard 1:N when within 10 %, else stays', () => {
+		expect(settleScale(96)).toBe(100)
+		expect(settleScale(70)).toBe(70)
+	})
+	it('two fingers on a viewport go to its content, not the camera; the end is told once', () => {
+		const h = { cam: { x: 0, y: 0, k: 1 } as Camera, ups: 0, moves: 0 }
+		const g: ContentGesture = { update: () => { h.moves++ }, end: () => { h.ups++ } }
+		const nav = new TouchNav({ cam: () => h.cam, setCam: (c) => { h.cam = c }, emptyAt: () => false, cancel: () => {}, tap: () => {}, content: () => g })
+		nav.down(1, { x: 100, y: 100 }); nav.down(2, { x: 200, y: 100 })
+		nav.move(2, { x: 300, y: 100 })
+		expect(h.cam.k).toBe(1)
+		expect(h.moves).toBe(1)
+		nav.up(2); nav.up(1)
+		expect(h.ups).toBe(1)
 	})
 })
