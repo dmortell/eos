@@ -13,6 +13,7 @@
 		{ label: 'Racks', href: 'racks' },
 		{ label: 'Frames', href: 'frames' },
 		{ label: 'Floorplans', href: 'outlets' },
+		{ label: 'CAD', href: 'cad' },
 	]
 	// Absolute per-project links — relative hrefs break from nested tool routes
 	// like /projects/{pid}/elevations/patching (they'd resolve against the

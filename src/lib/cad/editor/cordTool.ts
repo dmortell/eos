@@ -122,6 +122,8 @@ export class CordTool implements Tool {
 			this.#first = r
 			return
 		}
+		// the armed port clicked again: let go of it (Q50)
+		if (this.#first.on === r.on && this.#first.port === r.port && this.#first.face === r.face) { this.#first = null; c.say?.('Cord cancelled'); return }
 		const res = makeCord(c.index, this.#first, r, this.defaults())
 		if (!res.cord) { c.say?.(res.problem ?? 'No cord'); return }
 		const cord: Cord = res.cord

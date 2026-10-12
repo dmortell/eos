@@ -19,7 +19,12 @@ export class OutletTool implements Tool {
 	/** A typed point: `@1200,0` places the next outlet 1.2 m along from the last one. */
 	typed(p: Pt, c: ToolCtx): void { this.down({ p, shift: false, ctrl: false, alt: true }, c) }
 	/** The last outlet placed, while still on its level (another floor numbers and fills in from its own outlets). */
-	#lastHere(c: ToolCtx): Outlet | null { return this.last?.levelId === c.levelId ? this.last : null }
+	#lastHere(c: ToolCtx): Outlet | null {
+		if (!this.last) return null
+		const now = c.index.get(this.last.id)   // as it is NOW: edits made to it since are picked up (Q50)
+		const l = now?.type === 'outlet' ? now : this.last
+		return l.levelId === c.levelId ? l : null
+	}
 	lastPoint(c: ToolCtx): Pt | null { const l = this.#lastHere(c); return l?.at ? c.space.fromWorld({ ...l.at, z: l.z ?? 0 }) : null }
 
 	down(e: PointerIn, c: ToolCtx): void {

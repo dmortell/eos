@@ -26,7 +26,7 @@ import { fillTitleBlock, shownTitleBlock, withDetails, drawnFallback, type TbCon
 
 /** ISO A sizes, portrait (w × h, mm). */
 /** The viewport scales offered (1:N): Sheet Properties' list, and Alt+wheel's steps. */
-export const SCALES = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+export const SCALES = [1, 2, 5, 10, 15, 20, 25, 50, 100, 150, 200, 250, 500, 1000]
 /** The next scale from `n` — `dir` −1 = closer in (a smaller N), +1 = further out. */
 export function nextScale(n: number, dir: 1 | -1): number {
 	return dir < 0 ? [...SCALES].reverse().find((s) => s < n) ?? SCALES[0] : SCALES.find((s) => s > n) ?? SCALES.at(-1)!
@@ -75,7 +75,8 @@ export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = '', 
 		project: projectName, title: s.title, number: s.number, client: details?.client?.trim() ?? '',
 		size: `${s.paper.size} ${s.paper.orientation === 'landscape' ? 'L' : 'P'}`,
 		scale: scales.length === 1 ? `1:${scales[0]}` : scales.length ? 'As shown' : '',
-		place: places.join(' / '),
+		// the sheet's own place, else the levels of its viewports; a riser (every floor) has no level of its own (Q50)
+		place: (s.placeId ? ix.nameOf(s.placeId) : '') || places.join(' / ') || (s.viewports.some((v) => v.view.spec.kind === 'riser') ? 'All floors' : ''),
 		...(last ? { rev: last.code, date: last.date } : {}),
 		...s.titleBlock?.fields,
 		...(last?.date ? { date: last.date } : {}),
