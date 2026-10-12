@@ -204,7 +204,7 @@ describe('devices in the rack row', () => {
 		const rows = () => shown!.rows.map((r) => `${r.a}→${r.b}`)
 		tool.down(portOf('SW1', 3), h.ctx())   // in step: SW1:4 is taken, so P1:4 is skipped
 		expect([rows(), shown!.skipped.length, cords()]).toEqual([['3→3'], 1, before])
-		shown!.setFill(true)
+		shown!.setFill!(true)
 		expect([rows(), shown!.skipped.length, fill]).toEqual([['3→3', '4→5'], 0, true])
 		shown!.ok()
 		expect([shown, cords(), bulk, done]).toEqual([null, before + 2, null, 1])
@@ -216,6 +216,27 @@ describe('devices in the rack row', () => {
 		expect([rows(), shown!.fill]).toEqual([['3→3'], false])
 		shown!.cancel()
 		expect([shown, cords(), bulk, done]).toEqual([null, before, null, 2])
+	})
+	it('Link to… on several ports lists the cables first too (no fill choice): nothing until OK, one undo step; Cancel links nothing', () => {
+		const h = harness(ROW)
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		let bulk: BulkFrom | null = { on: 'SW1', ports: [20, 21], face: 'front', kind: 'link' }, done = 0, shown = null as PatchPreview | null
+		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++,
+			{ show: (p) => { shown = p }, fill: () => false, setFill: () => {} })
+		const links = () => h.store.ofType('link').length, before = links()
+		tool.down(portOf('P1', 20), h.ctx())
+		expect(shown).not.toBeNull()
+		expect([shown!.setFill, shown!.title?.startsWith('Link '), shown!.rows.length, links()]).toEqual([undefined, true, 2, before])
+		shown!.ok()
+		expect([shown, links(), bulk, done]).toEqual([null, before + 2, null, 1])
+		h.store.undo()
+		expect(links()).toBe(before)
+		bulk = { on: 'SW1', ports: [20, 21], face: 'front', kind: 'link' }
+		tool.down(portOf('P1', 20), h.ctx())
+		shown!.cancel()
+		expect([shown, links(), bulk, done, h.said.at(-1)]).toEqual([null, before, null, 2, 'Nothing linked'])
 	})
 	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (Dave: grips for repatching)', () => {
 		const h = harness(ROW)

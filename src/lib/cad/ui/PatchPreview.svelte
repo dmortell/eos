@@ -1,4 +1,4 @@
-<!-- BULK PATCH PREVIEW: Patch to… on several ports, then a click on the first port of the other device, shows the cords
+<!-- BULK PATCH / LINK PREVIEW: Patch to… (or Link to…, no fill choice there) on several ports, then a click on the first port of the other device, shows the cords
      it would make (A port → B port) and what it skips, before anything is written. In step (port for port from the one
      clicked) or "Fill free ports only" (the target's taken ports are passed over). OK = one undo step; Cancel / Esc =
      nothing patched. -->
@@ -21,9 +21,11 @@
 </script>
 
 {#if p}
-	<CadDialog title="Patch {p.rows.length} cord{p.rows.length === 1 ? '' : 's'}" hint="{p.from} → {p.to}" width="28rem" top="8vh" onclose={() => p.cancel()} onkeydown={key}>
+	<CadDialog title={p.title ?? `Patch ${p.rows.length} cord${p.rows.length === 1 ? '' : 's'}`} hint="{p.from} → {p.to}" width="28rem" top="8vh" onclose={() => p.cancel()} onkeydown={key}>
+		{#if p.setFill}{@const setFill = p.setFill}
 		<label class="fill" title="Off: port for port from the one clicked — a pair is skipped when either port is taken. On: every free port goes to the next free port on the other device (taken ones are passed over). Ctrl on the click picks the other way for that time.">
-			<input type="checkbox" checked={p.fill} onchange={(e) => p.setFill(e.currentTarget.checked)} /> Fill free ports only</label>
+			<input type="checkbox" checked={p.fill} onchange={(e) => setFill(e.currentTarget.checked)} /> Fill free ports only</label>
+		{/if}
 		{#if p.rows.length}
 			<div class="list">
 				{#each p.rows as r, i (i)}
@@ -31,7 +33,7 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="none">Nothing to patch.</p>
+			<p class="none">Nothing to {p.setFill ? 'patch' : 'link'}.</p>
 		{/if}
 		{#if p.skipped.length}
 			<div class="skipped">
@@ -43,7 +45,7 @@
 		{#snippet footer()}
 			<span class="keys">Enter · Esc</span>
 			<button class="btn" onclick={() => p.cancel()}>Cancel</button>
-			<button class="btn go" disabled={!p.rows.length} onclick={() => p.ok()}>Patch {p.rows.length}</button>
+			<button class="btn go" disabled={!p.rows.length} onclick={() => p.ok()}>{p.okLabel ?? `Patch ${p.rows.length}`}</button>
 		{/snippet}
 	</CadDialog>
 {/if}

@@ -21,7 +21,10 @@ export interface PatchPreview {
 	rows: { a: number; aLabel: string; b: number; bLabel: string }[]
 	skipped: string[]
 	fill: boolean
-	setFill(on: boolean): void
+	/** absent = no in-step / fill choice (Link to… always takes the next free port) */
+	setFill?(on: boolean): void
+	/** the heading and the OK button; default "Patch N cords" / "Patch N" */
+	title?: string; okLabel?: string
 	ok(): void
 	cancel(): void
 }
@@ -57,16 +60,31 @@ export class CordTool implements Tool {
 			// permanent cabling lands on the panels' REAR, whichever face is being viewed
 			// a multi-core type (Settings › Cable types › Cores): the ports go into cables of that many cores
 			const type = this.linkType() || this.defaults().cableType, cores = coresOf(c.settings, type)
-			const res = bulkInterconnect(c.index, { ...this.bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: type, cores })
+			const bulk = this.bulk
+			const res = bulkInterconnect(c.index, { ...bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: type, cores })
 			const n = res.links.length, cables = cores > 1 ? Math.ceil(n / cores) : n
 			const what = cores > 1 ? `${cables} × ${cores}-core cable(s), ${n} cores` : `${n} interconnect cable(s)`
-			if (n) {
-				const kind = res.links[0].kind === 'tie' ? 'tie' : 'backbone'
-				c.store.transact(cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable(s)` : `Link ${n} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
+			const kind = res.links[0]?.kind === 'tie' ? 'tie' : 'backbone'
+			const write = () => {
+				if (n) c.store.transact(cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable(s)` : `Link ${n} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
+				c.say?.(`${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
+				this.bulk = null
+				this.done()
 			}
-			c.say?.(`${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
-			this.bulk = null
-			this.done()
+			const host = this.previewHost
+			// as Patch to…: the cables are listed to OK first (review follow-up to R93); one port onto a free port goes at once
+			if (!host || (n === 1 && !res.skipped.length)) { write(); return }
+			const dev = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? d.name : on }
+			const name = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? `${c.index.nameOf(d.rackId)} · ${d.name}` : on }
+			const several = !!bulk.more?.length
+			host.show({
+				from: several ? `${name(bulk.on)} + ${bulk.more!.length} more` : name(bulk.on), to: name(r.on), fill: false, skipped: res.skipped,
+				title: cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable${cables === 1 ? '' : 's'} (${n} cores)` : `Link ${n} ${kind} cable${n === 1 ? '' : 's'}`,
+				okLabel: `Link ${n}`,
+				rows: res.links.map((k) => ({ a: k.a.port, aLabel: `${several ? `${dev(k.a.on)} · ` : ''}${c.index.portLabel(k.a)}`, b: k.b.port, bLabel: c.index.portLabel(k.b) })),
+				ok: () => { host.show(null); write() },
+				cancel: () => { host.show(null); c.say?.('Nothing linked'); this.bulk = null; this.done() },
+			})
 			return
 		}
 		if (this.bulk) {

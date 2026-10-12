@@ -3001,3 +3001,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `/cad` link) made a tab for the plan before the levels loaded, so it had no level; once the level came the pane went
   to that level's own tab, and a click on the orphan bounced back there. A level-bound view with no level never
   becomes a tab now, and one saved like that is dropped on load (`app/tabs.svelte.ts` `unplaced`; test).
+- **Review follow-ups (Dave 2026-10-12: 16, 19, 20, 21, 22; 18 = keep the selection):** Link to… lists its cables
+  before making them, like Patch to… (`editor/cordTool.ts`, `ui/PatchPreview.svelte` takes a title / OK label and
+  no fill choice; test); undo / redo of something on the other pane's level makes that pane active (`ui/CadShell.svelte`
+  `showHistory`); a tab's ✕ shows on shown / focused tabs and on touch screens (`ui/TabStrip.svelte`); dialog footer
+  buttons share one look (`ui/CadDialog.svelte` `.btn` / `.btn.go` / `.keys`); the sheet and keys tests import up
+  front (an import inside a test ran past its timeout under load).
