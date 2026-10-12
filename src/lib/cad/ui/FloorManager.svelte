@@ -1,6 +1,6 @@
 <!-- The Floor manager (Dave, 2026-10-03): the building's floors as a lowest–top range with the floors that don't exist
      ticked off (no GF …), floor names from a pattern, and each floor's heights (slab, raised floor, clear height,
-     plenum) with "apply to all" and an import from the old Risers tool. Every change re-stacks the FFL elevations.
+     plenum) with "apply to all". Every change re-stacks the FFL elevations.
      One edit = one undo step. Levels with something on them are never removed from here. Two tabs: Floors & heights,
      and Plans & floorplans (each floor's plan and area plans, with the PDF pages under each). -->
 <script lang="ts">
@@ -12,7 +12,6 @@
 	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
 	import NameInput from './NameInput.svelte'
 	import { levelContents } from '../editor/commands'
-	import { loadRiserHeights } from '../persist/import/legacyHeights'
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
 	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
@@ -39,7 +38,6 @@
 	let below = $state(init.below)
 	let ground = $state(init.ground)
 	let typical = $state<Heights>({ ...init.heights })
-	let busy = $state(false)
 
 	// ── each level's floorplan: a calibrated page of a project PDF (Uploads); picking another replaces it ──
 	let pdfs = $state<PdfFile[]>([])
@@ -114,17 +112,6 @@
 	}
 	function applyTypical() {
 		if (!commit('Heights for every floor', levels.map((l) => ({ ...l, heights: { ...typical } })))) ws.say('Every floor already has these heights')
-	}
-	async function fromRisers() {
-		busy = true
-		try {
-			const r = await loadRiserHeights(project.db, project.pid)
-			const changed = main.flatMap((l) => { const h = r.byFloor.get(l.number) ?? r.fallback; return h ? withAreas(l, h) : [] })
-			if (!r.docs) { ws.say('The old Risers tool has no data for this project'); return }
-			const did = commit(`Heights from the Risers tool (${r.byFloor.size} floors)`, changed)
-			ws.say(`Risers tool: ${r.docs} doc(s), ${r.byFloor.size} floor(s) with their own heights${r.fallback ? ', a default for the rest' : ''} — ${did ? 'heights updated' : 'already the same here'}`)
-		} catch (e) { project.error = `Risers heights: ${(e as Error).message}` }
-		finally { busy = false }
 	}
 	const HKEYS: [keyof Heights, string][] = [['slabMm', 'Slab'], ['raisedFloorMm', 'Raised floor'], ['clearHeightMm', 'Clear height'], ['plenumMm', 'Plenum']]
 
@@ -221,7 +208,6 @@
 					{/each}
 				</tbody>
 			</table>
-			<div class="row"><button class="btn" disabled={busy} title="Read the floor heights the old Risers tool kept for this project" onclick={fromRisers}>Heights from the old Risers tool</button></div>
 		</section>
 		{:else}
 		<section>
