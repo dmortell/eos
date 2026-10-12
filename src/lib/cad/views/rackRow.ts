@@ -7,7 +7,7 @@ import type { Id, Rack, Device, Level, Space } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt, portGrid } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
 import { usageColour } from '../domain/usages'
@@ -61,8 +61,7 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	if (!d.portCount || d.kind === 'pdu') return null
 	// ~24 ports a row, up to two rows a U: a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24 (Dave: it read as
 	// 48 — its two rows of 48 tiny cells looked like one)
-	const rows = d.portCount > 24 ? Math.min(d.heightU * 2, Math.ceil(d.portCount / 24)) : 1
-	const cols = Math.ceil(d.portCount / rows)
+	const { rows, cols } = portGrid(d)
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
 	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
 	const area = Math.min(PORT_AREA_W, (d.widthMm ?? RAIL_W) - 20)

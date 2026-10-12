@@ -112,11 +112,14 @@ export const startOf = (items: Entity[], group = -1): number => numberAt(labelOf
 /** New labels that someone else of the same type already has (outlets / racks / shapes), left out of the run. */
 export function clashes(next: Entity[], all: Iterable<Entity>): string[] {
 	const moving = new Set<Id>(next.map((e) => e.id))
+	// outlet labels only need to differ on their own level (validate.ts); racks and shapes project-wide
+	const scope = (e: Entity) => (e.type === 'outlet' ? `outlet:${e.levelId}` : e.type)
 	const taken = new Map<string, Set<string>>()
 	for (const e of all) {
 		const l = labelOf(e)
 		if (l === undefined || moving.has(e.id)) continue
-		taken.set(e.type, (taken.get(e.type) ?? new Set()).add(l))
+		const k = scope(e)
+		taken.set(k, (taken.get(k) ?? new Set()).add(l))
 	}
-	return next.map((e) => labelOf(e)!).filter((l, i) => taken.get(next[i].type)?.has(l))
+	return next.map((e) => labelOf(e)!).filter((l, i) => taken.get(scope(next[i]))?.has(l))
 }

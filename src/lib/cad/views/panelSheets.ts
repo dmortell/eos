@@ -7,36 +7,37 @@ import type { ProjectIndex } from '../domain/project'
 import type { Device, Id } from '../domain/types'
 import type { Prim } from './display'
 import type { PdfPage } from '../render/pdf'
-import { panelsInFillOrder, portAt } from '../domain/devices'
+import { panelsInFillOrder, portAt, portGrid } from '../domain/devices'
 import { labelLines } from './rackRow'
 
 const PAGE = { w: 297, h: 210 }, M = 10, TOP = 20
 /** A port cell (mm): 24 across fill the page's width; tall enough for three stacked lines. */
 const CELL_W = (PAGE.w - 2 * M) / 24, CELL_H = 13, TITLE_H = 6, GAP = 5
 
-/** The panel's port grid: 24 a row (fewer ports: one row), numbered along rows or down columns as the panel is. */
+/** The panel's port grid, laid out as the rack view shows it (portGrid), numbered along rows or down columns. */
 function grid(d: Device): { rows: number; cols: number; at: (n: number) => [number, number] } {
-	const rows = Math.max(1, Math.ceil(d.portCount / 24)), cols = Math.ceil(d.portCount / rows)
+	const { rows, cols } = portGrid(d)
 	return { rows, cols, at: (n) => portAt(d.portNumbering, n, rows, cols) }
 }
 
 /** The text size (mm) that fits these lines in a cell. */
-function fitSize(lines: string[]): number {
+function fitSize(lines: string[], cw = CELL_W): number {
 	const chars = Math.max(...lines.map((l) => l.length), 1)
-	return Math.min(2.6, (CELL_W - 1.2) / (chars * 0.58), (CELL_H - 4.2) / (lines.length * 1.2))
+	return Math.min(2.6, (cw - 1.2) / (chars * 0.58), (CELL_H - 4.2) / (lines.length * 1.2))
 }
 
 function panelPrims(ix: ProjectIndex, d: Device, y0: number): Prim[] {
 	const out: Prim[] = [], g = grid(d)
+	const CW = g.cols > 24 ? (CELL_W * 24) / g.cols : CELL_W   // more than 24 a row (a 72-port 1U panel: 2 × 36) still fits the page
 	out.push({ k: 'text', at: { x: M, y: y0 + 4 }, text: `${ix.nameOf(d.rackId)} · ${d.name} · U${d.u} · ${d.portCount} ports`, size: 3.2, cls: 'device-label', src: d.id })
 	for (let n = 1; n <= d.portCount; n++) {
-		const [r, c] = g.at(n), x = M + c * CELL_W, y = y0 + TITLE_H + r * CELL_H
+		const [r, c] = g.at(n), x = M + c * CW, y = y0 + TITLE_H + r * CELL_H
 		const label = ix.portLabel({ on: d.id, port: n })
-		out.push({ k: 'line', pts: [{ x, y }, { x: x + CELL_W, y }, { x: x + CELL_W, y: y + CELL_H }, { x, y: y + CELL_H }], closed: true, fill: true, cls: label ? 'port port-labelled' : 'port', src: d.id, sub: String(n) })
+		out.push({ k: 'line', pts: [{ x, y }, { x: x + CW, y }, { x: x + CW, y: y + CELL_H }, { x, y: y + CELL_H }], closed: true, fill: true, cls: label ? 'port port-labelled' : 'port', src: d.id, sub: String(n) })
 		out.push({ k: 'text', at: { x: x + 0.8, y: y + 2.2 }, text: String(n), size: 1.8, cls: 'u-label' })
 		if (!label) continue
-		const lines = labelLines(label).full, size = fitSize(lines), lh = size * 1.2, top = y + 2.6 + (CELL_H - 2.6 - lines.length * lh) / 2 + size
-		lines.forEach((t, i) => out.push({ k: 'text', at: { x: x + CELL_W / 2, y: top + i * lh }, text: t, size, anchor: 'middle', cls: 'port-label' }))
+		const lines = labelLines(label).full, size = fitSize(lines, CW), lh = size * 1.2, top = y + 2.6 + (CELL_H - 2.6 - lines.length * lh) / 2 + size
+		lines.forEach((t, i) => out.push({ k: 'text', at: { x: x + CW / 2, y: top + i * lh }, text: t, size, anchor: 'middle', cls: 'port-label' }))
 	}
 	return out
 }

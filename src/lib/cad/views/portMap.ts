@@ -6,18 +6,14 @@
 import type { ProjectIndex } from '../domain/project'
 import type { Device, Id } from '../domain/types'
 import type { Prim } from './display'
-import { portAt } from '../domain/devices'
+import { portAt, portGrid } from '../domain/devices'
 import { portMapRows, type PortMapRow } from '../domain/portMap'
 import { labelLines } from './rackRow'
 
 /** A port cell (mm): 24 across ≈ 290 mm, fits an A3 landscape sheet at 1:1; tall enough for three stacked lines. */
 const CELL_W = 12, CELL_H = 11, PAD = 2, TITLE_H = 6, GAP = 8
 
-/** The rows and columns of a device's ports, as the rack view lays them out (≈ 24 a row, up to two rows a U). */
-export function portGrid(d: Device): { rows: number; cols: number } {
-	const rows = d.portCount > 24 ? Math.min(d.heightU * 2, Math.ceil(d.portCount / 24)) : 1
-	return { rows, cols: Math.ceil(d.portCount / rows) }
-}
+export { portGrid }
 
 /** The far item's text, in lines for stacking: an outlet port's label split at its dots / dashes; a device's name
  *  then its port. */

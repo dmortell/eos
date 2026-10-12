@@ -2572,3 +2572,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   recorded (it wrote copies taken before the frozen saves, PDF and upload, so edits made meanwhile were lost); a
   restore is planned after the missing blocks are added; deleting a level takes what is on it when Delete level is
   pressed, not when it was asked (`app/issue.ts`, `app/backups.ts`, `app/navActions.ts`).
+- **R30, R61 Smaller fixes:** Renumber's clash warning checks outlet labels on their own level only (another floor
+  may use the same; `domain/renumber.ts`); the frame workbook's sheet names use `sheetName` (legal, unique ignoring
+  case — a clash was built from the raw name and exceljs threw; `render/frameSheets.ts`); backup / issue chunks never
+  cut a character outside the BMP in half (`persist/chunks.ts`); one port-grid layout (`domain/devices.ts` `portGrid`)
+  for the rack view, port map and printed panel labels (a 72-port 1U panel printed 3 × 24 but showed 2 × 36; 0U gave
+  ∞ columns) — the label sheet's cells shrink when a row has more than 24; a remote doc that differs only in key order
+  isn't a change (`persist/sync.ts` uses `sameEntity`); Ctrl+] / Ctrl+[ (draw order) go by the character typed, so they
+  work on a JIS keyboard (`ui/shellKeys.ts`). Tests in `domain/renumber.test.ts`, `persist/chunks.test.ts`.

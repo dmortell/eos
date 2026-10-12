@@ -36,6 +36,15 @@ export interface ShellKeyCtx {
 	flipFace(): boolean
 }
 
+/** Ctrl+] / Ctrl+[ by the CHARACTER typed (a JIS keyboard has "[" on the key US calls BracketRight), the key's place
+ *  only when the character isn't known. */
+function bracket(e: KeyboardEvent): ']' | '[' | null {
+	if (e.key === ']' || e.key === '}') return ']'
+	if (e.key === '[' || e.key === '{') return '['
+	if (e.key.length === 1) return null
+	return e.code === 'BracketRight' ? ']' : e.code === 'BracketLeft' ? '[' : null
+}
+
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
 	// a dialog open: its keys are its own (Esc closes it); the drawing behind it gets none (Delete, Ctrl+Z, arrows …)
@@ -58,7 +67,7 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 		// F2: edit the selected thing's words in place (a text, a leader, an outlet's label, a rack's name, a run's label)
 		if (labelKind(project.index.get(ws.selection[0]))) { e.preventDefault(); ws.editText(ws.selection[0]) }
 	}
-	else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); c.orderKey(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
+	else if (mod && bracket(e)) { e.preventDefault(); c.orderKey(bracket(e) === ']' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward') }
 	else if (e.key === 'F4') { e.preventDefault(); c.repeatDeviceEdit() }
 	// P / L with ports selected: Patch to… / Link to… (a panel's) — then click the other device's first port
 	// L with several panels selected: link all their ports, the top panel first — as Properties shows, even when the

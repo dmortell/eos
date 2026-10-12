@@ -8,6 +8,7 @@
 import type { EntityStore, Change } from '../store/store'
 import type { Backend, RemoteDoc } from './backend'
 import { toDoc, fromDoc } from './docs'
+import { sameEntity } from '../domain/restorePlan'
 import type { Entity } from '../domain/drawing'
 import type { Id } from '../domain/types'
 
@@ -87,7 +88,7 @@ export class Sync {
 				if (mine !== undefined) continue
 				this.#revs.set(d.id, Math.max(meta.rev, this.#revs.get(d.id) ?? 0))
 				const cur = this.store.get(d.id)
-				if (!cur || JSON.stringify(cur) !== JSON.stringify(entity)) puts.push(entity)
+				if (!cur || !sameEntity(cur, entity)) puts.push(entity)   // key order from the server doesn't count as a change
 			} else {
 				if (mine !== undefined) continue
 				if (this.store.has(d.id)) dels.push(d.id)

@@ -8,6 +8,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Device, Id, ProjectSettings, Rack } from '../domain/types'
 import { racksInOrder, portAt } from '../domain/devices'
 import { download, fileSafe } from './download'
+import { sheetName } from './exports'
 
 /** One port cell: its label; the usage of the outlet it reaches, or the usage it is reserved for (no outlet yet). */
 export interface FrameCell { label: string; usage?: string; reserved?: boolean }
@@ -129,10 +130,7 @@ export async function frameWorkbook(rooms: FrameRoom[], settings: ProjectSetting
 	const colour = (usage?: string) => (usage ? tones(settings?.usages.find((x) => x.id === usage)?.color) : { bg: 'FFFFFFFF', text: 'FF334155' })
 	const names = new Set<string>()
 	const sheet = (name: string) => {
-		let n = name.replace(/[[\]*?/\\:]/g, ' ').slice(0, 31).trim() || 'Sheet', k = 2
-		while (names.has(n)) n = `${name.slice(0, 27)} (${k++})`
-		names.add(n)
-		const ws = wb.addWorksheet(n)
+		const ws = wb.addWorksheet(sheetName(name, names))   // legal, and unique ignoring case (a clash was built from the raw name)
 		ws.pageSetup = { paperSize: 8 as PaperSize, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1,
 			margins: { left: 0.25, right: 0.25, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }   // A3 landscape, one page
 		ws.headerFooter = { oddFooter: `&L${o.fileName}&R&P / &N` }

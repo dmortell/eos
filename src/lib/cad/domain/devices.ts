@@ -34,6 +34,13 @@ export const narrowDevice = (d: Pick<Device, 'widthMm'>): boolean => !!d.widthMm
 /** Where port `n` (1-based) sits in a device's grid of `rows` × `cols`: [row, col]. Along the rows ('row': 1–24 top,
  *  25–48 under) or DOWN ('column': 2 under 1), down each U's pair of rows in turn — a 96-port 2U switch has 1–48 on
  *  its top two rows and 49 under 2 (Dave 2026-10-10: Journey's Arista CCS-720XP-96). */
+/** The rows and columns of a device's ports — ONE layout for the rack view, the port map and the printed panel labels:
+ *  ~24 a row, up to two rows a U (a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24). */
+export function portGrid(d: Pick<Device, 'portCount' | 'heightU'>): { rows: number; cols: number } {
+	const rows = d.portCount > 24 ? Math.max(1, Math.min(d.heightU * 2, Math.ceil(d.portCount / 24))) : 1   // 0U: one row, not ∞ columns
+	return { rows, cols: Math.max(1, Math.ceil(d.portCount / rows)) }
+}
+
 export function portAt(numbering: Device['portNumbering'], n: number, rows: number, cols: number): [number, number] {
 	const i = n - 1
 	if (numbering !== 'column') return [Math.floor(i / cols), i % cols]

@@ -43,6 +43,10 @@ describe('renumber', () => {
 		expect(clashes(next, all)).toEqual([])
 		expect(clashes(renumberEntities([all[0], all[1]], { start: 5 }), all)).toEqual(['A5'])   // A6 is a rack: no clash
 	})
+	it('outlet labels only clash on their own level (another floor may use the same ones)', () => {
+		const here = outlet('a', 'A1', 0, 0), there = { ...outlet('b', 'A2', 0, 0), levelId: 'OTHER' } as Entity
+		expect(clashes(renumberEntities([here], { start: 2 }), [here, there])).toEqual([])
+	})
 })
 
 describe('find / replace in labels', () => {
