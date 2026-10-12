@@ -467,12 +467,12 @@
 			r.done.catch((e) => { project.error = `Couldn't upload the pasted picture “${r.fileId}”: ${(e as Error).message} — any you placed show only here; Undo removes them` })
 		} catch (e) { project.error = `Couldn't paste the picture: ${(e as Error).message}` }
 	}
-	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f) })
+	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f), cursor: () => canvas?.pasteCursor() ?? null })
 
 
 </script>
 
-<svelte:window onkeydown={onKey} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
+<svelte:window onkeydown={(e) => { clipboard.key(e); onKey(e) }} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
 <div class="shell bg-zinc-50 text-sm" style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
 	style:grid-template-rows="1.75rem 2.25rem minmax(0, 1fr) {tablesRow}px 1.6rem">

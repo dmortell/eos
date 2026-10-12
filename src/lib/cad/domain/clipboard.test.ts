@@ -1,6 +1,6 @@
 // Copy / paste, as behaviour: what a paste writes, where it lands, what its labels and references become.
 import { describe, it, expect } from 'vitest'
-import { makeClip, parseClip, pasteClip, type PasteTarget } from './clipboard'
+import { makeClip, parseClip, pasteClip, clipCentre, type PasteTarget } from './clipboard'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import type { Entity, Layer, Sheet } from './drawing'
@@ -85,5 +85,17 @@ describe('paste', () => {
 	it('only what the pane takes: plan items into a plan, notes onto a sheet', () => {
 		const i = ix(), r = pasteClip(copy(i, ['O1']), target(i, { kind: 'sheet', id: 'S' }))
 		expect(r).toMatchObject({ put: [], skipped: 1 })
+	})
+})
+
+describe('paste at the cursor (Ctrl+Shift+V)', () => {
+	it('the middle of the copied things’ box; pasted moved so it lands on the cursor', () => {
+		const a = { type: 'shape', id: 'A', levelId: 'L33', geom: { kind: 'rect', centre: { x: 100, y: 100 }, size: { x: 200, y: 200 } } } as Shape   // 0,0 … 200,200
+		const b = { type: 'shape', id: 'B', levelId: 'L33', geom: { kind: 'text', at: { x: 1000, y: 400 }, text: 'T', sizeMm: 2.5 } } as Shape
+		const i = ix([a, b]), clip = copy(i, ['A', 'B'])
+		expect(clipCentre(clip)).toEqual({ x: 500, y: 200 })
+		const r = pasteClip(clip, target(i, { kind: 'level', id: 'L33' }, { d: { x: 4500, y: 800 } }))   // the cursor at 5000, 1000
+		expect(r.put.flatMap((e) => (e.type === 'shape' && e.geom.kind === 'text' ? [e.geom.at] : []))).toEqual([{ x: 5500, y: 1200 }])
+		expect(clipCentre(copy(i, ['P1']))).toBeNull()   // devices on their own: no points
 	})
 })

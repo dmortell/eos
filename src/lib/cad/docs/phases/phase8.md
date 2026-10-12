@@ -2430,3 +2430,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **No "Heights from the old Risers tool" in the Floor manager (Dave 2026-10-12):** the button and its handler are gone
   (and `persist/import/legacyHeights.ts` with its test, removed). Live (Test Project): the dialog opens
   without it.
+- **Paste at the cursor (backlog, G232; Dave 2026-10-12):** Ctrl+Shift+V pastes with the middle of what was copied
+  (`domain/clipboard.ts` `clipCentre`: its points' box — outlets / racks at, path nodes, outlines, text points) on the
+  pointer: `pasteClip` gets the move `d`. The paste event doesn't carry Shift, so `clipboardEvents` `key` notes a
+  Ctrl+Shift+V keydown (1 s) and ViewCanvas `pasteCursor` gives the pointer in the target's points (a viewport being
+  edited: its view mm). A rack target pastes devices as before; no pointer over the pane = in place, with a message.
+  Test in `domain/clipboard.test.ts`. Live (Test Project 1F): the "1070" dimension copied, Ctrl+Shift+V with the
+  pointer to its left → the copy there; undone. Help: "Move, copy or nudge things", Keys. Backlog: 20 / 21 (import
+  Pages / Sheets-tool sheets) → `later.md` (Dave).

@@ -254,6 +254,8 @@
 		if (vpe) return toolKind === 'plan' ? { kind: 'level', id: vpe.levelId } : null
 		return spec.kind === 'plan' ? { kind: 'level', id: levelId } : spec.kind === 'sheet' ? { kind: 'sheet', id: spec.sheetId } : null
 	}
+	/** The pointer, in the paste target's points (a viewport being edited: its view mm) — Ctrl+Shift+V. */
+	export const pasteCursor = (): Pt | null => cursor
 	/** What this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes on a sheet (not
 	 *  the sheet itself). */
 	const pickable = (): Entity[] => pickableIn(project.index, vpe ? vpe.prims : layered.pick, toolKind)

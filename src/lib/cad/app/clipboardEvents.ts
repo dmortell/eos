@@ -2,7 +2,8 @@
 // own behaviour; otherwise the selection goes to the SYSTEM clipboard, so it pastes in another tab or project.
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
-import { makeClip, parseClip, pasteClip } from '../domain/clipboard'
+import type { Pt } from '../domain/types'
+import { makeClip, parseClip, pasteClip, clipCentre } from '../domain/clipboard'
 import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 
 export interface ClipboardDeps {
@@ -14,6 +15,8 @@ export interface ClipboardDeps {
 	image?(file: File): void
 	/** The active pane is a rack row (a paste there needs a rack under the mouse). */
 	inRow(): boolean
+	/** The pointer in the active pane, in the paste target's own points (plan / paper mm); null = not over it. */
+	cursor?(): Pt | null
 }
 
 const typing = (t: EventTarget | null) => typeof Element !== 'undefined' && t instanceof Element && !!t.closest('input, select, textarea, [contenteditable]')
@@ -27,7 +30,12 @@ function cutNow(project: CadProject, ws: Workspace, ids: string[]): void {
 	ws.say(`Cut ${items(ids.length)} — Ctrl+V pastes${lost ? `; their ${lost} don't come back with a paste (Undo does)` : ''}`)
 }
 
-export function clipboardEvents({ project, ws, target, inRow, image }: ClipboardDeps) {
+export function clipboardEvents({ project, ws, target, inRow, image, cursor }: ClipboardDeps) {
+	// Ctrl+Shift+V (backlog "Paste at the cursor"): the paste event doesn't say Shift, so the key down before it does
+	let atCursorUntil = 0
+	function key(e: KeyboardEvent): void {
+		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') atCursorUntil = e.shiftKey ? Date.now() + 1000 : 0
+	}
 	function copy(e: ClipboardEvent, cut: boolean): void {
 		if (typing(e.target) || window.getSelection()?.toString() || !ws.selection.length) return
 		const clip = makeClip(project.index, ws.selection, project.pid)
@@ -50,7 +58,13 @@ export function clipboardEvents({ project, ws, target, inRow, image }: Clipboard
 		e.preventDefault()
 		const to = target()
 		if (!to) { ws.say(inRow() ? 'Point at a rack, then paste: devices go into the rack under the mouse' : 'Paste into a plan, onto a sheet (notes), or into a rack (devices)'); return }
-		const r = pasteClip(clip, { pid: project.pid, ix: project.index, to })   // as-is: same place, same labels (Dave)
+		// as-is: same place, same labels (Dave); Ctrl+Shift+V: its middle at the cursor
+		const shifted = Date.now() < atCursorUntil
+		atCursorUntil = 0
+		const p = shifted && to.kind !== 'rack' ? cursor?.() : null, c = p ? clipCentre(clip) : null
+		const d = p && c ? { x: Math.round(p.x - c.x), y: Math.round(p.y - c.y) } : undefined
+		if (shifted && to.kind !== 'rack' && !d) ws.say('Point at where it goes, then Ctrl+Shift+V — pasted in place')
+		const r = pasteClip(clip, { pid: project.pid, ix: project.index, to, d })
 		if (r.problem) { ws.say(r.problem); return }
 		const elsewhere = to.kind === 'sheet' ? 'only notes paste onto a sheet' : to.kind === 'rack' ? 'only devices paste into a rack' : 'notes paste onto a sheet, devices into a rack'
 		if (!r.put.length) { ws.say(`Nothing here takes these — ${elsewhere}`); return }
@@ -58,5 +72,5 @@ export function clipboardEvents({ project, ws, target, inRow, image }: Clipboard
 		ws.select(r.select)
 		if (r.skipped) ws.say(`${items(r.skipped)} left out — ${elsewhere}`)
 	}
-	return { copy: (e: ClipboardEvent) => copy(e, false), cut: (e: ClipboardEvent) => copy(e, true), paste }
+	return { copy: (e: ClipboardEvent) => copy(e, false), cut: (e: ClipboardEvent) => copy(e, true), paste, key }
 }

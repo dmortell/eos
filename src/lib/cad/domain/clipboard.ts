@@ -4,7 +4,7 @@
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
 import type { Id, Pt, Rack, Device, Space } from './types'
 import type { Entity, Layer, Sheet, Group } from './drawing'
-import { moveGeometry, type Shape } from './shapes'
+import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { newServerRoom, placementProblem } from './devices'
@@ -68,6 +68,27 @@ export function parseClip(text: string): Clip | null {
 		const c = JSON.parse(text) as Clip
 		return c?.mark === CLIP_MARK && Array.isArray(c.items) ? c : null
 	} catch { return null }
+}
+
+/** The middle of what a clip holds (its points' box) — Ctrl+Shift+V puts it at the cursor. Null = no points (devices). */
+export function clipCentre(clip: Clip): Pt | null {
+	const pts: Pt[] = []
+	for (const e of clip.items) {
+		if ((e.type === 'outlet' || e.type === 'rack') && e.at) pts.push(e.at)
+		if (e.type !== 'shape') continue
+		const g = e.geom
+		switch (g.kind) {
+			case 'path': pts.push(...g.nodes); break
+			case 'polygon': case 'leader': case 'cloud': pts.push(...g.pts); break
+			case 'dimension': pts.push(g.a, g.b); break
+			case 'text': case 'insert': case 'legend': pts.push(g.at); break
+			case 'circle': case 'arc': pts.push({ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }); break
+			default: pts.push(...(outlineOf(g) ?? []))
+		}
+	}
+	if (!pts.length) return null
+	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+	return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
 }
 
 export interface PasteTarget {
