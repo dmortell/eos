@@ -3093,3 +3093,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q8** a run split where another run is drawn to the middle of a segment (or a node double-clicked in) keeps the
   hand cables tied to that segment on both halves, and a penetration accepted on it names the half it lies on
   (`domain/pathEdit.ts` `insertNode` / `splitSegRefs`, `editor/pathTool.ts`, `editor/selectTool.ts`; test).
+- **Q12** Explode draws what the view drew: texts keep their size (× the insert's scale only — an annotative datum's
+  text was scaled by the drawing scale twice, 20 m tall), `{TAG}` texts are filled from the insert (a blank one goes),
+  a note in a viewport uses that viewport's scale and face, and a level's insert placed in an elevation / section (or
+  shown there and exploded there) becomes its FRONT drawing on that view's plane at its height — it went onto the plan
+  as the plan symbol (`domain/blocks.ts` `explodeInsert`, `app/project.svelte.ts` `explode` takes the active view;
+  tests).

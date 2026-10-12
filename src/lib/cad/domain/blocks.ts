@@ -5,7 +5,8 @@
 import type { Id, Pt, Outlet } from './types'
 import type { BlockDef } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
-import { moveGeometry, ellipsePts, placeGeometry } from './shapes'
+import { moveGeometry, ellipsePts, placeGeometry, mirrorGeometry } from './shapes'
+import { project, unproject, type ElevFrame } from './conventions'
 import { newId } from './ids'
 import { isDataField } from './fields'
 
@@ -178,15 +179,38 @@ export function blockFromShapes(shapes: Shape[], name: string): { block: Block; 
 }
 
 /** "Explode": an insert → ordinary shapes in place (a COPIED block, edited freely afterwards), drawn as the insert was:
- *  turned, scaled (× `k`, the drawing scale, for an annotative block), with the insert's owner, layer and height.
- *  `k` = what the view draws annotative blocks at (a plan: PLOT_SCALE; paper: 1). */
-export function explodeInsert(ins: Shape, block: Block, k = 1): Shape[] {
+ *  turned, scaled (× `k`, the drawing scale, for an annotative block), with the insert's owner, layer and height, its
+ *  `{TAG}` texts filled in. `k` = drawing mm per paper mm where it is drawn (a plan: PLOT_SCALE; paper: 1; a note in a
+ *  viewport: the viewport's scale) — texts keep the size they were drawn at (a text's size is paper mm, drawn × k).
+ *  `face` = the drawing the view shows (faceFor); `frame` = an elevation / section a level's insert is exploded in:
+ *  its FRONT drawing goes onto that view's plane at the insert's height, as the view drew it. */
+export function explodeInsert(ins: Shape, block: Block, k = 1, o: { face?: BlockFace; frame?: ElevFrame } = {}): Shape[] {
 	if (ins.geom.kind !== 'insert') return []
-	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (block.annotative ? k : 1)
+	const frame = ins.levelId ? o.frame : undefined
+	const b = blockFace(block, frame ? 'front' : o.face ?? 'plan')
+	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (b.annotative ? k : 1)
+	const attrs = insertAttrs(block, ins.geom.attrs, ins.geom.hidden)
 	const owner = ins.levelId ? { levelId: ins.levelId } : ins.viewId ? { viewId: ins.viewId } : { sheetId: ins.sheetId!, ...(ins.vpId ? { vpId: ins.vpId } : {}) }
-	return block.shapes.map((b) => {
-		const geom = placeGeometry(b.geom, at, rot, s)
+	// on an elevation's plane: where the view drew it (its u, at its height; elevations draw inserts unturned)
+	const onPlane = frame ? project(frame, { x: at.x, y: at.y, z: z ?? 0 }) : null
+	return b.shapes.flatMap((bs) => {
+		let g0 = bs.geom
+		if (g0.kind === 'text') {
+			const text = fillAttrs(g0.text, attrs)
+			if (!text) return []   // a blank attribute draws nothing
+			g0 = { ...g0, text }
+		}
+		let geom = onPlane ? placeGeometry(g0, { x: onPlane.u, y: -onPlane.v }, 0, s) : placeGeometry(g0, at, rot, s)
+		if (geom.kind === 'text' && g0.kind === 'text') geom = { ...geom, sizeMm: (g0.sizeMm * s) / k }
+		const base = { ...bs, type: 'shape', id: newId(), ...owner, ...(ins.layerId ? { layerId: ins.layerId } : {}) }
+		if (frame && onPlane) {
+			const plane = { kind: 'vertical' as const, frame, depth: onPlane.depth }
+			// view mm (y down) → the plane's (u, v up); a line's nodes are model points on the plane
+			if (geom.kind === 'path') return [{ ...base, plane, geom: { ...geom, nodes: geom.nodes.map((n) => ({ ...n, ...unproject(frame, { u: n.x, v: -n.y }, onPlane.depth) })) } } as Shape]
+			const up = geom.kind === 'text' ? { ...geom, at: { x: geom.at.x, y: -geom.at.y } } : mirrorGeometry(geom, { x: 0, y: 0 }, { x: 1, y: 0 })
+			return [{ ...base, plane, geom: up } as Shape]
+		}
 		const lifted = z && geom.kind === 'path' ? { ...geom, nodes: geom.nodes.map((n) => ({ ...n, z: n.z + z })) } : geom
-		return { ...b, type: 'shape', id: newId(), ...owner, ...(ins.layerId ? { layerId: ins.layerId } : {}), geom: lifted } as Shape
+		return [{ ...base, geom: lifted } as Shape]
 	})
 }

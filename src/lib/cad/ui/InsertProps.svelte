@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Shape } from '../domain/shapes'
+	import type { ViewSpec } from '../views/space'
 	import { put } from './propsKit'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
@@ -12,7 +13,7 @@
 	import NumberField from './fields/NumberField.svelte'
 	import CheckField from './fields/CheckField.svelte'
 
-	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
+	let { project, ws, s, current }: { project: CadProject; ws: Workspace; s: Shape; /** the active pane's view: Explode shows the block as it draws it */ current?: { spec: ViewSpec } } = $props()
 
 	const g = $derived(s.geom.kind === 'insert' ? s.geom : null)
 	const b = $derived(g ? project.blockOf(g.blockId) : undefined)
@@ -37,7 +38,7 @@
 	{#if b}
 		<PropGroup kind="block" title="Block">
 			<div class="acts">
-				<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(s.id))}>Explode</button>
+				<button class="btn" title="Replace this insert with the block's shapes, to edit them freely" onclick={() => ws.select(project.explode(s.id, current?.spec))}>Explode</button>
 				<button class="lnk" title="The block library (every project): place more of it, or delete your own blocks from it (✕ on its row)" onclick={() => ws.openWindow('blocks')}>Blocks window ›</button>
 			</div>
 			{#if b.retired}<p class="muted">Deleted from the library (kept here)</p>{/if}

@@ -16,7 +16,10 @@ import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
-import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, type Block } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
+import type { ElevFrame } from '../domain/conventions'
+import { spaceOf, type ViewSpec } from '../views/space'
+import { sectionSpace } from '../views/section'
 import { PLOT_SCALE } from '../views/display'
 import { stripUndefined } from '../persist/docs'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
@@ -171,15 +174,31 @@ export class CadProject {
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [id]: { retired: true } } }, { merge: true })
 	}
 
-	/** An insert → ordinary shapes in place (the copied-block case). */
-	explode(insertId: Id): Id[] {
+	/** An insert → ordinary shapes in place (the copied-block case), as the view shows it: `spec` = the active pane's view
+	 *  (an elevation / section explodes a level's insert as its front drawing on that view's plane). */
+	explode(insertId: Id, spec?: ViewSpec): Id[] {
 		const ins = this.store.get(insertId)
 		if (ins?.type !== 'shape' || ins.geom.kind !== 'insert') return []
 		const b = this.blockOf(ins.geom.blockId)
 		if (!b) return []
-		const shapes = explodeInsert(ins, b, ins.sheetId ? 1 : PLOT_SCALE)   // annotative blocks: as the view draws them
+		const shapes = explodeInsert(ins, b, ...this.#explodeAs(ins, ins.geom, spec))
 		this.store.transact(`Explode ${b.name}`, (tx) => { tx.del(insertId); for (const s of shapes) tx.put(s) })
 		return shapes.map((s) => s.id)
+	}
+
+	/** Where an insert is exploded: the drawing scale its annotative block is drawn at and the face shown — a note in a
+	 *  viewport as that viewport draws it, paper at 1, a level's insert at the plot scale, onto its own elevation (or the
+	 *  elevation / section it is exploded in, when it shows there). */
+	#explodeAs(ins: Shape, g: Extract<Shape['geom'], { kind: 'insert' }>, spec?: ViewSpec): [number, { face?: BlockFace; frame?: ElevFrame }] {
+		if (ins.sheetId) {
+			const sheet = this.store.get(ins.sheetId), vp = ins.vpId && sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ins.vpId) : undefined
+			return vp ? [vp.scale, { face: faceFor(vp.view.spec.kind) }] : [1, {}]
+		}
+		if (!ins.levelId) return [PLOT_SCALE, {}]
+		if (g.frame) return [PLOT_SCALE, { frame: g.frame }]
+		const sec = spec?.kind === 'section' ? this.store.get(spec.sectionId) : undefined
+		const frame = !g.inElevations ? undefined : sec?.type === 'section' ? sectionSpace(sec).frame : spec?.kind === 'elevation' ? spaceOf(spec).frame : undefined
+		return [PLOT_SCALE, frame ? { frame } : {}]
 	}
 
 	/**

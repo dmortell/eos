@@ -95,6 +95,36 @@ describe('make block / explode', () => {
 	})
 })
 
+describe('explode draws what the view drew', () => {
+	const datum = lib.get('builtin:datum')!
+	it('an annotative symbol: its geometry × the drawing scale, its text the same paper size, its {TAGS} filled', () => {
+		const ins = { type: 'shape', id: 'i', levelId: 'L', geom: { kind: 'insert', blockId: datum.id, at: { x: 1000, y: 0 }, attrs: { NAME: 'CH' }, scale: 1.5 } } as Shape
+		const out = explodeInsert(ins, datum, 100)
+		const text = out.find((x) => x.geom.kind === 'text')!.geom as { text: string; sizeMm: number }
+		expect(text).toMatchObject({ text: 'CH +0', sizeMm: 3 })   // 2 paper mm × 1.5, drawn × 100 by the plan as before
+		expect((out.find((x) => x.geom.kind === 'circle')!.geom as { r: number }).r).toBeCloseTo(240)   // 1.6 × 1.5 × 100
+		// a hidden attribute is blank: its text goes
+		const two = { ...datum, shapes: [...datum.shapes, { id: 't2', geom: { kind: 'text', at: { x: 0, y: 5 }, text: '{NOTE}', sizeMm: 2 } }] } as Block
+		expect(explodeInsert(ins, two, 100).filter((x) => x.geom.kind === 'text')).toHaveLength(1)
+	})
+	it('a model block’s text is real size: explode keeps it so on a plan (paper mm = real ÷ k)', () => {
+		const b = { type: 'block', id: 'B', name: 'Desk', scope: 'global', shapes: [{ id: 't', geom: { kind: 'text', at: { x: 0, y: 0 }, text: 'DESK', sizeMm: 200 } }] } as Block
+		const ins = { type: 'shape', id: 'i', levelId: 'L', geom: { kind: 'insert', blockId: 'B', at: { x: 0, y: 0 } } } as Shape
+		expect((explodeInsert(ins, b, 100)[0].geom as { sizeMm: number }).sizeMm).toBe(2)
+	})
+	it('in an elevation: the front drawing on that view’s plane at the insert’s height, not the plan symbol on the plan', () => {
+		const plate = { type: 'block', id: 'P', name: 'Plate', scope: 'global', annotative: true,
+			shapes: [{ id: 'c', geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 2 } }],
+			front: [{ id: 'f', geom: { kind: 'rect', centre: { x: 0, y: -10 }, size: { x: 70, y: 115 } } }, makePath({ levelId: 'L' }, [{ x: -35, y: 0 }, { x: 35, y: 0 }])] } as Block
+		const frame = { o: { x: 0, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: 1 } }   // the front elevation: u = x, looking up the sheet
+		const ins = { type: 'shape', id: 'i', levelId: 'L', geom: { kind: 'insert', blockId: 'P', at: { x: 2000, y: 500 }, z: 300, inElevations: true, frame } } as Shape
+		const [box, line] = explodeInsert(ins, plate, 100, { frame })
+		expect(box.plane).toEqual({ kind: 'vertical', frame, depth: 500 })
+		expect(box.geom).toMatchObject({ kind: 'rect', centre: { x: 2000, y: 310 }, size: { x: 70, y: 115 } })   // (u, z): 10 mm above its point
+		expect((line.geom as { nodes: unknown[] }).nodes).toMatchObject([{ x: 1965, y: 500, z: 300 }, { x: 2035, y: 500, z: 300 }])
+	})
+})
+
 describe('drawing symbols (Markup kinds part 5)', () => {
 	it('datum, detail callout and elevation tag: annotative symbols whose words are attributes with defaults', () => {
 		const sym = BUILTIN_BLOCKS.filter((b) => b.category === 'symbol')

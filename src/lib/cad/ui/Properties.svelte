@@ -117,7 +117,7 @@
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}
 		<PathProps {project} {ws} s={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'insert'}
-		<InsertProps {project} {ws} s={one} />
+		<InsertProps {project} {ws} s={one} {current} />
 	{:else if one.type === 'shape'}
 		<ShapeProps {project} {ws} s={one} />
 	{:else}
