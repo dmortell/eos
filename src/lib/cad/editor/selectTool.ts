@@ -6,7 +6,8 @@ import type { Id, Pt, ProjectSettings, Rack, Device } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { ownFrame, sameFrame } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
-import type { Prim } from '../views/display'
+import { primBounds, unionBounds, type Prim } from '../views/display'
+import { linkLabel } from '../domain/links'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching, primDist } from './pick'
@@ -260,6 +261,9 @@ export class SelectTool implements Tool {
 		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
 		// them in place (backlog "Text options", "Edit a label in place")
+		// a linked symbol: a double-click opens its sheet or web page
+		const linked = id && (e.count ?? 1) >= 2 && c.openLink ? c.store.get(id) : undefined
+		if (id && linked?.type === 'shape' && linked.geom.kind === 'insert' && linked.geom.link) { c.select([id]); c.openLink!(linked.geom.link); return }
 		const lk = id && (e.count ?? 1) >= 2 ? labelKind(c.store.get(id)) : null
 		if (id && c.editText && lk && (lk !== 'run' || hit?.k === 'text')) { c.select([id]); this.#editOnUp = id; return }   // opened on RELEASE: on press, the click's own mousedown would take the focus from the box (it blurred, saved and closed)
 		// a sheet: its viewports are picked (and dragged) by their FRAME; the paper selects the sheet
@@ -654,6 +658,12 @@ export class SelectTool implements Tool {
 				if (p.k === 'text' && hoverHasShape) continue
 				out.push(p.k === 'text' ? { ...p, cls: 'hover' } : p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false })
 			}
+		}
+		// a linked symbol under the pointer: a small badge says where a double-click goes
+		const lnk = hv && !this.#gesture ? c.store.get(hv.id) : undefined
+		if (lnk?.type === 'shape' && lnk.geom.kind === 'insert' && lnk.geom.link) {
+			const bb = unionBounds(c.prims().filter((p) => p.src === hv!.id && p.k !== 'image').map(primBounds))
+			if (bb) out.push({ k: 'text', at: { x: bb.x1 + 3 * px, y: bb.y0 - 3 * px }, text: `↗ ${linkLabel(lnk.geom.link, (id) => { const s = c.store.get(id); return s?.type === 'sheet' ? s : undefined })} · double-click opens`, size: 11 * px, anchor: 'start', cls: 'draft-label' })
 		}
 		const picked = new Set(ps?.nodes ?? [])
 		out.push(...[...this.grips(c), ...(this.#noteGrips(c)?.grips ?? [])].map((g): Prim => ({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'nodeIds' in g && g.nodeIds.some((n) => picked.has(n)) ? 'grip grip-sel' : 'grip' })))

@@ -9,6 +9,7 @@ import { onGrid, type Snap } from './snap'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import type { PathSel } from './pathSel'
 import type { ProjectDetails } from '../domain/titleBlock'
+import type { InsertLink } from '../domain/links'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -68,6 +69,8 @@ export interface ToolCtx {
 	/** Every viewport picked (Ctrl-click, a window on the paper); the first is `viewportId`. */
 	viewportIds?(): Id[]
 	selectViewports?(ids: Id[]): void
+	/** Open a linked symbol's target: a sheet in a tab, a web page in a new browser tab. */
+	openLink?(link: InsertLink): void
 	/** Sheet views only: edit the model inside this viewport (a double-click on it). */
 	enterViewport?(id: Id): void
 	/** Sheet views only: "Pan / zoom content" is on — a drag inside the selected viewport pans it, no Alt needed. */

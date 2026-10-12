@@ -11,6 +11,7 @@
 // Everything follows ./conventions.ts: plan mm, y down, z above the level's FFL.
 import type { Pt, ElevFrame } from './conventions'
 import type { Id, Tier } from './types'
+import type { InsertLink } from './links'
 
 /**
  * Who a shape belongs to — exactly one. A LEVEL's model (seen by every view of that level), ONE view (e.g. a note
@@ -81,7 +82,7 @@ export type Geometry =
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
-	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (Dave 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (Dave 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame }
+	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (Dave 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (Dave 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame; /** A sheet or web page this marker opens (double-click); each insert has its own target. */ link?: InsertLink }
 	/** A LEGEND (backlog "Legend on the drawing"): a table of the symbols / layers in use on its level (a sheet: the levels
 	 *  its viewports show), with counts. `at` = its top-left; `rows` = the row keys it shows ('block:<id>' / 'layer:<id>';
 	 *  absent = every symbol in use); sizes are paper mm. Drawn from the data each time, so it keeps itself up to date. */

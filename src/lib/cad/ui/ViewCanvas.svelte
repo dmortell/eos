@@ -10,6 +10,7 @@
 	import type { ToolCtx, PointerIn, PortSel } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
 	import type { Pt } from '../domain/types'
+	import type { InsertLink } from '../domain/links'
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
 	import { elevationDisplayList } from '../views/elevation'
@@ -340,6 +341,7 @@
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, selectViewports: ws.selectViewports, viewportId: () => ws.viewportId, viewportIds: () => ws.pickedViewports, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
+			openLink: (l: InsertLink) => { if (l.kind === 'sheet' && project.index.get(l.sheetId)?.type !== 'sheet') ws.say('The linked sheet is gone'); else ws.openLink(l) },
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			pathSel: () => ws.pathSel, selectPath: ws.selectPath, editText: ws.editText,   // inside a viewport too: the box maps onto the paper
 			...(kind === 'row' ? { rowHit: (p: Pt) => rowHit(project.index, (f ? f.vp.view.spec : spec) as RowSpec, p), portSel: () => ws.portSel, selectPorts: ws.selectPorts, armPorts: (s: PortSel, k: 'cord' | 'link') => (k === 'link' ? ws.interconnectFrom(s) : ws.patchFrom(s)) } : {}),

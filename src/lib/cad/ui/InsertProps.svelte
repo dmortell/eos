@@ -12,12 +12,32 @@
 	import InsertAttrs from './InsertAttrs.svelte'
 	import NumberField from './fields/NumberField.svelte'
 	import CheckField from './fields/CheckField.svelte'
+	import type { Sheet } from '../domain/drawing'
+	import { linkUrl } from '../domain/links'
+	import { enterKey } from './keyGuards'
 
 	let { project, ws, s, current }: { project: CadProject; ws: Workspace; s: Shape; /** the active pane's view: Explode shows the block as it draws it */ current?: { spec: ViewSpec } } = $props()
 
 	const g = $derived(s.geom.kind === 'insert' ? s.geom : null)
 	const b = $derived(g ? project.blockOf(g.blockId) : undefined)
 	const setGeom = (label: string, patch: Record<string, unknown>) => put(project.store, s, label, { geom: { ...s.geom, ...patch } as Shape['geom'] })
+	// a link: the sheet or web page a double-click on this marker opens (each insert has its own)
+	const sheets = $derived((project.index.ofType('sheet') as Sheet[]).filter((x) => x.status !== 'archived' || g?.link?.kind === 'sheet' && g.link.sheetId === x.id).sort((a, c) => a.order - c.order))
+	const link = $derived(g?.link)
+	const linkKind = $derived(link?.kind ?? 'none')
+	let urlText = $state(''), urlBad = $state(false)
+	$effect(() => { urlText = link?.kind === 'url' ? link.url : ''; urlBad = false })
+	function setKind(k: string) {
+		if (k === 'sheet') { const first = sheets[0]; if (first) setGeom('Link to a sheet', { link: { kind: 'sheet', sheetId: first.id } }); else ws.say('No sheet to link to yet') }
+		else if (k === 'url') { urlText = ''; urlBad = false; ws.say('Type the web address, then Enter') }
+		else setGeom('Remove link', { link: undefined })
+	}
+	function saveUrl() {
+		const u = linkUrl(urlText)
+		urlBad = !!urlText.trim() && !u
+		if (u) setGeom('Link to a web page', { link: { kind: 'url', url: u } })
+		else if (!urlText.trim()) setGeom('Remove link', { link: undefined })
+	}
 </script>
 
 {#if g}
@@ -35,6 +55,25 @@
 		{/if}
 	</PropGroup>
 	<InsertAttrs {project} inserts={[s]} />
+	<PropGroup kind="block" title="Link">
+		<label class="row" title="A double-click on this marker opens it: a sheet in a tab, a web page in a new browser tab">Opens
+			<select class="inp" value={linkKind} onchange={(e) => setKind(e.currentTarget.value)}>
+				<option value="none">Nothing</option><option value="sheet">A sheet</option><option value="url">A web page</option>
+			</select></label>
+		{#if link?.kind === 'sheet'}
+			<label class="row">Sheet
+				<select class="inp" value={link.sheetId} onchange={(e) => setGeom('Link to a sheet', { link: { kind: 'sheet', sheetId: e.currentTarget.value } })}>
+					{#each sheets as x (x.id)}<option value={x.id}>{x.number} {x.title}</option>{/each}
+					{#if !sheets.some((x) => x.id === link.sheetId)}<option value={link.sheetId}>(sheet gone)</option>{/if}
+				</select></label>
+		{/if}
+		{#if linkKind === 'url'}
+			<label class="row">Address
+				<input class="inp" class:bad={urlBad} bind:value={urlText} placeholder="https://…" aria-label="Web address" title={urlBad ? 'Not a web address we open (http, https or mailto)' : 'Enter saves it; blank removes the link'}
+					onkeydown={(e) => enterKey(e) && saveUrl()} onblur={saveUrl} /></label>
+		{/if}
+		{#if link}<div class="acts"><button class="btn" title="Open it now (a double-click on the marker does the same)" onclick={() => (link.kind === 'sheet' && !project.index.get(link.sheetId) ? ws.say('The linked sheet is gone') : ws.openLink(link))}>Open</button></div>{/if}
+	</PropGroup>
 	{#if b}
 		<PropGroup kind="block" title="Block">
 			<div class="acts">
@@ -47,6 +86,7 @@
 {/if}
 
 <style>
+	.bad { outline: 1px solid #dc2626; }
 	.lnk { font-size: 11px; color: var(--cad-link, #2563eb); }
 	.lnk:hover { text-decoration: underline; }
 </style>

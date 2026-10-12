@@ -26,6 +26,7 @@ import { TransformTool } from '../editor/transformTool'
 import { LegendTool } from '../editor/legendTool'
 import { ViewportTool } from '../editor/viewportTool'
 import type { Viewport } from '../domain/drawing'
+import { linkUrl, type InsertLink } from '../domain/links'
 import type { Block } from '../domain/blocks'
 import type { CordDefaults } from '../domain/cords'
 import type { Link } from '../domain/types'
@@ -190,6 +191,13 @@ export class Workspace {
 	selectSimilar: () => void = () => {}
 	/** Set by the app: open a view in its own tab (the viewport chip's "Open view"). */
 	openInTab: (v: { levelId?: Id; spec: ViewSpec }) => void = () => {}
+	/** Open a linked symbol's target (double-click): a sheet in a tab, a web page in a new browser tab (no opener). */
+	openLink = (link: InsertLink): void => {
+		if (link.kind === 'sheet') { this.openInTab({ spec: { kind: 'sheet', sheetId: link.sheetId } }); return }
+		const url = linkUrl(link.url)
+		if (url && typeof window !== 'undefined') window.open(url, '_blank', 'noopener,noreferrer')
+		else this.say('That link isn’t a web address we open — edit it in Properties')
+	}
 	/** Set by the app: show a view in the active pane (a section's Open button). */
 	openView: (s: ViewSpec) => void = () => {}
 	/** Set by the app (it owns the store): how the assign tool writes. */
