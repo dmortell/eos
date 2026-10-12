@@ -2686,3 +2686,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`app/issue.ts` `saveFrozen` / `loadFrozen`, `app/pdf.svelte.ts` `imageAsWas`). Copies frozen before today have no
   snapshot and reprint as before. (R24d left as is: cad measures a calibration line along its length, which is right;
   Uploads measures along x or y.)
+- **Power faceplates from the front (Dave 2026-10-12):** the built-in power faceplate blocks get a FRONT drawing in
+  real mm (`domain/blocks.ts` `Block.front`, `powerFront`): a 70 × 115 plate, a 50 × 90 frame for the sockets, each
+  socket two upright prong lines over an earth circle (single: one socket; dual: two, one above the other). An insert
+  placed on a wall in an elevation / section draws it (`frontOf` in `views/elevation.ts`, and the Insert tool's ghost
+  there); the plan keeps the edge-on plan symbol. Data faceplates are unchanged (no front drawing yet). Test in
+  `domain/blocks.test.ts`. Live (Test Project 1F front elevation): power dual placed — plate, frame, two sockets;
+  undone. (Help not touched: another session was editing helpContent.ts.)

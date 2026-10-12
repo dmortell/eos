@@ -10,7 +10,12 @@ import { newId } from './ids'
 import { isDataField } from './fields'
 
 export type BlockShape = BlockDef['shapes'][number]
-export type Block = BlockDef & { annotative?: boolean; builtin?: boolean }
+export type Block = BlockDef & { annotative?: boolean; builtin?: boolean
+	/** Its FRONT drawing, in real mm, centred on the insert point: what an elevation / section shows of an insert placed on
+	 *  a wall (the plan symbol is a plan view). Absent = the plan symbol is shown there too. */
+	front?: BlockShape[] }
+/** The block as an elevation / section draws it: its front drawing (real mm), if it has one. */
+export const frontOf = (b: Block): Block => (b.front ? { ...b, shapes: b.front, annotative: false } : b)
 
 const sh = (geom: Geometry, extra: Partial<BlockShape> = {}): BlockShape => ({ id: newId(), geom, ...extra })
 /** A straight line as a two-node path. */
@@ -73,17 +78,24 @@ function drawingSymbols(): Block[] {
 function faceplates(): Block[] {
 	const data = (x: number) => sh({ kind: 'polygon', pts: [{ x: x - 0.7, y: -0.45 }, { x: x + 0.7, y: -0.45 }, { x, y: 0.55 }] }, solid)
 	const pins = (x: number): BlockShape[] => [seg(x - 0.35, -0.4, x - 0.35, 0.4), seg(x + 0.35, -0.4, x + 0.35, 0.4)]
-	const make = (id: string, name: string, gangs: 1 | 2, mark: (x: number) => BlockShape[]): Block => {
+	const make = (id: string, name: string, gangs: 1 | 2, mark: (x: number) => BlockShape[], front?: BlockShape[]): Block => {
 		const w = gangs === 1 ? 2.6 : 4.8, xs = gangs === 1 ? [0] : [-1.15, 1.15]
 		return { type: 'block', id, name, scope: 'global', category: 'outlet', annotative: true, builtin: true,
-			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(1.1)] }
+			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(1.1)], ...(front ? { front } : {}) }
 	}
 	return [
 		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)]),
 		make('builtin:faceplate-data-2', 'Faceplate - data, dual', 2, (x) => [data(x)]),
-		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins),
-		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins),
+		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins, powerFront([0])),
+		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins, powerFront([-22, 22])),
 	]
+}
+
+/** A power faceplate from the front (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and
+ *  each socket (centred at y = `cy`) two short upright lines for its prongs over a circle for its earth. Real mm. */
+function powerFront(cys: number[]): BlockShape[] {
+	const socket = (cy: number): BlockShape[] => [seg(-6.35, cy - 9, -6.35, cy - 1), seg(6.35, cy - 9, 6.35, cy - 1), sh({ kind: 'circle', centre: { x: 0, y: cy + 6 }, r: 2.5 })]
+	return [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 70, y: 115 } }), sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 50, y: 90 } }), ...cys.flatMap(socket)]
 }
 
 /** The block that draws an outlet when it names none: by usage, then tier, then mount. */

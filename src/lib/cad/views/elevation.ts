@@ -12,7 +12,7 @@ import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
-import { insertAttrs, type Block } from '../domain/blocks'
+import { insertAttrs, frontOf, type Block } from '../domain/blocks'
 import { blockPrims } from './blocks'
 import { pictureRef } from '../domain/issue'
 
@@ -61,7 +61,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 		if (s.geom.kind === 'insert') {
 			if (s.levelId !== levelId || !s.geom.inElevations) continue
 			const g = s.geom, b = o.blocks?.(g.blockId), p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, v = sp.fromWorld(p)
-			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(b, { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape') })
+			if (b) items.push({ depth: sp.depthOf(p) + 1, prims: blockPrims(frontOf(b), { at: v, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape') })   // its front drawing, if it has one
 			continue
 		}
 		if (planDrawing(s)) continue

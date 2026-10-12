@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, explodeInsert, blockAttrDefs, insertAttrs, type Block } from './blocks'
+import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
 import { blockPrims } from '../views/blocks'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from './project'
@@ -43,6 +43,18 @@ describe('outlet symbols', () => {
 		}
 		const width = (b: Block) => (b.shapes[0].geom as { size: { x: number } }).size.x
 		expect(width(fp[1])).toBeGreaterThan(width(fp[0]))
+	})
+	it('a power faceplate from the front (elevations): a 70 × 115 plate, a 50 × 90 frame, each socket two prongs and an earth — real mm', () => {
+		const dual = frontOf(lib.get('builtin:faceplate-power-2')!)
+		expect(dual.annotative).toBe(false)
+		const sizes = dual.shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
+		expect(sizes).toEqual([{ x: 70, y: 115 }, { x: 50, y: 90 }])
+		expect(dual.shapes.filter((s) => s.geom.kind === 'path')).toHaveLength(4)     // 2 sockets × 2 prongs
+		expect(dual.shapes.filter((s) => s.geom.kind === 'circle')).toHaveLength(2)   // their earths
+		const ps = blockPrims(dual, { at: { x: 1000, y: -1200 } }, 50, {}, 'I', 'shape')   // at 1:50 still 70 mm wide
+		const plate = ps.find((p) => p.k === 'line' && p.closed)
+		expect(plate?.k === 'line' && Math.max(...plate.pts.map((q) => q.x)) - Math.min(...plate.pts.map((q) => q.x))).toBe(70)
+		expect(frontOf(lib.get('builtin:faceplate-data-1')!).shapes).toBe(lib.get('builtin:faceplate-data-1')!.shapes)   // no front drawing: the symbol
 	})
 	it('an annotative block scales with the drawing; a model block does not', () => {
 		const b = lib.get('builtin:outlet-box')!

@@ -5,7 +5,7 @@
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
-import { insertAttrs, type Block } from '../domain/blocks'
+import { insertAttrs, frontOf, type Block } from '../domain/blocks'
 import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
@@ -56,7 +56,8 @@ export class InsertTool implements Tool {
 	preview(c?: ToolCtx): Prim[] {
 		const b = this.blockOf(), h = this.#hover
 		if (!b || !h) return []
-		return blockPrims(b, { at: h.view }, c?.space.spec.kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you in elevations
+		const kind = c?.space.spec.kind, front = kind === 'elevation' || kind === 'section'
+		return blockPrims(front ? frontOf(b) : b, { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you (its front) in elevations
 	}
 
 	#place(e: PointerIn, c: ToolCtx): Place {
