@@ -3120,3 +3120,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q18** Make block refuses shapes drawn on an elevation / section's plane (Properties says why instead of offering
   it): a block's insert point is a plan point, so their (u, z) points landed on the plan (`domain/blocks.ts`
   `blockProblem`, `ui/Properties.svelte`, `app/project.svelte.ts` `makeBlock`; test).
+- **Q19** a turned image shape draws its picture turned with its frame — on plans, sheets, in the PDF and in
+  elevations (where it was squeezed into the turned frame's bounding box): image prims take `rot`, turned about the
+  box's centre (`views/display.ts`, `views/plan.ts`, `views/elevation.ts`, `ui/Prims.svelte`, `render/pdf.ts`; tests).
+  The DXF still skips images.

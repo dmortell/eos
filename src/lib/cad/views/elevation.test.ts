@@ -146,6 +146,10 @@ describe('drawing and moving in an elevation (ADR 0006)', () => {
 		expect(pic && pic.k === 'image' ? [pic.x - u, pic.y] : null).toEqual([300, -1100])   // top-left: u 300, z 1100 up
 		expect(view('front', ents).some((p) => p.src === 'I' && 'cls' in p && p.cls === 'image-frame')).toBe(true)
 		expect(view('rear', ents).some((p) => p.src === 'I')).toBe(false)
+		// turned on its plane (v up): the picture turns with its frame, the other way round on the y-down view, unsqueezed
+		const turned = view('front', [...placed(), { ...img, geom: { ...img.geom, rot: 30 } } as Shape]).find((p) => p.src === 'I' && p.k === 'image')
+		expect(turned).toMatchObject({ w: 400, h: 200, rot: -30 })
+		expect(turned && turned.k === 'image' ? [turned.x - u, turned.y] : null).toEqual([300, -1100])
 	})
 	it('dragging an outlet up in an elevation raises it (z) and slides it along the view', () => {
 		const h = harness('front', 0)

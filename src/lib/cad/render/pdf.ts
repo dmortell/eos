@@ -138,7 +138,13 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 				let { x, y, w, h } = p
 				if (p.fit) { const s = Math.min(w / img.w, h / img.h); w = img.w * s; h = img.h * s; y = p.y + (p.h - h) / 2; if (p.fit === 'centre') x = p.x + (p.w - w) / 2 }
 				pdf.setGState(new GState({ opacity: p.opacity ?? 1 }))
-				pdf.addImage(img.data, img.format, x, y, w, h, undefined, 'FAST')
+				if (!p.rot) { pdf.addImage(img.data, img.format, x, y, w, h, undefined, 'FAST'); continue }
+				// turned about the box's centre: jsPDF turns an image about its bottom-left corner, so put that corner where
+				// it lands when the picture turns about its centre (`rot` clockwise on paper → jsPDF's −rot)
+				const a = (p.rot * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a), cx = p.x + p.w / 2, cy = p.y + p.h / 2
+				const dx = x - cx, dy = y + h - cy   // the fitted picture's bottom-left corner from the centre, unturned
+				const bl = { x: cx + dx * c - dy * sn, y: cy + dx * sn + dy * c }
+				pdf.addImage(img.data, img.format, bl.x, bl.y - h, w, h, undefined, 'FAST', -p.rot)
 				continue
 			}
 			if (p.k === 'text') {

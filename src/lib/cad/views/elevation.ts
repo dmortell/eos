@@ -215,10 +215,11 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 		const world = out.map((q) => unproject(plane.frame, { u: q.x, v: q.y }, plane.depth))
 		const mid = world.reduce((m, p) => ({ x: m.x + p.x / world.length, y: m.y + p.y / world.length, z: m.z + p.z / world.length }), { x: 0, y: 0, z: 0 })
 		const pts = world.map((p) => sp.fromWorld(p))
-		// an image (backlog "Images in elevations"): the picture fitted in its box as seen here, the unseen frame on top
+		// an image (backlog "Images in elevations"): the picture fitted in its box as seen here (its own view: face on),
+		// turned as its frame is — the plane's v is up, the view's y down, so a turn shows the other way round
 		if (g.kind === 'image') {
-			const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y), x = Math.min(...xs), y = Math.min(...ys)
-			return [{ depth: sp.depthOf(mid), prims: [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y, fit: 'centre', src: s.id },
+			const c = sp.fromWorld(unproject(plane.frame, { u: g.centre.x, v: g.centre.y }, plane.depth)), rot = -(g.rot ?? 0)
+			return [{ depth: sp.depthOf(mid), prims: [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x: c.x - g.size.x / 2, y: c.y - g.size.y / 2, w: g.size.x, h: g.size.y, fit: 'centre', ...(rot ? { rot } : {}), src: s.id },
 				{ k: 'line', pts, closed: true, fill: true, cls: 'image-frame', src: s.id }] }]
 		}
 		const fill: Prim[] = s.style?.fill ? [{ k: 'line', pts, closed: true, fill: true, cls: 'shape-fill', color: s.style.fill, src: s.id }] : []

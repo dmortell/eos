@@ -147,7 +147,7 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined, 
 		case 'image': {
 			// the picture fitted in its box (its own proportions), then an unseen frame that takes clicks and the selection
 			const box = outlineOf(g)!
-			return [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x: g.centre.x - g.size.x / 2, y: g.centre.y - g.size.y / 2, w: g.size.x, h: g.size.y, fit: 'centre', src: s.id },
+			return [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x: g.centre.x - g.size.x / 2, y: g.centre.y - g.size.y / 2, w: g.size.x, h: g.size.y, fit: 'centre', ...(g.rot ? { rot: g.rot } : {}), src: s.id },
 				{ k: 'line', pts: box, closed: true, fill: true, cls: 'image-frame', src: s.id }]
 		}
 		default: return []

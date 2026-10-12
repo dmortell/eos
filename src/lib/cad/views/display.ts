@@ -17,7 +17,9 @@ export type Prim = (
 	| { k: 'text'; at: Pt; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; rot?: number; cls: string; src?: Id; sub?: string; minPx?: number; maxPx?: number }
 	/** `fit: 'contain'` keeps the image's own proportions inside the box, at its left (a logo); `'centre'` the same,
  *  centred (an image shape); else it fills the box (a floorplan). */
-	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain' | 'centre'; /** drawn in black and white (screen and PDF) */ gray?: boolean }
+	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain' | 'centre'; /** drawn in black and white (screen and PDF) */ gray?: boolean
+		/** Turned (degrees, clockwise on screen) about the box's centre: a turned image shape. */
+		rot?: number }
 ) & {
 	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
 	clip?: Bounds
@@ -62,7 +64,12 @@ export function primBounds(p: Prim): Bounds {
 			const pts = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].map(([x, y]) => ({ x: p.at.x + (x - p.at.x) * c - (y - p.at.y) * s, y: p.at.y + (x - p.at.x) * s + (y - p.at.y) * c }))
 			return { x0: Math.min(...pts.map((q) => q.x)), y0: Math.min(...pts.map((q) => q.y)), x1: Math.max(...pts.map((q) => q.x)), y1: Math.max(...pts.map((q) => q.y)) }
 		}
-		case 'image': return { x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h }
+		case 'image': {
+			if (!p.rot) return { x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h }
+			const a = (p.rot * Math.PI) / 180, hw = (Math.abs(p.w * Math.cos(a)) + Math.abs(p.h * Math.sin(a))) / 2, hh = (Math.abs(p.w * Math.sin(a)) + Math.abs(p.h * Math.cos(a))) / 2
+			const cx = p.x + p.w / 2, cy = p.y + p.h / 2
+			return { x0: cx - hw, y0: cy - hh, x1: cx + hw, y1: cy + hh }
+		}
 	}
 }
 
