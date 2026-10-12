@@ -2491,3 +2491,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   kept line colour only), so issue PDFs print dashed / weighted / layer-coloured items as File › PDF does, and a
   style-only change marks a sheet changed. Sheets issued before this read "Changed since" once (Dave: he'll handle
   it). Test in `domain/issue.test.ts`.
+- **R31–R34 Keys and pointers during a drag / under a dialog:**
+  - `store/store.ts`: `busy` while a drag is open; `undo` / `redo` refuse then (the drag's restore would undo the
+    undo and lose the step), and a `transact` made mid-drag (async work finishing) is queued and runs when the drag
+    commits or rolls back, instead of throwing.
+  - `ui/shellKeys.ts`: no shell keys while a dialog is open; mid-drag, Esc cancels the drag (it cleared the selection
+    and the drag still committed), Delete / Ctrl+Z / Ctrl+Y wait; a nudge burst ends first.
+  - Dialogs focus themselves when they open (`ui/backdrop.ts` `dialogFocus`), so Esc closes them at once.
+  - `ui/ViewCanvas.svelte`: `pointercancel` / lost pointer capture roll the press back (they committed it); `cancel()`
+    also rolls back a viewport pan and the work-plane grip.
+  - Tests in `store/store.test.ts`. Live (Test Project): Project › Settings opens focused, Esc closes it.

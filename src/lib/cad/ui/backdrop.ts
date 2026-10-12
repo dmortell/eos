@@ -11,3 +11,9 @@ export function backdropClose(node: HTMLElement, close: () => void) {
 		destroy() { node.removeEventListener('pointerdown', down); node.removeEventListener('click', click) },
 	}
 }
+
+/** A modal dialog takes the focus when it opens, so its own keys work at once (Esc closes it) and the drawing behind
+ *  it doesn't get them (Delete, Ctrl+Z, arrows). */
+export function dialogFocus(node: HTMLElement) {
+	if (!node.contains(document.activeElement)) node.focus({ preventScroll: true })
+}

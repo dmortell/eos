@@ -4,7 +4,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 
 	let { project, onclose }: { project: CadProject; onclose: () => void } = $props()
@@ -16,7 +16,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Title block" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Title block" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Title block <span class="hint">— the project's, on every sheet</span></b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<div class="body"><TitleBlockEditor template={project.settings?.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid, storage: project.settings?.fileStorage }} /></div>
 	</div>

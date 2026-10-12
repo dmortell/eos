@@ -81,7 +81,8 @@ export class EntityStore {
 	/** One undoable edit. Returns the recorded step, or null when nothing changed. `sel` = the selection before it, for
 	 *  undo to give back when nothing it touched is left (undoing a paste / copy). */
 	transact(label: string, fn: (tx: Txn) => void, sel?: Id[]): Step | null {
-		if (this.#gesture) throw new Error(`"${label}" started while the gesture "${this.#gesture.label}" is open`)
+		// mid-drag (async work that finishes while the mouse is down): it runs once the drag ends, on what's there then
+		if (this.#gesture) { this.#afterGesture.push(() => this.transact(label, fn, sel)); return null }
 		if (this.#refused()) return null
 		const base = new Map<Id, Entity | null>()
 		fn(this.#txn(base))
@@ -92,6 +93,11 @@ export class EntityStore {
 		this.#emit({ source: 'local', label, ops, final: true })
 		return step
 	}
+
+	/** A drag is open (begin … commit / rollback): undo / redo wait, and edits queue until it ends. */
+	get busy(): boolean { return !!this.#gesture }
+	#afterGesture: (() => void)[] = []
+	#flushAfterGesture(): void { const q = this.#afterGesture.splice(0); for (const f of q) f() }
 
 	/** A drag: changes show live, one undo step on commit, Esc restores the start. */
 	begin(label: string): Gesture {
@@ -118,10 +124,13 @@ export class EntityStore {
 				if (this.#gesture !== g) return null
 				this.#gesture = null
 				const ops = this.#settle(g.base)
-				if (!ops.length) return null
-				const step = { label, ops, ...(sel ? { sel } : {}) }
-				this.#push(step)
-				this.#emit({ source: 'local', label, ops, final: true })
+				let step: Step | null = null
+				if (ops.length) {
+					step = { label, ops, ...(sel ? { sel } : {}) }
+					this.#push(step)
+					this.#emit({ source: 'local', label, ops, final: true })
+				}
+				this.#flushAfterGesture()
 				return step
 			},
 			rollback: () => {
@@ -129,13 +138,14 @@ export class EntityStore {
 				this.#gesture = null
 				const ops = restore()
 				if (ops.length) this.#emit({ source: 'gesture', label, ops, final: false })
+				this.#flushAfterGesture()
 			},
 		}
 	}
 
 	/** Undo the last step. Ops whose entity someone else changed since are skipped, never overwritten. */
 	undo(): UndoResult | null {
-		if (this.#refused()) return null
+		if (this.#gesture || this.#refused()) return null   // mid-drag: the drag's restore would undo the undo
 		const step = this.#undo.pop()
 		if (!step) return null
 		const res = this.#replay(step, 'undo')
@@ -144,7 +154,7 @@ export class EntityStore {
 	}
 
 	redo(): UndoResult | null {
-		if (this.#refused()) return null
+		if (this.#gesture || this.#refused()) return null
 		const step = this.#redo.pop()
 		if (!step) return null
 		const res = this.#replay(step, 'redo')

@@ -38,12 +38,18 @@ export interface ShellKeyCtx {
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
+	// a dialog open: its keys are its own (Esc closes it); the drawing behind it gets none (Delete, Ctrl+Z, arrows …)
+	if (document.querySelector('[role=dialog]')) return
 	const { project, ws, layout, panels, tabs } = c, canvas = c.canvas(), pane = c.activePane()
 	const mod = e.ctrlKey || e.metaKey
+	// mid-drag: Esc puts it back where it started; undo / redo / Delete wait for the drag to end (a nudge burst ends first)
+	if (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace' || (mod && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))) {
+		canvas?.endNudge()
+		if (project.store.busy) { e.preventDefault(); if (e.key === 'Escape') canvas?.cancel(); return }
+	}
 	if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
 	if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); c.typePoint(e.key); return }
 	const k = e.key.toLowerCase(), arrow = ARROWS[e.key]
-	if (mod && (k === 'z' || k === 'y')) canvas?.endNudge()   // a nudge burst is its own undo step
 	if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); c.showHistory(project.undo()) }
 	else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); c.showHistory(project.redo()) }
 	else if (mod && k === 'a') { e.preventDefault(); canvas?.selectAll() }

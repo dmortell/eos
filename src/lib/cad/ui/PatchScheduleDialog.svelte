@@ -3,7 +3,7 @@
      selected rows or the rows it shows; the cord BOM of that on screen (same counting as the Excel's BOM sheet). -->
 <script lang="ts">
 	import { untrack } from 'svelte'
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
@@ -52,7 +52,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Patch schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Patch schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Patch schedule · cord BOM</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<section class="opts">
 			<select title="Which cords: every room (a sheet each in the Excel), one room, or the patch list's selected / shown rows" bind:value={where}>

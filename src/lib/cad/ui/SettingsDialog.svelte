@@ -8,7 +8,7 @@
      Every edit is one undo step. -->
 <script lang="ts">
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectSettings } from '../domain/types'
 	import { cableTypeUses, cantDelete, newCableTypeId, sortedCableTypes, type CableType } from '../domain/cableTypes'
@@ -69,7 +69,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head">
 			<span class="tabs">
 				<b>Settings</b>

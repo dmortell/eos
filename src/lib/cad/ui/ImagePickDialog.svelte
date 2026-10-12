@@ -4,7 +4,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import { watchProjectImages, watchProjectPdfs, storeFile, type ImageFile, type PdfFile } from '../app/projectFiles'
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 
 	let { project, onpick, onclose }: { project: CadProject; onpick: (p: { fileId: string; page?: number; name: string }) => void; onclose: () => void } = $props()
 
@@ -29,7 +29,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Image" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Image" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Image <span class="hint">— pick it, then drag its box on a plan, an elevation or a sheet</span></b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<div class="body">
 			<label class="btn up" class:busy title="Upload a picture or a PDF from this computer to the project's files (Uploads), and place it">

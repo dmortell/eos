@@ -2,6 +2,7 @@
      file. Restore: open a file from this project, pick which of its parts, preview what changes, restore as ONE undo
      step — the project owner only (§4). -->
 <script lang="ts">
+	import { dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import PartsPicker from './PartsPicker.svelte'
 	import { floorsOf, partsLabel, type Parts } from '../domain/backupParts'
@@ -92,7 +93,7 @@
 
 <svelte:window onkeydown={onKey} />
 <div class="backdrop">
-	<div class="dlg" role="dialog" aria-modal="true" aria-label={title}>
+	<div class="dlg" role="dialog" use:dialogFocus tabindex="-1" aria-modal="true" aria-label={title}>
 		<div class="head"><b>{title}</b><button class="x" title="Close (Esc)" disabled={!!busy} onclick={onclose}>✕</button></div>
 
 		{#if mode === 'download'}

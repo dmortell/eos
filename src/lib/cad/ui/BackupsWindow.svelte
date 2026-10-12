@@ -2,6 +2,7 @@
      sizes and the total — and Back up now. Per backup: Restore… (the owner), Download, Rename, Delete (its maker or the
      owner); tick several to delete them at once. Deleting is final. -->
 <script lang="ts">
+	import { dialogFocus } from './backdrop'
 	import { onSnapshot, orderBy, query } from 'firebase/firestore'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectFile } from '../persist/file'
@@ -72,7 +73,7 @@
 
 <svelte:window onkeydown={onKey} />
 <div class="backdrop">
-	<div class="dlg" role="dialog" aria-modal="true" aria-label="Backups">
+	<div class="dlg" role="dialog" use:dialogFocus tabindex="-1" aria-modal="true" aria-label="Backups">
 		<div class="head">
 			<b>Backups</b>
 			<span class="hint">{heads.length} · {size(total)}</span>

@@ -2,7 +2,7 @@
      route, slack, installed length, the 90 m flag — with totals; "Problems only" shows the links over 90 m or with no
      route. -->
 <script lang="ts">
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import { cableSchedule, scheduleTotals } from '../domain/cableSchedule'
 	import { cableSettings } from '../domain/routing'
@@ -24,7 +24,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Cable schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Cable schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Cable schedule</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<section class="opts">
 			<span>{t.links} cables · <b>{t.metres} m</b> installed{#if t.unrouted}{' · '}<span class="bad">{t.unrouted} without a route</span>{/if}{#if t.over90}{' · '}<span class="bad">{t.over90} over 90 m</span>{/if}</span>

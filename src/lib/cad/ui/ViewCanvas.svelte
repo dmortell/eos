@@ -491,7 +491,14 @@
 	}
 	/** Esc with nothing selected, while editing inside a viewport: leave it. */
 	export function leaveViewport(): void { exitVp() }
-	export function cancel(): void { ws.tool.cancel(ctx()); toolDown = false; tick++ }
+	/** Esc / a cancelled pointer: whatever the press started goes back (a tool's drag, a viewport pan, the work grip). */
+	export function cancel(): void { vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
+	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what
+	 *  it was doing rather than commit it where it was. Nothing pressed (after a normal pointerup) = nothing to do. */
+	function onCancel(e: PointerEvent) {
+		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
+		if (toolDown || vpPan || wDrag || panning) cancel()
+	}
 	export function refresh(): void { tick++ }
 	export const isElevation = () => spec.kind === 'elevation'
 </script>
@@ -499,7 +506,7 @@
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
-		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
+		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onCancel} onlostpointercapture={onCancel} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
 		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}

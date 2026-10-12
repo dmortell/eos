@@ -2,7 +2,7 @@
      (Dave 2026-10-12: easier to find than inside the schedule export), from the Patching tab's "Cord labels…" and
      Cabling › Cord label batches…. -->
 <script lang="ts">
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import CordBatches from './CordBatches.svelte'
 
@@ -11,7 +11,7 @@
 </script>
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Cord labels" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Cord labels" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Cord labels · batches bought</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
 		<div class="body"><CordBatches {project} {typeLabel} /></div>
 	</div>

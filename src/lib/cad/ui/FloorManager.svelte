@@ -4,7 +4,7 @@
      One edit = one undo step. Levels with something on them are never removed from here. Two tabs: Floors & heights,
      and Plans & floorplans (each floor's plan and area plans, with the PDF pages under each). -->
 <script lang="ts">
-	import { backdropClose } from './backdrop'
+	import { backdropClose, dialogFocus } from './backdrop'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
@@ -156,7 +156,7 @@
 {/snippet}
 
 <div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Floors" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
+	<div class="dlg" role="dialog" use:dialogFocus aria-label="Floors" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
 		<div class="head"><b>Floors</b>
 			<div class="tabs" role="tablist">
 				<button role="tab" aria-selected={tab === 'floors'} class:on={tab === 'floors'} onclick={() => (tab = 'floors')}>Floors & heights</button>
