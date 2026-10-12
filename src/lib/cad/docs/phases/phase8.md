@@ -2459,3 +2459,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   3F → only those (settings checked in Firestore after the undos: no `riser`); Riser A Reaches 3F → shortened, undone;
   the 33IDF1–IDF4A backbone: Properties › Backbone, label "BB-1 test" shown, undone. High / low hops not seen live (that
   group has no route) — the unit test covers them. Help: "The riser view: floors, EPS rooms, high / low, cable groups".
+- **A run drawn to the middle of another splits it (backlog "More snaps", the part folded in from "Join runs on draw";
+  Dave 2026-10-12):** a trunk / conduit whose first or last point lies ON another containment run on the level (a
+  segment within 0.5 mm in plan) joins it, with no key needed (as ending on a node already did): `domain/pathEdit.ts`
+  `splitRunsAt` gives that run a node exactly there (two segments for one), so the junction moves both
+  (`followersOf`); when the heights differ, `runZAt` finds the run's height and the new run gets a drop / rise to it
+  at that end first. One undo step with the drawing; "Joined to TR1 (a node added there)". Routing already treated
+  such a tee as joined. Tests in `domain/pathEdit.test.ts`. Live (Test Project 1F): a trunk at Z 2950 from TR1's
+  midpoint (TR1 at 2590) → joined, a drop added; dragging the junction moved both; both undone. Help: "Draw a run".

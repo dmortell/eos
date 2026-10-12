@@ -12,6 +12,7 @@ import { makePath, toWall, toContainment } from '../domain/make'
 import { angleStep } from './constrain'
 import { newId } from '../domain/ids'
 import { placeNote } from './noteTool'
+import { splitRunsAt, runZAt } from '../domain/pathEdit'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
 
@@ -106,6 +107,15 @@ export class PathTool implements Tool {
 			c.select([s.id])
 			return
 		}
+		// a trunk / conduit started or ended ON another run at another height: a drop / rise to it at that end, so they meet
+		const joins = (this.id === 'trunk' || this.id === 'conduit') && !close
+		if (joins) {
+			const runs = c.store.ofType('shape')
+			const dropAt = (p: Pick) => { const z = p.levelId ? null : runZAt(runs, c.levelId, p, p.z); return z !== null && Math.abs(z - p.z) >= 1 ? { x: p.x, y: p.y, z } : null }
+			const last = dropAt(pts[pts.length - 1]), first = dropAt(pts[0])
+			if (last) pts.push(last)
+			if (first) pts.unshift(first)
+		}
 		const line = makePath({ levelId: c.levelId }, pts)
 		// carry each pick's attachment onto its node
 		if (line.geom.kind === 'path') line.geom.nodes.forEach((n, i) => { if (pts[i].attach) n.attach = pts[i].attach; if (pts[i].levelId) n.levelId = pts[i].levelId })
@@ -119,8 +129,12 @@ export class PathTool implements Tool {
 		const shape = this.id === 'line' ? { ...line, ...onView, ...(c.layerId ? { layerId: c.layerId } : {}) }
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
 			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
-		c.store.transact(`Draw ${this.id}`, (tx) => tx.put(shape))
+		// a trunk / conduit drawn from / to the middle of another run's segment: that run gets a node there (they join)
+		const ends = joins ? [pts[0], pts[pts.length - 1]].filter((p) => !p.levelId) : []
+		const split = ends.length ? splitRunsAt(c.store.ofType('shape'), c.levelId, ends) : []
+		c.store.transact(`Draw ${this.id}`, (tx) => { tx.put(shape); split.forEach((x) => tx.put(x)) })
 		c.select([shape.id])
+		if (split.length) c.say?.(`Joined to ${split.map((x) => x.label || 'a run').join(', ')} (a node added there)`)
 	}
 
 	cancel(): void { this.pts = []; this.#hover = null }

@@ -22,6 +22,54 @@ export function insertNode(s: Shape, segId: Id, t: number, id: Id = newId()): Sh
 	return withGeom(s, { ...g, nodes: [...g.nodes, n], segs })
 }
 
+/** Containment runs on `levelId` with a segment passing THROUGH one of `ends` (plan within 0.5 mm, height within 1 mm,
+ *  not at its ends): each gets a node exactly there, so a run drawn from / to the middle of another one's segment joins
+ *  it — the junction then moves both (backlog "More snaps": was "Join runs on draw"). Returns the changed runs. */
+export function splitRunsAt(shapes: Shape[], levelId: Id, ends: { x: number; y: number; z: number }[]): Shape[] {
+	const out: Shape[] = []
+	for (const s of shapes) {
+		if (s.levelId !== levelId || s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		let cur: Shape = s
+		for (const p of ends) {
+			const g = geomOf(cur), byId = new Map(g.nodes.map((n) => [n.id, n]))
+			if (g.nodes.some((n) => !n.levelId && Math.abs(n.x - p.x) < 0.5 && Math.abs(n.y - p.y) < 0.5 && Math.abs(n.z - p.z) < 1)) continue
+			const seg = g.segs.find((q) => {
+				const a = byId.get(q.a), b = byId.get(q.b)
+				if (!a || !b || a.levelId || b.levelId) return false
+				const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
+				if (!L2) return false
+				const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2
+				return t > 0 && t < 1 && Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y) < 0.5 && Math.abs(a.z + (b.z - a.z) * t - p.z) < 1
+			})
+			if (!seg) continue
+			const id = newId(), split = geomOf(insertNode(cur, seg.id, 0.5, id))
+			cur = withGeom(cur, { ...split, nodes: split.nodes.map((n) => (n.id === id ? { ...n, x: p.x, y: p.y, z: p.z } : n)) })
+		}
+		if (cur !== s) out.push(cur)
+	}
+	return out
+}
+
+/** The height of the containment run on `levelId` whose segment or node lies under plan point `p` (within 0.5 mm) —
+ *  the one nearest `z` when several do; null = none. A run drawn to it at another height drops / rises to it. */
+export function runZAt(shapes: Shape[], levelId: Id, p: { x: number; y: number }, z: number): number | null {
+	let best: number | null = null
+	for (const s of shapes) {
+		if (s.levelId !== levelId || s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		const byId = new Map(s.geom.nodes.map((n) => [n.id, n]))
+		for (const q of s.geom.segs) {
+			const a = byId.get(q.a), b = byId.get(q.b)
+			if (!a || !b || a.levelId || b.levelId) continue
+			const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
+			const t = L2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2)) : 0
+			if (Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y) >= 0.5 || (!L2 && a.z !== b.z)) continue   // (a drop: its ends are nodes)
+			const h = Math.round(a.z + (b.z - a.z) * t)
+			if (best === null || Math.abs(h - z) < Math.abs(best - z)) best = h
+		}
+	}
+	return best
+}
+
 /** A new branch from an existing node to a new node at `to`. */
 export function branchFrom(s: Shape, fromId: Id, to: Omit<PathNode, 'id'>, id: Id = newId()): Shape {
 	const g = geomOf(s)

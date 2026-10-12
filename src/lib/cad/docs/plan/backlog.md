@@ -70,7 +70,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Drafting commands and input
 
-- [ ] **More snaps** — Intersection, perpendicular and nearest; **and a run drawn from / to the middle of another run's segment (a nearest / perpendicular snap) splits that segment there so the two join** (was "Join runs on draw", folded in by Dave 2026-10-12: runs meeting at a node already join and move together). **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
+- [ ] **More snaps** — Intersection, perpendicular and nearest. (The split of a run drawn to from / to the middle of another's segment was built 2026-10-12 — it works with these snaps once they exist.) **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264
 - [ ] **Arc** — Arc through three points; snapped, gripped, moved like any shape. **P3 · M** (~80 lines). *cad today:* arc geometry exists but is not drawn (`cad/views/plan.ts:95` falls to `default`). *From:* G241
 - [ ] **TRIM** — Click part of a line to cut it back to the shapes that cross it. **P3 · M** (~100 lines). *cad today:* missing. *From:* G245
