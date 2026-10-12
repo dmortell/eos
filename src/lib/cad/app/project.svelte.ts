@@ -84,7 +84,12 @@ export class CadProject {
 	/** Estimated cables: every outlet port with no link yet, routed to its server room (domain/estimates.ts). */
 	estimates = $derived(this.routing.estimates)
 	/** How full each run segment is from those routes and estimates (Phase 5.3). */
-	fills = $derived.by(() => fillBySegment(this.index, this.routes, undefined, this.estimates))
+	#fillsHeld: ReturnType<typeof fillBySegment> | null = null
+	fills = $derived.by(() => {
+		const ix = this.index, routes = this.routes, estimates = this.estimates
+		if (this.store.busy && this.#fillsHeld) return this.#fillsHeld   // like the routes: held during a drag
+		return (this.#fillsHeld = fillBySegment(ix, routes, undefined, estimates))
+	})
 	canUndo = $derived.by(() => { void this.rev; return this.store.canUndo })
 	canRedo = $derived.by(() => { void this.rev; return this.store.canRedo })
 

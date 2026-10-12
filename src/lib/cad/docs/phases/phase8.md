@@ -3217,3 +3217,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `traceCircuit`) and indexes the first live cord per port, instead of rebuilding both for every port: 288 ports /
   6,624 links / 2,000 cords 842 ms -> 6 ms, rows byte-identical to before. Test with a generated project
   (`bench/gen.ts` `bigPortProject`).
+- **Q56** routing no longer scans everything per node / outlet (`domain/routing.ts`): `buildGraph` merges nodes through a
+  hash of JOIN_MM cells and finds a segment's tee candidates through a plan grid of the nodes (candidates taken in node
+  order, so the pieces are the same); `outletTap` searches a plan grid of the joinable segments (not risers / stubs) ring by
+  ring, lowest segment on a tie; `rackTaps` walks the level's joinable segments only; `routeLinksOn` shares an outlet's tap
+  between its ports; `fills` is held during a drag like the routes (`app/project.svelte.ts`). Generated project, 1,000
+  outlets / 700 links / 4,260 segments: `buildGraph` 579 -> 43 ms, 1,000 `outletTap`s 1,015 -> 14 ms, `routeAll` (links +
+  1,300 estimates) 2,563 -> 92 ms; at 840 segments 305 -> 44 ms. Routes, estimates and fills are byte-identical
+  (`bench/genRoute.ts`; `domain/routingSpeed.test.ts` compares the graph and every outlet's tap with the plain scans).
+  Left: the Dijkstra per rack / panel height, and re-routing only the changed levels.

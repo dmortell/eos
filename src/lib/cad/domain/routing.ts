@@ -69,23 +69,45 @@ export function buildGraph(ix: ProjectIndex): Graph {
 		}
 	}
 	// graph nodes: every segment end, merged within JOIN_MM
+	// (a hash of JOIN_MM cells: the first node within JOIN_MM is the lowest index among the 27 cells around the point)
 	const nodes: P3[] = []
+	const hash = new Map<string, number[]>()
+	const cell = (v: number) => Math.floor(v / JOIN_MM)
 	const nodeAt = (x: P3): number => {
-		for (let i = 0; i < nodes.length; i++) if (dist3(nodes[i], x) <= JOIN_MM) return i
+		const cx = cell(x.x), cy = cell(x.y), cz = cell(x.z)
+		let found = -1
+		for (let i = cx - 1; i <= cx + 1; i++) for (let j = cy - 1; j <= cy + 1; j++) for (let k = cz - 1; k <= cz + 1; k++) {
+			for (const n of hash.get(`${i},${j},${k}`) ?? []) if ((found < 0 || n < found) && dist3(nodes[n], x) <= JOIN_MM) found = n
+		}
+		if (found >= 0) return found
 		nodes.push(x)
+		const key = `${cx},${cy},${cz}`, list = hash.get(key)
+		if (list) list.push(nodes.length - 1); else hash.set(key, [nodes.length - 1])
 		return nodes.length - 1
 	}
 	const ends = segs.map((s) => [nodeAt(s.p), nodeAt(s.q)] as const)
-	// cut each segment at every node lying on it (a tee), then chain the cuts
+	// cut each segment at every node lying on it (a tee), then chain the cuts. The candidates come from a plan grid of
+	// the nodes (cells over the segment's box, widened by JOIN_MM), in index order as a full scan would give them.
 	const pieces: Piece[] = [], piecesOf = new Map<string, number[]>()
 	const adj: Graph['adj'] = nodes.map(() => [])
+	const GRID = 1000, gc = (v: number) => Math.floor(v / GRID)
+	const grid = new Map<string, number[]>()
+	nodes.forEach((x, n) => { const k = `${gc(x.x)},${gc(x.y)}`, l = grid.get(k); if (l) l.push(n); else grid.set(k, [n]) })
+	const candidates = (s: Seg): number[] => {
+		const x0 = gc(Math.min(s.p.x, s.q.x) - JOIN_MM), x1 = gc(Math.max(s.p.x, s.q.x) + JOIN_MM)
+		const y0 = gc(Math.min(s.p.y, s.q.y) - JOIN_MM), y1 = gc(Math.max(s.p.y, s.q.y) + JOIN_MM)
+		if ((x1 - x0 + 1) * (y1 - y0 + 1) > nodes.length) return nodes.map((_, n) => n)
+		const out: number[] = []
+		for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const l = grid.get(`${i},${j}`); if (l) out.push(...l) }
+		return out.sort((a, b) => a - b)
+	}
 	segs.forEach((s, i) => {
 		const cuts = [{ t: 0, n: ends[i][0] }, { t: 1, n: ends[i][1] }]
-		nodes.forEach((x, n) => {
-			if (n === ends[i][0] || n === ends[i][1]) return
-			const pr = project3(s.p, s.q, x)
+		for (const n of candidates(s)) {
+			if (n === ends[i][0] || n === ends[i][1]) continue
+			const pr = project3(s.p, s.q, nodes[n])
 			if (pr.d <= JOIN_MM && pr.t > 0 && pr.t < 1) cuts.push({ t: pr.t, n })
-		})
+		}
 		cuts.sort((a, b) => a.t - b.t)
 		const list: number[] = []
 		for (let k = 0; k + 1 < cuts.length; k++) {
@@ -130,20 +152,60 @@ function tapOn(g: Graph, i: number, x: P3): Tap {
 /** The outlet's height above its level's FFL (domain/floors.ts, Review 2 Q5). */
 export { outletZ }
 
-/** Where an outlet port joins: the nearest run of its tier (wall runs take any) on its level serving its room. */
+/** What the tap searches need of a graph, worked out once per graph: per level, the segments a cable can join (not a
+ *  riser; not a stub shorter than JOIN_MM — it has no length in the graph, so a route from it goes nowhere: Journey
+ *  TV06, a 38 mm end bit), in segment order; and a plan grid of them (cells of TAP_CELL mm) for the outlets' nearest run. */
+interface TapIndex { byLevel: Map<Id, number[]>; grid: Map<string, number[]> }
+const TAP_CELL = 2000
+const tapIndexes = new WeakMap<Graph, TapIndex>()
+function tapIndex(g: Graph): TapIndex {
+	let ti = tapIndexes.get(g)
+	if (ti) return ti
+	ti = { byLevel: new Map(), grid: new Map() }
+	const cell = (v: number) => Math.floor(v / TAP_CELL)
+	g.segs.forEach((s, i) => {
+		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
+		if (!g.piecesOf.get(segKey(s.shape.id, s.seg))?.length) return
+		const x0 = cell(Math.min(s.p.x, s.q.x)), x1 = cell(Math.max(s.p.x, s.q.x)), y0 = cell(Math.min(s.p.y, s.q.y)), y1 = cell(Math.max(s.p.y, s.q.y))
+		for (const lv of s.levelIds) {
+			const list = ti!.byLevel.get(lv)
+			if (list) list.push(i); else ti!.byLevel.set(lv, [i])
+			for (let a = x0; a <= x1; a++) for (let b = y0; b <= y1; b++) {
+				const k = `${lv}|${a},${b}`, l = ti!.grid.get(k)
+				if (l) l.push(i); else ti!.grid.set(k, [i])
+			}
+		}
+	})
+	tapIndexes.set(g, ti)
+	return ti
+}
+
+/** Where an outlet port joins: the nearest run of its tier (wall runs take any) on its level serving its room — the
+ *  lowest segment on a tie. Searched ring by ring over a grid, so it looks at the runs near the outlet only. */
 export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined): Tap | null {
 	if (!o.at) return null
 	const level = ix.get<Level>(o.levelId)
 	const x = { ...o.at, z: levelElevation(ix, o.levelId) + outletZ(o, level) }
+	const { grid } = tapIndex(g)
 	let best: Tap | null = null
-	g.segs.forEach((s, i) => {
-		const role = s.shape.role
-		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !s.levelIds.has(o.levelId) || !serves(s.shape, roomId)) return
-		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
-		if (!g.piecesOf.get(segKey(s.shape.id, s.seg))?.length) return   // not onto a stub shorter than JOIN_MM: it has no length in the graph, so a route from it goes nowhere (Journey TV06: a 38 mm end bit)
+	const seen = new Set<number>()
+	const look = (i: number) => {
+		if (seen.has(i)) return
+		seen.add(i)
+		const s = g.segs[i], role = s.shape.role
+		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !serves(s.shape, roomId)) return
 		const t = tapOn(g, i, x)
-		if (t.dropMm <= MAX_OUTLET_DROP_MM && (!best || t.dropMm < best.dropMm)) best = t
-	})
+		if (t.dropMm <= MAX_OUTLET_DROP_MM && (!best || t.dropMm < best.dropMm || (t.dropMm === best.dropMm && i < best.seg))) best = t
+	}
+	const cx = Math.floor(x.x / TAP_CELL), cy = Math.floor(x.y / TAP_CELL), reach = Math.ceil(MAX_OUTLET_DROP_MM / TAP_CELL) + 1
+	for (let r = 0; r <= reach; r++) {
+		// every segment not yet seen is at least (r - 1) cells of plan distance away, so its drop is too
+		if (best && (best as Tap).dropMm < (r - 1) * TAP_CELL) break
+		for (let a = cx - r; a <= cx + r; a++) for (let b = cy - r; b <= cy + r; b++) {
+			if (Math.max(Math.abs(a - cx), Math.abs(b - cy)) !== r) continue
+			for (const i of grid.get(`${o.levelId}|${a},${b}`) ?? []) look(i)
+		}
+	}
 	return best
 }
 
@@ -159,14 +221,13 @@ export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device 
 	if (!rack.at) return []
 	const x = { ...rack.at, z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
 	const best = new Map<Id, Tap & { plan: number }>()
-	g.segs.forEach((s, i) => {
-		if (!s.levelIds.has(rack.levelId) || !serves(s.shape, rack.spaceId)) return
-		if (Math.abs(s.p.x - s.q.x) < 0.5 && Math.abs(s.p.y - s.q.y) < 0.5) return   // not onto a riser
-		if (!g.piecesOf.get(segKey(s.shape.id, s.seg))?.length) return   // nor onto a stub (see outletTap)
+	for (const i of tapIndex(g).byLevel.get(rack.levelId) ?? []) {   // not onto a riser, nor a stub (see tapIndex)
+		const s = g.segs[i]
+		if (!serves(s.shape, rack.spaceId)) continue
 		const plan = project3({ ...s.p, z: 0 }, { ...s.q, z: 0 }, { ...x, z: 0 }).d
 		const t = { ...tapOn(g, i, x), plan }, cur = best.get(s.shape.id)
 		if (!cur || t.dropMm < cur.dropMm) best.set(s.shape.id, t)
-	})
+	}
 	const all = [...best.values()], near = all.filter((t) => t.plan <= RACK_REACH_MM)
 	const pick = near.length ? near : all.sort((a, b) => a.plan - b.plan).slice(0, 1)
 	return pick.map(({ plan: _p, ...t }) => t)
@@ -274,6 +335,7 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 	const rackOfDevice = (d: Device | undefined) => (d ? ix.get<Rack>(d.rackId) : undefined)
 	// one Dijkstra per (rack, panel height): cheap at these sizes, and shared by the panel's links
 	const runs = new Map<string, ReturnType<typeof fromTaps> & { taps: Tap[] }>()
+	const tapCache = new Map<string, Tap | null>()
 	const fromRack = (rack: Rack, dev: Device | undefined) => {
 		const k = `${rack.id}|${dev?.u ?? 0}|${dev?.heightU ?? 0}`
 		let r = runs.get(k)
@@ -296,7 +358,9 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 		if (outlet?.type === 'outlet') {
 			if (!outlet.at) { finish({ segs: [], problem: 'the outlet is not placed' }); continue }
 			const port = outlet.ports.find((p) => p.port === l.b.port)
-			const t = outletTap(g, ix, outlet, port?.serverRoomId ?? rack.spaceId)
+			const room = port?.serverRoomId ?? rack.spaceId, tk = `${outlet.id}|${room ?? ''}`   // an outlet's ports share their tap
+			let t = tapCache.get(tk)
+			if (t === undefined) tapCache.set(tk, (t = outletTap(g, ix, outlet, room)))
 			if (!t) { finish({ segs: [], problem: `no ${outlet.tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room` }); continue }
 			ends = [t]
 		} else {
