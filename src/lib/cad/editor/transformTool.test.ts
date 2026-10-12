@@ -6,7 +6,8 @@ import { demoProject } from '../domain/fixtures'
 import { TransformTool } from './transformTool'
 import { rotateEntity, mirrorEntity } from './behaviours'
 import { spaceOf, PLAN } from '../views/space'
-import { rackFrontNormal, namedFrame } from '../domain/conventions'
+import { rackFrontNormal, namedFrame, rotate } from '../domain/conventions'
+import { mirrorPt } from '../domain/shapes'
 import type { ToolCtx } from './tools'
 import type { Shape } from '../domain/shapes'
 import type { Outlet, Rack } from '../domain/types'
@@ -109,9 +110,12 @@ describe('what turning / mirroring does to each kind', () => {
 		const m = mirrorEntity(wall, ...X)
 		expect(m.role?.kind === 'wall' && m.role.openings[0]).toMatchObject({ swing: 'left', flip: true })
 	})
-	it('an outlet’s rotation mirrors as an insert’s (2θ − r); a section keeps looking at the same, mirrored, side', () => {
+	it('an outlet points the mirrored way, as an insert does (2θ − r + 180); a section keeps looking at the same, mirrored, side', () => {
 		const o = { ...(demoProject().find((e) => e.id === 'O1') as Outlet), rot: 30 }
-		expect(mirrorEntity(o, ...X)).toMatchObject({ at: { x: 1000, y: -4000 }, rot: 330 })
+		const m = mirrorEntity(o, ...X)
+		expect(m).toMatchObject({ at: { x: 1000, y: -4000 }, rot: 150 })
+		const want = mirrorPt(rotate({ x: 0, y: 1 }, 30), { x: 0, y: 0 }, { x: 1, y: 0 }), got = rotate({ x: 0, y: 1 }, m.rot!)
+		expect([got.x, got.y]).toEqual([expect.closeTo(want.x, 6), expect.closeTo(want.y, 6)])   // its +y, mirrored
 		const sec = { type: 'section', id: 'X', levelId: 'L', name: 'A', a: { x: 0, y: 100 }, b: { x: 100, y: 100 }, depth: 1000 } as SectionCut
 		expect(mirrorEntity(sec, ...X)).toMatchObject({ a: { x: 100, y: -100 }, b: { x: 0, y: -100 } })
 	})

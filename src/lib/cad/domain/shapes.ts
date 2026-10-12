@@ -308,7 +308,8 @@ export function rotateGeometry(g: Geometry, pivot: Pt, deg: number): Geometry {
 /** Text the right way up: turned half round when a mirror left it reading upside down. */
 const upsideDown = (a: number) => a > 90 + 1e-6 && a < 270 - 1e-6
 
-/** Geometry mirrored in the line through `a` and `b`. A rotation `r` becomes 2θ − r (θ = the line's angle); an arc's
+/** Geometry mirrored in the line through `a` and `b`. A rotation `r` becomes 2θ − r (θ = the line's angle; a block
+ *  insert's 2θ − r + 180, so its symbol's ±y axis — the way it points — is the mirror image); an arc's
  *  ends swap so it still sweeps clockwise; a dimension stays on its side. Text stays READABLE: its anchor point is
  *  mirrored but not its letters — turned the right way up, with left / right alignment swapped so it still ends where
  *  the mirror image would. An image is kept upright the same way (a picture can't be drawn back to front). */
@@ -316,7 +317,8 @@ export function mirrorGeometry(g: Geometry, a: Pt, b: Pt): Geometry {
 	const th = lineDeg(a, b), P = (p: Pt) => mirrorPt(p, a, b), flip = (r?: number) => tidyDeg(2 * th - (r ?? 0))
 	switch (g.kind) {
 		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, ...P(n) })) }
-		case 'insert': return { ...g, at: P(g.at), rot: flip(g.rot) || undefined }
+		// a block's symbol points along its local ±y (an outlet's, a tag's pointer): that axis mirrored is 2θ − r + 180
+		case 'insert': return { ...g, at: P(g.at), rot: rotField(flip(g.rot) + 180) }
 		// a box / ellipse looks the same turned half round: kept under 180° (a box with a front: behaviours.ts)
 		case 'rect': case 'ellipse': return { ...g, centre: P(g.centre), rot: flip(g.rot) % 180 || undefined }
 		case 'image': { const r = flip(g.rot); return { ...g, centre: P(g.centre), rot: rotField(upsideDown(r) ? r + 180 : r) } }

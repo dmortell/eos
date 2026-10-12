@@ -3107,3 +3107,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   their printed size: the clip used to move only their points, so a 2000 × 1000 box at 1:100 came out 170 × 110 and
   circles, ellipses, text widths and dimension offsets kept their view-mm sizes; it now uses `untie`
   (`domain/clipboard.ts`; test).
+- **Q15** Mirror leaves outlets and block inserts facing the mirrored way: their symbols point along local ±y, so the
+  mirrored rotation is 2θ − r + 180 (as racks), not 2θ − r — that turned them to face back across the line
+  (`editor/behaviours.ts` `mirrorEntity`, `domain/shapes.ts` `mirrorGeometry`; the tests expected the wrong value;
+  Help).

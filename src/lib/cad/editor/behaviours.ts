@@ -95,7 +95,7 @@ export function rotateEntity<T extends Entity>(e: T, c: Pt, deg: number): T {
  * The entity mirrored in the line a → b (Mirror). Text stays readable (domain/shapes.ts `mirrorGeometry`). Things with
  * a FRONT keep it facing the mirrored way: a rack or a box with a back line / doors keeps its local +y as the front and
  * a single door's hinge changes side; a door in a wall opens to the mirrored face; a section still looks at what it
- * looked at, mirrored. An outlet's rotation is mirrored as an insert's is (2θ − r).
+ * looked at, mirrored. An outlet points along its symbol's local ±y, as an insert does: it keeps its front too.
  */
 export function mirrorEntity<T extends Entity>(e: T, a: Pt, b: Pt): T {
 	if (!canMove(e)) return e
@@ -115,7 +115,7 @@ export function mirrorEntity<T extends Entity>(e: T, a: Pt, b: Pt): T {
 			? { role: { ...s.role, openings: s.role.openings.map((o) => (o.swing ? { ...o, flip: !o.flip || undefined } : o)) } } : {}
 		return { ...s, geom, ...role, ...(s.doors ? { doors: otherHinge(s.doors) } : {}) } as T
 	}
-	if (e.type === 'outlet' && e.at) return { ...e, at: P(e.at), rot: rotField(2 * th - (e.rot ?? 0)) } as T
+	if (e.type === 'outlet' && e.at) return { ...e, at: P(e.at), rot: keepFront(e.rot) } as T
 	if (e.type === 'rack' && e.at) return { ...e, at: P(e.at), rot: keepFront(e.rot), ...(e.doors ? { doors: otherHinge(e.doors) } : {}) } as T
 	if (e.type === 'section') return { ...e, a: P(e.b), b: P(e.a) } as T
 	return e

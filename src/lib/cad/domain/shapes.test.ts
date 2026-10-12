@@ -70,7 +70,8 @@ describe('rotate and mirror geometry', () => {
 		const rect = { kind: 'rect', centre: { x: 100, y: 50 }, size: { x: 50, y: 20 }, rot: 30 } as const
 		expect(g(mirrorGeometry(rect, O, X), 'rect')).toMatchObject({ centre: { x: 100, y: -50 }, rot: 150 })   // −30, and a box turned half round is the same box
 		expect(g(mirrorGeometry(rect, O, Y), 'rect')).toMatchObject({ centre: { x: -100, y: 50 }, rot: 150 })
-		expect(g(mirrorGeometry({ kind: 'insert', blockId: 'b', at: { x: 5, y: 5 }, rot: 45 }, O, X), 'insert')).toMatchObject({ at: { x: 5, y: -5 }, rot: 315 })
+		// an insert's symbol points along its ±y: that axis is mirrored (2θ − r + 180)
+		expect(g(mirrorGeometry({ kind: 'insert', blockId: 'b', at: { x: 5, y: 5 }, rot: 45 }, O, X), 'insert')).toMatchObject({ at: { x: 5, y: -5 }, rot: 135 })
 		const p = g(mirrorGeometry({ kind: 'path', nodes: [{ id: 'a', x: 3, y: 4, z: 9 }], segs: [] }, { x: 0, y: 1 }, { x: 1, y: 1 }), 'path')
 		expect(p.nodes[0]).toEqual({ id: 'a', x: 3, y: -2, z: 9 })
 	})
