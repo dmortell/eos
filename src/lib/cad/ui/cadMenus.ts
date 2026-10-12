@@ -3,6 +3,7 @@
 import type { ToolId } from '../app/workspace.svelte'
 import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
 import type { Entity } from '../domain/drawing'
+import { KEYS } from './shellKeys'
 import { labelKind } from '../domain/labelEdit'
 
 export type MenuItem = { label: string; key?: string; checked?: boolean; disabled?: boolean; title?: string; run: () => void }
@@ -76,7 +77,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'File', items: [
 			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Project › Floors…) and the issued package PDFs live in Uploads (backlog "Uploads
 			// from inside cad": the link; embedding it is still to decide)
-			{ label: 'Open project…', key: 'Ctrl+O', run: c.openProject },
+			{ label: 'Open project…', key: KEYS.openProject, run: c.openProject },
 			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
 			{ label: 'Photo surveys…', title: 'Open this project’s photo surveys in a new tab', run: c.surveys },
 			'-',
@@ -101,43 +102,43 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			] },
 		] },
 		{ label: 'Edit', items: [
-			{ label: 'Undo', key: 'Ctrl+Z', disabled: !c.canUndo, run: c.undo },
-			{ label: 'Redo', key: 'Ctrl+Y', disabled: !c.canRedo, run: c.redo },
+			{ label: 'Undo', key: KEYS.undo, disabled: !c.canUndo, run: c.undo },
+			{ label: 'Redo', key: KEYS.redo, disabled: !c.canRedo, run: c.redo },
 			'-',
-			{ label: 'Cut', key: 'Ctrl+X', disabled: !c.hasSelection, run: c.cut },
-			{ label: 'Copy', key: 'Ctrl+C', disabled: !c.hasSelection, run: c.copy },
-			{ label: 'Paste', key: 'Ctrl+V', run: c.paste },
-			{ label: 'Delete', key: 'Delete', disabled: !c.hasSelection, run: c.remove },
+			{ label: 'Cut', key: KEYS.cut, disabled: !c.hasSelection, run: c.cut },
+			{ label: 'Copy', key: KEYS.copy, disabled: !c.hasSelection, run: c.copy },
+			{ label: 'Paste', key: KEYS.paste, run: c.paste },
+			{ label: 'Delete', key: KEYS.del, disabled: !c.hasSelection, run: c.remove },
 			'-',
-			{ label: 'Select all', key: 'Ctrl+A', run: c.selectAll },
+			{ label: 'Select all', key: KEYS.selectAll, run: c.selectAll },
 			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
 			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (colour, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
 			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
 			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',
-			{ label: 'Group', key: 'Ctrl+G', disabled: !c.hasSelection, run: c.group },
-			{ label: 'Ungroup', key: 'Ctrl+Shift+G', disabled: !c.hasSelection, run: c.ungroup },
+			{ label: 'Group', key: KEYS.group, disabled: !c.hasSelection, run: c.group },
+			{ label: 'Ungroup', key: KEYS.ungroup, disabled: !c.hasSelection, run: c.ungroup },
 			'-',
 			{ label: 'Arrange', disabled: !c.hasSelection, children: [
-				{ label: 'Bring to front', key: 'Ctrl+Shift+]', disabled: !c.hasSelection, run: () => c.order('front') },
-				{ label: 'Bring forward', key: 'Ctrl+]', disabled: !c.hasSelection, run: () => c.order('forward') },
-				{ label: 'Send backward', key: 'Ctrl+[', disabled: !c.hasSelection, run: () => c.order('backward') },
-				{ label: 'Send to back', key: 'Ctrl+Shift+[', disabled: !c.hasSelection, run: () => c.order('back') },
+				{ label: 'Bring to front', key: KEYS.toFront, disabled: !c.hasSelection, run: () => c.order('front') },
+				{ label: 'Bring forward', key: KEYS.forward, disabled: !c.hasSelection, run: () => c.order('forward') },
+				{ label: 'Send backward', key: KEYS.backward, disabled: !c.hasSelection, run: () => c.order('backward') },
+				{ label: 'Send to back', key: KEYS.toBack, disabled: !c.hasSelection, run: () => c.order('back') },
 			] },
 		] },
 		{ label: 'View', items: [
-			{ label: 'Find a view, sheet, room, rack…', key: 'Ctrl+K', run: c.find },
-			{ label: 'Fit', key: 'Home', run: c.fit },
-			{ label: 'Zoom to selection', key: 'Shift+Home', disabled: !c.hasSelection, run: c.zoomSel },
+			{ label: 'Find a view, sheet, room, rack…', key: KEYS.find, run: c.find },
+			{ label: 'Fit', key: KEYS.fit, run: c.fit },
+			{ label: 'Zoom to selection', key: KEYS.zoomSel, disabled: !c.hasSelection, run: c.zoomSel },
 			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
-			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },
-			{ label: 'Forward', key: 'Alt+→', disabled: !c.canFwd, run: c.forward },
+			{ label: 'Back', key: KEYS.backView, disabled: !c.canBack, run: c.back },
+			{ label: 'Forward', key: KEYS.fwdView, disabled: !c.canFwd, run: c.forward },
 			'-',
 			{ label: 'Fill overlay', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
-			{ label: 'Snap to grid (SNAP)', key: 'F9', checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
-			{ label: 'Object snaps (OSNAP)', key: 'F3', checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
-			{ label: 'Show the grid (GRID)', key: 'F7', checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
+			{ label: 'Snap to grid (SNAP)', key: KEYS.snap, checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
+			{ label: 'Object snaps (OSNAP)', key: KEYS.osnap, checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
+			{ label: 'Show the grid (GRID)', key: KEYS.grid, checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
 		] },
 		{ label: 'Insert', items: [
 			tool('insert', 'Block…'), tool('legend', 'Legend'), { label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image }, '-',
@@ -182,14 +183,14 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Window', items: [
 			...WIN_IDS.map((id): MenuItem => ({ label: WIN_TITLES[id], checked: c.win.shown(id), run: () => c.win.toggle(id) })),
-			{ label: 'Tables', key: 'Ctrl+,', checked: c.tables, run: c.toggleTables },
+			{ label: 'Tables', key: KEYS.tables, checked: c.tables, run: c.toggleTables },
 			'-',
-			{ label: 'Hide all windows', key: 'Ctrl+.', checked: c.hideAll, run: c.toggleHideAll },
+			{ label: 'Hide all windows', key: KEYS.hideAll, checked: c.hideAll, run: c.toggleHideAll },
 			{ label: 'Reset layout', run: c.win.reset },
 		] },
 		{ label: 'Help', items: [
-			{ label: 'Help', key: 'F1', run: () => c.help() },
-			{ label: 'Keys and mouse', key: '?', run: () => c.help(true) },
+			{ label: 'Help', key: KEYS.help, run: () => c.help() },
+			{ label: 'Keys and mouse', key: KEYS.keys, run: () => c.help(true) },
 		] },
 	]
 }
@@ -204,21 +205,21 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 	const shapes = sel.filter((e) => e?.type === 'shape'), one = sel.length === 1 ? sel[0] : undefined, p = c.ports
 	return [
 		...(p ? [
-			{ label: `Patch ${p.n > 1 ? `${p.n} ports ` : ''}to…`, key: 'P', run: p.patch } as MenuItem,
-			...(p.interconnect ? [{ label: 'Link to…', key: 'L', run: p.interconnect } as MenuItem] : []),
+			{ label: `Patch ${p.n > 1 ? `${p.n} ports ` : ''}to…`, key: KEYS.patch, run: p.patch } as MenuItem,
+			...(p.interconnect ? [{ label: 'Link to…', key: KEYS.link, run: p.interconnect } as MenuItem] : []),
 			'-' as const] : []),
-		...(one && labelKind(one) ? [{ label: 'Edit label', key: 'F2', run: () => c.editLabel(one.id) } as MenuItem, '-' as const] : []),
-		{ label: 'Cut', key: 'Ctrl+X', run: () => document.execCommand('cut') },
-		{ label: 'Copy', key: 'Ctrl+C', run: () => document.execCommand('copy') },
-		{ label: 'Delete', key: 'Delete', run: c.remove },
+		...(one && labelKind(one) ? [{ label: 'Edit label', key: KEYS.editLabel, run: () => c.editLabel(one.id) } as MenuItem, '-' as const] : []),
+		{ label: 'Cut', key: KEYS.cut, run: () => document.execCommand('cut') },
+		{ label: 'Copy', key: KEYS.copy, run: () => document.execCommand('copy') },
+		{ label: 'Delete', key: KEYS.del, run: c.remove },
 		'-',
 		{ label: 'Select similar', run: c.similar },
 		...(one?.type === 'shape' ? [{ label: 'Match properties…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
-			...(shapes.length >= 2 ? [{ label: 'Group', key: 'Ctrl+G', run: () => c.group(false) } as MenuItem] : []),
-			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: 'Ctrl+Shift+G', run: () => c.group(true) } as MenuItem] : []),
-			{ label: 'Bring to front', key: 'Ctrl+Shift+]', run: () => c.order('front') } as MenuItem,
-			{ label: 'Send to back', key: 'Ctrl+Shift+[', run: () => c.order('back') } as MenuItem] : []),
+			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group(false) } as MenuItem] : []),
+			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: KEYS.ungroup, run: () => c.group(true) } as MenuItem] : []),
+			{ label: 'Bring to front', key: KEYS.toFront, run: () => c.order('front') } as MenuItem,
+			{ label: 'Send to back', key: KEYS.toBack, run: () => c.order('back') } as MenuItem] : []),
 		'-',
 		{ label: 'Properties', run: c.properties },
 	]
@@ -232,7 +233,7 @@ export function tabMenuOf(id: string, c: {
 }): MenuItem[] {
 	return [
 		...(c.preview ? [{ label: 'Keep it open', run: () => c.keep(id) } as MenuItem] : []),
-		{ label: 'Close', key: 'Alt+W', run: () => c.close(id) },
+		{ label: 'Close', key: KEYS.closeTab, run: () => c.close(id) },
 		{ label: 'Close others', run: () => c.closeOthers(id) },
 		{ label: 'Close to the right', run: () => c.closeRight(id) },
 		...(c.split ? [{ label: 'Open in the other pane', run: () => c.otherPane(id) } as MenuItem] : []),

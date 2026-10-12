@@ -2911,3 +2911,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   bar says it, as F9 / F3 / F7 do (`ui/StatusBar.svelte`); the Patching tab's button is "Patch schedule · cord BOM…",
   the same name as the menu and the dialog (`ui/PatchList.svelte`, Help); a test that a throwing transaction leaves
   nothing behind (`store/store.test.ts`).
+- **R85 step 2 — one table of key labels:** `ui/shellKeys.ts` `KEYS` (undo, redo, group, draw order, F-keys, tabs,
+  view keys …); the keyboard list (and so Help) and every menu / right-click / tab menu key read it
+  (`ui/cadMenus.ts`), so a key named in a menu is the key the shell runs. Step 3 (button tooltips) next.
