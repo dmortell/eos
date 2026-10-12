@@ -20,7 +20,7 @@
 
 	let { tool, kind, onSheet = false, onTool }: { tool: ToolId; kind: ViewSpec['kind']; /** a viewport being edited on a sheet */ onSheet?: boolean; onTool: (id: ToolId) => void } = $props()
 
-	const VIEW_WORDS: Record<ViewSpec['kind'], string> = { plan: 'plans', elevation: 'elevations', section: 'sections', row: 'rack views', sheet: 'sheets', riser: 'the riser view', portmap: 'port maps' }
+	const VIEW_WORDS: Record<ViewSpec['kind'], string> = { plan: 'plans', elevation: 'elevations', section: 'sections', row: 'rack views', sheet: 'sheets', riser: 'the riser view', portmap: 'port maps', ports: 'port grids', schedule: 'schedules', fill: 'fill sections' }
 	const where = (id: ToolId) => TOOL_VIEWS[id].map((k) => VIEW_WORDS[k]).join(', ')
 </script>
 
