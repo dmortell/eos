@@ -17,6 +17,15 @@ describe('table kit', () => {
 		t.toggle('n')
 		expect(t.apply(rows, (r) => r.label, cols).map((r) => r.id)).toEqual(['b', 'c', 'a'])
 	})
+	it('starts on its own column and scope, and a third click still goes back to the table order', () => {
+		const t = new TableState('test3', 'all', 'label', ['sel', 'all'])
+		expect(t.scope).toBe('all')
+		expect(t.apply(rows, (r) => r.label, cols).map((r) => r.id)).toEqual(['b', 'a', 'c'])
+		t.toggle('label'); t.toggle('label')
+		expect(t.sortKey).toBe(null)
+		t.sortBy('n')
+		expect(t.apply(rows, (r) => r.label, cols).map((r) => r.id)).toEqual(['b', 'c', 'a'])
+	})
 	it('filters by text', () => {
 		const t = new TableState('test2')
 		t.q = 'a.'

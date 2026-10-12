@@ -12,16 +12,23 @@ export class TableState {
 	q = $state('')
 	scope = $state<Scope>('view')
 	#key: string
-	constructor(name: string, scope: Scope = 'view') {
+	/** `scopes`: the ones this table offers (a saved scope it doesn't offer falls back to `scope`); `sortKey`: the
+	 *  column it sorts by until one is clicked. */
+	readonly scopes: Scope[]
+	constructor(name: string, scope: Scope = 'view', sortKey: string | null = null, scopes: Scope[] = ['view', 'sel', 'all']) {
 		this.#key = `cad-table:${name}`
+		this.scopes = scopes
 		this.scope = scope
+		this.sortKey = sortKey
 		try {
 			const s = JSON.parse(localStorage.getItem(this.#key) ?? '{}') as { sortKey?: string | null; sortDir?: 1 | -1; scope?: Scope }
 			if (s.sortKey !== undefined) this.sortKey = s.sortKey
 			if (s.sortDir) this.sortDir = s.sortDir
-			if (s.scope) this.scope = s.scope
+			if (s.scope && scopes.includes(s.scope)) this.scope = s.scope
 		} catch { /* nothing saved, or storage blocked */ }
 	}
+	/** Sort by `key` (not a header click: e.g. print order after moving sheets in it). */
+	sortBy(key: string, dir: 1 | -1 = 1): void { this.sortKey = key; this.sortDir = dir; this.save() }
 	save = (): void => { try { localStorage.setItem(this.#key, JSON.stringify({ sortKey: this.sortKey, sortDir: this.sortDir, scope: this.scope })) } catch { /* blocked */ } }
 	/** A click on a header: sort by it, or reverse; a third click goes back to the table's own order. */
 	toggle(key: string): void {

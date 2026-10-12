@@ -20,7 +20,9 @@
 	import IssuesList from './IssuesList.svelte'
 	import PackagesList from './PackagesList.svelte'
 	import ChipPick from './ChipPick.svelte'
-	import { arrowSelect, copyRows } from './tableKit.svelte'
+	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import SortTh from './SortTh.svelte'
+	import ScopeSelect from './ScopeSelect.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { duplicateSheets, numberSheets } from '../app/sheetActions'
 	import { issueStatesOf } from '../app/issueStates.svelte'
@@ -33,10 +35,17 @@
 	/** The global list (retired ones left out of pickers; they still name sheets that use them). */
 	const cats = $derived(ordered(project.sheetCategories))
 	const sheets = $derived([...project.index.byId.values()].filter((e): e is Sheet => e.type === 'sheet'))
-	let q = $state(''), status = $state<'active' | 'archived' | ''>('active'), by = $state<GroupBy>('none')
+	let by = $state<GroupBy>('none')
 	let fCats = $state<string[]>([]), fLevels = $state<string[]>([]), fRooms = $state<string[]>([]), fTags = $state<string[]>([])
-	let sort = $state<{ key: SortKey; dir: 1 | -1 }>({ key: 'number', dir: 1 })
+	/** Active / Archived as chips (both on = all). */
+	let showStatus = $state<Record<Sheet['status'], boolean>>({ active: true, archived: false })
+	/** Sort (remembered; a third click goes back to the print order), Find and scope (All · Selection) — tableKit, as
+	 *  the other tables. */
+	const t = new TableState('sheets', 'all', 'number', ['sel', 'all'])
 	const all = $derived(sheetRows(project.index, sheets, project.sheetCategories))
+	const statusCount = $derived({ active: all.filter((r) => r.status === 'active').length, archived: all.filter((r) => r.status === 'archived').length })
+	/** The sort in force: no column picked = the print order. */
+	const sortKey = $derived((t.sortKey ?? 'order') as SortKey), sortDir = $derived(t.sortKey ? t.sortDir : 1)
 	// the ISSUE STATE column (slice 5): worked out in the background only while it's on
 	let showState = $state(false), fStates = $state<string[]>([])
 	const states = $derived(issueStatesOf(project))
@@ -44,10 +53,10 @@
 	const stateOf = (r: SheetRow) => states.of(sheetOf(r.id))
 	const stateText = (r: SheetRow) => { const st = stateOf(r); return st === 'issued' || st === 'changed' ? `${ISSUE_STATE_TEXT[st]} ${r.rev}` : ISSUE_STATE_TEXT[st] }
 	const STATE_OPTIONS = (['not-issued', 'issued', 'changed', 'superseded'] as const).map((id) => ({ id, label: ISSUE_STATE_TEXT[id] }))
-	const rows = $derived(sortRows(filterRows(all, { q, status: status || undefined, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sort.key, sort.dir)
-		.filter((r) => !showState || !fStates.length || fStates.includes(stateOf(r))))
-	const groups = $derived(groupRows(rows, by))
 	const selected = $derived(new Set(ws.selection))
+	const rows = $derived(sortRows(filterRows(t.scope === 'sel' ? all.filter((r) => selected.has(r.id)) : all, { q: t.q, cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }), sortKey, sortDir)
+		.filter((r) => showStatus[r.status] && (!showState || !fStates.length || fStates.includes(stateOf(r)))))
+	const groups = $derived(groupRows(rows, by))
 	const picked = $derived(rows.filter((r) => selected.has(r.id)))
 	const sheetOf = (id: string) => project.index.get(id) as Sheet
 
@@ -59,7 +68,6 @@
 
 	const COLS: [SortKey, string][] = [['order', '#'], ['number', 'No.'], ['title', 'Title'], ['category', 'Category'], ['level', 'Level'], ['room', 'Room'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
 	const GROUPS: [GroupBy, string][] = [['none', 'none'], ['category', 'category'], ['level', 'level'], ['room', 'room'], ['place', 'place'], ['discipline', 'discipline'], ['tag', 'tag'], ['size', 'size']]
-	const sortBy = (key: SortKey) => (sort = { key, dir: sort.key === key ? (-sort.dir as 1 | -1) : 1 })
 
 	// click / Shift-range / Ctrl-toggle, as in the other grids
 	let anchor: string | null = null
@@ -86,7 +94,7 @@
 	/** Print order (backlog "Print order"): the selected sheets one place earlier / later, as one undo step. */
 	function move(dir: -1 | 1) {
 		const changed = moveInPrintOrder(sheets, picked.map((r) => r.id), dir)
-		sort = { key: 'order', dir: 1 }
+		t.sortBy('order')
 		if (changed.length) project.store.transact(`Print order (${picked.length} sheet${picked.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
 	let busy = $state(false)
@@ -120,11 +128,11 @@
 		dragging = selected.has(id) ? picked.map((r) => r.id) : [id]
 		e.dataTransfer?.setData('application/x-cad-sheets', dragging.join(','))
 	}
-	function dragOver(e: DragEvent, id: string) { if (!dragging.length || sort.key !== 'order') return; e.preventDefault(); dropOn = id }
+	function dragOver(e: DragEvent, id: string) { if (!dragging.length || sortKey !== 'order') return; e.preventDefault(); dropOn = id }
 	function dropRows(e: DragEvent, id: string) {
 		e.preventDefault(); dropOn = null
 		const ids = dragging; dragging = []
-		const changed = sort.dir === 1 ? moveBefore(sheets, ids, id) : moveBefore(sheets, ids, rows[rows.findIndex((r) => r.id === id) - 1]?.id ?? null)
+		const changed = sortDir === 1 ? moveBefore(sheets, ids, id) : moveBefore(sheets, ids, rows[rows.findIndex((r) => r.id === id) - 1]?.id ?? null)
 		if (changed.length) project.store.transact(`Print order (${ids.length} sheet${ids.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
@@ -141,17 +149,25 @@
 	}
 </script>
 
+{#snippet seg()}
+	<!-- the register, its packages and its issues: one tab of the tables, three views (they share the register's
+	     selection, chips and the Issue panel) -->
+	<span class="seg" role="tablist" aria-label="Sheets view">
+		<button role="tab" aria-selected={show === 'register'} class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
+		<button role="tab" aria-selected={show === 'packages'} class:on={show === 'packages'} title="Re-usable sets of sheets for issuing" onclick={() => (show = 'packages')}>Packages {packageCount || ''}</button>
+		<button role="tab" aria-selected={show === 'issues'} class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issueCount || ''}</button>
+	</span>
+{/snippet}
+
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div class="h-full overflow-auto text-xs" tabindex="0" role="grid" aria-label="Sheets" onkeydown={tableKey}>
-	<div class="actions">
-		<span class="seg">
-			<button class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
-			<button class:on={show === 'packages'} title="Re-usable sets of sheets for issuing" onclick={() => (show = 'packages')}>Packages {packageCount || ''}</button>
-			<button class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issueCount || ''}</button>
-		</span>
 	{#if show === 'register'}
-		<input class="find" placeholder="Find…" bind:value={q} />
-		<select bind:value={status} title="Show"><option value="active">Active</option><option value="archived">Archived</option><option value="">All</option></select>
+	<div class="actions">
+		{@render seg()}
+		<ScopeSelect {t} />
+		<input class="find" placeholder="Find…" bind:value={t.q} />
+		<StatusChip tone="active" label="Active {statusCount.active}" off={!showStatus.active} upper={false} title="Show / hide the active sheets" onclick={() => (showStatus.active = !showStatus.active)} />
+		<StatusChip tone="archived" label="Archived {statusCount.archived}" off={!showStatus.archived} upper={false} title="Show / hide the archived sheets" onclick={() => (showStatus.archived = !showStatus.archived)} />
 		<ChipPick label="Category" options={catOptions} bind:picked={fCats} />
 		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
 		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />
@@ -160,29 +176,29 @@
 		{#if showState}<ChipPick label="State" options={STATE_OPTIONS} bind:picked={fStates} />{/if}
 		{#if chips}<button class="clear" title="Clear every chip" onclick={() => { fCats = []; fLevels = []; fRooms = []; fTags = [] }}>Clear</button>{/if}
 		<label class="muted">Group <select bind:value={by}>{#each GROUPS as [g, label] (g)}<option value={g}>{label}</option>{/each}</select></label>
-		<span class="faint">{picked.length ? `${picked.length} selected · ` : ''}{rows.length} of {sheets.length}</span>
+		<span class="faint" title="Shown · sheets · selected">{rows.length} of {sheets.length}{picked.length ? ` · ${picked.length} selected` : ''}</span>
 		<span class="seg" title="Print order: move the selected sheets earlier / later (the table sorts by # so you see it; the PDF follows the table)">
 			<button disabled={!picked.length} onclick={() => move(-1)}>▲</button><button disabled={!picked.length} onclick={() => move(1)}>▼</button>
 		</span>
 		<button class="btn" disabled={busy} title="The selected sheets (else those shown) in one PDF, in the table's order" onclick={pdf}>{busy ? 'PDF…' : 'PDF'}</button>
-		{#if status !== 'archived'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
+		{#if showStatus.active}<button class="btn" disabled={!picked.length} onclick={() => setStatus('archived')}>Archive</button>{/if}
 		<button class="btn" disabled={!picked.length} title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
 		<button class="btn" disabled={!picked.length} title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
-		{#if status !== 'active'}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
+		{#if showStatus.archived}<button class="btn" disabled={!picked.length} onclick={() => setStatus('active')}>Restore</button>{/if}
 		<button class="btn" title="The register (the selection, else the rows shown) as Excel" onclick={excel}>Excel</button>
 		<button class="btn" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
-	{/if}
 	</div>
+	{/if}
 	{#if issuing}{#key issuingPkg?.id ?? ''}<IssuePanel {project} {ws} sheets={issuing} pkg={issuingPkg} onclose={(issued) => { issuing = null; issuingPkg = undefined; if (issued) show = 'issues' }} />{/key}{/if}
 	{#if show === 'issues'}
-		<IssuesList {project} {ws} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
+		<IssuesList {project} {ws} {seg} busy={!!issuing} onreissue={(list, pkg) => { show = pkg ? 'packages' : 'register'; issuingPkg = pkg; issuing = list }} onpackages={() => (show = 'packages')} />
 	{:else if show === 'packages'}
-		<PackagesList {project} {ws} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
+		<PackagesList {project} {ws} {seg} rows={all} filter={{ cats: fCats, levels: fLevels, rooms: fRooms, tags: fTags }} busy={!!issuing} onissue={(pkg, list) => { issuingPkg = pkg; issuing = list }} />
 	{:else}
 	<table class="w-full border-collapse">
 		<thead>
 			<tr>
-				{#each COLS as [k, label] (k)}<th class="px-2 py-1"><button class="th" title={k === 'order' ? 'The print order — sorted by this, drag rows to reorder' : undefined} onclick={() => sortBy(k)}>{label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>{/each}
+				{#each COLS as [k, label] (k)}<SortTh {t} key={k} cls="px-2 py-1" title={k === 'order' ? 'The print order (also the order with no column picked) — drag rows to reorder' : undefined}>{label}</SortTh>{/each}
 				{#if showState}<th class="px-2">Issue</th>{/if}<th class="px-2">Tags</th><th class="px-2">Status</th>
 			</tr>
 		</thead>
@@ -193,7 +209,7 @@
 					{:else}<button class="gn" title="Number this group's sheets in print order from a pattern (the category's code: RE-01, RE-02 …)" onclick={() => (numbering = g.key)}>Number…</button>{/if}</td></tr>{/if}
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
-						draggable={sort.key === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
+						draggable={sortKey === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
 						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono faint">{r.order}</td>
 						<td class="px-2"><input class="cell font-mono" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
@@ -237,7 +253,6 @@
 	.clear { color: #2563eb; }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
-	.th { font-weight: 600; color: inherit; }
 	/* edit boxes as wide as what they hold (the table is as wide as its content) */
 	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; field-sizing: content; min-width: 3ch; max-width: 22rem; }
 	.cell:hover { border-color: var(--cad-line); }

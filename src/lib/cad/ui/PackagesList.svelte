@@ -5,6 +5,7 @@
      it), Edit (purpose, recipients — one per line "Name, Org" — note; a list's sheets: + selected / − selected),
      Freeze to list (a rule), Duplicate, Archive / Restore. One undo step each. -->
 <script lang="ts">
+	import type { Snippet } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
@@ -14,8 +15,10 @@
 	import { newId } from '../domain/ids'
 	import NameInput from './NameInput.svelte'
 
-	let { project, ws, rows, filter, busy, onissue }: {
+	let { project, ws, seg, rows, filter, busy, onissue }: {
 		project: CadProject; ws: Workspace
+		/** The Sheets tab's Sheets · Packages · Issues switch, first in this view's one-line bar. */
+		seg?: Snippet
 		/** Every sheet's register row (the package rules match over them). */
 		rows: SheetRow[]
 		/** The register's chips now ("+ From chips" saves them as a rule). */
@@ -73,6 +76,7 @@
 </script>
 
 <div class="bar">
+	{@render seg?.()}
 	<button class="btn" title="A package of the sheets selected in the register (a list, in print order)" onclick={fromSelection}>+ From selection ({selectedSheets.length})</button>
 	<button class="btn" title="A package of every sheet matching the register's chips now and later (a rule)" onclick={fromChips}>+ From chips</button>
 	<label class="muted"><input type="checkbox" bind:checked={showArchived} /> archived</label>

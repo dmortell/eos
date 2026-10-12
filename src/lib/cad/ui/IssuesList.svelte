@@ -3,6 +3,7 @@
      new in it), the uploaded PDF; Transmittal (Excel), Reprint (exactly as issued), Re-issue… (its sheets selected and
      the Issue panel opened on them) and Edit (name / purpose / to / note — what was issued stays as it was). -->
 <script lang="ts">
+	import type { Snippet } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
@@ -15,7 +16,8 @@
 	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
 	import { canRestore } from '../domain/restorePlan'
 
-	let { project, ws, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
+	/** `seg`: the Sheets tab's Sheets · Packages · Issues switch, first in this view's one-line bar. */
+	let { project, ws, seg, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; seg?: Snippet; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
 	const issues = $derived([...project.index.byId.values()].filter((e): e is Issue => e.type === 'issue').sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
 	const numbers = $derived(issueNumbers(issues))
@@ -57,6 +59,7 @@
 
 <!-- the register of every issue for the PM (backlog): a sheet per row, an issue per column, or the latest only -->
 <div class="bar">
+	{@render seg?.()}
 	<button class="btn" disabled={!issues.length} title="Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel" onclick={() => register()}>Issue register (Excel)</button>
 	<label class="muted" title="One column: each sheet's last revision, issue and date"><input type="checkbox" bind:checked={latestOnly} /> latest only</label>
 </div>
