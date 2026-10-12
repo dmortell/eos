@@ -30,6 +30,23 @@ describe('paste', () => {
 		expect(got).toEqual([])
 		expect(ev.prevented()).toBe(false)
 	})
+	it('text from another app: a note at the pointer; Excel cells make a markdown table; the browser’s paste stopped', () => {
+		const got: { text: string; markdown: boolean }[] = []
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, note: (t) => { got.push(t); return true } })
+		const ev = pasteEvent('hello', []), ev2 = pasteEvent('A\tB\n1\t2', [])
+		paste(ev.e); paste(ev2.e)
+		expect(got).toEqual([{ text: 'hello', markdown: false }, { text: '| A | B |\n| --- | --- |\n| 1 | 2 |', markdown: true }])
+		expect(ev.prevented() && ev2.prevented()).toBe(true)
+	})
+	it('text where notes don’t go says so; empty text is left alone', () => {
+		said.length = 0
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, note: () => false })
+		expect(paste(pasteEvent('hello', []).e)).toBeUndefined()
+		expect(said.at(-1)).toMatch(/Text pastes into a plan/)
+		const blank = pasteEvent('  ', [])
+		paste(blank.e)
+		expect(blank.prevented()).toBe(false)
+	})
 	it('a dialog open, or mid-drag: cut and paste leave the drawing behind alone (the browser keeps the key)', () => {
 		const got: File[] = []
 		const pic = new File([new Uint8Array([1])], 'image.png', { type: 'image/png' })

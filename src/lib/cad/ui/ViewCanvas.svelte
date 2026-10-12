@@ -31,7 +31,7 @@
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
-	import { snapThroughViewport } from '../editor/noteTool'
+	import { snapThroughViewport, pasteTextNote } from '../editor/noteTool'
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { wheelAction } from '../editor/inputMode'
@@ -280,6 +280,11 @@
 		if (spec.kind === 'row') { const r = cursor && rowHit(project.index, spec, cursor)?.rack; return r ? { kind: 'rack', id: r.id } : null }
 		if (vpe) return toolKind === 'plan' ? { kind: 'level', id: vpe.levelId } : null
 		return spec.kind === 'plan' ? { kind: 'level', id: levelId } : spec.kind === 'sheet' ? { kind: 'sheet', id: spec.sheetId } : null
+	}
+	/** Text pasted from another app (Ctrl+V): a text shape at the pointer, else the middle of the view. False = this view takes no notes. */
+	export function pasteNote(t: { text: string; markdown: boolean }): boolean {
+		const mid = toModel(cam, { x: w / 2, y: h / 2 }), p = cursor ?? (vpe ? vpe.fromPaper(mid) : mid)
+		return !!pasteTextNote(ctx(), p, t)
 	}
 	/** The pointer, in the paste target's points (a viewport being edited: its view mm) — Ctrl+Shift+V. */
 	export const pasteCursor = (): Pt | null => cursor

@@ -6,7 +6,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { type ToolCtx } from './tools'
 import { SelectTool } from './selectTool'
-import { NoteTool, untie, snapThroughViewport } from './noteTool'
+import { NoteTool, untie, snapThroughViewport, pasteTextNote } from './noteTool'
 import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff, roomViewports, roomViewportsOff, unlinkFrom } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
@@ -32,6 +32,18 @@ function harness() {
 	const notes = () => store.ofType('shape').filter((s) => s.sheetId === 'SH')
 	return { store, ctx, at, notes, sel: () => sel, setAnswer: (t: string) => { answer = t } }
 }
+
+describe('text pasted from another app', () => {
+	it('lands on the sheet at the point, as one undoable, selected text (markdown for a table)', () => {
+		const h = harness()
+		const id = pasteTextNote(h.ctx(), { x: 40, y: 30 }, { text: '| a | b |', markdown: true })!
+		expect(h.store.get(id)).toMatchObject({ sheetId: 'SH', geom: { kind: 'text', text: '| a | b |', at: { x: 40, y: 30 }, sizeMm: 2.5, markdown: true } })
+		expect(h.sel()).toEqual([id])
+		h.store.undo()
+		expect(h.store.get(id)).toBeUndefined()
+		expect(h.store.get(pasteTextNote(h.ctx(), { x: 1, y: 1 }, { text: 'plain' })!)!.geom).not.toHaveProperty('markdown')
+	})
+})
 
 describe('paper notes', () => {
 	it('Text: click, type → a sheet-owned text shape, drawn on the sheet', () => {

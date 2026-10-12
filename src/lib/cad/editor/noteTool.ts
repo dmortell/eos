@@ -56,6 +56,16 @@ export function placeNote(c: ToolCtx, pts: Pt[]): { owner: Record<string, unknow
 		return { owner: { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) }, ...layer }, pts: pts.map((p) => ({ x: p.x, y: -p.y })) }
 	return null
 }
+/** Text pasted from another app (Ctrl+V) becomes a text shape at `p` — the Text tool's size and layer, markdown for a
+ *  table. Returns the new id, or null when this view takes no notes. */
+export function pasteTextNote(c: ToolCtx, p: Pt, t: { text: string; markdown?: boolean }): string | null {
+	const at = placeNote(c, [p])
+	if (!at) return null
+	const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.text, sizeMm: 2.5, ...(t.markdown ? { markdown: true } : {}) } } as Shape
+	c.store.transact('Paste text', (tx) => tx.put(s))
+	c.select([s.id])
+	return s.id
+}
 /** An object snap of what a viewport shows, for a paper point over it (Q44): the point is looked up in the viewport's
  *  view (a plan: the level's outlets, racks, shape centres, run nodes; else the view's drawn vertices) and comes back
  *  on the paper. Null = no viewport there, or nothing within `tolPaper` paper mm. */
