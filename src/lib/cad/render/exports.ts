@@ -248,8 +248,9 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 // ── BOM ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** What the BOM workbook holds (the BOM dialog's settings): the materials sheet, and the rack BOM all together or
- *  one block per row (`rows` = [row id | null, its heading]). */
-export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][] }
+ *  one block per row (`rows` = [row id | null, its heading]); `rooms` = the rack BOM for these rooms only, `roomsText`
+ *  = how they are named on the sheet (absent = every room). */
+export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][]; rooms?: string[]; roomsText?: string }
 
 export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }): Promise<number> {
 	const lines = o.materials ? bom(ix, catalog, routes) : []
@@ -268,11 +269,12 @@ export async function exportBom(ix: ProjectIndex, projectName: string, catalog: 
 	let rackLines = 0
 	if (o.rack !== 'none') {
 		const r = wb.addWorksheet('Rack BOM')
+		if (o.rooms) r.addRow([`${projectName} - rack BOM: ${o.roomsText ?? `${o.rooms.length} rooms`}`]).font = { bold: true, size: 12 }
 		const rh = r.addRow(['Group', 'SKU', 'Description', 'Role', 'Qty', 'Link'])
 		rh.font = { bold: true, size: 10 }
 		rh.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
 		;[16, 20, 50, 28, 6, 30].forEach((w, i) => (r.getColumn(i + 1).width = w))
-		const blocks: [string | null, RackBomLine[]][] = o.rack === 'byRow' ? (o.rows ?? []).map(([id, name]) => [name, rackBom(ix, catalog, { row: id })]) : [[null, rackBom(ix, catalog)]]
+		const blocks: [string | null, RackBomLine[]][] = o.rack === 'byRow' ? (o.rows ?? []).map(([id, name]) => [name, rackBom(ix, catalog, { row: id, rooms: o.rooms })]) : [[null, rackBom(ix, catalog, { rooms: o.rooms })]]
 		for (const [name, ls] of blocks) {
 			if (!ls.length) continue
 			if (name) r.addRow([name]).font = { bold: true, size: 11 }

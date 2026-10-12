@@ -4,11 +4,14 @@
 //  - with row containment (HAC / CAC / combined) and a catalogue product: top caps, the family + color containment
 //    kit (racks), blanking (PatchRunner VCMs);
 //  - each contained row: one end-panel kit per side, from the first VCM that names one.
-// Lines with the same SKU and role add up. The catalogue is passed in (domain code doesn't load it).
-import type { Id, Rack, RackRow } from './types'
+// Lines with the same SKU and role add up. A rack with no catalogue product is listed by its maker / model when it has
+// them (the Racks tool's rule), else by kind and size. The BOM can be for chosen rooms (on any levels). The catalogue
+// is passed in (domain code doesn't load it).
+import type { Id, Rack, RackRow, Space } from './types'
 import type { ProjectIndex } from './project'
 import type { CatalogProduct } from '$lib/catalog/types'
 import { racksInOrder } from './devices'
+import { naturalCompare } from './labels'
 
 export type RackBomGroup = 'Rack' | 'Rack accessory' | 'VCM' | 'VCM accessory' | 'Row accessory' | 'Desk / shelf'
 export interface RackBomLine { sku: string; group: RackBomGroup; description: string; qty: number; note?: string; url?: string }
@@ -39,15 +42,17 @@ export function containmentKitSku(p: CatalogProduct | undefined, colour: string 
 
 const GROUP_ORDER: Record<RackBomGroup, number> = { Rack: 0, 'Rack accessory': 1, VCM: 2, 'VCM accessory': 3, 'Row accessory': 4, 'Desk / shelf': 5 }
 
-/** `row` = one row only (null = racks in no row): the BOM dialog's "by row" view. */
-export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { row?: Id | null } = {}): RackBomLine[] {
+/** `row` = one row only (null = racks in no row): the BOM dialog's "by row" view; `rooms` = only the racks in these
+ *  rooms (absent = every room). */
+export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { row?: Id | null; rooms?: Id[] } = {}): RackBomLine[] {
 	const inRow = (r: Rack) => o.row === undefined || (r.rowId ?? null) === o.row
+	const inRoom = (spaceId: Id) => !o.rooms || o.rooms.includes(spaceId)
 	const byId = new Map(catalog.map((p) => [p.id, p]))
 	const bySku = new Map(catalog.map((p) => [p.sku, p]))
 	const lines = new Map<string, RackBomLine>()
 	const add = (sku: string | null | undefined, group: RackBomGroup, note?: string, description?: string) => {
 		if (!sku) return
-		const k = `${sku}|${note ?? ''}`, p = bySku.get(sku)
+		const k = `${sku}|${note ?? ''}|${description ?? ''}`, p = bySku.get(sku)
 		const l = lines.get(k)
 		if (l) l.qty++
 		else lines.set(k, { sku, group, description: description ?? p?.description ?? sku, qty: 1, ...(note ? { note } : {}), ...(p?.productUrl ? { url: p.productUrl } : {}) })
@@ -55,15 +60,15 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { r
 
 	const rows = new Map<Id, RackRow>()
 	for (const e of ix.byId.values()) if (e.type === 'rackRow') rows.set(e.id, e)
-	const spaces = new Set(ix.racks.map((r) => r.spaceId))
+	const spaces = new Set(ix.racks.map((r) => r.spaceId).filter(inRoom))
 	for (const sp of spaces) {
 		for (const r of racksInOrder(ix, sp)) {
 			if (!inRow(r)) continue
 			// desks and shelves too (Dave: every rack), and each one's notes on its line
-			if (r.kind === 'desk' || r.kind === 'shelf') { add(describe(r), 'Desk / shelf', ['no catalogue SKU', r.notes].filter(Boolean).join(' · ')); continue }
+			if (r.kind === 'desk' || r.kind === 'shelf') { add(skuOf(r), 'Desk / shelf', ['no catalogue SKU', r.notes].filter(Boolean).join(' · '), descriptionOf(r)); continue }
 			const p = r.catalogId ? byId.get(r.catalogId) ?? bySku.get(r.catalogId) : undefined
 			const vcm = r.kind === 'vcm'
-			add(p?.sku ?? r.catalogId ?? describe(r), vcm ? 'VCM' : 'Rack', [p ? '' : 'no catalogue product — link one for accessories', r.notes].filter(Boolean).join(' · ') || undefined, p?.description ?? describe(r))
+			add(p?.sku ?? r.catalogId ?? skuOf(r), vcm ? 'VCM' : 'Rack', [p ? '' : 'no catalogue product — link one for accessories', r.notes].filter(Boolean).join(' · ') || undefined, p?.description ?? descriptionOf(r))
 			const cont = (r.rowId && rows.get(r.rowId)?.containment) || 'none'
 			if (cont === 'none' || !p) continue
 			const hac = cont === 'hac' || cont === 'combined', cac = cont === 'cac' || cont === 'combined'
@@ -80,7 +85,7 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { r
 		}
 	}
 	for (const row of rows.values()) {
-		if (o.row !== undefined && row.id !== o.row) continue
+		if ((o.row !== undefined && row.id !== o.row) || !inRoom(row.spaceId)) continue
 		const cont = row.containment ?? 'none'
 		if (cont === 'none') continue
 		const vcm = ix.racks.filter((r) => r.rowId === row.id && r.kind === 'vcm' && r.catalogId)
@@ -93,3 +98,19 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { r
 }
 
 const describe = (r: Rack) => r.kind === 'desk' || r.kind === 'shelf' ? `${r.kind} ${r.widthMm}×${r.depthMm}` : `${r.kind === 'vcm' ? 'VCM' : r.kind} ${r.heightU}U ${r.widthMm}×${r.depthMm}`
+/** "Maker model" of a rack, a device (either may be blank; '' = neither). */
+export const makerModel = (x: { maker?: string; model?: string }) => [x.maker, x.model].map((s) => s?.trim()).filter(Boolean).join(' ')
+/** A rack with no catalogue product: its model is its SKU, "maker model (kind size)" its description. */
+const skuOf = (r: Rack) => r.model?.trim() || describe(r)
+const descriptionOf = (r: Rack) => (makerModel(r) ? `${makerModel(r)} (${describe(r)})` : describe(r))
+
+/** The rooms a rack BOM can be for: those with racks, grouped by level (levels in order, rooms by name). */
+export function bomRooms(ix: ProjectIndex): { levelId: Id; level: string; rooms: { id: Id; name: string; racks: number }[] }[] {
+	const count = new Map<Id, number>(), levelOf = new Map<Id, Id>()
+	for (const r of ix.racks) { count.set(r.spaceId, (count.get(r.spaceId) ?? 0) + 1); if (!levelOf.has(r.spaceId)) levelOf.set(r.spaceId, ix.get<Space>(r.spaceId)?.levelId ?? r.levelId) }
+	return [...ix.levels].sort((a, b) => a.order - b.order).flatMap((lv) => {
+		const rooms = [...count.keys()].filter((id) => levelOf.get(id) === lv.id)
+			.map((id) => ({ id, name: ix.get<Space>(id)?.name || '(room gone)', racks: count.get(id)! })).sort((a, b) => naturalCompare(a.name, b.name))
+		return rooms.length ? [{ levelId: lv.id, level: lv.name, rooms }] : []
+	})
+}

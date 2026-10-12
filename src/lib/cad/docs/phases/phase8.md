@@ -3171,3 +3171,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   tooltips say what the block takes. Drawn / Checked / Approved can be set on several sheets at once (SheetMultiProps);
   Drawn's placeholder shows the fallback. An issued sheet with a blank Drawn shows as changed once the details have an
   author (it now prints one). Help; test.
+- **Q46** the rack BOM for the rooms ticked, on any levels: the BOM dialog lists the rooms with racks grouped by level
+  (all ticked at first; a level's box ticks its rooms) when there is more than one; the rack BOM, its row-by-row
+  blocks and the row accessories follow, and the Excel sheet names the rooms (`domain/rackBom.ts` `rackBom(…, { rooms })`
+  / `bomRooms`, `render/exports.ts` `exportBom`, `ui/BomDialog.svelte`). A rack with no catalogue product is listed by
+  its maker / model (SKU = the model, "maker model (kind size)"), as the Racks tool did — racks of the same size but
+  another model are no longer one line; devices with no catalogue id the same in the project BOM. Not the legacy Row /
+  Consolidated / Notice sheets. Help; tests.

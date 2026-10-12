@@ -1,5 +1,6 @@
 <!-- The BILL OF MATERIALS on screen (backlog "On-screen BOM dialog"; Dave: Export → BOM opens this, then Excel): the
-     project's materials, and the rack BOM — all racks together or row by row — with totals and product links; what
+     project's materials, and the rack BOM — all racks together or row by row, for the rooms ticked (any levels; all at
+     first) — with totals and product links; what
      goes in the workbook is chosen here, then "Export to Excel". -->
 <script lang="ts">
 	import CadDialog from './CadDialog.svelte'
@@ -7,7 +8,7 @@
 	import type { CatalogProduct } from '$lib/catalog/types'
 	import type { RackRow } from '../domain/types'
 	import { bom } from '../domain/reports'
-	import { rackBom } from '../domain/rackBom'
+	import { rackBom, bomRooms } from '../domain/rackBom'
 	import { exportBom } from '../render/exports'
 	import { naturalCompare } from '../domain/labels'
 
@@ -21,23 +22,33 @@
 	let busy = $state(false)
 
 	const lines = $derived(catalog ? bom(project.index, catalog, project.routes) : [])
-	/** Every row (by room, then row order), and "No row" when some racks have none: [row id | null, heading]. */
+	/** The rooms with racks, by level; `off` = the ones unticked (so every room is in at first, and a new one too). */
+	const groups = $derived(bomRooms(project.index))
+	const roomCount = $derived(groups.reduce((n, g) => n + g.rooms.length, 0))
+	let off = $state<string[]>([])
+	const setRooms = (ids: string[], on: boolean) => (off = on ? off.filter((x) => !ids.includes(x)) : [...new Set([...off, ...ids])])
+	/** The rooms picked — undefined = all of them (no filter, and the sheet doesn't list them). */
+	const rooms = $derived(off.length ? groups.flatMap((g) => g.rooms.filter((r) => !off.includes(r.id)).map((r) => r.id)) : undefined)
+	const roomsText = $derived(rooms && groups.flatMap((g) => { const rs = g.rooms.filter((r) => rooms.includes(r.id)); return rs.length ? [`${g.level} ${rs.map((r) => r.name).join(', ')}`] : [] }).join(' · '))
+	/** Every row (by room, then row order), and "No row" when some racks have none: [row id | null, heading] — in the
+	 *  rooms picked. */
 	const rows = $derived.by((): [string | null, string][] => {
-		const rs = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow')
+		const inRoom = (id: string) => !rooms || rooms.includes(id)
+		const rs = [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && inRoom(e.spaceId))
 			.sort((a, b) => naturalCompare(project.index.nameOf(a.spaceId), project.index.nameOf(b.spaceId)) || a.order - b.order)
 		const out: [string | null, string][] = rs.map((r) => [r.id, `${project.index.nameOf(r.spaceId)} · ${r.name}`])
-		if (project.index.racks.some((r) => !r.rowId)) out.push([null, 'No row'])
+		if (project.index.racks.some((r) => !r.rowId && inRoom(r.spaceId))) out.push([null, 'No row'])
 		return out
 	})
 	const blocks = $derived(!catalog || rack === 'none' ? [] : rack === 'byRow'
-		? rows.map(([id, name]) => ({ name, lines: rackBom(project.index, catalog!, { row: id }) })).filter((b) => b.lines.length)
-		: [{ name: '', lines: rackBom(project.index, catalog) }])
+		? rows.map(([id, name]) => ({ name, lines: rackBom(project.index, catalog!, { row: id, rooms }) })).filter((b) => b.lines.length)
+		: [{ name: '', lines: rackBom(project.index, catalog, { rooms }) }].filter((b) => b.lines.length))
 	const rackQty = $derived(blocks.reduce((n, b) => n + b.lines.reduce((m, l) => m + l.qty, 0), 0))
 
 	async function exportXlsx() {
 		if (!catalog || busy) return
 		busy = true
-		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows }); ondone(`BOM: ${n} lines`); onclose() }
+		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText }); ondone(`BOM: ${n} lines`); onclose() }
 		catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
@@ -54,6 +65,22 @@
 				<tbody>{#each lines as l, i (i)}<tr><td>{l.category}</td><td>{l.item}</td><td class="n">{l.qty}</td><td>{l.unit}</td><td class="hint">{l.note ?? ''}</td></tr>{/each}</tbody>
 			</table>
 		{/if}
+		{#if rack !== 'none' && roomCount > 1}
+			<!-- which rooms the rack BOM is for, on any levels: all at first; a level's box ticks / unticks its rooms -->
+			<div class="rooms" role="group" aria-label="Rooms in the rack BOM">
+				<span class="hint">Rack BOM for:</span>
+				{#each groups as g (g.levelId)}
+					{@const all = g.rooms.every((r) => !off.includes(r.id))}
+					{@const none = g.rooms.every((r) => off.includes(r.id))}
+					<span class="lv">
+						<label class="lvl"><input type="checkbox" checked={all} indeterminate={!all && !none} onchange={(e) => setRooms(g.rooms.map((r) => r.id), e.currentTarget.checked)} /> {g.level}</label>
+						{#each g.rooms as r (r.id)}
+							<label><input type="checkbox" checked={!off.includes(r.id)} onchange={(e) => setRooms([r.id], e.currentTarget.checked)} /> {r.name} <span class="hint">({r.racks})</span></label>
+						{/each}
+					</span>
+				{/each}
+			</div>
+		{/if}
 		{#each blocks as b (b.name)}
 			<p class="h">Rack BOM{b.name ? ` — ${b.name}` : ''}</p>
 			<table>
@@ -66,7 +93,7 @@
 				</tbody>
 			</table>
 		{:else}
-			{#if rack !== 'none'}<p class="hint">No racks.</p>{/if}
+			{#if rack !== 'none'}<p class="hint">{rooms ? 'No racks in the rooms ticked.' : 'No racks.'}</p>{/if}
 		{/each}
 	{/if}
 </CadDialog>
@@ -95,6 +122,9 @@
 	.h:first-child { margin-top: 0; }
 	.hint { color: var(--cad-muted, #71717a); }
 	.h .hint { font-weight: 400; }
+	.rooms { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 10px 0 4px; }
+	.rooms .lv { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; }
+	.rooms .lvl { font-weight: 600; }
 	table { width: 100%; border-collapse: collapse; }
 	th { text-align: left; font-weight: 600; color: var(--cad-muted, #52525b); border-bottom: 1px solid var(--cad-line, #e4e4e7); padding: 2px 6px; position: sticky; top: 0; background: var(--cad-panel, white); }
 	td { padding: 1px 6px; border-bottom: 1px solid var(--cad-line-faint, #f4f4f5); vertical-align: top; }

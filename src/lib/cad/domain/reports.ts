@@ -10,7 +10,7 @@ import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
 import { isVertical } from './shapes'
-import { rackBom } from './rackBom'
+import { rackBom, makerModel } from './rackBom'
 import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
@@ -170,7 +170,9 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 		add(l.group === 'Rack' || l.group === 'VCM' ? 'Racks' : l.group === 'Desk / shelf' ? 'Desks & shelves' : 'Rack accessories', l.description !== l.sku ? `${l.sku} - ${l.description}` : l.sku, 'ea', l.qty)
 	}
 	for (const d of p.devices) {
-		const item = d.catalogId ?? (d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`)
+		// no catalogue id: its maker / model when it has them, with what it is
+		const what = d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`
+		const item = d.catalogId ?? (makerModel(d) ? `${makerModel(d)} (${what})` : what)
 		add(d.kind === 'panel' ? 'Panels' : 'Devices', item, 'ea', 1)
 	}
 	// cable: routed (or hand-set) lengths + waste %, in metres with a box estimate; links with no route counted apart
