@@ -69,7 +69,7 @@ describe('sheets', () => {
 
 describe('notes follow the layer rules (Q41)', () => {
 	const vp = (frozen?: string[]) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 }, ...(frozen ? { frozen } : {}) })
-	const text = (id: string, vpId?: string): Shape => ({ type: 'shape', id, sheetId: 'SH', ...(vpId ? { vpId } : {}), geom: { kind: 'text', at: { x: 3000, y: 4000 }, text: 'Hi', size: 3.5 } } as Shape)
+	const text = (id: string, vpId?: string): Shape => ({ type: 'shape', id, sheetId: 'SH', ...(vpId ? { vpId } : {}), geom: { kind: 'text', at: { x: 3000, y: 4000 }, text: 'Hi', sizeMm: 2.5 } } as Shape)
 	const has = (sh: Sheet, t: Shape, o = {}) => sheetDisplayList(new ProjectIndex([...demoProject(), sh, t]), sh, o).some((p) => p.src === t.id)
 	it('a paper note hides with its layer (the Notes layer eye); a tied note also with the viewport’s freeze', () => {
 		const sh = sheet({ viewports: [vp()] }), paper = text('N1'), tied = text('N2', 'V')
