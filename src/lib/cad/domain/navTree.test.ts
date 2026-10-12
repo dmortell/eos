@@ -28,6 +28,13 @@ describe('navigator tree', () => {
 		expect(Number(r.detail!.split(' ')[0])).toBe(before)
 		expect(labels(r.children ?? [])).toContain('V01')
 	})
+	it('a click on a server room or one of its rows selects it (their own Properties), as well as opening its rack view', () => {
+		const find = (ns: NavNode[], key: string): NavNode | undefined => ns.find((n) => n.key === key) ?? ns.map((n) => find(n.children ?? [], key)).find(Boolean)
+		const row = { type: 'rackRow', id: 'RW1', spaceId: 'SR-A', name: '1', order: 0 } as Entity
+		const t = navTree(new ProjectIndex([...demoProject(), row]))
+		expect(find(t, 'room:SR-A')).toMatchObject({ select: 'SR-A', open: { spec: { kind: 'row', spaceId: 'SR-A' } } })
+		expect(find(t, 'row:RW1')).toMatchObject({ select: 'RW1', open: { spec: { kind: 'row', rowId: 'RW1' } } })
+	})
 	it('a search keeps the matches and their parents', () => {
 		const f = filterTree(navTree(ix()), 'a01')
 		expect(labels(f)).toContain('A01')

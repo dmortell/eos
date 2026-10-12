@@ -7,6 +7,7 @@ import { deleteEntities, deleteViewport, deleteImpact, impactText, installedCord
 import { deletePicked } from '../editor/pathSel'
 import { reservePorts } from '../domain/ports'
 import { reorderShapes } from '../domain/shapes'
+import { deleteRoom, deleteRow } from './navActions'
 
 /** Delete acts on the smallest thing picked: a hole (the wall stays), a viewport (the sheet stays), ports (their
  *  reservation; the device stays). Racks holding devices ask first — the devices, links and cords go too. */
@@ -39,6 +40,10 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 		return
 	}
 	if (!ws.selection.length) return
+	// a server room (with its racks, asked) or a row of racks (its racks stay), picked in the Navigator / Racks window
+	const lone = ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
+	if (lone?.type === 'space') { deleteRoom(project, ws, lone.id); return }
+	if (lone?.type === 'rackRow') { deleteRow(project, lone.id); ws.select([]); return }
 	// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
 	const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
 	// a section shown in viewports: keep them as plain elevations (same view direction), or take them off too

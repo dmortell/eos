@@ -141,6 +141,7 @@
 			<InlineName value={g.name} title={summary(g.space, g.racks)} onsave={(t) => rename(g.space, t)} />
 			<span>
 				<!-- room actions (exports) in a menu, so they aren't mistaken for views -->
+				{#if project.index.get(g.space)?.type === 'space'}<button class="place" class:armed={ws.selection.length === 1 && ws.selection[0] === g.space} title="Select the room: its Properties (floor and ceiling, rows, summary)" onclick={() => ws.select([g.space])}>Properties</button>{/if}
 				<button class="acts" title="Room actions (exports)" onclick={(e) => { const b = e.currentTarget.getBoundingClientRect(); roomMenu = { x: b.left, y: b.bottom + 2, space: g.space, name: g.name } }}>⋯</button>
 				{#if onview}<button class="place" title="Open this room's rack view (its racks front / rear) in the active pane" onclick={() => onview({ kind: 'row', spaceId: g.space, face: 'front' })}>Rack view</button>{/if}
 			</span>

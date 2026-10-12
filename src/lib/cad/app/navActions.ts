@@ -45,3 +45,15 @@ export function deleteRoom(project: CadProject, ws: Workspace, id: string): void
 	if (!racks.length && !ports) { go(); return }
 	ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : ''} Undo brings it back.`, 'Delete room', go)
 }
+/** A row of racks goes; its racks stay in the room, in no row (and its hand order goes). One undo step. */
+export function deleteRow(project: CadProject, id: string): void {
+	const w = project.index.get(id)
+	if (w?.type !== 'rackRow') return
+	const racks = project.index.racks.filter((k) => k.rowId === id)
+	const room = project.index.get(w.spaceId)
+	project.store.transact(`Delete row ${w.name}`, (tx) => {
+		tx.del(id)
+		for (const k of racks) tx.put({ ...k, rowId: undefined })
+		if (room?.type === 'space' && room.rackOrder?.[id]) { const { [id]: _, ...rest } = room.rackOrder; tx.put({ ...room, rackOrder: Object.keys(rest).length ? rest : undefined }) }
+	})
+}

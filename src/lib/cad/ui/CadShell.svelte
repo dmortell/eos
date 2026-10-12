@@ -132,7 +132,9 @@
 		else if (how === 'open' || how === 'keep') tabs.open(i, view, how === 'keep', project.rev)
 		panes[i] = s
 		void tick().then(() => {
-			const keep = ws.selection.filter((id) => canvases.some((c) => c?.draws(id)))
+			// a server room or a row picked in the Navigator / Racks window has Properties but isn't drawn: it stays
+			const listed = (id: string) => { const t = project.index.get(id)?.type; return t === 'space' || t === 'rackRow' }
+			const keep = ws.selection.filter((id) => listed(id) || canvases.some((c) => c?.draws(id)))
 			if (keep.length !== ws.selection.length) ws.select(keep)
 		})
 	}

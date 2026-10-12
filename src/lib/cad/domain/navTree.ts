@@ -53,10 +53,10 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 			const rs = rows.filter((w) => w.spaceId === r.id).sort((a, b) => a.order - b.order)
 			const n = racks.filter((k) => k.kind !== 'vcm').length   // cable managers are listed, not counted (Dave 2026-10-10)
 			return {
-				key: `room:${r.id}`, label: r.name, detail: `${n} rack${n === 1 ? '' : 's'}`, kind: 'room', id: r.id,
+				key: `room:${r.id}`, label: r.name, detail: `${n} rack${n === 1 ? '' : 's'}`, kind: 'room', id: r.id, select: r.id,
 				open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } },
 				children: [
-					...rs.map((w): NavNode => ({ key: `row:${w.id}`, label: `Row ${w.name}`, kind: 'row', open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front', rowId: w.id } } })),
+					...rs.map((w): NavNode => ({ key: `row:${w.id}`, label: `Row ${w.name}`, kind: 'row', id: w.id, select: w.id, open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front', rowId: w.id } } })),
 					...racks.map((k: Rack): NavNode => ({ key: `rack:${k.id}`, label: k.name, kind: 'rack', id: k.id, select: k.id, detail: k.patchFrame ? 'frame' : undefined, open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } } })),
 				],
 			}

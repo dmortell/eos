@@ -16,7 +16,7 @@
 	const ALIGN: [AlignHow, string][] = [['left', 'alignLeftEdges'], ['centre', 'alignCentresX'], ['right', 'alignRightEdges'], ['top', 'alignTopEdges'], ['middle', 'alignMiddlesY'], ['bottom', 'alignBottomEdges'], ['across', 'distributeX'], ['down', 'distributeY']]
 	const KIND: Record<string, [string, string]> = {
 		outlet: ['Outlet', 'circleDot'], rack: ['Rack', 'server'], device: ['Device', 'pcCase'], sheet: ['Sheet', 'fileText'], cord: ['Patch cord', 'cable'],
-		section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], level: ['Level', 'layers'],
+		section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], rackRow: ['Row of racks', 'rows'], level: ['Level', 'layers'],
 	}
 	const SHAPE: Record<string, [string, string]> = {
 		wall: ['Wall', 'brickWall'], containment: ['Run', 'route'], opening: ['Opening', 'opening'], riser: ['Riser', 'route'], penetration: ['Penetration', 'opening'],
@@ -27,6 +27,7 @@
 		// several: what they are, "3 racks · 5 outlets"
 		if (!one) { const ks = selectionKinds(items); return [countsText(ks.map((k) => [k.items.length, k.one, k.many])), ks.length === 1 ? (KIND[ks[0].key]?.[1] ?? 'copy') : 'copy'] }
 		if (one.type === 'sheet' && ws.viewportId) return ['Viewport', 'panels']
+		if (one.type === 'space' && one.kind === 'server room') return ['Server room', 'server']
 		if (one.type === 'shape') {
 			const r = one.role?.kind === 'containment' ? (one.role.form === 'conduit' ? ['Conduit', 'rows'] : ['Trunk', 'route']) as [string, string] : undefined
 			return r ?? SHAPE[one.role?.kind ?? ''] ?? (one.extent ? ['Box', 'box'] : SHAPE[one.geom.kind] ?? [one.geom.kind, 'rect'])

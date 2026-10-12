@@ -2818,3 +2818,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   group. The header says "3 racks · 5 outlets" instead of "8 items" (`PropsHeader`). The Renumber group renders
   after the header (it sat above it, so the header jumped). `PropGroup` takes an `id` for remembering its fold when
   the title carries a count. Help: "Edit several things at once (Properties)".
+- **R65 Rooms and rows have their own Properties (Dave agreed 2026-10-12):** a server room or a row of racks is
+  selected from the Navigator (its room / row row — `domain/navTree.ts` gives them `select`, tested; the rack view
+  still opens), the Racks window's room header (new **Properties** button) or a rack's **Room … ›** link (it replaces
+  the rack's "for every rack in …" Room floor / ceiling fields). The shell keeps such a selection when a view opens
+  (they aren't drawn; `CadShell` `setPane`). `ui/RoomProps.svelte`: General (name, code — the server-room letter of
+  port labels, level) · Floor and ceiling (`Space.floorMm` / `ceilingMm`) · Rows (rename, containment, ▲ ▼ order, ✕,
+  + Row; the count selects the row) · Summary (racks and how many aren't on the plan, devices, panels, panel ports
+  used / free, outlets it serves and their ports) · Open rack view, Place racks on the plan (opens the plan, arms the
+  first unplaced), Delete room… (`app/navActions.ts` `deleteRoom`, asks when racks go). `ui/RackRowProps.svelte`:
+  name, containment, a link to its room, its racks in the rack view's order (a click selects one), Open row view.
+  Delete (key / header) on a room = `deleteRoom`, on a row = new `deleteRow` (its racks stay, in no row; its hand order
+  goes). The Racks window keeps its own controls. Help: the room / row and floor / ceiling how-tos.

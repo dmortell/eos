@@ -31,6 +31,8 @@
 	import ShapesMultiProps from './ShapesMultiProps.svelte'
 	import BackboneProps from './BackboneProps.svelte'
 	import MakeBlock from './MakeBlock.svelte'
+	import RoomProps from './RoomProps.svelte'
+	import RackRowProps from './RackRowProps.svelte'
 	import './props.css'
 
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
@@ -88,6 +90,10 @@
 		<RackProps {project} {ws} racks={[one]} />
 	{:else if one.type === 'device'}
 		<DeviceProps {project} {ws} devices={[one]} />
+	{:else if one.type === 'space'}
+		<RoomProps {project} {ws} room={one} />
+	{:else if one.type === 'rackRow'}
+		<RackRowProps {project} {ws} row={one} />
 	{:else if one.type === 'link' && one.kind === 'backbone'}
 		<BackboneProps {project} link={one} />
 	{:else if one.type === 'sheet'}

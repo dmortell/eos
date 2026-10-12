@@ -127,6 +127,11 @@
 		{#snippet extra()}<option value={NEW_ROOM}>New server room…</option>{/snippet}
 	</SelectField>
 	{@render nameBox('room')}
+	{#if !sameRoom.mixed && sameRoom.value}
+		<!-- the room's own settings (floor, ceiling, rows) are on the room: this selects it -->
+		{@const room = project.index.get(sameRoom.value)}
+		{#if room?.type === 'space'}<div class="acts ind"><button class="lnk" title="Select the room: its floor and ceiling, rows and summary" onclick={() => ws.select([room.id])}>Room {room.name} ›</button></div>{/if}
+	{/if}
 	{#if !sameRoom.mixed && racks[0]}
 		<!-- racks drawn on the plan, then put in a row together (Dave: no row builder) -->
 		<SelectField label="Row" value={sameRow.value ?? ''} mixed={sameRow.mixed} options={[['', '—'], ...rowsIn(racks[0].spaceId).map((row) => [row.id, row.name] as const)]} onchange={setRow}>
@@ -134,20 +139,6 @@
 		</SelectField>
 		{@render nameBox('row')}
 		{#if sameRow.value}<RowProps {project} {ws} rowId={sameRow.value} />{/if}
-	{/if}
-	{#if one}
-		{@const room = project.index.get(one.spaceId)}
-		{#if room?.type === 'space'}
-			<!-- the server room's own floor / ceiling (rack elevation context): the room's, for all its racks -->
-			{@const lv = project.index.get(one.levelId)}
-			{@const levelCeil = lv?.type === 'level' ? lv.heights.clearHeightMm : undefined}
-			<Field label="Room floor" title="The room's floor, mm above the level's FFL (a step up or a sunken slab; − = below). Its racks stand on it — rack views, elevations and cable heights. For every rack in {room.name}.">
-				{#snippet children(id)}<span class="pair">FL <input class="inp" type="number" step="10" aria-labelledby={id} value={room.floorMm ?? ''} placeholder="+0" onchange={(e) => { const v = e.currentTarget.value.trim(); project.store.transact(`${room.name} floor`, (tx) => tx.put({ ...room, floorMm: v === '' || Number(v) === 0 ? undefined : Number(v) })) }} /> mm</span>{/snippet}
-			</Field>
-			<Field label="Room ceiling" title="The room's ceiling, mm above the level's FFL; blank = the level's ceiling. Drawn in its rack views. For every rack in {room.name}.">
-				{#snippet children(id)}<span class="pair">FL <input class="inp" type="number" step="10" aria-labelledby={id} value={room.ceilingMm ?? ''} placeholder={levelCeil != null ? `+${levelCeil} (level)` : 'level'} onchange={(e) => { const v = e.currentTarget.value.trim(); project.store.transact(`${room.name} ceiling`, (tx) => tx.put({ ...room, ceilingMm: v === '' ? undefined : Number(v) })) }} /> mm</span>{/snippet}
-			</Field>
-		{/if}
 	{/if}
 	<CheckField label="Patch frame" text="takes outlets" title="Outlets are allocated to the panels of the room's patch frames (left to right). With none marked, every rack's panels take outlets."
 		checked={racks.every((r) => r.patchFrame)} mixed={racks.some((r) => r.patchFrame) && !racks.every((r) => r.patchFrame)}
@@ -164,3 +155,8 @@
 	<TextField label="Notes" rows={one ? 2 : 0} value={rk((r) => r.notes).value} mixed={rk((r) => r.notes).mixed} onchange={(v) => set('Rack notes', { notes: v || undefined })} />
 	<p class="muted">{deviceCounts(racks.flatMap((r) => project.index.devicesIn(r.id)))}{racks.length > 1 ? ` in ${racks.length} racks` : ''}</p>
 </PropGroup>
+
+<style>
+	.lnk { color: var(--cad-link, #2563eb); }
+	.lnk:hover { text-decoration: underline; }
+</style>
