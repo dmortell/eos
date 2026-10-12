@@ -3207,3 +3207,4 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   chips, Help's featured card and the view strip became `--cad-*` tokens; new tokens `--cad-sel-line`, `--cad-sel-text`,
   `--cad-feature` (light + Kestrel Dark in `ui/CadShell.svelte`); the shell's top bars use `--cad-panel` / `--cad-line`.
   Solid blue accents (primary buttons, focus rings) and the drawing canvas keep their colors.
+- **Q47** frame label sheets and panel labels for a whole level or the whole project: File › Export › “Frame label sheets — this level / all levels (Excel)” (a sheet per frame, every server room) and “Panel labels — this level / all levels (Excel)” (then the Mark printed offer) (`render/exports.ts` `roomsWithRacks`, `panelLabelRows(ix, room, level)`, `exportPanelLabels(…, room, level)`; `ui/Exports.svelte` `frameSheets` / `panelLabels`; `ui/cadMenus.ts`). The per-room ⋯ items in the Racks window stay. Help; test.

@@ -15,6 +15,8 @@ export interface Menu { label: string; items: MenuItem[] }
 export interface MenuCtx {
 	// File
 	outletSchedule(all: boolean): void
+	/** File › Export › Frame label sheets / Panel labels — this level or all levels (Q47). */
+	frameSheets(all: boolean): void; panelLabels(all: boolean): void
 	dxf(): void
 	pdfAllSheets(): void
 	hasSheets: boolean
@@ -89,6 +91,10 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Export', children: [
 				{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
 				{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
+				{ label: 'Frame label sheets — this level (Excel)', title: 'Every server room on this level: a sheet per frame, labels colored by usage (A3)', run: () => c.frameSheets(false) },
+				{ label: 'Frame label sheets — all levels (Excel)', run: () => c.frameSheets(true) },
+				{ label: 'Panel labels — this level (Excel)', title: 'Every port label of the server rooms on this level, for the label printer', run: () => c.panelLabels(false) },
+				{ label: 'Panel labels — all levels (Excel)', run: () => c.panelLabels(true) },
 				{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
 				'-',
 				{ label: 'Bill of materials…', run: c.bom },

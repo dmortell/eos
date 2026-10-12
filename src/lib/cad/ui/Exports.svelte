@@ -15,7 +15,10 @@
 	import { displayListToDxf } from '../render/dxf'
 	import { applyLayers } from '../views/layers'
 	import { download, fileSafe } from '../render/download'
-	import { exportPortMap } from '../render/exports'
+	import { exportPortMap, exportPanelLabels, roomsWithRacks } from '../render/exports'
+	import { exportFrameSheets } from '../render/frameSheets'
+	import { markPrinted } from '../domain/ports'
+	import type { Device } from '../domain/types'
 	import { portMapPick } from '../domain/portMap'
 
 	/** `roomId` = the cord BOM's "this room" (the open rack view's, else the selection's). */
@@ -26,6 +29,25 @@
 	export async function outletSchedule(all: boolean) {
 		try { await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
+	}
+	/** Frame label sheets (Excel) for every server room on this level, or on all levels (Q47). */
+	export async function frameSheets(all: boolean) {
+		const rooms = roomsWithRacks(project.index, all || !level ? undefined : level.id)
+		try {
+			const r = await exportFrameSheets(project.index, projectName, rooms, false)
+			tell(r.racks ? `${r.racks} frame(s) exported from ${rooms.length} room(s)` : `No racks with patch panels ${all || !level ? 'in the project' : `on ${level.name}`}`)
+		} catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
+	}
+	/** Panel labels (Excel) for every server room on this level, or on all levels; then the usual "Mark printed" offer (Q47). */
+	export async function panelLabels(all: boolean) {
+		try {
+			const lv = all || !level ? undefined : { id: level.id, name: level.name }
+			const r = await exportPanelLabels(project.index, projectName, undefined, lv)
+			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
+			if (!panels.length) { tell(r.rows ? `${r.rows} port labels exported` : 'No patch panels to label'); return }
+			ws.ask2(`${r.rows} port labels exported. Mark the ${panels.length} panel(s) as printed?`, 'Mark printed',
+				() => { const now = Date.now(); project.store.transact('Panel labels printed', (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
+		} catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
 	/** The open plan as DXF — the same display list as the screen, your hidden layers left out (floorplan images too). */
 	export function dxf() {

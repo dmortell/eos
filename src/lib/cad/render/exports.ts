@@ -181,9 +181,16 @@ export async function importCordIds(file: File, ix: ProjectIndex, spaceId?: Id):
 
 export const LABEL_HEAD = ['Room', 'Rack', 'Panel', 'U', 'Port', 'Label', 'Outlet']
 
+/** The rooms holding racks, in name order — only those on one level when `levelId` is given. */
+export function roomsWithRacks(ix: ProjectIndex, levelId?: Id): Id[] {
+	return [...new Set(ix.racks.map((r) => r.spaceId))]
+		.filter((id) => !levelId || (ix.get(id) as { levelId?: Id } | undefined)?.levelId === levelId)
+		.sort((a, b) => naturalCompare(ix.nameOf(a), ix.nameOf(b)))
+}
+
 /** Every panel port's label, panel by panel in fill order (room, rack in row order, top U down), ports 1…n. */
-export function panelLabelRows(ix: ProjectIndex, spaceId?: Id): (string | number)[][] {
-	const rooms = spaceId ? [spaceId] : [...new Set(ix.racks.map((r) => r.spaceId))].sort((a, b) => naturalCompare(ix.nameOf(a), ix.nameOf(b)))
+export function panelLabelRows(ix: ProjectIndex, spaceId?: Id, levelId?: Id): (string | number)[][] {
+	const rooms = spaceId ? [spaceId] : roomsWithRacks(ix, levelId)
 	const out: (string | number)[][] = []
 	for (const room of rooms) {
 		for (const d of panelsInFillOrder(ix, room)) for (let n = 1; n <= d.portCount; n++) {
@@ -194,8 +201,14 @@ export function panelLabelRows(ix: ProjectIndex, spaceId?: Id): (string | number
 	return out
 }
 
-export async function exportPanelLabels(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }): Promise<{ rows: number; panels: Id[] }> {
-	const rows = panelLabelRows(ix, room?.id)
+const inScope = (ix: ProjectIndex, d: Device, roomId?: Id, levelId?: Id) => {
+	const sp = (ix.get(d.rackId) as Rack | undefined)?.spaceId
+	return roomId ? sp === roomId : levelId ? !!sp && (ix.get(sp) as { levelId?: Id } | undefined)?.levelId === levelId : true
+}
+
+/** One room's panel labels, or (no room) a level's, or every room's. */
+export async function exportPanelLabels(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, level?: { id: Id; name: string }): Promise<{ rows: number; panels: Id[] }> {
+	const rows = panelLabelRows(ix, room?.id, level?.id)
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Panel labels')
@@ -205,8 +218,8 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 	;[14, 12, 24, 5, 6, 22, 12].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 	for (const r of rows) ws.addRow(r)
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
-	download(await wb.xlsx.writeBuffer(), `PanelLabels-${fileSafe(projectName)}${room ? `-${fileSafe(room.name)}` : ''}-${today()}.xlsx`, XLSX)
-	const panels = ix.devices.filter((d) => d.kind === 'panel' && (!room || (ix.get(d.rackId) as Rack | undefined)?.spaceId === room.id)).map((d) => d.id)
+	download(await wb.xlsx.writeBuffer(), `PanelLabels-${fileSafe(projectName)}${room || level ? `-${fileSafe((room ?? level)!.name)}` : ''}-${today()}.xlsx`, XLSX)
+	const panels = ix.devices.filter((d) => d.kind === 'panel' && inScope(ix, d, room?.id, level?.id)).map((d) => d.id)
 	return { rows: rows.length, panels }
 }
 

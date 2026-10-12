@@ -1,6 +1,6 @@
 // Phase 3.6 spreadsheets: the tables they write, and cord IDs coming back.
 import { describe, it, expect } from 'vitest'
-import { patchScheduleRows, panelLabelRows, importCordIds, cordsForSchedule, scheduleSheets, sheetName, cordRoom, PATCH_HEAD } from './exports'
+import { patchScheduleRows, panelLabelRows, roomsWithRacks, importCordIds, cordsForSchedule, scheduleSheets, sheetName, cordRoom, PATCH_HEAD } from './exports'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Cord } from '../domain/types'
@@ -115,5 +115,13 @@ describe('panel labels', () => {
 		expect(rows).toHaveLength(24)
 		expect(rows[0]).toEqual(['IDF-A', 'A01', 'Panel 1', 40, 1, '33-001.A', '33-001'])
 		expect(rows[9][5]).toBe('')
+	})
+	it('for a level: the rooms on that level only (Q47)', () => {
+		const i = ix()
+		expect(roomsWithRacks(i)).toEqual(['SR-A'])
+		expect(roomsWithRacks(i, 'L33')).toEqual(['SR-A'])
+		expect(roomsWithRacks(i, 'L99')).toEqual([])
+		expect(panelLabelRows(i, undefined, 'L33')).toHaveLength(24)
+		expect(panelLabelRows(i, undefined, 'L99')).toHaveLength(0)
 	})
 })
