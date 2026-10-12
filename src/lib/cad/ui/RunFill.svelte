@@ -94,7 +94,7 @@
 			{#if p.round}<circle r={p.w / 2} class="wall" />{:else}<rect x={-p.w / 2} y={-p.h / 2} width={p.w} height={p.h} class="wall" />{/if}
 			{#each p.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
 		</svg>
-		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}</p>
+		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}{p.capped ? ` · first ${p.cables.length + p.dropped} drawn` : ''}</p>
 		<select class="inp tosheet" value="" title="This segment’s section, its fill % and its cables as a viewport on a sheet (at 1:1, the section at a true scale)" onchange={(e) => { toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">Put on sheet…</option>
 			<option value="new">New sheet</option>

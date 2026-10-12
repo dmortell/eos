@@ -48,6 +48,7 @@ export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id,
 		out.push(note(y += 4.5, `${sec.round ? `Ø${inside.w}` : `${inside.w}×${inside.h}`} inside · section 1:${n}`))
 		out.push(note(y += 4, cableCountText(f)))
 		if (p.dropped) out.push(note(y += 4, `${p.dropped} cable${p.dropped === 1 ? '' : 's'} don’t fit`, TONE.over))
+		if (p.capped) out.push(note(y += 4, `first ${p.cables.length + p.dropped} drawn (${p.capped} more not shown)`))
 	} else out.push(note(y += 1, `${pctText(f.pct)} — the run has no section size`, TONE.over))
 	// the cables by type, each with its color
 	const label = (t: string) => settings?.cableTypes.find((c) => c.id === t)?.label ?? t

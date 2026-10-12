@@ -51,4 +51,9 @@ describe('fill', () => {
 		expect(Math.max(...p.cables.map((c) => c.y))).toBeCloseTo(22 - 4.5)   // settled on the inside bottom
 		expect(packCables({ w: 20, h: 20, round: true }, { cat6a: 50 }, () => 9).dropped).toBeGreaterThan(40)
 	})
+	it('cables past the drawing cap are counted as capped, not as "don’t fit" (Q27)', () => {
+		const p = packCables({ w: 600, h: 600 }, { cat6a: 450 }, () => 2)
+		expect([p.cables.length, p.dropped, p.capped]).toEqual([400, 0, 50])
+		expect(packCables({ w: 100, h: 50 }, { cat6a: 10 }, () => 9).capped).toBe(0)
+	})
 })

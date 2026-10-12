@@ -140,7 +140,7 @@ export function fillByRun(fills: Map<string, SegFill>): Map<Id, SegFill> {
 /** green / amber (from ¾ of the limit) / red (over it). */
 export const fillTone = (pct: number, limit = FILL_LIMIT_PCT): 'ok' | 'warn' | 'over' => (pct > limit ? 'over' : pct >= limit * 0.75 ? 'warn' : 'ok')
 
-export interface Packed { round: boolean; w: number; h: number; cables: { x: number; y: number; r: number; type: string }[]; dropped: number }
+export interface Packed { round: boolean; w: number; h: number; cables: { x: number; y: number; r: number; type: string }[]; dropped: number; /** cables past `max`, never tried (the picture draws the first `max`) */ capped: number }
 
 /** Cables laid in the section, largest first, each settling as low as it fits (+y = down), centred on the origin. */
 export function packCables(s: Section, cables: Record<string, number>, od: (type: string) => number, max = 400): Packed {
@@ -149,7 +149,7 @@ export function packCables(s: Section, cables: Record<string, number>, od: (type
 	const take = all.slice(0, max)
 	const placed: Packed['cables'] = []
 	const hits = (x: number, y: number, r: number) => placed.some((p) => Math.hypot(x - p.x, y - p.y) < r + p.r - 0.05)
-	let dropped = all.length - take.length
+	let dropped = 0
 	for (const c of take) {
 		const r = c.r, step = Math.max(0.5, r / 2)
 		let at: { x: number; y: number } | null = null
@@ -163,5 +163,5 @@ export function packCables(s: Section, cables: Record<string, number>, od: (type
 		if (at) placed.push({ ...at, r, type: c.type })
 		else dropped++
 	}
-	return { round, w, h, cables: placed, dropped }
+	return { round, w, h, cables: placed, dropped, capped: all.length - take.length }
 }

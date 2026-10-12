@@ -3268,3 +3268,4 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q24** DXF layer names: `,` joins the characters `ownName` replaces (`render/dxf.ts`). Test in `render/dxf.test.ts`.
 - **Q25** a pasted / Ctrl-copied panel no longer carries the original's `labelsPrintedAt` / `printedLabels` (it said its labels changed since printing), and its port reservations get new ids (`fresh()` in `domain/clipboard.ts`, used by both paste paths). Test in `domain/clipboard.test.ts`.
 - **Q26** `fileSafe` (`render/download.ts`) kept `\w` only, so a Japanese project name became underscores in every download name; it now keeps letters and digits of any script (`/[^\p{L}\p{N}._-]+/gu`). Test in `render/download.test.ts`.
+- **Q27** the fill picture counted cables past its 400 cap as "don’t fit". `packCables` now returns `capped` (never tried) apart from `dropped` (tried, no room); the sheet legend and Properties › Fill say "first N drawn". Test in `domain/fill.test.ts`.
