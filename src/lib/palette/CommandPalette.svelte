@@ -88,7 +88,15 @@
 	$effect(() => { void results; index = 0 })
 
 	function close() { palette.open = false; query = '' }
-	function pick(it: Item) { close(); goto(it.url) }
+	/** cad route of this project (/projects/<pid>/cad): it has its own Ctrl+K (Find) and reads its URL only once. */
+	const onCad = () => /^\/projects\/[^/]+\/cad\/?$/.test(page.url.pathname)
+	function pick(it: Item) {
+		close()
+		// a level / sheet of the cad page that is already open goes to that page (it opens it in its tab), not just the URL
+		const u = new URL(it.url, location.origin)
+		if (onCad() && u.pathname === page.url.pathname) window.dispatchEvent(new CustomEvent('cad-open', { detail: u.search }))
+		else goto(it.url)
+	}
 
 	$effect(() => {
 		if (palette.open) {
@@ -99,6 +107,7 @@
 
 	function onWindowKey(e: KeyboardEvent) {
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+			if (e.defaultPrevented || onCad()) return   // cad's Ctrl+K is its own Find
 			e.preventDefault()
 			palette.open = !palette.open
 		}
