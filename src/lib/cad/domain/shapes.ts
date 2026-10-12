@@ -149,6 +149,8 @@ export interface Opening {
 	h: number
 	swing?: 'left' | 'right'
 	flip?: boolean
+	/** Brought in from a Pages opening box (`pages:<modelId>:<objId>`, File › Import legacy drawings): importing it again skips it. */
+	importedFrom?: string
 }
 
 /** A mark on a line's end: a filled arrow, a dot, or an architectural tick. */

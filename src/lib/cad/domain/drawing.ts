@@ -208,6 +208,9 @@ export interface SectionCut {
 	b: Pt
 	depth: number
 	flip?: boolean
+	/** Made for a Sheets-tool elevation's clip box (`sheets:<sheetId>:<viewportId>`, File › Import legacy drawings):
+	 *  importing that sheet again uses this section instead of cutting another. */
+	importedFrom?: string
 }
 
 export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SheetPackage | SectionCut

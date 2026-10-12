@@ -2630,3 +2630,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R58 One icon per meaning:** Split = two columns, Hide every window = eye-off, float a window / the tables =
   picture-in-picture, maximise the tables = maximise, Select similar = sparkles (they shared panels / expand / copy with
   the Viewport tool, the Copy tool and each other) (`$lib/ui/Icon.svelte` + `columns`, `maximize`, `pip`).
+- **Import legacy drawings — Dave's answers:** a clipped model3d elevation (the comms elevations) → a cad SECTION on
+  its clip box (`drawingsSheets.ts` `clipSection`: the cut along the box's near face as seen from that direction, a → b
+  the way the named elevation's u runs so it looks the same way unflipped, depth = the box's depth), named from the
+  sheet title ("Comms1 elevation" → Comms1, "3303 Comms 2 Elevation" → Comms 2, unique per level), stamped
+  `sheets:<sheet>:<viewport>` so a re-import reuses it; the viewport shows the section and it and its tied notes shift
+  by the constant u offset (tested: a near-face point and a note on it land on the same paper point in all four
+  directions). Pages opening boxes → real openings in the imported wall segment under their footprint centre
+  (`drawingsPages.ts` `openingIn`: width = the side along the segment, z / h kept; h ≥ 1800 → a door, hinge side and
+  swing face from Pages' doorGeom), stamped `importedFrom` on the Opening (also counted by `importedKeys`), a box in no
+  imported wall stays a box with a note; walls from an earlier import host them too. Odd viewport scales snap to the
+  nearest standard scale by ratio (1:20.16 → 1:20, 1:35.74 → 1:50), centre kept; notes keep the sizes they were drawn
+  at. A sheet whose viewport's floor doesn't match a level goes by its title ("3307 Sensaphone" → 33F 3307).

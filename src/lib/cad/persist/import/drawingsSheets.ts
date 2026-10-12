@@ -5,11 +5,14 @@
 // elevation in (u, −z) with u from the y-up model3d BASIS — and its annotations are stored in that space. Those are
 // exactly cad's view mm (views/space.ts: plan = plan mm; elevation x = u, y = −z with the named frames of ADR 0004):
 // model3d front u = x, left u = −y_m3 = y_cad, rear u = −x, right u = y_m3 = −y_cad — the same u cad's frames give.
-// So annotation points copy across; only sizes in points become paper mm.
+// So annotation points copy across; only sizes in points become paper mm. The one exception: a model3d elevation
+// clipped to a box comes across as a SECTION on that box (clipSection, so nothing in front of the box shows), whose
+// view x is the elevation's shifted by a constant — its notes and its centre shift by that.
 import type { Id, Pt } from '../../domain/types'
 import type { Viewport } from '../../domain/drawing'
 import type { Shape, Geometry, LineEnd } from '../../domain/shapes'
-import type { ElevDir } from '../../domain/conventions'
+import { namedFrame, type ElevDir } from '../../domain/conventions'
+import { SCALES } from '../../views/sheet'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy docs are untyped Firestore data */
 export interface LegacyAnn {
@@ -62,7 +65,37 @@ export function clipFrame(dir: string, c: Clip): { x: number; y: number; w: numb
 	return { x: u0 - pad, y: v0 - pad, w: u1 - u0 + 2 * pad, h: v1 - v0 + 2 * pad }
 }
 
-/** The cad viewport for a Sheets viewport: the same window on the paper, the same 1:N and the same part of the view.
+/** A model3d elevation's clip box as a cad SECTION cut: along the box's NEAR face as seen from `dir` (every view looks
+ *  along −n of its frame, ADR 0004), across the box's width, `depth` = the box's depth that way — so the section shows
+ *  what is inside the box and nothing in front of it. a → b runs the way the named elevation's u runs, so the section
+ *  (looking to the line's left, no flip) looks the same way as the elevation did. `du` = what to add to a view x in the
+ *  named elevation to get the section's (its u starts at a; view y = −z in both). */
+export function clipSection(dir: ElevDir, c: Clip): { a: Pt; b: Pt; depth: number; du: number } {
+	const f = namedFrame(dir)
+	const dot = (p: Pt, v: Pt) => p.x * v.x + p.y * v.y
+	// the box's footprint in cad plan mm (y_cad = −y_m3)
+	const corners = [{ x: c.x0, y: -c.y0 }, { x: c.x1, y: -c.y0 }, { x: c.x1, y: -c.y1 }, { x: c.x0, y: -c.y1 }]
+	const nearN = Math.max(...corners.map((p) => dot(p, f.n))), farN = Math.min(...corners.map((p) => dot(p, f.n)))
+	const face = corners.filter((p) => Math.abs(dot(p, f.n) - nearN) < 1e-6).sort((p, q) => dot(p, f.t) - dot(q, f.t))
+	const a = face[0], b = face.at(-1)!
+	return { a, b, depth: nearN - farN, du: -dot(a, f.t) || 0 }
+}
+
+/** A section's name from its sheet's title: "Comms1 elevation" → "Comms1", "3303 Comms 2 Elevation" → "Comms 2" (the
+ *  word "elevation" and a leading office number dropped), kept unique among `taken`. */
+export function sectionNameFor(title: string, taken: Set<string>): string {
+	const base = title.replace(/\belevations?\b/gi, '').replace(/^\s*\d{3,}\s+/, '').replace(/\s+/g, ' ').trim() || 'Section'
+	let name = base
+	for (let i = 2; taken.has(name); i++) name = `${base} (${i})`
+	return name
+}
+
+/** The standard scale (views/sheet.ts SCALES) nearest an odd one, by ratio: 1:20.16 → 1:20, 1:35.74 → 1:50. */
+export function nearestScale(n: number): number {
+	return SCALES.reduce((best, s) => (Math.abs(Math.log(s / n)) < Math.abs(Math.log(best / n)) ? s : best), SCALES[0])
+}
+
+/** The cad viewport for a Sheets viewport:the same window on the paper, the same 1:N and the same part of the view.
  *  `fit` places one the Sheets tool fitted to its content (scale 0) — or, with a scale but no pan, centres it —
  *  using cad's content; without it, the annotations' middle at 1:100. `needsFit` says it was placed that way. */
 export function viewportOf(v: LegacyVp, levelId: Id, id: Id, o: { frozen?: Id[]; fit?: (vp: Viewport) => Pick<Viewport, 'centre' | 'scale'> } = {}): { vp: Viewport; fitted: boolean } | { skip: string } {

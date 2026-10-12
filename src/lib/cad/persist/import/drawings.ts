@@ -1,19 +1,24 @@
 // File › Import legacy drawings: a FEW chosen legacy drawings brought into cad once, by choice (not a bulk importer).
 // Pure: the raw docs (persist/import/legacyDrawings.ts fetches them, read-only) + what the user ticked + the project's
 // entities now → the entities to put, in ONE transaction, and notes on what didn't come across.
-//  - a Pages model's boxes and walls → shapes on a level (./drawingsPages.ts), on the cad layer of the same name;
-//  - a Sheets-tool sheet → a cad sheet with its viewport and the viewport's annotations as tied notes (./drawingsSheets.ts).
-// Everything imported is stamped `importedFrom`, and a stamped item is skipped next time, so importing again adds only
-// what's new.
+//  - a Pages model's boxes and walls → shapes on a level (./drawingsPages.ts), on the cad layer of the same name; its
+//    opening boxes → holes / doors in the imported walls they sit in;
+//  - a Sheets-tool sheet → a cad sheet with its viewport and the viewport's annotations as tied notes (./drawingsSheets.ts);
+//    a model3d elevation clipped to a box → a section on that box, and the viewport shows the section. Odd scales snap
+//    to the nearest standard one.
+// Everything imported is stamped `importedFrom` (shapes, sheets, sections, openings), and a stamped item is skipped next
+// time, so importing again adds only what's new.
 import type { Id, Level } from '../../domain/types'
-import type { Entity, Group, Layer, Sheet, Viewport } from '../../domain/drawing'
-import type { Shape } from '../../domain/shapes'
+import type { Entity, Group, Layer, SectionCut, Sheet, Viewport } from '../../domain/drawing'
+import { moveGeometry, type Shape } from '../../domain/shapes'
 import { freezeInExisting } from '../../domain/layers'
 import { newId } from '../../domain/ids'
-import { blankSheet, PAPER } from '../../views/sheet'
+import { blankSheet, PAPER, SCALES } from '../../views/sheet'
+import { sectionFrame } from '../../views/section'
+import { namedFrame, type ElevDir } from '../../domain/conventions'
 import { floorOfDocId } from './ctx'
-import { LayerPlan, layerName, pagesKey, prismShape, wallShape, type PagesModel } from './drawingsPages'
-import { annLayer, annotationShapes, specOf, viewportOf, type LegacySheetDoc, type LegacyVp } from './drawingsSheets'
+import { LayerPlan, layerName, openingIn, pagesKey, prismShape, wallShape, type PagesModel, type PagesPrism } from './drawingsPages'
+import { annLayer, annotationShapes, clipSection, nearestScale, sectionNameFor, viewportOf, type Clip, type LegacySheetDoc, type LegacyVp } from './drawingsSheets'
 
 export type { PagesModel } from './drawingsPages'
 export type { LegacySheetDoc } from './drawingsSheets'
@@ -40,8 +45,21 @@ export interface DrawingsPlan {
 	entities: Entity[]
 	/** What didn't come across, or came across differently — shown in the dialog. */
 	notes: string[]
-	counts: { boxes: number; walls: number; sheets: number; notes: number; layers: string[]; already: number }
+	counts: { boxes: number; walls: number; openings: number; sheets: number; sections: number; notes: number; layers: string[]; already: number }
 }
+
+/** The stamps of everything already imported: entities' `importedFrom`, and the openings inside walls. */
+export function importedKeys(entities: Iterable<Entity>): Set<string> {
+	const out = new Set<string>()
+	for (const e of entities) {
+		const k = (e as { importedFrom?: string }).importedFrom
+		if (k) out.add(k)
+		if (e.type === 'shape' && e.role?.kind === 'wall') for (const o of e.role.openings) if (o.importedFrom) out.add(o.importedFrom)
+	}
+	return out
+}
+
+const r2 = (v: number) => Math.round(v * 100) / 100
 
 /** The Sheets tool's fixed layers. */
 const SHEET_LAYERS = ['outlets', 'trunks', 'racks', 'devices', 'rooms', 'ladders', 'cables', 'annotations']
@@ -82,22 +100,22 @@ export function levelForViewport(src: DrawingsSource, v: LegacyVp, levels: Level
 	return undefined
 }
 
-/** The level a whole sheet suggests (its first viewport that tells). */
+/** The level a whole sheet suggests: its first viewport that tells, else its title ("3307 Sensaphone", whose viewport
+ *  shows an old floor doc, → the 3307 area's plan). */
 export function levelForSheet(src: DrawingsSource, s: LegacySheetDoc, levels: Level[]): Id | undefined {
 	for (const v of s.viewports ?? []) { const l = levelForViewport(src, v, levels); if (l) return l }
-	return undefined
+	return s.title ? levelForName(s.title, levels) : undefined
 }
 
 /** Build the import (nothing is written). `fit` places a viewport the Sheets tool fitted to its content (cad's own fit);
  *  without it one is centred on its annotations. */
 export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existing: Entity[], o: { makeId?: () => Id; fit?: (vp: Viewport) => Pick<Viewport, 'centre' | 'scale'> } = {}): DrawingsPlan {
 	const makeId = o.makeId ?? newId
-	const done = new Set<string>()
-	for (const e of existing) { const k = (e as { importedFrom?: string }).importedFrom; if (k) done.add(k) }
+	const done = importedKeys(existing)
 	const levels = existing.filter((e): e is Level => e.type === 'level')
 	const layers = new LayerPlan(existing.filter((e): e is Layer => e.type === 'layer'), makeId)
 	const out: Entity[] = [], notes: string[] = []
-	const counts: DrawingsPlan['counts'] = { boxes: 0, walls: 0, sheets: 0, notes: 0, layers: [], already: 0 }
+	const counts: DrawingsPlan['counts'] = { boxes: 0, walls: 0, openings: 0, sheets: 0, sections: 0, notes: 0, layers: [], already: 0 }
 
 	// ── Pages models: boxes and walls ──
 	for (const c of choice.models) {
@@ -106,7 +124,11 @@ export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existi
 		const groups = new Map<string, Group>()
 		const left: Record<string, number> = {}
 		const leave = (why: string) => { left[why] = (left[why] ?? 0) + 1 }
-		let openings = 0
+		// the walls this model's openings can sit in: imported now, or by an earlier import onto this level
+		const prefix = `pages:${m.id}:`
+		const hosts = new Map<Id, Shape>()
+		for (const e of existing) if (e.type === 'shape' && e.role?.kind === 'wall' && e.levelId === c.levelId && e.importedFrom?.startsWith(prefix)) hosts.set(e.id, e)
+		const holes: { ob: PagesPrism; key: string; box: () => Shape }[] = []
 		;(m.objects ?? []).forEach((ob, i) => {
 			if (ob.type !== 'prism' && ob.type !== 'wall') return
 			if (!(ob.type === 'prism' ? c.prism : c.wall)) return
@@ -119,20 +141,31 @@ export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existi
 				if (!groups.has(ob.groupId)) groups.set(ob.groupId, { type: 'group', id: makeId(), name: `${m.name} group` })
 				groupId = groups.get(ob.groupId)!.id
 			}
-			const x = { layerId: layers.resolve(lname, color), groupId, importedFrom: key }
-			const s = ob.type === 'prism' ? prismShape(ob, c.levelId, x, makeId) : wallShape(ob, c.levelId, x, makeId)
+			const x = () => ({ layerId: layers.resolve(lname, color), groupId, importedFrom: key })
+			// an opening waits for every wall to be made, then goes into the one it sits in (else it stays a box)
+			if (ob.type === 'prism' && (ob.open || m.layers?.some((l) => l.id === ob.layer && l.opening))) { holes.push({ ob, key, box: () => prismShape(ob, c.levelId, x(), makeId) }); return }
+			const s = ob.type === 'prism' ? prismShape(ob, c.levelId, x(), makeId) : wallShape(ob, c.levelId, x(), makeId)
 			if (!s) { leave('wall with no segments'); return }
 			if (ob.type === 'prism') {
 				counts.boxes++
-				if (ob.open || m.layers?.some((l) => l.id === ob.layer && l.opening)) openings++
 				if (ob.rotX || ob.rotY) leave('tilt (cad boxes stand upright; the box came across upright)')
 				if (Math.round(ob.edges ?? 4) !== 4) leave(`${ob.edges}-sided prism (came across as a polygon box)`)
-			} else counts.walls++
+			} else { counts.walls++; hosts.set(s.id, s) }
 			out.push(s)
 			done.add(key)
 		})
+		const changed = new Set<Id>()
+		let loose = 0
+		for (const h of holes) {
+			const r = openingIn(h.ob, [...hosts.values()], h.key, makeId)
+			if (r) { hosts.set(r.wall.id, r.wall); changed.add(r.wall.id); counts.openings++ }
+			else { out.push(h.box()); counts.boxes++; loose++ }
+			done.add(h.key)
+		}
+		// a wall given openings: the one made above, or (from an earlier import) put again with them
+		for (const wid of changed) { const k = out.findIndex((e) => e.id === wid); if (k >= 0) out[k] = hosts.get(wid)!; else out.push(hosts.get(wid)!) }
 		out.push(...[...groups.values()].filter((g) => out.some((e) => (e as Shape).groupId === g.id)))
-		if (openings) notes.push(`${m.name}: ${openings} opening box${openings === 1 ? '' : 'es'} (doors / holes) — Pages cut walls with them; here they are plain boxes, not openings in the walls`)
+		if (loose) notes.push(`${m.name}: ${loose} opening box${loose === 1 ? '' : 'es'} not in an imported wall — came across as plain box${loose === 1 ? '' : 'es'} (tick its walls too, or add the opening with the Opening tool)`)
 		for (const [why, n] of Object.entries(left)) notes.push(`${m.name}: ${n} × ${why}`)
 	}
 	counts.layers = layers.created.map((l) => l.name)
@@ -146,6 +179,24 @@ export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existi
 	// ── Sheets-tool sheets ──
 	const known = new Set([...SHEET_LAYERS, ...src.sheetLayers.map((l) => l.id)])
 	const allSheets = [...sheetsNow.values()]
+	const sections = existing.filter((e): e is SectionCut => e.type === 'section')
+	/** The section a clipped model3d elevation becomes: the one an earlier import made for it, else a new one named from
+	 *  its sheet. `du` = named-elevation view x → the section's. */
+	const sectionFor = (dir: ElevDir, clip: Clip, levelId: Id, skey: string, title: string): { sec: SectionCut; du: number; reused: boolean; turned: boolean } => {
+		const had = sections.find((s) => s.importedFrom === skey)
+		if (had) {
+			// its u starts at its frame's origin; that is a plain shift of the elevation's only while it runs the same way
+			const { f } = sectionFrame(had), t = namedFrame(dir).t
+			return { sec: had, du: -(f.o.x * f.t.x + f.o.y * f.t.y) || 0, reused: true, turned: Math.abs(f.t.x - t.x) > 1e-9 || Math.abs(f.t.y - t.y) > 1e-9 }
+		}
+		const cs = clipSection(dir, clip)
+		const taken = new Set(sections.filter((s) => s.levelId === levelId).map((s) => s.name))
+		const sec: SectionCut = { type: 'section', id: makeId(), levelId, name: sectionNameFor(title, taken), a: cs.a, b: cs.b, depth: cs.depth, importedFrom: skey }
+		sections.push(sec)
+		out.push(sec)
+		counts.sections++
+		return { sec, du: cs.du, reused: false, turned: false }
+	}
 	for (const c of choice.sheets) {
 		const d = src.sheets.find((x) => x.id === c.id)
 		if (!d) continue
@@ -163,23 +214,37 @@ export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existi
 		const skipped: Record<string, number> = {}
 		const skip = (why: string, n = 1) => { skipped[why] = (skipped[why] ?? 0) + n }
 		const vps = d.viewports ?? []
+		const clipped = vps.filter((v) => v.source.kind === 'model3d' && v.source.clip).length
 		for (const v of vps) {
 			const levelId = vps.length > 1 ? levelForViewport(src, v, levels) ?? c.levelId : c.levelId
 			const r = viewportOf(v, levelId, makeId(), { frozen: frozenOf(src, v, layers), fit: o.fit })
 			if ('skip' in r) { skip(r.skip); continue }
-			sheet.viewports.push(r.vp)
-			const sp = specOf(v.source)
-			if (v.source.kind === 'model3d' && v.source.clip && 'spec' in sp && sp.spec.kind === 'elevation')
-				notes.push(`${name}: cad elevations don't clip to a box — the viewport shows the clip box's area, but everything in front of it along the view shows too`)
-			if (r.fitted) notes.push(`${name}: the viewport was fitted to its content in the Sheets tool — placed by cad's fit (1:${r.vp.scale}); check the annotations still line up`)
-			if (!Number.isInteger(r.vp.scale)) notes.push(`${name}: scale 1:${r.vp.scale} kept from the Sheets tool so the notes line up (pick a standard scale in Properties if wanted)`)
+			// the notes keep the sizes they were drawn at (the Sheets tool's 1:N), whatever scale the viewport ends at
+			const den = r.vp.scale
+			let vp = r.vp, du = 0
+			const spec = vp.view.spec
+			if (v.source.kind === 'model3d' && v.source.clip && spec.kind === 'elevation') {
+				// a clipped elevation → a section on its clip box; the view (and so its notes) shifts by du along u
+				const title = clipped > 1 ? `${d.title || name} ${spec.dir}` : d.title || name
+				const cut = sectionFor(spec.dir, v.source.clip, levelId, `${key}:${v.id}`, title)
+				du = cut.du
+				vp = { ...vp, view: { levelId: cut.sec.levelId, spec: { kind: 'section', sectionId: cut.sec.id } }, centre: { x: r2(vp.centre.x + du), y: vp.centre.y } }
+				if (cut.reused) notes.push(`${name}: uses section ${cut.sec.name}, made by an earlier import${cut.turned ? ' and changed since — check the notes still line up' : ''}`)
+			}
+			if (!SCALES.includes(vp.scale)) {
+				const s = nearestScale(vp.scale)
+				notes.push(`${name}: scale 1:${vp.scale} → 1:${s}, the nearest standard scale (centred on the same point)`)
+				vp = { ...vp, scale: s }
+			}
+			sheet.viewports.push(vp)
+			if (r.fitted) notes.push(`${name}: the viewport was fitted to its content in the Sheets tool — placed by cad's fit (1:${vp.scale}); check the annotations still line up`)
 			const lyrMeta = v.source.kind === 'model3d' ? new Set((src.models3d.find((m) => m.id === v.source.modelId)?.layers ?? []).map((l) => l.id)) : new Set<string>()
 			for (const a of v.annotations ?? []) {
 				const lyr = lyrMeta.has(a.layerId ?? '') ? a.layerId! : annLayer(a, known)
 				if (v.layerOverrides?.[lyr]?.hidden) { skip('annotation on a layer hidden in the viewport'); continue }
-				const res = annotationShapes(a, { sheetId: sheet.id, vpId: r.vp.id }, r.vp.scale, `${key}:${a.id}`, makeId)
+				const res = annotationShapes(a, { sheetId: sheet.id, vpId: vp.id }, den, `${key}:${a.id}`, makeId)
 				if (res.skip) skip(res.skip)
-				out.push(...res.shapes)
+				out.push(...(du ? res.shapes.map((s) => ({ ...s, geom: moveGeometry(s.geom, { x: du, y: 0 }) })) : res.shapes))
 				counts.notes += res.shapes.length
 			}
 		}

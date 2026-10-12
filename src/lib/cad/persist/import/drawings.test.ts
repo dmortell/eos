@@ -1,13 +1,16 @@
 // File › Import legacy drawings, against docs shaped like Project Journey's (Pages "Zone 3303", Sheets-tool sheets).
 import { describe, it, expect } from 'vitest'
-import { planDrawings, levelForDocId, levelForName, type DrawingsSource, type DrawingsChoice } from './drawings'
-import { prismShape, wallShape, ngonFootprint, type PagesModel } from './drawingsPages'
-import { annotationShapes, clipFrame, viewportOf, type LegacyVp } from './drawingsSheets'
+import { planDrawings, levelForDocId, levelForName, levelForSheet, type DrawingsSource, type DrawingsChoice } from './drawings'
+import { prismShape, wallShape, ngonFootprint, openingIn, type PagesModel, type PagesPrism } from './drawingsPages'
+import { annotationShapes, clipFrame, clipSection, nearestScale, sectionNameFor, viewportOf, type Clip, type LegacyVp } from './drawingsSheets'
 import { outlineOf, type Shape } from '../../domain/shapes'
 import { validateShape } from '../../domain/validate'
-import { namedFrame, project } from '../../domain/conventions'
+import { namedFrame, project, type ElevDir } from '../../domain/conventions'
+import { planOpenings } from '../../domain/openings'
 import { toPaper } from '../../views/sheet'
-import type { Entity, Sheet } from '../../domain/drawing'
+import { sectionFrame, sectionSpace } from '../../views/section'
+import { spaceOf } from '../../views/space'
+import type { Entity, SectionCut, Sheet } from '../../domain/drawing'
 import type { Level } from '../../domain/types'
 
 let n = 0
@@ -88,6 +91,12 @@ describe('which cad level a legacy drawing goes on', () => {
 		expect(levelForName('Zone 3307', LEVELS)).toBe('L3307')
 		expect(levelForName('Hibiya Midtown', LEVELS)).toBeUndefined()
 	})
+	it('a sheet whose viewport shows an old floor doc goes by its title: "3307 Sensaphone" → the 3307 area plan', () => {
+		const src: DrawingsSource = { pid: 'P', models: [], models3d: [], sheetLayers: [], sheets: [] }
+		const d = { id: 's', title: '3307 Sensaphone', viewports: [{ id: 'v', x: 0, y: 0, w: 100, h: 100, source: { kind: 'outlets', outletsDocId: 'P_F10' } }] }
+		expect(levelForSheet(src, d, LEVELS)).toBe('L3307')
+		expect(levelForSheet(src, { ...d, title: '30F Sensaphone' }, LEVELS)).toBe('L30')
+	})
 })
 
 describe('Sheets annotations → notes tied to the viewport', () => {
@@ -167,13 +176,16 @@ describe('planDrawings (the whole import, one transaction\'s worth)', () => {
 	it('brings the boxes and walls (not the rack, conduits or 2D shapes) onto layers named as in Pages', () => {
 		const p = planDrawings(src, choice, existing, { makeId: id })
 		const shapes = p.entities.filter((e): e is Shape => e.type === 'shape' && !!e.levelId)
-		expect(p.counts.boxes).toBe(4); expect(p.counts.walls).toBe(1)
+		expect(p.counts.boxes).toBe(3); expect(p.counts.walls).toBe(1); expect(p.counts.openings).toBe(1)
 		expect(shapes.every((s) => s.levelId === 'L3303' && s.importedFrom?.startsWith('pages:m-3cQp1Lo:'))).toBe(true)
 		const furniture = p.entities.find((e) => e.type === 'layer' && e.name === 'Furniture')!
 		expect(shapes.find((s) => s.importedFrom === 'pages:m-3cQp1Lo:desk1')!.layerId).toBe(furniture.id)
 		// "Walls" is the system layer of that name — not a second one
 		expect(shapes.find((s) => s.role?.kind === 'wall')!.layerId).toBe('sys:walls')
-		expect(p.counts.layers.sort()).toEqual(['Furniture', 'Openings'])
+		// the door became an opening in the wall, so no "Openings" layer is needed
+		expect(p.counts.layers).toEqual(['Furniture'])
+		const wall = shapes.find((s) => s.role?.kind === 'wall')!
+		expect(wall.role).toMatchObject({ kind: 'wall', openings: [{ at: 950, width: 900, z: 0, h: 2100, importedFrom: 'pages:m-3cQp1Lo:door' }] })
 		expect(p.notes.some((t) => t.includes('R01'))).toBe(true)
 		// the desk in a Pages group is in a cad group
 		expect(shapes.find((s) => s.importedFrom === 'pages:m-3cQp1Lo:desk2')!.groupId).toBeTruthy()
@@ -203,6 +215,145 @@ describe('planDrawings (the whole import, one transaction\'s worth)', () => {
 		const first = planDrawings(src, choice, existing, { makeId: id })
 		const again = planDrawings(src, choice, [...existing, ...first.entities], { makeId: id })
 		expect(again.entities.filter((e) => e.type === 'shape' || e.type === 'sheet' || e.type === 'layer')).toEqual([])
-		expect(again.counts.already).toBe(6)   // 4 boxes + 1 wall + 1 sheet
+		expect(again.counts.already).toBe(6)   // 3 boxes + 1 opening + 1 wall + 1 sheet
+	})
+})
+
+describe('Pages opening boxes → openings in the imported walls', () => {
+	// Journey: a wall running down the sheet, 100 thick; a door 100 × 700 × 2100 and a hole 100 × 200 × 200 in it
+	const wall = wallShape({ type: 'wall', thickness: 100, h: 2700, nodes: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 0, y: 5000 }], segments: [{ id: 's', a: 'a', b: 'b' }] }, 'L', { importedFrom: 'w' }, id)!
+	const door: PagesPrism = { type: 'prism', id: 'd', x: -50, y: 1000, z: 0, w: 100, d: 700, h: 2100, edges: 4, open: 'door' }
+	const hole: PagesPrism = { type: 'prism', id: 'h', x: -50, y: 3000, z: 900, w: 100, d: 200, h: 200, edges: 4 }
+	it('sits on the segment under its footprint centre, as wide as its side along the wall, from its z up its h', () => {
+		const r = openingIn(door, [wall], 'k', id)!
+		expect(r.opening).toMatchObject({ at: 1350, width: 700, z: 0, h: 2100, importedFrom: 'k' })
+		expect(validateShape(r.wall)).toEqual([])
+		const h = openingIn(hole, [r.wall], 'k2', id)!
+		expect(h.opening).toMatchObject({ at: 3100, width: 200, z: 900, h: 200 })
+		expect(h.opening.swing).toBeUndefined()   // below door height: a plain hole
+		expect((h.wall.role as { openings: unknown[] }).openings).toHaveLength(2)
+	})
+	it('a box turned 90° measures its width along the wall all the same', () => {
+		const r = openingIn({ ...door, x: -350, y: 1300, w: 700, d: 100, rot: 90 }, [wall], 'k', id)!
+		expect(r.opening.width).toBe(700)
+		expect(r.opening.at).toBeCloseTo(1350)
+	})
+	it('a door hinges at the jamb Pages drew and its leaf opens to the same side', () => {
+		for (const flip of [false, true]) {
+			const r = openingIn({ ...door, flip }, [wall], 'k', id)!
+			const p = planOpenings(r.wall, r.opening.segId, 100)
+			const [hinge, open] = p.swings[0]
+			// Pages (3dview doorGeom): a door longer along y hinges at its top (bottom when flipped), the leaf opening to −x
+			expect(hinge.y).toBeCloseTo(flip ? 1700 : 1000)
+			expect(open.x).toBeLessThan(hinge.x)
+		}
+	})
+	it('a box in no wall stays out (the caller keeps it as a box)', () => {
+		expect(openingIn({ ...door, x: 2000 }, [wall], 'k', id)).toBeNull()
+	})
+	it('with its walls not ticked and none imported before, an opening box comes as a plain box and says so', () => {
+		const p = planDrawings({ pid: 'P', models: [zone], models3d: [], sheetLayers: [], sheets: [] }, { models: [{ id: zone.id, levelId: 'L3303', prism: true, wall: false }], sheets: [] }, [...LEVELS], { makeId: id })
+		expect(p.counts.openings).toBe(0); expect(p.counts.boxes).toBe(4)
+		expect(p.notes.some((t) => t.includes('not in an imported wall'))).toBe(true)
+	})
+	it('importing the boxes later puts the openings into the walls imported before', () => {
+		const ch = (prism: boolean, wall: boolean): DrawingsChoice => ({ models: [{ id: zone.id, levelId: 'L3303', prism, wall }], sheets: [] })
+		const src: DrawingsSource = { pid: 'P', models: [zone], models3d: [], sheetLayers: [], sheets: [] }
+		const first = planDrawings(src, ch(false, true), [...LEVELS], { makeId: id })
+		const later = planDrawings(src, ch(true, false), [...LEVELS, ...first.entities], { makeId: id })
+		const w = later.entities.find((e): e is Shape => e.type === 'shape' && e.role?.kind === 'wall')!
+		expect(w.id).toBe(first.entities.find((e) => e.type === 'shape' && e.role?.kind === 'wall')!.id)
+		expect((w.role as { openings: unknown[] }).openings).toHaveLength(1)
+	})
+})
+
+describe('a clipped model3d elevation → a section on its clip box', () => {
+	const clip: Clip = { x0: -1465, x1: -286, y0: 6035, y1: 11574, z0: -150, z1: 4150 }
+	// a point on the clip box's near face as each direction sees it (cad plan mm, y_cad = −y_m3)
+	const onNear: Record<ElevDir, { x: number; y: number; z: number }> = {
+		front: { x: -900, y: -6035, z: 1000 }, rear: { x: -900, y: -11574, z: 1000 },
+		left: { x: -1465, y: -8000, z: 1000 }, right: { x: -286, y: -8000, z: 1000 },
+	}
+	const DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']
+	it('the cut looks the way the elevation did, along the near face, across the box, as deep as the box', () => {
+		for (const dir of DIRS) {
+			const c = clipSection(dir, clip)
+			const sec: SectionCut = { type: 'section', id: 'S', levelId: 'L', name: 'A', a: c.a, b: c.b, depth: c.depth }
+			const { f, len } = sectionFrame(sec), nf = namedFrame(dir)
+			expect(f.n.x).toBeCloseTo(nf.n.x); expect(f.n.y).toBeCloseTo(nf.n.y)
+			expect(len).toBeCloseTo(dir === 'front' || dir === 'rear' ? clip.x1 - clip.x0 : clip.y1 - clip.y0)
+			expect(c.depth).toBeCloseTo(dir === 'front' || dir === 'rear' ? clip.y1 - clip.y0 : clip.x1 - clip.x0)
+			// the near face is the cut (depth 0), the opposite face `depth` beyond it; a point in front of the box is outside
+			const sp = sectionSpace(sec)
+			expect(sp.depthOf(onNear[dir])).toBeCloseTo(0)
+			const opposite = { x: clip.x0 + clip.x1 - onNear[dir].x, y: -(clip.y0 + clip.y1) - onNear[dir].y, z: 1000 }
+			expect(sp.depthOf(opposite)).toBeCloseTo(-c.depth)
+			const inFront = { x: onNear[dir].x + nf.n.x * 500, y: onNear[dir].y + nf.n.y * 500, z: 1000 }
+			expect(sp.depthOf(inFront)).toBeGreaterThan(50)
+			// and its u is the elevation's, shifted by du
+			expect(sp.fromWorld(onNear[dir]).x).toBeCloseTo(spaceOf({ kind: 'elevation', dir }).fromWorld(onNear[dir]).x + c.du)
+		}
+	})
+	it('a point on the near face, and a note drawn on it, land at the same paper point as in the elevation', () => {
+		for (const dir of DIRS) {
+			const elevAt = spaceOf({ kind: 'elevation', dir }).fromWorld(onNear[dir])
+			const fr = clipFrame(dir, clip)
+			const lv: LegacyVp = { id: 'v', x: 20, y: 20, w: 190, h: 145, scale: 50, contentOffsetMm: { x: fr.x, y: fr.y }, source: { kind: 'model3d', modelId: 3, direction: dir, clip },
+				annotations: [{ id: 'r', kind: 'rect', x: elevAt.x - 100, y: elevAt.y - 50, w: 200, h: 100 }] }
+			const before = viewportOf(lv, 'L3303', 'V')
+			if ('skip' in before) throw new Error(before.skip)
+			const want = toPaper(before.vp)(elevAt)
+			const src: DrawingsSource = { pid: 'P', models: [], models3d: [{ id: 3, name: '3303 office' }], sheetLayers: [], sheets: [{ id: `e-${dir}`, title: 'Comms1 elevation', viewports: [lv] }] }
+			const p = planDrawings(src, { models: [], sheets: [{ id: `e-${dir}`, levelId: 'L3303' }] }, [...LEVELS], { makeId: id })
+			const sec = p.entities.find((e): e is SectionCut => e.type === 'section')!
+			expect(sec).toMatchObject({ name: 'Comms1', levelId: 'L3303', importedFrom: `sheets:e-${dir}:v` })
+			const vp = (p.entities.find((e) => e.type === 'sheet') as Sheet).viewports[0]
+			expect(vp.view).toEqual({ levelId: 'L3303', spec: { kind: 'section', sectionId: sec.id } })
+			const got = toPaper(vp)(sectionSpace(sec).fromWorld(onNear[dir]))
+			expect(got.x).toBeCloseTo(want.x, 1); expect(got.y).toBeCloseTo(want.y, 1)
+			const note = p.entities.find((e): e is Shape => e.type === 'shape' && e.vpId === vp.id)!
+			const at = toPaper(vp)((note.geom as { centre: { x: number; y: number } }).centre)
+			expect(at.x).toBeCloseTo(want.x, 1); expect(at.y).toBeCloseTo(want.y, 1)
+		}
+	})
+	it('importing the sheet again (after deleting it) reuses its section instead of cutting another', () => {
+		const lv: LegacyVp = { id: 'v', x: 20, y: 20, w: 190, h: 145, scale: 0, source: { kind: 'model3d', modelId: 3, direction: 'left', clip } }
+		const src: DrawingsSource = { pid: 'P', models: [], models3d: [], sheetLayers: [], sheets: [{ id: 'c2', title: '3303 Comms 2 Elevation', viewports: [lv] }] }
+		const choice: DrawingsChoice = { models: [], sheets: [{ id: 'c2', levelId: 'L3303' }] }
+		const first = planDrawings(src, choice, [...LEVELS], { makeId: id })
+		const sec = first.entities.find((e): e is SectionCut => e.type === 'section')!
+		expect(sec.name).toBe('Comms 2')
+		const again = planDrawings(src, choice, [...LEVELS, sec], { makeId: id })
+		expect(again.entities.filter((e) => e.type === 'section')).toEqual([])
+		const vp = (again.entities.find((e) => e.type === 'sheet') as Sheet).viewports[0]
+		expect(vp.view.spec).toEqual({ kind: 'section', sectionId: sec.id })
+		expect(vp.centre).toEqual((first.entities.find((e) => e.type === 'sheet') as Sheet).viewports[0].centre)
+	})
+	it('names: the sheet title without "elevation" or a leading office number, unique on the level', () => {
+		expect(sectionNameFor('Comms1 elevation', new Set())).toBe('Comms1')
+		expect(sectionNameFor('3303 Comms 2 Elevation', new Set())).toBe('Comms 2')
+		expect(sectionNameFor('Comms1 elevation', new Set(['Comms1']))).toBe('Comms1 (2)')
+		expect(sectionNameFor('Elevation', new Set())).toBe('Section')
+	})
+})
+
+describe('odd Sheets-tool scales → the nearest standard scale', () => {
+	it('by ratio: 1:20.16 → 1:20, 1:35.74 → 1:50; a standard one stays', () => {
+		expect(nearestScale(20.16)).toBe(20)
+		expect(nearestScale(35.74)).toBe(50)
+		expect(nearestScale(100)).toBe(100)
+	})
+	it('the viewport keeps its centre, so the content stays centred; the notes stay put in view mm', () => {
+		const lv: LegacyVp = { id: 'v', x: 20, y: 20, w: 190, h: 145, scale: 20.16, contentOffsetMm: { x: 1000, y: 2000 }, source: { kind: 'outlets', outletsDocId: 'P_F33' }, annotations: [{ id: 'r', kind: 'rect', x: 1500, y: 2500, w: 100, h: 100 }] }
+		const before = viewportOf(lv, 'L3303', 'V')
+		if ('skip' in before) throw new Error(before.skip)
+		const src: DrawingsSource = { pid: 'P', models: [], models3d: [], sheetLayers: [], sheets: [{ id: 's', title: '3303 Sensaphone', viewports: [lv] }] }
+		const p = planDrawings(src, { models: [], sheets: [{ id: 's', levelId: 'L3303' }] }, [...LEVELS], { makeId: id })
+		const vp = (p.entities.find((e) => e.type === 'sheet') as Sheet).viewports[0]
+		expect(vp.scale).toBe(20)
+		expect(vp.centre).toEqual(before.vp.centre)
+		const note = p.entities.find((e): e is Shape => e.type === 'shape' && e.vpId === vp.id)!
+		expect(note.geom).toMatchObject({ centre: { x: 1550, y: 2550 } })
+		expect(p.notes.some((t) => t.includes('1:20.16 → 1:20'))).toBe(true)
 	})
 })

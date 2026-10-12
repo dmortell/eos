@@ -6,7 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Id } from '../domain/types'
 	import { loadLegacyDrawings } from '../persist/import/legacyDrawings'
-	import { planDrawings, levelForName, levelForSheet, type DrawingsSource, type DrawingsChoice } from '../persist/import/drawings'
+	import { planDrawings, importedKeys, levelForName, levelForSheet, type DrawingsSource, type DrawingsChoice } from '../persist/import/drawings'
 	import { pagesCounts, pagesKey } from '../persist/import/drawingsPages'
 	import type { LegacySheetDoc, LegacyVp } from '../persist/import/drawingsSheets'
 	import { fitViewport } from '../views/sheet'
@@ -21,7 +21,7 @@
 
 	const levels = $derived(project.levels)
 	/** What is already in the project from earlier imports. */
-	const done = $derived.by(() => { void project.rev; return new Set(project.store.all().map((e) => (e as { importedFrom?: string }).importedFrom).filter(Boolean)) })
+	const done = $derived.by(() => { void project.rev; return importedKeys(project.store.all()) })
 
 	$effect(() => {
 		loadLegacyDrawings(project.db, project.pid).then((s) => {
@@ -44,12 +44,12 @@
 	const missingLevel = $derived(Object.values(models).some((p) => p.on && !p.levelId) || Object.values(sheets).some((p) => p.on && !p.levelId))
 	const fit = (vp: Parameters<typeof fitViewport>[1]) => fitViewport(project.index, vp, { blocks: project.blockOf })
 	const preview = $derived(src && (choice.models.length || choice.sheets.length) ? planDrawings(src, choice, project.store.all(), { fit }) : null)
-	const nothing = $derived(!preview || (!preview.counts.boxes && !preview.counts.walls && !preview.counts.sheets))
+	const nothing = $derived(!preview || (!preview.counts.boxes && !preview.counts.walls && !preview.counts.openings && !preview.counts.sheets))
 
 	function vpSummary(v: LegacyVp): string {
 		const s = v.source
 		if (s.kind === 'outlets') return `plan (${String(s.outletsDocId ?? '').replace(/^.*_F/, 'F')})`
-		if (s.kind === 'model3d') return `${s.direction ?? 'plan'} of “${src?.models3d.find((m) => m.id === s.modelId)?.name ?? `model ${s.modelId}`}”`
+		if (s.kind === 'model3d') return `${s.direction ?? 'plan'}${s.clip && /^(front|rear|left|right)$/.test(s.direction ?? '') ? ' (a section on its clip box)' : ''} of “${src?.models3d.find((m) => m.id === s.modelId)?.name ?? `model ${s.modelId}`}”`
 		return `${s.kind} (not imported)`
 	}
 
@@ -58,7 +58,7 @@
 		// planned again against the project as it is now, so the write matches what's there
 		const p = planDrawings(src, choice, project.store.all(), { fit })
 		if (!p.entities.length) { say('Nothing new to import'); return }
-		const what = [p.counts.boxes && `${p.counts.boxes} boxes`, p.counts.walls && `${p.counts.walls} walls`, p.counts.sheets && `${p.counts.sheets} sheet${p.counts.sheets > 1 ? 's' : ''}`].filter(Boolean).join(', ')
+		const what = [p.counts.boxes && `${p.counts.boxes} boxes`, p.counts.walls && `${p.counts.walls} walls`, p.counts.openings && `${p.counts.openings} openings`, p.counts.sheets && `${p.counts.sheets} sheet${p.counts.sheets > 1 ? 's' : ''}`].filter(Boolean).join(', ')
 		project.store.transact(`Import legacy drawings: ${what}`, (tx) => { for (const e of p.entities) tx.put(e) })
 		say(`Imported ${what}${p.counts.notes ? ` (${p.counts.notes} notes)` : ''} — Ctrl+Z undoes it`)
 		onclose()
@@ -74,7 +74,7 @@
 			<p class="pad">Reading this project's Pages models and Sheets-tool sheets…</p>
 		{:else}
 			<div class="body">
-				<p class="h">Pages models <span class="hint">— their boxes and walls go on the level you pick; conduits and 2D shapes stay behind</span></p>
+				<p class="h">Pages models <span class="hint">— their boxes and walls go on the level you pick (opening boxes become openings in the walls); conduits and 2D shapes stay behind</span></p>
 				{#if !modelList.length}<p class="hint">No Pages models with 3D objects.</p>{/if}
 				<table>
 					<tbody>
@@ -123,7 +123,7 @@
 
 				{#if preview}
 					<p class="h">Will import</p>
-					<p>{preview.counts.boxes} boxes, {preview.counts.walls} walls{preview.counts.layers.length ? ` (new layers: ${preview.counts.layers.join(', ')})` : ''}; {preview.counts.sheets} sheets with {preview.counts.notes} notes{preview.counts.already ? `; ${preview.counts.already} already imported, skipped` : ''}.</p>
+					<p>{preview.counts.boxes} boxes, {preview.counts.walls} walls{preview.counts.openings ? `, ${preview.counts.openings} openings in them` : ''}{preview.counts.layers.length ? ` (new layers: ${preview.counts.layers.join(', ')})` : ''}; {preview.counts.sheets} sheets with {preview.counts.notes} notes{preview.counts.sections ? ` and ${preview.counts.sections} section${preview.counts.sections > 1 ? 's' : ''} for their elevations` : ''}{preview.counts.already ? `; ${preview.counts.already} already imported, skipped` : ''}.</p>
 					{#if preview.notes.length}
 						<ul class="notes">{#each preview.notes as t, i (i)}<li>{t}</li>{/each}</ul>
 					{/if}
