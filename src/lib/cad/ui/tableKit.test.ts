@@ -44,7 +44,7 @@ describe('table kit', () => {
 	})
 	it('Ctrl+A in a table picks its shown rows (not the whole drawing); in a cell’s box it’s the box’s', () => {
 		let sel: string[] = []
-		const key = (o: Partial<KeyboardEvent> & { target?: unknown }) => selectAllRows({ key: 'a', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, target: null, ...o } as unknown as KeyboardEvent, ['a', 'b'], (x) => { sel = x })
+		const key = (o: Record<string, unknown>) => selectAllRows({ key: 'a', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, target: null, ...o } as unknown as KeyboardEvent, ['a', 'b'], (x) => { sel = x })
 		expect(key({})).toBe(true)
 		expect(sel).toEqual(['a', 'b'])
 		sel = []
