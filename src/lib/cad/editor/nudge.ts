@@ -6,7 +6,7 @@ import type { Shape } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import type { EntityStore, Gesture } from '../store/store'
 import type { ViewSpace } from '../views/space'
-import { moveBy, canMove, followAttached } from './behaviours'
+import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { tiedScale } from './tools'
 
@@ -32,6 +32,7 @@ export class Nudge {
 			const s = space.deltaToWorld(sum), moved = new Set(ids)
 			this.#g ??= store.begin(ids.length === 1 ? 'Nudge' : `Nudge ${ids.length} items`)
 			this.#g.update((tx) => {
+				const was = ids.map((id) => tx.get(id))
 				for (const id of ids) {
 					const en = tx.get(id)
 					if (!en) continue
@@ -39,6 +40,7 @@ export class Nudge {
 					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 				}
 				for (const sh of followAttached(store.ofType('shape') as Shape[], moved, s)) tx.put(sh)
+				followSections(tx, was, store.ofType('shape'))
 			})
 		}
 		this.#sum = sum

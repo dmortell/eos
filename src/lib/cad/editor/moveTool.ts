@@ -8,7 +8,7 @@ import type { Pt, Id } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from '../views/display'
 import { tiedScale, snapPt } from './tools'
-import { moveBy, canMove, followAttached } from './behaviours'
+import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { angleStep } from './constrain'
 
@@ -63,6 +63,7 @@ export class MoveTool implements Tool {
 		}
 		const ids = this.#ids, moved = new Set(ids)
 		c.store.transact(ids.length === 1 ? 'Move' : `Move ${ids.length} items`, (tx) => {
+			const was = ids.map((id) => tx.get(id))
 			for (const id of ids) {
 				const en = tx.get(id)
 				if (!en) continue
@@ -70,6 +71,7 @@ export class MoveTool implements Tool {
 				tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 			}
 			for (const sh of followAttached(c.store.ofType('shape') as Shape[], moved, s)) tx.put(sh)
+			followSections(tx, was, c.store.ofType('shape'))   // notes on a moved section's plane go with it
 		})
 		c.select(ids)
 		this.cancel()

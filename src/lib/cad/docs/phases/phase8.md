@@ -3111,3 +3111,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   mirrored rotation is 2θ − r + 180 (as racks), not 2θ − r — that turned them to face back across the line
   (`editor/behaviours.ts` `mirrorEntity`, `domain/shapes.ts` `mirrorGeometry`; the tests expected the wrong value;
   Help).
+- **Q16** notes, dimensions, lines, flat shapes and blocks drawn on a section's plane follow the section when it moves
+  (Move, drag, nudge, Align), turns or is mirrored, has an end dragged, or is flipped: they are re-framed on its new
+  plane in the same step, keeping their place in the building (a flip mirrors where a note is, not its letters).
+  They belonged to the old frame, which no view has, so they drew nowhere (`editor/behaviours.ts` `followSection` /
+  `followSections`, called from the move tools, the Select tool's drag and section grips, Rotate / Mirror and the
+  section's Flip; test).

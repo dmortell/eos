@@ -8,7 +8,7 @@ import type { Entity } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 import type { EntityStore } from '../store/store'
 import type { ViewSpace } from '../views/space'
-import { moveBy, canMove, followAttached } from './behaviours'
+import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { tiedScale } from './tools'
 import type { Id, Pt } from '../domain/types'
 
@@ -71,7 +71,7 @@ export function applyAlign(store: EntityStore, ids: Id[], prims: Prim[], how: Al
 	if (!moves.size) return `${ALIGN_LABEL[how]}: already in line`
 	store.transact(ALIGN_LABEL[how], (tx) => {
 		for (const [key, d] of moves) {
-			const s = space.deltaToWorld(d), moved = new Set(byKey.get(key)!.map((e) => e.id))
+			const s = space.deltaToWorld(d), moved = new Set(byKey.get(key)!.map((e) => e.id)), was = [...moved].map((id) => tx.get(id))
 			for (const id of moved) {
 				const en = tx.get(id)
 				if (!en) continue
@@ -79,6 +79,7 @@ export function applyAlign(store: EntityStore, ids: Id[], prims: Prim[], how: Al
 				tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 			}
 			for (const sh of followAttached(store.ofType('shape') as Shape[], moved, s)) tx.put(sh)
+			followSections(tx, was, store.ofType('shape'))
 		}
 	})
 	return `${ALIGN_LABEL[how]}: ${moves.size} moved · Ctrl+Z undoes`

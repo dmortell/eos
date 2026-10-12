@@ -1,12 +1,13 @@
 // Per-type editing behaviour (analysis §6.7): the ONLY place that knows how to move each kind of entity. A move is a
 // MODEL displacement (x, y, z) — a plan drag gives z = 0, an elevation drag moves along the view and up / down
 // (views/space.ts). Shapes move by geometry kind; data entities by their position. Unplaced things don't move.
-import type { Entity } from '../domain/drawing'
+import type { Entity, SectionCut } from '../domain/drawing'
 import type { Id, Pt } from '../domain/types'
 import { outletZ } from '../domain/floors'
-import type { Shape, Plane } from '../domain/shapes'
-import { moveGeometry, rotateGeometry, mirrorGeometry, rotatePt, mirrorPt, lineDeg } from '../domain/shapes'
-import { rotate, norm360 } from '../domain/conventions'
+import type { Shape, Plane, Geometry } from '../domain/shapes'
+import { moveGeometry, rotateGeometry, mirrorGeometry, rotatePt, mirrorPt, lineDeg, sameFrame } from '../domain/shapes'
+import { rotate, norm360, project, unproject } from '../domain/conventions'
+import { sectionFrame } from '../views/section'
 
 export { moveGeometry }
 export interface Delta { x: number; y: number; z?: number }
@@ -119,4 +120,55 @@ export function mirrorEntity<T extends Entity>(e: T, a: Pt, b: Pt): T {
 	if (e.type === 'rack' && e.at) return { ...e, at: P(e.at), rot: keepFront(e.rot), ...(e.doors ? { doors: otherHinge(e.doors) } : {}) } as T
 	if (e.type === 'section') return { ...e, a: P(e.b), b: P(e.a) } as T
 	return e
+}
+
+/** A point of a non-path geometry that stands for where it is (a note's anchor, a box's centre …). */
+function anchorOf(g: Geometry): Pt {
+	switch (g.kind) {
+		case 'text': case 'insert': case 'legend': return g.at
+		case 'rect': case 'image': case 'circle': case 'ellipse': case 'arc': return g.centre
+		case 'dimension': return g.a
+		case 'leader': case 'cloud': case 'polygon': return g.pts[0] ?? { x: 0, y: 0 }
+		case 'path': return g.nodes[0] ?? { x: 0, y: 0 }
+	}
+}
+
+/**
+ * What is drawn on a section's plane — notes, dimensions, lines, flat shapes, blocks placed in it — after the section
+ * moved, turned, was mirrored or flipped, or had an end dragged: it is re-framed on the section's new plane, keeping
+ * its place in the building (else it would belong to a frame no view has, and draw nowhere). A note or shape keeps its
+ * size and stays readable (a flip mirrors where it is, not its letters); a line's nodes and a block's point are model
+ * points already, so only their frame changes. The changed shapes.
+ */
+export function followSection(shapes: Shape[], was: SectionCut, now: SectionCut): Shape[] {
+	const fa = sectionFrame(was).f, fb = sectionFrame(now).f
+	if (sameFrame(fa, fb) && fa.n.x === fb.n.x && fa.n.y === fb.n.y) return []
+	const out: Shape[] = []
+	for (const s of shapes) {
+		if (s.levelId !== was.levelId) continue
+		const g = s.geom
+		if (g.kind === 'insert' && g.frame && sameFrame(g.frame, fa)) { out.push({ ...s, geom: { ...g, frame: fb } }); continue }
+		if (s.plane?.kind !== 'vertical' || !sameFrame(s.plane.frame, fa)) continue
+		if (g.kind === 'path') {
+			const n0 = g.nodes[0]
+			out.push({ ...s, plane: { ...s.plane, frame: fb, depth: n0 ? project(fb, n0).depth : s.plane.depth } })
+			continue
+		}
+		const r = anchorOf(g), to = project(fb, unproject(fa, { u: r.x, v: r.y }, s.plane.depth))
+		const flipped = fa.t.x * fb.t.x + fa.t.y * fb.t.y < 0, c = (r.x + to.u) / 2
+		const geom = flipped ? mirrorGeometry(g, { x: c, y: 0 }, { x: c, y: 1 }) : moveGeometry(g, { x: to.u - r.x, y: 0 })
+		out.push({ ...s, plane: { ...s.plane, frame: fb, depth: to.depth }, geom })
+	}
+	return out
+}
+
+/** Sections changed in a transaction: what is drawn on their planes follows (`followSection`), read and written
+ *  through `tx`. `was` = the changed entities as they were before (non-sections are skipped). */
+export function followSections(tx: { get(id: Id): Entity | undefined; put(e: Entity): void }, was: (Entity | undefined)[], shapes: Shape[]): void {
+	for (const w of was) {
+		if (w?.type !== 'section') continue
+		const now = tx.get(w.id)
+		if (now?.type !== 'section' || now === w) continue
+		for (const s of followSection(shapes.map((x) => (tx.get(x.id) as Shape | undefined) ?? x), w, now)) tx.put(s)
+	}
 }

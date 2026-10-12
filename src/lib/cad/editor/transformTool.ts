@@ -12,7 +12,7 @@ import type { Entity } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from '../views/display'
 import { snapPt } from './tools'
-import { canMove, rotateEntity, mirrorEntity, followAttachedMap } from './behaviours'
+import { canMove, rotateEntity, mirrorEntity, followAttachedMap, followSections } from './behaviours'
 import { makeClip, pasteClip } from '../domain/clipboard'
 import { angleStep } from './constrain'
 import { rotatePt, mirrorPt, lineDeg } from '../domain/shapes'
@@ -107,11 +107,13 @@ export class TransformTool implements Tool {
 			c.select(r.select)
 		} else {
 			c.store.transact(n === 1 ? verb : `${verb} ${n} items`, (tx) => {
+				const was = ids.map((id) => tx.get(id))
 				for (const id of ids) {
 					const en = tx.get(id)
 					if (en) tx.put(applyXf(en, xf, (x) => tx.get(x)))
 				}
 				for (const sh of followAttachedMap(c.store.ofType('shape') as Shape[], new Set(ids), xfPt(xf))) tx.put(sh)   // runs ending on them follow
+				followSections(tx, was, c.store.ofType('shape'))   // notes on a turned section's plane go with it
 			})
 			c.select(ids)
 		}

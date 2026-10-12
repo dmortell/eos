@@ -10,7 +10,7 @@ import type { Prim } from '../views/display'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
 import { pickPrim, pickInside, pickStack, pickTouching, primDist } from './pick'
-import { moveBy, canMove, followAttached } from './behaviours'
+import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode, copySegs, splitSegRefs } from '../domain/pathEdit'
 import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
@@ -415,7 +415,8 @@ export class SelectTool implements Tool {
 			// a bar keeps the press point's offset along it (no jump to the pointer)
 			const q = h.shape === 'bar' ? { x: h.at.x + e.p.x - start.x, y: h.at.y + e.p.y - start.y } : e.p
 			this.#gesture ??= c.store.begin(h.label ?? (this.#handle.base.type === 'section' ? 'Edit section' : 'Edit opening'))
-			this.#gesture.update((tx) => tx.put(drag(q, e.alt, e.shift)))
+			const base = this.#handle.base
+			this.#gesture.update((tx) => { const was = tx.get(base.id); tx.put(drag(q, e.alt, e.shift)); followSections(tx, [was], c.store.ofType('shape')) })
 			return
 		}
 		// sheets: drag a viewport's window on the paper (whole mm); a locked one stays put
@@ -498,6 +499,7 @@ export class SelectTool implements Tool {
 					this.#copied = r.select
 					return
 				}
+				const was = this.#ids.map((id) => tx.get(id))
 				for (const id of this.#ids) {
 					const en = tx.get(id)
 					if (!en) continue
@@ -505,6 +507,7 @@ export class SelectTool implements Tool {
 					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 				}
 				for (const sh of followAttached(c.store.ofType('shape'), moved, s)) tx.put(sh)
+				followSections(tx, was, c.store.ofType('shape'))   // notes on a moved section's plane go with it
 			})
 		} else if (this.#marquee) {
 			c.setMarquee(box(this.#marquee, e.p), e.p.x < this.#marquee.x)

@@ -5,13 +5,15 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { SectionCut, Sheet, Viewport } from '../domain/drawing'
 	import { sectionViewports } from '../editor/commands'
+	import { followSections } from '../editor/behaviours'
 	import { newId } from '../domain/ids'
 	import { sectionViewport } from '../views/sheet'
 	import PropGroup from './PropGroup.svelte'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: SectionCut } = $props()
 
-	const put = (label: string, patch: Partial<SectionCut>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
+	// what's drawn on its plane follows a flip (editor/behaviours.ts followSections)
+	const put = (label: string, patch: Partial<SectionCut>) => project.store.transact(label, (tx) => { tx.put({ ...s, ...patch }); followSections(tx, [s], project.store.ofType('shape')) })
 	const sheets = $derived.by(() => { void project.rev; return (project.store.ofType('sheet') as Sheet[]).filter((x) => x.status !== 'archived').sort((a, b) => a.order - b.order) })
 	let sheetId = $state('')
 	const target = $derived(sheets.find((x) => x.id === sheetId) ?? sheets[0])
