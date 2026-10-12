@@ -446,7 +446,7 @@ export class SelectTool implements Tool {
 			this.#gesture ??= c.store.begin(branch ? 'Branch' : 'Move node')
 			const gs = c.store.get(shape), space = (gs?.type === 'shape' && this.#pathSpace(c, gs)) || c.space
 			this.#gesture.update((tx) => {
-				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space, shapes: c.store.ofType('shape'), links: c.store.ofType('link') })
+				const r = dragNodesInto(tx, { shape, grip, branch, sn, home, followers: fol, space, shapes: c.store.ofType('shape'), all: () => c.store.all() })
 				if (!branch) { this.#joined = r.joined; this.#absorbed = r.absorbed }
 			})
 		} else if (this.#segDrag && this.#start) {

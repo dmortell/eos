@@ -3082,3 +3082,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q6** turned text in PDFs that is centred or right-aligned (vertical / slanted dimension values, turned notes, rack
   labels) starts back along its turned baseline: jsPDF shifted x for `align` before turning, so it printed off its
   anchor (`render/pdf.ts`; test reads the text matrix).
+- **Q7** two runs joined into one keep the absorbed run's data: its hand cables (its "every segment" ones tied to its
+  own segments unless both runs had the same), the rooms either serves (either open to any = any), primary, its label
+  when the kept run has none, its bend radius on its own corners; the kept run's tier stays (a run has one). What named
+  the absorbed run — a cable's chosen runs, nodes / leaders attached to it, outlets / shapes hosted on it, a
+  penetration's source, a fill-section viewport — names the joined run in the same step (`domain/pathEdit.ts`
+  `joinShapes` / `repointRefs`, `editor/dragParts.ts`). A run split into pieces (Delete / Disconnect on picked nodes or
+  segments) sends its segment-tied hand cables, penetrations and fill sections with their segment's piece (`pieces`,
+  `pieceRefs`; tests).

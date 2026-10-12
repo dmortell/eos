@@ -37,7 +37,8 @@ describe('joining two runs', () => {
 	it('with the Select tool: drag A\'s end onto B\'s node — one run, B gone, a cable that chose B now uses A; one undo step', () => {
 		const store = new EntityStore()
 		const link = { type: 'link', id: 'L1', kind: 'backbone', a: { on: 'x', port: 1 }, b: { on: 'y', port: 1 }, via: 'B', status: 'design' } as Link
-		store.load([...demoProject(), A, B, link])
+		const tag = { type: 'shape', id: 'TAG', levelId: 'L33', geom: { kind: 'leader', pts: [{ x: 1500, y: 1500 }, { x: 1500, y: 1800 }], text: 'T', attach: 'B' } } as Shape
+		store.load([...demoProject(), A, B, link, tag])
 		let sel = ['A']
 		const ctx = () => ({
 			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 2900, w: 100, h: 50 }, prims: () => [], tol: () => 10,
@@ -49,6 +50,7 @@ describe('joining two runs', () => {
 		expect(store.get('B')).toBeUndefined()
 		expect(ids(store.get('A') as Shape)!.segs).toContain('B0-B1')
 		expect((store.get('L1') as Link).via).toBe('A')
+		expect((store.get('TAG') as Shape).geom).toMatchObject({ attach: 'A' })   // a leader on B follows it into A
 		expect(store.undoLabels).toEqual(['Move node'])
 		store.undo()
 		expect(store.get('B')).toBeDefined()

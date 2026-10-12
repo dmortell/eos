@@ -5,6 +5,7 @@ import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import { deleteEntities, deleteViewport, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
+import { pieceRefs } from '../domain/pathEdit'
 import { reservePorts, portRanges } from '../domain/ports'
 import { removeCord } from '../domain/cords'
 import { kindOf, countsText, selectionKinds } from '../ui/propsKit'
@@ -48,8 +49,8 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	// picked nodes / segments of the selected run: just those (a node heals the run; segments may split it)
 	const pth = ws.pathSel, run = pth ? project.store.get(pth.shape) : undefined
 	if (pth && run?.type === 'shape') {
-		const out = deletePicked(run, pth)
-		project.store.transact(pth.nodes.length ? (pth.nodes.length === 1 ? 'Delete node' : `Delete ${pth.nodes.length} nodes`) : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p) })
+		const out = deletePicked(run, pth), refs = pieceRefs(project.store.all(), run, out)
+		project.store.transact(pth.nodes.length ? (pth.nodes.length === 1 ? 'Delete node' : `Delete ${pth.nodes.length} nodes`) : pth.segs.length === 1 ? 'Delete segment' : `Delete ${pth.segs.length} segments`, (tx) => { if (!out.length) tx.del(run.id); for (const p of out) tx.put(p); for (const e of refs) tx.put(e) })
 		ws.selectPath(null)
 		ws.select(out.some((p) => p.id === run.id) ? [run.id] : [])
 		if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)

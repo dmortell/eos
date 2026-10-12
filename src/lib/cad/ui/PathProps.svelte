@@ -18,7 +18,7 @@
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, servableRooms, toggleServes, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
-	import { removeNode, segmentLengths } from '../domain/pathEdit'
+	import { removeNode, segmentLengths, pieceRefs } from '../domain/pathEdit'
 	import { deletePicked, disconnectPicked } from '../editor/pathSel'
 	import { deleteEntities } from '../editor/commands'
 
@@ -85,7 +85,8 @@
 	// ── a node / segments picked in the view (editor/pathSel.ts) ──
 	const picked = $derived(ws.pathSel?.shape === s.id ? ws.pathSel : null)
 	function putPieces(label: string, out: Shape[]) {
-		project.store.transact(label, (tx) => { if (!out.length) tx.del(s.id); for (const p of out) tx.put(p) })
+		const refs = pieceRefs(project.store.all(), s, out)   // a penetration / fill section names its segment's piece
+		project.store.transact(label, (tx) => { if (!out.length) tx.del(s.id); for (const p of out) tx.put(p); for (const e of refs) tx.put(e) })
 		ws.selectPath(null)
 		ws.select(out.some((p) => p.id === s.id) ? [s.id] : [])
 		if (out.length > 1) ws.say(`The run is now ${out.length} separate runs`)

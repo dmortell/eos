@@ -1,8 +1,10 @@
 // Editing a path's graph (walls, runs, lines alike — ADR 0007: one code path for every path). Pure: each returns a
 // new shape. Nodes are model points (x, y, z, optional level / attach).
 import type { Id } from './types'
-import type { Shape, PathNode, PathSeg } from './shapes'
+import type { Shape, PathNode, PathSeg, ContainmentRole, HandCables } from './shapes'
+import type { Entity } from './drawing'
 import { newId } from './ids'
+import { viaList, viaValue } from './routing'
 
 type PathGeom = Extract<Shape['geom'], { kind: 'path' }>
 const geomOf = (s: Shape): PathGeom => { if (s.geom.kind !== 'path') throw new Error('Not a path'); return s.geom }
@@ -134,19 +136,77 @@ export function canJoin(a: Shape, b: Shape): boolean {
 /**
  * JOIN path `b` into path `a` (Dave: a trunk's node dropped on another trunk's node): one shape (a's id, role, label)
  * with both graphs, each `[from, into]` node pair (one node from each run, either way round) merged into `into`.
- * b's segments keep b's section as their own where it differs; a wall's openings come along.
+ * b's segments keep b's section as their own where it differs; a wall's openings come along; a run's data merges
+ * (`joinRole`). What names b is re-pointed by the caller (`repointRefs`, same transaction).
  */
 export function joinShapes(a: Shape, b: Shape, pairs: [Id, Id][]): Shape | null {
 	const ga = geomOf(a), gb = geomOf(b)
 	const own = (x: PathSeg) => (x.section || !b.section || JSON.stringify(b.section) === JSON.stringify(a.section) ? x : { ...x, section: b.section })
-	let out: Shape | null = { ...withGeom(a, { ...ga, nodes: [...ga.nodes, ...gb.nodes], segs: [...ga.segs, ...gb.segs.map(own)] }) }
+	// b's corners keep b's bend radius where the runs differ (a node's own radius wins over the run's)
+	const ra = a.role?.kind === 'containment' ? a.role.bendRadius ?? 0 : 0, rb = b.role?.kind === 'containment' ? b.role.bendRadius ?? 0 : 0
+	const bNodes = ra === rb ? gb.nodes : gb.nodes.map((n) => (n.radius != null ? n : { ...n, radius: rb }))
+	let out: Shape | null = { ...withGeom(a, { ...ga, nodes: [...ga.nodes, ...bNodes], segs: [...ga.segs, ...gb.segs.map(own)] }), ...(a.label || !b.label ? {} : { label: b.label }) }
 	if (a.role?.kind === 'wall' && b.role?.kind === 'wall') out = { ...out, role: { ...a.role, openings: [...a.role.openings, ...b.role.openings] } }
+	if (a.role?.kind === 'containment' && b.role?.kind === 'containment') out = { ...out, role: joinRole(a.role, b.role, ga.segs.map((x) => x.id), gb.segs.map((x) => x.id)) }
 	for (const [from, into] of pairs) { out = out && mergeNode(out, from, into); if (!out) return null }
+	return dropStaleExtra(out)
+}
+
+/** Two runs' data as one: hand cables (each run's "every segment" ones tied to its own segments unless both runs had
+ *  the same), the server rooms either may serve (either open to any = any), primary if either was. The tier stays a's
+ *  (a run has one). */
+function joinRole(a: ContainmentRole, b: ContainmentRole, aSegs: Id[], bSegs: Id[]): ContainmentRole {
+	const all = (r: ContainmentRole) => (r.extra ?? []).filter((h) => !h.seg)
+	const same = JSON.stringify(all(a)) === JSON.stringify(all(b))
+	const scoped = (r: ContainmentRole, segs: Id[]): HandCables[] => (r.extra ?? []).flatMap((h) => (h.seg || same ? [h] : segs.map((seg) => ({ ...h, seg }))))
+	const extra = [...scoped(a, aSegs), ...scoped(b, bSegs).filter((h) => !(same && !h.seg))]
+	const serves = a.serves?.length && b.serves?.length ? [...new Set([...a.serves, ...b.serves])] : undefined
+	const { extra: _e, serves: _s, ...rest } = a
+	return { ...rest, ...(extra.length ? { extra } : {}), ...(serves ? { serves } : {}), ...(a.primary || b.primary ? { primary: true } : {}) }
+}
+
+/** Hand cables tied to a segment the run no longer has (collapsed by a join, or in another piece) go. */
+function dropStaleExtra(s: Shape): Shape {
+	if (s.role?.kind !== 'containment' || !s.role.extra?.some((h) => h.seg) || s.geom.kind !== 'path') return s
+	const segs = new Set(s.geom.segs.map((x) => x.id)), extra = s.role.extra.filter((h) => !h.seg || segs.has(h.seg))
+	if (extra.length === s.role.extra.length) return s
+	const { extra: _e, ...role } = s.role
+	return { ...s, role: extra.length ? { ...role, extra } : role }
+}
+
+/**
+ * What names run `from` re-pointed (a join absorbed it, or it split into pieces): cables' chosen runs, path nodes and
+ * leaders attached to it, outlets and shapes hosted on it, an accepted penetration's source, a fill-section viewport.
+ * `to(seg)` = the new id, given the segment the reference names when it names one (else undefined); return `from`
+ * to leave it. The changed entities, to put in the same transaction.
+ */
+export function repointRefs(all: Iterable<Entity>, from: Id, to: (seg?: Id) => Id): Entity[] {
+	const out: Entity[] = []
+	for (const e of all) {
+		if (e.id === from) continue
+		if (e.type === 'link') {
+			const via = viaList(e)
+			if (via.includes(from) && to() !== from) out.push({ ...e, via: viaValue(via.map((v) => (v === from ? to() : v))) })
+		} else if (e.type === 'outlet') {
+			if (e.hostShapeId === from && to() !== from) out.push({ ...e, hostShapeId: to() })
+		} else if (e.type === 'sheet') {
+			const hit = e.viewports.some((v) => v.view.spec.kind === 'fill' && v.view.spec.shapeId === from)
+			if (hit) out.push({ ...e, viewports: e.viewports.map((v) => (v.view.spec.kind === 'fill' && v.view.spec.shapeId === from ? { ...v, view: { ...v.view, spec: { ...v.view.spec, shapeId: to(v.view.spec.segId) } } } : v)) })
+		} else if (e.type === 'shape') {
+			let s: Shape = e
+			if (s.hostId === from) s = { ...s, hostId: to() }
+			if (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.attach === from)) s = { ...s, geom: { ...s.geom, nodes: s.geom.nodes.map((n) => (n.attach === from ? { ...n, attach: to() } : n)) } }
+			if (s.geom.kind === 'leader' && s.geom.attach === from) s = { ...s, geom: { ...s.geom, attach: to() } }
+			if (s.role?.kind === 'penetration' && s.role.source?.run === from) s = { ...s, role: { ...s.role, source: { ...s.role.source, run: to(s.role.source.seg) } } }
+			if (s !== e && JSON.stringify(s) !== JSON.stringify(e)) out.push(s)
+		}
+	}
 	return out
 }
 
 /** The path's CONNECTED pieces as shapes: the piece holding the first segment keeps the id, the others get new ids
- *  (a wall's openings go with their segment). One piece = the shape as it is. */
+ *  (a wall's openings and a run's hand cables go with their segment). One piece = the shape as it is. What names a
+ *  segment of a new piece is re-pointed by the caller (`pieceRefs`). */
 export function pieces(s: Shape): Shape[] {
 	const g = geomOf(s)
 	const next = new Map<Id, Id[]>()
@@ -162,8 +222,17 @@ export function pieces(s: Shape): Shape[] {
 	return groups.map((group, i) => {
 		const segs = g.segs.filter((x) => group.has(x.a))
 		const role = s.role?.kind === 'wall' ? { role: { ...s.role, openings: s.role.openings.filter((o) => segs.some((x) => x.id === o.segId)) } } : {}
-		return { ...withGeom(s, { ...g, nodes: g.nodes.filter((n) => group.has(n.id)), segs }), ...role, id: i === 0 ? s.id : newId(), ...(i > 0 && s.label ? { label: undefined } : {}) }
+		return dropStaleExtra({ ...withGeom(s, { ...g, nodes: g.nodes.filter((n) => group.has(n.id)), segs }), ...role, id: i === 0 ? s.id : newId(), ...(i > 0 && s.label ? { label: undefined } : {}) })
 	})
+}
+
+/** What names run `s` by one of its segments (a penetration, a fill-section viewport) re-pointed to the piece now
+ *  holding that segment, after `s` split into `out` (pieces / deletes / disconnects). */
+export function pieceRefs(all: Iterable<Entity>, s: Shape, out: Shape[]): Entity[] {
+	if (out.length < 2 && out[0]?.id === s.id) return []
+	const owner = new Map<Id, Id>()
+	for (const p of out) if (p.geom.kind === 'path') for (const x of p.geom.segs) owner.set(x.id, p.id)
+	return repointRefs(all, s.id, (seg) => (seg && owner.get(seg)) || s.id)
 }
 
 /** DISCONNECT at a node (Dave: separate the segments joined there): each segment after the first gets its own copy of

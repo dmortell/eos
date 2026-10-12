@@ -7,9 +7,8 @@ import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
 import { primBounds, unionBounds, type Prim } from '../views/display'
 import { moveNodes, moveNodesBy, joinDropped, type Grip } from './grips'
-import { branchFrom, canJoin, joinShapes } from '../domain/pathEdit'
+import { branchFrom, canJoin, joinShapes, repointRefs } from '../domain/pathEdit'
 import { joinAcross } from './pathSel'
-import { viaList, viaValue } from '../domain/routing'
 
 type Viewport = Sheet['viewports'][number]
 
@@ -68,7 +67,7 @@ export function snapViewportDrag(v: Viewport, mode: 'move' | 'resize', d: Pt, li
  *  or on a node of another run of the same kind the two runs become one (cables that chose it follow). */
 export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Entity): void; del(id: Id): void }, o: {
 	shape: Id; grip: Grip; branch: Id | undefined | null; sn: Snap; home: boolean; followers: Map<Id, Id[]>; space: ViewSpace
-	shapes: Shape[]; links: Entity[]
+	shapes: Shape[]; /** every entity at the gesture's start (read lazily: only a join needs them) */ all: () => Entity[]
 }): { joined: number; absorbed: number } {
 	const { shape, grip, branch, sn, home, followers: fol, space } = o
 	const s = tx.get(shape) as Shape
@@ -102,7 +101,11 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 	const across = j.joined ? null : joinAcross(j.shape, grip.nodeIds, o.shapes.filter((x) => x.id !== shape && !fol.has(x.id)), space)
 	if (across) { tx.del(across.absorbed); absorbed.push(across.absorbed) }
 	tx.put(across?.shape ?? j.shape)
-	// a cable that chose a joined-in run (a backbone's riser) now uses this one
-	if (absorbed.length) for (const l of o.links) if (l.type === 'link' && viaList(l).some((v) => absorbed.includes(v))) tx.put({ ...l, via: viaValue(viaList(l).map((v) => (absorbed.includes(v) ? shape : v))) })
+	// what named a joined-in run (a cable that chose it — a backbone's riser —, a node or leader attached to it, a
+	// penetration, a fill section) now names this one
+	if (absorbed.length) {
+		const now = () => o.all().flatMap((e) => tx.get(e.id) ?? [])
+		for (const id of absorbed) for (const e of repointRefs(now(), id, () => shape)) tx.put(e)
+	}
 	return { joined: j.joined, absorbed: absorbed.length }
 }

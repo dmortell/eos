@@ -1,7 +1,9 @@
 // Segment lengths of a run / wall (3D: a drop counts its height), and their total.
 import { describe, it, expect } from 'vitest'
-import { segmentLengths, splitRunsAt, runZAt } from './pathEdit'
-import type { Shape } from './shapes'
+import { segmentLengths, splitRunsAt, runZAt, joinShapes, repointRefs, pieces, pieceRefs } from './pathEdit'
+import type { Shape, ContainmentRole } from './shapes'
+import type { Entity, Sheet } from './drawing'
+import type { Link, Outlet } from './types'
 
 describe('segment lengths', () => {
 	it('lists each segment with its end nodes, flags drops, and totals them', () => {
@@ -31,5 +33,52 @@ describe('a run drawn to the middle of another (splitRunsAt)', () => {
 	it('drawn at another height, the new run drops to it: runZAt finds the run’s height under the point', () => {
 		expect(runZAt([trunk], 'L', { x: 1500, y: 0 }, 2950)).toBe(2600)
 		expect(runZAt([trunk], 'L', { x: 1500, y: 300 }, 2950)).toBeNull()
+	})
+})
+
+describe('two runs joined into one (joinShapes / repointRefs)', () => {
+	const n = (id: string, x: number, y: number) => ({ id, x, y, z: 2600 })
+	const run = (id: string, a: [number, number], b: [number, number], role: Partial<ContainmentRole>, more: Partial<Shape> = {}) => ({
+		type: 'shape', id, levelId: 'L', role: { kind: 'containment', form: 'trunk', tier: 'high', ...role },
+		geom: { kind: 'path', nodes: [n(`${id}0`, ...a), n(`${id}1`, ...b)], segs: [{ id: `${id}s`, a: `${id}0`, b: `${id}1` }] }, ...more,
+	}) as unknown as Shape
+	it('keeps the absorbed run’s hand cables (on its own segments), served rooms, primary and label', () => {
+		const A = run('A', [0, 0], [1000, 0], { extra: [{ type: 'Cat6', n: 4 }], serves: ['SR1'] })
+		const B = run('B', [1000, 0], [1000, 1000], { extra: [{ type: 'Coax', n: 2 }, { type: 'Power', n: 1, seg: 'Bs' }], serves: ['SR2'], primary: true }, { label: 'T-2' })
+		const j = joinShapes(A, B, [['B0', 'A1']])!
+		const r = j.role as ContainmentRole
+		expect(r.extra).toEqual([{ type: 'Cat6', n: 4, seg: 'As' }, { type: 'Coax', n: 2, seg: 'Bs' }, { type: 'Power', n: 1, seg: 'Bs' }])
+		expect(r.serves).toEqual(['SR1', 'SR2'])
+		expect(r.primary).toBe(true)
+		expect(j.label).toBe('T-2')
+		// one open to any room → the joined run is too
+		expect((joinShapes(A, run('B', [1000, 0], [1000, 1000], {}), [['B0', 'A1']])!.role as ContainmentRole).serves).toBeUndefined()
+	})
+	it('what named the absorbed run names the joined one', () => {
+		const link = { type: 'link', id: 'K', via: ['X', 'B'] } as unknown as Link
+		const outlet = { type: 'outlet', id: 'O', hostShapeId: 'B' } as unknown as Outlet
+		const leader = { type: 'shape', id: 'LD', levelId: 'L', geom: { kind: 'leader', pts: [{ x: 0, y: 0 }], attach: 'B' } } as unknown as Shape
+		const pen = { type: 'shape', id: 'P', levelId: 'L', role: { kind: 'penetration', diaMm: 50, through: 'wall', source: { run: 'B', seg: 'Bs', host: 'W' } }, geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 25 } } as unknown as Shape
+		const line = { type: 'shape', id: 'LN', levelId: 'L', geom: { kind: 'path', nodes: [{ id: 'q', x: 0, y: 0, z: 0, attach: 'B' }], segs: [] } } as unknown as Shape
+		const sheet = { type: 'sheet', id: 'S', viewports: [{ id: 'V', view: { levelId: 'L', spec: { kind: 'fill', shapeId: 'B', segId: 'Bs' } } }] } as unknown as Sheet
+		const out = new Map(repointRefs([link, outlet, leader, pen, line, sheet] as Entity[], 'B', () => 'A').map((e) => [e.id, e as never]))
+		expect((out.get('K') as Link).via).toEqual(['X', 'A'])
+		expect((out.get('O') as Outlet).hostShapeId).toBe('A')
+		expect((out.get('LD') as Shape).geom).toMatchObject({ attach: 'A' })
+		expect(((out.get('P') as Shape).role as { source: unknown }).source).toEqual({ run: 'A', seg: 'Bs', host: 'W' })
+		expect(((out.get('LN') as Shape).geom as { nodes: { attach: string }[] }).nodes[0].attach).toBe('A')
+		expect((out.get('S') as Sheet).viewports[0].view.spec).toEqual({ kind: 'fill', shapeId: 'A', segId: 'Bs' })
+	})
+	it('split into pieces: hand cables go with their segment; a penetration / fill section follows its segment’s piece', () => {
+		const A = run('A', [0, 0], [1000, 0], { extra: [{ type: 'Cat6', n: 4 }, { type: 'Power', n: 1, seg: 'Ys' }] })
+		const g = A.geom as Extract<Shape['geom'], { kind: 'path' }>
+		const two = { ...A, geom: { ...g, nodes: [...g.nodes, n('Y0', 0, 500), n('Y1', 1000, 500)], segs: [...g.segs, { id: 'Ys', a: 'Y0', b: 'Y1' }] } } as Shape
+		const [p0, p1] = pieces(two)
+		expect((p0.role as ContainmentRole).extra).toEqual([{ type: 'Cat6', n: 4 }])
+		expect((p1.role as ContainmentRole).extra).toEqual([{ type: 'Cat6', n: 4 }, { type: 'Power', n: 1, seg: 'Ys' }])
+		const pen = { type: 'shape', id: 'P', levelId: 'L', role: { kind: 'penetration', diaMm: 50, through: 'wall', source: { run: 'A', seg: 'Ys', host: 'W' } }, geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 25 } } as unknown as Shape
+		const stay = { ...pen, id: 'P2', role: { kind: 'penetration', diaMm: 50, through: 'wall', source: { run: 'A', seg: 'As', host: 'W' } } } as Shape
+		const out = pieceRefs([pen, stay], two, [p0, p1])
+		expect(out.map((e) => [e.id, ((e as Shape).role as { source: { run: string } }).source.run])).toEqual([['P', p1.id]])
 	})
 })
