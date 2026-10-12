@@ -12,6 +12,7 @@ import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
 import { sectionMarks, sectionsOn } from './sectionMarks'
 import { rotate } from '../domain/conventions'
+import { tileLinesLocal } from '../domain/tiles'
 import type { Bounds, Prim, Dash } from './display'
 import { DASHES } from './display'
 import { blockPrims } from './blocks'
@@ -125,7 +126,8 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined, 
 			const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => add(g.centre, rotate({ x, y }, g.rot ?? 0)))
 			// a box / desk can show which side is its back, like racks (a thick line on its local −y edge), and its doors
 			const local = (x: number, y: number) => add(g.centre, rotate({ x, y }, g.rot ?? 0))
-			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : []),
+			const tiles = s.tiles ? tileLinesLocal(g.size, s.tiles).map(([p, q]): Prim => ({ k: 'line', pts: [local(p.x, p.y), local(q.x, q.y)], cls: 'tile-line', src: s.id })) : []
+			return [{ k: 'line', pts, closed: true, fill: !!s.extent, cls, src: s.id }, ...tiles, ...(s.backLine ? [{ k: 'line', pts: [pts[0], pts[1]], cls: 'rack-back', src: s.id } as Prim] : []),
 				...doorPrims(s.doors, s.id, local, hx, hy)]
 		}
 		case 'circle': return [{ k: 'circle', c: g.centre, r: g.r, fill: !!s.extent, cls, src: s.id }]

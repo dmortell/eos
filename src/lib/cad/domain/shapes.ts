@@ -188,6 +188,8 @@ export interface ShapeCore {
 		ends?: { a?: LineEnd; b?: LineEnd } }
 	/** A box (rect): draw a thick line on its back edge (local −y), as racks have — which way a desk / box faces. */
 	backLine?: boolean
+	/** A box (rect): a floor-tile grid drawn over it, every `mm` from its top-left corner with an offset (domain/tiles.ts). */
+	tiles?: { mm: number; dx: number; dy: number }
 	/** A box / cabinet's doors (backlog "Door swings on other objects"), as racks have: drawn open on the plan, front = its
 	 *  local +y (the back line is −y). */
 	doors?: { front?: 'single' | 'split'; rear?: 'single' | 'split'; hinge?: 'left' | 'right' }

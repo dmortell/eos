@@ -129,6 +129,8 @@
 	text.note-i { font-style: italic; }
 	.note-bg { stroke: none; fill: #ffffff; }
 	.shape-fill { stroke: none; }
+	/* a box's floor-tile grid: faint, so it reads as a pattern under the work */
+	.tile-line { stroke: #94a3b8; stroke-width: 0.75; opacity: 0.8; }
 	.dim { stroke: #0f172a; stroke-width: 1; fill: none; }
 	text.dim-text { fill: #0f172a; }
 	.leader { stroke: #0f172a; }

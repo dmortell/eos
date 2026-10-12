@@ -26,6 +26,7 @@ const LAYERS: Record<string, { name: string; aci: number }> = {
 	'rack-back': { name: 'E-RACKS', aci: 7 },
 	wall: { name: 'A-WALL', aci: 8 },
 	shape: { name: 'A-DETAIL', aci: 7 },
+	'tile-line': { name: 'A-FLOR-TILE', aci: 8 },
 	label: { name: 'ANNO-LABELS', aci: 7 },
 	note: { name: 'ANNO-TEXT', aci: 7 },
 }

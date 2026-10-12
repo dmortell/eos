@@ -3311,3 +3311,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Pasted tables:** tab-separated cells (Excel) and an HTML `<table>` (Word, a web page) become a markdown table note (`pastedNote`, `parseTsv`, `htmlTable`).
 - **Markdown notes:** a text with the `markdown` flag (Properties > Markdown) is laid out by `views/markdown.ts` `layoutMarkdown` (pure: headings, bullets, numbered lists, bold / italic, pipe tables with alignment, word-wrapped to the box width) and becomes ordinary text and line prims (`markdownPrims`, called from `views/plan.ts`), so the screen, PDF (bold / italic via `note-b` / `note-i`) and DXF (TEXT per run, polylines for table lines) need no new code paths.
 - Not done: italic is not drawn in DXF; run widths are estimated (0.6 em Latin, 0.66 bold, 1 em CJK) as everywhere else, so bold runs can sit a little off in a PDF; a markdown note that rotates is laid out unrotated and turned about its point.
+
+## Features (Dave 2026-10-13)
+
+- **Layer presets, groups, multi-select** (`ui/LayersPanel.svelte`, `app/layerPrefs.svelte.ts`, `domain/layers.ts`):
+  - Presets: a "Presets…" menu above the list; **+** saves the current eye states under a name, picking one shows exactly that set, the bin deletes it. Kept per user and project in this browser with the other layer settings (`LayerPrefs.presets`).
+  - Groups: `Layer.group` (a heading) or, failing that, the name's prefix before a "/" ("IDF1/Outlets"); `groupLayers` lists the ungrouped first, then each group, drawing order kept. A group heading has an eye that hides or shows all its layers.
+  - Multi-select: Ctrl-click / Shift-click names pick several; the eye, lock, color, line type and lineweight then change every picked layer, the project-level ones in ONE transaction (one undo step). **Group…** files the picked layers under a heading ("-" ungroups). Pure helpers `targetIds` / `togglePick` / `rangePick` / `withPreset`, tested in `views/layers.test.ts`.
+- **Shape style** (`domain/shapeDefaults.ts`, Project settings › Drawing style, `render/dxf.ts`):
+  - `ProjectSettings.shapeStyle` (color, line type, lineweight; stored whole, '' / 0 = by kind). New lines, boxes, circles, ellipses, polygons and arcs start with it (`styleProp` in `shapeTool` / `pathTool`), except for what the target layer sets itself.
+  - DXF lineweights: group 370 in hundredths of a mm, the nearest standard weight, written by wrapping the entity's `dxfy` (the writer has no option); `dxfLineweight` exported.
+  - DXF hatch: a region's fill (`shape-fill`) is a solid HATCH of its color (polygon boundary; a circle as an arc edge). Tests in `render/dxf.test.ts`, `domain/shapeDefaults.test.ts`.
+- **Floor-tile grid** (`domain/tiles.ts`): `Shape.tiles { mm, dx, dy }` on a box (rect). Properties › Box › Floor tiles (default 600 mm; the size is read with `gridStepOf`, like the status bar's grid step). Lines every `mm` from the box's top-left corner in its own turned frame, shifted by X / Y; drawn by `views/plan.ts` as `tile-line` prims (screen, PDF, DXF layer `A-FLOR-TILE`). More than 300 lines across one axis is left off (Properties says so). Test in `domain/tiles.test.ts`.

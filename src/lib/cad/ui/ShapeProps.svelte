@@ -1,12 +1,14 @@
 <!-- A drawn SHAPE that isn't a run, a note, a legend or a block (a rectangle, circle, ellipse, polygon, arc, image):
      General (label, layer, Make block) · Image (its file) or Style (color, line type, lineweight, fill) · Position
      (a rectangle's or ellipse's rotation; a box's Z, its base above the floor) · Box (a region on a level's plan: its
-     height — 0 = flat; a rectangle's back line and doors). -->
+     height — 0 = flat; a rectangle's back line, doors and floor-tile grid). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import { withStyle, type Shape } from '../domain/shapes'
 	import { put } from './propsKit'
+	import { DEFAULT_TILES, tilesTooFine } from '../domain/tiles'
+	import { gridStepOf } from '../editor/snap'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import LineStyle from './LineStyle.svelte'
@@ -28,6 +30,9 @@
 	/** Turned about its centre (degrees, clockwise on screen): rectangles (boxes) and ellipses. */
 	const rot = $derived(s.geom.kind === 'rect' || s.geom.kind === 'ellipse' ? (s.geom.rot ?? 0) : null)
 	const setRot = (v: number) => set('Rotate', { geom: { ...s.geom, rot: ((v % 360) + 360) % 360 || undefined } as Shape['geom'] })
+	/** A rectangle's floor-tile grid: size (any positive mm, as the grid step is typed) and X / Y offset. */
+	const setTiles = (label: string, patch: Partial<NonNullable<Shape['tiles']>>) => set(label, { tiles: { ...(s.tiles ?? DEFAULT_TILES), ...patch } })
+	const fine = $derived(s.geom.kind === 'rect' && !!s.tiles && tilesTooFine(s.geom.size, s.tiles))
 </script>
 
 <PropGroup kind="shape" title="General">
@@ -69,6 +74,17 @@
 			<CheckField label="Back line" text="on the back edge" title="A thick line on the box's back edge (its local −y side), like racks — which way a desk or cabinet faces" checked={!!s.backLine}
 				onchange={(on) => set(on ? 'Back line' : 'No back line', { backLine: on || undefined })} />
 			<RackDoors {project} boxes={[s]} />
+			<CheckField label="Floor tiles" text="draw a tile grid" title="Lines every tile across the box, from its top-left corner (shown on screen, in PDF and in DXF)" checked={!!s.tiles}
+				onchange={(on) => set(on ? 'Tile grid' : 'No tile grid', { tiles: on ? DEFAULT_TILES : undefined })} />
+			{#if s.tiles}
+				<NumberField label="Tile size" unit="mm" min={0.01} step={50} title="One tile’s size: lines every this far (600 is the usual floor tile)" value={s.tiles.mm}
+					onchange={(v) => { const n = v == null ? null : gridStepOf(v); if (n) setTiles('Tile size', { mm: n }) }} />
+				<NumberField label="Offset X" unit="mm" step={10} title="Where the first vertical line falls from the box’s left edge: slide the grid to line up with the real tiles" value={s.tiles.dx}
+					onchange={(v) => v != null && setTiles('Tile offset', { dx: v })} />
+				<NumberField label="Offset Y" unit="mm" step={10} title="Where the first horizontal line falls from the box’s top edge" value={s.tiles.dy}
+					onchange={(v) => v != null && setTiles('Tile offset', { dy: v })} />
+				{#if fine}<p class="muted">Too fine to draw on a box this size — use bigger tiles.</p>{/if}
+			{/if}
 		{/if}
 	</PropGroup>
 {/if}
