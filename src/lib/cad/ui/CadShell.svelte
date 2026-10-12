@@ -49,6 +49,7 @@
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
+	import { longPress } from './longPress'
 	import { WindowLayout, type WinId } from '../app/windows.svelte'
 	import ToolStrip, { TOOL_GROUPS } from './ToolStrip.svelte'
 	import StatusBar from './StatusBar.svelte'
@@ -511,7 +512,8 @@
 
 <svelte:window onkeydown={(e) => { clipboard.key(e); onKey(e) }} onkeyup={(e) => { if (ARROWS[e.key]) canvas?.endNudge() }} oncopy={clipboard.copy} oncut={clipboard.cut} onpaste={clipboard.paste} />
 
-<div class="shell bg-zinc-50 text-sm" style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
+<!-- a long press (touch / pen) anywhere is a right-click on what it's on: every right-click menu works on a tablet -->
+<div class="shell bg-zinc-50 text-sm" use:longPress style:grid-template-columns="{dockW('left')}px minmax(0, 1fr) {dockW('right')}px"
 	style:grid-template-rows="1.75rem 2.25rem 1.75rem minmax(0, 1fr) {tablesRow}px 1.6rem">
 	<MenuBar {menus}>
 		{#snippet right()}
@@ -671,6 +673,12 @@
 	.shell :global(tr.row-sel) { background: #dbeafe !important; box-shadow: inset 3px 0 0 #2563eb; }
 	:global(:root[data-theme='kestrel-dark']) .shell :global(tr.row-sel) { background: var(--cad-sel) !important; }
 	.dock :global(table), .grid-panel :global(table) { user-select: text; -webkit-user-select: text; }
+	/* on a touch screen a long press is a right-click (ui/longPress.ts): not the system's word selection / callout too */
+	@media (hover: none) {
+		.shell { -webkit-touch-callout: none; }
+		.dock :global(table), .grid-panel :global(table) { user-select: none; -webkit-user-select: none; }
+		.shell :global(input), .shell :global(textarea) { user-select: text; -webkit-user-select: text; }
+	}
 	.gone { display: none !important; }
 	/* one or two views side by side */
 	.panes { display: flex; flex: 1; min-height: 0; background: var(--cad-line); }

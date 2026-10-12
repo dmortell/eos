@@ -1,6 +1,7 @@
 <!-- One view surface: a plan or an elevation of the open level (switch with the buttons at the top left). It generates
      the view's display list, draws it, and routes input — left button → the active tool (points in VIEW mm; the view
-     space turns them into model points), right / middle drag → pan, a right CLICK → the same as Esc, wheel → zoom.
+     space turns them into model points), right / middle drag → pan, a right CLICK → the same as Esc (on a thing: its menu; a long-press on
+     touch too), wheel → zoom.
      With a second pane open, each shows the other's work plane (ADR 0006): the plan shows the elevation's work depth
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
@@ -33,6 +34,7 @@
 	import { parseTyped } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { TouchNav } from '../editor/touch'
+	import { LONG_PRESS_SLOP } from './longPress'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
 	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop, dropTakes } from './viewportEdit'
@@ -391,9 +393,32 @@
 	// touch (editor/touch.ts): two fingers pan / pinch anywhere; one finger on empty space pans with Select, a tap clears
 	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
 		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpe.prims, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })
+	/** A finger / pen press given to the tool: its moves wait until it has gone further than a long-press allows, so a
+	 *  finger held still (a long-press = right-click, ui/longPress.ts) never starts a drag or a marquee first. */
+	let held: { id: number; at: Pt } | null = null
+	/** A right-click / long-press ON something (Select tool, a sheet's paper aside): it's selected first if it wasn't,
+	 *  and its menu opens (UX21; R55). False = nothing there. */
+	function menuAt(e: MouseEvent): boolean {
+		if (ws.toolId !== 'select') return false
+		const c = ctx(), hit = pickAt(c.prims(), input(e).p, c.tol())
+		if (!hit || (spec.kind === 'sheet' && hit === spec.sheetId)) return false
+		if (!ws.selection.includes(hit)) ws.select([hit])
+		ws.contextMenu = { x: e.clientX, y: e.clientY }
+		return true
+	}
+	/** `contextmenu`: a mouse's menu opens on the right button's release (onUp); a long-press's (touch, pen) here — what
+	 *  the press began for the tool is dropped first, so it doesn't also drag or draw a box. */
+	function onMenu(e: MouseEvent) {
+		e.preventDefault()
+		const by = (e as PointerEvent).pointerType
+		if ((by !== 'touch' && by !== 'pen') || ws.toolId !== 'select') return
+		if (toolDown) { ws.tool.cancel(ctx()); toolDown = false; held = null; tick++ }
+		menuAt(e)
+	}
 	function onDown(e: PointerEvent) {
 		onfocus?.()
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
+		held = null
 		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
@@ -421,6 +446,7 @@
 		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
 		if (why) { ws.say(why); return }
 		toolDown = true
+		if (e.pointerType !== 'mouse') held = { id: e.pointerId, at: local(e) }
 		ws.tool.down(input(e, count), ctx()); tick++
 	}
 	function onMove(e: PointerEvent) {
@@ -444,11 +470,17 @@
 		}
 		cursor = input(e).p
 		if (!active) return
+		if (held && held.id === e.pointerId) {
+			const s = local(e)
+			if (Math.hypot(s.x - held.at.x, s.y - held.at.y) <= LONG_PRESS_SLOP) return
+			held = null
+		}
 		if (toolDown) ws.tool.move(input(e), ctx())
 		else ws.tool.hover?.(input(e), ctx())
 		tick++
 	}
 	function onUp(e: PointerEvent) {
+		held = null
 		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
 		if (panning) {
 			const click = !panning.moved && panning.button === 2
@@ -458,14 +490,7 @@
 			// nothing in progress, goes back to Select; in Select it clears the selection
 			// a right-click ON something (Select tool, nothing in progress) opens its menu (UX21); one not selected is
 			// selected first (Dave 2026-10-12: it cleared the selection instead)
-			if (click && ws.toolId === 'select') {
-				const c = ctx(), hit = pickAt(c.prims(), input(e).p, c.tol())
-				if (hit && !(spec.kind === 'sheet' && hit === spec.sheetId)) {
-					if (!ws.selection.includes(hit)) ws.select([hit])
-					ws.contextMenu = { x: e.clientX, y: e.clientY }
-					return
-				}
-			}
+			if (click && menuAt(e)) return
 			if (click) {
 				const handled = ws.tool.key?.({ key: 'Escape' } as KeyboardEvent, ctx()) ?? false
 				if (!handled) {
@@ -526,6 +551,7 @@
 	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what
 	 *  it was doing rather than commit it where it was. Nothing pressed (after a normal pointerup) = nothing to do. */
 	function onCancel(e: PointerEvent) {
+		held = null
 		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
 		if (toolDown || vpPan || wDrag || panning) cancel()
 	}
@@ -570,7 +596,7 @@
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onCancel} onlostpointercapture={onCancel} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
-		oncontextmenu={(e) => e.preventDefault()} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
+		oncontextmenu={onMenu} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />

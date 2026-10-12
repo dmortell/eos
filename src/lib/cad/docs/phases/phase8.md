@@ -3124,3 +3124,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   elevations (where it was squeezed into the turned frame's bounding box): image prims take `rot`, turned about the
   box's centre (`views/display.ts`, `views/plan.ts`, `views/elevation.ts`, `ui/Prims.svelte`, `render/pdf.ts`; tests).
   The DXF still skips images.
+- **Q52a** iPad: a long press is a right-click. A finger (or pen) held still 500 ms, drifting less than 8 px, sends a
+  `contextmenu` (a PointerEvent with the press's `pointerType`) to what it's on, so every right-click menu opens
+  unchanged — tabs, Navigator rows, Patching rows, the drawing. A second finger, more movement, a drag lifting first or
+  the browser's own long-press menu (Android) cancels it; once a menu opened, the lift's click is swallowed. One action
+  on the shell (`ui/longPress.ts`: the `LongPress` timer + the `longPress` action; fake-timer test). The drawing: a
+  touch / pen press given to the tool sends it no moves until it has gone further than 8 px (so a held finger never
+  drags or starts a box first); the long press drops that press (rolled back) and, with Select on a thing, selects it
+  (if it wasn't) and opens its menu — the right-click's code, now one `menuAt` (`ui/ViewCanvas.svelte`). Touch screens
+  (`hover: none`): no iOS callout / word selection on a long press (tables included; fields keep theirs), and tabs
+  aren't draggable (the system's drag lift fired on the same press). Help. Not tried on a device.
