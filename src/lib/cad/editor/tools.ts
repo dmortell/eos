@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Id, Pt, ProjectSettings, Rack } from '../domain/types'
 import type { Entity } from '../domain/drawing'
 import type { Prim, Bounds } from '../views/display'
-import type { Snap } from './snap'
+import { onGrid, type Snap } from './snap'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import type { PathSel } from './pathSel'
 import type { ProjectDetails } from '../domain/titleBlock'
@@ -118,7 +118,7 @@ export const TOL_PX = 6
 
 /** Snap to a 10 mm grid (Alt = no snap). */
 /** Moves snap to 10 mm (model), 0.5 mm on a sheet's paper; Alt = free. */
-export const snapPt = (p: Pt, alt: boolean, step = 10): Pt => (alt || !step ? p : { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step })
+export const snapPt = (p: Pt, alt: boolean, step = 10): Pt => (alt || !step ? p : { x: onGrid(p.x, step), y: onGrid(p.y, step) })
 
 
 /** A click → plan position (+ height). Plan: the click is x / y, the height is `planZ`. Elevation: the click on the

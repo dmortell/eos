@@ -3,6 +3,7 @@
 import type { Id, Level, Outlet, Device } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
+import { gridStepOf } from '../editor/snap'
 import { SelectTool } from '../editor/selectTool'
 import { OutletTool, type OutletNext } from '../editor/outletTool'
 import type { AlignHow } from '../editor/align'
@@ -60,7 +61,10 @@ export interface ViewInfo { loading?: boolean; xy: string | null; readout: strin
 const DRAFTING_KEY = 'cad-drafting'
 function loadDrafting(): Drafting {
 	const d: Drafting = { snap: true, grid: 10, osnap: true, showGrid: false }
-	try { return { ...d, ...JSON.parse(localStorage.getItem(DRAFTING_KEY) ?? '{}') } } catch { return d }
+	try {
+		const o = { ...d, ...JSON.parse(localStorage.getItem(DRAFTING_KEY) ?? '{}') } as Drafting
+		return { ...o, grid: gridStepOf(o.grid) ?? d.grid }   // the step is typed now: a bad stored one is the default
+	} catch { return d }
 }
 
 /** How plans and rack views look ON SCREEN for this user (Dave 2026-10-12: a personal toggle, not a project setting —

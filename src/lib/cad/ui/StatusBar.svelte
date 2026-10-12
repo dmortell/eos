@@ -6,6 +6,7 @@
 	import { toggleDrafting } from '../app/shellActions'
 	import { KEYS } from './shellKeys'
 	import { composing } from './keyGuards'
+	import { GRID_STEPS, gridStepOf } from '../editor/snap'
 	import type { Workspace } from '../app/workspace.svelte'
 
 	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
@@ -14,8 +15,13 @@
 		selected: string; onzoomsel: () => void
 	} = $props()
 
-	/** Grid steps (mm); 44.45 = one rack unit. */
-	const STEPS = [1, 5, 10, 25, 50, 100, 250, 500, 1000]
+	/** A typed grid step: kept when it is a positive number, else the box shows the old one again. */
+	function setStep(el: HTMLInputElement) {
+		const n = gridStepOf(el.value)
+		if (n === null) ws.say('Grid step: type a positive number of mm')
+		else { ws.drafting.grid = n; ws.saveDrafting() }
+		el.value = String(ws.drafting.grid)
+	}
 	/** As F9 / F3 / F7 do: the switch, and a word saying it (review R61: a click toggled silently). */
 	const flip = (k: 'snap' | 'osnap' | 'showGrid') => toggleDrafting(ws, k)
 
@@ -60,9 +66,10 @@
 	<span class="xy">{v?.xy ?? '—'}</span>
 	<div class="toggles">
 		<button class:on={ws.drafting.snap} title="SNAP ({KEYS.snap}): moves and points step on the grid · Alt skips it for one action" onclick={() => flip('snap')}>SNAP</button>
-		<select title="Grid step (mm)" aria-label="Grid step (mm)" value={ws.drafting.grid} onchange={(e) => { ws.drafting.grid = Number(e.currentTarget.value); ws.saveDrafting() }}>
-			{#each STEPS as s (s)}<option value={s}>{s}</option>{/each}
-		</select>
+		<!-- the grid step: typed (any positive mm), the usual ones offered -->
+		<input class="step" type="number" min="0.01" step="any" list="cad-grid-steps" title="Grid step (mm): pick one or type any — 600 for floor tiles, 44.45 for 1U"
+			aria-label="Grid step (mm)" value={ws.drafting.grid} onchange={(e) => setStep(e.currentTarget)} />
+		<datalist id="cad-grid-steps">{#each GRID_STEPS as s (s)}<option value={s}></option>{/each}</datalist>
 		<button class:on={ws.drafting.osnap} title="OSNAP ({KEYS.osnap}): snap to nodes, midpoints, centres, outlets and racks" onclick={() => flip('osnap')}>OSNAP</button>
 		<button class:on={ws.drafting.showGrid} title="GRID ({KEYS.grid}): draw the grid (plans, elevations, sections)" onclick={() => flip('showGrid')}>GRID</button>
 	</div>
@@ -92,7 +99,7 @@
 	.toggles button { padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: 0.04em; color: var(--cad-faint); border: 1px solid transparent; }
 	.toggles button:hover { background: var(--cad-hover); }
 	.toggles button.on { color: #1d4ed8; background: #dbeafe; border-color: #93c5fd; }
-	.toggles select { font-size: 10px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
+	.toggles .step { width: 4.5rem; font-size: 10px; padding: 0 2px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
 	.scale { color: var(--cad-muted); }
 	.selc { padding: 0 6px; border-radius: 4px; color: #1d4ed8; background: #dbeafe; font-weight: 600; }
 	.selc:hover { background: #bfdbfe; }

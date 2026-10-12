@@ -3178,3 +3178,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   its maker / model (SKU = the model, "maker model (kind size)"), as the Racks tool did — racks of the same size but
   another model are no longer one line; devices with no catalogue id the same in the project BOM. Not the legacy Row /
   Consolidated / Notice sheets. Help; tests.
+- **Q49** the grid step beside SNAP is typed (any positive mm, to 0.01) with the usual steps offered in a list
+  (1 … 1000, plus 44.45 = 1U and 600 = a floor tile), as the cord length field is; a bad entry is refused and the box
+  shows the step again. Snapping lands on the line without float dust (3 × 44.45 = 133.35), and the drawn grid counts
+  lines by number (`editor/snap.ts` `onGrid` / `gridStepOf` / `GRID_STEPS`, `editor/tools.ts` `snapPt`,
+  `ui/canvasInfo.ts` `gridLines`, `ui/StatusBar.svelte`; a bad stored step loads as 10). Help; test.

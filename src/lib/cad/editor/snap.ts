@@ -14,7 +14,20 @@ export const GRID_MM = 10
 export interface SnapOpts { skip?: Id | Id[]; noGrid?: boolean; grid?: number; noObjects?: boolean }
 
 export function gridSnap(p: Pt, step = GRID_MM): Pt {
-	return { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step }
+	return { x: onGrid(p.x, step), y: onGrid(p.y, step) }
+}
+
+/** `v` on the nearest grid line — any positive step (600 floor tiles, 44.45 = 1U), without float dust (3 × 44.45 =
+ *  133.35, not 133.35000000000002). */
+export const onGrid = (v: number, step: number): number => Math.round(Math.round(v / step) * step * 1e6) / 1e6
+
+/** The usual grid steps offered (mm); any other positive number can be typed. 44.45 = one rack unit, 600 = a floor tile. */
+export const GRID_STEPS = [1, 5, 10, 25, 44.45, 50, 100, 250, 500, 600, 1000]
+
+/** A typed grid step: a positive number (mm, to 0.01) up to 100 m, else null (keep the old one). */
+export function gridStepOf(text: string | number): number | null {
+	const n = typeof text === 'number' ? text : Number(String(text).trim().replace(',', '.'))
+	return Number.isFinite(n) && n > 0 && n <= 100_000 ? Math.max(0.01, Math.round(n * 100) / 100) : null
 }
 
 /**

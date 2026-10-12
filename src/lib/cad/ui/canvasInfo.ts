@@ -6,11 +6,12 @@ import { MIN_K, visibleArea, type Camera } from '../editor/camera'
 
 /** Grid lines every `step` mm, coarsened ×10 until at least 8 px apart; every 5th `major`. */
 export function gridLines(cam: Camera, w: number, h: number, step0: number): { a: Pt; b: Pt; major: boolean }[] {
-	let step = Math.max(1, step0 || 10)
+	let step = step0 > 0 ? step0 : 10   // any typed step (600, 44.45)
 	while (step * cam.k < 8) step *= 10
 	const { x0, y0, x1, y1 } = visibleArea(cam, w, h), out: { a: Pt; b: Pt; major: boolean }[] = []
-	for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) out.push({ a: { x, y: y0 }, b: { x, y: y1 }, major: Math.round(x / step) % 5 === 0 })
-	for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) out.push({ a: { x: x0, y }, b: { x: x1, y }, major: Math.round(y / step) % 5 === 0 })
+	// by line number, so a step like 44.45 gathers no float error across the view
+	for (let i = Math.ceil(x0 / step); i * step <= x1; i++) { const x = i * step; out.push({ a: { x, y: y0 }, b: { x, y: y1 }, major: i % 5 === 0 }) }
+	for (let i = Math.ceil(y0 / step); i * step <= y1; i++) { const y = i * step; out.push({ a: { x: x0, y }, b: { x: x1, y }, major: i % 5 === 0 }) }
 	return out
 }
 

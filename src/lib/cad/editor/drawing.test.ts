@@ -3,11 +3,11 @@ import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { snapAt, gridSnap } from './snap'
+import { snapAt, gridSnap, gridStepOf, GRID_STEPS } from './snap'
 import { pathGrips, moveNodes, joinDropped } from './grips'
 import { followAttached } from './behaviours'
 import { PathTool } from './pathTool'
-import { type ToolCtx, type DrawOpts } from './tools'
+import { snapPt, type ToolCtx, type DrawOpts } from './tools'
 import { SelectTool } from './selectTool'
 import { toLine, toContainment } from '../domain/make'
 import type { Shape } from '../domain/shapes'
@@ -39,6 +39,15 @@ describe('snapping', () => {
 		expect(snapAt(ix, 'L33', { x: 1004, y: 3996 }, 15)).toMatchObject({ kind: 'outlet', attach: 'O1', p: { x: 1000, y: 4000 } })
 		expect(snapAt(ix, 'L33', { x: 5004, y: 7996 }, 15)).toEqual({ p: { x: 5000, y: 8000 }, kind: 'grid' })
 		expect(gridSnap({ x: 14, y: 16 })).toEqual({ x: 10, y: 20 })
+	})
+	it('any typed grid step: 600 (floor tiles), 44.45 (1U) — on the line exactly; a bad entry is refused (Review 2 Q49)', () => {
+		expect(gridSnap({ x: 1000, y: -350 }, 600)).toEqual({ x: 1200, y: -600 })
+		expect(gridSnap({ x: 130, y: 20 }, 44.45)).toEqual({ x: 133.35, y: 0 })
+		expect(snapPt({ x: 130, y: 100 }, false, 44.45)).toEqual({ x: 133.35, y: 88.9 })
+		expect(snapAt(new ProjectIndex(demoProject()), 'L33', { x: 50_350, y: 70_000 }, 15, { grid: 600 })).toEqual({ p: { x: 50_400, y: 70_200 }, kind: 'grid' })
+		expect([gridStepOf('600'), gridStepOf(' 44.45 '), gridStepOf('44,45'), gridStepOf(0.004)]).toEqual([600, 44.45, 44.45, 0.01])
+		expect([gridStepOf(''), gridStepOf('0'), gridStepOf('-5'), gridStepOf('abc')]).toEqual([null, null, null, null])
+		expect(GRID_STEPS).toEqual(expect.arrayContaining([44.45, 600]))
 	})
 	it('snaps to the centre of a circle, a box and a polygon, and a block\'s insertion point', () => {
 		const sh = (id: string, geom: Shape['geom']) => ({ type: 'shape', id, levelId: 'L33', geom }) as Shape
