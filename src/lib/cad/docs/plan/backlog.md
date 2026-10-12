@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 10 entries (0 P1 · 0 P2 · 10 P3; 0 ⚡ quick wins) — 14 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 6 entries (0 P1 · 0 P2 · 6 P3; 0 ⚡ quick wins) — 14 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -48,7 +48,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Levels, plans and underlays
 
-- [ ] **Embed Uploads in cad?** — the link is built (File › Uploads… opens it in a new tab, 2026-10-07). Still to decide: embed the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in a cad window / dialog. **P3 · L** (Dave 2026-10-07: "consider"; Uploads is its own route with its own PDF viewer state). *From:* Dave 2026-10-07 **Dave 2026-10-13: build.**
+- [x] **Embed Uploads in cad?** — the link is built (File › Uploads… opens it in a new tab, 2026-10-07). Still to decide: embed the Uploads tool (floorplan PDFs: upload, origin, scale, crop, masks, layers) in a cad window / dialog. **P3 · L** (Dave 2026-10-07: "consider"; Uploads is its own route with its own PDF viewer state). *From:* Dave 2026-10-07 **Dave 2026-10-13: build.** **Done 2026-10-13** (File › Uploads… dialog; the tool moved to $lib/uploads).
 
 ## Racks, devices and rack views
 
@@ -64,12 +64,12 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Selection and editing
 
-- [ ] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **Dave 2026-10-12 todo: Ctrl+V after copying text in another app pastes a text box** (plain text → a text shape at the pointer, on the plan / sheet; `app/clipboardEvents.ts` paste today ignores non-cad text). **P3 · M** (~80 lines). *cad today:* missing (pictures paste; plain text does nothing). *From:* G234, Dave 2026-10-12 **Dave 2026-10-13: build.**
+- [x] **Text to and from office apps** — Copied items go out as readable text; text pasted from Word / Excel becomes a note. **Dave 2026-10-12 todo: Ctrl+V after copying text in another app pastes a text box** (plain text → a text shape at the pointer, on the plan / sheet; `app/clipboardEvents.ts` paste today ignores non-cad text). **P3 · M** (~80 lines). *cad today:* missing (pictures paste; plain text does nothing). *From:* G234, Dave 2026-10-12 **Dave 2026-10-13: build.** **Done 2026-10-13** (Ctrl+V text → a note, Excel / HTML tables → a markdown table; Ctrl+C leaves readable words).
 
 ## Drafting commands and input
 
 - [ ] **Floor-tile grid** — A box draws a tile grid of N mm, with X / Y offset to line up with the real floor. **P3 · S** (~60 lines). *cad today:* missing. *From:* G162, G264 **Dave 2026-10-13: build.**
-- [ ] **Markdown notes block** — A note with headings, bullet / numbered lists, tables and bold / italic, wrapped in a box; paste from Word / Excel. Answer to "how much code?": about 250 lines (layout into text lines, plus PDF / DXF output), on top of "Text that fills a box". **P3 · L** (~250 lines). *cad today:* `markdown` flag in the data, unused (`cad/domain/shapes.ts:73`). *From:* G184, G328, T143 **Dave 2026-10-13: build — markdown notes AND tables.**
+- [x] **Markdown notes block** — A note with headings, bullet / numbered lists, tables and bold / italic, wrapped in a box; paste from Word / Excel. Answer to "how much code?": about 250 lines (layout into text lines, plus PDF / DXF output), on top of "Text that fills a box". **P3 · L** (~250 lines). *cad today:* `markdown` flag in the data, unused (`cad/domain/shapes.ts:73`). *From:* G184, G328, T143 **Dave 2026-10-13: build — markdown notes AND tables.** **Done 2026-10-13** (headings, lists, bold / italic, pipe tables; screen, PDF, DXF).
 
 ## Layers, styles, blocks and symbols
 
@@ -90,7 +90,7 @@ Note: the outlet fields now live in `ui/OutletProps.svelte` (moved in phase8 Bat
 
 ## Shell, navigation and touch
 
-- [ ] **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110 **Dave 2026-10-13: build.**
+- [x] **ACAD / EOS input mode** — a status-bar toggle: ACAD = wheel zooms, draw with two clicks (today's way); EOS = wheel pans, press-drag draws. Dave asked "consider" first, so agree the two modes before building. **P3 · M** (~100 lines; press-drag drawing touches every draw tool). *cad today:* wheel always zooms (`cad/ui/ViewCanvas.svelte:306`), tools take clicks. *From:* G221, T110 **Dave 2026-10-13: build.** **Done 2026-10-13** (status-bar toggle; EOS: wheel pans, press-drag draws runs / lines / dimensions).
 
 ## 3D, elevations and sections
 
