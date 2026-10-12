@@ -5,7 +5,10 @@ import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
 import type { Entity } from '../domain/drawing'
 import { labelKind } from '../domain/labelEdit'
 
-export type MenuItem = { label: string; key?: string; checked?: boolean; disabled?: boolean; title?: string; run: () => void } | '-'
+export type MenuItem = { label: string; key?: string; checked?: boolean; disabled?: boolean; title?: string; run: () => void }
+	/** A submenu (review R45: long flat menus): opens to the side on hover. */
+	| { label: string; title?: string; disabled?: boolean; children: MenuItem[] }
+	| '-'
 export interface Menu { label: string; items: MenuItem[] }
 
 export interface MenuCtx {
@@ -26,6 +29,8 @@ export interface MenuCtx {
 	canRestore: boolean
 	/** File › Import legacy drawings…: chosen Pages models / Sheets-tool sheets of this project, once. */
 	legacyDrawings(): void
+	/** The photo survey tool for this project, in a new tab (its only way in was the old project page). */
+	surveys(): void
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -69,23 +74,26 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			// from inside cad": the link; embedding it is still to decide)
 			{ label: 'Open project…', key: 'Ctrl+O', run: c.openProject },
 			{ label: 'Uploads…', title: 'Open the Uploads tool (floorplan PDFs, issued PDFs) in a new tab', run: c.uploads },
+			{ label: 'Photo surveys…', title: 'Open this project’s photo surveys in a new tab', run: c.surveys },
 			'-',
 			{ label: 'Download backup…', title: 'Save the whole project or chosen models as a file', run: () => c.backup('download') },
 			{ label: 'Restore from file…', disabled: !c.canRestore, title: c.canRestore ? 'Put models back as they were in a backup file' : 'Only the project owner can restore', run: () => c.backup('restore') },
 			'-',
 			{ label: 'Import legacy drawings…', title: 'Bring chosen Pages models (boxes, walls) and Sheets-tool sheets of this project into cad — one undo step', run: c.legacyDrawings },
 			'-',
-			{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
-			{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
-			{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
-			'-',
-			{ label: 'Bill of materials…', run: c.bom },
-			{ label: 'Cable schedule…', run: c.cableSchedule },
-			{ label: 'Patch schedule / cord BOM…', run: c.cordBom },
-			{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
-			'-',
-			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
-			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
+			{ label: 'Export', children: [
+				{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
+				{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
+				{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
+				'-',
+				{ label: 'Bill of materials…', run: c.bom },
+				{ label: 'Cable schedule…', run: c.cableSchedule },
+				{ label: 'Patch schedule · cord BOM…', run: c.cordBom },
+				{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
+				'-',
+				{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
+				{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
+			] },
 		] },
 		{ label: 'Edit', items: [
 			{ label: 'Undo', key: 'Ctrl+Z', disabled: !c.canUndo, run: c.undo },
@@ -103,10 +111,12 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Group', key: 'Ctrl+G', disabled: !c.hasSelection, run: c.group },
 			{ label: 'Ungroup', key: 'Ctrl+Shift+G', disabled: !c.hasSelection, run: c.ungroup },
 			'-',
-			{ label: 'Bring to front', key: 'Ctrl+Shift+]', disabled: !c.hasSelection, run: () => c.order('front') },
-			{ label: 'Bring forward', key: 'Ctrl+]', disabled: !c.hasSelection, run: () => c.order('forward') },
-			{ label: 'Send backward', key: 'Ctrl+[', disabled: !c.hasSelection, run: () => c.order('backward') },
-			{ label: 'Send to back', key: 'Ctrl+Shift+[', disabled: !c.hasSelection, run: () => c.order('back') },
+			{ label: 'Arrange', disabled: !c.hasSelection, children: [
+				{ label: 'Bring to front', key: 'Ctrl+Shift+]', disabled: !c.hasSelection, run: () => c.order('front') },
+				{ label: 'Bring forward', key: 'Ctrl+]', disabled: !c.hasSelection, run: () => c.order('forward') },
+				{ label: 'Send backward', key: 'Ctrl+[', disabled: !c.hasSelection, run: () => c.order('backward') },
+				{ label: 'Send to back', key: 'Ctrl+Shift+[', disabled: !c.hasSelection, run: () => c.order('back') },
+			] },
 		] },
 		{ label: 'View', items: [
 			{ label: 'Find a view, sheet, room, rack…', key: 'Ctrl+K', run: c.find },
@@ -115,9 +125,6 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },
 			{ label: 'Forward', key: 'Alt+→', disabled: !c.canFwd, run: c.forward },
-			'-',
-			{ label: 'Tables panel', key: 'Ctrl+,', checked: c.tables, run: c.toggleTables },
-			{ label: 'Hide all windows', key: 'Ctrl+.', checked: c.hideAll, run: c.toggleHideAll },
 			'-',
 			{ label: 'Fill overlay', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
 			{ label: 'Snap to grid (SNAP)', key: 'F9', checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
@@ -132,16 +139,20 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Cabling', items: [
 			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'), tool('renumber', 'Renumber'),
 			'-',
-			{ label: 'Outlets table', run: () => c.openTable('outlets') },
-			{ label: 'Patching (patch list)', run: () => c.openTable('patch') },
-			{ label: 'Links table', run: () => c.openTable('links') },
+			{ label: 'Tables', children: [
+				{ label: 'Outlets', run: () => c.openTable('outlets') },
+				{ label: 'Patching', run: () => c.openTable('patch') },
+				{ label: 'Links', run: () => c.openTable('links') },
+			] },
 			'-',
-			{ label: 'Patch schedule / cord BOM…', run: c.cordBom },
 			{ label: 'Cord label batches…', title: 'The patch cords bought, as batches of pre-printed labels: used, free, short, the next order', run: c.cordLabels },
 			{ label: 'Port map view of the selected devices', title: 'The selected panels / switches drawn like their faceplates, each port with its number and the item at its far end — put it on a sheet with To sheet…', run: c.portMapView },
-			{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
-			{ label: 'Cable schedule…', run: c.cableSchedule },
-			{ label: 'Bill of materials…', run: c.bom },
+			{ label: 'Schedules', children: [
+				{ label: 'Patch schedule · cord BOM…', run: c.cordBom },
+				{ label: 'Cable schedule…', run: c.cableSchedule },
+				{ label: 'Port map of the selected devices (Excel, VLAN)', run: c.portMap },
+				{ label: 'Bill of materials…', run: c.bom },
+			] },
 		] },
 		{ label: 'Sheets', items: [
 			{ label: 'New sheet', run: c.newSheet },
@@ -163,6 +174,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Window', items: [
 			...WIN_IDS.map((id): MenuItem => ({ label: WIN_TITLES[id], checked: c.win.shown(id), run: () => c.win.toggle(id) })),
+			{ label: 'Tables', key: 'Ctrl+,', checked: c.tables, run: c.toggleTables },
 			'-',
 			{ label: 'Hide all windows', key: 'Ctrl+.', checked: c.hideAll, run: c.toggleHideAll },
 			{ label: 'Reset layout', run: c.win.reset },

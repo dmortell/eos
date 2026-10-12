@@ -10,7 +10,8 @@
 		const w = el?.offsetWidth ?? 220, h = el?.offsetHeight ?? 260, vw = typeof window !== 'undefined' ? window.innerWidth : 2000, vh = typeof window !== 'undefined' ? window.innerHeight : 1200
 		return { left: x + w > vw ? Math.max(4, x - w) : x, top: y + h > vh ? Math.max(4, y - h) : y }
 	})
-	function pick(it: Exclude<MenuItem, '-'>) { if (it.disabled) return; onclose(); it.run() }
+	type Leaf = Extract<MenuItem, { run: () => void }>
+	function pick(it: Leaf) { if (it.disabled) return; onclose(); it.run() }
 	// on Windows the browser's own `contextmenu` comes AFTER the button is let go — i.e. after this menu opened — and lands
 	// on the backdrop: the first one within a moment of opening is that same right-click, not a new one (UX review R1)
 	const opened = performance.now()
@@ -27,9 +28,10 @@
 <div bind:this={el} class="pop" role="menu" tabindex="-1" oncontextmenu={(e) => e.preventDefault()} style:left="{pos.left}px" style:top="{pos.top}px">
 	{#each items as it, i (i)}
 		{#if it === '-'}<div class="sep"></div>
-		{:else}
+		{:else if 'run' in it}
+			<!-- a tick for a choice that's on (the Navigator's "Group by …"), as the menu bar shows -->
 			<button class="item" role="menuitem" disabled={it.disabled} title={it.title} onclick={() => pick(it)}>
-				<span class="lbl">{it.label}</span><span class="key">{it.key ?? ''}</span>
+				<span class="tick">{it.checked ? '✓' : ''}</span><span class="lbl">{it.label}</span><span class="key">{it.key ?? ''}</span>
 			</button>
 		{/if}
 	{/each}
@@ -37,6 +39,7 @@
 </div>
 
 <style>
+	.tick { width: 14px; flex: none; color: #2563eb; font-size: 11px; }
 	.menu-root { display: contents; }
 	.backdrop { position: fixed; inset: 0; z-index: 95; background: none; border: none; cursor: default; }
 	.pop { position: fixed; z-index: 96; min-width: 210px; padding: 4px; background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 14px 36px rgb(0 0 0 / 0.22); font-size: 12px; }

@@ -2653,3 +2653,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   racks (rear)"), a section's its level; a tab whose level / room is gone says so; a plan tab with no level of its own
   reads "Plan (current level)" (`domain/navTree.ts` `viewName`, also the Navigator and the tab list). Live (Test
   Project): the racks tabs now differ.
+- **R45, R44 (part), R61 (part), R97 Menus:** menus can have submenus (`MenuItem.children`, opening to the side on
+  hover — `ui/MenuBar.svelte`); **File › Export ▸** holds every export (outlet schedules, plan DXF, BOM, cable
+  schedule, patch schedule · cord BOM, port map Excel, sheet PDFs); **Edit › Arrange ▸** the four draw-order items;
+  Cabling = its tools, Tables ▸, Cord label batches…, Port map view, Schedules ▸; Hide all windows only in Window
+  (it was in View too), and the Tables panel is in Window with the windows; **File › Photo surveys…** opens the
+  project's photo surveys (their only way in was the old project page). Clicking another menu's title while one is
+  open now opens it (it closed both: the hover had already switched); the right-click menu shows ✓ for a choice that's
+  on (the Navigator's "Group by …") (`ui/ContextMenu.svelte`). Live (Test Project): File › Export ▸ opens; File → Edit
+  switches. Help: menu paths.
