@@ -11,6 +11,7 @@ import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import { newId } from '../domain/ids'
 import { blockPrims } from '../views/blocks'
+import { viewportAt } from '../views/sheet'
 import { PLOT_SCALE, type Prim } from '../views/display'
 
 interface Place { at: Pt; z: number; rot?: number; onWall?: boolean; view: Pt }
@@ -56,7 +57,11 @@ export class InsertTool implements Tool {
 	preview(c?: ToolCtx): Prim[] {
 		const b = this.blockOf(), h = this.#hover
 		if (!b || !h) return []
-		const kind = c?.space.spec.kind, front = kind === 'elevation' || kind === 'section'
+		const spec = c?.space.spec, kind = spec?.kind, front = kind === 'elevation' || kind === 'section'
+		// on a sheet, over an elevation / section viewport: its front, at that viewport's scale (as it will be drawn)
+		const sheet = spec?.kind === 'sheet' ? c!.store.get(spec.sheetId) : undefined
+		const vp = sheet?.type === 'sheet' && b.front ? viewportAt(sheet, h.view) : undefined
+		if (vp && (vp.view.spec.kind === 'elevation' || vp.view.spec.kind === 'section')) return blockPrims(frontOf(b), { at: h.view, scale: 1 / vp.scale }, 1, insertAttrs(b), '', 'draft')
 		return blockPrims(front ? frontOf(b) : b, { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')   // as drawn: unturned in plan, facing you (its front) in elevations
 	}
 

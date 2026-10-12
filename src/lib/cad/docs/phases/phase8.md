@@ -2704,3 +2704,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   panels' unused `columns` / `rows` getters, ViewStrip's empty module script, reports' copy of `levelElevation` (it uses
   routing's). (labels.ts `renumber` / `renumberOutlets` stay: their tests document the label rules.) Help: a
   faceplate's front in elevations (for eos-d9's blocks change).
+- **Faceplate fronts on sheets and in the Blocks window (Dave 2026-10-12, Journey sheet 010 Comms1 elevation):** a block
+  put inside an elevation / section VIEWPORT on a sheet (a sheet note tied to it, `vpId`) now draws its front drawing
+  too (`views/sheet.ts` `notePrims`, at the viewport's scale: a plate is 3.5 × 5.75 mm at 1:20); the Insert tool's
+  ghost over such a viewport shows it; the Blocks window shows a block's front when it has one
+  (`views/blocks.ts` `blockPreview`). Test in `views/sheet.test.ts`. Seen on Journey's sheet 010 (view only, nothing
+  written): its five faceplates now show plate, frame and sockets. Placed at their old insertion points, they are
+  larger than the old symbols, so a few may want moving.

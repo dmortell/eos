@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport } from './sheet'
 import { DEFAULT_TITLE_BLOCK } from '../domain/titleBlock'
+import { BUILTIN_BLOCKS } from '../domain/blocks'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Sheet } from '../domain/drawing'
@@ -11,6 +12,14 @@ const sheet = (extra: Partial<Sheet> = {}): Sheet => ({ type: 'sheet', id: 'SH',
 const ix = () => new ProjectIndex(demoProject())
 
 describe('sheets', () => {
+	it('a faceplate put in an elevation viewport shows its front there, at the viewport’s scale (70 mm wide at 1:20 = 3.5 mm)', () => {
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'elevation' as const, dir: 'front' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 20, centre: { x: 0, y: 0 } }
+		const ins = { type: 'shape', id: 'F', sheetId: 'SH', vpId: 'V', geom: { kind: 'insert', blockId: 'builtin:faceplate-power-2', at: { x: 0, y: -1200 } } } as Shape
+		const blocks = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
+		const plate = sheetDisplayList(new ProjectIndex([...demoProject(), ins]), sheet({ viewports: [vp] }), { blocks }).filter((p) => p.src === 'F' && p.k === 'line' && p.closed)
+		const w = (p: (typeof plate)[number]) => (p.k === 'line' ? Math.max(...p.pts.map((q) => q.x)) - Math.min(...p.pts.map((q) => q.x)) : 0)
+		expect(plate.map(w).map((x) => Math.round(x * 10) / 10)).toEqual([3.5, 2.5])   // the plate, its frame
+	})
 	it('A3 landscape is 420 × 297 mm; the paper and its margin are drawn', () => {
 		expect(paperSize(sheet())).toEqual({ w: 420, h: 297 })
 		expect(paperSize(sheet({ paper: { size: 'A1', orientation: 'portrait', marginMm: 10 } }))).toEqual({ w: 594, h: 841 })

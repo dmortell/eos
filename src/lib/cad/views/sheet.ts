@@ -7,6 +7,7 @@ import type { Sheet, Viewport, SectionCut } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 import { byDrawOrder } from '../domain/shapes'
 import { nextLabel } from '../domain/labels'
+import { frontOf } from '../domain/blocks'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim, Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
@@ -148,7 +149,9 @@ function notePrims(s: Shape, sheet: Sheet, blocks: SheetOpts['blocks']): Prim[] 
 	if (!vp) return shapePrims(s, 1, blocks)
 	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
 	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
-	return shapePrims(s, vp.scale, blocks).map((p) => placePrim(p, t, k, clip, p.src))
+	// a block put in an elevation / section viewport (a faceplate on its wall) shows its front there, as in the view
+	const kind = vp.view.spec.kind, front = (kind === 'elevation' || kind === 'section') && blocks ? (id: Id) => { const b = blocks(id); return b && frontOf(b) } : blocks
+	return shapePrims(s, vp.scale, front).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
 /** The options as this sheet draws: its own B/W, usage colours and cord route over the project's old settings. */
