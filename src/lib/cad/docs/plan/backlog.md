@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 43 entries (0 P1 · 8 P2 · 35 P3; 0 ⚡ quick wins) — 22 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 39 entries (0 P1 · 4 P2 · 35 P3; 0 ⚡ quick wins) — 18 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Suggested order
 
@@ -184,10 +184,10 @@ is given. Paths are relative to `src/lib/cad/` unless they start with `routes/` 
 
 ### Q-E. Performance
 
-- [ ] **Q56 Routing still ~0.75 s per edit on a big project (R40 part)** — `routeLinks` re-runs after each commit while any reader is shown (Outlets / Links tables, Port Properties, sheet panes, riser); `buildGraph` 470 ms (`nodeAt` O(N²), tee cuts O(S·N), `domain/routing.ts:73-95`), `outletTap` scans every segment (`:136`); `fills` not held during drags. *Fix:* grid hash, segments by level, cached taps; later re-route changed levels only. ✔ **P2 · M**
-- [ ] **Q57 The port map takes ~1 s per edit** — `traceCircuit` per port rebuilds the link + cord graph (`domain/portMap.ts:46`, `domain/cords.ts:293-298`); 288 ports / 6,624 links / 2,000 cords = 1,023 ms. *Fix:* build the adjacency once per call. ✔ **P2 · S**
-- [ ] **Q58 `naturalCompare` builds a collator per call** — `domain/labels.ts:135`, used in 71 places: 6,600 strings sort in 250 ms vs 9–18 ms; `linkRows` 120 ms on every rev, before the view filter (`ui/LinksTable.svelte:28-37`). *Fix:* one cached `Intl.Collator` (one line). ✔ **P2 · S**
-- [ ] **Q59 Side panels rebuild on every drag frame** — `rev++` per gesture frame (`app/project.svelte.ts:98`) reruns Navigator, layer counts, tables, `floorplanPending`; 35 places spread `byId.values()` to filter by type. *Fix:* a `dataRev` for final changes only; typed lists on `ProjectIndex`. ✔ **P2 · M**
+- [x] **Q56 Routing still ~0.75 s per edit on a big project (R40 part)** — `routeLinks` re-runs after each commit while any reader is shown (Outlets / Links tables, Port Properties, sheet panes, riser); `buildGraph` 470 ms (`nodeAt` O(N²), tee cuts O(S·N), `domain/routing.ts:73-95`), `outletTap` scans every segment (`:136`); `fills` not held during drags. *Fix:* grid hash, segments by level, cached taps; later re-route changed levels only. ✔ **P2 · M** **Done 2026-10-12** (grids for nodes / tees / taps: 4,260 segments routeAll 2.6 s → 92 ms; fills held in drags).
+- [x] **Q57 The port map takes ~1 s per edit** — `traceCircuit` per port rebuilds the link + cord graph (`domain/portMap.ts:46`, `domain/cords.ts:293-298`); 288 ports / 6,624 links / 2,000 cords = 1,023 ms. *Fix:* build the adjacency once per call. ✔ **P2 · S** **Done 2026-10-12** (842 ms → 6 ms).
+- [x] **Q58 `naturalCompare` builds a collator per call** — `domain/labels.ts:135`, used in 71 places: 6,600 strings sort in 250 ms vs 9–18 ms; `linkRows` 120 ms on every rev, before the view filter (`ui/LinksTable.svelte:28-37`). *Fix:* one cached `Intl.Collator` (one line). ✔ **P2 · S** **Done 2026-10-12** (210 ms → 9 ms).
+- [x] **Q59 Side panels rebuild on every drag frame** — `rev++` per gesture frame (`app/project.svelte.ts:98`) reruns Navigator, layer counts, tables, `floorplanPending`; 35 places spread `byId.values()` to filter by type. *Fix:* a `dataRev` for final changes only; typed lists on `ProjectIndex`. ✔ **P2 · M** **Done 2026-10-12** (dataRev / dataIndex for final changes; ProjectIndex.ofType).
 
 ### Q-F. Code health and tests
 
