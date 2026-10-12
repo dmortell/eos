@@ -118,8 +118,12 @@
 		const what = ids.length ? `${ids.length} selected outlet(s)` : 'this level'
 		const n = r.add.length, left = r.unallocated.length
 		if (!n && !r.remove.length) { ws.say(left ? `Nothing to allocate — ${left} port(s) can't be placed (see the list)` : `Everything on ${what} is already allocated`); return }
-		const msg = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} ${withPinned ? '' : 'unpinned '}link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}.`
-		ws.ask2(msg, 'Apply', () => project.applyLinks(`${reallocate ? 'Re-allocate' : 'Allocate'} ${what}`, r.add, r.remove))
+		const label = `${reallocate ? 'Re-allocate' : 'Allocate'} ${what}`
+		const msg = `${label}: ${n} port(s) to panels${r.remove.length ? `, ${r.remove.length} ${withPinned ? '' : 'unpinned '}link(s) replaced` : ''}${left ? ` · ${left} can't be placed` : ''}`
+		// asks only when existing links (pinned ones too, with "incl. pinned") would move; filling free ports just happens
+		if (r.remove.length) { ws.ask2(`${msg}.`, 'Apply', () => project.applyLinks(label, r.add, r.remove)); return }
+		project.applyLinks(label, r.add, r.remove)
+		ws.say(`${msg} — Undo brings them back`)
 	}
 	/** Drag outlets (the selection when the row is in it) onto a panel port in a rack view: assigned from that port —
 	 *  "Assign → port…" by drag (backlog "Bulk patching by drag"). */

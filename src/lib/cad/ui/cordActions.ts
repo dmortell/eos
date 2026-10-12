@@ -1,6 +1,6 @@
 // The actions on several selected cords (patch-list-plan.md Slice 2): Installed · Add · Remove · Restore · Delete —
 // for the patch list's bar and right-click, and Properties when several cords are selected. The rules are
-// `cordAction` (domain/cords.ts); this runs one as an undo step, asking first when records go.
+// `cordAction` (domain/cords.ts); this runs one at once as an undo step, and says what went.
 import type { CadProject } from '../app/project.svelte'
 import type { Workspace } from '../app/workspace.svelte'
 import type { Cord } from '../domain/types'
@@ -30,15 +30,13 @@ export function runCordAction(project: CadProject, ws: Workspace, cords: Cord[],
 	const r = cordAction(cords, a), n = r.put.length + r.del.length
 	if (!n) return
 	const label = DONE[a](n)
-	const go = () => {
-		project.store.transact(label, (tx) => { for (const c of r.put) tx.put(c); for (const id of r.del) tx.del(id) })
-		if (r.del.length) ws.select(ws.selection.filter((id) => !r.del.includes(id)))
-		const marked = a === 'remove' && r.put.length ? ` (${r.put.length} marked for removal${r.del.length ? `, ${r.del.length} never installed deleted` : ''})` : ''
-		ws.say(`${label}${marked} — Ctrl+Z undoes`)
-	}
-	if (a === 'delete') return ws.ask2(`Delete ${plural(n)} outright? No removal work is listed for them — use Remove for cords that are on site. Undo brings them back.`, 'Delete', go)
-	if (a === 'installed' && r.del.length) return ws.ask2(`${plural(n)} done on site: ${r.del.length} of them ${r.del.length === 1 ? 'was' : 'were'} marked for removal — ${r.del.length === 1 ? 'its record goes' : 'their records go'}. Undo brings them back.`, 'Done on site', go)
-	go()
+	// undoable, and only the picked cords change: at once, saying what happened (no question)
+	project.store.transact(label, (tx) => { for (const c of r.put) tx.put(c); for (const id of r.del) tx.del(id) })
+	if (r.del.length) ws.select(ws.selection.filter((id) => !r.del.includes(id)))
+	const note = a === 'remove' && r.put.length ? ` (${r.put.length} marked for removal${r.del.length ? `, ${r.del.length} never installed deleted` : ''})`
+		: a === 'delete' ? ' outright — no removal work is listed for them (Remove is for cords on site)'
+		: a === 'installed' && r.del.length ? ` — ${r.del.length} marked for removal ${r.del.length === 1 ? 'is' : 'are'} out: ${r.del.length === 1 ? 'its record goes' : 'their records go'}` : ''
+	ws.say(`${label}${note} — Undo brings them back`)
 }
 
 /** The same as right-click menu items. */

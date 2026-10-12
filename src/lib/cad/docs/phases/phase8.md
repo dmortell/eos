@@ -2963,3 +2963,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the drawing gets Esc) and asks before closing on an unapplied floor range; Backup / Backups ignore the backdrop and
   everything while a job runs (`outside={false}`, `locked`), Backups' Esc steps back (question → rename → close);
   Device template's Enter saves.
+- **R71 One confirmation rule (the rest of the UI):** an undoable action that changes only what's picked happens at
+  once and the status line says what went, ending "— Undo brings it back" (them); it asks first only when it can't be
+  undone (a library block / template, a stored backup, printed panel labels, a floorplan file other projects use) or
+  more goes with it than what's selected (a rack's devices, a sheet's viewports, a level's contents, a section's
+  viewports, Purge removed). Changed: Remove links / Remove cords on a device act at once, as on selected ports
+  (`ui/DeviceCables.svelte`); the cord actions Delete and Installed-on-removal no longer ask (`ui/cordActions.ts`,
+  the note in the message); Allocate fills free ports at once and asks only when existing (unpinned, or with
+  "pinned too" pinned) links would be replaced (`ui/OutletGrid.svelte`); Delete sheet asks only when viewports /
+  notes go with it (`ui/SheetsTab.svelte`); an empty level shown nowhere just goes (`app/navActions.ts`); plain
+  Delete (an item, an opening, a viewport — via the header's Delete — a row, an empty room) and Delete layer now say
+  so. Help updated (unlinking a run of devices, cord actions, allocation, deleting a level / room).

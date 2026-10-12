@@ -54,6 +54,7 @@
 		if (n) { ws.say(`${l.name} has ${n} item${n === 1 ? '' : 's'} — move them to another layer first (Properties → Layer)`); return }
 		project.store.transact(`Delete layer ${l.name}`, (tx) => tx.del(l.id))
 		ws.layers.forget(l.id)
+		ws.say(`Layer ${l.name} deleted — Undo brings it back`)
 	}
 	const setColour = (l: LayerInfo, color: string | undefined) => put(`${l.name} color`, record(l, { color }))
 	// the layer's line type and lineweight (backlog "Layer line type and lineweight"): its items without their own use them

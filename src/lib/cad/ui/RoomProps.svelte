@@ -83,7 +83,7 @@
 				<button class="lnk" title="Its Properties (and its racks)" onclick={() => ws.select([w.id])}>{inRow(w.id)}</button>
 				<button class="btn" disabled={i === 0} title="Move up (the rack view's row order)" onclick={() => move(i, -1)}>▲</button>
 				<button class="btn" disabled={i === rows.length - 1} title="Move down" onclick={() => move(i, 1)}>▼</button>
-				<button class="btn del" title="Delete this row (its racks stay in the room, in no row; Undo brings it back)" onclick={() => deleteRow(project, w.id)}>✕</button>
+				<button class="btn del" title="Delete this row (its racks stay in the room, in no row; Undo brings it back)" onclick={() => { deleteRow(project, w.id); ws.say(`Deleted row ${w.name} (its racks stay in the room) — Undo brings it back`) }}>✕</button>
 			</div>
 		{:else}
 			<p class="muted">No rows yet</p>

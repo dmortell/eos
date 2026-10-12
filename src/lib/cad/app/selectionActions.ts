@@ -9,6 +9,10 @@ import { reservePorts } from '../domain/ports'
 import { reorderShapes } from '../domain/shapes'
 import { deleteRoom, deleteRow } from './navActions'
 
+/** The one confirmation rule: an undoable delete of only what's picked happens at once and says so like this; it asks
+ *  first only when more goes with it (a rack's devices, a sheet's viewports) or it can't be undone. */
+const UNDONE = (what: string) => `${what} — Undo brings it back`
+
 /** Delete acts on the smallest thing picked: a hole (the wall stays), a viewport (the sheet stays), ports (their
  *  reservation; the device stays). Racks holding devices ask first — the devices, links and cords go too. */
 export function deleteSelected(project: CadProject, ws: Workspace): void {
@@ -17,11 +21,16 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 		const role = wall.role
 		project.store.transact('Delete opening', (tx) => tx.put({ ...wall, role: { ...role, openings: role.openings.filter((o) => o.id !== op.openingId) } }))
 		ws.selectOpening(op.wallId, null)
+		ws.say(UNDONE('Deleted the opening (the wall stays)'))
 		return
 	}
 	const sheet = ws.viewportId && ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
 	const vp = sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ws.viewportId) : undefined
-	if (sheet?.type === 'sheet' && vp) { deleteViewport(project.store, sheet, vp); ws.selectViewport(null); return }
+	if (sheet?.type === 'sheet' && vp) {
+		deleteViewport(project.store, sheet, vp); ws.selectViewport(null)
+		ws.say(UNDONE(`Deleted the viewport from sheet ${sheet.number} (its notes stay on the sheet)`))
+		return
+	}
 	const ps = ws.portSel, dev = ps ? project.store.get(ps.on) : undefined
 	if (ps) {
 		const next = dev?.type === 'device' ? reservePorts(dev, ps.ports, '', '') : null
@@ -43,7 +52,7 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	// a server room (with its racks, asked) or a row of racks (its racks stay), picked in the Navigator / Racks window
 	const lone = ws.selection.length === 1 ? project.store.get(ws.selection[0]) : undefined
 	if (lone?.type === 'space') { deleteRoom(project, ws, lone.id); return }
-	if (lone?.type === 'rackRow') { deleteRow(project, lone.id); ws.select([]); return }
+	if (lone?.type === 'rackRow') { deleteRow(project, lone.id); ws.select([]); ws.say(UNDONE(`Deleted row ${lone.name} (its racks stay in the room)`)); return }
 	// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
 	const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
 	// a section shown in viewports: keep them as plain elevations (same view direction), or take them off too
@@ -55,9 +64,9 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 		return
 	}
 	const go = () => { deleteEntities(project.store, ids); ws.select([]) }
-	if (!also) return go()
 	const one = ids.length === 1 ? project.store.get(ids[0]) : undefined
 	const what = !one ? `${ids.length} items` : one.type === 'sheet' ? `sheet ${one.number}` : `${one.type} ${project.index.nameOf(one.id)}`.trim()
+	if (!also) { go(); ws.say(UNDONE(`Deleted ${what}`)); return }
 	const inst = installedCordsGoing(project.store, ids)
 	const warn = inst ? ` ${inst} of the cords ${inst === 1 ? 'is' : 'are'} installed: they go from the record, not into the removal list — export the changes first if the installer needs them.` : ''
 	ws.ask2(`Delete ${what} with ${also}?${warn} Undo brings them back.`, 'Delete', go)

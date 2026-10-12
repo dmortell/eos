@@ -25,10 +25,13 @@ export function deleteLevel(project: CadProject, ws: Workspace, id: string): voi
 	const on = levelContents(project.store.all(), l.id), vps = levelViewports(project.store, l.id)
 	const sheets = new Set(vps.map((v) => v.sheet.id)).size
 	const vpText = vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : ''
-	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)?${vpText} Undo brings it back.`, 'Delete level', () => {
+	const go = () => {
 		deleteEntities(project.store, [l.id, ...levelContents(project.store.all(), l.id)], levelViewportsOff(project.store, l.id))   // what's on it NOW (not when asked)
 		if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
-	})
+	}
+	// an empty level, shown nowhere, just goes; asked only when more goes with it
+	if (!on.length && !vps.length) { go(); ws.say(`Deleted level ${l.name} — Undo brings it back`); return }
+	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)?${vpText} Undo brings it back.`, 'Delete level', go)
 }
 // ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
 export function renameRoom(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
@@ -42,7 +45,7 @@ export function deleteRoom(project: CadProject, ws: Workspace, id: string): void
 	const ports = project.index.outlets.reduce((n, o) => n + o.ports.filter((pt) => pt.serverRoomId === id).length, 0)
 	const go = () => deleteEntities(project.store, [id, ...rows, ...racks])
 	const also = [racks.length ? `${racks.length} rack${racks.length === 1 ? '' : 's'} (with their devices, links and cords)` : '', impactText(deleteImpact(project.store, racks)) ?? ''].filter(Boolean)[0]
-	if (!racks.length && !ports) { go(); return }
+	if (!racks.length && !ports) { go(); ws.say(`Deleted room ${r.name}${rows.length ? ` (and its ${rows.length} empty row${rows.length === 1 ? '' : 's'})` : ''} — Undo brings it back`); return }
 	ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : ''} Undo brings it back.`, 'Delete room', go)
 }
 /** A row of racks goes; its racks stay in the room, in no row (and its hand order goes). One undo step. */

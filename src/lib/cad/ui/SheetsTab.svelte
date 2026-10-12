@@ -112,10 +112,14 @@
 		if (changed.length) project.store.transact(`Print order (${picked.length} sheet${picked.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
 	let busy = $state(false)
-	/** Delete the selected sheets, after saying what goes with them (viewports, notes). */
+	/** Delete the selected sheets: at once when nothing goes with them; asked first, saying what, when viewports or
+	 *  notes go too. */
 	function deletePicked() {
 		const ids = picked.map((r) => r.id), also = impactText(deleteImpact(project.store, ids))
-		ws.ask2(`Delete ${ids.length === 1 ? `sheet ${sheetOf(ids[0]).number}` : `${ids.length} sheets`}${also ? ` with ${also}` : ''}? Undo brings them back.`, 'Delete', () => { deleteEntities(project.store, ids); ws.select([]) })
+		const what = ids.length === 1 ? `sheet ${sheetOf(ids[0]).number}` : `${ids.length} sheets`
+		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
+		if (!also) { go(); ws.say(`Deleted ${what} — Undo brings ${ids.length === 1 ? 'it' : 'them'} back`); return }
+		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
 	}
 	/** The sheets in one PDF, in the table's order. */
 	async function pdf(list: SheetRow[]) {
@@ -212,7 +216,7 @@
 		<button class="tb" title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
 		{#if picked.some((r) => r.status === 'active')}<button class="tb" onclick={() => setStatus('archived')}>Archive</button>{/if}
 		{#if picked.some((r) => r.status === 'archived')}<button class="tb" onclick={() => setStatus('active')}>Restore</button>{/if}
-		<button class="tb danger" title="Delete the selected sheets (asks first; Undo brings them back)" onclick={deletePicked}>Delete</button>
+		<button class="tb danger" title="Delete the selected sheets (asks first only when viewports or notes go with them; Undo brings them back)" onclick={deletePicked}>Delete</button>
 	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
