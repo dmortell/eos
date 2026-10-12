@@ -25,9 +25,11 @@ describe('DXF', () => {
 		const run: Prim = { k: 'line', pts: [{ x: 0, y: 0 }, { x: 1000, y: 0 }], w: 100, cls: 'run' }
 		expect(displayListToDxf([run]).text).toMatch(/\n43\n100\n/)
 	})
-	it('floorplan images are reported, not exported', () => {
-		const r = displayListToDxf([{ k: 'image', url: 'blob:x', x: 0, y: 0, w: 10, h: 10 }])
-		expect([r.entities, r.skippedImages]).toEqual([0, 1])
+	it('floorplan images are reported, and kept as a frame and a note on A-IMAGE (Q71)', () => {
+		const r = displayListToDxf([{ k: 'image', url: 'blob:x', x: 0, y: 0, w: 1000, h: 500 }])
+		expect([r.entities, r.skippedImages]).toEqual([2, 1])
+		expect(r.text).toContain('A-IMAGE')
+		expect(r.text).toContain('not included in the DXF')
 	})
 	it('layers by class', () => {
 		expect(layerOf('run run-high').name).toBe('E-CONTAINMENT-HIGH')

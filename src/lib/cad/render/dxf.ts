@@ -1,6 +1,6 @@
 // Display list → DXF (analysis §6.6: one display list feeds screen, print and DXF, so the export is what you see).
 // Plan mm in; DXF is y-UP, so y is negated. Banded prims (trunks, walls) become LWPOLYLINEs with their real constant
-// width. Layers come from the prim's class. Images (PDF underlays) are not exported — the result lists them.
+// width. Layers come from the prim's class. Images (PDF underlays) are not exported: each is kept as a frame + note on A-IMAGE and counted in the result.
 // BLOCKS (backlog "DXF blocks as BLOCK + INSERT"): given the block library, every placed block (an outlet's symbol, an
 // insert — prims carrying `ins`) goes out as ONE INSERT of a BLOCK written once, its {TAG} texts as ATTDEF / ATTRIB, so
 // AutoCAD can count them. A hidden attribute is written empty (the writer can't set the invisible flag).
@@ -152,9 +152,17 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 				})
 				break
 			}
-			case 'image':
+			case 'image': {
+				// DXF can only point at an image FILE, and this one is a rendered page in the browser: so its place is kept as a
+				// frame and a note on its own layer, and the export says the picture is not in it
 				skippedImages++
+				if (!made.has('A-IMAGE')) { made.add('A-IMAGE'); w.addLayer('A-IMAGE', 8, 'CONTINUOUS') }
+				const x1 = p.x + p.w, y1 = p.y + p.h
+				w.addLWPolyline([[p.x, p.y], [x1, p.y], [x1, y1], [p.x, y1]].map(([x, y]) => ({ point: point2d(x, -y) })), { layerName: 'A-IMAGE', flags: LWPolylineFlags.Closed })
+				w.addText(point3d(p.x + 20, -(p.y + 60), 0), Math.max(1, Math.min(60, p.w / 40)), 'Image (underlay) — not included in the DXF', { layerName: 'A-IMAGE' })
+				entities += 2
 				break
+			}
 		}
 	}
 	return { text: w.stringify(), entities, skippedImages }

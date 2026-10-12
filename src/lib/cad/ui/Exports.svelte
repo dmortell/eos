@@ -56,7 +56,7 @@
 			fieldCtx(project.index, { project: projectName, blocks: project.blockOf, levels: [level.id] }))
 		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])), 100, project.blockOf)   // blocks as BLOCK + INSERT
 		download(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf')
-		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan PDF is not included' : ''}`)
+		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan picture is not included (its frame is on layer A-IMAGE)' : ''}`)
 	}
 	/** The port map (VLAN) as Excel (port-map-plan.md): `ids` = a port map view's devices; else the selection's — a
 	 *  selected rack counts as its devices, a port pick as its device. */
