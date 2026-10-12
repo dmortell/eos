@@ -28,7 +28,10 @@ export class OutletTool implements Tool {
 		const used = new Set(c.index.outlets.filter((o) => o.levelId === c.levelId).map((o) => o.label))
 		let label = prev ? nextLabel(prev.label) : `${level?.type === 'level' ? level.number : ''}-001`
 		while (used.has(label)) label = nextLabel(label)   // never reuse a label already on this level
-		const nx = this.next(), count = nx.ports ?? prev?.ports.length ?? 2
+		// the tool bar's zone / server room were picked on a level: on another floor they don't apply (spaces are per level)
+		const onLevel = (id?: string) => (id && (c.index.get(id) as { levelId?: string } | undefined)?.levelId === c.levelId ? id : undefined)
+		const bar = this.next(), nx = { ...bar, zoneId: onLevel(bar.zoneId), serverRoomId: onLevel(bar.serverRoomId) }
+		const count = nx.ports ?? prev?.ports.length ?? 2
 		// zone and server room: the tool bar's, else the last outlet's; the first outlet on a level takes the level's
 		// server room when it has just one (backlog "Zones and server rooms when placing outlets")
 		const rooms = c.index.spaces.filter((s) => s.kind === 'server room' && s.levelId === c.levelId)

@@ -2524,3 +2524,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - A transaction that throws puts back what it wrote (it left the store half-changed, unsaved, with no undo step)
     (`store/store.ts`).
   - Tests in `domain/blocks.test.ts`, `render/dxf.test.ts`.
+- **R37 follow-up:** the Outlet tool bar's zone / server room apply only on the level they belong to (spaces are per
+  level), so on another floor the next outlet takes that floor's own (`editor/outletTool.ts`).
