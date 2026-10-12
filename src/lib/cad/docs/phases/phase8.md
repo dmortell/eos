@@ -2869,3 +2869,18 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     heights with **Floors…**, or a sheet's number, title, paper and viewports with **Select sheet**.
   - Help: "Delete a block from the library", the device-template how-to (+ From …), the cord how-to (Mark for
     removal), the Properties how-to (empty state, one Delete), the row rename.
+- **R92 Rotate and Mirror:** two base-point tools beside Move / Copy (tool strip Select / modify group; Edit › Rotate /
+  Mirror; plans and sheets). Rotate: select, click the pivot, then a point — the turn is its angle from +x as seen
+  (snaps; Shift 15°) — or type degrees, positive = anticlockwise as the polar input (a new `Tool.typedText` hook lets a
+  tool read a bare number before it's parsed as a point; `typedLabel` changes the typing box's prompt). Mirror: click
+  the line's two points (Shift 15° / H / V); the originals are replaced. Ctrl on the last click keeps the originals (a
+  turned / mirrored copy, via the clipboard's paste). One undo step each; a ghost follows the cursor; runs attached to
+  what moved follow (`followAttachedMap`); locked outlets are left. `domain/shapes.ts` `rotateGeometry` /
+  `mirrorGeometry` (+ `rotatePt`, `mirrorPt`, `lineDeg`) for every kind: a dimension keeps its side (a quarter turn
+  swaps horizontal / vertical, other angles make an aligned one of the same length); a mirrored arc swaps its ends;
+  mirrored text and images stay readable / upright (text's left / right alignment swaps). `editor/behaviours.ts`
+  `rotateEntity` / `mirrorEntity`: outlets / racks turn `at` and `rot`; a rack or a box with a back line / doors keeps
+  its front facing the mirrored way with the door hinge swapped; wall doors open to the mirrored face; a section swaps
+  its ends; a shape on an elevation plane turns / mirrors its frame; notes tied to a viewport turn about the pivot in
+  that viewport's view mm. Icons: `rotateRight` (lucide RotateCw, already mapped) and a new `flip` (FlipHorizontal2).
+  Hints, Help ("Rotate or mirror items"). Tests: `domain/shapes.test.ts`, `editor/transformTool.test.ts`.

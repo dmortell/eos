@@ -5,6 +5,8 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	insert: 'Click to place the block (pick it in the Blocks window) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 	move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
 	copy: 'Select first · click a base point, then each place for a copy (snaps · Shift 15° · type @dx,dy) · Enter / Esc ends',
+	rotate: 'Select first · click the pivot, then a point: the turn is its angle from +x (snaps · Shift 15°) — or type degrees, positive = anticlockwise · Ctrl-click keeps the originals (a turned copy) · plans and sheets · Esc stops',
+	mirror: 'Select first · click two points of the mirror line (snaps · Shift 15° / H / V) · the originals are replaced by their mirror image; Ctrl-click keeps them (a mirrored copy) · text stays readable · plans and sheets · Esc stops',
 	dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
 	legend: 'Click where its top-left corner goes (plan: lists this level · sheet: the levels its viewports show) · rows, title, size in Properties',
 	viewport: 'Drag a box on the paper (or click two corners) · it shows the other pane’s view, else the last plan / elevation / rack view, scaled to fit · at least 20 × 20 mm · Esc stops',

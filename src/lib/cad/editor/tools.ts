@@ -96,6 +96,11 @@ export interface Tool {
 	finish?(c: ToolCtx): void
 	/** A TYPED point (view mm, no snapping) — the tool treats it like a click there. */
 	typed?(p: Pt, c: ToolCtx): void
+	/** What was typed, before it is read as a point (Rotate's angle): false = read it as a point; null = taken; a
+	 *  string = an error to show. */
+	typedText?(text: string, c: ToolCtx): string | null | false
+	/** The typing box's prompt when the tool wants something other than a point; null = the point prompt. */
+	typedLabel?(): string | null
 	/** The point typed input is relative to (@dx,dy, direct distance), in view mm. */
 	lastPoint?(c: ToolCtx): Pt | null
 	/** While dragging: where the drag started (view mm) — the status bar shows the move's length / angle / Δ. */

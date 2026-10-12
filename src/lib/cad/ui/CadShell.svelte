@@ -185,7 +185,7 @@
 	}))
 	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
-		if (c.source !== 'local' || ['select', 'move', 'copy', 'match'].includes(ws.toolId)) return
+		if (c.source !== 'local' || ['select', 'move', 'copy', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
 		const msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), layersOf(project.index.layers))
 		if (msg) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
 	}))
@@ -418,7 +418,7 @@
 
 	/** Start typing a point while a drawing tool is active: the point box opens with what was typed. */
 	function typePoint(first: string) {
-		ws.askText('Point — x,y · @dx,dy · a length, Tab, an angle', first, (text) => {
+		ws.askText(canvas?.typingLabel() ?? 'Point — x,y · @dx,dy · a length, Tab, an angle', first, (text) => {
 			const err = canvas?.typed(text) ?? null
 			if (err) ws.say(err)
 		})

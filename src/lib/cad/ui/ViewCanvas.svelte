@@ -504,12 +504,16 @@
 	export function typed(text: string): string | null {
 		const tool = ws.tool
 		if (!tool.typed) return 'This tool takes no typed points'
+		const own = tool.typedText?.(text, ctx()) ?? false   // a value the tool reads itself (Rotate's angle)
+		if (own !== false) { tick++; return own }
 		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor, toolKind === 'elevation' || toolKind === 'section')   // y = height, as the readout shows
 		if (r.kind === 'error') return r.message
 		tool.typed(r.p, ctx()); tick++
 		return null
 	}
 	export const takesTyping = () => !!ws.tool.typed
+	/** The typing box's prompt for the active tool (null = the point prompt). */
+	export const typingLabel = () => ws.tool.typedLabel?.() ?? null
 
 	/** Page Up / Down: one screen up or down (sideways = left / right), with a little overlap. */
 	export function page(dir: 1 | -1, sideways: boolean): void {

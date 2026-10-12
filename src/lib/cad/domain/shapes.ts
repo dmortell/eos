@@ -238,6 +238,101 @@ export function placeGeometry(g: Geometry, at: Pt, rot = 0, scale = 1): Geometry
 	}
 }
 
+// ROTATE and MIRROR (backlog R92). Angles as everywhere (conventions.ts): degrees, clockwise on screen. Results are
+// rounded to 1e-6 so a quarter turn lands on whole numbers.
+const r6 = (v: number) => Math.round(v * 1e6) / 1e6 || 0
+/** An orientation angle tidied to [0, 360). */
+const tidyDeg = (a: number) => { const v = r6(((a % 360) + 360) % 360); return v === 360 ? 0 : v }
+/** A `rot` field: 0 is left out, as everywhere else. */
+const rotField = (a: number) => tidyDeg(a) || undefined
+
+/** `p` turned `deg` about `c` (clockwise on screen). */
+export function rotatePt(p: Pt, c: Pt, deg: number): Pt {
+	const r = (deg * Math.PI) / 180, co = Math.cos(r), s = Math.sin(r), dx = p.x - c.x, dy = p.y - c.y
+	return { x: r6(c.x + dx * co - dy * s), y: r6(c.y + dx * s + dy * co) }
+}
+/** `p` mirrored in the line through `a` and `b`. */
+export function mirrorPt(p: Pt, a: Pt, b: Pt): Pt {
+	const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy
+	if (!l2) return p
+	const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2, fx = a.x + t * dx, fy = a.y + t * dy
+	return { x: r6(2 * fx - p.x), y: r6(2 * fy - p.y) }
+}
+/** The angle of the line a → b (degrees, clockwise on screen). */
+export const lineDeg = (a: Pt, b: Pt) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
+
+type Dim = Extract<Geometry, { kind: 'dimension' }>
+/** A dimension with its points mapped by `P` (a turn or a mirror) and its offset kept on the same side of the measured
+ *  points as before. A horizontal / vertical one stays so while its line still runs along an axis (a quarter turn
+ *  swaps them); turned any other way it becomes an aligned dimension of the same length. */
+function mapDim(g: Dim, P: (p: Pt) => Pt, turn: (a: number) => number): Dim {
+	const a = P(g.a), b = P(g.b), extra = g.textAt ? { textAt: P(g.textAt) } : {}
+	const perp = (d: Pt, l: number) => ({ x: -d.y / l, y: d.x / l })
+	const offsetFor = (from: Pt, to: Pt, line: Pt) => {
+		const l = Math.hypot(to.x - from.x, to.y - from.y), n = perp({ x: to.x - from.x, y: to.y - from.y }, l)
+		return r6((line.x - from.x) * n.x + (line.y - from.y) * n.y)
+	}
+	if (g.mode === 'horizontal' || g.mode === 'vertical') {
+		const h = g.mode === 'horizontal'
+		const a2 = h ? { x: g.a.x, y: g.a.y + g.offset } : { x: g.a.x + g.offset, y: g.a.y }
+		const A2 = P(a2), U = P({ x: a2.x + (h ? 1 : 0), y: a2.y + (h ? 0 : 1) }), u = { x: U.x - A2.x, y: U.y - A2.y }
+		if (Math.abs(u.y) < 1e-6) return { ...g, a, b, mode: 'horizontal', offset: r6(A2.y - a.y), ...extra }
+		if (Math.abs(u.x) < 1e-6) return { ...g, a, b, mode: 'vertical', offset: r6(A2.x - a.x), ...extra }
+		const foot = P(h ? { x: g.b.x, y: g.a.y } : { x: g.a.x, y: g.b.y })   // the measured length, along the old axis
+		if (Math.hypot(foot.x - a.x, foot.y - a.y) < 1e-9) return { ...g, a, b, ...extra }
+		return { ...g, a, b: foot, mode: 'aligned', offset: offsetFor(a, foot, A2), ...extra }
+	}
+	const L = Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y)
+	if (L < 1e-9) return { ...g, a, b, ...extra }
+	const n = perp({ x: g.b.x - g.a.x, y: g.b.y - g.a.y }, L), A2 = P({ x: g.a.x + n.x * g.offset, y: g.a.y + n.y * g.offset })
+	const angle = g.mode === 'rotated' && g.angle != null ? { angle: tidyDeg(turn(g.angle)) } : {}
+	return { ...g, a, b, offset: offsetFor(a, b, A2), ...angle, ...extra }
+}
+
+/** Geometry turned `deg` (clockwise on screen) about `pivot`: points move, rotations add, an arc's ends turn. Heights
+ *  (path z) are kept. A new value; the input is never changed. */
+export function rotateGeometry(g: Geometry, pivot: Pt, deg: number): Geometry {
+	const P = (p: Pt) => rotatePt(p, pivot, deg), turn = (a?: number) => rotField((a ?? 0) + deg)
+	switch (g.kind) {
+		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, ...P(n) })) }
+		case 'rect': case 'image': case 'ellipse': return { ...g, centre: P(g.centre), rot: turn(g.rot) }
+		case 'circle': return { ...g, centre: P(g.centre) }
+		case 'arc': return { ...g, centre: P(g.centre), start: tidyDeg(g.start + deg), end: tidyDeg(g.end + deg) }
+		case 'polygon': case 'leader': case 'cloud': return { ...g, pts: g.pts.map(P) }
+		case 'text': case 'insert': return { ...g, at: P(g.at), rot: turn(g.rot) }
+		case 'dimension': return mapDim(g, P, (a) => a + deg)
+		case 'legend': return { ...g, at: P(g.at) }
+	}
+}
+
+/** Text the right way up: turned half round when a mirror left it reading upside down. */
+const upsideDown = (a: number) => a > 90 + 1e-6 && a < 270 - 1e-6
+
+/** Geometry mirrored in the line through `a` and `b`. A rotation `r` becomes 2θ − r (θ = the line's angle); an arc's
+ *  ends swap so it still sweeps clockwise; a dimension stays on its side. Text stays READABLE: its anchor point is
+ *  mirrored but not its letters — turned the right way up, with left / right alignment swapped so it still ends where
+ *  the mirror image would. An image is kept upright the same way (a picture can't be drawn back to front). */
+export function mirrorGeometry(g: Geometry, a: Pt, b: Pt): Geometry {
+	const th = lineDeg(a, b), P = (p: Pt) => mirrorPt(p, a, b), flip = (r?: number) => tidyDeg(2 * th - (r ?? 0))
+	switch (g.kind) {
+		case 'path': return { ...g, nodes: g.nodes.map((n) => ({ ...n, ...P(n) })) }
+		case 'insert': return { ...g, at: P(g.at), rot: flip(g.rot) || undefined }
+		// a box / ellipse looks the same turned half round: kept under 180° (a box with a front: behaviours.ts)
+		case 'rect': case 'ellipse': return { ...g, centre: P(g.centre), rot: flip(g.rot) % 180 || undefined }
+		case 'image': { const r = flip(g.rot); return { ...g, centre: P(g.centre), rot: rotField(upsideDown(r) ? r + 180 : r) } }
+		case 'circle': return { ...g, centre: P(g.centre) }
+		case 'arc': return { ...g, centre: P(g.centre), start: flip(g.end), end: flip(g.start) }
+		case 'polygon': case 'leader': case 'cloud': return { ...g, pts: g.pts.map(P) }
+		case 'text': {
+			const r = flip(g.rot), turned = upsideDown(r)
+			const align = turned && g.align !== 'centre' ? { align: g.align === 'right' ? 'left' as const : 'right' as const } : {}
+			return { ...g, at: P(g.at), rot: rotField(turned ? r + 180 : r), ...align }
+		}
+		case 'dimension': return mapDim(g, P, (r) => 2 * th - r)
+		case 'legend': return { ...g, at: P(g.at) }
+	}
+}
+
 /** A closed region's outline in its own 2D space (a box's corners, an ellipse's / circle's points, a polygon). */
 export function outlineOf(g: Geometry): Pt[] | null {
 	switch (g.kind) {
