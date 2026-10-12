@@ -49,6 +49,15 @@
 		const on = st.cordRoute !== 'channels'
 		project.store.transact(on ? 'Cords along channels' : 'Cords straight', (tx) => tx.put({ ...st, cordRoute: on ? 'channels' : 'straight' }))
 	}
+	/** The riser view's floor range (a project setting: one undo step); blank = the lowest / top floor. */
+	const floorsUp = $derived.by(() => { void project.rev; return project.store.ofType('level').filter((l) => !l.area).sort((a, b) => a.number - b.number) })
+	function setRiserRange(end: 'from' | 'to', v: string) {
+		const st = project.settings
+		if (!st) return
+		const { [end]: _, ...rest } = st.riser ?? {}
+		const riser = { ...rest, ...(v === '' ? {} : { [end]: Number(v) }) }
+		project.store.transact(`Riser view ${end === 'from' ? 'from' : 'to'} ${v === '' ? (end === 'from' ? 'the lowest floor' : 'the top floor') : floorsUp.find((l) => l.number === Number(v))?.name ?? v}`, (tx) => tx.put({ ...st, riser }))
+	}
 	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && spec.kind !== 'portmap')
 	/** Where you are: "1F", "1F › IDF1", "S001 New sheet" (the riser view is the building's, not a level's). */
 	const crumbs = $derived.by((): { text: string; to?: ViewSpec }[] => {
@@ -94,6 +103,13 @@
 		{/if}
 		{#if spec.kind === 'riser'}
 			<button class:on={!!spec.hideEmpty} title="Squeeze the floors that have no server room into break marks" onclick={() => go({ kind: 'riser', ...(spec.hideEmpty ? {} : { hideEmpty: true }) })}>Hide empty floors</button>
+			<!-- the floors it shows: the project's (one riser view — its sheet viewports show the same) -->
+			{@const rr = project.settings?.riser}
+			<label class="num" title="The riser view's floors, for the whole project (sheets too)">Floors
+				<select class="secs" value={rr?.from ?? ''} onchange={(e) => setRiserRange('from', e.currentTarget.value)}><option value="">lowest</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
+				–
+				<select class="secs" value={rr?.to ?? ''} onchange={(e) => setRiserRange('to', e.currentTarget.value)}><option value="">top</option>{#each floorsUp as l (l.id)}<option value={l.number}>{l.name}</option>{/each}</select>
+			</label>
 		{/if}
 		{#if spec.kind === 'plan'}
 			<button class:on={!!project.settings?.grayFloorplans} title="Floorplans in black and white, so coloured markup stands out — for the whole project: on screen, sheets, PDFs and issues" onclick={toggleGray}>B/W</button>

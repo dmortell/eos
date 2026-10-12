@@ -1,7 +1,7 @@
 // The riser view: floors, rooms at their racks' x, risers between levels, backbone groups with counts and lengths.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from '../domain/project'
-import { riserDisplayList, riserShafts } from './riser'
+import { riserDisplayList, riserShafts, backboneKey, mediaColour, FIBRE_COLOUR, COPPER_COLOUR } from './riser'
 import type { Entity } from '../domain/drawing'
 
 const level = (id: string, name: string, e: number) => ({ type: 'level', id, name, number: 1, elevationMm: e, order: 1, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } })
@@ -33,7 +33,7 @@ describe('riser view', () => {
 		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-room').map((p) => p.src)).toEqual(['S1', 'S4'])
 		const bb = ps.filter((p) => p.k === 'line' && p.cls === 'backbone')
 		expect(bb).toHaveLength(1)
-		expect(bb[0].k === 'line' && bb[0].pts.length).toBe(4)   // room → riser → up → room
+		expect(bb[0].k === 'line' && bb[0].pts.length).toBe(6)   // room → down into the floor void (low runs) → riser → up → void → room
 		const label = ps.find((p) => p.k === 'text' && p.cls === 'backbone-label')
 		expect(label?.k === 'text' && label.text).toMatch(/^2 × cat6a · \d+m$/)
 	})
@@ -70,5 +70,33 @@ describe('riser view', () => {
 	it('says so when there is nothing to show', () => {
 		const ps = riserDisplayList(new ProjectIndex([level('L1', '1F', 0)] as Entity[]))
 		expect(ps[0]).toMatchObject({ k: 'text', text: 'No risers or placed server rooms yet' })
+	})
+
+	it('riser view control: the floor range, an EPS box where a riser passes a floor, HIGH / LOW on its label', () => {
+		const numbered = ents.map((e) => (e.type === 'level' ? { ...e, number: e.id === 'L1' ? 1 : 4 } : e)) as Entity[]
+		const mid = [...numbered, { ...level('L2', '2F', 3800), number: 2 }] as Entity[]
+		const settings = (riser: object) => ({ type: 'settings', id: 'settings', cableTypes: [], usages: [], defaults: {}, riser }) as unknown as Entity
+		const all = riserDisplayList(new ProjectIndex(mid))
+		expect(all.filter((p) => p.k === 'line' && p.cls === 'riser-eps')).toHaveLength(1)   // on 2F (1F and 4F: inside their server rooms)
+		expect(all.some((p) => p.k === 'text' && p.text === 'Riser A · LOW')).toBe(true)
+		const cut = riserDisplayList(new ProjectIndex([...mid, settings({ from: 1, to: 2 })]))
+		expect(cut.filter((p) => p.k === 'line' && p.cls === 'riser-ffl')).toHaveLength(2)    // 1F, 2F
+		expect(cut.filter((p) => p.k === 'line' && p.cls === 'riser-room').map((p) => p.src)).toEqual(['S1'])
+		const shaft = cut.find((p) => p.k === 'line' && p.cls === 'riser-shaft')
+		expect(shaft?.k === 'line' && -Math.min(...shaft.pts.map((q) => q.y))).toBe(3800 + 2600 + 700 + 200)   // cut at 2F's slab above
+		expect(cut.some((p) => p.k === 'line' && p.cls === 'backbone')).toBe(false)   // its other end (4F) isn't shown
+	})
+	it('a backbone group: its own label and colour; else fibre amber / copper blue; each hop in the floor void for low runs', () => {
+		const key = backboneKey(new ProjectIndex(ents), ents.find((e) => e.id === 'B1') as never)!
+		expect(key).toBe('R1|R4|cat6a')
+		const plain = riserDisplayList(new ProjectIndex(ents))
+		expect(plain.find((p) => p.k === 'line' && p.cls === 'backbone')?.color).toBe(COPPER_COLOUR)
+		const line = plain.find((p) => p.k === 'line' && p.cls === 'backbone')
+		const ys = line?.k === 'line' ? line.pts.map((q) => -q.y) : []
+		expect(ys[1]).toBeLessThan(0)                   // 1F (FFL 0): down into the void under it
+		expect(ys[1]).toBeGreaterThan(-300)
+		const own = riserDisplayList(new ProjectIndex([...ents, { type: 'settings', id: 'settings', cableTypes: [], usages: [], defaults: {}, riser: { groups: { [key]: { label: 'Backbone A', color: '#16a34a' } } } } as unknown as Entity]))
+		expect(own.find((p) => p.k === 'text' && p.cls === 'backbone-label')).toMatchObject({ text: 'Backbone A', color: '#16a34a' })
+		expect(mediaColour(new ProjectIndex(ents), 'OM4 24c')).toBe(FIBRE_COLOUR)
 	})
 })

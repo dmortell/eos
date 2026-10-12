@@ -8,18 +8,40 @@
 //   · the BACKBONE cables, grouped per panel pair + cable type + the risers their routes use, each group as one
 //     line room → riser → room labelled "24 × cat6a · 12m". Groups sharing a riser are laid side by side in lanes.
 // Positions are real where the data has them; the view is a schematic (cable lengths come from the plans' routes).
-import type { Id, Level, Rack, Device, Link } from '../domain/types'
+// Riser view control (Dave 2026-10-12): the project's floor range (settings.riser from / to — one riser view, so
+// sheets show the same), an EPS box round each riser on every floor it passes, HIGH / LOW on a riser's label (its
+// tier), each group's own label and colour (settings.riser.groups; default fibre amber, copper blue) and each floor's
+// hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
+import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
 import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
 import { cableKey } from '../domain/multicore'
+import { inPolygon } from '../editor/pick'
 import type { Prim } from './display'
 
-const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200
+const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450
 
 export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean }
+
+const settingsOf = (ix: ProjectIndex) => ix.get('settings') as ProjectSettings | undefined
+/** A backbone group's style key: its two racks and cable type (stable while routes change). */
+export function backboneKey(ix: ProjectIndex, l: Link): string | null {
+	const rackOf = (on: Id) => { const d = ix.get<Device>(on); return d?.type === 'device' ? d.rackId : undefined }
+	const a = rackOf(l.a.on), b = rackOf(l.b.on)
+	if (!a || !b) return null
+	return `${a < b ? a : b}|${a < b ? b : a}|${l.cableType ?? ''}`
+}
+export const FIBRE_COLOUR = '#d97706', COPPER_COLOUR = '#2563eb'
+/** A cable type's default riser colour: fibre amber, copper blue (its media in settings, else guessed from its name). */
+export function mediaColour(ix: ProjectIndex, type: string | undefined): string | undefined {
+	if (!type) return undefined
+	const media = settingsOf(ix)?.cableTypes?.find((t) => t.id === type || t.label === type)?.media
+		?? (/om\d|os\d|fib|smf|mmf|core/i.test(type) ? 'fibre' : /cat|utp|stp|copper/i.test(type) ? 'copper' : undefined)
+	return media === 'fibre' ? FIBRE_COLOUR : media === 'copper' ? COPPER_COLOUR : undefined
+}
 
 /**
  * True elevation → the view's height, with floors left out squeezed: each run of hidden floors becomes one break band
@@ -77,9 +99,17 @@ export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number;
 export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const k = o.scale ?? 100, txt = 2.5 * k, small = 2 * k
 	const routes = o.routes ?? routeLinks(ix)
-	const shafts = riserShafts(ix)
+	// the floor range (Riser view control): floors outside it aren't drawn; risers are cut at its ends
+	const rs = settingsOf(ix)?.riser, inRange = (l: Level) => (rs?.from == null || l.number >= rs.from) && (rs?.to == null || l.number <= rs.to)
+	const levels = ix.levels.filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
+	const storeyH = (l: Level | undefined) => { const h = l?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
+	const lowest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm < m.elevationMm ? l : m), undefined)
+	const highest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm > m.elevationMm ? l : m), undefined)
+	const zMin = lowest ? lowest.elevationMm - (lowest.heights?.raisedFloorMm ?? 300) - (lowest.heights?.slabMm ?? 200) : -Infinity
+	const zMax = highest ? highest.elevationMm + storeyH(highest) - (highest.heights?.raisedFloorMm ?? 300) : Infinity
+	const shafts = riserShafts(ix).flatMap((s) => (s.z1 <= zMin || s.z0 >= zMax ? [] : [{ ...s, z0: Math.max(s.z0, zMin), z1: Math.min(s.z1, zMax) }]))
 	// rooms at the x of their placed racks
-	const rooms = ix.spaces.filter((sp) => sp.kind === 'server room').flatMap((sp) => {
+	const rooms = ix.spaces.filter((sp) => sp.kind === 'server room' && elevIn.has(levelElevation(ix, sp.levelId))).flatMap((sp) => {
 		const racks = ix.racks.filter((r) => r.spaceId === sp.id && r.at)
 		if (!racks.length) return []
 		const xs = racks.flatMap((r) => [r.at!.x - r.widthMm / 2, r.at!.x + r.widthMm / 2])
@@ -92,9 +122,9 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 
 	// floors: one band per elevation (area plans share it); floors with no server room can be squeezed into breaks
 	const byElev = new Map<number, Level[]>()
-	for (const l of ix.levels) byElev.set(l.elevationMm, [...(byElev.get(l.elevationMm) ?? []), l])
+	for (const l of levels) byElev.set(l.elevationMm, [...(byElev.get(l.elevationMm) ?? []), l])
 	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e)
-	const storeyOf = (e: number) => { const h = byElev.get(e)?.[0]?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
+	const storeyOf = (e: number) => storeyH(byElev.get(e)?.[0])
 	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
 	// each floor as a section through the building (as the old Risers tool): the slab, the raised-floor void above it
 	// up to FFL, the room, the ceiling, the plenum up to the slab above (the voids left white — Dave 2026-10-07) — that slab drawn here too when no floor shows
@@ -128,10 +158,25 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		out.push({ k: 'line', pts: [{ x: r.x0, y: -v }, { x: r.x1, y: -v }, { x: r.x1, y: -(v + rh) }, { x: r.x0, y: -(v + rh) }], closed: true, fill: true, cls: 'riser-room', src: r.sp.id })
 		out.push({ k: 'text', at: { x: (r.x0 + r.x1) / 2, y: -(v + rh) + txt * 1.4 }, text: r.sp.name, size: txt, anchor: 'middle', cls: 'rv-label', src: r.sp.id })
 	}
+	// an EPS room round each riser on every shown floor it passes (an 'eps' space there round it names it)
+	for (const sh of shafts) {
+		for (const e of elevs) {
+			if (!shown(e)) continue
+			const ceil = byElev.get(e)?.[0]?.heights?.clearHeightMm ?? ROOM_H
+			// (not where it rises inside a server room drawn there)
+			if (sh.z0 >= e + ceil || sh.z1 <= e || rooms.some((r) => r.z === e && sh.x >= r.x0 && sh.x <= r.x1)) continue
+			const ids = new Set(byElev.get(e)!.map((l) => l.id))
+			const eps = ix.spaces.find((sp) => sp.kind.toLowerCase() === 'eps' && ids.has(sp.levelId) && !!sp.boundary && inPolygon(sh, sp.boundary))
+			const v = zv(e), hw = sh.w / 2 + EPS_PAD
+			out.push({ k: 'line', pts: [{ x: sh.x - hw, y: -v }, { x: sh.x + hw, y: -v }, { x: sh.x + hw, y: -(v + ceil) }, { x: sh.x - hw, y: -(v + ceil) }], closed: true, fill: true, cls: 'riser-eps', ...(eps ? { src: eps.id } : {}) })
+			out.push({ k: 'text', at: { x: sh.x, y: -v - small * 0.5 }, text: eps?.name ?? 'EPS', size: small, anchor: 'middle', cls: 'rv-label' })
+		}
+	}
 	for (const sh of shafts) {
 		const v0 = zv(sh.z0), v1 = zv(sh.z1)
+		const tier = sh.s.role?.kind === 'containment' && sh.s.role.tier !== 'wall' ? ` · ${sh.s.role.tier.toUpperCase()}` : ''
 		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v1 }, { x: sh.x - sh.w / 2, y: -v1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
-		out.push({ k: 'text', at: { x: sh.x, y: -v1 - small * 0.6 }, text: sh.s.label || 'Riser', size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
+		out.push({ k: 'text', at: { x: sh.x, y: -v1 - small * 0.6 }, text: `${sh.s.label || 'Riser'}${tier}`, size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
 	}
 
 	// backbone groups
@@ -153,25 +198,48 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		else g.unrouted++
 		groups.set(key, g)
 	}
+	const styles = rs?.groups
+	/** The tier of the runs the group's routes take on the floor at elevation `z` (their flat segments): the first found. */
+	const tierOn = (links: Link[], z: number): 'high' | 'low' | undefined => {
+		for (const l of links) for (const sg of routes.get(l.id)?.segs ?? []) {
+			const s = ix.get<Shape>(sg.shape)
+			if (s?.type !== 'shape' || s.role?.kind !== 'containment' || s.role.tier === 'wall' || s.geom.kind !== 'path') continue
+			const seg = s.geom.segs.find((q) => q.id === sg.seg), a = s.geom.nodes.find((q) => q.id === seg?.a), b = s.geom.nodes.find((q) => q.id === seg?.b)
+			if (a && b && !isVertical(a, b) && levelElevation(ix, a.levelId ?? s.levelId) === z) return s.role.tier
+		}
+		return undefined
+	}
 	const lanesAt = new Map<Id, number>()   // per riser: lanes used so far
 	let n = 0
 	for (const g of groups.values()) {
 		const ra = ix.get<Rack>(g.a)!, rb = ix.get<Rack>(g.b)!, A = roomBox(ra), B = roomBox(rb)
 		if (!A || !B) continue
 		const lo = A.z <= B.z ? { rack: ra, box: A } : { rack: rb, box: B }, hi = lo.rack === ra ? { rack: rb, box: B } : { rack: ra, box: A }
-		const yA = -(zv(lo.box.z) + 600 + (n % 6) * 120), yB = -(zv(hi.box.z) + 600 + (n % 6) * 120)
+		const inRoom = (z: number) => -(zv(z) + 600 + (n % 6) * 120)
+		// each end's hop runs where the route's runs on that floor are: high = in the ceiling plenum, low = in the floor
+		// void; no route there = through the room (as before)
+		const hopY = (z: number): number => {
+			const tier = tierOn(g.links, z)
+			const h = byElev.get(z)?.[0]?.heights, ceil = h?.clearHeightMm ?? 2600, plenum = h?.plenumMm ?? 700, rf = h?.raisedFloorMm ?? 300
+			return tier === 'high' ? -(zv(z) + ceil + plenum * (0.25 + 0.5 * ((n % 4) / 3)))
+				: tier === 'low' ? -(zv(z) - rf * (0.2 + 0.6 * ((n % 4) / 3))) : inRoom(z)
+		}
+		const yA = hopY(lo.box.z), yB = hopY(hi.box.z), rA = inRoom(lo.box.z), rB = inRoom(hi.box.z)
 		const xa = lo.rack.at!.x, xb = hi.rack.at!.x
 		const sh = shafts.find((s) => s.s.id === g.risers[0])
 		const lane = sh ? (lanesAt.get(sh.s.id) ?? 0) : 0
 		if (sh) lanesAt.set(sh.s.id, lane + 1)
 		const xr = sh ? sh.x + (lane - 0.5) * LANE : (xa + xb) / 2
-		const pts = sh || lo.box.z !== hi.box.z ? [{ x: xa, y: yA }, { x: xr, y: yA }, { x: xr, y: yB }, { x: xb, y: yB }] : [{ x: xa, y: yA }, { x: xb, y: yB }]
+		const mid = sh || lo.box.z !== hi.box.z ? [{ x: xa, y: yA }, { x: xr, y: yA }, { x: xr, y: yB }, { x: xb, y: yB }] : [{ x: xa, y: yA }, { x: xb, y: yB }]
+		// up / down from the rack to its hop
+		const pts = [...(yA !== rA ? [{ x: xa, y: rA }] : []), ...mid, ...(yB !== rB ? [{ x: xb, y: rB }] : [])]
 		const len = g.lengths.length ? (Math.min(...g.lengths) === Math.max(...g.lengths) ? `${g.lengths[0]}m` : `${Math.min(...g.lengths)}–${Math.max(...g.lengths)}m`) : ''
 		// a multi-core cable counts once (domain/multicore.ts), its cores said after
 		const cables = new Set(g.links.map(cableKey)).size, cores = cables !== g.links.length ? ` (${g.links.length} cores)` : ''
-		const label = `${cables} × ${g.type}${cores}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
-		out.push({ k: 'line', pts, cls: g.unrouted === g.links.length ? 'backbone backbone-none' : 'backbone', src: g.links[0].id })
-		out.push({ k: 'text', at: { x: xr + small * 0.4, y: (yA + yB) / 2 }, text: label, size: small, cls: 'backbone-label', src: g.links[0].id })
+		const own = styles?.[backboneKey(ix, g.links[0]) ?? ''], color = own?.color ?? mediaColour(ix, g.links[0].cableType)
+		const label = own?.label || `${cables} × ${g.type}${cores}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
+		out.push({ k: 'line', pts, cls: g.unrouted === g.links.length ? 'backbone backbone-none' : 'backbone', src: g.links[0].id, ...(color && g.unrouted < g.links.length ? { color } : {}) })
+		out.push({ k: 'text', at: { x: xr + small * 0.4, y: (yA + yB) / 2 }, text: label, size: small, cls: 'backbone-label', src: g.links[0].id, ...(color ? { color } : {}) })
 		n++
 	}
 	return out

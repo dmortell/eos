@@ -2438,3 +2438,24 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Test in `domain/clipboard.test.ts`. Live (Test Project 1F): the "1070" dimension copied, Ctrl+Shift+V with the
   pointer to its left → the copy there; undone. Help: "Move, copy or nudge things", Keys. Backlog: 20 / 21 (import
   Pages / Sheets-tool sheets) → `later.md` (Dave).
+- **Riser view control, group label / colour, high / low hops (backlog, G021 G145–G149 G194 G195 G277 G315 T073 T076;
+  Dave 2026-10-12 "do 4 5 6"):** `views/riser.ts`:
+  - **Floors lowest – top** on the riser strip: `settings.riser.from / to` (floor numbers; one riser view, so its sheet
+    viewports show the same; one undo step each). Floors outside aren't drawn, risers are cut at the range's slab
+    ends, rooms off it drop out (a group with an end off it isn't drawn).
+  - **EPS rooms:** a dashed box round each riser on every shown floor it passes (not where it rises inside a server
+    room drawn there), named after a space of kind "EPS" whose boundary holds it, else "EPS".
+  - **HIGH / LOW** after a riser's label (its containment tier).
+  - **Group label and colour:** `settings.riser.groups[backboneKey]` (its two racks + cable type — stable while routes
+    change); Properties › Backbone (`ui/BackboneProps.svelte`, a backbone link picked — the riser view's line) sets
+    Riser label / Riser colour; default colour by cable type (`mediaColour`: its media in settings, else guessed from
+    the name — fibre amber, copper blue; unknown keeps purple).
+  - **High / low hops:** each end's horizontal hop runs in the ceiling plenum where the group's routes take high runs on
+    that floor (their flat segments), in the floor void for low runs, else through the room as before; the line drops
+    / rises from the rack to it.
+  - **Extend a riser:** a run's Properties › Riser › Reaches (`PathProps`): the far end's floor — every node on that
+    level moves to the new one.
+  Tests in `views/riser.test.ts`. Live (Test Project riser view): EPS boxes on 2F / 3F, "Riser A · HIGH"; Floors 2F –
+  3F → only those (settings checked in Firestore after the undos: no `riser`); Riser A Reaches 3F → shortened, undone;
+  the 33IDF1–IDF4A backbone: Properties › Backbone, label "BB-1 test" shown, undone. High / low hops not seen live (that
+  group has no route) — the unit test covers them. Help: "The riser view: floors, EPS rooms, high / low, cable groups".

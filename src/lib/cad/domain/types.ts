@@ -339,6 +339,9 @@ export interface ProjectSettings {
 	grayFloorplans?: boolean
 	/** Outlets on plans drawn in their usage's colour ('usage', unset) or by their layer ('layer') — screen, sheets, PDFs. */
 	outletColour?: 'usage' | 'layer'
+	/** The riser view (one per project, so its sheets show the same — views/riser.ts): the floor numbers it shows (unset
+	 *  = the lowest / top floor), and each backbone group's own label / colour, by `backboneKey` (its racks + type). */
+	riser?: { from?: number; to?: number; groups?: Record<string, { label?: string; color?: string }> }
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
 	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */

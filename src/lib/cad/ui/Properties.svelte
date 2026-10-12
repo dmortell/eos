@@ -41,6 +41,7 @@
 	import { newId } from '../domain/ids'
 	import { withStyle, type Shape } from '../domain/shapes'
 	import PathProps from './PathProps.svelte'
+	import BackboneProps from './BackboneProps.svelte'
 	import RunFill from './RunFill.svelte'
 	import WallOpenings from './WallOpenings.svelte'
 
@@ -355,6 +356,8 @@
 			<label class="row">Notes <textarea class="inp" rows="2" value={r.notes ?? ''} onchange={(e) => put(r, 'Rack notes', { notes: e.currentTarget.value.trim() || undefined })}></textarea></label>
 		</PropGroup>
 		<p class="text-zinc-500">{deviceCounts(project.index.devicesIn(r.id))} · front faces the +y side when not rotated</p>
+	{:else if one.type === 'link' && one.kind === 'backbone'}
+		<BackboneProps {project} link={one} />
 	{:else if one.type === 'device'}
 		{@const d = one as Device}
 		{@const rack = project.index.get(d.rackId) as Rack | undefined}

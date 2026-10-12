@@ -27,6 +27,14 @@
 		return s.geom.segs.filter((g) => { const a = byId.get(g.a), b = byId.get(g.b); return a && b && isVertical(a, b) }).length
 	})
 
+	// a riser's far end(s): nodes on another level; moving them to another floor extends / shortens it
+	const farLevels = $derived([...new Set(nodes.flatMap((n) => (n.levelId && n.levelId !== s.levelId ? [n.levelId] : [])))])
+	const floors = $derived.by(() => { void project.rev; return project.store.ofType('level').filter((l) => (!l.area || farLevels.includes(l.id)) && l.id !== s.levelId).sort((a, b) => b.number - a.number) })
+	function setFarLevel(from: string, to: string) {
+		if (to === from) return
+		setNodes(`Riser to ${project.index.nameOf(to)}`, (ns) => ns.map((n) => (n.levelId === from ? { ...n, levelId: to } : n)))
+	}
+
 	const lengths = $derived(segmentLengths(s))
 	const rooms = $derived(servableRooms(project.index, s))
 	const serving = $derived(s.role?.kind === 'containment' ? s.role.serves ?? [] : [])
@@ -193,6 +201,17 @@
 	{/each}
 	<div class="seg total"><span>Total</span><span class="font-mono">{fmtMm(lengths.total)}</span><span class="text-zinc-400">{(lengths.total / 1000).toFixed(2)} m</span></div>
 </PropGroup>
+{#if farLevels.length}
+	<!-- a RISER (backlog "Riser view control"): the floor its far end reaches — another floor extends or shortens it -->
+	<PropGroup kind={kind} title="Riser">
+		{#each farLevels as lv (lv)}
+			<label class="row" title="The floor this riser reaches (its far end, and anything the run carries on with there)">Reaches
+				<select class="inp" value={lv} onchange={(e) => setFarLevel(lv, e.currentTarget.value)}>
+					{#each floors as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</select></label>
+		{/each}
+	</PropGroup>
+{/if}
 <PropGroup kind={kind} title="Nodes">
 	<p class="text-zinc-500">{nodes.length} nodes, {vertical} vertical</p>
 	<label class="row">All nodes Z <input class="inp" type="number" placeholder="mixed" onchange={(e) => setAllZ(Number(e.currentTarget.value))} /></label>
