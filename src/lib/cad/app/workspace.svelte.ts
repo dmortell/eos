@@ -128,6 +128,10 @@ export class Workspace {
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0 })
 	/** The Image tool's picture (Insert › Image…): its file in Uploads and page, and its name for the hint. */
+	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
+	touchInput = $state(false)
+	/** Points in the run / line being drawn (0 = none), kept by the active ViewCanvas. */
+	pathPending = $state(0)
 	imagePick = $state<{ fileId: string; page?: number; name: string; /** the picture's width ÷ height, once measured */ ratio?: number } | null>(null)
 	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
 	dimMode = $state<DimMode>('aligned')

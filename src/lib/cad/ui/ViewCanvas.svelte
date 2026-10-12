@@ -39,6 +39,7 @@
 	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
 	import { TouchNav, pinchContent, settleScale, type ContentGesture } from '../editor/touch'
 	import { LONG_PRESS_SLOP } from './longPress'
+	import { PathTool } from '../editor/pathTool'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
 	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop, dropTakes } from './viewportEdit'
@@ -83,6 +84,8 @@
 	let crossing = $state(false)
 	/** Bumped after every tool event, so the preview (which reads the tool's own fields) is recomputed. */
 	let tick = $state(0)
+	/** How many points the run / line being drawn has (0 = none): the shell shows its Finish / Cancel chips on touch. */
+	$effect(() => { void tick; if (active) ws.pathPending = ws.tool instanceof PathTool ? ws.tool.pts.length : 0 })
 	let fittedFor: string | null = null
 
 	const section = $derived(spec.kind === 'section' ? (project.index.get(spec.sectionId) as SectionCut | undefined) : undefined)
@@ -366,8 +369,9 @@
 	let vpPan: { at: Pt; vp: Sheet['viewports'][number]; g: ReturnType<typeof project.store.begin> | null } | null = null
 
 	/** Click counting (a pointerdown's `detail` is always 0): ui/canvasInfo.ts. */
+	const TOUCH_DOUBLE_TAP_PX = 24
 	const clicks = new ClickCounter()
-	const pressCount = (e: PointerEvent): number => clicks.press(local(e), e.timeStamp)
+	const pressCount = (e: PointerEvent): number => clicks.press(local(e), e.timeStamp, e.pointerType === 'touch' ? TOUCH_DOUBLE_TAP_PX : 5)   // a double-tap finishes a run / line
 
 	let panning = $state<{ x: number; y: number; moved: boolean; button: number } | null>(null)
 	/** The last pointer position in view mm — where a typed distance points, and the readout in the corner. */
@@ -456,6 +460,7 @@
 	}
 	function onDown(e: PointerEvent) {
 		onfocus?.()
+		ws.touchInput = e.pointerType === 'touch'   // the options row then offers Finish / Cancel while a run is being drawn
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
 		held = null
 		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
@@ -596,6 +601,9 @@
 	}
 	/** Esc with nothing selected, while editing inside a viewport: leave it. */
 	export function leaveViewport(): void { exitVp() }
+	/** Finish / Cancel chips for a run or line drawn by touch (the options row): same as Enter / Esc. */
+	export function finishPath(): void { const t = ws.tool; if (t instanceof PathTool) { t.finish(ctx()); tick++ } }
+	export function cancelPath(): void { ws.tool.cancel(ctx()); tick++ }
 	/** Esc / a cancelled pointer: whatever the press started goes back (a tool's drag, a viewport pan, the work grip). */
 	export function cancel(): void { pdrag.cancel(); pdActive = false; vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
 	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what

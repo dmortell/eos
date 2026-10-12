@@ -50,13 +50,13 @@ export class CameraMemory {
 	}
 }
 
-/** Presses counted into clicks: a second press within 400 ms and 5 px of the last is a double (and so on). `at` = the
- *  press's place on screen, `t` = when it HAPPENED (e.timeStamp: a slow render after the first click mustn't push the
- *  second past 400 ms). */
+/** Presses counted into clicks: a second press within 400 ms and 5 px of the last (a finger: 24 px, `tol`) is a double
+ *  (and so on). `at` = the press's place on screen, `t` = when it HAPPENED (e.timeStamp: a slow render after the first
+ *  click mustn't push the second past 400 ms). */
 export class ClickCounter {
 	#last: { t: number; x: number; y: number; n: number } | null = null
-	press(at: Pt, t: number): number {
-		const l = this.#last, n = l && t - l.t < 400 && Math.hypot(at.x - l.x, at.y - l.y) < 5 ? l.n + 1 : 1
+	press(at: Pt, t: number, tol = 5): number {
+		const l = this.#last, n = l && t - l.t < 400 && Math.hypot(at.x - l.x, at.y - l.y) < tol ? l.n + 1 : 1
 		this.#last = { t, ...at, n }
 		return n
 	}

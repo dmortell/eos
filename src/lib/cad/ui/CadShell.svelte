@@ -584,6 +584,11 @@
 		</label>
 		{#if ws.vpEdit}<button class="chip vp" title="Leave the viewport (Esc, or a double-click outside it)" onclick={() => canvas?.leaveViewport()}>Editing in a viewport ✕</button>{/if}
 		<ToolOptions {project} {ws} {level} kind={activeKind} />
+		{#if ws.touchInput && ws.pathPending}
+			<!-- no Enter / Esc on a touch screen: finish or drop the run being drawn (a double-tap finishes too) -->
+			<button class="chip" title="Finish this run or line (a double-tap does too)" onclick={() => canvas?.finishPath()}>Finish</button>
+			<button class="chip" title="Drop it — nothing is drawn" onclick={() => canvas?.cancelPath()}>Cancel</button>
+		{/if}
 		{#if hint}<span class="hint" title={hint}>{hint}</span>{/if}
 	</div>
 
