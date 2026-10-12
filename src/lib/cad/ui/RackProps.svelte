@@ -5,7 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Id, Rack, RackRow } from '../domain/types'
-	import { deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel } from '../domain/devices'
+	import { deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, racksToRoom } from '../domain/devices'
 	import { naturalCompare } from '../domain/labels'
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
@@ -43,13 +43,16 @@
 	// via the index (reactive); rows are few, so a scan is fine
 	const rowsIn = (spaceId: Id) => [...project.index.byId.values()].filter((e): e is RackRow => e.type === 'rackRow' && e.spaceId === spaceId).sort((a, b) => a.order - b.order)
 	/** Rooms a rack can stand in: the server rooms of its level (and wherever it is now). */
+	/** Racks from several levels have no room in common to move to (Review 2 Q2: the list was the first one's level). */
+	const oneLevel = $derived(racks.every((r) => r.levelId === racks[0]?.levelId))
 	const rooms = $derived(racks[0] ? project.index.spaces.filter((s) => (s.levelId === racks[0].levelId && s.kind === 'server room') || racks.some((r) => r.spaceId === s.id)).sort((a, b) => naturalCompare(a.name, b.name)) : [])
 	/** Racks to another room; their row is dropped (rows belong to a room) — pick one there next. */
 	function setRoom(spaceId: string) {
 		if (spaceId === NEW_ROOM) { naming = 'room'; return }
 		const moving = racks.filter((r) => r.spaceId !== spaceId)
 		if (!moving.length) return
-		project.store.transact(`${moving.length > 1 ? `${moving.length} racks` : moving[0].name} → ${project.index.nameOf(spaceId)}`, (tx) => { for (const r of moving) tx.put({ ...r, spaceId, rowId: undefined }) })
+		const out = racksToRoom(project.index, moving, spaceId)
+		project.store.transact(`${moving.length > 1 ? `${moving.length} racks` : moving[0].name} → ${project.index.nameOf(spaceId)}`, (tx) => { for (const e of out) tx.put(e) })
 	}
 	function setRow(value: string) {
 		if (value === NEW_ROW) { naming = 'row'; return }
@@ -64,7 +67,8 @@
 		if (!rs.length) return
 		if (kind === 'room') {
 			const room = newServerRoom(project.index, rs[0].levelId, name)
-			project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const r of rs) tx.put({ ...r, spaceId: room.id, rowId: undefined }) })
+			const out = racksToRoom(project.index, rs, room.id)
+			project.store.transact(`New room ${room.name}`, (tx) => { tx.put(room); for (const e of out) tx.put(e) })
 		} else if (kind === 'row') {
 			const row: RackRow = { type: 'rackRow', id: newId(), spaceId: rs[0].spaceId, name, order: rowsIn(rs[0].spaceId).length }
 			project.store.transact(`New row ${row.name}`, (tx) => { tx.put(row); for (const r of rs) tx.put({ ...r, rowId: row.id }) })
@@ -123,7 +127,8 @@
 	{/if}
 </PropGroup>
 <PropGroup kind="rack" title="Room, row, level">
-	<SelectField label="Room" value={sameRoom.value} mixed={sameRoom.mixed} options={rooms.map((s) => [s.id, s.name] as const)} onchange={setRoom}>
+	<SelectField label="Room" value={sameRoom.value} mixed={sameRoom.mixed} options={rooms.map((s) => [s.id, s.name] as const)} onchange={setRoom}
+		disabled={!oneLevel} title={oneLevel ? undefined : 'These racks are on different levels — move them one level at a time'}>
 		{#snippet extra()}<option value={NEW_ROOM}>New server room…</option>{/snippet}
 	</SelectField>
 	{@render nameBox('room')}

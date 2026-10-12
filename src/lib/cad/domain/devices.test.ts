@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU, deviceCounts, moveRacksToLevel } from './devices'
+import { BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate, templateFromDevice, placementProblem, firstFreeU, deviceCounts, moveRacksToLevel, racksToRoom } from './devices'
 import { ProjectIndex } from './project'
 import type { Device, Rack } from './types'
 import type { Entity } from './drawing'
@@ -63,6 +63,16 @@ describe('rack placement rules', () => {
 		// one of IDF 1's two racks moves: it joins L2's "IDF 1", off its row
 		const one = moveRacksToLevel(ix, [ix.get('C') as Rack], 'L2')
 		expect(one).toMatchObject([{ id: 'C', levelId: 'L2', spaceId: 'S2B', rowId: undefined }])
+	})
+	it('racks to another room: off their row, and their panels serving the old room serve the new one (Review 2 Q2)', () => {
+		const pp = { ...at('builtin:panel-24', 40), panel: { tier: 'low' as const, serverRoomId: 'S' } }
+		const other = { ...at('builtin:panel-24', 38), id: 'PP2', panel: { tier: 'low' as const, serverRoomId: 'ELSE' } }
+		const ix = new ProjectIndex([{ ...rack, rowId: 'ROW' }, pp, other] as Entity[])
+		const out = racksToRoom(ix, [ix.get('R') as Rack], 'S2')
+		expect(out.find((e) => e.id === 'R')).toMatchObject({ spaceId: 'S2', rowId: undefined })
+		expect((out.find((e) => e.id === pp.id) as Device).panel?.serverRoomId).toBe('S2')
+		expect(out.some((e) => e.id === 'PP2')).toBe(false)   // it served another room on purpose: left alone
+		expect(racksToRoom(ix, [ix.get('R') as Rack], 'S')).toEqual([])
 	})
 	it('device counts read by kind, most first, singular for one', () => {
 		const ds = [at('builtin:panel-24', 42), at('builtin:panel-24', 41), at('builtin:switch-48', 39)]

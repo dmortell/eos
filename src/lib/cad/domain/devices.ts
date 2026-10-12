@@ -259,6 +259,19 @@ export function moveRacksToLevel(ix: ProjectIndex, racks: Rack[], levelId: Id): 
 	return out
 }
 
+/** Racks into another room on their level: their row goes (rows belong to a room), and their panels that served the old
+ *  room serve the new one — else allocation keeps filling them from the old room's outlets (Review 2 Q2, as
+ *  `moveRacksToLevel` does). */
+export function racksToRoom(ix: ProjectIndex, racks: Rack[], spaceId: Id): Entity[] {
+	const out: Entity[] = []
+	for (const r of racks) {
+		if (r.spaceId === spaceId) continue
+		out.push({ ...r, spaceId, rowId: undefined })
+		for (const d of ix.devicesIn(r.id)) if (d.panel?.serverRoomId === r.spaceId) out.push({ ...d, panel: { ...d.panel, serverRoomId: spaceId } })
+	}
+	return out
+}
+
 /** The name a new server room is offered: "IDF 1", "IDF 2" … */
 export const nextRoomName = (ix: ProjectIndex, levelId: Id): string => `IDF ${ix.spaces.filter((s) => s.levelId === levelId && s.kind === 'server room').length + 1}`
 
