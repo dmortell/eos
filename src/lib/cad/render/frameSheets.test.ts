@@ -33,6 +33,13 @@ describe('frame label sheets (G097 / G131 / T050)', () => {
 		const marked = frameRacks(new ProjectIndex(base.map((e) => (e.id === 'C' ? { ...e, patchFrame: true } as Entity : e))), 'S1')
 		expect(marked.racks.map((r) => r.name)).toEqual(['C'])
 	})
+	it('a 72-port 1U panel uses the rack view’s layout (2 rows of 36), not 3 rows over the next U (Q23)', () => {
+		const room = frameRacks(new ProjectIndex([...base, dev('P72', 'B', 5, { portCount: 72 })] as Entity[]), 'S1')
+		const b = room.racks.find((r) => r.name === 'B')!
+		const p = b.blocks[0]
+		if (p.kind !== 'panel') throw new Error('panel')
+		expect([p.rows.length, p.rows[0].length, b.cols]).toEqual([2, 36, 36])
+	})
 	it('the workbook: a sheet per frame, or one per room', async () => {
 		const room = frameRacks(new ProjectIndex(base), 'S1')
 		const per = await frameWorkbook([room], undefined, { perRoom: false, fileName: 'f.xlsx' })

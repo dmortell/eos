@@ -6,7 +6,7 @@
 import type { Workbook, Worksheet, Cell, Border, Borders, Fill, PaperSize } from 'exceljs'
 import type { ProjectIndex } from '../domain/project'
 import type { Device, Id, ProjectSettings, Rack } from '../domain/types'
-import { racksInOrder, portAt } from '../domain/devices'
+import { racksInOrder, portAt, portGrid } from '../domain/devices'
 import { download, fileSafe } from './download'
 import { sheetName } from './exports'
 
@@ -17,7 +17,8 @@ export type FrameBlock =
 	| { kind: 'panel'; u: number; heightU: number; name: string; rows: (FrameCell | null)[][] }
 	/** Any other device: one merged block over its Us. */
 	| { kind: 'device'; u: number; heightU: number; text: string }
-export interface FrameRack { id: Id; name: string; heightU: number; blocks: FrameBlock[] }
+/** `cols` = port columns the rack's sheet needs: 24, or more for a panel the rack view lays out wider (a 72-port 1U = 2 x 36). */
+export interface FrameRack { id: Id; name: string; heightU: number; cols: number; blocks: FrameBlock[] }
 export interface FrameRoom { id: Id; name: string; level: string; racks: FrameRack[] }
 
 const COLS = 24
@@ -43,8 +44,8 @@ export function frameRacks(ix: ProjectIndex, spaceId: Id): FrameRoom {
 				us.forEach((u) => taken.add(u))
 				const top = d.u + d.heightU - 1
 				if (d.kind !== 'panel' || !d.portCount) { blocks.push({ kind: 'device', u: top, heightU: d.heightU, text: `${d.kind.toUpperCase()}: ${d.name}` }); continue }
-				const nRows = Math.max(1, Math.ceil(d.portCount / COLS)), cols = Math.ceil(d.portCount / nRows), res = reservedFor(d)
-				const rows: (FrameCell | null)[][] = Array.from({ length: nRows }, () => Array<FrameCell | null>(COLS).fill(null))
+				const { rows: nRows, cols } = portGrid(d), res = reservedFor(d)   // the rack view's layout, so a 72-port 1U panel is 2 rows, not 3 over the next U
+				const rows: (FrameCell | null)[][] = Array.from({ length: nRows }, () => Array<FrameCell | null>(Math.max(COLS, cols)).fill(null))
 				for (let n = 1; n <= d.portCount; n++) {
 					const [row, col] = portAt(d.portNumbering, n, nRows, cols)
 					const far = ix.farEnd({ on: d.id, port: n }), o = far ? ix.get(far.on) : undefined
@@ -53,14 +54,14 @@ export function frameRacks(ix: ProjectIndex, spaceId: Id): FrameRoom {
 				}
 				blocks.push({ kind: 'panel', u: top, heightU: d.heightU, name: d.name, rows })
 			}
-			return { id: r.id, name: r.name, heightU: r.heightU, blocks: blocks.sort((a, b) => b.u - a.u) }
+			return { id: r.id, name: r.name, heightU: r.heightU, cols: Math.max(COLS, ...blocks.map((b) => (b.kind === 'panel' ? b.rows[0].length : 0))), blocks: blocks.sort((a, b) => b.u - a.u) }
 		}),
 	}
 }
 
 // ── The workbook ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-const RACK_COLS = COLS + 1, RACK_GAP = 1, ROWS_PER_U = 2
+const RACK_GAP = 1, ROWS_PER_U = 2
 const argb = (hex: string) => `FF${hex.replace('#', '').toUpperCase().padEnd(6, '0').slice(0, 6)}`
 /** A usage color's cell fill (a light tint) and text (the color, darkened a little). */
 function tones(hex: string | undefined): { bg: string; text: string } {
@@ -80,13 +81,13 @@ function edge(ws: Worksheet, r0: number, r1: number, c0: number, c1: number, sid
 }
 
 function writeRack(ws: Worksheet, room: FrameRoom, rack: FrameRack, row0: number, col0: number, colour: (usage?: string) => { bg: string; text: string }) {
-	const cEnd = col0 + RACK_COLS - 1, p1 = col0 + 1
+	const cEnd = col0 + rack.cols, p1 = col0 + 1
 	for (let c = col0; c <= cEnd; c++) ws.getColumn(c).width = c === col0 ? 4 : 12
 	ws.mergeCells(row0, col0, row0, cEnd)
 	Object.assign(ws.getCell(row0, col0), { value: `${room.level} ${room.name} — ${rack.name} (${rack.heightU}U)`, font: { bold: true, size: 14 } })
 	const head = row0 + 2
 	ws.getCell(head, col0).value = 'RU'
-	for (let i = 0; i < COLS; i++) ws.getCell(head, p1 + i).value = i + 1
+	for (let i = 0; i < rack.cols; i++) ws.getCell(head, p1 + i).value = i + 1
 	for (let c = col0; c <= cEnd; c++) Object.assign(ws.getCell(head, c), { font: { bold: true, size: 7 }, alignment: { horizontal: 'center' } })
 	// RU rows, top down: two Excel rows per U
 	const rowOf = (u: number) => head + 1 + (rack.heightU - u) * ROWS_PER_U
@@ -139,7 +140,8 @@ export async function frameWorkbook(rooms: FrameRoom[], settings: ProjectSetting
 	for (const room of rooms) {
 		if (o.perRoom) {
 			const ws = sheet(`${room.level} ${room.name}`), top = Math.max(0, ...room.racks.map((r) => r.heightU))
-			room.racks.forEach((r, i) => writeRack(ws, room, r, 1 + (top - r.heightU) * ROWS_PER_U, 1 + i * (RACK_COLS + RACK_GAP), colour))
+			let col = 1
+			for (const r of room.racks) { writeRack(ws, room, r, 1 + (top - r.heightU) * ROWS_PER_U, col, colour); col += r.cols + 1 + RACK_GAP }
 		} else for (const r of room.racks) writeRack(sheet(`${room.level} ${r.name}`), room, r, 1, 1, colour)
 	}
 	return wb
