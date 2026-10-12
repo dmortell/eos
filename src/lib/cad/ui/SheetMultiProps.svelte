@@ -8,6 +8,7 @@
 	import { ordered } from '../domain/sheetCategories'
 	import { duplicateSheets } from '../app/sheetActions'
 	import PropGroup from './PropGroup.svelte'
+	import Field from './fields/Field.svelte'
 	import { shared, MIXED } from './propsKit'
 
 	let { project, ws, sheets }: { project: CadProject; ws: Workspace; sheets: Sheet[] } = $props()
@@ -45,10 +46,10 @@
 			{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
 		</select></label>
 	<label class="row">Discipline <input class="inp" value={same((s) => s.discipline ?? '') ?? ''} placeholder={mixed((s) => s.discipline ?? '') ? MIXED : '—'} onchange={(e) => set('Sheet discipline', () => ({ discipline: e.currentTarget.value.trim() || undefined }))} /></label>
-	<div class="row"><span>Tags</span>
-		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" />
-			<button class="btn" disabled={!tag.trim()} title="Add this tag to every selected sheet" onclick={() => tagAll(true)}>+</button>
-			<button class="btn" disabled={!tag.trim()} title="Take this tag off every selected sheet" onclick={() => tagAll(false)}>−</button></span></div>
+	<Field label="Tags">
+		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" aria-label="Tag" />
+			<button class="btn" disabled={!tag.trim()} title="Add this tag to every selected sheet" aria-label="Add this tag to every selected sheet" onclick={() => tagAll(true)}>+</button>
+			<button class="btn" disabled={!tag.trim()} title="Take this tag off every selected sheet" aria-label="Take this tag off every selected sheet" onclick={() => tagAll(false)}>−</button></span></Field>
 	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.drawn ?? '') ? MIXED : 'initials'}
 		onchange={(e) => { const v = e.currentTarget.value.trim(); set('Drawn by', (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: v } } })) }} /></label>
 </PropGroup>

@@ -9,6 +9,7 @@
 	import { cordLength, installCord, revertCord, removeCord, setStatus, traceCircuit, STANDARD_LENGTHS, CORD_STATUSES, replacedText } from '../domain/cords'
 	import Trace from './Trace.svelte'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import { toneStyle } from './StatusChip.svelte'
 
@@ -61,9 +62,8 @@
 			{#if !(project.settings?.cableTypes ?? []).some((t) => t.id === c.cableType)}<option value={c.cableType}>{c.cableType}</option>{/if}
 		</select>
 	</label>
-	<div class="row">Color <ColorPick value={c.colour} onchange={(v) => { if (!v) return; put('Cord color', { colour: v }); ws.cordDefaults.colour = v }} /></div>
-	<div class="row">
-		<span>Length (m)</span>
+	<Field label="Color"><ColorPick value={c.colour} onchange={(v) => { if (!v) return; put('Cord color', { colour: v }); ws.cordDefaults.colour = v }} /></Field>
+	<Field label="Length" unit="m">
 		<span class="flex items-center gap-1">
 			<select class="inp" value={String(c.lengthM)} onchange={(e) => put('Cord length', { lengthM: Number(e.currentTarget.value), lengthLocked: true })}>
 				{#each STANDARD_LENGTHS as l (l)}<option value={String(l)}>{l}</option>{/each}
@@ -71,7 +71,7 @@
 			</select>
 			<label title="Locked = keeps this length when the ends move; unlocked = estimated from the racks ({auto} m now)"><input type="checkbox" checked={c.lengthLocked} onchange={(e) => put(e.currentTarget.checked ? 'Lock length' : 'Auto length', e.currentTarget.checked ? { lengthLocked: true } : { lengthLocked: false, lengthM: auto })} /> lock</label>
 		</span>
-	</div>
+	</Field>
 	<label class="row">Cord ID <input class="inp font-mono" value={c.cordId ?? ''} onchange={(e) => put('Cord ID', { cordId: e.currentTarget.value.trim() || undefined })} /></label>
 	<label class="row">Notes <input class="inp" value={c.notes ?? ''} onchange={(e) => put('Cord notes', { notes: e.currentTarget.value || undefined })} /></label>
 </PropGroup>

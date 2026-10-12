@@ -6,6 +6,7 @@
 	import type { Link } from '../domain/types'
 	import PropGroup from './PropGroup.svelte'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import { backboneKey } from '../views/riser'
 
 	let { project, link }: { project: CadProject; link: Link } = $props()
@@ -30,7 +31,7 @@
 	{#if key}
 		<label class="row" title="The group's words in the riser view (blank = count × type · length)">Riser label
 			<input class="inp" value={own?.label ?? ''} placeholder="count × type · length" onchange={(e) => set('Riser group label', { label: e.currentTarget.value.trim() || undefined })} /></label>
-		<div class="row" title="The group's line in the riser view (By layer = by its cable type: fibre amber, copper blue)">Riser colour
-			<ColorPick value={own?.color} allowByLayer onchange={(v) => set('Riser group colour', { color: v })} /></div>
+		<Field label="Riser color" title="The group's line in the riser view (By layer = by its cable type: fibre amber, copper blue)">
+			<ColorPick value={own?.color} allowByLayer onchange={(v) => set('Riser group color', { color: v })} /></Field>
 	{/if}
 </PropGroup>

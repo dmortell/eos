@@ -131,10 +131,10 @@
 	</div>
 	{#if styling === l.id}
 		<div class="sub">
-			<select title="Line type of this layer's items (unless they set their own)" value={l.dash ?? ''} onchange={(e) => put(`${l.name} line type`, record(l, { dash: e.currentTarget.value || undefined }))}>
+			<select title="Line type of this layer's items (unless they set their own)" aria-label="{l.name}: line type" value={l.dash ?? ''} onchange={(e) => put(`${l.name} line type`, record(l, { dash: e.currentTarget.value || undefined }))}>
 				{#each ['', ...DASHES] as d (d)}<option value={d}>{DASH_NAMES[d]}</option>{/each}
 			</select>
-			<select title="Lineweight of this layer's items on paper (unless they set their own) — prints as set" value={String(l.weightMm ?? 0)} onchange={(e) => put(`${l.name} lineweight`, record(l, { weightMm: Number(e.currentTarget.value) || undefined }))}>
+			<select title="Lineweight of this layer's items on paper (unless they set their own) — prints as set" aria-label="{l.name}: lineweight" value={String(l.weightMm ?? 0)} onchange={(e) => put(`${l.name} lineweight`, record(l, { weightMm: Number(e.currentTarget.value) || undefined }))}>
 				<option value="0">Default weight</option>
 				{#each WEIGHTS as w (w)}<option value={String(w)}>{w} mm</option>{/each}
 			</select>

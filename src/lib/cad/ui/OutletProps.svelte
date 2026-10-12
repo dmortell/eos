@@ -15,6 +15,7 @@
 	import Trace from './Trace.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import UsageButtons from './UsageButtons.svelte'
+	import Field from './fields/Field.svelte'
 	import NameInput from './NameInput.svelte'
 	import { outletZ } from '../domain/routing'
 	import LayerPick from './LayerPick.svelte'
@@ -111,9 +112,9 @@
 	<!-- the same groups and order as one outlet's; a field shows what they share or "mixed", an edit sets them all -->
 	<PropGroup kind="outlet" title="General">
 		<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
-		<div class="row">Usage
+		<Field label="Usage">
 			<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
-		</div>
+		</Field>
 		<label class="row">Tier
 			<select class="inp" value={pick((o) => o.tier, '')} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
 				{#if isMixed((o) => o.tier)}<option value="">{MIXED}</option>{/if}<option value="low">Low</option><option value="high">High</option>
@@ -159,7 +160,7 @@
 	<!-- groups (UX review "Outlet Properties still flat"): General (with its layer) · Position · Ports · Circuit -->
 	<PropGroup kind="outlet" title="General">
 		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
-		<div class="row">Usage <UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} /></div>
+		<Field label="Usage"><UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} /></Field>
 		<label class="row">Tier
 			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
 		</label>
@@ -201,8 +202,8 @@
 		{#each o.ports as p, i (p.port)}
 			<div class="grid grid-cols-[1.5rem_1fr_6rem] items-center gap-1">
 				<span class="text-zinc-400">{p.port}</span>
-				<input class="inp font-mono" value={p.label} onchange={(e) => { const t = e.currentTarget.value; e.currentTarget.value = p.label; const n = setPortLabel(project.index, { on: o.id, port: p.port }, t); if (n) project.relabel(`Port ${p.label}`, [n], ws.ask2) }} />
-				<select class="inp" value={p.serverRoomId ?? ''} title="Its server room" onchange={(e) => setPort(o, i, { serverRoomId: e.currentTarget.value || undefined })}>
+				<input class="inp font-mono" value={p.label} aria-label="Port {p.port} label" onchange={(e) => { const t = e.currentTarget.value; e.currentTarget.value = p.label; const n = setPortLabel(project.index, { on: o.id, port: p.port }, t); if (n) project.relabel(`Port ${p.label}`, [n], ws.ask2) }} />
+				<select class="inp" value={p.serverRoomId ?? ''} title="Its server room" aria-label="Port {p.port} server room" onchange={(e) => setPort(o, i, { serverRoomId: e.currentTarget.value || undefined })}>
 					<option value="">—</option>
 					{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
 				</select>

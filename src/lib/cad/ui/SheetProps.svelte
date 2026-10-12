@@ -17,6 +17,7 @@
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
 	import { printRevision, today } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
+	import Field from './fields/Field.svelte'
 	import { duplicateSheets } from '../app/sheetActions'
 	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
 	import type { Issue, SheetChange } from '../domain/drawing'
@@ -174,27 +175,27 @@
 					{#if !SCALES.includes(vp.scale)}<option value="">custom</option>{/if}
 					{#each SCALES as n (n)}<option value={String(n)}>{n}</option>{/each}
 				</select>
-				<input class="inp w-16" type="number" min="1" value={vp.scale} title="Custom 1:N" onchange={(e) => num(e.currentTarget.value) > 0 && putVp('Viewport scale', { scale: num(e.currentTarget.value) })} />
+				<input class="inp w-16" type="number" min="1" value={vp.scale} title="Custom 1:N" aria-label="Custom scale 1:N" onchange={(e) => num(e.currentTarget.value) > 0 && putVp('Viewport scale', { scale: num(e.currentTarget.value) })} />
 			</span>
 		</label>
 		{/if}
 		<label class="row">Label <input class="inp" value={vp.label ?? ''} placeholder="(none)" onchange={(e) => putVp('Viewport label', { label: e.currentTarget.value.trim() || undefined })} /></label>
 	</PropGroup>
 	<PropGroup kind="viewport" title="Window">
-		<div class="row"><span>Window (mm)</span>
+		<Field label="Window" unit="mm">
 			<span class="win">
 				{#each ['x', 'y', 'w', 'h'] as const as k (k)}
 					<label>{k.toUpperCase()} <input class="inp" type="number" value={Math.round(vp.rect[k])} onchange={(e) => putVp('Viewport window', { rect: { ...vp.rect, [k]: Math.max(k === 'w' || k === 'h' ? 10 : -1e6, num(e.currentTarget.value)) } })} /></label>
 				{/each}
 			</span>
-		</div>
-		<div class="row"><span>Centre</span>
+		</Field>
+		<Field label="Centre">
 			<span class="flex gap-1">
-				<input class="inp" type="number" title="X (view mm)" value={Math.round(vp.centre.x)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, x: num(e.currentTarget.value) } })} />
-				<input class="inp" type="number" title="Y (view mm)" value={Math.round(vp.centre.y)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, y: num(e.currentTarget.value) } })} />
+				<input class="inp" type="number" title="X (view mm)" aria-label="Centre X (view mm)" value={Math.round(vp.centre.x)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, x: num(e.currentTarget.value) } })} />
+				<input class="inp" type="number" title="Y (view mm)" aria-label="Centre Y (view mm)" value={Math.round(vp.centre.y)} onchange={(e) => putVp('Viewport centre', { centre: { ...vp.centre, y: num(e.currentTarget.value) } })} />
 				<button class="btn" title="Centre on what the view shows, at the largest standard scale (1:N) at which it fits the window" onclick={() => putVp('Fit viewport', fitViewport(project.index, vp))}>Fit</button>
 			</span>
-		</div>
+		</Field>
 		<label class="row">Frame <span><input type="checkbox" checked={vp.border !== false} onchange={(e) => putVp('Viewport frame', { border: e.currentTarget.checked ? undefined : false })} /> printed</span></label>
 		<label class="row">Locked <span><input type="checkbox" checked={!!vp.locked} onchange={(e) => putVp(e.currentTarget.checked ? 'Lock viewport' : 'Unlock viewport', { locked: e.currentTarget.checked || undefined })} /> can't be moved</span></label>
 	</PropGroup>
@@ -210,11 +211,11 @@
 				{#if s.kind && !cats.some((c) => c.id === s.kind)}<option value={s.kind}>{s.kind}</option>{/if}
 			</select></label>
 		<label class="row">Discipline <input class="inp" value={s.discipline ?? ''} placeholder="—" onchange={(e) => putSheet('Sheet discipline', { discipline: e.currentTarget.value.trim() || undefined })} /></label>
-		<div class="row"><span>Tags</span>
+		<Field label="Tags">
 			<span class="tags">
-				{#each s.tags ?? [] as t (t)}<span class="tag">{t}<button title="Take this tag off" onclick={() => setTag(t, false)}>×</button></span>{/each}
+				{#each s.tags ?? [] as t (t)}<span class="tag">{t}<button title="Take this tag off" aria-label="Take the tag {t} off" onclick={() => setTag(t, false)}>×</button></span>{/each}
 				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (e.key === 'Enter' && t) { setTag(t, true); e.currentTarget.value = '' } }} />
-			</span></div>
+			</span></Field>
 		<!-- this sheet's own title-block settings; the template is the project's -->
 		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 		<!-- the approvals, for templates that show them (Title block template… › add Checked / Approved) -->
@@ -252,13 +253,13 @@
 	<PropGroup kind="sheet" title={s.revisions?.length ? 'Changes since last issue' : 'Changes'}>
 		{#each s.changes ?? [] as c (c.id)}
 			<div class="chg"><span class="text-zinc-500">{c.date}</span>
-				<input class="inp" value={c.text} placeholder="what changed" onchange={(e) => setChange(c.id, { text: e.currentTarget.value.trim() })} />
-				<input class="inp" value={c.asked ?? ''} placeholder="asked by" title="Who asked for it" onchange={(e) => setChange(c.id, { asked: e.currentTarget.value.trim() || undefined })} />
-				<button class="btn del" title="Remove this note" onclick={() => putSheet('Remove change note', { changes: (s.changes ?? []).filter((x) => x.id !== c.id) })}>×</button></div>
+				<input class="inp" value={c.text} placeholder="what changed" aria-label="Change of {c.date}: what changed" onchange={(e) => setChange(c.id, { text: e.currentTarget.value.trim() })} />
+				<input class="inp" value={c.asked ?? ''} placeholder="asked by" title="Who asked for it" aria-label="Change of {c.date}: asked by" onchange={(e) => setChange(c.id, { asked: e.currentTarget.value.trim() || undefined })} />
+				<button class="btn del" title="Remove this note" aria-label="Remove the change note of {c.date}" onclick={() => putSheet('Remove change note', { changes: (s.changes ?? []).filter((x) => x.id !== c.id) })}>×</button></div>
 		{/each}
 		<div class="chg"><span class="text-zinc-500">{today()}</span>
-			<input class="inp" bind:value={newText} placeholder="what changed" onkeydown={(e) => e.key === 'Enter' && addChange()} />
-			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" onkeydown={(e) => e.key === 'Enter' && addChange()} />
+			<input class="inp" bind:value={newText} placeholder="what changed" aria-label="New change: what changed" onkeydown={(e) => e.key === 'Enter' && addChange()} />
+			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" aria-label="New change: asked by" onkeydown={(e) => e.key === 'Enter' && addChange()} />
 			<button class="btn" disabled={!newText.trim()} title="Note this change; the next issue records it on the new revision" onclick={addChange}>Add</button></div>
 	</PropGroup>
 	{#if s.revisions?.length}

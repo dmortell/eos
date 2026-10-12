@@ -2980,3 +2980,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   ✎ / ⧉ / ✕ (now `visibility`, so the row no longer jumps), Layers' ✎ (and every layer icon 20 px), RackList's drag
   grip (+ 20 px ⋯ / Place / Rack view buttons), and the Navigator's ✎ (+ 20 px row actions). Help: "hover (or
   select) the row", "Hover (or tab to) a template".
+- **R82 Fields with no real label:** the div rows with a bare text label (Color / Fill / Background / Usage / Riser
+  color / Length / Tags / Window / Centre) are `ui/fields/Field.svelte` rows now (its label's id → the control's
+  `aria-labelledby`): CordProps, OutletProps (one and several), PathProps, NoteProps, RunsMultiProps,
+  ShapesMultiProps, BackboneProps, SheetProps, SheetMultiProps. Inputs in repeated rows that had only a `title` or a
+  placeholder get an `aria-label` naming the row: PathProps' node Z / ↕ / ✕ and the picked segments' size, PortProps'
+  and OutletProps' port label (and server room) rows and Route through, RunFill's cables-by-hand rows, SheetProps'
+  change notes, custom scale and tag ×, the title-block editor's fields (logo height, company lines, labels, Remove)
+  and its Layout / Add rows (`<label>`) and Show chips (a labelled group), RackDoors' second select, Layers' line type
+  / lineweight, the status bar's grid step; the Color pickers in the cord bar and tool options are labelled groups.
+  ("Riser colour" reads "Riser color".)

@@ -103,15 +103,15 @@
 <datalist id="cad-hand-types">{#each project.settings?.cableTypes ?? [] as c (c.id)}<option value={c.id}>{c.label}</option>{/each}</datalist>
 {#each extra as h, i (i)}
 	<div class="hand">
-		<input class="inp" type="number" min="0" value={h.n} title="How many" onchange={(e) => setRow(i, { n: Math.max(0, Math.round(Number(e.currentTarget.value) || 0)) })} />
+		<input class="inp" type="number" min="0" value={h.n} title="How many" aria-label="Row {i + 1}: how many cables" onchange={(e) => setRow(i, { n: Math.max(0, Math.round(Number(e.currentTarget.value) || 0)) })} />
 		<span class="text-zinc-400">×</span>
-		<input class="inp" list="cad-hand-types" value={h.type} title="A cable type (Settings › Cable types) or any name, e.g. power" onchange={(e) => setRow(i, { type: e.currentTarget.value.trim() || 'cable' })} />
-		<input class="inp" type="number" min="0" step="0.1" value={h.d ?? ''} placeholder="Ø {cableOd(project.settings, h.type)}" title="Outer Ø (mm); blank = the type's" onchange={(e) => setRow(i, { d: Number(e.currentTarget.value) > 0 ? Number(e.currentTarget.value) : undefined })} />
-		<select class="inp" value={h.seg ?? ''} title="Where: every segment of the run, or one" onchange={(e) => setRow(i, { seg: e.currentTarget.value || undefined })}>
+		<input class="inp" list="cad-hand-types" value={h.type} title="A cable type (Settings › Cable types) or any name, e.g. power" aria-label="Row {i + 1}: cable type" onchange={(e) => setRow(i, { type: e.currentTarget.value.trim() || 'cable' })} />
+		<input class="inp" type="number" min="0" step="0.1" value={h.d ?? ''} placeholder="Ø {cableOd(project.settings, h.type)}" title="Outer Ø (mm); blank = the type's" aria-label="Row {i + 1}: outer diameter (mm)" onchange={(e) => setRow(i, { d: Number(e.currentTarget.value) > 0 ? Number(e.currentTarget.value) : undefined })} />
+		<select class="inp" value={h.seg ?? ''} title="Where: every segment of the run, or one" aria-label="Row {i + 1}: where" onchange={(e) => setRow(i, { seg: e.currentTarget.value || undefined })}>
 			<option value="">whole run</option>
 			{#each allSegs as g, k (g.id)}<option value={g.id}>seg {k + 1}</option>{/each}
 		</select>
-		<button class="btn del" title="Remove this row" onclick={() => putExtra('Remove cables by hand', extra.filter((_, j) => j !== i))}>×</button>
+		<button class="btn del" title="Remove this row" aria-label="Remove row {i + 1}" onclick={() => putExtra('Remove cables by hand', extra.filter((_, j) => j !== i))}>×</button>
 	</div>
 {/each}
 <div class="pt-0.5"><button class="btn" title="Cables that aren't routed links — before routes exist, or power / coax: count × type on the whole run (or the picked segment)" onclick={addRow}>Add cables</button></div>

@@ -124,13 +124,13 @@
 			{:else}
 				{#each viasShown as id, i (i)}
 					<span class="via"><span class="text-zinc-400">{i + 1}</span>
-						<select value={id} onchange={(e) => setVias(viasShown.map((x, j) => (j === i ? e.currentTarget.value : x)))}>
+						<select value={id} aria-label="Route through, run {i + 1}" onchange={(e) => setVias(viasShown.map((x, j) => (j === i ? e.currentTarget.value : x)))}>
 							{#each runs as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
 						</select>
-						<button class="x" title="Take this run out" onclick={() => setVias(viasShown.filter((_, j) => j !== i))}>×</button></span>
+						<button class="x" title="Take this run out" aria-label="Take run {i + 1} out of the route" onclick={() => setVias(viasShown.filter((_, j) => j !== i))}>×</button></span>
 				{/each}
 			{/if}
-			<select value="" title="Add a run or riser to pass through (after the ones listed)" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v) setVias([...(viasShown ?? []), v]) }}>
+			<select value="" title="Add a run or riser to pass through (after the ones listed)" aria-label="Route through: add a run or riser" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v) setVias([...(viasShown ?? []), v]) }}>
 				<option value="">{viasShown?.length ? '+ then…' : 'Shortest — + through…'}</option>
 				{#each runs as v (v.id)}<option value={v.id}>{v.label}</option>{/each}
 			</select>
@@ -149,7 +149,7 @@
 			{#if links.some((l) => !l.pinned)}<button title="Re-allocation never moves pinned links" onclick={() => pin(true)}>Pin</button>{/if}
 			{#if links.some((l) => l.pinned)}<button onclick={() => pin(false)}>Unpin</button>{/if}
 		{/if}
-		<select title="Reserve these ports: allocation fills them with outlets of this usage first" value="" onchange={(e) => { reserve(e.currentTarget.value === '-' ? '' : e.currentTarget.value); e.currentTarget.value = '' }}>
+		<select title="Reserve these ports: allocation fills them with outlets of this usage first" aria-label="Reserve these ports for a usage" value="" onchange={(e) => { reserve(e.currentTarget.value === '-' ? '' : e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">Reserve for…</option>
 			{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 			<option value="-">(clear reservation)</option>
@@ -159,7 +159,7 @@
 <div class="ports">
 	{#each rows as r (r.n)}
 		<span class="n" title={reservedAs(r.n) ? `Reserved for ${reservedAs(r.n)}` : ''}>{r.n}{reservedAs(r.n) ? 'ʳ' : ''}</span>
-		<input class="inp font-mono" value={r.label} placeholder="—" title={r.from === 'own label' ? 'This port’s own label' : `Stored on the ${r.from} (one label, shown at both ends)`} onchange={(e) => edit(r.n, e.currentTarget)} />
+		<input class="inp font-mono" value={r.label} placeholder="—" aria-label="Port {r.n} label" title={r.from === 'own label' ? 'This port’s own label' : `Stored on the ${r.from} (one label, shown at both ends)`} onchange={(e) => edit(r.n, e.currentTarget)} />
 		<span class="from" title={r.cord ? `Patched to ${r.cord}` : ''}>{r.from}{links.find((l) => (l.a.on === sel.on ? l.a.port : l.b.port) === r.n)?.pinned ? ' ◆' : ''}{r.cord ? ' ⇄' : ''}</span>
 	{/each}
 </div>

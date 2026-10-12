@@ -41,7 +41,7 @@
 			{#if sameType && !types.some((t) => t.id === sameType)}<option value={sameType}>{sameType}</option>{/if}
 		</select>
 	</label>
-	<span class="fld">Color <ColorPick value={sameColour} mixed={!sameColour} onchange={setColour} /></span>
+	<span class="fld" role="group" aria-label="Color">Color <ColorPick value={sameColour} mixed={!sameColour} onchange={setColour} /></span>
 </div>
 
 <style>

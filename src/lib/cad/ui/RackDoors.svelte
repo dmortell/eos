@@ -35,11 +35,11 @@
 {#if cabinets.length}
 	<label class="row" title={cabinets.length < racks.length ? `Sets the ${cabinets.length} cabinets; the other racks have no doors` : undefined}>Doors
 		<span class="flex gap-1">
-			<select class="inp" title="Front door" value={front === null ? 'mixed' : (front ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ front: face(e.currentTarget.value) })}>
+			<select class="inp" title="Front door" aria-label="Front door" value={front === null ? 'mixed' : (front ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ front: face(e.currentTarget.value) })}>
 				{#if front === null}<option value="mixed">front: {MIXED}</option>{/if}
 				<option value="">front: none</option><option value="single">front: single</option><option value="split">front: split</option>
 			</select>
-			<select class="inp" title="Rear door" value={rear === null ? 'mixed' : (rear ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ rear: face(e.currentTarget.value) })}>
+			<select class="inp" title="Rear door" aria-label="Rear door" value={rear === null ? 'mixed' : (rear ?? '')} onchange={(e) => e.currentTarget.value !== 'mixed' && set({ rear: face(e.currentTarget.value) })}>
 				{#if rear === null}<option value="mixed">rear: {MIXED}</option>{/if}
 				<option value="">rear: none</option><option value="single">rear: single</option><option value="split">rear: split</option>
 			</select>

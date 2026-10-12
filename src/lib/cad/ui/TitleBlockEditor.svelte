@@ -13,6 +13,7 @@
 
 	// `files` = the project's Uploads: logos are picked from its images, and new ones are added to it
 	let { template, onchange, files }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void; files?: { db: Firestore; pid: string; storage?: FileStorage } } = $props()
+	const showId = $props.id()
 	let picking = $state<'company' | 'client' | null>(null)
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
 	// the field list WITH the logos as fields (Dave: logos placed and ordered like fields); an edit saves it that way
@@ -95,20 +96,20 @@
 </script>
 
 <div class="prop-sec">Title block · project template</div>
-<div class="prop"><span>Show</span>
-	<div class="chips">
+<div class="prop"><span id={showId}>Show</span>
+	<div class="chips" role="group" aria-labelledby={showId}>
 		{#each SECTIONS as [s, label] (s)}<button class:on={shows(s)} title="{shows(s) ? 'Hide' : 'Show'} the {label.toLowerCase()} on every sheet" onclick={() => toggle(s)}>{label}</button>{/each}
 		<button class:on={t.border} title="Print a hairline border along the paper margin (off = a screen-only guide)" onclick={() => set({ border: !t.border })}>Border</button>
 	</div>
 </div>
-<div class="prop"><span>Layout</span>
+<label class="prop"><span>Layout</span>
 	<select value={t.layout ?? 'vertical'} onchange={(e) => set({ layout: val(e) as TbLayout })}>
 		<option value="vertical">Strip down the right</option><option value="horizontal">Band along the bottom</option><option value="compact">Compact box, bottom right</option>
-	</select></div>
+	</select></label>
 {#snippet logoControls(k: 'company' | 'client', label: string)}
 	{@const lg = t.logos?.[k]}
 	<span class="logo-row">
-		{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
+		{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" aria-label="{label}: height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
 			{#if files}<button class="logo-up" title="Another image (Uploads)" onclick={() => (picking = k)}>Change…</button>{/if}
 			{#if uploading === k}<em>uploading…</em>
 			{:else if lg.src.startsWith('data:')}<button class="logo-up" title="This logo is stored inside the project document — upload it to file storage" onclick={() => moveToStorage(k, lg)}>Move to storage</button>{/if}
@@ -134,25 +135,25 @@
 			{@render logoControls(f.logo, LOGO_LABEL[f.logo])}
 		{:else if f.key === 'logoText'}
 			<span class="lbl logo-lbl" title="The logo text — drag to place it">Logo text</span>
-			<input class="txt" value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} />
+			<input class="txt" value={t.logo ?? ''} placeholder="(none)" aria-label="Logo text" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} />
 		{:else if f.key === 'company'}
 			<!-- the drawing office's block: name (bold), address, contact — one line each; drag to place it -->
 			<span class="lbl logo-lbl" title="Your company's block — drag to place it">Company</span>
 			<span class="co">
-				<input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} />
-				<input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} />
-				<input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} />
+				<input value={t.company?.name ?? ''} placeholder="Name" aria-label="Company name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} />
+				<input value={t.company?.address ?? ''} placeholder="Address" aria-label="Company address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} />
+				<input value={t.company?.contact ?? ''} placeholder="Tel / email" aria-label="Company tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} />
 			</span>
 		{:else if f.key === 'custom'}
-			<input class="lbl" value={f.label} title="Label (custom text)" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
-			<input class="txt" value={f.value ?? ''} placeholder="text" onchange={(e) => setField(i, { value: val(e) })} onkeydown={blurOnEnter} />
+			<input class="lbl" value={f.label} title="Label (custom text)" aria-label="Custom field label" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
+			<input class="txt" value={f.value ?? ''} placeholder="text" aria-label="{f.label || 'Custom field'}: text" onchange={(e) => setField(i, { value: val(e) })} onkeydown={blurOnEnter} />
 		{:else if f.key === 'site'}
 			<!-- the site: its label, and the address it prints (the same on every sheet) -->
-			<input class="lbl" value={f.label} title="Label" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
-			<input class="txt" value={t.site ?? ''} placeholder="Site address" onchange={(e) => set({ site: val(e) || undefined })} onkeydown={blurOnEnter} />
+			<input class="lbl" value={f.label} title="Label" aria-label="Site field label" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
+			<input class="txt" value={t.site ?? ''} placeholder="Site address" aria-label="Site address" onchange={(e) => set({ site: val(e) || undefined })} onkeydown={blurOnEnter} />
 		{:else if f.key !== 'logo'}
 			{@const auto = TB_AUTO[f.key]}
-			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
+			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" aria-label="Label of the {auto.toLowerCase()} field" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 			<em title="Filled automatically">{auto}</em>
 		{/if}
 		{#if isFixedField(f)}
@@ -162,17 +163,17 @@
 			{#if f.key === 'logo' && f.logo && t.logos?.[f.logo]?.src}<button title="Clear this logo image" onclick={() => setLogo(f.logo!, undefined)}><Icon name="x" size={11} /></button>{:else}<span></span>{/if}
 		{:else}
 			<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>
-			<button title="Remove" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
+			<button title="Remove" aria-label="Remove the {f.label || 'custom'} field" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
 		{/if}
 	</div>
 {/each}
-<div class="prop"><span>Add</span>
+<label class="prop"><span>Add</span>
 	<select value="" onchange={(e) => { add(val(e)); (e.currentTarget as HTMLSelectElement).value = '' }}>
 		<option value="">Add a field…</option>
 		{#each Object.entries(TB_AUTO) as [k, l] (k)}<option value={k}>{l} (auto)</option>{/each}
 		<option value="custom">Custom text</option>
 	</select>
-</div>
+</label>
 <div class="hint">Shared by every sheet in this project. Auto fields fill from the project and each sheet.</div>
 
 <style>

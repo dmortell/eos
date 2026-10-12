@@ -58,7 +58,7 @@
 	<span class="xy">{v?.xy ?? '—'}</span>
 	<div class="toggles">
 		<button class:on={ws.drafting.snap} title="SNAP ({KEYS.snap}): moves and points step on the grid · Alt skips it for one action" onclick={() => flip('snap')}>SNAP</button>
-		<select title="Grid step (mm)" value={ws.drafting.grid} onchange={(e) => { ws.drafting.grid = Number(e.currentTarget.value); ws.saveDrafting() }}>
+		<select title="Grid step (mm)" aria-label="Grid step (mm)" value={ws.drafting.grid} onchange={(e) => { ws.drafting.grid = Number(e.currentTarget.value); ws.saveDrafting() }}>
 			{#each STEPS as s (s)}<option value={s}>{s}</option>{/each}
 		</select>
 		<button class:on={ws.drafting.osnap} title="OSNAP ({KEYS.osnap}): snap to nodes, midpoints, centres, outlets and racks" onclick={() => flip('osnap')}>OSNAP</button>

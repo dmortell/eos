@@ -5,6 +5,7 @@
 	import type { Shape } from '../domain/shapes'
 	import { dimLine } from '../views/plan'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 
@@ -69,11 +70,11 @@
 <LayerPick {project} ids={[s.id]} />
 </PropGroup>
 <PropGroup kind="note" title="Style">
-<div class="row" title="The note's color (its lines and text); By layer = its layer's / the usual color">Color
-	<ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => setStyle('Note color', { stroke: v })} /></div>
+<Field label="Color" title="The note's color (its lines and text); By layer = its layer's / the usual color">
+	<ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => setStyle('Note color', { stroke: v })} /></Field>
 {#if g.kind === 'text'}
-	<div class="row" title="A filled box behind the text, so it reads over the drawing">Background
-		<ColorPick value={s.style?.fill ?? 'none'} allowNone onchange={(v) => setStyle(v && v !== 'none' ? 'Text background' : 'No text background', { fill: v && v !== 'none' ? v : undefined })} /></div>
+	<Field label="Background" title="A filled box behind the text, so it reads over the drawing">
+		<ColorPick value={s.style?.fill ?? 'none'} allowNone onchange={(v) => setStyle(v && v !== 'none' ? 'Text background' : 'No text background', { fill: v && v !== 'none' ? v : undefined })} /></Field>
 {/if}
 </PropGroup>
 

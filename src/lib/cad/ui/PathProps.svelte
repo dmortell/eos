@@ -6,6 +6,7 @@
 	import type { Shape, Section, PathNode } from '../domain/shapes'
 	import LineStyle from './LineStyle.svelte'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import RunFill from './RunFill.svelte'
@@ -141,8 +142,8 @@
 			{#if s.section && kind !== 'line'}
 				<!-- their own size (a reducer, a taller wall panel): blank = mixed; "as run" drops it -->
 				<span class="segsize">
-					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" value={segShared('w') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
-					{#if !s.section.round}<label>H <input type="number" value={segShared('h') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
+					<label>{s.section.round ? 'Ø' : 'W'} <input type="number" aria-label={s.section.round ? 'Picked segments’ diameter (mm)' : 'Picked segments’ width (mm)'} value={segShared('w') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ w: Number(e.currentTarget.value) })} /></label>
+					{#if !s.section.round}<label>H <input type="number" aria-label="Picked segments’ height (mm)" value={segShared('h') ?? ''} placeholder={MIXED} onchange={(e) => setSegSection({ h: Number(e.currentTarget.value) })} /></label>{/if}
 					{#if pickedSegs.some((g) => g.section)}<button class="btn" title="Back to the run's own size" onclick={() => setSegSection(null)}>as run</button>{/if}
 				</span>
 			{/if}
@@ -214,7 +215,7 @@
 {#if kind === 'line'}
 	<!-- a plain line: its own color, line type and lineweight (backlog "Shape style") -->
 	<PropGroup kind={kind} title="Style">
-		<div class="row" title="Its own color (By layer = its layer's)">Color <ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => save(v ? 'Color' : 'Color by layer', withStyle(s, { stroke: v }))} /></div>
+		<Field label="Color" title="Its own color (By layer = its layer's)"><ColorPick value={s.style?.stroke} allowByLayer onchange={(v) => save(v ? 'Color' : 'Color by layer', withStyle(s, { stroke: v }))} /></Field>
 		<LineStyle {project} shapes={[s]} />
 	</PropGroup>
 {/if}
@@ -249,9 +250,9 @@
 				<span class="text-zinc-400">{i + 1}</span>
 				<span class="font-mono text-zinc-500">{Math.round(n.x)}</span>
 				<span class="font-mono text-zinc-500">{Math.round(n.y)}</span>
-				<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" onchange={(e) => setZ(n.id, Number(e.currentTarget.value))} />
-				<button class="rounded border text-zinc-500 hover:bg-zinc-100" title="Add a drop / rise here" onclick={() => drop(n)}>↕</button>
-				<button class="rounded border text-zinc-500 hover:bg-red-50 hover:text-red-700" title="Delete this point (a point in the middle of a run is healed)" onclick={() => removePoint(n.id)}>✕</button>
+				<input class="inp" type="number" value={n.z} title="Z (mm above FFL)" aria-label="Node {i + 1} Z (mm above FFL)" onchange={(e) => setZ(n.id, Number(e.currentTarget.value))} />
+				<button class="rounded border text-zinc-500 hover:bg-zinc-100" title="Add a drop / rise here" aria-label="Add a drop / rise at node {i + 1}" onclick={() => drop(n)}>↕</button>
+				<button class="rounded border text-zinc-500 hover:bg-red-50 hover:text-red-700" title="Delete this point (a point in the middle of a run is healed)" aria-label="Delete node {i + 1}" onclick={() => removePoint(n.id)}>✕</button>
 			</div>
 			{#if n.attach}<div class="pl-6 text-[10px] text-emerald-700">↳ attached to {project.index.nameOf(n.attach)}</div>{/if}
 		{/each}

@@ -6,6 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import { withFill, type Shape } from '../domain/shapes'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import LineStyle from './LineStyle.svelte'
 	import RackDoors from './RackDoors.svelte'
 	import PropGroup from './PropGroup.svelte'
@@ -47,13 +48,13 @@
 	<LayerPick {project} ids={shapes.map((s) => s.id)} />
 </PropGroup>
 <PropGroup kind="shapes" title="Style">
-	<div class="row" title="Their own color (By layer = their layer's)">Color
-		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => (v ? each(shapes, 'Color', (s) => ({ ...s, style: { ...s.style, stroke: v } })) : each(shapes.filter((s) => s.style?.stroke), 'No own color', clearColour))} /></div>
+	<Field label="Color" title="Their own color (By layer = their layer's)">
+		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => (v ? each(shapes, 'Color', (s) => ({ ...s, style: { ...s.style, stroke: v } })) : each(shapes.filter((s) => s.style?.stroke), 'No own color', clearColour))} /></Field>
 	<LineStyle {project} {shapes} />
 	{#if fillable.length}
 		{@const fill = shared(fillable, (s) => s.style?.fill ?? 'none')}
-		<div class="row" title="The {fillable.length} region{fillable.length === 1 ? '' : 's'} filled with a color, or None">Fill
-			<ColorPick value={fill ?? undefined} mixed={fill === null} allowNone onchange={(v) => each(fillable, v && v !== 'none' ? 'Fill' : 'No fill', (s) => withFill(s, v))} /></div>
+		<Field label="Fill" title="The {fillable.length} region{fillable.length === 1 ? '' : 's'} filled with a color, or None">
+			<ColorPick value={fill ?? undefined} mixed={fill === null} allowNone onchange={(v) => each(fillable, v && v !== 'none' ? 'Fill' : 'No fill', (s) => withFill(s, v))} /></Field>
 	{/if}
 	{#if texts.length}
 		{@const size = shared(texts, (s) => (s.geom.kind === 'text' ? s.geom.sizeMm : 0))}

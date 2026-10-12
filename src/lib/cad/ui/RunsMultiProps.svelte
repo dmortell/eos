@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import { withStyle, type Shape } from '../domain/shapes'
 	import ColorPick from './ColorPick.svelte'
+	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import type { Level } from '../domain/types'
@@ -64,6 +65,6 @@
 	</PropGroup>
 {/if}
 <PropGroup kind="runs" title="Style">
-	<div class="row" title="Their own color on the plan (By layer = the tier's / layer's)">Color
-		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></div>
+	<Field label="Color" title="Their own color on the plan (By layer = the tier's / layer's)">
+		<ColorPick value={colour ?? undefined} mixed={colour === null} allowByLayer onchange={(v) => each('Run color', (s) => withStyle(s, { stroke: v }))} /></Field>
 </PropGroup>
