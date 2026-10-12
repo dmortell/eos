@@ -4,6 +4,7 @@
      zoom and Fit. -->
 <script lang="ts">
 	import { toggleDrafting } from '../app/shellActions'
+	import { KEYS } from './shellKeys'
 	import type { Workspace } from '../app/workspace.svelte'
 
 	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
@@ -51,22 +52,22 @@
 			<span class="hint" title={hint}>{hint}</span>
 		{/if}
 	</div>
-	{#if selected}<button class="selc" title="Zoom to the selection (Shift+Home)" onclick={onzoomsel}>{selected}</button>{/if}
+	{#if selected}<button class="selc" title="Zoom to the selection ({KEYS.zoomSel})" onclick={onzoomsel}>{selected}</button>{/if}
 	{#if v?.loading}<span class="load" title="The floorplan is still rendering"><span class="spin"></span> floorplan…</span>{/if}
 	{#if v?.readout}<b class="ro">{v.readout}</b>{/if}
 	<span class="xy">{v?.xy ?? '—'}</span>
 	<div class="toggles">
-		<button class:on={ws.drafting.snap} title="SNAP (F9): moves and points step on the grid · Alt skips it for one action" onclick={() => flip('snap')}>SNAP</button>
+		<button class:on={ws.drafting.snap} title="SNAP ({KEYS.snap}): moves and points step on the grid · Alt skips it for one action" onclick={() => flip('snap')}>SNAP</button>
 		<select title="Grid step (mm)" value={ws.drafting.grid} onchange={(e) => { ws.drafting.grid = Number(e.currentTarget.value); ws.saveDrafting() }}>
 			{#each STEPS as s (s)}<option value={s}>{s}</option>{/each}
 		</select>
-		<button class:on={ws.drafting.osnap} title="OSNAP (F3): snap to nodes, midpoints, centres, outlets and racks" onclick={() => flip('osnap')}>OSNAP</button>
-		<button class:on={ws.drafting.showGrid} title="GRID (F7): draw the grid (plans, elevations, sections)" onclick={() => flip('showGrid')}>GRID</button>
+		<button class:on={ws.drafting.osnap} title="OSNAP ({KEYS.osnap}): snap to nodes, midpoints, centres, outlets and racks" onclick={() => flip('osnap')}>OSNAP</button>
+		<button class:on={ws.drafting.showGrid} title="GRID ({KEYS.grid}): draw the grid (plans, elevations, sections)" onclick={() => flip('showGrid')}>GRID</button>
 	</div>
 	{#if v}
 		<span class="scale" title="{v.mmPerPx} mm a pixel">{v.scale} · {v.zoom}%{v.extra ? ` · ${v.extra}` : ''}</span>
 	{/if}
-	<button class="fit" title="Zoom to fit (Home)" onclick={onfit}>Fit</button>
+	<button class="fit" title="Zoom to fit ({KEYS.fit})" onclick={onfit}>Fit</button>
 </footer>
 
 <style>
