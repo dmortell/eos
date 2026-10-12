@@ -173,7 +173,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Project', items: [
-			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, description, logos — the title block shows them', run: c.projectDetails }] : []),
+			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn) and company (when its template has none); its logos are set in Title block…', run: c.projectDetails }] : []),
 			{ label: 'Floors…', title: "The building's floors, their names and heights — Project settings, tab Floors & heights", run: c.floors },
 			{ label: 'Settings…', title: 'Project settings: floors, plans, usages, cable types, lengths & labels, sheets, files', run: c.settings },
 			{ label: 'Backups…', title: 'Back up the project or chosen models, restore, download or delete backups', run: c.backups },

@@ -210,7 +210,7 @@ export class SelectTool implements Tool {
 		if (c.space.spec.kind === 'sheet') {
 			// the picked logo's height grip, with its outline
 			if (one.type !== 'sheet' || this.#logo?.sheet !== one.id || c.viewportId?.()) { this.#logo = null; return { handles: [], decor: [] } }
-			const l = logoHandles(c.index, one, c.store.get('settings') as ProjectSettings | undefined, this.#logo.key)
+			const l = logoHandles(c.index, one, c.store.get('settings') as ProjectSettings | undefined, this.#logo.key, c.details)
 			return { handles: l.handles, decor: l.outline.length ? [{ k: 'line', pts: l.outline, closed: true, cls: 'logo-sel' }] : [] }
 		}
 		return { handles: elevationHandles(one, c.space), decor: [] }   // a wall's top / bottom edges in an elevation / section
@@ -278,7 +278,7 @@ export class SelectTool implements Tool {
 			}
 			const sheet = id ? c.store.get(id) : undefined
 			// a title-block logo: a click picks it (its height grip shows); a press anywhere else drops it
-			const logo = sheet?.type === 'sheet' ? logoAt(logoBoxes(c.index, sheet, c.store.get('settings') as ProjectSettings | undefined), e.p) : null
+			const logo = sheet?.type === 'sheet' ? logoAt(logoBoxes(c.index, sheet, c.store.get('settings') as ProjectSettings | undefined, c.details), e.p) : null
 			this.#logo = sheet && logo ? { sheet: sheet.id, key: logo } : null
 			if (sheet && logo) { c.select([sheet.id]); c.selectViewport(null); c.say?.('Logo: drag the grip on its bottom edge to change its height (on every sheet)'); return }
 			if (sheet?.type === 'sheet') {

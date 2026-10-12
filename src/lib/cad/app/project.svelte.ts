@@ -26,6 +26,7 @@ import { stripUndefined } from '../persist/docs'
 import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
 import { printedPanelsAffected, portRanges } from '../domain/ports'
 import type { Entity } from '../domain/drawing'
+import type { ProjectDetails, TitleBlockTemplate } from '../domain/titleBlock'
 
 /** Who wrote a change, beyond the user: a per-tab id (kept for the tab's life in sessionStorage) + the browser, e.g.
  *  "k3Jd9 Chrome/Windows". Several tabs or sessions share one account, so this is what tells them apart in the data. */
@@ -49,6 +50,13 @@ export class CadProject {
 	readonly store = new EntityStore()
 	/** The project's display name (title blocks, export file names); set by the shell. */
 	name = $state('')
+	/** The projects page's Project details the title block falls back on (client, address, author, company); set by
+	 *  the shell. */
+	details = $state<ProjectDetails | undefined>()
+	/** What every sheet's title block is drawn with: the name, the template, the Project details. */
+	get sheetBase(): { projectName: string; template?: TitleBlockTemplate; details?: ProjectDetails } {
+		return { projectName: this.name, template: this.settings?.titleBlock, details: this.details }
+	}
 	/** The project's owner (`projects/{pid}.ownerId`; set by the shell): only they restore a backup (ADR 0008 §4). */
 	ownerId = $state<string | undefined>()
 	/** The signed-in user's name, for who made a backup. */

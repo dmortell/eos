@@ -29,7 +29,7 @@
 		const sh = target
 		if (!sh) return
 		const name = s.name   // read before the sheet opens: the selection (and this panel) changes
-		const v = sectionViewport(project.index, sh, s.id, s.levelId, newId(), { projectName: project.name, template: project.settings?.titleBlock })
+		const v = sectionViewport(project.index, sh, s.id, s.levelId, newId(), project.sheetBase)
 		project.store.transact(`Section ${name} on ${sh.number}`, (tx) => tx.put({ ...sh, viewports: [...sh.viewports, v] }))
 		ws.openView({ kind: 'sheet', sheetId: sh.id })
 		ws.select([sh.id])

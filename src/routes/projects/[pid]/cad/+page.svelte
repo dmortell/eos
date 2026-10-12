@@ -34,7 +34,7 @@
 	<p class="p-6 text-sm text-zinc-500">Sign in to open the cad tool.</p>
 {:else}
 	{#key pid}
-		<CadShell {pid} user={uid} {userName} {projectName} {ownerId} projectDetails={projectDoc ? () => (detailsOpen = true) : undefined} />
+		<CadShell {pid} user={uid} {userName} {projectName} {ownerId} details={projectDoc ?? undefined} projectDetails={projectDoc ? () => (detailsOpen = true) : undefined} />
 	{/key}
 	<ProjectSettingsDialog bind:open={detailsOpen} mode="edit" project={projectDoc} />
 {/if}

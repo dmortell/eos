@@ -22,7 +22,7 @@ import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
 import { scheduleTitle } from './schedule'
 import { fieldCtx, withFields } from '../domain/fields'
-import { fillTitleBlock, shownTitleBlock, type TbContext, type TbShown, type TitleBlockTemplate } from '../domain/titleBlock'
+import { fillTitleBlock, shownTitleBlock, withDetails, drawnFallback, type TbContext, type TbShown, type TitleBlockTemplate, type ProjectDetails } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
 /** The viewport scales offered (1:N): Sheet Properties' list, and Alt+wheel's steps. */
@@ -44,6 +44,8 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** The Project details the title block falls back on (client, site address, author, company). */
+	details?: ProjectDetails
 	/** Floorplans in black and white, outlets by usage color, cords along the channels — the project's old settings
 	 *  here; each sheet's own (sheetLook) win. */
 	gray?: boolean
@@ -60,25 +62,29 @@ export interface SheetOpts {
 
 /** What the title block's auto fields show for a sheet (ADR: values are filled at render time, never stored). The
  *  sheet's own `titleBlock.fields` override any of them ("Drawn" is usually set there) — except the date once the sheet
- *  has a dated revision: a date field (only ever imported from a Sheets-tool sheet) would print over every later issue. */
-export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = ''): TbContext {
+ *  has a dated revision: a date field (only ever imported from a Sheets-tool sheet) would print over every later issue.
+ *  The client comes from the Project details; a blank Drawn shows their author, else who issued the latest revision. */
+export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = '', details?: ProjectDetails): TbContext {
 	const scales = [...new Set(s.viewports.filter((v) => !isPaperSpec(v.view.spec)).map((v) => v.scale))]   // a table on paper has no scale
 	const places = [...new Set(s.viewports.map((v) => ix.nameOf(v.view.levelId)).filter(Boolean))]
 	const last = s.revisions?.at(-1)
+	const drawn = s.titleBlock?.fields?.drawn?.trim() || drawnFallback(details?.author, last?.by)
 	return {
-		project: projectName, title: s.title, number: s.number,
+		project: projectName, title: s.title, number: s.number, client: details?.client?.trim() ?? '',
 		size: `${s.paper.size} ${s.paper.orientation === 'landscape' ? 'L' : 'P'}`,
 		scale: scales.length === 1 ? `1:${scales[0]}` : scales.length ? 'As shown' : '',
 		place: places.join(' / '),
 		...(last ? { rev: last.code, date: last.date } : {}),
 		...s.titleBlock?.fields,
 		...(last?.date ? { date: last.date } : {}),
+		drawn,
 	}
 }
 
 /** The title block as this sheet shows it (template + values + revisions + the sheet's own hide). */
 export function sheetTitleBlock(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): TbShown {
-	const shown = shownTitleBlock(o.template, fillTitleBlock(o.template, { site: o.template?.site, ...titleBlockContext(ix, s, o.projectName) }), s.revisions ?? [])
+	const t = withDetails(o.template, o.details)
+	const shown = shownTitleBlock(t, fillTitleBlock(t, { site: t?.site, ...titleBlockContext(ix, s, o.projectName, o.details) }), s.revisions ?? [])
 	return s.titleBlock?.hidden ? { ...shown, hidden: true } : shown
 }
 

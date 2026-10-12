@@ -139,7 +139,7 @@
 			<input class="txt" value={t.logo ?? ''} placeholder="(none)" aria-label="Logo text" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} />
 		{:else if f.key === 'company'}
 			<!-- the drawing office's block: name (bold), address, contact — one line each; drag to place it -->
-			<span class="lbl logo-lbl" title="Your company's block — drag to place it">Company</span>
+			<span class="lbl logo-lbl" title="Your company's block — drag to place it; left blank, the Project details' company prints">Company</span>
 			<span class="co">
 				<input value={t.company?.name ?? ''} placeholder="Name" aria-label="Company name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} />
 				<input value={t.company?.address ?? ''} placeholder="Address" aria-label="Company address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} />
@@ -151,7 +151,7 @@
 		{:else if f.key === 'site'}
 			<!-- the site: its label, and the address it prints (the same on every sheet) -->
 			<input class="lbl" value={f.label} title="Label" aria-label="Site field label" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
-			<input class="txt" value={t.site ?? ''} placeholder="Site address" aria-label="Site address" onchange={(e) => set({ site: val(e) || undefined })} onkeydown={blurOnEnter} />
+			<input class="txt" value={t.site ?? ''} placeholder="Site address (blank: Project details)" aria-label="Site address" onchange={(e) => set({ site: val(e) || undefined })} onkeydown={blurOnEnter} />
 		{:else if f.key !== 'logo'}
 			{@const auto = TB_AUTO[f.key]}
 			<input class="lbl" value={f.label} title="Label — filled with the sheet's {auto.toLowerCase()}" aria-label="Label of the {auto.toLowerCase()} field" onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />

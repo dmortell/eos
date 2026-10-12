@@ -8,6 +8,7 @@ import type { Prim, Bounds } from '../views/display'
 import type { Snap } from './snap'
 import type { ViewSpace, WorkPlane } from '../views/space'
 import type { PathSel } from './pathSel'
+import type { ProjectDetails } from '../domain/titleBlock'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -26,6 +27,8 @@ export interface ToolCtx {
 	index: ProjectIndex
 	levelId: Id
 	settings?: ProjectSettings
+	/** The Project details the title block falls back on (sheet views: where its logos are). */
+	details?: ProjectDetails
 	/** The user's current layer: new lines and notes go on it (walls, trunks, outlets, racks keep their own). */
 	layerId?: Id | null
 	opts: DrawOpts

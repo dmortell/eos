@@ -3162,3 +3162,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   move along the plane and up, as Move does (their (u, z) points were taken as plan points; `domain/clipboard.ts`).
   Left: a schedule viewport continued from a fixed "From cord" still drops / repeats a cord when the one before it
   grows or shrinks (needs "continue from viewport …" instead of a number). Tests.
+- **Q42** the title block fills in from the Project details (the projects page's dialog, handed to the shell by the
+  route as `details`; `project.sheetBase` = name + template + details for every sheet render, PDF, issue and new
+  viewport): a new Client auto field (the client), Site falls back on the address, the company block on the details'
+  company when the template has none, and a blank Drawn shows the author (a name / email as initials, initials as
+  typed), else who issued the latest revision (`domain/titleBlock.ts` `withDetails` / `drawnFallback`,
+  `views/sheet.ts`; logos' grips get the same block). Logos stay the template's. The Project details menu / settings
+  tooltips say what the block takes. Drawn / Checked / Approved can be set on several sheets at once (SheetMultiProps);
+  Drawn's placeholder shows the fallback. An issued sheet with a blank Drawn shows as changed once the details have an
+  author (it now prints one). Help; test.

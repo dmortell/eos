@@ -86,6 +86,19 @@ describe('title block on a sheet (Pages model)', () => {
 		expect(date(sheet({ ...old, revisions: [{ code: 'A', date: '' }] }))).toBe('2025-03-01')
 		expect(date(sheet({ ...old, revisions: [{ code: 'A', date: '' }, { code: 'B', date: '2026-10-12' }] }))).toBe('2026-10-12')
 	})
+	it('fills in from the Project details: client, site address, company, and the author on a blank Drawn (Review 2 Q42)', () => {
+		const details = { client: 'ACME Corp', address: '1-2-3 Shibuya', author: 'David Mortell', companyName: 'Journey', companyAddress: 'Tokyo' }
+		const template = { fields: [...DEFAULT_TITLE_BLOCK.fields, { key: 'client' as const, label: 'Client' }, { key: 'site' as const, label: 'Site' }] }
+		const cells = (s: Sheet, d = details, t: typeof template & { site?: string; company?: { name: string } } = template) =>
+			Object.fromEntries(sheetTitleBlock(ix(), s, { template: t, details: d }).cells.map((c) => [c.label, c.kind === 'company' ? c.lines?.join(' / ') : c.value]))
+		expect(cells(sheet())).toMatchObject({ Client: 'ACME Corp', Site: '1-2-3 Shibuya', Company: 'Journey / Tokyo', Drawn: 'DM' })
+		// the sheet's / template's own win
+		expect(cells(sheet({ titleBlock: { fields: { drawn: 'KT' } } }), details, { ...template, site: 'Site B', company: { name: 'Us' } })).toMatchObject({ Site: 'Site B', Company: 'Us', Drawn: 'KT' })
+		// no author: who issued the latest revision; initials typed as the author stay as they are
+		expect(cells(sheet({ revisions: [{ code: 'A', date: '2026-10-01', by: 'YS' }] }), { ...details, author: '' }).Drawn).toBe('YS')
+		expect(cells(sheet(), { ...details, author: 'DM' }).Drawn).toBe('DM')
+		expect(cells(sheet(), {}).Drawn).toBe('—')
+	})
 	it('a band along the bottom, or hidden on this sheet; new viewports stay clear of it', () => {
 		const band = { fields: DEFAULT_TITLE_BLOCK.fields, layout: 'horizontal' as const }
 		const a = drawingArea(ix(), sheet(), { template: band })

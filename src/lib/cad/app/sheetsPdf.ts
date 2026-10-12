@@ -10,7 +10,7 @@ import type { Device } from '../domain/types'
 
 export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono = false): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
-	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
+	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, mono })
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
 }

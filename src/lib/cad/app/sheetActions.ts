@@ -38,7 +38,7 @@ export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId:
 	const sheets = (project.store.ofType('sheet') as Sheet[]).filter((s) => s.status !== 'archived')
 	const base = target === 'new' ? blankSheet(sheets, newId()) : project.index.get<Sheet>(target)
 	if (base?.type !== 'sheet') return null
-	const vp = viewViewport(project.index, base, view, visible, newId(), { projectName: project.name, template: project.settings?.titleBlock })
+	const vp = viewViewport(project.index, base, view, visible, newId(), project.sheetBase)
 	const next = { ...base, viewports: [...base.viewports, vp] }
 	project.store.transact(target === 'new' ? `New sheet ${next.number} from this view` : `View onto ${next.number}`, (tx) => tx.put(next))
 	ws.select([next.id])

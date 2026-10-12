@@ -36,7 +36,7 @@ const coverId = (issueId: string) => `cover-${issueId}`
 export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 	return freeze(sheetDisplayList(project.index, sheet, {
 		underlay: (u) => { const pl = project.pdf.placement(u); return pl && { ...pl, url: underlayRef(u.fileId, u.page ?? 1) } },
-		blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans,
+		blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans,
 	}))
 }
 
@@ -138,7 +138,7 @@ export async function issuePackage(project: CadProject, sheets: Sheet[], f: Issu
 			...(f.withdrawn ?? []).map((w) => ({ number: w.number, title: w.title, rev: w.rev, size: '', status: 'Withdrawn' as const })),
 		]
 		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows },
-			{ blocks: project.blockOf, projectName: project.name, template: project.settings?.titleBlock })
+			{ blocks: project.blockOf, ...project.sheetBase })
 		for (const [i, c] of cover.entries()) {
 			const prims = freeze(c.prims)
 			await saveFrozen(project, { ...plan[0].sheet, id: coverId(issueId) }, String(i + 1), issueId, prims)

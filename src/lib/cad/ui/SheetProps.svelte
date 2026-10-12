@@ -23,6 +23,7 @@
 	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
 	import type { Issue, SheetChange } from '../domain/drawing'
 	import { ordered, categoryOf } from '../domain/sheetCategories'
+	import { drawnFallback } from '../domain/titleBlock'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -119,7 +120,7 @@
 	function addViewport() {
 		const lv = ws.levelId ?? levels[0]?.id
 		if (!lv) return
-		const v = defaultViewport(project.index, s, lv, newId(), { projectName: project.name, template: project.settings?.titleBlock })
+		const v = defaultViewport(project.index, s, lv, newId(), project.sheetBase)
 		putSheet('Add viewport', { viewports: [...s.viewports, v] })
 		ws.selectViewport(v.id)
 	}
@@ -218,7 +219,7 @@
 				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (enterKey(e) && t) { setTag(t, true); e.currentTarget.value = '' } }} />
 			</span></Field>
 		<!-- this sheet's own title-block settings; the template is the project's -->
-		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder="initials" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
+		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder={drawnFallback(project.details?.author, s.revisions?.at(-1)?.by) || 'initials'} title="Blank: the Project details’ author, else who issued it last" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 		<!-- the approvals, for templates that show them (Title block template… › add Checked / Approved) -->
 		{#each [['checked', 'Checked'], ['approved', 'Approved']] as [k, l] (k)}
 			<label class="row">{l} <input class="inp" value={s.titleBlock?.fields?.[k] ?? ''} placeholder="initials" onchange={(e) => putSheet(`${l} by`, { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, [k]: e.currentTarget.value.trim() } } })} /></label>

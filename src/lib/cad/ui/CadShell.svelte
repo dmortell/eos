@@ -9,6 +9,7 @@
 	import { backupsCol, loadBackup, type BackupHead } from '../app/backups'
 	import { doc, getDoc } from 'firebase/firestore'
 	import type { ProjectFile } from '../persist/file'
+	import type { ProjectDetails } from '../domain/titleBlock'
 	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
 	import { drawnOn, layersOf } from '../domain/layers'
@@ -57,14 +58,14 @@
 	import PatchPreview from './PatchPreview.svelte'
 
 	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). */
-	let { pid, user, userName = '', projectName, ownerId, projectDetails }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void } = $props()
+	let { pid, user, userName = '', projectName, ownerId, projectDetails, details }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void; details?: ProjectDetails } = $props()
 
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
 	const project = new CadProject(pid, firestore, user)
 	// image shapes' pictures, resolved for every canvas (ui/Prims.svelte)
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
-	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName })
+	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
 	const ws = new Workspace()
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)

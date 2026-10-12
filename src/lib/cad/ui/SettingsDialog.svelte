@@ -63,7 +63,7 @@
 					<button role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id)}>{label}{#if id === 'floors' && floors?.isPending()}<span class="dot" title="The floor range isn’t applied">●</span>{/if}</button>
 				{/each}
 				{#if projectDetails}
-					<button class="details" title="Name, codes, client, address, description, logos — the projects page’s dialog (the title block shows them)" onclick={() => requestClose(projectDetails)}>Project details…</button>
+					<button class="details" title="The projects page’s dialog: name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn) and company (when its template has none); its logos are set in Title block…" onclick={() => requestClose(projectDetails)}>Project details…</button>
 				{/if}
 			</div>
 			<div class="body">

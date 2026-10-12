@@ -12,6 +12,8 @@ export const TB_AUTO = {
 	// template (a template without them prints as before); Checked / Approved are set per sheet like Drawn, Site is the
 	// template's own address
 	checked: 'Checked', approved: 'Approved', site: 'Site',
+	// the client's name, from the Project details (Site falls back on its address)
+	client: 'Client',
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom' | 'logo' | 'logoText' | 'company'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
@@ -117,6 +119,29 @@ export function fillTitleBlock(t: TitleBlockTemplate | undefined, ctx: TbContext
 export function withLogoFields(t: TitleBlockTemplate | undefined): TbField[] {
 	const fields = t?.fields?.length ? t.fields : DEFAULT_TITLE_BLOCK.fields
 	return [...FIXED.filter((x) => !fields.some((f) => sameItem(f, x))).map((x) => ({ ...x })), ...fields]
+}
+
+/** The projects page's Project details that the title block falls back on (as the Sheets tool did): the client and
+ *  the site address as auto fields, the author for a blank Drawn, the drawing office's block when the template has
+ *  none of its own. Not stored in cad — the shell hands them in. */
+export interface ProjectDetails { client?: string; address?: string; author?: string; companyName?: string; companyAddress?: string; companyContact?: string }
+
+/** The template with the Project details filled in where it leaves them blank: the company block (when the template
+ *  has no name, address or contact) and the site address. A blank template becomes the default one. */
+export function withDetails(t: TitleBlockTemplate | undefined, d: ProjectDetails | undefined): TitleBlockTemplate | undefined {
+	if (!d) return t
+	const own = t?.company, blankCo = ![own?.name, own?.address, own?.contact].some((s) => s?.trim())
+	const company = { name: d.companyName?.trim(), address: d.companyAddress?.trim(), contact: d.companyContact?.trim() }
+	const useCo = blankCo && Object.values(company).some(Boolean), useSite = !t?.site?.trim() && !!d.address?.trim()
+	if (!useCo && !useSite) return t
+	return { ...(t ?? DEFAULT_TITLE_BLOCK), ...(useCo ? { company } : {}), ...(useSite ? { site: d.address!.trim() } : {}) }
+}
+
+/** What a blank Drawn shows: the Project details' author — a name or an email as initials, initials as typed — else
+ *  `issuer` (who issued the sheet's latest revision). */
+export function drawnFallback(author: string | undefined, issuer?: string): string {
+	const a = author?.trim() ?? ''
+	return (a && (/[\s@]/.test(a) ? initialsOf(a) : a)) || issuer?.trim() || ''
 }
 
 /** Initials for "Drawn": "David Mortell" → "DM"; an email → its local part's first 3 letters ("DMO"). */

@@ -1,5 +1,5 @@
 <!-- SEVERAL SHEETS in Properties (sheets-organising slice 3): category, discipline, a tag added to / taken off them
-     all, paper size and orientation, drawn by, archive / restore, add to a package, duplicate. A field they disagree on
+     all, paper size and orientation, drawn / checked / approved by, archive / restore, add to a package, duplicate. A field they disagree on
      shows "mixed". One undo step per edit. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -10,6 +10,9 @@
 	import PropGroup from './PropGroup.svelte'
 	import Field from './fields/Field.svelte'
 	import { shared, MIXED } from './propsKit'
+	import { drawnFallback } from '../domain/titleBlock'
+
+	const TB_PEOPLE = [['drawn', 'Drawn'], ['checked', 'Checked'], ['approved', 'Approved']] as const
 
 	let { project, ws, sheets }: { project: CadProject; ws: Workspace; sheets: Sheet[] } = $props()
 
@@ -50,8 +53,11 @@
 		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" aria-label="Tag" />
 			<button class="btn" disabled={!tag.trim()} title="Add this tag to every selected sheet" aria-label="Add this tag to every selected sheet" onclick={() => tagAll(true)}>+</button>
 			<button class="btn" disabled={!tag.trim()} title="Take this tag off every selected sheet" aria-label="Take this tag off every selected sheet" onclick={() => tagAll(false)}>−</button></span></Field>
-	<label class="row">Drawn <input class="inp" value={same((s) => s.titleBlock?.fields?.drawn ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.drawn ?? '') ? MIXED : 'initials'}
-		onchange={(e) => { const v = e.currentTarget.value.trim(); set('Drawn by', (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: v } } })) }} /></label>
+	<!-- who drew, checked and approved them (Checked / Approved print in templates that show them) -->
+	{#each TB_PEOPLE as [k, l] (k)}
+		<label class="row">{l} <input class="inp" value={same((s) => s.titleBlock?.fields?.[k] ?? '') ?? ''} placeholder={mixed((s) => s.titleBlock?.fields?.[k] ?? '') ? MIXED : k === 'drawn' ? drawnFallback(project.details?.author) || 'initials' : 'initials'}
+			onchange={(e) => { const v = e.currentTarget.value.trim(); set(`${l} by`, (s) => ({ titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, [k]: v } } })) }} /></label>
+	{/each}
 </PropGroup>
 <PropGroup kind="sheets" title="Paper">
 	<label class="row">Size
