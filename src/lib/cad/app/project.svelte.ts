@@ -18,7 +18,7 @@ import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
-import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, frontBlock, frontProblem, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
 import type { ElevFrame } from '../domain/conventions'
 import { spaceOf, type ViewSpec } from '../views/space'
 import { sectionSpace } from '../views/section'
@@ -196,6 +196,20 @@ export class CadProject {
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
 		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(insert) })
 		return insert.id
+	}
+
+	/** "Make block" for shapes drawn in an elevation or section (backlog "Blocks: front drawings"): they become the FRONT
+	 *  drawing of a new block `{ name }` or of one of your own (`{ blockId }`), and ONE insert replaces them in that
+	 *  elevation (one undo step for the drawing). Plans and the other elevations then show the front at the insert's height. */
+	async makeBlockFront(ids: Id[], to: { blockId: Id } | { name: string }): Promise<Id | null> {
+		const shapes = ids.map((id) => this.store.get(id)).filter((e): e is Shape => e?.type === 'shape')
+		if (frontProblem(shapes) || ('name' in to && !to.name.trim())) return null
+		const made = frontBlock(shapes, 'name' in to ? { name: to.name.trim() } : to, 'blockId' in to ? this.blockOf(to.blockId) : undefined)
+		if (!made) return null
+		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [made.write.id]: stripUndefined(made.write) } }, { merge: true })
+		const name = 'name' in made.write ? made.write.name : this.blockOf(made.write.id)?.name ?? 'block'
+		this.store.transact(`Make ${name} front`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(made.insert) })
+		return made.insert.id
 	}
 
 	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /

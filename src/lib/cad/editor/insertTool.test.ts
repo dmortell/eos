@@ -34,8 +34,15 @@ describe('the Insert tool', () => {
 		new InsertTool(() => plate).down(click({ x: 1000, y: 2000 }), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape
 		expect(s.geom).toMatchObject({ kind: 'insert', blockId: plate.id, at: { x: 1000, y: 2000 } })
-		expect('inElevations' in s.geom).toBe(false)   // a plan symbol: not shown in elevations
 		expect(h.store.undoLabels).toEqual([`Insert ${plate.name}`])
+	})
+	it('a block WITHOUT a front drawing placed on the plan is a plan symbol (not shown in elevations); one WITH a front shows it there', () => {
+		const h = harness(PLAN), outlet = BUILTIN_BLOCKS.find((b) => b.id === 'builtin:outlet-floor')!
+		new InsertTool(() => outlet).down(click({ x: 1000, y: 2000 }), h.ctx())
+		expect('inElevations' in (h.store.get(h.sel()[0]) as Shape).geom).toBe(false)
+		expect(plate.front).toBeTruthy()
+		new InsertTool(() => plate).down(click({ x: 3000, y: 2000 }), h.ctx())
+		expect(((h.store.get(h.sel()[0]) as Shape).geom as { inElevations?: boolean }).inElevations).toBe(true)
 	})
 	it('in an elevation: on the face of the wall behind the click, at the clicked height, facing you — and drawn there', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec)

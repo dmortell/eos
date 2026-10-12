@@ -5,7 +5,7 @@
 import type { Id, Pt, Outlet } from './types'
 import type { BlockDef } from './drawing'
 import type { ShapeCore, Shape, Geometry } from './shapes'
-import { moveGeometry, ellipsePts, placeGeometry, mirrorGeometry } from './shapes'
+import { moveGeometry, ellipsePts, placeGeometry, mirrorGeometry, sameFrame } from './shapes'
 import { project, unproject, type ElevFrame } from './conventions'
 import { newId } from './ids'
 
@@ -170,6 +170,61 @@ function pointsOf(g: Geometry): Pt[] {
 export function blockProblem(shapes: Shape[]): string | null {
 	if (shapes.some((s) => s.plane?.kind === 'vertical')) return 'Make block takes plan shapes — not ones drawn on an elevation or section'
 	return null
+}
+
+/** Why these shapes can't become a block's FRONT drawing, or null: they must lie on the plane of ONE elevation or
+ *  section (what you draw in an elevation), and not be blocks themselves. */
+export function frontProblem(shapes: Shape[]): string | null {
+	if (!shapes.length) return 'Select the shapes drawn in the elevation first'
+	if (shapes.some((s) => s.geom.kind === 'insert' || s.geom.kind === 'legend')) return 'A front drawing is made of drawn shapes, not blocks or legends'
+	const planes = shapes.map((s) => (s.plane?.kind === 'vertical' ? s.plane : null))
+	if (planes.some((p) => !p)) return 'A front drawing is made from shapes drawn in an elevation or section'
+	const first = planes[0]!
+	if (planes.some((p) => !sameFrame(p!.frame, first.frame))) return 'Those shapes are in different elevations — pick ones from one view'
+	return null
+}
+
+/**
+ * The FRONT drawing of a block from shapes drawn in an elevation or section: real mm, y down, origin = the middle of
+ * their extent (as the plan symbol of Make block). `at` says where that middle is in the view — its u along the
+ * elevation, its height v and the plane's depth — so the insert that replaces them goes back to the same place.
+ */
+export function frontFromShapes(shapes: Shape[], k = 100): { front: BlockShape[]; width: number; height: number; at: { u: number; v: number; depth: number; frame: ElevFrame } } | null {
+	if (frontProblem(shapes)) return null
+	const pl = shapes[0].plane as Extract<NonNullable<Shape['plane']>, { kind: 'vertical' }>
+	/** The shape's points in view mm: u across, −height down the page. */
+	const view = (g: Geometry): Geometry => {
+		if (g.kind === 'path') return { ...g, nodes: g.nodes.map((n) => { const q = project(pl.frame, n); return { ...n, x: q.u, y: -q.v, z: 0 } }) }
+		// a text's size is paper mm in the view (drawn × the drawing scale `k`); in a block it is real mm
+		if (g.kind === 'text') return { ...g, at: { x: g.at.x, y: -g.at.y }, sizeMm: g.sizeMm * k }
+		if (g.kind === 'insert' || g.kind === 'legend') return { ...g, at: { x: g.at.x, y: -g.at.y } }
+		return mirrorGeometry(g, { x: 0, y: 0 }, { x: 1, y: 0 })
+	}
+	const shown = shapes.map((s) => ({ s, geom: view(s.geom) }))
+	const pts = shown.flatMap((x) => pointsOf(x.geom))
+	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+	const c = { x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2), y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2) }
+	const front = shown.map(({ s, geom }): BlockShape => {
+		const { type: _t, groupId: _g, levelId: _l, viewId: _v, sheetId: _s, plane: _p, ...rest } = s as ShapeCore & { levelId?: Id; viewId?: Id; sheetId?: Id; plane?: unknown }
+		return { ...rest, geom: moveGeometry(geom, { x: -c.x, y: -c.y }) }
+	})
+	return { front, width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), at: { u: c.x, v: -c.y, depth: pl.depth, frame: pl.frame } }
+}
+
+/** What "Make block" writes for shapes drawn in an elevation: the block (a NEW one named `to.name`, its plan symbol a
+ *  plain box of the front's width; or `to.blockId`'s `front` replaced — your own blocks only) and the insert that
+ *  replaces the shapes, placed in that elevation at the same place and height. Null = it can't be done. */
+export function frontBlock(shapes: Shape[], to: { blockId: Id } | { name: string }, existing?: Block): { write: Block | { id: Id; front: BlockShape[] }; insert: Shape } | null {
+	const f = frontFromShapes(shapes), owner = shapes[0]
+	if (!f || !owner.levelId) return null
+	if ('blockId' in to && (!existing || existing.id !== to.blockId || existing.builtin)) return null
+	const write = 'blockId' in to ? { id: to.blockId, front: f.front }
+		: { type: 'block', id: newId(), name: to.name, scope: 'global', shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: Math.max(10, Math.round(f.width)), y: 50 } })], front: f.front } satisfies Block
+	const p = unproject(f.at.frame, { u: f.at.u, v: f.at.v }, f.at.depth), n = f.at.frame.n
+	const rot = Math.round((Math.atan2(-n.x, n.y) * 180) / Math.PI + 360) % 360   // its front towards the viewer, as the Insert tool places it
+	const insert = { type: 'shape', id: newId(), levelId: owner.levelId, ...(owner.layerId ? { layerId: owner.layerId } : {}),
+		geom: { kind: 'insert', blockId: write.id, at: { x: Math.round(p.x), y: Math.round(p.y) }, ...(rot ? { rot } : {}), ...(f.at.v ? { z: Math.round(f.at.v) } : {}), inElevations: true, frame: f.at.frame } } as Shape
+	return { write, insert }
 }
 
 /**

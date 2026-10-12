@@ -32,7 +32,7 @@
 	import ShapesMultiProps from './ShapesMultiProps.svelte'
 	import BackboneProps from './BackboneProps.svelte'
 	import MakeBlock from './MakeBlock.svelte'
-	import { blockProblem } from '../domain/blocks'
+	import { blockProblem, frontProblem } from '../domain/blocks'
 	import ViewBasics from './ViewBasics.svelte'
 	import type { ViewSpec } from '../views/space'
 	import RoomProps from './RoomProps.svelte'
@@ -90,7 +90,7 @@
 					{#if drawn.length >= 2}<button class="btn" title="Group these shapes: a click on one selects them all ({KEYS.group})" onclick={() => { const r = groupSelection(project.store, ws.selection); ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes`) }}>Group</button>{/if}
 					{#if drawn.some((s) => s.groupId)}<button class="btn" title="Take these shapes out of their group ({KEYS.ungroup})" onclick={() => ws.say(`Ungrouped ${ungroupSelection(project.store, ws.selection)} shapes`)}>Ungroup</button>{/if}
 				</div>
-				{#if blockable.length && blockProblem(blockable)}<p class="muted">{blockProblem(blockable)}</p>
+				{#if blockable.length && blockProblem(blockable) && frontProblem(blockable)}<p class="muted">{blockProblem(blockable)}</p>
 				{:else}<MakeBlock {project} {ws} shapes={blockable} />{/if}
 			</PropGroup>
 		{/if}
