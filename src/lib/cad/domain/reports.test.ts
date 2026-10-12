@@ -80,4 +80,17 @@ describe('BOM', () => {
 		expect(q('Core drill Ø100 through slab')).toBe(1)
 		expect(q('cat6a 1 m')).toBe(2)
 	})
+	it('counts only material to buy: installed cables leave out, cords only when added or replaced', () => {
+		const ents = demoProject()
+		const links = ents.filter((e) => e.type === 'link'), cords = ents.filter((e) => e.type === 'cord')
+		const statuses: Cord['status'][] = ['installed', 'replace']
+		const edited = ents.map((e) =>
+			e.type === 'link' && e.id === links[0].id ? { ...e, status: 'installed' as const }
+			: e.type === 'cord' ? { ...e, status: statuses[cords.indexOf(e)] ?? 'remove' } : e)
+		const base = bom(p()), lines = bom(new ProjectIndex(edited))
+		const q = (ls: typeof lines, item: string) => ls.find((l) => l.item === item)?.qty ?? 0
+		expect(q(lines, 'cat6a 1 m')).toBe(1)                          // the replaced one; the installed one isn't bought
+		const cable = (ls: typeof lines) => q(ls, 'cat6a (incl. 10% waste)') + q(ls, 'cat6a — no route, length unknown')
+		expect(cable(lines)).toBeLessThan(cable(base))
+	})
 })

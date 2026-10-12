@@ -10,6 +10,7 @@ import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { newServerRoom, placementProblem } from './devices'
 import { untie } from './sheetEdit'
+import { unproject } from './conventions'
 
 export const CLIP_MARK = 'eos-cad-clip/1'
 
@@ -66,15 +67,18 @@ export function clipCentre(clip: Clip): Pt | null {
 	for (const e of clip.items) {
 		if ((e.type === 'outlet' || e.type === 'rack') && e.at) pts.push(e.at)
 		if (e.type !== 'shape') continue
-		const g = e.geom
+		const g = e.geom, own: Pt[] = []
 		switch (g.kind) {
-			case 'path': pts.push(...g.nodes); break
-			case 'polygon': case 'leader': case 'cloud': pts.push(...g.pts); break
-			case 'dimension': pts.push(g.a, g.b); break
-			case 'text': case 'insert': case 'legend': pts.push(g.at); break
-			case 'circle': case 'arc': pts.push({ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }); break
-			default: pts.push(...(outlineOf(g) ?? []))
+			case 'path': own.push(...g.nodes); break
+			case 'polygon': case 'leader': case 'cloud': own.push(...g.pts); break
+			case 'dimension': own.push(g.a, g.b); break
+			case 'text': case 'insert': case 'legend': own.push(g.at); break
+			case 'circle': case 'arc': own.push({ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }); break
+			default: own.push(...(outlineOf(g) ?? []))
 		}
+		// drawn on an elevation's plane: its points are (u, z) there — their plan places, not plan points as they are
+		const pl = e.plane
+		pts.push(...(pl?.kind === 'vertical' && g.kind !== 'path' ? own.map((p) => unproject(pl.frame, { u: p.x, v: p.y }, pl.depth)) : own))
 	}
 	if (!pts.length) return null
 	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
@@ -159,7 +163,9 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 			return { ...dv, panel: { ...panel, ...(room ? { serverRoomId: room } : {}) } }
 		}
 		const s = e as Shape
-		let geom = moveGeometry(s.geom, d)
+		// on an elevation's plane its points are (u, z): a plan move goes along the plane, and up (as moveBy)
+		const along = s.plane?.kind === 'vertical' && s.geom.kind !== 'path' ? s.plane.frame.t : null
+		let geom = moveGeometry(s.geom, along ? { x: d.x * along.x + d.y * along.y, y: dz } : d)
 		if (geom.kind === 'path') geom = { ...geom, nodes: geom.nodes.map((n) => {
 			const { attach, levelId, ...m } = n
 			return { ...m, ...(ok(attach) ? { attach } : {}), ...(levelId && levelId !== sourceLevel ? { levelId } : {}) }

@@ -3154,3 +3154,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   bands "35% · 4 est."); Display ▾ › Routes draws a room's estimate-only segments dashed and lighter. A port's estimate
   goes when it is linked. Usage N/A and unplaced outlets get none. Perf: 1000 outlets × 2 ports over 800 segments,
   2000 estimates ≈ 0.1 s on top of a 30 ms graph (2000 links over the same graph: 0.18 s). Help; tests.
+- **Q28** the project BOM counts what is to be bought: cables already installed and cords already in place (or only
+  moved / taken out) are left out — only cords to add or replace count (Dave 2026-10-12; the dialog says so;
+  `domain/reports.ts` `bom`, `cableMetres(…, only)`). Also: a multi-core cable whose cores end on two panels names
+  each panel with its own ports in the cable schedule (it named the first core's panel with every core's ports;
+  `domain/cableSchedule.ts`); Ctrl+Shift+V / Ctrl-copy of notes drawn on an elevation centre on their plan places and
+  move along the plane and up, as Move does (their (u, z) points were taken as plan points; `domain/clipboard.ts`).
+  Left: a schedule viewport continued from a fixed "From cord" still drops / repeats a cord when the one before it
+  grows or shrinks (needs "continue from viewport …" instead of a number). Tests.

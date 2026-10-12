@@ -53,6 +53,13 @@ describe('multi-core cables', () => {
 		expect(g.map((x) => [x.cables, x.links.length])).toEqual([[2, 18]])
 		expect(linkRows(ix).find((r) => r.id === links[12].id)?.core).toBe('core 1 of 12')
 	})
+	it('a cable whose cores end on two panels names each panel with its own ports in the schedule', () => {
+		const pp3 = panel('PP3', 'B')
+		const links = linked().slice(0, 12).map((l, i) => (i < 6 ? l : { ...l, b: { ...l.b, on: 'PP3', port: i - 5 } }))
+		const ix = new ProjectIndex([...base, pp3, ...links] as Entity[])
+		const [row] = cableSchedule(ix, new Map(), { slackM: 0, wastePct: 0 })
+		expect([row.from, row.to]).toEqual(['A · PP1 : 1–12', 'B · PP2 : 1–6, B · PP3 : 1–6'])
+	})
 	it('more cores linked than the type has is a warning', () => {
 		const links = linked().map((l) => ({ ...l, cable: 'C1' }))
 		expect(validateProject([...base, ...links]).filter((i) => i.code === 'cable-cores').map((i) => i.message)).toEqual(['18 cores linked on a 12-core os2-12'])

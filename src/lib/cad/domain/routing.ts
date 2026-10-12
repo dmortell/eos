@@ -419,10 +419,10 @@ function throughRuns(g: Graph, start: Stage, ends: Tap[], vias: Id[]): Omit<Rout
 const dedupe = (segs: Route['segs']) => segs.filter((s, i) => !i || s.shape !== segs[i - 1].shape || s.seg !== segs[i - 1].seg)
 
 /** For the BOM: metres per cable type with waste, and a box note (305 m boxes). `links` = cables: a multi-core cable
- *  counts once, at the length of its first routed core. */
-export function cableMetres(ix: ProjectIndex, routes: Map<Id, Route>, cable: CableSettings = DEFAULT_CABLE): { type: string; metres: number; links: number; unrouted: number }[] {
+ *  counts once, at the length of its first routed core. `only` = the links to count (default all). */
+export function cableMetres(ix: ProjectIndex, routes: Map<Id, Route>, cable: CableSettings = DEFAULT_CABLE, only: Link[] = ix.links): { type: string; metres: number; links: number; unrouted: number }[] {
 	const by = new Map<string, { type: string; metres: number; links: number; unrouted: number }>()
-	for (const cores of cablesOf(ix.links)) {
+	for (const cores of cablesOf(only)) {
 		const type = cores[0].cableType ?? 'cable', row = by.get(type) ?? { type, metres: 0, links: 0, unrouted: 0 }
 		const len = cores.map((l) => routes.get(l.id)?.lengthM).find((m) => m != null)
 		row.links++

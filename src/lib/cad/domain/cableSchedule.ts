@@ -34,7 +34,13 @@ export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: C
 	return cablesOf(ix.links).map((cores): CableRow => {
 		const l = cores[0], horizontal = l.kind === 'horizontal'
 		const r = cores.map((c) => routes.get(c.id)).find((x) => x && !x.problem) ?? routes.get(l.id)
-		const place = (end: 'a' | 'b') => cores.length > 1 ? ix.portPlace(l[end]).replace(/ : \d+/, ` : ${portRanges(cores.map((c) => c[end].port))}`) : ix.portPlace(l[end])
+		// a cable's cores can end on two panels: each panel named with its own ports
+		const place = (end: 'a' | 'b') => {
+			if (cores.length === 1) return ix.portPlace(l[end])
+			const by = new Map<Id, typeof cores>()
+			for (const c of cores) by.set(c[end].on, [...(by.get(c[end].on) ?? []), c])
+			return [...by.values()].map((g) => ix.portPlace(g[0][end]).replace(/ : \d+/, ` : ${portRanges(g.map((c) => c[end].port))}`)).join(', ')
+		}
 		const n = Math.max(coresOf(ix.get<ProjectSettings>('settings'), l.cableType), cores.length)
 		return {
 			linkId: l.id, kind: l.kind, label: ix.portLabel(horizontal ? l.b : l.a) || ix.portLabel(l.b) || '',

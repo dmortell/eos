@@ -104,4 +104,12 @@ describe('paste at the cursor (Ctrl+Shift+V)', () => {
 		expect(r.put.flatMap((e) => (e.type === 'shape' && e.geom.kind === 'text' ? [e.geom.at] : []))).toEqual([{ x: 5500, y: 1200 }])
 		expect(clipCentre(copy(i, ['P1']))).toBeNull()   // devices on their own: no points
 	})
+	it('a note drawn on an elevation counts at its plan place, and moves along its plane and up', () => {
+		const frame = { o: { x: 2000, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: -1 } }
+		const e = { type: 'shape', id: 'E', levelId: 'L33', plane: { kind: 'vertical', frame, depth: -500 }, geom: { kind: 'text', at: { x: 1000, y: 1200 }, text: 'E', sizeMm: 2.5 } } as Shape   // u 1000, z 1200
+		const i = ix([e]), clip = copy(i, ['E'])
+		expect(clipCentre(clip)).toEqual({ x: 3000, y: 500 })              // not (1000, 1200): u along the frame, depth across it
+		const r = pasteClip(clip, target(i, { kind: 'level', id: 'L33' }, { d: { x: 400, y: 900, z: 100 } }))
+		expect(r.put.flatMap((x) => (x.type === 'shape' && x.geom.kind === 'text' ? [x.geom.at] : []))).toEqual([{ x: 1400, y: 1300 }])
+	})
 })

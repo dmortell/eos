@@ -149,7 +149,8 @@ export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty
 /**
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
  * are rounded UP to whole metres per line. Cable comes from the routes (Phase 5); links with no route are counted
- * (unit 'ea') so they're not missed. `routes` = already computed ones (else routed here).
+ * (unit 'ea') so they're not missed. `routes` = already computed ones (else routed here). Cable and cords are material
+ * to buy: installed cables and cords aren't counted, only cords to add or replace.
  */
 export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>): BomLine[] {
 	const lines = new Map<string, BomLine>(), notes = new Map<string, string>()
@@ -176,12 +177,13 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	const cable = cableSettings(p)
 	const settings = p.get('settings')
 	const media = (type: string) => (settings?.type === 'settings' ? settings.cableTypes.find((t) => t.id === type)?.media : undefined) ?? (/fib|om\d|os\d|sm|mm/i.test(type) ? 'fibre' : 'copper')
-	for (const m of cableMetres(p, routes ?? routeLinks(p, cable), cable)) {
+	// only what is to be bought: cables already installed and cords already in place (or only moved / taken out) aren't
+	for (const m of cableMetres(p, routes ?? routeLinks(p, cable), cable, p.links.filter((l) => l.status !== 'installed'))) {
 		const item = `${m.type} (incl. ${cable.wastePct}% waste)`
 		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
 		if (m.unrouted) add('Cable', `${m.type} — no route, length unknown`, 'ea', m.unrouted)
 	}
-	for (const c of p.cords) if (c.status !== 'remove') add('Patch cords', `${c.cableType} ${c.lengthM} m`, 'ea', 1)
+	for (const c of p.cords) if (c.status === 'add' || c.status === 'replace') add('Patch cords', `${c.cableType} ${c.lengthM} m`, 'ea', 1)
 	for (const r of runLengths(p)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM)
 	for (const s of p.shapes) {
 		if (s.role?.kind === 'penetration') add('Penetrations', `Core drill Ø${s.role.diaMm} through ${s.role.through}`, 'ea', 1)

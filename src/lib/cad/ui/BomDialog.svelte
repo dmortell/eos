@@ -48,7 +48,7 @@
 		<p>Loading the catalogue…</p>
 	{:else}
 		{#if materials}
-			<p class="h">Materials</p>
+			<p class="h">Materials <span class="hint">— what to buy: installed cables and cords aren’t counted, only cords to add or replace</span></p>
 			<table>
 				<thead><tr><th>Category</th><th>Item</th><th class="n">Qty</th><th>Unit</th><th>Note</th></tr></thead>
 				<tbody>{#each lines as l, i (i)}<tr><td>{l.category}</td><td>{l.item}</td><td class="n">{l.qty}</td><td>{l.unit}</td><td class="hint">{l.note ?? ''}</td></tr>{/each}</tbody>
@@ -94,6 +94,7 @@
 	.h { font-weight: 600; margin: 10px 0 4px; }
 	.h:first-child { margin-top: 0; }
 	.hint { color: var(--cad-muted, #71717a); }
+	.h .hint { font-weight: 400; }
 	table { width: 100%; border-collapse: collapse; }
 	th { text-align: left; font-weight: 600; color: var(--cad-muted, #52525b); border-bottom: 1px solid var(--cad-line, #e4e4e7); padding: 2px 6px; position: sticky; top: 0; background: var(--cad-panel, white); }
 	td { padding: 1px 6px; border-bottom: 1px solid var(--cad-line-faint, #f4f4f5); vertical-align: top; }
