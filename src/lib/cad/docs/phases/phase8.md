@@ -2649,3 +2649,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   on 33F 3303, at 1:20 and 1:50), 105 tied notes — one undo step. Checked: the Comms1 sheet shows its section with the
   walls, furniture and red notes. Everything else in Journey's Pages / Sheets / Drawings / model3d data stays behind
   (Dave: not needed).
+- **R48 Tab titles tell drawings apart:** a rack view's tab names its level, room, row and a rear face ("1F · 33IDF2
+  racks (rear)"), a section's its level; a tab whose level / room is gone says so; a plan tab with no level of its own
+  reads "Plan (current level)" (`domain/navTree.ts` `viewName`, also the Navigator and the tab list). Live (Test
+  Project): the racks tabs now differ.

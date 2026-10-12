@@ -113,12 +113,17 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 
 /** A view's name for a row: "1F plan", "1F front elevation", "IDF1 racks", "Section A". */
 export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string {
-	const lv = levelId ? ix.nameOf(levelId) : ''
+	// enough to tell two tabs apart (review R48: four tabs read "33IDF2 racks", one just "plan"): the level, the room,
+	// the face; a level / room that's gone says so instead of leaving a blank
+	const lv = levelId ? ix.nameOf(levelId) || '(level gone)' : ''
 	switch (spec.kind) {
-		case 'plan': return `${lv} plan`.trim()
+		case 'plan': return lv ? `${lv} plan` : 'Plan (current level)'
 		case 'elevation': return `${lv} ${spec.dir} elevation`.trim()
-		case 'section': return `Section ${ix.nameOf(spec.sectionId)}`
-		case 'row': return `${ix.nameOf(spec.spaceId)} racks${spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : ''}`
+		case 'section': { const sec = ix.get(spec.sectionId) as { levelId?: Id } | undefined; return `${sec?.levelId ? `${ix.nameOf(sec.levelId)} · ` : ''}Section ${ix.nameOf(spec.sectionId) || '(gone)'}` }
+		case 'row': {
+			const room = ix.get(spec.spaceId) as { levelId?: Id } | undefined
+			return `${room?.levelId ? `${ix.nameOf(room.levelId)} · ` : ''}${ix.nameOf(spec.spaceId) || '(room gone)'} racks${spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : ''}${spec.face === 'rear' ? ' (rear)' : ''}`
+		}
 		case 'riser': return 'Riser view'
 		case 'sheet': return ix.nameOf(spec.sheetId)
 		case 'portmap': return portMapTitle(ix, spec.deviceIds)
