@@ -11,7 +11,9 @@ the old tools, so importers and conversations can map between them.
 | **Level** | One storey: its floor number, FFL elevation, and slab / raised-floor / ceiling / plenum heights. | Floor (`FloorConfig`), riser floor heights, Pages storeys / levels |
 | **FFL** | Finished floor level, the top of the raised floor. Every z in a level is measured from it. | "FL±0" in Pages; the slab in Outlets trunks (z = 0 at slab) |
 | **Space** | Any named area on a level: tenant area, zone, room, server room, EPS. Generic; `kind` is only for display. Its `code` is the label token it contributes. | Tenant area (`FloorArea`), Frames zone letter, room number, server room A–D, riser room, Pages zone / room place |
-| **Zone** | A Space whose `code` is the Z token of outlet labels. | Frames zone letter |
+| **Area plan** | A separate plan of part of a floor (a tenant area, a zone of an office): a Level with `area` set, its own floorplans and model, shown under its floor (e.g. 33F 3303, 33F 3307). Not a Space. | Tenant area plans, the `{pid}_F33__3307` Outlets docs, Pages zone models |
+| **Floorplan** | A PDF page (or image) placed under a plan: an Underlay with origin / scale / crop. A plan's extra ones are "Floorplan 2…" (no longer "Zone n"). | Outlets selected file / page, Uploads page |
+| **Zone** | A Space whose `code` is the Z token of outlet labels — an outlet's "zone". Not an area plan. | Frames zone letter |
 | **Server room** | A Space that holds racks; its `code` is the S token. | Server room A–D, IDF |
 
 ## Cabling

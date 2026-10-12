@@ -96,13 +96,13 @@ You ticked these in the gap list, then asked about them in a todo. They stay in 
 
 ## Selection and editing
 
-- [ ] **A right-click menu?** — Today right-click = Esc (first ends the drawing, then back to Select). Options: (a) no menu (b) a menu on a selected item only (c) a menu on Shift + right-click. *Suggest:* (a) for now: the gap review marked the menu "later", and Dave asked for split-at-node without a context menu. *From:* T094
+- [x] **A right-click menu?** **Built (UX21, 2026-10-06; right-click on an unselected item selects it first, 2026-10-12).** — Today right-click = Esc (first ends the drawing, then back to Select). Options: (a) no menu (b) a menu on a selected item only (c) a menu on Shift + right-click. *Suggest:* (a) for now: the gap review marked the menu "later", and Dave asked for split-at-node without a context menu. *From:* T094
 - [x] **Ctrl+D duplicate: drop it?** — cad has no Ctrl+D today (`cad/ui/CadShell.svelte:234`). Options: (a) don't add it (b) add it as copy + paste in place. *Suggest:* (a): copy / paste and Ctrl-drag do the same. *From:* T111: decision: (a)
 
 
 ## Drafting commands and input
 
-- [ ] **Build the command line?** — ADR 0005 accepted one (command names, aliases, Space repeats, cursor readout); cad uses one-letter tool keys and a typed-point box. Options: (a) build the full command line (b) keep keys + the point box; add a small command box when MOVE / COPY come. *Suggest:* (b): the point box already covers typed input, and it is less code. *From:* P052
+- [ ] **Build the command line?** — ADR 0005 accepted one (command names, aliases, Space repeats, cursor readout); cad has a typed-point box (no one-letter tool keys: dropped, review R46, 2026-10-12). Options: (a) build the full command line (b) keep keys + the point box; add a small command box when MOVE / COPY come. *Suggest:* (b): the point box already covers typed input, and it is less code. *From:* P052
 - [x] **Core draw commands: tools or commands?** — RECT, CIRCLE, ARC, DIM, multi-line NOTE, IMAGE, SYMBOL are not built. Options: (a) build them as tool-bar tools now (b) wait for the command line. *Suggest:* (a), as in "Markup kinds"; ARC and SYMBOL last. *From:* P053: decision: (a) build as toolbar tools, but symbols is not needed at this time
 - [ ] **Which modify commands?** — MOVE / COPY / ROTATE / SCALE / MIRROR by points, ARRAY, OFFSET, TRIM, EXTEND, STRETCH, MATCHPROP, ALIGN are not built. Options: (a) all of ADR 0005 (b) only MOVE, COPY, OFFSET, TRIM / EXTEND now. *Suggest:* (b); ROTATE / SCALE / MIRROR wait for the rotate decision. *From:* P054
 - [ ] **AutoCAD zoom commands?** — Home already zooms to extents. Options: (a) no (b) Z E / Z W (window) / Z P (previous). *Suggest:* (a) until the command line exists. *From:* T109

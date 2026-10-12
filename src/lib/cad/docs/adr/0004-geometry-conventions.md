@@ -66,7 +66,7 @@ only a camera transform.
   convert it to the footprint centre. Elevation-space annotations subtract `GROUND` / `PLAN_CX` to land in view space.
 - **Outlets trunks:** z is from the slab, so subtract the level's `raisedFloorMm`.
 - **Racks / Elevations:** U positions stay U (1-based from the bottom). Row plan placement uses the row's
-  `originMm` / `rotationDeg` → rack `at` / `rot`. *Check RU = 44.45 vs 45 mm before drawing heights.*
+  `originMm` / `rotationDeg` → rack `at` / `rot`. *(As built, 2026-10-12: the importer places racks from the Outlets plan's `rackPlacements` only; a row's `plan` origin isn't used — racks never adopted onto the Outlets plan arrive unplaced.)* *Check RU = 44.45 vs 45 mm before drawing heights.*
 - **Risers:** floor heights map to `Level.heights`. Ladders become containment with nodes on several levels.
 
 ## Consequences

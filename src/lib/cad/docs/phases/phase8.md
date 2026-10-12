@@ -2666,3 +2666,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Alt+W / Alt+PgUp / PgDn / Alt+1…9, Shift+Home, Ctrl+Shift+Z, Backspace = delete, and F / P / L move from "Function
   keys" to Keys; the two "order of racks" entries are one (`ui/toolHints.ts`, `ui/helpContent.ts`). (Its "File ›
   Export" now exists.)
+- **R59, R107 Docs:** the glossary has "Area plan", "Floorplan" (an underlay page; extra ones "Floorplan 2…") and
+  "Zone" told apart; plan-doc slips fixed — `decisions.md` (the right-click menu is built; no one-letter tool keys),
+  `later.md` (T145 answered; North arrow's wrong G id), `backlog.md` (the riser floor range is settled: one
+  project-wide range), ADR 0004 (rack placement comes from `rackPlacements`), `docs/firestore-structure.md` (Pages
+  models, Pages sheets, global blocks).

@@ -45,6 +45,9 @@ Surveyed 2026-09-23 from the code (read-only) plus a look at the live Hibiya pro
 | `pages/{pid}_{pageId}` | **global**, `where projectId == pid` (drawings page editor) | `lib/pages/service.ts`, publish | Page (paper, titleBlock, viewports[], annotations[]) |
 | `projects/{pid}/sheets/{id}` · `…/sheetPackages/{id}` | subcollections, id `nanoid(8)` | `sheets/data.ts`, sheet editor | SheetDoc · SheetPackage |
 | `models3d/{pid}` | one per project (sheets model3d; Pages plans to use it) | `sheets/tools/model3d/models.svelte.ts` | models: Model[] |
+| `projects/{pid}/models/{id}` | Pages models (objects: prism / wall / conduit; shapes incl. `space:'view:<frameId>'` paper notes; layers, sections, `placeId`) | `routes/projects/[pid]/pages/` | name, objects[], shapes[], layers[] (added 2026-10-12; cad reads it in File › Import legacy drawings) |
+| `projects/{pid}/drawings/{id}` with `toolType:'pages'` | Pages sheets (paper, frames[] → model views, revLog) | Pages | (in the registry collection above) |
+| `blocks/{id}` | global Pages blocks (cad's own are in `settings/cadBlocks`) | Pages | |
 | `drawings/{pid}` (+ `/sheets/{id}`) | **top-level**, edit3d (frozen tool) — NOT the versioning registry | `edit3d/parts/persist.svelte.ts` | models, schemaVersion |
 | `logs/{pid}/{tool}/{autoId}` | per tool (frames, racks, patching, outlets, fillrate, risers) | `lib/logger.ts`, `frames/parts/LogsDialog.svelte` | timestamp (serverTimestamp), uid, tool, changes[], floor?, room? |
 | `users/{uid}` | global, id = auth uid | several; written by `Session.syncUserProfile` | displayName, email, photoURL, providerIds, lastLoginAt, `role` (admin/manager/user — set by hand, never written by code) |
