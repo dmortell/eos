@@ -111,3 +111,30 @@ describe('B/W floorplans in the PDF', () => {
 		expect(calls).toEqual([true])
 	})
 })
+
+describe('clip regions in the PDF (Q62: save / restore stay balanced)', () => {
+	const line = (x: number, clip?: { x0: number; y0: number; x1: number; y1: number }) => ({ k: 'line' as const, pts: [{ x, y: 0 }, { x: x + 5, y: 5 }], cls: 'wall', ...(clip ? { clip } : {}) }) as never
+	const A = { x0: 0, y0: 0, x1: 50, y1: 50 }, B = { x0: 10, y0: 10, x1: 60, y1: 60 }
+	/** The page content's q / Q operators (jsPDF writes them on lines of their own). */
+	async function ops(pages: { w: number; h: number; prims: never[] }[]) {
+		const { pdf } = await pagesToPdf(pages, noImages, { compress: false })
+		const raw = pdf.output()
+		return { q: (raw.match(/^q$/gm) ?? []).length, Q: (raw.match(/^Q$/gm) ?? []).length }
+	}
+	it('clipped, unclipped, a different clip, the same clip again: every save is restored', async () => {
+		const withClips = await ops([{ w: 100, h: 100, prims: [line(1, A), line(2, A), line(3), line(4, B), line(5, A), line(6, B), line(7)] }])
+		const none = await ops([{ w: 100, h: 100, prims: [line(1), line(2)] }])
+		expect(withClips.q).toBe(withClips.Q)
+		// four distinct clipped runs (A, B, A, B) added four save / restore pairs over the unclipped page
+		expect(withClips.q - none.q).toBe(4)
+	})
+	it('a page that ends inside a clip restores it before the next page starts', async () => {
+		const r = await ops([{ w: 100, h: 100, prims: [line(1, A)] }, { w: 100, h: 100, prims: [line(1, A)] }, { w: 100, h: 100, prims: [line(1)] }])
+		expect(r.q).toBe(r.Q)
+	})
+	it('prims that are skipped or fail to draw inside a clip do not leave it open', async () => {
+		const hidden = { k: 'text' as const, at: { x: 5, y: 5 }, text: 'サーバー室', size: 3, cls: 'label', clip: A } as never   // unsupported text, no rasteriser
+		const r = await ops([{ w: 100, h: 100, prims: [line(1, A), hidden, line(2, B), hidden] }])
+		expect(r.q).toBe(r.Q)
+	})
+})
