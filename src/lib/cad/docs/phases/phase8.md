@@ -3022,3 +3022,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q4** Floors settings read `project.rev` for the building (stale skip after Apply; a new building per Apply).
 - **Q29** an error shows beside Saved / Saving…, with ✕; a saving error clears once the next writes go through
   (`app/project.svelte.ts`, `ui/CadShell.svelte`).
+- **Q5** one height rule for an outlet with no Z (Dave): by mount — ceiling = the level's clear height, wall = 300,
+  else 0 — in the elevation (it went by tier), routing, Properties, moves (`moveBy` takes a lookup for the level) and
+  pastes. One table of default level heights: `heightsOf(level)` / `DEFAULT_HEIGHTS` (`domain/floors.ts`), used by the
+  elevation, riser, section, openings, the draw tools' defaults and the legacy importer; tests.

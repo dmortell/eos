@@ -502,7 +502,7 @@ export class SelectTool implements Tool {
 					const en = tx.get(id)
 					if (!en) continue
 					const k = tiedScale(en, (sid) => tx.get(sid))   // a note tied to a viewport moves in its view mm
-					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }))
+					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 				}
 				for (const sh of followAttached(c.store.ofType('shape'), moved, s)) tx.put(sh)
 			})

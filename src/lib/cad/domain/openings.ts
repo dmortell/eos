@@ -2,7 +2,8 @@
 // an H (its height) and an optional swing. Hosted on one wall segment at a distance `at` along it, so they move with
 // the wall. Pure geometry for the plan (wall pieces around the holes, jambs, the door leaf + arc) and for elevations
 // (the hole's outline); tested in openings.test.ts.
-import type { Pt } from './types'
+import type { Pt, Level } from './types'
+import { heightsOf } from './floors'
 import type { Opening, Shape, PathNode } from './shapes'
 import { newId } from './ids'
 
@@ -83,8 +84,8 @@ export function planOpenings(s: Shape, segId: string, w: number): { pieces: [Pt,
 export function wallSpan(ix: { get(id: string | undefined): unknown }, s: Shape): { z0: number; z1: number } | undefined {
 	if (s.role?.kind !== 'wall' || !s.role.slabToSlab) return undefined
 	const l = ix.get(s.levelId) as { type?: string; heights?: { raisedFloorMm: number; clearHeightMm: number; plenumMm: number } } | undefined
-	const h = l?.type === 'level' ? l.heights : undefined
-	return { z0: -(h?.raisedFloorMm ?? 300), z1: (h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700) }
+	const h = heightsOf(l?.type === 'level' ? (l as Pick<Level, 'heights'>) : undefined)
+	return { z0: -h.raisedFloorMm, z1: h.clearHeightMm + h.plenumMm }
 }
 
 /** An opening's four corners in 3D (plan x / y, z above FFL) — for elevations. */

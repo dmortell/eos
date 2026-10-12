@@ -2,7 +2,8 @@
 // MODEL displacement (x, y, z) — a plan drag gives z = 0, an elevation drag moves along the view and up / down
 // (views/space.ts). Shapes move by geometry kind; data entities by their position. Unplaced things don't move.
 import type { Entity } from '../domain/drawing'
-import type { Pt } from '../domain/types'
+import type { Id, Pt } from '../domain/types'
+import { outletZ } from '../domain/floors'
 import type { Shape, Plane } from '../domain/shapes'
 import { moveGeometry, rotateGeometry, mirrorGeometry, rotatePt, mirrorPt, lineDeg } from '../domain/shapes'
 import { rotate, norm360 } from '../domain/conventions'
@@ -16,8 +17,9 @@ export function canMove(e: Entity): boolean {
 	return e.type === 'shape' || e.type === 'section' || ((e.type === 'outlet' || e.type === 'rack') && !!e.at && !(e.type === 'outlet' && e.locked))
 }
 
-/** The entity moved by `d` (a new record; the input is never changed). */
-export function moveBy<T extends Entity>(e: T, d: Delta): T {
+/** The entity moved by `d` (a new record; the input is never changed). `get` finds an outlet's level, so an outlet with
+ *  no Z moved up / down starts from its mount height, not the floor (Review 2 Q5). */
+export function moveBy<T extends Entity>(e: T, d: Delta, get?: (id: Id) => Entity | undefined): T {
 	if (!canMove(e)) return e
 	const dz = d.z ?? 0
 	if (e.type === 'shape') {
@@ -33,7 +35,10 @@ export function moveBy<T extends Entity>(e: T, d: Delta): T {
 		const geom = moveGeometry(s.geom, d)
 		return { ...s, geom: dz && geom.kind === 'insert' ? { ...geom, z: (geom.z ?? 0) + dz } : geom, ...plane } as T
 	}
-	if (e.type === 'outlet' && e.at) return { ...e, at: add(e.at, d), ...(dz ? { z: (e.z ?? 0) + dz } : {}) } as T
+	if (e.type === 'outlet' && e.at) {
+		const lv = get?.(e.levelId)
+		return { ...e, at: add(e.at, d), ...(dz ? { z: outletZ(e, lv?.type === 'level' ? lv : undefined) + dz } : {}) } as T
+	}
 	if (e.type === 'rack' && e.at) return { ...e, at: add(e.at, d) } as T
 	if (e.type === 'section') return { ...e, a: add(e.a, d), b: add(e.b, d) } as T
 	return e

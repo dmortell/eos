@@ -2,7 +2,8 @@
 // levels, sheets, tabs and projects. A paste is AS-IS (Dave): same coordinates, same labels — the user sorts out
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
-import type { Id, Pt, Rack, Device, Space } from './types'
+import type { Id, Pt, Rack, Device, Space, Level } from './types'
+import { outletZ } from './floors'
 import type { Entity, Layer, Sheet, Group } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
@@ -151,7 +152,7 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		if (e.type === 'outlet') {
 			const { zoneId, roomId, hostShapeId, ...rest } = e
 			return {
-				...rest, levelId: to.id, ...layer(e), ...(e.at ? { at: move(e.at) } : {}), ...(dz ? { z: (e.z ?? 0) + dz } : {}),
+				...rest, levelId: to.id, ...layer(e), ...(e.at ? { at: move(e.at) } : {}), ...(dz ? { z: outletZ(e, t.ix.get<Level>(e.levelId)) + dz } : {}),
 				...(ok(zoneId) ? { zoneId } : {}), ...(ok(roomId) ? { roomId } : {}), ...(hostShapeId && copied.has(hostShapeId) ? { hostShapeId } : {}),
 				ports: e.ports.map((p) => { const { serverRoomId, ...q } = p; return { ...q, ...(ok(serverRoomId) ? { serverRoomId } : {}) } }),
 			}

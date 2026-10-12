@@ -36,7 +36,7 @@ export class Nudge {
 					const en = tx.get(id)
 					if (!en) continue
 					const k = tiedScale(en, (x) => tx.get(x))   // a note tied to a viewport moves in its view mm
-					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }))
+					tx.put(moveBy(en, k === 1 ? s : { ...s, x: s.x * k, y: s.y * k }, (x) => tx.get(x)))
 				}
 				for (const sh of followAttached(store.ofType('shape') as Shape[], moved, s)) tx.put(sh)
 			})

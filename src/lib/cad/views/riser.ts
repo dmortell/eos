@@ -13,6 +13,7 @@
 // tier), each group's own label and color (settings.riser.groups; default fibre amber, copper blue) and each floor's
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
 import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
+import { heightsOf } from '../domain/floors'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
@@ -133,7 +134,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const strip = (za: number, zb: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: -za }, { x: x1, y: -za }, { x: x1, y: -zb }, { x: x0, y: -zb }], closed: true, fill: true, cls })
 	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
 		if (!shown(e)) continue
-		const h = ls[0].heights, slab = h?.slabMm ?? 200, rf = h?.raisedFloorMm ?? 300, ceil = h?.clearHeightMm ?? 2600, plenum = h?.plenumMm ?? 700, v = zv(e)
+		const h = heightsOf(ls[0]), slab = h.slabMm, rf = h.raisedFloorMm, ceil = h.clearHeightMm, plenum = h.plenumMm, v = zv(e)
 		out.push(strip(v - rf, v - rf - slab, 'riser-slab'))
 		// the slab above, unless the next floor up is shown and its own slab starts where this storey ends
 		const above = elevs[elevs.indexOf(e) + 1], ha = above === undefined ? undefined : byElev.get(above)?.[0]?.heights
@@ -220,7 +221,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		// void; no route there = through the room (as before)
 		const hopY = (z: number): number => {
 			const tier = tierOn(g.links, z)
-			const h = byElev.get(z)?.[0]?.heights, ceil = h?.clearHeightMm ?? 2600, plenum = h?.plenumMm ?? 700, rf = h?.raisedFloorMm ?? 300
+			const h = heightsOf(byElev.get(z)?.[0]), ceil = h.clearHeightMm, plenum = h.plenumMm, rf = h.raisedFloorMm
 			return tier === 'high' ? -(zv(z) + ceil + plenum * (0.25 + 0.5 * ((n % 4) / 3)))
 				: tier === 'low' ? -(zv(z) - rf * (0.2 + 0.6 * ((n % 4) / 3))) : inRoom(z)
 		}

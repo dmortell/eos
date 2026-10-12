@@ -10,6 +10,7 @@
 //   patching/{pid}_F{NN}_R{X}            connections, customCableTypes           → cords, cable types
 //   outlets/{pid}_F{NN}[__{areaId}]      outlets, trunks, rackPlacements, file   → outlet positions, runs, rack placement,
 //                                                                                   underlay
+import { DEFAULT_HEIGHTS } from '../../domain/floors'
 import type { Entity } from '../../domain/drawing'
 import type { Id, Level, Space, ProjectSettings, Building, Rack } from '../../domain/types'
 import type { Issue } from '../../domain/validate'
@@ -29,8 +30,8 @@ export interface ImportResult {
 	ids: Record<string, Id>
 }
 
-/** Riser defaults (risers/parts/types DEFAULT_FLOOR_HEIGHTS) when no floor heights are known. */
-export const DEFAULT_HEIGHTS = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+/** Riser defaults when no floor heights are known: the one table (domain/floors.ts, Review 2 Q5). */
+export { DEFAULT_HEIGHTS }
 
 export function importLegacy(src: LegacySource, makeId?: () => string): ImportResult {
 	const c = new ImportCtx(src, makeId)

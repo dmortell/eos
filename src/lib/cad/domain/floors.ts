@@ -1,10 +1,18 @@
 // The building's floors (Floor manager): which floor numbers exist (a lowest–top range with gaps, e.g. no GF), their
 // names from a pattern ("{n}F", basements "B{n}F"), and the stack of FFL elevations from each floor's heights.
 // Area levels (a separate plan of part of a floor, `Level.area`) share their floor's number and elevation.
-import type { Id, Level } from './types'
+import type { Id, Level, Outlet } from './types'
 
 export type Heights = Level['heights']
 export const DEFAULT_HEIGHTS: Heights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+/** A level's heights, or the defaults (no level, or one saved without them) — the ONE place a default height comes from
+ *  (Review 2 Q5: 2600 / 2700, 700 / 800 were written in a dozen places). */
+export function heightsOf(level: Pick<Level, 'heights'> | undefined): Heights { return { ...DEFAULT_HEIGHTS, ...level?.heights } }
+/** An outlet's height above its level's FFL: its own Z, else by mount — ceiling = the level's clear height, wall = 300,
+ *  floor = 0. Every view, routing, Properties, moves and pastes use this (Review 2 Q5: the elevation went by tier). */
+export function outletZ(o: Pick<Outlet, 'z' | 'mount'>, level: Pick<Level, 'heights'> | undefined): number {
+	return o.z ?? (o.mount === 'ceiling' ? heightsOf(level).clearHeightMm : o.mount === 'wall' ? 300 : 0)
+}
 
 /** How floors are named: `{n}` = the number, `{nn}` = two digits; basements use their number without the minus;
  *  floor 0 (when the building has one) takes the ground name. */

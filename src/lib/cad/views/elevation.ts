@@ -2,6 +2,7 @@
 // 2.5D: everything is an upright extrusion or a 3D polyline, so each item is a rectangle / band in (u, z) with a
 // depth. Items are painted far → near with opaque fills, so nearer things hide what's behind (exact for upright boxes
 // seen square-on; the interval method of ADR 0004 replaces this when sections need precise hidden lines).
+import { heightsOf, outletZ } from '../domain/floors'
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
@@ -42,7 +43,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	const zOf = (n: { z: number; levelId?: Id }, s: Shape) => n.z + elev(n.levelId ?? s.levelId) - here
 	// Shapes on this level, plus risers that END here or pass THROUGH it from another level. Anything reaching another
 	// level is cut to this floor's height (slab underside → top of the plenum), so a 30-floor riser is one storey here.
-	const h = level?.heights, floor = { y0: -((h?.clearHeightMm ?? 2600) + (h?.plenumMm ?? 700)), y1: (h?.raisedFloorMm ?? 300) + (h?.slabMm ?? 200) }
+	const h = heightsOf(level), floor = { y0: -(h.clearHeightMm + h.plenumMm), y1: h.raisedFloorMm + h.slabMm }
 	for (const s of ix.shapes) {
 		// a note, line or flat shape drawn on ONE elevation / section shows only there (not mirrored into the others)
 		const own = ownFrame(s)
@@ -120,9 +121,9 @@ function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan:
 	return { depth: sp.depthOf({ ...r.at!, z: 0 }), prims }
 }
 
-/** An outlet: a faceplate at its height (low outlets on the floor unless a height is set; high ones at the ceiling). */
+/** An outlet: a faceplate at its height — its own Z, else by mount (`outletZ`, Review 2 Q5: this went by tier). */
 function outletItem(ot: Outlet, level: Level | undefined, sp: ViewSpace, rect: RectFn, k: number): Item {
-	const z = ot.z ?? (ot.tier === 'high' ? level?.heights.clearHeightMm ?? 2700 : 0)
+	const z = outletZ(ot, level)
 	const u = sp.fromWorld({ ...ot.at!, z }).x, w = FACEPLATE_MM, h = FACEPLATE_MM
 	return {
 		depth: sp.depthOf({ ...ot.at!, z }),

@@ -8,6 +8,7 @@
 //            rack, then the height to the panel's U.
 // Backbone / tie links route rack to rack the same way. Length (5.2) = route + slack at the outlet, rounded up;
 // waste % is a BOM matter (reports.ts). Pure; tested in routing.test.ts.
+import { outletZ } from './floors'
 import type { Id, Outlet, Rack, Device, Level, Link } from './types'
 import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
@@ -125,10 +126,8 @@ function tapOn(g: Graph, i: number, x: P3): Tap {
 	return { seg: i, t: pr.t, dropMm: pr.d + Math.abs(z - x.z) }
 }
 
-/** The outlet's height above its level's FFL: its own z, else by mount (ceiling → the clear height). */
-export function outletZ(o: Outlet, level: Level | undefined): number {
-	return o.z ?? (o.mount === 'ceiling' ? level?.heights.clearHeightMm ?? 2600 : o.mount === 'wall' ? 300 : 0)
-}
+/** The outlet's height above its level's FFL (domain/floors.ts, Review 2 Q5). */
+export { outletZ }
 
 /** Where an outlet port joins: the nearest run of its tier (wall runs take any) on its level serving its room. */
 export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined): Tap | null {

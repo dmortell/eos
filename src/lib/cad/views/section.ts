@@ -4,6 +4,7 @@
 // gap where the line passes through an opening. On the plan the section shows as a dashed line with arrows looking
 // its way and its name at both ends. Hidden lines: the opaque fills, as in elevations (Dave: no hidden-line removal).
 import type { Id, Pt, Level } from '../domain/types'
+import { heightsOf } from '../domain/floors'
 import type { SectionCut } from '../domain/drawing'
 import type { ProjectIndex } from '../domain/project'
 import { frameFromNormal, project, unproject, type ElevFrame } from '../domain/conventions'
@@ -52,7 +53,7 @@ function cutWalls(ix: ProjectIndex, sec: SectionCut, f: ElevFrame, len: number):
 			const k = pa.depth / (pa.depth - pb.depth), u = pa.u + (pb.u - pa.u) * k
 			if (u < 0 || u > len) continue
 			const segLen = Math.hypot(b.x - a.x, b.y - a.y), along = segLen * k
-			const w = (sg.section ?? s.section)?.w ?? 100, h = (sg.section ?? s.section)?.h ?? level?.heights.clearHeightMm ?? 2600
+			const w = (sg.section ?? s.section)?.w ?? 100, h = (sg.section ?? s.section)?.h ?? heightsOf(level).clearHeightMm
 			// the wall's thickness measured along the cut: w / |sin| of the angle between wall and cut
 			const dir = { x: (b.x - a.x) / segLen, y: (b.y - a.y) / segLen }, sin = Math.abs(dir.x * f.n.x + dir.y * f.n.y) || 1
 			const half = Math.min((w / sin) / 2, w * 2)

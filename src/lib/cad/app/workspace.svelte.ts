@@ -1,6 +1,7 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level each pane shows, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
 import type { Id, Level, Outlet, Device } from '../domain/types'
+import { heightsOf } from '../domain/floors'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { SelectTool } from '../editor/selectTool'
 import { OutletTool, type OutletNext } from '../editor/outletTool'
@@ -322,9 +323,9 @@ export class Workspace {
 	 *  the old tool first (it owns the tool context). */
 	setTool(id: ToolId, level?: Level): void {
 		this.toolId = id
-		const h = level?.heights
-		if (id === 'trunk' || id === 'conduit') this.opts = { z: h ? h.clearHeightMm + h.plenumMm / 2 : 2900, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
-		else if (id === 'wall') this.opts = { z: 0, w: 100, h: h?.clearHeightMm ?? 2700 }
+		const h = heightsOf(level)
+		if (id === 'trunk' || id === 'conduit') this.opts = { z: h.clearHeightMm + h.plenumMm / 2, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
+		else if (id === 'wall') this.opts = { z: 0, w: 100, h: h.clearHeightMm }
 		else if (id === 'line') this.opts = { ...this.opts, z: 0 }
 		else if (id === 'opening') this.opts = { z: 0, w: 900, h: 2100 }
 	}

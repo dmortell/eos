@@ -1,6 +1,8 @@
 // The Floor manager's rules: a range with gaps, names from a pattern, elevations stacked from the heights.
 import { describe, it, expect } from 'vitest'
-import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES } from './floors'
+import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, heightsOf, outletZ } from './floors'
+import { moveBy } from '../editor/behaviours'
+import type { Outlet } from './types'
 import type { Level } from './types'
 
 const lv = (number: number, extra: Partial<Level> = {}): Level => ({ type: 'level', id: `L${number}${extra.area ?? ''}`, buildingId: 'B', number, name: `${number}F`, order: number, elevationMm: 0, heights: { ...DEFAULT_HEIGHTS }, ...extra })
@@ -81,5 +83,25 @@ describe('area plans and floor numbers (Floor manager)', () => {
 		expect('put' in r && r.put.map((l) => [l.id, l.number])).toEqual([['F33', 35], ['A', 35]])
 		expect(renumberFloor(ls, 'F33', 34)).toEqual({ problem: '34F is already floor 34' })
 		expect(renumberFloor(ls, 'F33', 2.5)).toMatchObject({ problem: expect.stringMatching(/whole/) })
+	})
+})
+
+describe('one height rule for outlets (Review 2 Q5)', () => {
+	const level = { heights: { ...DEFAULT_HEIGHTS, clearHeightMm: 2800 } } as Level
+	const outlet = (o: Partial<Outlet>): Outlet => ({ type: 'outlet', id: 'O', levelId: 'L', label: 'A.001', tier: 'high', ports: [], at: { x: 0, y: 0 }, ...o }) as Outlet
+	it('own Z, else ceiling = the clear height, wall = 300, floor = 0; no level = the defaults', () => {
+		expect(outletZ(outlet({ z: 1200, mount: 'ceiling' }), level)).toBe(1200)
+		expect(outletZ(outlet({ mount: 'ceiling' }), level)).toBe(2800)
+		expect(outletZ(outlet({ mount: 'ceiling' }), undefined)).toBe(DEFAULT_HEIGHTS.clearHeightMm)
+		expect(outletZ(outlet({ mount: 'wall' }), level)).toBe(300)
+		expect(outletZ(outlet({}), level)).toBe(0)   // the tier no longer decides (the elevation went by tier)
+		expect(heightsOf(undefined)).toEqual(DEFAULT_HEIGHTS)
+	})
+	it('moved up, an outlet with no Z starts from its mount height, not the floor', () => {
+		const lv = { ...level, type: 'level', id: 'L' } as Level
+		const moved = moveBy(outlet({ mount: 'ceiling' }), { x: 0, y: 0, z: 100 }, (id) => (id === 'L' ? lv : undefined))
+		expect(moved.z).toBe(2900)
+		expect(moveBy(outlet({ mount: 'wall' }), { x: 0, y: 0, z: -50 }).z).toBe(250)
+		expect(moveBy(outlet({ mount: 'ceiling' }), { x: 10, y: 0 }).z).toBeUndefined()   // a flat move keeps "by mount"
 	})
 })
