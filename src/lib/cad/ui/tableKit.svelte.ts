@@ -135,6 +135,8 @@ export class CellEdit<F extends string = string> {
 	/** F2 / Enter on the table, nothing being edited: the first editable cell of the (first) selected row. */
 	tableKey(e: KeyboardEvent, selection: string[]): boolean {
 		if ((e.key !== 'F2' && e.key !== 'Enter') || this.at || e.ctrlKey || e.metaKey || e.altKey || typing(e)) return false
+		// Enter on a focused button (the bar's, a sorting header, ⋯) presses it
+		if (typeof Element !== 'undefined' && e.target instanceof Element && e.target.closest('button, a, summary')) return false
 		const sel = new Set(selection), id = this.#ids().find((x) => sel.has(x)), f = id ? this.#fields(id)[0] : undefined
 		if (!id || !f) return false
 		this.at = { id, field: f }
