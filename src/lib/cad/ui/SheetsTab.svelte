@@ -20,7 +20,7 @@
 	import IssuesList from './IssuesList.svelte'
 	import PackagesList from './PackagesList.svelte'
 	import ChipPick from './ChipPick.svelte'
-	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
@@ -69,23 +69,36 @@
 	const COLS: [SortKey, string][] = [['order', '#'], ['number', 'No.'], ['title', 'Title'], ['category', 'Category'], ['level', 'Level'], ['room', 'Room'], ['discipline', 'Discipline'], ['rev', 'Rev'], ['size', 'Size'], ['scale', 'Scale']]
 	const GROUPS: [GroupBy, string][] = [['none', 'none'], ['category', 'category'], ['level', 'level'], ['room', 'room'], ['place', 'place'], ['discipline', 'discipline'], ['tag', 'tag'], ['size', 'size']]
 
-	// click / Shift-range / Ctrl-toggle, as in the other grids
-	let anchor: string | null = null
-	function pick(id: string, e: MouseEvent) {
-		if (e.shiftKey && anchor) {
-			const i = rows.findIndex((r) => r.id === anchor), j = rows.findIndex((r) => r.id === id)
-			if (i >= 0 && j >= 0) { ws.select(rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id)); return }
-		}
-		anchor = id
-		ws.select(e.ctrlKey || e.metaKey ? (selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id]) : [id])
-	}
-	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (as the other tables). */
+	/** The rows in the order shown (grouped: group by group; a sheet with two tags once). */
+	const shownIds = $derived([...new Set(groups.flatMap((g) => g.rows.map((r) => r.id)))])
+	// click / Shift-range / Ctrl-toggle, as in the other grids (tableKit.RowPick)
+	const rp = new RowPick()
+	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, shownIds, ws.selection, ws.select)
+	// ── editing in place (tableKit.CellEdit): double-click a cell, or F2 / Enter on the selected row ──
+	type Field = 'number' | 'title' | 'category' | 'discipline' | 'tags'
+	const FIELDS: Field[] = ['number', 'title', 'category', 'discipline', 'tags']
+	const ed = new CellEdit<Field>({
+		fields: () => FIELDS, ids: () => shownIds,
+		save: (id, field, value) => {
+			const s = sheetOf(id), v = value.trim()
+			if (s?.type !== 'sheet') return
+			if (field === 'number') { if (v !== s.number) put(s, 'Sheet number', { number: v }) }
+			else if (field === 'title') { if (v !== s.title) put(s, 'Sheet title', { title: v }) }
+			else if (field === 'category') { if (v !== (s.kind ?? '')) put(s, 'Sheet category', { kind: v || undefined }) }
+			else if (field === 'discipline') { if (v !== (s.discipline ?? '')) put(s, 'Sheet discipline', { discipline: v || undefined }) }
+			else {
+				const tags = v.split(',').map((x) => x.trim()).filter(Boolean)
+				if (tags.join(', ') !== (s.tags ?? []).join(', ')) put(s, 'Sheet tags', { tags: tags.length ? tags : undefined })
+			}
+		},
+	})
+	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (as the other tables). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (arrowSelect(e, shownIds, ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['#', 'No.', 'Title', 'Category', 'Level', 'Room', 'Discipline', 'Rev', 'Size', 'Scale', 'Tags', 'Status'],
 			(picked.length ? picked : rows).map((r) => [r.order, r.number, r.title, r.category, r.level, r.room, r.discipline, r.rev, r.size, r.scale, r.tags.join(', '), r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
-	const put = (r: SheetRow, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
+	const put = (r: { id: string }, label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...sheetOf(r.id), ...patch }))
 
 	function setStatus(s: Sheet['status']) {
 		if (!picked.length) return
@@ -135,7 +148,6 @@
 		const changed = sortDir === 1 ? moveBefore(sheets, ids, id) : moveBefore(sheets, ids, rows[rows.findIndex((r) => r.id === id) - 1]?.id ?? null)
 		if (changed.length) project.store.transact(`Print order (${ids.length} sheet${ids.length === 1 ? '' : 's'})`, (tx) => { for (const s of changed) tx.put(s) })
 	}
-	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim()
 	const chips = $derived(fCats.length + fLevels.length + fRooms.length + fTags.length)
 
 	// issuing (4.6): the selection, frozen when the panel opens
@@ -210,25 +222,34 @@
 				{#each g.rows as r (g.key + r.id)}
 					<tr class="hov" class:row-sel={selected.has(r.id)} class:drop={dropOn === r.id}
 						draggable={sortKey === 'order'} ondragstart={(e) => dragStart(e, r.id)} ondragover={(e) => dragOver(e, r.id)} ondragleave={() => (dropOn = null)} ondrop={(e) => dropRows(e, r.id)}
-						onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
+						onmousedown={noTextPick} onclick={(e) => pick(r.id, e)} ondblclick={() => onview({ kind: 'sheet', sheetId: r.id })}>
 						<td class="px-2 font-mono faint">{r.order}</td>
-						<td class="px-2"><input class="cell font-mono" value={r.number} onchange={(e) => put(r, 'Sheet number', { number: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
-						<td class="px-2"><input class="cell" value={r.title} onchange={(e) => put(r, 'Sheet title', { title: val(e) })} onclick={(e) => e.stopPropagation()} /></td>
+						{#if ed.is(r.id, 'number')}
+							<td class="ed"><input class="ed-box font-mono" value={r.number} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'number')} onblur={(e) => ed.blur(r.id, 'number', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+						{:else}<td class="px-2 font-mono whitespace-nowrap" title="Double-click (or F2) to edit · double-click elsewhere on the row opens the sheet" ondblclick={(e) => ed.start(r.id, 'number', e)}>{r.number}</td>{/if}
+						{#if ed.is(r.id, 'title')}
+							<td class="ed"><input class="ed-box" value={r.title} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'title')} onblur={(e) => ed.blur(r.id, 'title', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+						{:else}<td class="clip px-2" title="Double-click to edit" ondblclick={(e) => ed.start(r.id, 'title', e)}>{r.title}</td>{/if}
 						<!-- its own category, or "auto" = the one its viewports make it (grey) -->
-						<td class="px-2"><select class="cell" class:auto={r.categoryAuto} value={r.categoryAuto ? '' : r.categoryId} title={r.categoryAuto ? 'Worked out from its viewports — pick one to set it' : 'Its category'}
-							onchange={(e) => put(r, 'Sheet category', { kind: e.currentTarget.value || undefined })} onclick={(e) => e.stopPropagation()}>
-							<option value="">{r.categoryAuto ? `${r.category} (auto)` : 'Auto (from its viewports)'}</option>
-							{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
-							{#if !r.categoryAuto && !cats.some((c) => c.id === r.categoryId)}<option value={r.categoryId}>{r.category}</option>{/if}
-						</select></td>
+						{#if ed.is(r.id, 'category')}
+							<td class="ed"><select class="ed-box" value={r.categoryAuto ? '' : r.categoryId} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'category')} onblur={(e) => ed.blur(r.id, 'category', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+								<option value="">{r.categoryAuto ? `${r.category} (auto)` : 'Auto (from its viewports)'}</option>
+								{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+								{#if !r.categoryAuto && !cats.some((c) => c.id === r.categoryId)}<option value={r.categoryId}>{r.category}</option>{/if}
+							</select></td>
+						{:else}<td class="px-2 whitespace-nowrap" class:muted={r.categoryAuto} title={r.categoryAuto ? 'Worked out from its viewports — double-click to set one' : 'Its category — double-click to change it'} ondblclick={(e) => ed.start(r.id, 'category', e)}>{r.category}{r.categoryAuto ? ' (auto)' : ''}</td>{/if}
 						<td class="px-2 whitespace-nowrap">{r.level}</td>
 						<td class="px-2 whitespace-nowrap">{r.room}</td>
-						<td class="px-2"><input class="cell" value={r.discipline} placeholder="—" onchange={(e) => put(r, 'Sheet discipline', { discipline: val(e) || undefined })} onclick={(e) => e.stopPropagation()} /></td>
+						{#if ed.is(r.id, 'discipline')}
+							<td class="ed"><input class="ed-box" value={r.discipline} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'discipline')} onblur={(e) => ed.blur(r.id, 'discipline', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+						{:else}<td class="px-2" title="Double-click to edit" ondblclick={(e) => ed.start(r.id, 'discipline', e)}>{r.discipline || '—'}</td>{/if}
 						<td class="px-2 font-mono">{r.rev || '—'}</td>
 						<td class="px-2">{r.size}</td>
 						<td class="px-2">{r.scale}</td>
 						{#if showState}<td class="px-2 whitespace-nowrap"><StatusChip tone={stateOf(r)} label={stateText(r)} upper={false} /></td>{/if}
-						<td class="px-2"><input class="cell" value={r.tags.join(', ')} placeholder="—" title="Comma-separated" onchange={(e) => { const t = val(e).split(',').map((x) => x.trim()).filter(Boolean); put(r, 'Sheet tags', { tags: t.length ? t : undefined }) }} onclick={(e) => e.stopPropagation()} /></td>
+						{#if ed.is(r.id, 'tags')}
+							<td class="ed"><input class="ed-box" value={r.tags.join(', ')} title="Comma-separated" use:focusCell onkeydown={(e) => ed.key(e, r.id, 'tags')} onblur={(e) => ed.blur(r.id, 'tags', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+						{:else}<td class="px-2" title="Double-click to edit (comma-separated)" ondblclick={(e) => ed.start(r.id, 'tags', e)}>{r.tags.join(', ') || '—'}</td>{/if}
 						<td class="px-2 muted">{r.status}</td>
 					</tr>
 				{/each}
@@ -253,12 +274,6 @@
 	.clear { color: #2563eb; }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
 	select { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; background: var(--cad-input); color: var(--cad-text); }
-	/* edit boxes as wide as what they hold (the table is as wide as its content) */
-	.cell { border: 1px solid transparent; border-radius: 3px; background: transparent; padding: 0 3px; color: inherit; field-sizing: content; min-width: 3ch; max-width: 22rem; }
-	.cell:hover { border-color: var(--cad-line); }
-	.cell:focus { border-color: #60a5fa; background: var(--cad-input); outline: none; }
-	/* a category worked out from the viewports (not set on the sheet): grey, "(auto)" — readable, not italic (Dave) */
-	select.cell.auto { color: var(--cad-muted); }
 	.grp td { background: var(--cad-hover); font-weight: 600; padding: 2px 8px; color: var(--cad-muted); }
 	.gh { font-weight: 600; color: inherit; }
 	.gh:hover { color: #2563eb; text-decoration: underline; }

@@ -1,6 +1,6 @@
 // The tables' shared sort / filter / keys (UX review T5–T7).
 import { describe, it, expect } from 'vitest'
-import { TableState, arrowSelect } from './tableKit.svelte'
+import { TableState, arrowSelect, RowPick, nextCell, CellEdit } from './tableKit.svelte'
 
 const rows = [{ id: 'a', label: 'A.10', n: 3 }, { id: 'b', label: 'A.2', n: 1 }, { id: 'c', label: 'B.1', n: 2 }]
 const cols = { label: (r: (typeof rows)[number]) => r.label, n: (r: (typeof rows)[number]) => r.n }
@@ -41,5 +41,44 @@ describe('table kit', () => {
 		key('ArrowUp'); key('ArrowUp')
 		expect(sel).toEqual(['a'])
 		expect(key('x')).toBe(false)
+	})
+	it('a click picks one row, Shift-click the range from it (keeping what the table doesn’t list), Ctrl-click adds / drops', () => {
+		const rp = new RowPick(), ids = ['a', 'b', 'c', 'd']
+		let sel: string[] = ['rack']
+		const set = (x: string[]) => { sel = x }
+		const m = (o: Partial<{ shiftKey: boolean; ctrlKey: boolean }> = {}) => ({ shiftKey: false, ctrlKey: false, metaKey: false, ...o })
+		rp.pick('b', m(), ids, sel, set)
+		expect(sel).toEqual(['b'])
+		rp.pick('d', m({ shiftKey: true }), ids, sel, set, ['rack'])
+		expect(sel).toEqual(['rack', 'b', 'c', 'd'])
+		rp.pick('c', m({ ctrlKey: true }), ids, sel, set)
+		expect(sel).toEqual(['rack', 'b', 'd'])
+		rp.pick('a', m({ shiftKey: true }), ids, sel, set)   // from the last row clicked (c)
+		expect(sel).toEqual(['a', 'b', 'c'])
+	})
+	it('Enter goes down the column, Tab along the row then on to the next row, and stops at the ends', () => {
+		const ids = ['r1', 'r2', 'r3'], fields = (id: string) => (id === 'r2' ? ['label'] : ['label', 'usage'])
+		expect(nextCell({ id: 'r1', field: 'usage' }, ids, fields, false, false)).toEqual({ id: 'r3', field: 'usage' })   // r2 has no usage
+		expect(nextCell({ id: 'r1', field: 'label' }, ids, fields, true, false)).toEqual({ id: 'r1', field: 'usage' })
+		expect(nextCell({ id: 'r1', field: 'usage' }, ids, fields, true, false)).toEqual({ id: 'r2', field: 'label' })
+		expect(nextCell({ id: 'r3', field: 'label' }, ids, fields, true, true)).toEqual({ id: 'r2', field: 'label' })
+		expect(nextCell({ id: 'r2', field: 'label' }, ids, fields, true, true)).toEqual({ id: 'r1', field: 'usage' })
+		expect(nextCell({ id: 'r3', field: 'usage' }, ids, fields, true, false)).toBe(null)
+		expect(nextCell({ id: 'r1', field: 'label' }, ids, fields, false, true)).toBe(null)
+	})
+	it('F2 / Enter on the table edit the selected row’s first cell; leaving the box saves it once', () => {
+		const saved: string[] = []
+		const ed = new CellEdit<'label' | 'usage'>({ fields: () => ['label', 'usage'], ids: () => ['a', 'b'], save: (id, f, v) => saved.push(`${id}.${f}=${v}`) })
+		const key = (k: string) => ({ key: k, target: null, ctrlKey: false, metaKey: false, altKey: false }) as unknown as KeyboardEvent
+		expect(ed.tableKey(key('F2'), [])).toBe(false)   // nothing selected
+		expect(ed.tableKey(key('F2'), ['b'])).toBe(true)
+		expect(ed.at).toEqual({ id: 'b', field: 'label' })
+		expect(ed.tableKey(key('Enter'), ['b'])).toBe(false)   // already editing: the box has the key
+		ed.blur('b', 'label', 'B1')
+		ed.blur('b', 'label', 'B1')
+		expect(saved).toEqual(['b.label=B1'])
+		expect(ed.at).toBe(null)
+		ed.start('a', 'usage')
+		expect(ed.is('a', 'usage')).toBe(true)
 	})
 })

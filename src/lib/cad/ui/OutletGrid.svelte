@@ -3,7 +3,7 @@
      (the port labels that start with the old outlet label). -->
 <script lang="ts">
 	import { sortedUsages } from '../domain/usages'
-	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import { untrack } from 'svelte'
@@ -36,9 +36,9 @@
 			length: (o) => routeOf(o, o.ports[0]?.port ?? 1)?.lengthM ?? -1, placed: (o) => (o.at ? 1 : 0) },
 	))
 	const nSel = $derived(rows.filter((o) => selected.has(o.id)).length)
-	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (arrowSelect(e, rows.map((o) => o.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Level', 'Label', 'Usage', 'Tier', 'Mount', 'Ports', 'Server room', 'Panel', 'Length (m)'], rows.map((o) => [project.index.nameOf(o.levelId), o.label, o.usage, o.tier, o.mount, o.ports.map((p) => p.label).join(' '), roomName(o.ports[0]?.serverRoomId), o.ports.map((p) => panelOf(o, p.port).text).join(' '), o.ports.map((p) => routeOf(o, p.port)?.lengthM ?? '').join(' ')]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const usages = $derived(sortedUsages(project.settings))
@@ -54,14 +54,30 @@
 	function edit(o: Outlet, label: string, patch: Partial<Outlet>) {
 		project.store.transact(label, (tx) => tx.put({ ...o, ...patch }))
 	}
-	/** The input goes back to the stored label at once; it shows the new one when (if) the rename is written — a
-	 *  rename that would change printed panel labels asks first. */
-	function rename(o: Outlet, input: HTMLInputElement) {
-		const next = input.value.trim()
-		input.value = o.label
+	/** The cell shows the new label when (if) the rename is written — a rename that would change printed panel labels
+	 *  asks first. */
+	function rename(o: Outlet, value: string) {
+		const next = value.trim()
 		if (!next || next === o.label) return
 		project.relabel(`Rename ${o.label} → ${next}`, [renameOutlet(o, next)], ws.ask2)
 	}
+	/** Every port in one server room: the Server room cell is editable (else "mixed": per port in Properties). */
+	const oneRoom = (o: Outlet) => o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId)
+	// ── editing in place (tableKit.CellEdit): double-click, or F2 / Enter on the selected row ──
+	type Field = 'label' | 'usage' | 'tier' | 'room'
+	const ed = new CellEdit<Field>({
+		fields: (id) => { const o = project.index.get<Outlet>(id); return o?.type === 'outlet' ? ['label', 'usage', 'tier', ...(oneRoom(o) ? ['room' as const] : [])] : [] },
+		ids: () => rows.map((o) => o.id),
+		save: (id, field, v) => {
+			const o = project.index.get<Outlet>(id)
+			if (o?.type !== 'outlet') return
+			if (field === 'label') rename(o, v)
+			else if (field === 'usage') { if (v !== (o.usage ?? '')) edit(o, 'Usage', { usage: v }) }
+			else if (field === 'tier') { if (v !== o.tier) edit(o, 'Tier', { tier: v as Outlet['tier'] }) }
+			else if (v !== (o.ports[0]?.serverRoomId ?? '')) setRoom(o, v)
+		},
+	})
+	const usageLabel = (id: string) => usages.find((u) => u.id === id)?.label ?? id
 	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
 	/** Every port of the outlet to one server room ('' = none). */
 	function setRoom(o: Outlet, id: string) {
@@ -118,18 +134,9 @@
 	}
 	const selectedOutlets = $derived(ws.selection.filter((id) => project.index.get(id)?.type === 'outlet').length)
 
-	// ── selection: click = one, Shift-click = the range from the last clicked, Ctrl-click = add / drop one ──
-	let anchor: string | null = null
-	function pick(o: Outlet, e: MouseEvent) {
-		const others = ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet')
-		if (e.shiftKey && anchor) {
-			const i = rows.findIndex((r) => r.id === anchor), j = rows.findIndex((r) => r.id === o.id)
-			if (i >= 0 && j >= 0) { ws.select([...(e.ctrlKey ? ws.selection : others), ...rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id)]); return }
-		}
-		anchor = o.id
-		if (e.ctrlKey || e.metaKey) ws.select(selected.has(o.id) ? ws.selection.filter((x) => x !== o.id) : [...ws.selection, o.id])
-		else ws.select([o.id])
-	}
+	// ── selection (tableKit.RowPick): click = one, Shift = the range from the last clicked (other things selected stay), Ctrl = add / drop one ──
+	const rp = new RowPick()
+	const pick = (o: Outlet, e: MouseEvent) => rp.pick(o.id, e, rows.map((r) => r.id), ws.selection, ws.select, ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet'))
 
 	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001"): the Renumber panel's Find / replace, on
 	// the selected outlets, else the ones shown here ──
@@ -172,35 +179,33 @@
 		</thead>
 		<tbody>
 			{#each rows as o (o.id)}
-				<!-- Shift / Ctrl on a row selects rows, not the page's text -->
-				<tr bind:this={rowEls[o.id]} class="hov" class:row-sel={selected.has(o.id)} draggable="true" ondragstart={(e) => dragOutlets(e, o)} ondragend={() => ws.endDrag()} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(o, e)}>
+				<!-- Shift / Ctrl on a row selects rows, not the page's text; a row being edited doesn't drag -->
+				<tr bind:this={rowEls[o.id]} class="hov" class:row-sel={selected.has(o.id)} draggable={ed.at?.id !== o.id} ondragstart={(e) => dragOutlets(e, o)} ondragend={() => ws.endDrag()} onmousedown={noTextPick} onclick={(e) => pick(o, e)}>
 					{#if t.scope !== 'view'}<td class="px-2 muted">{project.index.nameOf(o.levelId)}</td>{/if}
-					<td class="px-2 py-0.5">
-						<input class="w-28 rounded border border-transparent bg-transparent px-1 font-mono hover:border-zinc-300 focus:border-blue-400"
-							value={o.label} onchange={(e) => rename(o, e.currentTarget)} onclick={(e) => e.stopPropagation()} />
-					</td>
-					<td class="px-2">
-						<select class="bg-transparent" value={o.usage} onchange={(e) => edit(o, 'Usage', { usage: e.currentTarget.value })} onclick={(e) => e.stopPropagation()}>
+					{#if ed.is(o.id, 'label')}
+						<td class="ed"><input class="ed-box font-mono" value={o.label} use:focusCell onkeydown={(e) => ed.key(e, o.id, 'label')} onblur={(e) => ed.blur(o.id, 'label', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="px-2 py-0.5 font-mono" title="Double-click (or F2) to rename — its ports follow" ondblclick={(e) => ed.start(o.id, 'label', e)}>{o.label}</td>{/if}
+					{#if ed.is(o.id, 'usage')}
+						<td class="ed"><select class="ed-box" value={o.usage ?? ''} use:focusCell onkeydown={(e) => ed.key(e, o.id, 'usage')} onblur={(e) => ed.blur(o.id, 'usage', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
 							<option value="">—</option>
 							{#each usages as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 							{#if o.usage && !usages.some((u) => u.id === o.usage)}<option value={o.usage}>{o.usage}</option>{/if}
-						</select>
-					</td>
-					<td class="px-2">
-						<select class="bg-transparent" value={o.tier} onchange={(e) => edit(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })} onclick={(e) => e.stopPropagation()}>
+						</select></td>
+					{:else}<td class="px-2" title="Double-click to set the usage" ondblclick={(e) => ed.start(o.id, 'usage', e)}>{o.usage ? usageLabel(o.usage) : '—'}</td>{/if}
+					{#if ed.is(o.id, 'tier')}
+						<td class="ed"><select class="ed-box" value={o.tier} use:focusCell onkeydown={(e) => ed.key(e, o.id, 'tier')} onblur={(e) => ed.blur(o.id, 'tier', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
 							<option value="low">Low</option><option value="high">High</option>
-						</select>
-					</td>
+						</select></td>
+					{:else}<td class="px-2" title="Double-click to set the tier" ondblclick={(e) => ed.start(o.id, 'tier', e)}>{o.tier === 'high' ? 'High' : 'Low'}</td>{/if}
 					<td class="px-2">{o.mount}</td>
 					<td class="px-2 font-mono muted">{o.ports.map((p) => p.label).join('  ')}</td>
-					<td class="px-2">
-						{#if o.ports.every((p) => p.serverRoomId === o.ports[0]?.serverRoomId)}
-							<select class="bg-transparent" value={o.ports[0]?.serverRoomId ?? ''} onchange={(e) => setRoom(o, e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
-								<option value="">—</option>
-								{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}{s.levelId !== levelId ? ` (${project.index.nameOf(s.levelId)})` : ''}</option>{/each}
-							</select>
-						{:else}<span title="Ports go to different server rooms — set them per port in Properties">mixed</span>{/if}
-					</td>
+					{#if ed.is(o.id, 'room')}
+						<td class="ed"><select class="ed-box" value={o.ports[0]?.serverRoomId ?? ''} use:focusCell onkeydown={(e) => ed.key(e, o.id, 'room')} onblur={(e) => ed.blur(o.id, 'room', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+							<option value="">—</option>
+							{#each serverRooms as s (s.id)}<option value={s.id}>{s.name}{s.levelId !== levelId ? ` (${project.index.nameOf(s.levelId)})` : ''}</option>{/each}
+						</select></td>
+					{:else if oneRoom(o)}<td class="px-2" title="Double-click to set the server room of every port" ondblclick={(e) => ed.start(o.id, 'room', e)}>{roomName(o.ports[0]?.serverRoomId) || '—'}</td>
+					{:else}<td class="px-2"><span title="Ports go to different server rooms — set them per port in Properties">mixed</span></td>{/if}
 					<td class="px-2 font-mono muted">
 						{#each o.ports as p (p.port)}{@const at = panelOf(o, p.port)}<span class="pp" class:none={at.text === '—'} class:patched={!!at.patched} title={at.patched ? `Patched to ${at.patched}` : undefined}>{at.text}{at.pinned ? ' ◆' : ''}</span>{/each}
 					</td>

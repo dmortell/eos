@@ -12,7 +12,7 @@
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
 	import CordLabelsDialog from './CordLabelsDialog.svelte'
 	import { Icon } from '$lib'
-	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import CordActions from './CordActions.svelte'
@@ -72,9 +72,10 @@
 		if (!selected.has(id)) ws.select([id])
 		menu = { x: e.clientX, y: e.clientY }
 	}
-	/** ↑ / ↓ move the selection; Ctrl+A selects the shown rows; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+A selects the shown rows; Ctrl+C copies the
+	 *  shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !(e.target instanceof Element && e.target.closest('input, select'))) { e.preventDefault(); e.stopPropagation(); ws.select(rows.map((r) => r.id)); return }
 		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
@@ -95,24 +96,15 @@
 			if (id) rowEls[id]?.scrollIntoView({ block: 'nearest' })
 		})
 	})
-	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (same as the outlets grid)
-	let anchor: string | null = null
-	function pick(id: string, e: MouseEvent) {
-		if (e.shiftKey && anchor) {
-			const i = rows.findIndex((r) => r.id === anchor), j = rows.findIndex((r) => r.id === id)
-			if (i >= 0 && j >= 0) { ws.select(rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id)); return }
-		}
-		anchor = id
-		ws.select(e.ctrlKey || e.metaKey ? (selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id]) : [id])
-	}
+	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (tableKit.RowPick, as every table)
+	const rp = new RowPick()
+	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, rows.map((r) => r.id), ws.selection, ws.select)
 	const typeLabel = (id: string) => project.settings?.cableTypes.find((t) => t.id === id)?.label ?? id
 
-	// ── inline editing (Dave's note on patch-list-plan.md): double-click a Cord ID, Status or Notes cell ──
+	// ── inline editing (Dave's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes
+	// cell, or F2 / Enter on the selected row; Enter runs down a column (typing a run of cord IDs), Tab along the row ──
 	type Field = 'cordId' | 'status' | 'notes'
 	const FIELDS: Field[] = ['cordId', 'status', 'notes']
-	let editing = $state<{ id: string; field: Field } | null>(null)
-	function edit(id: string, field: Field, e: MouseEvent) { e.stopPropagation(); editing = { id, field } }
-	const isEditing = (id: string, field: Field) => editing?.id === id && editing.field === field
 	/** Save one cell. The status goes through the install rules (setStatus). */
 	function save(id: string, field: Field, value: string) {
 		const c = project.index.get(id)
@@ -122,22 +114,7 @@
 		if (v === (c[field] ?? '')) return
 		project.store.transact(field === 'cordId' ? 'Cord ID' : 'Cord notes', (tx) => tx.put({ ...c, [field]: v || undefined }))
 	}
-	/** Leaving the box saves it — only while it is still the cell being edited (a key that moved on has saved it). */
-	function blurSave(id: string, field: Field, value: string) { if (isEditing(id, field)) { save(id, field, value); editing = null } }
-	/** Enter / Shift+Enter: save, then the same column on the next / previous row (typing a run of cord IDs);
-	 *  Tab / Shift+Tab: the next / previous cell (Cord ID → Status → Notes → the next row); Esc cancels. */
-	function editKey(e: KeyboardEvent, id: string, field: Field) {
-		e.stopPropagation()
-		if (e.key === 'Escape') { editing = null; return }
-		if (e.key !== 'Enter' && e.key !== 'Tab') return
-		e.preventDefault()
-		save(id, field, (e.currentTarget as HTMLInputElement | HTMLSelectElement).value)
-		const ids = rows.map((r) => r.id), i = ids.indexOf(id), back = e.shiftKey
-		if (e.key === 'Enter') { const n = ids[i + (back ? -1 : 1)]; editing = n ? { id: n, field } : null; return }
-		const k = i * FIELDS.length + FIELDS.indexOf(field) + (back ? -1 : 1), n = ids[Math.floor(k / FIELDS.length)]
-		editing = n && k >= 0 ? { id: n, field: FIELDS[k % FIELDS.length] } : null
-	}
-	const focus = (el: HTMLElement) => { el.focus(); if (el instanceof HTMLInputElement) el.select() }
+	const ed = new CellEdit<Field>({ fields: () => FIELDS, ids: () => rows.map((r) => r.id), save })
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -171,24 +148,24 @@
 		<tbody>
 			{#each rows as r (r.id)}
 				{@const rep = r.status === 'replace' ? replacedText(project.index.get<Cord>(r.id)!, typeLabel) : ''}
-				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
 					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>
 					<td class="px-2">{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>
 					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
-					{#if isEditing(r.id, 'cordId')}
-						<td class="ed"><input class="cell font-mono" value={r.cordId} use:focus onkeydown={(e) => editKey(e, r.id, 'cordId')} onblur={(e) => blurSave(r.id, 'cordId', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
-					{:else}<td class="px-2 font-mono" title="Double-click to edit (Enter: next row · Tab: next cell)" ondblclick={(e) => edit(r.id, 'cordId', e)}>{r.cordId}</td>{/if}
-					{#if isEditing(r.id, 'status')}
-						<td class="ed"><select class="cell" value={r.status} use:focus onkeydown={(e) => editKey(e, r.id, 'status')} onblur={(e) => blurSave(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+					{#if ed.is(r.id, 'cordId')}
+						<td class="ed"><input class="ed-box font-mono" value={r.cordId} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'cordId')} onblur={(e) => ed.blur(r.id, 'cordId', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="px-2 font-mono" title="Double-click (or F2) to edit (Enter: next row · Tab: next cell)" ondblclick={(e) => ed.start(r.id, 'cordId', e)}>{r.cordId}</td>{/if}
+					{#if ed.is(r.id, 'status')}
+						<td class="ed"><select class="ed-box" value={r.status} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'status')} onblur={(e) => ed.blur(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
 							{#each STATUSES as s (s)}<option value={s}>{s}</option>{/each}
 						</select></td>
-					{:else}<td class="px-2" title="Double-click to set the status (the install rules apply: installed / add clear the history, remove keeps it)" ondblclick={(e) => edit(r.id, 'status', e)}><StatusChip tone={r.status} label={r.status} /></td>{/if}
-					{#if isEditing(r.id, 'notes')}
-						<td class="ed"><input class="cell" value={r.notes} use:focus onkeydown={(e) => editKey(e, r.id, 'notes')} onblur={(e) => blurSave(r.id, 'notes', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
-					{:else}<td class="clip px-2 muted" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => edit(r.id, 'notes', e)}>{r.notes}</td>{/if}
+					{:else}<td class="px-2" title="Double-click to set the status (the install rules apply: installed / add clear the history, remove keeps it)" ondblclick={(e) => ed.start(r.id, 'status', e)}><StatusChip tone={r.status} label={r.status} /></td>{/if}
+					{#if ed.is(r.id, 'notes')}
+						<td class="ed"><input class="ed-box" value={r.notes} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'notes')} onblur={(e) => ed.blur(r.id, 'notes', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="clip px-2 muted" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => ed.start(r.id, 'notes', e)}>{r.notes}</td>{/if}
 				</tr>
 			{:else}
 				<tr><td colspan="9" class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
@@ -214,7 +191,5 @@
 	.files { margin-left: auto; display: inline-flex; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }
 	.files .btn { display: inline-flex; align-items: center; gap: 3px; }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
-	.ed { padding: 0 2px; }
-	.cell { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid #0002; }
 </style>

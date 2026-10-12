@@ -143,6 +143,10 @@
 	.body :global(tbody > tr) { border-bottom: 1px solid var(--cad-line); }
 	.body :global(.muted) { color: var(--cad-muted); }
 	.body :global(.faint) { color: var(--cad-faint); }
+	/* a cell being edited (tableKit.CellEdit), the same box in every table */
+	.body :global(td.ed) { padding: 0 2px; }
+	.body :global(.ed-box) { width: 100%; min-width: 5rem; border: 1px solid #2563eb; border-radius: 3px; padding: 0 3px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); outline: none; }
+	.body :global(input.ed-box) { field-sizing: content; min-width: 6rem; max-width: 24rem; }   /* as wide as what it holds */
 	.corner { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
 		background: linear-gradient(135deg, transparent 50%, var(--cad-faint, #a1a1aa) 50%, transparent 60%, transparent 70%, var(--cad-faint, #a1a1aa) 70%, transparent 80%); }
 </style>

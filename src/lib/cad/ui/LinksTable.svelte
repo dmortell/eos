@@ -7,7 +7,7 @@
 	import type { Link } from '../domain/types'
 	import { linkRows, type LinkRow } from '../domain/cableList'
 	import { deleteEntities } from '../editor/commands'
-	import { TableState, arrowSelect, copyRows } from './tableKit.svelte'
+	import { TableState, arrowSelect, copyRows, RowPick, CellEdit, focusCell, noTextPick } from './tableKit.svelte'
 	import SortTh from './SortTh.svelte'
 	import ScopeSelect from './ScopeSelect.svelte'
 	import StatusChip from './StatusChip.svelte'
@@ -38,9 +38,9 @@
 	const rows = $derived(t.apply(all.filter((r) => show[r.kind] && (!status || r.status === status)), (r) => `${r.a} ${r.b} ${r.label} ${r.cableType}`,
 		{ kind: (r) => r.kind, a: (r) => r.a, b: (r) => r.b, label: (r) => r.label, type: (r) => r.cableType, len: (r) => r.lengthM ?? -1, status: (r) => r.status }))
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
-	/** ↑ / ↓ move the selection; Ctrl+C copies the shown rows for Excel (UX review T7). */
+	/** ↑ / ↓ move the selection; F2 / Enter edit the selected row; Ctrl+C copies the shown rows for Excel (UX review T7). */
 	function tableKey(e: KeyboardEvent) {
-		if (arrowSelect(e, rows.slice(0, limit).map((r) => r.id), ws.selection, ws.select)) { e.preventDefault(); return }
+		if (arrowSelect(e, shown.map((r) => r.id), ws.selection, ws.select) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (copyRows(e, ['Kind', 'Panel end', 'Other end', 'Label', 'Cable type', 'Length (m)', 'Status'], rows.map((r) => [r.kind, r.a, r.b, r.label, r.cableType, r.lengthM, r.status]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const types = $derived([...new Set(all.map((r) => r.cableType).filter(Boolean))].sort())
@@ -53,10 +53,22 @@
 		const all = l.cable ? project.index.links.filter((x) => x.cable === l.cable) : [l]
 		project.store.transact(label, (tx) => { for (const x of all) tx.put({ ...x, ...patch }) })
 	}
-	function pick(id: string, e: MouseEvent) {
-		if (e.ctrlKey || e.metaKey || e.shiftKey) ws.select(selected.has(id) ? ws.selection.filter((x) => x !== id) : [...ws.selection, id])
-		else ws.select([id])
-	}
+	// click = one, Shift = the range from the last clicked, Ctrl = add / drop one (tableKit.RowPick, as every table)
+	const rp = new RowPick()
+	const shown = $derived(rows.slice(0, limit))
+	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, shown.map((r) => r.id), ws.selection, ws.select)
+	// ── editing in place (tableKit.CellEdit): double-click the cable type or status, or F2 / Enter on the selected row ──
+	type Field = 'type' | 'status'
+	const FIELDS: Field[] = ['type', 'status']
+	const ed = new CellEdit<Field>({
+		fields: () => FIELDS, ids: () => shown.map((r) => r.id),
+		save: (id, field, value) => {
+			const l = project.index.get<Link>(id)
+			if (l?.type !== 'link') return
+			if (field === 'type') { const v = value.trim(); if (v !== (l.cableType ?? '')) edit(id, 'Cable type', { cableType: v || undefined }) }
+			else if (value !== l.status) edit(id, 'Link status', { status: value as Link['status'] })
+		},
+	})
 	function remove(id: string) {
 		deleteEntities(project.store, [id])
 		ws.say('Link removed · Ctrl+Z brings it back')
@@ -82,17 +94,20 @@
 			<tr><SortTh {t} key="kind" cls="px-2 py-1">Kind</SortTh><SortTh {t} key="a">Panel end</SortTh><SortTh {t} key="b">Other end</SortTh><SortTh {t} key="label">Label</SortTh><SortTh {t} key="type">Cable type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="status">Status</SortTh><th></th></tr>
 		</thead>
 		<tbody>
-			{#each rows.slice(0, limit) as r (r.id)}
-				<tr class="hov" class:row-sel={selected.has(r.id)} onmousedown={(e) => { if (e.shiftKey || e.ctrlKey) e.preventDefault() }} onclick={(e) => pick(r.id, e)}>
+			{#each shown as r (r.id)}
+				<tr class="hov" class:row-sel={selected.has(r.id)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5 whitespace-nowrap"><StatusChip tone={r.kind} label={r.kind} />{#if r.core} <span class="muted" title="A core of a multi-core cable: type and status changes go to all its cores">{r.core}</span>{/if}</td>
 					<td class="px-2">{r.a}</td>
 					<td class="px-2">{r.b}</td>
 					<td class="px-2 font-mono muted">{r.label || '—'}</td>
-					<td class="px-2"><input class="cell" list="cad-link-types" value={r.cableType} placeholder="cable" onclick={(e) => e.stopPropagation()}
-						onchange={(e) => edit(r.id, 'Cable type', { cableType: e.currentTarget.value.trim() || undefined })} /></td>
+					{#if ed.is(r.id, 'type')}
+						<td class="ed"><input class="ed-box" list="cad-link-types" value={r.cableType} placeholder="cable" use:focusCell onkeydown={(e) => ed.key(e, r.id, 'type')} onblur={(e) => ed.blur(r.id, 'type', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="px-2" title="Double-click (or F2) to set the cable type" ondblclick={(e) => ed.start(r.id, 'type', e)}>{r.cableType || '—'}</td>{/if}
 					<td class="px-2">{r.lengthM ?? ''}</td>
-					<td class="px-2"><select class="cell s-{r.status}" value={r.status} onclick={(e) => e.stopPropagation()} onchange={(e) => edit(r.id, 'Link status', { status: e.currentTarget.value as Link['status'] })}>
-						<option value="design">design</option><option value="installed">installed</option></select></td>
+					{#if ed.is(r.id, 'status')}
+						<td class="ed"><select class="ed-box" value={r.status} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'status')} onblur={(e) => ed.blur(r.id, 'status', e.currentTarget.value)} onclick={(e) => e.stopPropagation()}>
+							<option value="design">design</option><option value="installed">installed</option></select></td>
+					{:else}<td class="px-2" class:s-installed={r.status === 'installed'} title="Double-click to set the status" ondblclick={(e) => ed.start(r.id, 'status', e)}>{r.status}</td>{/if}
 					<td class="px-1"><button class="del" title="Remove this link (Ctrl+Z undoes)" onclick={(e) => { e.stopPropagation(); remove(r.id) }}>✕</button></td>
 				</tr>
 			{:else}
@@ -109,9 +124,6 @@
 	.actions { position: sticky; left: 0; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid var(--cad-line); background: var(--cad-panel); }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.find { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; width: 10rem; background: var(--cad-input); color: var(--cad-text); }
-	.cell { border: 1px solid transparent; border-radius: 3px; padding: 0 3px; background: transparent; color: var(--cad-text); width: 8rem; }
-	.cell:hover, .cell:focus { border-color: var(--cad-line); background: var(--cad-input); }
-	select.cell { width: auto; }
 	.s-installed { color: #166534; }
 	.del { visibility: hidden; color: var(--cad-faint); padding: 0 4px; }
 	tr:hover .del { visibility: visible; }
