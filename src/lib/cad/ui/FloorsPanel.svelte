@@ -23,7 +23,8 @@
 	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
 	let { project, ws, part, oncalibrate }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void } = $props()
 
-	const building = $derived(project.store.ofType('building')[0] as Building | undefined)
+	// the store isn't reactive itself: read project.rev, or an Apply (or a remote edit) is never seen here (Review 2 Q4)
+	const building = $derived.by(() => { void project.rev; return project.store.ofType('building')[0] as Building | undefined })
 	const levels = $derived.by(() => { void project.rev; return project.store.ofType('level') })
 	const main = $derived(levels.filter((l) => !l.area).sort((a, b) => b.number - a.number))   // top floor first
 
