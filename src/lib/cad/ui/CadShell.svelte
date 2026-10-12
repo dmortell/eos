@@ -357,7 +357,7 @@
 	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
-		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), openProject: () => (openProjectOpen = true),
+		outletSchedule: (all) => exportsRef?.outletSchedule(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => window.open(`/projects/${pid}/uploads`, '_blank', 'noopener'), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true),
 		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),

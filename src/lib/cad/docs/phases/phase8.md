@@ -2771,3 +2771,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Tests in `ui/tableKit.test.ts` (default sort / scopes, RowPick, nextCell, CellEdit) and `editor/editor.test.ts`
     (reveal). Not checked live (the worktree's dev server has no signed-in session). Help: "The tables' bar", "Edit
     cells in the tables", the Tables keys in Shortcuts, and the paths that moved into ⋯.
+- **R98a Monochrome PDFs and copy view (decisions T121 (a), T160 (a)):** File › Export › **Monochrome PDFs** (a tick per
+  browser): sheet PDFs with all ink black, fills light grey, floorplans and pictures grey, "(mono)" in the file name
+  (`render/pdf.ts` `mono`, `app/sheetsPdf.ts`); View › **Copy view as picture**: the active view as on screen onto the
+  clipboard as a PNG — the SVG copied with its computed styles and its floorplan as a data url, drawn on a canvas at up
+  to 2× (`ui/ViewCanvas.svelte` `copyPicture`). Live (Test Project): "Copied the view as a picture (1499 × 565 px)".
+  Help: two entries.

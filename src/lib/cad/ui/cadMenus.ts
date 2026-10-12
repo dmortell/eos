@@ -31,6 +31,10 @@ export interface MenuCtx {
 	legacyDrawings(): void
 	/** The photo survey tool for this project, in a new tab (its only way in was the old project page). */
 	surveys(): void
+	/** File › Export › Monochrome PDFs (T121) — a switch for this user's sheet PDFs. */
+	monoPdf: boolean; toggleMonoPdf(): void
+	/** View › Copy view as picture (T160): the active view, as on screen, onto the clipboard as a PNG. */
+	copyView(): void
 	// Edit
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
@@ -93,6 +97,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 				'-',
 				{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 				{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
+				{ label: 'Monochrome PDFs', checked: c.monoPdf, title: 'Sheet PDFs in black ink: lines and text black, fills light grey, floorplans and pictures grey (for cheap prints)', run: c.toggleMonoPdf },
 			] },
 		] },
 		{ label: 'Edit', items: [
@@ -122,6 +127,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Find a view, sheet, room, rack…', key: 'Ctrl+K', run: c.find },
 			{ label: 'Fit', key: 'Home', run: c.fit },
 			{ label: 'Zoom to selection', key: 'Shift+Home', disabled: !c.hasSelection, run: c.zoomSel },
+			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Back', key: 'Alt+←', disabled: !c.canBack, run: c.back },
 			{ label: 'Forward', key: 'Alt+→', disabled: !c.canFwd, run: c.forward },

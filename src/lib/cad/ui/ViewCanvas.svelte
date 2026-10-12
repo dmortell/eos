@@ -526,6 +526,39 @@
 		if (toolDown || vpPan || wDrag || panning) cancel()
 	}
 	export function refresh(): void { tick++ }
+	/** The view as on screen, onto the clipboard as a PNG (decision T160, View › Copy view as picture). The SVG is
+	 *  drawn by the browser from a copy carrying its computed styles (the component's CSS doesn't travel with it) and its
+	 *  pictures as data urls (an SVG drawn as an image loads nothing from outside). */
+	export async function copyPicture(): Promise<string> {
+		if (!svg) return 'Nothing to copy'
+		try {
+			const r = svg.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1)
+			const copy = svg.cloneNode(true) as SVGSVGElement
+			const from = svg.querySelectorAll('*'), to = copy.querySelectorAll('*')
+			const PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'font-size', 'font-family', 'font-weight', 'text-anchor', 'dominant-baseline', 'visibility', 'display', 'paint-order', 'filter']
+			from.forEach((el, i) => { const cs = getComputedStyle(el); (to[i] as SVGElement).setAttribute('style', PROPS.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(';')) })
+			for (const im of copy.querySelectorAll('image')) {
+				const href = im.getAttribute('href') ?? im.getAttribute('xlink:href')
+				if (!href || href.startsWith('data:')) continue
+				const blob = await (await fetch(href)).blob()
+				im.setAttribute('href', await new Promise<string>((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result)); fr.readAsDataURL(blob) }))
+			}
+			copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+			copy.setAttribute('width', String(r.width)); copy.setAttribute('height', String(r.height))
+			const img = new Image()
+			img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`
+			await img.decode()
+			const cv = document.createElement('canvas')
+			cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr)
+			const g = cv.getContext('2d')!
+			g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height)
+			g.scale(dpr, dpr); g.drawImage(img, 0, 0, r.width, r.height)
+			const png = await new Promise<Blob | null>((ok) => cv.toBlob(ok, 'image/png'))
+			if (!png) return 'Copy failed: no picture'
+			await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+			return `Copied the view as a picture (${cv.width} × ${cv.height} px)`
+		} catch (e) { return `Copy failed: ${(e as Error).message}` }
+	}
 	export const isElevation = () => spec.kind === 'elevation'
 </script>
 
