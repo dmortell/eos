@@ -13,7 +13,7 @@
 
 <script lang="ts">
 	import { tick, untrack } from 'svelte'
-	import { backdropClose, dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import FloorsPanel from './FloorsPanel.svelte'
 	import SettingsPanel from './SettingsPanel.svelte'
 	import type { CadProject } from '../app/project.svelte'
@@ -38,13 +38,6 @@
 		tab = 'floors'
 		ws.ask2('The floor range typed in Floors & heights isn’t applied. Apply the floor range?', 'Apply', () => { floors?.apply(); done() }, { label: 'Discard', apply: done })
 	}
-	function key(e: KeyboardEvent) {
-		// Esc in a dialog opened from here (a logo picker) closes that one only
-		if (e.key !== 'Escape' || (e.target as Element | null)?.closest?.('[role=dialog]') !== dlg) return
-		e.stopPropagation()
-		requestClose()
-	}
-
 	// a question: its first answer takes the focus (after the drawing's question box, which also wants it); answered,
 	// or the dialog back from calibrating, the dialog has it again (Esc closes it, the drawing behind doesn't get keys)
 	$effect(() => { if (ws.confirm && !hidden) void tick().then(() => yesBtn?.focus()) })
@@ -56,10 +49,9 @@
 	function answer(apply: () => void) { ws.confirm = null; apply() }
 </script>
 
-<div class="backdrop" class:hidden role="presentation" use:backdropClose={() => requestClose()}>
-	<!-- hidden while calibrating: no dialog role then, so the drawing gets its keys (Esc stops the Calibrate tool) -->
-	<div class="dlg" role={hidden ? undefined : 'dialog'} use:dialogFocus bind:this={dlg} aria-label="Project settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={key}>
-		<div class="head"><b>Project settings</b><button class="x" title="Close (Esc)" onclick={() => requestClose()}>✕</button></div>
+<!-- hidden while calibrating: no dialog role then, so the drawing gets its keys (Esc stops the Calibrate tool) -->
+<CadDialog title="Project settings" width="64rem" height="min(46rem, 86vh)" flush {hidden} bind:el={dlg} onclose={() => requestClose()}>
+		{#snippet footer()}<div class="msg" role="status">{ws.message ?? ''}</div>{/snippet}
 		<div class="cols">
 			<div class="tabs" role="tablist" aria-orientation="vertical">
 				{#each TABS as [id, label] (id)}
@@ -87,17 +79,10 @@
 				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
 			</div>
 		</div>
-		<div class="msg" role="status">{ws.message ?? ''}</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; }
-	.backdrop.hidden { display: none; }
-	.dlg { width: min(64rem, 96vw); height: min(46rem, 86vh); display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; overflow: hidden; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.x { color: var(--cad-muted, #71717a); }
-	.cols { flex: 1; min-height: 0; display: flex; }
+	.cols { height: 100%; display: flex; }
 	.tabs { width: 10.5rem; flex: none; display: flex; flex-direction: column; gap: 1px; padding: 6px; border-right: 1px solid var(--cad-line, #e4e4e7); overflow-y: auto; }
 	.tabs button { text-align: left; padding: 3px 8px; border-radius: 4px; color: var(--cad-muted, #71717a); }
 	.tabs button:hover { color: inherit; }
@@ -112,7 +97,7 @@
 	.ask button.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
 	.ask button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 	.ask .keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
-	.msg { min-height: 22px; padding: 3px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #52525b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.msg { flex: 1; min-width: 0; min-height: 16px; color: var(--cad-muted, #52525b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	@media (max-width: 640px) {
 		.cols { flex-direction: column; }
 		.tabs { width: auto; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--cad-line, #e4e4e7); }

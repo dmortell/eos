@@ -2,7 +2,7 @@
      file. Restore: open a file from this project, pick which of its parts, preview what changes, restore as ONE undo
      step — the project owner only (§4). -->
 <script lang="ts">
-	import { dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import PartsPicker from './PartsPicker.svelte'
 	import { floorsOf, partsLabel, type Parts } from '../domain/backupParts'
@@ -88,13 +88,10 @@
 
 	const title = $derived(mode === 'download' ? 'Download backup' : source ? 'Restore backup' : 'Restore from file')
 	const when = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleString() }
-	function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !busy) { e.preventDefault(); onclose() } }
 </script>
 
-<svelte:window onkeydown={onKey} />
-<div class="backdrop">
-	<div class="dlg" role="dialog" use:dialogFocus tabindex="-1" aria-modal="true" aria-label={title}>
-		<div class="head"><b>{title}</b><button class="x" title="Close (Esc)" disabled={!!busy} onclick={onclose}>✕</button></div>
+<!-- a click beside it doesn't close it (a chosen file and its comparison would be lost); nor does anything while a job runs -->
+<CadDialog {title} width="34rem" top="10vh" flush outside={false} locked={!!busy} {onclose}>
 
 		{#if mode === 'download'}
 			<section>
@@ -148,14 +145,9 @@
 			{/if}
 		{/if}
 		{#if error}<section><span class="err">{error}</span></section>{/if}
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; }
-	.dlg { width: min(34rem, 96vw); max-height: 80vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.x { color: var(--cad-muted, #71717a); }
 	section { padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); display: flex; flex-direction: column; gap: 6px; }
 	section:last-child { border-bottom: none; }
 	.foot { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }

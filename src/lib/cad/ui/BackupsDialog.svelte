@@ -2,7 +2,7 @@
      sizes and the total — and Back up now. Per backup: Restore… (the owner), Download, Rename, Delete (its maker or the
      owner); tick several to delete them at once. Deleting is final. -->
 <script lang="ts">
-	import { dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import { onSnapshot, orderBy, query } from 'firebase/firestore'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectFile } from '../persist/file'
@@ -68,17 +68,11 @@
 	const when = (t: number) => new Date(t).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 	const partsOf = (h: BackupHead) => (h.parts === 'all' ? 'Whole project' : h.parts.map((p) => p.name).join(' + '))
 	const issueOf = (h: BackupHead) => { const i = h.issueId ? project.store.get(h.issueId) : undefined; return i?.type === 'issue' ? (i.number ? `Issue ${i.number}` : i.name) : '' }
-	function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !busy) { e.preventDefault(); if (confirm) confirm = null; else if (editing) editing = ''; else onclose() } }
+	/** Esc steps back: the delete question, then a rename, then the dialog. */
+	function escape() { if (confirm) confirm = null; else if (editing) editing = ''; else onclose() }
 </script>
 
-<svelte:window onkeydown={onKey} />
-<div class="backdrop">
-	<div class="dlg" role="dialog" use:dialogFocus tabindex="-1" aria-modal="true" aria-label="Backups">
-		<div class="head">
-			<b>Backups</b>
-			<span class="hint">{heads.length} · {size(total)}</span>
-			<button class="x" title="Close (Esc)" disabled={!!busy} onclick={onclose}>✕</button>
-		</div>
+<CadDialog title="Backups" hint="{heads.length} · {size(total)}" width="64rem" top="8vh" flush outside={false} locked={!!busy} {onclose} onescape={escape}>
 
 		<section>
 			{#if !making}
@@ -150,14 +144,9 @@
 			{/if}
 		</section>
 		{#if error}<section><span class="err">{error}</span></section>{/if}
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
-	.dlg { width: min(64rem, 96vw); max-height: 84vh; overflow: auto; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.head .x { margin-left: auto; color: var(--cad-muted, #71717a); }
 	section { padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); display: flex; flex-direction: column; gap: 6px; }
 	section:last-child { border-bottom: none; }
 	.confirm { flex-direction: row; align-items: center; gap: 10px; background: #fef2f2; color: #991b1b; }

@@ -1,7 +1,7 @@
 <!-- Pick a logo from the project's Uploads (backlog "Logos picked from Uploads"): its images to click, or "Upload…" a
      new one (it goes into the project's Uploads too, and is picked). -->
 <script lang="ts">
-	import { backdropClose, dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import type { Firestore } from 'firebase/firestore'
 	import { watchProjectImages, type ImageFile } from '../app/projectFiles'
 
@@ -19,9 +19,12 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" use:dialogFocus aria-label={title} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>{title}</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
+<CadDialog {title} width="36rem" top="8vh" {onclose}>
+		{#snippet footer()}
+			<label class="btn">Upload…<input type="file" accept="image/*" onchange={upload} /></label>
+			<span class="hint">a new image goes into the project's Uploads and is used here</span>
+			<span class="grow"></span>
+		{/snippet}
 		<div class="grid">
 			{#if files === null}<p class="hint">Loading…</p>
 			{:else}
@@ -32,21 +35,11 @@
 				{/each}
 			{/if}
 		</div>
-		<div class="foot">
-			<label class="btn">Upload…<input type="file" accept="image/*" onchange={upload} /></label>
-			<span class="hint">a new image goes into the project's Uploads and is used here</span>
-		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
-	.dlg { width: min(36rem, 94vw); max-height: 80vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head, .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; }
-	.head { border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.foot { border-top: 1px solid var(--cad-line, #e4e4e7); justify-content: flex-start; }
-	.x { color: var(--cad-muted, #71717a); }
-	.grid { overflow: auto; padding: 10px 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 8px; }
+	.grow { flex: 1; }
+	.grid { padding: 2px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 8px; }
 	.img { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; background: white; }
 	.img:hover { border-color: #2563eb; }
 	.img img { width: 100%; height: 4rem; object-fit: contain; }

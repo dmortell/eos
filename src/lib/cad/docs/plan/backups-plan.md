@@ -81,7 +81,7 @@ then the stored backups and the issue tick.
 - `app/backups.ts`: `makeBackup(project, name, note, parts)` (collect → chunks under `cadBackups/{id}`),
   `listBackups` (heads, newest first), `loadBackup`, `renameBackup`, `deleteBackups(ids)` (chunks and head; clears
   `Issue.backupId` on an issue that points at one).
-- `ui/BackupsWindow.svelte` (Project › Backups…): the list — name, date, by, parts, count, size, issue — with the
+- `ui/BackupsDialog.svelte` (Project › Backups…): the list — name, date, by, parts, count, size, issue — with the
   project's total size, sort by date or size, **Back up now…**, and per row Restore… (owner), Download, Rename,
   Delete (its maker or the owner); tick several to delete them at once. Restore goes through the same picker,
   preview and notice (a backup's parts can be narrowed: restore only "33F 3303" from a 33F backup).

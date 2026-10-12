@@ -3,7 +3,7 @@
      selected rows or the rows it shows; the cord BOM of that on screen (same counting as the Excel's BOM sheet). -->
 <script lang="ts">
 	import { untrack } from 'svelte'
-	import { backdropClose, dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Cord } from '../domain/types'
 	import { cordBom } from '../domain/reports'
@@ -51,10 +51,8 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" use:dialogFocus aria-label="Patch schedule" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>Patch schedule · cord BOM</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
-		<section class="opts">
+<CadDialog title="Patch schedule · cord BOM" label="Patch schedule" width="40rem" top="5vh" {onclose}>
+		{#snippet bar()}
 			<select title="Which cords: every room (a sheet each in the Excel), one room, or the patch list's selected / shown rows" bind:value={where}>
 				<option value="all">All rooms (a sheet per room)</option>
 				{#each rooms as r (r.id)}<option value="room:{r.id}">{r.name}</option>{/each}
@@ -66,8 +64,7 @@
 				<select bind:value={sortBy}>{#each SCHEDULE_SORTS as [k, label] (k)}<option value={k}>{label}</option>{/each}</select></label>
 			<span class="grow"></span>
 			<button class="btn go" disabled={busy || !cords.length} title="The patch schedule (work order: remove → change → add → installed) and this cord BOM, as Excel" onclick={exportXlsx}>{busy ? 'Exporting…' : 'Export to Excel'}</button>
-		</section>
-		<div class="body">
+		{/snippet}
 			<table>
 				<thead><tr><th>Cable type</th><th class="n">Length (m)</th>{#each shown as s (s)}<th class="n"><span class="chip s-{s}">{s}</span></th>{/each}<th class="n">Total</th></tr></thead>
 				<tbody>
@@ -81,24 +78,16 @@
 					{/if}
 				</tbody>
 			</table>
-		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 5vh; }
-	.dlg { width: min(40rem, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.x { color: var(--cad-muted, #71717a); }
-	.opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.grow { flex: 1; }
 	select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }
 	.btn:disabled { opacity: 0.5; }
-	.body { overflow: auto; padding: 0 12px 12px; }
 	.hint { color: var(--cad-muted, #71717a); padding: 8px 6px; }
-	table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+	table { width: 100%; border-collapse: collapse; }
 	th { text-align: left; font-weight: 600; color: var(--cad-muted, #52525b); border-bottom: 1px solid var(--cad-line, #e4e4e7); padding: 2px 6px; position: sticky; top: 0; background: var(--cad-panel, white); }
 	td { padding: 1px 6px; border-bottom: 1px solid var(--cad-line-faint, #f4f4f5); }
 	.n { text-align: right; white-space: nowrap; }

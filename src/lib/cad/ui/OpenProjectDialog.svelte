@@ -3,10 +3,11 @@
 	// opens it in cad. Pick a project from Firestore `projects` — the same collection and
 	// filters as the app's Projects page (src/routes/projects/Projects.svelte): trashed projects hidden, a
 	// search over name / codes / client / description, and "My projects" by ownerId. Enter or click opens
-	// the pick; ↑/↓ move; Esc / backdrop closes. Styled like the Ctrl-K palette (same tokens).
+	// the pick; ↑/↓ move; Esc / backdrop closes (CadDialog).
 	import { getContext, tick } from 'svelte'
 	import { Icon, type Firestore, type Session } from '$lib'
 	import { formatDate } from '$lib/utils/date'
+	import CadDialog from './CadDialog.svelte'
 
 	type Project = { id: string; name?: string; clientCode?: string; projectCode?: string; client?: string; description?: string;
 		ownerId?: string; deleted?: boolean; updatedAt?: unknown; createdAt?: unknown }
@@ -46,26 +47,24 @@
 
 	function choose(p: Project | undefined) { if (p) { onpick?.(p.id); onclose?.() } }
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') { e.preventDefault(); onclose?.() }
-		else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, results.length - 1) }
+		if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, results.length - 1) }
 		else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0) }
 		else if (e.key === 'Enter') { e.preventDefault(); choose(results[sel]) }
 	}
 </script>
 
-<!-- The backdrop is a real (unfocusable) close button BEHIND the dialog, so no div needs a click handler. -->
-<div class="op-back">
-	<button class="op-dismiss" aria-label="Close" tabindex="-1" onclick={() => onclose?.()}></button>
-	<div class="op" role="dialog" aria-modal="true" aria-label="Open project" tabindex="-1">
-		<div class="op-head">
-			<span class="op-title">Open Project</span>
-			<label class="op-mine"><input type="checkbox" bind:checked={mine} /> My projects</label>
-		</div>
+<CadDialog label="Open project" width="620px" top="12vh" flush onclose={() => onclose?.()}>
+	{#snippet head()}
+		<b>Open project</b>
+		<label class="op-mine"><input type="checkbox" bind:checked={mine} /> My projects</label>
+	{/snippet}
+	{#snippet bar()}
 		<div class="op-search">
 			<Icon name="search" size={15} />
-			<input placeholder="Search projects — name, code, client…" bind:value={query} use:autofocus onkeydown={onKey} />
+			<input aria-label="Search projects" placeholder="Search projects — name, code, client…" bind:value={query} use:autofocus onkeydown={onKey} />
 			<span class="op-kbd">Esc</span>
 		</div>
+	{/snippet}
 		<div class="op-list">
 			{#if loading}
 				<div class="op-empty">Loading projects…</div>
@@ -83,18 +82,12 @@
 				{#if !results.length}<div class="op-empty">{query.trim() || mine ? 'No projects match' : 'No projects'}</div>{/if}
 			{/if}
 		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.op-back { position:fixed; inset:0; z-index:200; background:#0007; display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; }
-	.op-dismiss { position:absolute; inset:0; background:none; border:none; cursor:default; }
-	.op { position:relative; width:min(620px,92vw); background:var(--cad-panel); border:1px solid var(--cad-line); border-radius:10px; box-shadow:0 24px 70px #0009; overflow:hidden; }
-	.op-head { display:flex; align-items:center; justify-content:space-between; padding:9px 13px 0; }
-	.op-title { font-size:12px; font-weight:700; letter-spacing:.04em; color:var(--cad-text); }
-	.op-mine { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--cad-muted); cursor:pointer; }
+	.op-mine { display:inline-flex; align-items:center; gap:5px; margin-left:12px; font-size:11px; color:var(--cad-muted); cursor:pointer; }
 	.op-mine input { accent-color:#2563eb; }
-	.op-search { display:flex; align-items:center; gap:9px; padding:9px 13px 11px; border-bottom:1px solid var(--cad-line); }
+	.op-search { flex:1; display:flex; align-items:center; gap:9px; }
 	.op-search :global(svg) { color:var(--cad-muted); flex:0 0 auto; }
 	.op-search input { flex:1; min-width:0; background:none; border:none; color:var(--cad-text); font-size:14px; }
 	.op-search input:focus { outline:none; }

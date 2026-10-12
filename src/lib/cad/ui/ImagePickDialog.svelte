@@ -4,7 +4,7 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import { watchProjectImages, watchProjectPdfs, storeFile, type ImageFile, type PdfFile } from '../app/projectFiles'
-	import { backdropClose, dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 
 	let { project, onpick, onclose }: { project: CadProject; onpick: (p: { fileId: string; page?: number; name: string }) => void; onclose: () => void } = $props()
 
@@ -28,10 +28,7 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" use:dialogFocus aria-label="Image" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>Image <span class="hint">— pick it, then drag its box on a plan, an elevation or a sheet</span></b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
-		<div class="body">
+<CadDialog title="Image" hint="— pick it, then drag its box on a plan, an elevation or a sheet" width="30rem" top="8vh" {onclose}>
 			<label class="btn up" class:busy title="Upload a picture or a PDF from this computer to the project's files (Uploads), and place it">
 				{busy ? 'Uploading…' : 'From this computer…'}
 				<input type="file" accept="image/*,application/pdf" disabled={busy} onchange={(e) => upload(e.currentTarget.files?.[0])} hidden /></label>
@@ -48,17 +45,10 @@
 				{/each}
 				{#if !images.length && !pdfs.length}<p class="hint">No files in Uploads yet.</p>{/if}
 			</div>
-		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 80; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
-	.dlg { width: min(30rem, 96vw); max-height: 80vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
 	.hint { font-weight: 400; color: var(--cad-muted, #71717a); }
-	.x { color: var(--cad-muted, #71717a); }
-	.body { overflow: auto; padding: 8px 12px 12px; }
 	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 8px; background: var(--cad-input); color: var(--cad-text); cursor: pointer; }
 	.btn:hover { background: var(--cad-hover); }
 	.up { display: inline-block; }

@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
-	import { backdropClose } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import { HOWTO, SHORTCUTS, FKEYS } from './helpContent'
 	import { TOOL_GROUPS } from './ToolStrip.svelte'
 	import type { ToolId } from '../app/workspace.svelte'
@@ -23,13 +23,11 @@
 	const tools = $derived(TOOL_GROUPS.map((g) => ({ name: g.name, tools: g.tools.filter((t) => hit(t.label, hints[t.id] ?? '', g.name)) })).filter((g) => g.tools.length))
 </script>
 
-<div class="back" role="presentation" use:backdropClose={onclose}>
-	<div class="hp" role="dialog" aria-label="Help" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onclose() } }}>
-		<div class="head">
-			<Icon name="search" size={14} />
-			<input bind:this={input} class="q" placeholder="Search help — e.g. label, snap, viewport, patch…" bind:value={q} />
-			<button class="x" title="Close (Esc)" onclick={onclose}><Icon name="x" size={14} /></button>
-		</div>
+<CadDialog label="Help" width="780px" top="6vh" flush {onclose}>
+	{#snippet head()}
+		<span class="lens"><Icon name="search" size={14} /></span>
+		<input bind:this={input} class="q" aria-label="Search help" placeholder="Search help — e.g. label, snap, viewport, patch…" bind:value={q} />
+	{/snippet}
 		<div class="body">
 			{#if howto.length}
 				<h3>How do I…</h3>
@@ -62,16 +60,12 @@
 			{/each}
 			{#if !howto.length && !shortcuts.length && !fkeys.length && !tools.length}<p class="none">Nothing matches “{q}”.</p>{/if}
 		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.back { position: fixed; inset: 0; z-index: 90; background: rgb(0 0 0 / 0.3); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; }
-	.hp { width: min(780px, 94vw); max-height: 84vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 10px; box-shadow: 0 24px 70px rgb(0 0 0 / 0.35); overflow: hidden; }
-	.head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted); }
-	.q { flex: 1; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 5px; padding: 4px 8px; font-size: 12px; background: var(--cad-input, white); color: var(--cad-text); }
-	.x { color: var(--cad-muted); }
-	.body { overflow: auto; padding: 4px 16px 14px; font-size: 12px; line-height: 1.5; }
+	.lens { display: flex; color: var(--cad-muted); }
+	.q { flex: 1; min-width: 0; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 5px; padding: 4px 8px; font-size: 12px; background: var(--cad-input, white); color: var(--cad-text); }
+	.body { padding: 4px 16px 14px; font-size: 12px; line-height: 1.5; }
 	h3 { margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cad-faint, #a1a1aa); }
 	p { margin: 4px 0; color: var(--cad-muted, #52525b); }
 	code { font-family: ui-monospace, Consolas, monospace; color: #1d4ed8; font-size: 11px; }

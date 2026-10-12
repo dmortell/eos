@@ -3,7 +3,7 @@
      built-in opened here is saved as a new template (the built-ins don't change). -->
 <script lang="ts">
 	import { untrack } from 'svelte'
-	import { backdropClose } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import type { DeviceTemplate } from '../domain/devices'
 	import type { Device } from '../domain/types'
 	import { newId } from '../domain/ids'
@@ -27,9 +27,12 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" aria-label="Device template" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') onclose(); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') save() }}>
-		<div class="head"><b>{isNew ? 'New device template' : 'Edit device template'}</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
+<CadDialog title={isNew ? 'New device template' : 'Edit device template'} label="Device template" width="24rem" top="8vh" flush {onclose}
+	onkeydown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') save() }}>
+	{#snippet footer()}
+		<button class="btn" onclick={onclose}>Cancel</button>
+		<button class="btn go" disabled={!ok} onclick={save}>{isNew ? 'Add to library' : 'Save'}</button>
+	{/snippet}
 		<div class="body">
 			<label>Name <input bind:value={t.name} placeholder="e.g. Patch panel 24 Cat6A 1U" use:focus /></label>
 			<label>Kind
@@ -53,22 +56,12 @@
 			<label>Model <input value={t.model ?? ''} oninput={(e) => (t.model = e.currentTarget.value)} /></label>
 		</div>
 		<p class="hint">{isNew ? 'Saved to the device library of every project' : 'Changes the template for every project — devices already placed keep theirs'}</p>
-		<div class="foot">
-			<button class="btn" onclick={onclose}>Cancel</button>
-			<button class="btn go" disabled={!ok} onclick={save}>{isNew ? 'Add to library' : 'Save'}</button>
-		</div>
-	</div>
-</div>
+</CadDialog>
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
-	.dlg { width: min(24rem, 96vw); display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.x { color: var(--cad-muted, #71717a); }
 	.body { display: grid; gap: 4px; padding: 8px 12px; }
 	label { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 6px; }
 	input, select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; min-width: 0; }
-	.foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); }
 	.hint { margin: 0; padding: 0 12px 8px; color: var(--cad-muted, #71717a); font-size: 11px; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }

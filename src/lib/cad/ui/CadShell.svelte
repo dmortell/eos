@@ -4,7 +4,7 @@
 	import WindowBody from './WindowBody.svelte'
 	import OpenProjectDialog from './OpenProjectDialog.svelte'
 	import BackupDialog from './BackupDialog.svelte'
-	import BackupsWindow from './BackupsWindow.svelte'
+	import BackupsDialog from './BackupsDialog.svelte'
 	import LegacyDrawingsDialog from './LegacyDrawingsDialog.svelte'
 	import { backupsCol, loadBackup, type BackupHead } from '../app/backups'
 	import { doc, getDoc } from 'firebase/firestore'
@@ -603,7 +603,7 @@
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />
-	{#if backupsOpen}<BackupsWindow {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
+	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if helpOpen}<HelpDialog keys={helpOpen === 'keys'} hints={HINT} onclose={() => (helpOpen = false)} ontool={setTool} />{/if}

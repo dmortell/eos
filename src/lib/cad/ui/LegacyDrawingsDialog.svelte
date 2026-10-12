@@ -2,7 +2,7 @@
      Sheets-tool sheets — and bring them into cad once, as one undo step. Reading the legacy docs never writes; nothing
      changes until "Import". Items already imported (stamped `importedFrom`) are skipped. -->
 <script lang="ts">
-	import { backdropClose, dialogFocus } from './backdrop'
+	import CadDialog from './CadDialog.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Id } from '../domain/types'
 	import { loadLegacyDrawings } from '../persist/import/legacyDrawings'
@@ -65,15 +65,12 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" use:backdropClose={onclose}>
-	<div class="dlg" role="dialog" use:dialogFocus aria-label="Import legacy drawings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-		<div class="head"><b>Import legacy drawings</b><button class="x" title="Close (Esc)" onclick={onclose}>✕</button></div>
+<CadDialog title="Import legacy drawings" width="60rem" top="5vh" {onclose} footer={src && !failed ? foot : undefined}>
 		{#if failed}
-			<p class="pad err">Couldn't read the legacy drawings: {failed}</p>
+			<p class="err">Couldn't read the legacy drawings: {failed}</p>
 		{:else if !src}
-			<p class="pad">Reading this project's Pages models and Sheets-tool sheets…</p>
+			<p>Reading this project's Pages models and Sheets-tool sheets…</p>
 		{:else}
-			<div class="body">
 				<p class="h">Pages models <span class="hint">— their boxes and walls go on the level you pick (opening boxes become openings in the walls); conduits and 2D shapes stay behind</span></p>
 				{#if !modelList.length}<p class="hint">No Pages models with 3D objects.</p>{/if}
 				<table>
@@ -128,25 +125,19 @@
 						<ul class="notes">{#each preview.notes as t, i (i)}<li>{t}</li>{/each}</ul>
 					{/if}
 				{/if}
-			</div>
-			<section class="foot">
-				{#if missingLevel}<span class="err">Pick a level for each ticked item</span>{/if}
-				<span class="grow"></span>
-				<button class="btn" onclick={onclose}>Cancel</button>
-				<button class="btn go" disabled={nothing || missingLevel} onclick={run}>Import</button>
-			</section>
 		{/if}
-	</div>
-</div>
+</CadDialog>
+
+{#snippet foot()}
+	{#if missingLevel}<span class="err">Pick a level for each ticked item</span>{/if}
+	<span class="grow"></span>
+	<button class="btn" onclick={onclose}>Cancel</button>
+	<button class="btn go" disabled={nothing || missingLevel} onclick={run}>Import</button>
+{/snippet}
 
 <style>
-	.backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 5vh; }
-	.dlg { width: min(60rem, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--cad-panel, white); color: var(--cad-text, #18181b); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 8px; box-shadow: 0 8px 30px rgb(0 0 0 / 0.2); font-size: 12px; }
-	.head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); }
-	.x { color: var(--cad-muted, #71717a); }
-	.pad { padding: 8px 12px; }
-	.body { overflow: auto; padding: 0 12px 12px; }
 	.h { font-weight: 600; margin: 10px 0 4px; }
+	.h:first-child { margin-top: 0; }
 	.hint { color: var(--cad-muted, #71717a); font-weight: normal; }
 	.err { color: #dc2626; }
 	.off { opacity: 0.55; }
@@ -157,7 +148,6 @@
 	select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.need { border-color: #dc2626; }
 	.notes { margin: 4px 0 0 16px; list-style: disc; color: var(--cad-muted, #52525b); }
-	.foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--cad-line, #e4e4e7); }
 	.grow { flex: 1; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }

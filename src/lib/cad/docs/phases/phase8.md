@@ -2950,3 +2950,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R85 step 3:** button tooltips that name a key read it from `KEYS` — status bar, tool strip, tab ✕, Back / Forward,
   the Navigator's search, the tables' open / close, Undo / Redo, Group / Ungroup (dialogs' "Close (Esc)" stay as they
   are). R85 done: one table of keys behind the shell, Help, the menus and the tooltips.
+- **R72 One `CadDialog`:** `ui/CadDialog.svelte` { title, label?, hint?, width, height?, top?, flush?, hidden?, locked?,
+  outside?, onclose, onescape?, onkeydown?, head? / bar? / footer? snippets, children } is the one modal shell: the
+  backdrop (`backdropClose`), `dialogFocus`, `role="dialog"` + `aria-modal`, Tab kept inside, Esc closes (its own Esc
+  only, not a dialog opened from it), the header with the title and ✕ (20 px), a scrolling body, an optional bar
+  (the export options) and footer, one z-index (90: above the menu bar and floating windows, under the right-click
+  menu; RestoreNotice 92 stays over it). It moves itself to cad's root, so a dialog opened from a floating window
+  (TemplateDialog from the Device library) covers the screen, not the window. The 13 dialogs use it: BOM, Cable
+  schedule, Cord labels, Image, Logo picker, Patch schedule, Project settings, Device template, Backup / Restore,
+  Backups (was `BackupsWindow`, now `BackupsDialog`), Help (its search box in the `head` snippet), Import legacy
+  drawings, Open project. Kept: Project settings hides while a floorplan is calibrated (`hidden`: no dialog role, so
+  the drawing gets Esc) and asks before closing on an unapplied floor range; Backup / Backups ignore the backdrop and
+  everything while a job runs (`outside={false}`, `locked`), Backups' Esc steps back (question → rename → close);
+  Device template's Enter saves.
