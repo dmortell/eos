@@ -3259,3 +3259,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q63** imports moved out of test bodies to the top of the file: overlap, drawing, editor, style, transmittalPage,
   exports (exceljs), and elevation, plan, pictureUploads. None of those files uses `vi.mock`, so there is no ordering
   constraint.
+
+## Backlog P3 fixes
+
+- **Q21** a `{DATE}` field no longer marks issued sheets "Changed since" at midnight: `frozenNow` passes the sheet's last issue date as `fieldDate` (`views/sheet.ts`), so the fingerprint is stable and the issue freezes the issue date. Test in `views/sheet.test.ts`.

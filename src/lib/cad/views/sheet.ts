@@ -44,6 +44,8 @@ export interface SheetOpts {
 	underlay?: PlanOpts['underlay']; blocks?: PlanOpts['blocks']
 	/** For the title block: the project's name and template (absent = the default template). */
 	projectName?: string; template?: TitleBlockTemplate
+	/** What {DATE} fields read (YYYY-MM-DD); absent = today. An issued sheet reads its last issue date, so midnight does not change its print. */
+	fieldDate?: string
 	/** The Project details the title block falls back on (client, site address, author, company). */
 	details?: ProjectDetails
 	/** Floorplans in black and white, outlets by usage color, cords along the channels — the project's old settings
@@ -185,7 +187,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		// an opaque window: a viewport laid over another hides what's under it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: 'viewport-bg' })
 		// text fields ({LEVEL}, {COUNT:…}, domain/fields.ts) read the viewport's level (a riser: the whole project)
-		const ctx = fieldCtx(ix, { project: o.projectName, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
+		const ctx = fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
 		for (const p of withFields(viewportContent(ix, vp, o), ctx)) out.push(placePrim(p, t, k, clip))
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
@@ -201,7 +203,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
 		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(o.hidden ?? []) }).draw : notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
-	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, sheet, blocks: o.blocks, levels: shown })))
+	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))
 	return out
 }
 

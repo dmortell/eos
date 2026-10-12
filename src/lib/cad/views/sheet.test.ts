@@ -187,4 +187,11 @@ describe('paper viewports: a port grid, a patch schedule, a fill section (review
 		expect(texts(sheetDisplayList(ix(), s))).toEqual(expect.arrayContaining(['A01 · Panel 1 · U40 · 24 ports', '33', '001', 'A01 port grid']))
 		expect(sheetTitleBlock(ix(), s).cells.find((c) => c.label === 'Scale')?.value).toBe('1:100')
 	})
+	it('a {DATE} note reads fieldDate when given (issued sheets keep their issue date), else today (Q21)', () => {
+		const note = { type: 'shape', id: 'N', sheetId: 'SH', geom: { kind: 'text', at: { x: 50, y: 50 }, text: 'Printed {DATE}', sizeMm: 3 } } as unknown as Shape
+		const i = new ProjectIndex([...demoProject(), note])
+		const txt = (o: object) => sheetDisplayList(i, sheet(), o).filter((p) => p.k === 'text').map((p) => (p.k === 'text' ? p.text : ''))
+		expect(txt({ fieldDate: '2026-01-02' })).toContain('Printed 2026-01-02')
+		expect(txt({})).not.toContain('Printed 2026-01-02')
+	})
 })

@@ -37,6 +37,7 @@ export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 	return freeze(sheetDisplayList(project.index, sheet, {
 		underlay: (u) => { const pl = project.pdf.placement(u); return pl && { ...pl, url: underlayRef(u.fileId, u.page ?? 1) } },
 		blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans,
+		fieldDate: sheet.revisions?.at(-1)?.date,   // {DATE} reads the last issue date, so an issued sheet isn’t "changed" by the clock (Q21)
 	}))
 }
 
