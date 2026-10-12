@@ -10,7 +10,7 @@
 	import { DragReorder } from '$lib'
 	import { markPrinted } from '../domain/ports'
 	import { portUseByDevice } from '../domain/cords'
-	import { exportPanelLabels } from '../render/exports'
+	import { exportPanelLabels, roomsWithRacks } from '../render/exports'
 	import { exportFrameSheets } from '../render/frameSheets'
 	import { downloadPanelSheets, unsupportedNote } from '../app/sheetsPdf'
 	import type { Device } from '../domain/types'
@@ -51,6 +51,24 @@
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
 	}
+	/** Every server room of this level (or of all levels) at once — the same as File › Export (Q72). */
+	async function labelsMany(all: boolean) {
+		const lv = all ? undefined : { id: levelId, name: project.index.nameOf(levelId) }
+		try {
+			const r = await exportPanelLabels(project.index, projectName, undefined, lv)
+			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
+			if (!panels.length) { ws.say(r.rows ? `${r.rows} port labels exported` : 'No patch panels to label'); return }
+			ws.ask2(`${r.rows} port labels exported. Mark the ${panels.length} panel(s) as printed?`, 'Mark printed',
+				() => { const now = Date.now(); project.store.transact('Panel labels printed', (tx) => { for (const d of panels) tx.put(markPrinted(project.index, d, now)) }) })
+		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
+	}
+	async function framesMany(all: boolean) {
+		const rooms = roomsWithRacks(project.index, all ? undefined : levelId)
+		try {
+			const r = await exportFrameSheets(project.index, projectName, rooms, false)
+			ws.say(r.racks ? `${r.racks} frame(s) exported from ${rooms.length} room(s)` : `No racks with patch panels ${all ? 'in the project' : `on ${project.index.nameOf(levelId)}`}`)
+		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
+	}
 	/** The room ⋯ menu (exports), opened under its button — the app's own menu, not a native select. */
 	let roomMenu = $state<{ x: number; y: number; space: string; name: string } | null>(null)
 	const roomItems = (m: { space: string; name: string }): MenuItem[] => [
@@ -59,6 +77,11 @@
 		'-',
 		{ label: 'Frame label sheets (Excel), a sheet per frame', title: 'RU rows × 24 ports, labels colored by usage (A3)', run: () => frames(m.space, m.name, false) },
 		{ label: 'Frame label sheets (Excel), one sheet for the room', title: 'The room’s frames side by side, bottoms aligned (A3)', run: () => frames(m.space, m.name, true) },
+		'-',
+		{ label: 'Panel labels — every room on this level (Excel)', title: 'Same as File › Export › Panel labels — this level', run: () => labelsMany(false) },
+		{ label: 'Panel labels — all levels (Excel)', run: () => labelsMany(true) },
+		{ label: 'Frame label sheets — every room on this level (Excel)', run: () => framesMany(false) },
+		{ label: 'Frame label sheets — all levels (Excel)', run: () => framesMany(true) },
 	]
 	/** The room's frames as label sheets in Excel (the Frames tool's grid layout): a sheet per frame or one for the room. */
 	async function frames(spaceId: string, name: string, perRoom: boolean) {
