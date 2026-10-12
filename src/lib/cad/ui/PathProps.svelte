@@ -9,6 +9,7 @@
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
 	import { withStyle } from '../domain/shapes'
+	import { insideOf, DEFAULT_WALL_MM } from '../domain/fill'
 	import { convertRun, RUN_PLACES, placeOf as placeOfOn, mainZ as mainZOf, placeNow, setRunPlace, servableRooms, toggleServes, type RunPlace } from '../domain/runEdit'
 	import { isVertical } from '../domain/shapes'
 	import { newId } from '../domain/ids'
@@ -55,6 +56,14 @@
 	}
 
 	function convert(to: Kind) { if (to !== kind) save(`Convert to ${to}`, convertRun(s, to)) }
+	/** The inside size (fill): a side typed sets it (the other side as shown); a side cleared = back to the 3 mm wall. */
+	function setInner(k: 'w' | 'h', v: string) {
+		if (!s.section) return
+		const n = Number(v), { inner: _, ...rest } = s.section
+		const next = v.trim() && n > 0 ? { ...insideOf(s.section), [k]: n } : undefined
+		if (next && s.section.round) next.h = next.w
+		save('Inside size', { ...s, section: next ? { ...rest, inner: next } : rest })
+	}
 	function setSection(patch: Partial<Section>) {
 		if (!s.section) return
 		const sec = { ...s.section, ...patch }
@@ -172,6 +181,16 @@
 			{#if !s.section.round}
 				<label class="row">Height <input class="inp" type="number" value={s.section.h} onchange={(e) => setSection({ h: Number(e.currentTarget.value) })} /></label>
 			{/if}
+			{#if s.role?.kind === 'containment'}
+				{@const ins = insideOf(s.section)}
+				<!-- what fill is worked out against: blank = the outside less a 3 mm wall each side (legacy Fill rate) -->
+				<div class="row" title="The inside size fill is worked out against (mm). Blank: the outside less a {DEFAULT_WALL_MM} mm wall each side.">Inside
+					<span class="inside">
+						<input class="inp" type="number" min="1" aria-label="Inside width" value={s.section.inner?.w ?? ''} placeholder={String(ins.w)} onchange={(e) => setInner('w', e.currentTarget.value)} />
+						{#if !s.section.round}× <input class="inp" type="number" min="1" aria-label="Inside height" value={s.section.inner?.h ?? ''} placeholder={String(ins.h)} onchange={(e) => setInner('h', e.currentTarget.value)} />{/if}
+					</span>
+				</div>
+			{/if}
 		{/if}
 		{#if s.role?.kind === 'containment'}
 			<label class="row" title="Where it runs: sets its height from the level's heights (the nodes at its main height; drops keep their ends) and its tier">Location
@@ -231,6 +250,8 @@
 </PropGroup>
 
 <style>
+	.inside { display: flex; align-items: center; gap: 0.25rem; }
+	.inside .inp { width: 4.5rem; }
 	.row { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: 0.25rem; }
 	.serves { display: flex; flex-wrap: wrap; gap: 2px 8px; }
 	.serves label { white-space: nowrap; }

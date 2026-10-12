@@ -2526,3 +2526,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Tests in `domain/blocks.test.ts`, `render/dxf.test.ts`.
 - **R37 follow-up:** the Outlet tool bar's zone / server room apply only on the level they belong to (spaces are per
   level), so on another floor the next outlet takes that floor's own (`editor/outletTool.ts`).
+- **R25 Fill against the inside size (Dave 2026-10-12: a 3 mm wall default + a field):** `domain/fill.ts`
+  `insideOf` — a run's own inside size, else its outside less a 3 mm wall each side (the legacy Fill rate tool's
+  default), used for fill % and the packed-cables picture; every run's fill % goes up a little (a 50×30 tray with
+  10 × Ø8: 43 % → 61 %, as legacy). Run Properties › Size and height › **Inside** W × H (a conduit: Ø), the default
+  shown greyed; a side cleared goes back to the wall. Tests in `domain/fill.test.ts`. Live (Test Project TR1, 50×50):
+  Inside shows 44 × 44; 40 typed and undone. Help: "Set a run's inside size for fill".

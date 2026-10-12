@@ -18,8 +18,8 @@ describe('fill', () => {
 		const s0 = f.get('T1:s0')!, s1 = f.get('T1:s1')!
 		expect(s0.cables).toEqual({ cat6a: 18, os2: 2 })
 		expect(s0.cableMm2).toBe(18 * 64 + 2 * 9)           // Cat6A set to 8 mm; OS2 none set → 3 mm
-		expect(s0.pct).toBeCloseTo((18 * 64 + 18) / 5000 * 100)   // 23.4 %
-		expect(s1.pct).toBeCloseTo((10 * 64) / 2500 * 100)        // 25.6 % in the narrower 50×50
+		expect(s0.pct).toBeCloseTo((18 * 64 + 18) / (94 * 44) * 100)   // inside a 3 mm wall: 28.3 %
+		expect(s1.pct).toBeCloseTo((10 * 64) / (44 * 44) * 100)        // 33.1 % in the narrower 50×50
 		expect(fillByRun(f).get('T1')!.seg).toBe('s1')
 		expect(fillBySegment(ix, routes, 20).get('T1:s0')!.over).toBe(true)
 	})
@@ -34,8 +34,9 @@ describe('fill', () => {
 		expect(both.cableMm2).toBe(18 * 64 + 2 * 9 + 400)
 	})
 	it('round conduits use πr²; tones; unknown types fall back by media', () => {
-		expect(sectionArea({ w: 20, h: 20, round: true })).toBeCloseTo(Math.PI * 100)
-		expect(sectionArea({ w: 100, h: 50, inner: { w: 94, h: 44 } })).toBe(94 * 44)
+		expect(sectionArea({ w: 20, h: 20, round: true })).toBeCloseTo(Math.PI * 49)   // Ø20 less a 3 mm wall: Ø14
+		expect(sectionArea({ w: 100, h: 50, inner: { w: 90, h: 40 } })).toBe(90 * 40)   // its own inside size wins
+		expect(sectionArea({ w: 100, h: 50 })).toBe(94 * 44)   // else 3 mm walls (legacy Fill rate)
 		expect([fillTone(10), fillTone(31), fillTone(41)]).toEqual(['ok', 'warn', 'over'])
 		expect(cableOd(undefined, 'cat6')).toBe(7)
 	})
@@ -44,10 +45,10 @@ describe('fill', () => {
 		expect(p.cables).toHaveLength(10)
 		expect(p.dropped).toBe(0)
 		for (const a of p.cables) {
-			expect(Math.abs(a.x) + a.r).toBeLessThanOrEqual(50.01); expect(Math.abs(a.y) + a.r).toBeLessThanOrEqual(25.01)
+			expect(Math.abs(a.x) + a.r).toBeLessThanOrEqual(47.01); expect(Math.abs(a.y) + a.r).toBeLessThanOrEqual(22.01)   // inside the walls
 			for (const b of p.cables) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(a.r + b.r - 0.06)
 		}
-		expect(Math.max(...p.cables.map((c) => c.y))).toBeCloseTo(25 - 4.5)   // settled on the bottom
+		expect(Math.max(...p.cables.map((c) => c.y))).toBeCloseTo(22 - 4.5)   // settled on the inside bottom
 		expect(packCables({ w: 20, h: 20, round: true }, { cat6a: 50 }, () => 9).dropped).toBeGreaterThan(40)
 	})
 })

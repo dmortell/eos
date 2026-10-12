@@ -1,7 +1,7 @@
 // CONTAINMENT FILL (Phase 5.3): how full each run segment is from the cables ROUTED through it (domain/routing.ts),
 // plus the cables added to a run by hand (`ContainmentRole.extra`).
 // A cable counts as a SQUARE of its outer diameter (d², Dave) against the section's inside area (`inner`, else the
-// section; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
+// section less a 3 mm wall; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
 // tested in fill.test.ts.
 import type { Id, ProjectSettings } from './types'
@@ -19,10 +19,18 @@ export function cableOd(settings: ProjectSettings | undefined, type: string): nu
 	return t?.diameterMm ?? DEFAULT_OD[type.toLowerCase()] ?? (t?.media === 'fibre' ? 3 : 7)
 }
 
+/** A run's wall when its inside size isn't set (the legacy Fill rate tool's default, Dave 2026-10-12). */
+export const DEFAULT_WALL_MM = 3
+/** A section's inside size: its own `inner`, else the outside less a 3 mm wall each side. */
+export function insideOf(s: Section): { w: number; h: number } {
+	if (s.inner) return s.inner
+	const w = Math.max(0, s.w - 2 * DEFAULT_WALL_MM), h = s.round ? w : Math.max(0, s.h - 2 * DEFAULT_WALL_MM)
+	return { w, h }
+}
 /** The inside area of a section, mm². */
 export function sectionArea(s: Section | undefined): number {
 	if (!s) return 0
-	const w = s.inner?.w ?? s.w, h = s.inner?.h ?? s.h
+	const { w, h } = insideOf(s)
 	return s.round ? Math.PI * (w / 2) ** 2 : w * h
 }
 
@@ -104,7 +112,7 @@ export interface Packed { round: boolean; w: number; h: number; cables: { x: num
 
 /** Cables laid in the section, largest first, each settling as low as it fits (+y = down), centred on the origin. */
 export function packCables(s: Section, cables: Record<string, number>, od: (type: string) => number, max = 400): Packed {
-	const round = !!s.round, w = s.inner?.w ?? s.w, h = round ? w : (s.inner?.h ?? s.h), R = w / 2
+	const round = !!s.round, inside = insideOf(s), w = inside.w, h = round ? w : inside.h, R = w / 2
 	const all = Object.entries(cables).flatMap(([type, n]) => Array.from({ length: n }, () => ({ type, r: od(type) / 2 }))).sort((a, b) => b.r - a.r)
 	const take = all.slice(0, max)
 	const placed: Packed['cables'] = []
