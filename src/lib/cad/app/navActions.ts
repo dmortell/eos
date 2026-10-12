@@ -3,7 +3,7 @@
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
-import { deleteEntities, levelContents, deleteImpact, impactText } from '../editor/commands'
+import { deleteEntities, levelContents, levelViewports, levelViewportsOff, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
 export function renameLevel(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
@@ -22,9 +22,11 @@ export function applyRename(project: CadProject, id: string, name: string, field
 export function deleteLevel(project: CadProject, ws: Workspace, id: string): void {
 	const l = project.index.get(id) as Level | undefined
 	if (l?.type !== 'level') return
-	const on = levelContents(project.store.all(), l.id)
-	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms)? Undo brings it back.`, 'Delete level', () => {
-		deleteEntities(project.store, [l.id, ...on])
+	const on = levelContents(project.store.all(), l.id), vps = levelViewports(project.store, l.id)
+	const sheets = new Set(vps.map((v) => v.sheet.id)).size
+	const vpText = vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : ''
+	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)?${vpText} Undo brings it back.`, 'Delete level', () => {
+		deleteEntities(project.store, [l.id, ...on], levelViewportsOff(project.store, l.id))
 		if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
 	})
 }

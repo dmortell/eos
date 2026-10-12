@@ -10,12 +10,14 @@ import type { Entity, Sheet, Viewport } from '../domain/drawing'
 import { removeCord } from '../domain/cords'
 import { untie } from './noteTool'
 
-/** Everything that lives on a level: its outlets, racks, shapes, floorplans, rooms / zones, and the rack rows of those
- *  rooms (devices, links and cords follow through deleteEntities). For deleting a level. */
+/** Everything that lives on a level: its outlets, racks, shapes, floorplans, rooms / zones, sections, saved views, and
+ *  the rack rows of those rooms (devices, links and cords follow through deleteEntities). For deleting a level; the
+ *  sheet viewports showing it come off with `levelViewportsOff`. */
 export function levelContents(all: Iterable<Entity>, levelId: Id): Id[] {
 	const list = [...all], out: Id[] = [], spaces = new Set<Id>()
 	for (const e of list) {
-		if ((e.type === 'outlet' || e.type === 'rack' || e.type === 'underlay' || e.type === 'space') && e.levelId === levelId) out.push(e.id)
+		if ((e.type === 'outlet' || e.type === 'rack' || e.type === 'underlay' || e.type === 'space' || e.type === 'section') && e.levelId === levelId) out.push(e.id)
+		else if (e.type === 'view' && (e.params as { levelId?: Id }).levelId === levelId) out.push(e.id)   // its saved views (and their own shapes)
 		else if (e.type === 'shape' && (e.levelId === levelId || (e.geom.kind === 'path' && e.geom.nodes.some((n) => n.levelId === levelId)))) out.push(e.id)
 		if (e.type === 'space' && e.levelId === levelId) spaces.add(e.id)
 	}
@@ -104,6 +106,23 @@ export function retargetSectionViewports(store: EntityStore, ix: ProjectIndex, s
 				return [{ ...next, centre: contentCentre(ix, next) }]
 			})
 			tx.put({ ...sheet, viewports })
+		}
+	}
+}
+
+/** The sheet viewports drawing this level (plans, elevations, sections and rack rows of it). */
+export function levelViewports(store: EntityStore, levelId: Id): { sheet: Sheet; vp: Viewport }[] {
+	return store.ofType('sheet').flatMap((sheet) => sheet.viewports.filter((v) => v.view.levelId === levelId).map((vp) => ({ sheet, vp })))
+}
+/** Inside a level's delete: its viewports come off their sheets (notes tied to them go back on the paper) — else the
+ *  sheets would keep printing an empty view. */
+export function levelViewportsOff(store: EntityStore, levelId: Id): (tx: Txn) => void {
+	return (tx) => {
+		const hits = levelViewports(store, levelId)
+		for (const sheet of new Set(hits.map((h) => h.sheet))) {
+			const off = new Set(hits.filter((h) => h.sheet === sheet).map((h) => h.vp.id))
+			for (const n of store.ofType('shape')) if (n.sheetId === sheet.id && n.vpId && off.has(n.vpId)) tx.put(untie(n, sheet.viewports.find((v) => v.id === n.vpId)!))
+			tx.put({ ...sheet, viewports: sheet.viewports.filter((v) => !off.has(v.id)) })
 		}
 	}
 }

@@ -7,7 +7,7 @@ import { demoProject } from '../domain/fixtures'
 import { type ToolCtx } from './tools'
 import { SelectTool } from './selectTool'
 import { NoteTool, untie } from './noteTool'
-import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports } from './commands'
+import { deleteEntities, deleteViewport, sectionViewports, retargetSectionViewports, levelContents, levelViewportsOff } from './commands'
 import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
@@ -171,5 +171,25 @@ describe('deleting a section that sheets show (backlog: asks about its viewports
 		const store = load()
 		deleteEntities(store, ['X'], retargetSectionViewports(store, new ProjectIndex(store.all()), ['X'], false))
 		expect((store.get('SH') as Sheet).viewports).toEqual([])
+	})
+})
+
+describe('deleting a level (review R18)', () => {
+	const cut = { type: 'section', id: 'X', levelId: 'L33', name: 'B', a: { x: 0, y: 0 }, b: { x: 5000, y: 0 }, depth: 3000 } as const
+	const plan = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 0, y: 0 } } as Sheet['viewports'][number]
+	const other = { ...plan, id: 'W', view: { levelId: 'OTHER', spec: { kind: 'plan' } } } as Sheet['viewports'][number]
+	const note = { type: 'shape', id: 'N', sheetId: 'SH', vpId: 'V', geom: { kind: 'text', at: { x: 100, y: 100 }, text: 'n', sizeMm: 2.5 } } as Shape
+	it('takes its sections, and its viewports come off their sheets (tied notes back on the paper), in one undo step', () => {
+		const store = new EntityStore()
+		store.load([...demoProject(), cut, { ...SHEET, viewports: [plan, other] }, note])
+		const on = levelContents(store.all(), 'L33')
+		expect(on).toContain('X')
+		deleteEntities(store, ['L33', ...on], levelViewportsOff(store, 'L33'))
+		expect(store.get('X')).toBeUndefined()
+		expect((store.get('SH') as Sheet).viewports.map((v) => v.id)).toEqual(['W'])
+		expect((store.get('N') as Shape).vpId).toBeUndefined()
+		expect(store.undoLabels.at(-1)).toMatch(/^Delete/)
+		store.undo()
+		expect((store.get('SH') as Sheet).viewports).toHaveLength(2)
 	})
 })

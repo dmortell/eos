@@ -2532,3 +2532,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   10 × Ø8: 43 % → 61 %, as legacy). Run Properties › Size and height › **Inside** W × H (a conduit: Ø), the default
   shown greyed; a side cleared goes back to the wall. Tests in `domain/fill.test.ts`. Live (Test Project TR1, 50×50):
   Inside shows 44 × 44; 40 typed and undone. Help: "Set a run's inside size for fill".
+- **R18 Deleting a level** also takes its sections and saved views, and its viewports come off their sheets (notes
+  tied to them go back on the paper), in the same undo step; the question says how many viewports on how many sheets
+  (`editor/commands.ts` `levelContents`, `levelViewports`, `levelViewportsOff`; `app/navActions.ts`). Test in
+  `editor/notes.test.ts`.
