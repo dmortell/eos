@@ -22,6 +22,8 @@ import { defaultOutletBlock, outletAttrs, insertAttrs, is3d, placed3d, type Bloc
 const is3dBlock = (b: Block | undefined) => !!b && is3d(b)
 /** A line straight up (all its nodes over one point): a point from above, so a plan leaves it out. */
 const upright = (g: Shape['geom']) => g.kind === 'path' && g.nodes.every((n) => n.x === g.nodes[0].x && n.y === g.nodes[0].y)
+/** How high a placed 3D-block part reaches (its top), for drawing it from above. */
+const topOf = (s: Shape) => (s.geom.kind === 'path' ? Math.max(...s.geom.nodes.map((n) => n.z)) : (s.plane?.kind === 'plan' ? s.plane.z : 0) + (s.extent ?? 0))
 import { usageColour } from '../domain/usages'
 
 export interface PlanOpts {
@@ -102,8 +104,9 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined):
 	switch (g.kind) {
 		case 'insert': {
 			const b = blocks?.(g.blockId)
-			// a 3D block: its boxes and lines placed in the model, seen from above — what collapses there (a vertical line) isn't drawn
-			if (b && is3d(b)) return placed3d(s, b).filter((p) => !upright(p.geom)).flatMap((p) => shapePrims(p, k, blocks))
+			// a 3D block: its boxes and lines placed in the model, seen from above — the higher over the lower (a desk's top
+			// hides its legs); what collapses there (a vertical line) isn't drawn
+			if (b && is3d(b)) return placed3d(s, b).filter((p) => !upright(p.geom)).map((p, i) => ({ p, i, top: topOf(p) })).sort((x, y) => x.top - y.top || x.i - y.i).flatMap(({ p }) => shapePrims(p, k, blocks))
 			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]

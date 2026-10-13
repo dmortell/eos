@@ -14,6 +14,7 @@
 	import CheckField from './fields/CheckField.svelte'
 	import type { Sheet } from '../domain/drawing'
 	import { linkUrl } from '../domain/links'
+	import { is3d } from '../domain/blocks'
 	import { enterKey } from './keyGuards'
 
 	let { project, ws, s, current }: { project: CadProject; ws: Workspace; s: Shape; /** the active pane's view: Explode shows the block as it draws it */ current?: { spec: ViewSpec } } = $props()
@@ -49,7 +50,9 @@
 		<NumberField label="Rotation" unit="°" title="Turned clockwise" value={g.rot ?? 0} onchange={(v) => setGeom('Rotate', { rot: v || undefined })} />
 		<NumberField label="Scale" step={0.1} value={g.scale ?? 1} onchange={(v) => v != null && v > 0 && setGeom('Scale', { scale: v === 1 ? undefined : v })} />
 		<NumberField label="Z" unit="mm" step={50} title="Its height above the floor (FFL): where it shows in elevations and sections" value={g.z ?? 0} onchange={(v) => setGeom('Block height', { z: v || undefined })} />
-		{#if s.levelId}
+		{#if s.levelId && b && is3d(b)}
+			<p class="muted" title="Its boxes are model: every plan, elevation and section shows them">3D: in every plan, elevation and section</p>
+		{:else if s.levelId}
 			<CheckField label="Elevations" text="show in elevations" title="Show it in elevations and sections too (a wall faceplate), at the Z above; otherwise only on the plan" checked={!!g.inElevations}
 				onchange={(on) => setGeom(on ? 'Show in elevations' : 'Plan only', { inElevations: on || undefined })} />
 		{/if}

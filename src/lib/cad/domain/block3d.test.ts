@@ -48,6 +48,9 @@ describe('3D blocks', () => {
 		expect(prims.filter((p) => p.k === 'line').length).toBe(4)   // top, leg, flat outline, the deep line — and not the riser
 		expect(prims.some((p) => p.k === 'text' && p.text === 'D1')).toBe(true)
 		expect(prims.some((p) => p.k === 'text' && p.text === 'oak')).toBe(true)
+		// from above the top hides the leg: drawn after it
+		const box = (w: number) => prims.findIndex((p) => p.k === 'line' && p.closed && Math.round(Math.max(...p.pts.map((q) => q.x)) - Math.min(...p.pts.map((q) => q.x))) === w)
+		expect(box(1600)).toBeGreaterThan(box(50))
 	})
 	it('an elevation (with no "show in elevations"): the boxes at their heights, the riser, the label — not the flat outline, the plain note or the end-on line', () => {
 		const { block, insert } = made(), blocks = (id: string) => (id === block.id ? block : undefined)
