@@ -456,7 +456,7 @@
 
 	/** Start typing a point while a drawing tool is active: the point box opens with what was typed. */
 	function typePoint(first: string) {
-		ws.askText(canvas?.typingLabel() ?? 'Point — x,y · @dx,dy · a length, Tab, an angle', first, (text) => {
+		ws.askText(canvas?.typingLabel() ?? 'Point — x,y (or x..y) · @dx,dy · a length, Tab, an angle', first, (text) => {
 			const err = canvas?.typed(text) ?? null
 			if (err) ws.say(err)
 		})

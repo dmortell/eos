@@ -11,8 +11,11 @@ export type Typed = { kind: 'point'; p: Pt } | { kind: 'error'; message: string 
 
 const NUM = /^-?\d+(\.\d+)?$|^-?\.\d+$/
 
+/** A numpad has no comma (Dave 2026-10-14): `..` types one — `1200..600` = `1200,600`. A single `.` stays a decimal point. */
+export const numpadCommas = (text: string): string => text.replace(/\.\./g, ',')
+
 export function parseTyped(text: string, last: Pt | null, cursor: Pt | null, yUp = false): Typed {
-	let t = text.trim().replace(/\s+/g, '')
+	let t = numpadCommas(text.trim().replace(/\s+/g, ''))
 	if (!t) return { kind: 'error', message: 'Type a point: x,y · @dx,dy · @d<angle · or a distance' }
 	if (NUM.test(t)) {
 		if (!last) return { kind: 'error', message: 'Pick or type a first point before a distance' }

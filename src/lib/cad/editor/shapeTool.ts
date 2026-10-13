@@ -122,7 +122,7 @@ export class ShapeTool implements Tool {
 		return null
 	}
 	typedLabel(): string | null {
-		if (this.#sized()) return `${this.id === 'box' ? 'Box' : 'Size'} — width,depth (e.g. 1200,600) towards the cursor · one number: a square · @dx,dy`
+		if (this.#sized()) return `${this.id === 'box' ? 'Box' : 'Size'} — width,depth (e.g. 1200,600 or 1200..600) towards the cursor · one number: a square · @dx,dy`
 		if (this.#a && !this.#arc() && this.opts().kind === 'polygon') return 'Radius (towards the cursor) · or a point: x,y · @dx,dy'
 		return null
 	}
