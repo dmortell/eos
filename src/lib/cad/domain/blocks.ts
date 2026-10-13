@@ -15,20 +15,19 @@ export const DATA_FIELDS = ['PROJECT', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] 
 export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 
 export type BlockShape = BlockDef['shapes'][number]
-export type Block = BlockDef & { annotative?: boolean; builtin?: boolean
-	/** Its FRONT drawing, in real mm, centred on the insert point: what an elevation / section shows of an insert placed on
-	 *  a wall (the plan symbol is a plan view). Absent = the plan symbol is shown there too. */
-	front?: BlockShape[] }
-/** The block as an elevation / section draws it: its front drawing (real mm), if it has one. */
-export const frontOf = (b: Block): Block => (b.front ? { ...b, shapes: b.front, annotative: false } : b)
-/** How a view draws blocks: its PLAN symbol, or its FRONT (an elevation / section). Decided once, by the view's kind,
- *  for every way a block is drawn — a plan, an elevation, a note in a viewport, the Insert ghost, the Blocks window. */
-export type BlockFace = 'plan' | 'front'
-export const faceFor = (viewKind: string): BlockFace => (viewKind === 'elevation' || viewKind === 'section' ? 'front' : 'plan')
-export const blockFace = (b: Block, face: BlockFace): Block => (face === 'front' ? frontOf(b) : b)
-/** Is this block drawn in paper mm (annotative) with this face? Only built-in symbols are; blocks people make from
- *  model shapes are real mm. For code with no block library at hand (untying a note from a viewport). */
-export const annotativeIn = (blockId: Id, face: BlockFace): boolean => { const b = BUILTIN_BLOCKS.find((x) => x.id === blockId); return !!b && !!blockFace(b, face).annotative }
+/** A 2D block is ONE drawing (Dave 2026-10-14): every view draws it the same — a plan, an elevation, a section, a sheet
+ *  — and an insert shows only in the view it was placed in. */
+export type Block = BlockDef & { annotative?: boolean; builtin?: boolean }
+/** A stored block from before 2026-10-14 may still carry a separate `front` drawing (block-front authoring, since
+ *  dropped): that drawing becomes the block's only one, in real mm. */
+export function oneDrawing(b: Block & { front?: BlockShape[] }): Block {
+	if (!b.front) return b
+	const { front, ...rest } = b
+	return { ...rest, shapes: front, annotative: false }
+}
+/** Is this block drawn in paper mm (annotative)? Only built-in symbols are; blocks people make from model shapes are
+ *  real mm. For code with no block library at hand (untying a note from a viewport). */
+export const annotativeIn = (blockId: Id): boolean => !!BUILTIN_BLOCKS.find((x) => x.id === blockId)?.annotative
 
 const sh = (geom: Geometry, extra: Partial<BlockShape> = {}): BlockShape => ({ id: newId(), geom, ...extra })
 /** A straight line as a two-node path. */
@@ -87,25 +86,19 @@ function drawingSymbols(): Block[] {
 	]
 }
 
-/** Data / power faceplates, single / dual gang (paper mm, the plate's back on the wall line y = −0.75). */
+/** Data / power faceplates, single / dual gang: the plate from the front, real mm (one drawing, Dave 2026-10-14). */
 function faceplates(): Block[] {
-	const data = (x: number) => sh({ kind: 'polygon', pts: [{ x: x - 0.7, y: -0.45 }, { x: x + 0.7, y: -0.45 }, { x, y: 0.55 }] }, solid)
-	const pins = (x: number): BlockShape[] => [seg(x - 0.35, -0.4, x - 0.35, 0.4), seg(x + 0.35, -0.4, x + 0.35, 0.4)]
-	const make = (id: string, name: string, gangs: 1 | 2, mark: (x: number) => BlockShape[], front?: BlockShape[]): Block => {
-		const w = gangs === 1 ? 2.6 : 4.8, xs = gangs === 1 ? [0] : [-1.15, 1.15]
-		return { type: 'block', id, name, scope: 'global', category: 'outlet', annotative: true, builtin: true,
-			shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: w, y: 1.5 } }), ...xs.flatMap(mark), label, usage, ports(1.1)], ...(front ? { front } : {}) }
-	}
+	const make = (id: string, name: string, shapes: BlockShape[]): Block => ({ type: 'block', id, name, scope: 'global', category: 'outlet', builtin: true, shapes })
 	return [
-		make('builtin:faceplate-data-1', 'Faceplate - data, single', 1, (x) => [data(x)], plateFront([0], rj45)),
-		make('builtin:faceplate-data-2', 'Faceplate - data, dual', 2, (x) => [data(x)], plateFront([-22, 22], rj45)),
-		make('builtin:faceplate-power-1', 'Faceplate - power, single', 1, pins, plateFront([0], power)),
-		make('builtin:faceplate-power-2', 'Faceplate - power, dual', 2, pins, plateFront([-22, 22], power)),
+		make('builtin:faceplate-data-1', 'Faceplate - data, single', plateFront([0], rj45)),
+		make('builtin:faceplate-data-2', 'Faceplate - data, dual', plateFront([-22, 22], rj45)),
+		make('builtin:faceplate-power-1', 'Faceplate - power, single', plateFront([0], power)),
+		make('builtin:faceplate-power-2', 'Faceplate - power, dual', plateFront([-22, 22], power)),
 	]
 }
 
-/** A faceplate from the front (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and a socket
- *  centred at each y in `cys` (one above the other). Real mm. */
+/** A faceplate (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and a socket centred at
+ *  each y in `cys` (one above the other). Real mm. */
 function plateFront(cys: number[], socket: (cy: number) => BlockShape[]): BlockShape[] {
 	return [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 70, y: 115 } }), sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 50, y: 90 } }), ...cys.flatMap(socket)]
 }
@@ -196,25 +189,25 @@ function scaleGeometry(g: Geometry, k: number): Geometry {
 	}
 }
 
-/** Why these shapes can't become a block's FRONT drawing, or null: they must lie on the plane of ONE elevation or
+/** Why these shapes can't become a block made in an elevation, or null: they must lie on the plane of ONE elevation or
  *  section (what you draw in an elevation), and not be blocks themselves. */
-export function frontProblem(shapes: Shape[]): string | null {
+export function elevationProblem(shapes: Shape[]): string | null {
 	if (!shapes.length) return 'Select the shapes drawn in the elevation first'
-	if (shapes.some((s) => s.geom.kind === 'insert' || s.geom.kind === 'legend')) return 'A front drawing is made of drawn shapes, not blocks or legends'
+	if (shapes.some((s) => s.geom.kind === 'insert' || s.geom.kind === 'legend')) return 'A block is made of drawn shapes, not blocks or legends'
 	const planes = shapes.map((s) => (s.plane?.kind === 'vertical' ? s.plane : null))
-	if (planes.some((p) => !p)) return 'A front drawing is made from shapes drawn in an elevation or section'
+	if (planes.some((p) => !p)) return 'Those shapes aren’t all drawn in an elevation or section'
 	const first = planes[0]!
 	if (planes.some((p) => !sameFrame(p!.frame, first.frame))) return 'Those shapes are in different elevations — pick ones from one view'
 	return null
 }
 
 /**
- * The FRONT drawing of a block from shapes drawn in an elevation or section: real mm, y down, origin = the middle of
- * their extent (as the plan symbol of Make block). `at` says where that middle is in the view — its u along the
- * elevation, its height v and the plane's depth — so the insert that replaces them goes back to the same place.
+ * A block's drawing from shapes drawn in an elevation or section: real mm, y down, origin = the middle of their extent
+ * (as Make block on a plan). `at` says where that middle is in the view — its u along the elevation, its height v and
+ * the plane's depth — so the insert that replaces them goes back to the same place.
  */
-export function frontFromShapes(shapes: Shape[], k = 100): { front: BlockShape[]; width: number; height: number; at: { u: number; v: number; depth: number; frame: ElevFrame } } | null {
-	if (frontProblem(shapes)) return null
+export function elevationShapes(shapes: Shape[], k = 100): { shapes: BlockShape[]; width: number; height: number; at: { u: number; v: number; depth: number; frame: ElevFrame } } | null {
+	if (elevationProblem(shapes)) return null
 	const pl = shapes[0].plane as Extract<NonNullable<Shape['plane']>, { kind: 'vertical' }>
 	/** The shape's points in view mm: u across, −height down the page. */
 	const view = (g: Geometry): Geometry => {
@@ -228,27 +221,24 @@ export function frontFromShapes(shapes: Shape[], k = 100): { front: BlockShape[]
 	const pts = shown.flatMap((x) => pointsOf(x.geom))
 	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
 	const c = { x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2), y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2) }
-	const front = shown.map(({ s, geom }): BlockShape => {
+	const out = shown.map(({ s, geom }): BlockShape => {
 		const { type: _t, groupId: _g, levelId: _l, viewId: _v, sheetId: _s, plane: _p, ...rest } = s as ShapeCore & { levelId?: Id; viewId?: Id; sheetId?: Id; plane?: unknown }
 		return { ...rest, geom: moveGeometry(geom, { x: -c.x, y: -c.y }) }
 	})
-	return { front, width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), at: { u: c.x, v: -c.y, depth: pl.depth, frame: pl.frame } }
+	return { shapes: out, width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), at: { u: c.x, v: -c.y, depth: pl.depth, frame: pl.frame } }
 }
 
-/** What "Make block" writes for shapes drawn in an elevation: the block (a NEW one named `to.name`, its plan symbol a
- *  plain box of the front's width; or `to.blockId`'s `front` replaced — your own blocks only) and the insert that
- *  replaces the shapes, placed in that elevation at the same place and height. Null = it can't be done. */
-export function frontBlock(shapes: Shape[], to: { blockId: Id } | { name: string }, existing?: Block): { write: Block | { id: Id; front: BlockShape[] }; insert: Shape } | null {
-	const f = frontFromShapes(shapes), owner = shapes[0]
+/** What "Make block" writes for shapes drawn in an elevation: a new block named `name` (real mm) and the insert that
+ *  replaces the shapes, placed in that elevation at the same place and height (shown only there). Null = it can't. */
+export function elevationBlock(shapes: Shape[], name: string): { block: Block; insert: Shape } | null {
+	const f = elevationShapes(shapes), owner = shapes[0]
 	if (!f || !owner.levelId) return null
-	if ('blockId' in to && (!existing || existing.id !== to.blockId || existing.builtin)) return null
-	const write = 'blockId' in to ? { id: to.blockId, front: f.front }
-		: { type: 'block', id: newId(), name: to.name, scope: 'global', shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: Math.max(10, Math.round(f.width)), y: 50 } })], front: f.front } satisfies Block
+	const block: Block = { type: 'block', id: newId(), name, scope: 'global', shapes: f.shapes }
 	const p = unproject(f.at.frame, { u: f.at.u, v: f.at.v }, f.at.depth), n = f.at.frame.n
-	const rot = Math.round((Math.atan2(-n.x, n.y) * 180) / Math.PI + 360) % 360   // its front towards the viewer, as the Insert tool places it
+	const rot = Math.round((Math.atan2(-n.x, n.y) * 180) / Math.PI + 360) % 360   // facing the viewer, as the Insert tool places it
 	const insert = { type: 'shape', id: newId(), levelId: owner.levelId, ...(owner.layerId ? { layerId: owner.layerId } : {}),
-		geom: { kind: 'insert', blockId: write.id, at: { x: Math.round(p.x), y: Math.round(p.y) }, ...(rot ? { rot } : {}), ...(f.at.v ? { z: Math.round(f.at.v) } : {}), inElevations: true, frame: f.at.frame } } as Shape
-	return { write, insert }
+		geom: { kind: 'insert', blockId: block.id, at: { x: Math.round(p.x), y: Math.round(p.y) }, ...(rot ? { rot } : {}), ...(f.at.v ? { z: Math.round(f.at.v) } : {}), inElevations: true, frame: f.at.frame } } as Shape
+	return { block, insert }
 }
 
 /**
@@ -277,12 +267,12 @@ export function blockFromShapes(shapes: Shape[], name: string, paperScale?: numb
  *  turned, scaled (× `k`, the drawing scale, for an annotative block), with the insert's owner, layer and height, its
  *  `{TAG}` texts filled in. `k` = drawing mm per paper mm where it is drawn (a plan: PLOT_SCALE; paper: 1; a note in a
  *  viewport: the viewport's scale) — texts keep the size they were drawn at (a text's size is paper mm, drawn × k).
- *  `face` = the drawing the view shows (faceFor); `frame` = an elevation / section a level's insert is exploded in:
- *  its FRONT drawing goes onto that view's plane at the insert's height, as the view drew it. */
-export function explodeInsert(ins: Shape, block: Block, k = 1, o: { face?: BlockFace; frame?: ElevFrame } = {}): Shape[] {
+ *  `frame` = an elevation / section a level's insert is exploded in: its drawing goes onto that view's plane at the
+ *  insert's height, as the view drew it. */
+export function explodeInsert(ins: Shape, block: Block, k = 1, o: { frame?: ElevFrame } = {}): Shape[] {
 	if (ins.geom.kind !== 'insert') return []
 	const frame = ins.levelId ? o.frame : undefined
-	const b = blockFace(block, frame ? 'front' : o.face ?? 'plan')
+	const b = block
 	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (b.annotative ? k : 1)
 	const attrs = insertAttrs(block, ins.geom.attrs, ins.geom.hidden)
 	const owner = ins.levelId ? { levelId: ins.levelId } : ins.viewId ? { viewId: ins.viewId } : { sheetId: ins.sheetId!, ...(ins.vpId ? { vpId: ins.vpId } : {}) }

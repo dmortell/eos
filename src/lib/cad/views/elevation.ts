@@ -56,13 +56,13 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (g) items.push({ depth: sp.depthOf(unproject(plane.frame, { u: 0, v: 0 }, plane.depth)) + 1 + (s.order ?? 0) * 1e-3, prims: shapePrims({ ...s, geom: g }, k) })   // draw order among them
 			continue
 		}
-		// a block insert placed in an elevation (a wall faceplate): drawn as on a plan (shapePrims), its front facing the
+		// a block insert placed in an elevation (a wall faceplate): its one drawing, as on a plan (shapePrims), facing the
 		// viewer at its height — only in the view it was placed in (`frame`); one placed on the plan isn't shown here
 		if (s.geom.kind === 'insert') {
 			const g = s.geom
 			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameFrame(g.frame, sp.frame)))) continue
 			const p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, { rot: _r, ...flat } = g
-			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks, 'front') })
+			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks) })
 			continue
 		}
 		if (planDrawing(s)) continue

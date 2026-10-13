@@ -62,7 +62,7 @@
 				<button class="pick" title="Place {r.b.name}: click, then click where it goes — or drag it onto the drawing{picked === r.b.id ? ' (click again to stop)' : ''}" disabled={!project.blockOf(r.b.id)} onclick={() => onpick(picked === r.b.id ? null : r.b)}
 					draggable={!!project.blockOf(r.b.id)} ondragstart={(e) => dragBlock(e, r.b)} ondragend={() => ws.endDrag()}>
 					<svg class="pv" viewBox={r.viewBox}><Prims prims={r.prims} selected={new Set()} /></svg>
-					<span class="nm">{r.b.name}{#if r.b.front}<span class="ft" title="Has a front drawing: elevations and sections show it"> · front</span>{/if}</span>
+					<span class="nm">{r.b.name}</span>
 				</button>
 				{#if here}<span class="ct">{used.get(r.b.id)}</span>{/if}
 				{#if !r.b.builtin && project.blockOf(r.b.id) && !r.b.retired}<button class="del" title="Delete this block from the library" onclick={() => retire(r.b)}>✕</button>{:else}<span></span>{/if}
@@ -86,7 +86,6 @@
 	.pick { display: grid; grid-template-columns: 1.4rem 1fr; align-items: center; gap: 0.35rem; text-align: left; font-size: 12px; padding: 1px 0; min-width: 0; }
 	.pv { width: 1.3rem; height: 1.3rem; }
 	.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.ft { color: var(--cad-faint); font-size: 10px; }
 	.ct { font-size: 11px; color: var(--cad-faint); }
 	/* the row's ✕: on hover, and on the picked row or one with the focus (keyboard); always on a touch screen */
 	.del { visibility: hidden; min-width: 20px; min-height: 20px; border-radius: 3px; font-size: 10px; color: var(--cad-faint); }

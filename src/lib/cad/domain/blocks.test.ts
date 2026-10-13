@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, blockProblem, paperBlockScale, explodeInsert, blockAttrDefs, insertAttrs, frontOf, type Block } from './blocks'
+import { BUILTIN_BLOCKS, defaultOutletBlock, fillAttrs, blockFromShapes, blockProblem, paperBlockScale, explodeInsert, blockAttrDefs, insertAttrs, type Block } from './blocks'
 import { blockPrims } from '../views/blocks'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from './project'
@@ -34,19 +34,12 @@ describe('outlet symbols', () => {
 		expect(usage?.k === 'text' && usage.at.y).toBeGreaterThan(1.8)   // below the ring, not in its middle
 		expect(ap.some((p) => p.k === 'text' && p.text === '1')).toBe(true)
 	})
-	it('faceplates: data / power, single / dual gang — outlet symbols with label, usage and ports; dual is wider', () => {
+	it('faceplates: data / power, single / dual gang — ONE drawing (Dave 2026-10-14): a 70 × 115 plate, a 50 × 90 frame; power sockets two prongs and an earth, data an RJ45 — real mm', () => {
 		const fp = BUILTIN_BLOCKS.filter((b) => b.id.startsWith('builtin:faceplate-'))
 		expect(fp.map((b) => b.name)).toEqual(['Faceplate - data, single', 'Faceplate - data, dual', 'Faceplate - power, single', 'Faceplate - power, dual'])
-		for (const b of fp) {
-			expect(b.category).toBe('outlet')
-			expect(b.shapes.filter((s) => s.geom.kind === 'text').map((s) => (s.geom as { text: string }).text)).toEqual(['{LABEL}', '{USAGE}', '{PORTS}'])
-		}
-		const width = (b: Block) => (b.shapes[0].geom as { size: { x: number } }).size.x
-		expect(width(fp[1])).toBeGreaterThan(width(fp[0]))
-	})
-	it('faceplates from the front (elevations): a 70 × 115 plate, a 50 × 90 frame; power sockets two prongs and an earth, data an RJ45 — real mm', () => {
-		const dual = frontOf(lib.get('builtin:faceplate-power-2')!)
-		expect(dual.annotative).toBe(false)
+		for (const b of fp) expect(b).toMatchObject({ category: 'outlet' })
+		const dual = lib.get('builtin:faceplate-power-2')!
+		expect(dual.annotative).toBeFalsy()
 		const sizes = dual.shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
 		expect(sizes).toEqual([{ x: 70, y: 115 }, { x: 50, y: 90 }])
 		expect(dual.shapes.filter((s) => s.geom.kind === 'path')).toHaveLength(4)     // 2 sockets × 2 prongs
@@ -55,9 +48,8 @@ describe('outlet symbols', () => {
 		const plate = ps.find((p) => p.k === 'line' && p.closed)
 		expect(plate?.k === 'line' && Math.max(...plate.pts.map((q) => q.x)) - Math.min(...plate.pts.map((q) => q.x))).toBe(70)
 		// a data faceplate: the same plate and frame, an RJ45 rectangle per socket
-		const data = frontOf(lib.get('builtin:faceplate-data-2')!).shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
+		const data = lib.get('builtin:faceplate-data-2')!.shapes.flatMap((s) => (s.geom.kind === 'rect' ? [s.geom.size] : []))
 		expect(data).toEqual([{ x: 70, y: 115 }, { x: 50, y: 90 }, { x: 14, y: 12 }, { x: 14, y: 12 }])
-		expect(frontOf(lib.get('builtin:outlet-box')!).shapes).toBe(lib.get('builtin:outlet-box')!.shapes)   // no front drawing: the symbol
 	})
 	it('an annotative block scales with the drawing; a model block does not', () => {
 		const b = lib.get('builtin:outlet-box')!
@@ -146,10 +138,9 @@ describe('explode draws what the view drew', () => {
 		const ins = { type: 'shape', id: 'i', levelId: 'L', geom: { kind: 'insert', blockId: 'B', at: { x: 0, y: 0 } } } as Shape
 		expect((explodeInsert(ins, b, 100)[0].geom as { sizeMm: number }).sizeMm).toBe(2)
 	})
-	it('in an elevation: the front drawing on that view’s plane at the insert’s height, not the plan symbol on the plan', () => {
-		const plate = { type: 'block', id: 'P', name: 'Plate', scope: 'global', annotative: true,
-			shapes: [{ id: 'c', geom: { kind: 'circle', centre: { x: 0, y: 0 }, r: 2 } }],
-			front: [{ id: 'f', geom: { kind: 'rect', centre: { x: 0, y: -10 }, size: { x: 70, y: 115 } } }, makePath({ levelId: 'L' }, [{ x: -35, y: 0 }, { x: 35, y: 0 }])] } as Block
+	it('in an elevation: its drawing on that view’s plane at the insert’s height, not on the plan', () => {
+		const plate = { type: 'block', id: 'P', name: 'Plate', scope: 'global',
+			shapes: [{ id: 'f', geom: { kind: 'rect', centre: { x: 0, y: -10 }, size: { x: 70, y: 115 } } }, makePath({ levelId: 'L' }, [{ x: -35, y: 0 }, { x: 35, y: 0 }])] } as Block
 		const frame = { o: { x: 0, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: 1 } }   // the front elevation: u = x, looking up the sheet
 		const ins = { type: 'shape', id: 'i', levelId: 'L', geom: { kind: 'insert', blockId: 'P', at: { x: 2000, y: 500 }, z: 300, inElevations: true, frame } } as Shape
 		const [box, line] = explodeInsert(ins, plate, 100, { frame })

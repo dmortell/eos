@@ -7,7 +7,6 @@ import type { Sheet, Viewport, SectionCut } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 import { byDrawOrder } from '../domain/shapes'
 import { nextLabel } from '../domain/labels'
-import { faceFor } from '../domain/blocks'
 import type { ProjectIndex } from '../domain/project'
 import { primBounds, unionBounds, type Prim, type Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
@@ -188,8 +187,7 @@ function notePrims(ix: ProjectIndex, s: Shape, sheet: Sheet, o: SheetOpts): Prim
 	if (!vp) return layered(shapePrims(s, 1, blocks), sheet.frozen ?? [])
 	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
 	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
-	// a block put in an elevation / section viewport (a faceplate on its wall) is drawn as that view draws blocks
-	return layered(shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)), vp.frozen ?? []).map((p) => placePrim(p, t, k, clip, p.src))
+	return layered(shapePrims(s, vp.scale, blocks), vp.frozen ?? []).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
 /** The options as this sheet draws: its own B/W, usage colors and cord route over the project's old settings. */

@@ -18,7 +18,7 @@ import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
-import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, frontBlock, frontProblem, explodeInsert, faceFor, type Block, type BlockFace } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, elevationBlock, elevationProblem, explodeInsert, oneDrawing, type Block } from '../domain/blocks'
 import type { ElevFrame } from '../domain/conventions'
 import { spaceOf, type ViewSpec } from '../views/space'
 import { sectionSpace } from '../views/section'
@@ -101,7 +101,7 @@ export class CadProject {
 
 	/** Blocks people made, from the global library doc; the built-ins are added in `blocks`. */
 	globalBlocks = $state.raw<Record<Id, Block>>({})
-	blocks = $derived(new Map<Id, Block>([...BUILTIN_BLOCKS, ...Object.values(this.globalBlocks)].map((b) => [b.id, b])))
+	blocks = $derived(new Map<Id, Block>([...BUILTIN_BLOCKS, ...Object.values(this.globalBlocks).map(oneDrawing)].map((b) => [b.id, b])))
 	blockOf = (id: Id): Block | undefined => this.blocks.get(id)
 	/** Device templates are GLOBAL too (Dave, Phase 3 §9): built-ins + `settings/cadDeviceTemplates`. */
 	globalTemplates = $state.raw<Record<Id, DeviceTemplate>>({})
@@ -191,26 +191,17 @@ export class CadProject {
 	 *  itself stays in the library). */
 	async makeBlock(ids: Id[], name: string): Promise<Id | null> {
 		const shapes = ids.map((id) => this.store.get(id)).filter((e): e is Shape => e?.type === 'shape' && e.geom.kind !== 'insert')
-		if (!shapes.length || !name.trim() || blockProblem(shapes)) return null
-		const sheet = shapes[0].sheetId ? this.store.get(shapes[0].sheetId) : undefined
-		const { block, insert } = blockFromShapes(shapes, name.trim(), paperBlockScale(shapes, sheet?.type === 'sheet' ? sheet : undefined))
+		if (!shapes.length || !name.trim()) return null
+		// shapes drawn in an elevation / section: the block is made from them as seen there, and its insert stays in that view
+		const made = elevationProblem(shapes) === null ? elevationBlock(shapes, name.trim()) : blockProblem(shapes) ? null : (() => {
+			const sheet = shapes[0].sheetId ? this.store.get(shapes[0].sheetId) : undefined
+			return blockFromShapes(shapes, name.trim(), paperBlockScale(shapes, sheet?.type === 'sheet' ? sheet : undefined))
+		})()
+		if (!made) return null
+		const { block, insert } = made
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
 		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(insert) })
 		return insert.id
-	}
-
-	/** "Make block" for shapes drawn in an elevation or section (backlog "Blocks: front drawings"): they become the FRONT
-	 *  drawing of a new block `{ name }` or of one of your own (`{ blockId }`), and ONE insert replaces them in that
-	 *  elevation (one undo step for the drawing). Plans and the other elevations then show the front at the insert's height. */
-	async makeBlockFront(ids: Id[], to: { blockId: Id } | { name: string }): Promise<Id | null> {
-		const shapes = ids.map((id) => this.store.get(id)).filter((e): e is Shape => e?.type === 'shape')
-		if (frontProblem(shapes) || ('name' in to && !to.name.trim())) return null
-		const made = frontBlock(shapes, 'name' in to ? { name: to.name.trim() } : to, 'blockId' in to ? this.blockOf(to.blockId) : undefined)
-		if (!made) return null
-		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [made.write.id]: stripUndefined(made.write) } }, { merge: true })
-		const name = 'name' in made.write ? made.write.name : this.blockOf(made.write.id)?.name ?? 'block'
-		this.store.transact(`Make ${name} front`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(made.insert) })
-		return made.insert.id
 	}
 
 	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /
@@ -221,7 +212,7 @@ export class CadProject {
 	}
 
 	/** An insert → ordinary shapes in place (the copied-block case), as the view shows it: `spec` = the active pane's view
-	 *  (an elevation / section explodes a level's insert as its front drawing on that view's plane). */
+	 *  (an elevation / section explodes a level's insert onto that view's plane). */
 	explode(insertId: Id, spec?: ViewSpec): Id[] {
 		const ins = this.store.get(insertId)
 		if (ins?.type !== 'shape' || ins.geom.kind !== 'insert') return []
@@ -232,13 +223,13 @@ export class CadProject {
 		return shapes.map((s) => s.id)
 	}
 
-	/** Where an insert is exploded: the drawing scale its annotative block is drawn at and the face shown — a note in a
-	 *  viewport as that viewport draws it, paper at 1, a level's insert at the plot scale, onto its own elevation (or the
-	 *  elevation / section it is exploded in, when it shows there). */
-	#explodeAs(ins: Shape, g: Extract<Shape['geom'], { kind: 'insert' }>, spec?: ViewSpec): [number, { face?: BlockFace; frame?: ElevFrame }] {
+	/** Where an insert is exploded: the drawing scale its annotative block is drawn at — a note in a viewport as that
+	 *  viewport draws it, paper at 1, a level's insert at the plot scale, onto its own elevation (or the elevation /
+	 *  section it is exploded in, when it shows there). */
+	#explodeAs(ins: Shape, g: Extract<Shape['geom'], { kind: 'insert' }>, spec?: ViewSpec): [number, { frame?: ElevFrame }] {
 		if (ins.sheetId) {
 			const sheet = this.store.get(ins.sheetId), vp = ins.vpId && sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === ins.vpId) : undefined
-			return vp ? [vp.scale, { face: faceFor(vp.view.spec.kind) }] : [1, {}]
+			return vp ? [vp.scale, {}] : [1, {}]
 		}
 		if (!ins.levelId) return [PLOT_SCALE, {}]
 		if (g.frame) return [PLOT_SCALE, { frame: g.frame }]

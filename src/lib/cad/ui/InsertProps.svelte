@@ -50,7 +50,7 @@
 		<NumberField label="Scale" step={0.1} value={g.scale ?? 1} onchange={(v) => v != null && v > 0 && setGeom('Scale', { scale: v === 1 ? undefined : v })} />
 		<NumberField label="Z" unit="mm" step={50} title="Its height above the floor (FFL): where it shows in elevations and sections" value={g.z ?? 0} onchange={(v) => setGeom('Block height', { z: v || undefined })} />
 		{#if s.levelId}
-			<CheckField label="Elevations" text="show in elevations" title="Show it in elevations and sections too (a wall faceplate){b?.front ? ' — its front drawing, at the Z above' : ''}; otherwise only on the plan" checked={!!g.inElevations}
+			<CheckField label="Elevations" text="show in elevations" title="Show it in elevations and sections too (a wall faceplate), at the Z above; otherwise only on the plan" checked={!!g.inElevations}
 				onchange={(on) => setGeom(on ? 'Show in elevations' : 'Plan only', { inElevations: on || undefined })} />
 		{/if}
 	</PropGroup>

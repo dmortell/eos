@@ -5,7 +5,7 @@
 import type { Id, Pt } from './types'
 import type { Sheet, Viewport } from './drawing'
 import type { Shape, Geometry } from './shapes'
-import { annotativeIn, faceFor } from './blocks'
+import { annotativeIn } from './blocks'
 
 /** A copy of the sheet and its paper notes, with new ids (`id()` makes one). "(copy)" title, no number. */
 export function duplicateSheet(s: Sheet, notes: Shape[], id: () => Id): { sheet: Sheet; notes: Shape[] } {
@@ -48,7 +48,7 @@ export function untie(s: Shape, vp: Viewport): Shape {
 			case 'circle': case 'arc': return { ...g, centre: t(g.centre), r: g.r * k }
 			// a dimension keeps the real length it measured in the view (on paper it would measure paper mm)
 			case 'dimension': return { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLen(g))}`, ...(g.textAt ? { textAt: t(g.textAt) } : {}), ...(g.gapA != null ? { gapA: g.gapA * k } : {}), ...(g.gapB != null ? { gapB: g.gapB * k } : {}) }
-			case 'insert': { const sc = (g.scale ?? 1) * (annotativeIn(g.blockId, faceFor(vp.view.spec.kind)) ? 1 : k); return { ...g, at: t(g.at), scale: sc === 1 ? undefined : sc } }
+			case 'insert': { const sc = (g.scale ?? 1) * (annotativeIn(g.blockId) ? 1 : k); return { ...g, at: t(g.at), scale: sc === 1 ? undefined : sc } }
 			case 'legend': return { ...g, at: t(g.at) }
 		}
 	})()

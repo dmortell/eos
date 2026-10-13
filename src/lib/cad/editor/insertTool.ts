@@ -5,7 +5,7 @@
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
-import { insertAttrs, blockFace, faceFor, type Block } from '../domain/blocks'
+import { insertAttrs, type Block } from '../domain/blocks'
 import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
@@ -57,13 +57,13 @@ export class InsertTool implements Tool {
 	preview(c?: ToolCtx): Prim[] {
 		const b = this.blockOf(), h = this.#hover
 		if (!b || !h) return []
-		// as it will be drawn: the view's face (plan symbol / front, faceFor); on a sheet over a viewport, that viewport's
-		// face and scale (it will be tied to it); unturned in plan, facing you in elevations
+		// as it will be drawn; on a sheet over a viewport, at that viewport's scale (it will be tied to it); unturned in
+		// plan, facing you in elevations
 		const spec = c?.space.spec, kind = spec?.kind ?? 'plan'
 		const sheet = spec?.kind === 'sheet' ? c!.store.get(spec.sheetId) : undefined
 		const vp = sheet?.type === 'sheet' ? viewportAt(sheet, h.view) : undefined
-		if (vp) return blockPrims(blockFace(b, faceFor(vp.view.spec.kind)), { at: h.view, scale: 1 / vp.scale }, vp.scale, insertAttrs(b), '', 'draft')
-		return blockPrims(blockFace(b, faceFor(kind)), { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')
+		if (vp) return blockPrims(b, { at: h.view, scale: 1 / vp.scale }, vp.scale, insertAttrs(b), '', 'draft')
+		return blockPrims(b, { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')
 	}
 
 	#place(e: PointerIn, c: ToolCtx): Place {

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { BUILTIN_BLOCKS, faceFor, blockFace } from '../domain/blocks'
+import { BUILTIN_BLOCKS } from '../domain/blocks'
 import { InsertTool } from './insertTool'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { elevationDisplayList } from '../views/elevation'
@@ -37,9 +37,8 @@ describe('the Insert tool', () => {
 		expect('inElevations' in s.geom).toBe(false)   // a plan symbol: not shown in elevations
 		expect(h.store.undoLabels).toEqual([`Insert ${plate.name}`])
 	})
-	it('a block with a front drawing placed on the plan is still a plan symbol (shown only on the plan)', () => {
+	it('a faceplate placed on the plan shows only on the plan', () => {
 		const h = harness(PLAN)
-		expect(plate.front).toBeTruthy()
 		new InsertTool(() => plate).down(click({ x: 3000, y: 2000 }), h.ctx())
 		expect('inElevations' in (h.store.get(h.sel()[0]) as Shape).geom).toBe(false)
 	})
@@ -60,7 +59,7 @@ describe('the Insert tool', () => {
 		// an outlet symbol placed as a plain block shows no "{LABEL}" / "{PORTS}" / "{USAGE}" placeholders (Dave, A009)
 		expect(prims.some((p) => p.k === 'text' && p.src === s.id && p.text.includes('{'))).toBe(false)
 	})
-	it('placed in an elevation it shows ONLY there (Dave 2026-10-12): its front; not on the plan or in another elevation', () => {
+	it('placed in an elevation it shows ONLY there (Dave 2026-10-12), real size; not on the plan or in another elevation', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec), h = harness(spec)
 		new InsertTool(() => plate).down(click(sp.fromWorld({ x: 2000, y: 5000, z: 300 })), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape, ix = new ProjectIndex(h.store.all())
@@ -68,16 +67,18 @@ describe('the Insert tool', () => {
 		const blocks = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
 		const here = elevationDisplayList(ix, 'L33', sp, { scale: 100, blocks }).filter((p) => p.src === s.id)
 		const plateW = Math.max(...here.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : []))) - Math.min(...here.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : [])))
-		expect(Math.round(plateW)).toBe(70)   // its front, real size
+		expect(Math.round(plateW)).toBe(70)   // real size
 		expect(elevationDisplayList(ix, 'L33', spaceOf({ kind: 'elevation', dir: 'rear' }), { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(false)
 		expect(planDisplayList(ix, 'L33', { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(false)
 		// unticked "show in elevations" in Properties: back on the plan
 		const g = s.geom as Extract<Shape['geom'], { kind: 'insert' }>, { inElevations: _i, ...planOnly } = g
 		expect(planDisplayList(new ProjectIndex([...h.store.all().filter((e) => e.id !== s.id), { ...s, geom: planOnly } as Shape]), 'L33', { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(true)
 	})
-	it('one decision for every view: faceFor → the plan symbol on plans and sheets, the front in elevations / sections', () => {
-		expect([faceFor('plan'), faceFor('sheet'), faceFor('elevation'), faceFor('section')]).toEqual(['plan', 'plan', 'front', 'front'])
-		expect(blockFace(plate, 'plan')).toBe(plate)
-		expect(blockFace(plate, 'front').annotative).toBe(false)
+	it('one drawing (Dave 2026-10-14): placed on the plan, the plan draws the same 70 mm plate the elevation does', () => {
+		const h = harness(PLAN)
+		new InsertTool(() => plate).down(click({ x: 3000, y: 2000 }), h.ctx())
+		const s = h.store.get(h.sel()[0]) as Shape, blocks = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
+		const xs = planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100, blocks }).filter((p) => p.src === s.id).flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : []))
+		expect(Math.round(Math.max(...xs) - Math.min(...xs))).toBe(70)
 	})
 })

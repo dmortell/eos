@@ -2,7 +2,7 @@
 // insert's position / rotation / scale (× the drawing scale for annotative blocks), `{LABEL}` attributes filled in.
 import type { Id, Pt } from '../domain/types'
 import { primBounds, unionBounds, type Prim, type BlockInstance } from './display'
-import { fillAttrs, insertAttrs, blockFace, type Block, type BlockFace } from '../domain/blocks'
+import { fillAttrs, insertAttrs, type Block } from '../domain/blocks'
 import { rotate } from '../domain/conventions'
 
 export interface Placement { at: Pt; rot?: number; scale?: number }
@@ -50,11 +50,9 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 	return out.map((p) => ({ ...p, ins }))
 }
 
-/** A block drawn small for a list (the Blocks panel): its prims at 1:1 and a padded viewBox round them — its front
- *  drawing when it has one (a faceplate: what you see on the wall). */
-export function blockPreview(b0: Block, face: BlockFace = b0.front ? 'front' : 'plan'): { prims: Prim[]; viewBox: string } {
-	const b = blockFace(b0, face)
-	const prims = blockPrims(b, { at: { x: 0, y: 0 } }, 1, insertAttrs(b0), b.id, face === 'front' ? 'shape' : b.category === 'outlet' ? 'outlet outlet-low' : 'shape')   // its {TAGS} blank
+/** A block drawn small for a list (the Blocks panel): its prims at 1:1 and a padded viewBox round them. */
+export function blockPreview(b: Block): { prims: Prim[]; viewBox: string } {
+	const prims = blockPrims(b, { at: { x: 0, y: 0 } }, 1, insertAttrs(b), b.id, b.category === 'outlet' && b.annotative ? 'outlet outlet-low' : 'shape')   // its {TAGS} blank
 	const bb = unionBounds(prims.map(primBounds)) ?? { x0: -1, y0: -1, x1: 1, y1: 1 }
 	const pad = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0) * 0.15 || 0.5
 	return { prims, viewBox: `${bb.x0 - pad} ${bb.y0 - pad} ${bb.x1 - bb.x0 + 2 * pad} ${bb.y1 - bb.y0 + 2 * pad}` }

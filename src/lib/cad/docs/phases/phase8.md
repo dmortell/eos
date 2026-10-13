@@ -3357,3 +3357,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`ws.pickedViewports`): one eye per layer, `eyeState` = on / off / mixed (a faint eye; a click shows it in all), and
   presets / group eyes / multi-picked layers set them all. Layers none of them draws on (`viewportLayers`: the view's
   content with nothing hidden, plus its tied notes, on `dataIndex`) fold under "Not in these views (N)", still settable.
+
+## One drawing per 2D block (Dave 2026-10-14)
+
+- A 2D block is ONE drawing, drawn the same in every view (an insert still shows only in the view it was placed in):
+  `Block.front`, `frontOf`, `BlockFace`, `faceFor`, `blockFace` are gone; `shapePrims`, `blockPreview`, the Insert ghost,
+  `explodeInsert` and `annotativeIn` take no face. The faceplates keep only the 70 × 115 mm plate (real mm, not
+  annotative), so a faceplate on a plan is the same plate as in an elevation.
+- Make block on shapes drawn in an elevation: an ordinary block of those shapes (`elevationProblem` /
+  `elevationShapes` / `elevationBlock`, through `makeBlock`), its insert in that elevation; "Add as the front of…" is
+  gone. A stored block that still has a `front` reads as that drawing (`oneDrawing`, in `project.blocks`).
