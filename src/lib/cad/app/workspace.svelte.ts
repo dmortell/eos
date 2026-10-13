@@ -324,6 +324,8 @@ export class Workspace {
 	/** Select from a table: as `select`, and the drawing shows it. */
 	selectAndReveal = (ids: Id[]): void => { this.select(ids); if (ids.length) this.reveal++ }
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
+	/** The sheet the active pane shows (null = a model view): the Layers eyes are its own then (set by the shell). */
+	activeSheet = $state<Id | null>(null)
 	/** The viewport selected on the selected sheet (null = the sheet itself). */
 	viewportId = $state<Id | null>(null)
 	/** The other viewports picked with it (Ctrl-click, a window on the paper): `viewportId` is the first. */

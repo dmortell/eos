@@ -1,10 +1,11 @@
 <!-- The layers list (docs/plan/layers.md) in drawing order: the first row (Floorplans) draws at the bottom. The eye and lock are the user's own (this browser, this
      project — nobody else's view changes); the color, name and order are the project's (undoable). With a viewport
-     picked on a sheet, the snowflake freezes a layer in THAT viewport (stored: it prints); Shift = every viewport on the
-     sheet. Click a name to make it the current layer (highlighted like the open level), where new lines go.
+     picked on a sheet (or edited inside), the eye is THAT viewport's (Dave 2026-10-13: apart from the model's eye;
+     stored on the sheet, so it prints and everyone sees it); Shift = every viewport on the sheet. On a sheet with no
+     viewport picked, the eye is the sheet's own (its paper notes and legends; stored too) — a sheet prints as it shows. Click a name to make it the current layer (highlighted like the open level), where new lines go.
      Ctrl-click / Shift-click names to pick several: the eye, lock, color and line type then change all of them (one undo
      step). Layers sit under group headings (a group field, or a name like "IDF1/Outlets"); a group's eye hides its layers.
-     Presets save the eye states under a name (this browser, this project). -->
+     Presets save the eye states under a name (this browser, this project); with a viewport picked they set its layers. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -37,9 +38,14 @@
 		return true
 	}
 	const counts = $derived(layerCounts(project.dataIndex))   // final changes only: not recounted on each frame of a drag
-	// the picked viewport — or the one being edited inside (its ❄ freeze is what prints)
+	// the picked viewport — or the one being edited inside: the eyes are its own then (stored, what prints)
 	const sheet = $derived(ws.vpEdit ? project.index.get<Sheet>(ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
 	const vp = $derived(sheet?.type === 'sheet' ? sheet.viewports.find((v) => v.id === (ws.vpEdit?.vpId ?? ws.viewportId)) : undefined)
+	// the sheet the active pane shows, when no viewport is picked: its own paper's layers
+	const paper = $derived(!vp && ws.activeSheet ? project.index.get<Sheet>(ws.activeSheet) : undefined)
+	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
+	/** Where the eye points, for the titles and the note. */
+	const eyeOf = $derived(vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')
 	/** Any layer can be current (Dave: clicking a name did nothing on most); new lines go on it. */
 	const canBeCurrent = (_l: LayerInfo) => true
 
@@ -94,29 +100,54 @@
 		const keep = ws.selection.filter((s) => { const e = project.index.get(s); const on = e && layerOf(e, known); return !on || !gone.has(on) })
 		if (keep.length !== ws.selection.length) ws.select(keep)
 	}
+	/** Hidden where the eye points: in the picked viewport, on the open sheet's paper, else for you in the model. */
+	const isOff = (id: Id) => (vp ? !!vp.frozen?.includes(id) : onPaper ? !!onPaper.frozen?.includes(id) : ws.layers.hidden.has(id))
 	/** The eye on one layer — or all the picked ones, set to the opposite of what the clicked one shows. */
-	function hide(l: LayerInfo): void { setEye(targets(l).map((x) => x.id), !ws.layers.hidden.has(l.id)) }
+	function hide(l: LayerInfo, every: boolean): void { setEye(targets(l).map((x) => x.id), !isOff(l.id), every) }
 	function lock(l: LayerInfo): void { const ids = targets(l).map((x) => x.id), on = !ws.layers.locked.has(l.id); ws.layers.setLocked(ids, on); if (on) letGo(ids) }
-	function setEye(ids: Id[], off: boolean): void { ws.layers.setHidden(ids, off); if (off) letGo(ids) }
+	function setEye(ids: Id[], off: boolean, every = false): void {
+		if (vp && sheet) setInViewport(sheet, vp.id, ids, off, every)
+		else if (onPaper) setOnPaper(onPaper, ids, off)
+		else ws.layers.setHidden(ids, off)
+		if (off) letGo(ids)
+	}
 	/** A group's eye: all hidden → show them all; otherwise hide them all. */
-	const groupOff = (ls: LayerInfo[]) => ls.every((l) => ws.layers.hidden.has(l.id))
+	const groupOff = (ls: LayerInfo[]) => ls.every((l) => isOff(l.id))
 	// presets: the eye states under a name
 	let savingPreset = $state(false), preset = $state('')
+	// with a viewport picked, a preset sets that viewport's layers (and saving takes them from it)
 	function applyPreset(name: string): void {
 		preset = name
 		if (!name) return
-		letGo(ws.layers.applyPreset(name))
-		ws.say(`Layers: ${name}`)
+		const p = ws.layers.presets.find((x) => x.name === name)
+		if (vp && sheet && p) {
+			const known = new Set(all.map((l) => l.id)), hidden = p.hidden.filter((id) => known.has(id))
+			project.store.transact(`Layers ${name} in the viewport`, (tx) => tx.put({ ...sheet, viewports: sheet.viewports.map((v) => (v.id === vp.id ? { ...v, frozen: hidden.length ? hidden : undefined } : v)) }))
+			letGo(hidden)
+		} else letGo(ws.layers.applyPreset(name))
+		ws.say(`Layers: ${name}${vp ? ' in the viewport' : ''}`)
 	}
-	function savePreset(name: string): void { savingPreset = false; ws.layers.savePreset(name); preset = name; ws.say(`Preset ${name} saved (the layers shown now)`) }
+	function savePreset(name: string): void {
+		savingPreset = false
+		ws.layers.savePreset(name, vp ? (vp.frozen ?? []) : undefined)
+		preset = name
+		ws.say(`Preset ${name} saved (the layers shown ${vp ? 'in the viewport' : 'now'})`)
+	}
 	function deletePreset(): void { ws.layers.deletePreset(preset); preset = '' }
 
-	function freeze(l: LayerInfo, every: boolean): void {
-		if (!sheet || !vp) return
-		const on = !vp.frozen?.includes(l.id)
-		const flip = (ids: Id[] = []) => (on ? [...new Set([...ids, l.id])] : ids.filter((x) => x !== l.id))
-		const viewports = sheet.viewports.map((v) => (every || v.id === vp.id ? { ...v, frozen: flip(v.frozen) } : v))
-		project.store.transact(`${on ? 'Freeze' : 'Thaw'} ${l.name}${every ? ' in every viewport' : ''}`, (tx) => tx.put({ ...sheet, viewports }))
+	/** A stored hidden list with these layers hidden / shown (none left = no list). */
+	const withHidden = (frozen: Id[] = [], ids: Id[], off: boolean) => { const next = off ? [...new Set([...frozen, ...ids])] : frozen.filter((x) => !ids.includes(x)); return next.length ? next : undefined }
+	const named = (ids: Id[]) => (ids.length === 1 ? (all.find((l) => l.id === ids[0])?.name ?? 'layer') : `${ids.length} layers`)
+	/** Hide / show layers in one viewport (every = all the sheet's viewports): stored on the sheet, one undo step. */
+	function setInViewport(sheet: Sheet, vpId: Id, ids: Id[], off: boolean, every: boolean): void {
+		const viewports = sheet.viewports.map((v) => (every || v.id === vpId ? { ...v, frozen: withHidden(v.frozen, ids, off) } : v))
+		project.store.transact(`${off ? 'Hide' : 'Show'} ${named(ids)} in ${every ? 'every viewport' : 'the viewport'}`, (tx) => tx.put({ ...sheet, viewports }))
+	}
+	/** Hide / show layers on a sheet's own paper (its notes and legends): stored, one undo step. */
+	function setOnPaper(sheet: Sheet, ids: Id[], off: boolean): void {
+		const next: Sheet = { ...sheet, frozen: withHidden(sheet.frozen, ids, off) }
+		if (!next.frozen) delete next.frozen
+		project.store.transact(`${off ? 'Hide' : 'Show'} ${named(ids)} on the sheet`, (tx) => tx.put(next))
 	}
 
 	// drag a row to change what draws on top: the list is in drawing order, so the first row gets the lowest order
@@ -131,7 +162,8 @@
 <SideSection key="layers" title="Layers">
 {#snippet actions()}<button title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={() => (adding = true)}>+ Layer</button>{/snippet}
 {#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
-{#if vp}<p class="note">👁 hides on screen · ❄ = frozen in this viewport (prints) · Shift = every viewport on the sheet</p>{/if}
+{#if vp}<p class="note">👁 = shown in this viewport (prints; apart from the model) · Shift = every viewport on the sheet</p>
+{:else if onPaper}<p class="note">👁 = shown on this sheet’s paper (its own notes; prints) — pick a viewport for its layers</p>{/if}
 <div class="presets">
 	{#if savingPreset}<NameInput wide create placeholder="Preset name — Enter saves the layers shown now" onsave={savePreset} oncancel={() => (savingPreset = false)} />
 	{:else}
@@ -156,12 +188,12 @@
 		<div class="row grp" title="A group: its eye hides or shows all {g.layers.length} layers">
 			<span class="nm">{g.name}</span>
 			<span class="ct">{g.layers.length}</span>
-			<button class="ic" title={groupOff(g.layers) ? 'Show the group (only for you)' : 'Hide the group (only for you)'} onclick={() => setEye(g.layers.map((l) => l.id), !groupOff(g.layers))}><Icon name={groupOff(g.layers) ? 'eyeSlash' : 'eye'} size={12} /></button>
+			<button class="ic" title="{groupOff(g.layers) ? 'Show' : 'Hide'} the group {eyeOf}" onclick={(e) => setEye(g.layers.map((l) => l.id), !groupOff(g.layers), e.shiftKey)}><Icon name={groupOff(g.layers) ? 'eyeSlash' : 'eye'} size={12} /></button>
 		</div>
 	{/if}
 {#each g.layers as l (l.id)}
 	{@const n = counts.get(l.id) ?? 0}
-	{@const off = ws.layers.hidden.has(l.id)}
+	{@const off = isOff(l.id)}
 	{@const locked = ws.layers.locked.has(l.id)}
 	<div class="row" class:cur={(ws.layers.current ?? 'sys:drawing') === l.id} class:pick={picked.has(l.id)} class:ing={!!g.name} class:off {...dr.row(l.id)} class:drag-before={dr.isBefore(l.id)} class:drag-after={dr.isAfter(l.id)}>
 		<!-- a square = a color set on the layer (applied to its items); a round dot = the default, the color its items
@@ -189,10 +221,7 @@
 			onclick={() => (styling = styling === l.id ? null : l.id)}>
 			<svg width="14" height="8" viewBox="0 0 14 8"><line x1="0" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width={l.weightMm ? Math.min(3, Math.max(0.75, l.weightMm * 3)) : 1} stroke-dasharray={SAMPLE[l.dash ?? '']} /></svg>
 		</button>
-		{#if vp}
-			<button class="ic" class:on={vp.frozen?.includes(l.id)} title="Freeze in this viewport (Shift: every viewport on the sheet)" onclick={(e) => freeze(l, e.shiftKey)}><Icon name="snowflake" size={12} /></button>
-		{/if}
-		<button class="ic" title={off ? 'Show (only for you)' : 'Hide (only for you)'} onclick={() => hide(l)}><Icon name={off ? 'eyeSlash' : 'eye'} size={12} /></button>
+		<button class="ic" title="{off ? 'Show' : 'Hide'} {eyeOf}" onclick={(e) => hide(l, e.shiftKey)}><Icon name={off ? 'eyeSlash' : 'eye'} size={12} /></button>
 		<button class="ic" class:on={locked} title={locked ? 'Unlock' : 'Lock: still drawn and snapped to, but can’t be picked (only for you)'} onclick={() => lock(l)}><Icon name={locked ? 'lock' : 'lockOpen'} size={12} /></button>
 	</div>
 	{#if styling === l.id}

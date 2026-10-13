@@ -92,7 +92,7 @@
 	const space = $derived(section ? sectionSpace(section) : spaceOf(spec))
 	const sections = $derived(sectionsOn(project.index, levelId))
 	const sheet = $derived(spec.kind === 'sheet' ? (project.index.get(spec.sheetId) as Sheet | undefined) : undefined)
-	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, routes: project.routes, fills: project.fills, hidden: ws.layers.hidden, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })   // a sheet's own look wins (sheetLook)
+	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, routes: project.routes, fills: project.fills, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })   // a sheet's own look wins (sheetLook)
 	/** Editing the model inside one of this sheet's viewports (UX review S5): its view's space, prims and paper maps. */
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
 	/** What the tools work in: the edited viewport's view, else this pane's. */
@@ -127,7 +127,7 @@
 	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
 	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || isPaperSpec(spec) ? drawn
 		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
-	// the user's eye / lock (a sheet has its viewports' freeze instead, applied inside sheetDisplayList)
+	// the user's eye / lock (a sheet has its own stored layers and its viewports', applied inside sheetDisplayList: it shows as it prints)
 	// (its notes and viewport content are layered inside sheetDisplayList; here only the lock keeps a locked layer's items unpicked)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: ws.layers.locked.size ? applyLayers(raw, project.index, { locked: ws.layers.locked }).pick : raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
@@ -487,7 +487,8 @@
 		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === ws.toolId)?.label.replace(/ \(.*\)$/, '') ?? ws.toolId} tool doesn’t work in this view`); return }
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
-		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, ws.layers, ws.opts.z, layerMap(project.index))
+		// inside a viewport, what's hidden is the viewport's own (its layers are apart from the model's eye)
+		const why = toolKind === 'sheet' ? null : toolBlock(ws.toolId, vpe ? { current: ws.layers.current, hidden: new Set(vpe.vp.frozen ?? []), locked: ws.layers.locked } : ws.layers, ws.opts.z, layerMap(project.index))
 		if (why) { ws.say(why); return }
 		toolDown = true
 		if (e.pointerType !== 'mouse') held = { id: e.pointerId, at: local(e) }

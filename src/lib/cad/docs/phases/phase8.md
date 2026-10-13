@@ -3340,3 +3340,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q75 An image box always keeps the picture's proportions** `Geometry` image gets `ratio` (width ÷ height), measured when the picture is picked or pasted (`CadShell.measurePick` → `ws.imagePick.ratio`; a PDF page as rendered). The Image tool fits the dragged box to it (`shapeGeom`), and the corner / edge grips (`dragRegionGrip`) keep it: a corner takes the larger pull, an edge moves the other side with it about the edge's middle. An older image without `ratio` keeps its box's proportions. There are no W / H fields for images. Tests in `editor/shapeGrips.test.ts`, `editor/shapeTool.test.ts`.
 - **Q76 Finish / Cancel for a path on touch** `Workspace.touchInput` (the last press was a finger, set in `ViewCanvas.onDown`) and `Workspace.pathPending` (points in the run being drawn, kept by the active canvas) show Finish and Cancel chips in `CadShell`'s options row (`ViewCanvas.finishPath` / `cancelPath`, the same as Enter / Esc). A double-tap already finished a path (`PathTool.down` on `count >= 2`); `ClickCounter.press` now takes a tolerance and a touch press gets 24 px (a finger wobbles more than 5). Tests in `ui/canvasInfo.test.ts`.
 - **Q77 Purge removed asks before purging** the Patch list's ⋯ › Purge removed (N) now asks (`ws.ask2`, `PatchList.purgeRemoved`): it names how many cords go and that the installer's list can't bring them back; yes runs the same `runCordAction(... 'installed')`, ONE undo step. The Installed action on a selection that includes cords marked for removal is unchanged (it says what went, Undo brings them back).
+
+## Layers per viewport and per sheet (Dave 2026-10-13)
+
+- **A viewport's layers are its own** `viewportContent` and tied notes hide only `Viewport.frozen` — the user's eye
+  (`ws.layers.hidden`) no longer reaches a viewport, so the screen shows what prints (Dave: section lines printed with the
+  Sections layer turned off). With a viewport picked or edited, the Layers panel's eyes (and a group's eye, several picked
+  layers, presets) set that viewport's list (Shift: every viewport on the sheet); the separate ❄ button is gone. Drawing
+  inside a viewport is refused on a layer hidden in that viewport (`toolBlock` gets the viewport's list).
+- **A sheet's own paper** `Sheet.frozen` hides layers among the sheet's paper notes and legends; with a sheet in the
+  active pane (`ws.activeSheet`, set by CadShell) and no viewport picked, the eyes are the sheet's. `SheetOpts.hidden` is
+  gone: nothing on a sheet follows a per-user setting, so the PDF, an issue and the screen draw the same list.
+- **New layers start hidden in existing viewports** as before for + Layer and import; now also for a layer that comes
+  with a paste from another project (`pasteClip` → `freezeInExisting`).

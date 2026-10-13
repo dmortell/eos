@@ -8,6 +8,7 @@ import type { Entity, Layer, Sheet, Group, Viewport } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
+import { freezeInExisting } from './layers'
 import { newServerRoom, placementProblem } from './devices'
 import { untie } from './sheetEdit'
 import { unproject } from './conventions'
@@ -225,6 +226,9 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		return { ...e, groupId: groups.get(e.groupId)! }
 	})
 	const newGroups = [...groups.values()].map((id): Group => ({ type: 'group', id }))
+	// a layer that comes with the paste is new here: hidden in the viewports that already exist (as "+ Layer" does)
+	const frozen = new Map<Id, Sheet>()
+	for (const l of extra) for (const s of freezeInExisting(ix.ofType('sheet').map((x) => frozen.get(x.id) ?? x), l.id)) frozen.set(s.id, s)
 	if (sheet?.type === 'sheet' && vps.length) {
 		// the same sheet, no move given (Ctrl+V, Ctrl+D): a little to one side, or it would sit exactly on the original
 		const away = !t.d && clip.from.kind === 'sheet' && clip.from.id === to.id ? 10 : 0
@@ -235,10 +239,12 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 			return { ...rest, id: ids.get(v.id)!, view: h.view, rect: { ...v.rect, x: v.rect.x + d.x + away, y: v.rect.y + d.y + away } }
 		})
 		const picked = made.map((v) => v.id)
-		return { put: [...extra, ...newGroups, { ...sheet, viewports: [...sheet.viewports, ...made] }, ...items], select: [sheet.id], skipped, viewports: picked, reset }
+		const here = frozen.get(sheet.id) ?? sheet
+		frozen.delete(sheet.id)
+		return { put: [...extra, ...frozen.values(), ...newGroups, { ...here, viewports: [...here.viewports, ...made] }, ...items], select: [sheet.id], skipped, viewports: picked, reset }
 	}
 	const select = items.filter((e) => e.type !== 'device').map((e) => e.id)
-	return { put: [...extra, ...made, ...newGroups, ...items], select, skipped }
+	return { put: [...extra, ...frozen.values(), ...made, ...newGroups, ...items], select, skipped }
 }
 
 /** A copied device is a new thing: its panel's printed-labels record belongs to the original (a copy would say its

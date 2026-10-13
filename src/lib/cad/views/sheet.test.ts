@@ -6,7 +6,7 @@ import { DEFAULT_TITLE_BLOCK, type ProjectDetails } from '../domain/titleBlock'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import type { Sheet } from '../domain/drawing'
+import type { Entity, Sheet } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
 
 const sheet = (extra: Partial<Sheet> = {}): Sheet => ({ type: 'sheet', id: 'SH', number: 'S-001', title: 'Plan', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [], status: 'active', ...extra })
@@ -79,14 +79,25 @@ describe('notes follow the layer rules (Q41)', () => {
 	const vp = (frozen?: string[]) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 }, ...(frozen ? { frozen } : {}) })
 	const text = (id: string, vpId?: string): Shape => ({ type: 'shape', id, sheetId: 'SH', ...(vpId ? { vpId } : {}), geom: { kind: 'text', at: { x: 3000, y: 4000 }, text: 'Hi', sizeMm: 2.5 } } as Shape)
 	const has = (sh: Sheet, t: Shape, o = {}) => sheetDisplayList(new ProjectIndex([...demoProject(), sh, t]), sh, o).some((p) => p.src === t.id)
-	it('a paper note hides with its layer (the Notes layer eye); a tied note also with the viewport’s freeze', () => {
+	it('a paper note hides with the sheet’s own layers; a tied note with its viewport’s only (Dave 2026-10-13)', () => {
 		const sh = sheet({ viewports: [vp()] }), paper = text('N1'), tied = text('N2', 'V')
 		expect(has(sh, paper)).toBe(true)
-		expect(has(sh, paper, { hidden: ['sys:notes'] })).toBe(false)
+		expect(has({ ...sh, frozen: ['sys:notes'] }, paper)).toBe(false)
 		expect(has(sh, tied)).toBe(true)
-		expect(has(sh, tied, { hidden: ['sys:notes'] })).toBe(false)
+		expect(has({ ...sh, frozen: ['sys:notes'] }, tied)).toBe(true)   // the paper's list doesn't reach a viewport
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), tied)).toBe(false)
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), paper)).toBe(true)   // frozen in the viewport only: paper notes are not in it
+	})
+	it('a viewport’s content follows its own layers, not the model’s eye (Dave 2026-10-13)', () => {
+		const shown = (v: ReturnType<typeof vp>) => { const sh = sheet({ viewports: [v] }); return viewportContent(new ProjectIndex([...demoProject(), sh]), v).length }
+		const n = shown(vp())
+		expect(n).toBeGreaterThan(0)
+		expect(shown(vp(['sys:walls', 'sys:outlets-low']))).toBeLessThan(n)
+		// and the PDF draws the same list as the screen: a layer hidden in the viewport doesn't print
+		const sh = sheet({ viewports: [vp(['sys:sections'])] }), sec = { type: 'section', id: 'SEC', levelId: 'L33', name: 'A', a: { x: 1000, y: 4000 }, b: { x: 5000, y: 4000 }, depth: 2000 } as unknown as Entity
+		const list = (s: Sheet) => sheetDisplayList(new ProjectIndex([...demoProject(), s, sec]), s)
+		expect(list(sheet({ viewports: [vp()] })).some((p) => 'cls' in p && p.cls === 'section-line')).toBe(true)
+		expect(list(sh).some((p) => 'cls' in p && p.cls === 'section-line')).toBe(false)
 	})
 	it('By-layer color: a note with no color of its own takes its layer’s', () => {
 		const sh = sheet({ viewports: [vp()] }), n = { ...text('N1'), layerId: 'RED' } as Shape, tied = { ...text('N2', 'V'), layerId: 'RED' } as Shape

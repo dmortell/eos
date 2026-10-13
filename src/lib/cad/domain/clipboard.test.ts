@@ -100,6 +100,15 @@ describe('paste', () => {
 		expect(put.some((e) => e.type === 'layer')).toBe(false)
 		expect((put.find((e) => e.type === 'outlet') as Outlet).layerId).toBe('MINE')
 	})
+	it('a layer that comes along starts hidden in the existing viewports (as + Layer does)', () => {
+		const idf: Layer = { type: 'layer', id: 'LY', name: 'IDF1', order: 500 }
+		const src = ix([idf, { ...(demoProject().find((e) => e.id === 'O1') as Outlet), id: 'OX', label: '33-050', layerId: 'LY' }])
+		const sh = { type: 'sheet', id: 'SHX', name: 'A', paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [{ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 20, y: 20, w: 100, h: 80 }, scale: 100, centre: { x: 0, y: 0 } }] } as unknown as Sheet
+		const put = pasteClip(copy(src, ['OX'], 'OTHER'), target(ix([sh]), { kind: 'level', id: 'L33' })).put
+		expect((put.find((e) => e.id === 'SHX') as Sheet).viewports[0].frozen).toEqual(['LY'])
+		// a layer of the same name here is not new: no sheet changes
+		expect(pasteClip(copy(src, ['OX'], 'OTHER'), target(ix([sh, { ...idf, id: 'MINE' }]), { kind: 'level', id: 'L33' })).put.some((e) => e.type === 'sheet')).toBe(false)
+	})
 	it('only what the pane takes: plan items into a plan, notes onto a sheet', () => {
 		const i = ix(), r = pasteClip(copy(i, ['O1']), target(i, { kind: 'sheet', id: 'S' }))
 		expect(r).toMatchObject({ put: [], skipped: 1 })

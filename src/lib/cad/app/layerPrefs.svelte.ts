@@ -46,8 +46,8 @@ export class LayerPrefs {
 		for (const id of ids) { if (on) s.add(id); else s.delete(id) }
 		return s
 	}
-	/** Save the current eye states under a name (a same-named preset is replaced). */
-	savePreset(name: string): void { this.presets = withPreset(this.presets, name, this.hidden); this.#save() }
+	/** Save the current eye states (or a viewport's hidden layers) under a name (a same-named preset is replaced). */
+	savePreset(name: string, hidden: Iterable<Id> = this.hidden): void { this.presets = withPreset(this.presets, name, hidden); this.#save() }
 	/** Show exactly what the preset showed (layers made since stay shown); returns the layers it hid. */
 	applyPreset(name: string): Id[] {
 		const p = this.presets.find((x) => x.name === name)

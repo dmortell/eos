@@ -123,6 +123,7 @@
 	 *  level is `ws.levelId`. */
 	let panes = $state<ViewSpec[]>(fromUrl.panes ?? [PLAN])
 	const activePane = $derived(ws.pane)
+	$effect(() => { const s = panes[activePane]; ws.activeSheet = s?.kind === 'sheet' ? s.sheetId : null })
 	/** The drawing tabs (UX review D1): one list for both panes; each pane shows one. */
 	// svelte-ignore state_referenced_locally
 	const tabs = new Tabs(pid)

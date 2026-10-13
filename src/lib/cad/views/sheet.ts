@@ -55,9 +55,6 @@ export interface SheetOpts {
 	gray?: boolean
 	byUsage?: boolean
 	cords?: 'channels' | 'straight'
-	/** On screen only: the layers the user hides with the eye (Dave: hiding a layer didn't hide it in viewports); the
-	 *  PDF leaves this out — what prints is each viewport's ❄ freeze. */
-	hidden?: Iterable<string>
 	/** Cable routes for a riser viewport (else routed here). */
 	routes?: RiserOpts['routes']
 	/** The project's fills, for a fill-section viewport (else worked out from the routes). */
@@ -103,10 +100,10 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 }
 
 /** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale), with
- *  the layers frozen in it left out and layer colors applied (the user's own eye doesn't reach paper). */
+ *  the layers hidden in it left out and layer colors applied. Only the viewport's own list counts (Dave 2026-10-13: a
+ *  viewport's layers are its own, apart from the model's eye) — on screen as in print. */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
-	const hidden = new Set([...(vp.frozen ?? []), ...(o.hidden ?? [])])
-	return applyLayers(viewContent(ix, vp, o), ix, { hidden, sort: vp.view.spec.kind === 'plan' }).draw
+	return applyLayers(viewContent(ix, vp, o), ix, { hidden: new Set(vp.frozen ?? []), sort: vp.view.spec.kind === 'plan' }).draw
 }
 
 const paperFitOf = (vp: Viewport) => vp.rect.h * vp.scale - 2 * PAPER_PAD
@@ -175,13 +172,13 @@ export function onPaper(prims: Prim[], vp: Viewport): Prim[] {
 /** A note on a sheet as paper prims: tied to a viewport → drawn in its view mm at 1:N, then onto the paper. */
 function notePrims(ix: ProjectIndex, s: Shape, sheet: Sheet, o: SheetOpts): Prim[] {
 	const blocks = o.blocks, vp = s.vpId ? sheet.viewports.find((v) => v.id === s.vpId) : undefined
-	// the layer rules, as a plan item gets them (Q41): hidden (your eye on screen; a tied note: the viewport's freeze too) and By-layer color
+	// the layer rules, as a plan item gets them (Q41): hidden (a paper note: the sheet's own layers; a tied note: its viewport's) and By-layer color
 	const layered = (prims: Prim[], hidden: Iterable<string>) => applyLayers(prims, ix, { hidden: new Set(hidden) }).draw
-	if (!vp) return layered(shapePrims(s, 1, blocks), o.hidden ?? [])
+	if (!vp) return layered(shapePrims(s, 1, blocks), sheet.frozen ?? [])
 	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
 	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
 	// a block put in an elevation / section viewport (a faceplate on its wall) is drawn as that view draws blocks
-	return layered(shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)), [...(vp.frozen ?? []), ...(o.hidden ?? [])]).map((p) => placePrim(p, t, k, clip, p.src))
+	return layered(shapePrims(s, vp.scale, blocks, faceFor(vp.view.spec.kind)), vp.frozen ?? []).map((p) => placePrim(p, t, k, clip, p.src))
 }
 
 /** The options as this sheet draws: its own B/W, usage colors and cord route over the project's old settings. */
@@ -222,7 +219,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	const shown = new Set(sheet.viewports.map((v) => v.view.levelId))   // a legend on the paper lists what its viewports show
 	const notes: Prim[] = []
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
-		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(o.hidden ?? []) }).draw : notePrims(ix, s, sheet, o)))
+		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(sheet.frozen ?? []) }).draw : notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
 	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))
 	return out

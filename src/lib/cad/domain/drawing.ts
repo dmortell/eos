@@ -42,6 +42,9 @@ export interface Sheet {
 	/** This sheet's own title-block settings: hide it, or override auto fields (`drawn`, …). */
 	titleBlock?: { hidden?: boolean; fields?: Record<string, string> }
 	viewports: Viewport[]
+	/** Layers hidden on the sheet's own paper — its notes and legends not tied to a viewport (each viewport has its own
+	 *  `frozen`). Stored, so the sheet prints as it shows (Dave 2026-10-13). */
+	frozen?: Id[]
 	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. `hash` =
 	 *  the fingerprint of what the sheet showed at that issue (a sheet is "changed" when it no longer matches). */
 	/** `note` = the issue's purpose; `desc` = what changed in this revision (the title block shows it, else the note);
