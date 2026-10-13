@@ -16,9 +16,11 @@ import { newId } from '../domain/ids'
 import { styleProp } from '../domain/shapeDefaults'
 import { fromPaper, viewportAt } from '../views/sheet'
 import { angleStep, squareCorner } from './constrain'
+import { unproject, frameRot } from '../domain/conventions'
 
 export type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'image' | 'arc'
 export interface ShapeOpts { kind: ShapeKind; sides: number; inscribed: boolean; /** the Box tool: its height (extent) and base Z, mm */ height?: number; z?: number
+	/** the Box tool in an elevation / section: how deep it is (front to back, away from the viewer), mm */ depth?: number
 	/** the Image tool (backlog "Markup kinds" part 4): the picture — a file in Uploads and its page */ image?: { fileId: string; page?: number; ratio?: number } }
 
 /** The shape from two points (corner / corner, or centre / corner) in one 2D space; `shift` = square / circle /
@@ -66,6 +68,10 @@ export class ShapeTool implements Tool {
 	}
 	/** An ARC (backlog "Arc"): three clicks — its start, a point it passes through, its end. */
 	#arc(): boolean { return this.id === 'shape' && this.opts().kind === 'arc' }
+	/** A box drawn in an elevation / section (Dave 2026-10-14): its width and height by the two corners, its depth from
+	 *  the tool options — always a rectangular box there. */
+	#upright(c?: ToolCtx): boolean { const k = c?.space.spec.kind; return this.id === 'box' && !!c?.space.frame && (k === 'elevation' || k === 'section') }
+	#opts(c?: ToolCtx): ShapeOpts { const o = this.opts(); return this.#upright(c) ? { ...o, kind: 'rect' } : o }
 	down(e: PointerIn, c: ToolCtx): void {
 		const p = this.#pt(e, c)
 		if (this.#arc()) {
@@ -109,9 +115,9 @@ export class ShapeTool implements Tool {
 	}
 	lastPoint(): Pt | null { return this.#m ?? this.#a }
 	/** Corner to corner (not a polygon's centre or an arc's points): a size can be typed. */
-	#sized(): boolean { return !!this.#a && !this.#arc() && this.opts().kind !== 'polygon' }
+	#sized(c?: ToolCtx): boolean { return !!this.#a && !this.#arc() && this.#opts(c).kind !== 'polygon' }
 	typedText(text: string, c: ToolCtx): string | null | false {
-		if (!this.#sized()) return false
+		if (!this.#sized(c)) return false
 		const m = /^\s*(\d+(?:\.\d+)?)\s*(?:[,x×*]\s*(\d+(?:\.\d+)?))?\s*$/i.exec(text)
 		if (!m) return false   // @dx,dy, polar … : read as a point
 		const w = Number(m[1]), d = m[2] != null ? Number(m[2]) : w
@@ -131,7 +137,8 @@ export class ShapeTool implements Tool {
 		const a = this.#a, b = this.#b, m = this.#m
 		this.cancel()
 		if (!a || !b) return
-		const spec = c.space.spec, o = this.opts()
+		const spec = c.space.spec, o = this.#opts(c)
+		if (this.#upright(c)) { this.#uprightBox(c, a, this.#shift ? squareCorner(a, b) : b); return }
 		// the owner, and how a view point maps into the shape's own 2D space
 		let owner: Record<string, unknown>, map = (p: Pt): Pt => p
 		if (spec.kind === 'sheet') {
@@ -154,15 +161,37 @@ export class ShapeTool implements Tool {
 		c.select([s.id])
 	}
 
-	/** The shape as it will be, in the view. */
-	preview(): Prim[] {
+	/** The box from two corners in an elevation / section: a plan box whose width runs along the view, standing from the
+	 *  lower corner's height to the upper's, its front face on the work plane and `depth` deep away from the viewer. */
+	#uprightBox(c: ToolCtx, a: Pt, b: Pt): void {
+		const f = c.space.frame!, o = this.opts()
+		const u0 = Math.min(a.x, b.x), u1 = Math.max(a.x, b.x), z0 = Math.min(-a.y, -b.y), z1 = Math.max(-a.y, -b.y)
+		if (u1 - u0 < 1 || z1 - z0 < 1) return
+		const d = Math.max(1, o.depth ?? 600), mid = unproject(f, { u: (u0 + u1) / 2, v: 0 }, c.work.depth - d / 2)
+		const rot = Math.round(frameRot(f) * 10) / 10
+		const geom = { kind: 'rect', centre: { x: r1(mid.x), y: r1(mid.y) }, size: { x: r1(u1 - u0), y: r1(d) }, ...(rot ? { rot } : {}) }
+		const s = { type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}), geom, extent: r1(z1 - z0), ...(r1(z0) ? { plane: { kind: 'plan', z: r1(z0) } } : {}), ...styleProp(c.settings, c.index.layers, c.layerId) } as Shape
+		c.store.transact('Draw box', (tx) => tx.put(s))
+		c.select([s.id])
+	}
+
+	/** The shape as it will be, in the view — and its size beside the cursor (Dave 2026-10-14). */
+	preview(c?: ToolCtx): Prim[] {
 		const a = this.#a, b = this.#b
 		if (!a || !b) return []
 		if (this.#arc()) {
 			const arc = this.#m ? arcThrough(a, this.#m, b) : null
 			return [{ k: 'line', pts: arc ? arcPts(arc) : [a, ...(this.#m ? [this.#m] : []), b], cls: 'draft' }]
 		}
-		const g = shapeGeom(this.opts(), a, b, this.#shift), out = g && outlineOf(g)
-		return out ? [{ k: 'line', pts: out, closed: true, cls: 'draft' }] : []
+		const o = this.#opts(c), g = shapeGeom(o, a, b, this.#shift), out = g && outlineOf(g)
+		if (!out) return []
+		return [{ k: 'line', pts: out, closed: true, cls: 'draft' }, ...(c ? this.#sizeLabel(o, a, b, c) : [])]
+	}
+	/** "1200 × 600" (an elevation: width × height; a polygon: its radius) just past the cursor, ~11 px high. */
+	#sizeLabel(o: ShapeOpts, a: Pt, b0: Pt, c: ToolCtx): Prim[] {
+		const px = c.tol() / 10, b = this.#shift && o.kind !== 'polygon' ? squareCorner(a, b0) : b0
+		const n = (v: number) => String(Math.round(Math.abs(v) * 10) / 10)
+		const text = o.kind === 'polygon' ? `R ${n(Math.hypot(b.x - a.x, b.y - a.y))}` : `${n(b.x - a.x)} × ${n(b.y - a.y)}`
+		return [{ k: 'text', at: { x: b0.x + 14 * px, y: b0.y + 22 * px }, text, size: 11 * px, cls: 'draft-label' }]
 	}
 }

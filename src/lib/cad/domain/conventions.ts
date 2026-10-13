@@ -74,7 +74,8 @@ export function unproject(f: ElevFrame, p: { u: number; v: number }, depth: numb
 	return { x: f.o.x + p.u * f.t.x + depth * f.n.x, y: f.o.y + p.u * f.t.y + depth * f.n.y, z: p.v }
 }
 
-/** The plan angle of a frame's t axis — the `rot` an upright box drawn on that elevation gets (its width runs along u). (Used by tests only.) */
+/** The plan angle of a frame's t axis — the `rot` an upright box drawn on that elevation gets (its width runs along u):
+ *  the Box tool in an elevation / section. */
 export function frameRot(f: ElevFrame): number {
 	return norm360(Math.atan2(f.t.y, f.t.x) / DEG)
 }

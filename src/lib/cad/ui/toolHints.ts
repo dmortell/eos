@@ -10,7 +10,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
 	legend: 'Click where its top-left corner goes (plan: lists this level · sheet: the levels its viewports show) · rows, title, size in Properties',
 	viewport: 'Drag a box on the paper (or click two corners) · it shows the other pane’s view, else the last plan / elevation / rack view, scaled to fit · at least 20 × 20 mm · Esc stops',
-	box: 'A box / desk on the plan: its footprint corner to corner (or drag) · its height and Z in the tool bar (and Properties) · shows in elevations and sections · Esc stops',
+	box: 'A box / desk: on a plan its footprint corner to corner (or drag; or type width,depth), its height and Z in the tool bar · in an elevation / section its width and height corner to corner, its depth in the tool bar · shows in every view · Esc stops',
 	image: 'Drag the image’s box (or click two corners) on a plan, an elevation / section or a sheet — it fits inside, keeping its proportions · Esc stops',
 	shape: 'Click two points (or drag) · on a plan, on an elevation (at the work depth), on a sheet or inside a viewport · Esc stops',
 	select: 'Double-click (or F2) a label / text to edit it, Tab = the next one · double-click a selected run to add a point · Ctrl-drag a point to branch, an item to copy · Ctrl+G groups, Ctrl+Shift+G ungroups · Ctrl+] / Ctrl+[ draw order',

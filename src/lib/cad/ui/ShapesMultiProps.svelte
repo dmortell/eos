@@ -1,6 +1,6 @@
 <!-- SEVERAL DRAWN SHAPES at once (backlog "Edit several at once"; not runs — RunsMultiProps): their layer, color, line
      type, fill, text size (texts), rotation (rectangles, ellipses), Z (shapes and blocks on a level's plan), whether
-     blocks show in elevations, height and doors (boxes), block attributes. A field shows the value they share, or
+     blocks show in elevations, height, width, depth and doors (boxes), block attributes. A field shows the value they share, or
      "mixed"; an edit sets it on every shape it applies to, as one undo step. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -37,6 +37,15 @@
 	const placed = $derived(inserts.filter((s) => s.levelId))
 	/** Rectangles (boxes) and ellipses: they turn about their centre. */
 	const turnable = $derived(shapes.filter((s) => s.geom.kind === 'rect' || s.geom.kind === 'ellipse'))
+	/** Rectangles and ellipses on the plan: their width / depth are typed for all of them at once (Dave 2026-10-14). */
+	const sized = $derived(regions.filter((s) => s.geom.kind === 'rect' || s.geom.kind === 'ellipse'))
+	const sizeOf = (s: Shape) => (s.geom.kind === 'rect' ? s.geom.size : s.geom.kind === 'ellipse' ? { x: s.geom.rx * 2, y: s.geom.ry * 2 } : { x: 0, y: 0 })
+	const resized = (s: Shape, axis: 'x' | 'y', v: number): Shape => {
+		const g = s.geom
+		if (g.kind === 'rect') return { ...s, geom: { ...g, size: { ...g.size, [axis]: v } } }
+		if (g.kind === 'ellipse') return { ...s, geom: axis === 'x' ? { ...g, rx: v / 2 } : { ...g, ry: v / 2 } }
+		return s
+	}
 	function clearColour(s: Shape): Shape {
 		const { stroke: _s, ...st } = s.style ?? {}
 		return { ...s, style: Object.keys(st).length ? st : undefined }
@@ -88,6 +97,14 @@
 			{@const h = shared(regions, (s) => s.extent ?? 0)}
 			<label class="row" title="How tall the {regions.length} box{regions.length === 1 ? '' : 'es'} are (0 = flat)">Height (mm)
 				<input class="inp" type="number" min="0" step="10" value={h ?? ''} placeholder={h === null ? MIXED : ''} onchange={(e) => { if (!e.currentTarget.value.trim()) { e.currentTarget.value = h === null ? '' : String(h); return } const v = Math.max(0, Number(e.currentTarget.value)); each(regions, 'Height', (s) => ({ ...s, extent: v || undefined })) }} /></label>
+		{/if}
+		{#if sized.length}
+			{@const w = shared(sized, (s) => sizeOf(s).x)}
+			{@const d = shared(sized, (s) => sizeOf(s).y)}
+			<label class="row" title="Across (before it is turned) of the {sized.length} rectangle{sized.length === 1 ? '' : 's'} / ellipse{sized.length === 1 ? '' : 's'}, each about its middle">Width (mm)
+				<input class="inp" type="number" min="0.1" step="10" value={w ?? ''} placeholder={w === null ? MIXED : ''} onchange={(e) => { const v = Number(e.currentTarget.value); if (v > 0) each(sized, 'Width', (s) => resized(s, 'x', v)) }} /></label>
+			<label class="row" title="Front to back (before it is turned), each about its middle">Depth (mm)
+				<input class="inp" type="number" min="0.1" step="10" value={d ?? ''} placeholder={d === null ? MIXED : ''} onchange={(e) => { const v = Number(e.currentTarget.value); if (v > 0) each(sized, 'Depth', (s) => resized(s, 'y', v)) }} /></label>
 		{/if}
 		{#if regions.some((s) => s.geom.kind === 'rect')}<RackDoors {project} boxes={regions} />{/if}
 	</PropGroup>

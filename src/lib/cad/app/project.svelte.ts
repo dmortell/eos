@@ -204,6 +204,13 @@ export class CadProject {
 		return insert.id
 	}
 
+	/** Rename one of your blocks in the GLOBAL library (every project's list shows the new name; inserts keep drawing it —
+	 *  they name it by id). Built-ins can't be renamed. Not undoable (it isn't project data). */
+	async renameBlock(id: Id, name: string): Promise<void> {
+		if (this.blocks.get(id)?.builtin || !name.trim()) return
+		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [id]: { name: name.trim() } } }, { merge: true })
+	}
+
 	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /
 	 *  outlet already using it keeps drawing it. Built-ins can't be retired. Not undoable (it isn't project data). */
 	async retireBlock(id: Id): Promise<void> {

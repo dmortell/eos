@@ -46,7 +46,7 @@ export type ToolId = 'select' | 'move' | 'copy' | 'rotate' | 'mirror' | 'insert'
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section', 'portmap', 'ports', 'schedule', 'fill'],
 	section: ['plan'], viewport: ['sheet'], calibrate: ['plan'],
-	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
+	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan', 'elevation', 'section'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation', 'sheet'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'], match: ['plan', 'elevation', 'section', 'sheet'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -126,7 +126,7 @@ export class Workspace {
 	/** The Shape tool's choice: rectangle / ellipse / polygon (its sides, inscribed or circumscribed). */
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
-	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0 })
+	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0, depth: 600 })
 	/** The Image tool's picture (Insert › Image…): its file in Uploads and page, and its name for the hint. */
 	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
 	touchInput = $state(false)

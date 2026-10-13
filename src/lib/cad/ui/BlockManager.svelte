@@ -12,6 +12,7 @@
 	import { blockPreview } from '../views/blocks'
 	import Prims from './Prims.svelte'
 	import SideSection from './SideSection.svelte'
+	import NameInput from './NameInput.svelte'
 
 	let { project, ws, levelId, onpick }: { project: CadProject; ws: Workspace; levelId?: Id; onpick: (b: Block | null) => void } = $props()
 
@@ -44,6 +45,15 @@
 		e.dataTransfer?.setData('application/x-cad-block', b.id)
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 	}
+	// your own blocks are renamed in the list (Dave 2026-10-14): ✎ or F2 on the row; built-ins are in code
+	let renaming = $state<Id | null>(null)
+	async function rename(b: Block, name: string) {
+		renaming = null
+		const t = name.trim()
+		if (!t || t === b.name) return
+		try { await project.renameBlock(b.id, t); ws.say(`Block ${b.name} is now ${t} (in every project)`) }
+		catch (e) { project.error = `Rename failed: ${(e as Error).message}` }
+	}
 	function retire(b: Block) {
 		ws.ask2(`Delete block ${b.name} from the library (every project)? What's already drawn keeps it. This can't be undone.`, 'Delete block', () => project.retireBlock(b.id))
 	}
@@ -58,14 +68,21 @@
 	{#each groups as g (g.cat)}
 		<p class="cat">{g.cat}</p>
 		{#each g.rows as r (r.b.id)}
-			<div class="row" class:here class:on={picked === r.b.id}>
+			{@const mine = !r.b.builtin && !!project.blockOf(r.b.id) && !r.b.retired}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="row" class:here class:on={picked === r.b.id} onkeydown={(e) => { if (e.key === 'F2' && mine && renaming !== r.b.id) { e.preventDefault(); e.stopPropagation(); renaming = r.b.id } }}>
+				{#if renaming === r.b.id}
+					<NameInput wide value={r.b.name} title="Block name — Enter saves, Esc cancels" onsave={(t) => rename(r.b, t)} oncancel={() => (renaming = null)} />
+				{:else}
 				<button class="pick" title="Place {r.b.name}: click, then click where it goes — or drag it onto the drawing{picked === r.b.id ? ' (click again to stop)' : ''}" disabled={!project.blockOf(r.b.id)} onclick={() => onpick(picked === r.b.id ? null : r.b)}
 					draggable={!!project.blockOf(r.b.id)} ondragstart={(e) => dragBlock(e, r.b)} ondragend={() => ws.endDrag()}>
 					<svg class="pv" viewBox={r.viewBox}><Prims prims={r.prims} selected={new Set()} /></svg>
 					<span class="nm">{r.b.name}</span>
 				</button>
+				{/if}
 				{#if here}<span class="ct">{used.get(r.b.id)}</span>{/if}
-				{#if !r.b.builtin && project.blockOf(r.b.id) && !r.b.retired}<button class="del" title="Delete this block from the library" onclick={() => retire(r.b)}>✕</button>{:else}<span></span>{/if}
+				{#if mine}<button class="del" title="Rename this block (F2)" onclick={() => (renaming = r.b.id)}>✎</button>{:else}<span></span>{/if}
+				{#if mine}<button class="del" title="Delete this block from the library" onclick={() => retire(r.b)}>✕</button>{:else}<span></span>{/if}
 			</div>
 		{/each}
 	{:else}
@@ -79,8 +96,8 @@
 	.tabs button.on { background: #2563eb; border-color: var(--cad-link, #2563eb); color: white; }
 	.find { width: calc(100% - 8px); margin: 0 4px 4px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 	.cat { padding: 2px 4px 0; font-size: 10px; color: var(--cad-faint); text-transform: capitalize; }
-	.row { display: grid; grid-template-columns: 1fr 20px; align-items: center; gap: 0.3rem; padding: 0 4px; border-radius: 4px; }
-	.row.here { grid-template-columns: 1fr auto 20px; }
+	.row { display: grid; grid-template-columns: 1fr 20px 20px; align-items: center; gap: 0.2rem; padding: 0 4px; border-radius: 4px; }
+	.row.here { grid-template-columns: 1fr auto 20px 20px; }
 	.row:hover { background: var(--cad-hover); }
 	.row.on { background: var(--cad-sel, #dbeafe); }
 	.pick { display: grid; grid-template-columns: 1.4rem 1fr; align-items: center; gap: 0.35rem; text-align: left; font-size: 12px; padding: 1px 0; min-width: 0; }

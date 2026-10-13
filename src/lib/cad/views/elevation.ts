@@ -30,9 +30,7 @@ export interface Item { depth: number; prims: Prim[] }
 export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; band?: { near: number; far: number }; extra?: Item[]; blocks?: (id: Id) => Block | undefined }): Prim[] {
 	const k = o.scale, level = ix.get(levelId) as Level | undefined
 	const items: Item[] = []
-	const rect = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill = true): Prim =>
-		({ k: 'line', pts: [{ x: u0, y: -z0 }, { x: u1, y: -z0 }, { x: u1, y: -z1 }, { x: u0, y: -z1 }], closed: true, fill, cls, ...(src ? { src } : {}) })
-	const uSpan = (pts: Pt3[]) => { const us = pts.map((p) => sp.fromWorld(p).x); return [Math.min(...us), Math.max(...us)] as const }
+	const rect = rectView, uSpan = spanIn(sp)
 
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) items.push(rackItem(ix, r, sp, rect, uSpan, k))
 	// only outlets placed in an elevation / section (on a wall): one placed on a plan is a plan symbol (Dave 2026-10-10)
@@ -98,6 +96,16 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 
 type RectFn = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill?: boolean) => Prim
 type SpanFn = (pts: Pt3[]) => readonly [number, number]
+/** A filled (u, z) rectangle in view mm. */
+const rectView: RectFn = (u0, u1, z0, z1, cls, src, fill = true) =>
+	({ k: 'line', pts: [{ x: u0, y: -z0 }, { x: u1, y: -z0 }, { x: u1, y: -z1 }, { x: u0, y: -z1 }], closed: true, fill, cls, ...(src ? { src } : {}) })
+/** The u extent of some model points in this view. */
+const spanIn = (sp: ViewSpace): SpanFn => (pts) => { const us = pts.map((p) => sp.fromWorld(p).x); return [Math.min(...us), Math.max(...us)] as const }
+
+/** A 3D block's insert as this view draws it (the Insert tool's ghost, Dave 2026-10-14): its side, not its top. */
+export function blockSideView(ins: Shape, b: Block, sp: ViewSpace, k: number): Prim[] {
+	return solidItems(ins, b, sp, rectView, spanIn(sp), (n) => n.z, k).sort((x, y) => x.depth - y.depth).flatMap((it) => it.prims)
+}
 
 function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
 	return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([x, y]) => { const q = rotate({ x, y }, rot); return { x: at.x + q.x, y: at.y + q.y, z } })

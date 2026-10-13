@@ -3,7 +3,7 @@
 import type { Id, Pt } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from '../views/display'
-import type { Shape } from '../domain/shapes'
+import { outlineOf, type Shape } from '../domain/shapes'
 
 export type SnapKind = 'node' | 'mid' | 'centre' | 'outlet' | 'rack' | 'grid'
 export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
@@ -72,6 +72,15 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 		// the CENTRE of a circle / arc / box / polygon, and a block's insertion point (backlog "Centre snap")
 		const c = centreOf(s.geom)
 		if (c) offer({ p: c, kind: 'centre' })
+		// a box's / polygon's corners and the middles of its edges (Dave 2026-10-14: a desk's legs at its top's corners)
+		if (s.geom.kind === 'rect' || s.geom.kind === 'polygon') {
+			const pts = outlineOf(s.geom) ?? []
+			pts.forEach((q, i) => {
+				offer({ p: q, kind: 'node' })
+				const r = pts[(i + 1) % pts.length]
+				offer({ p: { x: (q.x + r.x) / 2, y: (q.y + r.y) / 2 }, kind: 'mid' })
+			})
+		}
 		if (s.geom.kind !== 'path') continue
 		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
 		for (const n of s.geom.nodes) offer({ p: n, kind: 'node', z: n.z })

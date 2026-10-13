@@ -86,6 +86,30 @@ describe('the Shape tool', () => {
 		expect(poly.typedText('500', h.ctx())).toBe(false)
 		expect(poly.typedLabel()).toMatch(/Radius/)
 	})
+	it('a Box drawn in an elevation (Dave 2026-10-14): width and height by its corners, depth from the options, its front on the work plane', () => {
+		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec), h = harness(spec)
+		const t = new ShapeTool(() => opts({ kind: 'polygon', depth: 600 }), 'box')   // a polygon footprint is a rectangle here
+		t.down(at(1000, -720), h.ctx()); t.up(at(1000, -720), h.ctx()); t.down(at(2200, -770), h.ctx())   // u 1000..2200, z 720..770
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s).toMatchObject({ levelId: 'L33', geom: { kind: 'rect', size: { x: 1200, y: 600 } }, extent: 50, plane: { kind: 'plan', z: 720 } })
+		expect(s.plane?.kind).toBe('plan')
+		const g = s.geom as { centre: { x: number; y: number } }
+		const front = sp.depthOf({ ...g.centre, z: 0 }) + 300
+		expect(Math.round(front)).toBe(2000)   // the harness's work depth
+		expect(Math.round(sp.fromWorld({ ...g.centre, z: 0 }).x)).toBe(1600)
+		// and every view draws it: the front elevation shows it 1200 wide, 720..770 high
+		const prims = elevationDisplayList(new ProjectIndex(h.store.all()), 'L33', sp, { scale: 100 }).filter((p) => p.src === s.id && p.k === 'line')
+		const ys = prims.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => -q.y) : []))
+		expect([Math.min(...ys), Math.max(...ys)]).toEqual([720, 770])
+	})
+	it('the size beside the cursor while drawing: width × depth, a polygon its radius', () => {
+		const h = harness(PLAN), t = new ShapeTool(() => opts())
+		t.down(at(0, 0), h.ctx()); t.up(at(0, 0), h.ctx()); t.hover(at(1200, -600), h.ctx())
+		expect(t.preview(h.ctx()).find((p) => p.k === 'text')).toMatchObject({ text: '1200 × 600' })
+		const p = new ShapeTool(() => opts({ kind: 'polygon' }))
+		p.down(at(0, 0), h.ctx()); p.up(at(0, 0), h.ctx()); p.hover(at(300, 400), h.ctx())
+		expect(p.preview(h.ctx()).find((q) => q.k === 'text')).toMatchObject({ text: 'R 500' })
+	})
 	it('an arc: start, a point on it, end → through all three; drawn on the plan; its middle grip reshapes it', () => {
 		const h = harness(PLAN), t = new ShapeTool(() => opts({ kind: 'arc' }))
 		t.down(at(-1000, 0), h.ctx()); t.up(at(-1000, 0), h.ctx()); t.down(at(0, -1000), h.ctx()); t.down(at(1000, 0), h.ctx())

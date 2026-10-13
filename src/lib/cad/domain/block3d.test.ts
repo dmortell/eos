@@ -5,7 +5,7 @@ import { blockFromShapes, is3d, placed3d, explodeInsert, type Block } from './bl
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import { spaceOf } from '../views/space'
-import { elevationDisplayList } from '../views/elevation'
+import { elevationDisplayList, blockSideView } from '../views/elevation'
 import { planDisplayList } from '../views/plan'
 import type { Shape } from './shapes'
 import type { Prim } from '../views/display'
@@ -73,6 +73,12 @@ describe('3D blocks', () => {
 		}
 		expect(width(front)).toBe(800)
 		expect(width(spaceOf({ kind: 'elevation', dir: 'left' }))).toBe(1600)
+	})
+	it('the Insert tool’s ghost in an elevation is the block’s side (blockSideView), not its top', () => {
+		const { block, insert } = made()
+		const side = blockSideView({ ...insert, geom: { ...insert.geom, z: 0 } } as Shape, block, front, 100)
+		const ys = side.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => -q.y) : []))
+		expect(Math.max(...ys)).toBe(750)   // the top of the desk, seen from the front
 	})
 	it('explode: the boxes back where they stand', () => {
 		const { block, insert } = made()

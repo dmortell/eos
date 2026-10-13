@@ -48,7 +48,7 @@
 {/if}
 {#if ws.toolId === 'outlet'}<OutletOptions {project} {ws} />{/if}
 {#if ws.toolId === 'shape'}<ShapeOptions {ws} />{/if}
-{#if ws.toolId === 'box'}<ShapeOptions {ws} box />{/if}
+{#if ws.toolId === 'box'}<ShapeOptions {ws} box upright={kind === 'elevation' || kind === 'section'} />{/if}
 {#if ws.toolId === 'dimension'}<DimOptions {ws} />{/if}
 {#if ws.toolId === 'opening'}
 	<span class="sep"></span>

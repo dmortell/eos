@@ -5,7 +5,8 @@
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
-import { insertAttrs, type Block } from '../domain/blocks'
+import { insertAttrs, is3d, type Block } from '../domain/blocks'
+import { blockSideView } from '../views/elevation'
 import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
@@ -63,6 +64,11 @@ export class InsertTool implements Tool {
 		const sheet = spec?.kind === 'sheet' ? c!.store.get(spec.sheetId) : undefined
 		const vp = sheet?.type === 'sheet' ? viewportAt(sheet, h.view) : undefined
 		if (vp) return blockPrims(b, { at: h.view, scale: 1 / vp.scale }, vp.scale, insertAttrs(b), '', 'draft')
+		// a 3D block in an elevation / section: its side as it will stand there (Dave 2026-10-14), not its top
+		if (c && is3d(b) && (kind === 'elevation' || kind === 'section')) {
+			const ghost = { type: 'shape', id: '', levelId: c.levelId, geom: { kind: 'insert', blockId: b.id, at: h.at, ...(h.rot ? { rot: h.rot } : {}), ...(h.z ? { z: h.z } : {}) } } as Shape
+			return blockSideView(ghost, b, c.space, PLOT_SCALE).map((p) => ({ ...p, src: undefined, cls: 'draft', ...(p.k === 'line' ? { fill: false } : {}) }))
+		}
 		return blockPrims(b, { at: h.view }, kind === 'sheet' ? 1 : PLOT_SCALE, insertAttrs(b), '', 'draft')
 	}
 

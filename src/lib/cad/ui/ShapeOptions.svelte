@@ -5,12 +5,17 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { ShapeKind, ShapeOpts } from '../editor/shapeTool'
 
-	let { ws, box = false }: { ws: Workspace; box?: boolean } = $props()
+	/** `upright`: the Box tool in an elevation / section — corner to corner gives its width and height; its depth is set here. */
+	let { ws, box = false, upright = false }: { ws: Workspace; box?: boolean; upright?: boolean } = $props()
 	const o = $derived(box ? ws.boxOpts : ws.shapeOpts)
 	const set = (patch: Partial<ShapeOpts>) => { if (box) ws.boxOpts = { ...ws.boxOpts, ...patch }; else ws.shapeOpts = { ...ws.shapeOpts, ...patch } }
 </script>
 
 <span class="mx-2 h-5 w-px bg-zinc-200"></span>
+{#if upright}
+	<label class="opt" title="How deep the box is, from the work plane away from you (mm)">Depth <input type="number" min="1" step="10" value={o.depth ?? 600} onchange={(e) => set({ depth: Math.max(1, Number(e.currentTarget.value) || 600) })} /></label>
+	<span class="hint">corner to corner: its width and height (or type width,height) · its front on the work plane · Shift: square</span>
+{:else}
 <label class="opt">{box ? 'Footprint' : 'Shape'}
 	<select value={o.kind} onchange={(e) => set({ kind: e.currentTarget.value as ShapeKind })}>
 		<option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="polygon">Polygon</option>
@@ -31,6 +36,7 @@
 	<span class="hint">click its start, a point it passes through, then its end · Esc cancels</span>
 {:else}
 	<span class="hint">{o.kind === 'polygon' ? 'click the centre, then a corner' : 'corner to corner'} · Shift: {o.kind === 'rect' ? 'square' : o.kind === 'ellipse' ? 'circle' : '15° steps'}</span>
+{/if}
 {/if}
 
 <style>
