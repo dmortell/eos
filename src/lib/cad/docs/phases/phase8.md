@@ -3353,3 +3353,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   gone: nothing on a sheet follows a per-user setting, so the PDF, an issue and the screen draw the same list.
 - **New layers start hidden in existing viewports** as before for + Layer and import; now also for a layer that comes
   with a paste from another project (`pasteClip` → `freezeInExisting`).
+- **Several viewports picked (Dave 2026-10-14, options 1 + 2)** the panel works on every picked viewport
+  (`ws.pickedViewports`): one eye per layer, `eyeState` = on / off / mixed (a faint eye; a click shows it in all), and
+  presets / group eyes / multi-picked layers set them all. Layers none of them draws on (`viewportLayers`: the view's
+  content with nothing hidden, plus its tied notes, on `dataIndex`) fold under "Not in these views (N)", still settable.

@@ -1,6 +1,6 @@
 // Sheets (Phase 4.1): paper at true size, viewports drawing their view at 1:N into a clipped window.
 import { describe, it, expect } from 'vitest'
-import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport, paperViewport, fitViewport, viewportContent } from './sheet'
+import { sheetDisplayList, sheetLook, paperSize, toPaper, defaultViewport, sheetTitleBlock, drawingArea, sectionViewport, paperViewport, fitViewport, viewportContent, viewportLayers } from './sheet'
 import { PAPER_PAD } from './paper'
 import { DEFAULT_TITLE_BLOCK, type ProjectDetails } from '../domain/titleBlock'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
@@ -87,6 +87,14 @@ describe('notes follow the layer rules (Q41)', () => {
 		expect(has({ ...sh, frozen: ['sys:notes'] }, tied)).toBe(true)   // the paper's list doesn't reach a viewport
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), tied)).toBe(false)
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), paper)).toBe(true)   // frozen in the viewport only: paper notes are not in it
+	})
+	it('viewportLayers: what a viewport draws on, hidden or not, and its tied notes (Dave 2026-10-14)', () => {
+		const v = vp(['sys:outlets-low'])
+		const sh = sheet({ viewports: [v] }), tied = { ...text('N2', 'V'), layerId: 'MINE' } as Shape
+		const got = viewportLayers(new ProjectIndex([...demoProject(), sh, tied, { type: 'layer', id: 'MINE', name: 'Mine', order: 500 }]), sh, v)
+		expect(got.has('sys:outlets-low')).toBe(true)    // hidden in it, still one of its layers
+		expect(got.has('MINE')).toBe(true)
+		expect(got.has('sys:port-labels')).toBe(false)   // a plan draws no rack port labels
 	})
 	it('a viewport’s content follows its own layers, not the model’s eye (Dave 2026-10-13)', () => {
 		const shown = (v: ReturnType<typeof vp>) => { const sh = sheet({ viewports: [v] }); return viewportContent(new ProjectIndex([...demoProject(), sh]), v).length }

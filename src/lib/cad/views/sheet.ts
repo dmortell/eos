@@ -18,6 +18,7 @@ import { paperDisplayList, PAPER_PAD, type PaperOpts } from './paper'
 import { sectionDisplayList } from './section'
 import { spaceOf, isPaperSpec } from './space'
 import { applyLayers } from './layers'
+import { layersOf, layerOf } from '../domain/layers'
 import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
 import { scheduleTitle, patchScheduleLayout } from './schedule'
@@ -104,6 +105,16 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
  *  viewport's layers are its own, apart from the model's eye) — on screen as in print. */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
 	return applyLayers(viewContent(ix, vp, o), ix, { hidden: new Set(vp.frozen ?? []), sort: vp.view.spec.kind === 'plan' }).draw
+}
+
+/** The layers a viewport draws anything on — its view with nothing hidden, and the notes tied to it (Layers: the
+ *  others are folded away while it's picked, Dave 2026-10-14). */
+export function viewportLayers(ix: ProjectIndex, sheet: Sheet, vp: Viewport, o: SheetOpts = {}): Set<Id> {
+	const out = new Set<Id>()
+	for (const p of viewportContent(ix, { ...vp, frozen: undefined }, { ...sheetLook(sheet, o), vps: sheet.viewports })) if (p.layer) out.add(p.layer)
+	const known = new Set(layersOf(ix.layers).map((l) => l.id))
+	for (const s of ix.shapes) if (s.sheetId === sheet.id && s.vpId === vp.id) { const l = layerOf(s, known); if (l) out.add(l) }
+	return out
 }
 
 const paperFitOf = (vp: Viewport) => vp.rect.h * vp.scale - 2 * PAPER_PAD
