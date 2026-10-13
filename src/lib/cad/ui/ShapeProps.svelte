@@ -1,11 +1,12 @@
 <!-- A drawn SHAPE that isn't a run, a note, a legend or a block (a rectangle, circle, ellipse, polygon, arc, image):
      General (label, layer, Make block) · Image (its file) or Style (color, line type, lineweight, fill) · Position
-     (a rectangle's or ellipse's rotation; a box's Z, its base above the floor) · Box (a region on a level's plan: its
-     height — 0 = flat; a rectangle's back line, doors and floor-tile grid). -->
+     (a region's middle X / Y; a rectangle's or ellipse's rotation; a box's Z, its base above the floor) · Box / Size
+     (width and depth, a circle's diameter, all typed; a region on a level's plan: its height — 0 = flat; a rectangle's
+     back line, doors and floor-tile grid). -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import { withStyle, type Shape } from '../domain/shapes'
+	import { withStyle, moveGeometry, type Shape } from '../domain/shapes'
 	import { put } from './propsKit'
 	import { DEFAULT_TILES, tilesTooFine } from '../domain/tiles'
 	import { gridStepOf } from '../editor/snap'
@@ -33,6 +34,25 @@
 	/** A rectangle's floor-tile grid: size (any positive mm, as the grid step is typed) and X / Y offset. */
 	const setTiles = (label: string, patch: Partial<NonNullable<Shape['tiles']>>) => set(label, { tiles: { ...(s.tiles ?? DEFAULT_TILES), ...patch } })
 	const fine = $derived(s.geom.kind === 'rect' && !!s.tiles && tilesTooFine(s.geom.size, s.tiles))
+	// typed size and place (Dave 2026-10-14: a box needed more than its height to be drawn exactly)
+	/** Its middle: a rectangle / circle / ellipse's centre, a polygon's box's middle. */
+	const mid = $derived.by(() => {
+		const g = s.geom
+		if (g.kind === 'rect' || g.kind === 'circle' || g.kind === 'ellipse') return g.centre
+		if (g.kind !== 'polygon') return null
+		const xs = g.pts.map((p) => p.x), ys = g.pts.map((p) => p.y)
+		return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
+	})
+	const moveTo = (axis: 'x' | 'y', v: number) => { if (!mid) return; const d = { x: 0, y: 0, [axis]: v - mid[axis] }; set('Move', { geom: moveGeometry(s.geom, d) }) }
+	/** Width / depth (a rectangle's size, an ellipse's two diameters), or a circle's diameter. */
+	const resize = (what: 'x' | 'y', v: number | null | undefined) => {
+		const g = s.geom
+		if (v == null || v <= 0) return
+		if (g.kind === 'rect') set(what === 'x' ? 'Width' : 'Depth', { geom: { ...g, size: { ...g.size, [what]: v } } })
+		else if (g.kind === 'ellipse') set(what === 'x' ? 'Width' : 'Depth', { geom: what === 'x' ? { ...g, rx: v / 2 } : { ...g, ry: v / 2 } })
+		else if (g.kind === 'circle') set('Diameter', { geom: { ...g, r: v / 2 } })
+	}
+	const round1 = (n: number) => Math.round(n * 10) / 10
 </script>
 
 <PropGroup kind="shape" title="General">
@@ -55,8 +75,12 @@
 		{/if}
 	</PropGroup>
 {/if}
-{#if rot !== null || box}
+{#if rot !== null || box || mid}
 	<PropGroup kind="shape" title="Position">
+		{#if mid}
+			<NumberField label="X" unit="mm" step={10} title="Where its middle is, across" value={round1(mid.x)} onchange={(v) => v != null && moveTo('x', v)} />
+			<NumberField label="Y" unit="mm" step={10} title="Where its middle is, down the plan" value={round1(mid.y)} onchange={(v) => v != null && moveTo('y', v)} />
+		{/if}
 		{#if rot !== null}<NumberField label="Rotation" unit="°" step={15} title="Turned about its centre, clockwise" value={rot} onchange={(v) => v != null && setRot(v)} />{/if}
 		{#if box}
 			<NumberField label="Z" unit="mm" step={10} title="Its base: height above the floor" value={s.plane?.kind === 'plan' ? s.plane.z : 0}
@@ -64,8 +88,16 @@
 		{/if}
 	</PropGroup>
 {/if}
-{#if box || s.geom.kind === 'rect'}
-	<PropGroup kind="shape" title="Box">
+{#if box || region}
+	<PropGroup kind="shape" title={box ? 'Box' : 'Size'}>
+		{#if s.geom.kind === 'rect' || s.geom.kind === 'ellipse'}
+			{@const w = s.geom.kind === 'rect' ? s.geom.size.x : s.geom.rx * 2}
+			{@const d = s.geom.kind === 'rect' ? s.geom.size.y : s.geom.ry * 2}
+			<NumberField label="Width" unit="mm" min={0.1} step={10} title="Across (before it is turned), about its middle" value={round1(w)} onchange={(v) => resize('x', v)} />
+			<NumberField label="Depth" unit="mm" min={0.1} step={10} title="Front to back (before it is turned), about its middle" value={round1(d)} onchange={(v) => resize('y', v)} />
+		{:else if s.geom.kind === 'circle'}
+			<NumberField label="Diameter" unit="mm" min={0.1} step={10} title="About its middle" value={round1(s.geom.r * 2)} onchange={(v) => resize('x', v)} />
+		{/if}
 		{#if box}
 			<NumberField label="Height" unit="mm" min={0} step={10} title="How tall it stands; 0 = flat — a box shows in elevations and sections" value={s.extent ?? 0}
 				onchange={(v) => { const h = Math.max(0, v ?? 0); set(h ? 'Box height' : 'Flat', { extent: h || undefined }) }} />
