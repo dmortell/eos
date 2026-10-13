@@ -103,7 +103,6 @@ wanted. *From:* ids as in `backlog.md`.
 ## Not needed (Dave 2026-10-13) — from the backlog
 
 - **Drag racks from the list onto the plan** — drag one or several unplaced racks onto the plan; several land spaced in a line. **P3 · M** (Dave 2026-10-05: low priority) (~100 lines). *cad today:* "Place", then one click per rack (`cad/ui/RackList.svelte:61`). *From:* G050 **Not needed (Dave 2026-10-13).**
-- **Catalogue tab** — browse the Panduit catalogue (kind, maker, colour, RU, fits the row), add a rack from it, add / delete custom products. **P3 · L** (~300 lines). *cad today:* missing; the rack BOM reads the built-in Panduit seed only. Decide "Catalogue vs library" (below) first. *From:* G089 **Not needed (Dave 2026-10-13).**
 - **More snaps** — Intersection, perpendicular and nearest. (The split of a run drawn from / to the middle of another's segment was built 2026-10-12 — it works with these snaps once they exist.) **P3 · M** (Dave 2026-10-06: low priority) (~100 lines). *cad today:* node / midpoint / outlet / rack centre / grid only (`cad/editor/snap.ts`). *From:* P002 **Not needed (Dave 2026-10-13).**
 - **TRIM** — Click part of a line to cut it back to the shapes that cross it. **P3 · M** (~100 lines). *cad today:* missing. *From:* G245 **Not needed (Dave 2026-10-13).**
 - **EXTEND** — Grow a line end to the next shape. **P3 · M** (~80 lines, shares the crossing code with TRIM). *cad today:* missing. *From:* G246 **Not needed (Dave 2026-10-13).**

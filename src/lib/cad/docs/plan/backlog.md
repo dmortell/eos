@@ -18,7 +18,35 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 0 entries (0 P1 · 0 P2 · 0 P3; 0 ⚡ quick wins) — 14 of them from Review 2 (2026-10-12, section at the end). **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 5 entries (0 P1 · 0 P2 · 5 P3; 0 ⚡ quick wins) — all from Dave's todos of 2026-10-14 (next section); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+
+## Dave's todos (2026-10-14)
+
+- [ ] **Markdown: strikethrough and underline** — in a markdown note `~~text~~` strikes through and `__text__` underlines;
+  `**text**` stays the only bold (today `__text__` is bold too — `views/markdown.ts` `parseInline`). A line through /
+  under the words on screen, in PDFs and in DXF. Help (Markdown notes) and the NoteProps tip updated. **P3 · S**
+  (~40 lines + tests). *cad today:* headings, bullets, numbers, **bold**, *italic*, tables. *From:* decision "Markdown
+  notes block" (T143), Dave 2026-10-14.
+- [ ] **AutoCAD zoom keys** — single-key zoom commands on the canvas (not while typing in a field): zoom extents, zoom
+  window (drag a box, the view fits it) and zoom previous (each pane keeps a short stack of cameras). Keys to agree
+  with Dave before building (AutoCAD's letters: E / W / P after Z, or single keys); Help › Shortcuts updated. Not the
+  single-key *tools* dropped in R46. **P3 · S–M** (~80 lines). *cad today:* Home = fit, Shift+Home = selection.
+  *From:* decision "AutoCAD zoom commands?" (T109), Dave 2026-10-14.
+- [ ] **Guides** — horizontal / vertical guide lines per view: a Guide tool places one through a clicked point (or
+  typed X / Y); grips move it, Delete removes it; screen only (not printed). Snaps: onto a guide, and where two guides
+  cross (guide × object needs the intersection snap, not built). **P3 · M** (~150–200 lines). *cad today:* snaps to
+  nodes, mids, centres, outlets, rack corners and the grid; no guides. *From:* decision "Guides?" (T155), Dave
+  2026-10-14.
+- [ ] **Catalogue, with links to product specs** — browse the Panduit catalogue (kind, maker, color, RU, fits the
+  row), add a rack from it, add / delete custom products (decided: one list with the library — a template keeps a
+  `catalogId`). Products, templates and blocks get a spec-sheet URL (`CatalogProduct.productUrl` exists), shown as a
+  link in Properties and the BOM. **P3 · L** (~300 lines). *cad today:* the BOM reads the built-in Panduit seed; a
+  rack's Properties › Product takes a typed SKU. *From:* G089, decision "Links to product spec sheets?" (T048), Dave
+  2026-10-14 (back from `later.md`).
+- [ ] **Review the sheet-organising answers D1, D2, D5, D8** (`sheets-organising.md` § 6; built 2026-10-07) — Dave to
+  look again: D1 one global category list (Settings › Sheet categories); D2 Discipline kept (free text, column hidden);
+  D5 the package cover the size of its first sheet with the project title block; D8 recipients as a list on the
+  package (name, org) on the cover and transmittal. **P3 · S** (review; changes as found).
 
 ## Suggested order
 
