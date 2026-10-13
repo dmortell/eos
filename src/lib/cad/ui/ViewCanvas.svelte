@@ -33,7 +33,7 @@
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { snapThroughViewport, pasteTextNote } from '../editor/noteTool'
-	import { parseTyped, numpadCommas } from '../editor/input'
+	import { typeInto } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
 	import { wheelAction } from '../editor/inputMode'
 	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
@@ -582,15 +582,10 @@
 		return done
 	}
 	/** A typed point for the active tool (x,y · @dx,dy · @d<a · distance towards the cursor). Returns an error to show. */
-	export function typed(text0: string): string | null {
-		const tool = ws.tool, text = numpadCommas(text0)   // `..` = a comma (numpads have none)
-		if (!tool.typed) return 'This tool takes no typed points'
-		const own = tool.typedText?.(text, ctx()) ?? false   // a value the tool reads itself (Rotate's angle)
-		if (own !== false) { tick++; return own }
-		const r = parseTyped(text, tool.lastPoint?.(ctx()) ?? null, cursor, toolKind === 'elevation' || toolKind === 'section')   // y = height, as the readout shows
-		if (r.kind === 'error') return r.message
-		tool.typed(r.p, ctx()); tick++
-		return null
+	export function typed(text: string): string | null {
+		const err = typeInto(ws.tool, text, ctx(), cursor, toolKind === 'elevation' || toolKind === 'section')   // y = height, as the readout shows
+		tick++
+		return err
 	}
 	export const takesTyping = () => !!ws.tool.typed
 	/** The typing box's prompt for the active tool (null = the point prompt). */

@@ -6,6 +6,7 @@
 //   d<a        polar from 0,0      @d<a       polar from the last point (a = degrees, anticlockwise on screen from +x)
 //   d          direct distance: d mm from the last point towards the cursor
 import type { Pt } from '../domain/types'
+import type { Tool, ToolCtx } from './tools'
 
 export type Typed = { kind: 'point'; p: Pt } | { kind: 'error'; message: string }
 
@@ -13,6 +14,20 @@ const NUM = /^-?\d+(\.\d+)?$|^-?\.\d+$/
 
 /** A numpad has no comma (Dave 2026-10-14): `..` types one — `1200..600` = `1200,600`. A single `.` stays a decimal point. */
 export const numpadCommas = (text: string): string => text.replace(/\.\./g, ',')
+
+/** What the typing box's text does to the active tool: a value the tool reads itself first (Rotate's angle, a box's
+ *  width,depth — null = taken), else a point (x,y · @dx,dy · @d<a · a distance towards the cursor). Returns an error
+ *  to show, or null. (A taken value must NOT be read again as a point: a second box started at "1200,600".) */
+export function typeInto(tool: Pick<Tool, 'typed' | 'typedText' | 'lastPoint'>, text0: string, c: ToolCtx, cursor: Pt | null, yUp: boolean): string | null {
+	if (!tool.typed) return 'This tool takes no typed points'
+	const text = numpadCommas(text0)
+	const own = tool.typedText ? tool.typedText(text, c) : false
+	if (own !== false) return own
+	const r = parseTyped(text, tool.lastPoint?.(c) ?? null, cursor, yUp)
+	if (r.kind === 'error') return r.message
+	tool.typed(r.p, c)
+	return null
+}
 
 export function parseTyped(text: string, last: Pt | null, cursor: Pt | null, yUp = false): Typed {
 	let t = numpadCommas(text.trim().replace(/\s+/g, ''))

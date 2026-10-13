@@ -4,6 +4,7 @@ import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { ShapeTool, shapeGeom, type ShapeOpts } from './shapeTool'
+import { typeInto } from './input'
 import { angleStep, axisLock, squareCorner } from './constrain'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { elevationDisplayList } from '../views/elevation'
@@ -101,6 +102,14 @@ describe('the Shape tool', () => {
 		const prims = elevationDisplayList(new ProjectIndex(h.store.all()), 'L33', sp, { scale: 100 }).filter((p) => p.src === s.id && p.k === 'line')
 		const ys = prims.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => -q.y) : []))
 		expect([Math.min(...ys), Math.max(...ys)]).toEqual([720, 770])
+	})
+	it('a typed size draws ONE box and starts no other (Dave 2026-10-14: a second box began at "1200,600")', () => {
+		const h = harness(PLAN), t = new ShapeTool(() => opts())
+		t.down(at(5000, 5000), h.ctx()); t.up(at(5000, 5000), h.ctx()); t.hover(at(6000, 6000), h.ctx())
+		expect(typeInto(t, '1200..600', h.ctx(), { x: 6000, y: 6000 }, false)).toBeNull()
+		expect(h.store.ofType('shape').filter((s) => s.geom.kind === 'rect' && s.geom.size.x === 1200)).toHaveLength(1)
+		expect(t.lastPoint()).toBeNull()        // nothing started
+		expect(t.preview(h.ctx())).toEqual([])
 	})
 	it('the size beside the cursor while drawing: width × depth, a polygon its radius', () => {
 		const h = harness(PLAN), t = new ShapeTool(() => opts())
