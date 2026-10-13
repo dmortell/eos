@@ -92,6 +92,41 @@ export class ShapeTool implements Tool {
 	cancel(): void { this.#a = this.#b = this.#m = this.#press = null }
 	key(e: KeyboardEvent): boolean { if (e.key === 'Escape' && this.#a) { this.cancel(); return true } return false }
 
+	// typed input (Dave 2026-10-14: a box's width / depth while drawing). A typed point is a click there (x,y · @dx,dy ·
+	// d<a); after the first corner of a rectangle, ellipse or picture, `w,d` is its size and one number a square /
+	// circle — laid out from the corner towards the side the cursor is on.
+	typed(p: Pt, c: ToolCtx): void {
+		if (this.#arc()) {
+			if (!this.#a) { this.#a = this.#b = p; return }
+			if (!this.#m) { this.#m = this.#b = p; return }
+			this.#b = p
+			this.#commit(c)
+			return
+		}
+		if (!this.#a) { this.#a = this.#b = p; return }
+		this.#b = p; this.#shift = false
+		this.#commit(c)
+	}
+	lastPoint(): Pt | null { return this.#m ?? this.#a }
+	/** Corner to corner (not a polygon's centre or an arc's points): a size can be typed. */
+	#sized(): boolean { return !!this.#a && !this.#arc() && this.opts().kind !== 'polygon' }
+	typedText(text: string, c: ToolCtx): string | null | false {
+		if (!this.#sized()) return false
+		const m = /^\s*(\d+(?:\.\d+)?)\s*(?:[,x×*]\s*(\d+(?:\.\d+)?))?\s*$/i.exec(text)
+		if (!m) return false   // @dx,dy, polar … : read as a point
+		const w = Number(m[1]), d = m[2] != null ? Number(m[2]) : w
+		if (!(w > 0 && d > 0)) return 'Width and depth must be more than 0'
+		const a = this.#a!, cur = this.#b ?? a
+		const sx = Math.sign(cur.x - a.x) || 1, sy = Math.sign(cur.y - a.y) || 1
+		this.typed({ x: a.x + sx * w, y: a.y + sy * d }, c)
+		return null
+	}
+	typedLabel(): string | null {
+		if (this.#sized()) return `${this.id === 'box' ? 'Box' : 'Size'} — width,depth (e.g. 1200,600) towards the cursor · one number: a square · @dx,dy`
+		if (this.#a && !this.#arc() && this.opts().kind === 'polygon') return 'Radius (towards the cursor) · or a point: x,y · @dx,dy'
+		return null
+	}
+
 	#commit(c: ToolCtx): void {
 		const a = this.#a, b = this.#b, m = this.#m
 		this.cancel()

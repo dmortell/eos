@@ -66,6 +66,26 @@ describe('the Shape tool', () => {
 		expect(h.store.undoLabels).toEqual(['Draw rect'])
 		expect(planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).some((p) => p.src === s.id)).toBe(true)
 	})
+	it('typed (Dave 2026-10-14): a typed first corner, then width,depth towards the cursor — a box at its height', () => {
+		const h = harness(PLAN), t = new ShapeTool(() => opts({ height: 50, z: 750 }), 'box')
+		expect(t.typedLabel()).toBeNull()                       // the first corner: a point
+		expect(t.typedText('1000,2000', h.ctx())).toBe(false)   // …read as x,y
+		t.typed({ x: 1000, y: 2000 }, h.ctx())
+		expect(t.lastPoint()).toEqual({ x: 1000, y: 2000 })
+		expect(t.typedLabel()).toMatch(/width,depth/)
+		t.hover(at(500, 2500), h.ctx())                          // the cursor left of and below the corner
+		expect(t.typedText('1200, 600', h.ctx())).toBeNull()
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s).toMatchObject({ geom: { kind: 'rect', centre: { x: 400, y: 2300 }, size: { x: 1200, y: 600 } }, extent: 50, plane: { kind: 'plan', z: 750 } })
+		// one number: a square; @dx,dy and the rest still read as a point; nothing to size a polygon by
+		const t2 = new ShapeTool(() => opts()); t2.typed({ x: 0, y: 0 }, h.ctx()); t2.hover(at(10, 10), h.ctx())
+		expect(t2.typedText('@300,100', h.ctx())).toBe(false)
+		expect(t2.typedText('500', h.ctx())).toBeNull()
+		expect(h.store.get(h.sel()[0])).toMatchObject({ geom: { size: { x: 500, y: 500 } } })
+		const poly = new ShapeTool(() => opts({ kind: 'polygon' })); poly.typed({ x: 0, y: 0 }, h.ctx())
+		expect(poly.typedText('500', h.ctx())).toBe(false)
+		expect(poly.typedLabel()).toMatch(/Radius/)
+	})
 	it('an arc: start, a point on it, end → through all three; drawn on the plan; its middle grip reshapes it', () => {
 		const h = harness(PLAN), t = new ShapeTool(() => opts({ kind: 'arc' }))
 		t.down(at(-1000, 0), h.ctx()); t.up(at(-1000, 0), h.ctx()); t.down(at(0, -1000), h.ctx()); t.down(at(1000, 0), h.ctx())
