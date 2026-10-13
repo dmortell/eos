@@ -17,7 +17,11 @@ import type { Bounds, Prim, Dash } from './display'
 import { DASHES } from './display'
 import { blockPrims } from './blocks'
 import { markdownPrims } from './markdown'
-import { defaultOutletBlock, outletAttrs, insertAttrs, type Block } from '../domain/blocks'
+import { defaultOutletBlock, outletAttrs, insertAttrs, is3d, placed3d, type Block } from '../domain/blocks'
+
+const is3dBlock = (b: Block | undefined) => !!b && is3d(b)
+/** A line straight up (all its nodes over one point): a point from above, so a plan leaves it out. */
+const upright = (g: Shape['geom']) => g.kind === 'path' && g.nodes.every((n) => n.x === g.nodes[0].x && n.y === g.nodes[0].y)
 import { usageColour } from '../domain/usages'
 
 export interface PlanOpts {
@@ -49,8 +53,10 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
-	// (a shape drawn on an elevation's plane belongs to elevations, not the plan; so does a block put on a wall there)
-	for (const s of [...shapes].sort(byDrawOrder)) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical' && !(s.geom.kind === 'insert' && s.geom.frame && s.geom.inElevations))
+	// (a shape drawn on an elevation's plane belongs to elevations, not the plan; so does a 2D block put on a wall there —
+	// a 3D one is model, shown everywhere)
+	const onWall = (g: Shape['geom']) => g.kind === 'insert' && !!g.frame && !!g.inElevations && !is3dBlock(o.blocks?.(g.blockId))
+	for (const s of [...shapes].sort(byDrawOrder)) if (s.role?.kind !== 'containment' && s.plane?.kind !== 'vertical' && !onWall(s.geom))
 		out.push(...(s.geom.kind === 'legend' ? legendShapePrims(ix, s, new Set([levelId]), k, o.blocks) : shapePrims(s, k, o.blocks)))
 	// Draw order follows height (2.5D): LOW runs (under-floor / at floor) go under racks and furniture; HIGH runs
 	// (tier high, or wholly above the floor) and every RISER go on top — a riser often stands on or beside a rack,
@@ -96,6 +102,8 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined):
 	switch (g.kind) {
 		case 'insert': {
 			const b = blocks?.(g.blockId)
+			// a 3D block: its boxes and lines placed in the model, seen from above — what collapses there (a vertical line) isn't drawn
+			if (b && is3d(b)) return placed3d(s, b).filter((p) => !upright(p.geom)).flatMap((p) => shapePrims(p, k, blocks))
 			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]

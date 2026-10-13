@@ -3367,3 +3367,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - Make block on shapes drawn in an elevation: an ordinary block of those shapes (`elevationProblem` /
   `elevationShapes` / `elevationBlock`, through `makeBlock`), its insert in that elevation; "Add as the front of…" is
   gone. A stored block that still has a `front` reads as that drawing (`oneDrawing`, in `project.blocks`).
+
+## 3D blocks (Dave 2026-10-14)
+
+- A block with a box (a region with `extent`) is 3D (`is3d`): Make block on boxes files it under Furniture, its heights
+  from the lowest one's bottom (the insert keeps that Z). Its inserts are model: `placed3d` turns one into shapes on its
+  level (moved, turned, lifted by the insert's Z, `{TAG}`s filled, all carrying the insert's id), and the plan and the
+  elevation / section generators draw those as any box / line — in every view, whatever `frame` / `inElevations` say.
+- What each view shows (Dave's rule): boxes always; lines unless they collapse to a point there (a line straight up on a
+  plan, one running away from the viewer in an elevation); labels (`{TAG}` texts, `isLabel`) everywhere, in an elevation
+  centred over the block's top; flat regions and plain texts only on plans (edge-on elsewhere).
+- Default Z 0; drag it in an elevation to lift it (`behaviours.ts` already moves an insert's z). Explode → the boxes
+  where they stand.

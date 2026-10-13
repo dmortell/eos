@@ -13,7 +13,7 @@ import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
 import type { Prim } from './display'
-import type { Block } from '../domain/blocks'
+import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
@@ -59,7 +59,9 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 		// a block insert placed in an elevation (a wall faceplate): its one drawing, as on a plan (shapePrims), facing the
 		// viewer at its height — only in the view it was placed in (`frame`); one placed on the plan isn't shown here
 		if (s.geom.kind === 'insert') {
-			const g = s.geom
+			const g = s.geom, b = o.blocks?.(g.blockId)
+			// a 3D block (furniture): model — in every elevation / section, seen from this direction
+			if (b && is3d(b)) { if (s.levelId === levelId) items.push(...solidItems(s, b, sp, rect, uSpan, zOf, k)); continue }
 			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameFrame(g.frame, sp.frame)))) continue
 			const p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, { rot: _r, ...flat } = g
 			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks) })
@@ -235,6 +237,26 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 		return [{ depth: sp.depthOf(c), prims: ownStyle(s, [ext ? rect(u0, u1, z, z + ext, 'shape', s.id) : { k: 'line', pts: [{ x: u0, y: -z }, { x: u1, y: -z }], cls: 'shape', src: s.id }]) }]
 	}
 	return []   // plan notes and dimensions don't show in elevations
+}
+
+/** A 3D block's insert seen in this view (Dave 2026-10-14): its boxes as any box is; its lines unless they collapse to
+ *  a point here (seen end-on); its labels ({TAG} texts) facing you, centred over its top; its flat regions and plain
+ *  texts (flat on the plan, so seen edge-on here) not at all. */
+function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, k: number): Item[] {
+	const parts = b.shapes.map((bs) => ({ bs, placed: placed3d(ins, { ...b, shapes: [bs] }) }))
+	const top = Math.max(0, ...parts.flatMap(({ placed }) => placed.map((p) => (p.plane?.kind === 'plan' ? p.plane.z : 0) + (p.extent ?? 0))))
+	const point = (it: Item) => it.prims.every((p) => p.k === 'line' && p.pts.every((q) => Math.hypot(q.x - p.pts[0].x, q.y - p.pts[0].y) < 1e-6))
+	return parts.flatMap(({ bs, placed }) => placed.flatMap((p): Item[] => {
+		const g = p.geom
+		if (g.kind === 'text') {
+			if (!isLabel(bs)) return []
+			const w = { x: g.at.x, y: g.at.y, z: top }, at = sp.fromWorld(w)
+			const prims = shapePrims({ ...p, geom: { ...g, at: { x: at.x, y: at.y - LABEL * k * 0.4 }, rot: undefined, align: 'centre' } }, k)
+			return [{ depth: sp.depthOf(w) + 1, prims }]
+		}
+		if (g.kind === 'path') return shapeItems(p, sp, rect, uSpan, zOf, undefined, k).filter((it) => !point(it))
+		return (p.extent ?? 0) > 0 ? shapeItems(p, sp, rect, uSpan, zOf, undefined, k) : []
+	}))
 }
 
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */

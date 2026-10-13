@@ -25,6 +25,28 @@ export function oneDrawing(b: Block & { front?: BlockShape[] }): Block {
 	const { front, ...rest } = b
 	return { ...rest, shapes: front, annotative: false }
 }
+/** A 3D block (Dave 2026-10-14: furniture drawn with the Box tool): it has a box — a region with a height. Its inserts
+ *  are model: they show in every plan, elevation and section, seen from that direction (`placed3d`). */
+export const is3d = (b: Block): boolean => b.shapes.some((s) => (s.extent ?? 0) > 0)
+/** A text that is a label (`{TAG}`s, filled from the insert's attributes): shown in every view, facing the viewer. */
+export const isLabel = (s: BlockShape): boolean => s.geom.kind === 'text' && /\{[A-Z_]+\}/.test(s.geom.text)
+
+/**
+ * A 3D block's insert as model shapes on its level: each block shape moved to the insert's point, turned and scaled as
+ * it is, lifted by its Z (a region's plane, a line's nodes), its `{TAG}` texts filled. They all carry the INSERT's id
+ * (they draw and pick as the insert) and its layer. The views draw them like any box / line (views/plan.ts, elevation.ts).
+ */
+export function placed3d(ins: Shape, b: Block): Shape[] {
+	if (ins.geom.kind !== 'insert' || !ins.levelId) return []
+	const { at, rot = 0, scale = 1, z = 0 } = ins.geom, attrs = insertAttrs(b, ins.geom.attrs, ins.geom.hidden)
+	return b.shapes.flatMap((bs): Shape[] => {
+		let g = placeGeometry(bs.geom, at, rot, scale)
+		if (g.kind === 'text') { const text = fillAttrs(g.text, attrs); if (!text) return []; g = { ...g, text } }
+		if (g.kind === 'path') g = { ...g, nodes: g.nodes.map((n) => ({ ...n, z: n.z + z })) }
+		const lift = g.kind === 'path' ? {} : { plane: { kind: 'plan' as const, z: (bs.plane?.kind === 'plan' ? bs.plane.z : 0) + z } }
+		return [{ ...bs, ...lift, type: 'shape', id: ins.id, levelId: ins.levelId, ...(ins.layerId ? { layerId: ins.layerId } : {}), geom: g } as Shape]
+	})
+}
 /** Is this block drawn in paper mm (annotative)? Only built-in symbols are; blocks people make from model shapes are
  *  real mm. For code with no block library at hand (untying a note from a viewport). */
 export const annotativeIn = (blockId: Id): boolean => !!BUILTIN_BLOCKS.find((x) => x.id === blockId)?.annotative
@@ -249,17 +271,22 @@ export function blockFromShapes(shapes: Shape[], name: string, paperScale?: numb
 	const pts = shapes.flatMap((s) => pointsOf(s.geom))
 	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
 	const c = { x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2), y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2) }
+	// boxes among them (a desk): a 3D block, its heights from the lowest one's bottom — the insert keeps that height
+	const solid = shapes.some((s) => (s.extent ?? 0) > 0)
+	const zOf = (s: Shape) => (s.geom.kind === 'path' ? Math.min(...s.geom.nodes.map((n) => n.z)) : s.plane?.kind === 'plan' ? s.plane.z : 0)
+	const base = solid ? Math.min(...shapes.map(zOf)) : 0
 	const block: Block = {
-		type: 'block', id: newId(), name, scope: 'global',
+		type: 'block', id: newId(), name, scope: 'global', ...(solid ? { category: 'furniture' } : {}),
 		shapes: shapes.map((s): BlockShape => {
 			const { type: _t, groupId: _g, levelId: _l, viewId: _v, sheetId: _s, ...rest } = s as ShapeCore & { levelId?: Id; viewId?: Id; sheetId?: Id }
-			const g = moveGeometry(s.geom, { x: -c.x, y: -c.y })
-			return { ...rest, geom: paperScale ? scaleGeometry(g, paperScale) : g }   // untied paper shapes: the block is at model size
+			const g = moveGeometry(s.geom, { x: -c.x, y: -c.y, z: -base })
+			const plane = base && rest.plane?.kind === 'plan' ? { plane: { ...rest.plane, z: rest.plane.z - base } } : {}
+			return { ...rest, ...plane, geom: paperScale ? scaleGeometry(g, paperScale) : g }   // untied paper shapes: the block is at model size
 		}),
 	}
 	const owner = shapes[0]
 	const insert = { type: 'shape', id: newId(), ...(owner.levelId ? { levelId: owner.levelId } : owner.viewId ? { viewId: owner.viewId } : { sheetId: owner.sheetId!, ...(owner.vpId ? { vpId: owner.vpId } : {}) }), ...(owner.layerId ? { layerId: owner.layerId } : {}),
-		geom: { kind: 'insert', blockId: block.id, at: c, ...(paperScale ? { scale: 1 / paperScale } : {}) } } as Shape
+		geom: { kind: 'insert', blockId: block.id, at: c, ...(paperScale ? { scale: 1 / paperScale } : {}), ...(base ? { z: base } : {}) } } as Shape
 	return { block, insert }
 }
 
@@ -271,6 +298,8 @@ export function blockFromShapes(shapes: Shape[], name: string, paperScale?: numb
  *  insert's height, as the view drew it. */
 export function explodeInsert(ins: Shape, block: Block, k = 1, o: { frame?: ElevFrame } = {}): Shape[] {
 	if (ins.geom.kind !== 'insert') return []
+	// a 3D block: its boxes and lines back in the model where they stand (the same in every view)
+	if (is3d(block) && ins.levelId) return placed3d(ins, block).map((s) => ({ ...s, id: newId() }))
 	const frame = ins.levelId ? o.frame : undefined
 	const b = block
 	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (b.annotative ? k : 1)
