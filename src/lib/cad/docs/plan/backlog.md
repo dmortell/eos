@@ -49,6 +49,17 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   will save under (Excel schedules, PDFs, DXF, backups) before it downloads; today it is fixed, e.g.
   `Patching-Workflow_test-L1.20_Rack_room-changes-20261014.xlsx`. Options: an editable name in each export dialog, or a
   project-wide file-name pattern (`{project}-{what}-{date}`). **P3 · S–M**.
+- [ ] ❓ **Three bands: underlay, model, annotations** (Dave 2026-10-14 todo, consider) — group what a view draws into
+  three bands, always in this order bottom to top: the **underlay** (floorplans, images, received drawings), the
+  **model** (outlets, racks, runs, walls, boxes, blocks) and **annotations** (text, leaders, dimensions, clouds,
+  legends, labels). Each band could be shown / hidden, faded or locked as a whole (per view and per sheet viewport), and
+  draw order (Ctrl+] / [) would work inside a band, never across. To decide first:
+  - Is a band a fixed group of the existing layers, or a property of each layer?
+  - Does it replace the Floorplans layer's own toggle?
+  - Should "fade" (e.g. the underlay at 50%) be per band?
+  
+  **P3 · M**. *cad today:* layers (system + project) with hide / lock / freeze per viewport; a draw order per shape;
+  the floorplan at a fixed 0.6 opacity. *From:* Dave 2026-10-14 (walkthrough).
 - [ ] **Upload from Settings › Plans & floorplans** (Dave 2026-10-14 todo, walkthrough B4) — an Upload button (and a
   drop target) on each floor's "Choose a floorplan…" row: the PDF goes to the project's Uploads like File › Uploads…
   does, then its page is picked for that floor. Today the select only lists files already uploaded. **P3 · S–M**
