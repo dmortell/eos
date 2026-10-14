@@ -44,7 +44,7 @@ export class OutletTool implements Tool {
 		const roomOf = (i: number) => nx.serverRoomId ?? (prev ? prev.ports[i]?.serverRoomId ?? prev.ports[0]?.serverRoomId : rooms.length === 1 ? rooms[0].id : undefined)
 		const o: Outlet = {
 			type: 'outlet', id: newId(), levelId: c.levelId, label,
-			tier: nx.tier ?? prev?.tier ?? 'low', usage: nx.usage ?? prev?.usage ?? 'desk', mount: nx.mount ?? prev?.mount ?? 'floor',
+			tier: nx.tier ?? prev?.tier ?? 'low', usage: nx.usage ?? prev?.usage ?? '', mount: nx.mount ?? prev?.mount ?? 'floor',
 			// in plan the height is sticky; on an elevation the click IS the height (an outlet placed on a wall elevation)
 			...placeAt(c, e, prev?.z ?? 0),
 			...(c.space.spec.kind !== 'plan' ? { inElevations: true } : {}),   // a plan outlet is a plan symbol: not in elevations

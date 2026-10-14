@@ -1,0 +1,18 @@
+// A NEW project's settings (walkthrough 2026-10-14: a project made from scratch had none — only the legacy import made
+// them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). Dave 2026-10-14: cable types CAT6A,
+// CAT6, OS2, OM4; outlet usages (none), AP, TV, CCTV. Pure.
+import type { ProjectSettings } from './types'
+
+export function defaultSettings(): ProjectSettings {
+	return {
+		type: 'settings', id: 'settings', portSuffix: 'alpha',
+		usages: [
+			{ id: 'AP', label: 'AP', color: '#16a34a' }, { id: 'TV', label: 'TV', color: '#db2777' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
+		],
+		cableTypes: [
+			{ id: 'cat6a', label: 'CAT6A', media: 'copper', color: '#3b82f6' }, { id: 'cat6', label: 'CAT6', media: 'copper', color: '#2563eb' },
+			{ id: 'os2', label: 'OS2', media: 'fibre', color: '#eab308' }, { id: 'om4', label: 'OM4', media: 'fibre', color: '#06b6d4' },
+		],
+		defaults: { outletCableType: 'cat6a', cordCableType: 'cat6a', cordColour: '#3b82f6', panelPorts: 24 },
+	}
+}

@@ -3398,3 +3398,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   too), drawn as the marquee in screen px, the view fitted to it (`ViewCanvas.zoomWindow`); Esc drops it.
 - Previous: `ZoomHistory` (editor/camera.ts) — each view's camera, recorded once a zoom or pan has paused 400 ms, up to
   20; P steps back through them.
+
+## Default settings for a new project (walkthrough 2026-10-14)
+
+- Found in the workflow walkthrough: a project made from scratch had no settings entity (only the legacy import made
+  one), so Project settings › Usages, Cable types, Lengths & labels, Sheets (title block) and Files said "This project
+  has no settings yet", and nothing could be added.
+- `domain/settings.ts` `defaultSettings()` (Dave 2026-10-14): usages AP, TV, CCTV (and none); cable types CAT6A, CAT6,
+  OS2, OM4; new outlets and cords CAT6A. "Apply floors" puts them in the same undo step when the project has none; a
+  project already without them gets a "Start with the default settings" button in those tabs.
+- The Outlet tool's first outlet has no usage (was "desk"); its tool bar Usage gains "(none)" ('' = as last).

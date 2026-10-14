@@ -15,6 +15,7 @@
 	import NameInput from './NameInput.svelte'
 	import { levelContents } from '../editor/commands'
 	import { newId } from '../domain/ids'
+	import { defaultSettings } from '../domain/settings'
 	import { untrack } from 'svelte'
 	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
 	import type { CalibMode } from '../editor/calibrateTool'
@@ -116,7 +117,10 @@
 		const b: Building = building ?? { type: 'building', id: newId(), name: project.name || 'Building', order: 0 }
 		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id }, contents, newId)
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
-			(tx) => tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building), r.remove.map((l) => l.id), skip)
+			(tx) => {
+				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building)
+				if (!project.settings) tx.put(defaultSettings())   // a new project's first floors bring its settings
+			}, r.remove.map((l) => l.id), skip)
 		const parts = [r.add.length && `${r.add.length} added`, r.remove.length && `${r.remove.length} removed`].filter(Boolean)
 		const undo = parts.length ? ' — Undo brings the floors back as they were' : ''
 		ws.say(`${parts.join(', ') || 'Floor range applied; no floors changed'}${undo}${r.keep.length ? ` · kept ${r.keep.map((l) => l.name).join(', ')} (they have content — delete them in the Levels list first)` : ''}`)

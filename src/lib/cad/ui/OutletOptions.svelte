@@ -11,6 +11,7 @@
 	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
 
 	const MOUNTS: Outlet['mount'][] = ['floor', 'wall', 'box', 'desk', 'ceiling']
+	const NONE = '(none)'   // the select's value for "no usage" ('' there means "as last")
 	const zones = $derived(project.index.spaces.filter((s) => s.kind === 'zone' && s.levelId === ws.levelId).sort((a, b) => naturalCompare(a.name, b.name)))
 	// the open level's server rooms first, then the others (a riser to another floor's)
 	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room').sort((a, b) => Number(a.levelId !== ws.levelId) - Number(b.levelId !== ws.levelId) || naturalCompare(a.name, b.name)))
@@ -31,8 +32,8 @@
 		<option value="">as last</option><option value="low">low</option><option value="high">high</option>
 	</select></label>
 <label class="opt">Usage
-	<select class="tpl" value={ws.outletNext.usage ?? ''} onchange={(e) => set('usage', e.currentTarget.value || undefined)}>
-		<option value="">as last</option>
+	<select class="tpl" value={ws.outletNext.usage === '' ? NONE : ws.outletNext.usage ?? ''} onchange={(e) => { const v = e.currentTarget.value; set('usage', v === NONE ? '' : v || undefined) }}>
+		<option value="">as last</option><option value={NONE}>(none)</option>
 		{#each sortedUsages(project.settings) as u (u.id)}<option value={u.id}>{u.label}</option>{/each}
 	</select></label>
 <label class="opt">Mount

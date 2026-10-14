@@ -26,6 +26,7 @@
 	import type { FileStorage } from '../app/projectFiles'
 	import CordMode from './CordMode.svelte'
 	import { DASHES, WEIGHTS } from '../views/display'
+	import { defaultSettings } from '../domain/settings'
 
 	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files' } = $props()
 
@@ -39,6 +40,8 @@
 	function save(label: string, f: (s: ProjectSettings) => ProjectSettings) {
 		if (st) project.store.transact(label, (tx) => tx.put(f(st)))
 	}
+	// a project made before new projects got settings with their first floors (walkthrough 2026-10-14)
+	const startDefaults = () => { if (!project.settings) project.store.transact('Default project settings', (tx) => tx.put(defaultSettings())) }
 	const setType = (id: string, label: string, patch: Partial<CableType>) =>
 		save(label, (s) => ({ ...s, cableTypes: s.cableTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }))
 	let newType = $state('')
@@ -93,6 +96,11 @@
 	}
 </script>
 
+{#snippet none()}
+	<p class="hint">This project has no settings yet.</p>
+	<button class="btn" onclick={startDefaults} title="Usages AP, TV and CCTV; cable types CAT6A, CAT6, OS2 and OM4 — all editable here afterwards">Start with the default settings</button>
+{/snippet}
+
 {#if tab === 'sheets'}
 	<section>
 		<p class="h">Sheet categories</p>
@@ -102,10 +110,10 @@
 		<p class="h">Title block <span class="hint">— the project's, on every sheet</span></p>
 		{#if st}
 			<div class="tb"><TitleBlockEditor template={st.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid, storage: st.fileStorage }} /></div>
-		{:else}<p class="hint">This project has no settings yet.</p>{/if}
+		{:else}{@render none()}{/if}
 	</section>
 {:else if !st}
-	<p class="p-3 text-zinc-500">This project has no settings yet.</p>
+	<div class="p-3">{@render none()}</div>
 {:else if tab === 'usages'}
 	<table>
 		<thead><tr><th title="What outlets and panels store (from the old tools: desk, AP, PR …)">Code</th><th>Label</th><th>Color</th><th>Used by</th><th></th></tr></thead>
