@@ -3381,3 +3381,6 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   where they stand.
 - Dropped from the Blocks window into an elevation / section on a wall, a 3D block faces the viewer with its back on the
   wall's face (`backOf` = how far it reaches behind its point), not its middle; no `inElevations` / `frame` stored.
+- Furniture defaults (Dave 2026-10-14): a 3D block's insert goes on the project layer "Furniture" (`ensureLayer`: made
+  the first time, in the same undo step, frozen in existing viewports like any new layer) — from Make block when the
+  boxes had no layer of their own, from the Insert tool when the current layer is Drawing.

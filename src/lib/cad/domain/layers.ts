@@ -124,6 +124,15 @@ export function freezeInExisting(sheets: Sheet[], layerId: Id): Sheet[] {
 	}))
 }
 
+/** The project layer called `name`, made when there's none yet (furniture goes on "Furniture", Dave 2026-10-14): its
+ *  id, and what to write for a new one — the layer, and the sheets it starts hidden in (`freezeInExisting`). */
+export function ensureLayer(name: string, records: Layer[], sheets: Sheet[], makeId: () => Id): { id: Id; puts: (Layer | Sheet)[] } {
+	const found = records.find((r) => !r.id.startsWith('sys:') && r.name.trim().toLowerCase() === name.toLowerCase())
+	if (found) return { id: found.id, puts: [] }
+	const id = makeId(), order = Math.max(0, ...layersOf(records).map((l) => l.order)) + 10
+	return { id, puts: [{ type: 'layer', id, name, order, color: nextLayerColour(records) }, ...freezeInExisting(sheets, id)] }
+}
+
 /** The heading a layer is filed under: its own group, else the part of its name before a "/" ("IDF1/Outlets" → IDF1). */
 export function groupOf(l: Pick<LayerInfo, 'name' | 'group'>): string | undefined {
 	if (l.group) return l.group

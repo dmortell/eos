@@ -87,6 +87,20 @@ describe('the Insert tool', () => {
 		expect(Math.min(...depths)).toBe(Math.round(face))         // the back on the wall's face
 		expect(Math.max(...depths)).toBe(Math.round(face + 600))   // the front 600 towards you
 	})
+	it('furniture with no layer chosen goes on a "Furniture" layer — made once, in the same undo step', () => {
+		const top = { type: 'shape', id: 't', levelId: 'L33', geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 1200, y: 600 } }, extent: 50 } as Shape
+		const { block: desk } = blockFromShapes([top], 'Desk'), h = harness(PLAN), tool = new InsertTool(() => desk)
+		tool.down(click({ x: 1000, y: 2000 }), h.ctx())
+		tool.down(click({ x: 3000, y: 2000 }), h.ctx())
+		const layers = h.store.ofType('layer').filter((l) => l.name === 'Furniture')
+		expect(layers).toHaveLength(1)
+		expect((h.store.get(h.sel()[0]) as Shape).layerId).toBe(layers[0].id)
+		h.store.undo(); h.store.undo()
+		expect(h.store.ofType('layer').some((l) => l.name === 'Furniture')).toBe(false)
+		// a faceplate stays on no layer
+		new InsertTool(() => plate).down(click({ x: 1000, y: 2000 }), h.ctx())
+		expect((h.store.get(h.sel()[0]) as Shape).layerId).toBeUndefined()
+	})
 	it('one drawing (Dave 2026-10-14): placed on the plan, the plan draws the same 70 mm plate the elevation does', () => {
 		const h = harness(PLAN)
 		new InsertTool(() => plate).down(click({ x: 3000, y: 2000 }), h.ctx())

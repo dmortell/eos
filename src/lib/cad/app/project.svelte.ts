@@ -18,7 +18,9 @@ import { RestoreNotices } from './restoreNotice.svelte'
 import type { Id, Level, Link, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
-import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, elevationBlock, elevationProblem, explodeInsert, oneDrawing, type Block } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, elevationBlock, elevationProblem, explodeInsert, oneDrawing, is3d, type Block } from '../domain/blocks'
+import { ensureLayer } from '../domain/layers'
+import { newId } from '../domain/ids'
 import type { ElevFrame } from '../domain/conventions'
 import { spaceOf, type ViewSpec } from '../views/space'
 import { sectionSpace } from '../views/section'
@@ -199,8 +201,11 @@ export class CadProject {
 		})()
 		if (!made) return null
 		const { block, insert } = made
+		// furniture (Dave 2026-10-14): drawn on no layer of its own, the insert goes on "Furniture" (made if need be)
+		const furn = is3d(block) && !insert.layerId && insert.levelId ? ensureLayer('Furniture', this.index.layers, this.store.ofType('sheet'), newId) : null
+		if (furn) insert.layerId = furn.id
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
-		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); tx.put(insert) })
+		this.store.transact(`Make block ${block.name}`, (tx) => { for (const s of shapes) tx.del(s.id); for (const e of furn?.puts ?? []) tx.put(e); tx.put(insert) })
 		return insert.id
 	}
 

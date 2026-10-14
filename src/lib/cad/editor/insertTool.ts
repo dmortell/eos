@@ -12,6 +12,7 @@ import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import { newId } from '../domain/ids'
+import { ensureLayer } from '../domain/layers'
 import { blockPrims } from '../views/blocks'
 import { viewportAt } from '../views/sheet'
 import { PLOT_SCALE, type Prim } from '../views/display'
@@ -41,11 +42,14 @@ export class InsertTool implements Tool {
 			c.select([s.id])
 			return
 		}
+		// furniture with no layer chosen goes on "Furniture" (made if need be), as Make block puts it
+		const furn = is3d(b) && !c.layerId ? ensureLayer('Furniture', c.index.layers, c.store.ofType('sheet'), newId) : null
+		const layerId = c.layerId ?? furn?.id
 		const s = {
-			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
+			type: 'shape', id: newId(), levelId: c.levelId, ...(layerId ? { layerId } : {}),
 			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' && !is3d(b) ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
 		} as Shape
-		c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
+		c.store.transact(`Insert ${b.name}`, (tx) => { for (const e of furn?.puts ?? []) tx.put(e); tx.put(s) })
 		this.#z = p.z
 		c.select([s.id])
 		if (c.space.spec.kind !== 'plan') c.say?.(p.onWall ? (is3d(b) ? `${b.name} against the wall, Z ${p.z}` : `${b.name} on the wall, Z ${p.z}`) : `${b.name} at Z ${p.z} — no wall behind the click, so on the work plane`)
