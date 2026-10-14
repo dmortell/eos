@@ -10,7 +10,8 @@ import { snapPt, placeAt, type Tool, type ToolCtx, type PointerIn } from './tool
  * Rack, on the plan (Dave: racks are drawn on the floor plan, then assigned to rows).
  *  - With a `target` (Place from the racks list): put that rack where you click, then back to Select.
  *  - Without: each click draws a NEW rack, like the last one drawn (room, row, size, kind, rotation), named after it
- *    (A01 → A02). The tool stays on, so a row is just clicks in a line.
+ *    (A01 → A02). The tool stays on, so a row is just clicks in a line — a click beside the last rack butts the new one
+ *    against it (bayed, W14: `bayAt`).
  */
 export class RackTool implements Tool {
 	readonly id = 'rack'
@@ -21,6 +22,7 @@ export class RackTool implements Tool {
 	 *  its size, kind and SKU — until another is picked or the tool is armed from a rack again. */
 	product: Pick<Rack, 'kind' | 'heightU' | 'widthMm' | 'depthMm' | 'catalogId' | 'maker' | 'model' | 'productUrl'> | null = null
 	#hover: Pt | null = null
+	#alt = false
 
 	constructor(private done: () => void) {}
 
@@ -37,9 +39,12 @@ export class RackTool implements Tool {
 		const like = this.last?.levelId === c.levelId ? this.last : onLevel.at(-1)   // the last one drawn ON THIS level
 		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
 		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
-		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, at, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
-		this.#draw(c, at, like, room)
+		const p = e.alt ? at : bayAt(like, at, this.#widthNext(like), onLevel)   // beside the last one: bayed (W14)
+		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, p, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
+		this.#draw(c, p, like, room)
 	}
+	/** The width the next rack is drawn at (as #draw makes it). */
+	#widthNext = (like: Rack | undefined): number => this.product?.widthMm ?? like?.widthMm ?? 600
 	#draw(c: ToolCtx, at: Pt, like: Rack | undefined, room: Id | Space): void {
 		const taken = new Set(c.index.racks.map((r) => r.name))
 		let name = like ? nextLabel(like.name) : 'R01'
@@ -57,7 +62,7 @@ export class RackTool implements Tool {
 	}
 	move(): void {}
 	up(): void {}
-	hover(e: PointerIn, c: ToolCtx): void { this.#hover = snapPt(e.p, e.alt, c.grid ?? 10) }
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = snapPt(e.p, e.alt, c.grid ?? 10); this.#alt = e.alt }
 	cancel(): void { this.target = null; this.#hover = null }
 
 	/** The footprint of the rack about to be placed or drawn, under the cursor. */
@@ -65,10 +70,31 @@ export class RackTool implements Tool {
 		const t = this.target ? c.store.get(this.target) : undefined
 		const r = t?.type === 'rack' ? t : (this.last?.levelId === c.levelId ? this.last : null) ?? c.index.racks.filter((x) => x.levelId === c.levelId).at(-1)   // as `down` draws it
 		if (!r || !this.#hover) return []
-		const hw = (r.widthMm ?? 600) / 2, hd = (r.depthMm ?? 1000) / 2, h = this.#hover, rot = r.rot ?? 0
+		// a new rack: its own size, and bayed against the last one as `down` puts it (W14)
+		const w = t ? r.widthMm ?? 600 : this.#widthNext(r), d = t ? r.depthMm ?? 1000 : this.product?.depthMm ?? r.depthMm ?? 1000
+		const hw = w / 2, hd = d / 2, rot = r.rot ?? 0
+		const h = t || this.#alt ? this.#hover : bayAt(r, this.#hover, w, c.index.racks.filter((x) => x.levelId === c.levelId))
 		const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, y]) => { const q = rotateBy({ x, y }, rot); return { x: h.x + q.x, y: h.y + q.y } })
 		return [{ k: 'line', pts, closed: true, cls: 'draft' }]
 	}
+}
+
+/**
+ * Bayed (backlog W14): a click beside the last rack drawn — along its row, within about a rack's width of the next
+ * slot and not more than ¾ of its depth to the front or back — puts the new rack flush against it on that side (racks
+ * stand side by side, no gaps), lined up with it. Anywhere else (a new row), or with Alt, it goes where you click.
+ * `w` = the new rack's width. A slot another rack already fills is left to the click.
+ */
+export function bayAt(last: Rack | null | undefined, at: Pt, w: number, others: Rack[] = []): Pt {
+	if (!last?.at) return at
+	const rot = last.rot ?? 0, ux = rotateBy({ x: 1, y: 0 }, rot), uy = rotateBy({ x: 0, y: 1 }, rot)
+	const d = { x: at.x - last.at.x, y: at.y - last.at.y }, lx = d.x * ux.x + d.y * ux.y, ly = d.x * uy.x + d.y * uy.y
+	const step = (last.widthMm ?? 600) / 2 + w / 2
+	if (Math.abs(ly) > (last.depthMm ?? 1000) * 0.75 || Math.abs(lx) > step + w) return at
+	const s = lx < 0 ? -1 : 1
+	const r1 = (v: number) => Math.round(v * 10) / 10 || 0   // no -0
+	const p = { x: r1(last.at.x + ux.x * s * step), y: r1(last.at.y + ux.y * s * step) }
+	return others.some((r) => r.id !== last.id && r.at && Math.hypot(r.at.x - p.x, r.at.y - p.y) < Math.min(w, r.widthMm ?? 600) / 2) ? at : p
 }
 
 const rotateBy = (p: Pt, deg: number): Pt => { const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); return { x: p.x * c - p.y * s, y: p.x * s + p.y * c } }

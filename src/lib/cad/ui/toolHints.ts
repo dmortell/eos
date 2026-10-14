@@ -23,7 +23,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	wall: 'Click or type points · Shift = 15° steps · Enter finishes · C or a click on the first point closes it (a room) · Esc / right-click ends it, again → Select',
 	section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
 	opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
-	rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · Esc stops',
+	rack: 'Click on the plan to draw a rack (like the last one: room, row, size, rotation) · a click beside the last rack puts the new one flush against it (bayed); farther off starts a new row · Alt: exactly where you click · Esc stops',
 	device: 'In a rack view (Window › Racks › Rack view): pick a template in the Device library, then click a rack at the U for the device · drag devices with Select to move them',
 	assign: 'Click a panel port in a rack view — the chosen outlets go on from there (the panel itself: from its first free port; pinned) · Esc cancels',
 	cord: 'In a rack view: click a port, then the port to patch it to · a panel port needs a label first · Esc cancels',

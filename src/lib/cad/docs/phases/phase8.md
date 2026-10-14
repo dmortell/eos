@@ -3671,3 +3671,9 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     use; ports follow) — a paste stays as-is. Help entry added. Tests `domain/outletArray.test.ts`.
   - Seen live on Test Project (undone): 2 outlets onto a second desk (A012 / A013), Array of 2 (A014–A017).
   - Noticed: on the plan a 3D desk block's fill hides the floor outlets under it unless they are selected (draw order).
+- **W14 Racks side by side**: the Rack tool bays the next rack: a click beside the last rack drawn (along its row,
+  within about a rack width of the next slot, not more than ¾ of its depth off the line) puts it flush against it on
+  that side, lined up; farther off it goes where clicked (a new row); Alt = exactly where clicked; a slot another rack
+  fills is left to the click. The ghost shows where it will go; widths can differ (a catalogue product). `bayAt` in
+  `editor/rackTool.ts`, tests in `editor/racks.test.ts`, tool hint updated. Seen live on Test Project (undone):
+  R305 flush against R304 from an off-line click, R306 free well to the left.

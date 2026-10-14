@@ -6,7 +6,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { type ToolCtx, type PortSel } from './tools'
 import { SelectTool } from './selectTool'
-import { RackTool } from './rackTool'
+import { RackTool, bayAt } from './rackTool'
 import { portCell } from '../views/rackRow'
 import { DeviceTool } from './deviceTool'
 import { CordTool, type BulkFrom, type PatchPreview } from './cordTool'
@@ -63,6 +63,25 @@ describe('drawing racks on the plan', () => {
 		const drawn = h.store.ofType('rack').filter((r) => r.id !== 'R1' && r.id !== 'R2')
 		expect(drawn.map((r) => r.name)).toEqual(['A03', 'A04'])
 		expect(drawn[0]).toMatchObject({ spaceId: 'SR-A', rowId: 'ROW', rot: 90, at: { x: 1000, y: 0 } })
+	})
+	it('a click beside the last rack butts the new one against it (bayed, W14); far off or with Alt, where clicked', () => {
+		const h = harness(PLAN, [{ ...R2, at: { x: 0, y: 0 } }])
+		const tool = new RackTool(() => {})
+		const drawnAt = () => h.store.ofType('rack').filter((r) => r.id !== 'R1' && r.id !== 'R2').map((r) => r.at)
+		tool.down(at(750, 120), h.ctx())    // right of A02, a little off its line: flush, lined up
+		tool.down(at(1100, -300), h.ctx())  // right of that one
+		tool.down(at(-500, 0), h.ctx())     // left of the last one (A04 at 1200): too far from it → where clicked
+		tool.down(at(-1100, 0), h.ctx())    // left of A05 at −500
+		tool.down(at(-1500, 0), h.ctx())       // and on: −1700
+		expect(drawnAt().slice(0, 4)).toEqual([{ x: 600, y: 0 }, { x: 1200, y: 0 }, { x: -500, y: 0 }, { x: -1100, y: 0 }])
+		tool.down({ ...at(-1690, 200), alt: true }, h.ctx())   // Alt: free
+		expect(drawnAt().at(-1)).toEqual({ x: -1690, y: 200 })
+	})
+	it('bayed along a turned rack’s row; a filled slot is left to the click', () => {
+		const last = { ...R2, at: { x: 0, y: 0 }, rot: 90 }
+		expect(bayAt(last, { x: 50, y: 700 }, 600)).toEqual({ x: 0, y: 600 })     // turned 90°: the row runs along y
+		expect(bayAt(last, { x: 50, y: -400 }, 800)).toEqual({ x: 0, y: -700 })   // a wider rack: 300 + 400 away
+		expect(bayAt(last, { x: 0, y: 700 }, 600, [{ ...R2, id: 'X', at: { x: 0, y: 600 } }])).toEqual({ x: 0, y: 700 })
 	})
 })
 
