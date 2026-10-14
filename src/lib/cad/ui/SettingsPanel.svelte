@@ -12,6 +12,7 @@
 <script lang="ts">
 	import { enterKey } from './keyGuards'
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
+	import DisciplinesTab from './DisciplinesTab.svelte'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectSettings } from '../domain/types'
@@ -105,6 +106,10 @@
 	<section>
 		<p class="h">Sheet categories</p>
 		<SheetCategoriesTab {project} />
+	</section>
+	<section>
+		<p class="h">Disciplines</p>
+		<DisciplinesTab {project} />
 	</section>
 	<section>
 		<p class="h">Title block <span class="hint">— the project's, on every sheet</span></p>

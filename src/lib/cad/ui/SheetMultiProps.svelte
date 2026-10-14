@@ -48,7 +48,15 @@
 			<option value="">Auto (from its viewports)</option>
 			{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
 		</select></label>
-	<label class="row">Discipline <input class="inp" value={same((s) => s.discipline ?? '') ?? ''} placeholder={mixed((s) => s.discipline ?? '') ? MIXED : '—'} onchange={(e) => set('Sheet discipline', () => ({ discipline: e.currentTarget.value.trim() || undefined }))} /></label>
+	<!-- picked from the global list (Settings › Sheets › Disciplines) -->
+	{@const cur = same((s) => s.discipline ?? '')}
+	<label class="row">Discipline
+		<select class="inp" value={cur ?? '*'} onchange={(e) => { const v = e.currentTarget.value; if (v !== '*') set('Sheet discipline', () => ({ discipline: v || undefined })) }}>
+			{#if cur == null}<option value="*">{MIXED}</option>{/if}
+			<option value="">—</option>
+			{#each project.disciplines as d (d)}<option value={d}>{d}</option>{/each}
+			{#if cur && !project.disciplines.includes(cur)}<option value={cur}>{cur} (not on the list)</option>{/if}
+		</select></label>
 	<Field label="Tags">
 		<span class="flex gap-1"><input class="inp" bind:value={tag} placeholder="a tag" aria-label="Tag" />
 			<button class="btn" disabled={!tag.trim()} title="Add this tag to every selected sheet" aria-label="Add this tag to every selected sheet" onclick={() => tagAll(true)}>+</button>

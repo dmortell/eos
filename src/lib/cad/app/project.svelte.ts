@@ -48,6 +48,9 @@ const BLOCKS_DOC = ['settings', 'cadBlocks'] as const
 const TEMPLATES_DOC = ['settings', 'cadDeviceTemplates'] as const
 /** Sheet categories are GLOBAL (Dave, sheets-organising D1): one list for every project. */
 const CATEGORIES_DOC = ['settings', 'cadSheetCategories'] as const
+const DISCIPLINES_DOC = ['settings', 'cadDisciplines'] as const
+/** The disciplines offered until someone edits the list (Settings › Sheets). */
+export const DEFAULT_DISCIPLINES = ['ICT', 'Electrical', 'Mechanical', 'Architectural']
 
 export class CadProject {
 	readonly store = new EntityStore()
@@ -111,6 +114,9 @@ export class CadProject {
 	/** The global sheet category list (`settings/cadSheetCategories`); the built-in one while that doc is empty. */
 	globalSheetCategories = $state.raw<SheetCategory[] | null>(null)
 	sheetCategories = $derived(this.globalSheetCategories?.length ? this.globalSheetCategories : DEFAULT_SHEET_CATEGORIES)
+	/** The global DISCIPLINE list (`settings/cadDisciplines`, Dave D2: "a fixed list"); the defaults while it's empty. */
+	globalDisciplines = $state.raw<string[] | null>(null)
+	disciplines = $derived(this.globalDisciplines?.length ? this.globalDisciplines : DEFAULT_DISCIPLINES)
 
 	#sync: Sync
 	#watched = new Set<string>()
@@ -118,12 +124,14 @@ export class CadProject {
 	#offBlocks: () => void
 	#offTemplates: () => void
 	#offCategories: () => void
+	#offDisciplines: () => void
 
 	constructor(readonly pid: string, readonly db: Firestore, readonly user: string) {
 		this.pdf = new PdfCache(db)
 		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> }, this.#listenFailed('the block library'))
 		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> }, this.#listenFailed('the device templates'))
 		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null }, this.#listenFailed('the sheet categories'))
+		this.#offDisciplines = onSnapshot(doc(db, ...DISCIPLINES_DOC), (s) => { const l = s.data()?.list; this.globalDisciplines = Array.isArray(l) ? (l as string[]) : null }, this.#listenFailed('the discipline list'))
 		this.#off = this.store.subscribe((c) => { this.rev++; if (settles(c, this.store.busy)) this.dataRev++; this.#watchLevels() })
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
 			user, client: this.client, onPending: (n) => this.#pending(n),
@@ -273,6 +281,10 @@ export class CadProject {
 		this.store.transact(label, (tx) => { for (const id of remove) tx.del(id); for (const l of add) tx.put(l) })
 	}
 
+	/** Save the whole global discipline list (replaces it). */
+	async saveDisciplines(list: string[]): Promise<void> {
+		await setDoc(doc(this.db, ...DISCIPLINES_DOC), { list })
+	}
 	/** Save the whole global sheet category list (replaces the doc: a removed field must not survive a merge). */
 	async saveSheetCategories(list: SheetCategory[]): Promise<void> {
 		await setDoc(doc(this.db, ...CATEGORIES_DOC), { categories: list.map((c) => stripUndefined(c)) })
@@ -331,6 +343,7 @@ export class CadProject {
 		this.#offBlocks()
 		this.#offTemplates()
 		this.#offCategories()
+		this.#offDisciplines()
 		this.pdf.destroy()
 		this.notices.destroy()
 	}

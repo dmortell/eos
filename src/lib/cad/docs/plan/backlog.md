@@ -18,15 +18,10 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 22 entries (22 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 21 entries (21 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **Discipline from a fixed list** (review of D2, Dave 2026-10-14: "a fixed list") — Discipline is picked from one
-  global list in Settings (like Sheet categories, D1: `settings/cadSheetCategories` → a disciplines list beside it,
-  built-in defaults such as ICT, Electrical, Mechanical, Architectural); a sheet's free-text value not on the list
-  still shows (flagged) until changed. Sheet Properties, the multi-sheet props, the Sheets table and the sheet list /
-  DXF read it. **P3 · S** (~60 lines). *From:* `sheets-organising.md` § 6 D2.
 - [ ] **Recipients from project contacts** (review of D8, Dave 2026-10-14: "Project contacts") — a project contacts
   list (name, org, email; Project settings) and each package picks its recipients from it (ids; a typed one-off still
   allowed, offered to add to the contacts); the cover and transmittal print them as now. Existing package recipient

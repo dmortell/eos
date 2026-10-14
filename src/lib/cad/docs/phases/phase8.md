@@ -3619,3 +3619,10 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     templates; a template keeps a catalogId as before).
   - Test in `domain/rackBom.test.ts`. Seen live: 162 products, ↗ links, Draw racks → "each click on the plan draws a
     Panduit AR4P" (Esc, nothing drawn).
+- **Discipline from a fixed list** (D2): one GLOBAL list `settings/cadDisciplines` (`{ list: string[] }`;
+  `project.disciplines`, `DEFAULT_DISCIPLINES` ICT / Electrical / Mechanical / Architectural while it's empty), edited
+  in Settings › Sheets › **Disciplines** (`ui/DisciplinesTab.svelte`: chips with ‹ › order, ✕, + Add, "+ X" for values
+  on this project's sheets not on the list). Sheet Properties and several-sheets Properties pick from it (a select); a
+  value not on the list shows "(not on the list)", flagged amber, until changed. Sheets still store the label string,
+  so the Sheets table, packages' discipline rule and the sheet list / DXF read it unchanged. Seen live: S001's
+  Discipline offers — / ICT / Electrical / Mechanical / Architectural.

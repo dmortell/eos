@@ -253,7 +253,14 @@
 				{#each cats as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
 				{#if s.kind && !cats.some((c) => c.id === s.kind)}<option value={s.kind}>{s.kind}</option>{/if}
 			</select></label>
-		<label class="row">Discipline <input class="inp" value={s.discipline ?? ''} placeholder="—" onchange={(e) => putSheet('Sheet discipline', { discipline: e.currentTarget.value.trim() || undefined })} /></label>
+		<!-- picked from the global list (Settings › Sheets › Disciplines); a value not on it shows, flagged, until changed -->
+		{@const off = !!s.discipline && !project.disciplines.includes(s.discipline)}
+		<label class="row" title={off ? `“${s.discipline}” isn't on the discipline list (Settings › Sheets) — pick one, or add it there` : 'Picked from the discipline list (Settings › Sheets)'}>Discipline
+			<select class="inp" class:flag={off} value={s.discipline ?? ''} onchange={(e) => putSheet('Sheet discipline', { discipline: e.currentTarget.value || undefined })}>
+				<option value="">—</option>
+				{#each project.disciplines as d (d)}<option value={d}>{d}</option>{/each}
+				{#if off}<option value={s.discipline}>{s.discipline} (not on the list)</option>{/if}
+			</select></label>
 		<Field label="Tags">
 			<span class="tags">
 				{#each s.tags ?? [] as t (t)}<span class="tag">{t}<button title="Take this tag off" aria-label="Take the tag {t} off" onclick={() => setTag(t, false)}>×</button></span>{/each}
@@ -338,6 +345,7 @@
 {/if}
 
 <style>
+	.flag { outline: 1px solid #f59e0b; }
 	.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
 	.tag { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border-radius: 8px; background: var(--cad-hover); font-size: 11px; }
 	.tag button { color: var(--cad-muted); padding: 0 3px; }
