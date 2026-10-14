@@ -3390,3 +3390,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - `~~text~~` strikes through, `__text__` underlines (it was a second bold; `**text**` is the only bold now); `\~`
   escapes. `emit` adds each struck / underlined stretch's line as a `rule` item (through at −0.3 × size, under at
   +0.15 × size, word to word, not past a trailing space), so the screen, PDF and DXF draw it as a table's rules.
+
+## AutoCAD zoom keys (Dave 2026-10-14)
+
+- Z, then E (extents = Home) · W (zoom window) · P (zoom previous); any other key, or 5 s, ends the wait
+  (`shellKeys.ts` `zoomPending`). Window: two clicks in ACAD input, a press-drag in EOS (a click + click works there
+  too), drawn as the marquee in screen px, the view fitted to it (`ViewCanvas.zoomWindow`); Esc drops it.
+- Previous: `ZoomHistory` (editor/camera.ts) — each view's camera, recorded once a zoom or pan has paused 400 ms, up to
+  20; P steps back through them.

@@ -34,7 +34,7 @@
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { snapThroughViewport, pasteTextNote } from '../editor/noteTool'
 	import { typeInto } from '../editor/input'
-	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, type Camera } from '../editor/camera'
+	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, ZoomHistory, type Camera } from '../editor/camera'
 	import { wheelAction } from '../editor/inputMode'
 	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
 	import { TouchNav, pinchContent, settleScale, type ContentGesture } from '../editor/touch'
@@ -178,6 +178,34 @@
 	let hiddenUntilFit = $state(false)
 	let viewKey = ''
 	$effect(() => { const c = cam; untrack(() => { if (viewKey && !hiddenUntilFit) cams.save(viewKey, c) }) })
+
+	/** Zoom previous (Z P, Dave 2026-10-14): every zoom or pan is remembered once it has paused for a moment. */
+	const zooms = new ZoomHistory()
+	let settling: ReturnType<typeof setTimeout> | undefined
+	const settleNow = () => { clearTimeout(settling); settling = undefined; if (viewKey && !hiddenUntilFit) zooms.settle(viewKey, cam) }
+	$effect(() => { void cam; untrack(() => { clearTimeout(settling); settling = setTimeout(settleNow, 400) }) })
+	$effect(() => () => clearTimeout(settling))
+	/** Back to where this view was before the last zoom or pan; false = nothing to go back to. */
+	export function zoomPrevious(): boolean {
+		if (settling) settleNow()
+		const c = viewKey ? zooms.back(viewKey) : null
+		if (c) cam = c
+		return !!c
+	}
+	/** Zoom window (Z W): two clicks in ACAD input, a press-drag in EOS (Dave) — corners in screen px. */
+	let zwin = $state<{ a: Pt | null; b: Pt | null } | null>(null)
+	export function zoomWindow(): void {
+		zwin = { a: null, b: null }
+		ws.say(ws.inputMode === 'eos' ? 'Zoom window: drag a box round what to see · Esc cancels' : 'Zoom window: click one corner, then the other · Esc cancels')
+	}
+	/** Esc while picking the zoom window: drop it. */
+	export function cancelZoomWindow(): boolean { const was = !!zwin; zwin = null; return was }
+	function zoomTo(a: Pt, b: Pt): void {
+		zwin = null
+		if (Math.abs(a.x - b.x) < 4 || Math.abs(a.y - b.y) < 4) { ws.say('Zoom window: too small — try again with Z W'); return }
+		const p = toModel(cam, a), q = toModel(cam, b)
+		cam = fit({ x0: Math.min(p.x, q.x), y0: Math.min(p.y, q.y), x1: Math.max(p.x, q.x), y1: Math.max(p.y, q.y) }, w, h, 0)
+	}
 
 	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
@@ -466,6 +494,8 @@
 		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
 		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
 		if (e.button !== 0) return
+		// picking a zoom window: the first press is one corner, the next press (or, in EOS, the release of a drag) the other
+		if (zwin) { const s = local(e); if (!zwin.a) zwin = { a: s, b: s }; else zoomTo(zwin.a, s); return }
 		const count = pressCount(e)
 		if (count >= 2) e.preventDefault()   // no word selection / focus change from a double-click (it closed the in-place edit box)
 		// the work plane's grip (Select tool): drag it; a double-click on the plan's sets the depth back to auto
@@ -519,6 +549,7 @@
 			if (v != null) { const r = e.altKey ? Math.round(v) : Math.round(v / 10) * 10; if (wGrip?.what === 'depth') ws.depth = r; else ws.opts.z = r }
 			return
 		}
+		if (zwin) { if (zwin.a) zwin = { ...zwin, b: local(e) }; return }
 		cursor = input(e).p
 		if (!active) return
 		if (held && held.id === e.pointerId) {
@@ -551,6 +582,11 @@
 				}
 				tick++
 			}
+			return
+		}
+		if (zwin) {
+			const { a, b } = zwin
+			if (ws.inputMode === 'eos' && a && b && Math.hypot(b.x - a.x, b.y - a.y) > 3) zoomTo(a, b)   // a press without a drag waits for a second press
 			return
 		}
 		if (vpPan) { vpPan.g?.commit(ws.selection); vpPan = null; return }
@@ -648,7 +684,7 @@
 
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
-		style:cursor={panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
+		style:cursor={zwin ? 'crosshair' : panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
 		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onCancel} onlostpointercapture={onCancel} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
 		oncontextmenu={onMenu} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
@@ -675,6 +711,9 @@
 					class="marquee" class:crossing vector-effect="non-scaling-stroke" />
 			{/if}
 		</g>
+		{#if zwin?.a && zwin.b}
+			<rect class="marquee" x={Math.min(zwin.a.x, zwin.b.x)} y={Math.min(zwin.a.y, zwin.b.y)} width={Math.abs(zwin.b.x - zwin.a.x)} height={Math.abs(zwin.b.y - zwin.a.y)} />
+		{/if}
 	</svg>
 	<ViewStrip {project} {ws} {spec} {levelId} {sections} {section} {sheet} {sheetsList} {onspec} {onfocus} {toSheet} {nav} routeKey={allRoutes?.rooms} />
 	{#if sheet && active}

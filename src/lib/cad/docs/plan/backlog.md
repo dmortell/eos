@@ -22,11 +22,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **AutoCAD zoom keys** — single-key zoom commands on the canvas (not while typing in a field): zoom extents, zoom
-  window (drag a box, the view fits it) and zoom previous (each pane keeps a short stack of cameras). Keys to agree
-  with Dave before building (AutoCAD's letters: E / W / P after Z, or single keys); Help › Shortcuts updated. Not the
-  single-key *tools* dropped in R46. **P3 · S–M** (~80 lines). *cad today:* Home = fit, Shift+Home = selection.
-  *From:* decision "AutoCAD zoom commands?" (T109), Dave 2026-10-14.
 - [ ] **Guides** — horizontal / vertical guide lines per view: a Guide tool places one through a clicked point (or
   typed X / Y); grips move it, Delete removes it; screen only (not printed). Snaps: onto a guide, and where two guides
   cross (guide × object needs the intersection snap, not built). **P3 · M** (~150–200 lines). *cad today:* snaps to

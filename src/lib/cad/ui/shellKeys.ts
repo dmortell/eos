@@ -55,7 +55,7 @@ export const KEYS = {
 	editLabel: 'F2', repeatDevice: 'F4', help: 'F1', keys: '?', osnap: 'F3', grid: 'F7', snap: 'F9',
 	find: 'Ctrl+K', openProject: 'Ctrl+O', hideAll: 'Ctrl+.', tables: 'Ctrl+,',
 	closeTab: 'Alt+W', nextTab: 'Alt+PgDn', prevTab: 'Alt+PgUp', tabN: 'Alt+1…9', backView: 'Alt+←', fwdView: 'Alt+→',
-	fit: 'Home', zoomSel: 'Shift+Home', page: 'PgUp / PgDn', esc: 'Esc', flip: 'F', patch: 'P', link: 'L',
+	fit: 'Home', zoomSel: 'Shift+Home', zoomExt: 'Z E', zoomWin: 'Z W', zoomPrev: 'Z P', page: 'PgUp / PgDn', esc: 'Esc', flip: 'F', patch: 'P', link: 'L',
 } as const
 
 /** One keyboard command: what Help lists (`label`, `keys`, `group`) and what the shell does (`when` / `run`) — ONE list
@@ -116,9 +116,15 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Cancel · back to Select · deselect · leave a viewport', keys: `${KEYS.esc} (repeat)`, group: 'Drawing', when: (e) => e.key === 'Escape',
 		run: (_e, c) => { const ws = c.ws; if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else c.canvas()?.leaveViewport() } },
 	{ label: 'Zoom to the selection', keys: KEYS.zoomSel, group: 'View', when: (e) => e.key === 'Home' && e.shiftKey, run: (_e, c) => c.zoomSel() },
-	{ label: 'Zoom to fit', keys: KEYS.fit, group: 'View', when: (e) => e.key === 'Home', run: (_e, c) => c.canvas()?.zoomExtents() },
+	{ label: 'Zoom to fit', keys: `${KEYS.fit} · ${KEYS.zoomExt}`, group: 'View', when: (e) => e.key === 'Home', run: (_e, c) => c.canvas()?.zoomExtents() },
+	// AutoCAD's ZOOM (Dave 2026-10-14): Z, then E / W / P — the second key is read in shellKey (zoomPending)
+	{ label: 'Zoom: Z, then E extents (fit) · W window (two clicks; EOS input: drag a box) · P previous (back through each zoom and pan)', keys: `${KEYS.zoomWin} · ${KEYS.zoomPrev}`, group: 'View',
+		when: (e, _c, k, mod) => !mod && !e.altKey && k === 'z', run: (e, c) => { pd(e); zoomPending = Date.now(); c.ws.say('Zoom: E extents · W window · P previous') } },
 	{ label: 'Page up / down (sideways: Shift)', keys: KEYS.page, group: 'View', when: (e) => e.key === 'PageDown' || e.key === 'PageUp', run: (e, c) => { pd(e); c.canvas()?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) } },
 ]
+
+/** When Z was pressed (0 = not waiting): the next key, within a few seconds, picks the zoom. */
+let zoomPending = 0
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (composing(e) || typingIn(e.target)) return
@@ -126,6 +132,18 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (document.querySelector('[role=dialog]')) return
 	const { project } = c, canvas = c.canvas()
 	const mod = e.ctrlKey || e.metaKey
+	if (zoomPending && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+		const fresh = Date.now() - zoomPending < 5000, z = e.key.toLowerCase()
+		zoomPending = 0
+		if (fresh && !mod && !e.altKey && (z === 'e' || z === 'w' || z === 'p' || e.key === 'Escape')) {
+			e.preventDefault()
+			if (z === 'e') canvas?.zoomExtents()
+			else if (z === 'w') canvas?.zoomWindow()
+			else if (z === 'p' && !canvas?.zoomPrevious()) c.ws.say('Zoom previous: nothing to go back to in this view')
+			return
+		}
+	}
+	if (e.key === 'Escape' && canvas?.cancelZoomWindow()) { e.preventDefault(); c.ws.say('Zoom window cancelled'); return }
 	// mid-drag: Esc puts it back where it started; undo / redo / Delete wait for the drag to end (a nudge burst ends first)
 	if (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace' || (mod && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))) {
 		canvas?.endNudge()

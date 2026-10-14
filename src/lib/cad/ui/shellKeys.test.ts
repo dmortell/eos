@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { KEY_COMMANDS } from './shellKeys'
+import { KEY_COMMANDS, shellKey } from './shellKeys'
 import { SHORTCUTS, FKEYS, HOWTO } from './helpContent'
 
 const key = (key: string, o: Partial<KeyboardEvent> = {}) => ({ key, code: '', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...o }) as KeyboardEvent
@@ -21,6 +21,30 @@ describe('the keys (review R85 step 1: one list for the shell and Help)', () => 
 			const listed = c.group === 'Function keys' ? FKEYS.some(([k, l]) => k === c.keys && l === c.label) : SHORTCUTS.some(([l, k]) => l === c.label && k === c.keys)
 			expect(listed, c.label).toBe(true)
 		}
+	})
+})
+
+describe('AutoCAD zoom: Z, then E / W / P (Dave 2026-10-14)', () => {
+	function shell() {
+		const calls: string[] = [], said: string[] = []
+		const canvas = { key: () => false, takesTyping: () => false, endNudge: () => {}, cancelZoomWindow: () => false,
+			zoomExtents: () => calls.push('extents'), zoomWindow: () => calls.push('window'), zoomPrevious: () => (calls.push('previous'), false) }
+		const c = { ...(ctx as object), ws: { selection: [], portSel: null, say: (m: string) => said.push(m) }, project: { store: { busy: false }, index: { get: () => undefined } }, canvas: () => canvas } as never
+		;(globalThis as { document?: unknown }).document ??= { querySelector: () => null }
+		return { press: (k: string, o: Partial<KeyboardEvent> = {}) => shellKey({ ...key(k, o), target: null, preventDefault: () => {} } as unknown as KeyboardEvent, c), calls, said }
+	}
+	it('Z asks which; the next key picks it; P with nothing to go back to says so', () => {
+		const s = shell()
+		s.press('z'); expect(s.said.at(-1)).toMatch(/^Zoom: E extents/)
+		s.press('Shift')   // a modifier alone doesn't end the wait
+		s.press('w'); s.press('z'); s.press('e'); s.press('z'); s.press('p')
+		expect(s.calls).toEqual(['window', 'extents', 'previous'])
+		expect(s.said.at(-1)).toMatch(/nothing to go back to/)
+	})
+	it('E / W / P without Z first do nothing; another key after Z ends the wait', () => {
+		const s = shell()
+		s.press('e'); s.press('z'); s.press('x'); s.press('w')
+		expect(s.calls).toEqual([])
 	})
 })
 
