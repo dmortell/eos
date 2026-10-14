@@ -26,6 +26,7 @@ import { TransformTool } from '../editor/transformTool'
 import { LegendTool } from '../editor/legendTool'
 import { ViewportTool } from '../editor/viewportTool'
 import type { Viewport } from '../domain/drawing'
+import type { Prim } from '../domain/prim'
 import { linkUrl, type InsertLink } from '../domain/links'
 import type { Block } from '../domain/blocks'
 import type { CordDefaults } from '../domain/cords'
@@ -192,6 +193,9 @@ export class Workspace {
 	compareOn = $state(false)
 	compareWith = $state<Record<string, string>>({})
 	compareFile = (u: Underlay): string | undefined => (this.compareOn ? this.compareWith[u.id] ?? u.prevFileId : undefined)
+	/** Show changes (W23; this screen only): a sheet's last issued list, loaded — the sheet view draws what is new or
+	 *  changed since it, and what has gone, over the sheet (domain/issue.ts changeOverlay). Null = off. */
+	sheetChanges = $state.raw<{ sheetId: Id; rev: string; issued: Prim[] } | null>(null)
 	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
 	viewInfo = $state.raw<ViewInfo | null>(null)
 	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a

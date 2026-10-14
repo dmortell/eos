@@ -90,11 +90,22 @@ export async function saveFrozen(project: CadProject, sheet: Sheet, rev: string,
 		chunks.forEach((json, i) => tx.set(doc(project.db, col(project), `${k}~p${i}`), { json }))
 	})
 }
-async function loadFrozen(project: CadProject, sheetId: string, rev: string): Promise<PdfPage> {
+/** A frozen copy as stored: its head record and its list (floorplans as plain file references). */
+async function loadFrozenRaw(project: CadProject, sheetId: string, rev: string) {
 	const k = key(sheetId, rev), head = (await getDoc(doc(project.db, col(project), k))).data()
 	if (!head) throw new Error(`no frozen copy of ${sheetId} rev ${rev}`)
 	const parts = await Promise.all(Array.from({ length: head.parts as number }, (_, i) => getDoc(doc(project.db, col(project), `${k}~p${i}`))))
-	const prims = JSON.parse(parts.map((p) => p.data()?.json ?? '').join('')) as Prim[]
+	return { head, prims: JSON.parse(parts.map((p) => p.data()?.json ?? '').join('')) as Prim[] }
+}
+/** W23: the sheet's last issued list, to compare with `frozenNow` (its floorplans placed, so the two match). */
+export async function lastIssued(project: CadProject, sheet: Sheet): Promise<{ rev: string; prims: Prim[] } | null> {
+	const rev = sheet.revisions?.at(-1)?.code
+	if (!rev) return null
+	await placeUnderlays(project, [sheet])
+	return { rev, prims: (await loadFrozenRaw(project, sheet.id, rev)).prims }
+}
+async function loadFrozen(project: CadProject, sheetId: string, rev: string): Promise<PdfPage> {
+	const { head, prims } = await loadFrozenRaw(project, sheetId, rev)
 	// with its floorplans' settings as issued (copies frozen before 2026-10-12 have none: the file as it is now)
 	const files = head.files ? (JSON.parse(head.files as string) as Record<string, FileSnapshot>) : {}
 	return { w: head.w, h: head.h, prims: prims.map((p) => {

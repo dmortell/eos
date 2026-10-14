@@ -266,6 +266,11 @@
 	.cord-add { stroke-dasharray: 6 3; }
 	.draft { stroke: #2563eb; opacity: 0.5; }
 	/* a guide (the Guide tool): a thin cyan dash across the view, on screen only */
+	/* Show changes (W23): new / changed since the last issue in orange, gone in red dashed — screen only */
+	.chg-new { stroke: #ea580c; stroke-width: 2.5px; fill: none; opacity: 0.85; pointer-events: none; }
+	text.chg-new { fill: #ea580c; stroke: none; font-weight: 700; }
+	.chg-gone { stroke: #dc2626; stroke-width: 1.5px; stroke-dasharray: 4 3; fill: none; opacity: 0.8; pointer-events: none; }
+	text.chg-gone { fill: #dc2626; stroke: none; text-decoration: line-through; }
 	.guide { stroke: #06b6d4; stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.8; pointer-events: none; }
 	.guide.guide-hot { stroke-width: 2.5px; opacity: 1; }
 	/* an elevation's depth band (UX14): beyond it faded; its edges on the plan */

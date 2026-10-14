@@ -107,7 +107,82 @@ export function sheetPrint(frozen: Prim[], look: (ref: string) => string): strin
 	return looks.length ? `${fp}~${fnv(looks.join('|'))}` : fp
 }
 
-export type IssuePlanRow = { sheet: Sheet; changed: boolean; from?: string; rev: string }
+/**
+ * WHAT CHANGED SINCE THE LAST ISSUE (backlog W23, walkthrough B28: "Changed since" said yes / no, never where). Both
+ * lists frozen (`freeze`: no pick ids), so items are matched as whole prims — same kind, points, text and style — as
+ * many times as each occurs, by what is drawn and where (its look — class, color, lineweight — is left out):
+ * `added` = drawn now and not in the issued copy (new or changed), `gone` = issued and not drawn now; `moved` = marks
+ * that only moved with their viewport (not shown, `movedWithViewport`). Floorplan pictures aren't compared item by item
+ * (`floorplans` = they differ: a new file or placement).
+ */
+export function primChanges(issued: Prim[], now: Prim[]): { added: Prim[]; gone: Prim[]; moved: number; floorplans: boolean } {
+	// what is drawn and where — not its look (class, color, lineweight, line type, clip): the drawing code's styling
+	// changes between releases, and every mark would show as changed (seen live: a sheet issued a week earlier lit up)
+	const key = (p: Prim) => {
+		const { cls: _c, color: _o, weight: _w, dash: _d, clip: _k, ...g } = p as Prim & { cls?: string }
+		return JSON.stringify(g)
+	}
+	const img = (p: Prim) => p.k === 'image'
+	const left = new Map<string, number>()
+	for (const p of issued) if (!img(p)) left.set(key(p), (left.get(key(p)) ?? 0) + 1)
+	const added: Prim[] = []
+	for (const p of now) {
+		if (img(p)) continue
+		const k = key(p), n = left.get(k) ?? 0
+		if (n) left.set(k, n - 1); else added.push(p)
+	}
+	const gone0: Prim[] = []
+	for (const p of issued) { if (img(p)) continue; const k = key(p), n = left.get(k) ?? 0; if (n) { left.set(k, n - 1); gone0.push(p) } }
+	const pics = (ps: Prim[]) => ps.filter(img).map(key).sort().join('|')
+	return { ...movedWithViewport(added, gone0, key), floorplans: pics(issued) !== pics(now) }
+}
+
+/** A VIEWPORT MOVED (or its window resized) since the issue shifts every mark in it: each would show as new and gone
+ *  (seen live: 363 marks lit up for one moved viewport). Per viewport window (the marks' clip), the shift most of its
+ *  unmatched marks share with an identical issued mark (same shape, text, size) is the viewport's move: marks that
+ *  moved by exactly that much are matched (`moved`), not shown. A mark edited as well still shows. */
+function movedWithViewport(added: Prim[], gone: Prim[], key: (p: Prim) => string): { added: Prim[]; gone: Prim[]; moved: number } {
+	const at = (p: Prim) => (p.k === 'line' ? p.pts[0] : p.k === 'circle' ? p.c : p.k === 'text' ? p.at : { x: p.x, y: p.y })
+	const sig = (p: Prim) => {
+		const o = at(p), rel = (q: { x: number; y: number }) => ({ x: r2(q.x - o.x), y: r2(q.y - o.y) })
+		const s = p.k === 'line' ? { ...p, pts: p.pts.map(rel), ...(p.holes ? { holes: p.holes.map((h) => h.map(rel)) } : {}) } : p.k === 'circle' ? { ...p, c: { x: 0, y: 0 } } : p.k === 'text' ? { ...p, at: { x: 0, y: 0 } } : p
+		return key(s as Prim)
+	}
+	const shift = (a: Prim, g: Prim) => { const p = at(a), q = at(g); return `${r2(p.x - q.x)},${r2(p.y - q.y)}` }
+	const group = (p: Prim) => JSON.stringify(p.clip ?? null)
+	const bySig = new Map<string, Prim[]>()
+	for (const g of gone) { const s = sig(g); bySig.set(s, [...(bySig.get(s) ?? []), g]) }
+	// the shift each viewport window's marks share most
+	const tally = new Map<string, Map<string, number>>()
+	for (const a of added) for (const g of bySig.get(sig(a)) ?? []) {
+		const t = tally.get(group(a)) ?? new Map<string, number>(), d = shift(a, g)
+		t.set(d, (t.get(d) ?? 0) + 1); tally.set(group(a), t)
+	}
+	const best = new Map<string, string>()
+	for (const [k, t] of tally) { const [d, n] = [...t].reduce((x, y) => (y[1] > x[1] ? y : x)); if (n >= 2 && d !== '0,0') best.set(k, d) }
+	if (!best.size) return { added, gone, moved: 0 }
+	const used = new Set<Prim>(), kept: Prim[] = []
+	for (const a of added) {
+		const d = best.get(group(a)), g = d ? bySig.get(sig(a))?.find((x) => !used.has(x) && shift(a, x) === d) : undefined
+		if (g) used.add(g); else kept.push(a)
+	}
+	return { added: kept, gone: gone.filter((g) => !used.has(g)), moved: used.size }
+}
+
+/** The changes as an on-screen overlay (never printed): new / changed items in the `chg-new` class, gone ones in
+ *  `chg-gone` — outlines only (a filled area would cover the sheet), in the class's color (own colors dropped). */
+export function changeOverlay(c: { added: Prim[]; gone: Prim[] }): Prim[] {
+	const as = (p: Prim, cls: string): Prim[] => {
+		const clip = p.clip ? { clip: p.clip } : {}
+		if (p.k === 'line') return [{ k: 'line', pts: p.pts, ...(p.closed ? { closed: true } : {}), cls, ...clip }]
+		if (p.k === 'circle') return [{ k: 'circle', c: p.c, r: p.r, cls, ...clip }]
+		if (p.k === 'text') return [{ k: 'text', at: p.at, text: p.text, size: p.size, ...(p.anchor ? { anchor: p.anchor } : {}), ...(p.rot ? { rot: p.rot } : {}), cls, ...clip }]
+		return []
+	}
+	return [...c.gone.flatMap((p) => as(p, 'chg-gone')), ...c.added.flatMap((p) => as(p, 'chg-new'))]
+}
+
+export type IssuePlanRow ={ sheet: Sheet; changed: boolean; from?: string; rev: string }
 /** What issuing these sheets does: a sheet never issued, or whose fingerprint `now` differs from its last issue's,
  *  gets the next revision; the rest go as last issued. */
 export function planIssue(sheets: Sheet[], now: (s: Sheet) => string, first = 'A'): IssuePlanRow[] {

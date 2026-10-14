@@ -51,6 +51,8 @@
 	import { applyAlign, type AlignHow } from '../editor/align'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
+	import { frozenNow } from '../app/issue'
+	import { primChanges, changeOverlay } from '../domain/issue'
 	import { TOOL_GROUPS } from './toolGroups'
 	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
@@ -163,6 +165,14 @@
 		void tick; void ws.selection; void project.rev; void cam.k
 		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : []
 		return vpe ? onPaper(raw, vpe.vp) : raw
+	})
+	/** Show changes (W23): on this sheet, what is new or changed since its last issue and what has gone — worked out
+	 *  again as it's edited (the sheet frozen now vs the issued copy); on screen only. */
+	const changePrims = $derived.by((): Prim[] => {
+		const c = ws.sheetChanges
+		if (spec.kind !== 'sheet' || !sheet || c?.sheetId !== sheet.id) return []
+		void project.rev
+		return changeOverlay(primChanges(c.issued, frozenNow(project, sheet)))
 	})
 	/** GUIDES (the Guide tool): this view's — inside an edited viewport, its view's — drawn across the view, on screen
 	 *  only (never on a sheet's print); points snap onto them (`ctx().snap`). */
@@ -719,6 +729,7 @@
 				<Prims prims={vpSelected} selected={selSet} />
 			{/if}
 			<Prims prims={portHighlight} selected={new Set()} k={cam.k} />
+			{#if changePrims.length}<Prims prims={changePrims} selected={new Set()} k={cam.k} />{/if}
 			{#if guidePrims.length}<Prims prims={guidePrims} selected={new Set()} k={cam.k} />{/if}
 			<Prims prims={preview} selected={new Set()} k={cam.k} />
 			{#if mq}

@@ -3689,3 +3689,16 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     tests `domain/repatchText.test.ts`.
   - Seen live on Test Project (undone): To cell → "port 40 has no label yet" (a panel, rightly refused); Re-patch… moved
     a From switch end 22 → 30; two cords from 30 → 30, 31.
+- **W23 Show what changed since the last issue** (B28): Sheet Properties › Issued revisions › **Show changes since C**
+  draws over the sheet what is new or changed since its last issue (orange) and what has gone (red dashed), on screen
+  only, worked out again as the sheet is edited (`ViewCanvas` `changePrims`: `frozenNow` vs the issued frozen copy,
+  `app/issue.ts` `lastIssued`).
+  - `domain/issue.ts` `primChanges`: marks matched by what is drawn and where, NOT their look (class / color / weight /
+    dash / clip) — a sheet issued a week earlier lit up entirely from styling changes alone. `movedWithViewport`: a
+    viewport moved since the issue shifts all its marks; the shift most of a window's marks share with an identical
+    issued mark is taken as the move and those marks count as `moved` (not marked; the status line counts them).
+    Floorplan pictures are only flagged (`floorplans`), not marked. `changeOverlay`: outlines in `chg-new` /
+    `chg-gone` (screen-only classes, listed in `styleDrift.test.ts`).
+  - Seen live on Test Project S001 (rev C, 2026-10-07): first 363 / 272 marks (style + a moved viewport), after the
+    two fixes the moved viewport's frame, trunks, some symbols and notes. Nothing written. Help entry added; tests in
+    `domain/issue.test.ts`.

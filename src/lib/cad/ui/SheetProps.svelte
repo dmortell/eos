@@ -16,16 +16,37 @@
 	import { sectionsOn } from '../views/section'
 	import { portMapTitle } from '../domain/portMap'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
-	import { printRevision, today } from '../app/issue'
+	import { printRevision, today, lastIssued, frozenNow } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
 	import Field from './fields/Field.svelte'
 	import { duplicateSheets, sheetsForEach } from '../app/sheetActions'
-	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
+	import { issuesOfSheet, issueTag, changeLines, primChanges } from '../domain/issue'
 	import type { Issue, SheetChange } from '../domain/drawing'
 	import { ordered, categoryOf } from '../domain/sheetCategories'
 	import { drawnFallback } from '../domain/titleBlock'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
+
+	// Show changes (W23): what is new / changed since the last issue (orange) and what has gone (red dashed), drawn over
+	// the sheet on screen until switched off
+	const showingChanges = $derived(ws.sheetChanges?.sheetId === s.id)
+	let loadingChanges = $state(false)
+	async function toggleChanges() {
+		if (showingChanges) { ws.sheetChanges = null; return }
+		loadingChanges = true
+		try {
+			const r = await lastIssued(project, s)
+			if (!r) return
+			ws.sheetChanges = { sheetId: s.id, rev: r.rev, issued: r.prims }
+			const c = primChanges(r.prims, frozenNow(project, s))
+			const pics = c.floorplans ? ' — its floorplans differ too (a new file or placement)' : ''
+			const moved = c.moved ? ` · ${c.moved} more only moved with their viewport (not marked)` : ''
+			ws.say(c.added.length || c.gone.length
+				? `Since ${r.rev}: ${c.added.length} mark${c.added.length === 1 ? '' : 's'} new or changed (orange), ${c.gone.length} gone (red dashed)${moved}${pics} · on screen only`
+				: `Nothing drawn on this sheet has changed since ${r.rev}${moved}${pics}`)
+		} catch (e) { ws.say(`Could not load the issued copy: ${(e as Error).message}`) }
+		finally { loadingChanges = false }
+	}
 
 	const vp = $derived(ws.vpMore.length ? undefined : s.viewports.find((v) => v.id === ws.viewportId))
 	/** Several picked (Ctrl-click, a window on the paper): the group below, not one viewport's rows. */
@@ -316,6 +337,7 @@
 	{#if s.revisions?.length}
 		<!-- each issued revision, printable exactly as it went out (its frozen copy) -->
 		<PropGroup kind="sheet" title="Issued revisions">
+			<div class="acts"><button class="btn" class:on={showingChanges} disabled={loadingChanges} title="Draw over the sheet what is new or changed since its last issue (orange) and what has gone (red dashed) — kept up to date as you edit, on screen only, never printed" onclick={toggleChanges}>{loadingChanges ? 'Loading…' : showingChanges ? 'Hide changes' : `Show changes since ${s.revisions.at(-1)?.code}`}</button></div>
 			{#each [...s.revisions].reverse() as r (r.code)}
 				<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={[r.desc ?? r.note ?? '', r.by ? `issued by ${r.by}` : '', changeLines(r.changes)].filter(Boolean).join('\n')}>{r.desc ?? r.note ?? ''}</span>
 					<button class="btn" disabled={busy} title="Download this sheet as issued at {r.code} (PDF)" onclick={() => printRev(r.code)}>Print</button></div>
@@ -359,6 +381,7 @@
 	.win { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
 	.win label { display: flex; align-items: center; gap: 3px; color: var(--cad-muted); }
 	.acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
+	.btn.on { border-color: #ea580c; color: #c2410c; }   /* Show changes is on */
 	.rev { display: grid; grid-template-columns: 2.2rem 5.5rem 1fr auto; align-items: center; gap: 4px; }
 	.chg { display: grid; grid-template-columns: 4.6rem 1fr 4.5rem auto; align-items: center; gap: 4px; margin-bottom: 2px; }
 	.rev2 { display: grid; grid-template-columns: 3.6rem 5rem 1fr auto 1.8rem; align-items: center; gap: 4px; }

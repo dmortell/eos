@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds, primChanges, changeOverlay } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -159,5 +159,36 @@ describe('issue register (backlog: for the PM)', () => {
 	it('latest only: one column, each sheet at its last issue', () => {
 		const r = issueRegister(issues, true)
 		expect(r.rows.map((x) => (x.cells[0] as { rev: string }).rev)).toEqual(['B · Issue 02 · 2026-02-01', 'A · Issue 01 · 2026-01-01'])
+	})
+})
+
+describe('what changed since the last issue (W23)', () => {
+	const line = (x: number, cls = 'note'): Prim => ({ k: 'line', pts: [{ x, y: 0 }, { x, y: 10 }], cls })
+	const text = (t: string): Prim => ({ k: 'text', at: { x: 0, y: 0 }, text: t, size: 2.5, cls: 'note' })
+	const pic = (url: string): Prim => ({ k: 'image', url, x: 0, y: 0, w: 100, h: 50 })
+	it('new or changed items are added, issued ones no longer drawn are gone; repeats count; floorplans only flagged', () => {
+		const issued = [line(1), line(1), line(2), text('A01'), pic(underlayRef('f1'))]
+		const now = [line(1), line(2), line(3), text('A02'), pic(underlayRef('f1'))]
+		const c = primChanges(issued, now)
+		expect(c.added).toEqual([line(3), text('A02')])
+		expect(c.gone).toEqual([line(1), text('A01')])
+		expect(c.floorplans).toBe(false)
+		expect(primChanges([pic(underlayRef('f1'))], [pic(underlayRef('f2'))])).toMatchObject({ added: [], gone: [], floorplans: true })
+		expect(primChanges(issued, issued)).toMatchObject({ added: [], gone: [], floorplans: false })
+	})
+	it('a moved viewport: its marks shifted by the same amount are matched, not shown; a mark edited too still shows', () => {
+		const clipWas = { x0: 13, y0: 13.7, x1: 345, y1: 286.7 }, clipNow = { x0: 10, y0: 10, x1: 345, y1: 287 }
+		const at = (p: Prim, dx: number, dy: number, clip: typeof clipNow): Prim => (p.k === 'line' ? { ...p, pts: p.pts.map((q) => ({ x: q.x + dx, y: q.y + dy })), clip } : p.k === 'text' ? { ...p, at: { x: p.at.x + dx, y: p.at.y + dy }, clip } : p)
+		const issued = [line(50), line(60), text('R1'), text('R2')].map((p) => at(p, 0, 0, clipWas))
+		const now = [line(50), line(60), text('R1'), text('R2 changed')].map((p) => at(p, -3, -3.7, clipNow))
+		const c = primChanges(issued, now)
+		expect(c.moved).toBe(3)
+		expect(c.added.map((p) => p.k === 'text' && p.text)).toEqual(['R2 changed'])
+		expect(c.gone.map((p) => p.k === 'text' && p.text)).toEqual(['R2'])
+	})
+	it('the overlay: outlines in the change classes, own colors and fills dropped, clips kept', () => {
+		const clip = { x0: 0, y0: 0, x1: 5, y1: 5 }
+		const o = changeOverlay({ added: [{ k: 'line', pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], closed: true, fill: true, color: '#f00', cls: 'wall', clip }], gone: [text('A01')] })
+		expect(o).toEqual([{ ...text('A01'), cls: 'chg-gone' }, { k: 'line', pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], closed: true, cls: 'chg-new', clip }])
 	})
 })
