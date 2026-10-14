@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 14 entries (14 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 13 entries (13 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -82,8 +82,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Risers, sections and wall kit
 
-- [ ] **W27 A riser carries on on the other floor** (B37) — after V the run continues on the target level (switch
-  the pane, or split), from the riser's top at that floor's tray height, not at FFL. **P3 · M**.
 - [ ] **W28 Draft in sections** (B34) — Outlet / Trunk / Line in a section; a block placed in an elevation also shows
   in a section of the same wall. **P3 · M**.
 - [ ] **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind with a Z height (the ACS panel

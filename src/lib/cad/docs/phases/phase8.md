@@ -3715,3 +3715,10 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   package button does, when wanted). Outlets must draw over desks → noted under the ❓ "Three bands" entry. New todos
   in backlog.md: "Keep a drawn item's settings for the next ones" (or a Use as default button) and "Another word for
   Issue" (both ❓).
+- **W27 A riser carries on on the other floor** (B37): V → level N now ends the riser at that floor's tray height (the
+  middle of its ceiling void, as the Trunk tool starts; a run at floor level: its FFL) instead of always FFL; in a
+  plan the pane then shows that floor, CENTRED on the riser (zoom kept: `ws.centreOn`), and the tool carries on from
+  the riser's top — the next clicks draw the new floor's run, which joins the riser (routing's coincident nodes).
+  `PathTool.riserTo`, `ToolCtx.openLevel(id, at)` → `ws.openLevel` (the shell's openLevel). Tests: drawing.test.ts
+  (riser + carry on), typing.test.ts (riser end Z). Hint + Help updated. Seen live on Test Project (undone): 1F
+  conduit, V → 2, 2F opened centred, the 2F run started on "Riser 1F ↕ 2F".

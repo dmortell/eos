@@ -82,13 +82,13 @@ describe('editing nodes', () => {
 
 describe('a riser to another level', () => {
 	const L34: Entity = { type: 'level', id: 'L34', buildingId: 'B', number: 34, name: '34F', order: 34, elevationMm: 136000, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2700, plenumMm: 800 } }
-	it('V → 34 adds a vertical segment to 34F FFL and ends the run; both plans show it', () => {
+	it('V → 34 adds a vertical segment to 34F’s tray height (W27: 2700 + 800 / 2) and ends the run; both plans show it', () => {
 		const h = harness([L34])
 		const t = new PathTool('trunk')
 		t.down(at(9000, 9000), h.ctx())
 		t.key({ key: 'v' } as KeyboardEvent, h.ctx()); h.answer(34)
 		const s = h.store.get(h.sel()[0]) as Shape
-		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.z, n.levelId ?? 'L33'])).toEqual([[2900, 'L33'], [0, 'L34']])
+		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.z, n.levelId ?? 'L33'])).toEqual([[2900, 'L33'], [3100, 'L34']])
 		const ix = new ProjectIndex(h.store.all())
 		const label = (lv: string) => planDisplayList(ix, lv, { scale: 100 }).find((p) => p.src === s.id && p.k === 'text')
 		expect(label('L33')).toMatchObject({ text: 'Riser 33F ↕ 34F' })

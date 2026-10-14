@@ -235,6 +235,11 @@ export class Workspace {
 	}
 	/** Set by the app: show a view in the active pane (a section's Open button). */
 	openView: (s: ViewSpec) => void = () => {}
+	/** Set by the app: show a level (its plan in the active pane) — a level from the list, a riser carrying on (W27). */
+	openLevel: (id: Id) => void = () => {}
+	/** A point (view mm) the active view centres on once it shows (W27: the riser's top on the other floor), keeping
+	 *  its zoom; the view clears it. */
+	centreOn = $state.raw<{ x: number; y: number } | null>(null)
 	/** Set by the app (it owns the store): how the assign tool writes. */
 	applyLinks: (label: string, add: Link[], remove: Id[]) => void = () => {}
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))

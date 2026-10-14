@@ -236,6 +236,7 @@
 	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */
 	$effect(() => {
 		void ws.focus   // a focus asked for after the view switched (Find a device) fits it too
+		void ws.centreOn
 		const ps = prims, vk = `${levelId}:${specKey(spec)}`, key = `${vk}:${ps.some((p) => p.k === 'image')}:${Math.round(w / 200)}`
 		// a view not fitted yet stays hidden until its floorplan is in, then fits once
 		const seen = untrack(() => cams.has(vk) || (viewKey === vk && fittedFor !== null))
@@ -256,6 +257,9 @@
 			// asked to show one thing (a `?rack=` link): fit to it instead, once it's drawn here
 			const want = ws.focus, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
 			if (fb) { cam = fit(fb, w, h); fittedFor = RESTORED; ws.focus = null; return }   // RESTORED: no re-fit over it
+			// asked to centre on a point (a riser carrying on, W27): the active view, its zoom kept
+			const c = ws.centreOn
+			if (c && active && w && h) { cam = { ...cam, x: w / 2 - c.x * cam.k, y: h / 2 - c.y * cam.k }; fittedFor = RESTORED; ws.centreOn = null; return }
 			if (!ps.length || !w || !h) return
 			// the content's bounds only when they're needed (not on every change, e.g. each frame of a drag)
 			const check = fittedFor === RESTORED && cams.firstCheck(vk)
@@ -396,6 +400,7 @@
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, selectViewports: ws.selectViewports, viewportId: () => ws.viewportId, viewportIds: () => ws.pickedViewports, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
+			openLevel: (id: string, at?: Pt) => { ws.openLevel(id); if (at) ws.centreOn = at },
 			openLink: (l: InsertLink) => { if (l.kind === 'sheet' && project.index.get(l.sheetId)?.type !== 'sheet') ws.say('The linked sheet is gone'); else ws.openLink(l) },
 			selectOpening: ws.selectOpening, openingId: () => ws.openingSel?.openingId ?? null,
 			pathSel: () => ws.pathSel, selectPath: ws.selectPath, editText: ws.editText,   // inside a viewport too: the box maps onto the paper

@@ -80,6 +80,27 @@ describe('drawing a trunk with the path tool', () => {
 		h.store.undo()
 		expect(h.store.get(s.id)).toBeUndefined()
 	})
+	it('V: a riser to another floor at its tray height; the plan goes there and the tool carries on from the riser (W27)', () => {
+		const h = harness()
+		h.store.transact('L34', (tx) => tx.put({ type: 'level', id: 'L34', buildingId: 'B', number: 34, name: '34F', order: 34, elevationMm: 136000, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2800, plenumMm: 600 } }))
+		let level = 'L33'
+		const said: string[] = []
+		const ctx = () => ({ ...h.ctx(), levelId: level, openLevel: (id: string) => { level = id }, say: (m: string) => said.push(m) })
+		const tool = new PathTool('trunk')
+		tool.down(at(0, 6000), ctx())
+		tool.down(at(4000, 6000), ctx())
+		tool.key(key('v'), ctx()); h.answer(34)
+		const riser = h.store.get(h.sel()[0]) as Shape
+		expect(riser.geom.kind === 'path' && riser.geom.nodes.map((n) => [n.x, n.z, n.levelId])).toEqual([[0, 2900, undefined], [4000, 2900, undefined], [4000, 3100, 'L34']])
+		expect(level).toBe('L34')                        // the plan shows 34F
+		expect(h.opts.z).toBe(3100)                      // 2800 + 600 / 2
+		tool.down(at(4000, 9000), ctx())                 // carries on: the new run starts on the riser's top
+		tool.key(key('Enter'), ctx())
+		const next = h.store.get(h.sel()[0]) as Shape
+		expect(next.levelId).toBe('L34')
+		expect(next.geom.kind === 'path' && next.geom.nodes.map((n) => [n.x, n.y, n.z])).toEqual([[4000, 6000, 3100], [4000, 9000, 3100]])
+		expect(said.at(-1)).toMatch(/Riser to 34F/)
+	})
 	it('a click back on the first point (3+ points) closes the run; Shift draws in 15° steps', () => {
 		const h = harness()
 		const tool = new PathTool('wall')

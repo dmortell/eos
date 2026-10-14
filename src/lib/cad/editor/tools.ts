@@ -87,6 +87,9 @@ export interface ToolCtx {
 	grid?: number
 	/** A short message in the status area (why something was refused). */
 	say?(msg: string): void
+	/** Show another level's plan in this pane, the tool staying armed (W27: a riser carries on on the other floor);
+	 *  `at` = the view point to centre on there (its zoom kept). */
+	openLevel?(levelId: Id, at?: Pt): void
 }
 
 export interface Tool {

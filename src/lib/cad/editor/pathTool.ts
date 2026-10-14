@@ -14,6 +14,7 @@ import { newId } from '../domain/ids'
 import { styleProp } from '../domain/shapeDefaults'
 import { placeNote } from './noteTool'
 import { splitRunsAt, runZAt, splitSegRefs } from '../domain/pathEdit'
+import { heightsOf } from '../domain/floors'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
 
@@ -74,15 +75,24 @@ export class PathTool implements Tool {
 		return false
 	}
 
-	/** A riser: a vertical segment from the last point to FFL of another level, then the run ends there (carry on
-	 *  from that node on the other level's plan with Ctrl-drag). Unknown level numbers do nothing. */
+	/** A riser: a vertical segment from the last point up / down to another level, then the run ends there. It arrives
+	 *  at that floor's tray height (a high run: the middle of its ceiling void, as the Trunk tool starts) or its FFL (a
+	 *  run at the floor). In a plan the pane then shows that floor and the tool CARRIES ON from the riser's top — the
+	 *  next click draws the new floor's run, which joins the riser there (W27, walkthrough B37: it stopped at FFL and a
+	 *  second run had to be started by hand on the other plan). Unknown level numbers do nothing. */
 	riserTo(levelNumber: number, c: ToolCtx): void {
 		const last = this.pts.at(-1)
 		// a floor with area plans (33F 3303 / 33F 3307) has several levels of one number: the main plan wins, then by order
 		const lv = c.index.levels.filter((l) => l.number === levelNumber && l.id !== c.levelId).sort((a, b) => Number(!!a.area) - Number(!!b.area) || a.order - b.order)[0]
 		if (!last || !lv) return
-		this.pts.push({ x: last.x, y: last.y, z: 0, levelId: lv.id })
+		const h = heightsOf(lv), z = last.z > 0 ? h.clearHeightMm + h.plenumMm / 2 : 0
+		this.pts.push({ x: last.x, y: last.y, z, levelId: lv.id })
 		this.finish(c)
+		if (c.space.spec.kind !== 'plan' || !c.openLevel) return
+		this.pts = [{ x: last.x, y: last.y, z }]   // the next run starts on the riser's top, on that floor
+		c.opts.z = z
+		c.openLevel(lv.id, { x: last.x, y: last.y })   // centred on the riser (a plan's view mm = model x, y)
+		c.say?.(`Riser to ${lv.name} · carry on drawing there from the riser (Z ${z}) · Esc ends`)
 	}
 
 	/** A vertical segment at the last point; the run carries on at the new Z. */

@@ -100,6 +100,7 @@
 	ws.layers.load(pid)
 	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
 	ws.openView = (s) => setPane(activePane, s)
+	ws.openLevel = (id) => openLevel(id)
 	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, $state.snapshot(v.spec) as ViewSpec, 'keep') }
 	/** A level / sheet picked in the app-wide palette (Ctrl+K elsewhere, the title bar's search): `search` is the cad URL's
 	 *  query (`?v=plan&level=…` / `?v=sheet.…`); opened in a tab like any other jump, not by re-reading the URL (Q45). */
