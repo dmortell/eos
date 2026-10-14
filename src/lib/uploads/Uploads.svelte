@@ -96,10 +96,13 @@
 		return () => { unsub?.() }
 	})
 
+	/** A package PDF cad issued (`issue-…`, app/issue.ts): not a floorplan — listed after the floorplans, no origin / scale
+	 *  to set (cad backlog W24 / walkthrough B51). */
+	const isIssuePdf = (f: FileDoc) => f.id.startsWith('issue-')
 	let filtered = $derived(
 		files
 			.filter(f => !search || (f.name ?? f.id).toLowerCase().includes(search.toLowerCase()))
-			.sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
+			.sort((a, b) => Number(isIssuePdf(a)) - Number(isIssuePdf(b)) || (a.name ?? a.id).localeCompare(b.name ?? b.id))
 	)
 
 	let totalSize = $derived(filtered.reduce((sum, f) => sum + (f.size ?? 0), 0))
@@ -489,10 +492,13 @@
 						</div>
 
 						{#if !group.files.length}<p class="px-3 py-2 text-xs text-gray-400">No files in this project yet — drop PDFs here or use Upload</p>{/if}
-						{#each group.files as file (file.id)}
+						{#each group.files as file, i (file.id)}
 							{@const status = fileStatus(file)}
 							{@const members = fileProjectIds(file)}
 							{@const confirmKey = `${group.pid}:${file.id}`}
+							{#if isIssuePdf(file) && (i === 0 || !isIssuePdf(group.files[i - 1]))}
+								<p class="px-3 pt-2 pb-0.5 text-[10px] text-gray-400 uppercase tracking-wider font-medium">Issued sheets (package PDFs)</p>
+							{/if}
 							<div class="grid gap-2 items-center px-3 py-1 rounded bg-white border border-gray-200 hover:border-gray-400 transition-colors" style="grid-template-columns: 1fr 70px 45px 120px 100px 56px">
 								<!-- Name -->
 								<div class="flex items-center gap-2 min-w-0">
@@ -540,6 +546,8 @@
 								<div class="flex items-center gap-2">
 									{#if CAD_FILE.test(file.name ?? file.id)}
 										<span class="text-[10px] text-gray-500" title="A CAD drawing — real mm coordinates, no calibration needed">CAD</span>
+									{:else if isIssuePdf(file)}
+										<span class="text-[10px] text-gray-500" title="A package of sheets issued from cad — not a floorplan, nothing to set up">Issue PDF</span>
 									{:else if !status.hasOrigin}
 										<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
 											title="Set origin" onclick={(e) => { e.stopPropagation(); openFile(file, 'origin') }}>Set origin</button>

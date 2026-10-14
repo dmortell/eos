@@ -49,7 +49,7 @@
 	/** The sort in force: no column picked = the print order. */
 	const sortKey = $derived((t.sortKey ?? 'order') as SortKey), sortDir = $derived(t.sortKey ? t.sortDir : 1)
 	// the ISSUE STATE column (slice 5): worked out in the background only while it's on
-	let showState = $state(false), fStates = $state<string[]>([])
+	let showState = $state(true), fStates = $state<string[]>([])   // W24: on by default (⋯ turns it off)
 	const states = $derived(issueStatesOf(project))
 	$effect(() => { if (showState) return untrack(() => states.want()) })   // untracked: an edit re-checks via `of`, debounced
 	const stateOf = (r: SheetRow) => states.of(sheetOf(r.id))

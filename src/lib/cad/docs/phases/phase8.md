@@ -3702,3 +3702,12 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Seen live on Test Project S001 (rev C, 2026-10-07): first 363 / 272 marks (style + a moved viewport), after the
     two fixes the moved viewport's frame, trunks, some symbols and notes. Nothing written. Help entry added; tests in
     `domain/issue.test.ts`.
+- **W24 Smaller issue / sheet friction**:
+  - Uploads: issue package PDFs (`issue-…`) are listed after the floorplans under "Issued sheets (package PDFs)",
+    marked "Issue PDF" instead of the amber "Set origin" (B51; the shared `$lib/uploads/Uploads.svelte`). Seen live.
+  - The Sheets table's Issue state column is on by default (⋯ hides it). Seen live.
+  - The Issue panel's "Package" field is now "Issue name" (it only ever named the issue; a package is made in Packages
+    › + From selection — its tooltip says so); issuing a package shows "of package X". NOT built: making a package
+    automatically from an issued selection (a design choice for Dave).
+  - Noticed: pictures (logos, pasted screenshots) are still flagged "Set origin" in Uploads — left, as an image can be
+    a floorplan.

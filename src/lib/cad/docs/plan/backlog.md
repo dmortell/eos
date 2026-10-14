@@ -67,9 +67,9 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Sheets, packages and issue
 
-- [ ] **W24 Smaller issue / sheet friction** — the Issue panel's "Package" is only a label (a real package needs
-  Make package): one concept; issue PDFs listed apart from floorplans in Uploads (B51); the Sheets table's Issue state
-  column on by default. **P3 · S**.
+- [ ] **W24b Issue and package as one concept** — the rest of W24 (built 2026-10-15: the field is now "Issue name",
+  Uploads lists issue PDFs apart, the state column is on): should issuing a selection MAKE a package (so the next
+  issue of those sheets diffs against it), or stay a one-off? **P3 · S** ❓.
 
 ### BOM
 

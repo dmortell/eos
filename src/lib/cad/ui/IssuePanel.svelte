@@ -54,7 +54,7 @@
 		return () => runs.cancel()
 	})
 	async function issue() {
-		if (!name.trim()) { err = 'Name the package'; return }
+		if (!name.trim()) { err = 'Name the issue'; return }
 		busy = true; err = ''
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
@@ -71,8 +71,10 @@
 
 <div class="panel">
 	<div class="flex flex-wrap items-center gap-2">
-		<span class="font-semibold">Issue {sheets.length} sheet(s)</span>
-		<label>Package <input class="inp w-40" bind:value={name} placeholder="e.g. Tender issue 1" /></label>
+		<span class="font-semibold">Issue {sheets.length} sheet(s){#if pkg} of package {pkg.name}{/if}</span>
+		<!-- W24: this is the ISSUE's name (in the Issues list, the transmittal, the PDF's name) — a package is made in
+		     Packages (+ From selection); "Package" here read as if typing one made it -->
+		<label title={pkg ? 'This issue’s name — the package keeps its own' : 'This issue’s name (Issues list, transmittal, PDF). To issue the same sheets again later, make them a package: Packages › + From selection'}>Issue name <input class="inp w-40" bind:value={name} placeholder="e.g. Tender issue 1" /></label>
 		<label>Purpose <input class="inp w-32" list="cad-purposes" bind:value={purpose} /></label>
 		<datalist id="cad-purposes">{#each PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
 		<label>Date <input class="inp" type="date" bind:value={date} /></label>
