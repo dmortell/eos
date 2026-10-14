@@ -28,6 +28,14 @@ describe('stacking', () => {
 		expect(out.get(3)).toBe(2 * typical + 300)         // its own raised floor is 300 deeper
 		expect(out.get(-1)).toBe(-typical)                 // no floor 0 (GF): -1 sits right under 1
 	})
+	it('a datum floor sits at FFL 0 and the rest stack from it (W10: GF = 0 in AU / UK)', () => {
+		const typical = DEFAULT_HEIGHTS.clearHeightMm + DEFAULT_HEIGHTS.plenumMm + DEFAULT_HEIGHTS.slabMm + DEFAULT_HEIGHTS.raisedFloorMm
+		const at = (ls: ReturnType<typeof lv>[], d?: number) => { const m = new Map(ls.map((l) => [l.number, l.elevationMm])); for (const l of restack(ls, [], d)) m.set(l.number, l.elevationMm); return m }
+		const gf = at([lv(0, { elevationMm: -typical }), lv(1), lv(2, { elevationMm: typical })], 0)
+		expect([gf.get(0), gf.get(1), gf.get(2)]).toEqual([0, typical, 2 * typical])
+		expect(at([lv(1, { elevationMm: 777 }), lv(2)], 1).get(1)).toBe(0)            // floor 1 as the datum: moved to 0
+		expect(at([lv(1, { elevationMm: 777 }), lv(2)]).get(1)).toBe(777)             // no datum: floor 1 stays put
+	})
 	it('a floor with no level still takes a storey; one that doesn\'t exist doesn\'t', () => {
 		const typical = DEFAULT_HEIGHTS.clearHeightMm + DEFAULT_HEIGHTS.plenumMm + DEFAULT_HEIGHTS.slabMm + DEFAULT_HEIGHTS.raisedFloorMm
 		expect(restack([lv(1), lv(4)]).find((l) => l.number === 4)?.elevationMm).toBe(3 * typical)       // 2F, 3F not drawn

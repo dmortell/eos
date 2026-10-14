@@ -2,10 +2,13 @@
 // them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). Dave 2026-10-14: cable types CAT6A,
 // CAT6, OS2, OM4; outlet usages (none), AP, TV, CCTV. Pure.
 import type { ProjectSettings } from './types'
+import { DEFAULT_TITLE_BLOCK } from './titleBlock'
 
 export function defaultSettings(): ProjectSettings {
+	// the default title block without its "J" placeholder logo text (W10, B50) — kept for older projects only
+	const { logo: _placeholder, ...titleBlock } = DEFAULT_TITLE_BLOCK
 	return {
-		type: 'settings', id: 'settings', portSuffix: 'alpha',
+		type: 'settings', id: 'settings', portSuffix: 'alpha', titleBlock: structuredClone(titleBlock),
 		usages: [
 			{ id: 'AP', label: 'AP', color: '#16a34a' }, { id: 'TV', label: 'TV', color: '#db2777' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
 		],

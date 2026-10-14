@@ -43,13 +43,15 @@ const above = (h: Heights) => h.clearHeightMm + h.plenumMm  // FFL up to the nex
  * it) unless it's in `skip` (it doesn't exist, e.g. no GF). Area levels follow their floor. Returns only the levels
  * whose elevation changes.
  */
-export function restack(levels: Level[], skip: number[] = []): Level[] {
+export function restack(levels: Level[], skip: number[] = [], datum?: number): Level[] {
 	const main = levels.filter((l) => !l.area).sort((a, b) => a.number - b.number)
 	if (!main.length) return []
 	/** Storeys with no level between floors a < b, each as tall as `h`. */
 	const gaps = (a: number, b: number, h: Heights) => { let n = 0; for (let m = a + 1; m < b; m++) if (!skip.includes(m)) n++; return n * (below(h) + above(h)) }
-	const ai = Math.max(0, main.findIndex((l) => l.number === 1))
-	const elev = new Map<number, number>([[main[ai].number, main[ai].elevationMm]])
+	// the anchor: the DATUM floor at FFL 0 when one is set (W10: AU / UK put GF at 0), else floor 1 where it is
+	const di = datum == null ? -1 : main.findIndex((l) => l.number === datum)
+	const ai = di >= 0 ? di : Math.max(0, main.findIndex((l) => l.number === 1))
+	const elev = new Map<number, number>([[main[ai].number, di >= 0 ? 0 : main[ai].elevationMm]])
 	for (let i = ai + 1; i < main.length; i++) {
 		const lo = main[i - 1], hi = main[i]
 		elev.set(hi.number, elev.get(lo.number)! + above(lo.heights) + gaps(lo.number, hi.number, lo.heights) + below(hi.heights))

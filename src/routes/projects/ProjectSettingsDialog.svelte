@@ -46,12 +46,15 @@
 		project = null as Project | null,
 		onsaved,
 		onarchived,
+		lastCompany,
 	}: {
 		open?: boolean
 		mode?: 'create' | 'edit'
 		project?: Project | null
 		onsaved?: (id: string) => void
 		onarchived?: (id: string) => void
+		/** A new project's "Your company" (name, logo, address, contact), from this user's last project (cad W10). */
+		lastCompany?: { companyName?: string; companyLogoUrl?: string; companyAddress?: string; companyContact?: string }
 	} = $props()
 
 	let db = getContext('db') as Firestore
@@ -105,10 +108,11 @@
 				draftAddress = ''
 				draftAuthor = ''
 				draftLogoUrl = ''
-				draftCompanyName = ''
-				draftCompanyLogoUrl = ''
-				draftCompanyAddress = ''
-				draftCompanyContact = ''
+				// "Your company" as on this user's last project — not typed again for every project (cad W10, B50)
+				draftCompanyName = lastCompany?.companyName ?? ''
+				draftCompanyLogoUrl = lastCompany?.companyLogoUrl ?? ''
+				draftCompanyAddress = lastCompany?.companyAddress ?? ''
+				draftCompanyContact = lastCompany?.companyContact ?? ''
 				draftSections = {}
 				draftMembers = session?.user?.uid ? [session.user.uid] : []
 			} else {

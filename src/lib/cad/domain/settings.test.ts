@@ -10,6 +10,11 @@ describe('defaultSettings (a new project)', () => {
 		expect(s.cableTypes.find((t) => t.id === s.defaults.cordCableType)).toBeTruthy()
 		expect(new Set(s.cableTypes.map((t) => t.id)).size).toBe(4)
 	})
+	it('its title block is the default one without the "J" placeholder logo text (W10)', () => {
+		const s = defaultSettings()
+		expect(s.titleBlock?.logo).toBeUndefined()
+		expect(s.titleBlock?.fields.length).toBeGreaterThan(0)
+	})
 	it('is a fresh copy each time (an edit to one never leaks into the next project)', () => {
 		const a = defaultSettings()
 		a.usages.push({ id: 'X', label: 'X', color: '#000' })

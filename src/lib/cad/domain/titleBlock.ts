@@ -75,6 +75,9 @@ export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell
 	}
 }
 
+/** The default title block (projects with no template of their own). Its "J" logo text is a placeholder kept for the
+ *  projects that already print it (dropping it would mark every issued sheet "Changed since"); a NEW project's
+ *  settings get the same block without it (`domain/settings.ts`, W10). */
 export const DEFAULT_TITLE_BLOCK: TitleBlockTemplate = {
 	logo: 'J',
 	fields: [

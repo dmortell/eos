@@ -29,6 +29,10 @@
 		address?: string;
 		author?: string;
 		logoUrl?: string;
+		companyName?: string;
+		companyLogoUrl?: string;
+		companyAddress?: string;
+		companyContact?: string;
 		members?: string[];
 		createdAt?: any;
 		updatedAt?: any;
@@ -59,6 +63,14 @@
 		return filtered
 	})
 	let trashedProjects = $derived.by(() => projects.filter(p => p.deleted))
+	/** "Your company" from this user's most recent project that has one — a new project starts with it (cad W10). */
+	const ms = (t: any) => (t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : t instanceof Date ? t.getTime() : 0)
+	let lastCompany = $derived.by(() => {
+		const uid = session?.user?.uid
+		const mine = projects.filter((p) => !p.deleted && p.ownerId === uid && (p.companyName || p.companyLogoUrl)).sort((a, b) => ms(b.createdAt) - ms(a.createdAt))
+		const p = mine[0]
+		return p ? { companyName: p.companyName, companyLogoUrl: p.companyLogoUrl, companyAddress: p.companyAddress, companyContact: p.companyContact } : undefined
+	})
 	let canManageTrashDelete = $derived(role === 'admin' || role === 'manager')
 
 	function canEditProject(project: Project | null): boolean {
@@ -177,7 +189,7 @@
 </div>
 
 <!-- a new project opens straight in cad, on its first-run steps (cad backlog W9) -->
-<ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} onsaved={(id) => { if (mode === 'create') void goto(`/projects/${id}/cad`) }} />
+<ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} {lastCompany} onsaved={(id) => { if (mode === 'create') void goto(`/projects/${id}/cad`) }} />
 
 <div class="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 backdrop-blur">
 	<div class="mx-auto flex max-w-6xl items-center justify-between gap-2">

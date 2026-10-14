@@ -155,10 +155,10 @@
 	/** Write `changed` levels (and anything else in `extra`), re-stacking the elevations over the final set. */
 	type Tx = { put: (e: Entity) => void; del: (id: Id) => void }
 	const NOOP = (_tx: Tx) => {}
-	function commit(label: string, changed: Level[], extra: (tx: Tx) => void = NOOP, gone: Id[] = [], stackSkip = building?.floors?.skip ?? []): boolean {
+	function commit(label: string, changed: Level[], extra: (tx: Tx) => void = NOOP, gone: Id[] = [], stackSkip = building?.floors?.skip ?? [], datum = building?.floors?.datum): boolean {
 		const next = new Map(levels.filter((l) => !gone.includes(l.id)).map((l) => [l.id, l]))
 		for (const l of changed) next.set(l.id, l)
-		for (const l of restack([...next.values()], stackSkip)) next.set(l.id, l)
+		for (const l of restack([...next.values()], stackSkip, datum)) next.set(l.id, l)
 		// only levels that really change are written (an import with the same heights is no edit at all)
 		const before = new Map(levels.map((l) => [l.id, JSON.stringify(l)]))
 		const puts = [...next.values()].filter((l) => before.get(l.id) !== JSON.stringify(l))
@@ -171,13 +171,20 @@
 		return true
 	}
 
+	/** W10: the floor whose FFL is 0 — every floor's FFL is stacked again from it (one undo step). */
+	function setDatum(n: number) {
+		const b = building
+		if (!b) return
+		const datum = n
+		commit(`FFL 0 at ${main.find((l) => l.number === n)?.name ?? `floor ${n}`}`, [], (tx) => tx.put({ ...b, floors: { ...(b.floors ?? { lowest: n, top: n, above: DEFAULT_NAMES.above, below: DEFAULT_NAMES.below }), datum } } as Building), [], b.floors?.skip ?? [], datum)
+	}
 	function applyRange() {
 		if (lowest > top) [lowest, top] = [top, lowest]   // a backwards range is the same floors the right way round (Q40)
 		const b: Building = building ?? { type: 'building', id: newId(), name: project.name || 'Building', order: 0 }
 		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id }, contents, newId)
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
 			(tx) => {
-				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground } } as Building)
+				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground, ...(b.floors?.datum != null ? { datum: b.floors.datum } : {}) } } as Building)
 				if (!project.settings) tx.put(defaultSettings())   // a new project's first floors bring its settings
 			}, r.remove.map((l) => l.id), skip)
 		const parts = [r.add.length && `${r.add.length} added`, r.remove.length && `${r.remove.length} removed`].filter(Boolean)
@@ -273,7 +280,16 @@
 	</section>
 
 	<section>
-		<p class="h">Heights (mm) <span class="hint">· saved at once; FFL is stacked from them, floor 1 stays where it is</span></p>
+		<p class="h">Heights (mm) <span class="hint">· saved at once; FFL is stacked from them{building?.floors?.datum == null ? ', floor 1 stays where it is' : ''}</span></p>
+		<!-- W10: which floor is FFL 0 (AU / UK: GF; elsewhere often floor 1) -->
+		{#if building && main.length}
+			{@const dat = building.floors?.datum}
+			<div class="row"><label title="The floor whose finished floor level is 0 — every other floor's FFL is stacked up / down from it">FFL 0 at
+				<select value={dat == null ? '' : String(dat)} onchange={(e) => e.currentTarget.value !== '' && setDatum(Number(e.currentTarget.value))}>
+					{#if dat == null}<option value="">{main.some((l) => l.number === 1) ? 'floor 1 (as it is)' : '—'}</option>{/if}
+					{#each [...main].sort((a, b) => a.number - b.number) as l (l.id)}<option value={String(l.number)}>{l.name}</option>{/each}
+				</select></label></div>
+		{/if}
 		<table>
 			<thead><tr><th>Floor</th><th title="The floor's number (labels' F, the order of the floors); its area plans follow">No.</th>{#each HKEYS as [, t] (t)}<th>{t}</th>{/each}<th class="ffl">FFL (m)</th></tr></thead>
 			<tbody>

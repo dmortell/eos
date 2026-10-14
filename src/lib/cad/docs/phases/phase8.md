@@ -3652,3 +3652,12 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
      run's Serves (Properties)".
   - The /cad/agent guide's Gotchas updated to match. Seen live: the rack view's greyed Outlet → the L1 plan with
     Outlet armed. Not tried live: 1 and 3 (unit-tested parts: routing message).
+- **W10 Company details and datum defaults** (B50):
+  - New Project's "Your company" (name, logo, address, contact) starts as on this user's most recent project that has
+    one (`Projects.svelte` `lastCompany` → `ProjectSettingsDialog`).
+  - Datum: Floors & heights › **FFL 0 at** [floor] (`Building.floors.datum`; `restack(levels, skip, datum)` anchors
+    that floor at 0, else floor 1 stays where it is as before; Apply floors keeps it).
+  - The "J" placeholder: NEW projects' settings get the default title block without it (`defaultSettings`). The
+    built-in default keeps it for existing projects — dropping it would change every issued sheet's print ("Changed
+    since" everywhere); clear it in the title block editor there.
+  - Tests in `domain/floors.test.ts`, `domain/settings.test.ts`. NOT tried live (Chrome was being restarted).

@@ -27,7 +27,8 @@ export interface Building {
 	type: 'building'; id: Id; name: string; order: number
 	/** The Floor manager's settings: the floors the building has (lowest … top, without `skip`, e.g. no GF) and how
 	 *  they're named (`{n}` / `{nn}`; basements without the minus). Levels are what exists; this is how they were set. */
-	floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string }
+	/** `datum` = the floor whose FFL is 0 (W10: GF in AU / UK); absent = floor 1 stays where it is. */
+	floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string; datum?: number }
 }
 
 /** One storey. All heights in mm; z inside the level is measured from FFL (ADR 0004). */
