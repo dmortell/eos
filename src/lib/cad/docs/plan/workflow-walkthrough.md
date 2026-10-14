@@ -416,3 +416,21 @@ floor) with a floor-to-ceiling riser, and the ACS outlet patched.
   "Auto: Outlet – ceiling".
 - **B57 Wall-mounted equipment is a plain box.** There is no panel / cabinet kind, the same as B32 / B33.
 - **B58 Export file names are fixed** (Dave's todo, now in the backlog).
+
+### Round 3: switch ports for ACS / CCTV (Dave, 2026-10-14)
+
+Task: assign the switch's first 2 columns to ACS and CCTV.
+- SW1 is a 2U, 96-port switch, numbered down the columns: column 1 = ports 1, 2, 49, 50; column 2 = 3, 4, 51, 52.
+- Column 1 → ACS; column 2 → CCTV. An ACS usage was added in Settings.
+- The 4 desk cords on ports 1–4 were moved to ports 41–44 and became CHANGE, with "Was:" shown. The ACS cords (ADD)
+  went to ports 1–2 and CAM 1.02 to port 3 (CHANGE).
+
+**Findings:**
+- **B59 Switch ports can't be reserved.** "Reserve for…" exists only on panel ports, so the columns were marked with
+  port labels (ACS-1…4, CCTV-1…4). Nothing stops a later Patch to… from filling them with desk ports, and Ctrl-click
+  "fill free ports" starts at port 1.
+  - Proposed: switch-port reservations by usage, which Patch to… honours by sending each outlet's usage to its
+    reserved ports. That would have done this whole round in one step.
+- **B60 Re-patching is one cord at a time.** Each cord took: find it in the table, select it, then drag its end grip
+  onto a ~12 px port (the view pans on every row pick). Nine actions per cord, with misses.
+  - Proposed: the table's To cell editable (type "SW1:41"), or "move these cords' switch ends to the next free ports".
