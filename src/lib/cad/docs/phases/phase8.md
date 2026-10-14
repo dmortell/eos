@@ -3457,3 +3457,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   field's placeholder shows the scale the page is at now; another floor's floorplan is rendered first (its page size
   comes from the render: `PageCalibUsed.page`). Tested live in Workflow test on L2 (2F, A3): "Scaled: drawn at 1:100
   (an A3 page)", then Undo. Tests in `editor/calibrateTool.test.ts`; Help's calibration answer updated.
+- **W9 First-run path** (B1, B2, B4; with Dave's todo "Upload from Settings › Plans & floorplans"):
+  - Projects › New Project › Save opens the new project in cad (`Projects.svelte` `onsaved` → `goto`).
+  - An empty project's page (ImportPanel) is now "Start {project}": the three steps and **Set up floors…** (Project
+    settings on Floors & heights); the legacy import is folded under "Or bring in a project from the older tools".
+  - Floors & heights: once floors are applied and no floor has a floorplan, **Next: add floorplans →** goes to Plans &
+    floorplans.
+  - Each floor's row there has **Upload…** (and takes a dropped PDF): `storeFile` to the project's Uploads (Settings ›
+    Files' storage), then page 1 becomes that floor's floorplan; the status says to set 1: and Origin next.
+  - Uploads lists this project's folder first and open even before it has a file ("No files in this project yet").
+  - Help: new "Start a new project" answer. Seen live: the Upload buttons on Workflow test's rows. NOT tried live: a
+    real upload (it would add a file to Uploads), the New Project → cad hop and the Start page (needs a new project).

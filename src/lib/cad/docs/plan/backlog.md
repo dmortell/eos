@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 40 entries (15 P2 · 25 P3; 4 ⚡ quick wins) — Dave's todos of 2026-10-14 (12) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 38 entries (14 P2 · 24 P3; 3 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -60,10 +60,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   
   **P3 · M**. *cad today:* layers (system + project) with hide / lock / freeze per viewport; a draw order per shape;
   the floorplan at a fixed 0.6 opacity. *From:* Dave 2026-10-14 (walkthrough).
-- [ ] **Upload from Settings › Plans & floorplans** (Dave 2026-10-14 todo, walkthrough B4) — an Upload button (and a
-  drop target) on each floor's "Choose a floorplan…" row: the PDF goes to the project's Uploads like File › Uploads…
-  does, then its page is picked for that floor. Today the select only lists files already uploaded. **P3 · S–M**
-  (~60 lines).
 - [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
   — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
   clicks. **P3 · M–L**.
@@ -95,7 +91,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5.
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo).
 
 ### Floorplans
 
@@ -114,9 +110,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### First run and setup
 
-- [ ] ⚡ **W9 First-run path** (B1, B2) — a new project opens cad on "Set up floors", then "Add floorplans" (with the
-  upload from the todo above), not the import panel; Save in New Project opens the project; Uploads opens on this
-  project's folder. **P2 · S**.
 - [ ] **W10 Company details and datum defaults** (B50) — "Your company" (and its logo) taken from the user's last
   project, not retyped; the title block's placeholder "J" logo text replaced; a choice of datum floor (AU / UK: GF =
   FFL 0; today floor 1). **P3 · S**.

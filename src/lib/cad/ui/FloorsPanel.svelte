@@ -17,12 +17,13 @@
 	import { newId } from '../domain/ids'
 	import { defaultSettings } from '../domain/settings'
 	import { untrack } from 'svelte'
-	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
+	import { watchProjectPdfs, storeFile, type PdfFile } from '../app/projectFiles'
 	import { parsePaperScale, paperScaleRecord, paperOf, ratioOf, type CalibMode } from '../editor/calibrateTool'
 
 	/** `part`: which tab shows (none = another tab of the dialog). `oncalibrate`: set a floorplan's origin / scale / crop
-	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
-	let { project, ws, part, oncalibrate }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void } = $props()
+	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). `onplans`: go to Plans & floorplans (the
+	 *  first-run path's next step, W9). */
+	let { project, ws, part, oncalibrate, onplans }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplans?: () => void } = $props()
 
 	// the store isn't reactive itself: read project.rev, or an Apply (or a remote edit) is never seen here (Review 2 Q4)
 	const building = $derived.by(() => { void project.rev; return project.store.ofType('building')[0] as Building | undefined })
@@ -63,6 +64,7 @@
 	let pdfs = $state<PdfFile[]>([])
 	$effect(() => watchProjectPdfs(project.db, project.pid, (f) => { pdfs = f }, (e) => { project.error = `Lost the live list of floorplan files: ${(e as Error)?.message ?? e}` }))
 	// a plan can have several floorplans (a floor drawn on two sheets), each moved into place by its own X / Y offset
+	const hasFloorplans = $derived.by(() => { void project.rev; return project.store.ofType('underlay').length > 0 })
 	const underlaysOf = (l: Level) => { void project.rev; return project.store.ofType('underlay').filter((u) => u.levelId === l.id) }
 	const fileName = (id: string) => pdfs.find((f) => f.id === id)?.name ?? id
 	/** `u` = the floorplan to change, or none to add one. */
@@ -71,6 +73,20 @@
 		const [fileId, page] = value.split('#'), n = underlaysOf(l).length
 		const next: Underlay = { ...(u ?? { type: 'underlay', id: newId(), levelId: l.id, ...(n ? { name: `Floorplan ${n + 1}` } : {}) }), fileId, page: Number(page) }
 		project.store.transact(`${l.name}: floorplan ${fileName(fileId)} p.${page}`, (tx) => tx.put(next))
+	}
+	/** Upload a PDF straight from a floor's row (backlog "Upload from Settings › Plans & floorplans", W9): it goes to the
+	 *  project's Uploads like File › Uploads… does (Settings › Files' storage), then its first page is this floor's
+	 *  floorplan (another page: pick it in the select). `uploading` = the level being uploaded to. */
+	let uploading = $state<string | null>(null)
+	async function uploadFloorplan(l: Level, files: FileList | null | undefined) {
+		const file = [...(files ?? [])].find((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
+		if (!file) { if (files?.length) ws.say('Only a PDF can be a floorplan'); return }
+		uploading = l.id
+		try {
+			const { id } = await storeFile(project.db, project.pid, file, { storage: project.settings?.fileStorage, route: 'floorplanUploader' })
+			setFloorplan(l, `${id}#1`)
+			ws.say(`Uploaded ${id} — set its scale with 1: (or Scale), then its Origin`)
+		} catch (e) { project.error = `Couldn't upload ${file.name}: ${(e as Error).message}` } finally { uploading = null }
 	}
 	const putZone = (l: Level, u: Underlay, label: string, patch: Partial<Underlay>) => project.store.transact(`${l.name}: ${label}`, (tx) => tx.put({ ...u, ...patch }))
 	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
@@ -221,6 +237,8 @@
 			<button class="btn pri" disabled={!pending && !stale} title={pending ? 'Add the floors of the range, remove the empty levels off it, keep the names' : stale ? 'The levels don’t match the range: add the floors with no level, remove the empty ones off it' : 'Nothing to apply — change the range or the names first'} onclick={applyRange}>Apply floors</button>
 			{#if pending}<span class="na" role="status">not applied</span>{/if}
 			<button class="btn" title="Rename every level from the pattern (area plans keep their suffix)" onclick={renameAll}>Rename all from the pattern</button>
+			<!-- first run (W9): floors applied, no floorplan anywhere yet → the next step -->
+			{#if onplans && main.length && !pending && !hasFloorplans}<button class="btn pri next" title="Add each floor's floorplan (a PDF page)" onclick={onplans}>Next: add floorplans →</button>{/if}
 		</div>
 	</section>
 
@@ -302,10 +320,16 @@
 			</div>
 		{/each}
 		<!-- picking a page here adds it: the plan's floorplan, or another page of it (moved into place with X / Y) -->
-		<select class="fp add" value="" title={zones.length ? 'Another PDF page under this same plan — when the floor is drawn on several pages' : 'The PDF page to draw this plan over'} onchange={(e) => { setFloorplan(l, e.currentTarget.value); e.currentTarget.value = '' }}>
-			<option value="">{zones.length ? '+ Another page…' : 'Choose a floorplan…'}</option>
-			{@render pages()}
-		</select>
+		<!-- …or a PDF uploaded from here (the button, or dropped on the row) -->
+		<div class="addrow" role="group" ondragover={(e) => e.preventDefault()} ondrop={(e) => { e.preventDefault(); void uploadFloorplan(l, e.dataTransfer?.files) }}>
+			<select class="fp add" value="" title={zones.length ? 'Another PDF page under this same plan — when the floor is drawn on several pages' : 'The PDF page to draw this plan over'} onchange={(e) => { setFloorplan(l, e.currentTarget.value); e.currentTarget.value = '' }}>
+				<option value="">{zones.length ? '+ Another page…' : 'Choose a floorplan…'}</option>
+				{@render pages()}
+			</select>
+			<label class="btn up" class:busy={uploading === l.id} title="Upload a PDF to the project's Uploads and use it here (or drop it on this row)">
+				{uploading === l.id ? 'Uploading…' : 'Upload…'}<input type="file" accept="application/pdf,.pdf" hidden disabled={!!uploading} onchange={(e) => { void uploadFloorplan(l, e.currentTarget.files); e.currentTarget.value = '' }} />
+			</label>
+		</div>
 {/snippet}
 
 <style>
@@ -332,6 +356,9 @@
 	.pname input.name { width: 5.5rem; }
 	select.fp { width: 14rem; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
+	.addrow { display: flex; align-items: center; gap: 4px; }
+	.btn.up { font-size: 11px; cursor: pointer; color: #2563eb; }
+	.btn.up.busy { color: var(--cad-muted, #71717a); cursor: progress; }
 	.zone { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 3px; }
 	input.zn { width: 5rem; font-size: 11px; }
 	label.off { font-size: 11px; color: var(--cad-muted, #71717a); }

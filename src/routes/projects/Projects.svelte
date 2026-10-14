@@ -5,6 +5,7 @@
 	import Checkbox from "$lib/ui/Checkbox.svelte";
 	import ProjectSettingsDialog from "./ProjectSettingsDialog.svelte";
 	import { formatDate } from "$lib/utils/date";
+	import { goto } from "$app/navigation";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
@@ -175,7 +176,8 @@
 	</details>
 </div>
 
-<ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} />
+<!-- a new project opens straight in cad, on its first-run steps (cad backlog W9) -->
+<ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} onsaved={(id) => { if (mode === 'create') void goto(`/projects/${id}/cad`) }} />
 
 <div class="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 backdrop-blur">
 	<div class="mx-auto flex max-w-6xl items-center justify-between gap-2">

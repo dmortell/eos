@@ -117,9 +117,10 @@
 				map.get(pid)!.push(f)
 			}
 		}
-		// Current project first, then others alphabetically
-		if (map.has(projectId)) {
-			groups.push({ pid: projectId, name: projects[projectId] || projectName || projectId, files: map.get(projectId)! })
+		// Current project first (its folder even while it has no files, so a new project's uploads have a home — cad
+		// backlog W9), then others alphabetically
+		if (map.has(projectId) || (projectId && !search.trim())) {
+			groups.push({ pid: projectId, name: projects[projectId] || projectName || projectId, files: map.get(projectId) ?? [] })
 			map.delete(projectId)
 		}
 		const rest = [...map.entries()].sort((a, b) => {
@@ -487,6 +488,7 @@
 							<span></span>
 						</div>
 
+						{#if !group.files.length}<p class="px-3 py-2 text-xs text-gray-400">No files in this project yet — drop PDFs here or use Upload</p>{/if}
 						{#each group.files as file (file.id)}
 							{@const status = fileStatus(file)}
 							{@const members = fileProjectIds(file)}

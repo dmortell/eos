@@ -632,7 +632,7 @@
 		<AskBox {ws} />
 		<PatchPreview {ws} />
 		{#if project.loaded && !project.levels.length}
-			<ImportPanel {project} {projectName} />
+			<ImportPanel {project} {projectName} onsetup={() => { settingsTab = 'floors'; settingsOpen = true }} />
 		{:else if level}
 			<div class="panes" bind:this={panesEl}>
 				{#each panes as spec, i (i)}

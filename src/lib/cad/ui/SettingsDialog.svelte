@@ -81,7 +81,7 @@
 					</div>
 				{/if}
 				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
-				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} />
+				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} onplans={() => (tab = 'plans')} />
 				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
 			</div>
 		</div>
