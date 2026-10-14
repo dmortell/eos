@@ -10,7 +10,7 @@
 // estimates.test.ts.
 import type { Id, Outlet, Rack, Space } from './types'
 import type { ProjectIndex } from './project'
-import { buildGraph, routeLinksOn, outletTap, rackTaps, fromTaps, bestEnd, bestSegs, DEFAULT_CABLE, MAX_OUTLET_DROP_MM, type Graph, type Route, type Stage, type Tap, type CableSettings } from './routing'
+import { buildGraph, routeLinksOn, outletTap, rackTaps, fromTaps, bestEnd, bestSegs, DEFAULT_CABLE, noRunProblem, type Graph, type Route, type Stage, type Tap, type CableSettings } from './routing'
 
 export interface Estimate {
 	outletId: Id
@@ -80,7 +80,7 @@ export function estimateCables(g: Graph, ix: ProjectIndex, cable: CableSettings 
 		const k = `${o.id}|${roomId}`
 		if (!taps.has(k)) taps.set(k, outletTap(g, ix, o, roomId))
 		const t = taps.get(k)
-		if (!t) { est({ problem: `no ${o.tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room` }); continue }
+		if (!t) { est({ problem: noRunProblem(o.tier) }); continue }
 		const best = bestEnd(g, from, [t])
 		if (!best) { est({ problem: 'the runs at the two ends are not connected' }); continue }
 		est({ segs: bestSegs(g, from, best), routeMm: best.cost, lengthM: Math.ceil(best.cost / 1000 + cable.slackM) })

@@ -22,7 +22,7 @@
 			{#each g.tools as t (t.id)}
 				{@const ok = toolWorksIn(t.id, kind, onSheet)}
 				<button class="tool" class:on={tool === t.id} class:off={!ok} aria-label={t.label}
-					title={ok ? t.label : `${t.label} — works in ${where(t.id)}`} onclick={() => ok && onTool(t.id)}><Icon name={t.icon} size={16} /></button>
+					title={ok ? t.label : `${t.label} — works in ${where(t.id)}${TOOL_VIEWS[t.id].includes('plan') ? ' (a click opens the plan)' : ''}`} onclick={() => onTool(t.id)}><Icon name={t.icon} size={16} /></button>
 			{/each}
 		{:else}
 			<!-- a group with nothing that works in this view folds to one faint stub (review R51: 19 of 23 tools greyed in a

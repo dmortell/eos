@@ -53,6 +53,18 @@
 	const blockable = $derived(items.filter((e): e is Shape => e.type === 'shape' && e.geom.kind !== 'insert' && (!!e.levelId || !!e.sheetId)))
 	const drawn = $derived(items.filter((e): e is Shape => e.type === 'shape'))
 	const NOTES = new Set(['text', 'leader', 'cloud', 'dimension'])
+	/** Enter or Esc in a one-line field hands the keys back to the drawing (/cad/agent gotcha 3: typed points and tool
+	 *  keys went into the field after an edit). Enter keeps the value (the blur saves it, as Tab does); Esc puts back what
+	 *  the field had when it was entered, then leaves. A field's own Enter / Esc handling runs first. */
+	let entered = ''
+	const isField = (t: EventTarget | null): t is HTMLInputElement | HTMLSelectElement => t instanceof HTMLSelectElement || (t instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'color', 'file'].includes(t.type))
+	function onFocusIn(e: FocusEvent) { if (isField(e.target)) entered = e.target.value }
+	function onKey(e: KeyboardEvent) {
+		const t = e.target
+		if (!isField(t) || (e.key !== 'Enter' && e.key !== 'Escape') || e.isComposing) return
+		if (e.key === 'Escape' && t instanceof HTMLInputElement) t.value = entered
+		queueMicrotask(() => { if (document.activeElement === t) t.blur() })
+	}
 </script>
 
 {#snippet many(k: SelKind)}
@@ -67,7 +79,8 @@
 	{/if}
 {/snippet}
 
-<div class="cad-props space-y-1 p-3 text-xs">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="cad-props space-y-1 p-3 text-xs" onfocusin={onFocusIn} onkeydown={onKey}>
 	{#if items.length}<PropsHeader {project} {ws} {items} />{/if}
 	<!-- Renumber: the tool's panel, or a folded group for several outlets / racks / sheets (after the header, so it doesn't jump) -->
 	{#if ws.toolId === 'renumber'}

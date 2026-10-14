@@ -99,7 +99,7 @@ describe('routing', () => {
 		const routes = routeLinks(ix)
 		expect(routes.get('K1')!.segs[0].shape).toBe('T1')
 		expect(routes.get('K3')!.segs).toEqual([{ shape: 'H1', seg: 'H1s0' }])   // the high run passes within reach of the rack
-		expect(routes.get('K4')!.problem).toBe('no low run within 10 m of the outlet serving its room')
+		expect(routes.get('K4')!.problem).toBe("no low run within 10 m of the outlet serving its room — draw a low run within 10 m, or tick its server room in a run's Serves (Properties)")
 	})
 	it('an outlet more than 10 m (MAX_OUTLET_DROP_MM) from any run of its tier has no route', () => {
 		const routes = routeLinks(project([outlet('O1', 'L1', 5000, 10400), link('K1', 'O1'), outlet('O2', 'L1', 5000, 10600), link('K2', 'O2', 2)]))

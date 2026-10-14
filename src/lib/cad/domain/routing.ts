@@ -19,6 +19,8 @@ import { roomFloor } from './devices'
 export const JOIN_MM = 50
 /** The furthest an outlet reaches (plan + height) to join a run (Dave: 10 m); beyond it the port has no route. */
 export const MAX_OUTLET_DROP_MM = 10_000
+/** Why an outlet has no route, and what to do about it (/cad/agent gotcha 4: it only said what was missing). */
+export const noRunProblem = (tier: string) => `no ${tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room — draw a ${tier} run within ${MAX_OUTLET_DROP_MM / 1000} m, or tick its server room in a run's Serves (Properties)`
 /** How far above / below a riser's end its shaft reaches to meet a run on that floor (a storey). */
 export const RISER_REACH_MM = 4_500
 export const MAX_PERMANENT_LINK_M = 90
@@ -365,7 +367,7 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 			const room = port?.serverRoomId ?? rack.spaceId, tk = `${outlet.id}|${room ?? ''}`   // an outlet's ports share their tap
 			let t = tapCache.get(tk)
 			if (t === undefined) tapCache.set(tk, (t = outletTap(g, ix, outlet, room)))
-			if (!t) { finish({ segs: [], problem: `no ${outlet.tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room` }); continue }
+			if (!t) { finish({ segs: [], problem: noRunProblem(outlet.tier) }); continue }
 			ends = [t]
 		} else {
 			const d2 = deviceOf(l.b.on), r2 = rackOfDevice(d2)

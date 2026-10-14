@@ -12,7 +12,7 @@
 	import type { ProjectDetails } from '../domain/titleBlock'
 	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
-	import { drawnOn, layersOf } from '../domain/layers'
+	import { drawnOn, layersOf, layerOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS, KEYS } from './shellKeys'
 	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
@@ -22,7 +22,7 @@
 	import { readViewState, writeViewState, paneLevelsOf } from '../app/urlState'
 	import { firestore } from '$lib/db.svelte'
 	import { CadProject } from '../app/project.svelte'
-	import { Workspace, toolWorksIn, type ToolId } from '../app/workspace.svelte'
+	import { Workspace, toolWorksIn, TOOL_VIEWS, type ToolId } from '../app/workspace.svelte'
 	import { deleteSelected as deleteSelectedOf, orderKey as orderKeyOf, groupKey as groupKeyOf } from '../app/selectionActions'
 	import { HINT, HINT_PLACE } from './toolHints'
 	import ViewCanvas from './ViewCanvas.svelte'
@@ -213,7 +213,16 @@
 	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
 		if (c.source !== 'local' || ['select', 'move', 'copy', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
-		const info = layersOf(project.index.layers), msg = drawnOn(c.ops.filter((o) => !o.before && o.after).map((o) => o.after!), info)
+		const made = c.ops.filter((o) => !o.before && o.after).map((o) => o.after!)
+		const info = layersOf(project.index.layers), msg = drawnOn(made, info)
+		// drawn onto a layer this user has HIDDEN (an outlet going to "Outlets high", say): it would just vanish — that
+		// layer is shown again, and the toast says so (/cad/agent gotcha 1)
+		const known = new Set(info.map((l) => l.id)), hid = [...new Set(made.map((e) => layerOf(e, known)).filter((id): id is string => !!id && ws.layers.hidden.has(id)))]
+		if (hid.length) {
+			untrack(() => { for (const id of hid) ws.layers.toggleHidden(id) })
+			ws.notify(`${hid.map((id) => info.find((l) => l.id === id)?.name ?? id).join(', ')} ${hid.length === 1 ? 'was' : 'were'} hidden — shown again, so you see what you drew`)
+			return
+		}
 		// the Layer chip already says it when a layer is picked: only a shape that went somewhere ELSE is news (Q55)
 		const cur = ws.layers.current ? info.find((l) => l.id === ws.layers.current)?.name : undefined
 		if (msg && msg !== (cur ? `Drawn on the ${cur} layer` : null)) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
@@ -428,7 +437,7 @@
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
-		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
+		tool: pickTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
@@ -456,15 +465,24 @@
 	// Planning / Surveying (a project setting): what the cord tool's new cords start as
 	$effect(() => { ws.newCordStatus = project.settings?.newCordStatus ?? 'add' })
 	/** Help › a tool's button: in a view it doesn't work in, say so (it used to drop back to Select silently). */
-	function helpTool(id: ToolId) {
-		if (!toolWorksIn(id, activeKind, !!vpEditKind)) { const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id; ws.say(`The ${n} tool doesn’t work in this view — open a plan to use it`); return }
-		setTool(id)
+	function helpTool(id: ToolId) { pickTool(id) }
+	/** A tool picked (the strip, Help): in a view it doesn't work in, the pane goes to this level's PLAN when the tool
+	 *  works there and the tool is armed (/cad/agent gotcha 2: it only said where it works); otherwise it says where. */
+	function pickTool(id: ToolId) {
+		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id); return }
+		const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id
+		if (level && TOOL_VIEWS[id].includes('plan')) {
+			setPane(activePane, PLAN)
+			void tick().then(() => { setTool(id); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })
+			return
+		}
+		ws.say(`The ${n} tool works in ${TOOL_VIEWS[id].join(', ')} views — open one to use it`)
 	}
 	function setTool(id: ToolId) {
 		canvas?.cancel()
 		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order
 		if (id === 'match') { const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; ws.matchTool.source = one?.type === 'shape' ? one.id : null }
-		if (id === 'rack') ws.rackTool.target = null   // the Rack button draws new racks; Place in the list sets a target
+		if (id === 'rack') { ws.rackTool.target = null; ws.rackTool.product = null }   // the Rack button draws new racks (like the last); Place in the list sets a target, the catalogue a product
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
 		ws.setTool(id, level)
 	}
@@ -609,7 +627,7 @@
 
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
-		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={setTool} />
+		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} />
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>

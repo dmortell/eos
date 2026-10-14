@@ -3639,3 +3639,16 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
 - **Shift constrains dimensions** (Dave's todo): the Dimension tool's SECOND point with Shift held is kept level or
   plumb with the first (`axisLock`, `editor/constrain.ts`), in the preview and the click; the third click (where the
   line sits) is free. Test in `editor/dimTool.test.ts`; the hint and Help say so.
+- **Fewer gotchas in /cad/agent** (Dave's todo):
+  1. Drawn onto a layer this user has HIDDEN (CadShell's drawn-on effect, `layerOf` of each new entity): that layer is
+     shown again, toast "Outlets high was hidden — shown again, so you see what you drew".
+  2. A greyed tool clicked (strip, Help, menus' tool entries): `pickTool` — a tool that works on plans opens this
+     level's plan in the pane and arms it ("Outlet: on the L1 plan …"); others say where they work. The strip's
+     greyed buttons now click through (their tooltip says "a click opens the plan").
+  3. Properties (`Properties.svelte` root): Enter in a one-line field keeps the value and Esc puts back what it had on
+     entering; both then blur the field, so the keys reach the drawing again (a field's own Enter / Esc runs first;
+     textareas, checkboxes untouched; IME composing ignored).
+  4. "No run …" (routing + estimates, `noRunProblem`): "… — draw a low run within 10 m, or tick its server room in a
+     run's Serves (Properties)".
+  - The /cad/agent guide's Gotchas updated to match. Seen live: the rack view's greyed Outlet → the L1 plan with
+    Outlet armed. Not tried live: 1 and 3 (unit-tested parts: routing message).

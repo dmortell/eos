@@ -121,11 +121,14 @@ Each is a sequence of the how-tos below; read the matching how-to first.
 
 ## Gotchas
 
-- A tool that works only in some views is greyed elsewhere: switch view (view strip) or pane first.
-- New things go on the layer shown on the options row's Layer chip; a hidden layer hides what you just drew.
-- Typing in a table or a Properties field doesn't reach the drawing; Esc / click the drawing area first.
+- A tool that works only in some views is greyed elsewhere; clicking it opens the level's plan when it works there
+  (rack-view and sheet tools: switch the view yourself).
+- New things go on the layer shown on the options row's Layer chip; drawing onto a layer you had hidden shows it again.
+- Typing in a table doesn't reach the drawing; a Properties field hands the keys back after Enter (keeps it) or Esc
+  (puts it back).
 - Undo is per user and per session; a page reload empties it.
-- A message like "No run … serving its room" is cad telling you the model is incomplete, not an error in the app.
+- A message like "No run … serving its room — draw a … run within 10 m, or tick its server room in a run's Serves" is
+  cad telling you the model is incomplete, and what to add.
 `
 
 const row = (cells: string[]) => `| ${cells.map((c) => c.replace(/\|/g, '\\|')).join(' | ')} |`
