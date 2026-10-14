@@ -57,7 +57,7 @@
 		naming = { rule, value: ruleText(rule, nameOf) }
 	}
 	function create(name: string) {
-		const n = naming
+		const n = $state.snapshot(naming)   // plain data: the store freezes what it's given, and a $state proxy can't be frozen
 		naming = null
 		if (!n) return
 		const p: SheetPackage = { type: 'package', id: newId(), name, ...(n.rule ? { rule: n.rule } : { sheetIds: n.sheetIds ?? [] }), order: nextOrder() }
