@@ -5,6 +5,7 @@ import type { Id, Cord, Device, PortRef, Rack } from './types'
 import type { ProjectIndex } from './project'
 import { racksInOrder, portGrid, portAt } from './devices'
 import { newId } from './ids'
+import { reservationsOf } from './ports'
 
 export const STANDARD_LENGTHS = [0.3, 0.5, 1, 1.5, 2, 3, 5, 7, 10, 15, 20, 30]
 /** A raw length snapped UP to a stock cord length (the longest when it's longer than all). */
@@ -237,6 +238,9 @@ export function withCableType(c: Cord, type: { id: string; color?: string }): Co
  * goes to `start + i`, a pair is skipped when either port is refused (taken, unlabelled), and it stops at B's last
  * port. `fill`: only B's free ports are filled — a refused B port is passed over, so every free A port gets the next
  * free B port. `skipped`: one reason per A port left unpatched (their count is what the preview shows as skipped).
+ * RESERVATIONS on B (a switch's ports held for a usage, W16): an A port whose outlet's usage has ports reserved on B
+ * goes to the first free one of those (wherever the run started); every other A port passes over B's reserved ports
+ * (fill) or is skipped on one (in step).
  */
 export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear' }, b: { on: Id; start: number; face?: 'front' | 'rear' }, d: CordDefaults, opts: { fill?: boolean } = {}): { cords: Cord[]; skipped: string[] } {
 	const devB = ix.get(b.on)
@@ -246,22 +250,39 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 	if (room) return { cords, skipped: [room] }
 	let nb = b.start
 	const usedB = new Set<number>()
+	const held = reservationsOf(devB), heldFor = (n: number) => held.find((r) => r.ports.includes(n))?.usage
+	/** The usage of the outlet cabled to an A port ('' = none). */
+	const usageOf = (pa: number) => { const l = ix.linkAt({ on: a.on, port: pa }), o = l && ix.get(l.a.on === a.on ? l.b.on : l.a.on); return o?.type === 'outlet' ? o.usage : '' }
+	const make = (ra: PortRef, n: number) => {
+		const rb: PortRef = { on: b.on, port: n, ...(b.face ? { face: b.face } : {}) }
+		cords.push({ type: 'cord', id: newId(), kind: 'patch', a: ra, b: rb, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, ra, rb), lengthLocked: false, status: d.status ?? 'add' })
+		usedB.add(n)
+	}
 	a.ports.forEach((pa, i) => {
 		const ra: PortRef = { on: a.on, port: pa, ...(a.face ? { face: a.face } : {}) }
+		const u = held.length ? usageOf(pa) : ''
+		const mine = u ? held.filter((r) => r.usage === u).flatMap((r) => r.ports).sort((x, y) => x - y) : []
+		if (mine.length) {
+			// its usage's own ports on B: the first free one
+			const pr = patchProblem(ix, ra)
+			if (pr) { skipped.push(pr); return }
+			const n = mine.find((m) => m <= devB.portCount && !usedB.has(m) && !patchProblem(ix, { on: b.on, port: m }))
+			if (n === undefined) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no free ${u} port left`); return }
+			make(ra, n)
+			return
+		}
 		if (!opts.fill) nb = b.start + i
 		if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no ${opts.fill ? 'free port left' : `port ${nb}`}`); return }
 		const pr = patchProblem(ix, ra)
 		if (pr) { skipped.push(pr); return }
 		if (opts.fill) {
-			while (nb <= devB.portCount && (usedB.has(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
+			while (nb <= devB.portCount && (usedB.has(nb) || heldFor(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
 			if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no free port left`); return }
 		} else {
-			const pb = patchProblem(ix, { on: b.on, port: nb })
+			const pb = patchProblem(ix, { on: b.on, port: nb }) ?? (heldFor(nb) ? `${devB.name} port ${nb} is reserved for ${heldFor(nb)}` : null)
 			if (pb) { skipped.push(`${ix.portPlace(ra)}: ${pb}`); return }
 		}
-		const rb: PortRef = { on: b.on, port: nb, ...(b.face ? { face: b.face } : {}) }
-		cords.push({ type: 'cord', id: newId(), kind: 'patch', a: ra, b: rb, cableType: d.cableType, colour: d.colour, lengthM: cordLength(ix, ra, rb), lengthLocked: false, status: d.status ?? 'add' })
-		usedB.add(nb++)
+		make(ra, nb++)
 	})
 	return { cords, skipped }
 }

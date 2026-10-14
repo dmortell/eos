@@ -3534,3 +3534,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Tests in `domain/cords.test.ts`, `editor/editor.test.ts`. Seen live in Workflow test's L1.20 rack view: a click on
     PP1 port 32 under the cords picked port 32 (was a cord); PP1 has all 40 allocated ports patched, so no button.
     Note: the select tool is created once — a code edit needs a reload to take effect in an open tab.
+- **W16 Switch-port reservations** (B59):
+  - A switch's picked ports get **Reserve for…** (PortProps), stored on the device (`Device.reservations`; a panel
+    keeps `panel.reservations`). `domain/ports.ts` `reservationsOf` / `reservedFor` read either; `reservePorts` writes
+    the right one; Delete on picked ports clears either; the rack view marks reserved switch ports as it does panels'.
+  - `bulkPatch` (Patch to…, P, drag-to-patch, fill): an A port whose outlet's usage has ports reserved on the target
+    goes to the first free one of those (wherever the run started; "no free ACS port left" when they're used up); any
+    other A port passes over reserved ports in fill, or is skipped in step ("port 5 is reserved for CCTV").
+  - Tests in `domain/cords.test.ts`, `domain/ports.test.ts` (a switch now takes reservations — the old "not a panel →
+    null" check is replaced). Seen live: SW1 port 96 offers Reserve for… (ACS / AP / CCTV / TV).

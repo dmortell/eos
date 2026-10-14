@@ -6,7 +6,7 @@
 import type { Id, Rack, Device, Level, Space } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
-import { changedSincePrinted } from '../domain/ports'
+import { changedSincePrinted, reservedFor } from '../domain/ports'
 import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt, portGrid } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
@@ -208,7 +208,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				gx0 = Math.min(gx0, c.x); gx1 = Math.max(gx1, c.x + c.w); gBottom = Math.max(gBottom, c.y + c.h)
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
-				const reserved = d.panel?.reservations?.some((r) => r.ports.includes(n))
+				const reserved = !!reservedFor(d, n)   // a panel's, or a switch's (W16)
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
 				// a port cabled to an outlet: a light tint of the outlet's usage color, inside its edge (backlog "Usage colors")

@@ -6,7 +6,7 @@ import type { Workspace } from './workspace.svelte'
 import { deleteEntities, deleteViewports, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
 import { pieceRefs } from '../domain/pathEdit'
-import { reservePorts, portRanges } from '../domain/ports'
+import { reservePorts, reservationsOf, portRanges } from '../domain/ports'
 import { removeCord } from '../domain/cords'
 import { kindOf, countsText, selectionKinds } from '../ui/propsKit'
 import type { Entity } from '../domain/drawing'
@@ -39,7 +39,7 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	if (ps) {
 		const next = dev?.type === 'device' ? reservePorts(dev, ps.ports, '', '') : null
 		if (next && dev?.type === 'device') {
-			const held = (dev.panel?.reservations ?? []).flatMap((r) => r.ports).filter((n) => ps.ports.includes(n))
+			const held = reservationsOf(dev).flatMap((r) => r.ports).filter((n) => ps.ports.includes(n))
 			project.store.transact('Clear reservation', (tx) => tx.put(next))
 			ws.say(UNDONE(`Cleared the reservation on ${dev.name} port${held.length === 1 ? '' : 's'} ${portRanges(held)} (the device stays)`))
 		}

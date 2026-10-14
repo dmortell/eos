@@ -189,6 +189,25 @@ describe('bulk patch', () => {
 	})
 })
 
+describe('switch-port reservations (W16)', () => {
+	it('an outlet of a reserved usage goes to its reserved ports; the others pass over them', () => {
+		const base = ix(), l3 = base.linkAt({ on: 'P1', port: 3 })!, o3 = base.get(l3.a.on === 'P1' ? l3.b.on : l3.a.on) as { usage: string }
+		const sw = { ...(base.get('SW1') as Device), reservations: [{ id: 'r', usage: o3.usage, ports: [41, 42] }] }
+		const i = new ProjectIndex(demoProject().map((e) => (e.id === 'SW1' ? sw : e)))
+		// P1 3 (that usage) → 41; with port 4 another usage it would take 3 (fill) — here both are the same usage
+		const r = bulkPatch(i, { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 3 }, D, { fill: true })
+		const u4 = (i.get((i.linkAt({ on: 'P1', port: 4 })!.b.on === 'P1' ? i.linkAt({ on: 'P1', port: 4 })!.a.on : i.linkAt({ on: 'P1', port: 4 })!.b.on)) as { usage: string }).usage
+		expect(r.cords.map((c) => c.b.port)).toEqual(u4 === o3.usage ? [41, 42] : [41, 3])
+		// no free reserved port left: said so
+		const r2 = bulkPatch(i, { on: 'P1', ports: [3], face: 'front' }, { on: 'SW1', start: 1 }, D)
+		expect(r2.cords.map((c) => c.b.port)).toEqual([41])
+		// a port of no reserved usage, in step onto a reserved port: skipped, with the reason
+		const none = new ProjectIndex(demoProject().map((e) => (e.id === 'SW1' ? { ...sw, reservations: [{ id: 'r', usage: 'CCTV', ports: [5] }] } : e)))
+		expect(bulkPatch(none, { on: 'P1', ports: [3], face: 'front' }, { on: 'SW1', start: 5 }, D).skipped).toEqual([expect.stringMatching(/reserved for CCTV/)])
+		expect(bulkPatch(none, { on: 'P1', ports: [3], face: 'front' }, { on: 'SW1', start: 5 }, D, { fill: true }).cords.map((c) => c.b.port)).toEqual([6])
+	})
+})
+
 describe('port use per device', () => {
 	it('used = patched or linked; free = neither; a cord marked for removal no longer uses its port', () => {
 		const i = ix(), p1 = i.get('P1') as Device, sw = i.get('SW1') as Device

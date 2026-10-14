@@ -230,6 +230,10 @@ export interface Device {
 	color?: string
 	/** Patch panels only. */
 	panel?: PanelInfo
+	/** A switch's ports held for a usage (W16: ACS / CCTV in their own columns) — Patch to… puts each outlet's port on a
+	 *  free port reserved for its usage, and keeps other usages off them. A panel keeps its own in `panel.reservations`
+	 *  (`reservationsOf` reads either). */
+	reservations?: PanelInfo['reservations']
 	/** Labels for ports NOT linked to an outlet (ties, uplinks, switch ports), 1-based port → text. A port linked to an
 	 *  outlet port shows that port's label instead, so the label exists once. */
 	portLabels?: Record<string, string>

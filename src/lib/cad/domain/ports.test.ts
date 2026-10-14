@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel, reservePorts, cablesOnDevices } from './ports'
+import { setPortLabel, renameOutlet, markPrinted, changedSincePrinted, printedPanelsAffected, portRanges, setPortCount, nextPortLabel, reservePorts, reservationsOf, reservedFor, cablesOnDevices } from './ports'
 import type { Entity } from './drawing'
 import type { Device, Outlet } from './types'
 
@@ -80,7 +80,13 @@ describe('printed panels', () => {
 		expect(b.panel?.reservations).toEqual([{ id: 'r1', usage: 'AP', ports: [1, 2] }, { id: 'r2', usage: 'PR', ports: [3, 4] }])
 		expect(reservePorts(b, [10], '', '')).toBeNull()
 		expect(reservePorts(b, [1, 2, 3, 4], '', '')!.panel?.reservations).toBeUndefined()
-		expect(reservePorts(base().find((e) => e.id === 'SW1') as Device, [1], 'AP', 'r3')).toBeNull()   // not a panel
+		// a switch (W16): on the device itself, read back through reservationsOf / reservedFor
+		const sw = reservePorts(base().find((e) => e.id === 'SW1') as Device, [41, 42], 'CCTV', 'r3')!
+		expect(sw.reservations).toEqual([{ id: 'r3', usage: 'CCTV', ports: [41, 42] }])
+		expect(sw.panel).toBeUndefined()
+		expect(reservationsOf(sw)).toEqual(sw.reservations)
+		expect([reservedFor(sw, 42), reservedFor(sw, 1)]).toEqual(['CCTV', undefined])
+		expect('reservations' in reservePorts(sw, [41, 42], '', '')!).toBe(false)
 	})
 	it('the links and cords on any port of the selected devices (Remove links / cords on several panels)', () => {
 		const i = ix(base())

@@ -101,15 +101,22 @@ export function printedPanelsAffected(ix: ProjectIndex, edits: Entity[]): { devi
 	return out
 }
 
-/** The panel with `ports` reserved for `usage` ('' = their reservation cleared): a port is in at most one reservation.
- *  Null when nothing would change (not a panel, or clearing ports that weren't reserved). */
+/** A device's port reservations: a panel's (`panel.reservations`), else its own (a switch, W16). */
+export const reservationsOf = (d: Pick<Device, 'panel' | 'reservations'>): NonNullable<Device['reservations']> => d.panel?.reservations ?? d.reservations ?? []
+/** The usage port `n` is reserved for, if any. */
+export const reservedFor = (d: Pick<Device, 'panel' | 'reservations'>, n: number): string | undefined => reservationsOf(d).find((r) => r.ports.includes(n))?.usage
+
+/** The device with `ports` reserved for `usage` ('' = their reservation cleared): a port is in at most one
+ *  reservation. A panel keeps them in `panel.reservations`, any other device (a switch, W16) in `reservations`. Null
+ *  when nothing would change (clearing ports that weren't reserved). */
 export function reservePorts(d: Device, ports: number[], usage: string, id: Id): Device | null {
-	if (!d.panel) return null
-	const had = d.panel.reservations ?? []
+	const had = reservationsOf(d)
 	if (!usage && !had.some((r) => r.ports.some((p) => ports.includes(p)))) return null
 	const without = had.map((r) => ({ ...r, ports: r.ports.filter((p) => !ports.includes(p)) })).filter((r) => r.ports.length)
 	const reservations = usage ? [...without, { id, usage, ports: [...ports] }] : without
-	return { ...d, panel: { ...d.panel, reservations: reservations.length ? reservations : undefined } }
+	if (d.panel) return { ...d, panel: { ...d.panel, reservations: reservations.length ? reservations : undefined } }
+	const { reservations: _old, ...rest } = d
+	return reservations.length ? { ...rest, reservations } : rest
 }
 
 /** "3–7, 12" for a list of port numbers. */
