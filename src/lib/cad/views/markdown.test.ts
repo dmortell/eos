@@ -14,6 +14,19 @@ describe('inline', () => {
 			{ text: 'a ' }, { text: 'b', bold: true }, { text: ' ' }, { text: 'c', italic: true }, { text: ' ' }, { text: 'd', bold: true, italic: true }, { text: ' ' }, { text: 'e' }, { text: ' *f' },
 		])
 	})
+	it('~~struck~~ and __underlined__ (Dave 2026-10-14: __ is no longer bold); \\~ escapes', () => {
+		expect(parseInline('a ~~b~~ __c__ \\~~d')).toEqual([{ text: 'a ' }, { text: 'b', strike: true }, { text: ' ' }, { text: 'c', under: true }, { text: ' ~~d' }])
+	})
+	it('a struck / underlined stretch draws one line through / under its words, not past them; plain words get none', () => {
+		const items = layoutMarkdown('x ~~two words~~ y __u__', 10).items, [r1, r2] = rules(items), w = (t: string) => mdWidth(t, 10)
+		expect(rules(items)).toHaveLength(2)
+		expect(r1).toMatchObject({ x0: w('x '), x1: w('x two words'), y0: -3, y1: -3 })   // through the middle of the letters
+		expect(r2).toMatchObject({ x0: w('x two words y '), x1: w('x two words y u'), y0: 1.5 })   // just under the baseline
+		expect(texts(items).every((t) => !t.bold)).toBe(true)
+		// on paper and in DXF as lines, like a table's rules
+		const s = { type: 'shape', id: 'n', sheetId: 'S', geom: { kind: 'text', at: { x: 0, y: 0 }, text: '~~gone~~', sizeMm: 2.5, markdown: true } } as Shape
+		expect(markdownPrims(s.geom as never, 1, 'n').prims.filter((p) => p.k === 'line')).toHaveLength(1)
+	})
 	it('a lone * or snake_case is left alone', () => {
 		expect(parseInline('2 * 3 and a_b_c')).toEqual([{ text: '2 * 3 and a_b_c' }])
 	})

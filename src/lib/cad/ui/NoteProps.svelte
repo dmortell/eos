@@ -46,7 +46,7 @@
 		</span></span>
 	<label class="row" title="A box width: the text wraps inside it (and is cut off at its sides). Blank = no box, lines as typed. On a sheet paper mm, on a drawing its mm.">Box width (mm)
 		<input class="inp" type="number" min="1" value={g.width ?? ''} placeholder="none" onchange={(e) => { const v = Number(e.currentTarget.value); setGeom(v > 0 ? 'Text box width' : 'No text box', { width: v > 0 ? v : undefined }) }} /></label>
-	<label class="row" title="Lay the text out as markdown: # headings, - bullets, 1. numbers, **bold**, *italic*, and | pipe | tables | (a |---| row under the first makes it the header). Set a box width to wrap it.">Markdown
+	<label class="row" title="Lay the text out as markdown: # headings, - bullets, 1. numbers, **bold**, *italic*, ~~strikethrough~~, __underline__, and | pipe | tables | (a |---| row under the first makes it the header). Set a box width to wrap it.">Markdown
 		<input type="checkbox" checked={!!g.markdown} onchange={(e) => setGeom(e.currentTarget.checked ? 'Markdown on' : 'Markdown off', { markdown: e.currentTarget.checked || undefined })} /></label>
 {:else if g.kind === 'leader'}
 	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing. {FIELDS_TIP}">Text

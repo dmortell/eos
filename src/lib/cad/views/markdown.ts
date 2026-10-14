@@ -1,5 +1,5 @@
 // MARKDOWN NOTES (backlog "Markdown notes block"): a text whose `markdown` flag is on is laid out as headings, bullet /
-// numbered lists, **bold** / *italic* and pipe tables, word-wrapped to the note's width. The layout is pure (text in,
+// numbered lists, **bold** / *italic* / ~~struck~~ / __underlined__ and pipe tables, word-wrapped to the note's width. The layout is pure (text in,
 // positioned text runs and table rules out, in the text's own units, y down, first baseline at y = 0); markdownPrims
 // turns it into display prims, so the screen, PDF and DXF all draw it the way they draw any other text and line.
 import type { Pt } from '../domain/types'
@@ -10,28 +10,31 @@ export type MdItem =
 	| { k: 'rule'; x0: number; y0: number; x1: number; y1: number }
 export interface MdLayout { items: MdItem[]; width: number; height: number; lines: number }
 
-interface Run { text: string; bold?: boolean; italic?: boolean }
+interface Run { text: string; bold?: boolean; italic?: boolean; strike?: boolean; under?: boolean }
 
 const LINE = 1.3
 const HEADING = [1.6, 1.35, 1.2, 1.1, 1.05, 1]
 /** About how wide text draws (Latin ~0.6 of its size, bold a little more, CJK a full em). */
 export const mdWidth = (t: string, size: number, bold = false) => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) >= 0x2e80 ? 1 : bold ? 0.66 : 0.6) * size, 0)
 
-/** **bold**, *italic*, ***both***, __bold__ and `code` (shown plain) in one line → runs. */
+/** **bold**, *italic*, ***both***, ~~struck through~~, __underlined__ (Dave 2026-10-14: no longer a second bold) and
+ *  `code` (shown plain) in one line → runs. */
 export function parseInline(s: string): Run[] {
 	const out: Run[] = []
-	const re = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__|\*([^\s*](?:[^*]*?[^\s*])?)\*|`([^`]+)`/g
+	const re = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^\s*](?:[^*]*?[^\s*])?)\*|`([^`]+)`/g
 	let last = 0
 	for (const m of s.matchAll(re)) {
 		if (m.index > last) out.push({ text: s.slice(last, m.index) })
 		if (m[1] != null) out.push({ text: m[1], bold: true, italic: true })
-		else if (m[2] != null || m[3] != null) out.push({ text: (m[2] ?? m[3])!, bold: true })
-		else if (m[4] != null) out.push({ text: m[4], italic: true })
-		else out.push({ text: m[5]! })
+		else if (m[2] != null) out.push({ text: m[2], bold: true })
+		else if (m[3] != null) out.push({ text: m[3], under: true })
+		else if (m[4] != null) out.push({ text: m[4], strike: true })
+		else if (m[5] != null) out.push({ text: m[5], italic: true })
+		else out.push({ text: m[6]! })
 		last = m.index + m[0].length
 	}
 	if (last < s.length) out.push({ text: s.slice(last) })
-	return out.map((r) => ({ ...r, text: r.text.replace(/\\([\\*_`|#])/g, '$1') })).filter((r) => r.text)
+	return out.map((r) => ({ ...r, text: r.text.replace(/\\([\\*_`|#~])/g, '$1') })).filter((r) => r.text)
 }
 
 interface Tok extends Run { w: number; space: boolean }
@@ -53,16 +56,26 @@ function flow(runs: Run[], size: number, width?: number): Tok[][] {
 }
 const lineWidth = (l: Tok[]) => l.reduce((a, t) => a + t.w, 0)
 
-/** One flowed line as text items (adjacent tokens of one look joined), starting at x. */
+/** One flowed line as text items (adjacent tokens of one look joined), starting at x; a struck-through / underlined
+ *  stretch adds its line as a rule (so the screen, PDF and DXF draw it as they draw a table's rules). */
 function emit(l: Tok[], x: number, y: number, size: number, forceBold = false): MdItem[] {
-	const out: MdItem[] = []
+	const out: MdItem[] = [], deco: Extract<MdItem, { k: 'rule' }>[] = []
+	const open: { strike?: Extract<MdItem, { k: 'rule' }>; under?: Extract<MdItem, { k: 'rule' }> } = {}
 	for (const t of l) {
 		const bold = forceBold || !!t.bold, prev = out.at(-1)
-		if (prev?.k === 'text' && !!prev.bold === bold && !!prev.italic === !!t.italic) { prev.text += t.text; x += t.w; continue }
-		out.push({ k: 'text', x, y, text: t.text, size, ...(bold ? { bold } : {}), ...(t.italic ? { italic: true } : {}) })
+		if (prev?.k === 'text' && !!prev.bold === bold && !!prev.italic === !!t.italic) prev.text += t.text
+		else out.push({ k: 'text', x, y, text: t.text, size, ...(bold ? { bold } : {}), ...(t.italic ? { italic: true } : {}) })
+		// the line through / under: one per stretch, grown word by word (not past a trailing space)
+		for (const kind of ['strike', 'under'] as const) {
+			if (!t[kind]) { open[kind] = undefined; continue }
+			if (t.space) continue
+			const o = open[kind]
+			if (o) o.x1 = x + t.w
+			else { const ly = y + (kind === 'strike' ? -size * 0.3 : size * 0.15); deco.push((open[kind] = { k: 'rule', x0: x, y0: ly, x1: x + t.w, y1: ly })) }
+		}
 		x += t.w
 	}
-	return out
+	return [...out, ...deco]
 }
 
 const splitRow = (line: string): string[] => {

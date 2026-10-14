@@ -3384,3 +3384,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - Furniture defaults (Dave 2026-10-14): a 3D block's insert goes on the project layer "Furniture" (`ensureLayer`: made
   the first time, in the same undo step, frozen in existing viewports like any new layer) — from Make block when the
   boxes had no layer of their own, from the Insert tool when the current layer is Drawing.
+
+## Markdown strikethrough and underline (Dave 2026-10-14)
+
+- `~~text~~` strikes through, `__text__` underlines (it was a second bold; `**text**` is the only bold now); `\~`
+  escapes. `emit` adds each struck / underlined stretch's line as a `rule` item (through at −0.3 × size, under at
+  +0.15 × size, word to word, not past a trailing space), so the screen, PDF and DXF draw it as a table's rules.

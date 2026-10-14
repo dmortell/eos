@@ -22,11 +22,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **Markdown: strikethrough and underline** — in a markdown note `~~text~~` strikes through and `__text__` underlines;
-  `**text**` stays the only bold (today `__text__` is bold too — `views/markdown.ts` `parseInline`). A line through /
-  under the words on screen, in PDFs and in DXF. Help (Markdown notes) and the NoteProps tip updated. **P3 · S**
-  (~40 lines + tests). *cad today:* headings, bullets, numbers, **bold**, *italic*, tables. *From:* decision "Markdown
-  notes block" (T143), Dave 2026-10-14.
 - [ ] **AutoCAD zoom keys** — single-key zoom commands on the canvas (not while typing in a field): zoom extents, zoom
   window (drag a box, the view fits it) and zoom previous (each pane keeps a short stack of cameras). Keys to agree
   with Dave before building (AutoCAD's letters: E / W / P after Z, or single keys); Help › Shortcuts updated. Not the
