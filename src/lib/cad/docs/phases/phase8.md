@@ -3408,3 +3408,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   OS2, OM4; new outlets and cords CAT6A. "Apply floors" puts them in the same undo step when the project has none; a
   project already without them gets a "Start with the default settings" button in those tabs.
 - The Outlet tool's first outlet has no usage (was "desk"); its tool bar Usage gains "(none)" ('' = as last).
+
+## A guide for AI assistants (/cad/agent)
+
+- Dave 2026-10-14: "is there sufficient instructions in Help for another LLM … to control the browser and develop
+  project designs?" — no (Help is written for a person who sees the screen), so a plain-text page at `/cad/agent`
+  (`src/routes/cad/agent/+server.ts`, outside the sign-in screen) serves `ui/agentGuide.ts`: ground rules (only the
+  named project, ask before deleting / importing / issuing / downloading, never sign in), what a project holds, the
+  screen, the URL scheme, typed coordinates (y down on a plan, height in an elevation), focus, how to check each step,
+  nine recipes, gotchas — then the tools with their hints, the keys and every Help how-to, generated from the same
+  lists as Help (`ui/toolGroups.ts`, split out of ToolStrip.svelte so a server route can import it), with a test that
+  each one is listed. Help gains "Let an AI assistant work in cad for you". Tried recipe 2 (typed walls) in the Test
+  Project as the page says it: it made the closed room; undone.

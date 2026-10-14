@@ -6,7 +6,7 @@
 	import { Icon } from '$lib'
 	import CadDialog from './CadDialog.svelte'
 	import { HOWTO, HOWTO_AREAS, SHORTCUTS, FKEYS } from './helpContent'
-	import { TOOL_GROUPS } from './ToolStrip.svelte'
+	import { TOOL_GROUPS } from './toolGroups'
 	import type { ToolId } from '../app/workspace.svelte'
 
 	let { onclose, ontool, keys = false, hints }: { onclose: () => void; ontool: (id: ToolId) => void; keys?: boolean; hints: Partial<Record<ToolId, string>> } = $props()

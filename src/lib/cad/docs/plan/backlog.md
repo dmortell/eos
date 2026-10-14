@@ -64,15 +64,9 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   drop target) on each floor's "Choose a floorplan…" row: the PDF goes to the project's Uploads like File › Uploads…
   does, then its page is picked for that floor. Today the select only lists files already uploaded. **P3 · S–M**
   (~60 lines).
-- [ ] **A guide for an LLM driving cad in the browser** (Dave 2026-10-14 todo, ❓ consider) — Help is ~120 how-tos
-  written for a person who can see the screen: it names menus and windows but not the model (levels, views, sheets,
-  runs, outlets, racks, blocks), the URL (`?v=…&level=…`), how to know what is selected or where the cursor is, or
-  how to recover (Esc, undo, focus). Option: one plain page (e.g. `/cad/agent`, text / markdown, no login dialog in the
-  way) with the concepts, the URL scheme, "type coordinates rather than click" recipes (Box 1200,600 · Enter), the keys
-  and tools generated from `KEY_COMMANDS` / `TOOL_GROUPS` (so it can't go stale; a test as for Help), end-to-end
-  recipes (a plan with runs and outlets; a rack and patching; a sheet with viewports; issue a PDF), what to check after
-  each step, and "only the Test Project". Bigger alternative: a scripting hook (`window.cad.read()` / `run(command)`)
-  so an agent reads the model as data instead of screenshots. **P3 · S–M** (page) / **M–L** (hook).
+- [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
+  — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
+  clicks. **P3 · M–L**.
 
 ## Suggested order
 

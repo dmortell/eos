@@ -50,7 +50,7 @@
 	import { applyAlign, type AlignHow } from '../editor/align'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
 	import Prims from './Prims.svelte'
-	import { TOOL_GROUPS } from './ToolStrip.svelte'
+	import { TOOL_GROUPS } from './toolGroups'
 	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
