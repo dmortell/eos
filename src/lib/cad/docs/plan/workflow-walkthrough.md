@@ -434,3 +434,33 @@ Task: assign the switch's first 2 columns to ACS and CCTV.
 - **B60 Re-patching is one cord at a time.** Each cord took: find it in the table, select it, then drag its end grip
   onto a ~12 px port (the view pans on every row pick). Nine actions per cord, with misses.
   - Proposed: the table's To cell editable (type "SW1:41"), or "move these cords' switch ends to the next free ports".
+
+### Round 4: GF routes and riser fill (Dave, 2026-10-14)
+
+Dave: "GF outlets need route to the patch frame, the fill rate shows 0% usage for the riser."
+
+**Found and fixed in 6de22121:**
+- **The GF trunk missed the riser.** It was started by eye 57 mm from where the L1 → GF riser lands; runs join within
+  50 mm. The riser belongs to the L1 plan, so its GF end was never a snap point on GF. It is now.
+- **A riser picked up cables from the wrong floor.** A riser's TOP end, on its own floor, met L2's trunk 3.8 m above
+  it, so L2's cables went up the L1 → GF riser. Only a riser's far end reaches into the floor it lands on now.
+- **A hot reload went back to the first view** (S001). The view was read from `page.url`, which keeps the URL the
+  page loaded with. It now comes from the address bar.
+
+**GF floor boxes:** these were low tier with only ceiling containment on GF. I added a drop at the end of the GF
+ceiling trunk and a floor-level run past the floor boxes. All 11 GF ports now route (24–44 m).
+
+**Riser fill:**
+- L1 → GF: 11 cables, 21.5%.
+- L1 → L2: 3 cables, 5.9%. Its sheet view was re-made on segment 2: "Put on sheet" takes the run's fullest segment,
+  which was the horizontal piece in the rack room.
+
+**Findings:**
+- **B61 "Put on sheet" puts the run's fullest segment, not the one you picked.** You have to click the segment row in
+  Fill first. On a riser, the vertical segment is the one you want.
+- **B62 A fill view of an unnamed run read "(run gone)"** in the View list. It now reads "Run" (6de22121).
+- **B63 Feeding a floor box under ceiling-only containment needs two runs:** a drop (high) and a floor run (low). An
+  outlet only joins a run of its own tier.
+
+**Live updates:** a second tab on S003 showed each change from the first tab within about 2 s, with no reload. Sheets
+do update in real time.
