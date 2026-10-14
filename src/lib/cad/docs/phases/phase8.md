@@ -3493,3 +3493,17 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     fullest. B61's "puts the fullest, not the one you picked" was the riser case: a picked segment was already used.
   - Tests in `views/fillSection.test.ts`, `domain/legend.test.ts`. Seen live: Workflow test's S003 now reads "Fill ·
     Riser L1 ↕ GF" / "Fill · Riser L2 ↕ L1".
+- **Revision compare check** (Dave's todo): desk-checked, written up in `../plan/workflow-walkthrough.md` Round 5;
+  it shaped W4 and W7.
+- **W4 A new revision of a floorplan** (B8, B11):
+  - Plans & floorplans: each floorplan row has **New revision…** (Upload the new PDF…, or a PDF already in Uploads).
+  - `project.copyFileLook(old, new)`: each page's record (origin, scale, crop, masks), hidden PDF layers and
+    hideMarkups go into the new file — only where the new file has none of its own (a page with a scale stays).
+  - Then every floorplan of this project on the old file points at the new one: one undo step ("New floorplan
+    revision: …"). The old file is kept (issued sheets print from it); W3 marks their sheets "Changed since".
+  - The issue records `floorplans` (the files its frozen pages are drawn over, `domain/issue.ts` `floorplansIn`) and
+    the transmittal prints "Floorplans: …" under the note.
+  - Not built: re-align by two point pairs (moved drawing) → `later.md`.
+  - Tried live in Workflow test: L1 → revB (uncalibrated) — calibration copied, the plan lined up with the racks and
+    grid; Undo put L1 back on 20240516. revB's file keeps the copied calibration. Tests in
+    `views/transmittalPage.test.ts`.

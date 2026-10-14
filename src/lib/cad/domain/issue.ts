@@ -40,6 +40,12 @@ export function parseUnderlayRef(url: string): { fileId: string; page: number } 
 	const s = url.slice(UNDERLAY_REF.length), i = s.lastIndexOf('#')
 	return { fileId: s.slice(0, i), page: Number(s.slice(i + 1)) || 1 }
 }
+/** The floorplan files frozen display lists are drawn over (W4: the transmittal says which revision went out). */
+export function floorplansIn(lists: Prim[][]): string[] {
+	const ids = new Set<string>()
+	for (const ps of lists) for (const p of ps) { const r = p.k === 'image' ? parseUnderlayRef(p.url) : null; if (r) ids.add(r.fileId) }
+	return [...ids].sort()
+}
 
 const r2 = (v: number) => Math.round(v * 100) / 100
 const rp = (p: { x: number; y: number }) => ({ x: r2(p.x), y: r2(p.y) })

@@ -187,6 +187,8 @@ export interface Issue {
 	/** The whole-project backup made with it (`cadBackups/{id}`, ADR 0008 §7), when "Back up the project with this
 	 *  issue" was ticked — the Issues list can then restore it. */
 	backupId?: Id
+	/** The floorplan files its sheets were drawn over (file ids = names, e.g. "…_revB.pdf") — W4: which revision went out. */
+	floorplans?: string[]
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

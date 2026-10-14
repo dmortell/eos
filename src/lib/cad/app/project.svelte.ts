@@ -296,6 +296,20 @@ export class CadProject {
 		await updateDoc(ref, new FieldPath('pages', String(page), field), value === undefined ? deleteField() : stripUndefined(value))
 		return was
 	}
+	/** A new revision of a floorplan (W4): give file `toId` the look of `fromId` — each page's calibration and masks
+	 *  (`pages[n]`), its hidden PDF layers and markups — where `toId` has none of its own (a page with a scale already,
+	 *  or layers already hidden, stay as they are). Returns the pages copied. */
+	async copyFileLook(fromId: string, toId: string): Promise<string[]> {
+		const from = (await getDoc(doc(this.db, 'files', fromId))).data(), ref = doc(this.db, 'files', toId), to = (await getDoc(ref)).data()
+		if (!from || !to) throw new Error(`${from ? toId : fromId} is not in Uploads`)
+		const pages = Object.entries((from.pages ?? {}) as Record<string, { scale?: { scale?: number } }>).filter(([n]) => !Number(to.pages?.[n]?.scale?.scale)).map(([n]) => n)
+		const args: unknown[] = []
+		for (const n of pages) args.push(new FieldPath('pages', n), from.pages[n])
+		if (Array.isArray(from.hiddenLayers) && from.hiddenLayers.length && !(Array.isArray(to.hiddenLayers) && to.hiddenLayers.length)) args.push(new FieldPath('hiddenLayers'), from.hiddenLayers)
+		if (from.hideMarkups && to.hideMarkups === undefined) args.push(new FieldPath('hideMarkups'), true)
+		if (args.length) await (updateDoc as (r: typeof ref, ...a: unknown[]) => Promise<void>)(ref, ...args)
+		return pages
+	}
 	/** The projects a file is used by (`files/{id}.projectIds`, else its `projectId`). */
 	async fileProjects(fileId: string): Promise<string[]> {
 		const fd = (await getDoc(doc(this.db, 'files', fileId))).data()

@@ -12,7 +12,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -163,6 +163,8 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		bumped.push({ id: row.sheet.id, rev: { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: printNow(project, prims) } })
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
+	// the floorplan files the sheets went out on (W4: which revision), on the transmittal and the issue record
+	const floorplans = floorplansIn(pages.map((p) => p.prims))
 	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue
 	let coverN = 0
 	if (f.cover && plan.length) {
@@ -170,7 +172,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 			...plan.map((r) => ({ number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: r.sheet.paper.size, status: (r.changed ? 'New revision' : 'As last issued') as CoverRow['status'] })),
 			...(f.withdrawn ?? []).map((w) => ({ number: w.number, title: w.title, rev: w.rev, size: '', status: 'Withdrawn' as const })),
 		]
-		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows },
+		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows, floorplans },
 			{ blocks: project.blockOf, ...project.sheetBase })
 		for (const [i, c] of cover.entries()) {
 			const prims = freeze(c.prims)
@@ -184,7 +186,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}), ...(backup ? { backupId: backup.id } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}), ...(backup ? { backupId: backup.id } : {}), ...(floorplans.length ? { floorplans } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}

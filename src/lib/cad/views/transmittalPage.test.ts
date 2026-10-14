@@ -6,6 +6,7 @@ import { pagesToPdf } from '../render/pdf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Sheet } from '../domain/drawing'
+import { floorplansIn, underlayRef } from '../domain/issue'
 
 const first: Sheet = { type: 'sheet', id: 'S', number: 'P1', title: 'Plan', order: 0, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' }
 const rows = (n: number): CoverRow[] => Array.from({ length: n }, (_, i) => ({ number: `S${i + 1}`, title: `Sheet ${i + 1}`, rev: 'A', size: 'A3', status: i === n - 1 ? 'Withdrawn' : 'New revision' }))
@@ -23,6 +24,11 @@ describe('cover page', () => {
 		expect(t).toContain('Ann, ACME')
 		expect(t.filter((x) => /^S\d+$/.test(x))).toEqual(['S1', 'S2', 'S3'])
 		expect(t).toContain('Withdrawn')
+		expect(t.some((x) => x.startsWith('Floorplans'))).toBe(false)
+		// W4: the floorplan revisions the sheets went out on
+		const [q] = coverPages(ix, first, { ...data(1), floorplans: ['1F_20240516.pdf', '2F_revB.pdf'] }, { projectName: 'Test' })
+		expect(texts(q)).toContain('Floorplans: 1F_20240516.pdf, 2F_revB.pdf')
+		expect(floorplansIn([[{ k: 'image', url: underlayRef('2F_revB.pdf', 2), x: 0, y: 0, w: 1, h: 1 }, { k: 'image', url: underlayRef('1F.pdf'), x: 0, y: 0, w: 1, h: 1 }], [{ k: 'image', url: 'picture:logo.png#1', x: 0, y: 0, w: 1, h: 1 }]])).toEqual(['1F.pdf', '2F_revB.pdf'])
 	})
 	it('a long register flows onto more pages, every row once', () => {
 		const pages = coverPages(ix, first, data(120), { projectName: 'Test' })

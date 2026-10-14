@@ -88,6 +88,27 @@
 			ws.say(`Uploaded ${id} — set its scale with 1: (or Scale), then its Origin`)
 		} catch (e) { project.error = `Couldn't upload ${file.name}: ${(e as Error).message}` } finally { uploading = null }
 	}
+	/** A NEW REVISION of a floorplan (W4): `to` = a file already in Uploads, or a PDF to upload first. Its pages get the
+	 *  old file's calibration, masks and hidden layers (where it has none of its own — `copyFileLook`), then every
+	 *  floorplan of this project on the old file moves to it, in one undo step (the old file stays: issued sheets print
+	 *  from it). */
+	async function newRevision(z: Underlay, to: { fileId: string } | { file: File }) {
+		const old = z.fileId
+		uploading = z.id
+		try {
+			let id: string
+			if ('file' in to) {
+				if (!(to.file.type === 'application/pdf' || /\.pdf$/i.test(to.file.name))) { ws.say('Only a PDF can be a floorplan'); return }
+				id = (await storeFile(project.db, project.pid, to.file, { storage: project.settings?.fileStorage, route: 'floorplanUploader' })).id
+			} else id = to.fileId
+			if (id === old) return
+			const copied = await project.copyFileLook(old, id)
+			const uses = project.store.ofType('underlay').filter((u) => u.fileId === old)
+			const on = [...new Set(uses.map((u) => levels.find((l) => l.id === u.levelId)?.name).filter(Boolean))].join(', ')
+			project.store.transact(`New floorplan revision: ${fileName(id)}`, (tx) => { for (const u of uses) tx.put({ ...u, fileId: id }) })
+			ws.say(`${fileName(id)} replaces ${fileName(old)} on ${on || 'this floor'} — ${copied.length ? 'its calibration and masks copied' : 'its own calibration kept'}; check the Origin lines up (Undo puts the old one back)`)
+		} catch (e) { project.error = `Couldn't make the new revision: ${(e as Error).message}` } finally { uploading = null }
+	}
 	const putZone = (l: Level, u: Underlay, label: string, patch: Partial<Underlay>) => project.store.transact(`${l.name}: ${label}`, (tx) => tx.put({ ...u, ...patch }))
 	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
 		const o = { x: 0, y: 0, ...u.origin, [k]: Number(v) || 0 }
@@ -316,6 +337,13 @@
 						<label class="ratio" title="Drawn at 1:… — type the scale from the floorplan's title block (100) and press Enter. When it's for another paper size than this PDF page{cal?.page && paperOf(cal.page) ? ` (${paperOf(cal.page)})` : ''}, add it: 100 A1">1:<input placeholder={cal && !cal.provisional ? String(ratioOf(cal.sf)) : '___'} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void setPaperScale(z, e.currentTarget.value, e.currentTarget) } }} onchange={(e) => void setPaperScale(z, e.currentTarget.value, e.currentTarget)} /></label>
 					</span>
 				{/if}
+				<!-- W4: the architect's next revision of this drawing, keeping its calibration, on every floor that uses it -->
+				<select class="fp rev" value="" disabled={uploading === z.id} title="A new revision of this floorplan: it takes this one's place on every floor that uses it, with its origin, scale, crop, masks and hidden layers" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'upload') document.getElementById(`cad-rev-${z.id}`)?.click(); else if (v) void newRevision(z, { fileId: v }) }}>
+					<option value="">{uploading === z.id ? 'Uploading…' : 'New revision…'}</option>
+					<option value="upload">Upload the new PDF…</option>
+					{#each pdfs.filter((f) => f.id !== z.fileId) as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
+				</select>
+				<input id="cad-rev-{z.id}" type="file" accept="application/pdf,.pdf" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void newRevision(z, { file: f }) }} />
 				<button class="x" title="Remove this floorplan (Undo brings it back)" onclick={() => removeFloorplan(l, z)}>✕</button>
 			</div>
 		{/each}
@@ -356,6 +384,7 @@
 	.pname input.name { width: 5.5rem; }
 	select.fp { width: 14rem; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
+	select.fp.rev { width: 7.5rem; color: #2563eb; }
 	.addrow { display: flex; align-items: center; gap: 4px; }
 	.btn.up { font-size: 11px; cursor: pointer; color: #2563eb; }
 	.btn.up.busy { color: var(--cad-muted, #71717a); cursor: progress; }

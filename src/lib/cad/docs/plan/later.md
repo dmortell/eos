@@ -13,6 +13,9 @@ wanted. *From:* ids as in `backlog.md`.
 
 - **Underlays per view direction** — several PDF / image underlays per plan or elevation, with opacity, flip, z-order, drag / resize. *From:* G200
 - **DXF import** — DXF as an underlay or as shapes. *From:* P056
+- **Re-align a new floorplan revision by two point pairs** — when the architect moved the drawing on the page, click
+  two points on the old and the new and cad works out the move (and turn). W4 (2026-10-15) copies the calibration and
+  says to check the Origin; build this only if moved revisions turn up. *From:* W4
 
 ## Ports, panels and allocation
 
