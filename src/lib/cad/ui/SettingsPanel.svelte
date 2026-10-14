@@ -13,6 +13,7 @@
 	import { enterKey } from './keyGuards'
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
 	import DisciplinesTab from './DisciplinesTab.svelte'
+	import ContactsTab from './ContactsTab.svelte'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { ProjectSettings } from '../domain/types'
@@ -110,6 +111,10 @@
 	<section>
 		<p class="h">Disciplines</p>
 		<DisciplinesTab {project} />
+	</section>
+	<section>
+		<p class="h">Contacts <span class="hint">— who issues go to (this project)</span></p>
+		<ContactsTab {project} />
 	</section>
 	<section>
 		<p class="h">Title block <span class="hint">— the project's, on every sheet</span></p>

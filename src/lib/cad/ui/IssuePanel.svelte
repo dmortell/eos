@@ -8,7 +8,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
-	import { lastIssueOf } from '../domain/packages'
+	import { lastIssueOf, resolveRecipients } from '../domain/packages'
 	import { previewIssue, issuePackage, freshSheets, today, ATTACHMENT_NAME, type Attachment } from '../app/issue'
 	import { runToken } from '../app/runToken'
 	import { unsupportedNote } from '../app/sheetsPdf'
@@ -19,7 +19,7 @@
 
 	const PURPOSES = ISSUE_PURPOSES
 	// svelte-ignore state_referenced_locally
-	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(pkg?.recipients?.map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ') ?? ''), note = $state(''), first = $state('A')
+	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(resolveRecipients(pkg?.recipients, project.settings?.contacts).map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ')), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
 	// slice 7: typed revision codes (D7), what changed per sheet, who issues it (remembered in this browser)
 	let cover = $state(true)
@@ -59,7 +59,7 @@
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
 			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id,
-				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, attach: [...attach], recipients: pkg?.recipients ?? (to.trim() ? [{ name: to.trim() }] : undefined) })
+				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, attach: [...attach], recipients: pkg?.recipients ? resolveRecipients(pkg.recipients, project.settings?.contacts) : to.trim() ? [{ name: to.trim() }] : undefined })   // contacts as they are now
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			const att = r.issue.attachments?.length ? ` with ${r.issue.attachments.length} Excel file(s)` : ''
 			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF${att} saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)

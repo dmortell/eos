@@ -206,8 +206,9 @@ export interface SheetPackage {
 	name: string
 	/** The default purpose of its issues ("For construction" …). */
 	purpose?: string
-	/** Who gets it (Dave D8): printed on the cover page and the transmittal. */
-	recipients?: { name: string; org?: string }[]
+	/** Who gets it (Dave D8): printed on the cover page and the transmittal. `contactId` = one of the project's contacts
+	 *  (Settings › Sheets › Contacts: its name / org as they are now win); none = typed for this package only. */
+	recipients?: { name: string; org?: string; contactId?: Id }[]
 	note?: string
 	/** Exactly one of these: a list in the package's order, or a rule. */
 	sheetIds?: Id[]

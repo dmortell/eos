@@ -3626,3 +3626,13 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   value not on the list shows "(not on the list)", flagged amber, until changed. Sheets still store the label string,
   so the Sheets table, packages' discipline rule and the sheet list / DXF read it unchanged. Seen live: S001's
   Discipline offers — / ICT / Electrical / Mechanical / Architectural.
+- **Recipients from project contacts** (D8): `ProjectSettings.contacts` (`Contact`: id, name, org, email — project
+  data, undoable), edited in Settings › Sheets › **Contacts** (`ui/ContactsTab.svelte`; how many packages use each).
+  - A package's recipients: contacts ticked (`{ name, org, contactId }` — the name / org kept for a contact deleted
+    later) plus **Others** typed for that package only; **+ To contacts** turns its typed ones into contacts
+    (`domain/packages.ts` `contactsFromPackages`, matching name + org reused).
+  - Printed (cover / transmittal, the Issue panel's To, the packages list) through `resolveRecipients`: a contact as
+    it is now.
+  - Migration: not automatic (no write on open) — Contacts shows "N recipients typed on packages … Add them as
+    contacts" (one undo step).
+  - Tests in `domain/packages.test.ts`. Seen live: the Contacts section in Workflow test (no packages to migrate).

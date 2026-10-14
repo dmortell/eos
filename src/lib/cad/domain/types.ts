@@ -323,9 +323,14 @@ export interface CordBatch { id: Id; cableType: string; lengthM: number; colour:
 
 // ── Project-wide settings (one doc) ───────────────────────────────────────────────────────────────────────────────
 
+/** A project CONTACT (review of D8, Dave 2026-10-14): who issues go to — packages pick their recipients from these. */
+export interface Contact { id: Id; name: string; org?: string; email?: string }
+
 export interface ProjectSettings {
 	type: 'settings'
 	id: 'settings'
+	/** The people issues go to (Settings › Sheets › Contacts). */
+	contacts?: Contact[]
 	/** How a new outlet's port labels are made from its label: "33-001" → 33-001.A / .B, or .1 / .2 (ADR 0002). */
 	portSuffix: 'alpha' | 'numeric'
 	/** Between the outlet label and the suffix: '.' (default) 201.A, '' 201A, '-' 201-A. */

@@ -1,6 +1,6 @@
 // Packages: members of a list / a rule, freeze to list, since the last issue, from an old issue, recipients.
 import { describe, it, expect } from 'vitest'
-import { packageMembers, ruleFromFilter, freezeToList, lastIssueOf, sinceLastIssue, packageFromIssue, parseRecipients, recipientsText } from './packages'
+import { packageMembers, ruleFromFilter, freezeToList, lastIssueOf, sinceLastIssue, packageFromIssue, parseRecipients, recipientsText, resolveRecipients, recipientOf, contactsFromPackages } from './packages'
 import type { Issue, SheetPackage } from './drawing'
 import type { SheetRow } from './sheetList'
 
@@ -16,6 +16,22 @@ const rows = [
 ]
 const pkg = (over: Partial<SheetPackage>): SheetPackage => ({ type: 'package', id: 'K', name: 'Set', order: 10, ...over })
 const issue = (over: Partial<Issue>): Issue => ({ type: 'issue', id: 'I', name: 'Tender', purpose: 'For tender', date: '2026-10-01', sheets: [], ...over })
+
+describe('recipients from project contacts', () => {
+	const contacts = [{ id: 'c1', name: 'Ann Lee', org: 'ACME' }, { id: 'c2', name: 'Bo' }]
+	it('a contact prints as the contact is now; a deleted one as stored; a typed one as typed', () => {
+		const rs = [{ name: 'Ann (old)', contactId: 'c1' }, { name: 'Gone', org: 'X', contactId: 'c9' }, { name: 'Typed', org: 'Y' }]
+		expect(resolveRecipients(rs, contacts)).toEqual([{ name: 'Ann Lee', org: 'ACME' }, { name: 'Gone', org: 'X' }, { name: 'Typed', org: 'Y' }])
+		expect(recipientOf(contacts[0])).toEqual({ name: 'Ann Lee', org: 'ACME', contactId: 'c1' })
+	})
+	it('the packages’ typed recipients become contacts (one per name + org), and the packages point at them', () => {
+		let n = 0
+		const pkg = (id: string, rs: SheetPackage['recipients']): SheetPackage => ({ type: 'package', id, name: id, recipients: rs, sheetIds: [], order: 0 })
+		const r = contactsFromPackages([pkg('P', [{ name: 'ann lee', org: 'acme' }, { name: 'Cy', org: 'Z' }]), pkg('Q', [{ name: 'Cy', org: 'Z' }]), pkg('R', [{ name: 'Bo', contactId: 'c2' }])], contacts, () => `n${++n}`)
+		expect(r.contacts).toEqual([{ id: 'n1', name: 'Cy', org: 'Z' }])                // Ann matched c1 (case aside)
+		expect(r.packages.map((p) => [p.id, p.recipients!.map((x) => x.contactId)])).toEqual([['P', ['c1', 'n1']], ['Q', ['n1']]])   // R unchanged
+	})
+})
 
 describe('packages', () => {
 	it('a list keeps its order and drops gone / archived sheets', () => {

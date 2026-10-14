@@ -2,7 +2,7 @@
 // (a saved register filter: categories, levels, rooms, tags, disciplines). Which sheets a package holds now, what has
 // changed in it since it last went out (added / withdrawn / never issued), freezing a rule to a list, and a package
 // made from an old issue (Dave D9). Pure; tested in packages.test.ts.
-import type { Id } from './types'
+import type { Id, Contact } from './types'
 import type { Issue, SheetPackage, SheetRule } from './drawing'
 import { filterRows, type ListFilter, type SheetRow } from './sheetList'
 
@@ -60,6 +60,35 @@ export function sinceLastIssue(members: SheetRow[], last: Issue | undefined): { 
  *  to it, so the next issue of the package diffs against it. */
 export function packageFromIssue(i: Issue, id: Id, order: number): SheetPackage {
 	return { type: 'package', id, name: i.name, purpose: i.purpose, ...(i.to ? { recipients: [{ name: i.to }] } : {}), sheetIds: i.sheets.map((s) => s.sheetId), order }
+}
+
+/** A package's recipients as they print: a contact's name / org as the contact has them now (one deleted since: as
+ *  stored), a typed one as typed. */
+export function resolveRecipients(rs: SheetPackage['recipients'], contacts: readonly Contact[] = []): { name: string; org?: string }[] {
+	return (rs ?? []).map((r) => {
+		const c = r.contactId ? contacts.find((x) => x.id === r.contactId) : undefined
+		return c ? { name: c.name, ...(c.org ? { org: c.org } : {}) } : { name: r.name, ...(r.org ? { org: r.org } : {}) }
+	})
+}
+/** A recipient for a contact (its name / org kept too, for a contact deleted later). */
+export const recipientOf = (c: Contact) => ({ name: c.name, ...(c.org ? { org: c.org } : {}), contactId: c.id })
+/** The packages' TYPED recipients turned into contacts (Settings › Contacts › "Add the people from packages"): one
+ *  contact per name + org not already one; every package's typed recipients then point at their contact. */
+export function contactsFromPackages(pkgs: readonly SheetPackage[], contacts: readonly Contact[], id: () => Id): { contacts: Contact[]; packages: SheetPackage[] } {
+	const all = [...contacts], key = (n: string, o?: string) => `${n.trim().toLowerCase()}|${(o ?? '').trim().toLowerCase()}`
+	const find = (n: string, o?: string) => all.find((c) => key(c.name, c.org) === key(n, o))
+	const changed: SheetPackage[] = []
+	for (const p of pkgs) {
+		if (!p.recipients?.some((r) => !r.contactId)) continue
+		const recipients = p.recipients.map((r) => {
+			if (r.contactId) return r
+			let c = find(r.name, r.org)
+			if (!c) { c = { id: id(), name: r.name.trim(), ...(r.org?.trim() ? { org: r.org.trim() } : {}) }; all.push(c) }
+			return recipientOf(c)
+		})
+		changed.push({ ...p, recipients })
+	}
+	return { contacts: all.slice(contacts.length), packages: changed }
 }
 
 /** Recipients as typed lines ("Name, Org") ⇄ the stored list. */

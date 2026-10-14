@@ -10,7 +10,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import type { ListFilter, SheetRow } from '../domain/sheetList'
-	import { packageMembers, ruleFromFilter, ruleText, freezeToList, lastIssueOf, sinceLastIssue, recipientsText, parseRecipients } from '../domain/packages'
+	import { packageMembers, ruleFromFilter, ruleText, freezeToList, lastIssueOf, sinceLastIssue, recipientsText, parseRecipients, recipientOf, contactsFromPackages, resolveRecipients } from '../domain/packages'
 	import { issueNumbers, issueTag, ISSUE_PURPOSES } from '../domain/issue'
 	import { newId } from '../domain/ids'
 	import NameInput from './NameInput.svelte'
@@ -44,6 +44,17 @@
 	/** The package's issues, newest first (slice 9). */
 	const issuesOf = (p: SheetPackage) => issues.filter((i) => i.packageId === p.id).sort((a, b) => (numbers.get(b.id) ?? 0) - (numbers.get(a.id) ?? 0))
 	const put = (p: SheetPackage, label: string) => project.store.transact(label, (tx) => tx.put(p))
+	// recipients from the project's contacts (review of D8)
+	const contacts = $derived.by(() => { void project.rev; return project.settings?.contacts ?? [] })
+	const setRecipients = (p: SheetPackage, rs: NonNullable<SheetPackage['recipients']>) => put({ ...p, recipients: rs.length ? rs : undefined }, 'Package recipients')
+	/** Its typed recipients become project contacts (matching ones reused), and the package points at them: one undo step. */
+	function toContacts(p: SheetPackage) {
+		const st = project.settings
+		if (!st) return
+		const r = contactsFromPackages([p], contacts, newId)
+		project.store.transact('Recipients to contacts', (tx) => { tx.put({ ...st, contacts: [...contacts, ...r.contacts] }); for (const x of r.packages) tx.put(x) })
+		ws.say(`${r.contacts.length ? `${r.contacts.length} new contact(s)` : 'Matched existing contacts'} — Project › Settings… › Sheets › Contacts`)
+	}
 
 	// a new package's name is typed in the bar (not the status bar, Dave 2026-10-12)
 	let naming = $state<{ sheetIds?: string[]; rule?: NonNullable<SheetPackage['rule']>; value: string } | null>(null)
@@ -112,7 +123,7 @@
 				<td class="px-2 muted">{p.rule ? `Rule: ${ruleText(p.rule, nameOf)}` : 'List'}</td>
 				<td class="px-2" title={m.map((r) => `${r.number} ${r.title}`).join('\n')}>{m.length}</td>
 				<td class="px-2">{p.purpose ?? '—'}</td>
-				<td class="px-2">{p.recipients?.map((r) => r.name).join(', ') || '—'}</td>
+				<td class="px-2">{resolveRecipients(p.recipients, contacts).map((r) => r.name).join(', ') || '—'}</td>
 				<td class="px-2 whitespace-nowrap">{last ? `${issueTag(numbers.get(last.id) ?? 0)} · ${last.date}` : 'never'}</td>
 				<td class="px-2 whitespace-nowrap">
 					{#if d.added.length}<span class="tag add" title="In it now, not in its last issue">+{d.added.length} added</span>{/if}
@@ -126,10 +137,18 @@
 				</td>
 			</tr>
 			{#if editing === p.id}
+				<!-- recipients: the project's contacts ticked (Settings › Sheets › Contacts), and any typed for this package only -->
+				{@const picked = new Set((p.recipients ?? []).map((r) => r.contactId).filter(Boolean))}
+				{@const oneOff = (p.recipients ?? []).filter((r) => !r.contactId)}
 				<tr class="edit"><td colspan="8" class="px-2 py-1">
 					<div class="form">
 						<label>Purpose <input class="cell w-48" list="cad-purposes" value={p.purpose ?? ''} placeholder="For construction" onchange={(e) => put({ ...p, purpose: e.currentTarget.value.trim() || undefined }, 'Package purpose')} /></label>
-						<label title="One per line: Name, Organisation">Recipients <textarea class="cell" rows="2" value={recipientsText(p.recipients)} placeholder="Name, Org" onchange={(e) => put({ ...p, recipients: parseRecipients(e.currentTarget.value) }, 'Package recipients')}></textarea></label>
+						<span class="rcp">Recipients
+							{#each contacts as c (c.id)}<label title={c.email ?? ''}><input type="checkbox" checked={picked.has(c.id)} onchange={(e) => setRecipients(p, e.currentTarget.checked ? [...(p.recipients ?? []), recipientOf(c)] : (p.recipients ?? []).filter((r) => r.contactId !== c.id))} /> {c.name}{c.org ? `, ${c.org}` : ''}</label>{/each}
+							{#if !contacts.length}<span class="text-zinc-500">(no contacts yet — Project › Settings… › Sheets)</span>{/if}
+						</span>
+						<label title="Typed for this package only — one per line: Name, Organisation">Others <textarea class="cell" rows="2" value={recipientsText(oneOff)} placeholder="Name, Org" onchange={(e) => setRecipients(p, [...(p.recipients ?? []).filter((r) => r.contactId), ...(parseRecipients(e.currentTarget.value) ?? [])])}></textarea></label>
+						{#if oneOff.length}<button class="btn" title="Make them project contacts (the next package can tick them)" onclick={() => toContacts(p)}>+ To contacts</button>{/if}
 						<label>Note <input class="cell w-64" value={p.note ?? ''} onchange={(e) => put({ ...p, note: e.currentTarget.value.trim() || undefined }, 'Package note')} /></label>
 					</div>
 					{#if issuesOf(p).length}
@@ -169,6 +188,8 @@
 	tr.edit { background: var(--cad-subtle); }
 	.form, .acts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 14px; padding: 2px 0; }
 	.form label { display: flex; align-items: flex-start; gap: 4px; color: var(--cad-muted); }
+	.rcp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; color: var(--cad-muted); }
+	.rcp label { color: var(--cad-text); align-items: center; }
 	.hist { display: flex; flex-wrap: wrap; gap: 2px 14px; padding: 2px 0; color: var(--cad-muted); }
 	.tag { border-radius: 3px; padding: 0 4px; margin-right: 3px; font-size: 10px; font-weight: 600; }
 	.add { background: #dcfce7; color: #166534; }
