@@ -3555,3 +3555,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Clouds on plans (not sheets) and clouds from before stay untagged. Tests in `domain/issue.test.ts`,
     `views/sheet.test.ts`. Tried live on Workflow test S001 (issued A, B): a new cloud came out "C" with its delta;
     Undo removed it. Not tried live: an issue retagging and hiding (it uploads a PDF).
+- **W19 Sheets from a template** (B18): a sheet's Properties › **A copy for each…** › other floor / other server room
+  (`app/sheetActions.ts` `sheetsForEach`, `domain/sheetEdit.ts` `sheetsFromTemplate`):
+  - The template's floor / room = what most of its viewports show (`templateOf`). Each other main floor (or server
+    room) without a copy from it yet (`Sheet.fromTemplate`) gets `duplicateSheet` (notes too): viewports of the
+    template's floor → that floor; for a room, its row / schedule / port views → that room on its floor (row / rack /
+    device ids dropped, row views fitted to its racks).
+  - Title: the template's floor / room name replaced; "Level 1" → "Level 2" (floor 0 → its name, "GF"); else
+    " — <name>" added. Number: on from the template's past numbers in use (E-101 → E-103 when E-102 is taken). Print
+    order right after it. One undo step; the copies selected.
+  - "Riser" in the backlog line: the riser view is building-wide, so there's nothing per riser to copy for — left out.
+  - Tests in `domain/sheetEdit.test.ts`. Tried live in Workflow test: S001 "Level 1 outlet plan" → S004 "GF outlet
+    plan" + S005 (L2); Undo took both out.

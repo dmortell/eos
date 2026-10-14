@@ -65,6 +65,8 @@ export interface Sheet {
 	cordRoute?: 'channels' | 'straight'
 	/** Brought in from a Sheets-tool sheet (`sheets:<sheetId>`, File › Import legacy drawings): importing it again skips it. */
 	importedFrom?: string
+	/** Made from a template sheet for one floor / server room (W19, "A copy for each…"): making them again skips it. */
+	fromTemplate?: { sheetId: Id; target: Id }
 }
 
 /** What a pane or a viewport shows: the plan, a named elevation, or a server room's racks (front / rear). The same

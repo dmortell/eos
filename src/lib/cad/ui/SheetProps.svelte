@@ -19,7 +19,7 @@
 	import { printRevision, today } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
 	import Field from './fields/Field.svelte'
-	import { duplicateSheets } from '../app/sheetActions'
+	import { duplicateSheets, sheetsForEach } from '../app/sheetActions'
 	import { issuesOfSheet, issueTag, changeLines } from '../domain/issue'
 	import type { Issue, SheetChange } from '../domain/drawing'
 	import { ordered, categoryOf } from '../domain/sheetCategories'
@@ -110,6 +110,13 @@
 	const offPicker = (v: Viewport) => v.view.spec.kind === 'fill' || (v.view.spec.kind === 'ports' && !rooms.some((r) => panelRacksOf(r.id).some((rk) => viewKey(v) === `ports:${rk.id}`)))
 	/** The view a viewport shows, in its own tab (the chip's “Open view”, from the list too). */
 	const openSource = (v: Viewport) => ws.openInTab({ levelId: v.view.levelId, spec: $state.snapshot(v.view.spec) })
+	/** W19: copies of this sheet for each other floor / server room; they're selected, and the status says how many. */
+	function forEach(kind: 'level' | 'room') {
+		const ids = sheetsForEach(project, s.id, kind)
+		if (!ids.length) { ws.say(`Every other ${kind === 'level' ? 'floor' : 'server room'} already has a sheet from ${s.number || s.title}`); return }
+		ws.select(ids)
+		ws.say(`${ids.length} sheet${ids.length === 1 ? '' : 's'} made from ${s.number || s.title} — check each one's title and viewports (Undo takes them all out)`)
+	}
 	let busy = $state(false)
 	async function pdf() {
 		busy = true
@@ -321,6 +328,12 @@
 	<div class="acts">
 		<button class="btn" disabled={busy} title="Download THIS sheet as a PDF at true scale (several sheets: select them in the Sheets tab → PDF)" onclick={pdf}>{busy ? 'Sheet PDF…' : 'Download sheet PDF'}</button>
 		<button class="btn" title="A copy with its viewports and notes (no number, no revisions), right after it" onclick={() => ws.select(duplicateSheets(project, [s.id]))}>Duplicate</button>
+		<!-- W19: this sheet as a template, one copy per other floor / server room -->
+		<select class="btn" value="" title="This sheet as a template: a copy for every other floor (or server room) that has none from it yet — its viewports show that floor / room, titled and numbered on from this one (one Undo)" onchange={(e) => { const k = e.currentTarget.value as 'level' | 'room' | ''; e.currentTarget.value = ''; if (k) forEach(k) }}>
+			<option value="">A copy for each…</option>
+			<option value="level">other floor</option>
+			{#if s.viewports.some((v) => (v.view.spec as { spaceId?: string }).spaceId)}<option value="room">other server room</option>{/if}
+		</select>
 	</div>
 {/if}
 

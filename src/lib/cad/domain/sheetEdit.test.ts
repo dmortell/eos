@@ -1,6 +1,6 @@
 // Duplicate a sheet; number a group of sheets from a pattern; untie a note from its viewport.
 import { describe, it, expect } from 'vitest'
-import { duplicateSheet, numberFrom, untie } from './sheetEdit'
+import { duplicateSheet, numberFrom, untie, sheetsFromTemplate } from './sheetEdit'
 import type { Sheet, Viewport } from './drawing'
 import type { Shape } from './shapes'
 
@@ -27,6 +27,30 @@ describe('sheet edits', () => {
 		expect(numberFrom('S9', 2)).toEqual(['S9', 'S10'])
 		expect(numberFrom('P101a', 2)).toEqual(['P101a', 'P102a'])
 		expect(numberFrom('RE', 2)).toEqual(['RE-01', 'RE-02'])
+	})
+})
+
+describe('sheets from a template (W19)', () => {
+	let n = 0
+	const id = () => `n${++n}`
+	const vp = (levelId: string, spec: Viewport['view']['spec'], vid = 'V1'): Viewport => ({ id: vid, view: { levelId, spec }, rect: { x: 0, y: 0, w: 100, h: 80 }, scale: 100, centre: { x: 5, y: 5 } })
+	const tpl = (extra: Partial<Sheet>): Sheet => ({ type: 'sheet', id: 'T', number: 'E-101', title: 'Level 1 outlet plan', order: 3, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [vp('L1', { kind: 'plan' })], status: 'active', ...extra })
+	const floors = [{ kind: 'level' as const, id: 'L0', levelId: 'L0', name: 'GF', number: 0 }, { kind: 'level' as const, id: 'L1', levelId: 'L1', name: 'L1', number: 1 }, { kind: 'level' as const, id: 'L2', levelId: 'L2', name: 'L2', number: 2 }]
+	it('one per other floor: re-pointed, titled, numbered past numbers in use, after it, marked', () => {
+		const note = { type: 'shape', id: 'N', sheetId: 'T', vpId: 'V1', geom: { kind: 'text', at: { x: 0, y: 0 }, text: 'x', sizeMm: 2.5 } } as Shape
+		const out = sheetsFromTemplate(tpl({}), [note], floors, { name: 'L1', number: 1 }, new Set(['E-101', 'E-102']), [], id)
+		expect(out.map((o) => [o.sheet.title, o.sheet.number, o.sheet.viewports[0].view.levelId])).toEqual([['GF outlet plan', 'E-103', 'L0'], ['Level 2 outlet plan', 'E-104', 'L2']])
+		expect(out.every((o) => o.sheet.order > 3 && o.sheet.order < 4 && !o.sheet.revisions)).toBe(true)
+		expect(out[1].sheet.fromTemplate).toEqual({ sheetId: 'T', target: 'L2' })
+		expect(out[1].notes.map((x) => [x.sheetId, x.vpId])).toEqual([[out[1].sheet.id, out[1].sheet.viewports[0].id]])
+		// run again: the floors that have one are skipped
+		expect(sheetsFromTemplate(tpl({}), [], floors, { name: 'L1', number: 1 }, new Set(), out.map((o) => o.sheet), id)).toEqual([])
+	})
+	it('one per other server room: its rack view, on its floor; the title names it, or gets it added', () => {
+		const t = tpl({ title: 'L1.20 Rack room elevations', viewports: [vp('L1', { kind: 'row', spaceId: 'SR1', rowId: 'ROW1', face: 'front' })] })
+		const out = sheetsFromTemplate(t, [], [{ kind: 'room', id: 'SR1', levelId: 'L1', name: 'L1.20 Rack room' }, { kind: 'room', id: 'SR2', levelId: 'L2', name: 'L2.05 IDF' }], { name: 'L1.20 Rack room' }, new Set(), [], id)
+		expect(out.map((o) => [o.sheet.title, o.sheet.viewports[0].view])).toEqual([['L2.05 IDF elevations', { levelId: 'L2', spec: { kind: 'row', spaceId: 'SR2', face: 'front' } }]])
+		expect(sheetsFromTemplate(tpl({ title: 'Rack elevations', viewports: t.viewports }), [], [{ kind: 'room', id: 'SR2', levelId: 'L2', name: 'IDF' }], { name: 'L1.20 Rack room' }, new Set(), [], id)[0].sheet.title).toBe('Rack elevations — IDF')
 	})
 })
 
