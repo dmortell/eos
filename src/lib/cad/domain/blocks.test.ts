@@ -15,6 +15,7 @@ describe('outlet symbols', () => {
 		expect(defaultOutletBlock({ usage: 'AP', tier: 'high', mount: 'ceiling' })).toBe('builtin:ap')
 		expect(defaultOutletBlock({ usage: 'desk', tier: 'high', mount: 'floor' })).toBe('builtin:outlet-ceiling')
 		expect(defaultOutletBlock({ usage: 'desk', tier: 'low', mount: 'wall' })).toBe('builtin:outlet-wall')
+		expect(defaultOutletBlock({ usage: 'ACS', tier: 'high', mount: 'wall' })).toBe('builtin:outlet-wall')   // W11: fed from the ceiling, still a wall plate
 		expect(defaultOutletBlock({ usage: 'desk', tier: 'low', mount: 'floor' })).toBe('builtin:outlet-floor')
 	})
 	it('{LABEL} is filled from the outlet; unknown tags stay', () => {

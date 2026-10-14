@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 38 entries (14 P2 · 24 P3; 3 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 37 entries (13 P2 · 24 P3; 2 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -91,7 +91,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo).
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo), W11.
 
 ### Floorplans
 
@@ -116,9 +116,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Outlets and racks
 
-- [ ] ⚡ **W11 Outlet defaults by mount** (B44, B56) — a ceiling outlet: tier High and Z at the ceiling; a wall outlet:
-  Z ~300 (a setting); its symbol by mount (a wall outlet said "Auto: Outlet – ceiling"). A new outlet's label doesn't
-  continue another kind's prefix (the ACS outlet came out "CAM 1.03"). **P2 · S**.
 - [ ] **W12 Ceiling-fed floor and wall outlets** (B44, B63) — in a building without underfloor containment a low
   outlet routes from the ceiling (down the wall) instead of "no route"; today a floor box needs a high drop plus a low
   run, two runs. Options: route low outlets to a high run with a wall drop; or tier from the run that serves the area.

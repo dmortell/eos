@@ -5,7 +5,8 @@ import { moveBy, canMove } from './behaviours'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from '../domain/project'
 import { EntityStore } from '../store/store'
-import { OutletTool } from './outletTool'
+import { OutletTool, type OutletNext } from './outletTool'
+import { defaultSettings } from '../domain/settings'
 import { demoProject } from '../domain/fixtures'
 import type { Outlet } from '../domain/types'
 import type { Entity } from '../domain/drawing'
@@ -166,5 +167,36 @@ describe('the outlet tool', () => {
 		const o = store.get(sel[0]) as Outlet
 		expect(o.zoneId).toBeUndefined()
 		expect(o.ports.every((p) => p.serverRoomId === 'SR-A')).toBe(true)
+	})
+	it('height and tier by mount; another usage continues its own series (W11)', async () => {
+		const store = new EntityStore()
+		store.load(demoProject())
+		let sel: string[] = [], next: OutletNext = {}
+		const tool = new OutletTool(() => next)
+		const c: ToolCtx = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 }, settings: { ...defaultSettings(), defaults: { ...defaultSettings().defaults, wallOutletMm: 450 } },
+			snap: (p) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		}
+		const at = (x: number) => { c.index = new ProjectIndex(store.all()); tool.down({ p: { x, y: 5000 }, shift: false, ctrl: false, alt: false }, c); return store.get(sel[0]) as Outlet }
+		tool.last = { ...(store.get('O1') as Outlet) }   // a floor box, Low
+		next = { mount: 'ceiling' }
+		const ceil = at(5000)
+		expect(ceil).toMatchObject({ mount: 'ceiling', tier: 'high' })
+		expect(ceil.z).toBeUndefined()                    // at the level's clear height (outletZ)
+		next = { mount: 'wall' }
+		expect(at(6000)).toMatchObject({ mount: 'wall', z: 450 })   // the Usages tab's height
+		const wall = store.get(sel[0]) as Outlet
+		store.transact('raise', (tx) => tx.put({ ...wall, z: 1100 }))
+		expect(at(7000)).toMatchObject({ mount: 'wall', z: 1100 })  // the same mount: as the last one
+		next = { mount: 'floor' }
+		expect(at(8000)).toMatchObject({ tier: 'low', z: 0 })
+		// a new usage: its own series, not the desks' "33-0xx"
+		next = { usage: 'ACS' }
+		expect(at(9000).label).toBe('ACS 33-001')
+		next = { usage: 'desk' }
+		expect(at(10000).label).toMatch(/^33-0\d\d$/)
+		next = { usage: 'ACS' }
+		expect(at(11000).label).toBe('ACS 33-002')
 	})
 })

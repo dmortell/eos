@@ -353,7 +353,8 @@ export interface ProjectSettings {
 	usages: { id: string; label: string; color: string }[]
 	/** `cores` = a multi-core cable (a 24-core fibre): Link to… puts that many cores in each cable (absent = 1). */
 	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number; cores?: number }[]
-	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number }
+	/** `wallOutletMm` = a new wall outlet's height above FFL (W11; absent = 300, as `outletZ`). */
+	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number; wallOutletMm?: number }
 }
 
 // ── The union ─────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -3468,3 +3468,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Uploads lists this project's folder first and open even before it has a file ("No files in this project yet").
   - Help: new "Start a new project" answer. Seen live: the Upload buttons on Workflow test's rows. NOT tried live: a
     real upload (it would add a file to Uploads), the New Project → cad hop and the Start page (needs a new project).
+- **W11 Outlet defaults by mount** (B44, B56), `editor/outletTool.ts`:
+  - A new mount starts from its own height and tier: Ceiling = High with no Z (the level's clear height, `outletZ`),
+    Wall = Settings › Usages "New wall outlets at" (`defaults.wallOutletMm`, 300), Floor / Box = Low at 0, Desk = as
+    the last. The same mount as the last outlet keeps its Z and tier (sticky, as before). The tool bar still wins.
+  - A label continues the last outlet of the SAME usage on the level (also its ports / cable type); a usage with none
+    there yet starts "<usage> <floor>-001" (the first outlet on an empty level stays "<floor>-001").
+  - `defaultOutletBlock`: a wall outlet is a wall plate whatever its tier (was "Outlet – ceiling" when High); a High
+    floor-mount one (imported high ports) stays a ceiling symbol. Existing High wall outlets on Auto change symbol.
+  - Tests in `editor/editor.test.ts`, `domain/blocks.test.ts`; Help: "A new outlet's label, height and tier".

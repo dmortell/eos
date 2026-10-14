@@ -135,6 +135,11 @@
 		<input class="code" placeholder="New code (e.g. CAM)" title="The code outlets and panels store — it can't be changed later; the label can" bind:value={newCode} onkeydown={(e) => enterKey(e) && addUsage()} />
 		<button class="btn" disabled={!newCode.trim()} onclick={addUsage}>+ Add usage</button>
 	</div>
+	<div class="foot">
+		<!-- W11: where a new wall outlet goes (a ceiling one: the level's clear height; a floor box: 0) -->
+		<label title="The height a new wall outlet is placed at, above the floor (FFL). Ceiling outlets go at the level's clear height, floor boxes at 0">New wall outlets at
+			<input class="mm" type="number" min="0" step="50" value={st.defaults.wallOutletMm ?? 300} onchange={(e) => { const v = Math.max(0, Math.round(Number(e.currentTarget.value) || 0)); save('Wall outlet height', (s) => ({ ...s, defaults: { ...s.defaults, wallOutletMm: v } })) }} /> mm</label>
+	</div>
 {:else if tab === 'lengths'}
 	<div class="form">
 		<label title="How port labels follow the outlet label: new outlets get it; existing ones can be relabelled">Port labels
@@ -211,6 +216,7 @@
 	input.lbl { width: 10rem; }
 	input.num { width: 4.5rem; }
 	input.code { width: 10rem; font-family: ui-monospace, monospace; }
+	input.mm { width: 5rem; margin: 0 2px; }
 	.del { color: var(--cad-muted, #71717a); padding: 0 4px; }
 	.del:hover:not(:disabled) { color: #b91c1c; }
 	.del:disabled { opacity: 0.3; }

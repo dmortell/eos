@@ -31,28 +31,43 @@ export class OutletTool implements Tool {
 		const prev = this.#lastHere(c) ?? lastOutletOn(c)
 		const level = c.index.get(c.levelId)
 		const used = new Set(c.index.outlets.filter((o) => o.levelId === c.levelId).map((o) => o.label))
-		let label = prev ? nextLabel(prev.label) : `${level?.type === 'level' ? level.number : ''}-001`
+		const bar = this.next()
+		// W11: another usage continues ITS OWN series (the last outlet of that usage here), not the last outlet's — an ACS
+		// outlet after the CAMs came out "CAM 1.03". A usage with none here yet starts "<usage> <floor>-001".
+		const usage = bar.usage ?? prev?.usage ?? ''
+		const like = prev && prev.usage === usage ? prev : lastOutletOn(c, usage)
+		const num = level?.type === 'level' ? level.number : ''
+		let label = like ? nextLabel(like.label) : usage && prev ? `${usage} ${num}-001` : `${num}-001`
 		while (used.has(label)) label = nextLabel(label)   // never reuse a label already on this level
 		const rooms = c.index.spaces.filter((s) => s.kind === 'server room' && s.levelId === c.levelId)
 		// the tool bar's zone was picked on a level: on another floor it doesn't apply (zones are per level). Its server
 		// room does: the bar lists every floor's rooms (with the floor), as floors are often served from another floor's
 		// room (backlog W2: GF / L2 outlets with L1.20, the building's only room, came out with none)
 		const onLevel = (id?: string) => (id && (c.index.get(id) as { levelId?: string } | undefined)?.levelId === c.levelId ? id : undefined)
-		const bar = this.next(), nx = { ...bar, zoneId: onLevel(bar.zoneId), serverRoomId: bar.serverRoomId && c.index.get(bar.serverRoomId) ? bar.serverRoomId : undefined }
-		const count = nx.ports ?? prev?.ports.length ?? 2
+		const nx = { ...bar, zoneId: onLevel(bar.zoneId), serverRoomId: bar.serverRoomId && c.index.get(bar.serverRoomId) ? bar.serverRoomId : undefined }
+		const count = nx.ports ?? like?.ports.length ?? prev?.ports.length ?? 2
+		// W11: height and tier by mount. The same mount as the last one keeps its height and tier (sticky); a new mount
+		// starts from its own — ceiling: High at the level's clear height (no Z: `outletZ`); wall: the Usages tab's
+		// "New wall outlets at" (300); floor / box: Low at 0; desk: as the last one.
+		const mount = nx.mount ?? like?.mount ?? prev?.mount ?? 'floor'
+		const same = like && like.mount === mount ? like : undefined
+		const tier = nx.tier ?? same?.tier ?? (mount === 'ceiling' ? 'high' : mount === 'floor' || mount === 'box' ? 'low' : like?.tier ?? prev?.tier ?? 'low')
+		const planZ = same ? same.z : mount === 'wall' ? c.settings?.defaults.wallOutletMm ?? 300 : mount === 'desk' ? like?.z ?? prev?.z : mount === 'ceiling' ? undefined : 0
+		const { at, z } = placeAt(c, e, planZ ?? 0)
+		const zz = c.space.spec.kind === 'plan' ? planZ : z
 		// zone and server room: the tool bar's, else the last outlet's; the first outlet on a level takes the level's
 		// server room when it has just one (backlog "Zones and server rooms when placing outlets")
 		const zoneId = nx.zoneId ?? prev?.zoneId
 		const roomOf = (i: number) => nx.serverRoomId ?? (prev ? prev.ports[i]?.serverRoomId ?? prev.ports[0]?.serverRoomId : rooms.length === 1 ? rooms[0].id : undefined)
 		const o: Outlet = {
 			type: 'outlet', id: newId(), levelId: c.levelId, label,
-			tier: nx.tier ?? prev?.tier ?? 'low', usage: nx.usage ?? prev?.usage ?? '', mount: nx.mount ?? prev?.mount ?? 'floor',
-			// in plan the height is sticky; on an elevation the click IS the height (an outlet placed on a wall elevation)
-			...placeAt(c, e, prev?.z ?? 0),
+			tier, usage, mount,
+			// in plan the height is by mount (above); on an elevation the click IS the height (an outlet placed on a wall)
+			at, ...(zz !== undefined ? { z: zz } : {}),
 			...(c.space.spec.kind !== 'plan' ? { inElevations: true } : {}),   // a plan outlet is a plan symbol: not in elevations
 			...(zoneId ? { zoneId } : {}),
 			ports: portLabelsFor(label, count, c.settings?.portSuffix ?? 'alpha', c.settings?.portSeparator ?? '.').map((l, i) => ({
-				port: i + 1, label: l, cableType: nx.cableType ?? prev?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
+				port: i + 1, label: l, cableType: nx.cableType ?? (like ?? prev)?.ports[i]?.cableType ?? c.settings?.defaults.outletCableType ?? 'cat6a',
 				...(roomOf(i) ? { serverRoomId: roomOf(i) } : {}),
 			})),
 		}
@@ -65,6 +80,7 @@ export class OutletTool implements Tool {
 	cancel(): void {}
 }
 
-function lastOutletOn(c: ToolCtx): Outlet | undefined {
-	return c.index.outlets.filter((o) => o.levelId === c.levelId).sort((a, b) => naturalCompare(a.label, b.label)).at(-1)
+/** The level's last outlet by label — of one usage when `usage` is given. */
+function lastOutletOn(c: ToolCtx, usage?: string): Outlet | undefined {
+	return c.index.outlets.filter((o) => o.levelId === c.levelId && (usage === undefined || o.usage === usage)).sort((a, b) => naturalCompare(a.label, b.label)).at(-1)
 }
