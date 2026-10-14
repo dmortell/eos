@@ -3749,3 +3749,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   (one run and several) — a ladder used to show as Tray (`RunKind` + `kindOf`, test in `runEdit.test.ts`). The
   Revision cloud hint now says it works on a sheet, a plan, an elevation or a section. Not tried live (a list option
   and a hint).
+- **W32 Small fixes**:
+  - A device placed (or dropped from the library) on a taken U goes to the NEAREST free U (a tie goes up) and says so;
+    the drop ghost shows that spot, red only when the rack has no room (B45: it was refused, silently on a drop).
+    `nearestFreeU` (domain/devices.ts), DeviceTool down / preview; tests in `editor/racks.test.ts`.

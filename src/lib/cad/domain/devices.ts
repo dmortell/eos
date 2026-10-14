@@ -306,6 +306,15 @@ export function deviceCounts(devices: Device[]): string {
 	return [...n].sort((a, b) => b[1] - a[1]).map(([k, c]) => `${c} ${KIND_NAMES[k][c === 1 ? 0 : 1]}`).join(' · ') || 'no devices'
 }
 
+/** The free U nearest the one asked for where `d` fits (its U itself when free; then 1 away above / below, 2 …; a tie
+ *  goes UP — the drop was just under a device, walkthrough B45). null = nowhere in the rack. */
+export function nearestFreeU(d: Device, rack: Rack, others: Device[]): number | null {
+	for (let k = 0; k < rack.heightU; k++) for (const u of k ? [d.u + k, d.u - k] : [d.u]) {
+		if (u >= 1 && !placementProblem({ ...d, u }, rack, others)) return u
+	}
+	return null
+}
+
 /** The lowest free U where a `heightU` device fits on `face`, scanning from the TOP down (the allocation order too). (Used by tests only.) */
 export function firstFreeU(rack: Rack, others: Device[], heightU: number, face: Device['face']): number | null {
 	for (let u = rack.heightU - heightU + 1; u >= 1; u--) {

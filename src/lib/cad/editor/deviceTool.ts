@@ -3,7 +3,7 @@
 // overlap or run off the rack is refused with the reason. The tool stays on for the next device.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Device, Id } from '../domain/types'
-import { deviceFromTemplate, placementProblem, RACK_DEVICE_W, roomFloor, type DeviceTemplate } from '../domain/devices'
+import { deviceFromTemplate, placementProblem, nearestFreeU, RACK_DEVICE_W, roomFloor, type DeviceTemplate } from '../domain/devices'
 import { nextLabel, naturalCompare } from '../domain/labels'
 import { rackLayout, rackHeight, RU_MM } from '../views/rackRow'
 import type { Prim } from '../views/display'
@@ -30,11 +30,14 @@ export class DeviceTool implements Tool {
 		if (!t) { c.say?.('Choose a device template first'); return }
 		if (!hit) { c.say?.('Click inside a rack, at the U where the device should sit'); return }
 		const all = c.store.ofType('device')
-		const d = this.#make(t, hit.rack.id, hit.u, nextName(t, all), c)
-		const problem = placementProblem(d, hit.rack, all)
-		if (problem) { c.say?.(problem); return }
+		const want = this.#make(t, hit.rack.id, hit.u, nextName(t, all), c)
+		// a taken U: the nearest free one instead (W32 / B45: a drop just under a device was refused, silently)
+		const u = placementProblem(want, hit.rack, all) ? nearestFreeU(want, hit.rack, all) : want.u
+		if (u === null) { c.say?.(placementProblem(want, hit.rack, all) ?? `No room for ${t.name} in ${hit.rack.name}`); return }
+		const d = { ...want, u }
 		c.store.transact(`Add ${d.name} to ${hit.rack.name}`, (tx) => tx.put(d))
 		c.select([d.id])
+		if (u !== want.u) c.say?.(`U${want.u} is taken — ${d.name} went to U${u}, the nearest free`)
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.hover(e, c) }
 	up(): void {}
@@ -51,11 +54,12 @@ export class DeviceTool implements Tool {
 		if (!t || !h || spec.kind !== 'row') return []
 		const l = rackLayout(c.index, spec).find((x) => x.rack.id === h.rack)
 		if (!l) return []
-		const u = t.kind === 'pdu' ? 1 : h.u, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2 + roomFloor(c.index, spec.spaceId)
+		// where `down` puts it: the U under the cursor, else the nearest free one (red: nowhere)
+		const want = this.#make(t, l.rack.id, t.kind === 'pdu' ? 1 : h.u, t.name, c), all = c.store.ofType('device')
+		const free = placementProblem(want, l.rack, all) ? nearestFreeU(want, l.rack, all) : want.u
+		const u = free ?? want.u, bad = free === null, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2 + roomFloor(c.index, spec.spaceId)
 		const w = Math.min(t.widthMm ?? RACK_DEVICE_W, l.rack.widthMm), x0 = l.x0 + (l.rack.widthMm - w) / 2, x1 = x0 + w
 		const y0 = -(base + (u - 1) * RU_MM), y1 = -(base + (u - 1 + t.heightU) * RU_MM)
-		const d = this.#make(t, l.rack.id, u, t.name, c)
-		const bad = !!placementProblem(d, l.rack, c.store.ofType('device'))
 		return [{ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls: bad ? 'draft draft-bad' : 'draft' }]
 	}
 }

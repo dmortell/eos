@@ -14,7 +14,7 @@ import { cordEndGrips, portPlus } from './portGrips'
 import { AssignTool } from './assignTool'
 import { deleteEntities, deleteImpact, impactText, installedCordsGoing } from './commands'
 import { patchList } from '../domain/reports'
-import { BUILTIN_DEVICE_TEMPLATES, type DeviceTemplate } from '../domain/devices'
+import { BUILTIN_DEVICE_TEMPLATES, nearestFreeU, type DeviceTemplate } from '../domain/devices'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
 import type { Entity } from '../domain/drawing'
@@ -132,13 +132,21 @@ describe('devices in the rack row', () => {
 		const added = h.store.ofType('device').find((d) => d.u === 30)
 		expect(added).toMatchObject({ rackId: 'R1', kind: 'panel', portCount: 24, name: 'PP1' })
 	})
-	it('a spot taken on that face is refused with the reason', () => {
+	it('a spot taken on that face: the nearest free U instead, saying so (W32 / B45: it was refused)', () => {
 		const h = harness(ROW)
 		const tool = new DeviceTool(() => tpl('builtin:panel-24'))
 		const p = uPoint(h.store, 'R1', 40)   // Panel 1 is at U40
 		tool.down(at(p.x, p.y), h.ctx())
-		expect(h.store.ofType('device')).toHaveLength(2)
-		expect(h.said[0]).toMatch(/overlap Panel 1/)
+		const added = h.store.ofType('device').filter((d) => d.id !== 'P1' && d.id !== 'SW1')
+		expect(added.map((d) => d.u)).toEqual([41])   // a tie goes up
+		expect(h.said[0]).toMatch(/U40 is taken .* U41/)
+	})
+	it('nearestFreeU: the U itself, else the closest free one either way; null when the rack is full', () => {
+		const rack = { type: 'rack', id: 'R', levelId: 'L', spaceId: 'S', order: 0, name: 'R', kind: 'cabinet', heightU: 4, widthMm: 600, depthMm: 1000 } as Rack
+		const dev = (id: string, u: number): Device => ({ type: 'device', id, rackId: 'R', name: id, kind: 'panel', u, heightU: 1, face: 'both', portCount: 24 })
+		expect(nearestFreeU(dev('n', 2), rack, [])).toBe(2)
+		expect(nearestFreeU(dev('n', 2), rack, [dev('a', 2), dev('b', 3)])).toBe(1)
+		expect(nearestFreeU(dev('n', 2), rack, [1, 2, 3, 4].map((u) => dev(`x${u}`, u)))).toBeNull()
 	})
 	it('Select drags a device by whole U; onto another rack it moves there', () => {
 		const h = harness(ROW, [R2])
