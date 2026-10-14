@@ -12,7 +12,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -157,6 +157,10 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		if (!row.changed) { pages.push(await loadFrozen(project, row.sheet.id, row.rev)); continue }
 		// frozen as it shows once issued (the title block reads the new rev / date); its change notes go onto the revision
 		const desc = f.descs?.[row.sheet.id]?.trim(), extra = { ...(desc ? { desc } : {}), ...(f.by?.trim() ? { by: f.by.trim() } : {}) }
+		// its clouds still on a draft code (W20: tagged before this code was chosen) take this one — before it is frozen,
+		// so the print's delta tags read it and the next issue hides them
+		const retag = tagDraftClouds(project.store.ofType('shape'), row.sheet, row.rev)
+		if (retag.length) project.store.transact(`Revision clouds on ${row.sheet.number}: ${row.rev}`, (tx) => { for (const s of retag) tx.put(s) })
 		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
 		const prims = frozenNow(project, next)
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)

@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -18,6 +18,25 @@ describe('change history (T102)', () => {
 		// a typed "what changed" wins; no notes → as before
 		expect(issuedRevision(s, { code: 'A', date: 'd', desc: 'Re-issued' }).revisions![0].desc).toBe('Re-issued')
 		expect(issuedRevision(sheet('S2'), { code: 'A', date: 'd' }).revisions).toEqual([{ code: 'A', date: 'd' }])
+	})
+})
+
+describe('revision clouds (W20)', () => {
+	const sheet = (codes: string[]) => ({ id: 'S', revisions: codes.map((code) => ({ code, date: '2026-10-15' })) })
+	it('a new cloud marks the revision being prepared', () => {
+		expect(draftRev(sheet([]))).toBe('A')
+		expect(draftRev(sheet(['A', 'B']))).toBe('C')
+		expect(draftRev(sheet(['P01']), 'P01')).toBe('P02')
+	})
+	it('shown: untagged, the last issued revision, or one not issued yet; an earlier revision is hidden', () => {
+		const s = sheet(['A', 'B'])
+		expect([undefined, 'B', 'C', 'A'].map((r) => cloudShown(s, r))).toEqual([true, true, true, false])
+		expect(cloudShown(sheet([]), 'A')).toBe(true)
+	})
+	it('at an issue as P1: the sheet’s clouds on a draft code take P1; issued ones, others’ and untagged stay', () => {
+		const c = (id: string, rev?: string, sheetId = 'S') => ({ id, sheetId, geom: { kind: 'cloud', ...(rev ? { rev } : {}) } })
+		const out = tagDraftClouds([c('1', 'A'), c('2', 'P0'), c('3'), c('4', 'A', 'T'), c('5', 'P1')], sheet(['P0']), 'P1')
+		expect(out.map((x) => [x.id, x.geom.rev])).toEqual([['1', 'P1']])
 	})
 })
 

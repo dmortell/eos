@@ -7,6 +7,7 @@ import type { Prim } from '../views/display'
 import type { Pt } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import { newId } from '../domain/ids'
+import { draftRev } from '../domain/issue'
 import { pickPrim } from './pick'
 import type { Sheet, Viewport } from '../domain/drawing'
 import { fromPaper, toPaper, viewportAt, viewportContent } from '../views/sheet'
@@ -134,7 +135,9 @@ export class NoteTool implements Tool {
 		const at = this.#where(c, pts)   // on a sheet the first point (a leader's tip) decides the viewport
 		if (!at) return
 		if (this.id === 'cloud' && pts.length >= 3) {
-			const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'cloud', pts: at.pts } } as Shape
+			// on a sheet: tagged with the revision being prepared (W20 — its delta tag; it hides after a later issue)
+			const sid = at.owner.sheetId, sh = typeof sid === 'string' ? c.index.get(sid) : undefined
+			const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'cloud', pts: at.pts, ...(sh?.type === 'sheet' ? { rev: draftRev(sh) } : {}) } } as Shape
 			c.store.transact('Revision cloud', (tx) => tx.put(s))
 			c.select([s.id])
 		} else if (this.id === 'leader' && pts.length >= 2) {

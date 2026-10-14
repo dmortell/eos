@@ -12,6 +12,18 @@ import type { Shape } from '../domain/shapes'
 const sheet = (extra: Partial<Sheet> = {}): Sheet => ({ type: 'sheet', id: 'SH', number: 'S-001', title: 'Plan', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [], status: 'active', ...extra })
 const ix = () => new ProjectIndex(demoProject())
 
+describe('revision clouds on a sheet (W20)', () => {
+	const cloud = (id: string, rev?: string) => ({ type: 'shape', id, sheetId: 'SH', geom: { kind: 'cloud', pts: [{ x: 50, y: 50 }, { x: 90, y: 50 }, { x: 90, y: 80 }], ...(rev ? { rev } : {}) } }) as Shape
+	const drawn = (s: Sheet) => sheetDisplayList(new ProjectIndex([...demoProject(), cloud('A1', 'A'), cloud('B1', 'B'), cloud('N')]), s).filter((p) => p.src && ['A1', 'B1', 'N'].includes(p.src))
+	it('each tagged cloud has its delta: a triangle and its code; an older revision’s cloud hides once a later one is issued', () => {
+		const onB = drawn(sheet({ revisions: [{ code: 'A', date: '2026-10-01' }] }))
+		expect([...new Set(onB.map((p) => p.src))].sort()).toEqual(['A1', 'B1', 'N'])   // A is the last issued, B the draft
+		expect(onB.filter((p) => p.k === 'text').map((p) => p.k === 'text' && p.text).sort()).toEqual(['A', 'B'])
+		const afterB = drawn(sheet({ revisions: [{ code: 'A', date: '2026-10-01' }, { code: 'B', date: '2026-10-15' }] }))
+		expect([...new Set(afterB.map((p) => p.src))].sort()).toEqual(['B1', 'N'])
+	})
+})
+
 describe('sheets', () => {
 	it('a faceplate put in an elevation viewport shows its front there, at the viewport’s scale (70 mm wide at 1:20 = 3.5 mm)', () => {
 		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'elevation' as const, dir: 'front' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 20, centre: { x: 0, y: 0 } }

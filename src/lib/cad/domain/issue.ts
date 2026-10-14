@@ -23,6 +23,24 @@ export function nextRev(code: string | undefined, first = 'A'): string {
 	return letters[1] + (i < 0 ? (cs[0] === 'a' ? 'a' : 'A') : '') + cs.join('')
 }
 
+/** REVISION CLOUDS (W20). The revision a cloud drawn on this sheet now marks: the one being prepared (after the
+ *  last issued; the first: `first`). */
+export const draftRev = (s: Pick<Sheet, 'revisions'>, first = 'A'): string => nextRev(s.revisions?.at(-1)?.code, first)
+/** Is a cloud of revision `rev` shown on this sheet? Untagged, or of the last issued revision, or of one not issued
+ *  yet: yes. Of an EARLIER revision: no — it is kept (and prints in that revision's frozen copy), just not drawn. */
+export function cloudShown(s: Pick<Sheet, 'revisions'>, rev: string | undefined): boolean {
+	if (!rev) return true
+	const codes = (s.revisions ?? []).map((r) => r.code), i = codes.lastIndexOf(rev)
+	return i < 0 || i === codes.length - 1
+}
+/** At an issue as `code`: the sheet's clouds still on a draft revision (not among its issued ones — drawn before the
+ *  code was chosen) take `code`, so the next issue hides them. Returns the clouds to rewrite. */
+export function tagDraftClouds<S extends { id: string; sheetId?: string; geom: { kind: string; rev?: string } }>(shapes: S[], s: Pick<Sheet, 'id' | 'revisions'>, code: string): S[] {
+	const issued = new Set((s.revisions ?? []).map((r) => r.code))
+	return shapes.filter((x) => x.sheetId === s.id && x.geom.kind === 'cloud' && x.geom.rev && !issued.has(x.geom.rev) && x.geom.rev !== code)
+		.map((x) => ({ ...x, geom: { ...x.geom, rev: code } }))
+}
+
 /** A floorplan in a frozen list: its file and page, not the rendered picture (that is a local blob). */
 export const UNDERLAY_REF = 'underlay:'
 /** An image shape's picture (backlog "Markup kinds" part 4): its file and page, resolved when shown or printed — the

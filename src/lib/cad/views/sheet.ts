@@ -22,6 +22,7 @@ import { legendShapePrims } from './legend'
 import { titleBlockPrims } from './titleBlock'
 import { scheduleTitle, patchScheduleLayout } from './schedule'
 import { fieldCtx, withFields } from '../domain/fields'
+import { cloudShown } from '../domain/issue'
 import { fillTitleBlock, shownTitleBlock, withDetails, drawnFallback, type TbContext, type TbShown, type TitleBlockTemplate, type ProjectDetails } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
@@ -227,7 +228,8 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	// paper notes (text, leaders, clouds — shapes owned by this sheet) over everything: a cloud may mark the title block
 	const shown = new Set(sheet.viewports.map((v) => v.view.levelId))   // a legend on the paper lists what its viewports show
 	const notes: Prim[] = []
-	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id).sort(byDrawOrder))
+	// (a revision cloud of an EARLIER issued revision is kept but not drawn, W20 — its own issue's frozen copy has it)
+	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id && (x.geom.kind !== 'cloud' || cloudShown(sheet, x.geom.rev))).sort(byDrawOrder))
 		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(sheet.frozen ?? []) }).draw : notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
 	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))

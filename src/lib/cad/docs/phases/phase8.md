@@ -3543,3 +3543,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     other A port passes over reserved ports in fill, or is skipped in step ("port 5 is reserved for CCTV").
   - Tests in `domain/cords.test.ts`, `domain/ports.test.ts` (a switch now takes reservations — the old "not a panel →
     null" check is replaced). Seen live: SW1 port 96 offers Reserve for… (ACS / AP / CCTV / TV).
+- **W20 Revision clouds tied to a revision** (B26):
+  - A cloud drawn on a sheet gets `geom.rev` = the revision being prepared (`domain/issue.ts` `draftRev`: after the
+    last issued code, 'A' first); Properties › Revision edits it (blank = untagged).
+  - Its DELTA TAG (`views/plan.ts` cloud prims): a triangle with the code off its top-right point, same layer / color.
+  - `cloudShown`: untagged, the last issued revision or a code not issued yet → drawn; an EARLIER issued revision →
+    kept but not drawn on the sheet (its own frozen issue copy still has it).
+  - At an issue, the sheet's clouds still on a draft code take the code it goes out as (`tagDraftClouds`, written
+    before the sheet is frozen, its own undo step "Revision clouds on S001: C"), so a typed code (P01) can't leave
+    them on a guess.
+  - Clouds on plans (not sheets) and clouds from before stay untagged. Tests in `domain/issue.test.ts`,
+    `views/sheet.test.ts`. Tried live on Workflow test S001 (issued A, B): a new cloud came out "C" with its delta;
+    Undo removed it. Not tried live: an issue retagging and hiding (it uploads a PDF).
