@@ -10,8 +10,8 @@ const RENDER_SCALE = 2
 /** `clip` = the crop set in Uploads, in plan mm (the image is drawn only inside it). */
 export interface Placed { url: string; x: number; y: number; w: number; h: number; clip?: { x0: number; y0: number; x1: number; y1: number } }
 type PageCalib = { origin?: { x: number; y: number }; scale?: { scale?: number }; crop?: { x: number; y: number; width: number; height: number } }
-/** A page's calibration as placed: `origin` (page points) lands on plan (0, 0), `sf` = mm per page point. */
-export interface PageCalibUsed { origin: { x: number; y: number }; sf: number; crop?: PageCalib['crop']; provisional: boolean }
+/** A page's calibration as placed: `origin` (page points) lands on plan (0, 0), `sf` = mm per page point; `page` = its size in points. */
+export interface PageCalibUsed { origin: { x: number; y: number }; sf: number; crop?: PageCalib['crop']; provisional: boolean; page?: { w: number; h: number } }
 /** An uncalibrated page is shown as if drawn at 1:100: a PDF point (1/72 in = 0.3528 mm) × 100. */
 export const PROVISIONAL_SF = (25.4 / 72) * 100
 
@@ -158,7 +158,7 @@ export class PdfCache {
 				const use: PageCalib = calibrated ? c! : { ...c, scale: { scale: PROVISIONAL_SF } }
 				const pl = placementFromCalib(use, r.width, r.height)
 				if (!pl) throw new Error('the page could not be placed')
-				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated }
+				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated, page: { w: r.width, h: r.height } }
 				const look = pageLook(fd, page)
 				if (look !== (this.looks[key] ?? '')) { if (look) this.looks[key] = look; else delete this.looks[key]; this.lookRev++ }
 				if (calibrated) delete this.problems[key]

@@ -3446,3 +3446,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `domain/issue.test.ts`. Not covered: a re-uploaded file under the same id (its url) — that's W4.
 - W1 follow-up (Dave 2026-10-14: "Undo and Keep"): the calibration offer's buttons are **Undo** (was "Put it back")
   and **Keep** (was "Cancel", which read as undoing it but kept the change); Esc = Keep. Help updated.
+
+## Walkthrough P2 quick wins (2026-10-14)
+
+- **W5 Paper-scale calibration** (B41): Project › Floors… › Plans & floorplans has a **1:** field after Origin ·
+  Scale · Crop — type the title block's scale (100, 1:100) and Enter: mm per point straight from the PDF page
+  (`editor/calibrateTool.ts` `paperScaleRecord`, 1:100 → 35.278). "100 A1" when the scale is for another paper size
+  than the PDF page (× that paper ÷ the page, long sides; A0–A4). Saved like Scale (Uploads' record, with a round-metre
+  dimension line across the page and `paper: '1:100'`), with the same "other projects" ask and Undo / Keep offer. The
+  field's placeholder shows the scale the page is at now; another floor's floorplan is rendered first (its page size
+  comes from the render: `PageCalibUsed.page`). Tested live in Workflow test on L2 (2F, A3): "Scaled: drawn at 1:100
+  (an A3 page)", then Undo. Tests in `editor/calibrateTool.test.ts`; Help's calibration answer updated.

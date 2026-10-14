@@ -18,7 +18,7 @@
 	import { defaultSettings } from '../domain/settings'
 	import { untrack } from 'svelte'
 	import { watchProjectPdfs, type PdfFile } from '../app/projectFiles'
-	import type { CalibMode } from '../editor/calibrateTool'
+	import { parsePaperScale, paperScaleRecord, paperOf, ratioOf, type CalibMode } from '../editor/calibrateTool'
 
 	/** `part`: which tab shows (none = another tab of the dialog). `oncalibrate`: set a floorplan's origin / scale / crop
 	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). */
@@ -76,6 +76,19 @@
 	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
 		const o = { x: 0, y: 0, ...u.origin, [k]: Number(v) || 0 }
 		putZone(l, u, 'floorplan offset', { origin: o.x || o.y ? o : undefined })
+	}
+	/** "Drawn at 1:___" (W5): the PDF page's size gives the scale in one step — "100", or "100 A1" when the title block's
+	 *  scale is for another paper size than the PDF page. Saved in the file like Scale (Uploads' record). */
+	async function setPaperScale(z: Underlay, t: string, input: HTMLInputElement) {
+		if (!t.trim()) return
+		input.value = ''
+		await project.pdf.placed(z)   // another floor's floorplan isn't drawn yet: its page size comes with the render
+		const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]
+		const q = parsePaperScale(t), rec = q && cal?.page && paperScaleRecord(q.n, cal.page, q.paper)
+		if (!cal?.page) { ws.say(`The floorplan couldn't be opened: ${project.pdf.problems[`${z.fileId}#${z.page ?? 1}`] ?? 'try again in a moment'}`); return }
+		if (!rec) { ws.say('Type the scale as 100 or 1:100 — add the paper size when it is not the PDF page size: 100 A1'); return }
+		const page = paperOf(cal.page)
+		ws.calibIO.write(z, 'scale', rec, `Scaled: drawn at ${rec.paper}${q!.paper ? '' : page ? ` (an ${page} page)` : ''}`)
 	}
 	function removeFloorplan(l: Level, z: Underlay) {
 		project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))
@@ -281,6 +294,8 @@
 						<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
 						<button onclick={() => oncalibrate(z, 'scale')} title="Click both ends of a distance you know, then type it">Scale</button>
 						<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
+						<!-- W5: the scale from the title block, no measuring -->
+						<label class="ratio" title="Drawn at 1:… — type the scale from the floorplan's title block (100) and press Enter. When it's for another paper size than this PDF page{cal?.page && paperOf(cal.page) ? ` (${paperOf(cal.page)})` : ''}, add it: 100 A1">1:<input placeholder={cal && !cal.provisional ? String(ratioOf(cal.sf)) : '___'} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void setPaperScale(z, e.currentTarget.value, e.currentTarget) } }} onchange={(e) => void setPaperScale(z, e.currentTarget.value, e.currentTarget)} /></label>
 					</span>
 				{/if}
 				<button class="x" title="Remove this floorplan (Undo brings it back)" onclick={() => removeFloorplan(l, z)}>✕</button>
@@ -326,6 +341,8 @@
 	.cal button + button { border-left: 1px solid var(--cad-line, #e4e4e7); }
 	.cal button:hover { background: var(--cad-sel, #dbeafe); }
 	.cal.todo { border-color: #f59e0b; }
+	.cal .ratio { display: inline-flex; align-items: center; gap: 1px; font-size: 10.5px; padding-left: 5px; border-left: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #71717a); }
+	.cal .ratio input { width: 3.6rem; font-size: 10.5px; padding: 0 3px; border: 0; background: transparent; }
 	button.x { color: var(--cad-muted, #71717a); padding: 0 4px; }
 	button.x:hover { color: #b91c1c; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }

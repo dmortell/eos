@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 41 entries (16 P2 · 25 P3; 5 ⚡ quick wins) — Dave's todos of 2026-10-14 (12) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 40 entries (15 P2 · 25 P3; 4 ⚡ quick wins) — Dave's todos of 2026-10-14 (12) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -95,7 +95,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes").
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5.
 
 ### Floorplans
 
@@ -103,8 +103,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes").
   in on every floor that used the old one, keeping origin, scale, crop, masks and hidden layers (or re-align by two
   point pairs when the architect moved the drawing on the page); the issue records which floorplan revision a sheet
   went out with (transmittal line). Today the live sheet broke at once and each floor needed ~15 actions. **P2 · M**.
-- [ ] ⚡ **W5 Paper-scale calibration** (B41) — a "drawn at 1:___" field: cad knows the PDF page size, so A3 at 1:100
-  calibrates in one step. Today: drag a line across the page and type a computed distance (41 986 mm). **P2 · S**.
 - [ ] **W6 Set up all floors in one pass** (B43) — Origin then Crop for each floor in turn without going back to the
   dialog, and a faint ghost of the floor below to check they line up. Today: a trip per floor per step, checked by
   reading Firestore. **P2 · M**.

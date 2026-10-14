@@ -24,6 +24,34 @@ export function scaleRecord(a: Pt, b: Pt, mm: number): { x1: number; y1: number;
 	const r = (v: number) => Math.round(v * 10) / 10
 	return { x1: r(a.x), y1: r(a.y), x2: r(b.x), y2: r(b.y), offset: 30, units: 'mm', distance: mm, scale: Math.round((mm / d) * 1000) / 1000 }
 }
+/** mm on paper per PDF point (1/72 in). */
+export const PT_MM = 25.4 / 72
+/** ISO paper sizes by their long side (mm), for "1:100 at A1" when the PDF page is another size. */
+export const PAPER_MM: Record<string, number> = { A0: 1189, A1: 841, A2: 594, A3: 420, A4: 297 }
+/** The ISO size a page (points) is, within 3 % on its long side; undefined for anything else. */
+export function paperOf(page: { w: number; h: number }): string | undefined {
+	const long = Math.max(page.w, page.h) * PT_MM
+	return Object.keys(PAPER_MM).find((k) => Math.abs(PAPER_MM[k] - long) <= PAPER_MM[k] * 0.03)
+}
+/** "100", "1:100", "100 A1", "1:100 @ A1", "1/100 at a1" → the scale and the paper it's for (W5). */
+export function parsePaperScale(t: string): { n: number; paper?: string } | null {
+	const m = /^\s*(?:1\s*[:/]\s*)?(\d+(?:\.\d+)?)\s*(?:(?:@|at|on)?\s*(A[0-4]))?\s*$/i.exec(t)
+	const n = m ? Number(m[1]) : NaN
+	return n > 0 ? { n, ...(m![2] ? { paper: m![2].toUpperCase() } : {}) } : null
+}
+/** The drawing's 1:N read back from mm per point (to 1 dp: a hand-measured scale isn't a round number). */
+export const ratioOf = (sf: number): number => Math.round((sf / PT_MM) * 10) / 10
+/** Uploads' scale record for a page drawn at 1:N (W5 "Paper-scale calibration"): mm per point straight from the paper
+ *  (on another `paper` size than the PDF page: × that paper ÷ the page, long sides). The dimension line Uploads draws
+ *  is a horizontal one across most of the page, a round number of metres long. */
+export function paperScaleRecord(n: number, page: { w: number; h: number }, paper?: string): ReturnType<typeof scaleRecord> & { paper: string } | null {
+	const long = Math.max(page.w, page.h) * PT_MM
+	if (!(n > 0) || !(long > 0) || (paper && !PAPER_MM[paper])) return null
+	const sf = n * PT_MM * (paper ? PAPER_MM[paper] / long : 1)
+	const distance = Math.max(1000, Math.round((page.w * 0.8 * sf) / 1000) * 1000)
+	const r = (v: number) => Math.round(v * 10) / 10, x1 = r(page.w * 0.1), y = r(page.h / 2)
+	return { x1, y1: y, x2: r(x1 + distance / sf), y2: y, offset: 30, units: 'mm', distance, scale: Math.round(sf * 1000) / 1000, paper: `1:${n}${paper ? ` at ${paper}` : ''}` }
+}
 /** Uploads' crop record (page points, whole) from two corners. */
 export function cropRecord(a: Pt, b: Pt): { x: number; y: number; width: number; height: number } {
 	const x = Math.round(Math.min(a.x, b.x)), y = Math.round(Math.min(a.y, b.y))

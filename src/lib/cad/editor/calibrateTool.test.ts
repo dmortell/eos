@@ -1,7 +1,7 @@
 // Calibrating a floorplan in place (backlog "Calibrate an image in place"): plan points back to page points, and the
 // records Uploads keeps (origin, scale, crop in page points).
 import { describe, it, expect } from 'vitest'
-import { toPage, scaleRecord, cropRecord, CalibrateTool, type CalibTarget } from './calibrateTool'
+import { toPage, scaleRecord, cropRecord, CalibrateTool, parsePaperScale, paperScaleRecord, paperOf, ratioOf, PT_MM, type CalibTarget } from './calibrateTool'
 import { placementFromCalib } from '../app/pdf.svelte'
 import type { Underlay } from '../domain/types'
 import type { ToolCtx, PointerIn } from './tools'
@@ -35,5 +35,39 @@ describe('calibrate in place', () => {
 		asked!(10000)
 		expect(wrote.at(-1)).toMatchObject(['scale', { distance: 10000, scale: 200 }])
 		expect(done).toBe(2)
+	})
+})
+
+describe('paper-scale calibration (W5)', () => {
+	const A3 = { w: 1190.55, h: 841.89 }   // landscape A3 in points
+	it('reads 100, 1:100, 1/100, "100 A1", "1:100 @ a1"; rejects the rest', () => {
+		expect(parsePaperScale('100')).toEqual({ n: 100 })
+		expect(parsePaperScale(' 1:100 ')).toEqual({ n: 100 })
+		expect(parsePaperScale('1/50')).toEqual({ n: 50 })
+		expect(parsePaperScale('100 A1')).toEqual({ n: 100, paper: 'A1' })
+		expect(parsePaperScale('1:100 @ a1')).toEqual({ n: 100, paper: 'A1' })
+		expect(parsePaperScale('1:100 at A3')).toEqual({ n: 100, paper: 'A3' })
+		for (const bad of ['', 'abc', '0', '100 A7', '1:']) expect(parsePaperScale(bad)).toBeNull()
+	})
+	it('A3 at 1:100 → 35.278 mm per point; the line Uploads draws is a round number of metres', () => {
+		const r = paperScaleRecord(100, A3)!
+		expect(r.scale).toBe(35.278)
+		expect(r.paper).toBe('1:100')
+		expect(r.distance % 1000).toBe(0)
+		expect(Math.abs((r.x2 - r.x1) * (100 * PT_MM) - r.distance)).toBeLessThan(5)   // the line is kept to 0.1 pt
+		expect(r.x2).toBeLessThanOrEqual(A3.w)
+		expect(ratioOf(r.scale)).toBe(100)
+	})
+	it('"1:100 at A1" printed on an A3 page: × 841 / 420', () => {
+		const r = paperScaleRecord(100, A3, 'A1')!
+		expect(r.scale).toBeCloseTo(100 * PT_MM * 841 / (A3.w * PT_MM), 2)
+		expect(r.paper).toBe('1:100 at A1')
+	})
+	it('knows the page size; rejects a zero scale or an empty page', () => {
+		expect(paperOf(A3)).toBe('A3')
+		expect(paperOf({ w: 595, h: 842 })).toBe('A4')
+		expect(paperOf({ w: 612, h: 792 })).toBeUndefined()   // US letter
+		expect(paperScaleRecord(0, A3)).toBeNull()
+		expect(paperScaleRecord(100, { w: 0, h: 0 })).toBeNull()
 	})
 })
