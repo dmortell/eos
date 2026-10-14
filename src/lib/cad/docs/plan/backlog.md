@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 6 entries (0 P1 · 0 P2 · 6 P3; 0 ⚡ quick wins) — all from Dave's todos and review of 2026-10-14 (next section; markdown strike / underline and zoom keys built); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 7 entries (0 P1 · 0 P2 · 7 P3; 0 ⚡ quick wins) — all from Dave's todos and review of 2026-10-14 (next section; markdown strike / underline and zoom keys built); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -45,6 +45,10 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 - [ ] **Shift constrains dimensions** (Dave 2026-10-14 todo) — Shift while placing a dimension's points keeps it
   horizontal / vertical, as it does for lines and runs (`editor/constrain.ts`); `editor/dimTool.ts` ignores Shift today.
   **P3 · S** (~20 lines).
+- [ ] **Edit file names on export** (Dave 2026-10-14 todo, ❓ consider) — let the user change the name an export
+  will save under (Excel schedules, PDFs, DXF, backups) before it downloads; today it is fixed, e.g.
+  `Patching-Workflow_test-L1.20_Rack_room-changes-20261014.xlsx`. Options: an editable name in each export dialog, or a
+  project-wide file-name pattern (`{project}-{what}-{date}`). **P3 · S–M**.
 - [ ] **Upload from Settings › Plans & floorplans** (Dave 2026-10-14 todo, walkthrough B4) — an Upload button (and a
   drop target) on each floor's "Choose a floorplan…" row: the PDF goes to the project's Uploads like File › Uploads…
   does, then its page is picked for that floor. Today the select only lists files already uploaded. **P3 · S–M**

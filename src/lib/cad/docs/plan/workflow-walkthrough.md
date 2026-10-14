@@ -386,3 +386,33 @@ Then, from the desk study:
 - wall-mount racks (B32);
 - change highlight (B28);
 - the change-log decision (B30).
+
+### Round 2 (Dave's installer tasks, 2026-10-14)
+
+Tasks: patch schedule export, mark installed, GF / L2 outlets, the riser down to GF, patch the new outlets, change
+export, rack elevations and riser fill on sheets, an installer package, an ACS panel (800 × 1200 × 200, 1000 off the
+floor) with a floor-to-ceiling riser, and the ACS outlet patched.
+
+**Worked well:**
+- Exports: the patch schedule (a sheet per room plus a cord BOM) and the "changes only" export (22 ADD).
+- Marking 18 cords installed: Ctrl+A, then right-click › Installed.
+- Risers: V + 0 down to GF, with an EPS box in the riser view; R + 2600 for the vertical riser.
+- The ACS panel with the Box tool: height 1200, Z 1000, a corner click and `800,200` typed. It shows in the front
+  elevation.
+- To sheet from the rack view makes a "Rack elevations" sheet.
+
+**Bug fixed:** Packages › + From selection made no package; the store froze a `$state` proxy. Fixed in 782836ee.
+
+**New findings:**
+- **B53 Outlets on another floor lose the server room.** Outlets on GF / L2 came out with no server room, though the
+  tool bar's Server room was set to L1.20 (the building's only room). They had to be set in Properties before
+  allocating.
+- **B54 Cords cover the ports.** Cords drawn over a panel's lower row hide its ports. Patching more ports meant hiding
+  the Patch cords layer; my misclicks once started a "Link 0 backbone cables" dialog.
+- **B55 Fill sheets stack and share a title.**
+  - A second "Put on sheet" lands exactly on top of the first fill viewport.
+  - Both are titled "Fill · Run · seg 1"; a riser has no label, so "Riser L1↕GF" would be clearer.
+- **B56 A new outlet continues the last outlet's label.** The ACS outlet became "CAM 1.03". A wall outlet's symbol says
+  "Auto: Outlet – ceiling".
+- **B57 Wall-mounted equipment is a plain box.** There is no panel / cabinet kind, the same as B32 / B33.
+- **B58 Export file names are fixed** (Dave's todo, now in the backlog).
