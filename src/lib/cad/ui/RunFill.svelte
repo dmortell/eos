@@ -11,15 +11,19 @@
 	import { fillTone, packCables, cableOd, cableColor, cableCountText, FILL_LIMIT_PCT, segKey } from '../domain/fill'
 	import { activeSheets } from '../app/shellActions'
 	import { viewToSheet } from '../app/sheetActions'
+	import { riserLevels } from '../domain/fill'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
 
 	const segs = $derived(s.geom.kind === 'path' ? s.geom.segs.map((g, i) => ({ i: i + 1, g, f: project.fills.get(segKey(s.id, g.id)) })).filter((x) => x.f) : [])
 	const worst = $derived(segs.reduce<(typeof segs)[number] | null>((m, x) => (!m || x.f!.pct > m.f!.pct ? x : m), null))
-	/** The section drawn: the segment picked in the run (a row click here, or a click on it in the view), else the fullest. */
+	/** A riser's vertical segment (between two levels) — on a riser that's the section wanted (W22). */
+	const riser = $derived(segs.find((x) => riserLevels(project.index, s, x.g)))
+	/** The section drawn: the segment picked in the run (a row click here, or a click on it in the view), else the
+	 *  riser segment, else the fullest. */
 	const shown = $derived.by(() => {
 		const ps = ws.pathSel
-		return (ps?.shape === s.id && ps.segs.length === 1 ? segs.find((x) => x.g.id === ps.segs[0]) : undefined) ?? worst
+		return (ps?.shape === s.id && ps.segs.length === 1 ? segs.find((x) => x.g.id === ps.segs[0]) : undefined) ?? riser ?? worst
 	})
 	const od = (t: string) => shown?.f?.od?.[t] ?? cableOd(project.settings, t)
 	const packed = $derived.by(() => {
@@ -41,13 +45,13 @@
 	const sheets = $derived(activeSheets(project))
 	function toSheet(target: string) {
 		if (!target || !shown || !s.levelId) return
-		const seg = shown.i, name = s.label || 'Run'   // read before the sheet opens: the selection (and this panel) changes
+		const seg = shown.i, name = s.label || 'Run', what = riserLevels(project.index, s, shown.g)   // read before the sheet opens: the selection (and this panel) changes
 		const r = viewToSheet(project, ws, { levelId: s.levelId, spec: { kind: 'fill', shapeId: s.id, segId: shown.g.id } }, { x0: 0, y0: 0, x1: 0, y1: 0 }, target)
 		if (!r) return
 		ws.openView({ kind: 'sheet', sheetId: r.sheet.id })
 		ws.select([r.sheet.id])
 		ws.selectViewport(r.vpId)
-		ws.say(`${name} seg ${seg}’s fill is on ${r.sheet.number} — drag it into place`)
+		ws.say(`${name} ${what ? `riser ${what}` : `seg ${seg}`}’s fill is on ${r.sheet.number} — drag it into place`)
 	}
 
 	// cables by hand: one undo step per edit
@@ -94,7 +98,7 @@
 			{#if p.round}<circle r={p.w / 2} class="wall" />{:else}<rect x={-p.w / 2} y={-p.h / 2} width={p.w} height={p.h} class="wall" />{/if}
 			{#each p.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
 		</svg>
-		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}{p.capped ? ` · first ${p.cables.length + p.dropped} drawn` : ''}</p>
+		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}{shown === riser ? ` (riser ${riserLevels(project.index, s, riser.g)})` : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}{p.capped ? ` · first ${p.cables.length + p.dropped} drawn` : ''}</p>
 		<select class="inp tosheet" value="" title="This segment’s section, its fill % and its cables as a viewport on a sheet (at 1:1, the section at a true scale)" onchange={(e) => { toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">Put on sheet…</option>
 			<option value="new">New sheet</option>

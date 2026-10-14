@@ -4,8 +4,9 @@ import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Shape } from '../domain/shapes'
-import { fillBySegment, segKey } from '../domain/fill'
-import { fillSectionDisplayList, pctText } from './fillSection'
+import { fillBySegment, segKey, riserLevels } from '../domain/fill'
+import { fillSectionDisplayList, fillTitle, pctText } from './fillSection'
+import type { Entity } from '../domain/drawing'
 
 const withCables = () => demoProject().map((e) => (e.id === 'T1' && e.type === 'shape' && e.role?.kind === 'containment' ? { ...e, role: { ...e.role, extra: [{ type: 'cat6a', n: 12 }, { type: 'power', n: 2, d: 10 }] } } : e))
 
@@ -30,5 +31,16 @@ describe('fill section on paper', () => {
 	})
 	it('a segment with nothing through it says so', () => {
 		expect(fillSectionDisplayList(ix, 'T1', seg!.id, new Map()).some((p) => p.k === 'text' && p.text === 'No cables through this segment')).toBe(true)
+	})
+	it('a riser segment is titled by the floors it joins; a rise on one level is not (W22)', () => {
+		expect(fillTitle(ix, 'T1', run.geom.kind === 'path' ? run.geom.segs[1].id : '')).toBe('T1 · seg 2')   // a drop on 33F
+		// the run's far end on 32F: its vertical segment is a riser
+		const ents = withCables().map((e) => (e.id === 'T1' && e.type === 'shape' && e.geom.kind === 'path' ? { ...e, label: '', geom: { ...e.geom, nodes: e.geom.nodes.map((n, i) => (i === 2 ? { ...n, levelId: 'L32' } : n)) } } : e))
+		const ix2 = new ProjectIndex([...ents, { type: 'level', id: 'L32', buildingId: 'B', number: 32, name: '32F', order: 32, elevationMm: 128000 } as Entity])
+		const r = ix2.get<Shape>('T1')!
+		if (r.geom.kind !== 'path') throw new Error('a path')
+		expect(riserLevels(ix2, r, r.geom.segs[1])).toBe('33F ↕ 32F')
+		expect(riserLevels(ix2, r, r.geom.segs[0])).toBeNull()
+		expect(fillTitle(ix2, 'T1', r.geom.segs[1].id)).toBe('Riser 33F ↕ 32F')
 	})
 })

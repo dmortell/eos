@@ -3483,3 +3483,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`floorplanBounds`; else the middle of the pane). Zoomed in (a server room), as before: the largest scale that
   fits, sized to it. `viewToSheet` passes the floorplan placements. Test in `domain/legend.test.ts`. Tried live in
   Workflow test on GF: S004 at 1:100 filling the A3 drawing area on the crop; Undo removed it.
+- **W22 Fill views on sheets** (B55, B61):
+  - Placement: a viewport put on a sheet ("Put on sheet…" / To sheet…, paper views and zoomed-in views) goes to the
+    first free spot of the drawing area, row by row, 5 mm clear of the others (`views/sheet.ts` `freeSpot`); none free
+    = the top-left as before.
+  - Title: a riser segment (vertical, between two levels: `domain/fill.ts` `riserLevels`) is "Fill · Riser L1 ↕ GF"
+    (with the run's label in front when it has one) on the paper, in the View list / tabs (`navTree`) and the status.
+  - Segment: Properties › Fill shows (and puts on a sheet) the picked segment, else the riser segment, else the
+    fullest. B61's "puts the fullest, not the one you picked" was the riser case: a picked segment was already used.
+  - Tests in `views/fillSection.test.ts`, `domain/legend.test.ts`. Seen live: Workflow test's S003 now reads "Fill ·
+    Riser L1 ↕ GF" / "Fill · Riser L2 ↕ L1".

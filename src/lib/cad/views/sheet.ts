@@ -269,7 +269,7 @@ export function floorplanBounds(ix: ProjectIndex, levelId: Id, underlay: SheetOp
 
 /** A viewport of the view you're looking at (backlog "A sheet from the current view"): centred on what the pane
  *  shows (`visible`, view mm), at the largest standard scale at which that fits the sheet's drawing area, sized to it
- *  (but never past the area), in the area's top-left corner. A PLAN zoomed out further than that at 1:100 (the whole
+ *  (but never past the area), at the area's first free spot (`freeSpot`). A PLAN zoomed out further than that at 1:100 (the whole
  *  floor on screen) is the floor's sheet (W18): at the plan's own 1:100, filling the drawing area, centred on the
  *  floorplan's crop (not the whole PDF page with the architect's title block). */
 export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], visible: Bounds, id: Id, o: SheetOpts = {}): Viewport {
@@ -282,9 +282,10 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 		const f = floorplanBounds(ix, view.levelId, o.underlay), c = f ?? visible
 		return { id, view, scale: PLOT_SCALE, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }
 	}
+	const size = { w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) }
 	return {
 		id, view, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
-		rect: { x: a.x + inset, y: a.y + inset, w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) },
+		rect: { ...freeSpot(sheet, { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH }, size.w, size.h), ...size },
 	}
 }
 
@@ -359,13 +360,25 @@ export function paperFit(vp: Pick<Viewport, 'rect'>): Pick<Viewport, 'centre' | 
 }
 
 /** A paper view put on a sheet (Properties › Fill › Put on sheet…, a schedule or port grid from its pane): at 1:1,
- *  sized to what it draws (never past the drawing area: a long schedule shows what fits and says how many more), in
- *  the area's top-left corner. */
+ *  sized to what it draws (never past the drawing area: a long schedule shows what fits and says how many more), at
+ *  the first free spot of the area (`freeSpot`). */
 export function paperViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], id: Id, o: SheetOpts = {}): Viewport {
 	const a = drawingArea(ix, sheet, o), inset = 5
 	const room = { x: a.x + inset, y: a.y + inset, w: a.w - 2 * inset, h: a.h - 2 * inset }
 	// what it draws, text included (its extent, not just its anchor)
 	const b = unionBounds(viewportContent(ix, { id, view, rect: room, scale: 1, centre: { x: 0, y: 0 } }, o).filter((p) => p.k !== 'image').map(primBounds))
-	const rect = b ? { ...room, w: Math.min(room.w, Math.ceil(b.x1 + 2 * PAPER_PAD)), h: Math.min(room.h, Math.ceil(b.y1 + 2 * PAPER_PAD)) } : { ...room, w: 100, h: 60 }
+	const size = b ? { w: Math.min(room.w, Math.ceil(b.x1 + 2 * PAPER_PAD)), h: Math.min(room.h, Math.ceil(b.y1 + 2 * PAPER_PAD)) } : { w: 100, h: 60 }
+	const rect = { ...freeSpot(sheet, room, size.w, size.h), ...size }
 	return { id, view, rect, ...paperFit({ rect }) }
+}
+
+/** Where a new w × h window goes in `room` (the drawing area less its inset): the first spot, row by row from the
+ *  top-left in 5 mm steps, that keeps 5 mm clear of every viewport on the sheet (W22: a second "Put on sheet" landed on
+ *  top of the first). No room left: the top-left, as before. */
+export function freeSpot(sheet: Pick<Sheet, 'viewports'>, room: { x: number; y: number; w: number; h: number }, w: number, h: number): { x: number; y: number } {
+	const gap = 5, step = 5, vps = sheet.viewports.map((v) => v.rect)
+	const clear = (x: number, y: number) => vps.every((r) => x + w + gap <= r.x || r.x + r.w + gap <= x || y + h + gap <= r.y || r.y + r.h + gap <= y)
+	for (let y = room.y; y + h <= room.y + room.h; y += step)
+		for (let x = room.x; x + w <= room.x + room.w; x += step) if (clear(x, y)) return { x, y }
+	return { x: room.x, y: room.y }
 }

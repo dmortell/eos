@@ -11,6 +11,7 @@ import type { Sheet, SectionCut, Entity, SheetPackage } from './drawing'
 import type { ViewSpec } from '../views/space'
 import { naturalCompare } from './labels'
 import { portMapTitle } from './portMap'
+import { riserLevels } from './fill'
 
 export interface NavNode {
 	key: string
@@ -129,7 +130,13 @@ export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string
 		case 'portmap': return portMapTitle(ix, spec.deviceIds)
 		case 'ports': return `${ix.nameOf(spec.rackId) || '(rack gone)'}${spec.deviceId ? ` · ${ix.nameOf(spec.deviceId) || '(gone)'}` : ''} port grid`
 		case 'schedule': return `Patch schedule${spec.spaceId ? ` · ${ix.nameOf(spec.spaceId) || '(room gone)'}` : ' (all rooms)'}${spec.start && spec.start > 1 ? ` from #${spec.start}` : ''}`
-		case 'fill': { const s = ix.get(spec.shapeId); const i = s?.type === 'shape' && s.geom.kind === 'path' ? s.geom.segs.findIndex((g) => g.id === spec.segId) : -1; return `Fill · ${ix.nameOf(spec.shapeId) || (s ? 'Run' : '(run gone)')}${i >= 0 ? ` seg ${i + 1}` : ''}` }
+		case 'fill': {
+			const s = ix.get(spec.shapeId), segs = s?.type === 'shape' && s.geom.kind === 'path' ? s.geom.segs : [], i = segs.findIndex((g) => g.id === spec.segId)
+			const riser = i >= 0 && s?.type === 'shape' ? riserLevels(ix, s, segs[i]) : null   // W22: "Fill · Riser L1 ↕ GF"
+			const run = ix.nameOf(spec.shapeId)
+			if (riser) return `Fill · ${run ? `${run} · ` : ''}Riser ${riser}`
+			return `Fill · ${run || (s ? 'Run' : '(run gone)')}${i >= 0 ? ` seg ${i + 1}` : ''}`
+		}
 	}
 }
 

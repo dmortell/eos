@@ -6,7 +6,7 @@ import { legendCandidates, legendShown } from './legend'
 import { freezeInExisting } from './layers'
 import { BUILTIN_BLOCKS } from './blocks'
 import { planDisplayList } from '../views/plan'
-import { viewViewport, drawingArea } from '../views/sheet'
+import { viewViewport, drawingArea, freeSpot } from '../views/sheet'
 import { EntityStore } from '../store/store'
 import { ShapeTool } from '../editor/shapeTool'
 import { spaceOf, PLAN } from '../views/space'
@@ -65,6 +65,12 @@ describe('a sheet from the current view', () => {
 		expect(vp.centre).toEqual({ x: 21000, y: 10000 })   // the crop's middle, moved by the floorplan's X offset
 		const a = drawingArea(ixU, sheet)
 		expect(vp.rect).toEqual({ x: a.x + 5, y: a.y + 5, w: a.w - 10, h: a.h - 10 })
+		// a second view onto the same sheet goes beside the first, not on top of it (W22)
+		const room = { x: 10, y: 10, w: 300, h: 200 }, first = { ...vp, rect: { x: 10, y: 10, w: 100, h: 80 } }
+		expect(freeSpot({ viewports: [] }, room, 100, 80)).toEqual({ x: 10, y: 10 })
+		expect(freeSpot({ viewports: [first] }, room, 100, 80)).toEqual({ x: 115, y: 10 })     // beside it, 5 mm clear
+		expect(freeSpot({ viewports: [first] }, room, 250, 80)).toEqual({ x: 10, y: 95 })      // too wide beside: below
+		expect(freeSpot({ viewports: [first] }, room, 300, 200)).toEqual({ x: 10, y: 10 })     // no room: top-left
 		// no floorplan: the middle of what the pane shows
 		expect(viewViewport(ix, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 0, y0: 0, x1: 80000, y1: 40000 }, 'V').centre).toEqual({ x: 40000, y: 20000 })
 	})

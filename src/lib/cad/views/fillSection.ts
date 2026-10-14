@@ -7,7 +7,7 @@ import type { Id, ProjectSettings } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from './display'
 import { cableTypeLabel } from '../domain/cableTypes'
-import { cableColor, cableCountText, cableOd, fillTone, insideOf, packCables, segKey, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
+import { cableColor, cableCountText, cableOd, fillTone, insideOf, packCables, segKey, riserLevels, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
 
 /** The section's scales (1:N): the closest at which it fits a 80 × 60 mm box. */
 const SCALES = [1, 2, 5, 10, 20], BOX_W = 80, BOX_H = 60
@@ -16,12 +16,16 @@ const TONE: Record<ReturnType<typeof fillTone>, string> = { ok: '#15803d', warn:
 /** "28.3%", as Properties › Fill shows it. */
 export const pctText = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` : 'no section size')
 
-/** The run and segment named: "T1 · seg 2". */
+/** The run and segment named: "T1 · seg 2"; a riser segment: "T1 · Riser L1 ↕ GF" ("Riser L1 ↕ GF" unnamed). */
 export function fillTitle(ix: ProjectIndex, shapeId: Id, segId: Id): string {
 	const s = ix.get<Shape>(shapeId)
 	if (s?.type !== 'shape' || s.geom.kind !== 'path') return 'Fill section (run gone)'
 	const i = s.geom.segs.findIndex((g) => g.id === segId)
-	return `${s.label || ix.nameOf(s.id) || 'Run'} · ${i < 0 ? 'segment gone' : `seg ${i + 1}`}`
+	const run = s.label || ix.nameOf(s.id)
+	const riser = i < 0 ? null : riserLevels(ix, s, s.geom.segs[i])
+	// W22: a riser segment says which floors it joins ("Riser L1 ↕ GF"), so two fill views don't share a title
+	if (riser) return `${run ? `${run} · ` : ''}Riser ${riser}`
+	return `${run || 'Run'} · ${i < 0 ? 'segment gone' : `seg ${i + 1}`}`
 }
 
 export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id, fills: Map<string, SegFill>): Prim[] {

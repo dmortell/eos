@@ -5,7 +5,7 @@
 // section less a 3 mm wall; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
 // tested in fill.test.ts.
-import type { Id, ProjectSettings } from './types'
+import type { Id, Level, ProjectSettings } from './types'
 import { cableTypeOf, cableMedia } from './cableTypes'
 import type { Section, Shape } from './shapes'
 import type { ProjectIndex } from './project'
@@ -59,6 +59,18 @@ export interface SegFill {
 	over: boolean
 }
 export const segKey = (shape: Id, seg: Id) => `${shape}:${seg}`
+
+/** A run's vertical segment between two levels (a riser) → "L1 ↕ GF", upper floor first; any other segment → null.
+ *  Fill views name and pick it by this (W22). */
+export function riserLevels(ix: ProjectIndex, s: Shape, g: { a: Id; b: Id }): string | null {
+	if (s.geom.kind !== 'path') return null
+	const na = s.geom.nodes.find((n) => n.id === g.a), nb = s.geom.nodes.find((n) => n.id === g.b)
+	if (!na || !nb || na.x !== nb.x || na.y !== nb.y) return null
+	const la = ix.get<Level>(na.levelId ?? s.levelId ?? ''), lb = ix.get<Level>(nb.levelId ?? s.levelId ?? '')
+	if (la?.type !== 'level' || lb?.type !== 'level' || la.id === lb.id) return null
+	const [hi, lo] = la.number >= lb.number ? [la, lb] : [lb, la]
+	return `${hi.name} ↕ ${lo.name}`
+}
 
 /** The fill of every run segment that has cables routed through it, estimated through it or added by hand. */
 export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT, estimates: readonly Estimate[] = []): Map<string, SegFill> {
