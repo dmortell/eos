@@ -3444,3 +3444,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   PdfCache keeps each page's look and bumps `lookRev` when one changes; the register's states re-check on it (a mask
   edit isn't a project edit). Issue and preview use the same print (`app/issue.ts` `printNow`). Tests in
   `domain/issue.test.ts`. Not covered: a re-uploaded file under the same id (its url) — that's W4.
+- W1 follow-up (Dave 2026-10-14: "Undo and Keep"): the calibration offer's buttons are **Undo** (was "Put it back")
+  and **Keep** (was "Cancel", which read as undoing it but kept the change); Esc = Keep. Help updated.

@@ -289,7 +289,7 @@ export class CadProject {
 	}
 	/** Set a floorplan page's calibration field in its FILE (`files/{id}.pages[page].origin | scale | crop`, the Uploads
 	 *  format — so Uploads, Pages and every project using the file agree; backlog "Calibrate an image in place").
-	 *  Returns what it was, for "Put it back" (the file isn't in the drawing's undo). */
+	 *  Returns what it was, for its "Undo" (the file isn't in the drawing's undo). */
 	async setPageCalib(fileId: string, page: number, field: 'origin' | 'scale' | 'crop', value: unknown): Promise<unknown> {
 		const ref = doc(this.db, 'files', fileId), fd = (await getDoc(ref)).data()
 		const was = (fd?.pages?.[page] ?? fd?.pages?.[String(page)])?.[field]

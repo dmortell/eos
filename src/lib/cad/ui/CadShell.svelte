@@ -492,14 +492,14 @@
 	})
 	// ── calibrating a floorplan in place (backlog "Calibrate an image in place"): Project settings › Plans & floorplans ›
 	// Origin / Scale / Crop arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE
-	// (Uploads' format) — not in the drawing's undo, so each change offers "Put it back" ──
+	// (Uploads' format) — not in the drawing's undo, so each change offers "Undo" (or "Keep") ──
 	ws.calibIO = {
 		calib: (u) => project.pdf.calib[`${u.fileId}#${u.page ?? 1}`],
 		write: (u, field, value, what) => {
 			const page = u.page ?? 1
 			const save = () => project.setPageCalib(u.fileId, page, field, value).then(
-				(was) => ws.offerRevert(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Put it back',
-					() => void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Put back as it was'), (e) => (project.error = `Couldn't put it back: ${(e as Error).message}`))),
+				(was) => ws.offerRevert(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Undo',
+					() => void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Undone — the floorplan is as it was'), (e) => (project.error = `Couldn't undo it: ${(e as Error).message}`))),
 				(e) => (project.error = `Couldn't save the calibration: ${(e as Error).message}`))
 			// the calibration is the FILE's: another project using the same floorplan moves with it — ask first
 			project.fileProjects(u.fileId).then((pids) => {

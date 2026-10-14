@@ -31,7 +31,7 @@
 		<div class="row">
 			<button bind:this={yesBtn} class="yes" onclick={() => answer(q.apply)}>{q.yes}</button>
 			{#if q.alt}{@const alt = q.alt}<button class="yes" onclick={() => answer(alt.apply)}>{alt.label}</button>{/if}
-			<button onclick={() => (ws.confirm = null)}>Cancel</button>
+			<button onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
 			<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 		</div>
 	</div>
