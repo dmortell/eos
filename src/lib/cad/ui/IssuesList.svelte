@@ -89,7 +89,9 @@
 					<td class="px-2">{i.to ?? ''}</td>
 				{/if}
 				<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
-				<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}</td>
+				<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}
+					<!-- W21: the Excel files issued with it -->
+					{#each i.attachments ?? [] as a (a.id)}<br /><a class="text-blue-600 underline" href={a.url} target="_blank" rel="noopener" title="Issued with it, as it was then">{a.name}</a>{/each}</td>
 				<td class="px-2 whitespace-nowrap">
 					<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
 					<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>

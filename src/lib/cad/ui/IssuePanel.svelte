@@ -9,7 +9,7 @@
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
 	import { lastIssueOf } from '../domain/packages'
-	import { previewIssue, issuePackage, freshSheets, today } from '../app/issue'
+	import { previewIssue, issuePackage, freshSheets, today, ATTACHMENT_NAME, type Attachment } from '../app/issue'
 	import { runToken } from '../app/runToken'
 	import { unsupportedNote } from '../app/sheetsPdf'
 
@@ -23,6 +23,9 @@
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
 	// slice 7: typed revision codes (D7), what changed per sheet, who issues it (remembered in this browser)
 	let cover = $state(true)
+	/** W21: the Excel schedules issued with the PDFs (none ticked by default). */
+	let attach = $state<Attachment[]>([])
+	const toggleAttach = (a: Attachment, on: boolean) => (attach = on ? [...attach.filter((x) => x !== a), a] : attach.filter((x) => x !== a))
 	/** Back up the whole project with this issue (ADR 0008 §7): off by default — every one is a full copy. */
 	let backup = $state(false)
 	const projectSize = $derived.by(() => { if (!backup) return ''; const n = JSON.stringify(project.store.all()).length; return n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} kB` })
@@ -56,9 +59,10 @@
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
 			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id,
-				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, recipients: pkg?.recipients ?? (to.trim() ? [{ name: to.trim() }] : undefined) })
+				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, attach: [...attach], recipients: pkg?.recipients ?? (to.trim() ? [{ name: to.trim() }] : undefined) })
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
-			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
+			const att = r.issue.attachments?.length ? ` with ${r.issue.attachments.length} Excel file(s)` : ''
+			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF${att} saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
 			onclose(true)
 		} catch (e) { err = `Issue failed — nothing was recorded: ${(e as Error).message}` }
 		finally { busy = false }
@@ -76,6 +80,9 @@
 		<label title="The revision a sheet gets the first time it is issued">First rev <input class="inp w-12 font-mono" bind:value={first} /></label>
 		<label>Note <input class="inp w-40" bind:value={note} placeholder="(optional)" /></label>
 		<label title="A cover page first in the PDF: the project, the issue, who gets it and the drawing register (the first sheet's size, with the title block)"><input type="checkbox" bind:checked={cover} /> Cover page</label>
+		<!-- W21: Excel files that go out with the drawings -->
+		<span class="flex items-center gap-1" title="Excel files issued with the PDF: made as File › Export makes them, saved to Uploads with the issue, listed on the cover page and in the Issues list">With:
+			{#each Object.entries(ATTACHMENT_NAME) as [a, label] (a)}<label><input type="checkbox" checked={attach.includes(a as Attachment)} onchange={(e) => toggleAttach(a as Attachment, e.currentTarget.checked)} /> {label}</label>{/each}</span>
 		<label title="Keep a backup of the whole project with this issue, so it can be restored from the Issues list later. Each one is a full copy of the project: tick it only for an issue you may need to go back to."><input type="checkbox" bind:checked={backup} /> Back up the project with this issue</label>
 		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => enterKey(e) && applyAll()} onchange={applyAll} /></label>

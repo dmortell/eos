@@ -191,6 +191,8 @@ export interface Issue {
 	backupId?: Id
 	/** The floorplan files its sheets were drawn over (file ids = names, e.g. "…_revB.pdf") — W4: which revision went out. */
 	floorplans?: string[]
+	/** Excel files issued with its PDF (W21): the BOM, cable and outlet schedules as they were, in file storage. */
+	attachments?: { id: string; url: string; name: string; kind: 'bom' | 'cables' | 'outlets' }[]
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

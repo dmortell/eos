@@ -3567,3 +3567,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - "Riser" in the backlog line: the riser view is building-wide, so there's nothing per riser to copy for — left out.
   - Tests in `domain/sheetEdit.test.ts`. Tried live in Workflow test: S001 "Level 1 outlet plan" → S004 "GF outlet
     plan" + S005 (L2); Undo took both out.
+- **W21 Package attachments** (B19, B25):
+  - The Issue panel's **With:** Bill of materials / Cable schedule / Outlet schedule (none ticked by default).
+  - Each export now builds its workbook apart from the download (`render/exports.ts` `bomFile`, `cableScheduleFile`,
+    `render/outletSchedule.ts` `outletScheduleFile`; File › Export unchanged). `issuePackage` builds the ticked ones as
+    they are at that moment (the BOM: materials + the whole rack BOM), uploads each beside the PDF (`files/issue-…`, so
+    they stay out of the floorplan list) as "<project> Issue 03 Cable schedule.xlsx", and records
+    `Issue.attachments`.
+  - The cover page says "Also enclosed: … (Excel)"; the Issues list links each file under the PDF.
+  - Test in `views/transmittalPage.test.ts`. Seen live: the Re-issue panel shows the three ticks (cancelled). NOT tried
+    live: an issue with them ticked (it uploads files) — worth one real run on Workflow test.

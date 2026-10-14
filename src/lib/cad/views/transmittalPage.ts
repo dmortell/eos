@@ -16,6 +16,8 @@ export interface CoverData {
 	recipients?: { name: string; org?: string }[]; note?: string; rows: CoverRow[]
 	/** The floorplan files the sheets are drawn over (W4): "Floorplans: …" under the note. */
 	floorplans?: string[]
+	/** What goes with the drawings (W21): "Also enclosed: …". */
+	attachments?: string[]
 }
 
 const ROW = 6.5, TXT = 3, HEAD = 3.2
@@ -43,6 +45,7 @@ export function coverPages(ix: ProjectIndex, first: Sheet, d: CoverData, o: Shee
 			if (d.recipients?.length) { out.push(text(x0, y, 'To:', 3.5)); for (const r of d.recipients) { out.push(text(x0 + 12, y, r.org ? `${r.name}, ${r.org}` : r.name, 3.5)); y += 5.5 } }
 			if (d.note) { out.push(text(x0, y, d.note, 3.5)); y += 6 }
 			if (d.floorplans?.length) { out.push(text(x0, y, `Floorplans: ${d.floorplans.join(', ')}`, 3)); y += 5.5 }
+			if (d.attachments?.length) { out.push(text(x0, y, `Also enclosed: ${d.attachments.join(', ')} (Excel)`, 3)); y += 5.5 }
 			y += 4
 		}
 		;['No.', 'Title', 'Rev', 'Size', 'This issue'].forEach((t, i) => out.push(text(cols[i] + 1, y, t, HEAD, 'tb-label')))

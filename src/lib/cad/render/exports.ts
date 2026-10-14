@@ -267,6 +267,15 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][]; rooms?: string[]; roomsText?: string }
 
 export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number> {
+	const f = await bomFile(ix, projectName, catalog, routes, o, estimates)
+	download(f.data, f.name, XLSX)
+	return f.lines
+}
+/** An Excel file made in memory: its bytes and its name (downloaded, or attached to an issue — W21). */
+export interface XlsxFile { data: ArrayBuffer; name: string }
+export const XLSX_TYPE = XLSX
+/** The BOM workbook (the download's, `exportBom`) and how many lines it has. */
+export async function bomFile(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<XlsxFile & { lines: number }> {
 	const lines = o.materials ? bom(ix, catalog, routes, estimates) : []
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
@@ -296,8 +305,7 @@ export async function exportBom(ix: ProjectIndex, projectName: string, catalog: 
 			rackLines += ls.length
 		}
 	}
-	download(await wb.xlsx.writeBuffer(), `BOM-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
-	return lines.length + rackLines
+	return { data: (await wb.xlsx.writeBuffer()) as ArrayBuffer, name: `BOM-${fileSafe(projectName)}-${today()}.xlsx`, lines: lines.length + rackLines }
 }
 
 // ── Cable schedule ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -305,6 +313,11 @@ export async function exportBom(ix: ProjectIndex, projectName: string, catalog: 
 /** The cable schedule (domain/cableSchedule.ts) as Excel: one row per cable, the 90 m ones and those with no route
  *  marked, totals at the foot. */
 export async function exportCableSchedule(rows: CableRow[], projectName: string): Promise<void> {
+	const f = await cableScheduleFile(rows, projectName)
+	download(f.data, f.name, XLSX)
+}
+/** The cable schedule workbook (the download's). */
+export async function cableScheduleFile(rows: CableRow[], projectName: string): Promise<XlsxFile> {
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Cable schedule')
@@ -323,5 +336,5 @@ export async function exportCableSchedule(rows: CableRow[], projectName: string)
 	ws.addRow([`${t.links} cables · ${t.metres} m installed (routed cables)${t.unrouted ? ` · ${t.unrouted} without a route` : ''}${t.over90 ? ` · ${t.over90} over 90 m` : ''}`]).font = { bold: true }
 	if (et.cables) ws.addRow([`+ ${et.cables} estimated cables (not allocated yet): ${et.metres} m${et.unrouted ? ` · ${et.unrouted} without a route` : ''}`]).font = { italic: true }
 	ws.views = [{ state: 'frozen', ySplit: 2 }]
-	download(await wb.xlsx.writeBuffer(), `Cables-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
+	return { data: (await wb.xlsx.writeBuffer()) as ArrayBuffer, name: `Cables-${fileSafe(projectName)}-${today()}.xlsx` }
 }

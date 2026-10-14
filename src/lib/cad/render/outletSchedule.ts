@@ -38,6 +38,11 @@ export function scheduleTable(ix: ProjectIndex, levelId?: Id): { head: string[];
 }
 
 export async function exportOutletSchedule(ix: ProjectIndex, projectName: string, level?: { id: Id; name: string }): Promise<void> {
+	const f = await outletScheduleFile(ix, projectName, level)
+	download(f.data, f.name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+}
+/** The outlet schedule workbook (the download's; attached to an issue, W21). */
+export async function outletScheduleFile(ix: ProjectIndex, projectName: string, level?: { id: Id; name: string }): Promise<{ data: ArrayBuffer; name: string }> {
 	const t = scheduleTable(ix, level?.id)
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
@@ -52,6 +57,5 @@ export async function exportOutletSchedule(ix: ProjectIndex, projectName: string
 	t.widths.forEach((w, i) => (ws.getColumn(i + 1).width = w))
 	for (const r of t.body) ws.addRow(r).alignment = { vertical: 'top', wrapText: true }
 	ws.views = [{ state: 'frozen', ySplit: 3 }]
-	const buf = await wb.xlsx.writeBuffer()
-	download(buf, `Outlets_${fileSafe(projectName)}${level ? `_${fileSafe(level.name)}` : ''}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	return { data: (await wb.xlsx.writeBuffer()) as ArrayBuffer, name: `Outlets_${fileSafe(projectName)}${level ? `_${fileSafe(level.name)}` : ''}.xlsx` }
 }

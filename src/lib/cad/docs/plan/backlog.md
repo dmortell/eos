@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 27 entries (3 P2 · 24 P3; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 26 entries (2 P2 · 24 P3; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -85,7 +85,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo), W11, W18, W22, W4, W7, W6, W15, W16, W20, W19.
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo), W11, W18, W22, W4, W7, W6, W15, W16, W20, W19, W21.
 
 ### Floorplans
 
@@ -116,8 +116,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Sheets, packages and issue
 
-- [ ] **W21 Package attachments** (B19, B25) — the BOM, cable and outlet schedules (Excel) issued with a package's
-  PDFs and listed on the transmittal. **P2 · M**.
 - [ ] **W23 Show what changed since the last issue** (B28) — highlight the changed items on a sheet marked
   "Changed since". **P3 · M–L**.
 - [ ] **W24 Smaller issue / sheet friction** — the Issue panel's "Package" is only a label (a real package needs

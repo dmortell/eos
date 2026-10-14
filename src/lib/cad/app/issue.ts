@@ -15,6 +15,10 @@ import { sheetDisplayList, paperSize } from '../views/sheet'
 import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
+import { bomFile, cableScheduleFile, XLSX_TYPE, type XlsxFile } from '../render/exports'
+import { outletScheduleFile } from '../render/outletSchedule'
+import { cableSchedule } from '../domain/cableSchedule'
+import { cableSettings } from '../domain/routing'
 import { newId } from '../domain/ids'
 import { splitChunks } from '../persist/chunks'
 import { storeBackup } from './backups'
@@ -131,6 +135,8 @@ export type IssueForm = {
 	withdrawn?: Issue['withdrawn']
 	/** A cover page / transmittal first in the PDF (slice 8), with who gets it. */
 	cover?: boolean; recipients?: { name: string; org?: string }[]
+	/** Excel files issued with the PDF (W21): uploaded beside it, listed on the transmittal and the issue. */
+	attach?: Attachment[]
 	/** Back up the whole project with it (ADR 0008 §7) — off unless ticked: a full copy each time. */
 	backup?: boolean
 }
@@ -176,7 +182,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 			...plan.map((r) => ({ number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: r.sheet.paper.size, status: (r.changed ? 'New revision' : 'As last issued') as CoverRow['status'] })),
 			...(f.withdrawn ?? []).map((w) => ({ number: w.number, title: w.title, rev: w.rev, size: '', status: 'Withdrawn' as const })),
 		]
-		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows, floorplans },
+		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows, floorplans, attachments: (f.attach ?? []).map((a) => ATTACHMENT_NAME[a]) },
 			{ blocks: project.blockOf, ...project.sheetBase })
 		for (const [i, c] of cover.entries()) {
 			const prims = freeze(c.prims)
@@ -188,9 +194,16 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
 	const name = `${fileSafe(`${project.name} ${issueTag(number)} ${f.name} ${f.date}`)}.pdf`
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
+	// the schedules that go with it (W21), as they are now; named after the issue
+	const attachments: NonNullable<Issue['attachments']> = []
+	for (const a of f.attach ?? []) {
+		const x = await attachmentFile(project, a), base = `${fileSafe(`${project.name} ${issueTag(number)} ${ATTACHMENT_NAME[a]}`)}.xlsx`
+		const r = await storeFile(project.db, project.pid, new File([x.data], base, { type: XLSX_TYPE }), { storage: project.settings?.fileStorage, route: 'floorplanUploader', id: `issue-${newId()}` })
+		attachments.push({ id: r.id, url: r.url, name: base, kind: a })
+	}
 	const issue: Issue = {
 		type: 'issue', id: issueId, number, name: f.name, purpose: f.purpose, date: f.date,
-		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}), ...(backup ? { backupId: backup.id } : {}), ...(floorplans.length ? { floorplans } : {}),
+		...(f.to ? { to: f.to } : {}), ...(f.note ? { note: f.note } : {}), ...(f.packageId ? { packageId: f.packageId } : {}), ...(f.withdrawn?.length ? { withdrawn: f.withdrawn } : {}), ...(coverN ? { cover: coverN } : {}), ...(backup ? { backupId: backup.id } : {}), ...(floorplans.length ? { floorplans } : {}), ...(attachments.length ? { attachments } : {}),
 		sheets: plan.map((r) => ({ sheetId: r.sheet.id, number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: `${r.sheet.paper.size}`, changed: r.changed })),
 		file,
 	}
@@ -201,6 +214,17 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		tx.put(issue)
 	})
 	return { issue, unsupported, rasterised }
+}
+
+/** What can be issued with the PDFs (W21) and what it's called on the transmittal / in the file name. */
+export type Attachment = NonNullable<Issue['attachments']>[number]['kind']
+export const ATTACHMENT_NAME: Record<Attachment, string> = { bom: 'Bill of materials', cables: 'Cable schedule', outlets: 'Outlet schedule' }
+/** One attachment's workbook, made as File › Export makes it (the BOM: materials + the rack BOM, every room). */
+async function attachmentFile(project: CadProject, a: Attachment): Promise<XlsxFile> {
+	if (a === 'outlets') return outletScheduleFile(project.index, project.name)
+	if (a === 'cables') return cableScheduleFile(cableSchedule(project.index, project.routes, cableSettings(project.index), project.estimates), project.name)
+	const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
+	return bomFile(project.index, project.name, PANDUIT_SEED, project.routes, { materials: true, rack: 'consolidated' }, project.estimates)
 }
 
 async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']> {

@@ -28,6 +28,9 @@ describe('cover page', () => {
 		// W4: the floorplan revisions the sheets went out on
 		const [q] = coverPages(ix, first, { ...data(1), floorplans: ['1F_20240516.pdf', '2F_revB.pdf'] }, { projectName: 'Test' })
 		expect(texts(q)).toContain('Floorplans: 1F_20240516.pdf, 2F_revB.pdf')
+		// W21: the Excel files issued with it
+		const [e] = coverPages(ix, first, { ...data(1), attachments: ['Bill of materials', 'Cable schedule'] }, { projectName: 'Test' })
+		expect(texts(e)).toContain('Also enclosed: Bill of materials, Cable schedule (Excel)')
 		expect(floorplansIn([[{ k: 'image', url: underlayRef('2F_revB.pdf', 2), x: 0, y: 0, w: 1, h: 1 }, { k: 'image', url: underlayRef('1F.pdf'), x: 0, y: 0, w: 1, h: 1 }], [{ k: 'image', url: 'picture:logo.png#1', x: 0, y: 0, w: 1, h: 1 }]])).toEqual(['1F.pdf', '2F_revB.pdf'])
 	})
 	it('a long register flows onto more pages, every row once', () => {
