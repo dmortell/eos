@@ -78,6 +78,16 @@ describe('routing', () => {
 		expect(r.routeMm).toBeCloseTo(RACK_DROP + 2000 + 4000 + 2800 + 5500 + 500 + 2800)   // up the riser to L2 FFL, on to 2.8 m, along; the outlet drop is 2.8 m down
 		expect(r.segs.map((s) => s.shape)).toEqual(['H2', 'V1', 'T1'])
 	})
+	it('only a riser’s far end reaches into that floor: a riser down from L2 does not meet L2’s own ceiling run above its top (walkthrough 2026-10-14)', () => {
+		// L2's riser drops from its ceiling (2.95 m) to L1's FFL; an L2 ceiling run 3 m above L2's floor was reached from the riser TOP before
+		const down = run('VD', 'L2', [[2000, 500, 2950], [2000, 500, 0]], 'high', { toLevel: 'L1' })
+		const ix = project([
+			down,
+			run('U3', 'L2', [[2000, 500, 5950], [2000, 6000, 5950]], 'high'),   // 3 m above the riser's top: not on its far side
+			outlet('O3', 'L2', 2500, 6000, 'high'), link('K3', 'O3'),
+		])
+		expect(routeLinks(ix).get('K3')!.problem).toBeDefined()
+	})
 	it('the tier and the room filter which run an outlet joins; no route says why', () => {
 		const ix = project([
 			run('H1', 'L1', [[0, 2000, 2800], [10000, 2000, 2800]], 'high'),   // nearer, but high: a low outlet skips it

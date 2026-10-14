@@ -16,4 +16,15 @@ describe('object snaps', () => {
 		expect(c.kind).toBe('node')
 		expect({ x: Math.round(c.p.x), y: Math.round(c.p.y) }).toEqual({ x: 20300, y: 19400 })
 	})
+
+	it('a riser drawn from another floor snaps where it lands on this floor, and only there', () => {
+		const riser = {
+			type: 'shape', id: 'RS', levelId: 'L34',
+			geom: { kind: 'path', nodes: [{ id: 'a', x: 4170, y: -8120, z: 2950 }, { id: 'b', x: 4170, y: -8120, z: 0, levelId: 'L33' }], segs: [{ id: 's', a: 'a', b: 'b' }] },
+		} as unknown as Shape
+		const ix = new ProjectIndex([...demoProject(), riser])
+		expect(snapAt(ix, 'L33', { x: 4130, y: -8080 }, 100)).toMatchObject({ p: { x: 4170, y: -8120 }, kind: 'node' })
+		expect(snapAt(ix, 'L32', { x: 4130, y: -8080 }, 100).kind).toBe('grid')
+		expect(snapAt(ix, 'L33', { x: 4130, y: -8080 }, 100, { skip: 'RS' }).kind).toBe('grid')
+	})
 })

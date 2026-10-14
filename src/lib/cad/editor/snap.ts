@@ -67,6 +67,12 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 	for (const o of ix.outlets) if (o.levelId === levelId && o.at) offer({ p: o.at, kind: 'outlet', attach: o.id })
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) offer({ p: r.at, kind: 'rack', attach: r.id })
 	for (const s of ix.shapes) {
+		// a riser drawn from another floor ends on this one: its far node snaps here, so a run started on it joins it
+		// (walkthrough 2026-10-14: a GF trunk started by eye 57 mm off the riser's end had no route)
+		if (s.levelId !== levelId && s.geom.kind === 'path' && !skips.has(s.id)) {
+			for (const n of s.geom.nodes) if (n.levelId === levelId) offer({ p: n, kind: 'node', z: n.z })
+			continue
+		}
 		// (shapes on an elevation's plane have (u, z) points, not plan ones)
 		if (s.levelId !== levelId || skips.has(s.id) || s.plane?.kind === 'vertical') continue
 		// the CENTRE of a circle / arc / box / polygon, and a block's insertion point (backlog "Centre snap")

@@ -114,8 +114,10 @@
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 
-	// the view state comes back from the URL on a refresh (Dave): each pane's level and view, the active pane
-	const fromUrl = readViewState(page.url.searchParams)
+	// the view state comes back from the URL on a refresh (Dave): each pane's level and view, the active pane — read
+	// from the ADDRESS BAR: page.url still holds the URL the page loaded with (our replaceState doesn't move it), so a
+	// remount (a hot reload) went back to that first view (Dave 2026-10-14: "why did hmr revert to S001?")
+	const fromUrl = readViewState(new URL(typeof location === 'undefined' ? page.url.href : location.href).searchParams)
 	ws.paneLevels = paneLevelsOf(fromUrl)
 	ws.pane = fromUrl.active ?? 0
 

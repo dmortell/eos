@@ -28,7 +28,7 @@ type P3 = { x: number; y: number; z: number }
 /** A piece of a run segment between two graph nodes (`t0`/`t1` along the segment, 0 → 1). */
 interface Piece { shape: Id; seg: Id; a: number; b: number; t0: number; t1: number; len: number }
 /** One run segment in 3D, with the run's role (for the tier / room filters). */
-interface Seg { shape: Shape; seg: Id; p: P3; q: P3; len: number; levelIds: Set<Id> }
+interface Seg { shape: Shape; seg: Id; p: P3; q: P3; len: number; levelIds: Set<Id>; /** 0 / 1: the end (p / q) on another level than its run — a riser's far end; -1 none. */ far: number }
 
 export interface Graph {
 	nodes: P3[]
@@ -65,7 +65,8 @@ export function buildGraph(ix: ProjectIndex): Graph {
 			const a = nodes.get(g.a), b = nodes.get(g.b)
 			if (!a || !b) continue
 			const p = at(a), q = at(b)
-			segs.push({ shape: s, seg: g.id, p, q, len: dist3(p, q), levelIds: new Set([a.levelId ?? s.levelId!, b.levelId ?? s.levelId!]) })
+			const far = b.levelId && b.levelId !== s.levelId ? 1 : a.levelId && a.levelId !== s.levelId ? 0 : -1
+			segs.push({ shape: s, seg: g.id, p, q, len: dist3(p, q), levelIds: new Set([a.levelId ?? s.levelId!, b.levelId ?? s.levelId!]), far })
 		}
 	}
 	// graph nodes: every segment end, merged within JOIN_MM
@@ -119,11 +120,14 @@ export function buildGraph(ix: ProjectIndex): Graph {
 		}
 		piecesOf.set(segKey(s.shape.id, s.seg), list)
 	})
-	// A riser ends at the other level's FFL, but the shaft carries on to that floor's trays: its ends also meet any node
-	// straight above / below them (same plan point) within a storey (RISER_REACH_MM), counted as more of the riser.
+	// A riser ends at the other level's FFL, but the shaft carries on to that floor's trays: its FAR end also meets any
+	// node straight above / below it (same plan point) within a storey (RISER_REACH_MM), counted as more of the riser.
+	// Only the far end: the near one is on the run's own floor (walkthrough 2026-10-14: an L1 → GF riser's top, at the
+	// L1 ceiling, met L2's trunk 3.8 m above and carried L2's cables instead of the L1 → L2 riser).
 	segs.forEach((s, i) => {
-		if (s.levelIds.size < 2 || Math.abs(s.p.x - s.q.x) >= 0.5 || Math.abs(s.p.y - s.q.y) >= 0.5) return
-		for (const n of ends[i]) nodes.forEach((x, m) => {
+		if (s.levelIds.size < 2 || s.far < 0 || Math.abs(s.p.x - s.q.x) >= 0.5 || Math.abs(s.p.y - s.q.y) >= 0.5) return
+		const n = ends[i][s.far]
+		nodes.forEach((x, m) => {
 			if (m === n || Math.hypot(x.x - nodes[n].x, x.y - nodes[n].y) > JOIN_MM || Math.abs(x.z - nodes[n].z) > RISER_REACH_MM || adj[n].some((e) => e.to === m)) return
 			const piece = pieces.push({ shape: s.shape.id, seg: s.seg, a: n, b: m, t0: 0, t1: 0, len: Math.abs(x.z - nodes[n].z) }) - 1
 			adj[n].push({ to: m, piece }); adj[m].push({ to: n, piece })
