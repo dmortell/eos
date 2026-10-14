@@ -58,17 +58,33 @@ M ~60–250, L > 250.
 ### 2b. Revised floorplans (recurring)
 
 **Today:**
-1. Upload the new PDF.
-2. Calibrate it again from nothing.
-3. Re-pick it on every floor that used the old one.
-4. Find what moved by eye. There is no overlay, compare or "what changed" aid.
-5. Move outlets, desks and runs one by one or by marquee.
-6. Sheets show the new plan at once. Issued revisions keep theirs: frozen copies plus the as-issued floorplan cache.
+- **Same file name:** the upload overwrites `files/{name}` and keeps its calibration. Every level, sheet and project
+  using it redraws (`app/issueGuard.ts:9-19`).
+  - **But** if issued sheets use the old file, the new one is saved beside it as "plan (2).pdf", with no calibration,
+    masks or hidden layers (`lib/uploads/Uploads.svelte:141-143`).
+  - Architects usually rename revisions (…_revC.pdf), which also gives a new, uncalibrated file.
+- **Re-point:** Floors › Plans & floorplans' select keeps the underlay's name and X / Y offset, but not origin, scale
+  or crop (they belong to the file). So Origin / Scale / Crop and the hidden layers, masks and markups are redone per
+  page, in Uploads. There is no "copy calibration from the old file", no align by point pairs and no replace action
+  in Uploads.
+- **Compare:** none.
+  - Workaround: add the new page as a second floorplan on the level ("+ Another page…").
+  - Both draw at 0.6 opacity on the one Floorplans layer (`views/plan.ts:49-55`), so neither can be hidden alone.
+- **Fixing what moved:** by eye. Window select, Select similar, Move with a base point or `@dx,dy`, nudge; runs follow
+  moved outlets and racks; estimates and fill update.
+- **Sheets:** viewports show the new plan at once. Issued revisions keep theirs: frozen copies hold a file reference
+  plus a snapshot of its settings (`app/issue.ts:72-98`), and files used by issues can't be deleted.
+- **History:** none, apart from Undo, backups and the Uploads file list.
 
 **Bottlenecks:**
-- **B8 No "replace with a new revision".** It should keep origin, scale, crop and masks and swap the file on every
-  floor in one step. Today it is a fresh upload and calibration each time.
+- **B8 No "replace with a new revision".** It should keep origin, scale, crop and masks (or re-align by two point
+  pairs when the architect moved the drawing on the page) and swap the file on every floor in one step. Today a
+  renamed revision means calibrating from scratch, page by page.
 - **B9 No compare.** There is no old/new overlay in two colors, no toggle and no blink, so changes are found by eye.
+- **B9a** Two floorplans on one level can't be shown or hidden one at a time (one Floorplans layer, fixed 0.6
+  opacity).
+- **B9b (likely, read not run)** Editing a file's masks or hidden layers may not mark issued sheets "Changed since":
+  the fingerprint holds the file reference, not its settings.
 - **B10 Nothing flags model items the new layout made wrong.** An outlet now inside a wall or a desk that has gone
   isn't flagged.
 - **B11 No record of which floorplan revision a sheet issue used.** The cache keeps the picture, not a "Floorplan rev
@@ -233,8 +249,8 @@ The ranking is by how often the job happens × how much hand work it costs today
 
 | # | Fix | Bottlenecks | Size |
 |---|-----|-------------|------|
-| 1 | **Replace floorplan with a new revision**: keep calibration, crop and masks; swap it on every floor; record the floorplan revision with the issue. | B8, B11 | M |
-| 2 | **Floorplan compare**: old / new overlay in two colors, plus a toggle. Also works for other trades' drawings. | B9, B16 | M |
+| 1 | **Replace floorplan with a new revision**: keep calibration, crop and masks (or re-align by two point pairs); swap it on every floor; record the floorplan revision with the issue. | B8, B11 | M |
+| 2 | **Floorplan compare**: old / new overlay in two colors, plus a toggle; each floorplan shown / hidden on its own. Also works for other trades' drawings. | B9, B9a, B16 | M |
 | 3 | **Sheets from a template**: one sheet per level / server room / riser from a chosen sheet (viewports re-pointed, numbered from the category). | B18 | M |
 | 4 | **First-run path**: a new project opens cad on "Set up floors", then "Add floorplans", not the import panel. Save in New Project opens the project. | B1, B2 | S |
 | 5 | **Clouds tied to revisions**: a delta tag with the revision code; at issue, clouds from older revisions hide (kept, not deleted). | B26 | S–M |
@@ -247,6 +263,7 @@ The ranking is by how often the job happens × how much hand work it costs today
 | 12 | **Show what changed since the last issue** on the sheet (highlight the changed items). | B28 | M–L |
 | 13 | **Change log decision**: settle "A change log?" (R9 says no; decisions.md is open). | B30 | — |
 | 14 | **Ladder in the Kind list** and the cloud-hint fix. | B13, B36 | S |
+| 15 | **Check B9b**: does a mask / layer edit on a floorplan file mark issued sheets "Changed since"? (verify, then fix if not) | B9b | S |
 
 ## Part 2: live run (next)
 
