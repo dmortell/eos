@@ -37,6 +37,8 @@ export interface PlanOpts {
 	gray?: boolean
 	/** Outlets in their usage's color (true) or their layer's (false); absent = the project's old setting. */
 	byUsage?: boolean
+	/** Compare floorplans (W7, screen only): the file to ghost in red under an underlay, or undefined for none. */
+	compare?: (u: Underlay) => string | undefined
 }
 
 /** Paper sizes (mm) of plan symbols. */
@@ -47,11 +49,14 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	const k = o.scale
 
 	for (const u of ix.byId.values()) {
-		if (u.type !== 'underlay' || u.levelId !== levelId) continue
+		if (u.type !== 'underlay' || u.levelId !== levelId || u.hidden) continue
 		const pl = o.underlay?.(u)
 		if (!pl) continue
 		// a level can have several floorplans (zones, Dave: 33F = 3303 + 3307); `origin` moves one off the others
 		const dx = u.origin?.x ?? 0, dy = u.origin?.y ?? 0, c = pl.clip
+		// W7: the revision compared with, in red under this one (its own calibration, this one's offset; never picked)
+		const was = o.compare?.(u), old = was && was !== u.fileId ? o.underlay?.({ ...u, fileId: was }) : undefined
+		if (old) out.push({ k: 'image', ...old, x: old.x + dx, y: old.y + dy, ...(old.clip ? { clip: { x0: old.clip.x0 + dx, y0: old.clip.y0 + dy, x1: old.clip.x1 + dx, y1: old.clip.y1 + dy } } : {}), opacity: 0.9, tint: 'red' })
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))

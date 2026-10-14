@@ -76,6 +76,23 @@ describe('a sheet from the current view', () => {
 	})
 })
 
+describe('floorplans on their own (W7)', () => {
+	const u = (id: string, x: Partial<Entity> = {}) => ({ type: 'underlay', id, levelId: 'L33', fileId: `${id}.pdf`, ...x }) as Entity
+	const underlay = (z: { fileId: string }) => ({ url: `blob:${z.fileId}`, x: 0, y: 0, w: 100, h: 50 })
+	const images = (ents: Entity[], compare?: (z: { fileId: string; prevFileId?: string }) => string | undefined) =>
+		planDisplayList(new ProjectIndex([...ents, ...demoProject().filter((e) => e.type !== 'underlay')]), 'L33', { scale: 100, underlay, compare }).filter((p) => p.k === 'image')
+	it('a hidden one isn’t drawn; each keeps its own fade', () => {
+		const ps = images([u('A', { opacity: 0.15 }), u('B', { hidden: true })])
+		expect(ps.map((p) => p.k === 'image' && [p.url, p.opacity])).toEqual([['blob:A.pdf', 0.15]])
+	})
+	it('compared: the other revision in red UNDER it, not pickable; off = nothing extra', () => {
+		const ents = [u('A', { prevFileId: 'old.pdf' })]
+		expect(images(ents)).toHaveLength(1)
+		const ps = images(ents, (z) => z.prevFileId)
+		expect(ps.map((p) => p.k === 'image' && [p.url, p.tint, p.src])).toEqual([['blob:old.pdf', 'red', undefined], ['blob:A.pdf', undefined, 'A']])
+	})
+})
+
 describe('new layers in existing drawings', () => {
 	it('start frozen in every viewport that exists', () => {
 		const vp = { id: 'V', view: { levelId: 'L33', spec: PLAN }, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 100, centre: { x: 0, y: 0 } }

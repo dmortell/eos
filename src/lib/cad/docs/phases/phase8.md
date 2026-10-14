@@ -3507,3 +3507,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Tried live in Workflow test: L1 → revB (uncalibrated) — calibration copied, the plan lined up with the racks and
     grid; Undo put L1 back on 20240516. revB's file keeps the copied calibration. Tests in
     `views/transmittalPage.test.ts`.
+- **W7 Floorplan compare** (B9, B9a, B16):
+  - Each floorplan row: a Show tick (`Underlay.hidden`: not drawn on the plan or any sheet) and a fade (100 / 60 /
+    35 / 15 %, `Underlay.opacity`, 60 % = unset as before) — saved, undoable, printed.
+  - Compare… on the row: another PDF drawn in red UNDER it (`PlanOpts.compare`, image `tint: 'red'` via an SVG
+    feColorMatrix: dark lines red, white stays white; no `src`, so not pickable). Screen only, not kept
+    (`ws.compareOn` / `ws.compareWith`); the plan's Display › Compare floorplans toggles it. W4 now records
+    `prevFileId`, listed first as "(previous)" and the default when Compare is on.
+  - Not per viewport (the revision check's call). Test in `domain/legend.test.ts`. Seen live: L1 compared with revB
+    — the ghost draws in red under it, lined up (the two revisions match there).

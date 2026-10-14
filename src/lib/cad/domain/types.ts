@@ -95,6 +95,10 @@ export interface Underlay {
 	crop?: { x: number; y: number; w: number; h: number }
 	rot?: number
 	opacity?: number
+	/** Not drawn (W7: one floorplan of a level hidden — another trade's drawing, an old revision kept beside). */
+	hidden?: boolean
+	/** The file it replaced (W4 "New revision…"): what "Compare floorplans" ghosts under it by default (W7). */
+	prevFileId?: string
 }
 
 // ── Outlets and ports ─────────────────────────────────────────────────────────────────────────────────────────────

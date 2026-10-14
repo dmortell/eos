@@ -16,7 +16,9 @@ export type Prim = (
  *  centred (an image shape); else it fills the box (a floorplan). */
 	| { k: 'image'; url: string; x: number; y: number; w: number; h: number; opacity?: number; src?: Id; fit?: 'contain' | 'centre'; /** drawn in black and white (screen and PDF) */ gray?: boolean
 		/** Turned (degrees, clockwise on screen) about the box's centre: a turned image shape. */
-		rot?: number }
+		rot?: number
+		/** Its dark lines drawn in red (W7: the floorplan revision compared with; screen only). */
+		tint?: 'red' }
 ) & {
 	/** Drawn only inside this rectangle (a sheet viewport's window, in the same drawing mm). */
 	clip?: Bounds

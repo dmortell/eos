@@ -112,7 +112,7 @@
 	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
 	const drawn = $derived(spec.kind === 'plan'
-		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage })
+		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage, compare: ws.compareOn ? ws.compareFile : undefined })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec, { cords: ws.screen.cordChannels ? 'channels' : 'straight' })
 			: spec.kind === 'sheet'

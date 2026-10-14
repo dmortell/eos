@@ -105,9 +105,18 @@
 			const copied = await project.copyFileLook(old, id)
 			const uses = project.store.ofType('underlay').filter((u) => u.fileId === old)
 			const on = [...new Set(uses.map((u) => levels.find((l) => l.id === u.levelId)?.name).filter(Boolean))].join(', ')
-			project.store.transact(`New floorplan revision: ${fileName(id)}`, (tx) => { for (const u of uses) tx.put({ ...u, fileId: id }) })
+			project.store.transact(`New floorplan revision: ${fileName(id)}`, (tx) => { for (const u of uses) tx.put({ ...u, fileId: id, prevFileId: old }) })   // W7 compares with `old`
 			ws.say(`${fileName(id)} replaces ${fileName(old)} on ${on || 'this floor'} — ${copied.length ? 'its calibration and masks copied' : 'its own calibration kept'}; check the Origin lines up (Undo puts the old one back)`)
 		} catch (e) { project.error = `Couldn't make the new revision: ${(e as Error).message}` } finally { uploading = null }
+	}
+	/** W7: compare this floorplan with `fileId` (none = stop) — red under it on this screen; turns Compare on. */
+	function compareWith(z: Underlay, fileId: string) {
+		const next = { ...ws.compareWith }
+		if (fileId) next[z.id] = fileId
+		else delete next[z.id]
+		ws.compareWith = next
+		ws.compareOn = !!fileId || Object.keys(next).length > 0
+		if (fileId) ws.say(`Comparing with ${fileName(fileId)}: red = only in that one — close Floors… to look; Display › Compare floorplans turns it off`)
 	}
 	const putZone = (l: Level, u: Underlay, label: string, patch: Partial<Underlay>) => project.store.transact(`${l.name}: ${label}`, (tx) => tx.put({ ...u, ...patch }))
 	function setOffset(l: Level, u: Underlay, k: 'x' | 'y', v: string) {
@@ -337,6 +346,15 @@
 						<label class="ratio" title="Drawn at 1:… — type the scale from the floorplan's title block (100) and press Enter. When it's for another paper size than this PDF page{cal?.page && paperOf(cal.page) ? ` (${paperOf(cal.page)})` : ''}, add it: 100 A1">1:<input placeholder={cal && !cal.provisional ? String(ratioOf(cal.sf)) : '___'} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void setPaperScale(z, e.currentTarget.value, e.currentTarget) } }} onchange={(e) => void setPaperScale(z, e.currentTarget.value, e.currentTarget)} /></label>
 					</span>
 				{/if}
+				<!-- W7: this floorplan on its own — shown or not, how faded (saved: sheets print it so), compared with another -->
+				<label class="look" title="Show this floorplan (untick: hidden here and on every sheet — another trade's drawing, an old revision kept beside)"><input type="checkbox" checked={!z.hidden} onchange={(e) => putZone(l, z, e.currentTarget.checked ? 'floorplan shown' : 'floorplan hidden', { hidden: e.currentTarget.checked ? undefined : true })} /></label>
+				<select class="fp fade" value={String(z.opacity ?? 0.6)} title="How strongly this floorplan is drawn (plan and sheets)" onchange={(e) => putZone(l, z, 'floorplan fade', { opacity: Number(e.currentTarget.value) === 0.6 ? undefined : Number(e.currentTarget.value) })}>
+					{#each [1, 0.6, 0.35, 0.15] as v (v)}<option value={String(v)}>{Math.round(v * 100)}%</option>{/each}
+				</select>
+				<select class="fp cmp" value={ws.compareWith[z.id] ?? (ws.compareOn && z.prevFileId ? z.prevFileId : '')} title="Compare: another revision drawn in red under this one, on your screen only (View strip › Display › Compare floorplans turns it off)" onchange={(e) => compareWith(z, e.currentTarget.value)}>
+					<option value="">Compare…</option>
+					{#each pdfs.filter((f) => f.id !== z.fileId).sort((a, b) => Number(b.id === z.prevFileId) - Number(a.id === z.prevFileId)) as f (f.id)}<option value={f.id}>{f.name}{f.id === z.prevFileId ? ' (previous)' : ''}</option>{/each}
+				</select>
 				<!-- W4: the architect's next revision of this drawing, keeping its calibration, on every floor that uses it -->
 				<select class="fp rev" value="" disabled={uploading === z.id} title="A new revision of this floorplan: it takes this one's place on every floor that uses it, with its origin, scale, crop, masks and hidden layers" onchange={(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v === 'upload') document.getElementById(`cad-rev-${z.id}`)?.click(); else if (v) void newRevision(z, { fileId: v }) }}>
 					<option value="">{uploading === z.id ? 'Uploading…' : 'New revision…'}</option>
@@ -385,6 +403,9 @@
 	select.fp { width: 14rem; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	select.fp.add { border-style: dashed; color: var(--cad-muted, #52525b); }
 	select.fp.rev { width: 7.5rem; color: #2563eb; }
+	select.fp.fade { width: 3.6rem; }
+	select.fp.cmp { width: 6.5rem; }
+	.look { display: inline-flex; align-items: center; }
 	.addrow { display: flex; align-items: center; gap: 4px; }
 	.btn.up { font-size: 11px; cursor: pointer; color: #2563eb; }
 	.btn.up.busy { color: var(--cad-muted, #71717a); cursor: progress; }

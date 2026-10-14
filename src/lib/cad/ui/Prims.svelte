@@ -64,6 +64,10 @@
 		{#if href && p.rot}
 			<!-- turned about its centre; the clip (a viewport's window) stays unturned, on the group -->
 			<g clip-path={clipOf(p)}><image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : p.fit === 'centre' ? 'xMidYMid meet' : 'none'} transform="rotate({p.rot} {p.x + p.w / 2} {p.y + p.h / 2})" /></g>
+		{:else if href && p.tint}
+			<!-- W7: a compared floorplan — dark lines red, white stays white (red = 1, green = blue = the grey level) -->
+			<defs><filter id="cad-tint-red" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0" /></filter></defs>
+			<image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} filter="url(#cad-tint-red)" preserveAspectRatio="none" clip-path={clipOf(p)} />
 		{:else if href}<image href={href} x={p.x} y={p.y} width={p.w} height={p.h} opacity={p.opacity ?? 1} style:filter={p.gray ? 'grayscale(1)' : undefined} preserveAspectRatio={p.fit === 'contain' ? 'xMinYMid meet' : p.fit === 'centre' ? 'xMidYMid meet' : 'none'} clip-path={clipOf(p)} />{/if}
 	{:else if p.k === 'line'}
 		{#if p.closed && p.holes?.length}

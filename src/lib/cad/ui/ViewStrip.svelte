@@ -43,6 +43,8 @@
 	 *  button in this strip, get one way up: "↑ 1F plan". */
 	const up = $derived(spec.kind === 'row' || spec.kind === 'portmap' ? `↑ ${project.index.nameOf(levelId)} plan` : '')
 	const rowsOf = (spaceId: string) => project.index.ofType('rackRow').filter((e) => e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	/** W7: this level has a floorplan with something to compare with (a replaced revision, or one picked in Floors…). */
+	const comparable = $derived.by(() => { void project.rev; return project.index.ofType('underlay').some((u) => u.levelId === levelId && (u.prevFileId || ws.compareWith[u.id])) })
 </script>
 
 <div class="views">
@@ -103,6 +105,7 @@
 		{#if spec.kind === 'plan'}
 			<label title="Floorplans in black and white, so colored markup stands out — your screen only (a sheet has its own: Properties › Display)"><input type="checkbox" checked={ws.screen.gray} onchange={() => ws.toggleScreen('gray')} /> B/W floorplans</label>
 			<label title="Outlets in their usage's color (on) or their layer's (off) — your screen only (a sheet has its own)"><input type="checkbox" checked={ws.screen.byUsage} onchange={() => ws.toggleScreen('byUsage')} /> Usage colors</label>
+			{#if comparable || ws.compareOn}<label title="The floorplan revision it replaced (or the one picked in Project › Floors… › Compare) drawn in red under it: red lines are gone or moved in the new one — your screen only, never printed"><input type="checkbox" checked={ws.compareOn} onchange={() => (ws.compareOn = !ws.compareOn)} /> Compare floorplans</label>{/if}
 			<label title="Color runs by how full they are from the cables routed through them, estimated ones for unlinked outlet ports included (limit {FILL_LIMIT_PCT}%: amber from {FILL_LIMIT_PCT * 0.75}%, red over)"><input type="checkbox" checked={ws.showFill} onchange={() => (ws.showFill = !ws.showFill)} /> Fill</label>
 			<label title="Every cable's route along the containment, colored by its server room — dashed and lighter: estimated cables for outlet ports not linked yet"><input type="checkbox" checked={ws.showRoutes} onchange={() => (ws.showRoutes = !ws.showRoutes)} /> Routes</label>
 			{#if ws.showRoutes && routeKey}

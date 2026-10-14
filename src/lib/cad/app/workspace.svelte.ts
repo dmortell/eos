@@ -165,6 +165,12 @@ export class Workspace {
 		this.screen = { ...this.screen, [k]: !this.screen[k] }
 		try { localStorage.setItem(SCREEN_KEY, JSON.stringify(this.screen)) } catch { /* storage blocked */ }
 	}
+	/** Compare floorplans (W7; this screen only, not kept): on = each floorplan with something to compare with draws
+	 *  it in red underneath — the file picked for it here (`compareWith`, underlay id → file id), else the revision it
+	 *  replaced (`Underlay.prevFileId`). */
+	compareOn = $state(false)
+	compareWith = $state<Record<string, string>>({})
+	compareFile = (u: Underlay): string | undefined => (this.compareOn ? this.compareWith[u.id] ?? u.prevFileId : undefined)
 	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
 	viewInfo = $state.raw<ViewInfo | null>(null)
 	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a
