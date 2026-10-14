@@ -99,6 +99,14 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { r
 
 const describe = (r: Rack) => r.kind === 'desk' || r.kind === 'shelf' ? `${r.kind} ${r.widthMm}×${r.depthMm}` : `${r.kind === 'vcm' ? 'VCM' : r.kind} ${r.heightU}U ${r.widthMm}×${r.depthMm}`
 /** "Maker model" of a rack, a device (either may be blank; '' = neither). */
+/** What a rack drawn from a catalogue product is (backlog "Catalogue"): a VCM, a cabinet (an enclosure in its
+ *  description), a 2-post, else a 4-post rack — its RU, width and depth (or the usual ones), its SKU as maker / model,
+ *  the catalogue id (the rack BOM's accessories) and its spec sheet. */
+export function rackFromProduct(p: CatalogProduct): Pick<Rack, 'kind' | 'heightU' | 'widthMm' | 'depthMm' | 'catalogId' | 'maker' | 'model' | 'productUrl'> {
+	const kind: Rack['kind'] = p.kind === 'vcm' ? 'vcm' : /cabinet|enclosure/i.test(p.description) ? 'cabinet' : /2[\s-]?post/i.test(`${p.description} ${p.family ?? ''}`) ? '2-post' : '4-post'
+	return { kind, heightU: p.ru ?? 42, widthMm: p.widthMm ?? (kind === 'vcm' ? 250 : 600), depthMm: p.depthMm ?? (kind === 'vcm' ? 600 : 1000), catalogId: p.id, maker: p.maker, model: p.sku, ...(p.productUrl ? { productUrl: p.productUrl } : {}) }
+}
+
 export const makerModel = (x: { maker?: string; model?: string }) => [x.maker, x.model].map((s) => s?.trim()).filter(Boolean).join(' ')
 /** A rack with no catalogue product: its model is its SKU, "maker model (kind size)" its description. */
 const skuOf = (r: Rack) => r.model?.trim() || describe(r)

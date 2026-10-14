@@ -5,6 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Id, Rack, RackRow } from '../domain/types'
+	import type { CatalogProduct } from '$lib/catalog/types'
 	import { deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, racksToRoom } from '../domain/devices'
 	import { naturalCompare } from '../domain/labels'
 	import { newId } from '../domain/ids'
@@ -25,6 +26,9 @@
 	let { project, ws, racks }: { project: CadProject; ws: Workspace; racks: Rack[] } = $props()
 
 	const one = $derived(racks.length === 1 ? racks[0] : undefined)
+	/** The built-in catalogue, for a product's spec sheet (loaded on demand: it is big). */
+	let seed = $state<CatalogProduct[]>([])
+	$effect(() => { void import('$lib/catalog/panduitSeed').then((m) => (seed = m.PANDUIT_SEED)) })
 	const RACK_KINDS: [Rack['kind'], string][] = [['2-post', '2-post'], ['4-post', '4-post'], ['cabinet', 'cabinet'], ['vcm', 'VCM (vertical cable manager)'], ['desk', 'desk'], ['shelf', 'shelf']]
 	/** What the racks share (or mixed). */
 	const rk = <V,>(f: (r: Rack) => V) => shared(racks, f)
@@ -156,6 +160,12 @@
 	<TextField label="Maker" value={rk((r) => r.maker).value} mixed={rk((r) => r.maker).mixed} onchange={(v) => set('Rack maker', { maker: v || undefined })} />
 	<TextField label="Model" value={rk((r) => r.model).value} mixed={rk((r) => r.model).mixed} onchange={(v) => set('Rack model', { model: v || undefined })} />
 	<TextField label="Product" mono title="The catalogue product (SKU) — the rack BOM adds its accessories" value={rk((r) => r.catalogId).value} mixed={rk((r) => r.catalogId).mixed} onchange={(v) => set('Rack product', { catalogId: v || undefined })} />
+	<!-- its spec sheet: typed, else its catalogue product's -->
+	<TextField label="Spec sheet" title="A link to the product's data sheet (https://…); blank = its catalogue product's" value={rk((r) => r.productUrl).value} mixed={rk((r) => r.productUrl).mixed} onchange={(v) => set('Rack spec sheet', { productUrl: v?.trim() || undefined })} />
+	{#if one}
+		{@const url = one.productUrl ?? seed.find((p) => p.id === one.catalogId || p.sku === one.catalogId)?.productUrl}
+		{#if url}<p class="muted"><a class="text-blue-600 underline" href={url} target="_blank" rel="noopener noreferrer">Open the spec sheet ↗</a></p>{/if}
+	{/if}
 	<Field label="Color">{#snippet children()}<ColorPick value={color.value} mixed={color.mixed} allowByLayer onchange={(v) => set('Rack color', { color: v })} />{/snippet}</Field>
 	<TextField label="Notes" rows={one ? 2 : 0} value={rk((r) => r.notes).value} mixed={rk((r) => r.notes).mixed} onchange={(v) => set('Rack notes', { notes: v || undefined })} />
 	<p class="muted">{deviceCounts(racks.flatMap((r) => project.index.devicesIn(r.id)))}{racks.length > 1 ? ` in ${racks.length} racks` : ''}</p>

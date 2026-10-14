@@ -329,6 +329,13 @@ export class Workspace {
 	/** The Rack tool button: draw new racks (like the last one) with each click. */
 	drawRacks(): void {
 		this.rackTool.target = null
+		this.rackTool.product = null
+		this.toolId = 'rack'
+	}
+	/** Draw racks of a catalogue product (Product catalogue › Draw racks): the Rack tool, each click one of them. */
+	drawProduct(p: NonNullable<RackTool['product']>): void {
+		this.rackTool.target = null
+		this.rackTool.product = p
 		this.toolId = 'rack'
 	}
 	/** Ports selected on one device in a rack row; dropped when that device leaves the selection. */

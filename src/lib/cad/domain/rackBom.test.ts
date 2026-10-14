@@ -1,6 +1,6 @@
 // The rack BOM (Phase 3.6): the Racks tool's Panduit rules on cad records.
 import { describe, it, expect } from 'vitest'
-import { rackBom, containmentKitSku, bomRooms } from './rackBom'
+import { rackBom, containmentKitSku, bomRooms, rackFromProduct } from './rackBom'
 import { bom } from './reports'
 import { ProjectIndex } from './project'
 import { PANDUIT_SEED } from '$lib/catalog/panduitSeed'
@@ -12,6 +12,15 @@ const vcm = PANDUIT_SEED.find((p) => p.kind === 'vcm' && !!p.hacEndPanel)!
 const rack = (id: string, x: number, extra: Partial<Rack> = {}): Rack => ({ type: 'rack', id, levelId: 'L', spaceId: 'S', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1200, at: { x, y: 0 }, ...extra })
 const row = (containment: RackRow['containment']): RackRow => ({ type: 'rackRow', id: 'ROW', spaceId: 'S', name: 'Row 1', order: 0, containment })
 const ix = (ents: Entity[]) => new ProjectIndex(ents)
+
+describe('a rack from a catalogue product', () => {
+	it('a 4-post rack and a VCM from the built-in catalogue: their size, kind, SKU and catalogue id', () => {
+		const rack = PANDUIT_SEED.find((p) => p.kind === 'rack')!, vcm = PANDUIT_SEED.find((p) => p.kind === 'vcm')!
+		expect(rackFromProduct(rack)).toMatchObject({ kind: '4-post', heightU: rack.ru ?? 42, catalogId: rack.id, maker: 'Panduit', model: rack.sku })
+		expect(rackFromProduct(vcm).kind).toBe('vcm')
+		expect(rackFromProduct({ id: 'x', maker: 'ACME', sku: 'C42', kind: 'rack', description: '42U server cabinet', productUrl: 'https://acme/c42' })).toMatchObject({ kind: 'cabinet', heightU: 42, widthMm: 600, productUrl: 'https://acme/c42' })
+	})
+})
 
 describe('rack BOM', () => {
 	it('one line per rack SKU, summed; a rack with no catalogue product is still listed', () => {

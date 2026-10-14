@@ -215,6 +215,11 @@ export class CadProject {
 		if (this.blocks.get(id)?.builtin || !name.trim()) return
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [id]: { name: name.trim() } } }, { merge: true })
 	}
+	/** A block's spec sheet (backlog "Catalogue … links to product specs"), in the GLOBAL library; '' clears it. */
+	async setBlockUrl(id: Id, url: string): Promise<void> {
+		if (this.blocks.get(id)?.builtin) return
+		await updateDoc(doc(this.db, ...BLOCKS_DOC), new FieldPath('blocks', id, 'productUrl'), url.trim() ? url.trim() : deleteField())
+	}
 
 	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /
 	 *  outlet already using it keeps drawing it. Built-ins can't be retired. Not undoable (it isn't project data). */

@@ -159,6 +159,8 @@ export interface BlockDef {
 	attrs?: { tag: string; label: string; default?: string }[]
 	/** Deleted from the library: hidden from pickers, but inserts / outlets already using it keep drawing it. */
 	retired?: boolean
+	/** The product it stands for, its spec sheet (a link on the block and its inserts). */
+	productUrl?: string
 }
 
 /** An ISSUE = one package that went out (Phase 4.6): the sheets at the revisions they went at (bumped if changed

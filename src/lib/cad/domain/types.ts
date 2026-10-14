@@ -180,6 +180,8 @@ export interface Rack {
 	catalogId?: Id
 	maker?: string
 	model?: string
+	/** Its spec sheet (a link in Properties; its catalogue product's when unset). */
+	productUrl?: string
 	/** Its layer when not the default (Racks) — domain/layers.ts. */
 	layerId?: Id
 	frontProtrusionMm?: number
@@ -224,6 +226,8 @@ export interface Device {
 	catalogId?: Id
 	maker?: string
 	model?: string
+	/** Its spec sheet (a link in Properties; from its template, or typed). */
+	productUrl?: string
 	widthMm?: number
 	depthMm?: number
 	offsetX?: number

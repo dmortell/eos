@@ -23,7 +23,7 @@
 	const ok = $derived(!!t.name.trim() && t.heightU >= 1 && t.portCount >= 0)
 	function save() {
 		if (!ok) return
-		onsave({ ...$state.snapshot(t), name: t.name.trim(), maker: t.maker?.trim() || undefined, model: t.model?.trim() || undefined })
+		onsave({ ...$state.snapshot(t), name: t.name.trim(), maker: t.maker?.trim() || undefined, model: t.model?.trim() || undefined, productUrl: t.productUrl?.trim() || undefined })
 	}
 </script>
 
@@ -54,6 +54,7 @@
 			<label>Depth (mm) <input type="number" min="0" value={t.depthMm ?? ''} placeholder="—" oninput={(e) => (t.depthMm = num(e.currentTarget.value))} /></label>
 			<label>Maker <input value={t.maker ?? ''} oninput={(e) => (t.maker = e.currentTarget.value)} /></label>
 			<label>Model <input value={t.model ?? ''} oninput={(e) => (t.model = e.currentTarget.value)} /></label>
+			<label title="A link to the product's data sheet: devices placed from this template carry it">Spec sheet <input value={t.productUrl ?? ''} placeholder="https://…" oninput={(e) => (t.productUrl = e.currentTarget.value)} /></label>
 		</div>
 		<p class="hint">{isNew ? 'Saved to the device library of every project' : 'Changes the template for every project — devices already placed keep theirs'}</p>
 </CadDialog>

@@ -22,6 +22,8 @@ export interface DeviceTemplate {
 	catalogId?: Id
 	maker?: string
 	model?: string
+	/** The product's spec sheet: devices placed from it carry it (a link in Properties). */
+	productUrl?: string
 	builtin?: boolean
 }
 /** A 19" rack device's width WITHOUT its mounting ears (Dave: servers are ~430–451 mm, patch panels 462 mm without ears,
@@ -79,7 +81,7 @@ export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, nam
 		type: 'device', id: newId(), rackId, name, kind: t.kind, u, heightU: t.heightU, face: face ?? t.face ?? 'front', portCount: t.portCount,
 		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}),
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}), ...(t.catalogId ? { catalogId: t.catalogId } : {}),
-		...makerModel(t), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
+		...makerModel(t), ...(t.productUrl ? { productUrl: t.productUrl } : {}), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
 	}
 }
 
@@ -89,7 +91,7 @@ export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 		id: newId(), name, kind: d.kind, heightU: d.heightU, portCount: d.portCount,
 		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}),
 		face: d.face, ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}), ...(d.catalogId ? { catalogId: d.catalogId } : {}),
-		...makerModel(d),
+		...makerModel(d), ...(d.productUrl ? { productUrl: d.productUrl } : {}),
 	}
 }
 

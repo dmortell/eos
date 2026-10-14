@@ -125,6 +125,9 @@
 <PropGroup kind="device" title="Product and size">
 	<TextField label="Maker" value={dv((d) => d.maker).value} mixed={dv((d) => d.maker).mixed} onchange={(v) => setAll('Device maker', { maker: v || undefined })} />
 	<TextField label="Model" value={dv((d) => d.model).value} mixed={dv((d) => d.model).mixed} onchange={(v) => setAll('Device model', { model: v || undefined })} />
+	<!-- its spec sheet: typed, or from its template / catalogue product -->
+	<TextField label="Spec sheet" title="A link to the product's data sheet (https://…)" value={dv((d) => d.productUrl).value} mixed={dv((d) => d.productUrl).mixed} onchange={(v) => setAll('Device spec sheet', { productUrl: v?.trim() || undefined })} />
+	{#if one?.productUrl}<p class="muted"><a class="text-blue-600 underline" href={one.productUrl} target="_blank" rel="noopener noreferrer">Open the spec sheet ↗</a></p>{/if}
 	<NumberField label="Width" unit="mm" min={10} blank placeholder="19-inch" value={dv((d) => d.widthMm).value} mixed={dv((d) => d.widthMm).mixed} onchange={(v) => setAll('Device width', { widthMm: v })} />
 	<NumberField label="Depth" unit="mm" min={10} blank value={dv((d) => d.depthMm).value} mixed={dv((d) => d.depthMm).mixed} onchange={(v) => setAll('Device depth', { depthMm: v })} />
 	{#if one && rack && narrowDevice(one) && one.widthMm! < rack.widthMm}

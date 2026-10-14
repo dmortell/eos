@@ -58,7 +58,7 @@ export interface MenuCtx {
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
-	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void
+	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	/** Insert › Image…: pick the picture, then the Image tool. */
@@ -153,6 +153,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Cabling', items: [
 			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'), tool('renumber', 'Renumber'),
+			'-',
+			{ label: 'Product catalogue…', title: 'Racks, cable managers, accessories and devices: their spec sheets; draw racks of a product; add your own products', run: c.catalogue },
 			'-',
 			{ label: 'Tables', children: [
 				{ label: 'Outlets', run: () => c.openTable('outlets') },

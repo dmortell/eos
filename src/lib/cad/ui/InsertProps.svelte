@@ -84,6 +84,12 @@
 				<button class="lnk" title="The block library (every project): place more of it, or delete your own blocks from it (✕ on its row)" onclick={() => ws.openWindow('blocks')}>Blocks window ›</button>
 			</div>
 			{#if b.retired}<p class="muted">Deleted from the library (kept here)</p>{/if}
+			<!-- the product the block stands for: its spec sheet, on the BLOCK (every insert, every project); built-ins have none -->
+			{#if !b.builtin}
+				<label class="row" title="A link to the product's data sheet — saved on the block in the library (every project); blank removes it">Spec sheet
+					<input class="inp" value={b.productUrl ?? ''} placeholder="https://…" onchange={(e) => { const v = e.currentTarget.value; void project.setBlockUrl(b.id, v).catch((x) => (project.error = `Couldn't save it: ${(x as Error).message}`)) }} /></label>
+			{/if}
+			{#if b.productUrl}<p class="muted"><a class="lnk" href={b.productUrl} target="_blank" rel="noopener noreferrer">Open the spec sheet ↗</a></p>{/if}
 		</PropGroup>
 	{/if}
 {/if}

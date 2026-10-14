@@ -30,6 +30,7 @@
 	import type { CalibMode } from '../editor/calibrateTool'
 	import type { Level, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
+	import CatalogueDialog from './CatalogueDialog.svelte'
 	import SettingsDialog, { type SettingsTab } from './SettingsDialog.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -354,6 +355,8 @@
 	/** Project settings (one dialog, tabs): the menu entries open it on their tab. Hidden, not closed, while a floorplan
 	 *  is calibrated on the plan (its Origin / Scale / Crop), so it comes back as it was when the Calibrate tool ends. */
 	let settingsOpen = $state(false), settingsTab = $state<SettingsTab>('floors'), calibrating = $state(false)
+	/** Cabling › Product catalogue… */
+	let catalogueOpen = $state(false)
 	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true }
 	$effect(() => { if (calibrating && ws.toolId !== 'calibrate') calibrating = false })
 	// an offer to put something back (ws.offerRevert, backlog W1) belongs to where it was made: it closes when the view,
@@ -426,7 +429,7 @@
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
 		tool: setTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
-		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(),
+		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
@@ -686,6 +689,7 @@
 		{#if ws.toast}<div class="toast" role="status">{ws.toast}</div>{/if}
 	</main>
 
+	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
 	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}

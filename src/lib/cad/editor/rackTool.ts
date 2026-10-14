@@ -17,6 +17,9 @@ export class RackTool implements Tool {
 	readonly cursor = 'crosshair'
 	target: Id | null = null
 	last: Rack | null = null
+	/** A catalogue product picked in the Product catalogue (backlog "Catalogue"): the next racks are that product —
+	 *  its size, kind and SKU — until another is picked or the tool is armed from a rack again. */
+	product: Pick<Rack, 'kind' | 'heightU' | 'widthMm' | 'depthMm' | 'catalogId' | 'maker' | 'model' | 'productUrl'> | null = null
 	#hover: Pt | null = null
 
 	constructor(private done: () => void) {}
@@ -45,6 +48,7 @@ export class RackTool implements Tool {
 			type: 'rack', id: newId(), levelId: c.levelId, spaceId: typeof room === 'string' ? room : room.id, order: c.index.racks.filter((x) => x.levelId === c.levelId).length, name,
 			kind: like?.kind ?? 'cabinet', heightU: like?.heightU ?? 42, widthMm: like?.widthMm ?? 600, depthMm: like?.depthMm ?? 1000,
 			...(like?.heightMm ? { heightMm: like.heightMm } : {}), ...(like?.rowId ? { rowId: like.rowId } : {}), ...(like?.rot ? { rot: like.rot } : {}),
+			...(this.product ?? {}),   // a catalogue product picked: its size, kind and SKU
 			at,
 		}
 		c.store.transact(typeof room === 'string' ? `Draw rack ${name}` : `New room ${room.name} + rack ${name}`, (tx) => { if (typeof room !== 'string') tx.put(room); tx.put(r) })

@@ -3606,3 +3606,16 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     no Alt, unless an object snap is nearer (`domain/guides.ts` `guideSnap`). Guide × object intersections: not built
     (no intersection snap exists).
   - Tests in `domain/guides.test.ts`. Tried live on Workflow test GF: a cross placed, "Clear 2" took it off.
+- **Catalogue, with links to product specs** (G089, T048): Cabling › **Product catalogue…** (`ui/CatalogueDialog.svelte`):
+  - The built-in Panduit seed + the global custom products (`$lib/catalog/service.ts`, the `catalog` collection, as
+    the old Racks tool), filtered by kind / maker / RU / search (SKU, description, family, color); ↗ = its spec sheet.
+  - **Draw racks** on a rack / VCM: `ws.drawProduct` arms the Rack tool with `rackFromProduct` (`domain/rackBom.ts`:
+    VCM / cabinet / 2-post / 4-post, its RU and size, maker + SKU as model, catalogue id, spec link) until the Rack
+    button is picked again. **+ Custom product** / ✕ (custom only, a second click confirms).
+  - Spec sheets: `productUrl` on Rack, Device, DeviceTemplate and blocks (BlockDef). Properties: Rack › Spec sheet (or
+    its catalogue product's), Device › Spec sheet (template carries it to placed devices; Template dialog field),
+    Insert › Block › Spec sheet (saved on the block, `project.setBlockUrl`). The rack BOM already linked SKUs.
+  - "Fits the row" filter: not built (RU covers it); one list with the device library: kept apart (the library is
+    templates; a template keeps a catalogId as before).
+  - Test in `domain/rackBom.test.ts`. Seen live: 162 products, ↗ links, Draw racks → "each click on the plan draws a
+    Panduit AR4P" (Esc, nothing drawn).
