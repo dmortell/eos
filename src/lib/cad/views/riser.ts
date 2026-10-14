@@ -192,7 +192,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v1 }, { x: sh.x - sh.w / 2, y: -v1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
 		out.push({ k: 'text', at: { x: sh.x, y: -v1 - small * 0.6 }, text: `${sh.s.label || 'Riser'}${tier}`, size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
 		// W30 (B39): what it carries — "48 cables · 32%" beside it, amber near the limit, red over it (a color of its
-		// own, so a sheet prints it too)
+		// own, so a sheet prints it too, and it reads the same on screen)
 		const f = fills.get(segKey(sh.s.id, sh.seg))
 		if (f) {
 			const tone = fillTone(f.pct), color = tone === 'over' ? '#dc2626' : tone === 'warn' ? '#d97706' : undefined

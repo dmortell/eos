@@ -61,7 +61,16 @@
 <PropGroup kind="room" title="General">
 	<TextField label="Name" value={room.name} onchange={(v) => v && v !== room.name && set(`Rename room ${room.name} → ${v}`, { name: v })} />
 	<TextField label="Code" mono title={server ? 'The server room’s letter or code in port labels (the S of FF.Z.NNN-SPP)' : 'Its short code'} value={room.code} onchange={(v) => set('Room code', { code: v || undefined })} />
-	<Field label="Level">{#snippet children()}<span class="muted">{project.index.nameOf(room.levelId)}{server ? '' : ` · ${room.kind}`}</span>{/snippet}</Field>
+	<Field label="Level">{#snippet children()}<span class="muted">{project.index.nameOf(room.levelId)}</span>{/snippet}</Field>
+	{#if !server}
+		<!-- W30: an EPS (electrical / riser room) names the riser view's EPS box round the riser inside it -->
+		<Field label="Kind" title="An EPS (riser room): the riser view names its EPS box after it">{#snippet children()}
+			<select class="inp" value={room.kind} onchange={(e) => set('Room kind', { kind: e.currentTarget.value })}>
+				<option value="room">Room</option><option value="eps">EPS (riser room)</option>
+				{#if room.kind !== 'room' && room.kind !== 'eps'}<option value={room.kind}>{room.kind}</option>{/if}
+			</select>
+		{/snippet}</Field>
+	{/if}
 </PropGroup>
 {#if server}
 	<PropGroup kind="room" title="Floor and ceiling">

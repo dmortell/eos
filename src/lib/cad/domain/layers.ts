@@ -19,7 +19,10 @@ export const SYSTEM_LAYERS: LayerInfo[] = ([
 	['sys:notes', 'Notes', '#0f172a'], ['sys:sections', 'Sections', '#0f766e'],
 	// the rack view's context (Dave 2026-10-09: its toggles): the room's floor / ceiling / slab lines, the other face
 	['sys:room-lines', 'Room lines', '#64748b'], ['sys:other-face', 'Other face', '#94a3b8'],
-] as const).map(([id, name, look], i) => ({ id, name, look, order: (i + 1) * 10, system: true }))
+] as const).map(([id, name, look], i): LayerInfo => ({ id, name, look, order: (i + 1) * 10, system: true }))
+	// ROOMS (W30): room / EPS outlines and names on the plan, just above Walls — order 25, so no other layer's order moves
+	.concat({ id: 'sys:rooms', name: 'Rooms', look: '#64748b', order: 25, system: true })
+	.sort((a, b) => a.order - b.order)
 
 /** Colors for new project layers, in turn (distinct from the system defaults where possible). */
 export const LAYER_PALETTE = ['#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#ca8a04', '#db2777', '#4f46e5', '#65a30d', '#0d9488']
@@ -49,6 +52,7 @@ export function defaultLayer(e: Entity): Id | undefined {
 		case 'link': return e.kind === 'horizontal' ? undefined : 'sys:backbone'
 		case 'underlay': return 'sys:background'
 		case 'section': return 'sys:sections'
+		case 'space': return 'sys:rooms'
 		case 'shape': {
 			const r = e.role
 			if (r?.kind === 'wall') return 'sys:walls'

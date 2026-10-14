@@ -59,6 +59,15 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		if (old) out.push({ k: 'image', ...old, x: old.x + dx, y: old.y + dy, ...(old.clip ? { clip: { x0: old.clip.x0 + dx, y0: old.clip.y0 + dy, x1: old.clip.x1 + dx, y1: old.clip.y1 + dy } } : {}), opacity: 0.9, tint: 'red' })
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
+	// ROOMS (W30): a space with a boundary (drawn with the Room tool, or imported) — a dashed outline with its name in
+	// the middle, picked as the room (Properties: name, kind); on the Rooms layer
+	for (const sp of ix.spaces) {
+		const b = sp.boundary
+		if (sp.levelId !== levelId || !b || b.length < 3) continue
+		const c = { x: b.reduce((a, q) => a + q.x, 0) / b.length, y: b.reduce((a, q) => a + q.y, 0) / b.length }
+		out.push({ k: 'line', pts: b, closed: true, cls: 'shape room-bound', dash: 'dashed', src: sp.id })
+		out.push({ k: 'text', at: c, text: sp.name, size: 2.5 * k, anchor: 'middle', cls: 'note room-name', src: sp.id })
+	}
 	const shapes = ix.shapes.filter((s) => s.levelId === levelId || (s.geom.kind === 'path' && s.geom.nodes.some((n) => n.levelId === levelId)) || passesThrough(ix, s, levelId))
 	// (a shape drawn on an elevation's plane belongs to elevations, not the plan; so does a 2D block put on a wall there —
 	// a 3D one is model, shown everywhere)

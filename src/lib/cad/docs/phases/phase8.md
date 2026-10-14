@@ -3734,3 +3734,14 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   sheet prints it). The riser view takes `fills` (project.fills, with estimates; a sheet viewport passes its own;
   absent → worked out from the routes), `riserShafts` returns each riser's segment id. Test in `views/riser.test.ts`.
   Live: the riser view renders (Test Project and Workflow test have no riser runs to label just now).
+- **W30 (rest) Rooms and EPS rooms** (B38): a **Room** tool (tool strip › Building, after Wall; plans): click the
+  corners (snaps, Shift 15°, typed points), Enter / C / a click on the first corner closes it, then the name (asked;
+  empty = the default). Drawn round a riser (`riserInside`: a run's vertical segment to another level, on this floor)
+  it is an EPS ("EPS 1", kind `eps`) — the riser view's EPS box takes its name. Rooms draw on the plan as a dashed
+  outline + name (`shape room-bound` / `note room-name`, existing print styles), picked as the space → Properties
+  (RoomProps: + a Kind select Room / EPS for non-server rooms; Delete as before). New system layer **Rooms**
+  (`sys:rooms`, order 25 — between Walls and Drawing, no other order moved); spaces default to it, so imported room
+  boundaries now show on the plan too. `editor/roomTool.ts` + test; plan test in it. Hint + Help.
+  - Seen live on Test Project (undone): Room 2 drawn, named, Properties Kind = Room, dashed outline + label.
+  - Gotcha hit: an edit that used `segKey` hot-reloaded before its import line → Vite kept serving that broken
+    riser.ts (same `?t=`) across full reloads until the file was edited again.
