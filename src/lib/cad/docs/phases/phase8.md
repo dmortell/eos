@@ -3753,3 +3753,6 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A device placed (or dropped from the library) on a taken U goes to the NEAREST free U (a tie goes up) and says so;
     the drop ghost shows that spot, red only when the rack has no room (B45: it was refused, silently on a drop).
     `nearestFreeU` (domain/devices.ts), DeviceTool down / preview; tests in `editor/racks.test.ts`.
+  - Shift+click (and a Shift window) ADDS to the selection outside rack views, as Ctrl does (B49: it replaced it);
+    rack views keep Shift for ranges, and a Shift-drag still moves with the H / V lock. `selectTool` `add`; test in
+    `copyNudge.test.ts`; Help "Select several things".

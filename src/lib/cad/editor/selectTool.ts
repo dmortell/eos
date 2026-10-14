@@ -367,7 +367,10 @@ export class SelectTool implements Tool {
 		} else if (c.selectPorts && !(e.shift || e.ctrl)) c.selectPorts(null)
 		// clicking the same spot again steps down through what's stacked there (the release picks the next; a drag moves
 		// the current one)
-		const again = !e.ctrl && c.selection.length === 1 && !!this.#last && Math.hypot(e.p.x - this.#last.x, e.p.y - this.#last.y) <= c.tol()
+		// W32 / B49: outside rack views (Shift = a range there) Shift+click ADDS to the selection as Ctrl does (it replaced
+		// it); a Shift-DRAG still moves with the H / V lock
+		const add = e.ctrl || (e.shift && !c.rowHit)
+		const again = !add && c.selection.length === 1 && !!this.#last && Math.hypot(e.p.x - this.#last.x, e.p.y - this.#last.y) <= c.tol()
 		const stack = again ? pickStack(c.prims(), e.p, c.tol()) : [], at = stack.indexOf(c.selection[0])
 		this.#cycle = at >= 0 && stack.length > 1 && !this.#segPick ? stack[(at + 1) % stack.length] : null
 		this.#last = e.p
@@ -376,17 +379,17 @@ export class SelectTool implements Tool {
 			const id = pid
 			// Ctrl: a click toggles it (Dave: Shift is kept for constraints while dragging; port ranges in racks still use
 			// Shift); a Ctrl-DRAG copies the selection with it — let go of Ctrl mid-drag and it moves instead
-			if (e.ctrl) this.#toggle = id
+			if (add) this.#toggle = id
 			const grp = withGroups(c.index.shapes, [id])   // a member of a group picks the whole group
-			const sel = c.selection.includes(id) ? c.selection : e.ctrl ? [...new Set([...c.selection, ...grp])] : grp
-			if (sel !== c.selection && !e.ctrl) c.select(sel)
+			const sel = c.selection.includes(id) ? c.selection : add ? [...new Set([...c.selection, ...grp])] : grp
+			if (sel !== c.selection && !add) c.select(sel)
 			// in a rack row, devices move (by U / into another rack); elsewhere what has a plan position moves
 			this.#ids = sel.filter((x) => { const en = c.store.get(x); return !!en && (c.rowHit ? en.type === 'device' : canMove(en) || e.ctrl) })
 			if (!c.rowHit) this.#clip = makeClip(c.index, sel, '')
 			this.#start = e.p
 		} else {
 			this.#marquee = e.p
-			if (!e.ctrl) c.select([])
+			if (!add) c.select([])
 		}
 	}
 
@@ -628,7 +631,7 @@ export class SelectTool implements Tool {
 				c.select([sh.id]); c.selectViewports([...new Set([...had, ...hit])])
 				c.say?.(`${hit.length === 1 ? 'Viewport' : `${hit.length} viewports`} picked — drag to move, Ctrl-drag to copy, Delete removes, Ctrl+C copies`)
 			}
-			else c.select(e.ctrl ? [...new Set([...c.selection, ...grouped])] : grouped)
+			else c.select(e.ctrl || (e.shift && !c.rowHit) ? [...new Set([...c.selection, ...grouped])] : grouped)   // Shift adds too (W32)
 		}
 		this.#reset(c)
 	}

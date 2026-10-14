@@ -83,6 +83,16 @@ describe('Ctrl-drag copy (plan)', () => {
 		t.up(at(1000, 4000, { ctrl: true }), h.ctx())
 		expect(h.sel()).toEqual(['O2', 'O1'])
 	})
+	it('a Shift CLICK adds too, as Ctrl does (W32 / B49: it replaced the selection); a plain click replaces', () => {
+		const h = harness(PLAN), t = new SelectTool()
+		h.setSel(['O2'])
+		t.down(at(1000, 4000, { shift: true }), h.ctx())
+		t.up(at(1000, 4000, { shift: true }), h.ctx())
+		expect(h.sel()).toEqual(['O2', 'O1'])
+		h.setSel(['O2'])
+		t.down(at(1000, 4000), h.ctx()); t.up(at(1000, 4000), h.ctx())
+		expect(h.sel()).toEqual(['O1'])
+	})
 })
 
 describe('click-cycle', () => {
