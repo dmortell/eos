@@ -1,11 +1,12 @@
 // The INSERT tool (the Blocks list): click to place the chosen block; it stays on for the next one, Esc → Select.
 // Plan: at the click, at the last insert's height. Elevation / section: the click gives the height too, and the
 // block goes ON the nearest wall behind the click (its face, turned to face the viewer: a wall faceplate); with no
-// wall there, on the work plane. Only those show in elevations: a block placed on the plan is a plan symbol.
+// wall there, on the work plane. Only those show in elevations: a block placed on the plan is a plan symbol. A 3D block
+// (furniture) shows everywhere; dropped on a wall it stands in front of it, its back on the face.
 import { placeNote } from './noteTool'
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import { placeAt } from './tools'
-import { insertAttrs, is3d, type Block } from '../domain/blocks'
+import { insertAttrs, is3d, backOf, type Block } from '../domain/blocks'
 import { blockSideView } from '../views/elevation'
 import type { Shape } from '../domain/shapes'
 import type { Pt } from '../domain/types'
@@ -42,12 +43,12 @@ export class InsertTool implements Tool {
 		}
 		const s = {
 			type: 'shape', id: newId(), levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}),
-			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
+			geom: { kind: 'insert', blockId: b.id, at: p.at, ...(p.rot ? { rot: p.rot } : {}), ...(p.z ? { z: p.z } : {}), ...(c.space.spec.kind !== 'plan' && !is3d(b) ? { inElevations: true, ...(c.space.frame ? { frame: c.space.frame } : {}) } : {}), ...(Object.keys(attrs).length ? { attrs } : {}) },
 		} as Shape
 		c.store.transact(`Insert ${b.name}`, (tx) => tx.put(s))
 		this.#z = p.z
 		c.select([s.id])
-		if (c.space.spec.kind !== 'plan') c.say?.(p.onWall ? `${b.name} on the wall, Z ${p.z}` : `${b.name} at Z ${p.z} — no wall behind the click, so on the work plane`)
+		if (c.space.spec.kind !== 'plan') c.say?.(p.onWall ? (is3d(b) ? `${b.name} against the wall, Z ${p.z}` : `${b.name} on the wall, Z ${p.z}`) : `${b.name} at Z ${p.z} — no wall behind the click, so on the work plane`)
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.hover(e, c) }
 	up(): void {}
@@ -79,7 +80,9 @@ export class InsertTool implements Tool {
 		// the block's front (its local +y, as racks) towards the viewer (n points at the viewer)
 		const rot = Math.round((Math.atan2(-f.n.x, f.n.y) * 180) / Math.PI + 360) % 360
 		const w = wallFaceAt(c, c.space.fromWorld({ ...q.at, z: q.z }).x, f.n)
-		const at = w ?? q.at
+		// a 3D block (a desk) stands in front of the wall, its back on the face; a faceplate's point is on the face
+		const b = this.blockOf(), back = w && b && is3d(b) ? backOf(b) : 0
+		const at = w ? { x: Math.round(w.x + f.n.x * back), y: Math.round(w.y + f.n.y * back) } : q.at
 		return { at, z: q.z, ...(rot ? { rot } : {}), onWall: !!w, view: c.space.fromWorld({ ...at, z: q.z }) }
 	}
 }

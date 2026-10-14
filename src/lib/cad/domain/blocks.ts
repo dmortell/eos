@@ -28,6 +28,9 @@ export function oneDrawing(b: Block & { front?: BlockShape[] }): Block {
 /** A 3D block (Dave 2026-10-14: furniture drawn with the Box tool): it has a box — a region with a height. Its inserts
  *  are model: they show in every plan, elevation and section, seen from that direction (`placed3d`). */
 export const is3d = (b: Block): boolean => b.shapes.some((s) => (s.extent ?? 0) > 0)
+/** How far a block reaches behind its insert point (local −y, mm ≥ 0), labels left out: a 3D block dropped on a wall
+ *  in an elevation stands with its back there (Dave 2026-10-14), not with its middle in the wall. */
+export const backOf = (b: Block): number => -Math.min(0, ...b.shapes.filter((s) => !isLabel(s)).flatMap((s) => pointsOf(s.geom)).map((p) => p.y))
 /** A text that is a label (`{TAG}`s, filled from the insert's attributes): shown in every view, facing the viewer. */
 export const isLabel = (s: BlockShape): boolean => s.geom.kind === 'text' && /\{[A-Z_]+\}/.test(s.geom.text)
 

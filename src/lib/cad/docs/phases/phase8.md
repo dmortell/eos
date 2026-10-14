@@ -3379,3 +3379,5 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   centred over the block's top; flat regions and plain texts only on plans (edge-on elsewhere).
 - Default Z 0; drag it in an elevation to lift it (`behaviours.ts` already moves an insert's z). Explode → the boxes
   where they stand.
+- Dropped from the Blocks window into an elevation / section on a wall, a 3D block faces the viewer with its back on the
+  wall's face (`backOf` = how far it reaches behind its point), not its middle; no `inElevations` / `frame` stored.

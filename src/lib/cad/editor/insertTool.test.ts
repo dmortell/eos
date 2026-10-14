@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { BUILTIN_BLOCKS } from '../domain/blocks'
+import { BUILTIN_BLOCKS, blockFromShapes, placed3d } from '../domain/blocks'
+import { outlineOf } from '../domain/shapes'
 import { InsertTool } from './insertTool'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { elevationDisplayList } from '../views/elevation'
@@ -73,6 +74,18 @@ describe('the Insert tool', () => {
 		// unticked "show in elevations" in Properties: back on the plan
 		const g = s.geom as Extract<Shape['geom'], { kind: 'insert' }>, { inElevations: _i, ...planOnly } = g
 		expect(planDisplayList(new ProjectIndex([...h.store.all().filter((e) => e.id !== s.id), { ...s, geom: planOnly } as Shape]), 'L33', { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(true)
+	})
+	it('a 3D block (a desk) in an elevation stands in front of the wall, its back on the face — not half in the wall', () => {
+		const top = { type: 'shape', id: 't', levelId: 'L33', geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 1200, y: 600 } }, extent: 50, plane: { kind: 'plan', z: 700 } } as Shape
+		const { block: desk } = blockFromShapes([top], 'Desk')
+		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec), h = harness(spec)
+		new InsertTool(() => desk).down(click(sp.fromWorld({ x: 2000, y: 5000, z: 0 })), h.ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect('inElevations' in s.geom).toBe(false)   // 3D: shows everywhere anyway
+		const [placed] = placed3d(s, desk), face = sp.depthOf({ x: 2000, y: 5000, z: 0 }) + 50
+		const depths = outlineOf(placed.geom)!.map((p) => Math.round(sp.depthOf({ ...p, z: 0 })))
+		expect(Math.min(...depths)).toBe(Math.round(face))         // the back on the wall's face
+		expect(Math.max(...depths)).toBe(Math.round(face + 600))   // the front 600 towards you
 	})
 	it('one drawing (Dave 2026-10-14): placed on the plan, the plan draws the same 70 mm plate the elevation does', () => {
 		const h = harness(PLAN)
