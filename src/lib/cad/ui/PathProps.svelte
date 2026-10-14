@@ -24,8 +24,8 @@
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
 
-	type Kind = 'line' | 'wall' | 'trunk' | 'conduit' | 'tray'
-	const kind = $derived<Kind>(s.role?.kind === 'wall' ? 'wall' : s.role?.kind === 'containment' ? (s.role.form === 'ladder' ? 'tray' : s.role.form) : 'line')
+	type Kind = 'line' | 'wall' | 'trunk' | 'conduit' | 'tray' | 'ladder'
+	const kind = $derived<Kind>(s.role?.kind === 'wall' ? 'wall' : s.role?.kind === 'containment' ? s.role.form : 'line')
 	const nodes = $derived(s.geom.kind === 'path' ? s.geom.nodes : [])
 	const vertical = $derived.by(() => {
 		if (s.geom.kind !== 'path') return 0
@@ -157,7 +157,7 @@
 	<label class="row">Kind
 		<select class="inp" value={kind} onchange={(e) => convert(e.currentTarget.value as Kind)}>
 			<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option>
-			<option value="conduit">Conduit</option><option value="tray">Tray</option>
+			<option value="conduit">Conduit</option><option value="tray">Tray</option><option value="ladder">Ladder</option>
 		</select>
 	</label>
 	<label class="row">Label <input class="inp" value={s.label ?? ''} onchange={(e) => save('Label', { ...s, label: e.currentTarget.value || undefined })} /></label>

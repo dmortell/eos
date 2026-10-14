@@ -40,7 +40,7 @@
 	<label class="row">Kind
 		<select class="inp" value={kind ?? ''} onchange={(e) => e.currentTarget.value && each('Convert runs', (s) => convertRun(s, e.currentTarget.value as RunKind))}>
 			{#if kind === null}<option value="">{MIXED}</option>{/if}
-			<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option><option value="conduit">Conduit</option><option value="tray">Tray</option>
+			<option value="line">Line</option><option value="wall">Wall</option><option value="trunk">Trunk</option><option value="conduit">Conduit</option><option value="tray">Tray</option><option value="ladder">Ladder</option>
 		</select></label>
 	<LayerPick {project} ids={runs.map((s) => s.id)} />
 </PropGroup>

@@ -7,8 +7,8 @@ import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
 import { toLine, toWall, toContainment } from './make'
 
-export type RunKind = 'line' | 'wall' | 'trunk' | 'conduit' | 'tray'
-export const kindOf = (s: Shape): RunKind => (s.role?.kind === 'wall' ? 'wall' : s.role?.kind === 'containment' ? (s.role.form === 'ladder' ? 'tray' : s.role.form) : 'line')
+export type RunKind = 'line' | 'wall' | 'trunk' | 'conduit' | 'tray' | 'ladder'
+export const kindOf = (s: Shape): RunKind => (s.role?.kind === 'wall' ? 'wall' : s.role?.kind === 'containment' ? s.role.form : 'line')
 
 /** The path as another kind of thing, keeping its geometry (and its size where it has one). */
 export function convertRun(s: Shape, to: RunKind): Shape {

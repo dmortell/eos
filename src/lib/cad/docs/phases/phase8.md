@@ -3745,3 +3745,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Seen live on Test Project (undone): Room 2 drawn, named, Properties Kind = Room, dashed outline + label.
   - Gotcha hit: an edit that used `segKey` hot-reloaded before its import line → Vite kept serving that broken
     riser.ts (same `?t=`) across full reloads until the file was edited again.
+- **W31 Ladder in the Kind list; cloud hint** (B13, B36): "Ladder" is a run kind of its own in Properties' Kind list
+  (one run and several) — a ladder used to show as Tray (`RunKind` + `kindOf`, test in `runEdit.test.ts`). The
+  Revision cloud hint now says it works on a sheet, a plan, an elevation or a section. Not tried live (a list option
+  and a hint).
