@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 10 entries (10 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 9 entries (9 P3, all ❓ — waiting on Dave's answers; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -85,17 +85,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 - [ ] **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind with a Z height (the ACS panel
   is a plain box today), and AV kit (screens, speakers) as block templates. **P3 · M** ❓.
 
-### Small UI
-
-- [ ] **W32 Small fixes** — each **S**:
-  - a device dropped next to another in a rack goes to the nearest free U (it was silently refused) (B45);
-  - Shift+click adds to a plan selection, as Ctrl does (it replaced it) (B49);
-  - the bottom table stays as you left it when the view changes (it reopened every time);
-  - a click inside a viewport on a sheet picks the viewport (it picked the sheet);
-  - the riser view opens in its own tab, not over the plan's;
-  - the allocation issue says "no high-level panel in L1.20" when there is none (B52);
-  - the Blocks window's "On this level" doesn't count outlet symbols;
-  - a Measure (distance) tool for checking scale. **P3**.
 
 ## Suggested order
 

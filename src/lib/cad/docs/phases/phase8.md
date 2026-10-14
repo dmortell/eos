@@ -3765,3 +3765,8 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     tab (`ws.openInTab`, as the Navigator does). Seen live: 1F plan → Riser went to the "Riser view" tab, 1F plan kept.
   - Allocation: high-level ports put on floor panels in a room with NO high-level panel now say "there is no
     high-level panel in L1.20", not "the high-level panels are full" (B52). Test in `allocate.test.ts`.
+  - The Blocks window's "On this level" already counts outlet symbols (by their block, placed outlets) — checked live
+    on 1F (Outlet - ceiling 3, desk / box 5, floor box 2, wall 3, Wireless AP 2). No change.
+  - A **Measure** tool (tool strip › Draw, after Dimension; plans, elevations, sections): two clicks (snaps, Shift 15°)
+    → the distance beside the line and in the status line with its X / Y (along / up) parts; nothing is drawn.
+    `editor/measureTool.ts` + test; hint + Help. Seen live on 1F.
