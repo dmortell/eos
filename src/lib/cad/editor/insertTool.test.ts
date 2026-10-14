@@ -9,6 +9,8 @@ import { InsertTool } from './insertTool'
 import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { elevationDisplayList } from '../views/elevation'
 import { planDisplayList } from '../views/plan'
+import { sectionDisplayList } from '../views/section'
+import type { SectionCut } from '../domain/drawing'
 import type { ToolCtx } from './tools'
 import type { Shape } from '../domain/shapes'
 
@@ -60,7 +62,7 @@ describe('the Insert tool', () => {
 		// an outlet symbol placed as a plain block shows no "{LABEL}" / "{PORTS}" / "{USAGE}" placeholders (Dave, A009)
 		expect(prims.some((p) => p.k === 'text' && p.src === s.id && p.text.includes('{'))).toBe(false)
 	})
-	it('placed in an elevation it shows ONLY there (Dave 2026-10-12), real size; not on the plan or in another elevation', () => {
+	it('placed in an elevation it shows there and in sections looking the same way (W28), real size; not on the plan or in other elevations', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec), h = harness(spec)
 		new InsertTool(() => plate).down(click(sp.fromWorld({ x: 2000, y: 5000, z: 300 })), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape, ix = new ProjectIndex(h.store.all())
@@ -70,6 +72,12 @@ describe('the Insert tool', () => {
 		const plateW = Math.max(...here.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : []))) - Math.min(...here.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : [])))
 		expect(Math.round(plateW)).toBe(70)   // real size
 		expect(elevationDisplayList(ix, 'L33', spaceOf({ kind: 'elevation', dir: 'rear' }), { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(false)
+		// W28: a section of that wall looking the same way shows it too; one looking the other way, or cut beyond it, doesn't
+		const sec = (o: Partial<SectionCut>): SectionCut => ({ type: 'section', id: 'S', levelId: 'L33', name: 'A', a: { x: 0, y: 6000 }, b: { x: 5000, y: 6000 }, depth: 2000, ...o })
+		const inSection = (c: SectionCut) => sectionDisplayList(ix, c, { scale: 100, blocks }).some((p) => p.src === s.id)
+		expect(inSection(sec({}))).toBe(true)
+		expect(inSection(sec({ flip: true }))).toBe(false)
+		expect(inSection(sec({ depth: 500 }))).toBe(false)
 		expect(planDisplayList(ix, 'L33', { scale: 100, blocks }).some((p) => p.src === s.id)).toBe(false)
 		// unticked "show in elevations" in Properties: back on the plan
 		const g = s.geom as Extract<Shape['geom'], { kind: 'insert' }>, { inElevations: _i, ...planOnly } = g

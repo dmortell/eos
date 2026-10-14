@@ -409,6 +409,12 @@ export function sameFrame(a: ElevFrame, b: ElevFrame): boolean {
 	return near(a.t.x, b.t.x) && near(a.t.y, b.t.y) && near(a.o.x, b.o.x) && near(a.o.y, b.o.y)
 }
 
+/** Two views looking the same way (the same across direction; any origin): an elevation and a section of the same
+ *  wall (W28). */
+export function sameWay(a: ElevFrame, b: ElevFrame): boolean {
+	return Math.abs(a.t.x - b.t.x) < 1e-6 && Math.abs(a.t.y - b.t.y) < 1e-6
+}
+
 /** A FLAT shape drawn on an elevation's / section's plane (a note, a dimension, a line, a flat box) belongs to that
  *  one view (backlog "Shapes that belong to one elevation"): the frame of the view it shows in. Null = shown wherever
  *  its geometry falls (plan shapes, solids, runs). */

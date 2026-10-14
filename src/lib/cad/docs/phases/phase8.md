@@ -3722,3 +3722,10 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   `PathTool.riserTo`, `ToolCtx.openLevel(id, at)` → `ws.openLevel` (the shell's openLevel). Tests: drawing.test.ts
   (riser + carry on), typing.test.ts (riser end Z). Hint + Help updated. Seen live on Test Project (undone): 1F
   conduit, V → 2, 2F opened centred, the 2F run started on "Riser 1F ↕ 2F".
+- **W28 Draft in sections** (B34): Outlet, Trunk, Conduit and Line work in sections (`TOOL_VIEWS`; on the work plane
+  — by default the cut line — like elevations). A block placed in an elevation / section (`geom.frame`) now shows in
+  every elevation / section LOOKING THE SAME WAY (`sameWay`: same across direction, any origin — the section's depth
+  and width keep it local), not only the exact view it was placed in; side / back views still don't show it (edge-on
+  / mirrored). Notes and lines drawn on one view stay that view's (`ownFrame` + `sameFrame` unchanged). Test in
+  `editor/insertTool.test.ts` (a section of that wall shows it; flipped or too shallow doesn't). Help updated. Seen
+  live: Outlet in 1F Section B (undone).

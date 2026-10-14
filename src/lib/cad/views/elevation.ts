@@ -6,7 +6,7 @@ import { heightsOf, outletZ } from '../domain/floors'
 import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, arcPoints, arcThrough } from '../domain/shapes'
+import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, sameWay, arcPoints, arcThrough } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle, lineEnds } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
@@ -55,12 +55,14 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			continue
 		}
 		// a block insert placed in an elevation (a wall faceplate): its one drawing, as on a plan (shapePrims), facing the
-		// viewer at its height — only in the view it was placed in (`frame`); one placed on the plan isn't shown here
+		// viewer at its height — in the views LOOKING THE SAME WAY as the one it was placed in (`frame`): that elevation
+		// and a section of the same wall (W28; a section's depth / width keep it local) — not the side / back views, where
+		// it would show edge-on or mirrored; one placed on the plan isn't shown here
 		if (s.geom.kind === 'insert') {
 			const g = s.geom, b = o.blocks?.(g.blockId)
 			// a 3D block (furniture): model — in every elevation / section, seen from this direction
 			if (b && is3d(b)) { if (s.levelId === levelId) items.push(...solidItems(s, b, sp, rect, uSpan, zOf, k)); continue }
-			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameFrame(g.frame, sp.frame)))) continue
+			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameWay(g.frame, sp.frame)))) continue
 			const p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, { rot: _r, ...flat } = g
 			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks) })
 			continue

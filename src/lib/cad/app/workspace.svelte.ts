@@ -50,7 +50,7 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section', 'portmap', 'ports', 'schedule', 'fill'],
 	section: ['plan'], viewport: ['sheet'], calibrate: ['plan'], guide: ['plan', 'elevation', 'section', 'sheet', 'row'],
 	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan', 'elevation', 'section'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], array: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
-	outlet: ['plan', 'elevation'], line: ['plan', 'elevation', 'sheet'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
+	outlet: ['plan', 'elevation', 'section'], line: ['plan', 'elevation', 'section', 'sheet'], trunk: ['plan', 'elevation', 'section'], conduit: ['plan', 'elevation', 'section'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'], match: ['plan', 'elevation', 'section', 'sheet'],
 	device: ['row'], cord: ['row'], assign: ['row'],
 	text: ['sheet', 'plan', 'elevation', 'section'], leader: ['sheet', 'plan', 'elevation', 'section'], cloud: ['sheet', 'plan', 'elevation', 'section'],
