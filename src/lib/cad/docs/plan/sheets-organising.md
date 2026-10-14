@@ -255,12 +255,14 @@ Rough total ~1,300 lines over 9 slices. Order suggestion: 1 → 2 → 6 → 7 �
 
 - **D1 Category list:** **global** — one list for all projects (`settings/cadSheetCategories`), built-in defaults.
 - **D2 Discipline:** keep (free text with suggestions, column hidden by default).
+  **Reviewed 2026-10-14: a fixed (global) list instead of free text → backlog.**
 - **D3 For review / Approved:** later.
 - **D4 DRAFT label:** later.
 - **D5 Cover page:** the same size as the package's first sheet, with the project title block.
 - **D6 Package members:** either a list or a rule, with "Freeze to list".
 - **D7 Revision codes:** try (a) first — type the code per sheet / "Set all to…" in the Issue panel.
 - **D8 Recipients:** a list on the package (name, org), printed on the cover and the transmittal.
+  **Reviewed 2026-10-14: picked from a project contacts list → backlog.** D1 and D5 reviewed: kept.
 - **D9 Old issues without a package:** offer "Make package" on each.
 
 <details><summary>The questions as asked</summary>
