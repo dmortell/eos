@@ -3711,3 +3711,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     automatically from an issued selection (a design choice for Dave).
   - Noticed: pictures (logos, pasted screenshots) are still flagged "Set origin" in Uploads — left, as an image can be
     a floorplan.
+- **Dave 2026-10-15 on the above:** W24b closed — issuing a selection does NOT make a package (the Issues list's Make
+  package button does, when wanted). Outlets must draw over desks → noted under the ❓ "Three bands" entry. New todos
+  in backlog.md: "Keep a drawn item's settings for the next ones" (or a Use as default button) and "Another word for
+  Issue" (both ❓).
