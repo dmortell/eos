@@ -10,6 +10,7 @@ import { placeNote, notePoint } from './noteTool'
 import { dimensionPrims, dimOffset } from '../views/plan'
 import { newId } from '../domain/ids'
 import { PLOT_SCALE } from '../views/display'
+import { axisLock } from './constrain'
 
 export type DimMode = 'aligned' | 'horizontal' | 'vertical'
 
@@ -22,15 +23,23 @@ export class DimTool implements Tool {
 	constructor(private mode: () => DimMode) {}
 
 	down(e: PointerIn, c: ToolCtx): void {
-		const p = notePoint(e, c)
+		const p = this.#point(e, c)
 		if (!placeNote(c, [p])) { c.say?.('Dimensions go on plans, elevations, sections and sheets'); return }
 		this.#pts.push(p)
-		if (this.#pts.length === 1) c.say?.('Click the second point')
+		if (this.#pts.length === 1) c.say?.('Click the second point (Shift: straight across or up from the first)')
 		else if (this.#pts.length === 2) c.say?.('Click where the dimension line goes')
 		else this.#commit(c)
 	}
-	move(e: PointerIn, c: ToolCtx): void { this.#hover = notePoint(e, c) }
-	hover(e: PointerIn, c: ToolCtx): void { this.#hover = notePoint(e, c) }
+	/** The point clicked (snapped); the SECOND one with Shift held keeps it level or plumb with the first (Dave's todo:
+	 *  as lines and runs do, `constrain.ts`). */
+	#point(e: PointerIn, c: ToolCtx): Pt {
+		const p = notePoint(e, c), a = this.#pts[0]
+		if (!e.shift || this.#pts.length !== 1 || !a) return p
+		const d = axisLock({ x: p.x - a.x, y: p.y - a.y })
+		return { x: a.x + d.x, y: a.y + d.y }
+	}
+	move(e: PointerIn, c: ToolCtx): void { this.#hover = this.#point(e, c) }
+	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#point(e, c) }
 	up(): void {}
 	cancel(): void { this.#pts = []; this.#hover = null }
 	key(e: KeyboardEvent): boolean {

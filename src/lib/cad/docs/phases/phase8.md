@@ -3636,3 +3636,6 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Migration: not automatic (no write on open) — Contacts shows "N recipients typed on packages … Add them as
     contacts" (one undo step).
   - Tests in `domain/packages.test.ts`. Seen live: the Contacts section in Workflow test (no packages to migrate).
+- **Shift constrains dimensions** (Dave's todo): the Dimension tool's SECOND point with Shift held is kept level or
+  plumb with the first (`axisLock`, `editor/constrain.ts`), in the preview and the click; the third click (where the
+  line sits) is free. Test in `editor/dimTool.test.ts`; the hint and Help say so.

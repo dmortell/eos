@@ -34,6 +34,13 @@ describe('dimensions', () => {
 		expect(d({ x: 3000, y: 4000 }, 'horizontal')).toEqual(['3000'])
 		expect(d({ x: 3000, y: 4000 }, 'vertical')).toEqual(['4000'])
 	})
+	it('Shift on the second point keeps it level or plumb with the first (Dave’s todo)', () => {
+		const h = harness(PLAN), t = new DimTool(() => 'aligned'), shift = (x: number, y: number) => ({ ...at(x, y), shift: true })
+		t.down(at(0, 0), h.ctx()); t.down(shift(2400, 300), h.ctx()); t.down(at(1000, -600), h.ctx())
+		expect((h.store.get(h.sel()[0]) as Shape).geom).toMatchObject({ a: { x: 0, y: 0 }, b: { x: 2400, y: 0 } })
+		t.down(at(0, 0), h.ctx()); t.down(shift(200, 1800), h.ctx()); t.down(at(500, 900), h.ctx())
+		expect((h.store.get(h.sel()[0]) as Shape).geom).toMatchObject({ b: { x: 0, y: 1800 } })
+	})
 	it('the tool on a plan: two points, then the line\'s place → a dimension in the level\'s model, one undo step', () => {
 		const h = harness(PLAN), t = new DimTool(() => 'horizontal')
 		t.down(at(0, 0), h.ctx()); t.down(at(2400, 300), h.ctx()); t.down(at(1000, -600), h.ctx())

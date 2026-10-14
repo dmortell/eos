@@ -8,7 +8,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	rotate: 'Select first · click the pivot, then a point: the turn is its angle from +x (snaps · Shift 15°) — or type degrees, positive = anticlockwise · Ctrl-click keeps the originals (a turned copy) · plans and sheets · Esc stops',
 	mirror: 'Select first · click two points of the mirror line (snaps · Shift 15° / H / V) · the originals are replaced by their mirror image; Ctrl-click keeps them (a mirrored copy) · text stays readable · plans and sheets · Esc stops',
 	guide: 'Click to place a guide through the point (vertical, horizontal or both: the tool bar) · points snap onto guides and their crossings · drag a guide to move it · Delete removes the one under the cursor · your screen only, never printed',
-	dimension: 'Click the two points to measure (they snap), then where the dimension line goes · Backspace drops a point · Esc stops',
+	dimension: 'Click the two points to measure (they snap; Shift keeps the second level or plumb with the first), then where the dimension line goes · Backspace drops a point · Esc stops',
 	legend: 'Click where its top-left corner goes (plan: lists this level · sheet: the levels its viewports show) · rows, title, size in Properties',
 	viewport: 'Drag a box on the paper (or click two corners) · it shows the other pane’s view, else the last plan / elevation / rack view, scaled to fit · at least 20 × 20 mm · Esc stops',
 	box: 'A box / desk: on a plan its footprint corner to corner (or drag; or type width,depth), its height and Z in the tool bar · in an elevation / section its width and height corner to corner, its depth in the tool bar · shows in every view · Esc stops',
