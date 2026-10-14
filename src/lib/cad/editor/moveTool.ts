@@ -3,6 +3,8 @@
 // Move moves the selection by base → second point, one undo step, and is done. Copy places a copy there and keeps
 // going: each click another copy, Enter / Esc ends. A ghost of the selection follows the cursor. Plans, elevations,
 // sections and sheets (a rack row moves devices by U: use drag / nudge there).
+// ARRAY (backlog W13): like Copy, but the second point is the STEP to the first copy and one click puts them all — type
+// the number of copies first (it is remembered). The copied outlets are numbered on (domain/outletArray.ts).
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Pt, Id } from '../domain/types'
 import type { Shape } from '../domain/shapes'
@@ -11,6 +13,7 @@ import { tiedScale, snapPt } from './tools'
 import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { makeClip, pasteClip, type Clip } from '../domain/clipboard'
 import { angleStep } from './constrain'
+import { arrayCopies } from '../domain/outletArray'
 
 /** A display prim shifted by d (view mm). */
 function shiftPrim(p: Prim, d: Pt): Prim {
@@ -28,8 +31,10 @@ export class MoveTool implements Tool {
 	#ids: Id[] = []
 	#clip: Clip | null = null
 	#made = 0
+	/** Array: how many copies one click puts (typed; kept for the session). */
+	#count = 3
 
-	constructor(readonly id: 'move' | 'copy') {}
+	constructor(readonly id: 'move' | 'copy' | 'array') {}
 
 	#pt(e: PointerIn, c: ToolCtx): Pt {
 		const p = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, this.#base ? this.#ids : undefined).p
@@ -42,18 +47,29 @@ export class MoveTool implements Tool {
 			if (!ids.length) { c.say?.(`Select what to ${this.id} first, then click its base point`); return }
 			this.#base = this.#pt(e, c)
 			this.#ids = ids
-			this.#clip = this.id === 'copy' ? makeClip(c.index, ids, '') : null
-			if (this.id === 'copy' && (!this.#clip || this.#clip.from.kind === 'rack')) { this.cancel(); c.say?.('Those can\'t be copied here (copy devices in a rack view)'); return }
-			c.say?.(`Base point set · click where it goes (Shift: 15° · type @dx,dy)${this.id === 'copy' ? ' · each click a copy, Enter ends' : ''}`)
+			this.#clip = this.id !== 'move' ? makeClip(c.index, ids, '') : null
+			if (this.id !== 'move' && (!this.#clip || this.#clip.from.kind === 'rack')) { this.cancel(); c.say?.('Those can\'t be copied here (copy devices in a rack view)'); return }
+			c.say?.(this.id === 'array' ? this.#arrayHint() : `Base point set · click where it goes (Shift: 15° · type @dx,dy)${this.id === 'copy' ? ' · each click a copy, Enter ends' : ''}`)
 			return
 		}
 		this.#place(this.#pt(e, c), c)
 	}
 
+	#arrayHint = () => `Base point set · type how many copies (now ${this.#count}), then click the step to the first copy (Shift: 15° · type @dx,dy)`
+
 	#place(p: Pt, c: ToolCtx): void {
 		const base = this.#base!, d = { x: p.x - base.x, y: p.y - base.y }
 		if (Math.hypot(d.x, d.y) < 1e-6) return
 		const s = c.space.deltaToWorld(d)
+		if (this.id === 'array') {
+			const r = arrayCopies(c.index, this.#ids, s, this.#count)
+			if (!r) { c.say?.('Those can\'t be copied here (copy devices in a rack view)'); return }
+			c.store.transact(`Array: ${this.#count} cop${this.#count === 1 ? 'y' : 'ies'} of ${this.#ids.length === 1 ? '1 item' : `${this.#ids.length} items`}`, (tx) => { for (const x of r.put) tx.put(x) })
+			c.select(r.select)
+			this.cancel()
+			c.say?.(`${this.#count} cop${this.#count === 1 ? 'y' : 'ies'} · outlets numbered on · click a new base point to array again`)
+			return
+		}
 		if (this.id === 'copy' && this.#clip) {
 			const r = pasteClip(this.#clip, { pid: '', ix: c.index, to: { kind: this.#clip.from.kind, id: this.#clip.from.id }, d: s })
 			c.store.transact(r.put.length === 1 ? 'Copy' : `Copy ${r.select.length} items`, (tx) => { for (const x of r.put) tx.put(x) })
@@ -88,6 +104,16 @@ export class MoveTool implements Tool {
 	}
 	finish(): void { this.cancel() }
 	typed(p: Pt, c: ToolCtx): void { if (this.#base) this.#place(p, c); else this.down({ p, shift: false, ctrl: false, alt: true }, c) }
+	/** Array: a bare whole number is the number of copies (anything else is a point). */
+	typedText(text: string, c: ToolCtx): string | null | false {
+		const t = text.trim()
+		if (this.id !== 'array' || !/^\d+$/.test(t)) return false
+		const n = Number(t)
+		if (n < 1 || n > 500) return 'Copies: 1 to 500'
+		this.#count = n
+		c.say?.(this.#base ? this.#arrayHint() : `${n} copies · select what to copy, then click its base point`)
+		return null
+	}
 	lastPoint(): Pt | null { return this.#base }
 	dragFrom(): Pt | null { return this.#base }
 
@@ -96,6 +122,8 @@ export class MoveTool implements Tool {
 		const base = this.#base, h = this.#hover
 		if (!base || !h) return []
 		const d = { x: h.x - base.x, y: h.y - base.y }, ids = new Set(this.#ids)
-		return [{ k: 'line', pts: [base, h], cls: 'draft' }, ...c.prims().filter((p) => p.src && ids.has(p.src)).map((p) => shiftPrim(p, d))]
+		const mine = c.prims().filter((p) => p.src && ids.has(p.src))
+		const n = this.id === 'array' ? this.#count : 1
+		return [{ k: 'line', pts: [base, h], cls: 'draft' }, ...Array.from({ length: n }, (_, k) => mine.map((p) => shiftPrim(p, { x: d.x * (k + 1), y: d.y * (k + 1) }))).flat()]
 	}
 }

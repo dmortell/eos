@@ -12,6 +12,7 @@
 	import type { ProjectDetails } from '../domain/titleBlock'
 	import RestoreNotice from './RestoreNotice.svelte'
 	import { canRestore } from '../domain/restorePlan'
+	import { outletsOntoDesks } from '../domain/outletArray'
 	import { drawnOn, layersOf, layerOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS, KEYS } from './shellKeys'
@@ -212,7 +213,7 @@
 	}))
 	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
-		if (c.source !== 'local' || ['select', 'move', 'copy', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
+		if (c.source !== 'local' || ['select', 'move', 'copy', 'array', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
 		const made = c.ops.filter((o) => !o.before && o.after).map((o) => o.after!)
 		const info = layersOf(project.index.layers), msg = drawnOn(made, info)
 		// drawn onto a layer this user has HIDDEN (an outlet going to "Outlets high", say): it would just vanish — that
@@ -450,8 +451,17 @@
 	const contextItems = $derived(ws.contextMenu ? selectionMenu(ws.selection.map((id) => project.index.get(id)), {
 		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(), match: () => setTool('match'),
 		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
-		ports: portActions(),
+		ports: portActions(), desks: outletsOntoDesksCmd,
 	}) : [])
+	/** Right-click › Copy outlets onto the other desks (W13): one undo step, the new outlets picked. */
+	function outletsOntoDesksCmd() {
+		const r = outletsOntoDesks(project.index, ws.selection)
+		if ('problem' in r) { ws.say(r.problem); return }
+		const n = r.put.filter((e) => e.type === 'outlet').length
+		project.store.transact(`Outlets onto ${r.desks} desks`, (tx) => { for (const e of r.put) tx.put(e) })
+		ws.select(r.select)
+		ws.say(`${n} outlet${n === 1 ? '' : 's'} onto ${r.desks} desk${r.desks === 1 ? '' : 's'}, numbered on`)
+	}
 	/** Right-click on selected ports: Patch to… / Link to… (a panel's) at the top of the menu. */
 	function portActions() {
 		const s = ws.portSel, d = s ? project.index.get(s.on) : undefined

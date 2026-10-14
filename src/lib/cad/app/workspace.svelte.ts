@@ -41,14 +41,14 @@ import type { Underlay } from '../domain/types'
 import type { Guide } from '../domain/guides'
 import type { PageCalibUsed } from './pdf.svelte'
 
-export type ToolId = 'select' | 'move' | 'copy' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
+export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
 /** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section', 'portmap', 'ports', 'schedule', 'fill'],
 	section: ['plan'], viewport: ['sheet'], calibrate: ['plan'], guide: ['plan', 'elevation', 'section', 'sheet', 'row'],
-	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan', 'elevation', 'section'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
+	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan', 'elevation', 'section'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], array: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
 	outlet: ['plan', 'elevation'], line: ['plan', 'elevation', 'sheet'], trunk: ['plan', 'elevation'], conduit: ['plan', 'elevation'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'], match: ['plan', 'elevation', 'section', 'sheet'],
 	device: ['row'], cord: ['row'], assign: ['row'],
@@ -268,7 +268,7 @@ export class Workspace {
 	onCalibDone: ((ok: boolean) => void) | null = null
 	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), (ok) => { this.calibTarget = null; this.toolId = 'select'; this.onCalibDone?.(ok) })
 	readonly tools: Record<ToolId, Tool> = {
-		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
+		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), array: new MoveTool('array'), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
 		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, guide: new GuideTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),

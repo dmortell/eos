@@ -119,6 +119,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Select all', key: KEYS.selectAll, run: c.selectAll },
 			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
 			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
+			{ label: 'Array', disabled: !c.toolOk('array') || !c.hasSelection, title: 'Copies of the selection in a line, a step apart: type how many, click the base point and the step · copied outlets are numbered on', run: () => c.tool('array') },
 			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
 			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',
@@ -207,6 +208,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 export function selectionMenu(sel: (Entity | undefined)[], c: {
 	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void; match(): void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
+	/** Outlets and desks (blocks) selected: copy the outlets on one desk onto the others (W13). */
+	desks?: () => void
 	/** Ports selected on a device: their actions come first (Patch to… / Link to… — a panel's). */
 	ports?: { n: number; patch(): void; interconnect?: () => void }
 }): MenuItem[] {
@@ -222,6 +225,8 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 		{ label: 'Delete', key: KEYS.del, run: c.remove },
 		'-',
 		{ label: 'Select similar', run: c.similar },
+		...(c.desks && sel.some((x) => x?.type === 'outlet') && sel.filter((x) => x?.type === 'shape' && x.geom.kind === 'insert').length >= 2
+			? [{ label: 'Copy outlets onto the other desks', title: 'The outlets on one desk, onto every other selected desk of the same block — turned with each desk, numbered on', run: c.desks } as MenuItem] : []),
 		...(one?.type === 'shape' ? [{ label: 'Match properties…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
 			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group(false) } as MenuItem] : []),

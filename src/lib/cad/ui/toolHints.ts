@@ -5,6 +5,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	insert: 'Click to place the block (pick it in the Blocks window) · in an elevation / section it goes on the wall behind the click, at that height · Esc stops',
 	move: 'Select first · click a base point, then where it goes (snaps · Shift 15° · type @dx,dy) · Esc stops',
 	copy: 'Select first · click a base point, then each place for a copy (snaps · Shift 15° · type @dx,dy) · Enter / Esc ends',
+	array: 'Select first · click a base point, type how many copies (Enter), then click the step to the first copy: they all go in one click (snaps · Shift 15° · type @dx,dy) · copied outlets are numbered on · Esc stops',
 	rotate: 'Select first · click the pivot, then a point: the turn is its angle from +x (snaps · Shift 15°) — or type degrees, positive = anticlockwise · Ctrl-click keeps the originals (a turned copy) · plans and sheets · Esc stops',
 	mirror: 'Select first · click two points of the mirror line (snaps · Shift 15° / H / V) · the originals are replaced by their mirror image; Ctrl-click keeps them (a mirrored copy) · text stays readable · plans and sheets · Esc stops',
 	guide: 'Click to place a guide through the point (vertical, horizontal or both: the tool bar) · points snap onto guides and their crossings · drag a guide to move it · Delete removes the one under the cursor · your screen only, never printed',
