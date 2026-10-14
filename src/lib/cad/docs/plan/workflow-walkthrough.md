@@ -464,3 +464,22 @@ ceiling trunk and a floor-level run past the floor boxes. All 11 GF ports now ro
 
 **Live updates:** a second tab on S003 showed each change from the first tab within about 2 s, with no reload. Sheets
 do update in real time.
+
+## Into the backlog (2026-10-14)
+
+Dave: "add the walkthru findings / improvements / fixes to backlog". They are now `backlog.md` § Workflow walkthrough,
+W1–W32 (1 P1, 17 P2, 14 P3). Already fixed, so not listed there:
+- B40: default settings;
+- the package bug;
+- B53: the riser-end snap;
+- the riser reach;
+- the reload view;
+- B62: "(run gone)".
+
+Left where they already are:
+- B30: the change log decision (`decisions.md`);
+- B17: check-backs, which are outside cad;
+- B21 / B22: revision series and the DRAFT stamp (decisions);
+- B35: room elevations (`later.md`);
+- B31: automatic backups;
+- B58: export file names (Dave's todo).

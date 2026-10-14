@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 8 entries (0 P1 · 0 P2 · 8 P3; 0 ⚡ quick wins) — all from Dave's todos and review of 2026-10-14 (next section; markdown strike / underline and zoom keys built); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 41 entries (1 P1 · 17 P2 · 23 P3; 8 ⚡ quick wins) — Dave's todos of 2026-10-14 (9) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -67,6 +67,126 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 - [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
   — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
   clicks. **P3 · M–L**.
+
+## Workflow walkthrough (2026-10-14)
+
+From `workflow-walkthrough.md`: a project built from scratch (Workflow test, Netflix SYD005) plus four installer
+rounds. The B numbers are that doc's bottlenecks. Fixed already: B40 default settings, the package bug, B53 snap
+to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the walkthrough's ranking.
+
+### Bugs
+
+- [ ] ⚡ **W1 Stale confirm bars revert silently** (B42) — after Origin / Crop the "Origin set / Cropped … Put it back /
+  Cancel" bar stays on screen in other views (it even came back over a sheet after its Cancel), and **Enter answers it
+  with "Put it back"**: a later Enter silently undid the L1 crop. Close the bar when the view or the dialog changes,
+  and never make the revert the Enter default. **P1 · S**.
+- [ ] ⚡ **W2 Server room from the tool bar on other floors** (B53) — outlets placed on GF / L2 with the tool bar's
+  Server room set to L1.20 (the building's only room) came out with none (`outletTool.ts` `onLevel` drops a room from
+  another floor). Keep it when the level has no room of its own. **P2 · S**.
+- [ ] ⚡ **W3 Check: mask / layer edits mark issued sheets "Changed since"** (B9b) — the fingerprint holds the
+  floorplan's file reference, not its settings; verify, fix if so. **P2 · S**.
+
+### Floorplans
+
+- [ ] **W4 Replace a floorplan with a new revision** (B8, B11) — upload a renamed revision (…_revB.pdf) and swap it
+  in on every floor that used the old one, keeping origin, scale, crop, masks and hidden layers (or re-align by two
+  point pairs when the architect moved the drawing on the page); the issue records which floorplan revision a sheet
+  went out with (transmittal line). Today the live sheet broke at once and each floor needed ~15 actions. **P2 · M**.
+- [ ] ⚡ **W5 Paper-scale calibration** (B41) — a "drawn at 1:___" field: cad knows the PDF page size, so A3 at 1:100
+  calibrates in one step. Today: drag a line across the page and type a computed distance (41 986 mm). **P2 · S**.
+- [ ] **W6 Set up all floors in one pass** (B43) — Origin then Crop for each floor in turn without going back to the
+  dialog, and a faint ghost of the floor below to check they line up. Today: a trip per floor per step, checked by
+  reading Firestore. **P2 · M**.
+- [ ] **W7 Floorplan compare** (B9, B9a, B16) — old / new revision overlaid in two colors, or toggled; each floorplan
+  on a level shown / hidden and faded on its own (today one Floorplans layer, a fixed 0.6). Works for other trades'
+  drawings too. **P2 · M**.
+- [ ] **W8 Flag what the new layout broke** (B10) — after a floorplan swap, list outlets / boxes that now sit in a wall
+  or where a desk was. **P3 · M** ❓.
+
+### First run and setup
+
+- [ ] ⚡ **W9 First-run path** (B1, B2) — a new project opens cad on "Set up floors", then "Add floorplans" (with the
+  upload from the todo above), not the import panel; Save in New Project opens the project; Uploads opens on this
+  project's folder. **P2 · S**.
+- [ ] **W10 Company details and datum defaults** (B50) — "Your company" (and its logo) taken from the user's last
+  project, not retyped; the title block's placeholder "J" logo text replaced; a choice of datum floor (AU / UK: GF =
+  FFL 0; today floor 1). **P3 · S**.
+
+### Outlets and racks
+
+- [ ] ⚡ **W11 Outlet defaults by mount** (B44, B56) — a ceiling outlet: tier High and Z at the ceiling; a wall outlet:
+  Z ~300 (a setting); its symbol by mount (a wall outlet said "Auto: Outlet – ceiling"). A new outlet's label doesn't
+  continue another kind's prefix (the ACS outlet came out "CAM 1.03"). **P2 · S**.
+- [ ] **W12 Ceiling-fed floor and wall outlets** (B44, B63) — in a building without underfloor containment a low
+  outlet routes from the ceiling (down the wall) instead of "no route"; today a floor box needs a high drop plus a low
+  run, two runs. Options: route low outlets to a high run with a wall drop; or tier from the run that serves the area.
+  **P2 · M** ❓.
+- [ ] **W13 Outlets per desk / array** (B12) — an outlet pattern on every selected desk (block), or N along a line;
+  desks come in 4–8 with the same outlet. **P3 · M**.
+- [ ] **W14 Racks side by side** — the Rack tool butts the next rack against the last (bayed), not where the click
+  lands with gaps. **P3 · S**.
+
+### Patching
+
+- [ ] **W15 Patch without pixel hunting** (B46, B54) — "patch all allocated ports" / "select used ports" on a panel;
+  cords drawn so they don't cover the panel's ports (patching more ports needed the Patch cords layer hidden; misclicks
+  once opened a "Link 0 backbone cables" dialog). **P2 · S–M**.
+- [ ] **W16 Switch-port reservations** (B59) — "Reserve for…" on switch ports by usage (only panels have it), and
+  Patch to… / fill-free-ports honouring it: each outlet's usage goes to its reserved ports. Dave's ACS / CCTV columns
+  would have been one step. **P2 · M**.
+- [ ] **W17 Re-patch in bulk** (B60) — the Patching table's To cell editable ("SW1:41"), or "move these cords'
+  switch ends to the next free ports"; today ~9 actions per cord. **P3 · M**.
+
+### Sheets, packages and issue
+
+- [ ] ⚡ **W18 A better "New sheet from this view"** (B47) — the view's own scale (not 1:150), the viewport filling the
+  drawing area, centred on the floorplan's crop. **P2 · S**.
+- [ ] **W19 Sheets from a template** (B18) — one sheet per level / server room / riser from a chosen sheet, viewports
+  re-pointed, numbered from the category. **P2 · M**.
+- [ ] **W20 Revision clouds tied to a revision** (B26) — a cloud carries the revision it was drawn for (a delta tag);
+  at the next issue older clouds hide (kept, not deleted). Today they are deleted by hand on every sheet. **P2 · S–M**.
+- [ ] **W21 Package attachments** (B19, B25) — the BOM, cable and outlet schedules (Excel) issued with a package's
+  PDFs and listed on the transmittal. **P2 · M**.
+- [ ] ⚡ **W22 Fill views on sheets** (B55, B61) — "Put on sheet" puts the segment picked in Fill (not always the
+  fullest; on a riser the vertical one), at the next free spot (not on top of the last), titled by its run ("Riser L1 ↕
+  GF"). **P2 · S**.
+- [ ] **W23 Show what changed since the last issue** (B28) — highlight the changed items on a sheet marked
+  "Changed since". **P3 · M–L**.
+- [ ] **W24 Smaller issue / sheet friction** — the Issue panel's "Package" is only a label (a real package needs
+  Make package): one concept; issue PDFs listed apart from floorplans in Uploads (B51); the Sheets table's Issue state
+  column on by default. **P3 · S**.
+
+### BOM
+
+- [ ] **W25 BOM for a quote** (B48, B23, B25) — unrouted cables get an estimated length (not "15 ea"), type labels
+  (CAT6A) not ids, materials per level / room / zone, a header with client, revision and date. **P2 · S–M**.
+- [ ] **W26 More BOM lines** (B24) — faceplates, back boxes, modules, fibre terminations, containment fittings and
+  supports, fire-stopping, testing / labelling counts. **P3 · M** ❓ (which ones, from what).
+
+### Risers, sections and wall kit
+
+- [ ] **W27 A riser carries on on the other floor** (B37) — after V the run continues on the target level (switch
+  the pane, or split), from the riser's top at that floor's tray height, not at FFL. **P3 · M**.
+- [ ] **W28 Draft in sections** (B34) — Outlet / Trunk / Line in a section; a block placed in an elevation also shows
+  in a section of the same wall. **P3 · M**.
+- [ ] **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind with a Z height (the ACS panel
+  is a plain box today), and AV kit (screens, speakers) as block templates. **P3 · M** ❓.
+- [ ] **W30 Rooms and riser rooms** (B38, B39) — draw a room (space) boundary so EPS / riser rooms get names in the
+  riser view; fill % and cable counts on the riser view. **P3 · M**.
+- [ ] **W31 Ladder in the Kind list; cloud hint** (B13, B36) — "Ladder" offered as a kind (it shows as Tray); the
+  Revision cloud hint says "On a sheet" but it works in every view. **P3 · S**.
+
+### Small UI
+
+- [ ] **W32 Small fixes** — each **S**:
+  - a device dropped next to another in a rack goes to the nearest free U (it was silently refused) (B45);
+  - Shift+click adds to a plan selection, as Ctrl does (it replaced it) (B49);
+  - the bottom table stays as you left it when the view changes (it reopened every time);
+  - a click inside a viewport on a sheet picks the viewport (it picked the sheet);
+  - the riser view opens in its own tab, not over the plan's;
+  - the allocation issue says "no high-level panel in L1.20" when there is none (B52);
+  - the Blocks window's "On this level" doesn't count outlet symbols;
+  - a Measure (distance) tool for checking scale. **P3**.
 
 ## Suggested order
 
