@@ -3516,3 +3516,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     `prevFileId`, listed first as "(previous)" and the default when Compare is on.
   - Not per viewport (the revision check's call). Test in `domain/legend.test.ts`. Seen live: L1 compared with revB
     — the ghost draws in red under it, lined up (the two revisions match there).
+- **W6 Set up each floor in one pass** (B43): Plans & floorplans › **Set up each floor…** runs Origin then Crop on
+  every shown floorplan of the main floors, lowest first (CadShell `setupFloors`): each step opens its level's plan
+  and says "GF (1 of 3): …"; from the second floor up the floor below's file is drawn in red under it (W7's Compare,
+  restored after). The Calibrate tool now tells how it ended (`done(ok)`, `ws.onCalibDone`): set → the next step at
+  once (no tick, so the dialog stays hidden); Esc → "Floor setup stopped"; another tool → the pass ends. Each step's
+  Undo / Keep offer stays up into the next step. Scale isn't a step (1: in the dialog first, W5). Tried live in
+  Workflow test: GF origin clicked → on to GF Crop with the offer up → Undo restored it → Esc stopped the pass and
+  the dialog came back. Not seen live: the L1 ghost step.

@@ -243,7 +243,9 @@ export class Workspace {
 	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
 	calibTarget = $state.raw<CalibTarget | null>(null)
 	calibIO: { calib: (u: Underlay) => PageCalibUsed | undefined; write: (u: Underlay, field: CalibMode, value: unknown, what: string) => void } = { calib: () => undefined, write: () => {} }
-	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), () => { this.calibTarget = null; this.toolId = 'select' })
+	/** Told when the Calibrate tool ends (`ok` = it set something; false = Esc) — "Set up each floor" runs its next step (W6). */
+	onCalibDone: ((ok: boolean) => void) | null = null
+	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), (ok) => { this.calibTarget = null; this.toolId = 'select'; this.onCalibDone?.(ok) })
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),

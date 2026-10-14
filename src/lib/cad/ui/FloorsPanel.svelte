@@ -23,7 +23,7 @@
 	/** `part`: which tab shows (none = another tab of the dialog). `oncalibrate`: set a floorplan's origin / scale / crop
 	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). `onplans`: go to Plans & floorplans (the
 	 *  first-run path's next step, W9). */
-	let { project, ws, part, oncalibrate, onplans }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplans?: () => void } = $props()
+	let { project, ws, part, oncalibrate, onplans, onsetupfloors }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplans?: () => void; onsetupfloors?: (us: Underlay[]) => void } = $props()
 
 	// the store isn't reactive itself: read project.rev, or an Apply (or a remote edit) is never seen here (Review 2 Q4)
 	const building = $derived.by(() => { void project.rev; return project.store.ofType('building')[0] as Building | undefined })
@@ -298,6 +298,11 @@
 {:else if part === 'plans'}
 	<section>
 		<p class="hint">Each floor has a <b>plan</b> (its level in the Navigator), drawn over its <b>floorplan</b> — a calibrated page of a project PDF. When the floor is drawn on two or more pages, add each one and move it into place with X / Y. An <b>area plan</b> is a separate plan of part of a floor, such as a tenant office with its own drawing (33F 3303): it has the floor's number and heights, and its own floorplans.</p>
+		<!-- W6: Origin then Crop on every floor's floorplan in one go, lowest first, the floor below in red to line up -->
+		{#if onsetupfloors && hasFloorplans}
+			{@const all = main.flatMap((l) => underlaysOf(l)).filter((u) => !u.hidden)}
+			<div class="row"><button class="btn pri" title="Origin, then Crop, on each floor's floorplan in turn (lowest floor first) without coming back here — the floor below shows in red to check they line up; Esc stops" onclick={() => onsetupfloors(all)}>Set up each floor…</button><span class="hint">Origin + Crop on {all.length} floorplan{all.length === 1 ? '' : 's'}; set each scale with 1: first</span></div>
+		{/if}
 		{#each main as l (l.id)}
 			<div class="floor">
 				<div class="fhead"><b>{l.name}</b>

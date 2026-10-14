@@ -21,9 +21,9 @@
 	import type { Underlay } from '../domain/types'
 	import type { CalibMode } from '../editor/calibrateTool'
 
-	let { project, ws, tab = $bindable('floors'), hidden = false, onclose, oncalibrate, projectDetails }: {
+	let { project, ws, tab = $bindable('floors'), hidden = false, onclose, oncalibrate, onsetupfloors, projectDetails }: {
 		project: CadProject; ws: Workspace; tab?: SettingsTab; hidden?: boolean; onclose: () => void
-		oncalibrate?: (u: Underlay, mode: CalibMode) => void; projectDetails?: () => void
+		oncalibrate?: (u: Underlay, mode: CalibMode) => void; onsetupfloors?: (us: Underlay[]) => void; projectDetails?: () => void
 	} = $props()
 
 	const TABS: [SettingsTab, string][] = [['floors', 'Floors & heights'], ['plans', 'Plans & floorplans'], ['usages', 'Usages'], ['cables', 'Cable types'], ['lengths', 'Lengths & labels'], ['drawing', 'Drawing style'], ['sheets', 'Sheets'], ['files', 'Files']]
@@ -81,7 +81,7 @@
 					</div>
 				{/if}
 				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
-				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} onplans={() => (tab = 'plans')} />
+				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onsetupfloors} onplans={() => (tab = 'plans')} />
 				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
 			</div>
 		</div>

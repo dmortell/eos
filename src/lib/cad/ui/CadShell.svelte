@@ -28,7 +28,7 @@
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, isPaperSpec, isPaperKind, type ViewSpec } from '../views/space'
 	import type { CalibMode } from '../editor/calibrateTool'
-	import type { Underlay } from '../domain/types'
+	import type { Level, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import SettingsDialog, { type SettingsTab } from './SettingsDialog.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
@@ -514,14 +514,44 @@
 		scale: 'Click one end of a distance you know on the floorplan (a grid spacing, a dimension) — Esc stops',
 		crop: 'Click one corner of the part of the floorplan to keep — Esc stops',
 	}
-	function oncalibrate(u: Underlay, mode: CalibMode) {
+	function oncalibrate(u: Underlay, mode: CalibMode, lead = '') {
 		calibrating = true
 		if (u.levelId !== ws.levelId) openLevel(u.levelId)
 		if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN)
 		ws.calibTarget = { underlay: u, mode }
 		setTool('calibrate')
-		ws.say(CALIB_SAY[mode])
+		ws.say(lead + CALIB_SAY[mode])
 	}
+	// ── "Set up each floor" (W6): Origin then Crop for every floorplan in turn, lowest floor first, without going back
+	// to the dialog; the floor below's floorplan in red underneath (Compare, screen only) to check they line up. Esc stops
+	// the pass; picking another tool too. ──
+	let setupSteps: { u: Underlay; mode: CalibMode; ghost?: string; n: number; of: number }[] = []
+	let setupWas: { on: boolean; with: Record<string, string> } | null = null
+	function setupStep() {
+		const s = setupSteps.shift()
+		if (!s) { endSetup(); ws.say('Every floor is set up — check them in Project › Floors…'); return }
+		ws.compareWith = s.ghost ? { [s.u.id]: s.ghost } : {}
+		ws.compareOn = !!s.ghost
+		oncalibrate(s.u, s.mode, `${project.index.nameOf(s.u.levelId)} (${s.n} of ${s.of}): ${s.ghost ? 'red = the floor below · ' : ''}`)
+	}
+	function endSetup() {
+		setupSteps = []
+		if (setupWas) { ws.compareOn = setupWas.on; ws.compareWith = setupWas.with; setupWas = null }
+	}
+	function setupFloors(us: Underlay[]) {
+		const lv = (u: Underlay) => project.index.get<Level>(u.levelId)
+		const order = [...us].sort((a, b) => (lv(a)?.number ?? 0) - (lv(b)?.number ?? 0))
+		setupWas = { on: ws.compareOn, with: ws.compareWith }
+		setupSteps = order.flatMap((u, i) => {
+			const below = order.slice(0, i).reverse().find((b) => (lv(b)?.number ?? 0) < (lv(u)?.number ?? 0))
+			return (['origin', 'crop'] as const).map((mode) => ({ u, mode, ghost: below?.fileId, n: i + 1, of: order.length }))
+		})
+		setupStep()
+	}
+	// the next step starts at once (not after a tick): the Calibrate tool stays on, so the dialog stays out of the way
+	ws.onCalibDone = (ok) => { if (!setupWas) return; if (ok) setupStep(); else { endSetup(); ws.say('Floor setup stopped') } }
+	// another tool picked mid-pass: the pass stops (the tool change ended calibrating)
+	$effect(() => { if (!calibrating) untrack(() => { if (setupWas && ws.toolId !== 'calibrate') endSetup() }) })
 	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Insert › Image's uploads (the project's
 	 *  files, listed in Uploads) and the Image tool armed with it at once — drag its box where it goes while it uploads
 	 *  ("Uploading picture…" by Saved). The same picture pasted again is the same file: uploaded once. */
@@ -656,7 +686,7 @@
 		{#if ws.toast}<div class="toast" role="status">{ws.toast}</div>{/if}
 	</main>
 
-	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {projectDetails} />{/if}
+	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}

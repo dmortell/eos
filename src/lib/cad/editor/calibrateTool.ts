@@ -65,9 +65,10 @@ export class CalibrateTool implements Tool {
 	#hover: Pt | null = null
 
 	/** `target` = the floorplan and what's being set; `calib` = its page's calibration as placed (undefined = not drawn
-	 *  yet); `write` stores one field (origin / scale / crop) and says so; `done` = back to Select. */
+	 *  yet); `write` stores one field (origin / scale / crop) and says so; `done` = back to Select — `ok` = it was set
+	 *  (false: Esc stopped it; "Set up each floor" stops its pass then, W6). */
 	constructor(private target: () => CalibTarget | null, private calib: (u: Underlay) => PageCalibUsed | undefined,
-		private write: (u: Underlay, field: CalibMode, value: unknown, what: string) => void, private done: () => void) {}
+		private write: (u: Underlay, field: CalibMode, value: unknown, what: string) => void, private done: (ok: boolean) => void) {}
 
 	down(e: PointerIn, c: ToolCtx): void {
 		const t = this.target(), cal = t && this.calib(t.underlay)
@@ -76,7 +77,7 @@ export class CalibrateTool implements Tool {
 		if (t.mode === 'origin') {
 			const q = toPage(p, t.underlay, cal)
 			this.write(t.underlay, 'origin', { x: Math.round(q.x), y: Math.round(q.y) }, 'Origin set: that point is now 0, 0')
-			this.done()
+			this.done(true)
 			return
 		}
 		if (!this.#first) { this.#first = p; c.say?.(t.mode === 'scale' ? 'Click the other end of a known distance' : 'Click the opposite corner of the part to keep'); return }
@@ -86,7 +87,7 @@ export class CalibrateTool implements Tool {
 			const r = cropRecord(toPage(a, t.underlay, cal), toPage(p, t.underlay, cal))
 			if (r.width < 1 || r.height < 1) { c.say?.('Too small — drag over the part of the floorplan to keep'); return }
 			this.write(t.underlay, 'crop', r, 'Cropped: only that part of the floorplan shows')
-			this.done()
+			this.done(true)
 			return
 		}
 		// scale: the distance as it measures now, then the real one
@@ -96,7 +97,7 @@ export class CalibrateTool implements Tool {
 			const r = scaleRecord(qa, qb, mm)
 			if (!r) { c.say?.('Type a distance over 0 mm'); return }
 			this.write(t.underlay, 'scale', r, `Scaled: ${measured} mm → ${mm} mm (× ${(mm / Math.max(1, measured)).toFixed(3)})`)
-			this.done()
+			this.done(true)
 		})
 	}
 	move(e: PointerIn): void { this.#hover = e.p }
@@ -106,7 +107,7 @@ export class CalibrateTool implements Tool {
 	key(e: KeyboardEvent): boolean {
 		if (e.key !== 'Escape') return false
 		if (this.#first) { this.#first = null; return true }
-		this.done()
+		this.done(false)
 		return true
 	}
 	/** The line being measured, or the crop box being drawn. */
