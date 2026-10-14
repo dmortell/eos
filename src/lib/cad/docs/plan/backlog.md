@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 41 entries (1 P1 · 17 P2 · 23 P3; 8 ⚡ quick wins) — Dave's todos of 2026-10-14 (9) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 43 entries (1 P1 · 17 P2 · 25 P3; 8 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -67,6 +67,19 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 - [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
   — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
   clicks. **P3 · M–L**.
+- [ ] **Navigator: drop the fixed view rows under each level** (Dave 2026-10-14 todo, ❓ "do we need plan /
+  elevations under each floor model in the tree?") — each level lists Plan + Front / Rear / Left / Right elevation (5
+  rows × every level) although a click on the level row already opens its plan and the view strip's Plan ·
+  Elevation… switches. Proposal: leave them out; keep sections and server rooms (the level's own things); a search
+  ("2F front") still finds the elevations; with an elevation open, the level row is the one marked.
+  `domain/navTree.ts` + its test; Help's Navigator how-to. **P3 · S** (~20 lines).
+- [ ] **Fewer gotchas in /cad/agent** (Dave 2026-10-14 todo) — fix in the app what the guide warns about:
+  (1) drawing on a HIDDEN layer: the toast says so and the layer is shown again (or the Layer chip refuses a hidden
+  one) — today the new thing just vanishes (`drawnOn`, CadShell); (2) a greyed tool clicked: switch the pane to the
+  level's plan (or the view it works in) instead of only saying where it works; (3) Enter / Esc in a Properties field
+  hands the keys back to the drawing, so typed points and keys work next; (4) the "no run … serving its room" issue
+  text says what to do ("draw a run within 10 m, or set the run's rooms"). Undo emptied by a reload stays (per
+  session by design). **P3 · S–M** (~80 lines).
 
 ## Workflow walkthrough (2026-10-14)
 
