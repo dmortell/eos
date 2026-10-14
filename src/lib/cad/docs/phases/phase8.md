@@ -3427,8 +3427,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   offer, not a question (`ws.offerRevert`, `confirm.revert`): Enter never answers it and its button never takes the
   focus (AskBox and the Project settings copy — the copy's focused button used to take a later Enter as a click), the
   key hint says "Esc"; CadShell closes it when the dialog opens / closes, calibrating starts / ends, or the level,
-  pane or view changes (`askCtx`). Help's calibration answer says so. Not driven live: the automation tab was hidden,
-  where pdf.js never finishes a render (the floorplan stays "loading").
+  pane or view changes (`askCtx`). Help's calibration answer says so. Tried live in Workflow test (GF floorplan, used by no other project):
+  Origin set → Enter left it (focus stayed on the dialog) → "Put it back" restored it; set again → closing the dialog
+  closed the offer; the origin was then set back exactly (697, 554) and Esc dismissed that offer.
 - **W2 Server room from the tool bar on other floors** (B53): the Outlet tool kept the tool bar's server room only
   when it was on the open level, though the bar lists every floor's rooms (with the floor) — so GF / L2 outlets with
   L1.20 set came out with none. Now the bar's server room always applies (while it exists); its zone still only on its
