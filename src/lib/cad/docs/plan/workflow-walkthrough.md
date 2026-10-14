@@ -465,6 +465,43 @@ ceiling trunk and a floor-level run past the floor boxes. All 11 GF ports now ro
 **Live updates:** a second tab on S003 showed each change from the first tab within about 2 s, with no reload. Sheets
 do update in real time.
 
+### Round 5: comparing two floorplan revisions (desk check, 2026-10-15)
+
+Dave's todo: how hard is it to switch a plan, or one sheet's viewport, between two PDF floorplans of the same floor
+to see what the designer changed? Checked against the code as it is after W5 / W9 (Workflow test already holds
+`05 SYD005 1F OUTLET PLAN_20241014 revB.pdf` beside the 20240516 L1 plan).
+
+**Today, to bring in revB and look at it:**
+
+| Step | Where | Actions |
+|---|---|---|
+| Upload revB | Plans & floorplans › L1 › Upload… (W9; or File › Uploads…) | 2 |
+| Calibrate revB | 1: 100 (W5), then Origin (zoom to the same column, click), then Crop (2 clicks) | ~10 |
+| Masks / hidden PDF layers again | Uploads viewer: redraw each mask, untick each layer | n per mask / layer |
+| Point L1 at it | the L1 row's select → revB | 1 |
+| Flip back to compare | the select again (dialog open, the plan re-renders each time) | 2 per flip |
+
+**What it can't do:**
+- **Nothing is carried over.** revB starts uncalibrated: origin, scale, crop, masks and hidden layers are all done
+  again by hand, though it is the same drawing moved by a few mm at most (B8 / B11 → W4).
+- **No side-by-side or overlay.** "+ Another page…" puts revB on L1 as a second floorplan, but both draw at the
+  fixed 0.6 opacity on the one Floorplans layer: one can't be hidden, faded or colored on its own. It is then
+  removed again by hand (B9 → W7).
+- **One view only isn't possible.** A viewport shows its level's floorplans; there is no per-viewport floorplan, so
+  pointing L1 at revB changes every L1 sheet at once, issued ones included ("Changed since" on all of them).
+- **No record of the swap.** Nothing says which revision a sheet was drawn on, or when it changed.
+
+**Proposed (folded into W4 and W7):**
+1. **W4 "New revision…"** on a floorplan's row: upload (or pick) the new PDF; cad copies the old page's calibration
+   (origin, scale, crop, masks, hidden layers) into the new file and re-points every floorplan of this project that
+   used the old page, in one undo step. The old file stays (issued sheets print from it). Re-align by two point pairs
+   when the architect moved the drawing on the page: later, only if needed.
+2. **W7 per floorplan Show / Fade** on its row (the `Underlay.opacity` field exists, nothing sets it), and
+   **Compare with the previous revision**: the old page drawn as a red ghost under the new one, toggled with one
+   button, never printed.
+3. Per-viewport floorplans: not proposed — a revision is the floor's, and W4's re-pointing plus W3's "Changed since"
+   already say which sheets moved.
+
 ## Into the backlog (2026-10-14)
 
 Dave: "add the walkthru findings / improvements / fixes to backlog". They are now `backlog.md` § Workflow walkthrough,
