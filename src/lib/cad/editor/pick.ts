@@ -30,6 +30,17 @@ export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => 
 	return undefined
 }
 
+/** A rack view's click on a patch CORD where it crosses a port cell takes the PORT (W15 / B54: cords drawn over a
+ *  panel's lower row hid its ports; patching more meant hiding the cords layer). Off the ports the cord is picked. */
+export function preferPort(prims: Prim[], hit: Prim | undefined, p: Pt): Prim | undefined {
+	if (!hit || hit.k !== 'line' || !/^cord\b/.test(hit.cls)) return hit
+	for (let i = prims.length - 1; i >= 0; i--) {
+		const pr = prims[i]
+		if (pr.k === 'line' && pr.src && pr.sub && /^port\b/.test(pr.cls) && pr.closed && inPolygon(p, pr.pts)) return pr
+	}
+	return hit
+}
+
 /** Does the segment a–b touch the box (an end inside, or it crosses an edge)? */
 function segTouches(a: Pt, b: Pt, r: Bounds): boolean {
 	const inside = (p: Pt) => p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1

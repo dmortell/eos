@@ -10,7 +10,7 @@ import { primBounds, unionBounds, type Prim } from '../views/display'
 import { linkLabel } from '../domain/links'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
-import { pickPrim, pickInside, pickStack, pickTouching, primDist } from './pick'
+import { pickPrim, pickInside, pickStack, pickTouching, primDist, preferPort } from './pick'
 import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode, copySegs, splitSegRefs } from '../domain/pathEdit'
@@ -155,7 +155,7 @@ export class SelectTool implements Tool {
 		if (onGrip || h) { this.#hov = null; this.#hovRoom = null; this.#cursor = 'crosshair'; return }
 		this.#hovRoom = this.#roomLineAt(c, e.p)
 		if (this.#hovRoom) { this.#hov = null; this.#cursor = 'ns-resize'; return }
-		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
+		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
 		if (!id || !en || (en.type === 'sheet' && !sub)) { this.#hov = null; this.#cursor = 'default'; return }
@@ -258,7 +258,7 @@ export class SelectTool implements Tool {
 		// a rack view: the room's floor / ceiling line drags up / down (Space.floorMm / ceilingMm)
 		const rl = this.#roomLineAt(c, e.p), room = c.space.spec.kind === 'row' ? c.store.get(c.space.spec.spaceId) : undefined
 		if (rl && room) { this.#handle = { h: rl, base: room }; this.#start = e.p; this.#hovRoom = null; return }
-		const hit = pickPrim(c.prims(), e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined
+		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined   // a cord over a port: the port (W15)
 		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
 		// them in place (backlog "Text options", "Edit a label in place")
 		// a linked symbol: a double-click opens its sheet or web page

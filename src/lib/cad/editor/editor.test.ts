@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { toModel, toScreen, zoomAt, fit, reveal } from './camera'
-import { pickAt, pickInside, pickTouching } from './pick'
+import { pickAt, pickInside, pickTouching, preferPort } from './pick'
 import { moveBy, canMove } from './behaviours'
 import { planDisplayList } from '../views/plan'
 import { ProjectIndex } from '../domain/project'
@@ -81,6 +81,17 @@ describe('picking uses what is drawn', () => {
 		expect(touched).toContain('T1')
 		expect(touched).not.toContain('O1')
 		expect(pickInside(prims, { x0: 2900, y0: 2950, x1: 3100, y1: 3050 })).not.toContain('T1')
+	})
+})
+
+describe('a cord over a port (W15)', () => {
+	const cell = { k: 'line' as const, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }], closed: true, fill: true, cls: 'port port-linked', src: 'P1', sub: '7' }
+	const cord = { k: 'line' as const, pts: [{ x: -20, y: 5 }, { x: 40, y: 5 }], cls: 'cord cord-design', src: 'C1' }
+	it('the click takes the port under the cord; off the port it takes the cord; anything else is left alone', () => {
+		expect(preferPort([cell, cord], cord, { x: 5, y: 5 })).toBe(cell)
+		expect(preferPort([cell, cord], cord, { x: 30, y: 5 })).toBe(cord)
+		expect(preferPort([cell, cord], cell, { x: 5, y: 5 })).toBe(cell)
+		expect(preferPort([cell, cord], undefined, { x: 5, y: 5 })).toBeUndefined()
 	})
 })
 

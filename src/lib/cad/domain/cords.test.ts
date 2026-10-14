@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice, portColumn, portSide } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice, portColumn, portSide, allocatedUnpatched } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -199,6 +199,13 @@ describe('port use per device', () => {
 		const gone = new ProjectIndex(demoProject().map((e) => (e.id === 'C2' ? { ...(e as Cord), status: 'remove' as const } : e)))
 		expect(portUse(gone, sw)).toMatchObject({ used: 1, free: 47 })
 		expect(portUseByDevice(i).get('SW1')).toEqual(portUse(i, sw))
+	})
+	it('the allocated ports not patched yet: an outlet cable on them, no cord (W15)', () => {
+		const i = ix()
+		expect(allocatedUnpatched(i, i.get('P1') as Device)).toEqual([3, 4])   // outlets on 1–4, cords on 1–2
+		expect(allocatedUnpatched(i, i.get('SW1') as Device)).toEqual([])      // a switch has no outlet cables
+		const gone = new ProjectIndex(demoProject().map((e) => (e.id === 'C2' ? { ...(e as Cord), status: 'remove' as const } : e)))
+		expect(allocatedUnpatched(gone, gone.get('P1') as Device)).toEqual([2, 3, 4])   // its cord is coming out
 	})
 })
 

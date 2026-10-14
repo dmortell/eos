@@ -3524,3 +3524,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Undo / Keep offer stays up into the next step. Scale isn't a step (1: in the dialog first, W5). Tried live in
   Workflow test: GF origin clicked → on to GF Crop with the offer up → Undo restored it → Esc stopped the pass and
   the dialog came back. Not seen live: the L1 ghost step.
+- **W15 Patch without pixel hunting** (B46, B54):
+  - A panel's Properties › Ports and labels › **Select the N allocated ports not patched yet** (`domain/cords.ts`
+    `allocatedUnpatched`: an outlet cable on the port, no cord that isn't being removed) — then P / Patch to… as for any
+    picked ports. Shown whether or not ports are picked; hidden when there are none.
+  - In a rack view a click on a cord where it crosses a port cell takes the PORT (`editor/pick.ts` `preferPort`, in the
+    select tool's hover and press); off the ports the cord is picked as before. Cords are still drawn over the ports
+    (so you see where they land) — picking, not drawing, was the problem.
+  - Tests in `domain/cords.test.ts`, `editor/editor.test.ts`. Seen live in Workflow test's L1.20 rack view: a click on
+    PP1 port 32 under the cords picked port 32 (was a cord); PP1 has all 40 allocated ports patched, so no button.
+    Note: the select tool is created once — a code edit needs a reload to take effect in an open tab.

@@ -11,7 +11,7 @@
 	import { placementProblem, narrowDevice, templateFromDevice, beyondPorts, beyondPortsText, type DeviceTemplate } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { repeatableEdit } from '../domain/repeatEdit'
-	import { portUse, portUseText } from '../domain/cords'
+	import { portUse, portUseText, allocatedUnpatched } from '../domain/cords'
 	import { shared, put } from './propsKit'
 	import PropGroup from './PropGroup.svelte'
 	import PortProps from './PortProps.svelte'
@@ -142,6 +142,9 @@
 		{#if d.kind !== 'pdu' && ws.portSel?.on !== d.id}
 			<div class="pt-1"><button class="link" title="Patch all this device's ports to another device: click its first port next — the cords are listed to OK before they're made" onclick={() => ws.patchDevice(d)}>⇄ Patch {d.portCount > 1 ? `all ${d.portCount} ports` : 'its port'} to…</button></div>
 		{/if}
+		<!-- W15: the allocated ports (an outlet cable on them) with no cord yet, picked for you — then Patch to… / P -->
+		{@const todo = d.kind === 'panel' ? allocatedUnpatched(project.index, d) : []}
+		{#if todo.length}<div class="pt-1"><button class="link" title="Select the ports with an outlet on them but no patch cord yet (ports {todo.length > 6 ? `${todo.slice(0, 6).join(', ')} …` : todo.join(', ')}) — then Patch to… (P) and click the first switch port" onclick={() => ws.selectPorts({ on: d.id, ports: todo, face: 'front', anchor: todo[0] })}>☐ Select the {todo.length} allocated port{todo.length === 1 ? '' : 's'} not patched yet</button></div>{/if}
 	{/if}
 	{#if devices.some((d) => d.portCount)}
 		<SelectField label="Numbering" value={dv((d) => d.portNumbering ?? 'row').value} mixed={dv((d) => d.portNumbering ?? 'row').mixed}

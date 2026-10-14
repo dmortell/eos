@@ -287,6 +287,15 @@ export function portUseByDevice(ix: ProjectIndex): Map<Id, PortUse> {
 	}
 	return out
 }
+/** A panel's ports that carry an OUTLET cable (allocated) but no cord yet (W15: "patch all allocated ports" — the
+ *  ports to select and Patch to… a switch, no pixel hunting). Port order. */
+export function allocatedUnpatched(ix: ProjectIndex, d: Device): number[] {
+	const cabled = new Set<number>(), corded = new Set<number>()
+	for (const l of ix.links) for (const [me, other] of [[l.a, l.b], [l.b, l.a]] as const)
+		if (me.on === d.id && ix.get(other.on)?.type === 'outlet') cabled.add(me.port)
+	for (const c of ix.cords) if (c.status !== 'remove') for (const r of [c.a, c.b]) if (r.on === d.id) corded.add(r.port)
+	return [...cabled].filter((n) => n >= 1 && n <= d.portCount && !corded.has(n)).sort((a, b) => a - b)
+}
 /** "24 ports · used 20 (patched 12, linked 18) · free 4". */
 export const portUseText = (u: PortUse) => `${u.ports} port${u.ports === 1 ? '' : 's'} · used ${u.used} (patched ${u.patched}, linked ${u.linked}) · free ${u.free}`
 
