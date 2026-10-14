@@ -8,7 +8,7 @@ import type { Shape } from '../domain/shapes'
 import { byDrawOrder } from '../domain/shapes'
 import { nextLabel } from '../domain/labels'
 import type { ProjectIndex } from '../domain/project'
-import { primBounds, unionBounds, type Prim, type Bounds } from './display'
+import { primBounds, unionBounds, PLOT_SCALE, type Prim, type Bounds } from './display'
 import { planDisplayList, shapePrims, type PlanOpts } from './plan'
 import { elevationDisplayList } from './elevation'
 import { rackRowDisplayList } from './rackRow'
@@ -253,15 +253,35 @@ export function defaultViewport(ix: ProjectIndex, sheet: Sheet, levelId: Id, id:
 	return { ...vp, centre: contentCentre(ix, vp, o) }
 }
 
+/** Where a level's floorplans show, in plan mm: their crops (else their pages), moved by each one's offset. */
+export function floorplanBounds(ix: ProjectIndex, levelId: Id, underlay: SheetOpts['underlay']): Bounds | null {
+	let b: Bounds | null = null
+	for (const u of ix.byId.values()) {
+		if (u.type !== 'underlay' || u.levelId !== levelId) continue
+		const pl = underlay?.(u)
+		if (!pl) continue
+		const dx = u.origin?.x ?? 0, dy = u.origin?.y ?? 0, c = pl.clip ?? { x0: pl.x, y0: pl.y, x1: pl.x + pl.w, y1: pl.y + pl.h }
+		const q = { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy }
+		b = b ? { x0: Math.min(b.x0, q.x0), y0: Math.min(b.y0, q.y0), x1: Math.max(b.x1, q.x1), y1: Math.max(b.y1, q.y1) } : q
+	}
+	return b
+}
+
 /** A viewport of the view you're looking at (backlog "A sheet from the current view"): centred on what the pane
  *  shows (`visible`, view mm), at the largest standard scale at which that fits the sheet's drawing area, sized to it
- *  (but never past the area), in the area's top-left corner. */
+ *  (but never past the area), in the area's top-left corner. A PLAN zoomed out further than that at 1:100 (the whole
+ *  floor on screen) is the floor's sheet (W18): at the plan's own 1:100, filling the drawing area, centred on the
+ *  floorplan's crop (not the whole PDF page with the architect's title block). */
 export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], visible: Bounds, id: Id, o: SheetOpts = {}): Viewport {
 	const a = drawingArea(ix, sheet, o), inset = 5
 	const w = Math.max(1, visible.x1 - visible.x0), h = Math.max(1, visible.y1 - visible.y0)
 	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
 	if (isPaperSpec(view.spec)) return paperViewport(ix, sheet, view, id, o)   // paper is drawn at 1:1, from its top-left
 	const scale = SCALES.find((n) => w / n <= roomW && h / n <= roomH) ?? SCALES.at(-1)!
+	if (view.spec.kind === 'plan' && scale > PLOT_SCALE) {
+		const f = floorplanBounds(ix, view.levelId, o.underlay), c = f ?? visible
+		return { id, view, scale: PLOT_SCALE, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }
+	}
 	return {
 		id, view, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
 		rect: { x: a.x + inset, y: a.y + inset, w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) },

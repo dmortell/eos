@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 37 entries (13 P2 · 24 P3; 2 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 36 entries (12 P2 · 24 P3; 1 ⚡ quick win) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -91,7 +91,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo), W11.
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built since: W5, W9 (with the Upload todo), W11, W18.
 
 ### Floorplans
 
@@ -138,8 +138,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Sheets, packages and issue
 
-- [ ] ⚡ **W18 A better "New sheet from this view"** (B47) — the view's own scale (not 1:150), the viewport filling the
-  drawing area, centred on the floorplan's crop. **P2 · S**.
 - [ ] **W19 Sheets from a template** (B18) — one sheet per level / server room / riser from a chosen sheet, viewports
   re-pointed, numbered from the category. **P2 · M**.
 - [ ] **W20 Revision clouds tied to a revision** (B26) — a cloud carries the revision it was drawn for (a delta tag);

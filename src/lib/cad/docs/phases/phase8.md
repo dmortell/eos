@@ -3477,3 +3477,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - `defaultOutletBlock`: a wall outlet is a wall plate whatever its tier (was "Outlet – ceiling" when High); a High
     floor-mount one (imported high ports) stays a ceiling symbol. Existing High wall outlets on Auto change symbol.
   - Tests in `editor/editor.test.ts`, `domain/blocks.test.ts`; Help: "A new outlet's label, height and tier".
+- **W18 A better "New sheet from this view"** (B47), `views/sheet.ts` `viewViewport`: a PLAN zoomed out further than
+  fits the drawing area at 1:100 (the whole floor on screen — it used to give 1:150 in a quarter of the paper) goes on
+  at the plan's own 1:100 (`PLOT_SCALE`), the window filling the drawing area, centred on the level's floorplan crops
+  (`floorplanBounds`; else the middle of the pane). Zoomed in (a server room), as before: the largest scale that
+  fits, sized to it. `viewToSheet` passes the floorplan placements. Test in `domain/legend.test.ts`. Tried live in
+  Workflow test on GF: S004 at 1:100 filling the A3 drawing area on the crop; Undo removed it.

@@ -6,12 +6,12 @@ import { legendCandidates, legendShown } from './legend'
 import { freezeInExisting } from './layers'
 import { BUILTIN_BLOCKS } from './blocks'
 import { planDisplayList } from '../views/plan'
-import { viewViewport } from '../views/sheet'
+import { viewViewport, drawingArea } from '../views/sheet'
 import { EntityStore } from '../store/store'
 import { ShapeTool } from '../editor/shapeTool'
 import { spaceOf, PLAN } from '../views/space'
 import type { Shape } from './shapes'
-import type { Sheet } from './drawing'
+import type { Sheet, Entity } from './drawing'
 import type { ToolCtx } from '../editor/tools'
 
 const blockOf = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)
@@ -56,6 +56,17 @@ describe('a sheet from the current view', () => {
 		expect(vp.centre).toEqual({ x: 10000, y: 5000 })
 		expect(vp.scale).toBe(100)   // 200 × 100 mm fits the A3 drawing area; 1:50 (400 × 200) doesn't
 		expect(vp.rect).toMatchObject({ w: 200, h: 100 })
+	})
+	it('a plan zoomed out past 1:100: at 1:100, filling the drawing area, centred on the floorplan crop (W18)', () => {
+		const ixU = new ProjectIndex([...ix.byId.values(), { type: 'underlay', id: 'U', levelId: 'L33', fileId: 'F', origin: { x: 1000, y: 0 } } as Entity])
+		const underlay = () => ({ url: '', x: -5000, y: -5000, w: 84000, h: 59400, clip: { x0: 0, y0: 0, x1: 40000, y1: 20000 } })
+		const vp = viewViewport(ixU, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: -5000, y0: -5000, x1: 79000, y1: 54400 }, 'V', { underlay })
+		expect(vp.scale).toBe(100)
+		expect(vp.centre).toEqual({ x: 21000, y: 10000 })   // the crop's middle, moved by the floorplan's X offset
+		const a = drawingArea(ixU, sheet)
+		expect(vp.rect).toEqual({ x: a.x + 5, y: a.y + 5, w: a.w - 10, h: a.h - 10 })
+		// no floorplan: the middle of what the pane shows
+		expect(viewViewport(ix, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 0, y0: 0, x1: 80000, y1: 40000 }, 'V').centre).toEqual({ x: 40000, y: 20000 })
 	})
 })
 
