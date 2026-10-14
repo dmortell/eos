@@ -33,13 +33,15 @@ export class OutletTool implements Tool {
 		const used = new Set(c.index.outlets.filter((o) => o.levelId === c.levelId).map((o) => o.label))
 		let label = prev ? nextLabel(prev.label) : `${level?.type === 'level' ? level.number : ''}-001`
 		while (used.has(label)) label = nextLabel(label)   // never reuse a label already on this level
-		// the tool bar's zone / server room were picked on a level: on another floor they don't apply (spaces are per level)
+		const rooms = c.index.spaces.filter((s) => s.kind === 'server room' && s.levelId === c.levelId)
+		// the tool bar's zone was picked on a level: on another floor it doesn't apply (zones are per level). Its server
+		// room does: the bar lists every floor's rooms (with the floor), as floors are often served from another floor's
+		// room (backlog W2: GF / L2 outlets with L1.20, the building's only room, came out with none)
 		const onLevel = (id?: string) => (id && (c.index.get(id) as { levelId?: string } | undefined)?.levelId === c.levelId ? id : undefined)
-		const bar = this.next(), nx = { ...bar, zoneId: onLevel(bar.zoneId), serverRoomId: onLevel(bar.serverRoomId) }
+		const bar = this.next(), nx = { ...bar, zoneId: onLevel(bar.zoneId), serverRoomId: bar.serverRoomId && c.index.get(bar.serverRoomId) ? bar.serverRoomId : undefined }
 		const count = nx.ports ?? prev?.ports.length ?? 2
 		// zone and server room: the tool bar's, else the last outlet's; the first outlet on a level takes the level's
 		// server room when it has just one (backlog "Zones and server rooms when placing outlets")
-		const rooms = c.index.spaces.filter((s) => s.kind === 'server room' && s.levelId === c.levelId)
 		const zoneId = nx.zoneId ?? prev?.zoneId
 		const roomOf = (i: number) => nx.serverRoomId ?? (prev ? prev.ports[i]?.serverRoomId ?? prev.ports[0]?.serverRoomId : rooms.length === 1 ? rooms[0].id : undefined)
 		const o: Outlet = {

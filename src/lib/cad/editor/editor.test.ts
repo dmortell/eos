@@ -8,6 +8,7 @@ import { EntityStore } from '../store/store'
 import { OutletTool } from './outletTool'
 import { demoProject } from '../domain/fixtures'
 import type { Outlet } from '../domain/types'
+import type { Entity } from '../domain/drawing'
 import type { ToolCtx } from './tools'
 import { spaceOf, PLAN } from '../views/space'
 
@@ -149,5 +150,21 @@ describe('the outlet tool', () => {
 		next = {}
 		tool.down({ p: { x: 7000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
 		expect(store.get(sel[0])).toMatchObject({ zoneId: 'Z3' })                   // as the last one
+	})
+	it('on another floor the tool bar’s server room still applies, its zone doesn’t (W2)', async () => {
+		const store = new EntityStore()
+		store.load([...demoProject().filter((e) => e.type !== 'outlet' && e.type !== 'link'),
+			{ type: 'level', id: 'L32', buildingId: 'B', number: 32, name: '32F', order: 32, elevationMm: 128000 } as Entity])
+		let sel: string[] = []
+		const tool = new OutletTool(() => ({ zoneId: 'Z3', serverRoomId: 'SR-A' }))
+		const c: ToolCtx = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L32', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 },
+			snap: (p) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		}
+		tool.down({ p: { x: 5000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		const o = store.get(sel[0]) as Outlet
+		expect(o.zoneId).toBeUndefined()
+		expect(o.ports.every((p) => p.serverRoomId === 'SR-A')).toBe(true)
 	})
 })

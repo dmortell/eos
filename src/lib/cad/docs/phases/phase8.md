@@ -3429,3 +3429,8 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   key hint says "Esc"; CadShell closes it when the dialog opens / closes, calibrating starts / ends, or the level,
   pane or view changes (`askCtx`). Help's calibration answer says so. Not driven live: the automation tab was hidden,
   where pdf.js never finishes a render (the floorplan stays "loading").
+- **W2 Server room from the tool bar on other floors** (B53): the Outlet tool kept the tool bar's server room only
+  when it was on the open level, though the bar lists every floor's rooms (with the floor) — so GF / L2 outlets with
+  L1.20 set came out with none. Now the bar's server room always applies (while it exists); its zone still only on its
+  own level (zones are per level). Built wider than the backlog's "when the level has no room of its own": the bar
+  shows the room it will use, so what it shows is what you get. Test in `editor/editor.test.ts`.
