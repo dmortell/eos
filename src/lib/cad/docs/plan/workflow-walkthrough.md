@@ -1,8 +1,8 @@
 # A project from scratch in cad: workflow walkthrough
 
-**Status:** desk study plus a live run (Part 2), 2026-10-14. It was written from the code and the Help, not from use. Part 2, a live run on a
-new project with Dave's floorplans, comes next and will add counts and timings. Nothing here is decided. Fixes Dave
-agrees to go into `backlog.md`.
+**Status:** 2026-10-14. Part 1 is a desk study, written from the code and the Help. Part 2 (at the end) is a live run on
+a new project with Dave's floorplans: action counts, new bottlenecks B40–B52 and the re-ranked list. Nothing here is
+decided. Fixes Dave agrees to go into `backlog.md`.
 
 Dave's brief: start from a new project; then
 - upload plans;
