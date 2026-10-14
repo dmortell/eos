@@ -13,6 +13,10 @@ wanted. *From:* ids as in `backlog.md`.
 
 - **Underlays per view direction** — several PDF / image underlays per plan or elevation, with opacity, flip, z-order, drag / resize. *From:* G200
 - **DXF import** — DXF as an underlay or as shapes. *From:* P056
+- **Ceiling-fed floor and wall outlets** (W12, B44, B63) — in a building without underfloor containment a low outlet
+  routes from the ceiling (down the wall) instead of "no route"; today a floor box needs a high drop plus a low run.
+  Options were: fall back to the nearest high run with a drop; a per-level "fed from: underfloor / ceiling"; or tier
+  from the run serving the area. Dave 2026-10-15: leave it (draw the drop + floor run by hand). *From:* W12
 - **Re-align a new floorplan revision by two point pairs** — when the architect moved the drawing on the page, click
   two points on the old and the new and cad works out the move (and turn). W4 (2026-10-15) copies the calibration and
   says to check the Origin; build this only if moved revisions turn up. *From:* W4
