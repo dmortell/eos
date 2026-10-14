@@ -3761,3 +3761,5 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A click inside a viewport on a sheet picks that viewport (B49: it picked the sheet / nothing) — on the paper or on
     the model drawn in it; it is still moved by its frame (a drag inside only picks it, then windows as before), Ctrl
     keeps its add / drop. `selectTool` (sheet branch); test in `sheet.test.ts` updated. Seen live on S001.
+  - The view strip's Riser button opens the riser view in its OWN tab (the existing one if open), not over the plan's
+    tab (`ws.openInTab`, as the Navigator does). Seen live: 1F plan → Riser went to the "Riser view" tab, 1F plan kept.
