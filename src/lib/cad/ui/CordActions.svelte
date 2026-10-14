@@ -7,7 +7,7 @@
 	import type { Cord } from '../domain/types'
 	import { sortedCableTypes } from '../domain/cableTypes'
 	import { withCableType } from '../domain/cords'
-	import { cordActionsFor, runCordAction } from './cordActions'
+	import { cordActionsFor, runCordAction, askRepatch, REPATCH_TITLE } from './cordActions'
 	import ColorPick from './ColorPick.svelte'
 	import { MIXED } from './propsKit'
 
@@ -33,6 +33,7 @@
 <div class="bar" class:column>
 	<span class="acts">
 		{#each acts as x (x.a)}<button class="btn" class:danger={x.a === 'delete'} title={x.title} onclick={() => runCordAction(project, ws, cords, x.a)}>{x.label} ({x.n})</button>{/each}
+		{#if cords.length}<button class="btn" title={REPATCH_TITLE} onclick={() => askRepatch(project, ws, cords)}>Re-patch…</button>{/if}
 	</span>
 	<label class="fld" title="The cable type of {n} — its color comes with it">Type
 		<select class="inp" value={sameType ?? ''} onchange={(e) => setType(e.currentTarget.value)}>

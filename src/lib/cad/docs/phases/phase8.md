@@ -3677,3 +3677,15 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   fills is left to the click. The ghost shows where it will go; widths can differ (a catalogue product). `bayAt` in
   `editor/rackTool.ts`, tests in `editor/racks.test.ts`, tool hint updated. Seen live on Test Project (undone):
   R305 flush against R304 from an off-line click, R306 free well to the left.
+- **W17 Re-patch in bulk** (B60):
+  - The Patching table's **To** cell is editable (double-click; last in the Tab order, so F2 / Enter still open Cord ID):
+    type `Switch 1:41`, `R301 · SW1 : 41`, or `41` (same device); Enter runs down the column.
+  - **Re-patch…** (the bar's button, right-click; also Properties with several cords — the shared CordActions bar):
+    type the first port; the first cord goes there, the rest to the next free ports of that device (a port the batch
+    leaves counts as free). On each cord the end on the same kind of device as the port typed moves (`endFor`: its
+    switch end, whichever column — Test Project has switches in From), else To. One undo step, all or nothing.
+  - Every move goes through `repatch` (installed → change, one room, labelled panel ports). `domain/repatchText.ts`
+    (`portFromText`, `repatchRun`, `endFor`), `ui/cordActions.ts` (`repatchFrom`, `askRepatch`); Help entry added;
+    tests `domain/repatchText.test.ts`.
+  - Seen live on Test Project (undone): To cell → "port 40 has no label yet" (a panel, rightly refused); Re-patch… moved
+    a From switch end 22 → 30; two cords from 30 → 30, 31.

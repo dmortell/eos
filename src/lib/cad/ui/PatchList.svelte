@@ -21,7 +21,7 @@
 	import StatusChip from './StatusChip.svelte'
 	import CordMode from './CordMode.svelte'
 	import ContextMenu from './ContextMenu.svelte'
-	import { cordActionMenu, runCordAction } from './cordActions'
+	import { cordActionMenu, runCordAction, repatchFrom } from './cordActions'
 	import { setStatus, CORD_STATUSES, replacedText } from '../domain/cords'
 
 	/** `roomId` = the room "This room" means (the open rack view's, else the selected rack's / device's). */
@@ -119,12 +119,14 @@
 
 	// ── inline editing (Dave's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes
 	// cell, or F2 / Enter on the selected row; Enter runs down a column (typing a run of cord IDs), Tab along the row ──
-	type Field = 'cordId' | 'status' | 'notes'
-	const FIELDS: Field[] = ['cordId', 'status', 'notes']
+	type Field = 'to' | 'cordId' | 'status' | 'notes'
+	// To last: F2 / Enter still opens the Cord ID first (typing a run of IDs); a double-click opens To (W17)
+	const FIELDS: Field[] = ['cordId', 'status', 'notes', 'to']
 	/** Save one cell. The status goes through the install rules (setStatus). */
 	function save(id: string, field: Field, value: string) {
 		const c = project.index.get(id)
 		if (c?.type !== 'cord') return
+		if (field === 'to') { repatchFrom(project, ws, [c], value, 'b'); return }   // the typed port (W17)
 		if (field === 'status') { if (value !== c.status) project.store.transact('Cord status', (tx) => tx.put(setStatus(c, value as Cord['status']))); return }
 		const v = field === 'cordId' ? value.trim() : value
 		if (v === (c[field] ?? '')) return
@@ -158,7 +160,9 @@
 				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
 					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>
-					<td class="px-2">{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>
+					{#if ed.is(r.id, 'to')}
+						<td class="ed"><input class="ed-box" value={r.to} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'to')} onblur={(e) => ed.blur(r.id, 'to', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
+					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>{/if}
 					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
