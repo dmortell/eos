@@ -57,7 +57,11 @@ describe('tiers', () => {
 		// low ports keep the first floor-panel ports; the overflowing high ports follow them
 		expect(onPanel(r.add, 'P1')(8)).toBe('A.004:2')
 		expect(onPanel(r.add, 'P1')(9)).toBe('A.112:1')
-		expect(r.issues.some((i) => i.kind === 'high-on-floor-panel')).toBe(true)
+		expect(r.issues.find((i) => i.kind === 'high-on-floor-panel')?.text).toMatch(/the high-level panels are full/)
+	})
+	it('no high-level panel at all: says so, not "full" (W32 / B52)', () => {
+		const r = run([...base(), ...outlets(2), outlet(100, { tier: 'high' })])
+		expect(r.issues.find((i) => i.kind === 'high-on-floor-panel')?.text).toMatch(/there is no high-level panel in /)
 	})
 })
 

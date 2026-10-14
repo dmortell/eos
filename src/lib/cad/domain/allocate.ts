@@ -161,7 +161,9 @@ export function allocate(ix: ProjectIndex, opts: AllocOpts = {}): Allocation {
 		const spare = low.left.filter((s) => !s.reserved)
 		const over = fill(high.unplaced, spare)
 		over.placed.forEach(([w, s]) => place(w, s)); stats.high.onFloor = over.placed.length
-		if (over.placed.length) out.issues.push({ kind: 'high-on-floor-panel', text: `${name}: ${over.placed.length} high-level port(s) went to floor panels — the high-level panels are full` })
+		// why: a room with no high-level panel at all said "the high-level panels are full" (W32 / B52)
+		const highPanels = panels.some((d) => d.panel?.tier === 'high')
+		if (over.placed.length) out.issues.push({ kind: 'high-on-floor-panel', text: `${name}: ${over.placed.length} high-level port(s) went to floor panels — ${highPanels ? 'the high-level panels are full' : `there is no high-level panel in ${name}`}` })
 		const unplaced = [...low.unplaced, ...over.unplaced]
 		for (const w of unplaced) out.unallocated.push({ outletId: w.o.id, port: w.port, reason: `${name} panels are full` })
 		if (unplaced.length) out.issues.push({ kind: 'full', text: `${name}: ${unplaced.length} outlet port(s) don't fit — add panels (${low.unplaced.length} low, ${over.unplaced.length} high)` })

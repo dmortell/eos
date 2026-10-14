@@ -3763,3 +3763,5 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     keeps its add / drop. `selectTool` (sheet branch); test in `sheet.test.ts` updated. Seen live on S001.
   - The view strip's Riser button opens the riser view in its OWN tab (the existing one if open), not over the plan's
     tab (`ws.openInTab`, as the Navigator does). Seen live: 1F plan → Riser went to the "Riser view" tab, 1F plan kept.
+  - Allocation: high-level ports put on floor panels in a room with NO high-level panel now say "there is no
+    high-level panel in L1.20", not "the high-level panels are full" (B52). Test in `allocate.test.ts`.
