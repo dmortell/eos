@@ -1,6 +1,6 @@
 # A project from scratch in cad: workflow walkthrough
 
-**Status:** desk study, 2026-10-14. It was written from the code and the Help, not from use. Part 2, a live run on a
+**Status:** desk study plus a live run (Part 2), 2026-10-14. It was written from the code and the Help, not from use. Part 2, a live run on a
 new project with Dave's floorplans, comes next and will add counts and timings. Nothing here is decided. Fixes Dave
 agrees to go into `backlog.md`.
 
@@ -265,12 +265,124 @@ The ranking is by how often the job happens × how much hand work it costs today
 | 14 | **Ladder in the Kind list** and the cloud-hint fix. | B13, B36 | S |
 | 15 | **Check B9b**: does a mask / layer edit on a floorplan file mark issued sheets "Changed since"? (verify, then fix if not) | B9b | S |
 
-## Part 2: live run (next)
+## Part 2: live run (2026-10-14)
 
-On a new project ("Workflow test" unless Dave names it), using Dave's two floorplans from a smaller project:
-1. Go through stages 1 → 10 plus a 2b round with a changed floorplan.
-2. Count clicks, dialogs and retyped values per stage; note dead ends, wrong defaults and anything a contractor or
-   client would ask for.
-3. Re-rank the table above with the counts.
+**Setup.** A new project "Workflow test" (`netflix-wftest-5876`) with Dave's three Netflix Sydney SYD005 outlet plans:
+GF, L1 and L2, A3 at 1:100, with no dimensions on them. Dave set the L1 / L2 origins. Writes went only to this project.
 
-Writes only to the new project (and Test Project). Uploads go to UploadThing as usual.
+**Not run live:**
+- Stage 4: there was no other-trade drawing.
+- Stage 8: there is no UI for it to try.
+- Stage 9: wall elevations.
+
+The desk study stands for these three.
+
+### What it took
+
+Actions are clicks, keys and typed fields, counted by hand.
+
+| Stage | What was done | Actions | Verdict |
+|---|---|---|---|
+| 1 New project | New Project dialog (8 fields), open project → CAD | ~20 | OK; dead-end import panel (B1); "Your company" retyped |
+| 1 Floors | Lowest 0 / Top 2 / `L{n}` / GF → Apply | ~8 | Good |
+| 1 Settings | **none existed** — Usages / Cable types / Sheets empty (B40) | — | **Fixed** (1635f8a1) |
+| 2 Upload | File › Uploads…, pick 3 PDFs | 3 | OK, but not from Plans & floorplans (B4, todo added) |
+| 2 Scale | per file: Scale tool, drag the line across the page, type 41 986 mm (computed), Save | ~6 × 3 | Slow: no "1:100 on A3" option (B41) |
+| 2 Origin | per floor: Floors › Origin, zoom ~20 ticks to a column, click | ~6 × 3 | Slow; can't check the floors line up (B43) |
+| 2 Assign / crop | 3 selects; crop is another trip per floor | 3 + ~6 / floor | Crop undone by a stale bar (B42) |
+| 3 Room + racks | + Server room, Rack tool 3 clicks | ~6 | OK; racks not bayed |
+| 3 Devices | drag from library; a drop next to a device is silently refused → type U | ~4 / device | B45 |
+| 3 Outlets | Outlet tool 9 clicks + ~10 option changes (ports, mount) | ~20 | Defaults wrong for wall / ceiling (B44) |
+| 3 Usage / tier | Ctrl-select, usage button, tier select | ~8 | Shift doesn't add to a selection (B49) |
+| 3 Trunk | 6 clicks + Enter from a rack | 7 | Good: height from the level, fill estimates at once |
+| 3 Allocate | Outlets table ⋯ › Allocate this level | 2 | Good; 15 "no route" (B44) |
+| 3 Patch | zoom, select ports 1–18 (missed twice), P, first switch port, preview, OK | ~10 | Preview good; port picking fiddly (B46) |
+| 5 Sheet | New sheet from this view, scale, W / H, crop trip, Fit, title | ~15 | Poor defaults (B47) |
+| 5 Issue | Issue…, package name, purpose, Issue | ~5 | Good |
+| 6 BOM | File › Export › Bill of materials… | 3 | Unpriced "no route" lines (B48) |
+| 7 Change + re-issue | move an outlet, cloud (5), change note, Issue… B | ~12 | Good; the cloud stays (B26) |
+| 2b New floorplan | upload "…revB.pdf", re-point L1 | 4 | **Live sheet broke at once** (B8) |
+| 10 Riser | trunk from a rack, V, Enter (prompt "Riser to level [2]") | 4 | Good; stops at L2 FFL (B37) |
+
+### What worked well
+
+- **Allocation** is one action, with clear chips: routed, no route, issues.
+- **Patching:** the patch preview explains a skipped port. 18 cords took about 10 actions.
+- **Trunks:** they take the level's ceiling-plenum height and show fill (estimated cables) as soon as they're drawn.
+- **Issue and re-issue:** the change notes carry into the revision, the title block fills in, and "Changed since" shows
+  at once in the Navigator.
+- **Risers:** V plus a level number makes a labelled riser, and the riser view draws it straight away.
+- **Undo:** one Ctrl+Z put back a wrong floorplan swap and selected what changed.
+
+### New bottlenecks (B40–B52)
+
+- **B40 A new project had no settings.** Only the legacy import made them, so Usages, Cable types, Lengths, the title
+  block and Files were empty and could not be added. **Fixed 2026-10-14** (1635f8a1):
+  - defaults on the first Apply floors;
+  - a button for projects already in that state;
+  - Dave's lists: AP / TV / CCTV and CAT6A / CAT6 / OS2 / OM4.
+- **B41 Scale needs a known distance.** These plans have none, only "1/100".
+  - cad knows the PDF page size, so a **"paper scale 1:___"** field would calibrate in one step (A3 width → 42 m at
+    1:100).
+  - Today you drag a line across the page and type a computed number.
+- **B42 Stale confirm bars (P2 bug).**
+  - After Origin or Crop, the "Origin set / Cropped … Put it back / Cancel" bar stays on screen in other views, and
+    even comes back over a sheet after its Cancel was pressed in the dialog.
+  - **Enter answers it with "Put it back"**: a later Enter silently undid the L1 crop (checked in Firestore).
+  - Fix: close the bar when the view or dialog changes, and never make the revert the Enter default.
+- **B43 Floors are aligned and checked by eye.**
+  - Origin and Crop are separate trips per floor, and the architect's grid can't be snapped to.
+  - Nothing shows the floor below as a ghost, so you can't check they line up. I checked by reading Firestore.
+- **B44 Outlet defaults don't fit the building.**
+  - A new outlet is a floor box at Z 0, tier Low, so wall faceplates and ceiling rosettes need Mount changed each time.
+  - A ceiling outlet keeps tier Low and Z 0.
+  - In a ceiling-fed building (AU / UK offices, no raised floor) every wall outlet is "no route" until a low trunk
+    exists. Tier should follow the mount (ceiling → high), and a wall outlet could be fed from the ceiling.
+- **B45 Device drop refused silently.** Dropping a library device just under another in a rack does nothing, with no
+  message and no snap to the nearest free U.
+- **B46 Patching needs pixel hunting.**
+  - At fit, a 48-port panel's rows are about 4 px tall, so my clicks hit the wrong row twice.
+  - Proposed fix: **"patch all allocated ports"** on a selected panel, or "select used ports".
+- **B47 "New sheet from this view" gives a poor sheet.**
+  - It sets 1:150 (not the plan's 1:100) and fills a quarter of the paper.
+  - It centres on the whole PDF page, including the architect's title block and legend.
+  - It took about 15 actions plus a crop trip to make it usable.
+- **B48 BOM gaps for a quote.**
+  - Unrouted cables appear as "cat6a — no route: 15 ea", with no length to price; they need an estimate.
+  - Cable lines show the type id (`cat6a`), not its label (CAT6A).
+- **B49 Selection and panel friction.**
+  - Shift+click replaces the selection on the plan (Ctrl adds).
+  - The bottom table reopens on every view change (collapsed it 5 times).
+  - Clicking inside a viewport selects the sheet.
+  - The riser view replaced the plan's tab.
+- **B50 Identity typed per project.** "Your company" is entered for every new project, and the title-block logo box
+  shows a placeholder "J".
+- **B51 Issue PDFs mixed in with the floorplans.** They are listed in Uploads beside the floorplans, flagged "Set
+  origin". Floorplans went to Firebase and issue PDFs to UploadThing.
+- **B52 Misleading allocation issue.** "3 high-level port(s) went to floor panels — the high-level panels are full",
+  when the room has no high-level panel at all.
+
+### Re-ranked (live counts + the desk study)
+
+| # | Fix | Bottlenecks | Size |
+|---|-----|-------------|------|
+| 1 | **Replace floorplan with a new revision** (keep calibration / align 2 points, every floor, record the revision): a renamed revision broke the live sheet at once and costs ~15 actions per floor to redo. | B8, B11 | M |
+| 2 | **Stale confirm bars**: close on view / dialog change; Enter never reverts. A silent data loss. | B42 | S |
+| 3 | **Paper-scale calibration** ("1:100 on A3" from the PDF page size), plus origin / crop in one floor-setup pass with a ghost of the floor below. | B41, B43 | S–M |
+| 4 | **Better "New sheet from this view"**: the plan's scale, fill the drawing area, centre on the crop, then **sheets from a template** (one per level / room). | B47, B18 | M |
+| 5 | **Outlet defaults by mount** (wall / ceiling heights and tier) and routing for ceiling-fed buildings. | B44 | S–M |
+| 6 | **First-run path**: new project → Floors → Floorplans (with upload). | B1, B2, B4 | S |
+| 7 | **Clouds tied to revisions** (hide at the next issue). | B26 | S–M |
+| 8 | **Patch all allocated ports** on a panel. | B46 | S |
+| 9 | **Floorplan compare** (old / new overlay, toggle). | B9 | M |
+| 10 | **BOM for quotes**: estimate unrouted lengths, labels not ids, per level / room, header. | B48, B23, B25 | S–M |
+| 11 | Small fixes: device drop to the nearest free U, Shift adds to a selection, the table stays closed, allocation wording, company details from the last project. | B45, B49, B50, B52 | S each |
+
+Then, from the desk study:
+- package attachments (B19);
+- outlets per desk (B12);
+- riser continues on the next floor (B37);
+- drafting in sections (B34);
+- wall-mount racks (B32);
+- change highlight (B28);
+- the change-log decision (B30).
