@@ -356,6 +356,16 @@
 	let settingsOpen = $state(false), settingsTab = $state<SettingsTab>('floors'), calibrating = $state(false)
 	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true }
 	$effect(() => { if (calibrating && ws.toolId !== 'calibrate') calibrating = false })
+	// an offer to put something back (ws.offerRevert, backlog W1) belongs to where it was made: it closes when the view,
+	// the level or the dialog changes (it once stayed over other views and a later Enter reverted a crop)
+	const askCtx = $derived(`${settingsOpen}|${calibrating}|${ws.levelId}|${activePane}|${specKey(panes[activePane])}`)
+	let revertOf: object | null = null, revertCtx = ''
+	$effect(() => {
+		const q = ws.confirm, k = askCtx
+		if (!q?.revert) { revertOf = null; return }
+		if (q !== revertOf) { revertOf = q; revertCtx = k }
+		else if (k !== revertCtx) ws.confirm = null
+	})
 
 	// Blocks opens with the Insert tool, unless you closed it this session (Racks no longer opens by itself in a rack
 	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
@@ -488,7 +498,7 @@
 		write: (u, field, value, what) => {
 			const page = u.page ?? 1
 			const save = () => project.setPageCalib(u.fileId, page, field, value).then(
-				(was) => ws.ask2(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Put it back',
+				(was) => ws.offerRevert(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Put it back',
 					() => void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Put back as it was'), (e) => (project.error = `Couldn't put it back: ${(e as Error).message}`))),
 				(e) => (project.error = `Couldn't save the calibration: ${(e as Error).message}`))
 			// the calibration is the FILE's: another project using the same floorplan moves with it — ask first

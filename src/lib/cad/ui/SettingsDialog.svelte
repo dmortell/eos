@@ -40,9 +40,10 @@
 	}
 	// a question: its first answer takes the focus (after the drawing's question box, which also wants it); answered,
 	// or the dialog back from calibrating, the dialog has it again (Esc closes it, the drawing behind doesn't get keys)
-	$effect(() => { if (ws.confirm && !hidden) void tick().then(() => yesBtn?.focus()) })
+	// — not an offer to put something back (ws.offerRevert): a later Enter on its focused button would revert silently
+	$effect(() => { if (ws.confirm && !ws.confirm.revert && !hidden) void tick().then(() => yesBtn?.focus()) })
 	$effect(() => {
-		if (ws.confirm || hidden) return
+		if ((ws.confirm && !ws.confirm.revert) || hidden) return
 		untrack(() => { if (dlg && !dlg.contains(document.activeElement)) dlg.focus({ preventScroll: true }) })
 	})
 	// take `apply` BEFORE clearing: the {@const} below reads ws.confirm, which is null once cleared
@@ -75,7 +76,7 @@
 							<button bind:this={yesBtn} class="yes" onclick={() => answer(q.apply)}>{q.yes}</button>
 							{#if q.alt}{@const alt = q.alt}<button class="yes" onclick={() => answer(alt.apply)}>{alt.label}</button>{/if}
 							<button onclick={() => (ws.confirm = null)}>Cancel</button>
-							<span class="keys">Enter · Esc</span>
+							<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 						</div>
 					</div>
 				{/if}

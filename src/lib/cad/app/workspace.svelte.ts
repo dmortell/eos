@@ -354,9 +354,12 @@ export class Workspace {
 	}
 	selectViewports = (ids: Id[]): void => { this.viewportId = ids[0] ?? null; this.vpMore = ids.slice(1) }
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
-	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void } } | null>(null)
+	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void }; revert?: true } | null>(null)
 	/** `alt` = a second answer (two ways to go on, e.g. keep a section's viewports as elevations, or delete them). */
 	ask2 = (msg: string, yes: string, apply: () => void, alt?: { label: string; apply: () => void }): void => { this.confirm = { msg, yes, apply, ...(alt ? { alt } : {}) } }
+	/** An offer to undo something done outside the undo stack ("Put it back", backlog W1): Enter never answers it (a
+	 *  later Enter once silently reverted a crop), and the shell closes it when the view or the dialog changes. */
+	offerRevert = (msg: string, yes: string, apply: () => void): void => { this.confirm = { msg, yes, apply, revert: true } }
 	ask = (label: string, value: number, apply: (v: number) => void): void => {
 		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
 	}

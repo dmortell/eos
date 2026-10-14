@@ -3420,3 +3420,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   lists as Help (`ui/toolGroups.ts`, split out of ToolStrip.svelte so a server route can import it), with a test that
   each one is listed. Help gains "Let an AI assistant work in cad for you". Tried recipe 2 (typed walls) in the Test
   Project as the page says it: it made the closed room; undone.
+
+## Walkthrough bug fixes (2026-10-14)
+
+- **W1 Stale confirm bars** (B42): the floorplan calibration's "… saved in the floorplan's file — Put it back" is now an
+  offer, not a question (`ws.offerRevert`, `confirm.revert`): Enter never answers it and its button never takes the
+  focus (AskBox and the Project settings copy — the copy's focused button used to take a later Enter as a click), the
+  key hint says "Esc"; CadShell closes it when the dialog opens / closes, calibrating starts / ends, or the level,
+  pane or view changes (`askCtx`). Help's calibration answer says so. Not driven live: the automation tab was hidden,
+  where pdf.js never finishes a render (the floorplan stays "loading").
