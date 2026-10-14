@@ -299,12 +299,19 @@ export class SelectTool implements Tool {
 				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.selectViewport(vp.id); c.enterViewport(vp.id); return }   // double-click: edit inside it
 				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked) · double-click to edit inside it'
 					: 'Viewport: drag to move · a corner resizes · double-click edits inside it · Pan / zoom content (or Alt) pans / scales its view')
+				// W32 / B49: a click on the paper INSIDE a viewport picks that viewport (it picked the sheet); it is still moved
+				// by its frame, so a drag from inside windows the notes as before
+				const within = !vp && !e.ctrl ? viewportAt(sheet, e.p) : undefined
+				if (within) { c.selectViewport(within.id); this.#marquee = e.p; return }
 				const now = c.viewportIds?.() ?? []
 				if (vp && !vp.locked) { this.#vp = { sheet, vpId: vp.id, mode: 'move', ids: now.includes(vp.id) ? now : [vp.id], ...(e.ctrl ? { copy: true } : {}), ...(e.ctrl && inPick ? { drop: vp.id } : {}) }; this.#start = e.p }
 				else if (vp && e.ctrl && inPick) this.#vp = { sheet, vpId: vp.id, mode: 'move', ids: [], drop: vp.id }   // a locked one: only the pick toggles
 				else if (!vp) this.#marquee = e.p   // the bare paper: a click selects the sheet, a drag windows its notes
 				return
 			}
+			// the model drawn inside a viewport (not a paper note): that viewport is picked (W32 / B49)
+			const onSheet = c.store.get(c.space.spec.sheetId), holder = sheet?.type !== 'shape' && onSheet?.type === 'sheet' && !e.ctrl ? viewportAt(onSheet, e.p) : undefined
+			if (onSheet?.type === 'sheet' && holder) { c.select([onSheet.id]); c.selectViewport(holder.id); this.#marquee = e.p; return }
 			c.selectViewport(null)
 			// a paper note (a shape on the sheet) is picked and dragged like any shape, below; off the paper: a window
 			if (sheet?.type !== 'shape') { c.select([]); this.#marquee = e.p; return }

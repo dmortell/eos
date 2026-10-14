@@ -3756,3 +3756,8 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Shift+click (and a Shift window) ADDS to the selection outside rack views, as Ctrl does (B49: it replaced it);
     rack views keep Shift for ranges, and a Shift-drag still moves with the H / V lock. `selectTool` `add`; test in
     `copyNudge.test.ts`; Help "Select several things".
+  - The bottom table staying as you left it: no longer happens — checked live: folded, and closed, both stay so across
+    plan → sheet → plan → riser view (nothing reopens the panel since the closed-bar redesign). No change.
+  - A click inside a viewport on a sheet picks that viewport (B49: it picked the sheet / nothing) — on the paper or on
+    the model drawn in it; it is still moved by its frame (a drag inside only picks it, then windows as before), Ctrl
+    keeps its add / drop. `selectTool` (sheet branch); test in `sheet.test.ts` updated. Seen live on S001.
