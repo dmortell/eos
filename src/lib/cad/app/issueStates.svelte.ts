@@ -6,28 +6,30 @@
 import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
 import type { Id } from '../domain/types'
-import { fingerprint, issueState, type IssueState } from '../domain/issue'
-import { frozenNow, placeUnderlays } from './issue'
+import { issueState, type IssueState } from '../domain/issue'
+import { frozenNow, placeUnderlays, printNow } from './issue'
 
 class IssueStates {
 	#fp = $state.raw<Map<Id, string>>(new Map())
 	busy = $state(false)
 	#want = 0
 	#run = 0
-	#at = -1
+	#at = ''
 	#timer: ReturnType<typeof setTimeout> | undefined
 	constructor(private project: CadProject) {}
 
+	// tracked: an edit re-reads, and schedules a fresh pass — so does a floorplan's new look (masks / layers, W3)
+	#rev = () => `${this.project.rev}:${this.project.pdf.lookRev}`
 	/** The sheet's state now ('unknown' while it's being worked out, or when nothing asked for states). */
 	of(s: Sheet): IssueState {
-		const rev = this.project.rev   // tracked: an edit re-reads, and schedules a fresh pass
+		const rev = this.#rev()
 		if (this.#want && rev !== this.#at) { this.#at = rev; this.#schedule(1000) }
 		return issueState(s, this.#fp.get(s.id))
 	}
 	/** Show the states while the caller does; the returned function releases it. */
 	want(): () => void {
 		this.#want++
-		this.#at = this.project.rev
+		this.#at = this.#rev()
 		this.#schedule(0)
 		return () => { this.#want = Math.max(0, this.#want - 1); if (!this.#want) clearTimeout(this.#timer) }
 	}
@@ -41,7 +43,7 @@ class IssueStates {
 			for (const s of sheets) {
 				if (run !== this.#run || !this.#want) return
 				await placeUnderlays(p, [s])
-				out.set(s.id, fingerprint(frozenNow(p, s)))
+				out.set(s.id, printNow(p, frozenNow(p, s)))
 				await new Promise((r) => setTimeout(r, 0))   // let the page breathe between sheets
 			}
 			if (run === this.#run) this.#fp = out

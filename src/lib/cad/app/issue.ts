@@ -12,7 +12,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, fingerprint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { download, fileSafe } from '../render/download'
 import { newId } from '../domain/ids'
@@ -53,8 +53,10 @@ export function freshSheets(project: CadProject, listed: Sheet[]): Sheet[] {
 /** Which of these sheets would get a new revision. */
 export async function previewIssue(project: CadProject, sheets: Sheet[], first: string): Promise<IssuePlanRow[]> {
 	await placeUnderlays(project, sheets)
-	return planIssue(sheets, (s) => fingerprint(frozenNow(project, s)), first)
+	return planIssue(sheets, (s) => printNow(project, frozenNow(project, s)), first)
 }
+/** A frozen list's print, with its floorplans' masks / hidden layers / markups as set now (W3). Call placeUnderlays first. */
+export const printNow = (project: CadProject, prims: Prim[]): string => sheetPrint(prims, project.pdf.lookOfRef)
 
 /** Why a frozen copy of (sheet, rev) can't be written: another issue already froze it (issued revisions are final —
  *  Review 2 Q61). A copy left by an issue that was never recorded (its upload failed) doesn't count: it is replaced. */
@@ -158,7 +160,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
 		const prims = frozenNow(project, next)
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)
-		bumped.push({ id: row.sheet.id, rev: { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: fingerprint(prims) } })
+		bumped.push({ id: row.sheet.id, rev: { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: printNow(project, prims) } })
 		pages.push({ ...paperSize(row.sheet), prims })
 	}
 	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue

@@ -59,11 +59,28 @@ export function freeze(prims: Prim[]): Prim[] {
 }
 
 /** A short fingerprint of a frozen list (FNV-1a, 32 bit, + its length): equal lists → equal prints. */
-export function fingerprint(frozen: Prim[]): string {
-	const s = JSON.stringify(frozen)
+export function fingerprint(frozen: Prim[]): string { return fnv(JSON.stringify(frozen)) }
+function fnv(s: string): string {
 	let h = 0x811c9dc5
 	for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) }
 	return `${(h >>> 0).toString(16).padStart(8, '0')}-${s.length.toString(36)}`
+}
+/** A sheet's print with its floorplans' LOOK (backlog W3): a frozen list keeps a floorplan as a file reference, so
+ *  masks, hidden PDF layers and hidden markups set in its file would change the print unseen. `look` gives each
+ *  underlay ref's look ('' = none set); only refs with one are added — a sheet whose floorplans have none keeps the
+ *  print it had before looks were counted. */
+/** What changes a floorplan page's picture besides where it's placed: its masks, the file's hidden PDF layers and
+ *  hidden markups (`files/{id}` as Uploads writes it) — '' when none is set. */
+export function pageLook(fd: Record<string, unknown> | undefined, page: number): string {
+	const masks = (fd?.pages as Record<string, { masks?: unknown }> | undefined)?.[String(page)]?.masks
+	const m = Array.isArray(masks) ? masks : [], hidden = Array.isArray(fd?.hiddenLayers) ? [...(fd.hiddenLayers as string[])].sort() : []
+	return m.length || hidden.length || fd?.hideMarkups ? JSON.stringify([m, hidden, !!fd?.hideMarkups]) : ''
+}
+export function sheetPrint(frozen: Prim[], look: (ref: string) => string): string {
+	const refs = [...new Set(frozen.flatMap((p) => (p.k === 'image' && p.url.startsWith(UNDERLAY_REF) ? [p.url] : [])))].sort()
+	const looks = refs.flatMap((r) => { const l = look(r); return l ? [`${r}=${l}`] : [] })
+	const fp = fingerprint(frozen)
+	return looks.length ? `${fp}~${fnv(looks.join('|'))}` : fp
 }
 
 export type IssuePlanRow = { sheet: Sheet; changed: boolean; from?: string; rev: string }

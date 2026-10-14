@@ -3434,3 +3434,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   L1.20 set came out with none. Now the bar's server room always applies (while it exists); its zone still only on its
   own level (zones are per level). Built wider than the backlog's "when the level has no room of its own": the bar
   shows the room it will use, so what it shows is what you get. Test in `editor/editor.test.ts`.
+- **W3 Mask / layer edits and "Changed since"** (B9b) — checked: the other way round from the backlog's worry. A sheet's
+  frozen list keeps a floorplan as a file reference plus its placement, so origin / scale / crop already changed the
+  print, but masks, hidden PDF layers and hidden markups (which change the printed picture) did NOT — an issued sheet
+  stayed "Issued" after them. Now `domain/issue.ts` `sheetPrint` adds each floorplan's look (`pageLook`: masks of that
+  page, hidden layers, hideMarkups) to the fingerprint, only when one is set — sheets whose floorplans have none keep
+  their print, so nothing flips at deploy; a sheet issued earlier over a masked floorplan shows "Changed since" once.
+  PdfCache keeps each page's look and bumps `lookRev` when one changes; the register's states re-check on it (a mask
+  edit isn't a project edit). Issue and preview use the same print (`app/issue.ts` `printNow`). Tests in
+  `domain/issue.test.ts`. Not covered: a re-uploaded file under the same id (its url) — that's W4.

@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 41 entries (16 P2 · 25 P3; 6 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 40 entries (15 P2 · 25 P3; 5 ⚡ quick wins) — Dave's todos of 2026-10-14 (11) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -89,8 +89,7 @@ to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the wal
 
 ### Bugs
 
-- [ ] ⚡ **W3 Check: mask / layer edits mark issued sheets "Changed since"** (B9b) — the fingerprint holds the
-  floorplan's file reference, not its settings; verify, fix if so. **P2 · S**.
+W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes").
 
 ### Floorplans
 

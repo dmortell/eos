@@ -33,7 +33,7 @@ function fakeProject(...entities: (Sheet | Issue)[]) {
 	const project = {
 		store, db: {}, pid: 'p', name: 'Proj', settings: undefined, blockOf: () => undefined, sheetBase: { projectName: 'Proj' },
 		get index() { return new ProjectIndex(store.all()) },
-		pdf: { placed: async () => undefined, placement: () => undefined },
+		pdf: { placed: async () => undefined, placement: () => undefined, lookOfRef: () => '' },
 	} as unknown as CadProject
 	return { project, store }
 }

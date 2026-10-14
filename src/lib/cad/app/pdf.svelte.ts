@@ -4,7 +4,7 @@
 import { doc, getDoc, onSnapshot, type Firestore } from 'firebase/firestore'
 import { PdfState } from '$lib/pdf/PdfState.svelte'
 import type { Underlay } from '../domain/types'
-import { parsePictureRef } from '../domain/issue'
+import { parsePictureRef, parseUnderlayRef, pageLook } from '../domain/issue'
 
 const RENDER_SCALE = 2
 /** `clip` = the crop set in Uploads, in plan mm (the image is drawn only inside it). */
@@ -38,6 +38,12 @@ export class PdfCache {
 	/** Each placed page's calibration as used (`fileId#page` → origin in page points, mm per point, crop) — what the
 	 *  Calibrate tool turns plan points back into page points with. */
 	calib = $state<Record<string, PageCalibUsed>>({})
+	/** Each placed page's look (`fileId#page` → `pageLook`, missing = none), and a count bumped when one changes (the
+	 *  register's "Changed since" re-checks then: a mask edit isn't a project edit). */
+	looks: Record<string, string> = {}
+	lookRev = $state(0)
+	/** The look of a floorplan reference in a frozen list (domain/issue.ts `sheetPrint`). */
+	lookOfRef = (ref: string): string => { const r = parseUnderlayRef(ref); return r ? this.looks[`${r.fileId}#${r.page}`] ?? '' : '' }
 
 	constructor(private db: Firestore) {}
 
@@ -153,6 +159,8 @@ export class PdfCache {
 				const pl = placementFromCalib(use, r.width, r.height)
 				if (!pl) throw new Error('the page could not be placed')
 				this.calib[key] = { origin: use.origin ?? { x: 0, y: 0 }, sf: Number(use.scale!.scale), crop: use.crop, provisional: !calibrated }
+				const look = pageLook(fd, page)
+				if (look !== (this.looks[key] ?? '')) { if (look) this.looks[key] = look; else delete this.looks[key]; this.lookRev++ }
 				if (calibrated) delete this.problems[key]
 				else this.problems[key] = 'the page is not calibrated — shown as if 1:100: Project › Floors… › Plans & floorplans › Scale (or Uploads)'
 				const old = this.#ready[key]?.url

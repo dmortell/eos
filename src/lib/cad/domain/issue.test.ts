@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -63,6 +63,18 @@ describe('issue', () => {
 		])
 		expect(fingerprint(freeze([line]))).not.toBe(fingerprint(freeze([{ ...line, dash: undefined } as Prim])))
 		expect(parseUnderlayRef('https://x/y.png')).toBeNull()
+	})
+	it('a floorplan’s look (masks / hidden layers) is in the print, only when set (W3)', () => {
+		const f = freeze([{ k: 'image', url: underlayRef('F1', 1), x: 0, y: 0, w: 100, h: 50 }, { k: 'text', at: { x: 0, y: 0 }, text: 'A', size: 2.5, cls: 'label' }])
+		expect(sheetPrint(f, () => '')).toBe(fingerprint(f))   // none set: the print as before
+		const masked = sheetPrint(f, (r) => (r === underlayRef('F1', 1) ? '[[{"x":1}],[],false]' : ''))
+		expect(masked).not.toBe(fingerprint(f))
+		expect(sheetPrint(f, () => '[[{"x":2}],[],false]')).not.toBe(masked)
+		expect(pageLook({ pages: { 1: { scale: { scale: 2 } } } }, 1)).toBe('')
+		expect(pageLook({ pages: { 2: { masks: [{ x: 1 }] } } }, 1)).toBe('')
+		expect(pageLook({ pages: { 1: { masks: [{ x: 1 }] } } }, 1)).not.toBe('')
+		expect(pageLook({ hiddenLayers: ['b', 'a'] }, 1)).toBe(pageLook({ hiddenLayers: ['a', 'b'] }, 1))
+		expect(pageLook({ hideMarkups: true }, 1)).not.toBe('')
 	})
 	it('a package bumps sheets never issued or changed since; the rest go as last issued', () => {
 		const now = (s: Sheet) => (s.id === 'S2' ? 'h2-changed' : 'h1')
