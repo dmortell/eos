@@ -3729,3 +3729,8 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   / mirrored). Notes and lines drawn on one view stay that view's (`ownFrame` + `sameFrame` unchanged). Test in
   `editor/insertTool.test.ts` (a section of that wall shows it; flipped or too shallow doesn't). Help updated. Seen
   live: Outlet in 1F Section B (undone).
+- **W30 (part) Fill and cables on the riser view** (B39): each riser segment is labelled beside it with what it
+  carries — "48 cables · 32%" (`cableCountText` + fill %; amber near the limit, red over it, as a per-mark color so a
+  sheet prints it). The riser view takes `fills` (project.fills, with estimates; a sheet viewport passes its own;
+  absent → worked out from the routes), `riserShafts` returns each riser's segment id. Test in `views/riser.test.ts`.
+  Live: the riser view renders (Test Project and Workflow test have no riser runs to label just now).

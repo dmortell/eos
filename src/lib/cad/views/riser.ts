@@ -22,11 +22,15 @@ import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
 import { cableKey } from '../domain/multicore'
 import { inPolygon } from './primGeom'
+import { fillBySegment, segKey, fillTone, cableCountText, type SegFill } from '../domain/fill'
 import type { Prim } from './display'
 
 const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450
 
-export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean }
+export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean
+	/** The runs' fills (project.fills, with estimates): each riser's cables and fill % (W30). Absent: worked out from
+	 *  the routes. */
+	fills?: Map<string, SegFill> }
 
 const settingsOf = (ix: ProjectIndex) => ix.get('settings') as ProjectSettings | undefined
 
@@ -90,8 +94,8 @@ export function squeeze(floors: number[], shown: (e: number) => boolean, storey?
 }
 
 /** The risers: containment with a vertical segment between two levels. */
-export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number; z0: number; z1: number; w: number }[] {
-	const out: { s: Shape; x: number; y: number; z0: number; z1: number; w: number }[] = []
+export function riserShafts(ix: ProjectIndex): { s: Shape; seg: Id; x: number; y: number; z0: number; z1: number; w: number }[] {
+	const out: { s: Shape; seg: Id; x: number; y: number; z0: number; z1: number; w: number }[] = []
 	for (const s of ix.shapes) {
 		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
 		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
@@ -99,7 +103,7 @@ export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number;
 		for (const g of s.geom.segs) {
 			const a = nodes.get(g.a), b = nodes.get(g.b)
 			if (!a || !b || !isVertical(a, b) || (a.levelId ?? s.levelId) === (b.levelId ?? s.levelId)) continue
-			out.push({ s, x: a.x, y: a.y, z0: Math.min(z(a), z(b)), z1: Math.max(z(a), z(b)), w: Math.max(s.section?.w ?? 150, 150) })
+			out.push({ s, seg: g.id, x: a.x, y: a.y, z0: Math.min(z(a), z(b)), z1: Math.max(z(a), z(b)), w: Math.max(s.section?.w ?? 150, 150) })
 		}
 	}
 	return out
@@ -108,6 +112,7 @@ export function riserShafts(ix: ProjectIndex): { s: Shape; x: number; y: number;
 export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const k = o.scale ?? 100, txt = 2.5 * k, small = 2 * k
 	const routes = o.routes ?? routeLinks(ix)
+	const fills = o.fills ?? fillBySegment(ix, routes)
 	// the floor range (Riser view control): floors outside it aren't drawn; risers are cut at its ends
 	const rs = settingsOf(ix)?.riser, inRange = (l: Level) => (rs?.from == null || l.number >= rs.from) && (rs?.to == null || l.number <= rs.to)
 	const levels = ix.levels.filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
@@ -186,6 +191,13 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		const tier = sh.s.role?.kind === 'containment' && sh.s.role.tier !== 'wall' ? ` · ${sh.s.role.tier.toUpperCase()}` : ''
 		out.push({ k: 'line', pts: [{ x: sh.x - sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v0 }, { x: sh.x + sh.w / 2, y: -v1 }, { x: sh.x - sh.w / 2, y: -v1 }], closed: true, fill: true, cls: 'riser-shaft', src: sh.s.id })
 		out.push({ k: 'text', at: { x: sh.x, y: -v1 - small * 0.6 }, text: `${sh.s.label || 'Riser'}${tier}`, size: small, anchor: 'middle', cls: 'rv-label', src: sh.s.id })
+		// W30 (B39): what it carries — "48 cables · 32%" beside it, amber near the limit, red over it (a color of its
+		// own, so a sheet prints it too)
+		const f = fills.get(segKey(sh.s.id, sh.seg))
+		if (f) {
+			const tone = fillTone(f.pct), color = tone === 'over' ? '#dc2626' : tone === 'warn' ? '#d97706' : undefined
+			out.push({ k: 'text', at: { x: sh.x + sh.w / 2 + small * 0.5, y: -(v0 + v1) / 2 }, text: `${cableCountText(f)} · ${Math.round(f.pct)}%`, size: small, anchor: 'start', cls: 'rv-label', src: sh.s.id, ...(color ? { color } : {}) })
+		}
 	}
 
 	// backbone groups

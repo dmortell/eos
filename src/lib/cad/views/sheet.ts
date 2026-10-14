@@ -133,7 +133,7 @@ function scheduleStart(ix: ProjectIndex, vp: Viewport, vps: Viewport[] | undefin
 function viewContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts): Prim[] {
 	const v = vp.view, spec = v.spec
 	if (spec.kind === 'row') return rackRowDisplayList(ix, spec, { cords: o.cords })
-	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, hideEmpty: spec.hideEmpty })
+	if (spec.kind === 'riser') return riserDisplayList(ix, { scale: vp.scale, routes: o.routes, fills: o.fills, hideEmpty: spec.hideEmpty })
 	if (isPaperSpec(spec)) return paperDisplayList(ix, spec, { fills: o.fills, routes: o.routes, fit: paperFitOf(vp), start: spec.kind === 'schedule' ? scheduleStart(ix, vp, o.vps) : undefined })
 	if (spec.kind === 'section') { const sec = ix.get<SectionCut>(spec.sectionId); return sec?.type === 'section' ? sectionDisplayList(ix, sec, { scale: vp.scale, blocks: o.blocks }) : [] }
 	if (spec.kind === 'plan') return planDisplayList(ix, v.levelId, { scale: vp.scale, underlay: o.underlay, blocks: o.blocks, gray: o.gray, byUsage: o.byUsage })

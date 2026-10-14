@@ -123,7 +123,7 @@
 				: isPaperSpec(spec)
 					? paperDisplayList(project.index, spec, { fills: project.fills })
 				: spec.kind === 'riser'
-					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, hideEmpty: spec.hideEmpty })
+					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, fills: project.fills, hideEmpty: spec.hideEmpty })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))

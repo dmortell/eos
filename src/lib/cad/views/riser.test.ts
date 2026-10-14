@@ -27,6 +27,12 @@ describe('riser view', () => {
 	it('finds risers: vertical runs between levels', () => {
 		expect(riserShafts(ix).map((s) => [s.s.id, s.z0, s.z1])).toEqual([['RA', 2600, 11400]])
 	})
+	it('each riser says what it carries: cables and fill % (W30) — red over the limit', () => {
+		const label = (ps: ReturnType<typeof riserDisplayList>) => ps.find((p) => p.k === 'text' && p.src === 'RA' && /cables? ·/.test(p.text))
+		expect(label(riserDisplayList(ix))).toMatchObject({ text: expect.stringMatching(/^2 cables · \d+%$/) })   // from the backbone's routes
+		const over = { shape: 'RA', seg: 'RAs0', cables: { cat6a: 40 }, cableMm2: 0, areaMm2: 0, pct: 61, over: true }
+		expect(label(riserDisplayList(ix, { fills: new Map([['RA:RAs0', over]]) }))).toMatchObject({ text: '40 cables · 61%', color: '#dc2626' })
+	})
 	it('draws floors, rooms, the riser and one backbone group through it', () => {
 		const ps = riserDisplayList(ix)
 		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => p.k === 'line' && p.pts[0].y)).toEqual([-0, -11400])
