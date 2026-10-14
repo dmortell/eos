@@ -10,6 +10,7 @@ import type { ViewSpace, WorkPlane } from '../views/space'
 import type { PathSel } from './pathSel'
 import type { ProjectDetails } from '../domain/titleBlock'
 import type { InsertLink } from '../domain/links'
+import type { Guide } from '../domain/guides'
 
 /** View mm per paper mm for a note tied to a viewport (1 for anything else): a paper drag moves it by this much. */
 export function tiedScale(e: Entity, get: (id: Id) => Entity | undefined): number {
@@ -45,6 +46,8 @@ export interface ToolCtx {
 	snap(p: Pt, alt: boolean, skip?: Id | Id[], dragged?: Id[]): Snap
 	/** On a sheet's paper: the paper point of an object snap in the viewport under `p` (notes and dimensions, Q44); null = none. */
 	sheetSnap?(p: Pt, alt: boolean): Pt | null
+	/** This view's guides (the Guide tool; this user's screen only): read, replace, and what the tool places next. */
+	guides?: { list(): Guide[]; set(gs: Guide[]): void; axis(): Guide['axis'] | 'both' }
 	/** Nodes / segments picked within the selected run (Delete removes them; Properties acts on them). */
 	pathSel?(): PathSel | null
 	selectPath?(s: PathSel | null): void

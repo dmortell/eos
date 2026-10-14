@@ -3590,3 +3590,19 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     dialog) and the room scope in the title.
   - Tests in `domain/reports.test.ts` (the "length unknown" check now expects the average). Seen live in Workflow
     test's BOM dialog: CAT6A labels, "estimated at 37 m each … 777 m (21 cables × 37 m)".
+
+## Backlog P3s (2026-10-15)
+
+Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skipping the ❓ ones.
+
+- **Guides** (Dave's todo, T155): the **Guide** tool (Draw group, crosshair): a click places a cross, or only a
+  vertical / horizontal guide (tool bar › Place), through the snapped point (typed points too); press on a guide to
+  drag it (it snaps); Delete removes the one under the cursor; tool bar › Clear N takes this view's off.
+  - Kept per view (`levelId|specKey`; inside an edited viewport, its view's) in this browser
+    (`ws.guides`, localStorage `cad-guides`) — the decision: "screen only" = this user's aid, not drawing data, so
+    no schema change and never printed. Drawn as a cyan dash across the view (`guide` class, screen-only in
+    styleDrift).
+  - Snap (every tool, `ViewCanvas` ctx snap): onto a guide (square onto it) or a crossing of two, with OSNAP on and
+    no Alt, unless an object snap is nearer (`domain/guides.ts` `guideSnap`). Guide × object intersections: not built
+    (no intersection snap exists).
+  - Tests in `domain/guides.test.ts`. Tried live on Workflow test GF: a cross placed, "Clear 2" took it off.

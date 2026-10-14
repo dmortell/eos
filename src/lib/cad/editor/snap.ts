@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Prim } from '../views/display'
 import { outlineOf, type Shape } from '../domain/shapes'
 
-export type SnapKind = 'node' | 'mid' | 'centre' | 'outlet' | 'rack' | 'grid'
+export type SnapKind = 'node' | 'mid' | 'centre' | 'outlet' | 'rack' | 'grid' | 'guide'
 export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
 
 export const GRID_MM = 10

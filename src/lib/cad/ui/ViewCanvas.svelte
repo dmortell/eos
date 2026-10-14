@@ -32,6 +32,7 @@
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
+	import { guideSnap } from '../domain/guides'
 	import { snapThroughViewport, pasteTextNote } from '../editor/noteTool'
 	import { typeInto } from '../editor/input'
 	import { toModel, zoomAt, panBy, fit, visibleArea, reveal, ZoomHistory, type Camera } from '../editor/camera'
@@ -161,6 +162,15 @@
 	const preview = $derived.by((): Prim[] => {
 		void tick; void ws.selection; void project.rev; void cam.k
 		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : []
+		return vpe ? onPaper(raw, vpe.vp) : raw
+	})
+	/** GUIDES (the Guide tool): this view's — inside an edited viewport, its view's — drawn across the view, on screen
+	 *  only (never on a sheet's print); points snap onto them (`ctx().snap`). */
+	const guideKey = $derived(vpe ? `${vpe.levelId}|${specKey(vpe.vp.view.spec)}` : `${levelId}|${specKey(spec)}`)
+	const viewGuides = $derived(ws.guidesOf(guideKey))
+	$effect(() => { if (active) ws.activeGuideKey = guideKey })   // the tool bar's Clear takes the active pane's
+	const guidePrims = $derived.by((): Prim[] => {
+		const L = 1e6, raw = viewGuides.map((g): Prim => ({ k: 'line', pts: g.axis === 'v' ? [{ x: g.at, y: -L }, { x: g.at, y: L }] : [{ x: -L, y: g.at }, { x: L, y: g.at }], cls: 'guide' }))
 		return vpe ? onPaper(raw, vpe.vp) : raw
 	})
 	/** Inside an edited viewport: the selected things, drawn over the paper. */
@@ -363,12 +373,16 @@
 			prims: () => pick, tol: () => tol,
 			snap: (p, alt, skip, dragged) => {
 				const d = ws.drafting, o = { skip, noGrid: alt || !d.snap, grid: d.grid, noObjects: !d.osnap }
-				const sn = kind === 'plan' ? snapAt(project.index, lv, p, tol * 1.5, o) : snapToPrims(f ? f.prims : prims, p, tol * 1.5, o)
+				let sn = kind === 'plan' ? snapAt(project.index, lv, p, tol * 1.5, o) : snapToPrims(f ? f.prims : prims, p, tol * 1.5, o)
+				// onto a guide or a crossing of two (OSNAP), unless an object snap is nearer
+				const gp = !alt && d.osnap && viewGuides.length ? guideSnap(viewGuides, p, tol * 1.5) : null
+				if (gp && (sn.kind === 'grid' || Math.hypot(gp.x - p.x, gp.y - p.y) < Math.hypot(sn.p.x - p.x, sn.p.y - p.y))) sn = { p: gp, kind: 'guide' }
 				// nodes being dragged snap onto the skipped runs' OTHER nodes too (dropped there, they join them); the dragged
 				// nodes themselves, and the midpoints of segments they move, would snap to the cursor
 				return dragged && skip ? snapDragged(sn, p, tol * 1.5, project.index, skip, dragged, (q) => sp.fromWorld(q)) : sn
 			},
 			...(kind === 'sheet' && !f && sheet ? { sheetSnap: (p: Pt, alt: boolean) => (alt || !ws.drafting.osnap ? null : snapThroughViewport(project.index, sheet, p, tol * 1.5)) } : {}),
+			guides: { list: () => ws.guidesOf(guideKey), set: (gs) => ws.setGuides(guideKey, gs), axis: () => ws.guideAxis },
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
 			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, say: ws.say,
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, selectViewports: ws.selectViewports, viewportId: () => ws.viewportId, viewportIds: () => ws.pickedViewports, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
@@ -705,6 +719,7 @@
 				<Prims prims={vpSelected} selected={selSet} />
 			{/if}
 			<Prims prims={portHighlight} selected={new Set()} k={cam.k} />
+			{#if guidePrims.length}<Prims prims={guidePrims} selected={new Set()} k={cam.k} />{/if}
 			<Prims prims={preview} selected={new Set()} k={cam.k} />
 			{#if mq}
 				<rect x={mq.x0} y={mq.y0} width={mq.x1 - mq.x0} height={mq.y1 - mq.y0}

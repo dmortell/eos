@@ -265,6 +265,9 @@
 	.cord-installed { stroke-dasharray: none; }
 	.cord-add { stroke-dasharray: 6 3; }
 	.draft { stroke: #2563eb; opacity: 0.5; }
+	/* a guide (the Guide tool): a thin cyan dash across the view, on screen only */
+	.guide { stroke: #06b6d4; stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.8; pointer-events: none; }
+	.guide.guide-hot { stroke-width: 2.5px; opacity: 1; }
 	/* an elevation's depth band (UX14): beyond it faded; its edges on the plan */
 	.far { opacity: 0.3; }
 	.band-edge { stroke: #7c3aed; stroke-dasharray: 10 6; stroke-width: 1.2; }

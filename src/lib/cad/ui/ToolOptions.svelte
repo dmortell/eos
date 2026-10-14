@@ -50,6 +50,16 @@
 {#if ws.toolId === 'shape'}<ShapeOptions {ws} />{/if}
 {#if ws.toolId === 'box'}<ShapeOptions {ws} box upright={kind === 'elevation' || kind === 'section'} />{/if}
 {#if ws.toolId === 'dimension'}<DimOptions {ws} />{/if}
+{#if ws.toolId === 'guide'}
+	<!-- the Guide tool: which guides a click places; Clear takes this view's away -->
+	<span class="sep"></span>
+	<span class="opt">Place
+		<select class="tpl" value={ws.guideAxis} title="What a click places through the point" onchange={(e) => (ws.guideAxis = e.currentTarget.value as typeof ws.guideAxis)}>
+			<option value="both">both (a cross)</option><option value="v">vertical</option><option value="h">horizontal</option>
+		</select></span>
+	{@const n = ws.guidesOf(ws.activeGuideKey).length}
+	<button class="opt" disabled={!n} title="Take every guide off this view" onclick={() => { ws.setGuides(ws.activeGuideKey, []); ws.say('Guides cleared from this view') }}>Clear {n || ''}</button>
+{/if}
 {#if ws.toolId === 'opening'}
 	<span class="sep"></span>
 	<label class="opt" title="Width (mm)">W <input type="number" bind:value={ws.opts.w} /></label>

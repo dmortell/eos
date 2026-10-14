@@ -18,15 +18,10 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 24 entries (24 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 23 entries (23 P3, every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **Guides** — horizontal / vertical guide lines per view: a Guide tool places one through a clicked point (or
-  typed X / Y); grips move it, Delete removes it; screen only (not printed). Snaps: onto a guide, and where two guides
-  cross (guide × object needs the intersection snap, not built). **P3 · M** (~150–200 lines). *cad today:* snaps to
-  nodes, mids, centres, outlets, rack corners and the grid; no guides. *From:* decision "Guides?" (T155), Dave
-  2026-10-14.
 - [ ] **Catalogue, with links to product specs** — browse the Panduit catalogue (kind, maker, color, RU, fits the
   row), add a rack from it, add / delete custom products (decided: one list with the library — a template keeps a
   `catalogId`). Products, templates and blocks get a spec-sheet URL (`CatalogProduct.productUrl` exists), shown as a
