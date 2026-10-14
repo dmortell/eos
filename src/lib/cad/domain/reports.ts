@@ -6,7 +6,7 @@
 //  - bom:            quantities by item for a quote (no prices — Dave, 2026-10-02)
 import type { ProjectIndex } from './project'
 import type { Id, Outlet, Cord } from './types'
-import { cableMedia } from './cableTypes'
+import { cableMedia, cableTypeLabel } from './cableTypes'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
@@ -154,9 +154,21 @@ export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty
  * (unit 'ea') so they're not missed. `routes` = already computed ones (else routed here). Cable and cords are material
  * to buy: installed cables and cords aren't counted, only cords to add or replace. `estimates` = the ESTIMATED cables
  * (outlet ports not linked yet, domain/estimates.ts), each its own line "— estimated": always to buy, and gone once linked.
+ * For a QUOTE (W25): cable types by their label (CAT6A, not cat6a); a cable with no route is priced at the routed
+ * average of its type (with waste) instead of "length unknown" (still "ea" when none of its type is routed);
+ * `rooms` = only what serves these server rooms (a phased tender: outlets with a port to one, its racks / devices,
+ * cables and cords there, estimates to it, and the runs on those floors that serve them or any room).
  */
-export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>, estimates: readonly Estimate[] = []): BomLine[] {
+export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Map<Id, Route>, estimates: readonly Estimate[] = [], scope: { rooms?: Id[] } = {}): BomLine[] {
 	const lines = new Map<string, BomLine>(), notes = new Map<string, string>()
+	const settings0 = p.get('settings'), st = settings0?.type === 'settings' ? settings0 : undefined, label = (t: string) => cableTypeLabel(st, t)
+	// the scope: everything, or what serves the rooms picked
+	const rooms = scope.rooms ? new Set(scope.rooms) : null
+	const roomOfDevice = (id: Id) => { const d = p.get(id), r = d?.type === 'device' ? p.get(d.rackId) : undefined; return r?.type === 'rack' ? r.spaceId : undefined }
+	const outletIn = (o: Outlet) => !rooms || o.ports.some((pt) => pt.serverRoomId && rooms.has(pt.serverRoomId))
+	const deviceIn = (id: Id) => !rooms || rooms.has(roomOfDevice(id) ?? '')
+	const endIn = (r: { on: Id }) => { const e = p.get(r.on); return e?.type === 'outlet' ? outletIn(e) : e?.type === 'device' ? deviceIn(e.id) : false }
+	const levelsIn = rooms ? new Set([...p.outlets.filter(outletIn).map((o) => o.levelId), ...[...rooms].map((id) => (p.get(id) as { levelId?: Id } | undefined)?.levelId).filter((x): x is Id => !!x)]) : null
 	const add = (category: string, item: string, unit: BomLine['unit'], qty: number) => {
 		const k = `${category}|${item}|${unit}`
 		const l = lines.get(k)
@@ -165,14 +177,16 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	}
 
 	for (const o of p.outlets) {
+		if (!outletIn(o)) continue
 		add('Outlets', `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
-		for (const pt of o.ports) add('Outlets', `Jack / module ${pt.cableType}`, 'ea', 1)
+		for (const pt of o.ports) add('Outlets', `Jack / module ${label(pt.cableType)}`, 'ea', 1)
 	}
 	// racks, VCMs and their containment accessories by SKU (the Racks tool's rules, rackBom)
-	for (const l of rackBom(p, catalog)) {
+	for (const l of rackBom(p, catalog, rooms ? { rooms: [...rooms] } : {})) {
 		add(l.group === 'Rack' || l.group === 'VCM' ? 'Racks' : l.group === 'Desk / shelf' ? 'Desks & shelves' : 'Rack accessories', l.description !== l.sku ? `${l.sku} - ${l.description}` : l.sku, 'ea', l.qty)
 	}
 	for (const d of p.devices) {
+		if (!deviceIn(d.id)) continue
 		// no catalogue id: its maker / model when it has them, with what it is
 		const what = d.kind === 'panel' ? `Patch panel ${d.portCount}-port${d.portType ? ` ${d.portType}` : ''} ${d.heightU}U` : `${d.kind} ${d.heightU}U`
 		const item = d.catalogId ?? (makerModel(d) ? `${makerModel(d)} (${what})` : what)
@@ -180,22 +194,33 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	}
 	// cable: routed (or hand-set) lengths + waste %, in metres with a box estimate; links with no route counted apart
 	const cable = cableSettings(p)
-	const settings = p.get('settings')
-	const media = (type: string) => cableMedia(settings?.type === 'settings' ? settings : undefined, type) ?? 'copper'
+	const media = (type: string) => cableMedia(st, type) ?? 'copper'
+	// a cable with no route, priced at the routed average of its type (W25): metres already include the waste
+	const unknown = (type: string, n: number, est: string, avg: number | null) => {
+		if (avg == null) { add('Cable', `${label(type)}${est} — no route, length unknown`, 'ea', n); return }
+		const item = `${label(type)}${est} — no route, estimated at ${avg} m each (the routed average, incl. waste)`
+		add('Cable', item, 'm', n * avg)
+		notes.set(`Cable|${item}|m`, `${n} cable${n === 1 ? '' : 's'} × ${avg} m`)
+	}
 	// only what is to be bought: cables already installed and cords already in place (or only moved / taken out) aren't
-	for (const m of cableMetres(p, routes ?? routeLinks(p, cable), cable, p.links.filter((l) => l.status !== 'installed'))) {
-		const item = `${m.type} (incl. ${cable.wastePct}% waste)`
+	const routed = cableMetres(p, routes ?? routeLinks(p, cable), cable, p.links.filter((l) => l.status !== 'installed' && (!rooms || endIn(l.a) || endIn(l.b))))
+	const avgOf = (type: string) => { const m = routed.find((x) => x.type === type), n = m ? m.links - m.unrouted : 0; return m && n > 0 ? Math.ceil(m.metres / n) : null }
+	for (const m of routed) {
+		const item = `${label(m.type)} (incl. ${cable.wastePct}% waste)`
 		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
-		if (m.unrouted) add('Cable', `${m.type} — no route, length unknown`, 'ea', m.unrouted)
+		if (m.unrouted) unknown(m.type, m.unrouted, '', avgOf(m.type))
 	}
-	for (const m of estimateMetres(estimates, cable)) {
-		const item = `${m.type} — estimated, not allocated yet (incl. ${cable.wastePct}% waste)`
+	for (const m of estimateMetres(rooms ? estimates.filter((e) => e.roomId && rooms.has(e.roomId)) : estimates, cable)) {
+		const item = `${label(m.type)} — estimated, not allocated yet (incl. ${cable.wastePct}% waste)`
 		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }
-		if (m.unrouted) add('Cable', `${m.type} — estimated, no route, length unknown`, 'ea', m.unrouted)
+		const n = m.ports - m.unrouted
+		if (m.unrouted) unknown(m.type, m.unrouted, ' — estimated', n > 0 ? Math.ceil(m.metres / n) : avgOf(m.type))
 	}
-	for (const c of p.cords) if (c.status === 'add' || c.status === 'replace') add('Patch cords', `${c.cableType} ${c.lengthM} m`, 'ea', 1)
-	for (const r of runLengths(p)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM)
+	for (const c of p.cords) if ((c.status === 'add' || c.status === 'replace') && (!rooms || deviceIn(c.a.on) || deviceIn(c.b.on))) add('Patch cords', `${label(c.cableType)} ${c.lengthM} m`, 'ea', 1)
+	const runIn = (s: Shape) => !levelsIn || (levelsIn.has(s.levelId ?? '') && (!(s.role?.kind === 'containment' && s.role.serves?.length) || s.role.serves.some((r) => rooms!.has(r))))
+	for (const r of runLengths(p)) { const s = p.get<Shape>(r.id); if (!s || runIn(s)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM) }
 	for (const s of p.shapes) {
+		if (levelsIn && !levelsIn.has(s.levelId ?? '')) continue
 		if (s.role?.kind === 'penetration') add('Penetrations', `Core drill Ø${s.role.diaMm} through ${s.role.through}`, 'ea', 1)
 		else if (s.catalogId && s.role?.kind !== 'containment') add('Items', s.catalogId, 'ea', 1)
 	}

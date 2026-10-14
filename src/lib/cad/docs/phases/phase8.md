@@ -3577,3 +3577,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - The cover page says "Also enclosed: … (Excel)"; the Issues list links each file under the PDF.
   - Test in `views/transmittalPage.test.ts`. Seen live: the Re-issue panel shows the three ticks (cancelled). NOT tried
     live: an issue with them ticked (it uploads files) — worth one real run on Workflow test.
+- **W25 BOM for a quote** (B48, B23, B25), `domain/reports.ts` `bom`:
+  - Cable types by label everywhere in it (jacks, cable, patch cords): CAT6A, not cat6a.
+  - A cable with no route is priced at the ROUTED AVERAGE of its type, waste in ("CAT6A — no route, estimated at 37 m
+    each (the routed average, incl. waste)", note "21 cables × 37 m"); "length unknown" (ea) only when none of its type
+    is routed. Estimated (unallocated) ones the same, from the estimates' own average.
+  - `scope.rooms`: only what serves those server rooms — outlets with a port to one, devices in their racks, cables /
+    cords with an end there, estimates to them, runs on those floors serving them (or any room). The BOM dialog's room
+    ticks now scope the materials as well as the rack BOM ("BOM for:", shown whenever there are 2+ rooms). Per ZONE:
+    not built (the room ticks cover the phased-tender case; ask if zones are wanted).
+  - Workbook header: "Client: … Revision: … Date: …" (client from Project details; Revision and Note typed in the
+    dialog) and the room scope in the title.
+  - Tests in `domain/reports.test.ts` (the "length unknown" check now expects the average). Seen live in Workflow
+    test's BOM dialog: CAT6A labels, "estimated at 37 m each … 777 m (21 cables × 37 m)".

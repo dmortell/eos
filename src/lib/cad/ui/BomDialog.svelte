@@ -21,7 +21,6 @@
 	let rack = $state<'consolidated' | 'byRow' | 'none'>('consolidated')
 	let busy = $state(false)
 
-	const lines = $derived(catalog ? bom(project.index, catalog, project.routes, project.estimates) : [])
 	/** The rooms with racks, by level; `off` = the ones unticked (so every room is in at first, and a new one too). */
 	const groups = $derived(bomRooms(project.index))
 	const roomCount = $derived(groups.reduce((n, g) => n + g.rooms.length, 0))
@@ -29,6 +28,10 @@
 	const setRooms = (ids: string[], on: boolean) => (off = on ? off.filter((x) => !ids.includes(x)) : [...new Set([...off, ...ids])])
 	/** The rooms picked — undefined = all of them (no filter, and the sheet doesn't list them). */
 	const rooms = $derived(off.length ? groups.flatMap((g) => g.rooms.filter((r) => !off.includes(r.id)).map((r) => r.id)) : undefined)
+	// the rooms ticked scope the materials too (W25: what serves those rooms — a phased tender)
+	const lines = $derived(catalog ? bom(project.index, catalog, project.routes, project.estimates, rooms ? { rooms } : {}) : [])
+	/** The quote's header (W25): the client from Project details; a revision and a note typed here. */
+	let rev = $state(''), note = $state('')
 	const roomsText = $derived(rooms && groups.flatMap((g) => { const rs = g.rooms.filter((r) => rooms.includes(r.id)); return rs.length ? [`${g.level} ${rs.map((r) => r.name).join(', ')}`] : [] }).join(' · '))
 	/** Every row (by room, then row order), and "No row" when some racks have none: [row id | null, heading] — in the
 	 *  rooms picked. */
@@ -48,7 +51,7 @@
 	async function exportXlsx() {
 		if (!catalog || busy) return
 		busy = true
-		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText }, project.estimates); ondone(`BOM: ${n} lines`); onclose() }
+		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText, header: { client: project.sheetBase.details?.client || undefined, rev: rev.trim() || undefined, note: note.trim() || undefined } }, project.estimates); ondone(`BOM: ${n} lines`); onclose() }
 		catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
@@ -65,10 +68,10 @@
 				<tbody>{#each lines as l, i (i)}<tr><td>{l.category}</td><td>{l.item}</td><td class="n">{l.qty}</td><td>{l.unit}</td><td class="hint">{l.note ?? ''}</td></tr>{/each}</tbody>
 			</table>
 		{/if}
-		{#if rack !== 'none' && roomCount > 1}
-			<!-- which rooms the rack BOM is for, on any levels: all at first; a level's box ticks / unticks its rooms -->
-			<div class="rooms" role="group" aria-label="Rooms in the rack BOM">
-				<span class="hint">Rack BOM for:</span>
+		{#if roomCount > 1}
+			<!-- which rooms the BOM is for (materials and rack BOM), on any levels: all at first; a level's box ticks / unticks its rooms -->
+			<div class="rooms" role="group" aria-label="Rooms in the BOM">
+				<span class="hint" title="The materials count what serves the rooms ticked (outlets with a port to one, its panels and cables, the runs on those floors); the rack BOM their racks">BOM for:</span>
 				{#each groups as g (g.levelId)}
 					{@const all = g.rooms.every((r) => !off.includes(r.id))}
 					{@const none = g.rooms.every((r) => off.includes(r.id))}
@@ -108,12 +111,18 @@
 					</select>
 					<span class="hint">{rack === 'none' ? '' : `(${rackQty} items)`}</span>
 				</label>
+				<!-- W25: the quote's header in the workbook (the client comes from Project details) -->
+				<label title="Printed under the workbook's title with the client and today's date">Revision <input class="inp w" bind:value={rev} placeholder="e.g. Q1" /></label>
+				<label title="A line under the header, e.g. what the quote covers">Note <input class="inp wn" bind:value={note} placeholder="(optional)" /></label>
 				<span class="grow"></span>
 				<button class="btn go" disabled={busy || (!materials && rack === 'none')} onclick={exportXlsx}>{busy ? 'Exporting…' : 'Export to Excel'}</button>
 {/snippet}
 
 <style>
 	.grow { flex: 1; }
+	.inp { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; padding: 0 4px; }
+	.inp.w { width: 4.5rem; }
+	.inp.wn { width: 12rem; }
 	select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }

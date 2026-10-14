@@ -4,6 +4,7 @@ import { outletSchedule, patchList, runLengths, bom, cordBom } from './reports'
 import type { Cord } from './types'
 import { validateProject } from './validate'
 import { demoProject } from './fixtures'
+import { defaultSettings } from './settings'
 
 const p = () => new ProjectIndex(demoProject())
 
@@ -75,10 +76,27 @@ describe('BOM', () => {
 		expect(q('Patch panel 24-port RJ45 1U')).toBe(1)
 		expect(q('cat6a (incl. 10% waste)')).toBe(94)                   // 2 × 42.5 m hand-set, + 10 % → 93.5 → 94
 		expect(lines.find((l) => l.item === 'cat6a (incl. 10% waste)')?.note).toBe('≈ 1 box(es) of 305 m')
-		expect(q('cat6a — no route, length unknown')).toBe(2)
+		// W25: the 2 cables with no route priced at the routed average of their type (94 m / 2 = 47 m each, waste in)
+		const est = 'cat6a — no route, estimated at 47 m each (the routed average, incl. waste)'
+		expect(q(est)).toBe(94)
+		expect(lines.find((l) => l.item === est)?.note).toBe('2 cables × 47 m')
+		expect(q('cat6a — no route, length unknown')).toBeUndefined()
 		expect(q('trunk 100×50')).toBe(9)                             // 6 + 2.6 → 9
 		expect(q('Core drill Ø100 through slab')).toBe(1)
 		expect(q('cat6a 1 m')).toBe(2)
+	})
+	it('cable types by their label; one server room only (W25)', () => {
+		const withLabels = [...demoProject().filter((e) => e.type !== 'settings'), defaultSettings()]   // cat6a = "CAT6A"
+		const lines = bom(new ProjectIndex(withLabels))
+		expect(lines.some((l) => l.item === 'Jack / module CAT6A')).toBe(true)
+		expect(lines.some((l) => /cat6a/.test(l.item))).toBe(false)
+		// a room with nothing in it: no outlets, no panels, no cable
+		const none = bom(p(), [], undefined, [], { rooms: ['NO-ROOM'] })
+		expect(none.filter((l) => ['Outlets', 'Panels', 'Cable', 'Patch cords'].includes(l.category))).toEqual([])
+		// the fixture's server room: the same outlets and panel as the whole project
+		const room = p().spaces.find((s) => s.kind === 'server room')!.id
+		const q = (ls: typeof lines, item: string) => ls.find((l) => l.item === item)?.qty
+		expect(q(bom(p(), [], undefined, [], { rooms: [room] }), '2-port outlet (floor)')).toBe(q(bom(p()), '2-port outlet (floor)'))
 	})
 	it('counts only material to buy: installed cables leave out, cords only when added or replaced', () => {
 		const ents = demoProject()

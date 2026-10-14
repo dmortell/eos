@@ -264,7 +264,11 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 /** What the BOM workbook holds (the BOM dialog's settings): the materials sheet, and the rack BOM all together or
  *  one block per row (`rows` = [row id | null, its heading]); `rooms` = the rack BOM for these rooms only, `roomsText`
  *  = how they are named on the sheet (absent = every room). */
-export interface BomExport { materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][]; rooms?: string[]; roomsText?: string }
+export interface BomExport {
+	materials: boolean; rack: 'consolidated' | 'byRow' | 'none'; rows?: [string | null, string][]; rooms?: string[]; roomsText?: string
+	/** The quote's header (W25): client, revision and date under the title, and a note. */
+	header?: { client?: string; rev?: string; date?: string; note?: string }
+}
 
 export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number> {
 	const f = await bomFile(ix, projectName, catalog, routes, o, estimates)
@@ -276,18 +280,23 @@ export interface XlsxFile { data: ArrayBuffer; name: string }
 export const XLSX_TYPE = XLSX
 /** The BOM workbook (the download's, `exportBom`) and how many lines it has. */
 export async function bomFile(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<XlsxFile & { lines: number }> {
-	const lines = o.materials ? bom(ix, catalog, routes, estimates) : []
+	// the rooms picked scope the materials as well as the rack BOM (W25: a phased tender, one IDF at a time)
+	const lines = o.materials ? bom(ix, catalog, routes, estimates, o.rooms ? { rooms: o.rooms } : {}) : []
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	if (o.materials) {
 		const ws = wb.addWorksheet('BOM')
-		ws.addRow([`${projectName} - bill of materials (material, quantities)`]).font = { bold: true, size: 12 }
+		ws.addRow([`${projectName} - bill of materials (material, quantities)${o.rooms ? ` — ${o.roomsText ?? `${o.rooms.length} rooms`}` : ''}`]).font = { bold: true, size: 12 }
+		const h = o.header ?? {}
+		const meta = [h.client && `Client: ${h.client}`, h.rev && `Revision: ${h.rev}`, `Date: ${h.date ?? today()}`].filter(Boolean).join('    ')
+		ws.addRow([meta]).font = { size: 10 }
+		if (h.note) ws.addRow([h.note]).font = { italic: true, size: 10 }
 		const head = ws.addRow(['Category', 'Item', 'Unit', 'Qty', 'Note'])
 		head.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
 		head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
 		;[18, 60, 6, 8, 28].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 		for (const l of lines) ws.addRow([l.category, l.item, l.unit, l.qty, l.note ?? ''])
-		ws.views = [{ state: 'frozen', ySplit: 2 }]
+		ws.views = [{ state: 'frozen', ySplit: head.number }]
 	}
 	let rackLines = 0
 	if (o.rack !== 'none') {
