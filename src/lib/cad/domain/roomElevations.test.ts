@@ -33,9 +33,9 @@ describe('the plan shows a room\'s elevations as one marker (Dave 2026-10-15)', 
 		const secs = roomElevations(room, () => `E${i++}`)
 		const other = { type: 'section', id: 'X', levelId: 'L1', name: 'Section X', a: { x: 0, y: 5000 }, b: { x: 4000, y: 5000 }, depth: 1000 }
 		const ps = planDisplayList(new ProjectIndex([level, room, ...secs, other] as never[]), 'L1', { scale: 100 })
-		expect(ps.filter((p) => p.cls === 'elev-marker')).toHaveLength(1)
-		expect(ps.filter((p) => p.cls === 'section-arrow' && secs.some((s) => s.id === p.src))).toHaveLength(4)
+		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'elev-marker')).toHaveLength(1)
+		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'section-arrow' && secs.some((s) => s.id === p.src))).toHaveLength(4)
 		expect(ps.filter((p) => p.k === 'text' && p.cls === 'elev-marker-letter').map((p) => (p.k === 'text' ? p.text : ''))).toEqual(['A', 'B', 'C', 'D'])
-		expect(ps.filter((p) => p.cls === 'section-line').map((p) => p.src)).toEqual(['X'])
+		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'section-line').map((p) => (p.k !== 'image' ? p.src : ''))).toEqual(['X'])
 	})
 })
