@@ -1,6 +1,6 @@
 // The Floor manager's rules: a range with gaps, names from a pattern, elevations stacked from the heights.
 import { describe, it, expect } from 'vitest'
-import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, heightsOf, outletZ } from './floors'
+import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, floorsWithoutLevel, DEFAULT_HEIGHTS, DEFAULT_NAMES, heightsOf, outletZ } from './floors'
 import { moveBy } from '../editor/behaviours'
 import type { Outlet } from './types'
 import type { Level } from './types'
@@ -111,5 +111,21 @@ describe('one height rule for outlets (Review 2 Q5)', () => {
 		expect(moved.z).toBe(2900)
 		expect(moveBy(outlet({ mount: 'wall' }), { x: 0, y: 0, z: -50 }).z).toBe(250)
 		expect(moveBy(outlet({ mount: 'ceiling' }), { x: 10, y: 0 }).z).toBeUndefined()   // a flat move keeps "by mount"
+	})
+})
+
+describe('floors without a model (W33, Dave 2026-10-15)', () => {
+	const h = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }   // a 3800 storey
+	const lvl = (n: number, e: number) => ({ type: 'level', id: `L${n}`, buildingId: 'B', number: n, name: `${n}F`, order: n, elevationMm: e, heights: h }) as Level
+	const b = { id: 'B', floors: { lowest: 1, top: 4, above: '{n}F', below: 'B{n}F' } }
+	it('the building floors with no level, in their storeys (2F / 3F between 1F and 4F)', () => {
+		const f = floorsWithoutLevel([lvl(1, 0), lvl(4, 11400)], b)
+		expect(f.map((l) => [l.id, l.name, l.elevationMm])).toEqual([['floor:2', '2F', 3800], ['floor:3', '3F', 7600]])
+		expect(floorsWithoutLevel([lvl(1, 0), lvl(4, 11400)], { ...b, floors: { ...b.floors, skip: [3] } }).map((l) => l.name)).toEqual(['2F'])   // 3F doesn't exist
+	})
+	it('Apply floors adds levels only for floors new to the range, not ones whose level was deleted', () => {
+		let n = 0
+		const r = planFloors([lvl(1, 0), lvl(4, 11400)], { lowest: 1, top: 5, skip: [], names: DEFAULT_NAMES, buildingId: 'B', before: [1, 2, 3, 4] }, () => 0, () => `N${n++}`)
+		expect(r.add.map((l) => l.number)).toEqual([5])
 	})
 })

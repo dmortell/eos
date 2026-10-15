@@ -14,7 +14,7 @@
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
 import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
 import { cableMedia } from '../domain/cableTypes'
-import { heightsOf } from '../domain/floors'
+import { heightsOf, floorsWithoutLevel } from '../domain/floors'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
@@ -115,7 +115,9 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const fills = o.fills ?? fillBySegment(ix, routes)
 	// the floor range (Riser view control): floors outside it aren't drawn; risers are cut at its ends
 	const rs = settingsOf(ix)?.riser, inRange = (l: Level) => (rs?.from == null || l.number >= rs.from) && (rs?.to == null || l.number <= rs.to)
-	const levels = ix.levels.filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
+	// W33: the building's floors with no level (no model) are drawn too, as plain floors in their storey
+	const noModel = ix.ofType('building').flatMap((b) => floorsWithoutLevel(ix.levels, b))
+	const levels = [...ix.levels, ...noModel].filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
 	const storeyH = (l: Level | undefined) => { const h = l?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
 	const lowest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm < m.elevationMm ? l : m), undefined)
 	const highest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm > m.elevationMm ? l : m), undefined)

@@ -121,3 +121,14 @@ describe('riser view', () => {
 		expect(withRiserEnd({ from: 3, to: 12, groups }, 'from', null)).toEqual({ to: 12, groups })
 	})
 })
+
+describe('riser view: floors with no model (W33)', () => {
+	it('a building floor whose level was deleted is still drawn (FFL, name) in its storey', () => {
+		const bld = { type: 'building', id: 'B1', name: 'B', order: 0, floors: { lowest: 1, top: 4, above: '{n}F', below: 'B{n}F' } }
+		const withB = ents.map((e) => (e.type === 'level' ? { ...e, buildingId: 'B1', number: e.id === 'L1' ? 1 : 4 } : e))
+		const ps = riserDisplayList(new ProjectIndex([...withB, bld] as Entity[]))
+		const ffl = ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))
+		expect(ffl).toEqual([0, 3800, 7600, 11400])                                   // 1F, 2F, 3F (no models), 4F
+		expect(ps.some((p) => p.k === 'text' && /^2F {2}FFL 3\.80$/.test(p.text))).toBe(true)
+	})
+})

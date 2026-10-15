@@ -43,6 +43,27 @@ const above = (h: Heights) => h.clearHeightMm + h.plenumMm  // FFL up to the nex
  * it) unless it's in `skip` (it doesn't exist, e.g. no GF). Area levels follow their floor. Returns only the levels
  * whose elevation changes.
  */
+/**
+ * W33 (Dave 2026-10-15: unused floors leave the Navigator but stay in the riser view): the building's floors that have
+ * NO level (no model — never made, or deleted), as stand-in levels where `restack` leaves their storey: the heights of
+ * the level below (above, for floors under the lowest one), named from the building's pattern. `id` = "floor:<n>"; not
+ * in the store. Skipped numbers (floors that don't exist) aren't floors.
+ */
+export function floorsWithoutLevel(levels: Level[], building: { id: Id; floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string } } | undefined): Level[] {
+	const f = building?.floors
+	const main = levels.filter((l) => !l.area && l.buildingId === building?.id).sort((a, b) => a.number - b.number)
+	if (!f || !main.length) return []
+	const skip = f.skip ?? [], storeys = (a: number, b: number) => floorNumbers(a + 1, b - 1, skip).filter((n) => n > a && n < b).length
+	const have = new Set(main.map((l) => l.number))
+	return floorNumbers(f.lowest, f.top, skip).filter((n) => !have.has(n)).map((n): Level => {
+		const lo = [...main].reverse().find((l) => l.number < n), hi = main.find((l) => l.number > n)
+		const h = heightsOf(lo ?? hi), step = below(h) + above(h)
+		const elevationMm = lo ? lo.elevationMm + above(heightsOf(lo)) + storeys(lo.number, n) * step + below(h)
+			: hi!.elevationMm - below(heightsOf(hi)) - storeys(n, hi!.number) * step - above(h)
+		return { type: 'level', id: `floor:${n}`, buildingId: building!.id, number: n, name: floorName(n, { above: f.above, below: f.below, ground: f.ground }), order: n, elevationMm, heights: { ...h } }
+	})
+}
+
 export function restack(levels: Level[], skip: number[] = [], datum?: number): Level[] {
 	const main = levels.filter((l) => !l.area).sort((a, b) => a.number - b.number)
 	if (!main.length) return []
@@ -73,10 +94,12 @@ export interface FloorPlanResult {
 }
 
 /** What setting the building's range does to its levels. `contents(levelId)` counts what's on a level. */
-export function planFloors(levels: Level[], o: { lowest: number; top: number; skip: number[]; names: FloorNames; buildingId: Id }, contents: (id: Id) => number, newId: () => Id): FloorPlanResult {
+export function planFloors(levels: Level[], o: { lowest: number; top: number; skip: number[]; names: FloorNames; buildingId: Id; before?: number[] }, contents: (id: Id) => number, newId: () => Id): FloorPlanResult {
 	const want = new Set(floorNumbers(o.lowest, o.top, o.skip))
 	const main = levels.filter((l) => !l.area)
-	const have = new Set(main.map((l) => l.number))
+	// W33: a floor already in the range with no level had its model deleted on purpose — Apply doesn't bring it back
+	// (its chip creates it); only floors NEW to the range get a level
+	const have = new Set([...main.map((l) => l.number), ...(o.before ?? [])])
 	const heights = main[0]?.heights ?? DEFAULT_HEIGHTS
 	const add: Level[] = [...want].filter((n) => !have.has(n)).map((n) => ({
 		type: 'level', id: newId(), buildingId: o.buildingId, number: n, name: floorName(n, o.names), order: n, elevationMm: 0, heights: { ...heights },

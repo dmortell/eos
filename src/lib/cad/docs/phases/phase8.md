@@ -3855,3 +3855,12 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     366 cable / port labels.
 - **Desk tubing 2 m** (Dave 2026-10-15: height-adjustable desks are common): `DESK_TUBING_M` 1.5 → 2.
 - **Walkthrough EN / 日本語; not in Help** (Dave 2026-10-15): the Walkthrough window has an EN / 日本語 switch (`WALKTHROUGH_JA`, menu and button names left in English as on screen; the choice kept in this browser, `cad-walkthrough-lang`); a test keeps both versions the same shape. Help (F1) no longer carries the walkthrough — Help › Walkthrough only.
+- **W33 Floors without a model** (Dave 2026-10-15: "2F and 3F don't need to appear in the Navigator but should still be
+  in riser views"; no new setting): a level is the floor's model, the building's range is the stack.
+  - `domain/floors.ts` `floorsWithoutLevel`: the building's floors with no level as stand-ins (`floor:<n>`) in their
+    storey (`restack` already gave them one — 4F stays put), named from the pattern, the heights of the floor below.
+  - The riser view draws them (FFL, slab, name); "Hide empty floors" hides them like any floor without a server room.
+  - **Apply floors** adds levels only for floors NEW to the range (`planFloors` `before` = the applied range), so a
+    deleted level isn't brought back, and such floors don't make Apply "stale"; Floors & heights lists them under the
+    chips: "No model: **+ 2F model**" makes one again (named, the nearest floor's heights, stacked).
+  - Tests in `domain/floors.test.ts`, `views/riser.test.ts`.

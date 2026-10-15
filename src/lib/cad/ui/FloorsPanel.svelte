@@ -55,7 +55,10 @@
 	const pending = $derived(lowest !== applied.lo || top !== applied.hi || !sameSet(skip, applied.skip) || above !== applied.above || below !== applied.below || ground !== applied.ground)
 	/** The levels don't match the range (a floor with no level, a level off the range): Apply has something to do. */
 	const want = $derived(new Set(floorNumbers(lowest, top, skip)))
-	const stale = $derived([...want].some((n) => !main.some((l) => l.number === n)) || levels.some((l) => !want.has(l.number)))
+	/** W33: floors of the applied range with no level — their model was deleted on purpose (not in the Navigator; the riser
+	 *  view still draws them). Apply leaves them; "+ model" makes one. */
+	const noModel = $derived(building?.floors ? floorNumbers(applied.lo, applied.hi, applied.skip).filter((n) => !main.some((l) => l.number === n)) : [])
+	const stale = $derived([...want].some((n) => !main.some((l) => l.number === n) && !noModel.includes(n)) || levels.some((l) => !want.has(l.number)))
 	/** For the dialog: is there an unapplied range, and apply it. */
 	export function isPending(): boolean { return pending }
 	export function apply(): void { applyRange() }
@@ -181,7 +184,8 @@
 	function applyRange() {
 		if (lowest > top) [lowest, top] = [top, lowest]   // a backwards range is the same floors the right way round (Q40)
 		const b: Building = building ?? { type: 'building', id: newId(), name: project.name || 'Building', order: 0 }
-		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id }, contents, newId)
+		const was = b.floors ? floorNumbers(b.floors.lowest, b.floors.top, b.floors.skip) : undefined   // W33: floors already there
+		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id, before: was }, contents, newId)
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
 			(tx) => {
 				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground, ...(b.floors?.datum != null ? { datum: b.floors.datum } : {}) } } as Building)
@@ -190,6 +194,19 @@
 		const parts = [r.add.length && `${r.add.length} added`, r.remove.length && `${r.remove.length} removed`].filter(Boolean)
 		const undo = parts.length ? ' — Undo brings the floors back as they were' : ''
 		ws.say(`${parts.join(', ') || 'Floor range applied; no floors changed'}${undo}${r.keep.length ? ` · kept ${r.keep.map((l) => l.name).join(', ')} (they have content — delete them in the Levels list first)` : ''}`)
+	}
+
+	/** W33: make a model (a level) for a floor that has none — named from the pattern, the heights of the floor below,
+	 *  stacked in its storey. */
+	function createModel(n: number) {
+		const b = building
+		if (!b) return
+		const r = planFloors(levels, { lowest: n, top: n, skip: [], names, buildingId: b.id }, contents, newId)
+		if (!r.add.length) return
+		const near = [...main].sort((x, y) => Math.abs(x.number - n) - Math.abs(y.number - n))[0]
+		const l = { ...r.add[0], heights: { ...(near?.heights ?? r.add[0].heights) } }
+		commit(`Model for ${l.name}`, [l])
+		ws.say(`${l.name} has a model again — it's in the Navigator; Undo takes it out`)
 	}
 
 	function renameAll() {
@@ -264,12 +281,15 @@
 			<label>Basements <input class="pat" bind:value={below} title={'{n} = number without the minus'} /></label>
 			<label>Ground <input class="pat" bind:value={ground} title="The name of floor 0, when the building has one" /></label>
 		</div>
-		<p class="hint">Untick the floors that don't exist (e.g. GF). Blue = the floor has a level.</p>
+		<p class="hint">Untick the floors that don't exist (e.g. GF). Blue = the floor has a level (its model). A floor whose level you deleted stays in the building — in its storey and the riser view, not the Navigator.</p>
 		<div class="chips">
 			{#each range as n (n)}
-				<button class="chip" class:off={skip.includes(n)} class:has={main.some((l) => l.number === n)} title={skip.includes(n) ? 'Not a floor of this building' : 'A floor of this building'} onclick={() => toggle(n)}>{floorName(n, names)}</button>
+				<button class="chip" class:off={skip.includes(n)} class:has={main.some((l) => l.number === n)} title={skip.includes(n) ? 'Not a floor of this building' : noModel.includes(n) ? 'A floor of this building with no model (level): + model below makes one' : 'A floor of this building'} onclick={() => toggle(n)}>{floorName(n, names)}</button>
 			{/each}
 		</div>
+		{#if noModel.length}
+			<p class="hint">No model: {#each noModel as n (n)}<button class="mini" title="Make a level for {floorName(n, names)} (it shows in the Navigator again)" onclick={() => createModel(n)}>+ {floorName(n, names)} model</button>{/each}</p>
+		{/if}
 		<div class="row">
 			<button class="btn pri" disabled={!pending && !stale} title={pending ? 'Add the floors of the range, remove the empty levels off it, keep the names' : stale ? 'The levels don’t match the range: add the floors with no level, remove the empty ones off it' : 'Nothing to apply — change the range or the names first'} onclick={applyRange}>Apply floors</button>
 			{#if pending}<span class="na" role="status">not applied</span>{/if}
@@ -445,6 +465,7 @@
 	button.x:hover { color: #b91c1c; }
 	.chips { display: flex; flex-wrap: wrap; gap: 3px; }
 	.chip { font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--cad-line, #d4d4d8); background: var(--cad-input, white); }
+	.mini { margin-left: 4px; font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px dashed var(--cad-line, #d4d4d8); color: var(--cad-link, #1d4ed8); }
 	.chip.has { border-color: #2563eb; color: #1d4ed8; }
 	.chip.off { text-decoration: line-through; opacity: 0.45; }
 	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 8px; background: var(--cad-input, white); }
