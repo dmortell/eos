@@ -27,8 +27,21 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   2026-10-15 when a just-saved export file-name pattern vanished. Options: field-level merge for settings, a version
   check (refuse / rebase a write made from an older copy), or "changed in another tab — reload" on the dialog. **P3 ·
   M**.
-- [ ] ❓ **Review the menus** (Dave 2026-10-15 todo) — the order and groupings may need improving (File · Edit · View
-  · Insert · Cabling · Sheets · Project · Window · Help). **P3 · S–M**.
+- [ ] ❓ **Menus: review options 1 and 3 later** (Dave 2026-10-15: "I like all 3, try 2 for now, review the others
+  later"). The review found: tools with no menu (Line, Shape, Box, Wall, Opening, Room, Section, Guide, Measure, Move,
+  Copy); exports twice (File › Export and Cabling › Schedules; sheet PDFs in File and Sheets; Tables in Window and
+  Cabling); File › Export 15 items with this level / all levels pairs; releases in no menu (only the Sheets table);
+  Edit had Array / Rotate / Mirror but not Move / Copy; View mixed navigation with the SNAP / OSNAP / GRID toggles and
+  can't switch Plan / Elevation / Section / Riser; Rename / Delete this level in Project.
+  1. **Tidy in place** — keep the 9 menus; drop the duplicates (exports in File › Export only), level pairs as a
+     submenu, Release… / Releases / Packages into Sheets, Move / Copy into Edit, a Drafting submenu in View.
+  2. **CAD-style — BUILT 2026-10-15** (`phase8.md`): File · Edit · View · Draw · Modify · Annotate · Cabling ·
+     **Drawings** (Dave's name) · Project · Window · Help, with option 1's tidy-ups.
+  3. **Workflow-based** — File · Edit · View · Building (walls, openings, rooms, sections, floors) · Cabling (outlets,
+     runs, racks, devices, allocation, patching) · Drawings · Reports (every Excel / PDF / DXF) · Window · Help:
+     follows the walkthrough stages, friendlier to non-CAD users, but splits drawing tools by trade.
+  Still open whichever stays: a Plan / Elevation / Section / Riser switch in View; where Rename / Delete this level
+  belong (Navigator only?). **P3 · S–M**.
 - [ ] ❓ **Review the tool strip** (Dave 2026-10-15 todo) — it's getting long: dropdowns that pick similar tools from
   one icon (Text / Callout / Cloud, Trunk / Conduit, Shape / Box …), maybe a new order; would a floating tool bar like
   the legacy Pages tool's work better? **P3 · M**.

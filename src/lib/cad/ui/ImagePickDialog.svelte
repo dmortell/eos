@@ -1,4 +1,4 @@
-<!-- Insert › Image… (backlog "Markup kinds" part 4): pick the picture — a file from this computer (uploaded to the
+<!-- Draw › Image… (backlog "Markup kinds" part 4): pick the picture — a file from this computer (uploaded to the
      project's file storage and listed in Uploads) or one already in Uploads (an image, or a PDF page) — then drag its box
      on a plan, an elevation / section (on its plane, at the work depth) or a sheet. -->
 <script lang="ts">

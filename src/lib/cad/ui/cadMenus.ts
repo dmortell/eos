@@ -1,4 +1,4 @@
-// The MENU BAR's contents (UX review S4): File · Edit · View · Insert · Cabling · Sheets · Project · Window · Help.
+// The MENU BAR's contents (UX review S4): File · Edit · View · Draw · Modify · Annotate · Cabling · Drawings · Project · Window · Help (menus review option 2, Dave 2026-10-15).
 // Built from what the shell can do (`MenuCtx`), so the menus never hold state of their own; each item shows its key.
 import type { ToolId } from '../app/workspace.svelte'
 import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
@@ -58,10 +58,12 @@ export interface MenuCtx {
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
+	/** The Sheets table on one of its views, or a release of the picked sheets started (Drawings menu). */
+	sheetsTab(which: 'register' | 'packages' | 'issues' | 'release'): void
 	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
-	/** Insert › Image…: pick the picture, then the Image tool. */
+	/** Draw › Image…: pick the picture, then the Image tool. */
 	image(): void
 	// Project
 	floors(): void; settings(): void; backups(): void
@@ -91,12 +93,10 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Import legacy drawings…', title: 'Bring chosen Pages models (boxes, walls) and Sheets-tool sheets of this project into cad — one undo step', run: c.legacyDrawings },
 			'-',
 			{ label: 'Export', children: [
-				{ label: 'Outlet schedule — this level (Excel)', run: () => c.outletSchedule(false) },
-				{ label: 'Outlet schedule — all levels (Excel)', run: () => c.outletSchedule(true) },
-				{ label: 'Frame label sheets — this level (Excel)', title: 'Every server room on this level: a sheet per frame, labels colored by usage (A3)', run: () => c.frameSheets(false) },
-				{ label: 'Frame label sheets — all levels (Excel)', run: () => c.frameSheets(true) },
-				{ label: 'Panel labels — this level (Excel)', title: 'Every port label of the server rooms on this level, for the label printer', run: () => c.panelLabels(false) },
-				{ label: 'Panel labels — all levels (Excel)', run: () => c.panelLabels(true) },
+				// menus review option 2 (Dave 2026-10-15): every export here once; this level / all levels as a submenu
+				{ label: 'Outlet schedule (Excel)', children: [{ label: 'This level', run: () => c.outletSchedule(false) }, { label: 'All levels', run: () => c.outletSchedule(true) }] },
+				{ label: 'Frame label sheets (Excel)', title: 'Every server room: a sheet per frame, labels colored by usage (A3)', children: [{ label: 'This level', run: () => c.frameSheets(false) }, { label: 'All levels', run: () => c.frameSheets(true) }] },
+				{ label: 'Panel labels (Excel)', title: 'Every port label of the server rooms, for the label printer', children: [{ label: 'This level', run: () => c.panelLabels(false) }, { label: 'All levels', run: () => c.panelLabels(true) }] },
 				{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
 				'-',
 				{ label: 'Bill of materials…', run: c.bom },
@@ -120,10 +120,6 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Select all', key: KEYS.selectAll, run: c.selectAll },
 			{ label: 'Select similar', disabled: !c.hasSelection, run: c.selectSimilar },
-			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
-			{ label: 'Array', disabled: !c.toolOk('array') || !c.hasSelection, title: 'Copies of the selection in a line, a step apart: type how many, click the base point and the step · copied outlets are numbered on', run: () => c.tool('array') },
-			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
-			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',
 			{ label: 'Group', key: KEYS.group, disabled: !c.hasSelection, run: c.group },
 			{ label: 'Ungroup', key: KEYS.ungroup, disabled: !c.hasSelection, run: c.ungroup },
@@ -139,49 +135,66 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Find a view, sheet, room, rack…', key: KEYS.find, run: c.find },
 			{ label: 'Fit', key: KEYS.fit, run: c.fit },
 			{ label: 'Zoom to selection', key: KEYS.zoomSel, disabled: !c.hasSelection, run: c.zoomSel },
-			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
-			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Back', key: KEYS.backView, disabled: !c.canBack, run: c.back },
 			{ label: 'Forward', key: KEYS.fwdView, disabled: !c.canFwd, run: c.forward },
 			'-',
+			{ label: 'Split', checked: c.split, run: c.toggleSplit },
+			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
+			'-',
 			{ label: 'Fill', title: 'Draw each run’s fill (the % of its limit) on the plan', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
-			{ label: 'Snap to grid (SNAP)', key: KEYS.snap, checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
-			{ label: 'Object snaps (OSNAP)', key: KEYS.osnap, checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
-			{ label: 'Show the grid (GRID)', key: KEYS.grid, checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
+			{ label: 'Drafting', children: [
+				{ label: 'Snap to grid (SNAP)', key: KEYS.snap, checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
+				{ label: 'Object snaps (OSNAP)', key: KEYS.osnap, checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
+				{ label: 'Show the grid (GRID)', key: KEYS.grid, checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
+			] },
 		] },
-		{ label: 'Insert', items: [
-			tool('insert', 'Block…'), tool('legend', 'Legend'), { label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image }, '-',
-			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'), '-',
-			tool('viewport', 'Viewport'),
+		// menus review option 2 (Dave 2026-10-15): CAD-style Draw · Modify · Annotate — every tool in one menu
+		{ label: 'Draw', items: [
+			tool('line', 'Line'), tool('shape', 'Shape (rectangle, ellipse, polygon, arc)'), tool('box', 'Box / desk'),
+			{ label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image },
+			'-',
+			tool('wall', 'Wall'), tool('opening', 'Opening (door, window, hole)'), tool('room', 'Room / EPS'), tool('section', 'Section'),
+			'-',
+			tool('measure', 'Measure a distance'), tool('guide', 'Guide lines'),
+		] },
+		{ label: 'Modify', items: [
+			tool('move', 'Move'), tool('copy', 'Copy'),
+			{ label: 'Array', disabled: !c.toolOk('array') || !c.hasSelection, title: 'Copies of the selection in a line, a step apart: type how many, click the base point and the step · copied outlets are numbered on', run: () => c.tool('array') },
+			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
+			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
+			'-',
+			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
+			tool('renumber', 'Renumber'),
+		] },
+		{ label: 'Annotate', items: [
+			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'),
+			'-',
+			tool('legend', 'Legend'), tool('insert', 'Block…'),
 		] },
 		{ label: 'Cabling', items: [
-			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'), tool('renumber', 'Renumber'),
-			'-',
-			{ label: 'Product catalogue…', title: 'Racks, cable managers, accessories and devices: their spec sheets; draw racks of a product; add your own products', run: c.catalogue },
+			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'),
 			'-',
 			{ label: 'Tables', children: [
 				{ label: 'Outlets', run: () => c.openTable('outlets') },
 				{ label: 'Patching', run: () => c.openTable('patch') },
 				{ label: 'Links', run: () => c.openTable('links') },
 			] },
-			'-',
-			{ label: 'Cord label batches…', title: 'The patch cords bought, as batches of pre-printed labels: used, free, short, the next order', run: c.cordLabels },
 			{ label: 'Port map view of the selected devices', title: 'The selected panels / switches drawn like their faceplates, each port with its number and the item at its far end — put it on a sheet with To sheet…', run: c.portMapView },
-			{ label: 'Schedules', children: [
-				{ label: 'Patch schedule · cord BOM…', run: c.cordBom },
-				{ label: 'Cable schedule…', run: c.cableSchedule },
-				{ label: 'Port map of the selected devices (Excel, VLAN)', run: c.portMap },
-				{ label: 'Bill of materials…', run: c.bom },
-			] },
+			'-',
+			{ label: 'Product catalogue…', title: 'Racks, cable managers, accessories and devices: their spec sheets; draw racks of a product; add your own products', run: c.catalogue },
+			{ label: 'Cord label batches…', title: 'The patch cords bought, as batches of pre-printed labels: used, free, short, the next order', run: c.cordLabels },
 		] },
-		{ label: 'Sheets', items: [
+		{ label: 'Drawings', items: [
 			{ label: 'New sheet', run: c.newSheet },
 			{ label: 'New sheet from this view', disabled: !c.canSheetFromView, run: c.sheetFromView },
+			tool('viewport', 'Viewport'),
+			'-',
+			{ label: 'Sheets table', title: 'The Sheets table: every sheet with its number, title, category and status', run: () => c.sheetsTab('register') },
+			{ label: 'Packages', title: 'Re-usable sets of sheets for releasing', run: () => c.sheetsTab('packages') },
+			{ label: 'Releases', title: 'Every release: its sheets and revisions, the PDF, transmittal, reprint', run: () => c.sheetsTab('issues') },
+			{ label: 'Release…', title: 'Release the sheets picked in the Sheets table: changed sheets get a new revision', run: () => c.sheetsTab('release') },
 			'-',
 			{ label: 'Title block…', title: 'The project’s title block template — Project settings, tab Sheets', run: c.titleBlock },
-			{ label: 'Sheets table', title: 'The Sheets table: every sheet with its number, title, category and status', run: () => c.openTable('sheets') },
-			{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
-			{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 		] },
 		{ label: 'Project', items: [
 			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn), company and logos (when its template has none); the template’s own logos are set in Title block…', run: c.projectDetails }] : []),

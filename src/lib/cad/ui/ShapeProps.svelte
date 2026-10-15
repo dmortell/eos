@@ -61,7 +61,7 @@
 	{#if s.levelId}<MakeBlock {project} {ws} shapes={[s]} />{/if}
 </PropGroup>
 {#if s.geom.kind === 'image'}
-	<!-- a picture (Insert › Image…): which file; its box is resized by its grips -->
+	<!-- a picture (Draw › Image…): which file; its box is resized by its grips -->
 	{@const g = s.geom}
 	<PropGroup kind="shape" title="Image">
 		<p class="muted" title="The file in Uploads">{g.fileId}{g.page && g.page > 1 ? ` · page ${g.page}` : ''} · {Math.round(g.size.x)} × {Math.round(g.size.y)}{s.sheetId ? ' mm on paper' : ' mm'}</p>

@@ -3884,3 +3884,13 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   rename / delete in its ⋮; a click opens the plan with the room selected and panned into view. Zones, areas and
   imported room numbers (no outline — imports never make one) stay out, so no flag is needed. Test in
   `domain/navTree.test.ts`; seen live in Test Project ("Room 2" drawn on 1F, listed; undone).
+- **Menus, option 2** (Dave 2026-10-15: "try 2 for now … rename 'Sheets & releases' to Drawings"): the menu bar is
+  File · Edit · View · **Draw** · **Modify** · **Annotate** · Cabling · **Drawings** · Project · Window · Help
+  (`ui/cadMenus.ts`). Every tool is in one menu (Draw: Line, Shape, Box, Image…, Wall, Opening, Room / EPS, Section,
+  Measure, Guide lines; Modify: Move, Copy, Array, Rotate, Mirror, Match properties, Renumber; Annotate: Text, Callout,
+  Revision cloud, Dimension, Legend, Block…). Exports only in File › Export (Cabling › Schedules and the Sheets menu's
+  PDFs gone), the this level / all levels pairs as submenus. Drawings: New sheet, New sheet from this view, Viewport,
+  Sheets table, **Packages**, **Releases**, **Release…** (opens the Sheets table there — `ws.sheetsAsk`; Release…
+  releases the picked sheets or says to pick them), Title block…. View: a Drafting submenu for SNAP / OSNAP / GRID.
+  Help, hints, the agent guide and the walkthrough name the new paths. Options 1 and 3 documented in the backlog for a
+  later review. Seen live: the bar, Drawings › Packages opening the Packages view.

@@ -138,7 +138,7 @@ export class Workspace {
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0, depth: 600 })
-	/** The Image tool's picture (Insert › Image…): its file in Uploads and page, and its name for the hint. */
+	/** The Image tool's picture (Draw › Image…): its file in Uploads and page, and its name for the hint. */
 	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
 	touchInput = $state(false)
 	/** Points in the run / line being drawn (0 = none), kept by the active ViewCanvas. */
@@ -369,6 +369,9 @@ export class Workspace {
 	/** Bumped by a pick in a table: the active view pans the selection into view when it's off-screen (review R52 —
 	 *  a pick on the drawing is already in view, so only the tables bump it). */
 	reveal = $state(0)
+	/** The Drawings menu asks the Sheets table for one of its views (register, packages, releases) or to start a release of
+	 *  the selected sheets; the table takes it and clears it. */
+	sheetsAsk = $state<'register' | 'packages' | 'issues' | 'release' | null>(null)
 	/** Select from a table: as `select`, and the drawing shows it. */
 	selectAndReveal = (ids: Id[]): void => { this.select(ids); if (ids.length) this.reveal++ }
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }

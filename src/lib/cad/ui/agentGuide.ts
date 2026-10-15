@@ -39,7 +39,7 @@ The full how-to list is at the end — search it for the task in hand.
 
 ## The screen
 
-- Top: the menu bar (File, Edit, View, Insert, Cabling, Tables, Sheets, Project, Window, Help).
+- Top: the menu bar (File, Edit, View, Draw, Modify, Annotate, Cabling, Drawings, Project, Window, Help).
 - Under it: the **tool strip** — icon buttons whose aria-label is the tool's name (find them by that). A greyed tool
   doesn't work in this view; its title says where it does. Under the strip: the **options row** for the active tool
   (layer chip, sizes, heights).
@@ -115,8 +115,8 @@ Each is a sequence of the how-tos below; read the matching how-to first.
    Check: the Patching table.
 7. **Furniture**: on a plan pick Box; click or type a corner, type \`width,depth\` Enter; set its height and Z in the
    options row. Select the boxes and Make block to save them as a block (Blocks window) to place again.
-8. **A sheet**: in the view, To sheet… (a new sheet or an existing one, at a scale that fits), or Sheets › New
-   sheet, then the Viewport tool. Title block: Sheets › Title block…. Check: the Sheets table; open the sheet tab.
+8. **A sheet**: in the view, To sheet… (a new sheet or an existing one, at a scale that fits), or Drawings › New
+   sheet, then the Viewport tool. Title block: Drawings › Title block…. Check: the Sheets table; open the sheet tab.
 9. **A PDF**: open the sheet, File › Export › PDF of this sheet — this downloads, so ask the user first.
 
 ## Gotchas

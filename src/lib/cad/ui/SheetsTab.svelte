@@ -174,6 +174,16 @@
 		issuingPkg = undefined
 		issuing = picked.map((r) => sheetOf(r.id))
 	}
+	// the Drawings menu: Packages / Releases / Release… open here (ws.sheetsAsk, taken once and cleared)
+	$effect(() => {
+		const a = ws.sheetsAsk
+		if (!a) return
+		untrack(() => {
+			ws.sheetsAsk = null
+			if (a === 'release') { show = 'register'; if (picked.length) startIssue(); else ws.say('Pick the sheets to release (click / Ctrl-click rows), then Release…') }
+			else show = a
+		})
+	})
 </script>
 
 {#snippet seg()}

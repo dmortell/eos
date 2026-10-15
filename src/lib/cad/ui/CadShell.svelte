@@ -457,7 +457,7 @@
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
-		tool: pickTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable,
+		tool: pickTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
@@ -602,7 +602,7 @@
 	ws.onCalibDone = (ok) => { if (!setupWas) return; if (ok) setupStep(); else { endSetup(); ws.say('Floor setup stopped') } }
 	// another tool picked mid-pass: the pass stops (the tool change ended calibrating)
 	$effect(() => { if (!calibrating) untrack(() => { if (setupWas && ws.toolId !== 'calibrate') endSetup() }) })
-	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Insert › Image's uploads (the project's
+	/** A picture pasted (backlog "Paste a screenshot or picture"): stored like Draw › Image's uploads (the project's
 	 *  files, listed in Uploads) and the Image tool armed with it at once — drag its box where it goes while it uploads
 	 *  ("Uploading picture…" by Saved). The same picture pasted again is the same file: uploaded once. */
 	const pictures = new PictureUploads(firestorePictureDeps(project.db, project.pid, () => project.settings?.fileStorage, project.pdf.showPicture))
