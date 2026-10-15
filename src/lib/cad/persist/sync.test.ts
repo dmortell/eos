@@ -274,32 +274,35 @@ describe('pending writes', () => {
 	})
 })
 
+// a field the type doesn't have: the store and the server take any field
+type Named = Shape & { name?: string }
+const named = (s: Shape, name: string) => ({ ...s, name }) as unknown as Shape
 describe('edits in two tabs (Dave 2026-10-15: field-level saving)', () => {
 	it('a tab holding an older copy writes only the fields it changed — the other tab\'s newer field survives', async () => {
 		const server = new MemoryBackend()
 		const a = client(server, 'dave'), b = client(server, 'dave2')
-		a.store.transact('Add', (tx) => tx.put({ ...box('x'), name: 'one' } as Shape))
+		a.store.transact('Add', (tx) => tx.put(named(box('x'), 'one')))
 		await a.sync.flush(); await tick()
 		// tab B goes stale: it stops listening, then A renames the box
 		b.sync.stop()
-		a.store.transact('Rename', (tx) => tx.put({ ...(a.store.get('x') as Shape), name: 'two' } as Shape))
+		a.store.transact('Rename', (tx) => tx.put(named(a.store.get('x') as Shape, 'two')))
 		await a.sync.flush(); await tick()
 		// B, still with name 'one', moves it: only geom (and meta) go to the server
-		const bx = b.store.get('x') as Shape
+		const bx = b.store.get('x') as Named
 		expect(bx.name).toBe('one')
 		const bs = new Sync(b.store, server, { user: 'dave2' })
 		b.store.transact('Move', (tx) => tx.put(moved(bx, 900)))
 		await bs.flush(); await tick()
-		const onServer = server.docs.get('x') as unknown as Shape
+		const onServer = server.docs.get('x') as unknown as Named
 		expect(onServer.name).toBe('two')
 		expect(onServer.geom.kind === 'rect' && onServer.geom.centre.x).toBe(900)
 	})
 	it('a field removed by an edit is removed on the server', async () => {
 		const server = new MemoryBackend()
 		const a = client(server, 'dave')
-		a.store.transact('Add', (tx) => tx.put({ ...box('y'), name: 'n' } as Shape))
+		a.store.transact('Add', (tx) => tx.put(named(box('y'), 'n')))
 		await a.sync.flush(); await tick()
-		const { name: _n, ...rest } = a.store.get('y') as Shape & { name?: string }
+		const { name: _n, ...rest } = a.store.get('y') as Named
 		a.store.transact('Unname', (tx) => tx.put(rest as Shape))
 		await a.sync.flush(); await tick()
 		expect('name' in (server.docs.get('y') as object)).toBe(false)
