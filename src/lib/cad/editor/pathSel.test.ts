@@ -149,3 +149,23 @@ describe('picked nodes and segments', () => {
 		expect(segAt(run, spaceOf(PLAN), { x: 1500, y: 40 }, 10)).toBeNull()
 	})
 })
+
+describe('the grip under the pointer', () => {
+	it('goes with its shape: deleted, the larger hover grip is not drawn though the pointer has not moved', () => {
+		const store = new EntityStore()
+		store.load([...demoProject(), trunk('A', [[0, 0], [1000, 0]])])
+		let sel = ['A']
+		const ctx = () => ({
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 2900, w: 100, h: 50 }, prims: () => [], tol: () => 10,
+			space: spaceOf(PLAN), work: { z: 2900, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' }),
+			selection: sel, select: (x: string[]) => { sel = x }, setMarquee: () => {}, ask: () => {}, say: () => {},
+		}) as unknown as ToolCtx
+		const t = new SelectTool(), hovered = () => t.preview(ctx()).filter((p) => p.k === 'line' && p.cls === 'grip grip-hover')
+		t.hover({ p: { x: 1000, y: 0 }, shift: false, ctrl: false, alt: false }, ctx())
+		expect(hovered()).toHaveLength(1)
+		store.transact('Delete', (tx) => tx.del('A'))
+		expect(hovered()).toHaveLength(0)   // still selected for a moment: the shape is gone
+		sel = []
+		expect(hovered()).toHaveLength(0)
+	})
+})

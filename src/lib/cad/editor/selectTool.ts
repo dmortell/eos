@@ -106,6 +106,8 @@ export class SelectTool implements Tool {
 	#hov: { id: Id; sub?: string } | null = null
 	/** The grip under the pointer: drawn larger (UX07). */
 	#hovGrip: Pt | null = null
+	/** The selection that grip belongs to: once it's deleted or changes, the grip isn't drawn (the pointer needn't move). */
+	#hovFor = ''
 	/** A rack view's room floor / ceiling line under the pointer (drag it up / down): drawn as a bar. */
 	#hovRoom: Handle | null = null
 	#cursor = 'default'
@@ -152,6 +154,7 @@ export class SelectTool implements Tool {
 		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at
 			?? this.#cordGrips(c).find((q) => near(q.at))?.at ?? null
 		this.#hovGrip = onGrip
+		this.#hovFor = c.selection.join(',')
 		if (onGrip || h) { this.#hov = null; this.#hovRoom = null; this.#cursor = 'crosshair'; return }
 		this.#hovRoom = this.#roomLineAt(c, e.p)
 		if (this.#hovRoom) { this.#hov = null; this.#cursor = 'ns-resize'; return }
@@ -698,7 +701,8 @@ export class SelectTool implements Tool {
 			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
 		if (this.#hovRoom?.span && !this.#gesture) out.push({ k: 'line', pts: this.#hovRoom.span, cls: 'grip-bar' })
-		if (this.#hovGrip && !this.#gesture) out.push({ k: 'line', pts: sq(this.#hovGrip, 11 * px), closed: true, fill: true, cls: 'grip grip-hover' })
+		const gripLive = this.#hovFor === c.selection.join(',') && c.selection.every((id) => c.store.get(id))
+		if (this.#hovGrip && gripLive && !this.#gesture) out.push({ k: 'line', pts: sq(this.#hovGrip, 11 * px), closed: true, fill: true, cls: 'grip grip-hover' })
 		if (this.#snap) out.push(snapMark(this.#snap, c.tol()))
 		return out
 	}
