@@ -18,8 +18,20 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 2 entries (2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 5 entries (Dave 2026-10-15: walls from a room, T / B / L / R names, one room not two; 2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
+
+- [ ] **Walls from a room** (Dave 2026-10-15, "for later") — select a room drawn with the Room tool → one command
+  makes a wall along its outline (one path, closed; the current wall defaults, slab to slab optional). **P3 · S**.
+- [ ] ❓ **Room elevations named T / B / L / R** (Dave 2026-10-15, "consider") — instead of A–D: the side of the room
+  each looks at (Top / Bottom / Left / Right as on the plan). To decide: plan-relative (a rotated plan changes them?) or
+  N / S / E / W from the project north; existing A–D sections renamed or kept. **P3 · S**.
+- [ ] ❓ **One room, not two** (Dave 2026-10-15: IDF2 drawn with the Room tool and the server room 33IDF2 hold the same
+  racks, with different floors and views). Cause: a server room made from the Racks window has no outline, so the Room
+  tool made a second space. Options: (1) the Room tool, drawing round racks of a room with no outline, asks "Is this
+  33IDF2?" and gives THAT room the outline (no new room); (2) a Merge rooms command (keeps the racks, own floor /
+  ceiling and outline; sections and views follow); (3) longer term one Room with a type (server room, EPS, AV,
+  meeting …), every one drawn with an outline (Dave's earlier "generic Room"). Recommended: 1 + 2. **P2 · S–M**.
 
 - [ ] ❓ **Menus: review options 1 and 3 later** (Dave 2026-10-15: "I like all 3, try 2 for now, review the others
   later"). The review found: tools with no menu (Line, Shape, Box, Wall, Opening, Room, Section, Guide, Measure, Move,
