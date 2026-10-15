@@ -59,6 +59,7 @@
 	import { longPress } from './longPress'
 	import { WindowLayout, WIN_TITLES, type WinId } from '../app/windows.svelte'
 	import ToolStrip from './ToolStrip.svelte'
+	import ToolPalette from './ToolPalette.svelte'
 	import { TOOL_GROUPS } from './toolGroups'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
@@ -103,6 +104,11 @@
 	let exportsRef: Exports | undefined = $state()
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
+	/** The tools float over the drawing in a palette (tool strip options 2 + 4, Dave 2026-10-15), else sit in the top bar;
+	 *  kept in this browser. */
+	const TOOLS_FLOAT_KEY = 'cad-tools-float'
+	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) !== 'bar' } catch { return true } })())
+	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	ws.openTitleBlock = () => openSettings('sheets')
 	ws.openWindow = (id) => layout.open(id)
 	ws.restoreBackup = async (id) => {
@@ -463,7 +469,7 @@
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
-		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'),
+		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
 	}))
 
 	/** The right-click menu on the selection (UX21): its commands, with their keys. */
@@ -656,7 +662,7 @@
 
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
-		<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} />
+		{#if !toolsFloat}<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} />{/if}
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
@@ -708,6 +714,7 @@
 
 	<!-- the drawing: one or two panes, floating windows over it -->
 	<main class="plan relative" bind:this={planEl}>
+		{#if toolsFloat}<ToolPalette tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} ondock={() => setToolsFloat(false)} />{/if}
 		<TabStrip {tabs} {project} panes={panes.length} {activePane} onshow={(id) => showTab(id)} onclose={closeTab} onmenu={(id, x, y) => (tabMenu = { id, x, y })} />
 		<AskBox {ws} />
 		<PatchPreview {ws} />

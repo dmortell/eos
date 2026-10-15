@@ -3900,3 +3900,13 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   (was TV), CCTV; a project imported from the old tools AP (was Wireless AP), CCTV (new), Printer, AV (was TV / AV),
   Not used — no Desk: an imported outlet whose usage was "desk" (or none) gets no usage. Existing projects keep their
   usage lists. Tests: `domain/settings.test.ts`, `editor/editor.test.ts`.
+- **Tools: flyouts in a floating palette** (tool strip options 2 + 4, Dave 2026-10-15 "try 2 inside the floating
+  palette"): `ui/toolGroups.ts` `TOOL_FAMILIES` — 19 buttons for the 32 tools, the groups as the menus (Select / modify ·
+  Draw · Annotate · Building · Cabling · Drawings; Dimension now under Annotate, Renumber and Format painter under
+  Modify). A family button shows the tool in use from it, else the last one picked (kept in this browser,
+  `cad-tool-flyouts`); a click uses it, the corner mark or a right-click opens the family (`ToolStrip.svelte`). The
+  strip lives in `ToolPalette.svelte`, two columns floating over the drawing area, dragged by its grip (position kept,
+  `cad-tool-palette`, kept inside the area); ⤒ or Window › **Tools as a floating palette** puts it back in the top bar
+  as a row (`cad-tools-float`). Help: a new how-to; the tool-strip mentions now point at the families / menus. Seen
+  live: the palette, the Text flyout → Callout (the family then shows Callout), the drag, the dock to the top bar (19
+  buttons, ~550 px instead of ~900); test settings cleared afterwards.

@@ -42,7 +42,7 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
      follows the walkthrough stages, friendlier to non-CAD users, but splits drawing tools by trade.
   Still open whichever stays: a Plan / Elevation / Section / Riser switch in View; where Rename / Delete this level
   belong (Navigator only?). **P3 · S–M**.
-- [ ] ❓ **Tool strip: options** (Dave 2026-10-15: "do a similar review of the toolbar"). Today: 29 icons in 6 groups
+- [ ] ❓ **Tool strip: options** (Dave 2026-10-15: "do a similar review of the toolbar"; then "try 2 inside the floating palette … I might change later" — **2 inside 4 BUILT 2026-10-15**, `phase8.md`; the others stay here for review). Today: 29 icons in 6 groups
   (Select / modify 6 · Draw 6 · Annotate 5 · Building 4 · Cabling 7 · Sheet 1), ~900 px before the undo / layout
   buttons; greyed where they don't work (a group with none folds to "⋯", so nothing moves — Dave's earlier ask).
   Found: it no longer matches the new menus (Dimension is under Draw here, Annotate there; Renumber under Cabling here,

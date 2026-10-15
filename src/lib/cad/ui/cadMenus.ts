@@ -75,6 +75,8 @@ export interface MenuCtx {
 	help(keys?: boolean): void
 	/** The Walkthrough window (a project from start to release), kept open beside the drawing. */
 	walkthrough(): void
+	/** The tools in a floating palette (else the top bar). */
+	toolsFloat: boolean; toggleToolsFloat(): void
 }
 
 export function buildMenus(c: MenuCtx): Menu[] {
@@ -208,6 +210,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Window', items: [
 			...WIN_IDS.map((id): MenuItem => ({ label: WIN_TITLES[id], checked: c.win.shown(id), run: () => c.win.toggle(id) })),
 			{ label: 'Tables', key: KEYS.tables, checked: c.tables, run: c.toggleTables },
+			{ label: 'Tools as a floating palette', checked: c.toolsFloat, title: 'The tools float over the drawing (drag them by the grip); off: in the top bar', run: c.toggleToolsFloat },
 			'-',
 			{ label: 'Hide all windows', key: KEYS.hideAll, checked: c.hideAll, run: c.toggleHideAll },
 			{ label: 'Reset layout', run: c.win.reset },
