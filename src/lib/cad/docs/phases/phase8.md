@@ -3830,3 +3830,11 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
 - **Leader → Callout** (Dave 2026-10-15): the tool, menu, Properties title, undo label, messages, Help and the agent guide say Callout; the tool id / geom kind stay `leader`.
 - **Help: no Walkthrough window button** (Dave 2026-10-15): Help's walkthrough section no longer has Open in a window (Help › Walkthrough and the Window menu open it).
 - **{revision} / {version} in export names** (Dave 2026-10-15): `{revision}` = the export's own revision (a single sheet PDF's last revision, a revision PDF's code, the BOM's typed Revision); `{version}` = the release number, 2 digits (a release's reprint / transmittal: its own; else the project's latest). Unknown = left out with its separator. Settings › Files and Help list them; tests in `render/download.test.ts`. Tried live: "{project} {what} {revision} R{version}" → "Test_Project_S001_Test_sheet_cad_4.1_C_R05" for S001's PDF (cancelled); pattern cleared.
+- **Use as default, every drawing tool** (Dave 2026-10-15: "can it be expanded to the other drawing tools?"): also an
+  outlet (the Outlet tool bar: usage, mount, ports, cable type), a box's shape (rect / ellipse / polygon + sides), a
+  text's alignment, a callout's frame, a revision cloud's arc size, a dimension's kind, a legend's text size, a
+  section's depth. The Box / Dimension / Outlet tool bars take the defaults once a session (`ws.#seed`), and a Use as
+  default on one of them applies at once (`adoptDefaults(td, tool)` — only that tool, so a rack default no longer
+  resets the box tool bar). Not offered: blocks, pictures, viewports, rooms (nothing a tool starts from). Tests in
+  `domain/toolDefaults.test.ts`, `app/workspace.test.ts`; Help how-to rewritten. Tried live: the 1F callout (Box frame)
+  → saved `callout: { border: 'box' }`; Undo took it out (checked in Firestore).

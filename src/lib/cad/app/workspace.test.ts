@@ -62,3 +62,20 @@ describe('tool sizes', () => {
 		expect(ws.opts).toMatchObject({ w: 25, h: 25 })   // not the trunk's
 	})
 })
+
+describe('tool bars from the project defaults (Use as default)', () => {
+	it('the Outlet, Dimension and Box tool bars take them once a session; a later Use as default applies at once', () => {
+		const ws = new Workspace()
+		let td: import('../domain/toolDefaults').ToolDefaults = { outlet: { usage: 'ap', mount: 'ceiling', ports: 1 }, dimension: { mode: 'vertical' }, box: { height: 720, kind: 'ellipse' } }
+		ws.toolDefaults = () => td
+		ws.setTool('outlet'); ws.setTool('dimension'); ws.setTool('box')
+		expect(ws.outletNext).toMatchObject({ usage: 'ap', mount: 'ceiling', ports: 1 })
+		expect(ws.dimMode).toBe('vertical')
+		expect(ws.boxOpts).toMatchObject({ height: 720, kind: 'ellipse' })
+		ws.dimMode = 'aligned'; ws.setTool('select'); ws.setTool('dimension')
+		expect(ws.dimMode).toBe('aligned')   // what you changed this session stays
+		td = { ...td, dimension: { mode: 'horizontal' } }
+		ws.adoptDefaults(td, 'dimension')
+		expect(ws.dimMode).toBe('horizontal')
+	})
+})

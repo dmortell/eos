@@ -427,7 +427,7 @@ export class Workspace {
 		const h = heightsOf(level)
 		// the project's defaults (Properties › Use as default): the box's height / Z once a session, the runs' sizes below
 		const td = this.toolDefaults()
-		if (id === 'box' && td?.box && !this.#boxSeeded) { this.#boxSeeded = true; this.boxOpts = { ...this.boxOpts, height: td.box.height, z: td.box.z ?? 0 } }
+		if (td && (id === 'box' || id === 'dimension' || id === 'outlet') && !this.#seeded.has(id)) this.#seed(td, id)
 		const d: DrawOpts | null = id === 'trunk' ? { z: h.clearHeightMm + h.plenumMm / 2, w: td?.trunk?.w ?? 100, h: td?.trunk?.h ?? 50 }
 			: id === 'conduit' ? { z: h.clearHeightMm + h.plenumMm / 2, w: td?.conduit?.w ?? 25, h: td?.conduit?.w ?? 25 }
 			: id === 'wall' ? { z: 0, w: td?.wall?.w ?? 100, h: h.clearHeightMm }
@@ -441,16 +441,25 @@ export class Workspace {
 	}
 	/** The project's tool defaults (`ProjectSettings.toolDefaults`; CadShell points this at the open project). */
 	toolDefaults: () => ToolDefaults | undefined = () => undefined
-	#boxSeeded = false
-	/** Use as default was pressed: the tool takes the new defaults now, over what was typed for it this session. */
-	adoptDefaults(td: ToolDefaults): void {
-		for (const t of ['trunk', 'conduit', 'wall'] as const) {
-			const v = td[t]
-			if (!v) continue
-			this.#sizes.delete(t)   // the next pick starts from the saved default
-			if (this.#optsOwner?.tool === t) this.opts = { ...this.opts, w: v.w, ...('h' in v ? { h: v.h } : t === 'conduit' ? { h: v.w } : {}) }
+	/** The tools whose tool bar took the project's defaults this session (once: what you change after stays). */
+	#seeded = new Set<string>()
+	/** The Box / Dimension / Outlet tool bar from the project's defaults. */
+	#seed(td: ToolDefaults, tool: 'box' | 'dimension' | 'outlet'): void {
+		this.#seeded.add(tool)
+		if (tool === 'box' && td.box) this.boxOpts = { ...this.boxOpts, height: td.box.height, z: td.box.z ?? 0, ...(td.box.kind ? { kind: td.box.kind } : {}), ...(td.box.sides ? { sides: td.box.sides } : {}) }
+		if (tool === 'dimension' && td.dimension) this.dimMode = td.dimension.mode as DimMode
+		if (tool === 'outlet' && td.outlet) this.outletNext = { ...this.outletNext, ...td.outlet }
+	}
+	/** Use as default was pressed for `tool`: that tool takes the new default now, over what was typed for it this
+	 *  session. */
+	adoptDefaults(td: ToolDefaults, tool: keyof ToolDefaults): void {
+		if (tool === 'trunk' || tool === 'conduit' || tool === 'wall') {
+			const v = td[tool]
+			if (!v) return
+			this.#sizes.delete(tool)   // the next pick starts from the saved default
+			if (this.#optsOwner?.tool === tool) this.opts = { ...this.opts, w: v.w, ...('h' in v ? { h: v.h } : tool === 'conduit' ? { h: v.w } : {}) }
 		}
-		if (td.box) { this.#boxSeeded = true; this.boxOpts = { ...this.boxOpts, height: td.box.height, z: td.box.z ?? 0 } }
+		if (tool === 'box' || tool === 'dimension' || tool === 'outlet') this.#seed(td, tool)
 	}
 	/** The drawing tool whose Z / W / H `opts` holds (saved when another tool is picked, however this one ended). */
 	#optsOwner: { tool: ToolId; level: string } | null = null

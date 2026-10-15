@@ -59,12 +59,16 @@ export function placeNote(c: ToolCtx, pts: Pt[]): { owner: Record<string, unknow
 }
 /** A new text's size (paper mm): the project's default (Properties › Use as default on a text), else 2.5. */
 function textSize(c: ToolCtx): number { return c.settings?.toolDefaults?.text?.sizeMm ?? 2.5 }
+/** A new callout's frame (Use as default on a callout), or none. */
+function calloutBorder(c: ToolCtx): { border?: 'underline' | 'box' } { const b = c.settings?.toolDefaults?.callout?.border; return b && b !== 'none' ? { border: b } : {} }
+/** A new text's alignment (Use as default on a text), as a geometry field, or nothing (left). */
+function textAlign(c: ToolCtx): { align?: 'centre' | 'right' } { const a = c.settings?.toolDefaults?.text?.align; return a && a !== 'left' ? { align: a } : {} }
 /** Text pasted from another app (Ctrl+V) becomes a text shape at `p` — the Text tool's size and layer, markdown for a
  *  table. Returns the new id, or null when this view takes no notes. */
 export function pasteTextNote(c: ToolCtx, p: Pt, t: { text: string; markdown?: boolean }): string | null {
 	const at = placeNote(c, [p])
 	if (!at) return null
-	const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.text, sizeMm: textSize(c), ...(t.markdown ? { markdown: true } : {}) } } as Shape
+	const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.text, sizeMm: textSize(c), ...textAlign(c), ...(t.markdown ? { markdown: true } : {}) } } as Shape
 	c.store.transact('Paste text', (tx) => tx.put(s))
 	c.select([s.id])
 	return s.id
@@ -120,7 +124,7 @@ export class NoteTool implements Tool {
 		const at = p && this.#where(c, [p])
 		if (!at) return
 		const make = (t: string) => {
-			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t, sizeMm: textSize(c) } } as Shape
+			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t, sizeMm: textSize(c), ...textAlign(c) } } as Shape
 			c.store.transact('Text', (tx) => tx.put(s))
 			c.select([s.id])
 			return s.id
@@ -139,12 +143,12 @@ export class NoteTool implements Tool {
 		if (this.id === 'cloud' && pts.length >= 3) {
 			// on a sheet: tagged with the revision being prepared (W20 — its delta tag; it hides after a later issue)
 			const sid = at.owner.sheetId, sh = typeof sid === 'string' ? c.index.get(sid) : undefined
-			const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'cloud', pts: at.pts, ...(sh?.type === 'sheet' ? { rev: draftRev(sh) } : {}) } } as Shape
+			const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'cloud', pts: at.pts, ...(c.settings?.toolDefaults?.cloud ? { arcMm: c.settings.toolDefaults.cloud.arcMm } : {}), ...(sh?.type === 'sheet' ? { rev: draftRev(sh) } : {}) } } as Shape
 			c.store.transact('Revision cloud', (tx) => tx.put(s))
 			c.select([s.id])
 		} else if (this.id === 'leader' && pts.length >= 2) {
 			const make = (t: string) => {
-				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t ? { text: t } : {}) } } as Shape
+				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t ? { text: t } : {}), ...calloutBorder(c) } } as Shape
 				c.store.transact('Callout', (tx) => tx.put(s))
 				c.select([s.id])
 				return s.id

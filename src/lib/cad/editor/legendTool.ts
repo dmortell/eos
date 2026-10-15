@@ -15,7 +15,8 @@ export class LegendTool implements Tool {
 		const at = spec.kind === 'sheet' ? snapPt(e.p, e.alt, 1) : c.snap(e.p, e.alt).p
 		const owner = spec.kind === 'sheet' ? { sheetId: spec.sheetId } : spec.kind === 'plan' ? { levelId: c.levelId, ...(c.layerId ? { layerId: c.layerId } : {}) } : null
 		if (!owner) { c.say?.('A legend goes on a plan or a sheet'); return }
-		const s = { type: 'shape', id: newId(), ...owner, geom: { kind: 'legend', at } } as Shape
+		const sz = c.settings?.toolDefaults?.legend?.sizeMm   // Use as default on a legend
+		const s = { type: 'shape', id: newId(), ...owner, geom: { kind: 'legend', at, ...(sz ? { sizeMm: sz } : {}) } } as Shape
 		c.store.transact('Legend', (tx) => tx.put(s))
 		c.select([s.id])
 		c.say?.('Legend placed · choose its rows, title and size in Properties · drag to move')

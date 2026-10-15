@@ -20,7 +20,7 @@
 		if (!s || !d) { ws.say('This project has no settings yet — open Project › Settings… once first'); return }
 		project.store.transact(`Use as default for ${d.what}`, (tx) => tx.put(d.apply(s)))
 		const td = project.settings?.toolDefaults
-		if (td) ws.adoptDefaults(td)
+		if (td && d.tool) ws.adoptDefaults(td, d.tool)
 		ws.say(`Saved as the default for ${d.what} in this project`)
 	}
 	const movable = $derived(items.filter(canMove).length)

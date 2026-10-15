@@ -33,7 +33,7 @@ export class SectionTool implements Tool {
 	#point(p: Pt, c: ToolCtx): void {
 		if (!this.#a) { this.#a = p; return }
 		if (Math.hypot(p.x - this.#a.x, p.y - this.#a.y) < 100) { c.say?.('Make the cut line longer'); return }
-		const sec: SectionCut = { type: 'section', id: newId(), levelId: c.levelId, name: nextSectionName(sectionsOn(c.index, c.levelId).map((s) => s.name)), a: this.#a, b: p, depth: DEFAULT_SECTION_DEPTH }
+		const sec: SectionCut = { type: 'section', id: newId(), levelId: c.levelId, name: nextSectionName(sectionsOn(c.index, c.levelId).map((s) => s.name)), a: this.#a, b: p, depth: c.settings?.toolDefaults?.section?.depth ?? DEFAULT_SECTION_DEPTH }
 		c.store.transact(`Section ${sec.name}`, (tx) => tx.put(sec))
 		c.select([sec.id])
 		this.#a = null
