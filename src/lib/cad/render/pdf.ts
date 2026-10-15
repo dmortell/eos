@@ -88,12 +88,13 @@ function monoStyle(st: Style): Style {
 	return { ...st, stroke: ink(st.stroke), text: '#000000', ...(st.fill && st.fill !== 'none' && !WHITE.test(st.fill) ? { fill: '#d4d4d4' } : {}) }
 }
 
-export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster; /** all ink black, fills light grey, pictures grey (decision T121: cheap prints) */ mono?: boolean } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
+export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster; /** all ink black, fills light grey, pictures grey (decision T121: cheap prints) */ mono?: boolean; /** a TrueType font (base64) for the text the standard fonts can't show — Japanese … as real, selectable text instead of pictures (Settings › Files, Dave 2026-10-15) */ font?: string } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
 	const first = pages[0] ?? { w: 420, h: 297, prims: [] }
 	const pdf = new jsPDF({ unit: 'mm', format: [first.w, first.h], orientation: first.w > first.h ? 'landscape' : 'portrait', compress: o.compress ?? true })
 	const unsupported = new Set<string>(), rasterised = new Set<string>()
 	const images = new Map<string, Awaited<ReturnType<ImageLoader>>>()
 	const mono = !!o.mono
+	if (o.font) { pdf.addFileToVFS('embedded.ttf', o.font); pdf.addFont('embedded.ttf', 'embedded', 'normal') }
 	const imgKey = (q: { url: string; gray?: boolean }) => (q.gray || mono ? `gray:${q.url}` : q.url)
 	for (const p of pages) for (const q of p.prims) if (q.k === 'image' && !images.has(imgKey(q))) images.set(imgKey(q), await loadImage(q.url, q.fit ? 'logo' : 'photo', mono ? true : q.gray))
 	// text the fonts can't show, drawn by the browser as pictures (one per distinct text / size / look)
@@ -109,7 +110,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.cls.includes('on-fill') ? st.text : p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {
-		if (p.k !== 'text' || pdfText(p.text).ok || !shownOnPaper(p)) continue
+		if (p.k !== 'text' || pdfText(p.text).ok || !shownOnPaper(p) || o.font) continue   // an embedded font writes them
 		const st = styleFor(p), key = rasterKey(p, st)
 		if (!rasters.has(key)) rasters.set(key, await o.rasterText(p.text, p.size, st.text ?? '#0f172a', !!st.bold))
 	}
@@ -150,7 +151,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 			}
 			if (p.k === 'text') {
 				const t = pdfText(p.text)
-				if (!t.ok) {
+				if (!t.ok && !o.font) {
 					const r = rasters.get(rasterKey(p, st))
 					if (!r) { unsupported.add(p.text); continue }
 					const x = p.anchor === 'middle' ? p.at.x - r.w / 2 : p.anchor === 'end' ? p.at.x - r.w : p.at.x
@@ -166,15 +167,18 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 					rasterised.add(p.text)
 					continue
 				}
-				pdf.setFont('helvetica', st.bold && st.italic ? 'bolditalic' : st.bold ? 'bold' : st.italic ? 'italic' : 'normal')
+				// text the standard fonts can't show, in the embedded font (one weight: bold / italic don't apply)
+				const emb = !t.ok, s = emb ? p.text : t.text
+				if (emb) pdf.setFont('embedded', 'normal')
+				else pdf.setFont('helvetica', st.bold && st.italic ? 'bolditalic' : st.bold ? 'bold' : st.italic ? 'italic' : 'normal')
 				pdf.setFontSize(p.size * PT_PER_MM)
 				pdf.setTextColor(st.text ?? '#0f172a')
-				if (!p.rot) { pdf.text(t.text, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left' }); continue }
+				if (!p.rot) { pdf.text(s, p.at.x, p.at.y, { align: p.anchor === 'middle' ? 'center' : p.anchor === 'end' ? 'right' : 'left' }); continue }
 				// turned text: jsPDF shifts x for `align` BEFORE turning, so a centred / right-aligned label lands off its
 				// anchor; step back along the turned baseline ourselves and draw it left-aligned
 				const back = p.anchor === 'middle' ? 0.5 : p.anchor === 'end' ? 1 : 0
-				const a = (p.rot * Math.PI) / 180, wd = back ? pdf.getTextWidth(t.text) * back : 0
-				pdf.text(t.text, p.at.x - wd * Math.cos(a), p.at.y - wd * Math.sin(a), { angle: -p.rot })
+				const a = (p.rot * Math.PI) / 180, wd = back ? pdf.getTextWidth(s) * back : 0
+				pdf.text(s, p.at.x - wd * Math.cos(a), p.at.y - wd * Math.sin(a), { angle: -p.rot })
 				continue
 			}
 			const stroke = st.stroke || INK
@@ -204,8 +208,8 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		}
 		setClip(undefined)
 	})
-	// each named page a bookmark (the standard fonts can't hold Japanese: those names keep only what they can show)
-	pages.forEach((page, i) => { if (page.title) { const t = pdfText(page.title).text.replace(/[^\x20-\x7e\xa0-\xff]/g, '').trim(); if (t) pdf.outline.add(null, t, { pageNumber: i + 1 }) } })
+	// each named page a bookmark (the viewer draws their names itself: Japanese shows, with or without an embedded font)
+	pages.forEach((page, i) => { const t = page.title?.trim(); if (t) pdf.outline.add(null, t, { pageNumber: i + 1 }) })
 	return { pdf, unsupported: [...unsupported], rasterised: [...rasterised] }
 }
 

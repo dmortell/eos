@@ -22,6 +22,7 @@ import { cableSettings } from '../domain/routing'
 import { newId } from '../domain/ids'
 import { splitChunks } from '../persist/chunks'
 import { storeBackup } from './backups'
+import { projectPdfFont } from './pdfFonts'
 
 const key = (sheetId: string, rev: string) => `${sheetId}~${encodeURIComponent(rev)}`
 const col = (p: CadProject) => `projects/${p.pid}/cadIssued`
@@ -202,7 +203,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		}
 		coverN = cover.length
 	}
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
 	const name = `${fileSafe(`${project.name} ${issueTag(number)} ${f.name} ${f.date}`)}.pdf`
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	// the schedules that go with it (W21), as they are now; named after the issue
@@ -247,7 +248,7 @@ async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']
 export async function reprintIssue(project: CadProject, issue: Issue): Promise<{ unsupported: string[]; rasterised: string[] } | null> {
 	const cover = Array.from({ length: issue.cover ?? 0 }, (_, i) => loadFrozen(project, coverId(issue.id), String(i + 1)))
 	const pages = await Promise.all([...cover, ...issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev))])
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
 	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
 	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${issue.name} reprint`, ...(n ? { version: String(n).padStart(2, '0') } : {}) })) return null
 	return { unsupported, rasterised }
@@ -256,7 +257,7 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 /** ONE sheet as it was issued at revision `rev` (backlog "Show old issued versions"), downloaded as a PDF. */
 export async function printRevision(project: CadProject, sheet: Sheet, rev: string): Promise<{ unsupported: string[]; rasterised: string[] } | null> {
 	const page = await loadFrozen(project, sheet.id, rev)
-	const { pdf, unsupported, rasterised } = await pagesToPdf([page], frozenImages(project), { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf([page], frozenImages(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
 	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as released).pdf`, 'application/pdf', { what: sheet.number, revision: rev })) return null
 	return { unsupported, rasterised }
 }

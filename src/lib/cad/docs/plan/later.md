@@ -127,11 +127,5 @@ wanted. *From:* ids as in `backlog.md`.
   model band so cabling draws over furniture (**outlets over desks**: a desk block's fill hides floor outlets on the
   plan, found in W13). Open questions: band per layer vs by kind vs fixed groups; replacing the Floorplans toggle; fade
   per band. Dave 2026-10-15: "leave this for later, needs more thought". *From:* Dave 2026-10-14 / 15.
-- **A scripting hook for AI assistants** — `window.cad.read()` / `run(command)` so an assistant reads the model as data
-  (the `/cad/agent` guide is built). Dave 2026-10-15: later. *From:* Dave 2026-10-14.
 - **W8 Flag what a new floorplan broke** (B10) — after New revision…, list outlets / boxes now in a wall or where a desk
   was. The red Compare overlay (W7) shows what moved meanwhile. Dave 2026-10-15: later.
-- **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind, AV kit as block templates. Dave
-  2026-10-15: "discuss later, do we need these additional kinds? we should be able to set the z of racks and boxes and
-  draw them and blocks where needed on walls" — i.e. maybe no new kinds: a rack Z (racks have none today; boxes and
-  blocks do) and placing them on walls may be enough.

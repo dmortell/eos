@@ -26,6 +26,7 @@
 	import { cableSettings, type CableSettings } from '../domain/routing'
 	import { PORT_FORMATS, portLabelsFor, reformatPorts, type PortSep } from '../domain/labels'
 	import type { FileStorage } from '../app/projectFiles'
+	import { PDF_FONTS, type PdfFontLang } from '../app/pdfFonts'
 	import CordMode from './CordMode.svelte'
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { defaultSettings } from '../domain/settings'
@@ -187,6 +188,12 @@
 				<option value="uploadthing">UploadThing</option><option value="firebase">Firebase Storage</option>
 			</select></label>
 		<p class="wide text-zinc-500">Release PDFs and title-block logos, for everyone on this project. Files already uploaded stay where they are; Uploads lists both kinds.</p>
+		<label title="Text the PDF's standard fonts can't show (Japanese …): without a font it is drawn as pictures (not selectable or searchable); with one it is real text. The font is fetched when a PDF is made; only the characters used go in.">Font in PDFs
+			<select value={st.pdfFont ?? ''} onchange={(e) => { const v = e.currentTarget.value as PdfFontLang | ''; save(v ? `PDF font: ${PDF_FONTS[v].label}` : 'PDF font: none', (s) => { const { pdfFont: _was, ...rest } = s; return v ? { ...rest, pdfFont: v } : rest }) }}>
+				<option value="">None (pictures)</option>
+				{#each Object.entries(PDF_FONTS) as [k, f] (k)}<option value={k}>{f.label} ({f.face})</option>{/each}
+			</select></label>
+		<p class="wide text-zinc-500">For this project's sheet PDFs and releases: its language's text as selectable, searchable text. Chinese isn't offered yet.</p>
 	</div>
 {:else}
 	<table>

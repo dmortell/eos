@@ -367,6 +367,9 @@ export interface ProjectSettings {
 	/** Export file names: a pattern of {project} {what} {scope} {date} (render/download.ts patternName); unset = each
 	 *  export's own name. Every export still asks for the name, filled from it. */
 	fileNamePattern?: string
+	/** A font embedded in this project's PDFs for the text the standard fonts can't show (Settings › Files, Dave 2026-10-15):
+	 *  Japanese / Korean as real, selectable text; absent = drawn as pictures. app/pdfFonts.ts loads it. */
+	pdfFont?: 'ja' | 'ko'
 	/** What the Rack / Trunk / Conduit / Wall / Box / Text tools start with: Properties › Use as default
 	 *  (domain/toolDefaults.ts). */
 	toolDefaults?: import('./toolDefaults').ToolDefaults

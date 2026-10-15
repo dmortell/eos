@@ -7,11 +7,12 @@ import { fileSafe, saveFile, type FileParts } from '../render/download'
 import { placeUnderlays, pictureLoader } from './issue'
 import { panelPages } from '../views/panelSheets'
 import type { Device } from '../domain/types'
+import { projectPdfFont } from './pdfFonts'
 
 export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono = false, title?: string): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
 	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, mono })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, mono, font: await projectPdfFont(project.settings) })
 	if (title) pdf.setProperties({ title })   // a viewer's tab / window shows it
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
 }
@@ -36,7 +37,7 @@ export async function downloadPanelSheets(project: CadProject, room: { id: strin
 	const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 	const { pages, panels } = panelPages(project.index, room.id, { title: `Panel labels — ${project.name} · ${room.name}`, date })
 	if (!pages.length) return { pages: 0, panels, unsupported: [], rasterised: [] }
-	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster })
+	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
 	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${room.name} panels`)}.pdf`, 'application/pdf', { what: 'Panel labels', scope: room.name })) return null
 	return { pages: pages.length, panels, unsupported, rasterised }
 }
