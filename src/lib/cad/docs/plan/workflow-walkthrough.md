@@ -502,6 +502,35 @@ to see what the designer changed? Checked against the code as it is after W5 / W
 3. Per-viewport floorplans: not proposed — a revision is the floor's, and W4's re-pointing plus W3's "Changed since"
    already say which sheets moved.
 
+### Round 6: deleting sheets and floor models (live, Workflow test, 2026-10-15)
+
+Dave: "do a walkthrough of deleting sheets and floor models". Everything below was undone afterwards (checked in
+Firestore: 3 levels, 3 sheets, 3 floorplans, 40 links, 40 cords as before).
+
+**Deleting a sheet** — Sheets table: pick the row, Delete → "Delete sheet S002 with its 1 viewport? Undo brings them
+back." → Delete: gone from the table, the Navigator and its tab; Undo restored it. Good.
+- **D1** S001 has been released twice (A, B) and is in a package, but its question says only "Delete sheet S001 with 1
+  viewport and 1 note?". Nothing says it was released, that it drops out of the package, or that **Archive** (already
+  on the Sheets bar) keeps the record. A released sheet should say so and offer Archive first.
+
+**Deleting a floor model** — Navigator: right-click L2 › Delete level… → "Delete level L2 and everything on it (9
+items: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)? Undo brings it back." →
+gone from the Navigator; Undo restored all of it (one step).
+- **D2** The question lists every KIND of thing a level can hold, not what this one holds — "9 items: 7 outlets, 1 run,
+  1 floorplan" would say what is lost.
+- **D3** L1's riser up to L2 stays: the riser view draws it rising past L1's slab to a floor that has gone ("Riser ·
+  HIGH" at the top), its cables gone with L2's outlets. The question doesn't mention runs on other floors that end on
+  this one.
+- **D4** The floor stays in the building: Project › Floors… still shows the L2 chip (white = a floor with no level) and
+  its heights row is gone. **Apply floors** would bring L2 back as an empty level. So the building already knows "a
+  floor that exists but has no model" — but the riser view only draws floors that have a level (a floor with none is a
+  gap, or "floors with no level" when empty floors are hidden), and nothing says what Apply will do to it.
+
+**Dave's question (Test Project: only 1F and 4F are used; 2F / 3F not needed in the Navigator but still in riser
+views).** No new setting is needed: a LEVEL is the floor's model, the building's floor range is the stack. Delete the
+2F / 3F levels (they leave the Navigator; the building keeps them, D4), and make the riser view draw a building floor
+with no level as a plain floor (FFL line, slab, name, the building's typical heights), and make Apply floors leave
+such floors without a level unless asked ("Create its model" on the chip). → backlog W33 (asked first).
 ## Into the backlog (2026-10-14)
 
 Dave: "add the walkthru findings / improvements / fixes to backlog". They are now `backlog.md` § Workflow walkthrough,
