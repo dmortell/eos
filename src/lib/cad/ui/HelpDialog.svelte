@@ -10,8 +10,8 @@
 	import Walkthrough from './Walkthrough.svelte'
 	import type { ToolId } from '../app/workspace.svelte'
 
-	/** `start`: open on the keys (Keys and mouse, ?), else the top. `onwalk` opens the Walkthrough window. */
-	let { onclose, ontool, start, hints, onwalk }: { onclose: () => void; ontool: (id: ToolId) => void; start?: 'keys'; hints: Partial<Record<ToolId, string>>; onwalk?: () => void } = $props()
+	/** `start`: open on the keys (Keys and mouse, ?), else the top. */
+	let { onclose, ontool, start, hints }: { onclose: () => void; ontool: (id: ToolId) => void; start?: 'keys'; hints: Partial<Record<ToolId, string>> } = $props()
 
 	let q = $state('')
 	let input: HTMLInputElement | undefined = $state()
@@ -40,7 +40,6 @@
 				<h3>Walkthrough</h3>
 				<div class="how" class:open={walkOpen || !!q.trim()}>
 					<button class="how-q" onclick={() => (walkOpen = !walkOpen)}>A project from start to release, stage by stage</button>
-					{#if onwalk}<button class="win" title="Keep the walkthrough open beside the drawing, in its own window (dock it like the others; Window › Walkthrough)" onclick={() => { onwalk(); onclose() }}>Open in a window</button>{/if}
 					{#if walkOpen || q.trim()}<Walkthrough filter={hit} />{/if}
 				</div>
 			{/if}
@@ -100,8 +99,6 @@
 	kbd { flex: 0 1 auto; max-width: 50%; text-align: right; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
 	.tip { margin: 10px 0 2px; padding: 6px 8px; border-radius: 4px; background: var(--cad-feature, #eff6ff); }
 	.tip b { color: var(--cad-text); font-weight: 600; }
-	.win { margin: 0 0 4px 14px; padding: 1px 8px; border: 1px solid var(--cad-line); border-radius: 4px; font-size: 11px; color: var(--cad-link, #1d4ed8); }
-	.win:hover { background: var(--cad-hover); }
 	.how :global(.walk) { margin-left: 14px; }
 	.how { border-bottom: 1px solid var(--cad-line, #f4f4f5); }
 	.how.featured { background: var(--cad-feature, #eff6ff); border-radius: 4px; padding: 0 6px; }

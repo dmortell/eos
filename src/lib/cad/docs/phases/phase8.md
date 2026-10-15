@@ -3828,3 +3828,4 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   HelpDialog's `start: 'walk'` is gone. Seen live: the menu opens it with 9 stages, it docked right under Racks, Help's
   button opens it and closes Help; closed again afterwards.
 - **Leader → Callout** (Dave 2026-10-15): the tool, menu, Properties title, undo label, messages, Help and the agent guide say Callout; the tool id / geom kind stay `leader`.
+- **Help: no Walkthrough window button** (Dave 2026-10-15): Help's walkthrough section no longer has Open in a window (Help › Walkthrough and the Window menu open it).

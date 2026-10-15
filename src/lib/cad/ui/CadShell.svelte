@@ -742,7 +742,7 @@
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} ondone={saveAs.done} />{/if}
-	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} onwalk={() => layout.open('walkthrough')} />{/if}
+	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
