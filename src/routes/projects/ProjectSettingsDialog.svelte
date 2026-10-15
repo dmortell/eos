@@ -2,6 +2,7 @@
 	import { getContext } from 'svelte'
 	import { Firestore, Button, Dialog, Icon, type Session } from '$lib'
 	import ProjectLogoField from './ProjectLogoField.svelte'
+	import { fullName } from '$lib/projectGroups'
 
 	interface UserDoc {
 		id: string
@@ -20,6 +21,8 @@
 		address?: string
 		/** The building this project is (User 2026-10-16: one project per building) — the title block's {BUILDING}. */
 		buildingName?: string
+		masterId?: string
+		groupName?: string
 		author?: string
 		logoUrl?: string
 		companyName?: string
@@ -120,7 +123,8 @@
 				draftSections = {}
 				draftMembers = session?.user?.uid ? [session.user.uid] : []
 			} else {
-				draftName = project?.name || ''
+				// a building of a group shows its group's name here (read-only: renamed on the Projects page)
+				draftName = (project?.masterId ? project.groupName : project?.name) || project?.name || ''
 				draftDescription = project?.description || ''
 				draftClientCode = project?.clientCode || ''
 				draftProjectCode = project?.projectCode || ''
@@ -230,7 +234,8 @@
 			if (!canEditProject(project)) return
 			await db.save('projects', {
 				id: project.id,
-				name,
+				// a building of a group: its title follows the group and its building name (User 2026-10-16)
+				name: project.masterId ? fullName(project.groupName ?? name, draftBuilding) : name,
 				description: draftDescription.trim() || '',
 				client: draftClient.trim() || '',
 				address: draftAddress.trim() || '',
@@ -283,7 +288,7 @@
 			</div>
 		{/if}
 		<div class="text-xs text-gray-700">Name</div>
-		<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftName} placeholder="Project name" />
+		<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftName} placeholder="Project name" disabled={!!project?.masterId && mode === 'edit'} title={project?.masterId ? 'A building of a project group: rename the group on the Projects page (its title is “Group – Building”)' : undefined} />
 		<div class="text-xs text-gray-700">Description</div>
 		<textarea class="w-full border rounded px-2 py-1 text-sm" bind:value={draftDescription} rows="4" placeholder="Optional description"></textarea>
 

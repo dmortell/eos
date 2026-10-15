@@ -4,6 +4,8 @@
 	import InputNew from "$lib/ui/InputNew.svelte";
 	import Checkbox from "$lib/ui/Checkbox.svelte";
 	import ProjectSettingsDialog from "./ProjectSettingsDialog.svelte";
+	import GroupDialog from './GroupDialog.svelte'
+	import { sortGrouped, groupOf, type GroupAction } from '$lib/projectGroups'
 	import { formatDate } from "$lib/utils/date";
 	import { goto, replaceState } from "$app/navigation";
 	import { page } from "$app/state";
@@ -19,6 +21,8 @@
 	let searchQuery = $state('')
 	let showOnlyMine = $state(false)
 	let trashedOpen = $state(false)
+	/** The group dialog's action (add a building, move, rename, ungroup, delete a building). */
+	let groupAction = $state<GroupAction | null>(null)
 
 	interface Project {
 		id: string;
@@ -41,6 +45,10 @@
 		deleted?: boolean;
 		deletedAt?: any;
 		deletedBy?: string;
+		/** Project groups (User 2026-10-16): the group it's a building of, the group's name, its building's name. */
+		masterId?: string;
+		groupName?: string;
+		buildingName?: string;
 	}
 
 	let activeProjects = $derived.by(() => {
@@ -61,7 +69,7 @@
 			)
 		}
 
-		return filtered
+		return sortGrouped(filtered)
 	})
 	let trashedProjects = $derived.by(() => projects.filter(p => p.deleted))
 	/** "Your company" from this user's most recent project that has one — a new project starts with it (cad W10). */
@@ -154,19 +162,43 @@
 		</div>
 	{:else}
 		<div class="border rounded bg-white divide-y divide-gray-100">
-		{#each activeProjects as project}
-			<div class="flex items-center justify-between xxtext-xs px-1.5 py-1 gap-2">
+		{#each activeProjects as project, i (project.id)}
+			<!-- a group's header before its first building (User 2026-10-16: buildings are projects, grouped) -->
+			{#if project.masterId && project.masterId !== activeProjects[i - 1]?.masterId}
+				<div class="flex items-center justify-between px-1.5 py-1 gap-2 bg-gray-50">
+					<div class="text-sm font-semibold text-gray-700 truncate">{groupOf(project)}</div>
+					{#if canEditProject(project)}<div class="flex gap-1 shrink-0">
+						<Button variant="outline" title="A new building in this group (a project of its own: details, members and cad settings copied)" onclick={() => (groupAction = { kind: 'add', project })}>+ Building</Button>
+						<Button variant="outline" title="Rename the group (every building's title follows)" onclick={() => (groupAction = { kind: 'rename', project })}>Rename</Button>
+					</div>{/if}
+				</div>
+			{/if}
+			<div class="flex items-center justify-between xxtext-xs px-1.5 py-1 gap-2" class:pl-6={!!project.masterId}>
 				<div class="flex items-start gap-1.5 min-w-0">
 					<div class="w-2 h-2 rounded-full bg-green-500 shrink-0 mt-1"></div>
 					<div class="min-w-0">
-						<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400 truncate leading-tight">{project.name}</a>
+						<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400 truncate leading-tight" title={project.name}>{project.masterId ? (project.buildingName || project.name) : project.name}</a>
 						<div class="flex items-center gap-2 min-w-0">
 							<div class="w-24 shrink-0 text-xs text-gray-500 leading-tight">{formatDate(project.createdAt, cfg.locale)}</div>
 							{#if project.description}<div class="text-xs text-gray-600 truncate leading-tight">{project.description}</div>{/if}
 						</div>
 					</div>
 				</div>
-				{#if canEditProject(project)}<Button variant="outline" onclick={() => openEdit(project)} title="Edit details">Edit</Button>{/if}
+				{#if canEditProject(project)}<div class="flex items-center gap-1 shrink-0">
+					<Button variant="outline" onclick={() => openEdit(project)} title="Edit details">Edit</Button>
+					<!-- its group commands (User 2026-10-16): add / move / ungroup / delete a building -->
+					<details class="relative">
+						<summary class="list-none cursor-pointer px-2 py-0.5 rounded border text-sm text-gray-600 hover:bg-gray-50" title="Buildings: add, move, ungroup, delete">⋯</summary>
+						<div class="absolute right-0 z-20 mt-1 w-56 rounded border bg-white shadow p-1 text-sm">
+							<button class="block w-full text-left px-2 py-1 rounded hover:bg-gray-100" onclick={(e) => { e.currentTarget.closest('details')?.removeAttribute('open'); groupAction = { kind: 'add', project } }}>Add a building…</button>
+							<button class="block w-full text-left px-2 py-1 rounded hover:bg-gray-100" onclick={(e) => { e.currentTarget.closest('details')?.removeAttribute('open'); groupAction = { kind: 'move', project } }}>{project.masterId ? 'Move to another project…' : 'Group with another project…'}</button>
+							{#if project.masterId}
+								<button class="block w-full text-left px-2 py-1 rounded hover:bg-gray-100" onclick={(e) => { e.currentTarget.closest('details')?.removeAttribute('open'); groupAction = { kind: 'ungroup', project } }}>Ungroup (a project of its own)</button>
+								<button class="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 text-red-600" onclick={(e) => { e.currentTarget.closest('details')?.removeAttribute('open'); groupAction = { kind: 'delete', project } }}>Delete this building…</button>
+							{/if}
+						</div>
+					</details>
+				</div>{/if}
 			</div>
 		{/each}
 		</div>
@@ -200,6 +232,7 @@
 
 <!-- a new project opens straight in cad, on its first-run steps (cad backlog W9) -->
 <ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} {lastCompany} onsaved={(id) => { if (mode === 'create') void goto(`/projects/${id}/cad`) }} />
+<GroupDialog bind:action={groupAction} projects={projects} uid={session?.user?.uid} onadded={(id: string) => void goto(`/projects/${id}/cad`)} />
 
 <div class="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 backdrop-blur">
 	<div class="mx-auto flex max-w-6xl items-center justify-between gap-2">

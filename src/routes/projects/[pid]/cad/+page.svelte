@@ -12,7 +12,7 @@
 	const pid = $derived(page.params.pid ?? '')
 	let uid = $state<string | null>(null)
 	let authChecked = $state(false)
-	let projectName = $state(''), ownerId = $state<string | undefined>(), userName = $state('')
+	let projectName = $state(''), fullTitle = $state(''), ownerId = $state<string | undefined>(), userName = $state('')
 	let projectDoc = $state<Project | null>(null), detailsOpen = $state(false)
 
 	$effect(() => onAuthStateChanged(auth, (u) => { uid = u?.uid ?? null; userName = u?.displayName || u?.email || ''; authChecked = true }))
@@ -20,13 +20,14 @@
 		if (!uid || !pid) return
 		return onSnapshot(doc(firestore, 'projects', pid), (s) => {
 			const data = s.data()
-			projectName = (data?.name as string) ?? pid; ownerId = (data?.ownerId as string) || undefined
+			// a building of a project group (User 2026-10-16): {PROJECT} is the group's name, the title bar its full one
+			projectName = ((data?.groupName ?? data?.name) as string) ?? pid; fullTitle = (data?.name as string) ?? pid; ownerId = (data?.ownerId as string) || undefined
 			projectDoc = data ? { ...(data as Project), id: pid } : null
 		})
 	})
 </script>
 
-<Titlebar title="{projectName} · CAD" height={28} />   <!-- CadShell fills the rest: 100dvh − 28px -->
+<Titlebar title="{fullTitle} · CAD" height={28} />   <!-- CadShell fills the rest: 100dvh − 28px -->
 
 {#if !authChecked}
 	<p class="p-6 text-sm text-zinc-500">Signing in…</p>

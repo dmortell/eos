@@ -67,6 +67,8 @@
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 	import PatchPreview from './PatchPreview.svelte'
+	import { addBuilding, buildingsOf, type GroupedProject } from '$lib/projectGroups'
+	import { fromDoc, type StoredDoc } from '../persist/docs'
 
 	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). */
 	let { pid, user, userName = '', projectName, ownerId, projectDetails, details }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void; details?: ProjectDetails } = $props()
@@ -77,6 +79,30 @@
 	// image shapes' pictures, resolved for every canvas (ui/Prims.svelte)
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
+	// ── project groups (User 2026-10-16): this project's other buildings — open one, add one, copy one's settings ──
+	type ProjDoc = GroupedProject & ProjectDetails
+	let buildings = $state<{ id: string; label: string; current: boolean }[]>([])
+	$effect(() => {
+		const d = details as ProjDoc | undefined
+		if (!d?.masterId) { buildings = []; return }
+		void buildingsOf({ id: pid, masterId: d.masterId }).then((bs) => { buildings = bs.map((b) => ({ id: b.id, label: b.buildingName || b.name, current: b.id === pid })) })
+	})
+	function addBuildingCmd() {
+		const d = details as ProjDoc | undefined
+		if (!d) return
+		ws.askInDialog({ title: 'Add a building', label: 'The new building’s name', value: '', ok: 'Add building',
+			hint: `A project of its own in ${d.masterId ? `the ${d.groupName ?? d.name} group` : `a group with this project (this one becomes “${d.buildingName || 'Building 1'}”)`}: details, members and settings copied, floors and drawings empty. It opens when made.` },
+			(name) => { void addBuilding({ ...d, id: pid }, name, user, d.masterId ? undefined : d.buildingName || 'Building 1').then((id) => goto(`/projects/${id}/cad`)).catch((e) => (project.error = `Add building failed: ${(e as Error).message}`)) })
+	}
+	/** Another building's settings into this one — one undo step (the store's own transaction, so it syncs like any edit). */
+	async function copySettingsFrom(id: string) {
+		const src = await getDoc(doc(firestore, 'projects', id, 'cadEntities', 'settings'))
+		const parsed = src.exists() ? fromDoc(src.data() as StoredDoc) : null
+		const from = buildings.find((b) => b.id === id)?.label ?? id
+		if (!parsed) { ws.say(`${from} has no settings to copy`); return }
+		project.store.transact(`Copy settings from ${from}`, (tx) => tx.put(parsed.entity))
+		ws.say(`Settings copied from ${from} (usages, cable types, label patterns, title block, files …) · Ctrl+Z undoes`)
+	}
 	const ws = new Workspace()
 	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
 	// every export asks for its file name first (User 2026-10-15): filled from the project's pattern (Settings › Files),
@@ -488,6 +514,7 @@
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
 		paste: () => { navigator.clipboard.readText().then((t) => { if (!clipboard.pasteText(t)) ws.say('Nothing to paste — copy items (Ctrl+C) or text from another app first') }, () => ws.say('The browser didn’t let the page read the clipboard — use Ctrl+V')) },
+		buildings, addBuilding: addBuildingCmd, openBuilding: (id) => { window.location.href = `/projects/${id}/cad` }, copySettingsFrom: (id) => void copySettingsFrom(id),
 		remove: deleteSelected, turn90, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
 		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,

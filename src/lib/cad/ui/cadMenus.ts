@@ -42,6 +42,9 @@ export interface MenuCtx {
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
 	remove(): void; hasSelection: boolean
+	/** Project groups (User 2026-10-16): this project's group's buildings (it among them), add one, open one, copy one's settings. */
+	buildings: { id: string; label: string; current: boolean }[]
+	addBuilding(): void; openBuilding(id: string): void; copySettingsFrom(id: string): void
 	/** R / Shift+R: the selection turned 90° (User 2026-10-15). */
 	turn90(dir: 1 | -1): void
 	selectAll(): void; selectSimilar(): void
@@ -217,6 +220,10 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Project', items: [
 			{ label: 'New project…', title: 'Start another project: the projects page opens on New Project (codes, name, client, address, logos, members) — Save opens it in cad', run: c.newProject },
+			{ label: 'Add building…', title: 'Another building of this project: a project of its own in the same group (details, members and settings copied; floors and drawings start empty)', run: c.addBuilding },
+			...(c.buildings.length > 1 ? [
+				{ label: 'Buildings', title: 'Open another building of this project', children: c.buildings.map((b): MenuItem => ({ label: b.label, checked: b.current, run: () => c.openBuilding(b.id) })) } as MenuItem,
+				{ label: 'Copy settings from', title: 'Usages, cable types, label patterns, title block, file names … from another building (one undo step)', children: c.buildings.filter((b) => !b.current).map((b): MenuItem => ({ label: b.label, run: () => c.copySettingsFrom(b.id) })) } as MenuItem] : []),
 			'-',
 			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn), company and logos (when its template has none); the template’s own logos are set in Title block…', run: c.projectDetails }] : []),
 			{ label: 'Floors…', title: "The building's floors, their names and heights — Project settings, tab Floors & heights", run: c.floors },
