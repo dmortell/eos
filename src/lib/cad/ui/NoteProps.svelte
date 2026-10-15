@@ -22,7 +22,7 @@
 	}
 	/** mm per point. */
 	const PT = 25.4 / 72
-	const TITLE = { text: 'Text', leader: 'Leader', cloud: 'Revision cloud', dimension: 'Dimension' } as Record<string, string>
+	const TITLE = { text: 'Text', leader: 'Callout', cloud: 'Revision cloud', dimension: 'Dimension' } as Record<string, string>
 	const measured = $derived(g.kind === 'dimension' ? Math.round(dimLine(g).len) : 0)
 	/** The data fields a text can show (domain/fields.ts). */
 	const FIELDS_TIP = 'Live values: {PROJECT} {LEVEL} {SHEET} {SHEET_TITLE} {DATE} · {COUNT:block name} = how many of that block are on this level (on a sheet: its viewports’ levels)'
@@ -49,7 +49,7 @@
 	<label class="row" title="Lay the text out as markdown: # headings, - bullets, 1. numbers, **bold**, *italic*, ~~strikethrough~~, __underline__, and | pipe | tables | (a |---| row under the first makes it the header). Set a box width to wrap it.">Markdown
 		<input type="checkbox" checked={!!g.markdown} onchange={(e) => setGeom(e.currentTarget.checked ? 'Markdown on' : 'Markdown off', { markdown: e.currentTarget.checked || undefined })} /></label>
 {:else if g.kind === 'leader'}
-	<label class="row" title="Its words (several lines: Enter) · double-click the leader (or F2) to type them on the drawing. {FIELDS_TIP}">Text
+	<label class="row" title="Its words (several lines: Enter) · double-click the callout (or F2) to type them on the drawing. {FIELDS_TIP}">Text
 		<textarea class="inp" rows={Math.min(6, Math.max(2, (g.text ?? '').split('\n').length))} value={g.text ?? ''} placeholder="(none)" onchange={(e) => setGeom('Leader text', { text: e.currentTarget.value.replace(/\s+$/, '') || undefined })}></textarea></label>
 	<span class="row" title="A callout: a frame round its words">Border
 		<span class="seg">

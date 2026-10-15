@@ -145,14 +145,14 @@ export class NoteTool implements Tool {
 		} else if (this.id === 'leader' && pts.length >= 2) {
 			const make = (t: string) => {
 				const s: Shape = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'leader', pts: at.pts, ...(t ? { text: t } : {}) } } as Shape
-				c.store.transact('Leader', (tx) => tx.put(s))
+				c.store.transact('Callout', (tx) => tx.put(s))
 				c.select([s.id])
 				return s.id
 			}
 			// its words are typed on the drawing at its end (Dave 2026-10-05: no tool-bar prompt); none is fine
 			if (c.editText) c.editText(make(''))
-			else c.askText?.('Leader text (optional)', '', (t) => make(t.trim()))
-		} else if (pts.length) c.say?.(this.id === 'cloud' ? 'A cloud needs at least 3 points' : 'A leader needs a tip and at least one more point')
+			else c.askText?.('Callout text (optional)', '', (t) => make(t.trim()))
+		} else if (pts.length) c.say?.(this.id === 'cloud' ? 'A cloud needs at least 3 points' : 'A callout needs a tip and at least one more point')
 	}
 
 	key(e: KeyboardEvent, c: ToolCtx): boolean {

@@ -3827,3 +3827,4 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   on its heading) for both the window and Help's section, which keeps Help's search and gains **Open in a window**.
   HelpDialog's `start: 'walk'` is gone. Seen live: the menu opens it with 9 stages, it docked right under Racks, Help's
   button opens it and closes Help; closed again afterwards.
+- **Leader → Callout** (Dave 2026-10-15): the tool, menu, Properties title, undo label, messages, Help and the agent guide say Callout; the tool id / geom kind stay `leader`.

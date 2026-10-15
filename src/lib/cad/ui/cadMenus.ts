@@ -151,7 +151,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		{ label: 'Insert', items: [
 			tool('insert', 'Block…'), tool('legend', 'Legend'), { label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image }, '-',
-			tool('text', 'Text'), tool('leader', 'Leader'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'), '-',
+			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'), '-',
 			tool('viewport', 'Viewport'),
 		] },
 		{ label: 'Cabling', items: [

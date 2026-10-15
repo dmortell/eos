@@ -31,7 +31,7 @@ The full how-to list is at the end — search it for the task in hand.
 - **Cabling**: outlets (each with ports and a label like 03.1.042), runs — trunks, conduits, trays — drawn as paths
   with a width and a height, server rooms with rows of racks, devices in racks (patch panels, switches), and patch
   cords between ports. Outlets are allocated to panel ports; routes and fill are worked out along the runs.
-- **Annotation**: text (optionally Markdown), leaders, dimensions, revision clouds, legends, blocks (symbols and 3D
+- **Annotation**: text (optionally Markdown), callouts (the Callout tool; their geom kind is leader), dimensions, revision clouds, legends, blocks (symbols and 3D
   furniture from the global block library), images.
 - **Sheets**: paper drawings with a title block and **viewports** that each show a view at a scale. Sheets are released
   as PDFs, in packages, with revisions.
