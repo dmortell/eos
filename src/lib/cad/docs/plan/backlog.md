@@ -30,8 +30,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   in rack views. To discuss: blocks placed on a rack face (a blanking panel, a label, a shelf item drawn as a block) or data-only
   blocks (counted in the BOM, listed with the rack, not drawn). **P3**.
 
-- [ ] **Walls from a room** (Dave 2026-10-15, "for later") — select a room drawn with the Room tool → one command
-  makes a wall along its outline (one path, closed; the current wall defaults, slab to slab optional). **P3 · S**.
 - [ ] ❓ **Room elevations named T / B / L / R** (Dave 2026-10-15, "consider") — instead of A–D: the side of the room
   each looks at (Top / Bottom / Left / Right as on the plan). To decide: plan-relative (a rotated plan changes them?) or
   N / S / E / W from the project north; existing A–D sections renamed or kept. **P3 · S**.

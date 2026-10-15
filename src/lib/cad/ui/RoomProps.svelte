@@ -15,6 +15,7 @@
 	import Field from './fields/Field.svelte'
 	import TextField from './fields/TextField.svelte'
 	import { inPolygon } from '../views/primGeom'
+	import { wallsRound } from '../domain/roomWalls'
 
 	let { project, ws, room }: { project: CadProject; ws: Workspace; room: Space } = $props()
 
@@ -22,6 +23,14 @@
 	const level = $derived(project.index.get(room.levelId))
 	const levelCeil = $derived(level?.type === 'level' ? level.heights.clearHeightMm : undefined)
 	const set = (label: string, patch: Partial<Space>) => put(project.store, room, label, patch)
+	/** Walls round it (Dave 2026-10-15): one closed wall along the outline, the Wall tool's thickness, slab to slab. */
+	function makeWalls() {
+		const w = wallsRound(room, project.settings?.toolDefaults?.wall?.w ?? 100, levelCeil ?? 2700)
+		if (!w) return
+		project.store.transact(`Walls round ${room.name}`, (tx) => tx.put(w))
+		ws.select([w.id])
+		ws.say(`Walls round ${room.name}: one wall, slab to slab · Ctrl+Z undoes`)
+	}
 	// a drawn room round racks of ANOTHER room whose own floor / ceiling differ from the level's (Dave 2026-10-15: IDF2
 	// round 33IDF2's racks): its elevations draw both sets of lines; say so here
 	const otherDatums = $derived.by(() => {
@@ -71,6 +80,7 @@
 	<TextField label="Code" mono title={server ? 'The server room’s letter or code in port labels (the S of FF.Z.NNN-SPP)' : 'Its short code'} value={room.code} onchange={(v) => set('Room code', { code: v || undefined })} />
 	<Field label="Level">{#snippet children()}<span class="muted">{project.index.nameOf(room.levelId)}</span>{/snippet}</Field>
 	{#each otherDatums as o (o.id)}<p class="warn">The racks here belong to {o.name}, whose own floor / ceiling (FL{o.floorMm ? ` +${o.floorMm}` : ' ±0'}{o.ceilingMm != null ? ` / FL +${o.ceilingMm}` : ''}) differ from this level’s — its racks stand on its floor; this room’s elevations show both sets of lines.</p>{/each}
+	{#if room.boundary && room.boundary.length >= 3}<Field label="Walls" title="One closed wall along the room's outline (its inside face on the outline), slab to slab — untick Slab to slab in the wall's Properties for its own height">{#snippet children()}<button class="wbtn" onclick={makeWalls}>Walls round it</button>{/snippet}</Field>{/if}
 	{#if !server}
 		<!-- W30: an EPS (electrical / riser room) names the riser view's EPS box round the riser inside it -->
 		<Field label="Kind" title="An EPS (riser room): the riser view names its EPS box after it">{#snippet children()}
@@ -131,6 +141,8 @@
 </div>
 
 <style>
+	.wbtn { padding: 1px 8px; border: 1px solid var(--cad-line); border-radius: 4px; font-size: 11px; color: var(--cad-text); }
+	.wbtn:hover { background: var(--cad-hover); }
 	.warn { margin: 2px 0 6px; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #92400e; background: #fef3c7; }
 	/* a row: name, containment, its racks (a click selects the row), ▲ ▼ ✕ */
 	.rw { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto auto; align-items: center; gap: 3px; margin-bottom: 2px; }
