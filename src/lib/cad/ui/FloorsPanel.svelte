@@ -13,7 +13,7 @@
 	import type { Entity } from '../domain/drawing'
 	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
 	import NameInput from './NameInput.svelte'
-	import { levelContents } from '../editor/commands'
+	import { levelContents, levelRisers } from '../editor/commands'
 	import { newId } from '../domain/ids'
 	import { defaultSettings } from '../domain/settings'
 	import { untrack } from 'svelte'
@@ -150,7 +150,7 @@
 
 	/** What's on a level: its contents, sections, and sheet viewports that show it. */
 	function contents(id: Id): number {
-		return levelContents(project.store.all(), id).length
+		return levelContents(project.store.all(), id).length + levelRisers(project.store.all(), id).length   // runs reaching it too (W36)
 			+ project.store.ofType('section').filter((s) => s.levelId === id).length
 			+ project.store.ofType('sheet').flatMap((s) => s.viewports).filter((v) => v.view.levelId === id).length
 	}

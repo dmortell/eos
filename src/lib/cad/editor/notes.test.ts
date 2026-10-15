@@ -12,6 +12,8 @@ import { spaceOf } from '../views/space'
 import { sheetDisplayList } from '../views/sheet'
 import type { Sheet } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
+import type { Entity } from '../domain/drawing'
+import type { Level } from '../domain/types'
 
 const SHEET: Sheet = { type: 'sheet', id: 'SH', number: 'S001', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' }
 
@@ -251,5 +253,41 @@ describe('dimensions on a sheet snap to what a viewport shows (Q44)', () => {
 		expect(near?.y).toBeCloseTo(onPaper.y, 6)
 		expect(snapThroughViewport(ix, sheet, { x: onPaper.x + 30, y: onPaper.y + 30 }, 1)).toBeNull()
 		expect(snapThroughViewport(ix, sheet, { x: 400, y: 280 }, 1)).toBeNull()   // outside every viewport
+	})
+})
+
+describe('deleting a level: runs reaching it, what it holds (W35, W36)', () => {
+	const run = { type: 'shape', id: 'RUN', levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
+		geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 2900 }, { id: 'b', x: 1000, y: 0, z: 2900 }, { id: 'c', x: 1000, y: 0, z: 2950, levelId: 'L2' }], segs: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }] } } as unknown as Shape
+	it('a run of another floor rising to it is not its content: it is cut back to its own floor', async () => {
+		const { levelRisers, withoutLevelNodes } = await import('./commands')
+		expect(levelContents([run], 'L2')).toEqual([])
+		expect(levelRisers([run], 'L2').map((s) => s.id)).toEqual(['RUN'])
+		const cut = withoutLevelNodes(run, 'L2')!
+		expect(cut.geom.kind === 'path' && cut.geom.nodes.map((n) => n.id)).toEqual(['a', 'b'])
+		expect(cut.geom.kind === 'path' && cut.geom.segs.map((g) => g.id)).toEqual(['s1'])
+		// only a riser left: the run goes
+		const short = { ...run, geom: { ...run.geom, nodes: [{ id: 'b', x: 0, y: 0, z: 2900 }, { id: 'c', x: 0, y: 0, z: 0, levelId: 'L2' }], segs: [{ id: 's2', a: 'b', b: 'c' }] } } as unknown as Shape
+		expect(withoutLevelNodes(short, 'L2')).toBeNull()
+	})
+	it('says what goes, counted by kind', async () => {
+		const { contentsText } = await import('./commands')
+		const ents = [{ type: 'outlet', id: 'O1' }, { type: 'outlet', id: 'O2' }, run, { type: 'underlay', id: 'U' }] as unknown as Entity[]
+		expect(contentsText(ents, ['O1', 'O2', 'RUN', 'U'])).toBe('2 outlets, 1 run, 1 floorplan')
+	})
+})
+
+describe('a riser to a deleted floor ends on the nearest floor with a model (Dave 2026-10-15)', () => {
+	const h = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+	const lv = (id: string, e: number) => ({ type: 'level', id, buildingId: 'B', number: e / 3800 + 1, name: id, order: e, elevationMm: e, heights: h }) as Level
+	const riser = { type: 'shape', id: 'R', levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
+		geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 2900 }, { id: 'b', x: 500, y: 0, z: 2900 }, { id: 'c', x: 500, y: 0, z: 2950, levelId: 'L4' }], segs: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }] } } as unknown as Shape
+	it('1F up to 4F, 4F deleted: it ends on 3F at its tray height (2F / 3F have models)', async () => {
+		const { withoutLevelNodes } = await import('./commands')
+		const cut = withoutLevelNodes(riser, 'L4', [lv('L1', 0), lv('L2', 3800), lv('L3', 7600), lv('L4', 11400)])!
+		expect(cut.geom.kind === 'path' && cut.geom.nodes.find((n) => n.id === 'c')).toMatchObject({ levelId: 'L3', z: 2950 })
+		// no floor with a model in between: cut back to its own floor
+		const back = withoutLevelNodes(riser, 'L4', [lv('L1', 0), lv('L4', 11400)])!
+		expect(back.geom.kind === 'path' && back.geom.nodes.map((n) => n.id)).toEqual(['a', 'b'])
 	})
 })

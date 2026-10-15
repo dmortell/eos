@@ -3864,3 +3864,18 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     deleted level isn't brought back, and such floors don't make Apply "stale"; Floors & heights lists them under the
     chips: "No model: **+ 2F model**" makes one again (named, the nearest floor's heights, stacked).
   - Tests in `domain/floors.test.ts`, `views/riser.test.ts`.
+- **W34–W36 Deleting sheets and levels** (walkthrough Round 6, Dave 2026-10-15 "build them"):
+  - W34: deleting a RELEASED sheet (`selectionActions.ts`) says "Released: S001 (A, B, C). It is in “Initial package”."
+    and offers **Archive instead** (status archived) beside **Delete**.
+  - W35: the delete-level question counts what goes (`commands.ts` `contentsText`: "7 outlets, 1 run, 1 floorplan").
+  - W36: `levelContents` no longer takes runs of OTHER floors that merely reach the level (the whole run used to be
+    deleted); `levelRisers` names them in the question, and the delete ends each riser on the nearest floor with a model
+    between its other end and the deleted floor (tray height; FFL for a low run), else cuts it back to its own floor
+    (`withoutLevelNodes`) — Dave: "trim them back to the next available floor". The Floors dialog still counts such a
+    level as not empty (Apply keeps it). Help: two new how-tos.
+  - Tests in `editor/notes.test.ts`. Live in Test Project (Dave: 1F and 4F are the only floors in use): deleted the 2F
+    (asked: "1 run from other floors … a run on 1F", cut back to 1F — no floor in between) and 3F (empty, just went)
+    levels; the Navigator lists 1F / 4F; the riser view still draws 2F (FFL 3.80) and 3F (7.60) with their EPS boxes;
+    Floors shows "No model: + 2F model + 3F model" and Apply stays off; + 2F model made it again at 3800 (Undo took it
+    out). The released-sheet question was seen on S001 and cancelled. **Left as is on purpose**: Test Project without
+    the 2F / 3F levels.

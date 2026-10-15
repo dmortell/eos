@@ -3,7 +3,7 @@
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
-import { deleteEntities, levelContents, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
+import { deleteEntities, levelContents, levelRisers, withoutLevelNodes, contentsText, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
 export function renameLevel(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
@@ -22,16 +22,23 @@ export function applyRename(project: CadProject, id: string, name: string, field
 export function deleteLevel(project: CadProject, ws: Workspace, id: string): void {
 	const l = project.index.get(id) as Level | undefined
 	if (l?.type !== 'level') return
-	const on = levelContents(project.store.all(), l.id), vps = levelViewports(project.store, l.id)
+	const on = levelContents(project.store.all(), l.id), vps = levelViewports(project.store, l.id), risers = levelRisers(project.store.all(), l.id)
 	const sheets = new Set(vps.map((v) => v.sheet.id)).size
 	const vpText = vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : ''
+	// W36: runs of other floors reaching it are cut back to their own floor (they used to go whole)
+	const riserText = risers.length ? ` ${risers.length} run${risers.length === 1 ? '' : 's'} from other floors ${risers.length === 1 ? 'rises / drops' : 'rise / drop'} to it (${risers.map((s) => `${s.label || 'a run'} on ${project.index.nameOf(s.levelId ?? '') || '?'}`).join(', ')}) — ended on the nearest floor with a model between (else cut back to ${risers.length === 1 ? 'its' : 'their'} own floor).` : ''
 	const go = () => {
-		deleteEntities(project.store, [l.id, ...levelContents(project.store.all(), l.id)], levelViewportsOff(project.store, l.id))   // what's on it NOW (not when asked)
+		// what's on it NOW (not when asked); the runs reaching it cut back in the same step
+		deleteEntities(project.store, [l.id, ...levelContents(project.store.all(), l.id)], (tx) => {
+			levelViewportsOff(project.store, l.id)(tx)
+			for (const s of levelRisers(project.store.all(), l.id)) { const cut = withoutLevelNodes(s, l.id, project.levels); if (cut) tx.put(cut); else tx.del(s.id) }
+		})
 		if (ws.levelId === l.id) ws.levelId = project.levels.find((x) => x.id !== l.id)?.id ?? null
 	}
-	// an empty level, shown nowhere, just goes; asked only when more goes with it
-	if (!on.length && !vps.length) { go(); ws.say(`Deleted level ${l.name} — Undo brings it back`); return }
-	ws.ask2(`Delete level ${l.name} and everything on it (${on.length} item${on.length === 1 ? '' : 's'}: outlets, racks + devices, links, cords, drawing, floorplan, rooms, sections, views)?${vpText} Undo brings it back.`, 'Delete level', go)
+	// an empty level, shown nowhere, just goes; asked only when more goes with it (W35: says what)
+	if (!on.length && !vps.length && !risers.length) { go(); ws.say(`Deleted level ${l.name} — the building keeps the floor (riser view, Floors); Undo brings it back`); return }
+	const what = contentsText(project.store.all(), on)
+	ws.ask2(`Delete level ${l.name}${what ? ` and what's on it: ${what} (with their devices, links and cords)` : ''}?${vpText}${riserText} The building keeps the floor (riser view; Floors › + model makes it again). Undo brings it back.`, 'Delete level', go)
 }
 // ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
 export function renameRoom(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }

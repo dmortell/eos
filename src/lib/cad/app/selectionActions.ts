@@ -9,7 +9,7 @@ import { pieceRefs } from '../domain/pathEdit'
 import { reservePorts, reservationsOf, portRanges } from '../domain/ports'
 import { removeCord } from '../domain/cords'
 import { kindOf, countsText, selectionKinds } from '../ui/propsKit'
-import type { Entity } from '../domain/drawing'
+import type { Entity, Sheet } from '../domain/drawing'
 import { reorderShapes } from '../domain/shapes'
 import { deleteRoom, deleteRow } from './navActions'
 
@@ -73,6 +73,16 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	}
 	const go = () => { deleteEntities(project.store, ids); ws.select([]) }
 	const items = ids.map((id) => project.store.get(id)).filter((e): e is Entity => !!e)
+	// W34: a RELEASED sheet (or one listed in a package) says so, and Archive (keeps its record) comes first
+	const released = items.filter((e): e is Sheet => e.type === 'sheet' && !!e.revisions?.length)
+	const inPkg = project.store.ofType('package').filter((p) => p.sheetIds?.some((id) => ids.includes(id)))
+	if (released.length && items.every((e) => e.type === 'sheet')) {
+		const revs = released.map((s) => `${s.number} (${s.revisions!.map((r) => r.code).join(', ')})`).join(', ')
+		const pk = inPkg.length ? ` ${inPkg.length === 1 ? 'It is' : 'They are'} in ${inPkg.map((p) => `“${p.name}”`).join(', ')}.` : ''
+		const archive = () => { project.store.transact(items.length === 1 ? `Archive ${(items[0] as Sheet).number}` : `Archive ${items.length} sheets`, (tx) => { for (const s of items as Sheet[]) tx.put({ ...s, status: 'archived' }) }); ws.select([]); ws.say('Archived — Tables › Sheets › Archived shows them; Undo brings them back') }
+		ws.ask2(`Released: ${revs}.${pk} Its releases keep their PDFs either way; Archive keeps the sheet in the register (hidden), Delete takes it out${also ? ` with ${also}` : ''}. Undo brings it back.`, 'Archive instead', archive, { label: 'Delete', apply: go })
+		return
+	}
 	const nameOf = (e: Entity) => e.type === 'sheet' ? e.number : e.type === 'shape' && e.geom.kind === 'insert' ? project.blockOf(e.geom.blockId)?.name ?? '' : project.index.nameOf(e.id)
 	const what = itemsText(items, nameOf)
 	if (!also) { const said = deletedText(items, nameOf); go(); ws.say(said); return }

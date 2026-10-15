@@ -18,25 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 8 entries (W33 ❓ P2, W34 P2, W35–W36 P3 from the delete walkthrough; 4 P3 ❓: Navigator rooms (generic), and 3 review todos (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
-
-## Deleting sheets and floors (walkthrough Round 6, 2026-10-15)
-
-From `workflow-walkthrough.md` Round 6 (live in Workflow test, all undone).
-
-- [ ] ❓ **W33 Floors without a model** (D4 + Dave's "2F / 3F not needed in the Navigator but still in riser views";
-  no new setting) — a level is a floor's model; the building's range is the stack (`restack` already gives a floor
-  with no level its storey, so 4F stays put). Build: the riser view draws a building floor with no level as a plain
-  floor (FFL, slab, name, the typical heights; "Hide empty floors" hides it); **Apply floors** adds levels only for
-  floors new to the range, not ones whose level was deleted; the Floors dialog's white chip says "no model — click to
-  create it". Then in Test Project: delete the 2F / 3F levels. **P2 · M**.
-- [ ] **W34 Deleting a released sheet** (D1) — the question says it was released (codes) and is in package X, and
-  offers **Archive** (keeps the record) beside Delete. **P2 · S**.
-- [ ] **W35 Deleting a level says what goes** (D2) — "9 items: 7 outlets, 1 run, 1 floorplan", not the list of every
-  kind a level can hold. **P3 · S**.
-- [ ] **W36 Runs ending on a deleted level** (D3) — a riser from another floor up / down to it: the question names them;
-  on delete the riser is cut back to its own floor (or kept, asked). **P3 · S–M**.
-
+**Remaining:** 4 entries (4 P3 ❓, W33–W36 built 2026-10-15: Navigator rooms (generic), and 3 review todos (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
 
 - [ ] ❓ **Edits in two tabs overwrite each other** (Dave 2026-10-15 todo, "review how to handle") — the settings doc

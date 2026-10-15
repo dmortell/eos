@@ -5,8 +5,10 @@ import { namedFrame, type ElevDir } from '../domain/conventions'
 import { sectionFrame } from '../views/section'
 import { contentCentre } from '../views/sheet'
 import { groupShapes, ungroupShapes } from '../domain/groups'
-import type { Id, Cord } from '../domain/types'
+import type { Id, Cord, Level } from '../domain/types'
 import type { Entity, Sheet, Viewport } from '../domain/drawing'
+import type { Shape, PathNode } from '../domain/shapes'
+import { heightsOf } from '../domain/floors'
 import { removeCord } from '../domain/cords'
 import { untie } from './noteTool'
 
@@ -18,11 +20,54 @@ export function levelContents(all: Iterable<Entity>, levelId: Id): Id[] {
 	for (const e of list) {
 		if ((e.type === 'outlet' || e.type === 'rack' || e.type === 'underlay' || e.type === 'space' || e.type === 'section') && e.levelId === levelId) out.push(e.id)
 		else if (e.type === 'view' && (e.params as { levelId?: Id }).levelId === levelId) out.push(e.id)   // its saved views (and their own shapes)
-		else if (e.type === 'shape' && (e.levelId === levelId || (e.geom.kind === 'path' && e.geom.nodes.some((n) => n.levelId === levelId)))) out.push(e.id)
+		else if (e.type === 'shape' && e.levelId === levelId) out.push(e.id)   // a run of another floor reaching it: levelRisers
 		if (e.type === 'space' && e.levelId === levelId) spaces.add(e.id)
 	}
 	for (const e of list) if (e.type === 'rackRow' && spaces.has(e.spaceId)) out.push(e.id)
 	return out
+}
+
+/** W36: runs of OTHER floors that reach this level (a riser up / down to it ends on a node of this level). Deleting the
+ *  level ends their risers on the nearest floor with a model, else cuts them back (`withoutLevelNodes`) — the whole run
+ *  used to go with it. */
+export function levelRisers(all: Iterable<Entity>, levelId: Id): Shape[] {
+	return [...all].filter((e): e is Shape => e.type === 'shape' && e.levelId !== levelId && e.geom.kind === 'path' && e.geom.nodes.some((n) => n.levelId === levelId))
+}
+/** A run without its nodes on `levelId` (and the segments to them); null when fewer than two nodes are left. */
+export function withoutLevelNodes(s: Shape, levelId: Id, levels: Level[] = []): Shape | null {
+	if (s.geom.kind !== 'path') return s
+	const g0 = s.geom, elev = (id: Id | undefined) => levels.find((l) => l.id === (id ?? s.levelId))?.elevationMm
+	// Dave 2026-10-15: a riser to the deleted floor ends on the nearest floor that still has a model between its other
+	// end and it (that floor's tray height; FFL for a low run) — only with none in between is it cut back
+	const moved = new Map<Id, PathNode>()
+	const gone0 = elev(levelId)
+	for (const n of g0.nodes) {
+		if (n.levelId !== levelId || gone0 === undefined) continue
+		for (const sg of g0.segs) {
+			const otherId = sg.a === n.id ? sg.b : sg.b === n.id ? sg.a : null, m = otherId ? g0.nodes.find((x) => x.id === otherId) : undefined
+			const from = m && m.levelId !== levelId ? elev(m.levelId) : undefined
+			if (from === undefined || m!.x !== n.x || m!.y !== n.y) continue   // a vertical riser from another floor only
+			const between = levels.filter((l) => !l.area && l.id !== levelId && (from < gone0 ? l.elevationMm > from && l.elevationMm < gone0 : l.elevationMm < from && l.elevationMm > gone0))
+			const to = between.sort((a, b) => Math.abs(a.elevationMm - gone0) - Math.abs(b.elevationMm - gone0))[0]
+			if (!to) continue
+			const h = heightsOf(to), low = s.role?.kind === 'containment' && s.role.tier === 'low'
+			moved.set(n.id, { ...n, levelId: to.id === s.levelId ? undefined : to.id, z: low ? 0 : h.clearHeightMm + h.plenumMm / 2 })
+		}
+	}
+	const gone = new Set(g0.nodes.filter((n) => n.levelId === levelId && !moved.has(n.id)).map((n) => n.id))
+	const nodes = g0.nodes.filter((n) => !gone.has(n.id)).map((n) => moved.get(n.id) ?? n), segs = g0.segs.filter((g) => !gone.has(g.a) && !gone.has(g.b))
+	const used = new Set(segs.flatMap((g) => [g.a, g.b]))
+	const kept = nodes.filter((n) => used.has(n.id))
+	return kept.length < 2 ? null : { ...s, geom: { ...s.geom, nodes: kept, segs } }
+}
+
+/** W35: what a delete takes, counted by kind — "7 outlets, 1 run, 1 floorplan". */
+export function contentsText(all: Iterable<Entity>, ids: Id[]): string {
+	const want = new Set(ids), n = new Map<string, number>()
+	const kind = (e: Entity): string => e.type === 'shape' ? (e.role?.kind === 'containment' ? 'run' : e.role?.kind === 'wall' ? 'wall' : 'drawing item')
+		: e.type === 'underlay' ? 'floorplan' : e.type === 'space' ? 'room' : e.type === 'rackRow' ? 'rack row' : e.type === 'view' ? 'saved view' : e.type
+	for (const e of all) if (want.has(e.id)) n.set(kind(e), (n.get(kind(e)) ?? 0) + 1)
+	return [...n].map(([k, c]) => `${c} ${k}${c === 1 ? '' : 's'}`).join(', ')
 }
 
 /**
