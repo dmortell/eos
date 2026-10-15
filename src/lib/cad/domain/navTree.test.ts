@@ -78,3 +78,22 @@ describe('the Sheets node grouped (sheets-organising slice 4)', () => {
 		expect(t('package').children!.map((g) => [g.label, g.children!.map((c) => c.id)])).toEqual([['Rack set', ['RK']], ['Not in a package', ['SH']]])
 	})
 })
+
+describe('navigator: the rooms the user drew (Dave 2026-10-15)', () => {
+	it('a drawn room or EPS shows under its level; zones and rooms without an outline (imported numbers) do not', () => {
+		const sq = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }]
+		const extra = [
+			{ type: 'space', id: 'EPS1', levelId: 'L33', kind: 'eps', name: 'EPS 1', boundary: sq, order: 5 },
+			{ type: 'space', id: 'MR', levelId: 'L33', kind: 'room', name: 'Meeting 3', boundary: sq, order: 6 },
+			{ type: 'space', id: 'R201', levelId: 'L33', kind: 'room', name: '201', order: 7 },
+		] as Entity[]
+		const t = navTree(new ProjectIndex([...demoProject(), ...extra]))
+		const all = labels(t)
+		expect(all).toEqual(expect.arrayContaining(['EPS 1', 'Meeting 3']))
+		expect(all).not.toContain('201')
+		expect(all).not.toContain('Zone 3')
+		const find = (ns: NavNode[]): NavNode | undefined => ns.find((n) => n.key === 'space:EPS1') ?? ns.map((n) => find(n.children ?? [])).find(Boolean)
+		const eps = find(t)!
+		expect(eps).toMatchObject({ kind: 'space', detail: 'EPS', select: 'EPS1', open: { spec: { kind: 'plan' } } })
+	})
+})

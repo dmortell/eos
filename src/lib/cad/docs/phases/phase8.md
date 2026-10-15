@@ -3879,3 +3879,8 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     Floors shows "No model: + 2F model + 3F model" and Apply stays off; + 2F model made it again at 3800 (Undo took it
     out). The released-sheet question was seen on S001 and cancelled. **Left as is on purpose**: Test Project without
     the 2F / 3F levels.
+- **Navigator: the rooms you drew** (Dave 2026-10-15: "list all rooms the user creates"): under each level, after its
+  server rooms, every room with an outline (Room tool: EPS, AV, meeting, machine rooms …; detail "EPS" or its kind),
+  rename / delete in its ⋮; a click opens the plan with the room selected and panned into view. Zones, areas and
+  imported room numbers (no outline — imports never make one) stay out, so no flag is needed. Test in
+  `domain/navTree.test.ts`; seen live in Test Project ("Room 2" drawn on 1F, listed; undone).

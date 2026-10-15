@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 4 entries (4 P3 ❓, W33–W36 built 2026-10-15: Navigator rooms (generic), and 3 review todos (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 3 entries (3 P3 ❓ review todos; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
 
 - [ ] ❓ **Edits in two tabs overwrite each other** (Dave 2026-10-15 todo, "review how to handle") — the settings doc
@@ -35,10 +35,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Dave's todos (2026-10-14)
 
-- [ ] ❓ **Navigator: rooms, not only server rooms** (Dave 2026-10-15, "consider") — list every kind of room under its
-  level (AV, meeting, machine, EPS rooms …), not just server rooms. The elevation rows are gone (built 2026-10-15). To
-  decide: all rooms, or only rooms drawn / given a kind in cad (imported room outlines can be dozens per floor); a
-  click opens the plan centred on the room and selects it. **P3 · S**.
 
 ## Workflow walkthrough (2026-10-14)
 

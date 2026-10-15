@@ -18,7 +18,7 @@ export interface NavNode {
 	label: string
 	/** A small note on the right (outlet count, scale, "frame"). */
 	detail?: string
-	kind: 'building' | 'level' | 'view' | 'section' | 'room' | 'row' | 'rack' | 'riser' | 'sheets' | 'place' | 'sheet' | 'viewport'
+	kind: 'building' | 'level' | 'view' | 'section' | 'room' | 'space' | 'row' | 'rack' | 'riser' | 'sheets' | 'place' | 'sheet' | 'viewport'
 	/** What a click opens: a view of a level (the riser view has no level). */
 	open?: { levelId?: Id; spec: ViewSpec }
 	/** What a click selects (a rack, a sheet, a section). */
@@ -60,8 +60,13 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 				],
 			}
 		})
+		// the other rooms the user DREW (Room tool: an outline — EPS, AV, meeting, machine rooms …; Dave 2026-10-15). Zones,
+		// areas and imported room numbers (no outline) stay out; a click shows it on the plan, selected
+		const drawn = ix.spaces.filter((s) => s.levelId === l.id && s.kind !== 'server room' && s.kind !== 'zone' && s.kind !== 'area' && !!s.boundary?.length)
+			.sort((a, b) => naturalCompare(a.name, b.name))
+			.map((s): NavNode => ({ key: `space:${s.id}`, label: s.name, detail: s.kind === 'eps' ? 'EPS' : s.kind === 'room' ? undefined : s.kind, kind: 'space', id: s.id, select: s.id, open: { levelId: l.id, spec: { kind: 'plan' } } }))
 		const n = outlets.get(l.id)
-		return { key: `lvl:${l.id}`, label: l.name, detail: n ? `${n} outlets` : undefined, kind: 'level', id: l.id, open: { levelId: l.id, spec: { kind: 'plan' } }, children: [...views, ...roomNodes] }
+		return { key: `lvl:${l.id}`, label: l.name, detail: n ? `${n} outlets` : undefined, kind: 'level', id: l.id, open: { levelId: l.id, spec: { kind: 'plan' } }, children: [...views, ...roomNodes, ...drawn] }
 	}
 
 	const out: NavNode[] = []

@@ -79,7 +79,7 @@
 	function toggle(k: string) { const n = new Set(open); if (n.has(k)) n.delete(k); else n.add(k); open = n; save() }
 
 	/** Is this row the view the active pane shows? (Rooms, not each of their racks; sheets, not their viewports.) */
-	const isCurrent = (n: NavNode) => (!!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && specKey(n.open.spec) === specKey(current.spec)
+	const isCurrent = (n: NavNode) => (!!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && n.kind !== 'space' && specKey(n.open.spec) === specKey(current.spec)
 		&& (!n.open.levelId || current.spec.kind === 'sheet' || n.open.levelId === current.levelId))
 		// an elevation has no row of its own (Dave 2026-10-15): its level is the one marked
 		|| (n.kind === 'level' && current.spec.kind === 'elevation' && n.id === current.levelId)
@@ -132,13 +132,13 @@
 	function renameOf(n: NavNode): (() => void) | null {
 		const id = n.id
 		if (!id) return null
-		return n.kind === 'level' ? () => renameLevel(id) : n.kind === 'room' ? () => renameRoom(id) : n.kind === 'sheet' ? () => renameSheet(id) : n.kind === 'section' ? () => renameSection(id) : null
+		return n.kind === 'level' ? () => renameLevel(id) : n.kind === 'room' || n.kind === 'space' ? () => renameRoom(id) : n.kind === 'sheet' ? () => renameSheet(id) : n.kind === 'section' ? () => renameSection(id) : null
 	}
 	/** A row's commands (empty = no ⋮). */
 	function rowMenu(n: NavNode): MenuItem[] {
-		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
+		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : n.kind === 'space' ? 'Show on the plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
 		if (n.kind === 'level' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
-		if (n.kind === 'room' && id) return [...open, '-', { label: 'Rename…', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
+		if ((n.kind === 'room' || n.kind === 'space') && id) return [...open, '-', { label: 'Rename…', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
 		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
 		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',
@@ -146,7 +146,7 @@
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
 		return []
 	}
-	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
+	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', space: 'square', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
 </script>
 
 <div class="nav">

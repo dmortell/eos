@@ -428,6 +428,7 @@
 		setPane(activePane, $state.snapshot(o.spec) as ViewSpec, keep ? 'keep' : 'open')
 		if (n.kind === 'rack' && n.id) ws.focus = n.id
 		if (n.select) ws.select([n.select])
+		if (n.kind === 'space') ws.reveal++   // a room drawn on the plan: pan it into view, selected
 	}
 	function openTable(t: BottomTab) { panels.shown.bottom = true; panels.save(); pickBottom(t) }
 	// project actions (app/shellActions.ts)
