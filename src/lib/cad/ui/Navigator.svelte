@@ -188,11 +188,12 @@
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{/if}
-		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}
+		<!-- Dave 2026-10-15: ✎ left of the count; the open-tab dot last, in a slot every row keeps, so the dots line up -->
+		{#if renameOf(n) && ws.navRename?.id !== n.id}<button class="act ren" title={n.kind === 'sheet' ? 'Rename (its title; Renumber is in ⋮) — F2' : 'Rename — F2'} onclick={() => renameOf(n)!()}><Icon name="edit" size={11} /></button>{/if}
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'sheets'}<button class="act txt" title="A new A3 landscape sheet, opened in a tab" onclick={onnewsheet}>+ New</button>{/if}
-		{#if renameOf(n) && ws.navRename?.id !== n.id}<button class="act ren" title={n.kind === 'sheet' ? 'Rename (its title; Renumber is in ⋮) — F2' : 'Rename — F2'} onclick={() => renameOf(n)!()}><Icon name="edit" size={11} /></button>{/if}
 		{#if rowMenu(n).length}<button class="act more" title="Commands (or right-click the row)" onclick={(e) => openMenu(n, e)}>⋮</button>{/if}
+		<span class="dotslot">{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}</span>
 	</div>
 	{#if unfolded}{#each kids as c (c.key)}{@render row(c, depth + 1)}{/each}{/if}
 {/snippet}
@@ -213,7 +214,8 @@
 	.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.k-building .t, .k-sheets .t { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.02em; color: var(--cad-muted); }
 	.k-level .t { font-weight: 600; }
-	.dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #2563eb; opacity: 0.6; }
+	.dotslot { flex: 0 0 8px; display: flex; justify-content: flex-end; }
+	.dot { width: 6px; height: 6px; border-radius: 50%; background: #2563eb; opacity: 0.6; }
 	.d { font-size: 10px; color: var(--cad-faint); white-space: nowrap; }
 	.act { min-width: 20px; min-height: 20px; padding: 0 4px; font-size: 11px; color: var(--cad-faint); border-radius: 3px; }
 	.act.txt { color: var(--cad-muted); }
