@@ -57,7 +57,7 @@
 		{ label: 'Release register, latest only (Excel)', disabled: !issues.length, title: 'One column: each sheet’s last revision, release and date', run: () => register(true) },
 	])
 	async function reprint(i: Issue) {
-		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await reprintIssue(project, i); if (r) ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
 	}
 	async function transmittal(i: Issue) {

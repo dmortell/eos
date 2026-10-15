@@ -18,7 +18,7 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 7 entries (7 P3; the Issue word decided 2026-10-15, being built; the rest ❓ — waiting on Dave's answers; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 6 entries (6 P3, all ❓ — waiting on Dave's answers; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
@@ -35,10 +35,6 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   
   **P3 · M**. *cad today:* layers (system + project) with hide / lock / freeze per viewport; a draw order per shape;
   the floorplan at a fixed 0.6 opacity. *From:* Dave 2026-10-14 (walkthrough).
-- [ ] **Another word for "Issue"** (Dave 2026-10-15 todo) — "Issue" reads as issues & risks. Candidates: **Release**,
-  **Transmittal**, **Submission**, **Drawing issue** / **Sheet set**, **Publish**. It names the Issue… action, the
-  Issues list / tab, "Issued revisions", "Changed since last issue" and the issue register. **P3 · S**. **Dave
-  2026-10-15: Release** (Release…, Releases, Released revisions, Changed since last release, release register).
 - [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
   — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
   clicks. **P3 · M–L**.

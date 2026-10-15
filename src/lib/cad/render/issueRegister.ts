@@ -3,7 +3,7 @@
 // each sheet's last revision, issue and date. exceljs is loaded on demand.
 import type { Issue } from '../domain/drawing'
 import { issueRegister } from '../domain/issue'
-import { download, fileSafe } from './download'
+import { fileSafe, saveFile } from './download'
 
 export async function exportIssueRegister(issues: Issue[], projectName: string, latest: boolean): Promise<void> {
 	const ExcelJS = await import('exceljs')
@@ -32,5 +32,5 @@ export async function exportIssueRegister(issues: Issue[], projectName: string, 
 	ws.getColumn(1).width = 14
 	ws.getColumn(2).width = 40
 	reg.columns.forEach((_, i) => (ws.getColumn(i + 3).width = latest ? 30 : 16))
-	download(await wb.xlsx.writeBuffer(), `ReleaseRegister_${fileSafe(projectName)}${latest ? '_latest' : ''}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	await saveFile(await wb.xlsx.writeBuffer(), `ReleaseRegister_${fileSafe(projectName)}${latest ? '_latest' : ''}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: `Release register${latest ? ' latest' : ''}` })
 }

@@ -3812,3 +3812,12 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   on Test Project: the outlet schedule's Save as with its own name, then with the pattern
   ("Test_Project_Outlet_schedule_4F_20261015"); Esc saved nothing; the BOM dialog's Save as cancelled leaves the
   dialog open; the pattern cleared afterwards (checked in Firestore).
+- **"Issue" becomes "Release"** (Dave 2026-10-15): every word a user sees or gets in a file — Release… / Releases /
+  Re-release… / Released revisions / Released in / Changed since last release / Not released, the Release panel and
+  list, undo labels, Help (area "Sheets and releases"), the agent guide, Settings, Uploads ("Released sheets",
+  "Release PDF"), `issueTag` → "Release 03" (file names, cover, transmittal "Release No." / "This release"), the
+  register (`ReleaseRegister_….xlsx`, "Release register"). Data names unchanged (`'issue'` type, `issueId`, state keys,
+  `issue-` file ids). Kept: "issues" meaning allocation / import problems. One-offs: PropGroup fold state of the two
+  renamed groups resets once; files already uploaded keep their "Issue NN" names. The reprint, revision PDF,
+  transmittal and register downloads now go through the Save as dialog too. Built by an agent in a worktree, merged
+  there (helpContent / SettingsPanel conflicts resolved), tests 1156 pass, svelte-check clean in cad.
