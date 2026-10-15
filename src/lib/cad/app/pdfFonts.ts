@@ -2,9 +2,11 @@
 // from Google Fonts' repository, fetched when a PDF is made with one set and kept for the session. jsPDF embeds only the
 // characters a PDF uses. Chinese is not offered yet: the static TTFs there are display faces, and Noto Sans SC / TC
 // are too large to fetch this way.
-export type PdfFontLang = 'ja' | 'ko'
+export type PdfFontLang = 'ja' | 'ja-noto' | 'ko'
 export const PDF_FONTS: Record<PdfFontLang, { label: string; face: string; url: string }> = {
 	ja: { label: 'Japanese', face: 'M PLUS 1p', url: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplus1p/MPLUS1p-Regular.ttf' },
+	// Google Fonts' own static TTF (its repository has only the 9 MB variable one, which jsDelivr won't serve): 5.7 MB to fetch
+	'ja-noto': { label: 'Japanese', face: 'Noto Sans JP', url: 'https://fonts.gstatic.com/s/notosansjp/v57/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf' },
 	ko: { label: 'Korean', face: 'Nanum Gothic', url: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/nanumgothic/NanumGothic-Regular.ttf' },
 }
 

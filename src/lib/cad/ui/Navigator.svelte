@@ -21,6 +21,9 @@
 	import { Icon } from '$lib'
 	import { viewKey } from '../app/tabs.svelte'
 	import ContextMenu from './ContextMenu.svelte'
+	import { floorsWithoutLevel } from '../domain/floors'
+	import { newId } from '../domain/ids'
+	import type { Level } from '../domain/types'
 	import type { MenuItem } from './cadMenus'
 
 	let { project, ws, current, onopen, tabbed, onfloors, onsettings, onnewsheet, onpdfall, onpdf }: {
@@ -104,8 +107,20 @@
 	const deleteRoom = (id: string) => deleteRoomOf(project, ws, id)
 	// ── row menus (UX review L4, Dave: "the hidden buttons … are hard to spot"): a faint ⋮ on every row with commands,
 	// the same menu on right-click; Delete only inside the menu (no ✕ under the pointer) ──
-	let menu = $state<{ n: NavNode; x: number; y: number } | null>(null)
+	let menu = $state<{ n: NavNode; x: number; y: number; items?: MenuItem[] } | null>(null)
 	function openMenu(n: NavNode, e: MouseEvent) { menu = { n, x: e.clientX, y: e.clientY } }
+	/** The project row's + (Dave 2026-10-15): a model for a floor that has none (W33), else Floors…. */
+	function openAdd(n: NavNode, e: MouseEvent) {
+		const b = n.id ? project.index.get(n.id) : undefined
+		const fl = b?.type === 'building' ? floorsWithoutLevel(project.index.levels, b) : []
+		if (!fl.length) { onfloors(); return }
+		const items: MenuItem[] = [...fl.map((l): MenuItem => ({ label: `+ ${l.name} model`, run: () => {
+			const lv: Level = { ...l, id: newId() }
+			project.store.transact(`Model for ${l.name}`, (tx) => tx.put(lv))
+			ws.say(`${l.name} has a model — it's in the Navigator; Undo takes it out`)
+		} })), '-', { label: 'Floors…', run: onfloors }]
+		menu = { n, x: e.clientX, y: e.clientY, items }
+	}
 	// renames happen in the row (ws.navRename): its label becomes an input — unfolded to it first (Project › Rename this level…)
 	const renameSheet = (id: string) => { ws.navRename = { id, field: 'title' } }
 	const renumberSheet = (id: string) => { ws.navRename = { id, field: 'number' } }
@@ -167,7 +182,7 @@
 	</div>
 </div>
 
-{#if menu}<ContextMenu x={menu.x} y={menu.y} items={rowMenu(menu.n)} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} items={menu.items ?? rowMenu(menu.n)} onclose={() => (menu = null)} />{/if}
 
 {#snippet row(n: NavNode, depth: number)}
 	{@const kids = n.children ?? []}
@@ -191,6 +206,7 @@
 		<!-- Dave 2026-10-15: no ✎ (Rename is in ⋮, F2); the open-tab dot last, in a slot every row keeps, so the dots line up -->
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'sheets'}<button class="act txt" title="A new A3 landscape sheet, opened in a tab" onclick={onnewsheet}>+ New</button>{/if}
+		{#if n.kind === 'building'}<button class="act txt" title="Add a floor model (a floor of the building with none — Floors… sets the floors)" onclick={(e) => openAdd(n, e)}>+</button>{/if}
 		{#if rowMenu(n).length}<button class="act more" title="Commands (or right-click the row)" onclick={(e) => openMenu(n, e)}>⋮</button>{/if}
 		<span class="dotslot">{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}</span>
 	</div>
