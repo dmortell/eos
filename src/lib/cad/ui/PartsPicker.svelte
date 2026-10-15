@@ -23,7 +23,7 @@
 
 <div class="pp">
 	{#if allowAll}
-		<label class="pp-mode"><input type="radio" checked={parts === 'all'} onchange={() => (parts = 'all')} /> Whole project <span class="pp-hint">— every model, sheets, views, layers, settings and issues</span></label>
+		<label class="pp-mode"><input type="radio" checked={parts === 'all'} onchange={() => (parts = 'all')} /> Whole project <span class="pp-hint">— every model, sheets, views, layers, settings and releases</span></label>
 		<label class="pp-mode"><input type="radio" checked={parts !== 'all'} onchange={() => (parts = [])} /> Chosen models</label>
 	{/if}
 	{#if parts !== 'all'}

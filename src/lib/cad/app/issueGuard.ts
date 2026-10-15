@@ -27,8 +27,8 @@ export async function issuesUsingFile(db: Firestore, fileId: string, pids: strin
 		const issues = new Map<string, string>()
 		;(await getDocs(query(collection(db, 'projects', pid, 'cadEntities'), where('type', '==', 'issue')))).forEach((d) => {
 			const x = d.data() as { id?: string; name?: string; file?: { id?: string } }
-			issues.set(x.id ?? d.id, x.name ?? 'an issue')
-			if (x.file?.id === fileId) names.add(x.name ?? 'an issue')
+			issues.set(x.id ?? d.id, x.name ?? 'a release')
+			if (x.file?.id === fileId) names.add(x.name ?? 'a release')
 		})
 		if (!issues.size) continue
 		// frozen copies: a head per (sheet, rev) names its issue; its parts hold the display list as JSON text
@@ -38,7 +38,7 @@ export async function issuesUsingFile(db: Firestore, fileId: string, pids: strin
 			if (x.issueId) heads.set(d.id, x.issueId)
 			if (typeof x.json === 'string' && x.json.includes(needle)) hits.add(d.id.replace(/~p\d+$/, ''))
 		})
-		for (const k of hits) { const iss = heads.get(k); if (iss) names.add(issues.get(iss) ?? 'an issue') }
+		for (const k of hits) { const iss = heads.get(k); if (iss) names.add(issues.get(iss) ?? 'a release') }
 	}
 	return [...names]
 }

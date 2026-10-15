@@ -160,7 +160,7 @@
 		{ label: busy ? 'PDF…' : `PDF of the ${rows.length} sheets shown`, disabled: busy || !rows.length, title: 'The sheets the table shows in one PDF, in its order (select some for a PDF of those)', run: () => pdf(rows) },
 		{ label: `Excel: the register (${picked.length ? `${picked.length} selected` : `${rows.length} shown`})`, title: 'The register as Excel: the selected sheets, else the rows shown', run: excel },
 		'-',
-		{ label: `Issue state column${states.busy ? '…' : ''}`, checked: showState, title: 'Show each sheet’s issue state — worked out in the background (draws every issued sheet); a State chip filters by it', run: () => { showState = !showState; if (!showState) fStates = [] } },
+		{ label: `Release state column${states.busy ? '…' : ''}`, checked: showState, title: 'Show each sheet’s release state — worked out in the background (draws every released sheet); a State chip filters by it', run: () => { showState = !showState; if (!showState) fStates = [] } },
 		'-',
 		...GROUPS.map(([g, label]): MenuItem => ({ label: g === 'none' ? 'No groups' : `Group by ${label}`, checked: by === g, run: () => (by = g) })),
 	])
@@ -181,8 +181,8 @@
 	     selection, chips and the Issue panel) -->
 	<span class="seg" role="tablist" aria-label="Sheets view">
 		<button role="tab" aria-selected={show === 'register'} class:on={show === 'register'} onclick={() => (show = 'register')}>Sheets</button>
-		<button role="tab" aria-selected={show === 'packages'} class:on={show === 'packages'} title="Re-usable sets of sheets for issuing" onclick={() => (show = 'packages')}>Packages {packageCount || ''}</button>
-		<button role="tab" aria-selected={show === 'issues'} class:on={show === 'issues'} onclick={() => (show = 'issues')}>Issues {issueCount || ''}</button>
+		<button role="tab" aria-selected={show === 'packages'} class:on={show === 'packages'} title="Re-usable sets of sheets for releasing" onclick={() => (show = 'packages')}>Packages {packageCount || ''}</button>
+		<button role="tab" aria-selected={show === 'issues'} class:on={show === 'issues'} onclick={() => (show = 'issues')}>Releases {issueCount || ''}</button>
 	</span>
 {/snippet}
 
@@ -197,7 +197,7 @@
 {:else}
 <TableFrame label="Sheets" {t} lead={seg} top={issuePanel} onkeydown={tableKey} {more} countTitle="Shown · sheets · selected"
 	count="{rows.length} of {sheets.length}{picked.length ? ` · ${picked.length} selected` : ''}" nSel={picked.length}
-	hint="Select sheets (click · Shift · Ctrl) to print, issue, order, archive or delete them — double-click one to open it">
+	hint="Select sheets (click · Shift · Ctrl) to print, release, order, archive or delete them — double-click one to open it">
 	{#snippet chips()}
 		<StatusChip tone="active" label="Active {statusCount.active}" off={!showStatus.active} upper={false} title="Show / hide the active sheets" onclick={() => (showStatus.active = !showStatus.active)} />
 		<StatusChip tone="archived" label="Archived {statusCount.archived}" off={!showStatus.archived} upper={false} title="Show / hide the archived sheets" onclick={() => (showStatus.archived = !showStatus.archived)} />
@@ -213,7 +213,7 @@
 			<button aria-label="Earlier in the print order" onclick={() => move(-1)}>▲</button><button aria-label="Later in the print order" onclick={() => move(1)}>▼</button>
 		</span>
 		<button class="tb" disabled={busy} title="The selected sheets in one PDF, in the table's order" onclick={() => pdf(picked)}>{busy ? 'PDF…' : 'PDF'}</button>
-		<button class="tb" disabled={!!issuing} title="Issue the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Issue…</button>
+		<button class="tb" disabled={!!issuing} title="Release the selected sheets as one package: changed sheets get a new revision" onclick={startIssue}>Release…</button>
 		<button class="tb" title="Copies of the selected sheets with their viewports and notes (no number, no revisions), each after its original" onclick={() => ws.select(duplicateSheets(project, picked.map((r) => r.id)))}>Duplicate</button>
 		{#if picked.some((r) => r.status === 'active')}<button class="tb" onclick={() => setStatus('archived')}>Archive</button>{/if}
 		{#if picked.some((r) => r.status === 'archived')}<button class="tb" onclick={() => setStatus('active')}>Restore</button>{/if}
@@ -223,7 +223,7 @@
 		<thead>
 			<tr>
 				{#each COLS as [k, label] (k)}<SortTh {t} key={k} cls="px-2 py-1" title={k === 'order' ? 'The print order (also the order with no column picked) — drag rows to reorder' : undefined}>{label}</SortTh>{/each}
-				{#if showState}<th class="px-2">Issue</th>{/if}<th class="px-2">Tags</th><th class="px-2">Status</th>
+				{#if showState}<th class="px-2">Release</th>{/if}<th class="px-2">Tags</th><th class="px-2">Status</th>
 			</tr>
 		</thead>
 		<tbody>

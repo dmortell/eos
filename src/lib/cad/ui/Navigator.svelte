@@ -183,7 +183,7 @@
 		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
 			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
-			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last issue ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
+			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{/if}
 		{#if n.open && n.kind !== 'rack' && tabbed.has(viewKey({ levelId: n.open.levelId, spec: n.open.spec }))}<span class="dot" title="Open in a tab"></span>{/if}

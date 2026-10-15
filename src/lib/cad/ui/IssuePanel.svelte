@@ -54,7 +54,7 @@
 		return () => runs.cancel()
 	})
 	async function issue() {
-		if (!name.trim()) { err = 'Name the issue'; return }
+		if (!name.trim()) { err = 'Name the release'; return }
 		busy = true; err = ''
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
@@ -62,36 +62,36 @@
 				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, attach: [...attach], recipients: pkg?.recipients ? resolveRecipients(pkg.recipients, project.settings?.contacts) : to.trim() ? [{ name: to.trim() }] : undefined })   // contacts as they are now
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			const att = r.issue.attachments?.length ? ` with ${r.issue.attachments.length} Excel file(s)` : ''
-			ws.say(`Issued ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF${att} saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
+			ws.say(`Released ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF${att} saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
 			onclose(true)
-		} catch (e) { err = `Issue failed — nothing was recorded: ${(e as Error).message}` }
+		} catch (e) { err = `Release failed — nothing was recorded: ${(e as Error).message}` }
 		finally { busy = false }
 	}
 </script>
 
 <div class="panel">
 	<div class="flex flex-wrap items-center gap-2">
-		<span class="font-semibold">Issue {sheets.length} sheet(s){#if pkg} of package {pkg.name}{/if}</span>
+		<span class="font-semibold">Release {sheets.length} sheet(s){#if pkg} of package {pkg.name}{/if}</span>
 		<!-- W24: this is the ISSUE's name (in the Issues list, the transmittal, the PDF's name) — a package is made in
 		     Packages (+ From selection); "Package" here read as if typing one made it -->
-		<label title={pkg ? 'This issue’s name — the package keeps its own' : 'This issue’s name (Issues list, transmittal, PDF). To issue the same sheets again later, make them a package: Packages › + From selection'}>Issue name <input class="inp w-40" bind:value={name} placeholder="e.g. Tender issue 1" /></label>
+		<label title={pkg ? 'This release’s name — the package keeps its own' : 'This release’s name (Releases list, transmittal, PDF). To release the same sheets again later, make them a package: Packages › + From selection'}>Release name <input class="inp w-40" bind:value={name} placeholder="e.g. Tender release 1" /></label>
 		<label>Purpose <input class="inp w-32" list="cad-purposes" bind:value={purpose} /></label>
 		<datalist id="cad-purposes">{#each PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
 		<label>Date <input class="inp" type="date" bind:value={date} /></label>
 		<label>To <input class="inp w-32" bind:value={to} placeholder="(optional)" /></label>
-		<label title="The revision a sheet gets the first time it is issued">First rev <input class="inp w-12 font-mono" bind:value={first} /></label>
+		<label title="The revision a sheet gets the first time it is released">First rev <input class="inp w-12 font-mono" bind:value={first} /></label>
 		<label>Note <input class="inp w-40" bind:value={note} placeholder="(optional)" /></label>
-		<label title="A cover page first in the PDF: the project, the issue, who gets it and the drawing register (the first sheet's size, with the title block)"><input type="checkbox" bind:checked={cover} /> Cover page</label>
+		<label title="A cover page first in the PDF: the project, the release, who gets it and the drawing register (the first sheet's size, with the title block)"><input type="checkbox" bind:checked={cover} /> Cover page</label>
 		<!-- W21: Excel files that go out with the drawings -->
-		<span class="flex items-center gap-1" title="Excel files issued with the PDF: made as File › Export makes them, saved to Uploads with the issue, listed on the cover page and in the Issues list">With:
+		<span class="flex items-center gap-1" title="Excel files released with the PDF: made as File › Export makes them, saved to Uploads with the release, listed on the cover page and in the Releases list">With:
 			{#each Object.entries(ATTACHMENT_NAME) as [a, label] (a)}<label><input type="checkbox" checked={attach.includes(a as Attachment)} onchange={(e) => toggleAttach(a as Attachment, e.currentTarget.checked)} /> {label}</label>{/each}</span>
-		<label title="Keep a backup of the whole project with this issue, so it can be restored from the Issues list later. Each one is a full copy of the project: tick it only for an issue you may need to go back to."><input type="checkbox" bind:checked={backup} /> Back up the project with this issue</label>
-		<label title="Who issues it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
+		<label title="Keep a backup of the whole project with this release, so it can be restored from the Releases list later. Each one is a full copy of the project: tick it only for a release you may need to go back to."><input type="checkbox" bind:checked={backup} /> Back up the project with this release</label>
+		<label title="Who releases it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => enterKey(e) && applyAll()} onchange={applyAll} /></label>
-		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Issuing…' : 'Issue'}</button>
+		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Releasing…' : 'Release'}</button>
 		<button class="btn" disabled={busy} onclick={() => onclose()}>Cancel</button>
 	</div>
-	{#if backup}<p class="text-amber-700">A full copy of the project (about {projectSize}) is kept with this issue. Tick it only for an issue you may need to go back to (old ones can be deleted in Project › Backups…)</p>{/if}
+	{#if backup}<p class="text-amber-700">A full copy of the project (about {projectSize}) is kept with this release. Tick it only for a release you may need to go back to (old ones can be deleted in Project › Backups…)</p>{/if}
 	{#if err}<p class="text-red-600">{err}</p>{/if}
 	{#if shown}
 		<!-- per sheet: a new revision (its code editable; what changed) or as last issued; a package's added / withdrawn -->
@@ -100,7 +100,7 @@
 			<tbody>
 				{#each shown as r (r.sheet.id)}
 					<tr>
-						<td class="font-mono">{r.sheet.number}{#if added.has(r.sheet.id)} <span class="tag add" title="Not in the package's last issue">added</span>{/if}</td>
+						<td class="font-mono">{r.sheet.number}{#if added.has(r.sheet.id)} <span class="tag add" title="Not in the package's last release">added</span>{/if}</td>
 						<td>{r.sheet.title}</td>
 						{#if r.changed}
 							<td class="whitespace-nowrap"><span class="text-zinc-500">{r.from ? `${r.from} →` : 'new'}</span>
@@ -109,13 +109,13 @@
 							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={changesText(r.sheet) || purpose}
 								title={r.sheet.changes?.length ? `Its change notes (Sheet Properties), recorded on the revision:\n${changeLines(r.sheet.changes)}` : 'What changed (else the purpose)'} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
 						{:else}
-							<td class="text-zinc-400" colspan="2">stays {r.rev} (unchanged since issued)</td>
+							<td class="text-zinc-400" colspan="2">stays {r.rev} (unchanged since released)</td>
 						{/if}
 					</tr>
 				{/each}
 			</tbody>
 		</table>
-		{#if withdrawn.length}<p class="text-red-700">Withdrawn since its last issue: {withdrawn.map((w) => `${w.number} ${w.rev}`).join(', ')} — listed on the transmittal</p>{/if}
+		{#if withdrawn.length}<p class="text-red-700">Withdrawn since its last release: {withdrawn.map((w) => `${w.number} ${w.rev}`).join(', ')} — listed on the transmittal</p>{/if}
 		{#if problems.length}<p class="text-red-600">{problems.join(' · ')}</p>{/if}
 	{:else if !err}<p class="mt-1 text-zinc-400">Checking what changed…</p>{/if}
 </div>

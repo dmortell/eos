@@ -113,7 +113,7 @@
 		<DisciplinesTab {project} />
 	</section>
 	<section>
-		<p class="h">Contacts <span class="hint">— who issues go to (this project)</span></p>
+		<p class="h">Contacts <span class="hint">— who releases go to (this project)</span></p>
 		<ContactsTab {project} />
 	</section>
 	<section>
@@ -178,11 +178,11 @@
 	</div>
 {:else if tab === 'files'}
 	<div class="form">
-		<label title="Where cad puts the files it uploads: issue PDFs and title-block logos">New uploads go to
+		<label title="Where cad puts the files it uploads: release PDFs and title-block logos">New uploads go to
 			<select value={st.fileStorage ?? 'uploadthing'} onchange={(e) => { const v = e.currentTarget.value as FileStorage; save(v === 'firebase' ? 'Uploads to Firebase Storage' : 'Uploads to UploadThing', (s) => ({ ...s, fileStorage: v })) }}>
 				<option value="uploadthing">UploadThing</option><option value="firebase">Firebase Storage</option>
 			</select></label>
-		<p class="wide text-zinc-500">Issue PDFs and title-block logos, for everyone on this project. Files already uploaded stay where they are; Uploads lists both kinds.</p>
+		<p class="wide text-zinc-500">Release PDFs and title-block logos, for everyone on this project. Files already uploaded stay where they are; Uploads lists both kinds.</p>
 	</div>
 {:else}
 	<table>

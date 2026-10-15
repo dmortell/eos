@@ -10,7 +10,7 @@ import type { Prim } from './display'
 import { sheetDisplayList, sheetTitleBlock, paperSize, type SheetOpts } from './sheet'
 import { titleBlockPrims } from './titleBlock'
 
-export interface CoverRow { number: string; title: string; rev: string; size: string; status: 'New revision' | 'As last issued' | 'Withdrawn' }
+export interface CoverRow { number: string; title: string; rev: string; size: string; status: 'New revision' | 'As last released' | 'Withdrawn' }
 export interface CoverData {
 	project: string; tag: string; name: string; purpose: string; date: string
 	recipients?: { name: string; org?: string }[]; note?: string; rows: CoverRow[]
@@ -48,7 +48,7 @@ export function coverPages(ix: ProjectIndex, first: Sheet, d: CoverData, o: Shee
 			if (d.attachments?.length) { out.push(text(x0, y, `Also enclosed: ${d.attachments.join(', ')} (Excel)`, 3)); y += 5.5 }
 			y += 4
 		}
-		;['No.', 'Title', 'Rev', 'Size', 'This issue'].forEach((t, i) => out.push(text(cols[i] + 1, y, t, HEAD, 'tb-label')))
+		;['No.', 'Title', 'Rev', 'Size', 'This release'].forEach((t, i) => out.push(text(cols[i] + 1, y, t, HEAD, 'tb-label')))
 		y += 2; out.push(line(y))
 		return { prims: out, y }
 	}

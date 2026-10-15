@@ -69,7 +69,7 @@ describe('issuePackage starts from the sheets as they are now', () => {
 	it('a revision whose frozen copy a recorded issue holds is refused up front, before the backup or any write', async () => {
 		const { project } = fakeProject(sheet('S1'), issue('I1'))
 		db.docs.set('projects/p/cadIssued/S1~A', { sheetId: 'S1', rev: 'A', issueId: 'I1', parts: 1 })
-		await expect(issuePackage(project, [sheet('S1')], { ...form, backup: true })).rejects.toThrow(/S1: revision A was already issued \(Issue I1\)/)
+		await expect(issuePackage(project, [sheet('S1')], { ...form, backup: true })).rejects.toThrow(/S1: revision A was already released \(Issue I1\)/)
 		expect(db.txWrites).toBe(0)
 	})
 })
@@ -85,7 +85,7 @@ describe('saveFrozen', () => {
 		const { project } = fakeProject(sheet('S1'), issue('I1'))
 		await saveFrozen(project, sheet('S1'), 'A', 'I1', [])
 		const before = JSON.stringify([...db.docs])
-		await expect(saveFrozen(project, sheet('S1'), 'A', 'I2', [])).rejects.toThrow(/already issued/)
+		await expect(saveFrozen(project, sheet('S1'), 'A', 'I2', [])).rejects.toThrow(/already released/)
 		expect(JSON.stringify([...db.docs])).toBe(before)
 	})
 	it('replaces a copy left by an issue that was never recorded (its upload failed), so a retry can use the code', async () => {

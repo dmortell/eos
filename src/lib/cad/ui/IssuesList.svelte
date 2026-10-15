@@ -44,7 +44,7 @@
 		const order = Math.max(0, ...project.index.ofType('package').map((p) => p.order)) + 10
 		const p = packageFromIssue(i, newId(), order)
 		project.store.transact(`Package from ${i.name}`, (tx) => { tx.put(p); tx.put({ ...i, packageId: p.id }) })
-		ws.say(`Package “${p.name}” made from ${i.name} — its next issue shows what changed since`)
+		ws.say(`Package “${p.name}” made from ${i.name} — its next release shows what changed since`)
 		onpackages()
 	}
 	/** `latestOnly`: one column, each sheet's last revision, issue and date. */
@@ -53,11 +53,11 @@
 	}
 	/** ⋯: the issue register for the PM (backlog), every issue or the latest revisions only. */
 	const more = $derived<MenuItem[]>([
-		{ label: 'Issue register (Excel)', disabled: !issues.length, title: 'Every sheet that went out (rows) by every issue (columns), with the revision it went at — as Excel', run: () => register(false) },
-		{ label: 'Issue register, latest only (Excel)', disabled: !issues.length, title: 'One column: each sheet’s last revision, issue and date', run: () => register(true) },
+		{ label: 'Release register (Excel)', disabled: !issues.length, title: 'Every sheet that went out (rows) by every release (columns), with the revision it went at — as Excel', run: () => register(false) },
+		{ label: 'Release register, latest only (Excel)', disabled: !issues.length, title: 'One column: each sheet’s last revision, release and date', run: () => register(true) },
 	])
 	async function reprint(i: Issue) {
-		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await reprintIssue(project, i); ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
 	}
 	async function transmittal(i: Issue) {
@@ -67,43 +67,43 @@
 
 <!-- the register of every issue for the PM (backlog): a sheet per row, an issue per column, or the latest only -->
 <datalist id="cad-purposes">{#each ISSUE_PURPOSES as p (p)}<option value={p}></option>{/each}</datalist>
-<TableFrame label="Issues" lead={seg} top={panel} count="{issues.length} issue{issues.length === 1 ? '' : 's'}" countTitle="Every issue, newest first" {more}>
+<TableFrame label="Releases" lead={seg} top={panel} count="{issues.length} release{issues.length === 1 ? '' : 's'}" countTitle="Every release, newest first" {more}>
 <table class="w-full border-collapse">
 	<thead>
-		<tr><th class="px-2 py-1" title="The issue's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
+		<tr><th class="px-2 py-1" title="The release's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
 	</thead>
 	<tbody>
 		{#each issues as i (i.id)}
 			<tr class="align-top">
-				<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Issue number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
+				<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Release number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
 				<td class="px-2 font-mono">{i.date}</td>
 				{#if editing === i.id}
 					<!-- the package's details (backlog "Edit package details"): the frozen copies and the PDF stay as issued -->
-					<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue name', { name: e.currentTarget.value.trim() })} />
-						<input class="cell w-full muted" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Issue note', { note: e.currentTarget.value.trim() || undefined })} /></td>
-					<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Issue purpose', { purpose: e.currentTarget.value.trim() })} /></td>
-					<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Issue to', { to: e.currentTarget.value.trim() || undefined })} /></td>
+					<td class="px-2"><input class="cell w-full" value={i.name} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Release name', { name: e.currentTarget.value.trim() })} />
+						<input class="cell w-full muted" value={i.note ?? ''} placeholder="Note" onchange={(e) => editIssue(i, 'Release note', { note: e.currentTarget.value.trim() || undefined })} /></td>
+					<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Release purpose', { purpose: e.currentTarget.value.trim() })} /></td>
+					<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Release to', { to: e.currentTarget.value.trim() || undefined })} /></td>
 				{:else}
 					<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block muted">{i.note}</span>{/if}</td>
 					<td class="px-2">{i.purpose}</td>
 					<td class="px-2">{i.to ?? ''}</td>
 				{/if}
-				<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last issued'}>{s.number} {s.rev}</span>{/each}</td>
+				<td class="px-2">{#each i.sheets as s, n (s.sheetId)}{n ? ', ' : ''}<span class="font-mono" class:font-bold={s.changed} title={s.changed ? 'New revision in this package' : 'As last released'}>{s.number} {s.rev}</span>{/each}</td>
 				<td class="px-2">{#if i.file}<a class="text-blue-600 underline" href={i.file.url} target="_blank" rel="noopener">{i.file.name}</a>{:else}—{/if}
 					<!-- W21: the Excel files issued with it -->
-					{#each i.attachments ?? [] as a (a.id)}<br /><a class="text-blue-600 underline" href={a.url} target="_blank" rel="noopener" title="Issued with it, as it was then">{a.name}</a>{/each}</td>
+					{#each i.attachments ?? [] as a (a.id)}<br /><a class="text-blue-600 underline" href={a.url} target="_blank" rel="noopener" title="Released with it, as it was then">{a.name}</a>{/each}</td>
 				<td class="px-2 whitespace-nowrap">
 					<button class="btn" title="The transmittal as Excel" onclick={() => transmittal(i)}>Transmittal</button>
-					<button class="btn" title="Draw the package again exactly as issued" onclick={() => reprint(i)}>Reprint</button>
+					<button class="btn" title="Draw the package again exactly as released" onclick={() => reprint(i)}>Reprint</button>
 					{#if i.backupId}<button class="btn" disabled={!owner} title={owner ? 'Put the whole project, or chosen models, back as they were when this went out' : 'Only the project owner can restore'} onclick={() => ws.restoreBackup(i.backupId!)}>Restore its backup…</button>{/if}
-					<button class="btn" disabled={busy} title="Issue these sheets again: they're selected in the register and the Issue panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-issue…</button>
-					{#if !i.packageId}<button class="btn" title="Make a re-usable package of its sheets (this issue becomes the package's last issue)" onclick={() => makePackage(i)}>Make package</button>
-					{:else}<span class="pk" title="Issued from a package">{project.index.nameOf(i.packageId) || 'package'}</span>{/if}
-					<button class="btn" title="Rename it, or change its purpose / recipient / note (what was issued stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
+					<button class="btn" disabled={busy} title="Release these sheets again: they're selected in the register and the Release panel opens (add / drop sheets there first if needed)" onclick={() => reissue(i)}>Re-release…</button>
+					{#if !i.packageId}<button class="btn" title="Make a re-usable package of its sheets (this release becomes the package's last release)" onclick={() => makePackage(i)}>Make package</button>
+					{:else}<span class="pk" title="Released from a package">{project.index.nameOf(i.packageId) || 'package'}</span>{/if}
+					<button class="btn" title="Rename it, or change its purpose / recipient / note (what was released stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
 				</td>
 			</tr>
 		{:else}
-			<tr><td colspan="8" class="px-2 py-3 faint">Nothing issued yet — select sheets in the register, then Issue….</td></tr>
+			<tr><td colspan="8" class="px-2 py-3 faint">Nothing released yet — select sheets in the register, then Release….</td></tr>
 		{/each}
 	</tbody>
 </table>

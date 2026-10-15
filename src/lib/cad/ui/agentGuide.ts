@@ -10,14 +10,14 @@ import { WIN_TITLES } from '../app/windows.svelte'
 const GUIDE = `# EOS cad — a guide for an AI assistant driving it in a browser
 
 You are helping a user design ICT cabling for a building (outlets, containment, server rooms, racks, patching) and
-issue drawings, by operating the cad tool in their browser. You can't see the source code; this page is what you need.
+release drawings, by operating the cad tool in their browser. You can't see the source code; this page is what you need.
 The full how-to list is at the end — search it for the task in hand.
 
 ## Ground rules
 
 - Work only in the project the user names. Every change saves at once (there is no Save button) and other people may
   have the project open, so nothing is a scratch copy.
-- Ask the user before anything that deletes a level, a server room or a sheet, restores a backup, imports, issues a
+- Ask the user before anything that deletes a level, a server room or a sheet, restores a backup, imports, releases a
   package, or downloads a file (everything under File › Export downloads).
 - Don't sign in, enter passwords or accept dialogs about accounts: if cad says "Sign in", ask the user.
 - After every step, CHECK it (see "Checking your work"). If something went wrong, Ctrl+Z undoes it — one undo per
@@ -33,7 +33,7 @@ The full how-to list is at the end — search it for the task in hand.
   cords between ports. Outlets are allocated to panel ports; routes and fill are worked out along the runs.
 - **Annotation**: text (optionally Markdown), leaders, dimensions, revision clouds, legends, blocks (symbols and 3D
   furniture from the global block library), images.
-- **Sheets**: paper drawings with a title block and **viewports** that each show a view at a scale. Sheets are issued
+- **Sheets**: paper drawings with a title block and **viewports** that each show a view at a scale. Sheets are released
   as PDFs, in packages, with revisions.
 - **Layers**: each project has its own; each viewport on a sheet hides layers independently.
 

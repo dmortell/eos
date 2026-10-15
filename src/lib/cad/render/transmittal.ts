@@ -10,17 +10,17 @@ export async function exportTransmittal(issue: Issue, projectName: string, numbe
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Transmittal')
 	ws.addRow(['Transmittal']).font = { bold: true, size: 14 }
-	for (const [k, v] of [['Project', projectName], ['Issue No.', number ? String(number) : ''], ['Package', issue.name], ['Purpose', issue.purpose], ['Date', issue.date], ['To', issue.to ?? ''], ['Note', issue.note ?? ''], ['PDF', issue.file?.name ?? '']]) {
+	for (const [k, v] of [['Project', projectName], ['Release No.', number ? String(number) : ''], ['Package', issue.name], ['Purpose', issue.purpose], ['Date', issue.date], ['To', issue.to ?? ''], ['Note', issue.note ?? ''], ['PDF', issue.file?.name ?? '']]) {
 		const r = ws.addRow([k, v])
 		r.getCell(1).font = { bold: true }
 	}
 	ws.addRow([])
-	const head = ws.addRow(['Sheet No.', 'Title', 'Rev', 'Size', 'This issue'])
+	const head = ws.addRow(['Sheet No.', 'Title', 'Rev', 'Size', 'This release'])
 	head.eachCell((cell) => {
 		cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
 		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
 	})
-	for (const s of transmittalRows(issue)) ws.addRow([s.number, s.title, s.rev, s.size, s.changed ? 'New revision' : 'As last issued'])
+	for (const s of transmittalRows(issue)) ws.addRow([s.number, s.title, s.rev, s.size, s.changed ? 'New revision' : 'As last released'])
 	// sheets of the package's last issue that aren't in this one (sheets-organising slice 8)
 	for (const s of issue.withdrawn ?? []) ws.addRow([s.number, s.title, s.rev, '', 'Withdrawn']).getCell(5).font = { color: { argb: 'FFB91C1C' } }
 	;[14, 44, 6, 8, 16].forEach((w, i) => (ws.getColumn(i + 1).width = w))

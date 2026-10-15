@@ -47,7 +47,7 @@ describe('issue numbers', () => {
 		expect(Object.fromEntries(issueNumbers(list))).toEqual({ a: 1, b: 2, c: 7 })
 		expect(nextIssueNumber(list)).toBe(8)
 		expect(nextIssueNumber([])).toBe(1)
-		expect(issueTag(3)).toBe('Issue 03')
+		expect(issueTag(3)).toBe('Release 03')
 	})
 })
 
@@ -151,14 +151,14 @@ describe('issue register (backlog: for the PM)', () => {
 	] as Issue[]
 	it('a column per issue in issue order, a row per sheet by number: its rev there, new or as issued, withdrawn', () => {
 		const r = issueRegister(issues)
-		expect(r.columns.map((c) => c.head)).toEqual(['Issue 01 Tender', 'Issue 02 Build'])
+		expect(r.columns.map((c) => c.head)).toEqual(['Release 01 Tender', 'Release 02 Build'])
 		expect(r.rows.map((x) => x.number)).toEqual(['S2', 'S10'])
 		expect(r.rows[0].cells).toEqual([{ rev: 'A', new: true }, { rev: 'B', new: true }])
 		expect(r.rows[1].cells).toEqual([{ rev: 'A', new: true }, 'withdrawn'])
 	})
 	it('latest only: one column, each sheet at its last issue', () => {
 		const r = issueRegister(issues, true)
-		expect(r.rows.map((x) => (x.cells[0] as { rev: string }).rev)).toEqual(['B · Issue 02 · 2026-02-01', 'A · Issue 01 · 2026-01-01'])
+		expect(r.rows.map((x) => (x.cells[0] as { rev: string }).rev)).toEqual(['B · Release 02 · 2026-02-01', 'A · Release 01 · 2026-01-01'])
 	})
 })
 

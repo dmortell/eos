@@ -202,7 +202,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Help', items: [
 			{ label: 'Help', key: KEYS.help, run: () => c.help() },
 			{ label: 'Keys and mouse', key: KEYS.keys, run: () => c.help(true) },
-			{ label: 'Walkthrough: a project from start to issue', run: () => c.walkthrough() },
+			{ label: 'Walkthrough: a project from start to release', run: () => c.walkthrough() },
 		] },
 	]
 }

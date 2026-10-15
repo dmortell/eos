@@ -124,7 +124,7 @@
 						<div class="h">{preview.line}</div>
 						{#each preview.skipped.slice(0, 8) as s (s)}<div class="warn">{s}</div>{/each}
 						{#if preview.skipped.length > 8}<div class="warn">… and {preview.skipped.length - 8} more skipped</div>{/if}
-						<div class="hint">Everyone working in these models gets the change at once. Issues and sheet revisions stay as they are.</div>
+						<div class="hint">Everyone working in these models gets the change at once. Releases and sheet revisions stay as they are.</div>
 						<label class="row"><input type="checkbox" bind:checked={backFirst} /> Back up the current state first <span class="hint">(Project › Backups…)</span></label>
 					{:else}
 						<div class="hint">Compare first, to see what the restore would change.</div>

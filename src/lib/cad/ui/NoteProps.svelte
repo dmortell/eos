@@ -60,7 +60,7 @@
 {:else if g.kind === 'cloud'}
 	<label class="row">Arc (mm) <input class="inp" type="number" min="2" step="1" value={g.arcMm ?? 6} onchange={(e) => num(e.currentTarget.value) && setGeom('Cloud arcs', { arcMm: Math.max(2, Number(e.currentTarget.value)) })} /></label>
 	<!-- W20: the revision it marks — its delta tag; it hides once a later revision of the sheet is issued -->
-	<label class="row" title="The sheet revision this cloud marks: shown in its delta tag; once a later revision is issued it is hidden (kept — its own issue still prints it). Blank = no tag, always shown">Revision <input class="inp" value={g.rev ?? ''} placeholder="none" onchange={(e) => setGeom('Cloud revision', { rev: e.currentTarget.value.trim() || undefined })} /></label>
+	<label class="row" title="The sheet revision this cloud marks: shown in its delta tag; once a later revision is released it is hidden (kept — its own release still prints it). Blank = no tag, always shown">Revision <input class="inp" value={g.rev ?? ''} placeholder="none" onchange={(e) => setGeom('Cloud revision', { rev: e.currentTarget.value.trim() || undefined })} /></label>
 {:else if g.kind === 'dimension'}
 	<label class="row">Measures
 		<select class="inp" value={g.mode} onchange={(e) => setGeom('Dimension kind', { mode: e.currentTarget.value })}>

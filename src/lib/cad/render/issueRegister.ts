@@ -9,9 +9,9 @@ export async function exportIssueRegister(issues: Issue[], projectName: string, 
 	const ExcelJS = await import('exceljs')
 	const reg = issueRegister(issues, latest)
 	const wb = new ExcelJS.Workbook()
-	const ws = wb.addWorksheet('Issue register')
-	ws.addRow([`${projectName} — issue register${latest ? ' (latest)' : ''}`]).font = { bold: true, size: 14 }
-	ws.addRow([`As of ${new Date().toISOString().slice(0, 10)} · ${issues.length} issue(s)`])
+	const ws = wb.addWorksheet('Release register')
+	ws.addRow([`${projectName} — release register${latest ? ' (latest)' : ''}`]).font = { bold: true, size: 14 }
+	ws.addRow([`As of ${new Date().toISOString().slice(0, 10)} · ${issues.length} release(s)`])
 	ws.addRow([])
 	const head = ws.addRow(['Sheet No.', 'Title', ...reg.columns.map((c) => (c.date ? `${c.head}\n${c.date}` : c.head))])
 	head.height = latest ? 18 : 30
@@ -32,5 +32,5 @@ export async function exportIssueRegister(issues: Issue[], projectName: string, 
 	ws.getColumn(1).width = 14
 	ws.getColumn(2).width = 40
 	reg.columns.forEach((_, i) => (ws.getColumn(i + 3).width = latest ? 30 : 16))
-	download(await wb.xlsx.writeBuffer(), `IssueRegister_${fileSafe(projectName)}${latest ? '_latest' : ''}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	download(await wb.xlsx.writeBuffer(), `ReleaseRegister_${fileSafe(projectName)}${latest ? '_latest' : ''}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 }

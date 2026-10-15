@@ -40,7 +40,7 @@
 			{#if walk.length}
 				<h3 bind:this={walkEl}>Walkthrough</h3>
 				<div class="how" class:open={walkOpen || !!q.trim()}>
-					<button class="how-q" onclick={() => (walkOpen = !walkOpen)}>A project from start to issue, stage by stage</button>
+					<button class="how-q" onclick={() => (walkOpen = !walkOpen)}>A project from start to release, stage by stage</button>
 					{#if walkOpen || q.trim()}
 						{#each walk as s, i (s.stage)}
 							<h4 class="stage">{i + 1}. {s.stage}</h4>

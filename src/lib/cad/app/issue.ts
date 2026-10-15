@@ -49,7 +49,7 @@ export function frozenNow(project: CadProject, sheet: Sheet): Prim[] {
 export function freshSheets(project: CadProject, listed: Sheet[]): Sheet[] {
 	return listed.map((s) => {
 		const cur = project.store.get(s.id)
-		if (cur?.type !== 'sheet') throw new Error(`${s.number || s.title} no longer exists — close the Issue panel and select the sheets again`)
+		if (cur?.type !== 'sheet') throw new Error(`${s.number || s.title} no longer exists — close the Release panel and select the sheets again`)
 		return cur
 	})
 }
@@ -67,7 +67,7 @@ export const printNow = (project: CadProject, prims: Prim[]): string => sheetPri
 function frozenTaken(project: CadProject, head: { issueId?: string } | undefined, sheet: { number?: string; title?: string }, rev: string): string | null {
 	if (!head) return null
 	const by = head.issueId ? project.store.get(head.issueId) : undefined
-	return by?.type === 'issue' ? `${sheet.number || sheet.title}: revision ${rev} was already issued (${by.name}) — use another revision code` : null
+	return by?.type === 'issue' ? `${sheet.number || sheet.title}: revision ${rev} was already released (${by.name}) — use another revision code` : null
 }
 
 /** Before anything is written: is a frozen copy of this (sheet, rev) already taken by a recorded issue? */
@@ -190,7 +190,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	let coverN = 0
 	if (f.cover && plan.length) {
 		const rows: CoverRow[] = [
-			...plan.map((r) => ({ number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: r.sheet.paper.size, status: (r.changed ? 'New revision' : 'As last issued') as CoverRow['status'] })),
+			...plan.map((r) => ({ number: r.sheet.number, title: r.sheet.title, rev: r.rev, size: r.sheet.paper.size, status: (r.changed ? 'New revision' : 'As last released') as CoverRow['status'] })),
 			...(f.withdrawn ?? []).map((w) => ({ number: w.number, title: w.title, rev: w.rev, size: '', status: 'Withdrawn' as const })),
 		]
 		const cover = coverPages(project.index, plan[0].sheet, { project: project.name, tag: issueTag(number), name: f.name, purpose: f.purpose, date: f.date, recipients: f.recipients, note: f.note, rows, floorplans, attachments: (f.attach ?? []).map((a) => ATTACHMENT_NAME[a]) },
@@ -219,8 +219,8 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		file,
 	}
 	// someone issued the same revision while this ran (the PDF is already uploaded; the frozen copies are theirs or ours)
-	for (const b of bumped) { const cur = project.store.get(b.id); if (cur?.type === 'sheet' && cur.revisions?.some((r) => r.code === b.rev.code)) throw new Error(`${cur.number || cur.title} got revision ${b.rev.code} meanwhile (another issue) — nothing was recorded; issue again`) }
-	project.store.transact(`Issue ${f.name}`, (tx) => {
+	for (const b of bumped) { const cur = project.store.get(b.id); if (cur?.type === 'sheet' && cur.revisions?.some((r) => r.code === b.rev.code)) throw new Error(`${cur.number || cur.title} got revision ${b.rev.code} meanwhile (another release) — nothing was recorded; release again`) }
+	project.store.transact(`Release ${f.name}`, (tx) => {
 		for (const b of bumped) { const cur = tx.get(b.id); if (cur?.type === 'sheet') tx.put(issuedRevision(cur, b.rev)) }
 		tx.put(issue)
 	})
@@ -257,7 +257,7 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 export async function printRevision(project: CadProject, sheet: Sheet, rev: string): Promise<{ unsupported: string[]; rasterised: string[] }> {
 	const page = await loadFrozen(project, sheet.id, rev)
 	const { pdf, unsupported, rasterised } = await pagesToPdf([page], frozenImages(project), { rasterText: browserTextRaster })
-	download(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as issued).pdf`, 'application/pdf')
+	download(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as released).pdf`, 'application/pdf')
 	return { unsupported, rasterised }
 }
 

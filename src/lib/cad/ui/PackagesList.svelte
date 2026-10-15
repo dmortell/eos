@@ -111,7 +111,7 @@
 	{/snippet}
 <table class="w-full border-collapse">
 	<thead>
-		<tr><th class="px-2 py-1">Package</th><th class="px-2">Holds</th><th class="px-2">Sheets</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Last issue</th><th class="px-2">Since then</th><th></th></tr>
+		<tr><th class="px-2 py-1">Package</th><th class="px-2">Holds</th><th class="px-2">Sheets</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Last release</th><th class="px-2">Since then</th><th></th></tr>
 	</thead>
 	<tbody>
 		{#each list as p (p.id)}
@@ -126,13 +126,13 @@
 				<td class="px-2">{resolveRecipients(p.recipients, contacts).map((r) => r.name).join(', ') || '—'}</td>
 				<td class="px-2 whitespace-nowrap">{last ? `${issueTag(numbers.get(last.id) ?? 0)} · ${last.date}` : 'never'}</td>
 				<td class="px-2 whitespace-nowrap">
-					{#if d.added.length}<span class="tag add" title="In it now, not in its last issue">+{d.added.length} added</span>{/if}
+					{#if d.added.length}<span class="tag add" title="In it now, not in its last release">+{d.added.length} added</span>{/if}
 					{#if d.withdrawn.length}<span class="tag wd" title={d.withdrawn.map((s) => s.number).join(', ')}>−{d.withdrawn.length} withdrawn</span>{/if}
-					{#if d.notIssued.length}<span class="tag new" title="Never issued">{d.notIssued.length} not issued</span>{/if}
+					{#if d.notIssued.length}<span class="tag new" title="Never released">{d.notIssued.length} not released</span>{/if}
 				</td>
 				<td class="px-2 whitespace-nowrap">
 					<button class="btn" title="Select its sheets in the register" onclick={() => ws.select(m.map((r) => r.id))}>Show</button>
-					<button class="btn" disabled={busy || p.archived} title="Issue it: changed sheets get a new revision; the issue is linked to the package" onclick={() => issue(p)}>Issue…</button>
+					<button class="btn" disabled={busy || p.archived} title="Release it: changed sheets get a new revision; the release is linked to the package" onclick={() => issue(p)}>Release…</button>
 					<button class="btn" onclick={() => (editing = editing === p.id ? null : p.id)}>{editing === p.id ? 'Done' : 'Edit'}</button>
 				</td>
 			</tr>

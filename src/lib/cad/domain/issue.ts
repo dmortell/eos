@@ -229,7 +229,7 @@ export function issueNumbers(issues: Issue[]): Map<string, number> {
 /** The number the next issue gets: one past the highest. */
 export const nextIssueNumber = (issues: Issue[]): number => Math.max(0, ...issueNumbers(issues).values()) + 1
 /** How an issue's number reads in names: "Issue 03". */
-export const issueTag = (n: number): string => `Issue ${String(n).padStart(2, '0')}`
+export const issueTag = (n: number): string => `Release ${String(n).padStart(2, '0')}`
 
 /** The transmittal's rows: the package's sheets in sheet-number order. */
 export function transmittalRows(issue: Issue): Issue['sheets'] {
@@ -251,7 +251,7 @@ export function issueState(s: Pick<Sheet, 'status' | 'revisions'>, now?: string)
 	if (now === undefined || !last.hash) return 'unknown'
 	return last.hash === now ? 'issued' : 'changed'
 }
-export const ISSUE_STATE_TEXT: Record<IssueState, string> = { 'not-issued': 'Not issued', issued: 'Issued', changed: 'Changed since', superseded: 'Superseded', unknown: '…' }
+export const ISSUE_STATE_TEXT: Record<IssueState, string> = { 'not-issued': 'Not released', issued: 'Released', changed: 'Changed since', superseded: 'Superseded', unknown: '…' }
 
 /** Every issue that included this sheet (sheets-organising slice 9: "Issued in"), newest first, at which revision and
  *  whether it was new in that issue. */

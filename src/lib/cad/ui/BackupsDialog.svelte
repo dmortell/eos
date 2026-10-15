@@ -67,7 +67,7 @@
 	const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} kB`)
 	const when = (t: number) => new Date(t).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 	const partsOf = (h: BackupHead) => (h.parts === 'all' ? 'Whole project' : h.parts.map((p) => p.name).join(' + '))
-	const issueOf = (h: BackupHead) => { const i = h.issueId ? project.store.get(h.issueId) : undefined; return i?.type === 'issue' ? (i.number ? `Issue ${i.number}` : i.name) : '' }
+	const issueOf = (h: BackupHead) => { const i = h.issueId ? project.store.get(h.issueId) : undefined; return i?.type === 'issue' ? (i.number ? `Release ${i.number}` : i.name) : '' }
 	/** Esc steps back: the delete question, then a rename, then the dialog. */
 	function escape() { if (confirm) confirm = null; else if (editing) editing = ''; else onclose() }
 </script>

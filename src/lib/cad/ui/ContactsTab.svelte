@@ -35,7 +35,7 @@
 	const opt = (v: string) => v.trim() || undefined
 </script>
 
-<p class="note">Who issues go to: a package picks its recipients from these (Tables › Sheets › Packages › Edit).</p>
+<p class="note">Who releases go to: a package picks its recipients from these (Tables › Sheets › Packages › Edit).</p>
 <table>
 	<thead><tr><th>Name</th><th>Organisation</th><th>Email</th><th title="Packages that send to them">Packages</th><th></th></tr></thead>
 	<tbody>

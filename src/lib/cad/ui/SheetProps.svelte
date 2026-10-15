@@ -44,7 +44,7 @@
 			ws.say(c.added.length || c.gone.length
 				? `Since ${r.rev}: ${c.added.length} mark${c.added.length === 1 ? '' : 's'} new or changed (orange), ${c.gone.length} gone (red dashed)${moved}${pics} · on screen only`
 				: `Nothing drawn on this sheet has changed since ${r.rev}${moved}${pics}`)
-		} catch (e) { ws.say(`Could not load the issued copy: ${(e as Error).message}`) }
+		} catch (e) { ws.say(`Could not load the released copy: ${(e as Error).message}`) }
 		finally { loadingChanges = false }
 	}
 
@@ -147,7 +147,7 @@
 	}
 	async function printRev(code: string) {
 		busy = true
-		try { const r = await printRevision(project, s, code); ws.say(`${s.number} rev ${code} as issued${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await printRevision(project, s, code); ws.say(`${s.number} rev ${code} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Print failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}
@@ -288,7 +288,7 @@
 				<input class="inp tagin" placeholder="+ tag" aria-label="Add a tag" title="Type a tag, Enter adds it" onkeydown={(e) => { const t = e.currentTarget.value.trim(); if (enterKey(e) && t) { setTag(t, true); e.currentTarget.value = '' } }} />
 			</span></Field>
 		<!-- this sheet's own title-block settings; the template is the project's -->
-		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder={drawnFallback(project.details?.author, s.revisions?.at(-1)?.by) || 'initials'} title="Blank: the Project details’ author, else who issued it last" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
+		<label class="row">Drawn <input class="inp" value={s.titleBlock?.fields?.drawn ?? ''} placeholder={drawnFallback(project.details?.author, s.revisions?.at(-1)?.by) || 'initials'} title="Blank: the Project details’ author, else who released it last" onchange={(e) => putSheet('Drawn by', { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, drawn: e.currentTarget.value.trim() } } })} /></label>
 		<!-- the approvals, for templates that show them (Title block template… › add Checked / Approved) -->
 		{#each [['checked', 'Checked'], ['approved', 'Approved']] as [k, l] (k)}
 			<label class="row">{l} <input class="inp" value={s.titleBlock?.fields?.[k] ?? ''} placeholder="initials" onchange={(e) => putSheet(`${l} by`, { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, [k]: e.currentTarget.value.trim() } } })} /></label>
@@ -322,7 +322,7 @@
 	</PropGroup>
 	<!-- change history (backlog T102): what changed, when and who asked, between issues; issuing moves them onto the
 	     new revision ("what changed" defaults to them) -->
-	<PropGroup kind="sheet" title={s.revisions?.length ? 'Changes since last issue' : 'Changes'}>
+	<PropGroup kind="sheet" title={s.revisions?.length ? 'Changes since last release' : 'Changes'}>
 		{#each s.changes ?? [] as c (c.id)}
 			<div class="chg"><span class="text-zinc-500">{c.date}</span>
 				<input class="inp" value={c.text} placeholder="what changed" aria-label="Change of {c.date}: what changed" onchange={(e) => setChange(c.id, { text: e.currentTarget.value.trim() })} />
@@ -332,25 +332,25 @@
 		<div class="chg"><span class="text-zinc-500">{today()}</span>
 			<input class="inp" bind:value={newText} placeholder="what changed" aria-label="New change: what changed" onkeydown={(e) => enterKey(e) && addChange()} />
 			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" aria-label="New change: asked by" onkeydown={(e) => enterKey(e) && addChange()} />
-			<button class="btn" disabled={!newText.trim()} title="Note this change; the next issue records it on the new revision" onclick={addChange}>Add</button></div>
+			<button class="btn" disabled={!newText.trim()} title="Note this change; the next release records it on the new revision" onclick={addChange}>Add</button></div>
 	</PropGroup>
 	{#if s.revisions?.length}
 		<!-- each issued revision, printable exactly as it went out (its frozen copy) -->
-		<PropGroup kind="sheet" title="Issued revisions">
-			<div class="acts"><button class="btn" class:on={showingChanges} disabled={loadingChanges} title="Draw over the sheet what is new or changed since its last issue (orange) and what has gone (red dashed) — kept up to date as you edit, on screen only, never printed" onclick={toggleChanges}>{loadingChanges ? 'Loading…' : showingChanges ? 'Hide changes' : `Show changes since ${s.revisions.at(-1)?.code}`}</button></div>
+		<PropGroup kind="sheet" title="Released revisions">
+			<div class="acts"><button class="btn" class:on={showingChanges} disabled={loadingChanges} title="Draw over the sheet what is new or changed since its last release (orange) and what has gone (red dashed) — kept up to date as you edit, on screen only, never printed" onclick={toggleChanges}>{loadingChanges ? 'Loading…' : showingChanges ? 'Hide changes' : `Show changes since ${s.revisions.at(-1)?.code}`}</button></div>
 			{#each [...s.revisions].reverse() as r (r.code)}
-				<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={[r.desc ?? r.note ?? '', r.by ? `issued by ${r.by}` : '', changeLines(r.changes)].filter(Boolean).join('\n')}>{r.desc ?? r.note ?? ''}</span>
-					<button class="btn" disabled={busy} title="Download this sheet as issued at {r.code} (PDF)" onclick={() => printRev(r.code)}>Print</button></div>
+				<div class="rev"><span class="font-mono">{r.code}</span><span>{r.date}</span><span class="note" title={[r.desc ?? r.note ?? '', r.by ? `released by ${r.by}` : '', changeLines(r.changes)].filter(Boolean).join('\n')}>{r.desc ?? r.note ?? ''}</span>
+					<button class="btn" disabled={busy} title="Download this sheet as released at {r.code} (PDF)" onclick={() => printRev(r.code)}>Print</button></div>
 			{/each}
 		</PropGroup>
 	{/if}
 	{#if issuedIn.length}
 		<!-- every issue that included it (slice 9), newest first: at which revision, new in it or as last issued -->
-		<PropGroup kind="sheet" title="Issued in">
+		<PropGroup kind="sheet" title="Released in">
 			{#each issuedIn as x (x.issue.id)}
 				<div class="rev2"><span>{issueTag(x.number)}</span><span>{x.issue.date}</span><span class="note" title={x.issue.name}>{x.issue.name}</span>
-					<span class="font-mono" title={x.changed ? 'A new revision in that issue' : 'As last issued'}>{x.rev}{x.changed ? ' new' : ''}</span>
-					{#if x.issue.file}<a class="text-blue-600 underline" href={x.issue.file.url} target="_blank" rel="noopener" title="The package PDF as issued">PDF</a>{:else}<span></span>{/if}</div>
+					<span class="font-mono" title={x.changed ? 'A new revision in that release' : 'As last released'}>{x.rev}{x.changed ? ' new' : ''}</span>
+					{#if x.issue.file}<a class="text-blue-600 underline" href={x.issue.file.url} target="_blank" rel="noopener" title="The package PDF as released">PDF</a>{:else}<span></span>{/if}</div>
 			{/each}
 		</PropGroup>
 	{/if}
