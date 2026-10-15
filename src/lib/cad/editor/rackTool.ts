@@ -39,13 +39,14 @@ export class RackTool implements Tool {
 		const like = this.last?.levelId === c.levelId ? this.last : onLevel.at(-1)   // the last one drawn ON THIS level
 		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
 		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
-		const p = e.alt ? at : bayAt(like, at, this.#widthNext(like), onLevel)   // beside the last one: bayed (W14)
+		const p = e.alt ? at : bayAt(like, at, this.#widthNext(like, c), onLevel)   // beside the last one: bayed (W14)
 		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, p, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
 		this.#draw(c, p, like, room)
 	}
 	/** The width the next rack is drawn at (as #draw makes it). */
-	#widthNext = (like: Rack | undefined): number => this.product?.widthMm ?? like?.widthMm ?? 600
+	#widthNext = (like: Rack | undefined, c: ToolCtx): number => this.product?.widthMm ?? c.settings?.toolDefaults?.rack?.widthMm ?? like?.widthMm ?? 600
 	#draw(c: ToolCtx, at: Pt, like: Rack | undefined, room: Id | Space): void {
+		const def = c.settings?.toolDefaults?.rack   // Properties › Use as default on a rack (kept with the project)
 		const taken = new Set(c.index.racks.map((r) => r.name))
 		let name = like ? nextLabel(like.name) : 'R01'
 		while (taken.has(name)) name = nextLabel(name)
@@ -53,6 +54,7 @@ export class RackTool implements Tool {
 			type: 'rack', id: newId(), levelId: c.levelId, spaceId: typeof room === 'string' ? room : room.id, order: c.index.racks.filter((x) => x.levelId === c.levelId).length, name,
 			kind: like?.kind ?? 'cabinet', heightU: like?.heightU ?? 42, widthMm: like?.widthMm ?? 600, depthMm: like?.depthMm ?? 1000,
 			...(like?.heightMm ? { heightMm: like.heightMm } : {}), ...(like?.rowId ? { rowId: like.rowId } : {}), ...(like?.rot ? { rot: like.rot } : {}),
+			...(def ?? {}),            // the project's rack default: its kind, size, rotation, doors, color … over the last one's
 			...(this.product ?? {}),   // a catalogue product picked: its size, kind and SKU
 			at,
 		}
@@ -71,8 +73,9 @@ export class RackTool implements Tool {
 		const r = t?.type === 'rack' ? t : (this.last?.levelId === c.levelId ? this.last : null) ?? c.index.racks.filter((x) => x.levelId === c.levelId).at(-1)   // as `down` draws it
 		if (!r || !this.#hover) return []
 		// a new rack: its own size, and bayed against the last one as `down` puts it (W14)
-		const w = t ? r.widthMm ?? 600 : this.#widthNext(r), d = t ? r.depthMm ?? 1000 : this.product?.depthMm ?? r.depthMm ?? 1000
-		const hw = w / 2, hd = d / 2, rot = r.rot ?? 0
+		const def = t ? undefined : c.settings?.toolDefaults?.rack
+		const w = t ? r.widthMm ?? 600 : this.#widthNext(r, c), d = t ? r.depthMm ?? 1000 : this.product?.depthMm ?? def?.depthMm ?? r.depthMm ?? 1000
+		const hw = w / 2, hd = d / 2, rot = def?.rot ?? r.rot ?? 0
 		const h = t || this.#alt ? this.#hover : bayAt(r, this.#hover, w, c.index.racks.filter((x) => x.levelId === c.levelId))
 		const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, y]) => { const q = rotateBy({ x, y }, rot); return { x: h.x + q.x, y: h.y + q.y } })
 		return [{ k: 'line', pts, closed: true, cls: 'draft' }]

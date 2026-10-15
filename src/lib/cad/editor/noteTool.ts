@@ -57,12 +57,14 @@ export function placeNote(c: ToolCtx, pts: Pt[]): { owner: Record<string, unknow
 		return { owner: { levelId: c.levelId, plane: { kind: 'vertical', frame: c.space.frame, depth: Math.round(c.work.depth) }, ...layer }, pts: pts.map((p) => ({ x: p.x, y: -p.y })) }
 	return null
 }
+/** A new text's size (paper mm): the project's default (Properties › Use as default on a text), else 2.5. */
+function textSize(c: ToolCtx): number { return c.settings?.toolDefaults?.text?.sizeMm ?? 2.5 }
 /** Text pasted from another app (Ctrl+V) becomes a text shape at `p` — the Text tool's size and layer, markdown for a
  *  table. Returns the new id, or null when this view takes no notes. */
 export function pasteTextNote(c: ToolCtx, p: Pt, t: { text: string; markdown?: boolean }): string | null {
 	const at = placeNote(c, [p])
 	if (!at) return null
-	const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.text, sizeMm: 2.5, ...(t.markdown ? { markdown: true } : {}) } } as Shape
+	const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t.text, sizeMm: textSize(c), ...(t.markdown ? { markdown: true } : {}) } } as Shape
 	c.store.transact('Paste text', (tx) => tx.put(s))
 	c.select([s.id])
 	return s.id
@@ -118,7 +120,7 @@ export class NoteTool implements Tool {
 		const at = p && this.#where(c, [p])
 		if (!at) return
 		const make = (t: string) => {
-			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t, sizeMm: 2.5 } } as Shape
+			const s = { type: 'shape', id: newId(), ...at.owner, geom: { kind: 'text', at: at.pts[0], text: t, sizeMm: textSize(c) } } as Shape
 			c.store.transact('Text', (tx) => tx.put(s))
 			c.select([s.id])
 			return s.id

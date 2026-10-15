@@ -8,10 +8,21 @@
 	import { ALIGN_LABEL, type AlignHow } from '../editor/align'
 	import { canMove } from '../editor/behaviours'
 	import { selectionKinds, countsText, kindOf, kindIcon } from './propsKit'
+	import { useAsDefault } from '../domain/toolDefaults'
 
 	let { project, ws, items }: { project: CadProject; ws: Workspace; items: Entity[] } = $props()
 
 	const one = $derived(items.length === 1 ? items[0] : undefined)
+	/** Use as default (Dave 2026-10-15): this item's settings become what its tool starts with, kept with the project. */
+	const asDefault = $derived(useAsDefault(one))
+	function setDefault() {
+		const s = project.settings, d = asDefault
+		if (!s || !d) { ws.say('This project has no settings yet — open Project › Settings… once first'); return }
+		project.store.transact(`Use as default for ${d.what}`, (tx) => tx.put(d.apply(s)))
+		const td = project.settings?.toolDefaults
+		if (td) ws.adoptDefaults(td)
+		ws.say(`Saved as the default for ${d.what} in this project`)
+	}
 	const movable = $derived(items.filter(canMove).length)
 	const ALIGN: [AlignHow, string][] = [['left', 'alignLeftEdges'], ['centre', 'alignCentresX'], ['right', 'alignRightEdges'], ['top', 'alignTopEdges'], ['middle', 'alignMiddlesY'], ['bottom', 'alignBottomEdges'], ['across', 'distributeX'], ['down', 'distributeY']]
 	const kind = $derived.by((): [string, string] => {
@@ -43,6 +54,9 @@
 	<button title="Select everything in this view like the selection (Edit › Select similar)" onclick={() => ws.selectSimilar()}><Icon name="sparkles" size={13} /></button>
 	<button class="del" title="Delete (the Delete key) — asks first when more goes with it; Undo brings it back" onclick={ws.remove}><Icon name="trash" size={13} /></button>
 </div>
+{#if asDefault}
+	<button class="def" title="Make this one's settings what {asDefault.what} start with — saved with the project, for everyone drawing in it" onclick={setDefault}>Use as default</button>
+{/if}
 {#if movable >= 2}
 	<!-- align / distribute (backlog "Align / distribute"): as the active view draws them; a group counts as one -->
 	<div class="al" role="group" aria-label="Align">
@@ -63,6 +77,7 @@
 	button { display: inline-flex; padding: 3px; border-radius: 4px; color: var(--cad-muted); }
 	button:hover { background: var(--cad-hover); color: var(--cad-text); }
 	button.del:hover { color: #dc2626; }
+	button.def { margin: -2px 0 4px; padding: 1px 6px; font-size: 11px; border: 1px solid var(--cad-line); }
 	.al { display: flex; align-items: center; gap: 1px; margin: -2px 0 4px; font-size: 11px; color: var(--cad-muted); }
 	.al span { margin-right: 4px; }
 	.al i { width: 1px; height: 14px; margin: 0 3px; background: var(--cad-line); }

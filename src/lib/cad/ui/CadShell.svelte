@@ -72,6 +72,7 @@
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
 	const ws = new Workspace()
+	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
 	const panels = new Panels()

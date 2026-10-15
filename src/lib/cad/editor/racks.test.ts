@@ -19,6 +19,8 @@ import { spaceOf, PLAN, type ViewSpec } from '../views/space'
 import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../views/rackRow'
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack, Cord, Link } from '../domain/types'
+import { useAsDefault } from '../domain/toolDefaults'
+import { defaultSettings } from '../domain/settings'
 
 const ROW: ViewSpec = { kind: 'row', spaceId: 'SR-A', face: 'front' }
 const R2: Rack = { type: 'rack', id: 'R2', levelId: 'L33', spaceId: 'SR-A', order: 1, name: 'A02', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 }
@@ -63,6 +65,19 @@ describe('drawing racks on the plan', () => {
 		const drawn = h.store.ofType('rack').filter((r) => r.id !== 'R1' && r.id !== 'R2')
 		expect(drawn.map((r) => r.name)).toEqual(['A03', 'A04'])
 		expect(drawn[0]).toMatchObject({ spaceId: 'SR-A', rowId: 'ROW', rot: 90, at: { x: 1000, y: 0 } })
+	})
+	it('Use as default on a rack: new racks start as it is (kind, size, rotation, doors), over the last one drawn', () => {
+		const model = { ...R2, id: 'MODEL', kind: 'cabinet', widthMm: 800, depthMm: 1200, rot: 180, doors: { front: 'split', rear: 'single', hinge: 'left' }, color: '#111111' } as Rack
+		const settings = useAsDefault(model)!.apply(defaultSettings())
+		expect(useAsDefault(model)!.what).toBe('new racks')
+		const h = harness(PLAN, [{ ...R2, at: { x: 0, y: 0 }, rot: 90 }])
+		new RackTool(() => {}).down(at(5000, 5000), { ...h.ctx(), settings })
+		const drawn = h.store.ofType('rack').find((r) => r.name === 'A03')
+		expect(drawn).toMatchObject({ kind: 'cabinet', widthMm: 800, depthMm: 1200, rot: 180, doors: { front: 'split', rear: 'single', hinge: 'left' }, color: '#111111', spaceId: 'SR-A' })
+		// a square default rack turns the next ones square, though the last was at 90°
+		const square = useAsDefault({ ...model, rot: undefined })!.apply(defaultSettings())
+		new RackTool(() => {}).down(at(9000, 9000), { ...h.ctx(), settings: square })
+		expect(h.store.ofType('rack').find((r) => r.name === 'A04')?.rot ?? 0).toBe(0)
 	})
 	it('a click beside the last rack butts the new one against it (bayed, W14); far off or with Alt, where clicked', () => {
 		const h = harness(PLAN, [{ ...R2, at: { x: 0, y: 0 } }])
