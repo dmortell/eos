@@ -63,3 +63,25 @@ describe('the walkthrough in two languages', () => {
 		expect(WALKTHROUGH_JA.map((s) => s.steps.length)).toEqual(WALKTHROUGH.map((s) => s.steps.length))
 	})
 })
+
+describe('tips (Dave 2026-10-15)', () => {
+	it('the Japanese tips match the English ones one for one', async () => {
+		const { TIPS, TIPS_JA } = await import('./helpContent')
+		expect(TIPS_JA.length).toBe(TIPS.length)
+	})
+	it('open by themselves once a day, each day on the next tip, never once "Show at start" is off', async () => {
+		const mem = new Map<string, string>()
+		const g = globalThis as { localStorage?: unknown }, was = g.localStorage
+		g.localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) }
+		try {
+			const { tipsDue, tipIndex, setTipsAtStart } = await import('./tipsStart')
+			expect(tipsDue('2026-10-15')).toBe(true)
+			expect(tipIndex()).toBe(0)
+			expect(tipsDue('2026-10-15')).toBe(false)
+			expect(tipsDue('2026-10-16')).toBe(true)
+			expect(tipIndex()).toBe(1)
+			setTipsAtStart(false)
+			expect(tipsDue('2026-10-17')).toBe(false)
+		} finally { g.localStorage = was }
+	})
+})

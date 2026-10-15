@@ -99,6 +99,7 @@ export const HOWTO: HowTo[] = [
 	{ area: 'draw', q: 'Annotate one elevation or section', a: 'In an elevation or a section, Text, Callout, Cloud, Dimension, Line and flat shapes (Shape tool) are drawn on that view’s plane and belong to it: they show in that view (and its viewports on sheets) only, not on the plan or the other elevations. Trunks, conduits, walls and boxes with a depth are part of the model and show everywhere.' },
 	{ area: 'layers', q: 'Place a block (a faceplate, a symbol, your own)', a: 'In the Blocks list: click a block, then click where it goes (it stays on for the next one; Esc stops) — or drag the block from the list onto a plan, an elevation, a section or a sheet and let go where it goes (its ghost follows; the tool you had comes back). In an elevation or section it goes on the wall behind the drop, at that height.' },
 	{ area: 'views', q: 'What a plan shows in elevations', a: 'Elevations and sections show the model: walls, racks, trunks, conduits, boxes with a height and lines that rise. What is drawn or placed on a plan stays on the plan: outlets, blocks and symbols, text, dimensions, flat shapes and flat lines. To show an outlet in elevations, place it in an elevation or a section with the Outlet tool (on the work plane — in a section, the cut line) at the clicked height: it then shows in every elevation and section that sees it, and on the plan. Trunk, Conduit and Line draw in sections too. A block (a wall faceplate) placed from the Blocks list in an elevation or section goes on the wall behind the click and shows in that view and in the others looking the same way at that wall (an elevation and a section of it) — not on the plan, nor in the side or back views. Or select outlets or blocks already placed on the plan and tick Properties › Elevations “show in elevations” (untick for plan only); they show at their Height (Z). A block is one drawing, drawn the same in every view: a faceplate is the plate, its frame and its sockets (power: prongs and earth; data: an RJ45), at real size, on a plan as in an elevation — as the Blocks window shows it.' },
+	{ area: 'views', q: 'Tips for getting started', a: 'Help › Tips shows one short tip at a time: ‹ › step through them, EN / 日本語 switches the language. It opens by itself once a day, on the next tip; untick “Show at start” to stop that (Help › Tips still opens it).' },
 	{ area: 'views', q: 'Set a wall’s or box’s height in an elevation or section', a: 'Select it: a square on its top edge sets its height, one on its bottom edge its base (the top stays); a door or opening has the same two (head and sill). They snap to the datum lines — FSL (the floor slab), FFL, CLG (the ceiling) and CSL (the slab above) — when near, else 10 mm steps; Alt: free. A wall that always runs slab to slab: Properties › Slab to slab (it then follows its level’s heights).' },
 	{ area: 'draw', q: 'Link a symbol to a sheet or a web page', a: 'Select a placed block (an insert) and open Properties › Link: “A sheet” picks one of the sheets, “A web page” takes an address (http, https or mailto; “example.com/specs” gets https://). Each marker has its own target, not the block. Pointing at it with the Select tool shows a small badge (“↗ A-101 …”); a double-click opens it — a sheet in a tab, a web page in a new browser tab. Open in Properties does the same.' },
 	{ area: 'draw', q: 'Make furniture (3D blocks)', a: 'Draw it on a plan with the Box tool (each box has a height and a Z; to make it exact, type while drawing — the first corner as x,y, then width,depth such as 1200,600 (laid out towards the side the cursor is on; one number = a square) — or select a box and type its Width, Depth, X and Y — its middle — Z and Height in Properties; select several to set their Width, Depth, Height or Z at once). The size shows beside the cursor while you draw, and the cursor snaps to a box’s corners and the middles of its edges (OSNAP). The Box tool works in an elevation or section too: corner to corner gives its width and height (or type width,height), its depth is in the tool bar, and its front stands on the work plane. To repeat a part — a desk’s legs — select it, use Copy, click a base point and type @dx,dy for each copy (e.g. @1100,0), add lines or a label text if you like (a text with a {NAME}-style tag is a label), select it all and press Make block… in Properties. Boxes make a 3D block, filed under Furniture in the Blocks window. Its inserts go on the project’s Furniture layer (made the first time, hidden in existing viewports like any new layer) unless the boxes were on a layer of their own, or a layer is current when you place one.Unlike other blocks it is part of the model: every plan, elevation and section shows it, seen from that direction — on a plan from above, in an elevation its boxes at their heights; turn it and the side views follow. Its labels show in every view; its lines show where they don’t shrink to a point (a line straight up isn’t drawn on a plan); flat shapes and plain texts show only on plans. Place it from the Blocks window on a plan (it stands on the floor, Z 0), then drag it up or down in an elevation to change its height; dragged into an elevation, its ghost shows its side as it will stand, facing you with its back against the wall behind the click (no wall there: on the work plane).Explode turns it back into boxes where they stand.' },
@@ -282,3 +283,42 @@ const MOUSE: [string, string][] = [
 export const SHORTCUTS: [string, string][] = [...KEY_COMMANDS.filter((k) => k.group !== 'Function keys').map((k): [string, string] => [k.label, k.keys]), ...MOUSE]
 
 export const FKEYS: [string, string][] = KEY_COMMANDS.filter((k) => k.group === 'Function keys').map((k): [string, string] => [k.keys, k.label])
+
+/** Help › Tips (Dave 2026-10-15, "tips for new users … with prev / next"): one short tip at a time in the Tips window
+ *  (ui/Tips.svelte), which opens by itself once a day until its "Show at start" is unticked. */
+export const TIPS: string[] = [
+	'Help › Walkthrough opens the steps from a new project to a release in a window you can keep open while you work.',
+	'Ctrl+K jumps to the Navigator’s search: type part of a level, view, sheet, room or rack name.',
+	'Double-click a label (or select it and press F2) to edit it on the drawing; Tab saves it and opens the next one.',
+	'Set one item up the way you like it, then Properties › Use as default: the next ones you draw start the same.',
+	'A tool button with a small corner mark is a family: click the mark (or press and hold) to pick another, e.g. Polygon under Rect.',
+	'While drawing, type a distance or X,Y in the status bar and press Enter for an exact point.',
+	'Shift while dragging a grip keeps it level, plumb or on 15° steps; Alt drags freely, without the 10 mm steps.',
+	'In an elevation or section, a wall’s or box’s top and base grips snap to FSL, FFL, CLG and CSL.',
+	'A wall that always runs slab to slab: tick Properties › Slab to slab, and it follows its level’s heights.',
+	'Draw a room with the Room tool, then the Section tool’s Room elevations makes its four wall views (A–D) in one click.',
+	'Ctrl-drag leaves a copy; Ctrl+Shift+V pastes with the copy’s middle at the pointer.',
+	'Modify › Format painter copies one shape’s look onto every shape you click next.',
+	'Every table works the same way: a click selects the row and the item on the drawing; double-click a cell to edit it.',
+	'In the Patching table, double-click a cord’s From cell to re-patch it: type device : port, e.g. SW1:41.',
+	'Release… freezes a set of sheets as a numbered revision; Make Package in the release list gathers its files.',
+]
+
+/** The tips in Japanese (same order; menu and button names stay as the screen shows them). */
+export const TIPS_JA: string[] = [
+	'Help › Walkthrough で、新規プロジェクトからリリースまでの手順をウィンドウで開いたまま作業できます。',
+	'Ctrl+K で Navigator の検索へ:階、ビュー、シート、部屋、ラックの名前の一部を入力します。',
+	'ラベルをダブルクリック(または選択して F2)で図面上で編集。Tab で保存して次のラベルへ。',
+	'設定済みのアイテムを選び Properties › Use as default:次に描くものが同じ設定で始まります。',
+	'角に小さな印のあるツールボタンはファミリー:印をクリック(または長押し)で別のツールへ(例:Rect の下に Polygon)。',
+	'描画中、ステータスバーに距離や X,Y を入力して Enter で正確な点を指定できます。',
+	'グリップのドラッグ中に Shift で水平・垂直・15° 刻み、Alt で 10 mm 刻みなしの自由移動。',
+	'立面図・断面図では、壁やボックスの上端・下端のグリップが FSL、FFL、CLG、CSL にスナップします。',
+	'常にスラブからスラブまでの壁は Properties › Slab to slab にチェック:階の高さに追従します。',
+	'Room ツールで部屋を描き、Section ツールの Room elevations で 4 面の壁ビュー(A–D)をワンクリックで作成。',
+	'Ctrl+ドラッグでコピーを残します。Ctrl+Shift+V はコピーの中心をポインター位置に貼り付けます。',
+	'Modify › Format painter で、ひとつの図形の見た目を次にクリックする図形すべてにコピーします。',
+	'どの表も同じ操作:クリックで行と図面上のアイテムを選択、セルのダブルクリックで編集。',
+	'Patching 表でコードの From セルをダブルクリックして再パッチ:device : port(例 SW1:41)を入力。',
+	'Release… でシート一式を番号付きの改訂として確定。リリース一覧の Make Package でファイルをまとめます。',
+]

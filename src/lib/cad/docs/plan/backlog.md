@@ -18,13 +18,8 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 4 entries (4 P3 ❓: tips for new users + 3 review todos; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 3 entries (3 P3 ❓ review todos — tips for new users built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
-
-- [ ] ❓ **Tips for new users** (Dave 2026-10-15, "for later, think about") — a tip somewhere (tip of the day?) with
-  prev / next buttons, from a series of useful tips for new users (e.g. F2 / Tab label editing, typed points, Use as
-  default, flyouts, Ctrl+K find, Walkthrough). To decide: where it shows (start of a session, the status bar, Help),
-  how it's dismissed / turned off, EN / JA like the Walkthrough. **P3 · S–M**.
 
 - [ ] ❓ **Edits in two tabs overwrite each other** (Dave 2026-10-15 todo, "review how to handle") — the settings doc
   (and any whole entity) is saved whole (`persist/firestore.ts` `batch.set`), so a tab holding an older copy (Project

@@ -79,6 +79,7 @@ export interface MenuCtx {
 	help(keys?: boolean): void
 	/** The Walkthrough window (a project from start to release), kept open beside the drawing. */
 	walkthrough(): void
+	tips(): void
 	/** The tools in a floating palette (else the top bar). */
 	toolsFloat: boolean; toggleToolsFloat(): void
 }
@@ -233,6 +234,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Help', key: KEYS.help, run: () => c.help() },
 			{ label: 'Keys and mouse', key: KEYS.keys, run: () => c.help(true) },
 			{ label: 'Walkthrough: a project from start to release', run: () => c.walkthrough() },
+			{ label: 'Tips', run: () => c.tips() },
 		] },
 	]
 }

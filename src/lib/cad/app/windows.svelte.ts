@@ -5,7 +5,7 @@
 // the browser window shrinks (Dave: "be careful to handle browser window resizing"). Pure state; ui/CadWindow.svelte
 // draws it.
 
-export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'devices' | 'cables' | 'walkthrough'
+export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'devices' | 'cables' | 'walkthrough' | 'tips'
 export type Dock = 'left' | 'right'
 export interface WinState {
 	open: boolean
@@ -19,7 +19,7 @@ export interface WinState {
 	z: number
 }
 
-export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', devices: 'Device library', cables: 'Cables', walkthrough: 'Walkthrough' }
+export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', devices: 'Device library', cables: 'Cables', walkthrough: 'Walkthrough', tips: 'Tips' }
 export const WIN_IDS = Object.keys(WIN_TITLES) as WinId[]
 
 const KEY = 'cad-windows:3'   // :3 — Blocks / Device library float by the tool strip (Dave 2026-10-12); :2 layouts carry over
@@ -37,6 +37,8 @@ const DEFAULTS: Record<WinId, WinState> = {
 	cables: { open: false, dock: null, order: 5, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
 	// Help › Walkthrough (Dave 2026-10-15: keep it open for reference): floating, tall enough for a stage or two
 	walkthrough: { open: false, dock: null, order: 6, x: 420, y: 60, w: 360, h: 520, folded: false, z: 1 },
+	// Help › Tips (Dave 2026-10-15): small, floating, opens by itself once a day (ui/tipsStart.ts)
+	tips: { open: false, dock: null, order: 7, x: 460, y: 120, w: 340, h: 190, folded: false, z: 1 },
 }
 const clone = (s: Record<WinId, WinState>) => Object.fromEntries(WIN_IDS.map((id) => [id, { ...s[id] }])) as Record<WinId, WinState>
 

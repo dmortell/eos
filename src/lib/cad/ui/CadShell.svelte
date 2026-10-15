@@ -50,6 +50,7 @@
 	import { setFileNamer, patternName } from '../render/download'
 	import FileNameDialog from './FileNameDialog.svelte'
 	import TextDialog from './TextDialog.svelte'
+	import { tipsDue } from './tipsStart'
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
@@ -80,6 +81,8 @@
 	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
 	// every export asks for its file name first (Dave 2026-10-15): filled from the project's pattern (Settings › Files),
 	// else the export's own name; the Save as dialog (Dave: a dialog, not the status bar) — Enter saves, Esc cancels
+	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (Dave 2026-10-15)
+	onMount(() => { if (tipsDue()) layout.open('tips') })
 	let saveAs = $state<{ name: string; ext: string; done: (n: string | null) => void } | null>(null)
 	$effect(() => {
 		setFileNamer((suggested, parts, ext) => new Promise((done) => {
@@ -471,7 +474,7 @@
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
-		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
+		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), tips: () => layout.open('tips'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
 	}))
 
 	/** The right-click menu on the selection (UX21): its commands, with their keys. */
