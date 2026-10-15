@@ -181,8 +181,12 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 			if (sh.z0 >= e + ceil || sh.z1 <= e || rooms.some((r) => r.z === e && sh.x >= r.x0 && sh.x <= r.x1)) continue
 			const ids = new Set(byElev.get(e)!.map((l) => l.id))
 			const eps = ix.spaces.find((sp) => sp.kind.toLowerCase() === 'eps' && ids.has(sp.levelId) && !!sp.boundary && inPolygon(sh, sp.boundary))
-			const v = zv(e), hw = sh.w / 2 + EPS_PAD
-			out.push({ k: 'line', pts: [{ x: sh.x - hw, y: -v }, { x: sh.x + hw, y: -v }, { x: sh.x + hw, y: -(v + ceil) }, { x: sh.x - hw, y: -(v + ceil) }], closed: true, fill: true, cls: 'riser-eps', ...(eps ? { src: eps.id } : {}) })
+			const v = zv(e), hw = sh.w / 2 + EPS_PAD, h = heightsOf(byElev.get(e)![0])
+			// FFL to ceiling; a riser carrying on to the floor above: up to that slab (through the plenum), from the floor
+			// below: down to this floor's slab (through the raised floor) — walled in all the way (Dave 2026-10-15). One that
+			// only turns in this floor's ceiling stays FFL to ceiling.
+			const top = sh.z1 > e + ceil + h.plenumMm ? v + ceil + h.plenumMm : v + ceil, bot = sh.z0 < e ? v - h.raisedFloorMm : v
+			out.push({ k: 'line', pts: [{ x: sh.x - hw, y: -bot }, { x: sh.x + hw, y: -bot }, { x: sh.x + hw, y: -top }, { x: sh.x - hw, y: -top }], closed: true, fill: true, cls: 'riser-eps', ...(eps ? { src: eps.id } : {}) })
 			out.push({ k: 'text', at: { x: sh.x, y: -v - small * 0.5 }, text: eps?.name ?? 'EPS', size: small, anchor: 'middle', cls: 'rv-label' })
 		}
 	}

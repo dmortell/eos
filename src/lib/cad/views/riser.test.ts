@@ -92,6 +92,15 @@ describe('riser view', () => {
 		expect(shaft?.k === 'line' && -Math.min(...shaft.pts.map((q) => q.y))).toBe(3800 + 2600 + 700 + 200)   // cut at 2F's slab above
 		expect(cut.some((p) => p.k === 'line' && p.cls === 'backbone')).toBe(false)   // its other end (4F) isn't shown
 	})
+	it('an EPS box is walled in with its riser: up to the slab above when the riser goes on up, down to its slab when it comes from below', () => {
+		// a riser from 1F's FFL up to 2F's tray height (in 2F's ceiling, where it turns)
+		const two = [level('L1', '1F', 0), level('L2', '2F', 3800), path('RB', 'L1', [[2000, 0, 0], [2000, 0, 2600 + 350, 'L2']], 'Riser B')] as Entity[]
+		const box = (e: number) => riserDisplayList(new ProjectIndex(two)).filter((p) => p.k === 'line' && p.cls === 'riser-eps')
+			.map((p) => (p.k === 'line' ? [-Math.max(...p.pts.map((q) => q.y)), -Math.min(...p.pts.map((q) => q.y))] : []))
+			.find(([lo]) => lo >= e - 300 && lo < e + 3000)
+		expect(box(0)).toEqual([0, 2600 + 700])                  // 1F: from its FFL (it starts there) up to 2F's slab
+		expect(box(3800)).toEqual([3800 - 300, 3800 + 2600])     // 2F: from its slab (it comes from below) to the ceiling (it turns there)
+	})
 	it('a backbone group: its own label and color; else fibre amber / copper blue; each hop in the floor void for low runs', () => {
 		const key = backboneKey(new ProjectIndex(ents), ents.find((e) => e.id === 'B1') as never)!
 		expect(key).toBe('R1|R4|cat6a')

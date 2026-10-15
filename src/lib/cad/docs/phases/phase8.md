@@ -3770,3 +3770,19 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A **Measure** tool (tool strip › Draw, after Dimension; plans, elevations, sections): two clicks (snaps, Shift 15°)
     → the distance beside the line and in the status line with its X / Y (along / up) parts; nothing is drawn.
     `editor/measureTool.ts` + test; hint + Help. Seen live on 1F.
+- **Hover grip after Delete** (Dave 2026-10-15): the larger grip under the pointer stayed drawn after its shape was
+  deleted, until the pointer moved. `selectTool.ts` now keeps the selection it was found on (`#hovFor`) and draws it
+  only while that selection is the same and still exists. Test in `editor/pathSel.test.ts`; seen live on Test Project
+  (a rectangle drawn, a corner hovered, Delete: the grip went with it).
+- **Help › Walkthrough** (Dave 2026-10-15): Help menu › "Walkthrough: a project from start to issue" opens Help on a
+  new Walkthrough section (`helpContent.ts` `WALKTHROUGH`, nine stages of short numbered steps: new project,
+  floorplans, server rooms and racks, outlets, containment and risers, allocation and patching, sheets, issue and
+  package, exports and backups); it sits folded at the top of Help otherwise, and search reaches it.
+  `HelpDialog`'s `keys` prop is now `start: 'keys' | 'walk'`.
+- **Keys & mouse layout** (Dave 2026-10-15): long key / mouse texts wrap in their own column (they ran across the
+  other one: `kbd` was nowrap); Function keys now come first, then an ACAD / EOS input tip (replacing its one-line
+  row), then Keys & mouse. Seen live.
+- **EPS boxes slab to slab** (Dave 2026-10-15), `views/riser.ts`: a riser carrying on to the floor above draws that
+  floor's EPS box up to the slab above (through the plenum); one coming from the floor below, down to this floor's
+  slab (through the raised floor). A riser that only turns in this floor's ceiling stays FFL → ceiling. Test in
+  `views/riser.test.ts`; seen live on Test Project's riser view.
