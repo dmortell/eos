@@ -196,6 +196,7 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 			} },
 		],
 		// what it sees, outlined while selected
-		decor: [{ k: 'line', pts: [sec.a, sec.b, far(sec.b), far(sec.a)], closed: true, cls: 'section-extent' }],
+		// the cut line too: a room elevation's isn't drawn on the plan (one marker for the room's four)
+		decor: [{ k: 'line', pts: [sec.a, sec.b, far(sec.b), far(sec.a)], closed: true, cls: 'section-extent' }, { k: 'line', pts: [sec.a, sec.b], cls: 'section-line' }],
 	}
 }

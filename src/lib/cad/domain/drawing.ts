@@ -236,6 +236,10 @@ export interface SectionCut {
 	/** Made for a Sheets-tool elevation's clip box (`sheets:<sheetId>:<viewportId>`, File › Import legacy drawings):
 	 *  importing that sheet again uses this section instead of cutting another. */
 	importedFrom?: string
+	/** A room elevation (the Section tool's Room elevations): its room and its letter: A looks at the wall at the top of the plan, then
+	 *  clockwise B, C, D. The plan draws one elevation marker in the room for them instead of their cut
+	 *  lines (Dave 2026-10-15); a selected one shows its cut line and grips as any section. */
+	roomElev?: { roomId: Id; side: 'A' | 'B' | 'C' | 'D' }
 }
 
 export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SheetPackage | SectionCut

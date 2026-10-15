@@ -209,6 +209,8 @@
 	.section-arrow.filled { fill: #0f766e; }
 	.section-arrow { stroke: #0f766e; }
 	text.section-label { fill: #0f766e; font-weight: 400; }   /* not bold (Dave 2026-10-15: too thick) */
+	.elev-marker { stroke: #0f766e; fill: none; }   /* a room's elevations marker (Dave 2026-10-15) */
+	text.elev-marker-letter { fill: #ffffff; font-weight: 600; }
 	.run-break { stroke: #334155; fill: none; stroke-width: 1.2px; vector-effect: non-scaling-stroke; }   /* a run cut off by a section's end (S-break) */
 	.cut.filled { fill: #334155; }
 	.cut { stroke: #0f172a; }

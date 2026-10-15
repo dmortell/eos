@@ -23,3 +23,19 @@ describe('room elevations', () => {
 		expect(roomElevations({ ...room, boundary: undefined }, () => 'x')).toEqual([])
 	})
 })
+
+describe('the plan shows a room\'s elevations as one marker (Dave 2026-10-15)', () => {
+	it('a circle and a lettered pointer per section, picking it — no cut lines for them; another section keeps its line', async () => {
+		const { planDisplayList } = await import('../views/plan')
+		const { ProjectIndex } = await import('./project')
+		const level = { type: 'level', id: 'L1', name: '1F', number: 1, order: 1, elevationMm: 0, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } }
+		let i = 0
+		const secs = roomElevations(room, () => `E${i++}`)
+		const other = { type: 'section', id: 'X', levelId: 'L1', name: 'Section X', a: { x: 0, y: 5000 }, b: { x: 4000, y: 5000 }, depth: 1000 }
+		const ps = planDisplayList(new ProjectIndex([level, room, ...secs, other] as never[]), 'L1', { scale: 100 })
+		expect(ps.filter((p) => p.cls === 'elev-marker')).toHaveLength(1)
+		expect(ps.filter((p) => p.cls === 'section-arrow' && secs.some((s) => s.id === p.src))).toHaveLength(4)
+		expect(ps.filter((p) => p.k === 'text' && p.cls === 'elev-marker-letter').map((p) => (p.k === 'text' ? p.text : ''))).toEqual(['A', 'B', 'C', 'D'])
+		expect(ps.filter((p) => p.cls === 'section-line').map((p) => p.src)).toEqual(['X'])
+	})
+})

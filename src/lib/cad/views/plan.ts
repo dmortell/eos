@@ -1,6 +1,7 @@
 // The PLAN generator: one level's data → a display list (plan mm, y down). Pure: underlay placement and the drawing
 // scale come in as inputs. Draw order: underlays, shapes / walls, containment, racks, outlets, labels on top.
-import type { Id, Pt, Outlet, Rack, Underlay, ProjectSettings } from '../domain/types'
+import type { Id, Pt, Outlet, Rack, Underlay, ProjectSettings, Space } from '../domain/types'
+import type { SectionCut } from '../domain/drawing'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf } from '../domain/shapes'
@@ -10,7 +11,7 @@ import { layersOf, layerOf } from '../domain/layers'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
-import { sectionMarks, sectionsOn } from './sectionMarks'
+import { sectionMarks, sectionsOn, roomElevMarker } from './sectionMarks'
 import { rotate } from '../domain/conventions'
 import { tileLinesLocal } from '../domain/tiles'
 import type { Bounds, Prim, Dash } from './display'
@@ -97,7 +98,14 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		out.push(...outletPrims(ot, k, o.blocks).map((p) => (col && p.k !== 'text' && p.k !== 'image' ? { ...p, color: col } : p)))
 	}
 	// section cut lines (Phase 6.2) on top
-	for (const sec of sectionsOn(ix, levelId)) out.push(...sectionMarks(sec, k))
+	// a room's elevations (A–D) as one marker in the room, not four crossing cut lines (Dave 2026-10-15)
+	const byRoom = new Map<string, SectionCut[]>()
+	for (const sec of sectionsOn(ix, levelId)) {
+		const room = sec.roomElev ? ix.get(sec.roomElev.roomId) : undefined
+		if (room?.type === 'space' && room.boundary?.length) byRoom.set(room.id, [...(byRoom.get(room.id) ?? []), sec])
+		else out.push(...sectionMarks(sec, k))
+	}
+	for (const [id, secs] of byRoom) out.push(...roomElevMarker(ix.get(id) as Space, secs, k))
 	return declutter(out)
 }
 
