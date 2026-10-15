@@ -417,6 +417,9 @@ export class Workspace {
 		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
 	}
 	askText = (label: string, value: string, apply: (t: string) => void): void => { this.prompt = { label, value, text: true, apply } }
+	/** Free text asked in a dialog, not the status bar (Dave 2026-10-15: names, port targets — see TextDialog). */
+	textAsk = $state<{ title: string; label: string; value: string; hint?: string; ok: string; apply: (t: string) => void } | null>(null)
+	askInDialog = (o: { title: string; label: string; value: string; hint?: string; ok?: string }, apply: (t: string) => void): void => { this.textAsk = { ok: 'OK', ...o, apply } }
 	/** The text being edited in place on the drawing (double-click / F2; backlog "Text options"). */
 	textEdit = $state<Id | null>(null)
 	editText = (id: Id): void => { this.textEdit = id }

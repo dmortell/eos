@@ -76,6 +76,9 @@ export const REPATCH_TITLE = 'Move the cords’ switch ends (whichever column) t
 export function askRepatch(project: CadProject, ws: Workspace, cords: Cord[]): void {
 	if (!cords.length) return
 	const n = cords.length
-	ws.askText(n === 1 ? 'Re-patch to (device : port, e.g. SW1:41)' : `Re-patch ${n} cords from (device : port — the rest go on to the next free ports)`,
-		project.index.portPlace(cords[0][switchEnd(project, cords[0])]), (t) => repatchFrom(project, ws, cords, t))
+	// a dialog, not the status bar (Dave 2026-10-15)
+	ws.askInDialog({ title: n === 1 ? 'Re-patch cord' : `Re-patch ${n} cords`, label: n === 1 ? 'To port (device : port)' : 'From port (device : port)',
+		value: project.index.portPlace(cords[0][switchEnd(project, cords[0])]), ok: 'Re-patch',
+		hint: n === 1 ? 'e.g. SW1:41 — the cord’s switch end moves there.' : 'e.g. SW1:41 — the first cord goes there, the rest on to the next free ports of that device.' },
+		(t) => repatchFrom(project, ws, cords, t))
 }
