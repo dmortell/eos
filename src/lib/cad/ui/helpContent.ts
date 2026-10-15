@@ -177,6 +177,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 	] },
 	{ stage: 'Server rooms and racks', steps: [
 		'+ Server room on the plan, then the Rack tool: one click per rack (a click beside the last one bays it).',
+		'More than one row of racks in a room: room Properties › Rows › + Row, then select each row’s racks › Properties › Row (the rack view shows one row at a time; e.g. name the views 33IDF2-Row A).',
 		'Open the rack view: drag devices from the Device library onto a U (F4 repeats the last device edit).',
 		'Switch ports for ACS, CCTV…: pick them, Reserve for….',
 	] },
@@ -231,6 +232,7 @@ export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 	] },
 	{ stage: 'サーバー室とラック', steps: [
 		'プランで + Server room、次に Rack ツール:ラック1台につき1クリック(直前のラックの横をクリックすると隣接配置)。',
+		'部屋にラックの列が複数ある場合:部屋の Properties › Rows › + Row で列を作り、各列のラックを選んで Properties › Row で割り当て(ラックビューは1列ずつ表示。例 33IDF2-Row A)。',
 		'ラックビューを開き、Device library から機器を U 位置へドラッグ(F4 で直前の機器編集を繰り返し)。',
 		'ACS、CCTV などのスイッチポート:ポートを選んで Reserve for…。',
 	] },

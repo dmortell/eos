@@ -291,8 +291,8 @@ function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number,
 	if (h) {
 		const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
 		if (roomCeil == null) out.push(line(-ceil, 'riser-ceiling', ROOM_CEILING), label(-ceil - 30, `CEILING FFL+${ceil}`))
-		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `SLAB FFL+${soffit}`))
-		if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `SLAB FFL-${floor}`))
+		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `CSL FFL+${soffit}`))   // CSL / FSL as in sections (Dave 2026-10-15)
+		if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `FSL FFL-${floor}`))
 	}
 	if (roomCeil != null) out.push(line(-roomCeil, 'riser-ceiling', ROOM_CEILING), label(-roomCeil - 30, `${room?.name ?? 'ROOM'} CEILING FL${sign(roomCeil)}`))
 	if (rFloor) out.push(line(-rFloor, 'datum datum-room-floor', ROOM_FLOOR), label(-rFloor - 30, `${room?.name ?? 'ROOM'} FLOOR FL${sign(rFloor)}`))

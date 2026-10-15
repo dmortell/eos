@@ -3,7 +3,7 @@
 // depth. Items are painted far → near with opaque fills, so nearer things hide what's behind (exact for upright boxes
 // seen square-on; the interval method of ADR 0004 replaces this when sections need precise hidden lines).
 import { heightsOf, outletZ } from '../domain/floors'
-import type { Id, Pt, Pt3, Level, Rack, Outlet } from '../domain/types'
+import type { Id, Pt, Pt3, Level, Rack, Outlet, Space } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, sameWay, arcPoints, arcThrough } from '../domain/shapes'
@@ -17,7 +17,7 @@ import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
-const LABEL = 1.8, DATUM_LABEL = 1.6   // paper mm
+const LABEL = 1.8, DATUM_LABEL = 0.5, RACK_NAME = 0.9   // paper mm (datums and rack names as the rack view draws them at 1:100, Dave 2026-10-15)
 /** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
 const FACEPLATE_MM = 86
 
@@ -93,7 +93,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	kept = [...kept, ...(o.extra ?? [])]
 	kept.sort((a, b) => a.depth - b.depth)   // far first, near last (larger depth = nearer)
 	const out = kept.flatMap((i) => i.prims)
-	return [...datums(out, level, k), ...out]
+	return [...datums(ix, out, level, k), ...out]
 }
 
 type RectFn = (u0: number, u1: number, z0: number, z1: number, cls: string, src?: Id, fill?: boolean) => Prim
@@ -113,11 +113,13 @@ function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
 	return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([x, y]) => { const q = rotate({ x, y }, rot); return { x: at.x + q.x, y: at.y + q.y, z } })
 }
 
-/** A rack: its body, and — when its front or rear faces the viewer — the devices mounted on that face at their U. */
+/** A rack in an ARCHITECTURAL view: its body and its devices as plain boxes — no device names (Dave 2026-10-15: the rack view is the
+ *  schematic one) — and its name ABOVE it at the rack view's size. It stands on its room's floor. */
 function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, k: number): Item {
 	const [u0, u1] = uSpan(footprint(r.at!, r.widthMm, r.depthMm, r.rot))
-	const h = r.heightMm ?? r.heightU * RU_MM + 150, f = roomFloor(ix, r.spaceId)   // it stands on its room's floor
+	const h = r.heightMm ?? r.heightU * RU_MM + 150, f = roomFloor(ix, r.spaceId)
 	const prims: Prim[] = [rect(u0, u1, f, f + h, 'rack', r.id)]
+	// its devices as plain boxes at their U, when its front or rear faces the viewer — no names (Dave 2026-10-15)
 	const facing = sp.frame ? rackFrontNormal(r).x * sp.frame.n.x + rackFrontNormal(r).y * sp.frame.n.y : 0
 	const face = facing > 0.5 ? 'front' : facing < -0.5 ? 'rear' : null
 	if (face) {
@@ -126,10 +128,9 @@ function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan:
 			if (d.kind === 'pdu' || d.face === 'none' || (d.face !== 'both' && d.face !== face)) continue
 			const hw = Math.min(r.widthMm, d.widthMm ?? RACK_DEVICE_W) / 2, z0 = base + (d.u - 1) * RU_MM
 			prims.push(rect(mid - hw, mid + hw, z0, z0 + d.heightU * RU_MM, `device device-${d.kind}`, d.id))
-			if (d.heightU * RU_MM * 0.8 >= LABEL * k * 0.6) prims.push({ k: 'text', at: { x: mid, y: -(z0 + d.heightU * RU_MM / 2) + LABEL * k * 0.35 }, text: d.name, size: Math.min(LABEL * k, d.heightU * RU_MM * 0.7), anchor: 'middle', cls: 'label', src: d.id })
 		}
 	}
-	prims.push({ k: 'text', at: { x: (u0 + u1) / 2, y: -h - LABEL * k * 0.5 }, text: r.name, size: LABEL * k, anchor: 'middle', cls: 'label', src: r.id })
+	prims.push({ k: 'text', at: { x: (u0 + u1) / 2, y: -(f + h) - RACK_NAME * k * 0.4 }, text: r.name, size: RACK_NAME * k, anchor: 'middle', cls: 'label', src: r.id })
 	return { depth: sp.depthOf({ ...r.at!, z: 0 }), prims }
 }
 
@@ -303,15 +304,28 @@ function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number): Pr
 	return out
 }
 
-function datums(prims: Prim[], level: Level | undefined, k: number): Prim[] {
+/** The storey lines, drawn and named as the rack view draws them (Dave 2026-10-15): CSL (the slab above) and FSL (the
+ *  floor slab) solid and a little heavier, the ceiling dashed, FFL solid — and, for every room whose racks this view
+ *  shows with its OWN floor / ceiling (a server room's FL+200 floor), that room's lines too, so a difference shows. */
+function datums(ix: ProjectIndex, prims: Prim[], level: Level | undefined, k: number): Prim[] {
 	if (!level) return []
 	// as drawn: a prim clipped to a section's ends counts only inside its clip
 	const xs = prims.flatMap((p) => (p.k === 'line' || p.k === 'text' ? (() => { const b = primBounds(p); return b.x1 >= b.x0 ? [b.x0, b.x1] : [] })() : []))
 	const x0 = (xs.length ? Math.min(...xs) : -5000) - 1500, x1 = (xs.length ? Math.max(...xs) : 5000) + 1500
-	const h = level.heights
-	const lines: [number, string][] = [[-h.raisedFloorMm, 'FSL'], [0, 'FFL ±0'], [h.clearHeightMm, `CLG +${h.clearHeightMm}`], [h.clearHeightMm + h.plenumMm, 'CSL']]   // floor slab / ceiling slab (Dave 2026-10-15; was SSL / SSL above)
-	return lines.flatMap(([z, label]): Prim[] => [
-		{ k: 'line', pts: [{ x: x0, y: -z }, { x: x1, y: -z }], cls: z === 0 ? 'datum datum-ffl' : 'datum' },
-		{ k: 'text', at: { x: x0, y: -z - DATUM_LABEL * k * 0.4 }, text: label, size: DATUM_LABEL * k, cls: 'datum-label' },
+	const h = level.heights, ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
+	const sign = (v: number) => (v < 0 ? `-${-v}` : `+${v}`), s = DATUM_LABEL * k, gap = s * 0.6
+	const lines: [number, string, string, boolean?][] = [[soffit, 'datum datum-slab', `CSL FFL+${soffit}`], [ceil, 'riser-ceiling', `CEILING FFL+${ceil}`], [0, 'datum datum-ffl', 'FFL']]
+	if (floor > 0) lines.push([-floor, 'datum datum-slab', `FSL FFL-${floor}`, true])
+	// the rooms of the racks drawn here, with their own floor / ceiling
+	const rooms = new Set(prims.flatMap((p) => { const r = p.src ? ix.get(p.src) : undefined; return r?.type === 'rack' && r.spaceId ? [r.spaceId] : [] }))
+	for (const id of rooms) {
+		const sp = ix.get(id) as Space | undefined
+		if (sp?.type !== 'space' || sp.levelId !== level.id) continue
+		if (sp.ceilingMm != null) lines.push([sp.ceilingMm, 'riser-ceiling', `${sp.name} CEILING FL${sign(sp.ceilingMm)}`])
+		if (sp.floorMm) lines.push([sp.floorMm, 'datum datum-room-floor', `${sp.name} FLOOR FL${sign(sp.floorMm)}`])
+	}
+	return lines.flatMap(([z, cls, label, below]): Prim[] => [
+		{ k: 'line', pts: [{ x: x0, y: -z }, { x: x1, y: -z }], cls },
+		{ k: 'text', at: { x: x0, y: below ? -z + s + gap : -z - gap }, text: label, size: s, cls: 'datum-label' },
 	])
 }

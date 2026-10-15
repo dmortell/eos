@@ -14,6 +14,7 @@
 	import NameInput from './NameInput.svelte'
 	import Field from './fields/Field.svelte'
 	import TextField from './fields/TextField.svelte'
+	import { inPolygon } from '../views/primGeom'
 
 	let { project, ws, room }: { project: CadProject; ws: Workspace; room: Space } = $props()
 
@@ -21,6 +22,13 @@
 	const level = $derived(project.index.get(room.levelId))
 	const levelCeil = $derived(level?.type === 'level' ? level.heights.clearHeightMm : undefined)
 	const set = (label: string, patch: Partial<Space>) => put(project.store, room, label, patch)
+	// a drawn room round racks of ANOTHER room whose own floor / ceiling differ from the level's (Dave 2026-10-15: IDF2
+	// round 33IDF2's racks): its elevations draw both sets of lines; say so here
+	const otherDatums = $derived.by(() => {
+		if (server || !room.boundary || room.boundary.length < 3) return []
+		const ids = new Set(project.index.racks.filter((r) => r.levelId === room.levelId && r.at && r.spaceId && r.spaceId !== room.id && inPolygon(r.at, room.boundary!)).map((r) => r.spaceId!))
+		return [...ids].map((id) => project.index.get(id)).filter((s): s is Space => s?.type === 'space' && (!!s.floorMm || s.ceilingMm != null))
+	})
 
 	// ── rows: in their order ──
 	const rows = $derived(project.index.ofType('rackRow').filter((e) => e.spaceId === room.id).sort((a, b) => a.order - b.order))
@@ -62,6 +70,7 @@
 	<TextField label="Name" value={room.name} onchange={(v) => v && v !== room.name && set(`Rename room ${room.name} → ${v}`, { name: v })} />
 	<TextField label="Code" mono title={server ? 'The server room’s letter or code in port labels (the S of FF.Z.NNN-SPP)' : 'Its short code'} value={room.code} onchange={(v) => set('Room code', { code: v || undefined })} />
 	<Field label="Level">{#snippet children()}<span class="muted">{project.index.nameOf(room.levelId)}</span>{/snippet}</Field>
+	{#each otherDatums as o (o.id)}<p class="warn">The racks here belong to {o.name}, whose own floor / ceiling (FL{o.floorMm ? ` +${o.floorMm}` : ' ±0'}{o.ceilingMm != null ? ` / FL +${o.ceilingMm}` : ''}) differ from this level’s — its racks stand on its floor; this room’s elevations show both sets of lines.</p>{/each}
 	{#if !server}
 		<!-- W30: an EPS (electrical / riser room) names the riser view's EPS box round the riser inside it -->
 		<Field label="Kind" title="An EPS (riser room): the riser view names its EPS box after it">{#snippet children()}
@@ -122,6 +131,7 @@
 </div>
 
 <style>
+	.warn { margin: 2px 0 6px; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: #92400e; background: #fef3c7; }
 	/* a row: name, containment, its racks (a click selects the row), ▲ ▼ ✕ */
 	.rw { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto auto; align-items: center; gap: 3px; margin-bottom: 2px; }
 	.lnk { min-width: 1.2rem; color: var(--cad-link, #2563eb); }

@@ -22,7 +22,7 @@ describe('the rack row', () => {
 	it('the storey around the racks: the floor slab’s top, the ceiling and the slab above, as lines (the level’s heights)', () => {
 		const ps = view('front')
 		const texts = ps.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
-		expect(texts).toEqual(expect.arrayContaining(['CEILING FFL+2700', 'SLAB FFL+3500', 'SLAB FFL-300']))
+		expect(texts).toEqual(expect.arrayContaining(['CEILING FFL+2700', 'CSL FFL+3500', 'FSL FFL-300']))
 		const slabs = ps.filter((p) => p.k === 'line' && p.cls.includes('datum-slab')).map((p) => (p as { pts: { y: number }[] }).pts[0].y)
 		expect(slabs.sort((a, b) => a - b)).toEqual([-3500, 300])   // under the 300 floor void; above 2700 + 800 plenum
 	})
@@ -34,7 +34,7 @@ describe('the rack row', () => {
 		const rackY = (ps: typeof before) => (ps.find((p) => p.k === 'line' && p.cls === 'rack') as { pts: { y: number }[] }).pts[0].y
 		expect(rackY(after)).toBe(rackY(before) - 150)
 		const texts = after.filter((p) => p.k === 'text').map((p) => (p as { text: string }).text)
-		expect(texts).toEqual(expect.arrayContaining(['IDF-A CEILING FL+2400', 'IDF-A FLOOR FL+150', 'SLAB FFL+3500']))
+		expect(texts).toEqual(expect.arrayContaining(['IDF-A CEILING FL+2400', 'IDF-A FLOOR FL+150', 'CSL FFL+3500']))
 		expect(texts).not.toContain('CEILING FFL+2700')
 		const lines = after.filter((p) => 'cls' in p && p.cls.includes('room-line'))
 		const known = new Set(layersOf([]).map((l) => l.id))

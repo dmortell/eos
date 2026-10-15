@@ -1,6 +1,6 @@
 // Elevations as behaviour: what the front / rear / side views show, and drawing / moving in them.
 import { describe, it, expect } from 'vitest'
-import { elevationDisplayList, RU_MM } from './elevation'
+import { elevationDisplayList } from './elevation'
 import { spaceOf } from './space'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
@@ -24,22 +24,13 @@ const view = (dir: 'front' | 'rear' | 'left' | 'right', ents = placed()) => elev
 const srcs = (dir: 'front' | 'rear' | 'left' | 'right') => new Set(view(dir).map((p) => p.src).filter(Boolean))
 
 describe('what an elevation shows', () => {
-	it("the FRONT shows the rack's front-mounted devices; the REAR its rear ones; a SIDE none", () => {
-		// P1 is mounted 'both', SW1 'front'
-		expect(srcs('front').has('SW1')).toBe(true)
-		expect(srcs('front').has('P1')).toBe(true)
+	it('architectural (Dave 2026-10-15): the facing devices as plain boxes — front: SW1 (front) and P1 (both); rear: P1; a side none — and no device names', () => {
+		expect(srcs('front').has('SW1') && srcs('front').has('P1')).toBe(true)
 		expect(srcs('rear').has('SW1')).toBe(false)
 		expect(srcs('rear').has('P1')).toBe(true)
-		expect(srcs('left').has('P1')).toBe(false)
+		expect(srcs('left').has('P1') || srcs('left').has('SW1')).toBe(false)
 		expect(srcs('left').has('R1')).toBe(true)
-	})
-	it('a device sits at its U: panel at U40 is 39 rack units above the rack base', () => {
-		const p = view('front').find((x) => x.src === 'P1' && x.k === 'line') as { pts: { y: number }[] }
-		const r = view('front').find((x) => x.src === 'R1' && x.k === 'line') as { pts: { y: number }[] }
-		const rackBottom = Math.max(...r.pts.map((q) => -q.y)) === 0 ? 0 : 0
-		const deviceBottom = Math.min(...p.pts.map((q) => -q.y))
-		const base = (42 * RU_MM + 150 - 42 * RU_MM) / 2
-		expect(deviceBottom - rackBottom).toBeCloseTo(base + 39 * RU_MM)
+		expect(view('front').some((p) => p.k === 'text' && (p.src === 'SW1' || p.src === 'P1'))).toBe(false)
 	})
 	it('the trunk drop is a vertical band from +300 to +2900 at its plan position', () => {
 		const drop = view('front').filter((x) => x.src === 'T1' && x.k === 'line').find((x) => (x as { pts: { x: number }[] }).pts.every((q) => q.x === 6000)) as { pts: { y: number }[]; w: number }
@@ -75,7 +66,7 @@ describe('what an elevation shows', () => {
 		expect(elevationDisplayList(wall, 'L33', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100, blocks }).some((p) => p.src === 'INS2')).toBe(true)
 	})
 	it('level datum lines are drawn (FFL, ceiling …)', () => {
-		expect(view('front').some((p) => p.k === 'text' && p.text === 'FFL ±0')).toBe(true)
+		expect(view('front').filter((p) => p.k === 'text' && p.cls === 'datum-label').map((p) => (p.k === 'text' ? p.text : ''))).toEqual(expect.arrayContaining(['FFL', 'CSL FFL+3500']))
 	})
 })
 
