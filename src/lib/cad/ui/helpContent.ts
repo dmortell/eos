@@ -163,6 +163,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 		'Projects › New Project: codes, name, client, address, logos, members → Save (it opens in cad).',
 		'Set up floors…: lowest and top floor, name pattern (L{n}, GF) → Apply, then each floor’s heights.',
 		'Project › Settings…: check Usages, Cable types and Sheets (a new project starts with defaults).',
+		'Floors not in use: right-click › Delete level… — the building keeps them (riser view, heights); Floors › + model brings one back.',
 	] },
 	{ stage: 'Floorplans', steps: [
 		'Next: add floorplans → (or Project › Floors… › Plans & floorplans): Upload… on each floor’s row, or drop the PDF on it.',
@@ -216,6 +217,7 @@ export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 		'Projects › New Project:コード、名前、クライアント、住所、ロゴ、メンバーを入力 → Save(cadで開きます)。',
 		'Set up floors…:最下階と最上階、名前のパターン(L{n}、GF)→ Apply、続けて各階の高さを入力。',
 		'Project › Settings…:Usages、Cable types、Sheets を確認(新規プロジェクトには既定値が入っています)。',
+		'使わない階:右クリック › Delete level…(建物には階として残り、ライザービューと高さはそのまま)。Floors › + model で戻せます。',
 	] },
 	{ stage: 'フロアプラン', steps: [
 		'Next: add floorplans →(または Project › Floors… › Plans & floorplans):各階の行で Upload…、または PDF をドロップ。',
