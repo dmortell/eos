@@ -11,11 +11,13 @@ export function download(data: BlobPart, filename: string, type: string): void {
 /** A safe file name from free text ("Test Project 1F" → "Test_Project_1F"). */
 export const fileSafe = (s: string) => s.replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^_+|_+$/g, '') || 'export'
 
-/** What an export is, for the project's file-name pattern (Dave 2026-10-15: "Edit file names on export"). */
-export interface FileParts { what: string; scope?: string }
+/** What an export is, for the project's file-name pattern (Dave 2026-10-15: "Edit file names on export"): `revision` = its
+ *  own revision where it has one (a sheet's, a revision PDF's, the BOM's typed one); `version` = the release number
+ *  ("03") — a release's own, else the page fills in the project's latest. */
+export interface FileParts { what: string; scope?: string; revision?: string; version?: string }
 
 /** The tokens a pattern can use (Settings › Files › Export file names). */
-export const FILE_TOKENS = ['{project}', '{what}', '{scope}', '{date}'] as const
+export const FILE_TOKENS = ['{project}', '{what}', '{scope}', '{revision}', '{version}', '{date}'] as const
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` }
 
@@ -23,8 +25,8 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d
  *  empty token takes the separator before it with it. Null = no pattern, keep the export's own name. */
 export function patternName(pattern: string | undefined, project: string, parts: FileParts, ext: string, date = today()): string | null {
 	if (!pattern?.trim()) return null
-	const v: Record<string, string> = { project, what: parts.what, scope: parts.scope ?? '', date }
-	const base = pattern.replace(/([ _.-]*)\{(project|what|scope|date)\}/g, (_, sep: string, k: string) => (v[k] ? sep + v[k] : ''))
+	const v: Record<string, string> = { project, what: parts.what, scope: parts.scope ?? '', revision: parts.revision ?? '', version: parts.version ?? '', date }
+	const base = pattern.replace(/([ _.-]*)\{(project|what|scope|revision|version|date)\}/g, (_, sep: string, k: string) => (v[k] ? sep + v[k] : ''))
 	return `${fileSafe(base)}.${ext}`
 }
 

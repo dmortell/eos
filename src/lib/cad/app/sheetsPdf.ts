@@ -18,7 +18,7 @@ export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono =
 export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] } | null> {
 	const r = await sheetsPdfBlob(project, sheets, mono)
 	const name = `${sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`
-	if (!await saveFile(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf', sheets.length === 1 ? { what: `${sheets[0].number} ${sheets[0].title}${mono ? ' mono' : ''}` } : { what: `Sheets${mono ? ' mono' : ''}` })) return null
+	if (!await saveFile(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf', sheets.length === 1 ? { what: `${sheets[0].number} ${sheets[0].title}${mono ? ' mono' : ''}`, revision: sheets[0].revisions?.at(-1)?.code } : { what: `Sheets${mono ? ' mono' : ''}` })) return null
 	return { pages: r.pages, unsupported: r.unsupported, rasterised: r.rasterised }
 }
 

@@ -50,7 +50,7 @@
 	import { setFileNamer, patternName } from '../render/download'
 	import FileNameDialog from './FileNameDialog.svelte'
 	import ImagePickDialog from './ImagePickDialog.svelte'
-	import { pictureRef } from '../domain/issue'
+	import { pictureRef, issueNumbers } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
@@ -80,7 +80,10 @@
 	let saveAs = $state<{ name: string; ext: string; done: (n: string | null) => void } | null>(null)
 	$effect(() => {
 		setFileNamer((suggested, parts, ext) => new Promise((done) => {
-			const named = parts ? patternName(project.settings?.fileNamePattern, project.name, parts, ext) : null
+			// {version}: the release this file belongs to, else the project's latest ("03"; none released: left out)
+			const latest = Math.max(0, ...issueNumbers(project.store.ofType('issue')).values())
+			const all = parts && { ...parts, version: parts.version ?? (latest ? String(latest).padStart(2, '0') : undefined) }
+			const named = all ? patternName(project.settings?.fileNamePattern, project.name, all, ext) : null
 			saveAs?.done(null)
 			saveAs = { name: named ?? suggested, ext, done: (n) => { saveAs = null; done(n) } }
 		}))

@@ -249,7 +249,7 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 	const pages = await Promise.all([...cover, ...issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev))])
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster })
 	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
-	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${n ? `${issueTag(n)} ` : ''}${issue.name} reprint` })) return null
+	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${issue.name} reprint`, ...(n ? { version: String(n).padStart(2, '0') } : {}) })) return null
 	return { unsupported, rasterised }
 }
 
@@ -257,7 +257,7 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 export async function printRevision(project: CadProject, sheet: Sheet, rev: string): Promise<{ unsupported: string[]; rasterised: string[] } | null> {
 	const page = await loadFrozen(project, sheet.id, rev)
 	const { pdf, unsupported, rasterised } = await pagesToPdf([page], frozenImages(project), { rasterText: browserTextRaster })
-	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as released).pdf`, 'application/pdf', { what: `${sheet.number} rev ${rev}` })) return null
+	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${sheet.number} rev ${rev}`)} (as released).pdf`, 'application/pdf', { what: sheet.number, revision: rev })) return null
 	return { unsupported, rasterised }
 }
 

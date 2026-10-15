@@ -272,7 +272,7 @@ export interface BomExport {
 
 export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number | null> {
 	const f = await bomFile(ix, projectName, catalog, routes, o, estimates)
-	if (!await saveFile(f.data, f.name, XLSX, { what: 'BOM', scope: o.roomsText })) return null
+	if (!await saveFile(f.data, f.name, XLSX, { what: 'BOM', scope: o.roomsText, revision: o.header?.rev })) return null
 	return f.lines
 }
 /** An Excel file made in memory: its bytes and its name (downloaded, or attached to an issue — W21). */

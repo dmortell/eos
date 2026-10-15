@@ -8,6 +8,9 @@ describe('export file names', () => {
 		expect(patternName('{project} {what} {scope} {date}', 'Test Project', { what: 'Cable schedule', scope: 'L1' }, 'xlsx', '20261015')).toBe('Test_Project_Cable_schedule_L1_20261015.xlsx')
 		expect(patternName('{project}-{what}-{scope}-{date}', 'Proj', { what: 'BOM' }, 'xlsx', '20261015')).toBe('Proj-BOM-20261015.xlsx')
 		expect(patternName('', 'Proj', { what: 'BOM' }, 'xlsx')).toBeNull()   // no pattern: the export's own name
+		// {revision} / {version}: the sheet's revision, the release number — left out (with their separator) when unknown
+		expect(patternName('{project}-{what}-{revision}-R{version}', 'Proj', { what: 'S001', revision: 'C', version: '03' }, 'pdf')).toBe('Proj-S001-C-R03.pdf')
+		expect(patternName('{project}-{what}-{revision}', 'Proj', { what: 'Cable schedule' }, 'xlsx')).toBe('Proj-Cable_schedule.xlsx')
 	})
 	it('saveFile asks the namer; its answer is saved (extension kept), a cancel saves nothing', async () => {
 		const clicks: string[] = []
