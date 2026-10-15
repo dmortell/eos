@@ -7,6 +7,10 @@ import type { Pt } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import { newId } from '../domain/ids'
 import { sectionMarks, sectionsOn } from '../views/section'
+import { inPolygon } from '../views/primGeom'
+import { roomElevations } from '../domain/roomElevations'
+
+const area = (pts: Pt[]) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y }, 0)) / 2
 
 export const DEFAULT_SECTION_DEPTH = 5000
 
@@ -26,7 +30,23 @@ export class SectionTool implements Tool {
 	#a: Pt | null = null
 	#hover: Pt | null = null
 
-	down(e: PointerIn, c: ToolCtx): void { this.#point(c.snap(e.p, e.alt).p, c) }
+	/** `room`: the Room elevations (A–D) item — a click inside a room drawn with the Room tool makes its four. */
+	constructor(private mode: () => 'line' | 'room' = () => 'line') {}
+
+	down(e: PointerIn, c: ToolCtx): void {
+		if (this.mode() === 'room') { this.#room(e.p, c); return }
+		this.#point(c.snap(e.p, e.alt).p, c)
+	}
+	#room(p: Pt, c: ToolCtx): void {
+		const room = c.index.spaces.filter((s) => s.levelId === c.levelId && !!s.boundary?.length && inPolygon(p, s.boundary!))
+			.sort((a, b) => area(a.boundary!) - area(b.boundary!))[0]   // the smallest one the click is in (an EPS inside a riser room)
+		if (!room) { c.say?.('Click inside a room drawn with the Room tool (Draw › Room) — its outline gives the four walls'); return }
+		const secs = roomElevations(room, newId, sectionsOn(c.index, c.levelId).map((s) => s.name))
+		if (!secs.length) { c.say?.(`${room.name} already has its elevations A–D`); return }
+		c.store.transact(`Room elevations ${room.name}`, (tx) => { for (const s of secs) tx.put(s) })
+		c.select(secs.map((s) => s.id))
+		c.say?.(`${room.name}: ${secs.map((s) => s.name.slice(room.name.length + 1)).join(', ')} — each looks at its wall from inside; they’re in the Navigator under the level (put them on a sheet from there)`)
+	}
 	typed(p: Pt, c: ToolCtx): void { this.#point(p, c) }
 	lastPoint(): Pt | null { return this.#a }
 

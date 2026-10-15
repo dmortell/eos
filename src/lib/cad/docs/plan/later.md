@@ -64,7 +64,6 @@ wanted. *From:* ids as in `backlog.md`.
 ## 3D, elevations and sections
 
 - **Hidden-line removal** — true hidden lines in elevations / sections; only needed for line-only DXF elevations. *From:* P007
-- **Room elevations** — four sections per room (A–D) with outlets on their wall face; needs room boundaries first (later per Dave). *From:* P034
 - **3D view** — a read-only three.js view of a level (later per Dave). *From:* P035
 
 ## Maybe later

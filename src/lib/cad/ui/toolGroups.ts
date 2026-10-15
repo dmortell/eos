@@ -25,6 +25,8 @@ export const VARIANTS: Record<string, { label: string; icon: string }> = {
 	'shape:rect': { label: 'Rectangle', icon: 'rect' }, 'shape:polygon': { label: 'Polygon', icon: 'hexagon' },
 	'shape:ellipse': { label: 'Ellipse', icon: 'k-ellipse' }, 'shape:arc': { label: 'Arc (3 points)', icon: 'k-arc' },
 	'box:rect': { label: 'Box / desk', icon: 'box' }, 'box:ellipse': { label: 'Cylinder', icon: 'k-cylinder' }, 'box:polygon': { label: 'Polygon box', icon: 'pentagon' },
+	// the Section tool: a cut line, or a drawn room's four walls (Dave 2026-10-15)
+	'section:line': { label: 'Section (a cut line)', icon: 'k-section' }, 'section:room': { label: 'Room elevations (A–D: click inside a room)', icon: 'k-elevmark' },
 }
 /** A flyout item: its tool and variant ("shape:polygon" → shape, polygon). */
 export const itemOf = (item: string): { tool: ToolId; variant?: string } => { const [tool, variant] = item.split(':'); return { tool: tool as ToolId, ...(variant ? { variant } : {}) } }
@@ -36,7 +38,7 @@ export const TOOL_FAMILIES: { name: string; families: string[][] }[] = [
 	{ name: 'Select / modify', families: [['select'], ['move', 'copy', 'array', 'rotate', 'mirror'], ['match', 'renumber']] },
 	{ name: 'Draw', families: [['line'], ['shape:rect', 'shape:polygon', 'shape:ellipse', 'shape:arc']] },
 	{ name: 'Build (3D)', families: [['box:rect', 'box:ellipse', 'box:polygon'], ['wall'], ['opening']] },
-	{ name: 'Spaces and views', families: [['room'], ['section']] },
+	{ name: 'Spaces and views', families: [['room'], ['section:line', 'section:room']] },
 	{ name: 'Annotate', families: [['dimension', 'measure', 'guide'], ['text', 'leader', 'cloud'], ['legend', 'insert']] },
 	{ name: 'Cabling', families: [['outlet'], ['trunk', 'conduit'], ['rack', 'device'], ['cord']] },
 	{ name: 'Drawings', families: [['viewport']] },

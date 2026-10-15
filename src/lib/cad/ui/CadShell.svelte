@@ -505,11 +505,12 @@
 	/** A tool picked (the strip, Help): in a view it doesn't work in, the pane goes to this level's PLAN when the tool
 	 *  works there and the tool is armed (/cad/agent gotcha 2: it only said where it works); otherwise it says where. */
 	/** The Shape / Box tools' kind as a flyout variant (Rectangle / Polygon / Ellipse / Arc; Box / Cylinder / Polygon box). */
-	const toolVariant = (t: ToolId) => (t === 'shape' ? ws.shapeOpts.kind : t === 'box' ? ws.boxOpts.kind : undefined)
+	const toolVariant = (t: ToolId) => (t === 'shape' ? ws.shapeOpts.kind : t === 'box' ? ws.boxOpts.kind : t === 'section' ? ws.sectionMode : undefined)
 	/** A pick from the tools: a variant sets that tool's kind first. */
 	function pickItem(id: ToolId, variant?: string) {
 		if (variant && id === 'shape') ws.shapeOpts = { ...ws.shapeOpts, kind: variant as ShapeOpts['kind'] }
 		if (variant && id === 'box') ws.boxOpts = { ...ws.boxOpts, kind: variant as ShapeOpts['kind'] }
+		if (variant && id === 'section') ws.sectionMode = variant === 'room' ? 'room' : 'line'
 		if (ws.toolId !== id) pickTool(id)
 	}
 	function pickTool(id: ToolId) {

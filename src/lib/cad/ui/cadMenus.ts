@@ -166,7 +166,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Box', disabled: !c.toolOk('box'), children: [variant('box', 'rect', 'Box / desk'), variant('box', 'ellipse', 'Cylinder'), variant('box', 'polygon', 'Polygon box')] },
 			tool('wall', 'Wall'), tool('opening', 'Opening (door, window, hole)'),
 			'-',
-			tool('room', 'Room / EPS'), tool('section', 'Section (a wall or room elevation)'),
+			tool('room', 'Room / EPS'),
+			{ label: 'Section', disabled: !c.toolOk('section'), children: [variant('section', 'line', 'Section (a cut line)'), variant('section', 'room', 'Room elevations (A–D)')] },
 		] },
 		{ label: 'Modify', items: [
 			tool('move', 'Move'), tool('copy', 'Copy'),

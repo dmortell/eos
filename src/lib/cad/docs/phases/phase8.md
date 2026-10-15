@@ -3924,3 +3924,15 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   point a click takes when SNAP is on (guides did snap to the grid — the readout didn't). Seen live: the bar, the Box
   flyout → Cylinder (a second click reopened it), the Shape flyout order, New project… opening Create Project (closed
   unsaved).
+- **Room elevations A–D; Viewport only on sheets** (Dave 2026-10-15, "do the 2 grouping ideas"):
+  - The Section button is a family: **Section** (a cut line) · **Room elevations (A–D)** (`ws.sectionMode`; Draw ›
+    Section ▸ the same). A click inside a room drawn with the Room tool (the smallest one there) makes four sections
+    (`domain/roomElevations.ts`): "<room> A" … "D" — A looks to −y (up the plan), then B +x, C +y, D −x — each cut
+    through the room's middle, as wide as the room, `depth` = to its wall + 300 mm (`PAST_WALL_MM`); square to the
+    outline's box; names already on the level skipped; one undo step, selected. Removes later.md's "Room elevations".
+  - The Drawings group (Viewport) shows only while a sheet is open (it's last, so nothing moves).
+  - Tests: `domain/roomElevations.test.ts` (each section's looking direction checked through `sectionFrame`). Help: a
+    new how-to; the Section hint.
+  - Live in Test Project (Dave: "draw a room around IDF2"): a room **IDF2** drawn with the Room tool round R311–R313
+    and P3C (typed corners from the floorplan's walls: −4100, −11450 → −1280, −6330); Room elevations inside it made
+    IDF2 A–D; IDF2 D opened on P3C / V05 / V06. **Kept** (the room was asked for; the four sections to look at).

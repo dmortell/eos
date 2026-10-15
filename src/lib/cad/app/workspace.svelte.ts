@@ -138,6 +138,8 @@ export class Workspace {
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0, depth: 600 })
+	/** The Section tool: a cut line, or Room elevations A–D (a click inside a drawn room makes its four; Dave 2026-10-15). */
+	sectionMode = $state<'line' | 'room'>('line')
 	/** The Image tool's picture (Draw › Image…): its file in Uploads and page, and its name for the hint. */
 	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
 	touchInput = $state(false)
@@ -282,7 +284,7 @@ export class Workspace {
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), array: new MoveTool('array'), room: new RoomTool(), measure: new MeasureTool(), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
-		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, guide: new GuideTool(),
+		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(() => this.sectionMode), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, guide: new GuideTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 

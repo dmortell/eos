@@ -21,7 +21,7 @@ export const HINT: Partial<Record<ToolId, string>> = {
 	trunk: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level (that floor’s plan opens; carry on from the riser) · Enter finishes · C closes it · Esc / right-click ends it, again → Select · snap onto an outlet or rack to attach',
 	conduit: 'Click or type points · Shift = 15° steps · R = rise / drop · V = riser to another level (that floor’s plan opens; carry on from the riser) · Enter finishes · C closes it · Esc / right-click ends it, again → Select',
 	wall: 'Click or type points · Shift = 15° steps · Enter finishes · C or a click on the first point closes it (a room) · Esc / right-click ends it, again → Select',
-	section: 'Click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties',
+	section: 'Section: click (or type) the two ends of the cut line · it looks to the line\'s left as drawn · Flip, depth and Open in Properties · Room elevations (its flyout, or Draw › Section): click inside a room drawn with the Room tool for its four walls, A–D',
 	opening: 'Click a wall: a hole W wide from Z to Z + H, with the chosen swing · edit or delete it in the wall\'s Properties',
 	measure: 'Click two points (snaps · Shift 15° · type points): the distance shows beside the line and here, with its X / Y parts · nothing is drawn · click again to measure again · Esc clears',
 	room: 'Click the room’s corners (snaps · Shift 15° · type points) · Enter, C or a click on the first corner closes it, then type its name · drawn round a riser it is an EPS (the riser view names it) · Backspace drops a corner · Esc stops',

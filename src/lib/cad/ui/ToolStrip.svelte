@@ -67,7 +67,8 @@
 <svelte:window onpointerdown={away} onkeydown={(e) => { if (e.key === 'Escape' && open) { open = null; e.stopPropagation() } }} />
 
 <div class="strip" class:vertical role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
-	{#each TOOL_FAMILIES as g, gi (g.name)}
+	<!-- the Drawings group (Viewport) only while a sheet is open (Dave 2026-10-15); it's last, so nothing moves -->
+	{#each TOOL_FAMILIES.filter((g) => g.name !== 'Drawings' || kind === 'sheet') as g, gi (g.name)}
 		{#if gi}<span class="sep" role="separator"></span>{/if}
 		{#each g.families as f (fam(f))}
 			{@const item = shown(f)}
