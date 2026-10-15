@@ -120,3 +120,19 @@ wanted. *From:* ids as in `backlog.md`.
 - **Section top / bottom and hatching** — sections get top / bottom limits, and cut walls and slabs draw hatched. **P3 · M** (Dave 2026-10-05: low priority) (~150 lines). *cad today:* depth and flip work; cut walls are plain solid (`cad/views/section.ts:40`). *From:* P036 **Not needed (Dave 2026-10-13).**
 - **Connection points on boxes** — centre + edge midpoints by default, or your own (U / V), shown as × marks, for routing to desks. **P3 · M** (Dave 2026-10-05: low priority) (~150 lines, after the Box tool). *cad today:* missing. *From:* G272 **Not needed (Dave 2026-10-13).**
 - **Box: draw from the middle** — a modifier to draw a box outwards from its centre. Dave 2026-10-14: not needed.
+
+## Later (Dave 2026-10-15) — from the backlog's ❓ list
+
+- **Three bands: underlay, model, annotations** — draw everything in three bands, bottom to top (underlay, model,
+  annotations), each shown / hidden / faded / locked as one, draw order only inside a band; and a fixed order inside the
+  model band so cabling draws over furniture (**outlets over desks**: a desk block's fill hides floor outlets on the
+  plan, found in W13). Open questions: band per layer vs by kind vs fixed groups; replacing the Floorplans toggle; fade
+  per band. Dave 2026-10-15: "leave this for later, needs more thought". *From:* Dave 2026-10-14 / 15.
+- **A scripting hook for AI assistants** — `window.cad.read()` / `run(command)` so an assistant reads the model as data
+  (the `/cad/agent` guide is built). Dave 2026-10-15: later. *From:* Dave 2026-10-14.
+- **W8 Flag what a new floorplan broke** (B10) — after New revision…, list outlets / boxes now in a wall or where a desk
+  was. The red Compare overlay (W7) shows what moved meanwhile. Dave 2026-10-15: later.
+- **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind, AV kit as block templates. Dave
+  2026-10-15: "discuss later, do we need these additional kinds? we should be able to set the z of racks and boxes and
+  draw them and blocks where needed on walls" — i.e. maybe no new kinds: a rack Z (racks have none today; boxes and
+  blocks do) and placing them on walls may be enough.

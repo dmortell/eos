@@ -18,32 +18,19 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 6 entries (6 P3, all ❓ — waiting on Dave's answers; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 2 entries (2 P3, decided 2026-10-15: Navigator rows, W26 BOM lines; Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 
 ## Dave's todos (2026-10-14)
 
-- [ ] ❓ **Three bands: underlay, model, annotations** (Dave 2026-10-14 todo, consider) — group what a view draws into
-  three bands, always in this order bottom to top: the **underlay** (floorplans, images, received drawings), the
-  **model** (outlets, racks, runs, walls, boxes, blocks) and **annotations** (text, leaders, dimensions, clouds,
-  legends, labels). Each band could be shown / hidden, faded or locked as a whole (per view and per sheet viewport), and
-  draw order (Ctrl+] / [) would work inside a band, never across. To decide first:
-  - Is a band a fixed group of the existing layers, or a property of each layer?
-  - Does it replace the Floorplans layer's own toggle?
-  - Should "fade" (e.g. the underlay at 50%) be per band?
-  - Dave 2026-10-15: **outlets must draw over desks** — a 3D desk block's fill hides the floor outlets under it on the
-    plan unless they're selected (found in W13). The model band needs its own order too (furniture below cabling).
-  
-  **P3 · M**. *cad today:* layers (system + project) with hide / lock / freeze per viewport; a draw order per shape;
-  the floorplan at a fixed 0.6 opacity. *From:* Dave 2026-10-14 (walkthrough).
-- [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
-  — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
-  clicks. **P3 · M–L**.
 - [ ] **Navigator: drop the fixed view rows under each level** (Dave 2026-10-14 todo, ❓ "do we need plan /
   elevations under each floor model in the tree?") — each level lists Plan + Front / Rear / Left / Right elevation (5
   rows × every level) although a click on the level row already opens its plan and the view strip's Plan ·
   Elevation… switches. Proposal: leave them out; keep sections and server rooms (the level's own things); a search
   ("2F front") still finds the elevations; with an elevation open, the level row is the one marked.
-  `domain/navTree.ts` + its test; Help's Navigator how-to. **P3 · S** (~20 lines).
+  `domain/navTree.ts` + its test; Help's Navigator how-to. **P3 · S** (~20 lines). **Dave 2026-10-15: drop the
+  elevations** ("the user should be using sections instead"); keep the rooms, and consider making "server room" a
+  generic **Room** there (AV rooms, meeting rooms, other machine rooms, EPS rooms …) so the tree isn't limited to
+  server rooms.
 
 ## Workflow walkthrough (2026-10-14)
 
@@ -57,8 +44,6 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ### Floorplans
 
-- [ ] **W8 Flag what the new layout broke** (B10) — after a floorplan swap, list outlets / boxes that now sit in a wall
-  or where a desk was. **P3 · M** ❓.
 
 ### First run and setup
 
@@ -66,12 +51,12 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 ### BOM
 
 - [ ] **W26 More BOM lines** (B24) — faceplates, back boxes, modules, fibre terminations, containment fittings and
-  supports, fire-stopping, testing / labelling counts. **P3 · M** ❓ (which ones, from what).
+  supports, fire-stopping, testing / labelling counts. **P3 · M**. **Dave 2026-10-15:** faceplates, back boxes and
+  modules; fibre terminations; testing and labelling counts; and **mesh / spiral tubing** that protects the cables to
+  outlets (often desk outlets). Not now: containment fittings / supports, fire-stopping.
 
 ### Risers, sections and wall kit
 
-- [ ] **W29 Wall-mounted equipment** (B32, B33, B57) — a wall-mount rack / panel kind with a Z height (the ACS panel
-  is a plain box today), and AV kit (screens, speakers) as block templates. **P3 · M** ❓.
 
 
 ## Suggested order
