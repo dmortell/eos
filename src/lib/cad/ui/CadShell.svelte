@@ -16,7 +16,7 @@
 	import { drawnOn, layersOf, layerOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS, KEYS } from './shellKeys'
-	import { newSheetIn, sheetsPdf, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
+	import { newSheetIn, sheetsPdf, sheetsPdfTab, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
 	import { onDestroy, onMount, setContext, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState, goto } from '$app/navigation'
@@ -47,7 +47,7 @@
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
-	import { setFileNamer, patternName } from '../render/download'
+	import { setFileNamer, setFilePatterner, patternName, type FileParts } from '../render/download'
 	import FileNameDialog from './FileNameDialog.svelte'
 	import TextDialog from './TextDialog.svelte'
 	import { tipsDue } from './tipsStart'
@@ -84,16 +84,20 @@
 	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (Dave 2026-10-15)
 	onMount(() => { if (tipsDue()) layout.open('tips') })
 	let saveAs = $state<{ name: string; ext: string; done: (n: string | null) => void } | null>(null)
+	/** The name from the project's pattern, else the suggested one. {version}: the release this file belongs to, else the
+	 *  project's latest ("03"; none released: left out). */
+	function patterned(suggested: string, parts: FileParts | undefined, ext: string): string {
+		const latest = Math.max(0, ...issueNumbers(project.store.ofType('issue')).values())
+		const all = parts && { ...parts, version: parts.version ?? (latest ? String(latest).padStart(2, '0') : undefined) }
+		return (all ? patternName(project.settings?.fileNamePattern, project.name, all, ext) : null) ?? suggested
+	}
 	$effect(() => {
 		setFileNamer((suggested, parts, ext) => new Promise((done) => {
-			// {version}: the release this file belongs to, else the project's latest ("03"; none released: left out)
-			const latest = Math.max(0, ...issueNumbers(project.store.ofType('issue')).values())
-			const all = parts && { ...parts, version: parts.version ?? (latest ? String(latest).padStart(2, '0') : undefined) }
-			const named = all ? patternName(project.settings?.fileNamePattern, project.name, all, ext) : null
 			saveAs?.done(null)
-			saveAs = { name: named ?? suggested, ext, done: (n) => { saveAs = null; done(n) } }
+			saveAs = { name: patterned(suggested, parts, ext), ext, done: (n) => { saveAs = null; done(n) } }
 		}))
-		return () => setFileNamer(null)
+		setFilePatterner(patterned)
+		return () => { setFileNamer(null); setFilePatterner(null) }
 	})
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
@@ -449,7 +453,7 @@
 	/** The sheet open in the active pane (File / Sheets › PDF of this sheet). */
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** Ctrl+P and the print button (Dave 2026-10-15): the open sheet as a PDF, else every sheet. */
-	const printPdf = () => { if (openSheetId) pdfSheet(openSheetId); else if (sheetsAll.length) pdfAllSheets(); else ws.say('No sheets yet — Drawings › New sheet') }
+	const printPdf = () => { const sh = openSheetId ? project.index.get(openSheetId) : undefined; if (sh?.type === 'sheet') sheetsPdfTab(project, ws, [sh]); else if (sheetsAll.length) sheetsPdfTab(project, ws, sheetsAll); else ws.say('No sheets yet — Drawings › New sheet') }
 	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
 	// a row picked in a table: the active view pans it into view when it's off-screen (R52); only the pick re-runs this
@@ -682,7 +686,7 @@
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
-		<button class="ib" disabled={!sheetsAll.length} onclick={printPdf} title={openSheetId ? `PDF of this sheet (${KEYS.print})` : `PDF of all sheets (${KEYS.print}) — open a sheet for just that one`}><Icon name="print" size={15} /></button>
+		<button class="ib" disabled={!sheetsAll.length} onclick={printPdf} title={openSheetId ? `Print: this sheet as a PDF in a new browser tab (${KEYS.print}) — print or save it from there` : `Print: all sheets as a PDF in a new browser tab (${KEYS.print}) — open a sheet for just that one`}><Icon name="print" size={15} /></button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>

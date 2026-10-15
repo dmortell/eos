@@ -45,3 +45,28 @@ export async function saveFile(data: BlobPart, suggested: string, type: string, 
 	download(data, ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`) ? `${name}.${ext}` : name, type)
 	return name
 }
+
+/** The name a file would be saved under, without asking: the project's pattern, else the suggested name (the open cad
+ *  page sets how; Ctrl+P names its PDF tab with it, Dave 2026-10-15). */
+type Patterner = (suggested: string, parts: FileParts | undefined, ext: string) => string
+let patterner: Patterner | null = null
+export function setFilePatterner(f: Patterner | null): void { patterner = f }
+export function fileName(suggested: string, parts?: FileParts): string {
+	const ext = suggested.match(/\.([a-z0-9]+)$/i)?.[1] ?? ''
+	return patterner ? patterner(suggested, parts, ext) : suggested
+}
+
+/** A generated file shown in a browser tab opened beforehand (`win`, opened on the click itself so no pop-up blocker
+ *  stops it): the tab's title is `title` (the file's name), the browser's viewer prints or saves it. */
+export function showInTab(win: Window, data: BlobPart, type: string, title: string): void {
+	const url = URL.createObjectURL(new Blob([data], { type }))
+	const d = win.document
+	d.title = title
+	d.body.replaceChildren()
+	d.body.style.margin = '0'
+	const f = d.createElement('iframe')
+	f.src = url
+	f.title = title
+	f.style.cssText = 'border:0;width:100vw;height:100vh;display:block'
+	d.body.appendChild(f)
+}

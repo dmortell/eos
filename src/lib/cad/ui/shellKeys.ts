@@ -100,7 +100,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Help', keys: KEYS.help, group: 'Function keys', when: (e) => e.key === 'F1', run: (e, c) => { pd(e); c.help(false) } },
 	{ label: 'Find a level, view, sheet, room, rack, device, outlet', keys: KEYS.find, group: 'View', when: (_e, _c, k, mod) => mod && k === 'k', run: (e, c) => { pd(e); c.layout.open('navigator'); c.ws.navSearch++ } },
 	{ label: 'Open another project', keys: KEYS.openProject, group: 'View', when: (_e, _c, k, mod) => mod && k === 'o', run: (e, c) => { pd(e); c.openProject() } },
-	{ label: 'PDF of the open sheet (else of all sheets)', keys: KEYS.print, group: 'View', when: (_e, _c, k, mod) => mod && k === 'p', run: (e, c) => { pd(e); c.print() } },
+	{ label: 'Print: the open sheet (else all sheets) as a PDF in a new browser tab', keys: KEYS.print, group: 'View', when: (_e, _c, k, mod) => mod && k === 'p', run: (e, c) => { pd(e); c.print() } },
 	{ label: 'Keys and mouse (this list)', keys: KEYS.keys, group: 'Help', when: (e, _c, _k, mod) => e.key === '?' && !mod, run: (e, c) => { pd(e); c.help(true) } },
 	{ label: 'Hide / show every window', keys: KEYS.hideAll, group: 'View', when: (e, _c, _k, mod) => mod && e.key === '.', run: (e, c) => { pd(e); c.layout.allHidden = !c.layout.allHidden } },
 	{ label: 'Show / hide the tables', keys: KEYS.tables, group: 'View', when: (e, _c, _k, mod) => mod && e.key === ',', run: (e, c) => { pd(e); c.panels.toggle('bottom') } },

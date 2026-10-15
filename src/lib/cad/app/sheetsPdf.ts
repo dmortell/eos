@@ -3,22 +3,30 @@
 import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
 import { sheetPages, pagesToPdf, browserTextRaster } from '../render/pdf'
-import { fileSafe, saveFile } from '../render/download'
+import { fileSafe, saveFile, type FileParts } from '../render/download'
 import { placeUnderlays, pictureLoader } from './issue'
 import { panelPages } from '../views/panelSheets'
 import type { Device } from '../domain/types'
 
-export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono = false): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
+export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono = false, title?: string): Promise<{ blob: Blob; pages: number; unsupported: string[]; rasterised: string[] }> {
 	await placeUnderlays(project, sheets)   // a sheet not on screen may not have its floorplan rendered yet
 	const pages = sheetPages(project.index, sheets, { underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster, mono })
+	if (title) pdf.setProperties({ title })   // a viewer's tab / window shows it
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
+}
+
+/** A sheets PDF's own name and its parts for the project's file-name pattern (render/download.ts patternName). */
+export function sheetsPdfName(project: CadProject, sheets: Sheet[], mono = false): { suggested: string; parts: FileParts } {
+	const one = sheets.length === 1 ? sheets[0] : undefined
+	const suggested = `${fileSafe(`${one ? `${one.number} ${one.title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`)}.pdf`
+	return { suggested, parts: one ? { what: `${one.number} ${one.title}${mono ? ' mono' : ''}`, revision: one.revisions?.at(-1)?.code } : { what: `Sheets${mono ? ' mono' : ''}` } }
 }
 
 export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] } | null> {
 	const r = await sheetsPdfBlob(project, sheets, mono)
-	const name = `${sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`
-	if (!await saveFile(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf', sheets.length === 1 ? { what: `${sheets[0].number} ${sheets[0].title}${mono ? ' mono' : ''}`, revision: sheets[0].revisions?.at(-1)?.code } : { what: `Sheets${mono ? ' mono' : ''}` })) return null
+	const { suggested, parts } = sheetsPdfName(project, sheets, mono)
+	if (!await saveFile(r.blob, suggested, 'application/pdf', parts)) return null
 	return { pages: r.pages, unsupported: r.unsupported, rasterised: r.rasterised }
 }
 

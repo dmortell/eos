@@ -8,7 +8,8 @@ import { blankSheet } from '../views/sheet'
 import { newId } from '../domain/ids'
 import { repeatOn } from '../domain/repeatEdit'
 import { beyondPorts, beyondPortsText } from '../domain/devices'
-import { downloadSheetsPdf, unsupportedNote } from './sheetsPdf'
+import { downloadSheetsPdf, sheetsPdfBlob, sheetsPdfName, unsupportedNote } from './sheetsPdf'
+import { fileName, showInTab } from '../render/download'
 import { specLabel, isPaperSpec, type ViewSpec } from '../views/space'
 import { viewName } from '../domain/navTree'
 import { portMapTitle } from '../domain/portMap'
@@ -29,6 +30,21 @@ export function newSheetIn(project: CadProject, ws: Workspace): Id {
 export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Sheet[]): Promise<void> {
 	try { const r = await downloadSheetsPdf(project, sheets, ws.monoPdf); if (r) ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
 	catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
+}
+
+/** Ctrl+P / the print button (Dave 2026-10-15): the PDF in a new browser tab titled with the file's name (the project's
+ *  pattern), for the browser to print or save; exports keep their Save as dialog. The tab opens on the key / click itself
+ *  (a pop-up blocker allows that, not one opened after the PDF is made) and shows a note until the PDF is ready. */
+export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]): void {
+	const win = window.open('', '_blank')
+	if (!win) { ws.say('The browser blocked the new tab — allow pop-ups for this site, or use File › Export › PDF of this sheet'); return }
+	win.document.title = 'Making the PDF…'
+	win.document.body.textContent = 'Making the PDF…'
+	const { suggested, parts } = sheetsPdfName(project, sheets, ws.monoPdf)
+	const name = fileName(suggested, parts).replace(/\.pdf$/i, '')
+	void sheetsPdfBlob(project, sheets, ws.monoPdf, name)
+		.then((r) => { showInTab(win, r.blob, 'application/pdf', name); ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'} in a new tab${unsupportedNote(r.unsupported, r.rasterised)}`) })
+		.catch((e) => { win.close(); project.error = `PDF failed: ${(e as Error).message}` })
 }
 
 /** F4: the last device edit (Properties) again, on the selected devices — one undo step; those it can't go on are
