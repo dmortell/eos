@@ -79,8 +79,10 @@
 	function toggle(k: string) { const n = new Set(open); if (n.has(k)) n.delete(k); else n.add(k); open = n; save() }
 
 	/** Is this row the view the active pane shows? (Rooms, not each of their racks; sheets, not their viewports.) */
-	const isCurrent = (n: NavNode) => !!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && specKey(n.open.spec) === specKey(current.spec)
-		&& (!n.open.levelId || current.spec.kind === 'sheet' || n.open.levelId === current.levelId)
+	const isCurrent = (n: NavNode) => (!!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && specKey(n.open.spec) === specKey(current.spec)
+		&& (!n.open.levelId || current.spec.kind === 'sheet' || n.open.levelId === current.levelId))
+		// an elevation has no row of its own (Dave 2026-10-15): its level is the one marked
+		|| (n.kind === 'level' && current.spec.kind === 'elevation' && n.id === current.levelId)
 	// the open view's branch unfolds (once per view: folding it again sticks)
 	$effect(() => {
 		const key = `${current.levelId}:${specKey(current.spec)}`

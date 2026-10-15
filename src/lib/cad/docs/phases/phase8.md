@@ -3838,3 +3838,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   resets the box tool bar). Not offered: blocks, pictures, viewports, rooms (nothing a tool starts from). Tests in
   `domain/toolDefaults.test.ts`, `app/workspace.test.ts`; Help how-to rewritten. Tried live: the 1F callout (Box frame)
   → saved `callout: { border: 'box' }`; Undo took it out (checked in Firestore).
+- **Navigator: no elevation rows** (Dave 2026-10-15: "drop the elevations, the user should be using sections
+  instead"): each level lists Plan, its sections and its server rooms (`domain/navTree.ts`); with an elevation open its
+  level row is the marked one (`Navigator.svelte` isCurrent). Help's Navigator answer says so. Generic rooms in the tree
+  (AV / meeting / EPS …, Dave "consider") not built yet — asked first (imported room outlines could flood it).

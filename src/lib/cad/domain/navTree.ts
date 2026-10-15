@@ -1,5 +1,5 @@
 // The NAVIGATOR's tree (UX review S3; Dave: "Pages' tree is the right idea, but it must make models and drawings
-// easier to find"): the building side is the model — buildings › levels › their views (plan, elevations), sections,
+// easier to find"): the building side is the model — buildings › levels › their plan and sections (no elevation rows: Dave 2026-10-15, use sections; the view strip switches), the
 // server rooms (rack view, rows, racks) — then the riser view; the sheets after it, grouped by place, each unfolding to
 // its viewports. A search filters as you type and keeps each match's parents. Pure; tested in navTree.test.ts.
 import { categoryOf, DEFAULT_SHEET_CATEGORIES, type SheetCategory } from './sheetCategories'
@@ -28,7 +28,6 @@ export interface NavNode {
 	children?: NavNode[]
 }
 
-const ELEV: ['front' | 'rear' | 'left' | 'right', string][] = [['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right']]
 const all = <T extends Entity['type']>(ix: ProjectIndex, t: T) => [...ix.ofType(t)] as Extract<Entity, { type: T }>[]
 
 /** How the Sheets node groups its sheets (the Navigator's choice, per project in this browser). */
@@ -46,7 +45,6 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 		const secs = sections.filter((s) => s.levelId === l.id).sort((a, b) => naturalCompare(a.name, b.name))
 		const views: NavNode[] = [
 			{ key: `v:${l.id}:plan`, label: 'Plan', kind: 'view', open: { levelId: l.id, spec: { kind: 'plan' } } },
-			...ELEV.map(([dir, label]): NavNode => ({ key: `v:${l.id}:${dir}`, label: `${label} elevation`, kind: 'view', open: { levelId: l.id, spec: { kind: 'elevation', dir } } })),
 			...secs.map((s): NavNode => ({ key: `sec:${s.id}`, label: `Section ${s.name}`, kind: 'section', id: s.id, select: s.id, open: { levelId: l.id, spec: { kind: 'section', sectionId: s.id } } })),
 		]
 		const roomNodes = rooms.map((r): NavNode => {

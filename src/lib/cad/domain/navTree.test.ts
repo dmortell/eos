@@ -10,10 +10,11 @@ const ix = () => new ProjectIndex([...demoProject(), sheet as Entity])
 const labels = (ns: NavNode[]): string[] => ns.flatMap((n) => [n.label, ...labels(n.children ?? [])])
 
 describe('navigator tree', () => {
-	it('levels with their views and server rooms (rack view, racks); the riser view; sheets with their viewports', () => {
+	it('levels with their plan and server rooms (rack view, racks), no elevation rows (Dave 2026-10-15: use sections); the riser view; sheets', () => {
 		const t = navTree(ix())
 		const all = labels(t)
-		expect(all).toEqual(expect.arrayContaining(['Plan', 'Front elevation', 'IDF-A', 'A01', 'Riser view (building)', 'S001 Plan']))
+		expect(all).toEqual(expect.arrayContaining(['Plan', 'IDF-A', 'A01', 'Riser view (building)', 'S001 Plan']))
+		expect(all.some((l) => /elevation/.test(l))).toBe(false)
 		const sh = t.find((n) => n.kind === 'sheets')!
 		expect(sh.children?.[0].children?.[0]).toMatchObject({ kind: 'viewport', detail: '1:100', open: { levelId: 'L33', spec: { kind: 'plan' } } })
 		const room = pathTo(t, (n) => n.key === 'room:SR-A')

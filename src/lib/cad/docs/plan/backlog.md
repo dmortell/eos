@@ -36,15 +36,10 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **Navigator: drop the fixed view rows under each level** (Dave 2026-10-14 todo, ❓ "do we need plan /
-  elevations under each floor model in the tree?") — each level lists Plan + Front / Rear / Left / Right elevation (5
-  rows × every level) although a click on the level row already opens its plan and the view strip's Plan ·
-  Elevation… switches. Proposal: leave them out; keep sections and server rooms (the level's own things); a search
-  ("2F front") still finds the elevations; with an elevation open, the level row is the one marked.
-  `domain/navTree.ts` + its test; Help's Navigator how-to. **P3 · S** (~20 lines). **Dave 2026-10-15: drop the
-  elevations** ("the user should be using sections instead"); keep the rooms, and consider making "server room" a
-  generic **Room** there (AV rooms, meeting rooms, other machine rooms, EPS rooms …) so the tree isn't limited to
-  server rooms.
+- [ ] ❓ **Navigator: rooms, not only server rooms** (Dave 2026-10-15, "consider") — list every kind of room under its
+  level (AV, meeting, machine, EPS rooms …), not just server rooms. The elevation rows are gone (built 2026-10-15). To
+  decide: all rooms, or only rooms drawn / given a kind in cad (imported room outlines can be dozens per floor); a
+  click opens the plan centred on the room and selects it. **P3 · S**.
 
 ## Workflow walkthrough (2026-10-14)
 
