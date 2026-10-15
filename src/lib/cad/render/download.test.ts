@@ -1,6 +1,27 @@
-// File names for downloads.
-import { describe, it, expect } from 'vitest'
-import { fileSafe } from './download'
+// File names for downloads: fileSafe, and (Dave 2026-10-15) the project's pattern, then the user's edit before saving.
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { fileSafe, patternName, saveFile, setFileNamer } from './download'
+
+describe('export file names', () => {
+	afterEach(() => setFileNamer(null))
+	it('the pattern fills {project} {what} {scope} {date}; an empty token takes its separator with it', () => {
+		expect(patternName('{project} {what} {scope} {date}', 'Test Project', { what: 'Cable schedule', scope: 'L1' }, 'xlsx', '20261015')).toBe('Test_Project_Cable_schedule_L1_20261015.xlsx')
+		expect(patternName('{project}-{what}-{scope}-{date}', 'Proj', { what: 'BOM' }, 'xlsx', '20261015')).toBe('Proj-BOM-20261015.xlsx')
+		expect(patternName('', 'Proj', { what: 'BOM' }, 'xlsx')).toBeNull()   // no pattern: the export's own name
+	})
+	it('saveFile asks the namer; its answer is saved (extension kept), a cancel saves nothing', async () => {
+		const clicks: string[] = []
+		vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} })
+		vi.stubGlobal('document', { createElement: () => ({ set download(n: string) { clicks.push(n) }, click: () => {} }) })
+		setFileNamer(async (suggested) => `${suggested.replace('.xlsx', '')} edited`)
+		expect(await saveFile('x', 'Patching.xlsx', 'type', { what: 'Patch schedule' })).toBe('Patching edited')
+		expect(clicks).toEqual(['Patching edited.xlsx'])
+		setFileNamer(async () => null)
+		expect(await saveFile('x', 'Patching.xlsx', 'type')).toBeNull()
+		expect(clicks).toHaveLength(1)
+		vi.unstubAllGlobals()
+	})
+})
 
 describe('fileSafe', () => {
 	it('keeps Japanese text and letters; replaces what Windows / macOS forbid (Q26)', () => {

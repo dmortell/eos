@@ -51,7 +51,7 @@
 	async function exportXlsx() {
 		if (!catalog || busy) return
 		busy = true
-		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText, header: { client: project.sheetBase.details?.client || undefined, rev: rev.trim() || undefined, note: note.trim() || undefined } }, project.estimates); ondone(`BOM: ${n} lines`); onclose() }
+		try { const n = await exportBom(project.index, projectName, catalog, project.routes, { materials, rack, rows, rooms, roomsText, header: { client: project.sheetBase.details?.client || undefined, rev: rev.trim() || undefined, note: note.trim() || undefined } }, project.estimates); if (n !== null) { ondone(`BOM: ${n} lines`); onclose() } }
 		catch (e) { project.error = `BOM export failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}

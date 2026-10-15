@@ -47,6 +47,8 @@
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
+	import { setFileNamer, patternName } from '../render/download'
+	import FileNameDialog from './FileNameDialog.svelte'
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { pictureRef } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
@@ -72,6 +74,18 @@
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
 	const ws = new Workspace()
+	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
+	// every export asks for its file name first (Dave 2026-10-15): filled from the project's pattern (Settings › Files),
+	// else the export's own name; the Save as dialog (Dave: a dialog, not the status bar) — Enter saves, Esc cancels
+	let saveAs = $state<{ name: string; ext: string; done: (n: string | null) => void } | null>(null)
+	$effect(() => {
+		setFileNamer((suggested, parts, ext) => new Promise((done) => {
+			const named = parts ? patternName(project.settings?.fileNamePattern, project.name, parts, ext) : null
+			saveAs?.done(null)
+			saveAs = { name: named ?? suggested, ext, done: (n) => { saveAs = null; done(n) } }
+		}))
+		return () => setFileNamer(null)
+	})
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
 	const panels = new Panels()
@@ -727,6 +741,7 @@
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
+	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} ondone={saveAs.done} />{/if}
 	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}

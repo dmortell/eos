@@ -43,6 +43,7 @@ import { parseInputMode, INPUT_MODE_KEY, type InputMode } from '../editor/inputM
 import type { Underlay } from '../domain/types'
 import type { Guide } from '../domain/guides'
 import type { PageCalibUsed } from './pdf.svelte'
+import type { ToolDefaults } from '../domain/toolDefaults'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
@@ -424,8 +425,12 @@ export class Workspace {
 		this.#optsOwner = null
 		this.toolId = id
 		const h = heightsOf(level)
-		const d: DrawOpts | null = id === 'trunk' || id === 'conduit' ? { z: h.clearHeightMm + h.plenumMm / 2, w: id === 'conduit' ? 25 : 100, h: id === 'conduit' ? 25 : 50 }
-			: id === 'wall' ? { z: 0, w: 100, h: h.clearHeightMm }
+		// the project's defaults (Properties › Use as default): the box's height / Z once a session, the runs' sizes below
+		const td = this.toolDefaults()
+		if (id === 'box' && td?.box && !this.#boxSeeded) { this.#boxSeeded = true; this.boxOpts = { ...this.boxOpts, height: td.box.height, z: td.box.z ?? 0 } }
+		const d: DrawOpts | null = id === 'trunk' ? { z: h.clearHeightMm + h.plenumMm / 2, w: td?.trunk?.w ?? 100, h: td?.trunk?.h ?? 50 }
+			: id === 'conduit' ? { z: h.clearHeightMm + h.plenumMm / 2, w: td?.conduit?.w ?? 25, h: td?.conduit?.w ?? 25 }
+			: id === 'wall' ? { z: 0, w: td?.wall?.w ?? 100, h: h.clearHeightMm }
 			: id === 'line' ? { ...this.opts, z: 0 }
 			: id === 'opening' ? { z: 0, w: 900, h: 2100 } : null
 		if (!d) return
@@ -433,6 +438,19 @@ export class Workspace {
 		const lv = level?.id ?? ''
 		this.opts = { ...d, ...this.#sizes.get(id), z: this.#zs.get(`${id}:${lv}`) ?? d.z }
 		this.#optsOwner = { tool: id, level: lv }
+	}
+	/** The project's tool defaults (`ProjectSettings.toolDefaults`; CadShell points this at the open project). */
+	toolDefaults: () => ToolDefaults | undefined = () => undefined
+	#boxSeeded = false
+	/** Use as default was pressed: the tool takes the new defaults now, over what was typed for it this session. */
+	adoptDefaults(td: ToolDefaults): void {
+		for (const t of ['trunk', 'conduit', 'wall'] as const) {
+			const v = td[t]
+			if (!v) continue
+			this.#sizes.delete(t)   // the next pick starts from the saved default
+			if (this.#optsOwner?.tool === t) this.opts = { ...this.opts, w: v.w, ...('h' in v ? { h: v.h } : t === 'conduit' ? { h: v.w } : {}) }
+		}
+		if (td.box) { this.#boxSeeded = true; this.boxOpts = { ...this.boxOpts, height: td.box.height, z: td.box.z ?? 0 } }
 	}
 	/** The drawing tool whose Z / W / H `opts` holds (saved when another tool is picked, however this one ended). */
 	#optsOwner: { tool: ToolId; level: string } | null = null

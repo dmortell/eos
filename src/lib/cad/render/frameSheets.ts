@@ -7,7 +7,7 @@ import type { Workbook, Worksheet, Cell, Border, Borders, Fill, PaperSize } from
 import type { ProjectIndex } from '../domain/project'
 import type { Device, Id, ProjectSettings, Rack } from '../domain/types'
 import { racksInOrder, portAt, portGrid } from '../domain/devices'
-import { download, fileSafe } from './download'
+import { fileSafe, saveFile } from './download'
 import { sheetName } from './exports'
 
 /** One port cell: its label; the usage of the outlet it reaches, or the usage it is reserved for (no outlet yet). */
@@ -148,12 +148,12 @@ export async function frameWorkbook(rooms: FrameRoom[], settings: ProjectSetting
 }
 
 /** Frame label sheets for these server rooms, downloaded. */
-export async function exportFrameSheets(ix: ProjectIndex, projectName: string, spaceIds: Id[], perRoom: boolean): Promise<{ racks: number }> {
+export async function exportFrameSheets(ix: ProjectIndex, projectName: string, spaceIds: Id[], perRoom: boolean): Promise<{ racks: number } | null> {
 	const rooms = spaceIds.map((id) => frameRacks(ix, id)).filter((r) => r.racks.length)
 	const d = new Date(), date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
 	const fileName = `Frames-${fileSafe(projectName)}${rooms.length === 1 ? `-${fileSafe(rooms[0].name)}` : ''}-${date}.xlsx`
 	if (!rooms.length) return { racks: 0 }
 	const st = ix.get('settings'), wb = await frameWorkbook(rooms, st?.type === 'settings' ? st : undefined, { perRoom, fileName })
-	download(await wb.xlsx.writeBuffer(), fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	if (!await saveFile(await wb.xlsx.writeBuffer(), fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: 'Frame labels', scope: rooms.length === 1 ? rooms[0].name : undefined })) return null
 	return { racks: rooms.reduce((n, r) => n + r.racks.length, 0) }
 }

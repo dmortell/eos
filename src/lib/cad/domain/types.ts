@@ -364,6 +364,12 @@ export interface ProjectSettings {
 	 *  and lineweight (paper mm; 0 = the default), except where their layer sets it. Always stored whole ('' / 0 = by kind),
 	 *  so a merge-save can't bring a cleared value back. */
 	shapeStyle?: { color: string; dash: string; weightMm: number }
+	/** Export file names: a pattern of {project} {what} {scope} {date} (render/download.ts patternName); unset = each
+	 *  export's own name. Every export still asks for the name, filled from it. */
+	fileNamePattern?: string
+	/** What the Rack / Trunk / Conduit / Wall / Box / Text tools start with: Properties › Use as default
+	 *  (domain/toolDefaults.ts). */
+	toolDefaults?: import('./toolDefaults').ToolDefaults
 	/** Where cad's own uploads go (issue PDFs, title-block logos): UploadThing (absent, as before) or Firebase Storage. */
 	fileStorage?: 'uploadthing' | 'firebase'
 	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */

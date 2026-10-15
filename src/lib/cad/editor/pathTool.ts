@@ -139,7 +139,7 @@ export class PathTool implements Tool {
 			? { plane: { kind: 'vertical' as const, frame: c.space.frame, depth: Math.round(c.work.depth) } } : {}
 		const shape = this.id === 'line' ? { ...line, ...onView, ...(c.layerId ? { layerId: c.layerId } : {}), ...styleProp(c.settings, c.index.layers, c.layerId) }
 			: this.id === 'wall' ? toWall(line, c.opts.w, c.opts.h)
-			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : 'trunk' })
+			: toContainment(line, this.#section(c), { tier: Math.max(...pts.map((p) => p.z)) > 0 ? 'high' : 'low', form: this.id === 'conduit' ? 'conduit' : (c.settings?.toolDefaults?.trunk?.form ?? 'trunk') })
 		// a trunk / conduit drawn from / to the middle of another run's segment: that run gets a node there (they join)
 		const ends = joins ? [pts[0], pts[pts.length - 1]].filter((p) => !p.levelId) : []
 		const split = ends.length ? splitRunsAt(c.store.ofType('shape'), c.levelId, ends) : []

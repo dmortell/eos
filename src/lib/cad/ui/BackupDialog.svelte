@@ -9,7 +9,7 @@
 	import { canRestore } from '../domain/restorePlan'
 	import { readProjectFile, type ProjectFile } from '../persist/file'
 	import { collect, previewRestore, applyRestore, gzipText, readBackupFile, backupFileName, checkFile, storeBackup, type RestorePreview } from '../app/backups'
-	import { download } from '../render/download'
+	import { saveFile as saveAs } from '../render/download'
 
 	/** `source`: restore a stored backup (Project › Backups…) instead of choosing a file. */
 	let { project, mode, source, onclose, say }: { project: CadProject; mode: 'download' | 'restore'; source?: { file: ProjectFile; name: string }; onclose: () => void; say: (msg: string) => void } = $props()
@@ -31,12 +31,12 @@
 	const mb = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} kB`)
 
 	/** Collect `which` and save it as a file; returns its name. */
-	async function saveFile(which: Parts, prefix = ''): Promise<string> {
+	async function saveFile(which: Parts, prefix = ''): Promise<string | null> {
 		const f = await collect(project, which)
 		const blob = await gzipText(JSON.stringify(f))
-		const name = prefix + backupFileName(project.name, partsLabel(project.index.byId.values(), which))
-		download(blob, name, 'application/gzip')
-		return `${name} (${f.entities.length} items, ${mb(blob.size)})`
+		const label = partsLabel(project.index.byId.values(), which), name = prefix + backupFileName(project.name, label)
+		const saved = await saveAs(blob, name, 'application/gzip', { what: 'Backup', scope: label })
+		return saved && `${saved} (${f.entities.length} items, ${mb(blob.size)})`
 	}
 
 	async function run(label: string, fn: () => Promise<void>) {
@@ -44,7 +44,7 @@
 		try { await fn() } catch (e) { error = (e as Error).message ?? String(e) } finally { busy = '' }
 	}
 
-	const doDownload = () => run('Collecting…', async () => { say(`Downloaded ${await saveFile(parts)}`); onclose() })
+	const doDownload = () => run('Collecting…', async () => { const r = await saveFile(parts); if (r) { say(`Downloaded ${r}`); onclose() } })
 
 	async function pick(e: Event) {
 		const f = (e.currentTarget as HTMLInputElement).files?.[0]

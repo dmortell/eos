@@ -3786,3 +3786,29 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   floor's EPS box up to the slab above (through the plenum); one coming from the floor below, down to this floor's
   slab (through the raised floor). A riser that only turns in this floor's ceiling stays FFL → ceiling. Test in
   `views/riser.test.ts`; seen live on Test Project's riser view.
+- **Use as default** (Dave 2026-10-15: the button, kept with the project; backlog "Keep a drawn item's settings for
+  the next ones"): one item selected → Properties › **Use as default** (under its name) saves its settings as its
+  tool's starting point in `ProjectSettings.toolDefaults` (`domain/toolDefaults.ts` `useAsDefault`), one undo step:
+  - a rack → the Rack tool: kind, size, height, rotation (square too), doors, color, product — over "like the last
+    one" (room, row and name still follow the last rack); a product picked in the catalogue still wins;
+  - a trunk / tray / ladder → new trunks' W / H and kind; a conduit → its diameter; a wall → its thickness
+    (`ws.setTool` reads them, `ws.adoptDefaults` drops this session's typed sizes so the new default shows at once);
+  - a box → the Box tool's height and Z; a text → the Text tool's size (and pasted text);
+  - a line / rectangle / circle … → the project drawing style (`shapeStyle`, Settings › Drawing).
+  - Outlets: none (the Outlet tool bar already carries on from the last one). Tests in
+    `domain/toolDefaults.test.ts`, `editor/racks.test.ts`; Help how-to + the Rack hint. Tried live on Test Project:
+    R301 → Use as default → a rack drawn on 4F came out 4-post, 45U, 750 × 1070, turned 180°; both undone (checked in
+    Firestore).
+- **Export file names** (Dave 2026-10-15: "both" — a project pattern, and each export editable; then "dont use
+  statusbar for inputs like filenames, use a dialog"): every export now saves through `render/download.ts`
+  `saveFile(data, name, type, { what, scope })`, which asks the page's namer first: CadShell opens **Save as**
+  (`ui/FileNameDialog.svelte`), filled from `ProjectSettings.fileNamePattern` (`patternName`: {project} {what} {scope}
+  {date}; an empty token drops its separator) or the export's own name; Enter / Save saves, Esc / Cancel saves
+  nothing (the export returns null / false and its caller says nothing; the BOM / cable / patch dialogs stay open).
+  Settings › Files › **Export file names** sets the pattern, with an example. Covered: patch schedule, panel labels
+  (Excel + PDF), port map, BOM, cable schedule, frame sheets, outlet schedule, sheet list, sheet PDFs, DXF, backups
+  (download + from the list). The release reprint / transmittal names come with the Release rename merge. Tests in
+  `render/download.test.ts` (the old fileSafe test kept), `render/patchRoundTrip.test.ts` mocks saveFile. Tried live
+  on Test Project: the outlet schedule's Save as with its own name, then with the pattern
+  ("Test_Project_Outlet_schedule_4F_20261015"); Esc saved nothing; the BOM dialog's Save as cancelled leaves the
+  dialog open; the pattern cleared afterwards (checked in Firestore).

@@ -8,7 +8,7 @@ import { demoProject } from '../domain/fixtures'
 import type { Entity } from '../domain/drawing'
 
 const saved = vi.hoisted(() => ({ data: null as BlobPart | null, name: '' }))
-vi.mock('./download', async (orig) => ({ ...(await orig<typeof import('./download')>()), download: (data: BlobPart, name: string) => { saved.data = data; saved.name = name } }))
+vi.mock('./download', async (orig) => ({ ...(await orig<typeof import('./download')>()), download: (data: BlobPart, name: string) => { saved.data = data; saved.name = name }, saveFile: async (data: BlobPart, name: string) => { saved.data = data; saved.name = name; return name } }))
 
 const roomB: Entity[] = [
 	{ type: 'space', id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', code: 'B', order: 2 },

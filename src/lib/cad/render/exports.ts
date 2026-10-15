@@ -10,7 +10,7 @@ import type { Route } from '../domain/routing'
 import { rackBom, type RackBomLine } from '../domain/rackBom'
 import { panelsInFillOrder } from '../domain/devices'
 import { naturalCompare } from '../domain/labels'
-import { download, fileSafe } from './download'
+import { fileSafe, saveFile } from './download'
 import { scheduleTotals, estimatedTotals, type CableRow } from '../domain/cableSchedule'
 import type { Estimate } from '../domain/estimates'
 import { portMapRows } from '../domain/portMap'
@@ -90,7 +90,7 @@ export function patchScheduleRows(ix: ProjectIndex, cords: Cord[] = cordsForSche
 
 /** The patch schedule as Excel: a worksheet per `sheets` entry (a room, or one for a selection), each grouped in work
  *  order, plus the cord BOM over them all. `tag` names the file ("33IDF2", "changes"). Returns the cords written. */
-export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, sheets: ScheduleSheet[], typeLabel?: (id: string) => string, tag?: string): Promise<number> {
+export async function exportPatchSchedule(ix: ProjectIndex, projectName: string, sheets: ScheduleSheet[], typeLabel?: (id: string) => string, tag?: string): Promise<number | null> {
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook(), taken = new Set<string>(['bill of materials'])
 	const all: Cord[] = []
@@ -109,7 +109,7 @@ export async function exportPatchSchedule(ix: ProjectIndex, projectName: string,
 	for (const l of cordBom(all, typeLabel))
 		for (const s of STATUS_ORDER) if (l.n[s]) b.addRow([l.type, l.lengthM || '-', s, l.n[s]])
 	b.addRow(['', '', 'Total', all.length]).font = { bold: true }
-	download(await wb.xlsx.writeBuffer(), `Patching-${fileSafe(projectName)}${tag ? `-${fileSafe(tag)}` : ''}-${today()}.xlsx`, XLSX)
+	if (!await saveFile(await wb.xlsx.writeBuffer(), `Patching-${fileSafe(projectName)}${tag ? `-${fileSafe(tag)}` : ''}-${today()}.xlsx`, XLSX, { what: 'Patch schedule', scope: tag })) return null
 	return all.length
 }
 
@@ -207,7 +207,7 @@ const inScope = (ix: ProjectIndex, d: Device, roomId?: Id, levelId?: Id) => {
 }
 
 /** One room's panel labels, or (no room) a level's, or every room's. */
-export async function exportPanelLabels(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, level?: { id: Id; name: string }): Promise<{ rows: number; panels: Id[] }> {
+export async function exportPanelLabels(ix: ProjectIndex, projectName: string, room?: { id: Id; name: string }, level?: { id: Id; name: string }): Promise<{ rows: number; panels: Id[] } | null> {
 	const rows = panelLabelRows(ix, room?.id, level?.id)
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
@@ -218,7 +218,7 @@ export async function exportPanelLabels(ix: ProjectIndex, projectName: string, r
 	;[14, 12, 24, 5, 6, 22, 12].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 	for (const r of rows) ws.addRow(r)
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
-	download(await wb.xlsx.writeBuffer(), `PanelLabels-${fileSafe(projectName)}${room || level ? `-${fileSafe((room ?? level)!.name)}` : ''}-${today()}.xlsx`, XLSX)
+	if (!await saveFile(await wb.xlsx.writeBuffer(), `PanelLabels-${fileSafe(projectName)}${room || level ? `-${fileSafe((room ?? level)!.name)}` : ''}-${today()}.xlsx`, XLSX, { what: 'Panel labels', scope: (room ?? level)?.name })) return null
 	const panels = ix.devices.filter((d) => d.kind === 'panel' && inScope(ix, d, room?.id, level?.id)).map((d) => d.id)
 	return { rows: rows.length, panels }
 }
@@ -229,7 +229,7 @@ export const PORTMAP_HEAD = ['Room', 'Rack', 'U', 'Port', 'Device', 'Port Label'
 
 /** The port map (domain/portMap.ts) as Excel for the network engineers: every port of the chosen panels / switches,
  *  a heading row per device, an empty VLAN column (highlighted) to fill in. Returns the ports written. */
-export async function exportPortMap(ix: ProjectIndex, projectName: string, deviceIds: Id[]): Promise<number> {
+export async function exportPortMap(ix: ProjectIndex, projectName: string, deviceIds: Id[]): Promise<number | null> {
 	const rows = portMapRows(ix, deviceIds)
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
@@ -255,7 +255,7 @@ export async function exportPortMap(ix: ProjectIndex, projectName: string, devic
 	}
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
 	ws.headerFooter = { oddHeader: `&C&BPort map - ${projectName}`, oddFooter: '&L&D&RPage &P / &N' }
-	download(await wb.xlsx.writeBuffer(), `PortMap-${fileSafe(projectName)}-${today()}.xlsx`, XLSX)
+	if (!await saveFile(await wb.xlsx.writeBuffer(), `PortMap-${fileSafe(projectName)}-${today()}.xlsx`, XLSX, { what: 'Port map' })) return null
 	return rows.length
 }
 
@@ -270,9 +270,9 @@ export interface BomExport {
 	header?: { client?: string; rev?: string; date?: string; note?: string }
 }
 
-export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number> {
+export async function exportBom(ix: ProjectIndex, projectName: string, catalog: CatalogProduct[], routes?: Map<string, Route>, o: BomExport = { materials: true, rack: 'consolidated' }, estimates: readonly Estimate[] = []): Promise<number | null> {
 	const f = await bomFile(ix, projectName, catalog, routes, o, estimates)
-	download(f.data, f.name, XLSX)
+	if (!await saveFile(f.data, f.name, XLSX, { what: 'BOM', scope: o.roomsText })) return null
 	return f.lines
 }
 /** An Excel file made in memory: its bytes and its name (downloaded, or attached to an issue — W21). */
@@ -321,9 +321,9 @@ export async function bomFile(ix: ProjectIndex, projectName: string, catalog: Ca
 
 /** The cable schedule (domain/cableSchedule.ts) as Excel: one row per cable, the 90 m ones and those with no route
  *  marked, totals at the foot. */
-export async function exportCableSchedule(rows: CableRow[], projectName: string): Promise<void> {
+export async function exportCableSchedule(rows: CableRow[], projectName: string): Promise<boolean> {
 	const f = await cableScheduleFile(rows, projectName)
-	download(f.data, f.name, XLSX)
+	return !!await saveFile(f.data, f.name, XLSX, { what: 'Cable schedule' })
 }
 /** The cable schedule workbook (the download's). */
 export async function cableScheduleFile(rows: CableRow[], projectName: string): Promise<XlsxFile> {
