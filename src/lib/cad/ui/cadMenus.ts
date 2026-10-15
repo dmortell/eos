@@ -141,7 +141,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
 			'-',
-			{ label: 'Fill', title: 'Draw each run’s fill (the % of its limit) on the plan', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
+			{ label: 'Fill rates', title: 'Draw each run’s fill (the % of its limit) on the plan', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
 			{ label: 'Drafting', children: [
 				{ label: 'Snap to grid (SNAP)', key: KEYS.snap, checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
 				{ label: 'Object snaps (OSNAP)', key: KEYS.osnap, checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },
@@ -163,7 +163,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
 			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',
-			{ label: 'Match properties', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
+			{ label: 'Format painter', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
 			tool('renumber', 'Renumber'),
 		] },
 		{ label: 'Annotate', items: [
@@ -243,7 +243,7 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 		{ label: 'Select similar', run: c.similar },
 		...(c.desks && sel.some((x) => x?.type === 'outlet') && sel.filter((x) => x?.type === 'shape' && x.geom.kind === 'insert').length >= 2
 			? [{ label: 'Copy outlets onto the other desks', title: 'The outlets on one desk, onto every other selected desk of the same block — turned with each desk, numbered on', run: c.desks } as MenuItem] : []),
-		...(one?.type === 'shape' ? [{ label: 'Match properties…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
+		...(one?.type === 'shape' ? [{ label: 'Format painter…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
 			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group(false) } as MenuItem] : []),
 			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: KEYS.ungroup, run: () => c.group(true) } as MenuItem] : []),
