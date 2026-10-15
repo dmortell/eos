@@ -16,6 +16,7 @@
 	import RackList from './RackList.svelte'
 	import DeviceLibrary from './DeviceLibrary.svelte'
 	import CableList from './CableList.svelte'
+	import Walkthrough from './Walkthrough.svelte'
 
 	let { id, project, ws, level, projectName, current, tabbed, on }: {
 		id: WinId; project: CadProject; ws: Workspace; level: Level | undefined; projectName: string
@@ -47,4 +48,6 @@
 	<div class="p-2"><DeviceLibrary {project} {ws} /></div>
 {:else if id === 'cables'}
 	<div class="p-2"><CableList {project} {ws} /></div>
+{:else if id === 'walkthrough'}
+	<div class="px-3 pb-3"><Walkthrough /></div>
 {/if}

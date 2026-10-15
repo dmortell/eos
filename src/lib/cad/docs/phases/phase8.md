@@ -3821,3 +3821,9 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   renamed groups resets once; files already uploaded keep their "Issue NN" names. The reprint, revision PDF,
   transmittal and register downloads now go through the Save as dialog too. Built by an agent in a worktree, merged
   there (helpContent / SettingsPanel conflicts resolved), tests 1156 pass, svelte-check clean in cad.
+- **Walkthrough window** (Dave 2026-10-15: "so useful … a floating / dockable window so the user can keep it open"):
+  Help › Walkthrough now opens a **Walkthrough** window (`WinId 'walkthrough'`, floating 360 × 520 by default; docks
+  left / right like the others; Window › Walkthrough toggles it). `ui/Walkthrough.svelte` draws the stages (each folds
+  on its heading) for both the window and Help's section, which keeps Help's search and gains **Open in a window**.
+  HelpDialog's `start: 'walk'` is gone. Seen live: the menu opens it with 9 stages, it docked right under Racks, Help's
+  button opens it and closes Help; closed again afterwards.

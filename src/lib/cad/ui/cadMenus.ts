@@ -71,7 +71,7 @@ export interface MenuCtx {
 	// Window / Help
 	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
 	help(keys?: boolean): void
-	/** Help opened on the walkthrough: a project from start to issue. */
+	/** The Walkthrough window (a project from start to release), kept open beside the drawing. */
 	walkthrough(): void
 }
 

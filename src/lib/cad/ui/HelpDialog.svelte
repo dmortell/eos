@@ -1,24 +1,23 @@
-<!-- HELP (F1 / ?, Help menu; backlog "Help (F1 / ?)", UX22; modelled on Pages' HelpDialog): the walkthrough (a project start to issue), how-to answers (label
+<!-- HELP (F1 / ?, Help menu; backlog "Help (F1 / ?)", UX22; modelled on Pages' HelpDialog): the walkthrough (Walkthrough.svelte, also its own window), how-to answers (label
      editing with F2 / Tab first), keys and mouse, function keys and every tool — click a tool to pick it. One search
-     box filters all of it; `start` opens on the keys (function keys and the ACAD / EOS tip first) or the walkthrough. -->
+     box filters all of it; `start` opens on the keys (function keys and the ACAD / EOS tip first). -->
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
 	import CadDialog from './CadDialog.svelte'
 	import { HOWTO, HOWTO_AREAS, SHORTCUTS, FKEYS, WALKTHROUGH } from './helpContent'
 	import { TOOL_GROUPS } from './toolGroups'
+	import Walkthrough from './Walkthrough.svelte'
 	import type { ToolId } from '../app/workspace.svelte'
 
-	/** `start`: open on the keys (Keys and mouse, ?) or the walkthrough (Help › Walkthrough), else the top. */
-	let { onclose, ontool, start, hints }: { onclose: () => void; ontool: (id: ToolId) => void; start?: 'keys' | 'walk'; hints: Partial<Record<ToolId, string>> } = $props()
+	/** `start`: open on the keys (Keys and mouse, ?), else the top. `onwalk` opens the Walkthrough window. */
+	let { onclose, ontool, start, hints, onwalk }: { onclose: () => void; ontool: (id: ToolId) => void; start?: 'keys'; hints: Partial<Record<ToolId, string>>; onwalk?: () => void } = $props()
 
 	let q = $state('')
 	let input: HTMLInputElement | undefined = $state()
 	let keysEl: HTMLElement | undefined = $state()
-	let walkEl: HTMLElement | undefined = $state()
-	// svelte-ignore state_referenced_locally
-	let walkOpen = $state(start === 'walk')
-	$effect(() => { void tick().then(() => { input?.focus(); (start === 'keys' ? keysEl : start === 'walk' ? walkEl : undefined)?.scrollIntoView({ block: 'start' }) }) })
+	let walkOpen = $state(false)
+	$effect(() => { void tick().then(() => { input?.focus(); if (start === 'keys') keysEl?.scrollIntoView({ block: 'start' }) }) })
 	const hit = (...t: string[]) => { const w = q.trim().toLowerCase(); return !w || t.some((x) => x.toLowerCase().includes(w)) }
 	const walk = $derived(WALKTHROUGH.map((s) => ({ ...s, steps: s.steps.filter((x) => hit(x, s.stage, 'walkthrough')) })).filter((s) => s.steps.length))
 	const tipShown = $derived(hit('ACAD EOS input mode wheel pan zoom drag'))
@@ -38,15 +37,11 @@
 	{/snippet}
 		<div class="body">
 			{#if walk.length}
-				<h3 bind:this={walkEl}>Walkthrough</h3>
+				<h3>Walkthrough</h3>
 				<div class="how" class:open={walkOpen || !!q.trim()}>
 					<button class="how-q" onclick={() => (walkOpen = !walkOpen)}>A project from start to release, stage by stage</button>
-					{#if walkOpen || q.trim()}
-						{#each walk as s, i (s.stage)}
-							<h4 class="stage">{i + 1}. {s.stage}</h4>
-							<ol>{#each s.steps as x (x)}<li>{x}</li>{/each}</ol>
-						{/each}
-					{/if}
+					{#if onwalk}<button class="win" title="Keep the walkthrough open beside the drawing, in its own window (dock it like the others; Window › Walkthrough)" onclick={() => { onwalk(); onclose() }}>Open in a window</button>{/if}
+					{#if walkOpen || q.trim()}<Walkthrough filter={hit} />{/if}
 				</div>
 			{/if}
 			{#if howto.length}
@@ -105,9 +100,9 @@
 	kbd { flex: 0 1 auto; max-width: 50%; text-align: right; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
 	.tip { margin: 10px 0 2px; padding: 6px 8px; border-radius: 4px; background: var(--cad-feature, #eff6ff); }
 	.tip b { color: var(--cad-text); font-weight: 600; }
-	h4.stage { margin: 8px 0 2px 14px; }
-	ol { margin: 0 0 4px 14px; padding-left: 18px; list-style: decimal; color: var(--cad-muted); }
-	ol li { padding: 1px 0; }
+	.win { margin: 0 0 4px 14px; padding: 1px 8px; border: 1px solid var(--cad-line); border-radius: 4px; font-size: 11px; color: var(--cad-link, #1d4ed8); }
+	.win:hover { background: var(--cad-hover); }
+	.how :global(.walk) { margin-left: 14px; }
 	.how { border-bottom: 1px solid var(--cad-line, #f4f4f5); }
 	.how.featured { background: var(--cad-feature, #eff6ff); border-radius: 4px; padding: 0 6px; }
 	.how-q { width: 100%; text-align: left; padding: 5px 0; font-size: 12px; color: var(--cad-text); }
