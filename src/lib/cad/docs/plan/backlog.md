@@ -42,9 +42,25 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
      follows the walkthrough stages, friendlier to non-CAD users, but splits drawing tools by trade.
   Still open whichever stays: a Plan / Elevation / Section / Riser switch in View; where Rename / Delete this level
   belong (Navigator only?). **P3 · S–M**.
-- [ ] ❓ **Review the tool strip** (Dave 2026-10-15 todo) — it's getting long: dropdowns that pick similar tools from
-  one icon (Text / Callout / Cloud, Trunk / Conduit, Shape / Box …), maybe a new order; would a floating tool bar like
-  the legacy Pages tool's work better? **P3 · M**.
+- [ ] ❓ **Tool strip: options** (Dave 2026-10-15: "do a similar review of the toolbar"). Today: 29 icons in 6 groups
+  (Select / modify 6 · Draw 6 · Annotate 5 · Building 4 · Cabling 7 · Sheet 1), ~900 px before the undo / layout
+  buttons; greyed where they don't work (a group with none folds to "⋯", so nothing moves — Dave's earlier ask).
+  Found: it no longer matches the new menus (Dimension is under Draw here, Annotate there; Renumber under Cabling here,
+  Modify there); Image and Match properties aren't on it; Measure and Guide (rare) take room; only the icon says what a
+  button is (labels on hover).
+  1. **Align and trim** (S) — the menus' groups (Select · Modify · Draw · Annotate · Cabling · Drawings), Dimension →
+     Annotate, Renumber → Modify, Measure / Guide off the strip (menu + keys); ~26 icons.
+  2. **Flyouts** (M, recommended) — one button per family showing the LAST one used, a small corner mark; a click uses
+     it, the mark (or press-and-hold) opens the family: Move ▾ (Move, Copy, Array, Rotate, Mirror) · Line · Shape ·
+     Box · Dimension ▾ (Dimension, Measure, Guide) · Text ▾ (Text, Callout, Cloud) · Legend · Block · Wall · Opening ·
+     Room · Section · Outlet · Run ▾ (Trunk, Conduit) · Rack ▾ (Rack, Device) · Patch cord · Viewport → ~17 icons,
+     the same places in every view, the families = the menus' groups.
+  3. **By view** (S–M) — show only the groups that work in the active view (plan: Draw / Building / Cabling; rack view:
+     Rack / Device / Cord; sheet: Viewport / Annotate), a fixed core (Select, Modify) first; shortest, but the strip
+     changes as you switch views (against "buttons never move").
+  4. **Floating palette** (M), like the legacy Pages tool — the strip as a window (WinId `tools`): floating over the
+     canvas or docked left / right as a vertical column, optional labels, hideable (frees the top bar). Combines with 1
+     or 2. **P3 · S–M**.
 
 ## Dave's todos (2026-10-14)
 
