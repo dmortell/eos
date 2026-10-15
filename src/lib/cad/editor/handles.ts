@@ -7,7 +7,7 @@
 import type { Pt, Space } from '../domain/types'
 import type { Entity, SectionCut } from '../domain/drawing'
 import type { Opening, Shape } from '../domain/shapes'
-import type { Prim } from '../views/display'
+import { primBounds, type Prim } from '../views/display'
 import { segEnds } from '../domain/openings'
 import { sectionFrame } from '../views/section'
 import { corners, defaultBend } from '../domain/bends'
@@ -199,4 +199,25 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 		// the cut line too: a room elevation's isn't drawn on the plan (one marker for the room's four)
 		decor: [{ k: 'line', pts: [sec.a, sec.b, far(sec.b), far(sec.a)], closed: true, cls: 'section-extent' }, { k: 'line', pts: [sec.a, sec.b], cls: 'section-line' }],
 	}
+}
+
+/** A block insert's SCALE grips (Dave 2026-10-15: "blocks need grips to adjust scale"): a square on each corner of what
+ *  it draws in this view; dragging one scales it about its insert point (`anchor`, in view mm) by how much further from
+ *  it the grip is — 0.05 steps (Alt: free), at least 0.05. One undo step. */
+export function insertScaleHandles(s: Shape, prims: Prim[], anchor: Pt): Handle[] {
+	const g = s.geom
+	if (g.kind !== 'insert') return []
+	const ps = prims.filter((p) => p.k !== 'image' && p.src === s.id)
+	if (!ps.length) return []
+	const bs = ps.map(primBounds), x0 = Math.min(...bs.map((b) => b.x0)), y0 = Math.min(...bs.map((b) => b.y0)), x1 = Math.max(...bs.map((b) => b.x1)), y1 = Math.max(...bs.map((b) => b.y1))
+	const k0 = g.scale ?? 1
+	return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }].map((corner): Handle => ({
+		at: corner, shape: 'square', label: 'Block scale',
+		drag: (p, free) => {
+			const d0 = Math.hypot(corner.x - anchor.x, corner.y - anchor.y)
+			if (d0 < 1e-6) return s
+			const k = k0 * (Math.hypot(p.x - anchor.x, p.y - anchor.y) / d0)
+			return { ...s, geom: { ...g, scale: Math.max(0.05, free ? Math.round(k * 1000) / 1000 : Math.round(k * 20) / 20) } } as Shape
+		},
+	}))
 }

@@ -22,7 +22,7 @@ import { RU_MM } from '../views/rackRow'
 import { devicesBetween } from '../domain/devices'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
-import { handlesFor, handleAt, segWidthHandles, bendHandles, type Handle } from './handles'
+import { handlesFor, handleAt, segWidthHandles, bendHandles, insertScaleHandles, type Handle } from './handles'
 import { noteGrips, moveNotePoint, tiedViewport } from './noteTool'
 import { segAt, segNodes, followersOf } from './pathSel'
 import { angleStepAll, axisLock } from './constrain'
@@ -211,6 +211,12 @@ export class SelectTool implements Tool {
 	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
 		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		if (!one) return { handles: [], decor: [] }
+		// a block insert: corner grips scale it about its insert point (Dave 2026-10-15) — on a plan, a sheet's paper, or an elevation it was placed in
+		if (one.type === 'shape' && one.geom.kind === 'insert' && !one.vpId) {
+			const g = one.geom, k = c.space.spec.kind
+			const anchor = k === 'plan' || k === 'sheet' ? g.at : c.space.fromWorld({ x: g.at.x, y: g.at.y, z: g.z ?? 0 })
+			return { handles: insertScaleHandles(one, c.prims(), anchor), decor: [] }
+		}
 		if (c.space.spec.kind === 'plan') {
 			// + the picked segments' width bars (a run with a section)
 			const r = handlesFor(one), ps = c.pathSel?.()

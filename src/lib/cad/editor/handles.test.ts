@@ -5,6 +5,7 @@ import { makeWall, makeRun } from '../domain/make'
 import { makeOpening } from '../domain/openings'
 import type { Shape, Opening } from '../domain/shapes'
 import type { SectionCut, Entity } from '../domain/drawing'
+import type { Prim } from '../views/display'
 
 const w = makeWall('L', [{ x: 0, y: 0 }, { x: 4000, y: 0 }], 100, 2600)
 const seg = w.geom.kind === 'path' ? w.geom.segs[0].id : ''
@@ -98,5 +99,19 @@ describe('a drawn room’s outline grips (Dave 2026-10-15)', () => {
 		const moved = right.drag!({ x: -1280 + 750, y: -9000 }, false) as { boundary: { x: number; y: number }[] }
 		expect(moved.boundary.map((p) => p.x)).toEqual([-4100, -530, -530, -4100])
 		expect(moved.boundary.map((p) => p.y)).toEqual([-11450, -11450, -6330, -6330])
+	})
+})
+
+describe('a block insert\'s scale grips (Dave 2026-10-15)', () => {
+	it('four corners of what it draws; dragging one twice as far from the insert point doubles its scale (0.05 steps)', async () => {
+		const { insertScaleHandles } = await import('./handles')
+		const ins = { type: 'shape', id: 'I', levelId: 'L', geom: { kind: 'insert', blockId: 'b', at: { x: 0, y: 0 }, scale: 1 } } as unknown as Shape
+		const prims = [{ k: 'line', pts: [{ x: -100, y: -100 }, { x: 100, y: 100 }], cls: 'shape', src: 'I' }] as Prim[]
+		const hs = insertScaleHandles(ins, prims, { x: 0, y: 0 })
+		expect(hs.map((h) => h.at)).toEqual([{ x: -100, y: -100 }, { x: 100, y: -100 }, { x: 100, y: 100 }, { x: -100, y: 100 }])
+		const next = hs[2].drag!({ x: 200, y: 200 }, false) as Shape
+		expect(next.geom.kind === 'insert' && next.geom.scale).toBe(2)
+		const tiny = hs[2].drag!({ x: 1, y: 1 }, false) as Shape
+		expect(tiny.geom.kind === 'insert' && tiny.geom.scale).toBe(0.05)
 	})
 })
