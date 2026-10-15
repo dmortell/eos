@@ -96,3 +96,18 @@ describe('rack views: the room’s floor and ceiling lines drag', () => {
 		expect(ceil.drag!({ x: 0, y: -100 }, false)).toMatchObject({ ceilingMm: 450 })
 	})
 })
+
+describe('a room wall (one path, four sides): its base grip (Dave 2026-10-15)', () => {
+	const room = {
+		type: 'shape', id: 'R', levelId: 'L', section: { w: 100, h: 3300 }, role: { kind: 'wall', openings: [] },
+		geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 4000, y: 0, z: 0 }, { id: 'c', x: 4000, y: -3000, z: 0 }, { id: 'd', x: 0, y: -3000, z: 0 }],
+			segs: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }, { id: 's3', a: 'c', b: 'd' }, { id: 's4', a: 'd', b: 'a' }] },
+	} as unknown as Shape
+	it('dragged down to the slab: every corner goes down, every side gets taller — no top moves', () => {
+		const base = elevationHandles(room, sp).find((h) => h.label === 'Wall base')!
+		const next = base.drag!({ x: 2000, y: 300 }, false) as Shape   // view y = −z: z −300
+		expect(next.geom.kind === 'path' && next.geom.nodes.map((n) => n.z)).toEqual([-300, -300, -300, -300])
+		expect(next.section?.h).toBe(3600)
+		// each corner's top: −300 + 3600 = 3300, where it was
+	})
+})

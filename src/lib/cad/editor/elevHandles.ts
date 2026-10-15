@@ -1,6 +1,6 @@
 // ELEVATION HANDLES (backlog "Drag top / bottom edges in elevations", Dave 2026-10-05): with a wall selected in an
 // elevation or section, each segment seen side-on has a square on its TOP edge (drag = its height) and on its BOTTOM
-// edge (drag = its Z; the top stays), and each of its openings the same (top = the hole's height, bottom = its sill;
+// edge (drag = the whole wall's base; every top stays), and each of its openings the same (top = the hole's height, bottom = its sill;
 // the other edge stays). Heights are mm, to 10 mm (Alt: free). A slab-to-slab wall's height follows its level, so it
 // has no top square. Pure; tested in elevHandles.test.ts.
 import type { Entity } from '../domain/drawing'
@@ -32,11 +32,15 @@ export function elevationHandles(e: Entity, sp: ViewSpace): Handle[] {
 			: { ...s, section: { ...(s.section ?? { w: 100, h }), h: nh } })
 		if (!role.slabToSlab) out.push({ at: sp.fromWorld({ ...mid, z: z0 + h }), shape: 'square', label: 'Wall height',
 			drag: (p, free) => withH(Math.max(50, r10(zOf(p), free) - z0)) })
-		// the bottom: the segment's two ends go to the new Z, its top stays where it was
+		// the bottom: the WHOLE wall's base moves by the same amount and every height grows to match, so every top stays
+		// (Dave 2026-10-15: a room's wall is one path — moving only this side's two corners while the shared height grew
+		// lifted the neighbouring sides' tops)
 		out.push({ at: sp.fromWorld({ ...mid, z: z0 }), shape: 'square', label: 'Wall base',
 			drag: (p, free) => {
-				const nz = Math.min(r10(zOf(p), free), z0 + h - 50), moved = withH(z0 + h - nz)
-				return { ...moved, geom: { ...s.geom, ...(moved.geom.kind === 'path' ? { segs: moved.geom.segs } : {}), nodes: s.geom.nodes.map((n) => (n.id === a.id || n.id === b.id ? { ...n, z: nz } : n)) } } as Shape
+				const d = Math.min(r10(zOf(p), free), z0 + h - 50) - z0
+				const grow = (sc: NonNullable<Shape['section']>) => ({ ...sc, h: Math.max(50, sc.h - d) })
+				return { ...s, ...(s.section ? { section: grow(s.section) } : {}),
+					geom: { ...s.geom, nodes: s.geom.nodes.map((n) => ({ ...n, z: n.z + d })), segs: s.geom.segs.map((x) => (x.section ? { ...x, section: grow(x.section) } : x)) } } as Shape
 			} })
 		for (const o of role.openings.filter((x) => x.segId === sg.id)) {
 			const c = { x: a.x + ends.t.x * o.at, y: a.y + ends.t.y * o.at }
