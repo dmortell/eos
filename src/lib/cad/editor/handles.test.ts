@@ -88,3 +88,15 @@ describe('a section end grip with Shift (Dave 2026-10-15)', () => {
 		expect(level.b.y).toBe(0)
 	})
 })
+
+describe('a drawn room’s outline grips (Dave 2026-10-15)', () => {
+	const room = { type: 'space', id: 'R', levelId: 'L', kind: 'room', name: 'IDF2', order: 1, boundary: [{ x: -4100, y: -11450 }, { x: -1280, y: -11450 }, { x: -1280, y: -6330 }, { x: -4100, y: -6330 }] } as Entity
+	it('a corner per point, a bar per side; the right side slides 750 right, both its corners with it', () => {
+		const hs = handlesFor(room).handles
+		expect(hs.filter((h) => h.shape === 'square')).toHaveLength(4)
+		const right = hs.find((h) => h.shape === 'bar' && h.at.x === -1280)!
+		const moved = right.drag!({ x: -1280 + 750, y: -9000 }, false) as { boundary: { x: number; y: number }[] }
+		expect(moved.boundary.map((p) => p.x)).toEqual([-4100, -530, -530, -4100])
+		expect(moved.boundary.map((p) => p.y)).toEqual([-11450, -11450, -6330, -6330])
+	})
+})

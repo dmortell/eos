@@ -50,3 +50,17 @@ describe('sections', () => {
 		expect(nextSectionName(Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)))).toBe('AA')
 	})
 })
+
+describe('a long run through a section (Dave 2026-10-15: "the view extends to 16 m wide")', () => {
+	it('counts only between the cut line\'s ends: the datum lines and the view\'s extent stay the section\'s width', async () => {
+		const { primBounds } = await import('./display')
+		const trunk = { type: 'shape', id: 'T', levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
+			geom: { kind: 'path', nodes: [{ id: 'n0', x: -8000, y: -1000, z: 2900 }, { id: 'n1', x: 8000, y: -1000, z: 2900 }], segs: [{ id: 's', a: 'n0', b: 'n1' }] } }
+		const ps = sectionDisplayList(new ProjectIndex([level, trunk] as Entity[]), sec, { scale: 100 })
+		const datum = ps.find((p) => p.k === 'line' && p.cls.includes('datum-ffl'))!
+		const b = primBounds(datum)
+		expect(b.x1 - b.x0).toBeLessThan(5000 + 3000 + 1)   // the 5 m cut (+ the datum's 1.5 m either side), not the 16 m run
+		const run = primBounds(ps.find((p) => p.src === 'T')!)
+		expect([run.x0, run.x1]).toEqual([0, 5000])
+	})
+})

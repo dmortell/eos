@@ -3938,3 +3938,13 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     IDF2 A–D; IDF2 D opened on P3C / V05 / V06. **Kept** (the room was asked for; the four sections to look at).
 - **Section grips and marks** (Dave 2026-10-15: "the grips don't obey shift … labels and arrowheads should be smaller"): a section's end grips take Shift — 15° steps from the other end, so a cut stays level / plumb (`editor/handles.ts`; test in `handles.test.ts`); its arrowheads and names on the plan are 2.5 paper mm (were 4 and 3.5). "IDF2 C much too wide": its cut line had been dragged to −340 … −4130 (3.79 m, past the room's right wall at −1280) with its ends 10 mm out of level — the section shows what's between the line's ends, so it widened with the drag.
 - **Section names not bold** (Dave 2026-10-15: "the font looks very thick and large"): weight 400 on screen (was 700) and not bold in PDFs, 2 paper mm (was 2.5 → 3.5 before). Test Project's IDF2 C put back wall to wall (−1280 → −4100, level at −8060; its depth left as Dave set it, 1400) — a direct write, at Dave's request.
+- **Room outlines editable; a section's width is its cut line's** (Dave 2026-10-15: "can I edit room rects?"; "why does
+  extending C 750 mm beyond the right wall make the view 16 m wide?"):
+  - A selected room drawn with the Room tool has grips on the plan (`editor/handles.ts` `roomHandles`): a square on each
+    corner (Shift: 15° from the corner before) and a bar along each side that slides the whole side square to itself;
+    10 mm steps (Alt: free); one undo step "Edit room …". Help's room-elevations answer says so. Dave dragged IDF2's
+    right side live (automated drags don't reach the canvas). Test in `handles.test.ts`.
+  - The 16 m: a long run crossing the section's band (Test Project's 16 m trunk TR1, reached once C ran past the wall)
+    was drawn clipped to the cut line's ends, but its FULL length set the datum lines (FFL / CLG / SSL) and the view's
+    extents / fit. `primBounds` now respects a prim's clip and the datums are sized from it (`views/display.ts`,
+    `views/elevation.ts`), so the view is the cut line's width. Test in `views/section.test.ts`.

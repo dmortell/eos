@@ -4,7 +4,7 @@
 //   · a section — the end squares move the cut line's ends, the round grip on the far edge sets how deep it sees.
 // Each handle gives the edited entity for a plan point (`drag`) or for a click (`click`). Pure; tested in
 // handles.test.ts.
-import type { Pt } from '../domain/types'
+import type { Pt, Space } from '../domain/types'
 import type { Entity, SectionCut } from '../domain/drawing'
 import type { Opening, Shape } from '../domain/shapes'
 import type { Prim } from '../views/display'
@@ -54,7 +54,27 @@ const SWINGS: Pick<Opening, 'swing' | 'flip'>[] = [{}, { swing: 'left' }, { swin
 export function handlesFor(e: Entity): { handles: Handle[]; decor: Prim[] } {
 	if (e.type === 'shape' && e.role?.kind === 'wall') return { handles: openingHandles(e), decor: [] }
 	if (e.type === 'section') return sectionHandles(e)
+	if (e.type === 'space' && e.boundary && e.boundary.length >= 3) return { handles: roomHandles(e as Space & { boundary: Pt[] }), decor: [] }
 	return { handles: [], decor: [] }
+}
+
+/** A drawn room's outline (Dave 2026-10-15: "can I edit room rects?"): a square on each corner moves it (Shift: 15°
+ *  steps from the corner before it); a bar along each side slides that whole side square to itself (both corners). */
+function roomHandles(sp: Space & { boundary: Pt[] }): Handle[] {
+	const b = sp.boundary, n = b.length, label = `Edit room ${sp.name}`
+	const corner = (i: number): Handle => ({ at: b[i], shape: 'square', label, drag: (p, free, shift) => {
+		const q = shift ? angleStep(b[(i + n - 1) % n], p) : p
+		return { ...sp, boundary: b.map((x, j) => (j === i ? { x: r10(q.x, free), y: r10(q.y, free) } : x)) }
+	} })
+	const side = (i: number): Handle => {
+		const a = b[i], c = b[(i + 1) % n], len = Math.hypot(c.x - a.x, c.y - a.y) || 1, nx = -(c.y - a.y) / len, ny = (c.x - a.x) / len
+		const mid = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }
+		return { at: mid, shape: 'bar', span: [a, c], label, drag: (p, free) => {
+			const d = r10((p.x - mid.x) * nx + (p.y - mid.y) * ny, free)   // how far the side moves, square to itself
+			return { ...sp, boundary: b.map((x, j) => (j === i || j === (i + 1) % n ? { x: x.x + nx * d, y: x.y + ny * d } : x)) }
+		} }
+	}
+	return [...b.map((_, i) => corner(i)), ...b.map((_, i) => side(i))]
 }
 
 /**

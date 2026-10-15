@@ -12,7 +12,7 @@ import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
 import { rotate, rackFrontNormal, unproject } from '../domain/conventions'
 import type { ViewSpace } from './space'
-import type { Prim } from './display'
+import { primBounds, type Prim } from './display'
 import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
@@ -272,7 +272,8 @@ function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: Sp
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */
 function datums(prims: Prim[], level: Level | undefined, k: number): Prim[] {
 	if (!level) return []
-	const xs = prims.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => q.x) : p.k === 'text' ? [p.at.x] : []))
+	// as drawn: a prim clipped to a section's ends counts only inside its clip
+	const xs = prims.flatMap((p) => (p.k === 'line' || p.k === 'text' ? (() => { const b = primBounds(p); return b.x1 >= b.x0 ? [b.x0, b.x1] : [] })() : []))
 	const x0 = (xs.length ? Math.min(...xs) : -5000) - 1500, x1 = (xs.length ? Math.max(...xs) : 5000) + 1500
 	const h = level.heights
 	const lines: [number, string][] = [[-h.raisedFloorMm, 'SSL'], [0, 'FFL ±0'], [h.clearHeightMm, `CLG +${h.clearHeightMm}`], [h.clearHeightMm + h.plenumMm, 'SSL above']]

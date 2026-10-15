@@ -12,7 +12,13 @@ export const DASHES: Dash[] = ['dashed', 'dotted', 'dashdot']
 export const WEIGHTS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1]
 
 
+/** What a prim covers as drawn: inside its clip, when it has one (a section's long run is drawn only between the cut
+ *  line's ends — its full length made the view, its datum lines and its fit 16 m wide; Dave 2026-10-15). */
 export function primBounds(p: Prim): Bounds {
+	const b = rawBounds(p), c = p.clip
+	return c ? { x0: Math.max(b.x0, c.x0), y0: Math.max(b.y0, c.y0), x1: Math.min(b.x1, c.x1), y1: Math.min(b.y1, c.y1) } : b
+}
+function rawBounds(p: Prim): Bounds {
 	switch (p.k) {
 		case 'line': {
 			const pad = (p.w ?? 0) / 2
