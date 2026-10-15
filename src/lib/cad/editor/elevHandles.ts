@@ -10,14 +10,27 @@ import type { Handle } from './handles'
 import { segEnds } from '../domain/openings'
 import { outlineOf } from '../domain/shapes'
 import type { Pt } from '../domain/types'
+import type { Heights } from '../domain/floors'
 import type { Prim } from '../views/display'
 import { ROOM_FLOOR, ROOM_CEILING } from '../views/rackRow'
 
 const r10 = (v: number, free: boolean) => (free ? v : Math.round(v / 10) * 10)
+/** The datum lines a top / base grip snaps to (Dave 2026-10-15): FSL (floor slab), FFL, CLG, CSL (ceiling slab above). */
+export type Datums = { heights?: Heights; tol?: number }
+function datumSnap(o: Datums): (z: number, free: boolean) => number {
+	if (!o.heights) return r10
+	const h = o.heights, lines = [-h.raisedFloorMm, 0, h.clearHeightMm, h.clearHeightMm + h.plenumMm], tol = o.tol ?? 100
+	return (z, free) => {
+		if (free) return z
+		const near = lines.reduce((a, b) => (Math.abs(b - z) < Math.abs(a - z) ? b : a))
+		return Math.abs(near - z) <= tol ? near : r10(z, false)
+	}
+}
 
-export function elevationHandles(e: Entity, sp: ViewSpace): Handle[] {
+export function elevationHandles(e: Entity, sp: ViewSpace, dat: Datums = {}): Handle[] {
+	const zs = datumSnap(dat)
 	if (sp.spec.kind !== 'elevation' && sp.spec.kind !== 'section') return []
-	if (e.type === 'shape' && !e.role) return boxHandles(e, sp)
+	if (e.type === 'shape' && !e.role) return boxHandles(e, sp, zs)
 	if (e.type !== 'shape' || e.role?.kind !== 'wall' || e.geom.kind !== 'path') return []
 	const s = e as Shape & { geom: Extract<Shape['geom'], { kind: 'path' }> }, role = e.role, out: Handle[] = []
 	const zOf = (p: { y: number }) => -p.y   // view y is −z here
@@ -31,13 +44,13 @@ export function elevationHandles(e: Entity, sp: ViewSpace): Handle[] {
 			? { ...s, geom: { ...s.geom, segs: s.geom.segs.map((x) => (x.id === sg.id ? { ...x, section: { ...x.section!, h: nh } } : x)) } }
 			: { ...s, section: { ...(s.section ?? { w: 100, h }), h: nh } })
 		if (!role.slabToSlab) out.push({ at: sp.fromWorld({ ...mid, z: z0 + h }), shape: 'square', label: 'Wall height',
-			drag: (p, free) => withH(Math.max(50, r10(zOf(p), free) - z0)) })
+			drag: (p, free) => withH(Math.max(50, zs(zOf(p), free) - z0)) })
 		// the bottom: the WHOLE wall's base moves by the same amount and every height grows to match, so every top stays
 		// (Dave 2026-10-15: a room's wall is one path — moving only this side's two corners while the shared height grew
 		// lifted the neighbouring sides' tops)
 		out.push({ at: sp.fromWorld({ ...mid, z: z0 }), shape: 'square', label: 'Wall base',
 			drag: (p, free) => {
-				const d = Math.min(r10(zOf(p), free), z0 + h - 50) - z0
+				const d = Math.min(zs(zOf(p), free), z0 + h - 50) - z0
 				const grow = (sc: NonNullable<Shape['section']>) => ({ ...sc, h: Math.max(50, sc.h - d) })
 				return { ...s, ...(s.section ? { section: grow(s.section) } : {}),
 					geom: { ...s.geom, nodes: s.geom.nodes.map((n) => ({ ...n, z: n.z + d })), segs: s.geom.segs.map((x) => (x.section ? { ...x, section: grow(x.section) } : x)) } } as Shape
@@ -57,7 +70,7 @@ export function elevationHandles(e: Entity, sp: ViewSpace): Handle[] {
 /** A box / desk (a region on the plan with a height, backlog "Box / desk tool") seen from the side: a grip on its top
  *  (drag = its height) and on its bottom (drag = its Z; the top stays). A flat one gets its top square too — drag it
  *  up to give it a height. Dragging the box itself moves it along and up / down (behaviours.ts moveBy). */
-function boxHandles(s: Shape, sp: ViewSpace): Handle[] {
+function boxHandles(s: Shape, sp: ViewSpace, zs: (z: number, free: boolean) => number = r10): Handle[] {
 	const out = outlineOf(s.geom)
 	if (!out?.length || s.plane?.kind === 'vertical') return []
 	const z = s.plane?.kind === 'plan' ? s.plane.z : 0, h = s.extent ?? 0
@@ -67,9 +80,9 @@ function boxHandles(s: Shape, sp: ViewSpace): Handle[] {
 	const withZ = (nz: number): Partial<Shape> => (nz ? { plane: { kind: 'plan', z: nz } } : { plane: undefined })
 	const u0 = Math.min(...us), u1 = Math.max(...us), side = (u: number) => ({ x: u, y: -(z + h / 2) })
 	return [
-		{ at: at(z + h), shape: 'grip', label: 'Box height', drag: (p, free) => ({ ...s, extent: Math.max(10, r10(-p.y, free) - z) }) as Shape },
+		{ at: at(z + h), shape: 'grip', label: 'Box height', drag: (p, free) => ({ ...s, extent: Math.max(10, zs(-p.y, free) - z) }) as Shape },
 		...(h ? [{ at: at(z), shape: 'grip' as const, label: 'Box base', drag: (p: Pt, free: boolean) => {
-			const top = z + h, nz = Math.min(r10(-p.y, free), top - 10)
+			const top = z + h, nz = Math.min(zs(-p.y, free), top - 10)
 			return { ...s, ...withZ(nz), extent: top - nz } as Shape
 		} }] : []),
 		// its sides as seen: drag one, the other stays (backlog "Box grips in elevations": width, also in angled views)

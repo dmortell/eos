@@ -2,7 +2,8 @@
 // note / handle grips, viewport moves on a sheet, devices in rack rows, logo grips. Pure input → store edits; the
 // surface (ui/ViewCanvas.svelte) routes pointer events here like any tool.
 import type { Gesture } from '../store/store'
-import type { Id, Pt, ProjectSettings, Rack, Device } from '../domain/types'
+import type { Id, Pt, ProjectSettings, Rack, Device, Level } from '../domain/types'
+import { heightsOf } from '../domain/floors'
 import type { Shape } from '../domain/shapes'
 import { ownFrame, sameFrame } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
@@ -221,7 +222,7 @@ export class SelectTool implements Tool {
 			const l = logoHandles(c.index, one, c.store.get('settings') as ProjectSettings | undefined, this.#logo.key, c.details)
 			return { handles: l.handles, decor: l.outline.length ? [{ k: 'line', pts: l.outline, closed: true, cls: 'logo-sel' }] : [] }
 		}
-		return { handles: elevationHandles(one, c.space), decor: [] }   // a wall's top / bottom edges in an elevation / section
+		return { handles: elevationHandles(one, c.space, { heights: heightsOf(c.index.get('levelId' in one ? one.levelId : undefined) as Level | undefined), tol: c.tol() * 2 }), decor: [] }   // a wall's top / bottom edges in an elevation / section (they snap to the datum lines)
 	}
 
 	down(e: PointerIn, c: ToolCtx): void {

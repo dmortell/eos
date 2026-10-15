@@ -309,7 +309,7 @@ function datums(prims: Prim[], level: Level | undefined, k: number): Prim[] {
 	const xs = prims.flatMap((p) => (p.k === 'line' || p.k === 'text' ? (() => { const b = primBounds(p); return b.x1 >= b.x0 ? [b.x0, b.x1] : [] })() : []))
 	const x0 = (xs.length ? Math.min(...xs) : -5000) - 1500, x1 = (xs.length ? Math.max(...xs) : 5000) + 1500
 	const h = level.heights
-	const lines: [number, string][] = [[-h.raisedFloorMm, 'SSL'], [0, 'FFL ±0'], [h.clearHeightMm, `CLG +${h.clearHeightMm}`], [h.clearHeightMm + h.plenumMm, 'SSL above']]
+	const lines: [number, string][] = [[-h.raisedFloorMm, 'FSL'], [0, 'FFL ±0'], [h.clearHeightMm, `CLG +${h.clearHeightMm}`], [h.clearHeightMm + h.plenumMm, 'CSL']]   // floor slab / ceiling slab (Dave 2026-10-15; was SSL / SSL above)
 	return lines.flatMap(([z, label]): Prim[] => [
 		{ k: 'line', pts: [{ x: x0, y: -z }, { x: x1, y: -z }], cls: z === 0 ? 'datum datum-ffl' : 'datum' },
 		{ k: 'text', at: { x: x0, y: -z - DATUM_LABEL * k * 0.4 }, text: label, size: DATUM_LABEL * k, cls: 'datum-label' },

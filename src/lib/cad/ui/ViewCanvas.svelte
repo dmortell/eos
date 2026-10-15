@@ -320,7 +320,7 @@
 		if (b) cam = fit(b, w, h)
 	}
 	/** What Fit fits (UX13): the content, not the storey datum lines — a rack view / elevation shrank to fit the slab,
-	 *  ceiling and SSL lines drawn wide either side. */
+	 *  ceiling and slab (FSL / CSL) lines drawn wide either side. */
 	function contentBounds(ps: Prim[]): Bounds | undefined {
 		const core = ps.filter((p) => p.k === 'image' || !p.cls.startsWith('datum'))
 		return unionBounds((core.length ? core : ps).map(primBounds))

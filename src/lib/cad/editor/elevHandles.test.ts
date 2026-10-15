@@ -111,3 +111,19 @@ describe('a room wall (one path, four sides): its base grip (Dave 2026-10-15)', 
 		// each corner's top: −300 + 3600 = 3300, where it was
 	})
 })
+
+describe('top / base grips snap to the datum lines (Dave 2026-10-15)', () => {
+	const heights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+	const hs = elevationHandles(wall, sp, { heights, tol: 60 })
+	const top = hs.find((h) => h.label === 'Wall height')!, base = hs.find((h) => h.label === 'Wall base')!
+	it('the top lands on CLG / CSL when near; else 10 mm steps; Alt: free', () => {
+		expect((top.drag!({ x: 0, y: -3270 }, false) as Shape).section?.h).toBe(3300)   // CSL 2600 + 700
+		expect((top.drag!({ x: 0, y: -2640 }, false) as Shape).section?.h).toBe(2600)   // CLG
+		expect((top.drag!({ x: 0, y: -2900 }, false) as Shape).section?.h).toBe(2900)
+		expect((top.drag!({ x: 0, y: -3271 }, true) as Shape).section?.h).toBe(3271)
+	})
+	it('the base lands on FSL (the floor slab, −300)', () => {
+		const next = base.drag!({ x: 0, y: 260 }, false) as Shape
+		expect(next.geom.kind === 'path' && next.geom.nodes.map((n) => n.z)).toEqual([-300, -300])
+	})
+})
