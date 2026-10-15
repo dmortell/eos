@@ -22,10 +22,11 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Dave's todos (2026-10-14)
 
-- [ ] **Edit file names on export** (Dave 2026-10-14 todo, ❓ consider) — let the user change the name an export
+- [ ] **Edit file names on export** (Dave 2026-10-14 todo, decided) — let the user change the name an export
   will save under (Excel schedules, PDFs, DXF, backups) before it downloads; today it is fixed, e.g.
   `Patching-Workflow_test-L1.20_Rack_room-changes-20261014.xlsx`. Options: an editable name in each export dialog, or a
-  project-wide file-name pattern (`{project}-{what}-{date}`). **P3 · S–M**.
+  project-wide file-name pattern (`{project}-{what}-{date}`). **P3 · S–M**. **Dave 2026-10-15: both** — a project
+  pattern in Settings fills the name, and each export dialog lets you edit it before it downloads.
 - [ ] ❓ **Three bands: underlay, model, annotations** (Dave 2026-10-14 todo, consider) — group what a view draws into
   three bands, always in this order bottom to top: the **underlay** (floorplans, images, received drawings), the
   **model** (outlets, racks, runs, walls, boxes, blocks) and **annotations** (text, leaders, dimensions, clouds,
@@ -43,10 +44,12 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   doors, size, kind … set on one rack carry to the racks drawn after it; the same for other drawing tools (outlets
   already do, shapes / boxes / text partly). Or a **Use as default** button in Properties that makes the selected
   item's settings the tool's defaults (Dave: "might be better"). To decide: automatic (last edited wins) vs the button,
-  and per session or kept with the project. **P3 · M** ❓.
+  and per session or kept with the project. **P3 · M**. **Dave 2026-10-15: the Use as default button; kept with the
+  project** (its settings, so everyone drawing in it gets them).
 - [ ] **Another word for "Issue"** (Dave 2026-10-15 todo) — "Issue" reads as issues & risks. Candidates: **Release**,
   **Transmittal**, **Submission**, **Drawing issue** / **Sheet set**, **Publish**. It names the Issue… action, the
-  Issues list / tab, "Issued revisions", "Changed since last issue" and the issue register. **P3 · S** ❓ (pick a word).
+  Issues list / tab, "Issued revisions", "Changed since last issue" and the issue register. **P3 · S**. **Dave
+  2026-10-15: Release** (Release…, Releases, Released revisions, Changed since last release, release register).
 - [ ] **A scripting hook for AI assistants** (Dave 2026-10-14 todo, ❓ consider; the guide page `/cad/agent` is built)
   — `window.cad.read()` / `run(command)` so an assistant reads the model as data instead of from screenshots and
   clicks. **P3 · M–L**.
