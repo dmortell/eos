@@ -72,7 +72,7 @@ export function titleBlockContext(ix: ProjectIndex, s: Sheet, projectName = '', 
 	const last = s.revisions?.at(-1)
 	const drawn = s.titleBlock?.fields?.drawn?.trim() || drawnFallback(details?.author, last?.by)
 	return {
-		project: projectName, title: s.title, number: s.number, client: details?.client?.trim() ?? '',
+		project: projectName, title: s.title, number: s.number, client: details?.client?.trim() ?? '', building: details?.buildingName?.trim() ?? '',
 		size: `${s.paper.size} ${s.paper.orientation === 'landscape' ? 'L' : 'P'}`,
 		scale: scales.length === 1 ? `1:${scales[0]}` : scales.length ? 'As shown' : '',
 		// the sheet's own place, else the levels of its viewports; a riser (every floor) has no level of its own (Q50)
@@ -210,7 +210,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		// an opaque window: a viewport laid over another hides what's under it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, fill: true, cls: 'viewport-bg' })
 		// text fields ({LEVEL}, {COUNT:…}, domain/fields.ts) read the viewport's level (a riser: the whole project)
-		const ctx = fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
+		const ctx = fieldCtx(ix, { project: o.projectName, building: o.details?.buildingName?.trim(), today: o.fieldDate, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
 		for (const p of withFields(viewportContent(ix, vp, { ...o, vps: sheet.viewports }), ctx)) out.push(placePrim(p, t, k, clip))
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (User: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
@@ -232,7 +232,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id && (x.geom.kind !== 'cloud' || cloudShown(sheet, x.geom.rev))).sort(byDrawOrder))
 		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(sheet.frozen ?? []) }).draw : notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
-	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))
+	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, building: o.details?.buildingName?.trim(), today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))
 	return out
 }
 

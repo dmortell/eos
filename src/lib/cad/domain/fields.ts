@@ -1,6 +1,6 @@
 // TEXT FIELDS LINKED TO DATA (backlog T092): a note or a block's text can show live values, filled when it's drawn
 // (never stored), so legends and labels keep themselves up to date:
-//   {PROJECT} the project's name · {LEVEL} the level it's on (a sheet: its viewports' levels) · {SHEET} / {SHEET_TITLE}
+//   {PROJECT} the project's name · {BUILDING} the building it is (Project details; User 2026-10-16) · {LEVEL} the level it's on (a sheet: its viewports' levels) · {SHEET} / {SHEET_TITLE}
 //   the sheet's number / title · {DATE} today · {COUNT:name} how many of a block (its name or id) are placed — inserts
 //   and the outlets drawn with it — on that level (a sheet: on its viewports' levels).
 // A field with no value here (no sheet in a plan) is left as written. Pure; tested in fields.test.ts.
@@ -11,12 +11,12 @@ import { defaultOutletBlock, DATA_FIELDS, isDataField, type Block } from './bloc
 export { DATA_FIELDS, isDataField }
 import type { Prim } from './prim'
 
-const FIELD = /\{(PROJECT|LEVEL|SHEET|SHEET_TITLE|DATE)\}|\{COUNT:([^}]+)\}/g
+const FIELD = /\{(PROJECT|BUILDING|LEVEL|SHEET|SHEET_TITLE|DATE)\}|\{COUNT:([^}]+)\}/g
 
 export interface FieldCtx { values: Partial<Record<(typeof DATA_FIELDS)[number], string>>; count: (name: string) => number }
 
 /** What the fields read for a drawing of these levels (none = the whole project), on this sheet if any. */
-export function fieldCtx(ix: ProjectIndex, o: { project?: string; levels?: Iterable<Id>; sheet?: Sheet; blocks?: (id: Id) => Block | undefined; today?: string }): FieldCtx {
+export function fieldCtx(ix: ProjectIndex, o: { project?: string; building?: string; levels?: Iterable<Id>; sheet?: Sheet; blocks?: (id: Id) => Block | undefined; today?: string }): FieldCtx {
 	const levels = o.levels ? new Set(o.levels) : null
 	const on = (levelId: Id | undefined) => !levels || (!!levelId && levels.has(levelId))
 	const names = levels ? [...levels].map((id) => ix.get<Level>(id)).filter((l): l is Level => l?.type === 'level').sort((a, b) => a.order - b.order).map((l) => l.name) : []
@@ -32,7 +32,7 @@ export function fieldCtx(ix: ProjectIndex, o: { project?: string; levels?: Itera
 	}
 	return {
 		values: {
-			...(o.project ? { PROJECT: o.project } : {}), ...(names.length ? { LEVEL: names.join(', ') } : {}),
+			...(o.project ? { PROJECT: o.project } : {}), ...(o.building ? { BUILDING: o.building } : {}), ...(names.length ? { LEVEL: names.join(', ') } : {}),
 			...(o.sheet ? { SHEET: o.sheet.number, SHEET_TITLE: o.sheet.title } : {}), DATE: today,
 		},
 		count: (name) => {

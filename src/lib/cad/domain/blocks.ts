@@ -10,7 +10,7 @@ import { project, unproject, type ElevFrame } from './conventions'
 import { newId } from './ids'
 
 /** The `{TAG}`s that are DATA fields (drawing fields, filled from the project), not block attributes an insert fills. */
-export const DATA_FIELDS = ['PROJECT', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] as const
+export const DATA_FIELDS = ['PROJECT', 'BUILDING', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] as const
 /** Is this `{TAG}` a data field (not a block attribute an insert fills)? */
 export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 

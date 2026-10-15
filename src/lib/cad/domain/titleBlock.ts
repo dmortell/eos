@@ -14,6 +14,8 @@ export const TB_AUTO = {
 	checked: 'Checked', approved: 'Approved', site: 'Site',
 	// the client's name, from the Project details (Site falls back on its address)
 	client: 'Client',
+	// the building this project is (Project details › Building; User 2026-10-16: one project per building)
+	building: 'Building',
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom' | 'logo' | 'logoText' | 'company'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
@@ -127,7 +129,7 @@ export function withLogoFields(t: TitleBlockTemplate | undefined): TbField[] {
 /** The projects page's Project details that the title block falls back on (as the Sheets tool did): the client and
  *  the site address as auto fields, the author for a blank Drawn, the drawing office's block when the template has
  *  none of its own. Not stored in cad — the shell hands them in. */
-export interface ProjectDetails { client?: string; address?: string; author?: string; companyName?: string; companyAddress?: string; companyContact?: string
+export interface ProjectDetails { client?: string; address?: string; author?: string; buildingName?: string; companyName?: string; companyAddress?: string; companyContact?: string
 	/** The projects page's logos: the client's (`logoUrl`) and the company's, with their heights in paper mm. */
 	logoUrl?: string; companyLogoUrl?: string; logoHeightMm?: number; companyLogoHeightMm?: number }
 

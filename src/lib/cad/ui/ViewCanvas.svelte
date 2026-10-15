@@ -130,7 +130,7 @@
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
 	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
 	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || isPaperSpec(spec) ? drawn
-		: withFields(drawn, fieldCtx(project.index, { project: project.name, blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
+		: withFields(drawn, fieldCtx(project.index, { project: project.name, building: project.details?.buildingName?.trim(), blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
 	// the user's eye / lock (a sheet has its own stored layers and its viewports', applied inside sheetDisplayList: it shows as it prints)
 	// (its notes and viewport content are layered inside sheetDisplayList; here only the lock keeps a locked layer's items unpicked)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: ws.layers.locked.size ? applyLayers(raw, project.index, { locked: ws.layers.locked }).pick : raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))

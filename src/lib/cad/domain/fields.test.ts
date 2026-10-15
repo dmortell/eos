@@ -29,3 +29,13 @@ describe('text fields (T092)', () => {
 		expect([isDataField('LEVEL'), isDataField('COUNT:x'), isDataField('LABEL')]).toEqual([true, true, false])
 	})
 })
+
+describe('{BUILDING} (User 2026-10-16: one project per building)', () => {
+	it('reads the project\'s building; left as written without one', async () => {
+		const { fieldCtx, fillFields } = await import('./fields')
+		const { ProjectIndex } = await import('./project')
+		const ix = new ProjectIndex([])
+		expect(fillFields('{PROJECT} – {BUILDING}', fieldCtx(ix, { project: 'Project Tourney', building: 'building1' }))).toBe('Project Tourney – building1')
+		expect(fillFields('{BUILDING}', fieldCtx(ix, { project: 'P' }))).toBe('{BUILDING}')
+	})
+})

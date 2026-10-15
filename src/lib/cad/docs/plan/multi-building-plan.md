@@ -70,12 +70,13 @@ Example — Project Tourney: building1 (12F, 30F, 33F with areas 3303 / 3307), b
    - A Firestore rule for `projectGroups`.
 2. **Tourney migration (S):** as item 11.
 3. **In cad (S):** the title bar's building switcher; Copy settings from…; external links (item 4).
-4. **Later:** group report, group transmittal, a building code in labels.
+4. **Later (nice to have):** group report, group transmittal, a building code in labels.
 
-## Decisions for the user
+## Decisions (User 2026-10-16)
 
-1. **Title blocks:** should {PROJECT} print "Project Tourney" (the group) or "Project Tourney – building1"? Suggested:
-   the group name in {PROJECT}, and a new {BUILDING} field.
-2. **Settings:** copy-on-create plus "Copy settings from…" (suggested), or live-shared via the group?
-3. **Members:** copied per building (suggested), or one member list for the whole group?
-4. **Sheet numbers:** each building numbers its own (S001…), or prefixed by a building code?
+1. **Title blocks:** a **{BUILDING}** field — BUILT 2026-10-16 (project details' Building → `{BUILDING}` in text and a
+   "Building" title-block field); {PROJECT} stays the project name.
+2. **Shared settings:** copied when a building is added, plus a **"Copy settings from…"** command.
+3. **Members:** copied per building.
+4. **Sheet numbers:** per building (each project numbers its own).
+5. **Group reports and transmittals:** nice to have, not needed.

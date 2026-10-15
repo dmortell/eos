@@ -18,6 +18,8 @@
 		description?: string
 		client?: string
 		address?: string
+		/** The building this project is (User 2026-10-16: one project per building) — the title block's {BUILDING}. */
+		buildingName?: string
 		author?: string
 		logoUrl?: string
 		companyName?: string
@@ -70,6 +72,7 @@
 	let draftProjectCode = $state('')
 	let draftClient = $state('')
 	let draftAddress = $state('')
+	let draftBuilding = $state('')
 	let draftAuthor = $state('')
 	let draftLogoUrl = $state('')
 	let draftCompanyName = $state('')
@@ -106,6 +109,7 @@
 				draftProjectCode = ''
 				draftClient = ''
 				draftAddress = ''
+				draftBuilding = ''
 				draftAuthor = ''
 				draftLogoUrl = ''
 				// "Your company" as on this user's last project — not typed again for every project (cad W10, B50)
@@ -122,6 +126,7 @@
 				draftProjectCode = project?.projectCode || ''
 				draftClient = project?.client || ''
 				draftAddress = project?.address || ''
+				draftBuilding = project?.buildingName || ''
 				draftAuthor = project?.author || ''
 				draftLogoUrl = project?.logoUrl || ''
 				draftCompanyName = project?.companyName || ''
@@ -205,6 +210,7 @@
 				description: draftDescription.trim() || '',
 				client: draftClient.trim() || '',
 				address: draftAddress.trim() || '',
+				buildingName: draftBuilding.trim() || '',
 				author: draftAuthor.trim() || '',
 				logoUrl: draftLogoUrl.trim() || '',
 				companyName: draftCompanyName.trim() || '',
@@ -228,6 +234,7 @@
 				description: draftDescription.trim() || '',
 				client: draftClient.trim() || '',
 				address: draftAddress.trim() || '',
+				buildingName: draftBuilding.trim() || '',
 				author: draftAuthor.trim() || '',
 				logoUrl: draftLogoUrl.trim() || '',
 				companyName: draftCompanyName.trim() || '',
@@ -296,6 +303,10 @@
 			<div>
 				<div class="text-xs text-gray-700">Address</div>
 				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftAddress} placeholder="Site / project address" />
+			</div>
+t		<div>
+				<div class="text-xs text-gray-700">Building</div>
+				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftBuilding} placeholder="e.g. building1 — the title block's {'{'}BUILDING{'}'}" />
 			</div>
 			<div>
 				<div class="text-xs text-gray-700">Client logo</div>

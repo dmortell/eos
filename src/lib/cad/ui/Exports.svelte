@@ -55,7 +55,7 @@
 	export async function dxf() {
 		if (!level) return
 		const plan = withFields(applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw,
-			fieldCtx(project.index, { project: projectName, blocks: project.blockOf, levels: [level.id] }))
+			fieldCtx(project.index, { project: projectName, building: project.details?.buildingName?.trim(), blocks: project.blockOf, levels: [level.id] }))
 		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])), 100, project.blockOf)   // blocks as BLOCK + INSERT
 		if (!await saveFile(r.text, `${fileSafe(projectName)}_${fileSafe(level.name)}_plan.dxf`, 'application/dxf', { what: 'Plan', scope: level.name })) return
 		tell(`DXF: ${r.entities} entities${r.skippedImages ? ' — the floorplan picture is not included (its frame is on layer A-IMAGE)' : ''}`)
