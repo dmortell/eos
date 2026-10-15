@@ -5,6 +5,7 @@ import type { Cord } from './types'
 import { validateProject } from './validate'
 import { demoProject } from './fixtures'
 import { defaultSettings } from './settings'
+import type { Estimate } from './estimates'
 
 const p = () => new ProjectIndex(demoProject())
 
@@ -136,7 +137,7 @@ describe('BOM: W26 lines (Dave 2026-10-15)', () => {
 		const lines = bom(new ProjectIndex(fibre))
 		expect(q(lines, 'Connector / pigtail OM4')).toBe(4)
 		expect(q(lines, 'Fibre test (per core)')).toBe(2)
-		const est = [{ outletId: 'O', port: 1, cableType: 'cat6a' }, { outletId: 'O', port: 2, cableType: 'cat6a' }]
+		const est = [{ outletId: 'O', port: 1, cableType: 'cat6a', segs: [] }, { outletId: 'O', port: 2, cableType: 'cat6a', segs: [] }] as unknown as Estimate[]
 		const before = q(bom(p()), 'Copper permanent-link test')!
 		expect(q(bom(p(), [], undefined, est), 'Copper permanent-link test')).toBe(before + 2)
 	})
