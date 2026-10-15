@@ -59,7 +59,7 @@ describe('the Insert tool', () => {
 		// and the elevation draws it there (its symbol, picked as the insert)
 		const prims = elevationDisplayList(new ProjectIndex(h.store.all()), 'L33', sp, { scale: 100, blocks: (id) => BUILTIN_BLOCKS.find((b) => b.id === id) })
 		expect(prims.some((p) => p.src === s.id)).toBe(true)
-		// an outlet symbol placed as a plain block shows no "{LABEL}" / "{PORTS}" / "{USAGE}" placeholders (Dave, A009)
+		// an outlet symbol placed as a plain block shows no "{LABEL}" / "{PORTS}" / "{USAGE}" placeholders (User, A009)
 		expect(prims.some((p) => p.k === 'text' && p.src === s.id && p.text.includes('{'))).toBe(false)
 	})
 	it('placed in an elevation it shows there and in sections looking the same way (W28), real size; not on the plan or in other elevations', () => {
@@ -109,7 +109,7 @@ describe('the Insert tool', () => {
 		new InsertTool(() => plate).down(click({ x: 1000, y: 2000 }), h.ctx())
 		expect((h.store.get(h.sel()[0]) as Shape).layerId).toBeUndefined()
 	})
-	it('one drawing (Dave 2026-10-14): placed on the plan, the plan draws the same 70 mm plate the elevation does', () => {
+	it('one drawing (User 2026-10-14): placed on the plan, the plan draws the same 70 mm plate the elevation does', () => {
 		const h = harness(PLAN)
 		new InsertTool(() => plate).down(click({ x: 3000, y: 2000 }), h.ctx())
 		const s = h.store.get(h.sel()[0]) as Shape, blocks = (id: string) => BUILTIN_BLOCKS.find((b) => b.id === id)

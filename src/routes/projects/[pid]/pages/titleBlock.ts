@@ -82,7 +82,7 @@ export function fillTitleBlock(t: TitleBlockTemplate | undefined, ctx: TbContext
 	}))
 }
 
-/** Initials for "Drawn": "David Mortell" → "DM"; an email → its local part's first 3 letters ("DMO"). */
+/** Initials for "Drawn": "Dana Morgan" → "DM"; an email → its local part's first 3 letters ("DMO"). */
 export function initialsOf(nameOrEmail: string | null | undefined): string {
 	const s = (nameOrEmail ?? '').trim(); if (!s) return ''
 	if (s.includes('@')) return s.split('@')[0].replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase()

@@ -25,7 +25,7 @@ describe('interconnects', () => {
 		expect(r.links.map((l) => [l.kind, l.a.port, l.b.port])).toEqual([['tie', 1, 2], ['tie', 3, 3]])
 		expect(r.skipped).toEqual(['PP1 port 2 already has a cable'])
 	})
-	it('several panels onto one switch: each carries on from where the one before stopped; both ends read the switch port (Dave: Journey P3A ↔ 33NACC1)', () => {
+	it('several panels onto one switch: each carries on from where the one before stopped; both ends read the switch port (User: Tourney P3A ↔ 33NACC1)', () => {
 		const sw = { type: 'device', id: 'SW', rackId: 'C', name: '33NACC1', kind: 'switch', u: 6, heightU: 2, face: 'front', portCount: 96 }
 		const p = (id: string, u: number) => ({ ...panel(id, 'A'), u })
 		const all = (id: string) => ({ on: id, ports: Array.from({ length: 24 }, (_, i) => i + 1) })

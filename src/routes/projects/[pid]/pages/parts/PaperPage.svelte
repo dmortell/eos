@@ -86,7 +86,7 @@
 	const LEFT_GI = new Set([0, 3]), TOP_GI = new Set([0, 1])
 
 	// Frame snap (R8-lite), ported from sheets/Viewport.svelte's own
-	// frame-snap/Alt convention per Dave's ask to match it: paper edges + a 5mm grid, Alt disables.
+	// frame-snap/Alt convention per User's ask to match it: paper edges + a 5mm grid, Alt disables.
 	// `PAPER_SNAP_STEP` (snap.ts) is real paper mm — GRID_STEP_PX converts it ONCE to paper px (frame
 	// geometry's actual unit, see BAND_PX above). `SNAP_TOL_PX` is SCREEN px (matches Sheets' SNAP_TOL),
 	// converted to paper px per-drag via `drag.s`, same pattern as Sheets' `SNAP_TOL / drag.scale`.
@@ -241,7 +241,7 @@
 	// implementation of each. `PAPER_CTX` is a throwaway `ViewCtx` — the rect-fallback paths of `bbox`/`inBox`
 	// these calls exercise read no `ctx` field (paper space isn't a real model view; none of `ViewCtx`'s
 	// fields apply to it). `frameEnt` builds a bare rect `Ent` on the fly so `marqueeSelect` (which wants
-	// `Ent[]`) can be reused without storing frames that way — storage stays `SheetFrame[]` (Dave's call).
+	// `Ent[]`) can be reused without storing frames that way — storage stays `SheetFrame[]` (User's call).
 	const PAPER_CTX: ViewCtx = { dir: 'plan', isPlan: false, isElev: false, isIso: false, elevDir: 'front', cx: 0, cy: 0, ground: 0, mdl: undefined, yaw: 0, pitch: 0, paperMm: 1 }
 	// Frame geometry (f.x/y/w/h, like pw/ph) is in PAPER PX, not real paper mm — BAND_PX is that same
 	// unit, matching the old CSS `border: 11px solid transparent` exactly (not a paper-mm quantity,
@@ -280,7 +280,7 @@
 
 	// Paper-space press: a frame's BORDER BAND → the engine drags it (select / Shift toggles / Ctrl drags a copy); empty
 	// paper → the engine's selection marquee (window / crossing, Shift / Ctrl unions); the Viewport tool → drag out a
-	// new frame. A frame's interior never selects (Dave: select by the border or a marquee).
+	// new frame. A frame's interior never selects (User: select by the border or a marquee).
 	let placing = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)   // the Viewport tool's box
 	// The Viewport tool draws its box with the RECTANGLE tool's gesture: EOS press-drag, or (ACAD on) click a corner,
 	// click the opposite one; corners snap to the paper lines (Alt off), Esc / another tool cancels.

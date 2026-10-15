@@ -14,7 +14,7 @@ describe('inline', () => {
 			{ text: 'a ' }, { text: 'b', bold: true }, { text: ' ' }, { text: 'c', italic: true }, { text: ' ' }, { text: 'd', bold: true, italic: true }, { text: ' ' }, { text: 'e' }, { text: ' *f' },
 		])
 	})
-	it('~~struck~~ and __underlined__ (Dave 2026-10-14: __ is no longer bold); \\~ escapes', () => {
+	it('~~struck~~ and __underlined__ (User 2026-10-14: __ is no longer bold); \\~ escapes', () => {
 		expect(parseInline('a ~~b~~ __c__ \\~~d')).toEqual([{ text: 'a ' }, { text: 'b', strike: true }, { text: ' ' }, { text: 'c', under: true }, { text: ' ~~d' }])
 	})
 	it('a struck / underlined stretch draws one line through / under its words, not past them; plain words get none', () => {

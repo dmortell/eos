@@ -84,7 +84,7 @@ export type Geometry =
 	| { kind: 'cloud'; pts: Pt[]; arcMm?: number; rev?: string }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number; /** the picture's own width ÷ height: its box keeps it on every resize (older images: the box's ratio when first resized) */ ratio?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
-	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (Dave 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (Dave 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame; /** A sheet or web page this marker opens (double-click); each insert has its own target. */ link?: InsertLink }
+	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (User 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (User 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame; /** A sheet or web page this marker opens (double-click); each insert has its own target. */ link?: InsertLink }
 	/** A LEGEND (backlog "Legend on the drawing"): a table of the symbols / layers in use on its level (a sheet: the levels
 	 *  its viewports show), with counts. `at` = its top-left; `rows` = the row keys it shows ('block:<id>' / 'layer:<id>';
 	 *  absent = every symbol in use); sizes are paper mm. Drawn from the data each time, so it keeps itself up to date. */
@@ -139,7 +139,7 @@ export interface PenetrationRole {
 
 export type Role = WallRole | ContainmentRole | ObjectRole | PenetrationRole
 
-/** A hole in a wall — a door or a window is just a hole (Dave) — hosted on a wall segment: it moves with the wall
+/** A hole in a wall — a door or a window is just a hole (User) — hosted on a wall segment: it moves with the wall
  *  (ADR 0004). `z` = its bottom above FFL, `h` = its height. A `swing` draws a door leaf + arc on the plan, hinged on
  *  that side as seen from the segment's `a` end; `flip` opens it to the other face. */
 export interface Opening {

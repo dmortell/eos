@@ -1,4 +1,4 @@
-// CORD LABEL BATCHES (backlog "Cord label batches by type, length and color", Dave 2026-10-11): the patch cords bought,
+// CORD LABEL BATCHES (backlog "Cord label batches by type, length and color", User 2026-10-11): the patch cords bought,
 // as batches of pre-printed labels per type × length × color — "2AR-0001 to 2AR-0100" = 100 × 2 m CAT6A red. The labels
 // are typed by hand (the client's format); a batch's range is its first and last label: the same text before a number
 // that counts up. From the cords' Cord IDs: which labels of each batch are used and which are free, the cords still

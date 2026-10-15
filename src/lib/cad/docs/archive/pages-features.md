@@ -2,7 +2,7 @@
 
 This is the Pages feature set as of 2026-10-02 (CHANGELOG rounds 1–21, the Help dialog, and the parity reviews). For
 each feature it records which cad phase rebuilds it (analysis §7), or that it is changed or dropped. Phase 0 is done
-when Dave has gone through the **Confirm?** column.
+when User has gone through the **Confirm?** column.
 
 **Phase key:**
 
@@ -67,7 +67,7 @@ when Dave has gone through the **Confirm?** column.
 | Allocate outlets to panels (AllocateDialog) | P3 | Links + reservations; the Elevations allocation UI | y |
 | Penetrations (PEN) | P5 | Decided 2026-10-02: **auto-detect + manual**. Found where containment crosses a wall or slab, tagged, listed in a schedule / BOM; accepted ones keep a stable tag; PEN by hand where no run is drawn (penetration role, ADR 0007) | ✓ |
 | Blocks library (global), legend | P2 / P4 | `BlockDef` = named shapes, global or project; insert **linked** or **copied** (ADR 0007) | y |
-| Guide lines | **drop** | Decided 2026-10-02 (Dave): no guides and no plane inset. The split view plus the Z / Depth fields set the work plane (ADR 0006) | ✓ |
+| Guide lines | **drop** | Decided 2026-10-02 (User): no guides and no plane inset. The split view plus the Z / Depth fields set the work plane (ADR 0006) | ✓ |
 
 ## Views and 3D
 

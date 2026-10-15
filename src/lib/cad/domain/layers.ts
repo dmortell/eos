@@ -10,14 +10,14 @@ import type { Entity, Layer, Sheet } from './drawing'
  *  unrouted backbone's red, a rack's ports and U numbers). */
 export interface LayerInfo { id: Id; name: string; order: number; color?: string; look?: string; system: boolean; /** The lineweight (paper mm) and line type its items use when they set none ("By layer"). */ weightMm?: number; dash?: string; /** The panel heading it sits under (see `groupOf`). */ group?: string }
 
-/** The system layers, bottom to top (the order the plan draws them; Dave: pairs together, Floorplans first). */
+/** The system layers, bottom to top (the order the plan draws them; User: pairs together, Floorplans first). */
 export const SYSTEM_LAYERS: LayerInfo[] = ([
 	['sys:background', 'Floorplans', '#9ca3af'], ['sys:walls', 'Walls', '#475569'], ['sys:drawing', 'Drawing', '#0f172a'],
 	['sys:racks', 'Racks', '#1e293b'], ['sys:cont-low', 'Trunks', '#0ea5e9'], ['sys:cont-high', 'Trunks high', '#f97316'],
 	['sys:risers', 'Risers', '#be185d'], ['sys:backbone', 'Backbone', '#7c3aed'], ['sys:cords', 'Patch cords', '#3b82f6'], ['sys:port-labels', 'Port labels', '#0c4a6e'],
 	['sys:outlets-low', 'Outlets', '#1d4ed8'], ['sys:outlets-high', 'Outlets high', '#1d4ed8'],
 	['sys:notes', 'Notes', '#0f172a'], ['sys:sections', 'Sections', '#0f766e'],
-	// the rack view's context (Dave 2026-10-09: its toggles): the room's floor / ceiling / slab lines, the other face
+	// the rack view's context (User 2026-10-09: its toggles): the room's floor / ceiling / slab lines, the other face
 	['sys:room-lines', 'Room lines', '#64748b'], ['sys:other-face', 'Other face', '#94a3b8'],
 ] as const).map(([id, name, look], i): LayerInfo => ({ id, name, look, order: (i + 1) * 10, system: true }))
 	// ROOMS (W30): room / EPS outlines and names on the plan, just above Walls — order 25, so no other layer's order moves
@@ -75,7 +75,7 @@ export function primLayer(cls: string, e: Entity | undefined, known: Set<Id>): I
 	// a rack view's context: not pickable (no source), on their own layers so they can be hidden / frozen
 	if (!e) { const c = cls.split(' '); return c.includes('room-line') ? 'sys:room-lines' : c.includes('device-other') || c.includes('device-other-label') ? 'sys:other-face' : undefined }
 	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && cls.startsWith('riser')) return 'sys:risers'
-	// a device's port labels have their own layer (Dave 2026-10-07): hidden / frozen apart from the racks
+	// a device's port labels have their own layer (User 2026-10-07): hidden / frozen apart from the racks
 	if (e.type === 'device' && cls.split(' ').includes('port-label')) return 'sys:port-labels'
 	return layerOf(e, known)
 }
@@ -89,7 +89,7 @@ export function layerBlock(id: Id | undefined, name: string, hidden: ReadonlySet
 }
 
 /** The layer a drawing tool's new item lands on: lines on the current layer (else Drawing); walls, trunks, racks on
- *  their own system layer (Dave: the current layer doesn't take them). Undefined = not a drawing tool. */
+ *  their own system layer (User: the current layer doesn't take them). Undefined = not a drawing tool. */
 export function toolLayer(toolId: string, current: Id | null, z: number): Id | undefined {
 	switch (toolId) {
 		case 'line': return current ?? 'sys:drawing'
@@ -100,7 +100,7 @@ export function toolLayer(toolId: string, current: Id | null, z: number): Id | u
 	}
 }
 
-/** What a drawing tool says after it adds shapes (Dave 2026-10-10: show which layer they went on), or null — none
+/** What a drawing tool says after it adds shapes (User 2026-10-10: show which layer they went on), or null — none
  *  added, or only paper items (a sheet's shapes are on no layer). */
 export function drawnOn(created: Entity[], layers: LayerInfo[]): string | null {
 	const known = new Map(layers.map((l) => [l.id, l.name]))
@@ -119,7 +119,7 @@ export function toolBlock(toolId: string, prefs: { current: Id | null; hidden: R
 	return id ? layerBlock(id, layers.get(id)?.name ?? id, prefs.hidden, prefs.locked) : null
 }
 
-/** A NEW layer starts hidden in the drawings that already exist (Dave 2026-10-05): its id added to every viewport's
+/** A NEW layer starts hidden in the drawings that already exist (User 2026-10-05): its id added to every viewport's
  *  frozen list, so issued / finished sheets don't change when something is drawn on it. Viewports made later show it.
  *  The sheets that change. */
 export function freezeInExisting(sheets: Sheet[], layerId: Id): Sheet[] {
@@ -128,7 +128,7 @@ export function freezeInExisting(sheets: Sheet[], layerId: Id): Sheet[] {
 	}))
 }
 
-/** The project layer called `name`, made when there's none yet (furniture goes on "Furniture", Dave 2026-10-14): its
+/** The project layer called `name`, made when there's none yet (furniture goes on "Furniture", User 2026-10-14): its
  *  id, and what to write for a new one — the layer, and the sheets it starts hidden in (`freezeInExisting`). */
 export function ensureLayer(name: string, records: Layer[], sheets: Sheet[], makeId: () => Id): { id: Id; puts: (Layer | Sheet)[] } {
 	const found = records.find((r) => !r.id.startsWith('sys:') && r.name.trim().toLowerCase() === name.toLowerCase())

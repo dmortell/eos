@@ -28,7 +28,7 @@
 	const clipIds = $derived(new Map(clips.map(([key], i) => [key, `clip-${uid}-${i}`])))
 	const clipOf = (p: Prim) => (p.clip ? `url(#${clipIds.get(clipKey(p.clip))})` : undefined)
 
-	/** The selection as Pages / Sheets show it (Dave 2026-10-06): the item stays as drawn; a thin blue line over its
+	/** The selection as Pages / Sheets show it (User 2026-10-06): the item stays as drawn; a thin blue line over its
 	 *  lines, and a dashed box round each selected symbol, box or text (a run or wall — open lines only — gets the line
 	 *  alone: a box round a long run says nothing). Padded a few screen px when the zoom is known. */
 	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && (p.k === 'circle' || (p.k === 'line' && !p.cls.startsWith('opening-pick') && !p.cls.startsWith('viewport')))
@@ -37,7 +37,7 @@
 		const by = new Map<string, Prim[]>()
 		for (const p of prims) if (p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && !p.cls.startsWith('viewport') && !p.cls.startsWith('opening-pick')) (by.get(p.src) ?? by.set(p.src, []).get(p.src)!).push(p)
 		const pad = k ? 4 / k : 0
-		// a run never (Dave 2026-10-10: a labelled trunk's text brought a box back round the whole run — it looked odd)
+		// a run never (User 2026-10-10: a labelled trunk's text brought a box back round the whole run — it looked odd)
 		const isRun = (q: Prim) => q.k !== 'image' && (/^(run|riser)\b/.test(q.cls) || q.cls.includes('run-label'))
 		return [...by.entries()].filter(([, ps]) => !ps.some(isRun) && ps.some((q) => q.k !== 'line' || q.closed)).map(([id, ps]) => {
 			const bs = ps.map(primBounds)
@@ -122,9 +122,9 @@
 	.run-ceiling { stroke-dasharray: 6 4; }
 	.run-primary { stroke-width: 2.5; fill-opacity: 0.32; }
 	.wall { stroke: #475569; opacity: 0.8; }
-	.wall.filled { fill: #ffffff; }   /* a wall face in elevations: not shaded (Dave 2026-10-15), still hides what's behind it */
+	.wall.filled { fill: #ffffff; }   /* a wall face in elevations: not shaded (User 2026-10-15), still hides what's behind it */
 	.riser { stroke: #be185d; fill: #fce7f3; }
-	.rack { stroke: #1e293b; fill: none; }   /* no shading (Dave); still picked by its whole body */
+	.rack { stroke: #1e293b; fill: none; }   /* no shading (User); still picked by its whole body */
 	.rack-x { stroke: #94a3b8; }
 	.paper { fill: #ffffff; stroke: #a1a1aa; }
 	.paper-margin { stroke: #d4d4d8; stroke-dasharray: 4 3; }
@@ -190,7 +190,7 @@
 	.port { stroke: #94a3b8; fill: #f8fafc; }
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
-	.port-patched { stroke: #16a34a; stroke-width: 2; }   /* a cord is plugged in (Dave) */
+	.port-patched { stroke: #16a34a; stroke-width: 2; }   /* a cord is plugged in (User) */
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.port-mid { stroke: #334155; stroke-width: 1.5; }   /* the tick under the middle of a 24+ port device's ports */
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
@@ -208,8 +208,8 @@
 	.section-line { stroke: #0f766e; stroke-width: 2; stroke-dasharray: 10 4 2 4; }
 	.section-arrow.filled { fill: #0f766e; }
 	.section-arrow { stroke: #0f766e; }
-	text.section-label { fill: #0f766e; font-weight: 400; }   /* not bold (Dave 2026-10-15: too thick) */
-	.elev-marker { stroke: #0f766e; fill: none; }   /* a room's elevations marker (Dave 2026-10-15) */
+	text.section-label { fill: #0f766e; font-weight: 400; }   /* not bold (User 2026-10-15: too thick) */
+	.elev-marker { stroke: #0f766e; fill: none; }   /* a room's elevations marker (User 2026-10-15) */
 	text.elev-marker-letter { fill: #ffffff; font-weight: 600; }
 	.run-break { stroke: #334155; fill: none; stroke-width: 1.2px; vector-effect: non-scaling-stroke; }   /* a run cut off by a section's end (S-break) */
 	.cut.filled { fill: #334155; }
@@ -262,7 +262,7 @@
 	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
 	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
-	/* a panel's name over its ports: no white halo (Dave: it hid the port labels when zoomed in), full strength */
+	/* a panel's name over its ports: no white halo (User: it hid the port labels when zoomed in), full strength */
 	text.device-label.on-ports { stroke: none; }
 	text.device-label.on-ports-small { fill: #0f172a; font-weight: 600; }
 	.cord { stroke-width: 2; opacity: 0.85; }
@@ -284,7 +284,7 @@
 	text.draft-label { fill: #2563eb; }
 	/* the Device tool's drop ghost; red = it can't go there */
 	.draft-bad { stroke: #dc2626; opacity: 0.8; stroke-dasharray: 4 3; }
-	/* GRIPS look like the Sheets tool's (Dave 2026-10-06): white, a blue edge; a picked one filled blue */
+	/* GRIPS look like the Sheets tool's (User 2026-10-06): white, a blue edge; a picked one filled blue */
 	.grip.filled { fill: #ffffff; stroke: #2563eb; stroke-width: 1.75; }
 	.logo-sel { stroke: #2563eb; stroke-dasharray: 4 3; fill: none; }
 	/* what a click would take (UX06): a thin light-blue outline */

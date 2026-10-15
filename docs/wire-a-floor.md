@@ -133,7 +133,7 @@ failure never takes out two adjacent desks.
 ## Variant: outlets first (plan drawn before termination)
 
 Sometimes the floorplan comes first: outlets are placed and numbered from the
-design PDFs long before the comms-room racks are planned (e.g. Hibiya L33 —
+design PDFs long before the comms-room racks are planned (e.g. building1 L33 —
 125 outlets renumbered to customer format, then terminated onto P3A/P3C).
 The flow is the same pieces in reverse order:
 

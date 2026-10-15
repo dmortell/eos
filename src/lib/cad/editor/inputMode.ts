@@ -1,4 +1,4 @@
-// The two ways to drive the drawing with the mouse (Dave 2026-10-13), chosen per user in the status bar:
+// The two ways to drive the drawing with the mouse (User 2026-10-13), chosen per user in the status bar:
 //   ACAD — the wheel zooms; points are clicked (click, click).
 //   EOS  — as the older EOS tools: the wheel PANS (Shift+wheel sideways), Ctrl / Alt / Meta + wheel zooms, and a
 //          press-drag draws (editor/pressDrag.ts); a plain click works as in ACAD. Right- / middle-drag pans in both.

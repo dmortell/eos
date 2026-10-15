@@ -1,4 +1,4 @@
-// GRIPS to resize a drawn region (Dave, 2026-10-05): a rectangle's corners (the opposite one stays put; Shift = square)
+// GRIPS to resize a drawn region (User, 2026-10-05): a rectangle's corners (the opposite one stays put; Shift = square)
 // and edge middles (one side moves), an ellipse's axis ends (its centre stays; Shift = a circle), a circle's radius, a
 // polygon's corners. Math in the shape's own 2D space (plan mm, an elevation plane's (u, z), paper or viewport mm);
 // `gripSpace` maps it to and from the view the grips are shown in. Pure apart from reading the sheet's viewport.

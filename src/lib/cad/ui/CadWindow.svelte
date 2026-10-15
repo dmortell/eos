@@ -25,7 +25,7 @@
 		e.preventDefault()
 		layout.front(id)
 		// the drag listens on the browser window, not this title bar: a docked window that comes out mid-drag is drawn
-		// in another place (a new title bar), and the same drag carries on moving it (Dave: it took two drags)
+		// in another place (a new title bar), and the same drag carries on moving it (User: it took two drags)
 		const start = { x: e.clientX, y: e.clientY, wx: s.x, wy: s.y }
 		let floated = !docked
 		const move = (m: PointerEvent) => {

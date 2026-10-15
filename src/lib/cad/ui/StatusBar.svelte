@@ -89,7 +89,7 @@
 	.hint, .msg { overflow: hidden; text-overflow: ellipsis; display: block; }
 	.msg { color: #b45309; }
 	/* a question being asked (a drawing command's typed value): it stands out — the bar's top edge, an amber block
-	   that pulses as it opens, a bold question and a ringed input (Dave 2026-10-12) */
+	   that pulses as it opens, a bold question and a ringed input (User 2026-10-12) */
 	.status.asking { border-top: 2px solid #f59e0b; }
 	.prompt { display: inline-flex; align-items: center; gap: 6px; background: #fde68a; padding: 1px 8px 1px 6px; border-left: 3px solid #d97706; border-radius: 4px; color: #78350f; font-size: 12px; animation: ask 0.9s ease-out 2; }
 	.prompt .q { font-weight: 700; }

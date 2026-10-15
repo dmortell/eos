@@ -1,4 +1,4 @@
-// Use as default (Dave 2026-10-15): what each kind of item saves for its tool, kept in the project's settings.
+// Use as default (User 2026-10-15): what each kind of item saves for its tool, kept in the project's settings.
 import { describe, it, expect } from 'vitest'
 import { useAsDefault } from './toolDefaults'
 import { defaultSettings } from './settings'
@@ -28,7 +28,7 @@ describe('Use as default', () => {
 	})
 })
 
-describe('Use as default, the other tools (Dave 2026-10-15: "expand it to the other drawing tools")', () => {
+describe('Use as default, the other tools (User 2026-10-15: "expand it to the other drawing tools")', () => {
 	const td = (e: Entity) => useAsDefault(e)!.apply(defaultSettings()).toolDefaults
 	it('an outlet: the Outlet tool bar (usage, mount, ports, cable type)', () => {
 		const o = { type: 'outlet', id: 'O', usage: 'ap', mount: 'ceiling', ports: [{ cableType: 'cat6a' }, { cableType: 'cat6a' }] } as unknown as Entity

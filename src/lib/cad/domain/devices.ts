@@ -1,4 +1,4 @@
-// Devices in racks (Phase 3.2): GLOBAL device templates (Dave: global, like blocks — built-ins here, the rest in
+// Devices in racks (Phase 3.2): GLOBAL device templates (User: global, like blocks — built-ins here, the rest in
 // `settings/cadDeviceTemplates`), making a device from a template, and the placement rules a rack enforces.
 import type { Id, Device, DeviceKind, Rack, Pt, Space, Link, Cord } from './types'
 import type { ProjectIndex } from './project'
@@ -26,7 +26,7 @@ export interface DeviceTemplate {
 	productUrl?: string
 	builtin?: boolean
 }
-/** A 19" rack device's width WITHOUT its mounting ears (Dave: servers are ~430–451 mm, patch panels 462 mm without ears,
+/** A 19" rack device's width WITHOUT its mounting ears (User: servers are ~430–451 mm, patch panels 462 mm without ears,
  *  482 mm with): devices with no width of their own are drawn this wide, the rack's mounting frame too (leaving room
  *  beside it for 0U PDUs and U numbers), and anything narrower can slide sideways (a tower PC, a monitor). */
 export const RACK_DEVICE_W = 450
@@ -35,7 +35,7 @@ export const narrowDevice = (d: Pick<Device, 'widthMm'>): boolean => !!d.widthMm
 
 /** Where port `n` (1-based) sits in a device's grid of `rows` × `cols`: [row, col]. Along the rows ('row': 1–24 top,
  *  25–48 under) or DOWN ('column': 2 under 1), down each U's pair of rows in turn — a 96-port 2U switch has 1–48 on
- *  its top two rows and 49 under 2 (Dave 2026-10-10: Journey's Arista CCS-720XP-96). */
+ *  its top two rows and 49 under 2 (User 2026-10-10: Tourney's Arista CCS-720XP-96). */
 /** The rows and columns of a device's ports — ONE layout for the rack view, the port map and the printed panel labels:
  *  ~24 a row, up to two rows a U (a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24). */
 export function portGrid(d: Pick<Device, 'portCount' | 'heightU'>): { rows: number; cols: number } {
@@ -98,7 +98,7 @@ export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 /**
  * The racks of a server room in ROW ORDER — the order the rack view shows them (front) and allocation fills them.
  * Rows by their order; within a row, racks drawn on the plan run left to right as seen from the front of the row's
- * first placed rack (Dave: racks are drawn on the plan, then put in rows); racks not on the plan follow, by `order`.
+ * first placed rack (User: racks are drawn on the plan, then put in rows); racks not on the plan follow, by `order`.
  */
 /** A room's patch panels in fill order: racks in row order, then top U down (labels, printed panel sheets). */
 export function panelsInFillOrder(ix: ProjectIndex, spaceId: Id): Device[] {
@@ -116,8 +116,8 @@ export const roomFloor = (ix: ProjectIndex, spaceId: Id | undefined): number => 
 export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] {
 	const racks = ix.racks.filter((r) => r.spaceId === spaceId && (!rowId || r.rowId === rowId))
 	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }
-	// A row can turn a corner (racks along one wall, a frame and its managers along the next — Dave's IDF 2), so each
-	// RUN — the racks along one line, whichever way each faces (a manager turned round is still in the line: Journey
+	// A row can turn a corner (racks along one wall, a frame and its managers along the next — User's IDF 2), so each
+	// RUN — the racks along one line, whichever way each faces (a manager turned round is still in the line: Tourney
 	// IDF1) — is ordered along its own "right" as seen from the front of its widest racks, and the runs are ordered
 	// along the right of the widest run (not whichever rack happens to come first). Racks not on the plan follow, by `order`.
 	const pos = new Map<Id, number[]>()
@@ -181,7 +181,7 @@ export const sidesOf = (d: Pick<Device, 'face' | 'kind' | 'mount'>): ('front' | 
 	d.kind === 'pdu' || d.face === 'none' ? [] : d.mount ? [d.mount] : d.face === 'both' ? ['front', 'rear'] : [d.face]
 export const sharesU = (a: Pick<Device, 'u' | 'heightU'>, b: Pick<Device, 'u' | 'heightU'>) => a.u <= b.u + b.heightU - 1 && b.u <= a.u + a.heightU - 1
 
-/** Shift-click a second device in a rack view (Dave 2026-10-10: select U10, Shift-click U4): every device of that rack
+/** Shift-click a second device in a rack view (User 2026-10-10: select U10, Shift-click U4): every device of that rack
  *  shown on this face whose Us fall between the two (inclusive), top down. Null = not two devices in one rack. */
 export function devicesBetween(ix: ProjectIndex, aId: Id, bId: Id, face: 'front' | 'rear'): Id[] | null {
 	const a = ix.get<Device>(aId), b = ix.get<Device>(bId)

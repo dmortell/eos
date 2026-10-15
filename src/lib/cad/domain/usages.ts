@@ -1,4 +1,4 @@
-// The project's outlet USAGES (backlog "Editable usage list", Dave 2026-10-05): desk, AP, printer … — what uses one
+// The project's outlet USAGES (backlog "Editable usage list", User 2026-10-05): desk, AP, printer … — what uses one
 // (so it can't be deleted from under them), a new one's id, and the codes an import meets that the list doesn't have
 // yet (the legacy import wrote a fixed 5, so RS / FR / WC / LK showed as raw codes). Pure.
 import type { ProjectSettings, Outlet, Device } from './types'
@@ -48,7 +48,7 @@ export function usageUses(all: Iterable<Entity>, id: string): { outlets: number;
 	return { outlets, panels }
 }
 
-/** The project's usages by label, A → Z (Dave 2026-10-05: in the Settings dialog and every dropdown). */
+/** The project's usages by label, A → Z (User 2026-10-05: in the Settings dialog and every dropdown). */
 export const sortedUsages = (st: Pick<ProjectSettings, 'usages'> | undefined): Usage[] =>
 	[...(st?.usages ?? [])].sort((a, b) => naturalCompare(a.label, b.label))
 

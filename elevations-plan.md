@@ -1569,7 +1569,7 @@ wall/door/COL fixtures now live on Test Project F01_RA plus a "Plan View
 Test" sheet, id `plan-test`).
 
 **PROPOSAL — plan view × Outlets sync (answers the §"racks plan view ×
-Outlets integration" questions; needs Dave's sign-off before building):**
+Outlets integration" questions; needs User's sign-off before building):**
 
 1. **Single source of truth = `rackPlacements` on the outlets doc** (per-rack
    `{rackId, room, position mm, rotation}` in the CALIBRATED floorplan
@@ -1595,11 +1595,11 @@ Outlets integration" questions; needs Dave's sign-off before building):**
    become per-rack handles. Until approved, the current schematic plan view
    stays as-is (now bug-free).
 
-Open question for Dave: should the legacy racks tool's plan view become
+Open question for User: should the legacy racks tool's plan view become
 read-only once placements are canonical, or write placements too?
 
 ### Session追記 (2026-08-20 — plan×outlets sync APPROVED; legacy plan view read-only)
-Dave approved the proposal: **outlets-doc `rackPlacements` is the single
+User approved the proposal: **outlets-doc `rackPlacements` is the single
 source of truth** for rack plan position/rotation, and the legacy racks
 plan-view goes READ-ONLY behind a flag.
 
@@ -1623,7 +1623,7 @@ Remaining build-out (per approved design, not yet started):
    legacy tool can go too).
 
 ### Session追記 (2026-08-20 — DIRECTION REFINED: no dedicated rack plan view; adopt-row-layout shipped)
-Dave: **"we don't need a dedicated rack plan view. we will just use a
+User: **"we don't need a dedicated rack plan view. we will just use a
 floorplan view and zoom in on the server room."** So the plan story is now
 simply: the outlets FLOORPLAN is the one plan surface (racks placed via
 rackPlacements, zoom into the server room to work on it). Consequences:
@@ -1648,7 +1648,7 @@ Verified on F04: Room A "Adopt (13)" → 13 placements in 2 row bands persisted
 to the outlets doc → Ctrl+Z → 0 placements persisted; console clean.
 
 ### Session追記 (2026-09-07 — trunk split + room-exclusive routing)
-Per Dave's decisions on the two trunk questions:
+Per User's decisions on the two trunk questions:
 - **"Split trunk here"** (option b — width stays per-trunk): node context menu
   in BOTH the sheets outlets viewport and the main Floorplan tool cuts a
   trunk into two connected trunks at a node (flood-fill partition from the

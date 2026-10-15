@@ -1,6 +1,6 @@
 # Phase 5 — Routing, fill, quote
 
-**Status:** REVIEWED (Dave, 2026-10-02). The answers are in §6a and override §2–§4 where they differ.
+**Status:** REVIEWED (User, 2026-10-02). The answers are in §6a and override §2–§4 where they differ.
 - **Exit** (analysis §8): produce a quote BOM for a floor.
 - **Retires:** Fill rate and Risers.
 
@@ -85,7 +85,7 @@
 | 5.2 | **Lengths** | length = route + allowances; Length column; BOM cable metres + boxes; cable schedule Excel | 1F cable metres in the BOM, no "length unknown" |
 | 5.3 | **Fill** | cable table; fill per segment; limit; Fill overlay; run Properties with section picture | The busiest 1F trunk shows its fill and goes red over the limit |
 | 5.4 | **Prices + quote** | price list editor; prices in BOM; quote Excel | A priced quote for 1F |
-| 5.5 | **Riser view** | floor bands, rooms, risers, backbone lanes; on sheets | Journey 33F 3303 ↔ 3307 backbone shown |
+| 5.5 | **Riser view** | floor bands, rooms, risers, backbone lanes; on sheets | Tourney 33F 3303 ↔ 3307 backbone shown |
 
 Rough size: ~2k lines. 5.1 is the core; 5.3–5.5 are mostly ports.
 
@@ -93,7 +93,7 @@ Rough size: ~2k lines. 5.1 is the core; 5.3–5.5 are mostly ports.
 
 cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
 
-## 6a. Decisions (Dave, 2026-10-02)
+## 6a. Decisions (User, 2026-10-02)
 
 1. **Routes:**
    - Recalculated from the drawing, never stored.
@@ -119,7 +119,7 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
      positions / distances for those may be needed later.
 7. **Cable in the BOM:** metres; the box estimate (305 m) as a note in the description column.
 
-## 6. Questions for Dave (answered in §6a)
+## 6. Questions for User (answered in §6a)
 
 1. **Routes derived** (recomputed from the drawing, with an optional "via" to force one) rather than stored per
    link — OK?
@@ -178,7 +178,7 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
   - The 49 / 72 with no route are data gaps: outlets not placed on the plan, and racks with no plan position. The
     project has only 3 runs (TR1–TR3).
 
-### Risers, interconnects, the riser choice (Dave's questions, 2026-10-02)
+### Risers, interconnects, the riser choice (User's questions, 2026-10-02)
 - **A riser is drawn once.**
   - How: the path tool (Trunk / Conduit) → click / type the start → **V** → the other level's number. That draws a
     vertical segment to that level's FFL.
@@ -229,12 +229,12 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
 
 #### Found on the way
 - **Typed points are Y-up** (AutoCAD habit), but Properties show the stored Y-down values. Typing a point copied
-  from Properties lands mirrored. Make Properties show Y-up too? (a todo for Dave)
+  from Properties lands mirrored. Make Properties show Y-up too? (a todo for User)
 - **Outlets join the nearest run of their tier however far it is.** On 4F the only run is the short one by
   4AR01, so the 72 outlets now "route" with straight 10–15 m drops (17–19 m). A maximum drop (e.g. 10 m, else
-  "no run near the outlet") may be wanted. To ask Dave.
+  "no run near the outlet") may be wanted. To ask User.
 
-### Plan view fit (Dave: "outlets shown zoomed in, then it zooms out when the PDF loads")
+### Plan view fit (User: "outlets shown zoomed in, then it zooms out when the PDF loads")
 - **Cause:**
   - The first fit ran as soon as the plan had anything to show: the project-wide racks / rooms, before the level's
     own data arrived.
@@ -248,7 +248,7 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
 ### Slice 5.3 — fill (built 2026-10-02)
 - **`domain/fill.ts`** (tests in `fill.test.ts`):
   - `fillBySegment(ix, routes)` gives, per run segment, the cables routed through it by type.
-  - A cable counts as d² (Dave). The outer diameter comes from the project's cable type (`diameterMm`), else the
+  - A cable counts as d² (User). The outer diameter comes from the project's cable type (`diameterMm`), else the
     Pages table: cat6a 9, cat6 7, cat5e 6, fibre 3, MPO-12 4.
   - Area = the section's inside (`inner`, else w×h; round = πr²). A segment's own section overrides the run's.
   - Limit **40 %** (`FILL_LIMIT_PCT`). `fillTone`: amber from ¾ of the limit, red over it.
@@ -264,10 +264,10 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
   packed picture shown. Outlet runs to IDF2 show green.
 
 ### Todo (later)
-- **5.4 Prices + quote:** skipped for now (Dave, 2026-10-02: "skip 5.4, mark it as a todo for later maybe"). The
+- **5.4 Prices + quote:** skipped for now (User, 2026-10-02: "skip 5.4, mark it as a todo for later maybe"). The
   BOM stays material-only in Excel.
-- **Typed points are Y-up, Properties are Y-down:** make them agree (Dave to decide).
-- **Maximum outlet drop:** outlets join the nearest run of their tier however far away it is (Dave to decide on a
+- **Typed points are Y-up, Properties are Y-down:** make them agree (User to decide).
+- **Maximum outlet drop:** outlets join the nearest run of their tier however far away it is (User to decide on a
   limit, e.g. 10 m).
 
 ### Slice 5.5 — riser view (built 2026-10-02)
@@ -289,13 +289,13 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
 - **Tests:** 255.
 - **Live check on Test Project:** 1F (IDF2, IDF1) and 4F (Server room A), Riser A between them, and one backbone
   line "24 × cat6a · 12m".
-- **Later, if needed** (Dave): horizontal positions for rooms / risers that can't be worked out (nothing drawn),
+- **Later, if needed** (User): horizontal positions for rooms / risers that can't be worked out (nothing drawn),
   and floor compression for tall buildings (the legacy Risers tool hid floors; Pages had `storeyMap`).
 
 **Phase 5 is complete except 5.4 (prices), which is a todo.**
 
-### After Phase 5 (Dave, 2026-10-02)
-- **Typed points use the model's coordinates** (Dave: "typed y-points must be consistent with the rest of the
+### After Phase 5 (User, 2026-10-02)
+- **Typed points use the model's coordinates** (User: "typed y-points must be consistent with the rest of the
   model"). In a plan / on a sheet x,y are the stored values Properties show (y down the sheet). In an elevation y is
   height. Polar angles stay anticlockwise as seen. ADR 0005 updated. The Phase 5 how-to typed `10210,2600` for
   stored y −2600; now you type `10210,-2600`.
@@ -307,7 +307,7 @@ cad is 9.1k lines (non-test) after Phase 4, against the ~20k total target.
 - **A riser's end meets the trays above / below it** (`RISER_REACH_MM = 4_500`). The riser ends at the other
   floor's FFL; its end now also joins any run node straight above / below it within a storey, counted as more of
   the riser. A ceiling run starting over the riser connects without drawing the riser up to the tray height.
-- **Test Project data:** after Dave moved 4AR01 to (3205, 13580) and redrew the 4F run (from (3190, 17750) at Z
+- **Test Project data:** after User moved 4AR01 to (3205, 13580) and redrew the 4F run (from (3190, 17750) at Z
   2770), that run no longer reaches Riser A at (10210, −2600). The 24 backbones say "the runs at the two ends are not
   connected" until the riser is moved under the 4F run (or the run drawn to it).
 - **Tests:** 258.

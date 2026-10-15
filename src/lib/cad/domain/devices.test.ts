@@ -35,7 +35,7 @@ describe('rack placement rules', () => {
 		expect(placementProblem(at('builtin:panel-24', 20), rack, [sw])).toMatch(/overlap/)
 		expect(placementProblem(at('builtin:manager-1u', 20, 'rear'), rack, [sw])).toBeNull()
 	})
-	it('a panel MOUNTED at the front shares a U with a rear device, if their depths fit (Dave: P3C U42)', () => {
+	it('a panel MOUNTED at the front shares a U with a rear device, if their depths fit (User: P3C U42)', () => {
 		const rear = { ...at('builtin:panel-24', 42, 'rear'), id: 'REAR', depthMm: 100 }
 		const front = at('builtin:panel-24', 42)   // both faces, full depth
 		expect(placementProblem(front, rack, [rear])).toMatch(/set this one's Mount to front/)

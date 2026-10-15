@@ -54,7 +54,7 @@ export const inScope = (ctx: ViewCtx, e: Ent): boolean => !e.space || e.space ==
 export const inThisView = (ctx: ViewCtx, e: Ent): boolean => inScope(ctx, e) && (onPlanPlane(e) || e.plane === ctx.dir)
 	&& !(e.type === 'insert' && ctx.isElev && onPlanPlane(e))   // plan block symbols (outlets) aren't drawn in elevations
 	// nor plan TEXT (labels, notes, callouts, legends) — it isn't flat like a line, so it was drawn at its plan coords, far
-	// above the elevation (Dave 2026-10-01); an elevation's own text is drawn in it, the 3D view lifts plan callouts
+	// above the elevation (User 2026-10-01); an elevation's own text is drawn in it, the 3D view lifts plan callouts
 	&& !(e.type === 'text' && ctx.isElev && onPlanPlane(e))
 	&& !(e.type === 'image' && !ctx.isPlan && onPlanPlane(e))   // a plan's floorplan / PDF image belongs to the plan only (not elevations / 3D)
 

@@ -78,7 +78,7 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 		// the CENTRE of a circle / arc / box / polygon, and a block's insertion point (backlog "Centre snap")
 		const c = centreOf(s.geom)
 		if (c) offer({ p: c, kind: 'centre' })
-		// a box's / polygon's corners and the middles of its edges (Dave 2026-10-14: a desk's legs at its top's corners)
+		// a box's / polygon's corners and the middles of its edges (User 2026-10-14: a desk's legs at its top's corners)
 		if (s.geom.kind === 'rect' || s.geom.kind === 'polygon') {
 			const pts = outlineOf(s.geom) ?? []
 			pts.forEach((q, i) => {

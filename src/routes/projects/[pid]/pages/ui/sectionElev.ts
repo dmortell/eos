@@ -1,4 +1,4 @@
-// SECTIONS SEEN FROM THE SIDE (Dave 2026-10-01): in an elevation every section / elevation marker / box section shows
+// SECTIONS SEEN FROM THE SIDE (User 2026-10-01): in an elevation every section / elevation marker / box section shows
 // as a dashed BAND — its plan region's span along the view × its height band (Z↓..Z↑; "every height" = the model's
 // height range) — clickable to select, with a handle on its top / bottom edge to drag Z↑ / Z↓ (a section seen on the
 // plan has no height to grab). Pure; vpView builds the bands, VpMarks draws them. Tested in sectionElev.test.ts.

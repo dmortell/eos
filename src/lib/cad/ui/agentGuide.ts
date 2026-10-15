@@ -1,4 +1,4 @@
-// The AGENT GUIDE (Dave 2026-10-14): one plain-text page, served at /cad/agent, that a user can point an LLM at
+// The AGENT GUIDE (User 2026-10-14): one plain-text page, served at /cad/agent, that a user can point an LLM at
 // before it drives cad in their browser without the source. The concepts, the URL, how to type rather than click, how
 // to check each step, and recipes are written here; the tools, windows, keys and how-tos come from the same lists as
 // Help (toolGroups.ts, toolHints.ts, shellKeys.ts, helpContent.ts), so the page can't fall behind the app.

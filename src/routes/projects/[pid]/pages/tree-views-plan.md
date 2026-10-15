@@ -1,6 +1,6 @@
 # Tree views — organising a project's models and drawings
 
-**Status:** plan, 2026-09-27 (Dave). Not started. Todo: "Tree views / organisation templates".
+**Status:** plan, 2026-09-27 (User). Not started. Todo: "Tree views / organisation templates".
 
 ## 1. The ask
 
@@ -75,7 +75,7 @@ We can't infer "this sheet shows high-level outlets" from its viewports, so draw
 - A custom folder can also be a SMART folder: a saved filter (tags / kind / discipline / floor) that fills itself.
 - Stored in the project's Pages doc (`pages.treeViews`), so the whole team sees them; the chosen view is per user.
 
-### 3.5 Models vs paper drawings — obvious at a glance (Dave 2026-09-27: a requirement)
+### 3.5 Models vs paper drawings — obvious at a glance (User 2026-09-27: a requirement)
 In EVERY view (places, grouped, custom) a MODEL row must be visually distinct from a PAPER drawing (sheet) row, so the
 user never has to guess which one opens model space and which opens a sheet:
 - **Icon**: models use a 3D / cube-style icon (a model: `box`; a building model: the building icon), sheets a paper
@@ -101,15 +101,15 @@ phase 3.
 | 2 | Tag UX: chip picker with project vocabulary in the sheet's Properties + bulk tag from the tree; auto-suggest on new / dropped sheets | M |
 | 3 | Custom views: folders, drag in / out / reorder, smart folders; drop-on-group sets the field | M–L |
 
-## 5. Decided (Dave 2026-09-27)
+## 5. Decided (User 2026-09-27)
 - Custom views are SHARED with the team (stored in the project's Pages doc; the chosen view is per user).
 - Tags are FREE text; the suggestions are GLOBAL — one tag vocabulary across all projects (a doc outside any project),
   merged with the project's own tags; a new tag joins it.
 - Models appear in grouped views and always look clearly different from sheets (§3.5).
 
-## 5a. Questions for Dave (answered above)
+## 5a. Questions for User (answered above)
 1. Should models appear in the grouped views (e.g. "33F model" under Floors), or sheets only? (Wherever they appear
-   they must look clearly different from sheets — §3.5, Dave 2026-09-27.)
+   they must look clearly different from sheets — §3.5, User 2026-09-27.)
 2. Custom views shared with the team (recommended) or personal?
 3. A fixed tag vocabulary per project (admin-defined) or free tags with suggestions (recommended)?
 

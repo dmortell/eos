@@ -1,4 +1,4 @@
-// The LEGEND tool (backlog "Legend on the drawing", Dave 2026-10-05): a click puts a legend there — its top-left corner —
+// The LEGEND tool (backlog "Legend on the drawing", User 2026-10-05): a click puts a legend there — its top-left corner —
 // on the plan (it lists that level) or on a sheet's paper (it lists the levels its viewports show). It starts with every
 // symbol in use; Properties chooses its rows (symbols and layers), title and size. One undo step; it's then selected.
 import type { Tool, ToolCtx, PointerIn } from './tools'

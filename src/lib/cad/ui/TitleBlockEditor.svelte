@@ -3,7 +3,7 @@
 	// The PROJECT's title-block template (domain/titleBlock.ts), edited from a sheet's Properties: sections, border,
 	// layout, logo text + images, the drawing office's lines, then the fields in order — relabel, full / half width,
 	// drag to reorder, remove, add an auto-filled field or a custom one with fixed text. Ported from Pages'
-	// TitleBlockEditor.svelte (Dave: keep the Pages model); every change calls `onchange` with the whole template
+	// TitleBlockEditor.svelte (User: keep the Pages model); every change calls `onchange` with the whole template
 	// (saved on the project's settings; every sheet re-renders from it).
 	import { Icon, DragReorder } from '$lib'
 	import { toast } from 'svelte-sonner'
@@ -17,7 +17,7 @@
 	const showId = $props.id()
 	let picking = $state<'company' | 'client' | null>(null)
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
-	// the field list WITH the logos as fields (Dave: logos placed and ordered like fields); an edit saves it that way
+	// the field list WITH the logos as fields (User: logos placed and ordered like fields); an edit saves it that way
 	const fields = $derived(withLogoFields(t))
 	const set = (patch: Partial<TitleBlockTemplate>) => onchange({ ...t, logo: t.logo ?? '', fields: fields.map((f) => ({ ...f })), ...patch })
 	const setCompany = (patch: Partial<TbCompany>) => set({ company: { ...t.company, ...patch } })

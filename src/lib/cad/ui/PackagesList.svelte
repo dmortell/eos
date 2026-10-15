@@ -56,7 +56,7 @@
 		ws.say(`${r.contacts.length ? `${r.contacts.length} new contact(s)` : 'Matched existing contacts'} — Project › Settings… › Sheets › Contacts`)
 	}
 
-	// a new package's name is typed in the bar (not the status bar, Dave 2026-10-12)
+	// a new package's name is typed in the bar (not the status bar, User 2026-10-12)
 	let naming = $state<{ sheetIds?: string[]; rule?: NonNullable<SheetPackage['rule']>; value: string } | null>(null)
 	function fromSelection() {
 		if (!selectedSheets.length) { ws.say('Select sheets in the register first'); return }

@@ -1,7 +1,7 @@
-// LOGO GRIPS on the paper (backlog "Resize logos and drag images on the paper", Dave 2026-10-05): click a title-block
+// LOGO GRIPS on the paper (backlog "Resize logos and drag images on the paper", User 2026-10-05): click a title-block
 // logo on a sheet to pick it (an outline shows), then drag the grip on its bottom edge down / up to make the logo
 // taller / shorter (its printed height, 3–60 mm, for every sheet: the template is the project's). One undo step per
-// drag. The grip only shows for the picked logo, drawn like any resize grip (Dave 2026-10-06: it was always on, and
+// drag. The grip only shows for the picked logo, drawn like any resize grip (User 2026-10-06: it was always on, and
 // in the handle style). Pure; tested in views/style.test.ts.
 import type { Entity, Sheet } from '../domain/drawing'
 import type { ProjectSettings, Pt } from '../domain/types'

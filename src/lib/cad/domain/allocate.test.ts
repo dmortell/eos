@@ -1,4 +1,4 @@
-// Allocation (Phase 3.4) as behaviour: Dave's rules from phase3.md §9.
+// Allocation (Phase 3.4) as behaviour: User's rules from phase3.md §9.
 import { describe, it, expect } from 'vitest'
 import { allocate, assignFrom, panelsInOrder } from './allocate'
 import { ProjectIndex } from './project'
@@ -73,7 +73,7 @@ describe('reservations', () => {
 	})
 })
 
-describe('designated frames and usage panels (Dave)', () => {
+describe('designated frames and usage panels (User)', () => {
 	it('only patch frames take outlets once the room has any; equipment racks are skipped', () => {
 		const ents = [...base().map((e) => (e.id === 'R2' ? { ...(e as Rack), patchFrame: true } : e)), ...outlets(2)]
 		const r = run(ents)

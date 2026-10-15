@@ -39,7 +39,7 @@ describe('copy', () => {
 })
 
 describe('paste', () => {
-	it('as-is (Dave): new ids, but the same place and the same labels, even back where it came from', () => {
+	it('as-is (User): new ids, but the same place and the same labels, even back where it came from', () => {
 		const i = ix(), r = pasteClip(copy(i, ['O1']), target(i, { kind: 'level', id: 'L33' }))
 		const o = r.put[0] as Outlet, was = i.get<Outlet>('O1')!
 		expect(o.id).not.toBe('O1')

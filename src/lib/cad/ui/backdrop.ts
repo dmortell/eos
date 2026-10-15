@@ -1,4 +1,4 @@
-// A dialog's BACKDROP closes it on a click that starts AND ends on the backdrop itself (Dave 2026-10-05): a drag that
+// A dialog's BACKDROP closes it on a click that starts AND ends on the backdrop itself (User 2026-10-05): a drag that
 // starts inside the dialog — selecting text in a field — and ends outside it no longer closes the dialog.
 export function backdropClose(node: HTMLElement, close: () => void) {
 	let fromBack = false

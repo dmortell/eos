@@ -1,4 +1,4 @@
-// File › Import legacy drawings, against docs shaped like Project Journey's (Pages "Zone 3303", Sheets-tool sheets).
+// File › Import legacy drawings, against docs shaped like Project Tourney's (Pages "Zone 3303", Sheets-tool sheets).
 import { describe, it, expect } from 'vitest'
 import { planDrawings, levelForDocId, levelForName, levelForSheet, type DrawingsSource, type DrawingsChoice } from './drawings'
 import { prismShape, wallShape, ngonFootprint, openingIn, type PagesModel, type PagesPrism } from './drawingsPages'
@@ -16,7 +16,7 @@ import type { Level } from '../../domain/types'
 let n = 0
 const id = () => `id${++n}`
 const level = (lid: string, name: string, number: number, area?: string): Level => ({ type: 'level', id: lid, buildingId: 'b', name, number, order: number, elevationMm: 0, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }, ...(area ? { area } : {}) })
-// Journey: the 33F main plan is the 3303 office; 3307 is an area plan
+// Tourney: the 33F main plan is the 3303 office; 3307 is an area plan
 const LEVELS = [level('L12', '12F', 12), level('L30', '30F', 30), level('L3303', '33F 3303', 33), level('L3307', '33F 3307', 33, '3307')]
 const near = (a: { x: number; y: number }[], b: { x: number; y: number }[]) => {
 	expect(a).toHaveLength(b.length)
@@ -89,7 +89,7 @@ describe('which cad level a legacy drawing goes on', () => {
 		expect(levelForName('Zone 3303', LEVELS)).toBe('L3303')
 		expect(levelForName('3303 office', LEVELS)).toBe('L3303')
 		expect(levelForName('Zone 3307', LEVELS)).toBe('L3307')
-		expect(levelForName('Hibiya Midtown', LEVELS)).toBeUndefined()
+		expect(levelForName('building1', LEVELS)).toBeUndefined()
 	})
 	it('a sheet whose viewport shows an old floor doc goes by its title: "3307 Sensaphone" → the 3307 area plan', () => {
 		const src: DrawingsSource = { pid: 'P', models: [], models3d: [], sheetLayers: [], sheets: [] }
@@ -231,7 +231,7 @@ describe('planDrawings (the whole import, one transaction\'s worth)', () => {
 })
 
 describe('Pages opening boxes → openings in the imported walls', () => {
-	// Journey: a wall running down the sheet, 100 thick; a door 100 × 700 × 2100 and a hole 100 × 200 × 200 in it
+	// Tourney: a wall running down the sheet, 100 thick; a door 100 × 700 × 2100 and a hole 100 × 200 × 200 in it
 	const wall = wallShape({ type: 'wall', thickness: 100, h: 2700, nodes: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 0, y: 5000 }], segments: [{ id: 's', a: 'a', b: 'b' }] }, 'L', { importedFrom: 'w' }, id)!
 	const door: PagesPrism = { type: 'prism', id: 'd', x: -50, y: 1000, z: 0, w: 100, d: 700, h: 2100, edges: 4, open: 'door' }
 	const hole: PagesPrism = { type: 'prism', id: 'h', x: -50, y: 3000, z: 900, w: 100, d: 200, h: 200, edges: 4 }

@@ -376,7 +376,7 @@ export class VpInteraction {
 		this.endDraft()
 	}
 	/** A new 3D object never lands on a hidden / locked layer (like shapes, J5): it would vanish, or be stuck — unselectable,
-	 *  uneditable (a box added on Hibiya's locked Furniture layer, 2026-10-01). Refused with a note → true. */
+	 *  uneditable (a box added on building1's locked Furniture layer, 2026-10-01). Refused with a note → true. */
 	private layerRefuses(o: Obj): boolean {
 		const v = this.v; if (!o.layer || !(v.isLayerHidden(o.layer) || v.isLayerLocked(o.layer))) return false
 		const l = v.mls.find((x) => x.id === o.layer), locked = v.isLayerLocked(o.layer)

@@ -1,4 +1,4 @@
-// Tips at start (Dave 2026-10-15): the Tips window opens by itself once a day, on the next tip, until "Show at start"
+// Tips at start (User 2026-10-15): the Tips window opens by itself once a day, on the next tip, until "Show at start"
 // is unticked. Per browser (localStorage); every read / write survives blocked storage.
 const ON = 'cad-tips-start', DAY = 'cad-tips-day', AT = 'cad-tips-i'
 const get = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }

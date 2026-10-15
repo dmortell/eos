@@ -79,7 +79,7 @@ export function dragNodesInto(tx: { get(id: Id): Entity | undefined; put(e: Enti
 	}
 	const plan = space.spec.kind === 'plan', d = space.deltaToWorld({ x: sn.p.x - grip.at.x, y: sn.p.y - grip.at.y })
 	// a run of the same kind whose node sits on this one is already connected here: it becomes part of this run
-	// (Dave: two trunks touching at a point move as one); other runs' nodes there just move along
+	// (User: two trunks touching at a point move as one); other runs' nodes there just move along
 	const absorbed: Id[] = []
 	let base = s
 	for (const [fid, ids] of fol) {

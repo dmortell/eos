@@ -1,4 +1,4 @@
-// SHEET CATEGORIES (plan `docs/plan/sheets-organising.md` §1; Dave D1: one GLOBAL list for every project): what a
+// SHEET CATEGORIES (plan `docs/plan/sheets-organising.md` §1; User D1: one GLOBAL list for every project): what a
 // sheet is — plans, rack elevations, risers … — for sorting, grouping, filtering and package rules. A sheet stores a
 // category id in its `kind`; unset, its category is DERIVED from what its viewports show, so most sheets sort
 // sensibly with nobody typing anything. A `kind` that isn't in the list (old free text) shows as typed. Pure; tested

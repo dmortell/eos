@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Deleting a SECTION that still drives sheet viewports (phase 3 — Dave: a section usually feeds several elevation
+	// Deleting a SECTION that still drives sheet viewports (phase 3 — User: a section usually feeds several elevation
 	// viewports): ask first. KEEP them as plain elevations (unlinked, each still showing its last view with its own notes),
 	// or DELETE them too; Cancel leaves everything. One undo step either way (+page finishSectionDelete).
 	import type { SectionLink } from '../ui/sectionLine'

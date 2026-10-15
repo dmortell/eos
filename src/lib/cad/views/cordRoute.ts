@@ -1,4 +1,4 @@
-// Patch cords drawn ALONG THE CABLE CHANNELS in a rack-row view (backlog "Cords drawn along the cable channels", Dave
+// Patch cords drawn ALONG THE CABLE CHANNELS in a rack-row view (backlog "Cords drawn along the cable channels", User
 // 2026-10-06: high priority, a toggle beside the straight / sagging cords). Ported from the legacy patching tool
 // (`patching/parts/cableUtils.ts` computeRoute) into view mm (y = −height):
 //  - each end drops just below its port, then runs sideways to the channel on ITS side of the rack (along the panel
@@ -22,7 +22,7 @@ const LANES = 5
 
 export function channelRoute(a: CordEnd, b: CordEnd, lane = 0): Pt[] {
 	const off = (lane % LANES) * LANE
-	// the drop under a port is half the lane step (Dave: on a 48-port 1U panel it ran over the port below — hard to click)
+	// the drop under a port is half the lane step (User: on a 48-port 1U panel it ran over the port below — hard to click)
 	const ya = a.y + a.hh + (DROP + off) / 2, yb = b.y + b.hh + (DROP + off) / 2
 	const left = (p: CordEnd) => p.x < p.rack.mid
 	const ch = (r: RackFrame, l: boolean) => (l ? r.mid - r.chan - off : r.mid + r.chan + off)

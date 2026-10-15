@@ -1,7 +1,7 @@
 <!-- The BLOCKS panel (block manager): the global block library by category, with search and previews. Click a block to
      place it with the Insert tool — on the plan, or on a wall in an elevation / section (at the clicked height); click it
      again (or Esc) to stop. Your own blocks can be deleted from the library (drawings that use them keep them).
-     "On this level" (Dave 2026-10-05: was the separate Symbols list) shows only the blocks used on the open level —
+     "On this level" (User 2026-10-05: was the separate Symbols list) shows only the blocks used on the open level —
      outlet symbols and inserts — with how many. (Which go in a legend is chosen per legend, later.) -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
@@ -45,7 +45,7 @@
 		e.dataTransfer?.setData('application/x-cad-block', b.id)
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 	}
-	// your own blocks are renamed in the list (Dave 2026-10-14): ✎ or F2 on the row; built-ins are in code
+	// your own blocks are renamed in the list (User 2026-10-14): ✎ or F2 on the row; built-ins are in code
 	let renaming = $state<Id | null>(null)
 	async function rename(b: Block, name: string) {
 		renaming = null

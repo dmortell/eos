@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { nextLabel, numberAt, setNumber, portLabelsFor, renumber, renumberOutlets, naturalCompare, readingOrder, reformatPorts, portsFromLabel } from './labels'
 import type { Outlet } from './types'
 
-describe('port label formats (Dave: 201.A → 201A, or numeric 201.1)', () => {
+describe('port label formats (User: 201.A → 201A, or numeric 201.1)', () => {
 	it('new labels in each format', () => {
 		expect(portLabelsFor('201', 2, 'alpha', '')).toEqual(['201A', '201B'])
 		expect(portLabelsFor('201', 2, 'numeric', '.')).toEqual(['201.1', '201.2'])
@@ -70,7 +70,7 @@ describe('ordering', () => {
 	})
 })
 
-describe('ports from the outlet label (Journey: 245 kept ports 056.A after a renumber)', () => {
+describe('ports from the outlet label (Tourney: 245 kept ports 056.A after a renumber)', () => {
 	const o = (label: string, ports: string[]) => ({ label, ports: ports.map((l, i) => ({ port: i + 1, label: l })) })
 	it('ports that don’t carry the label are made again from it; the rest are left alone', () => {
 		expect(portsFromLabel(o('245', ['056.A', '056.B']), 'alpha', '.')?.ports.map((p) => p.label)).toEqual(['245.A', '245.B'])

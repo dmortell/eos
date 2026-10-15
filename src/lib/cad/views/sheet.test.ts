@@ -91,7 +91,7 @@ describe('notes follow the layer rules (Q41)', () => {
 	const vp = (frozen?: string[]) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 4000 }, ...(frozen ? { frozen } : {}) })
 	const text = (id: string, vpId?: string): Shape => ({ type: 'shape', id, sheetId: 'SH', ...(vpId ? { vpId } : {}), geom: { kind: 'text', at: { x: 3000, y: 4000 }, text: 'Hi', sizeMm: 2.5 } } as Shape)
 	const has = (sh: Sheet, t: Shape, o = {}) => sheetDisplayList(new ProjectIndex([...demoProject(), sh, t]), sh, o).some((p) => p.src === t.id)
-	it('a paper note hides with the sheet’s own layers; a tied note with its viewport’s only (Dave 2026-10-13)', () => {
+	it('a paper note hides with the sheet’s own layers; a tied note with its viewport’s only (User 2026-10-13)', () => {
 		const sh = sheet({ viewports: [vp()] }), paper = text('N1'), tied = text('N2', 'V')
 		expect(has(sh, paper)).toBe(true)
 		expect(has({ ...sh, frozen: ['sys:notes'] }, paper)).toBe(false)
@@ -100,7 +100,7 @@ describe('notes follow the layer rules (Q41)', () => {
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), tied)).toBe(false)
 		expect(has(sheet({ viewports: [vp(['sys:notes'])] }), paper)).toBe(true)   // frozen in the viewport only: paper notes are not in it
 	})
-	it('viewportLayers: what a viewport draws on, hidden or not, and its tied notes (Dave 2026-10-14)', () => {
+	it('viewportLayers: what a viewport draws on, hidden or not, and its tied notes (User 2026-10-14)', () => {
 		const v = vp(['sys:outlets-low'])
 		const sh = sheet({ viewports: [v] }), tied = { ...text('N2', 'V'), layerId: 'MINE' } as Shape
 		const got = viewportLayers(new ProjectIndex([...demoProject(), sh, tied, { type: 'layer', id: 'MINE', name: 'Mine', order: 500 }]), sh, v)
@@ -108,7 +108,7 @@ describe('notes follow the layer rules (Q41)', () => {
 		expect(got.has('MINE')).toBe(true)
 		expect(got.has('sys:port-labels')).toBe(false)   // a plan draws no rack port labels
 	})
-	it('a viewport’s content follows its own layers, not the model’s eye (Dave 2026-10-13)', () => {
+	it('a viewport’s content follows its own layers, not the model’s eye (User 2026-10-13)', () => {
 		const shown = (v: ReturnType<typeof vp>) => { const sh = sheet({ viewports: [v] }); return viewportContent(new ProjectIndex([...demoProject(), sh]), v).length }
 		const n = shown(vp())
 		expect(n).toBeGreaterThan(0)
@@ -148,11 +148,11 @@ describe('title block on a sheet (Pages model)', () => {
 		expect(date(sheet({ ...old, revisions: [{ code: 'A', date: '' }, { code: 'B', date: '2026-10-12' }] }))).toBe('2026-10-12')
 	})
 	it('fills in from the Project details: client, site address, company, and the author on a blank Drawn (Review 2 Q42)', () => {
-		const details = { client: 'ACME Corp', address: '1-2-3 Shibuya', author: 'David Mortell', companyName: 'Journey', companyAddress: 'Tokyo' }
+		const details = { client: 'ACME Corp', address: '1-2-3 Shibuya', author: 'Dana Morgan', companyName: 'Tourney', companyAddress: 'Tokyo' }
 		const template = { fields: [...DEFAULT_TITLE_BLOCK.fields, { key: 'client' as const, label: 'Client' }, { key: 'site' as const, label: 'Site' }] }
 		const cells = (s: Sheet, d: ProjectDetails = details, t: typeof template & { site?: string; company?: { name: string } } = template) =>
 			Object.fromEntries(sheetTitleBlock(ix(), s, { template: t, details: d }).cells.map((c) => [c.label, c.kind === 'company' ? c.lines?.join(' / ') : c.value]))
-		expect(cells(sheet())).toMatchObject({ Client: 'ACME Corp', Site: '1-2-3 Shibuya', Company: 'Journey / Tokyo', Drawn: 'DM' })
+		expect(cells(sheet())).toMatchObject({ Client: 'ACME Corp', Site: '1-2-3 Shibuya', Company: 'Tourney / Tokyo', Drawn: 'DM' })
 		// the sheet's / template's own win
 		expect(cells(sheet({ titleBlock: { fields: { drawn: 'KT' } } }), details, { ...template, site: 'Site B', company: { name: 'Us' } })).toMatchObject({ Site: 'Site B', Company: 'Us', Drawn: 'KT' })
 		// no author: who issued the latest revision; initials typed as the author stay as they are
@@ -195,7 +195,7 @@ describe('title block on a sheet (Pages model)', () => {
 	})
 })
 
-describe('a sheet draws with its own look (Dave 2026-10-12: per sheet, not the project)', () => {
+describe('a sheet draws with its own look (User 2026-10-12: per sheet, not the project)', () => {
 	const base = { type: 'sheet', id: 'S', number: '1', title: 'T', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 5 }, viewports: [], status: 'active' } as Sheet
 	it('its own B/W, usage colors and cord route win; absent = the project setting it was made under', () => {
 		const project = { gray: true, byUsage: true, cords: 'channels' as const }

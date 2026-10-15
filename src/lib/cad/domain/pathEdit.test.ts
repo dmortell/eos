@@ -65,7 +65,7 @@ describe('two runs joined into one (joinShapes / repointRefs)', () => {
 		type: 'shape', id, levelId: 'L', role: { kind: 'containment', form: 'trunk', tier: 'high', ...role },
 		geom: { kind: 'path', nodes: [n(`${id}0`, ...a), n(`${id}1`, ...b)], segs: [{ id: `${id}s`, a: `${id}0`, b: `${id}1` }] }, ...more,
 	}) as unknown as Shape
-	it('on a plan, runs at different heights are not joined — join them in an elevation (Review 2 Q7, Dave)', () => {
+	it('on a plan, runs at different heights are not joined — join them in an elevation (Review 2 Q7, User)', () => {
 		const A = run('A', [0, 0], [1000, 0], {}), B = run('B', [1000, 0], [1000, 1000], { tier: 'low' })
 		expect(joinHeightProblem(A, B, [['B0', 'A1']])).toBeNull()   // both at Z 2600
 		const low = { ...B, geom: { ...(B.geom as { nodes: { z: number }[] }), nodes: (B.geom as { nodes: { id: string; x: number; y: number; z: number }[] }).nodes.map((q) => ({ ...q, z: 300 })) } } as unknown as Shape

@@ -35,7 +35,7 @@ describe('outlet symbols', () => {
 		expect(usage?.k === 'text' && usage.at.y).toBeGreaterThan(1.8)   // below the ring, not in its middle
 		expect(ap.some((p) => p.k === 'text' && p.text === '1')).toBe(true)
 	})
-	it('faceplates: data / power, single / dual gang — ONE drawing (Dave 2026-10-14): a 70 × 115 plate, a 50 × 90 frame; power sockets two prongs and an earth, data an RJ45 — real mm', () => {
+	it('faceplates: data / power, single / dual gang — ONE drawing (User 2026-10-14): a 70 × 115 plate, a 50 × 90 frame; power sockets two prongs and an earth, data an RJ45 — real mm', () => {
 		const fp = BUILTIN_BLOCKS.filter((b) => b.id.startsWith('builtin:faceplate-'))
 		expect(fp.map((b) => b.name)).toEqual(['Faceplate - data, single', 'Faceplate - data, dual', 'Faceplate - power, single', 'Faceplate - power, dual'])
 		for (const b of fp) expect(b).toMatchObject({ category: 'outlet' })

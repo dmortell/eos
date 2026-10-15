@@ -1,7 +1,7 @@
 # Port map for network engineers (VLAN assignment) — plan for review
 
 **Status: BUILT 2026-10-11 — Slice 1 (the list) and Slice 2 (the drawing); decisions P1–P4 below.** From backlog
-"Port map for network engineers (VLAN assignment)" (Dave 2026-10-11): a drawing of the selected patch-frame panels or
+"Port map for network engineers (VLAN assignment)" (User 2026-10-11): a drawing of the selected patch-frame panels or
 network switches, each port labelled with the endpoint it is patched to, so network engineers can assign VLANs to the
 ports; and the same as a list.
 
@@ -39,10 +39,10 @@ outlet and the switch port.
   usual: a new sheet or onto one, as a viewport). The viewport picker keeps it.
 - Drawn from the model like every view, so it follows the cords. A deleted device drops out; the view goes when all
   of its devices are gone.
-- The Excel's columns (Dave 2026-10-11): Room · Rack · U · Port · Device · Port label, then Outlet · Outlet location ·
+- The Excel's columns (User 2026-10-11): Room · Rack · U · Port · Device · Port label, then Outlet · Outlet location ·
   Patched To · Far End · Cord ID · Cord status · VLAN · Notes.
 
-## Decisions (Dave 2026-10-11)
+## Decisions (User 2026-10-11)
 
 - **P1** VLANs: **only in the Excel** — not stored in CAD yet.
 - **P2** The drawing: **the switch with its ports in the right positions**, each port's number (label) small in a

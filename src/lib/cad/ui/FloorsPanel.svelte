@@ -1,4 +1,4 @@
-<!-- Project settings › FLOORS & HEIGHTS and PLANS & FLOORPLANS (the Floor manager, Dave 2026-10-03): the building's
+<!-- Project settings › FLOORS & HEIGHTS and PLANS & FLOORPLANS (the Floor manager, User 2026-10-03): the building's
      floors as a lowest–top range with the floors that don't exist ticked off (no GF …), floor names from a pattern, and
      each floor's heights (slab, raised floor, clear height, plenum) with "apply to all". Every change re-stacks the FFL
      elevations. Plans & floorplans: each floor's plan and area plans, with the PDF pages under each.
@@ -229,7 +229,7 @@
 	}
 	const HKEYS: [keyof Heights, string][] = [['slabMm', 'Slab'], ['raisedFloorMm', 'Raised floor'], ['clearHeightMm', 'Clear height'], ['plenumMm', 'Plenum']]
 
-	// ── a floor's number, and its AREA plans (a tenant office on its own floorplan — Journey's 33F 3303 / 3307) ──
+	// ── a floor's number, and its AREA plans (a tenant office on its own floorplan — Tourney's 33F 3303 / 3307) ──
 	const areasOf = (l: Level) => levels.filter((x) => x.area && x.number === l.number).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 	/** Another number for a floor (its area plans follow); the building's range widens to take it. */
 	function renumber(l: Level, v: string) {

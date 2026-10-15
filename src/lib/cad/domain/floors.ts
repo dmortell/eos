@@ -44,7 +44,7 @@ const above = (h: Heights) => h.clearHeightMm + h.plenumMm  // FFL up to the nex
  * whose elevation changes.
  */
 /**
- * W33 (Dave 2026-10-15: unused floors leave the Navigator but stay in the riser view): the building's floors that have
+ * W33 (User 2026-10-15: unused floors leave the Navigator but stay in the riser view): the building's floors that have
  * NO level (no model — never made, or deleted), as stand-in levels where `restack` leaves their storey: the heights of
  * the level below (above, for floors under the lowest one), named from the building's pattern. `id` = "floor:<n>"; not
  * in the store. Skipped numbers (floors that don't exist) aren't floors.

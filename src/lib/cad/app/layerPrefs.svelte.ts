@@ -11,7 +11,7 @@ export class LayerPrefs {
 	hidden = $state.raw<ReadonlySet<Id>>(new Set())
 	locked = $state.raw<ReadonlySet<Id>>(new Set())
 	/** Where new lines, notes and blocks go (null = each kind's own layer). Walls, trunks, outlets, racks always go to
-	 *  their system layer (Dave, layers.md Q3). */
+	 *  their system layer (User, layers.md Q3). */
 	current = $state<Id | null>(null)
 	/** Saved sets of shown layers (Layers → presets), replaced wholesale. */
 	presets = $state.raw<LayerPreset[]>([])

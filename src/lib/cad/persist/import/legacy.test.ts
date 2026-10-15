@@ -148,7 +148,7 @@ describe('legacy import', () => {
 		expect(twins.map((o) => o.at)).toEqual([{ x: 9, y: 9 }])
 		expect(issues.some((i) => i.code === 'matched-by-label')).toBe(true)
 	})
-	it("an AREA Outlets doc (_F33__3307 — Journey's second office on 33F) is its own plan: a level of its own", () => {
+	it("an AREA Outlets doc (_F33__3307 — Tourney's second office on 33F) is its own plan: a level of its own", () => {
 		const s = src()
 		// the rack is placed on the area's plan, and a Frames location is drawn there (matched by label)
 		s.outlets.P_F33.rackPlacements = []

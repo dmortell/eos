@@ -1,4 +1,4 @@
-// Viewport handling (backlog parts 4–6, Dave 2026-10-10): edges snap when dragged, arrow keys nudge, Fit picks the scale.
+// Viewport handling (backlog parts 4–6, User 2026-10-10): edges snap when dragged, arrow keys nudge, Fit picks the scale.
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'

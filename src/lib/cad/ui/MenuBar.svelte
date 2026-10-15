@@ -1,4 +1,4 @@
-<!-- The MENU BAR (UX review S4, Dave: the Pages menu bar for opening dialogs): dialogs and project-wide commands, so
+<!-- The MENU BAR (UX review S4, User: the Pages menu bar for opening dialogs): dialogs and project-wide commands, so
      the tool strip holds only tools. Each item shows its key (the menu teaches the keys) and a tick when it's on. Click
      a title to open it; while one is open, hovering another title opens that one; Esc or a click outside closes it. -->
 <script lang="ts">

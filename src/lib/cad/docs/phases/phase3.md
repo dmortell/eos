@@ -1,12 +1,12 @@
 # Phase 3 plan: racks, ports, allocation, patching (replaces Elevations)
 
-**Status:** REVIEWED (Dave, 2026-10-02); the decisions are in §9.
+**Status:** REVIEWED (User, 2026-10-02); the decisions are in §9.
 **Slice 3.1 (rack-row view) is built**, since it doesn't depend on them; see §11.
 
 **Goal (analysis §7):** allocate a floor's outlets to panels, and produce the patch list and BOM, in the cad tool.
 Then Elevations (which already absorbed Racks, Frames and Patching) can retire.
 
-**Exit criterion:** on a real project (LR or Project Journey, imported with Dave's OK):
+**Exit criterion:** on a real project (LR or Project Tourney, imported with User's OK):
 - every outlet port has a panel port (or is reported as unallocated)
 - cords can be added, re-patched and marked installed
 - the patch list, patch schedule Excel and cable / rack BOM match what Elevations produces for the same data, apart
@@ -163,16 +163,16 @@ reserved, pinned, cord) — Frames' view as a table. It edits the same links.
 | 3.1 | **Rack-row view** | the `row` view spec + generator (racks, U, devices, ports, LOD), rack tree in the left panel, focus / fit, split plan + row | Test Project's server room A row reads like Elevations, front and rear |
 | 3.2 | **Racks and devices** | add rack (to a row / room), reorder, rack Properties + compat warnings; device tool (template / catalogue → click a U), move by U (snap, overlap = refuse), face, port count / type / numbering; device templates | Build a rack from empty: panels, a switch, a manager |
 | 3.3 | **Ports and labels** | select ports (single / block), port Properties (the linked outlet port's label, editable, or the device's own label when unlinked), panel detail strip, printed flag + warning | Rename an outlet → the panel shows it; a printed panel warns |
-| 3.4 | **Allocation** | `allocate()` + tests, compared with the legacy engine on LR / Journey (read-only); auto-allocate with preview; assign / reserve / pin / unallocate; allocation grid tab; issues (overflow, server-room mismatch) | Allocate Test Project 1F from scratch; matches Elevations where Elevations is right |
+| 3.4 | **Allocation** | `allocate()` + tests, compared with the legacy engine on LR / Tourney (read-only); auto-allocate with preview; assign / reserve / pin / unallocate; allocation grid tab; issues (overflow, server-room mismatch) | Allocate Test Project 1F from scratch; matches Elevations where Elevations is right |
 | 3.5 | **Patching** | cord tool, gate, cord Properties, sticky defaults, length, status workflow, bulk, circuit trace, patch list tab | Patch 2 panels to a switch; the patch list and trace read right |
 | 3.6 | **Exports + BOM** | patch schedule / cable BOM Excel, cord-ID import, panel label export, rack BOM (Panduit) into `bom()` | Exports match Elevations' for the same data |
-| 3.7 | **Real data + cutover** | import LR and Journey (with Dave's OK), compare with Elevations, list differences; Elevations stays for printing until Phase 4 | Dave signs off the comparison |
+| 3.7 | **Real data + cutover** | import LR and Tourney (with User's OK), compare with Elevations, list differences; Elevations stays for printing until Phase 4 | User signs off the comparison |
 
 Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big ones; 3.6 and 3.7 are smaller.
 
 ---
 
-## 9. Decisions (Dave, 2026-10-02)
+## 9. Decisions (User, 2026-10-02)
 
 1. **Device templates are GLOBAL**, like blocks: in one doc `settings/cadDeviceTemplates`, plus the Panduit
    catalogue.
@@ -250,10 +250,10 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
 - **Rack tool (K):** each click on the plan draws a new rack like the last one (room, row, size, kind, rotation),
   named after it (A01 → A02). **Place** in the racks list still places one existing rack.
 - **Rows:** the Row selector in a rack's Properties, or in a multi-selection of racks in one room, assigns them to a
-  row; **New row…** makes one. There is no row builder (Dave).
+  row; **New row…** makes one. There is no row builder (User).
 - **Row order** follows the plan: left to right as seen from the front of the row's first placed rack.
   - Each rack is still drawn from its own front, so a rack turned 90° in the row (P3C beside R311–R313) just shows
-    its front too (Dave: fine, the row view is a schematic, not a true room elevation).
+    its front too (User: fine, the row view is a schematic, not a true room elevation).
   - If a mixed row comes out in the wrong order, add a manual left/right override.
 - **Device tool (D):** pick a template in the tool bar, then click a rack at a U in the rack-row view.
   - Placing on the rear view mounts a front-only kind at the rear.
@@ -269,10 +269,10 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
 - **Live check on Test Project:**
   - Added PP1 to R313 at U35. A second click there was refused ("PP2 would overlap PP1 at U35").
   - Dragged PP1 to U29, then deleted it. Back to 328 docs, 44 devices.
-  - **Data note for Dave:** R311–R313 are rotated 90°, so their front line is on the wall side and the row reads
+  - **Data note for User:** R311–R313 are rotated 90°, so their front line is on the wall side and the row reads
     R313 → R311. The floorplan's door swings suggest their fronts face into the room, i.e. 270°. If so, turn them
     with ⟳ and the row order flips to R311 → R313 by itself.
-  - *Dave (later the same day):* the rotation is right. The racks face left for airflow, and the PDF is out of date.
+  - *User (later the same day):* the rotation is right. The racks face left for airflow, and the PDF is out of date.
 - **Rack sizes:** a rack's width, depth and height in mm are now editable in Properties. The mm height is optional
   and defaults to the height from U.
 
@@ -301,12 +301,12 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   - Clicking a port of P3C's 24-port panel showed "Port 6 · 01A.024A · outlet A.024 : 1".
   - After Mark printed, editing that label raised the question. Cancel wrote nothing, and Clear removed the flag.
   - The Shift and Ctrl clicks are covered by the unit tests; the browser driver can't send a shifted click.
-- **Dave's request, drawn with the Trunk tool:**
+- **User's request, drawn with the Trunk tool:**
   - A 150 × 150 vertical trunk on top of P3C at its corner nearest the room corner, at (−3725, −6791), from z 2105
     (the top of the frame) to 2600 (the ceiling).
   - A 300 × 100 under-floor trunk on the slab (z −300) from under P3C to the IDF 2 entrance door in the right wall,
     (−3450, −7008) → (−733, −7008).
-- **Fixed after Dave's check:** the vertical trunk didn't show on the plan. Risers drew before the racks, so P3C's
+- **Fixed after User's check:** the vertical trunk didn't show on the plan. Risers drew before the racks, so P3C's
   filled footprint covered it. Risers now draw over racks; horizontal runs still go under (test in
   `views/plan.test.ts`).
 
@@ -350,7 +350,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     1. **Rack order:** row order on the plan puts R312 and R311 before P3C, where legacy used the stored rack
        order with P3C first.
     2. Legacy skipped the **rear-mounted panel** at P3C U42, because it allocated on the front face only.
-  - **Project Journey:** **396 / 396 existing links kept** (336 pinned stickers), 0 moved, 0 lost. 422 more 33F,
+  - **Project Tourney:** **396 / 396 existing links kept** (336 pinned stickers), 0 moved, 0 lost. 422 more 33F,
     3307 and 30F ports are now placed (R301, R303, 3307-R1/R2, RACK 5). Legacy left them unlinked, most likely
     because its engine output clashed with the baked sticker labels on P3A and the import kept the stickers. This is
     not verified port by port.
@@ -363,7 +363,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     server room, and Server room B has no panels.
   - Allocating A.007 put it on P3C U34 ports 14–15, which are reserved for TV/AV. Undo removed it.
   - Assign put A.007 on U30 ports 18–19, pinned. Undo removed it. Firestore is back to 330 items and 138 links.
-- **Dave's rule (later the same day):** "outlets should be allocated to panels with matching usage type in their
+- **User's rule (later the same day):** "outlets should be allocated to panels with matching usage type in their
   designated frame(s), left to right". Built as:
   - **`Rack.patchFrame`** ("Patch frame — takes outlets" in rack Properties, a `frame` tag in the racks list): when
     a server room has any, only those racks' panels take outlets. With none marked, every rack's panels do.
@@ -378,7 +378,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     again afterwards.
 - **Outlet port count** is editable in outlet Properties (`setPortCount`). New ports continue the label pattern
   (201.B → 201.C, …01A → …01B, -09 → -10) and take the last port's server room and cable. Removing allocated ports
-  asks first and removes their links. Dave's outlet 201 now has 6 ports.
+  asks first and removes their links. User's outlet 201 now has 6 ports.
 - **Plan draw order by height:** low / under-floor runs go under racks and furniture. High runs (tier high, or
   wholly above the floor) and risers draw over them.
 - **Each view keeps its own pan and zoom** (per level + view, per pane). Switching Plan → Front → Plan restores the
@@ -422,7 +422,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   - Delete removed it (it was planned). Back to 331 items, 44 cords, 138 links.
 - **Not yet:** re-routing an end by hand (the `repatch` function exists, but there's no UI to drag an end yet).
 
-### Dave's round of fixes (2026-10-02, before 3.6)
+### User's round of fixes (2026-10-02, before 3.6)
 - **0U PDUs (and any device with network ports)** can be patched.
   - A PDU's ports are drawn on its strip, from the top.
   - The built-in vertical-PDU template has 1 RJ45 management port.
@@ -443,7 +443,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
 - **Row order round a corner:** each run of racks with the same rotation is ordered along its own left-to-right; the
   runs are ordered along the first run. IDF 2 now reads R313 R312 R311 V06 P3C V05. The racks list uses the same
   order.
-- **Rear-mounted panels take outlets** (Dave): already the case.
+- **Rear-mounted panels take outlets** (User): already the case.
 - **Multi-select in the outlets grid and patch list:** Shift-click a range, Ctrl-click to add / drop one, with no
   text selection.
 
@@ -469,9 +469,9 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
 - **Tests:** 205 (`render/exports.test.ts` including a real-workbook cord-ID round trip, `domain/rackBom.test.ts`).
 - **Checked on Test Project** (in-page, no download): 43 schedule rows with labels, 648 panel-label rows, 41 BOM
   lines. The rack BOM reads AR4P × 6, AR4P-AC-KIT × 2 (containment kit), AR4PATCBL × 2 (HAC top cap), PE2VD06 × 2,
-  and 15 racks with no product. The buttons themselves are for Dave to try; they download files.
+  and 15 racks with no product. The buttons themselves are for User to try; they download files.
 
-### Dave's round of fixes (2026-10-02, before 3.7)
+### User's round of fixes (2026-10-02, before 3.7)
 - **19″ frame drawn** in each rack / frame in the rack view: a rectangle rail to rail, U1 to the top U. VCMs and
   desks have none.
 - **Common properties for a multiple selection:**
@@ -491,9 +491,9 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   The toolbar greys out the others for the active pane, and their keys do nothing. Switching to a view the tool
   doesn't work in drops back to Select. A pane refuses a click from a tool that isn't for it (split view shares
   one tool), and says so.
-- **Test Project edits, made through the cad UI as Dave asked:**
+- **Test Project edits, made through the cad UI as User asked:**
   - 1F "Server room A" renamed **IDF2** (racks list → click the name).
-  - R301–R303 (Dave renamed R01 / R02 …) selected together → Room → **New server room… IDF1** → Row → **New row…
+  - R301–R303 (User renamed R01 / R02 …) selected together → Room → **New server room… IDF1** → Row → **New row…
     IDF1 Row 1**.
   - **P3A** drawn with the Rack tool where the floorplan shows it: 2-post, 600 × 520, 45 U, rotation 90 (front
     west), at (10495, −2727), patch frame.
@@ -501,11 +501,11 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     Row 1.
   - IDF1 now reads R303 R302 R301 V03 P3A V04.
   - 1F still has an unused "Server room B" (one outlet port points to it) and an unplaced duplicate V05 in IDF2,
-    left for Dave.
+    left for User.
 
-### Slice 3.7 — Project Journey: import and comparison (2026-10-02; LR not needed now — Dave)
-- **Imported** via the import panel, with Dave's OK: **1457 items**. 721 outlets, 396 links, 214 devices, 27 racks,
-  8 rows, 50 spaces, 7 levels, 7 underlays, 25 shapes, the building and settings. Journey has no patch cords. All
+### Slice 3.7 — Project Tourney: import and comparison (2026-10-02; LR not needed now — User)
+- **Imported** via the import panel, with User's OK: **1457 items**. 721 outlets, 396 links, 214 devices, 27 racks,
+  8 rows, 50 spaces, 7 levels, 7 underlays, 25 shapes, the building and settings. Tourney has no patch cords. All
   saved; the legacy tools' docs are untouched.
 - **Import notes (81, all informational):**
   - 34 drawn outlets matched to Frames locations by label.
@@ -523,19 +523,19 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   | 33F B (IDF2), 33F C, 30F A, 30F B, 12F A | 0 | 0 | — (no allocation yet in either) |
 
   **No differences.**
-- **Findings for Dave:**
+- **Findings for User:**
   1. **33F has two floorplans:** "L3303 Plan Clean-EIRE.pdf", which the outlets and trunks match, and
-     "Plan_L3307.pdf", placed lower and overlapping it. Plan_L3307 is also the floorplan of L10 WeWork and 200F.
+     "Plan_L3307.pdf", placed lower and overlapping it. Plan_L3307 is also the floorplan of L10 building2 and 200F.
      Most likely an older Outlets plan for 33F used the L3307 sheet. Delete or hide the wrong one.
-  2. **Most Journey outlet ports have no server room** (30F 713, 33F 778, L10 176, 200F 101, 3307F 10, 12F 8
+  2. **Most Tourney outlet ports have no server room** (30F 713, 33F 778, L10 176, 200F 101, 3307F 10, 12F 8
      ports — from the allocation dry run). Allocation can't place them until rooms are set (Outlets grid → select
      → Server room).
   3. **Unplaced racks:** IDF1 has 3307-R1 / R2 (from the 33F room-C doc, which says room A) and VCMs R06 / R07;
      IDF2 has VCM1 / VCM2. P3A / P3C are not marked as patch frames yet.
   4. **Level 1F** exists (from the project's floor list) with no outlets.
-- **Not done:** LR (Dave: not needed now); retiring Elevations (printing waits for Phase 4).
+- **Not done:** LR (User: not needed now); retiring Elevations (printing waits for Phase 4).
 
-### Journey, Dave's notes after the import (2026-10-02)
+### Tourney, User's notes after the import (2026-10-02)
 - **The 33F mix-up:** 33F holds two offices in opposite corners, 3303 and 3307, each with its own plan.
   - Legacy keeps them as separate Outlets docs: `_F33` (L3303 floorplan, 123 outlets, 9 trunks) and `_F33__3307`
     (Plan_L3307, 68 outlets, 5 trunks).
@@ -551,7 +551,7 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   undo step.
 - **Outlets grid → Find/replace…** on outlet labels (the selection, else the level); ports follow; clashes and empty
   labels are refused. For 30F: "A." → "".
-- **Pending Dave:** the Journey cad data must be cleared before the re-import can split 33F. All 1457 docs are
+- **Pending User:** the Tourney cad data must be cleared before the re-import can split 33F. All 1457 docs are
   unedited since the import (one timestamp, rev 1), but the mass delete was blocked by the permission check. Once
   cleared:
   1. Re-import (33F + 33F 3307 come out separate).
@@ -560,17 +560,17 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   4. 30F Find/replace "A." → "".
 
   200F (a copy of 3307) and L10 (3307 outlets) stay as they are.
-- **Done (Dave cleared the cad data):**
+- **Done (User cleared the cad data):**
   - Re-imported (1458 items). **33F 3307** is a level of its own: its 68 outlets, 5 trunks, Plan_L3307.
   - Deleted 1F and 3307F (✕); renamed 33F → **33F 3303**.
   - 30F Find/replace "A." → "": 184 outlets are now 001, 002 … (their Frames port labels L30.A.001-A01 … are
     unchanged).
-- **Import notes are kept** (Dave): applying an import stores its "things to check" on the settings record
+- **Import notes are kept** (User): applying an import stores its "things to check" on the settings record
   (`ProjectSettings.importNotes`). The right sidebar shows them at the bottom under **Import notes (81)**, grouped
   by kind; a note about an item that still exists selects it.
-  - Journey's notes were stored afterwards from a fresh preview, so they are text only: ids are made fresh on every
+  - Tourney's notes were stored afterwards from a fresh preview, so they are text only: ids are made fresh on every
     run, and only an applied import's own notes can point at items.
-- **Still on Journey (for Dave):**
+- **Still on Tourney (for User):**
   - IDF3307 (33F room C) and its racks 3307-R1 / R2 stay on 33F 3303. They aren't placed on any plan, and a rack
     can't change level in the UI yet.
   - 33F 3303's 123 drawn outlets (306, 305 …) aren't linked to its 177 Frames locations (009, 058 …); the legacy
@@ -578,10 +578,10 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
   - A stray second `building` doc from the first import is left (nothing references it).
 
 ## Todo (Phase 3 follow-ups)
-- [ ] **Find/replace** (outlets grid) is a stop-gap for Journey 30F. Fold it into the Renumber / Relabel tool
+- [ ] **Find/replace** (outlets grid) is a stop-gap for Tourney 30F. Fold it into the Renumber / Relabel tool
   (ADR 0002) rather than growing it: outlet labels only today; no port-label or regex mode.
 - [ ] A way to move racks (and their room) to another level, for IDF3307 above (or re-import with a placement).
-- **Plan the rack-view interactions before adding more** (Dave, 2026-10-02: "need to plan how to move devices and
+- **Plan the rack-view interactions before adding more** (User, 2026-10-02: "need to plan how to move devices and
   select blocks of ports and other functions"):
   - **Today:** click / Shift-click (range) / Ctrl-click (toggle) select ports; a drag window selects whole devices /
     racks, never ports; dragging a device moves it by U (or into another rack).
@@ -592,5 +592,5 @@ Rough size: 3.1–3.3 are a slice each, like Phase 2's; 3.4 and 3.5 are the big 
     - how Shift constraints fit in;
     - port actions on a block (patch, interconnect, reserve, label).
   - Not built until that plan is agreed.
-  - **Ctrl-drag a device = a duplicate device** (Dave, 2026-10-02), for consistency with Ctrl-drag duplicating shapes
+  - **Ctrl-drag a device = a duplicate device** (User, 2026-10-02), for consistency with Ctrl-drag duplicating shapes
     (phase6.md todo).

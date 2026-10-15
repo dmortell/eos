@@ -40,7 +40,7 @@ function fakeProject(entities: Entity[], o: Partial<Fake> & { ownerId?: string; 
 	const st: Fake = { loaded: true, pendingWrites: 0, loadedLevels: 'all', ...o }
 	const added: unknown[] = []
 	const project = {
-		store, db: {}, pid: o.pid ?? 'p', name: 'Proj', user: o.user ?? 'u1', userName: 'Dave', ownerId: o.ownerId,
+		store, db: {}, pid: o.pid ?? 'p', name: 'Proj', user: o.user ?? 'u1', userName: 'User', ownerId: o.ownerId,
 		get loaded() { return st.loaded }, get pendingWrites() { return st.pendingWrites },
 		levelLoaded: (id: string) => st.loadedLevels === 'all' || st.loadedLevels.has(id),
 		blockOf: () => undefined,
@@ -95,7 +95,7 @@ describe('stored backups', () => {
 	it('round-trips: head last, chunks complete, same entities back', async () => {
 		const { project, store } = fakeProject(demo())
 		const head = await storeBackup(project, '  First  ', 'all', { note: ' before the move ', issueId: 'I1' })
-		expect(head).toMatchObject({ name: 'First', note: 'before the move', issueId: 'I1', parts: 'all', by: { uid: 'u1', name: 'Dave' } })
+		expect(head).toMatchObject({ name: 'First', note: 'before the move', issueId: 'I1', parts: 'all', by: { uid: 'u1', name: 'User' } })
 		expect(head.count).toBe(store.all().length)
 		expect(fs.docs.has(`projects/p/cadBackups/${head.id}`)).toBe(true)
 		expect([...fs.docs.keys()].filter((k) => k.includes('/chunks/')).length).toBe(head.chunks)

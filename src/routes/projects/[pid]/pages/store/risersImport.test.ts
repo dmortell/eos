@@ -53,7 +53,7 @@ describe('Risers import', () => {
 		expect(r.shapes[0]).toMatchObject({ type: 'text', plane: 'front', text: 'To roof', a: [1000, GROUND - (500 - 240 * 0.8)], fontPt: 7 })
 	})
 	it('importing again replaces what was imported and keeps what was drawn in Pages', () => {
-		const m: Model = { id: 'b', name: 'Hibiya', objects: [{ type: 'prism', id: 'mine', x: 0, y: 0, z: 0, w: 1, h: 1, d: 1, edges: 4 }], layers: [] }
+		const m: Model = { id: 'b', name: 'building1', objects: [{ type: 'prism', id: 'mine', x: 0, y: 0, z: 0, w: 1, h: 1, d: 1, edges: 4 }], layers: [] }
 		const small = { ...doc, fromFloor: 32, toFloor: 33, rooms: [], cables: [], ladders: [] }
 		const once = mergeRisers(m, risersToBuilding({ ...small, rooms: doc.rooms!.filter((r) => r.floor === 33) }))
 		const twice = mergeRisers(once, risersToBuilding({ ...small, rooms: doc.rooms!.filter((r) => r.floor === 33) }))

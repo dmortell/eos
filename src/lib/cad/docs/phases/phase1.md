@@ -29,7 +29,7 @@ every report. Nothing was written.
 |---|---|---|---|---|---|
 | Test Project | 327 | 55 / 162 | 27 / 44 | 138 / 44 | 10 ms |
 | LR | 753 | 374 / 734 | 41 / 154 | 110 / 0 | 23 ms |
-| Project Journey | 1,457 | 721 / ~2,100 | 27 / 214 | 396 / 0 | 78 ms |
+| Project Tourney | 1,457 | 721 / ~2,100 | 27 / 214 | 396 / 0 | 78 ms |
 
 ## What the import found in the legacy data (worth knowing, not importer bugs)
 
@@ -39,15 +39,15 @@ every report. Nothing was written.
    - Elevations very likely shows it that way today. That looks like a legacy engine bug when a server room has
      several racks.
    - The import keeps the first rack's allocation and reports the other 160 panel ports (`location-port-twice`).
-2. **Project Journey floor 33: every zone-A location number appears twice** in the Frames doc (ids `LA1` and `LA1_2`).
+2. **Project Tourney floor 33: every zone-A location number appears twice** in the Frames doc (ids `LA1` and `LA1_2`).
    That gives 82 duplicate outlet labels on the floor, flagged as `outlet-dup` errors.
-3. **Project Journey floor 200: 34 drawn outlets were never linked** to their Frames locations, though they share the
+3. **Project Tourney floor 200: 34 drawn outlets were never linked** to their Frames locations, though they share the
    labels.
    - The import now matches them by label (`matched-by-label`).
    - Their port counts differ (3 drawn vs 2 in Frames). Frames is kept and the difference reported
      (`port-count-differs`).
-4. **Rack placements for racks that no longer exist:** 3 in Test Project, 1 in Project Journey.
-5. **11 drawn outlets with no label** (Project Journey floors 10 and 30). They are imported with a generated name and
+4. **Rack placements for racks that no longer exist:** 3 in Test Project, 1 in Project Tourney.
+5. **11 drawn outlets with no label** (Project Tourney floors 10 and 30). They are imported with a generated name and
    reported.
 6. **One drawn outlet labelled `A002` whose Frames location gives `A.013`** (Test Project). The Frames label is kept.
 
@@ -62,7 +62,7 @@ every report. Nothing was written.
 ## Not done in Phase 1 (by design)
 
 - **Writing to Firestore.** The backend is type-checked but has never run. The first real write happens in Phase 2,
-  on Test Project, with Dave's OK.
+  on Test Project, with User's OK.
 - **Port allocation** (the Frames engine as a pure cad function) moves to Phase 3, with the allocation UI.
 - **Risers, Pages models / sheets and the Sheets tool** import in Phases 5 and 7.
 - **Level heights** use risers' defaults until risers are imported.

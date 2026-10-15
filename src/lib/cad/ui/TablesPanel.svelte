@@ -1,4 +1,4 @@
-<!-- The TABLES (UX review T1–T3; Dave: "still take a lot of space" — "float"): Outlets · Patch list · Sheets · Links
+<!-- The TABLES (UX review T1–T3; User: "still take a lot of space" — "float"): Outlets · Patch list · Sheets · Links
      under one title bar with horizontal tabs and fold / maximise / float-or-dock / close. Folded, only the bar shows,
      with a one-line summary ("Outlets · 47 · 12 selected"). Docked it's the strip under the drawing; floating it's a
      window over the drawing (move it by its bar, resize it by its corner); maximised it fills the drawing area while
@@ -27,7 +27,7 @@
 		roomId?: string; inRoomView: boolean; tab: TableTab; onpick: (t: TableTab) => void; onview: (s: ViewSpec) => void
 		/** The drawing area (a floating / maximised panel sits in it). */
 		area: HTMLElement | undefined
-		/** Closed: only the bar of tabs stays, under the drawing (Dave 2026-10-10); a tab opens the panel on it. */
+		/** Closed: only the bar of tabs stays, under the drawing (User 2026-10-10); a tab opens the panel on it. */
 		closed?: boolean
 	} = $props()
 
@@ -136,7 +136,7 @@
 	.ib:hover { background: var(--cad-hover); color: var(--cad-text); }
 	.ib.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); }
 	.body { flex: 1; min-height: 0; overflow: auto; }
-	/* every table as wide as its content, from the left (Dave: stretched to the panel, spare width went to whatever
+	/* every table as wide as its content, from the left (User: stretched to the panel, spare width went to whatever
 	   column could grow — an empty Tags, a 370 px Notes — while Level got 49 px) */
 	.body :global(table) { width: max-content; min-width: 0; }
 	.body :global(td.clip) { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

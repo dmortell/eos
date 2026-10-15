@@ -212,7 +212,7 @@ describe('the outlet tool', () => {
 	})
 })
 
-describe('the first outlet on a level (Dave 2026-10-15)', () => {
+describe('the first outlet on a level (User 2026-10-15)', () => {
 	it('is a box at Z 0 with no usage, drawn with the "Outlet - box" symbol', async () => {
 		const { defaultOutletBlock, BUILTIN_BLOCKS } = await import('../domain/blocks')
 		const store = new EntityStore()

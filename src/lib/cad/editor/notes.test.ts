@@ -277,7 +277,7 @@ describe('deleting a level: runs reaching it, what it holds (W35, W36)', () => {
 	})
 })
 
-describe('a riser to a deleted floor ends on the nearest floor with a model (Dave 2026-10-15)', () => {
+describe('a riser to a deleted floor ends on the nearest floor with a model (User 2026-10-15)', () => {
 	const h = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
 	const lv = (id: string, e: number) => ({ type: 'level', id, buildingId: 'B', number: e / 3800 + 1, name: id, order: e, elevationMm: e, heights: h }) as Level
 	const riser = { type: 'shape', id: 'R', levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },

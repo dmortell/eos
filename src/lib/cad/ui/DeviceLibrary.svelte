@@ -1,4 +1,4 @@
-<!-- The DEVICE LIBRARY window (its own window — Dave: the list gets long; backlog "Device library: drag onto a rack", G063): every device template (built-in and the
+<!-- The DEVICE LIBRARY window (its own window — User: the list gets long; backlog "Device library: drag onto a rack", G063): every device template (built-in and the
      global ones, ★), found by name and grouped by kind. DRAG one onto a rack in a rack view — the Device tool's ghost
      shows the snapped U (red where it can't go) and the drop adds it there, one undo step, selected. A CLICK arms the
      Device tool with it instead (the next click in a rack places it). + New / ✎ / ✕ make, edit and delete templates

@@ -84,7 +84,7 @@
 	/** Is this row the view the active pane shows? (Rooms, not each of their racks; sheets, not their viewports.) */
 	const isCurrent = (n: NavNode) => (!!n.open && n.kind !== 'rack' && n.kind !== 'viewport' && n.kind !== 'row' && n.kind !== 'space' && specKey(n.open.spec) === specKey(current.spec)
 		&& (!n.open.levelId || current.spec.kind === 'sheet' || n.open.levelId === current.levelId))
-		// an elevation has no row of its own (Dave 2026-10-15): its level is the one marked
+		// an elevation has no row of its own (User 2026-10-15): its level is the one marked
 		|| (n.kind === 'level' && current.spec.kind === 'elevation' && n.id === current.levelId)
 	// the open view's branch unfolds (once per view: folding it again sticks)
 	$effect(() => {
@@ -105,14 +105,14 @@
 	const deleteLevel = (id: string) => deleteLevelOf(project, ws, id)
 	const renameRoom = (id: string) => renameRoomOf(project, ws, id)
 	const deleteRoom = (id: string) => deleteRoomOf(project, ws, id)
-	// ── row menus (UX review L4, Dave: "the hidden buttons … are hard to spot"): a faint ⋮ on every row with commands,
+	// ── row menus (UX review L4, User: "the hidden buttons … are hard to spot"): a faint ⋮ on every row with commands,
 	// the same menu on right-click; Delete only inside the menu (no ✕ under the pointer) ──
 	let menu = $state<{ n: NavNode; x: number; y: number; items?: MenuItem[] } | null>(null)
-	/** A row with nothing to open or select (the building, Sheets and its groups), clicked: just marked (Dave 2026-10-15: one
+	/** A row with nothing to open or select (the building, Sheets and its groups), clicked: just marked (User 2026-10-15: one
 	 *  rule — a label click opens / selects, only ▸ (or a double-click) folds). */
 	let picked = $state<string | null>(null)
 	function openMenu(n: NavNode, e: MouseEvent) { menu = { n, x: e.clientX, y: e.clientY } }
-	/** The project row's + (Dave 2026-10-15): a model for a floor that has none (W33), else Floors…. */
+	/** The project row's + (User 2026-10-15): a model for a floor that has none (W33), else Floors…. */
 	function openAdd(n: NavNode, e: MouseEvent) {
 		const b = n.id ? project.index.get(n.id) : undefined
 		const fl = b?.type === 'building' ? floorsWithoutLevel(project.index.levels, b) : []
@@ -206,7 +206,7 @@
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{/if}
-		<!-- Dave 2026-10-15: no ✎ (Rename is in ⋮, F2); the open-tab dot last, in a slot every row keeps, so the dots line up -->
+		<!-- User 2026-10-15: no ✎ (Rename is in ⋮, F2); the open-tab dot last, in a slot every row keeps, so the dots line up -->
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'sheets'}<button class="act txt" title="A new A3 landscape sheet, opened in a tab" onclick={onnewsheet}>+ New</button>{/if}
 		{#if n.kind === 'building'}<button class="act txt" title="Add a floor model (a floor of the building with none — Floors… sets the floors)" onclick={(e) => openAdd(n, e)}>+</button>{/if}

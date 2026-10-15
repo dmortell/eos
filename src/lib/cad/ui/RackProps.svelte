@@ -62,7 +62,7 @@
 		if (value === NEW_ROW) { naming = 'row'; return }
 		project.store.transact('Rack row', (tx) => { for (const r of racks) tx.put({ ...r, rowId: value || undefined }) })
 	}
-	// "New server room…" / "New row…": the name is typed in a box under the field (not the status bar, Dave 2026-10-12)
+	// "New server room…" / "New row…": the name is typed in a box under the field (not the status bar, User 2026-10-12)
 	let naming = $state<'room' | 'row' | null>(null)
 	$effect(() => { void ws.selection; untrack(() => { naming = null }) })   // another selection: the box goes
 	function named(name: string) {
@@ -142,7 +142,7 @@
 		{#if room?.type === 'space'}<div class="acts ind"><button class="lnk" title="Select the room: its floor and ceiling, rows and summary" onclick={() => ws.select([room.id])}>Room {room.name} ›</button></div>{/if}
 	{/if}
 	{#if !sameRoom.mixed && racks[0]}
-		<!-- racks drawn on the plan, then put in a row together (Dave: no row builder) -->
+		<!-- racks drawn on the plan, then put in a row together (User: no row builder) -->
 		<SelectField label="Row" value={sameRow.value ?? ''} mixed={sameRow.mixed} options={[['', '—'], ...rowsIn(racks[0].spaceId).map((row) => [row.id, row.name] as const)]} onchange={setRow}>
 			{#snippet extra()}<option value={NEW_ROW}>New row…</option>{/snippet}
 		</SelectField>

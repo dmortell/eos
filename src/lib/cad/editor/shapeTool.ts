@@ -1,4 +1,4 @@
-// The SHAPE tool (backlog "Markup kinds" part 1, "Regular polygons"; Dave 2026-10-05): a RECTANGLE (corner to
+// The SHAPE tool (backlog "Markup kinds" part 1, "Regular polygons"; User 2026-10-05): a RECTANGLE (corner to
 // corner), an ELLIPSE (in that box) or a regular POLYGON (centre, then a corner — or an edge's middle when
 // circumscribed), or an ARC through three clicks (start, a point on it, end). Click-click or press-drag-release; Shift =
 // a square / a circle / the polygon turned in 15° steps.
@@ -68,7 +68,7 @@ export class ShapeTool implements Tool {
 	}
 	/** An ARC (backlog "Arc"): three clicks — its start, a point it passes through, its end. */
 	#arc(): boolean { return this.id === 'shape' && this.opts().kind === 'arc' }
-	/** A box drawn in an elevation / section (Dave 2026-10-14): its width and height by the two corners, its depth from
+	/** A box drawn in an elevation / section (User 2026-10-14): its width and height by the two corners, its depth from
 	 *  the tool options — always a rectangular box there. */
 	#upright(c?: ToolCtx): boolean { const k = c?.space.spec.kind; return this.id === 'box' && !!c?.space.frame && (k === 'elevation' || k === 'section') }
 	#opts(c?: ToolCtx): ShapeOpts { const o = this.opts(); return this.#upright(c) ? { ...o, kind: 'rect' } : o }
@@ -98,7 +98,7 @@ export class ShapeTool implements Tool {
 	cancel(): void { this.#a = this.#b = this.#m = this.#press = null }
 	key(e: KeyboardEvent): boolean { if (e.key === 'Escape' && this.#a) { this.cancel(); return true } return false }
 
-	// typed input (Dave 2026-10-14: a box's width / depth while drawing). A typed point is a click there (x,y · @dx,dy ·
+	// typed input (User 2026-10-14: a box's width / depth while drawing). A typed point is a click there (x,y · @dx,dy ·
 	// d<a); after the first corner of a rectangle, ellipse or picture, `w,d` is its size and one number a square /
 	// circle — laid out from the corner towards the side the cursor is on.
 	typed(p: Pt, c: ToolCtx): void {
@@ -175,7 +175,7 @@ export class ShapeTool implements Tool {
 		c.select([s.id])
 	}
 
-	/** The shape as it will be, in the view — and its size beside the cursor (Dave 2026-10-14). */
+	/** The shape as it will be, in the view — and its size beside the cursor (User 2026-10-14). */
 	preview(c?: ToolCtx): Prim[] {
 		const a = this.#a, b = this.#b
 		if (!a || !b) return []

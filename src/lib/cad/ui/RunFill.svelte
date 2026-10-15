@@ -1,6 +1,6 @@
 <!-- A run's FILL (Phase 5.3): each segment with cables routed through it — its % (the fullest governs), the cables
      by type — and a segment's section with its cables packed in (the legacy Fill rate picture): the fullest, or the one
-     picked — a click on its row (Dave 2026-10-05: only the first could be looked at) or on it in the view; "Put on
+     picked — a click on its row (User 2026-10-05: only the first could be looked at) or on it in the view; "Put on
      sheet…" makes that section a viewport (views/fillSection.ts) on a new or chosen sheet. Below: the
      cables added to the run BY HAND (backlog T080) — count × type, own Ø, the whole run or one segment. -->
 <script lang="ts">

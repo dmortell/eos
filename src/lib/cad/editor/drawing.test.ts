@@ -147,7 +147,7 @@ describe('grips', () => {
 		const moved = moveNodes(t1, grips[1].nodeIds, { x: 6500, y: 3200 })
 		expect(moved.geom.kind === 'path' && moved.geom.nodes.slice(1).map((n) => [n.x, n.y, n.z])).toEqual([[6500, 3200, 2900], [6500, 3200, 300]])
 	})
-	it('a node dropped on another node of its path joins it; a segment between the two collapses (Dave)', () => {
+	it('a node dropped on another node of its path joins it; a segment between the two collapses (User)', () => {
 		const n = (id: string, x: number, y: number) => ({ id, x, y, z: 0 })
 		const seg = (id: string, a: string, b: string) => ({ id, a, b })
 		const path = (segs: ReturnType<typeof seg>[]) => ({ type: 'shape', id: 'P', levelId: 'L33', geom: { kind: 'path', nodes: [n('A', 0, 0), n('B', 1000, 0), n('C', 1000, 1000), n('D', 0, 1000)], segs } }) as Shape

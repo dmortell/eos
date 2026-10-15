@@ -1,4 +1,4 @@
-<!-- The VIEWPORT CHIP (UX18; Dave: "the pan / zoom content toggle of Pages / Sheets … always visible no matter the
+<!-- The VIEWPORT CHIP (UX18; User: "the pan / zoom content toggle of Pages / Sheets … always visible no matter the
      zoom level"): a small bar on the selected (or edited) viewport's top-left corner, at screen size — its scale (pick
      1:N), "Pan / zoom content" (a drag inside pans its view, the wheel steps its scale; no Alt needed), and Edit inside /
      Done. -->
@@ -47,7 +47,7 @@
 	button:hover:not(:disabled) { background: var(--cad-hover, #f4f4f5); }
 	button.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); border-color: var(--cad-sel-line, #93c5fd); }
 	button.done { background: #2563eb; color: white; }
-	/* the hover's pale background left white text unreadable (Dave): dark text on it */
+	/* the hover's pale background left white text unreadable (User): dark text on it */
 	button.done:hover:not(:disabled) { background: var(--cad-sel, #dbeafe); color: var(--cad-sel-text, #1e3a8a); }
 	button:disabled { opacity: 0.4; }
 </style>

@@ -95,7 +95,7 @@
 		project.store.transact(`Room ${name} (${outlets.length} outlet${outlets.length === 1 ? '' : 's'})`, (tx) => { tx.put(room); for (const o of outlets) tx.put({ ...o, roomId: room.id }) })
 	}
 
-	/** Outlets whose port labels don't carry their own label (Dave: Journey 245 kept ports 056.A after a renumber): made
+	/** Outlets whose port labels don't carry their own label (User: Tourney 245 kept ports 056.A after a renumber): made
 	 *  again from the label. */
 	const portFix = $derived(outlets.map((o) => portsFromLabel(o, project.settings?.portSuffix ?? 'alpha', project.settings?.portSeparator ?? '.')).filter((o): o is Outlet => !!o))
 	const fixPorts = () => project.relabel(`Ports from label (${portFix.length} outlet${portFix.length === 1 ? '' : 's'})`, portFix, ws.ask2)
@@ -111,7 +111,7 @@
 {#if outlets.length > 1}
 	<!-- the same groups and order as one outlet's; a field shows what they share or "mixed", an edit sets them all -->
 	<PropGroup kind="outlet" title="General">
-		<!-- "—" clears it (Dave: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
+		<!-- "—" clears it (User: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
 		<Field label="Usage">
 			<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
 		</Field>

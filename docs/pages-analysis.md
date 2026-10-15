@@ -644,7 +644,7 @@ lands; data moves through one-shot importers (most already exist). Effort is rel
 
 ## 9. Questions for you
 
-**Decided (Dave, 2026-10-02):**
+**Decided (User, 2026-10-02):**
 - **Approach:** fix bugs only for now (the §4A items); decide on the restart later.
 - **Q4 Canonical data:** the new drawing tool owns locations, ports, labels and cords, and replaces Elevations too.
 - **Q2 Drafting:** keep the command line plus a core set of ~25 commands; drop the long tail.
@@ -671,4 +671,4 @@ These change the plan materially; the plan above assumes the **bold** answer.
    write volume (SQL reporting, cost)?
 7. **Appetite.** Clean kernel alongside (§5, recommended), or continue refactoring Pages in place (§4)? Is there a
    deadline or live project that Pages must keep serving meanwhile?
-	A: No deadline, no live project; focus on fixing bugs first. I use some pages/sheets in Project Journey as references for cabling design decisions, but noone else uses it in production, just testing
+	A: No deadline, no live project; focus on fixing bugs first. I use some pages/sheets in Project Tourney as references for cabling design decisions, but noone else uses it in production, just testing

@@ -66,7 +66,7 @@
 	<Field label="Color"><ColorPick value={c.colour} onchange={(v) => { if (!v) return; put('Cord color', { colour: v }); ws.cordDefaults.colour = v }} /></Field>
 	<Field label="Length" unit="m">
 		<span class="flex items-center gap-1">
-			<!-- any length can be typed (review R106, Dave); the standard ones are offered -->
+			<!-- any length can be typed (review R106, User); the standard ones are offered -->
 			<input class="inp w-16" type="number" min="0.1" step="0.1" list="cad-cord-lengths" aria-label="Cord length (m)" value={c.lengthM}
 				onchange={(e) => { const m = Math.round(Number(e.currentTarget.value) * 100) / 100; if (m > 0) put('Cord length', { lengthM: m, lengthLocked: true }); else e.currentTarget.value = String(c.lengthM) }} />
 			<datalist id="cad-cord-lengths">{#each STANDARD_LENGTHS as l (l)}<option value={l}></option>{/each}</datalist>

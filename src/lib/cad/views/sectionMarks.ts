@@ -18,7 +18,7 @@ export function sectionFrame(sec: SectionCut): { f: ElevFrame; len: number } {
 export function sectionMarks(sec: SectionCut, k: number): Prim[] {
 	const { f } = sectionFrame(sec)
 	const look = { x: -f.n.x, y: -f.n.y }, along = { x: f.t.x, y: f.t.y }
-	const s = 2.5 * k   // arrow size: 2.5 paper mm (was 4 — Dave 2026-10-15: smaller, a room's four marks crowded it)
+	const s = 2.5 * k   // arrow size: 2.5 paper mm (was 4 — User 2026-10-15: smaller, a room's four marks crowded it)
 	const arrow = (p: Pt): Prim => ({ k: 'line', pts: [
 		{ x: p.x + along.x * s * 0.5, y: p.y + along.y * s * 0.5 },
 		{ x: p.x - along.x * s * 0.5, y: p.y - along.y * s * 0.5 },
@@ -31,7 +31,7 @@ export function sectionMarks(sec: SectionCut, k: number): Prim[] {
 export const sectionsOn = (ix: ProjectIndex, levelId: Id): SectionCut[] =>
 	ix.ofType('section').filter((e) => e.levelId === levelId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 
-/** ONE elevation marker for a room's elevations (Dave 2026-10-15, instead of four crossing cut lines): a circle at the
+/** ONE elevation marker for a room's elevations (User 2026-10-15, instead of four crossing cut lines): a circle at the
  *  middle of the room's outline box, and for each of its elevation sections a pointer the way it looks, lettered with its
  *  letter (A–D). A pointer picks its section (a selected one shows its cut line and reach, editor/handles.ts). */
 export function roomElevMarker(room: { boundary?: Pt[] }, secs: SectionCut[], k: number): Prim[] {

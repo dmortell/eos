@@ -1,4 +1,4 @@
-// MOVE and COPY with a base point (backlog, Dave 2026-10-05): select what to move, pick the tool, click a BASE point
+// MOVE and COPY with a base point (backlog, User 2026-10-05): select what to move, pick the tool, click a BASE point
 // (it snaps to what's drawn), then the second point — snapped, Shift for 15° steps, or typed (`@dx,dy` from the base).
 // Move moves the selection by base → second point, one undo step, and is done. Copy places a copy there and keeps
 // going: each click another copy, Enter / Esc ends. A ghost of the selection follows the cursor. Plans, elevations,

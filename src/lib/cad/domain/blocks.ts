@@ -1,5 +1,5 @@
 // Blocks (ADR 0007): a named list of ordinary shapes in local mm, placed by an insert shape or drawing an outlet.
-// GLOBAL only (Dave, 2026-10-02 — no per-project blocks): the built-ins below live in code; blocks people make live in
+// GLOBAL only (User, 2026-10-02 — no per-project blocks): the built-ins below live in code; blocks people make live in
 // one global doc (`settings/cadBlocks`). ANNOTATIVE blocks (outlet symbols) are drawn in paper mm, so they keep their
 // printed size at any scale; others are real model mm (a desk, a rack shelf item).
 import type { Id, Pt, Outlet } from './types'
@@ -15,7 +15,7 @@ export const DATA_FIELDS = ['PROJECT', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] 
 export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 
 export type BlockShape = BlockDef['shapes'][number]
-/** A 2D block is ONE drawing (Dave 2026-10-14): every view draws it the same — a plan, an elevation, a section, a sheet
+/** A 2D block is ONE drawing (User 2026-10-14): every view draws it the same — a plan, an elevation, a section, a sheet
  *  — and an insert shows only in the view it was placed in. */
 export type Block = BlockDef & { annotative?: boolean; builtin?: boolean }
 /** A stored block from before 2026-10-14 may still carry a separate `front` drawing (block-front authoring, since
@@ -25,11 +25,11 @@ export function oneDrawing(b: Block & { front?: BlockShape[] }): Block {
 	const { front, ...rest } = b
 	return { ...rest, shapes: front, annotative: false }
 }
-/** A 3D block (Dave 2026-10-14: furniture drawn with the Box tool): it has a box — a region with a height. Its inserts
+/** A 3D block (User 2026-10-14: furniture drawn with the Box tool): it has a box — a region with a height. Its inserts
  *  are model: they show in every plan, elevation and section, seen from that direction (`placed3d`). */
 export const is3d = (b: Block): boolean => b.shapes.some((s) => (s.extent ?? 0) > 0)
 /** How far a block reaches behind its insert point (local −y, mm ≥ 0), labels left out: a 3D block dropped on a wall
- *  in an elevation stands with its back there (Dave 2026-10-14), not with its middle in the wall. */
+ *  in an elevation stands with its back there (User 2026-10-14), not with its middle in the wall. */
 export const backOf = (b: Block): number => -Math.min(0, ...b.shapes.filter((s) => !isLabel(s)).flatMap((s) => pointsOf(s.geom)).map((p) => p.y))
 /** A text that is a label (`{TAG}`s, filled from the insert's attributes): shown in every view, facing the viewer. */
 export const isLabel = (s: BlockShape): boolean => s.geom.kind === 'text' && /\{[A-Z_]+\}/.test(s.geom.text)
@@ -64,7 +64,7 @@ const solid = { style: { fill: 'solid' } }
 // the label above the symbol, the usage below it (y down, `at` = the text's baseline; symbols reach ±1.8)
 const label: BlockShape = sh({ kind: 'text', at: { x: 0, y: -2.2 }, text: '{LABEL}', sizeMm: 1.8, align: 'centre' })
 const usage: BlockShape = sh({ kind: 'text', at: { x: 0, y: 3.6 }, text: '{USAGE}', sizeMm: 1.4, align: 'centre' })
-// the number of ports in the MIDDLE of the symbol (Dave: "port numbers should be shown in the center of the outlet";
+// the number of ports in the MIDDLE of the symbol (User: "port numbers should be shown in the center of the outlet";
 // it was to the right) — centred on (0, cy), white on a filled symbol, dark with a halo on an outline one
 const ports = (sizeMm = 1.2, cy = 0): BlockShape => sh({ kind: 'text', at: { x: 0, y: cy + sizeMm * 0.35 }, text: '{PORTS}', sizeMm, align: 'centre' })
 
@@ -86,7 +86,7 @@ export const BUILTIN_BLOCKS: Block[] = [
 	...drawingSymbols(),
 ]
 
-/** Drawing symbols (backlog "Markup kinds" part 5, Dave 2026-10-09: datum, detail and elevation tags — no north
+/** Drawing symbols (backlog "Markup kinds" part 5, User 2026-10-09: datum, detail and elevation tags — no north
  *  arrow), paper mm, the insert point at the symbol's centre (a datum: on its line). Their words are attributes, so
  *  each insert says its own (Properties › Attributes). Turn an elevation tag to aim its pointer. */
 function drawingSymbols(): Block[] {
@@ -108,7 +108,7 @@ function drawingSymbols(): Block[] {
 			// the pointer sits on the circle's edge (its base follows the arc), clear of the number inside
 			shapes: [pointer(0),
 				sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 4 }), seg(-4, 0, 4, 0), text(0, -0.9, '{NUMBER}', 2.2), text(0, 2.8, '{ON_SHEET}', 1.8)] },
-		// ── Dave 2026-10-15 (drawn from his samples in Section C) ──
+		// ── User 2026-10-15 (drawn from his samples in Section C) ──
 		// a level marker as elevations show it: the line runs in from the left to a quartered target; the name above the line
 		// and the height below it, both ending at the target
 		{ type: 'block', id: 'builtin:level-marker', name: 'Level marker (elevation)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
@@ -148,7 +148,7 @@ function arc(cx: number, cy: number, r: number, from: number, to: number): [numb
 	return Array.from({ length: n + 1 }, (_, i) => { const a = ((from + ((to - from) * i) / n) * Math.PI) / 180; return [Math.round((cx + r * Math.cos(a)) * 1000) / 1000, Math.round((cy + r * Math.sin(a)) * 1000) / 1000] as [number, number] })
 }
 
-/** Data / power faceplates, single / dual gang: the plate from the front, real mm (one drawing, Dave 2026-10-14). */
+/** Data / power faceplates, single / dual gang: the plate from the front, real mm (one drawing, User 2026-10-14). */
 function faceplates(): Block[] {
 	const make = (id: string, name: string, shapes: BlockShape[]): Block => ({ type: 'block', id, name, scope: 'global', category: 'outlet', builtin: true, shapes })
 	return [
@@ -159,7 +159,7 @@ function faceplates(): Block[] {
 	]
 }
 
-/** A faceplate (Dave 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and a socket centred at
+/** A faceplate (User 2026-10-12): a 70 × 115 mm plate, a 50 × 90 mm frame for the sockets, and a socket centred at
  *  each y in `cys` (one above the other). Real mm. */
 function plateFront(cys: number[], socket: (cy: number) => BlockShape[]): BlockShape[] {
 	return [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 70, y: 115 } }), sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 50, y: 90 } }), ...cys.flatMap(socket)]
@@ -188,7 +188,7 @@ export function fillAttrs(text: string, attrs: Record<string, string>): string {
 export const outletAttrs = (o: Outlet): Record<string, string> => ({ LABEL: o.label, PORTS: String(o.ports.length), USAGE: o.usage })
 
 /** An INSERT's attributes: every `{TAG}` in the block blank unless the insert sets it (an outlet symbol placed as a
- *  plain block — a power faceplate — has no label / ports / usage to show; Dave, A009). */
+ *  plain block — a power faceplate — has no label / ports / usage to show; User, A009). */
 export function insertAttrs(b: Block, attrs: Record<string, string> = {}, hidden: string[] = []): Record<string, string> {
 	const out: Record<string, string> = {}
 	for (const d of blockAttrDefs(b)) out[d.tag] = d.default ?? ''

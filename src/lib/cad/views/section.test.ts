@@ -51,7 +51,7 @@ describe('sections', () => {
 	})
 })
 
-describe('a long run through a section (Dave 2026-10-15: "the view extends to 16 m wide")', () => {
+describe('a long run through a section (User 2026-10-15: "the view extends to 16 m wide")', () => {
 	it('counts only between the cut line\'s ends: the datum lines and the view\'s extent stay the section\'s width', async () => {
 		const { primBounds } = await import('./display')
 		const trunk = { type: 'shape', id: 'T', levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
@@ -65,7 +65,7 @@ describe('a long run through a section (Dave 2026-10-15: "the view extends to 16
 	})
 })
 
-describe('a run cut off by a section\'s end (Dave 2026-10-15: a truncate mark)', () => {
+describe('a run cut off by a section\'s end (User 2026-10-15: a truncate mark)', () => {
 	it('gets an S-shaped break where it runs on past the cut line; one that stops inside gets none', () => {
 		const run = (id: string, x0: number, x1: number) => ({ type: 'shape', id, levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
 			geom: { kind: 'path', nodes: [{ id: `${id}0`, x: x0, y: -1000, z: 2900 }, { id: `${id}1`, x: x1, y: -1000, z: 2900 }], segs: [{ id: `${id}s`, a: `${id}0`, b: `${id}1` }] } })

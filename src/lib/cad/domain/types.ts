@@ -44,7 +44,7 @@ export interface Level {
 	elevationMm: number
 	/** Structure around FFL: slab top is at −raisedFloorMm, ceiling at clearHeightMm, slab above at clear + plenum. */
 	heights: { slabMm: number; raisedFloorMm: number; clearHeightMm: number; plenumMm: number }
-	/** A separate PLAN of part of a floor (a tenant office: Journey's 33F has 3303 and 3307 in opposite corners, each
+	/** A separate PLAN of part of a floor (a tenant office: Tourney's 33F has 3303 and 3307 in opposite corners, each
 	 *  drawn on its own floorplan with its own coordinates). Same number and elevation as the floor; its own plan,
 	 *  elevations and racks. Unset = the floor's main plan. */
 	area?: string
@@ -65,7 +65,7 @@ export interface Space {
 	code?: string
 	boundary?: Pt[]
 	order: number
-	/** A server room's OWN floor and ceiling, mm above its level's FFL (rack elevation context, Dave: they often
+	/** A server room's OWN floor and ceiling, mm above its level's FFL (rack elevation context, User: they often
 	 *  differ from the office floors): racks stand on `floorMm` (unset = FFL); `ceilingMm` unset = the level's. */
 	floorMm?: number
 	ceilingMm?: number
@@ -125,7 +125,7 @@ export interface Outlet {
 	z?: number
 	rot?: number
 	/** Placed in an elevation / section (on a wall): shown in elevations and sections too. One placed on a plan is a
-	 *  plan symbol and shows only in plans (Dave 2026-10-10). */
+	 *  plan symbol and shows only in plans (User 2026-10-10). */
 	inElevations?: boolean
 	/** The wall shape a wall-mounted outlet sits on (it moves with the wall). */
 	hostShapeId?: Id
@@ -208,10 +208,10 @@ export interface Device {
 	u: number
 	heightU: number
 	face: 'front' | 'rear' | 'both' | 'none'
-	/** Fixed to one side of the rack only (Dave: a front panel sharing a U with a rear one): it then takes only that side
+	/** Fixed to one side of the rack only (User: a front panel sharing a U with a rear one): it then takes only that side
 	 *  of its Us, and shares them with a device on the other side when their depths fit. Unset = by `face` (full depth). */
 	mount?: 'front' | 'rear'
-	/** May share Us with a device on the same side (Dave: some cases — a shelf with a device on it is always allowed): the
+	/** May share Us with a device on the same side (User: some cases — a shelf with a device on it is always allowed): the
 	 *  clash is marked in the rack view (the U numbers bold red with "!") instead of refused. */
 	overlapOk?: boolean
 	/** A 0U PDU (backlog "0U PDUs"): the side of the rack it's on, as seen from the front (default left), its power
@@ -245,7 +245,7 @@ export interface Device {
 }
 
 /** A labelled range of a panel's ports, `from`–`to` inclusive (1-based). No `label` = from its cables (P3A-R301: this
- *  rack - the rack they go to), worked out each time — so splitting before linking still names it right (Dave). */
+ *  rack - the rack they go to), worked out each time — so splitting before linking still names it right (User). */
 export interface PortGroup { from: number; to: number; label?: string }
 
 export interface PanelInfo {
@@ -259,7 +259,7 @@ export interface PanelInfo {
 	/** When the port labels were printed and stuck on. Editing or renumbering a label linked to this panel then asks
 	 *  first (ADR 0002); the issued sheets record what was printed. */
 	labelsPrintedAt?: number
-	/** Labelled port ranges (Dave 2026-10-10: the top half of a 48-port panel tied to one rack, the bottom half to
+	/** Labelled port ranges (User 2026-10-10: the top half of a 48-port panel tied to one rack, the bottom half to
 	 *  another): a port in one shows "<label>:NN", numbered from the range's first port (domain/portGroups.ts). */
 	groups?: PortGroup[]
 	/** What was printed, by port number (non-empty labels only) — a later difference is flagged on the panel. */
@@ -324,7 +324,7 @@ export interface CordBatch { id: Id; cableType: string; lengthM: number; colour:
 
 // ── Project-wide settings (one doc) ───────────────────────────────────────────────────────────────────────────────
 
-/** A project CONTACT (review of D8, Dave 2026-10-14): who issues go to — packages pick their recipients from these. */
+/** A project CONTACT (review of D8, User 2026-10-14): who issues go to — packages pick their recipients from these. */
 export interface Contact { id: Id; name: string; org?: string; email?: string }
 
 export interface ProjectSettings {
@@ -367,7 +367,7 @@ export interface ProjectSettings {
 	/** Export file names: a pattern of {project} {what} {scope} {date} (render/download.ts patternName); unset = each
 	 *  export's own name. Every export still asks for the name, filled from it. */
 	fileNamePattern?: string
-	/** A font embedded in this project's PDFs for the text the standard fonts can't show (Settings › Files, Dave 2026-10-15):
+	/** A font embedded in this project's PDFs for the text the standard fonts can't show (Settings › Files, User 2026-10-15):
 	 *  Japanese / Korean as real, selectable text; absent = drawn as pictures. app/pdfFonts.ts loads it. */
 	pdfFont?: 'ja' | 'ko'
 	/** What the Rack / Trunk / Conduit / Wall / Box / Text tools start with: Properties › Use as default

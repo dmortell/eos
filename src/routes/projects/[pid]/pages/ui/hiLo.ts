@@ -1,4 +1,4 @@
-// HIGH / LOW LEVEL (Dave 2026-10-01): an outlet — or any shape / 3D box — is high level (in the ceiling plenum: WiFi
+// HIGH / LOW LEVEL (User 2026-10-01): an outlet — or any shape / 3D box — is high level (in the ceiling plenum: WiFi
 // APs, ceiling TVs) or low level (on the raised floor; a wall-mounted socket sits at FL+300, one behind an AV monitor at
 // FL+1200). Picking a level sets its default HEIGHT (z), which the Z field then overrides. z uses the SAME datum as a 3D
 // object's z: mm above FL±0 (the raised floor's top, ui/levels.ts), so a shape and a box at the same z line up in

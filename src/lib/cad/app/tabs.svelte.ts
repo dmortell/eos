@@ -1,4 +1,4 @@
-// DRAWING TABS (UX review D1; Dave: "would drawing tabs work in cad, like we have in Pages?" — shared by both panes,
+// DRAWING TABS (UX review D1; User: "would drawing tabs work in cad, like we have in Pages?" — shared by both panes,
 // with a preview tab): a tab names one view — a level + a view spec (plan, an elevation, a section, a rack room, the
 // riser view, a sheet). One list for both panes; each pane points at a tab. A single click in the Navigator opens the
 // view in the PREVIEW tab (reused by the next single click); a double-click, an edit, or a double-click on the tab
@@ -65,7 +65,7 @@ export class Tabs {
 		this.save()
 		return t
 	}
-	/** Another tab already showing `view` becomes pane `i`'s tab (Dave: a view switched to inside a tab made a
+	/** Another tab already showing `view` becomes pane `i`'s tab (User: a view switched to inside a tab made a
 	 *  duplicate of a tab already open on it). True = done. */
 	#toOpen(i: number, t: Tab, view: TabView): boolean {
 		const other = this.list.find((x) => x.id !== t.id && viewKey(x.view) === viewKey(view))
@@ -145,7 +145,7 @@ export class Tabs {
 		this.paneTab = this.paneTab.map((p) => (p && gone.has(p) ? id : p))
 		this.save()
 	}
-	/** A dragged tab goes before (or `after`) another (Dave 2026-10-10); what each pane shows doesn't change. */
+	/** A dragged tab goes before (or `after`) another (User 2026-10-10); what each pane shows doesn't change. */
 	move(id: string, targetId: string, after: boolean): void {
 		const t = this.get(id)
 		if (!t || id === targetId || !this.get(targetId)) return

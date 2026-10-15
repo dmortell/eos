@@ -3,7 +3,7 @@
 //  - patchList:      one row per cord, both ends with their labels
 //  - cordBom:        cords counted by type × length, a column per status (the dialog and the Excel BOM sheet)
 //  - runLengths:     containment metres per run, split horizontal / vertical
-//  - bom:            quantities by item for a quote (no prices — Dave, 2026-10-02)
+//  - bom:            quantities by item for a quote (no prices — User, 2026-10-02)
 import type { ProjectIndex } from './project'
 import type { Id, Outlet, Cord } from './types'
 import { cableMedia, cableTypeLabel } from './cableTypes'
@@ -150,7 +150,7 @@ export function runLengths(p: ProjectIndex): RunLength[] {
 export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty: number; note?: string }
 
 /** Tubing per desk outlet (W26): the cables' run from the floor box up to the desk (rising with a sit-stand desk). */
-export const DESK_TUBING_M = 2   // Dave 2026-10-15: 2 m, height-adjustable desks are common
+export const DESK_TUBING_M = 2   // User 2026-10-15: 2 m, height-adjustable desks are common
 
 /**
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
@@ -188,7 +188,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 		if (!outletIn(o)) continue
 		add('Outlets', `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
 		for (const pt of o.ports) add('Outlets', `Jack / module ${label(pt.cableType)}`, 'ea', 1)
-		// W26 (Dave 2026-10-15): what each outlet sits in — a back box in a wall, a surface box on a ceiling, a floor box;
+		// W26 (User 2026-10-15): what each outlet sits in — a back box in a wall, a surface box on a ceiling, a floor box;
 		// a desk outlet goes in the desk's own module, its cables up in tubing
 		const box = o.mount === 'wall' ? 'Back box (wall)' : o.mount === 'ceiling' ? 'Surface box (ceiling)' : o.mount === 'floor' || o.mount === 'box' ? 'Floor box' : null
 		if (box) add('Outlets', box, 'ea', 1)

@@ -1,4 +1,4 @@
-<!-- Settings › SHEETS: the DISCIPLINE list (Dave D2: "a fixed list" — one GLOBAL list, every project, beside the
+<!-- Settings › SHEETS: the DISCIPLINE list (User D2: "a fixed list" — one GLOBAL list, every project, beside the
      sheet categories). Sheets pick their Discipline from it; a value typed on a sheet before (or removed from the list)
      still shows on that sheet, flagged, until changed — and can be added from here. Saved straight to the global doc
      (not on this project's undo history). -->

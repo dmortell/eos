@@ -4,7 +4,7 @@ The engine is ported into `3dview/` and built out. This file keeps only the desi
 storage shape. `CHANGELOG.md` records what landed, `README.md` covers how it's wired today, and the open items
 live in `todo.md` / `review.md`.
 
-## Decisions (Dave, 2026-09-20)
+## Decisions (User, 2026-09-20)
 
 - **Keep Pages' own editor; port only the geometry engine** from `sheets/tools/model3d/` (not `edit3d/`, the
   frozen playground). The pure files (`types.ts`, `graph.ts`, `projection.ts`, `migrate.ts`) were lifted

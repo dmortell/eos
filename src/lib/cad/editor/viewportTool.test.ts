@@ -1,4 +1,4 @@
-// The Viewport tool: a viewport drawn as a box on a sheet (backlog "Viewport tool (draw a box)", Dave 2026-10-06).
+// The Viewport tool: a viewport drawn as a box on a sheet (backlog "Viewport tool (draw a box)", User 2026-10-06).
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'

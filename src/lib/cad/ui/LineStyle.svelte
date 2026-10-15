@@ -1,4 +1,4 @@
-<!-- A shape's LINE TYPE and LINEWEIGHT (backlog "Shape style", Dave 2026-10-05) — for one shape or several ("mixed"
+<!-- A shape's LINE TYPE and LINEWEIGHT (backlog "Shape style", User 2026-10-05) — for one shape or several ("mixed"
      where they differ). "By layer" = the usual (its kind's) line. Drawn on screen, printed as set (mm) in PDF; DXF gets
      the line type. One undo step per edit. -->
 <script lang="ts">

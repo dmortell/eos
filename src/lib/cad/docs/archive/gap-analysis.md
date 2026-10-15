@@ -1,6 +1,6 @@
 # Gap analysis: legacy tools → cad
 
-**Status:** frozen 2026-10-03, with Dave's ticks (329 of 859 rows). Every ticked row has been merged into `../plan/`
+**Status:** frozen 2026-10-03, with User's ticks (329 of 859 rows). Every ticked row has been merged into `../plan/`
 (backlog, decisions or later); `plan-sources.md` maps the plan's G ids to rows here.
 
 **What this is:** every legacy tool, and every viewport type of the Sheets tool, Drawings and Pages, compared feature by
@@ -65,7 +65,7 @@ feature with cad as of commit 930b8843. Eight read-only passes (one per tool gro
   bubble, elevation tag, photo marker), images. cad has text, leader, cloud on sheets only. *Sheets, Drawings, Pages.*
 
 **Labels and numbering**
-- [x] **Renumber by clicking / auto-number / next label** (`cad/domain/labels.ts` has the logic, no UI). Dave marked this
+- [x] **Renumber by clicking / auto-number / next label** (`cad/domain/labels.ts` has the logic, no UI). User marked this
   high priority. *Outlets, Pages, Sheets.*
 - [ ] **Generated port labels `FF.Z.NNN-SPP(-H)`** that follow server-room / high-level changes, with label settings
   (separator, zone / room, floor format) and templates / presets. cad stores plain text. *Frames, Elevations.*
@@ -175,7 +175,7 @@ data would be lost.
 - [x] **Touch: two-finger pan and pinch zoom** — iPad support. *cad:* missing — no touch handling in `cad/ui/ViewCanvas.svelte`. `outlets/parts/OutletCanvas.svelte:1128`
 
 ### Trunks (containment)
-- [ ] **Trunk catalogue** — pipe PF22 / PF28 / E51 and MK0–MK5, ladder, tray, rubber mat, custom. *cad:* missing — only W / H / Ø numbers (Dave: catalogue not required, `cad/docs/pages-features.md:59`). `outlets/trunks/constants.ts:3`
+- [ ] **Trunk catalogue** — pipe PF22 / PF28 / E51 and MK0–MK5, ladder, tray, rubber mat, custom. *cad:* missing — only W / H / Ø numbers (User: catalogue not required, `cad/docs/pages-features.md:59`). `outlets/trunks/constants.ts:3`
 - [ ] **Pipe inner + outer size** — both diameters, inner used for fill. *cad:* partial: one Ø; `section.inner` exists but has no field (`cad/ui/PathProps.svelte:71`). `outlets/trunks/TrunkProperties.svelte:99`
 - [x] **Location** — under floor / ceiling plenum / ceiling tray / wall. *cad:* different: tier + node Z + form (trunk / conduit / tray) (`cad/domain/shapes.ts:95`). `outlets/trunks/constants.ts:28`
 - [ ] **Rooms a trunk serves** — A–D buttons; a trunk with rooms takes only those rooms' outlets. *cad:* partial: `serves` is imported and used by routing, but there is no field to set it (`cad/domain/shapes.ts:98`). `outlets/trunks/TrunkProperties.svelte:184`
@@ -441,7 +441,7 @@ listed here only as they appear inside Elevations; the Racks / Patching / Frames
 - [x] **Devices list** — per rack, front then "Rear mount", click / Shift / Ctrl select, delete. *cad:* missing. `elevations/Elevations.svelte:759` → `racks/parts/RackDevices.svelte:46`
 - [x] **Device library builder** — make or edit a template (label, type, U, ports, maker), search the palette. *cad:* partial: "Save as template…" from a placed device; no builder, edit, delete or search (`cad/ui/Properties.svelte:405`). `elevations/Elevations.svelte:764` → `racks/parts/DevicePalette.svelte:55`
 - [x] **Catalog tab** — browse the Panduit catalogue (kind, maker, colour, RU, compatible with the row), add a rack, add / delete custom products. *cad:* missing (the rack BOM uses the seed only). `elevations/Elevations.svelte:774` → `racks/parts/CatalogBrowser.svelte:37`
-- [ ] **Row builder** — row defaults (U, colour, depth), containment HAC / CAC with rules, mixed-row warning + "apply to all", fill / add N racks from a SKU in V-R-V order. *cad:* missing (Dave: no row builder; `RackRow.containment` has no UI). `elevations/Elevations.svelte:741` → `racks/parts/RowEditor.svelte:93`, `elevations/editor.svelte.ts:1614`
+- [ ] **Row builder** — row defaults (U, colour, depth), containment HAC / CAC with rules, mixed-row warning + "apply to all", fill / add N racks from a SKU in V-R-V order. *cad:* missing (User: no row builder; `RackRow.containment` has no UI). `elevations/Elevations.svelte:741` → `racks/parts/RowEditor.svelte:93`, `elevations/editor.svelte.ts:1614`
 - [x] **On-screen BOM** — BOM list by current row, project (by row) or consolidated, with product links. *cad:* partial: BOM is an Excel export only (`cad/ui/CadShell.svelte:302`). `elevations/Elevations.svelte:873` → `racks/parts/BOMPanel.svelte:23`
 - [x] **RU clash shown** — Us used by two devices are highlighted. *cad:* different: overlaps are refused (`cad/domain/devices.ts:98`). `elevations/editor.svelte.ts:217`
 - [x] **Deleting racks asks first** — "devices go too" confirm. *cad:* different: deletes at once, undo brings it back (`cad/editor/commands.ts:25`). `elevations/Elevations.svelte:662`
@@ -509,7 +509,7 @@ listed here only as they appear inside Elevations; the Racks / Patching / Frames
 - [ ] **Row defaults (RU / colour / depth)** — Row Builder sets a row's RU (45 / 52), colour (Black / White) and depth (30" / 36" / mm); they seed new racks and are the baseline for checks. *cad:* missing (`RackRow.defaults` is in the schema but nothing sets or uses it). `racks/parts/RowEditor.svelte:105`
 - [ ] **Row containment (HAC / CAC / combined)** — pick a row's aisle containment; options a rack can't support are disabled and the reasons listed. *cad:* partial: containment is imported and drives the rack BOM, but there is no picker and no restriction check. `racks/parts/RowEditor.svelte:167`
 - [ ] **Row homogeneity warning** — lists racks whose RU / colour / depth differ from the row defaults; "Apply row defaults to all" forces them. *cad:* missing. `racks/parts/RowEditor.svelte:195`
-- [ ] **Compose row: add N racks / VCMs from a SKU** — adds N racks or VCMs of a catalogue SKU (R01…, V01…), interleaved V-R-V-R the Panduit way. *cad:* missing (Dave: no row builder; racks are drawn one by one with the Rack tool). `racks/Racks.svelte:700`
+- [ ] **Compose row: add N racks / VCMs from a SKU** — adds N racks or VCMs of a catalogue SKU (R01…, V01…), interleaved V-R-V-R the Panduit way. *cad:* missing (User: no row builder; racks are drawn one by one with the Rack tool). `racks/Racks.svelte:700`
 - [ ] **Quick-fill a row with a SKU** — "↺ Fill" applies one catalogue product to every rack (or every VCM) already in the row. *cad:* missing. `racks/Racks.svelte:652`
 - [x] **Rename a row** — row name edited in Row Builder. *cad:* missing (a row gets its name only when made with "New row…"). `racks/parts/RowEditor.svelte:96`
 - [ ] **Delete a row** — × on a row pill deletes the row with its racks and devices, after a confirm. *cad:* missing (no row delete; only deleting the whole level removes rows). `racks/parts/RoomSelector.svelte:85`
@@ -726,7 +726,7 @@ Note: the legacy route redirects to the Elevations Patching tab unless `?legacy=
 
 ## Risers (`routes/projects/[pid]/risers/`)
 
-Note: cad replaces the hand-drawn riser diagram with a generated riser view (`cad/views/riser.ts`); Dave asked for "data only for now".
+Note: cad replaces the hand-drawn riser diagram with a generated riser view (`cad/views/riser.ts`); User asked for "data only for now".
 
 ### Floors shown
 - [ ] **Floor range** — From / To pickers limit the drawing to part of the building. *cad:* missing: the riser view always shows every level. `risers/parts/RiserToolbar.svelte:174`
@@ -781,7 +781,7 @@ Note: cad replaces the hand-drawn riser diagram with a generated riser view (`ca
 
 ## Fill rate (`routes/projects/[pid]/fillrate/`)
 
-Note: cad computes fill on drawn runs from routed cables (Dave: "only drawn runs, the simplest version; free sections maybe later").
+Note: cad computes fill on drawn runs from routed cables (User: "only drawn runs, the simplest version; free sections maybe later").
 
 ### Sections
 - [ ] **Free fill sections** — FR-001, FR-002 … sections not tied to any drawing, each a containment size plus cable groups typed by hand. *cad:* missing (phase5.md §6a.4: maybe later). `fillrate/FillRate.svelte:76`
@@ -792,7 +792,7 @@ Note: cad computes fill on drawn runs from routed cables (Dave: "only drawn runs
 - [ ] **Section list** — a sidebar of all sections with label, size, cable count and fill % in colour, plus Add, Delete, reorder ↑ ↓ and rename. *cad:* partial: each run shows its fill in Properties and the plan's Fill overlay (`cad/ui/ViewCanvas.svelte:367`); no list of all runs with their fill. `fillrate/FillRate.svelte:128`
 
 ### Calculation and display
-- [ ] **Calc method per section** — toggle cable area as d² (rectangular) or πr² (circular). *cad:* different: always d² (Dave's decision, `cad/domain/fill.ts:55`). `fillrate/parts/SectionEditor.svelte:55`
+- [ ] **Calc method per section** — toggle cable area as d² (rectangular) or πr² (circular). *cad:* different: always d² (User's decision, `cad/domain/fill.ts:55`). `fillrate/parts/SectionEditor.svelte:55`
 - [ ] **Fill bands and status text** — colours at 40 / 60 / 100 % and a status line ("Low – plenty of space" … "Overfilled – exceeds capacity!"). *cad:* different: one 40 % limit, amber from 30 %, red over (`cad/domain/fill.ts:73`); no status text. `fillrate/parts/constants.ts:74`
 - [ ] **Section drawing details** — the canvas shows the outer and inner wall, the size "W × H mm (tN)" or "Ø D mm", the fill %, and each cable's diameter written in it. *cad:* partial: the packed picture shows the wall and cables coloured by type with the inside size (`cad/ui/RunFill.svelte:41`); no outer wall, no diameters in circles. `fillrate/parts/SectionCanvas.svelte:81`
 
@@ -1489,14 +1489,14 @@ Note: the sheets / viewports / title block / print / DXF / drawing management / 
 - [x] **Bend radius** — a conduit's default corner radius, overridden per corner with a handle. *cad:* missing: `PathNode.radius` is never drawn or edited (`cad/domain/shapes.ts:50`). `pages/3dview/types.ts:54`
 - [x] **Join runs** — a run drawn from another run's node joins it (or attaches to a box's connection point) and follows it. *cad:* different: routing joins runs whose nodes touch, without storing a join (`cad/domain/routing.ts:2`); nodes attach to outlets / racks only. `pages/3dview/graphJoin.ts:95`
 - [x] **Connection points on boxes** — centre + edge midpoints by default, or your own (U / V, Place…), shown as × marks. *cad:* missing. `pages/3dview/connect.ts:40`
-- [ ] **Cables listed per conduit** — type × qty per conduit, its fill %. *cad:* different: fill comes from the routed links (`cad/domain/fill.ts:38`), as Dave chose. `pages/3dview/fill.ts:33`
+- [ ] **Cables listed per conduit** — type × qty per conduit, its fill %. *cad:* different: fill comes from the routed links (`cad/domain/fill.ts:38`), as User chose. `pages/3dview/fill.ts:33`
 - [x] **Box / furniture tool** — BOX: draw a footprint, give it a height. *cad:* missing: boxes (rect + extent) are drawn in elevations but no tool or Properties make them (`cad/views/elevation.ts:142`). `pages/ui/place.ts:118`
 - [ ] **Round and many-sided boxes** — 3 to 24 edges (cylinders, ellipses). *cad:* missing. `pages/3dview/types.ts:14`
 - [ ] **Box Properties** — X / Y / Z, W / D / H, rotation, label, own colour, layer. *cad:* missing. `pages/parts/props/ModelObjProps.svelte:109`
 - [x] **Box grips in elevations** — resize height / width and base in any elevation, also angled ones. *cad:* missing. `pages/ui/grips.ts:114`
 - [ ] **WIRE pick mode** — boxes pick only on their outline, so things under a table top can be picked. *cad:* missing. `pages/ui/hit.ts:257`
 - [ ] **Holes through boxes (desk legs)** — an opening across a box splits it into legs and top in elevations and 3D. *cad:* missing. `pages/3dview/projection.ts:565`
-- [ ] **Door / window / hole kinds** — door leaf + arc, window glazing + sill line, plain hole; dragged across the wall as a box. *cad:* different: one hole with W / Z / H and an optional swing, placed by a click (Dave, 2026-10-02) (`cad/editor/openingTool.ts:10`). `pages/ui/openingSpec.svelte.ts:6`
+- [ ] **Door / window / hole kinds** — door leaf + arc, window glazing + sill line, plain hole; dragged across the wall as a box. *cad:* different: one hole with W / Z / H and an optional swing, placed by a click (User, 2026-10-02) (`cad/editor/openingTool.ts:10`). `pages/ui/openingSpec.svelte.ts:6`
 - [ ] **Rack presets** — Server / Network / Deep / Wall / Custom sizes when placing. *cad:* partial: each new rack copies the last one drawn (`cad/editor/tools.ts:410`). `pages/ui/cmdScripts.ts:142`
 - [ ] **Turn racks while placing** — L / R turns the next rack 90°, kept for the next. *cad:* partial: turn after placing with ⟲ / ⟳ (`cad/ui/Properties.svelte:304`). `pages/ui/cmdScripts.ts:139`
 - [ ] **Penetration tool** — PEN: diameter and wall / slab once, then click each; tags count on P01, P02 …. *cad:* partial: a penetration role and BOM line exist, no tool and no auto-detect yet (`cad/domain/shapes.ts:114`). `pages/ui/cmdScripts.ts:575`
@@ -1517,18 +1517,18 @@ Note: the sheets / viewports / title block / print / DXF / drawing management / 
 </details>
 
 ### Model views: elevations, sections, 3D
-- [ ] **ViewCube** — a cube in the pane corner (TOP / FRONT / RIGHT + 3D) switches the view. *cad:* different: Plan / Front / Rear / Left / Right / Risers buttons per pane (`cad/ui/ViewCanvas.svelte:353`); Dave had chosen a ViewCube on model tabs. `pages/parts/ViewGizmos.svelte:4`
+- [ ] **ViewCube** — a cube in the pane corner (TOP / FRONT / RIGHT + 3D) switches the view. *cad:* different: Plan / Front / Rear / Left / Right / Risers buttons per pane (`cad/ui/ViewCanvas.svelte:353`); User had chosen a ViewCube on model tabs. `pages/parts/ViewGizmos.svelte:4`
 - [ ] **Keep your place across views** — switching plan ↔ elevation re-centres on the same 3D point at the same zoom. *cad:* partial: each view keeps its own camera (`cad/ui/ViewCanvas.svelte:159`). `pages/+page.svelte:644`
 - [ ] **3D view** — perspective / iso / wireframe, orbit about the view middle (Shift = 15°). *cad:* missing (phase 6.4: "later option"). `pages/3dview/projection.ts:254`
 - [ ] **Select objects in 3D** — click the front-most face. *cad:* missing. `pages/ui/hit.ts:279`
 - [ ] **Doors and windows as real holes in 3D** — jambs, header, sill; you see through them. *cad:* missing (no 3D). `pages/3dview/projection.ts:606`
 - [ ] **Callouts and legends face you in 3D** — at paper size, leaders to their 3D tip. *cad:* missing. `pages/ui/isoAnno.ts:25`
 - [ ] **Section box** — an axis-aligned box on the plan with arrows on four sides; each drops that direction. *cad:* different: section lines only (`cad/editor/sectionTool.ts:23`). `pages/ui/place.ts:128`
-- [ ] **Section height band** — Z↓ / Z↑ in Properties and as handles in an elevation. *cad:* missing (Dave: low priority). `pages/parts/props/SectionProps.svelte:39`
+- [ ] **Section height band** — Z↓ / Z↑ in Properties and as handles in an elevation. *cad:* missing (User: low priority). `pages/parts/props/SectionProps.svelte:39`
 - [ ] **Sections seen from the side** — other sections show as dashed bands in an elevation; click to select, drag to set the band. *cad:* missing. `pages/ui/sectionElev.ts:26`
 - [ ] **Elevation marker** — a point + the way it looks, numbered callout ("1 / A-201"), width × depth band, turn / width / depth grips. *cad:* missing. `pages/ui/elevMarker.ts:162`
 - [x] **Section markers on a layer** — hide, freeze or lock the markers like anything else. *cad:* missing. `pages/3dview/migrate.ts:38`
-- [ ] **Exact hidden lines** — every edge clipped against nearer faces, seen through openings; for line-only output. *cad:* partial: items painted far → near with opaque fills (`cad/views/elevation.ts:3`); line-only removal skipped for now (Dave). `pages/3dview/hiddenLines.ts:137`
+- [ ] **Exact hidden lines** — every edge clipped against nearer faces, seen through openings; for line-only output. *cad:* partial: items painted far → near with opaque fills (`cad/views/elevation.ts:3`); line-only removal skipped for now (User). `pages/3dview/hiddenLines.ts:137`
 - [x] **Storey heights editor** — per-floor slab / raised floor / clear height / plenum, "All floors", floors re-stack. *cad:* partial: levels carry heights from the import, nothing edits them (`cad/domain/types.ts:40`). `pages/parts/HeightsDialog.svelte:2`
 - [x] **Riser drawing with hidden floors** — floors can be collapsed; shapes stay editable and write back real heights. *cad:* different: a generated, read-only riser view of every floor (`cad/views/riser.ts:1`). `pages/3dview/storeyMap.ts:29`
 - [x] **Model versions** — 1.0, 1.1 …; a major keeps a full copy you can restore, a minor is a note; "edited since". *cad:* different: no model versions; issuing freezes each sheet's display list (`cad/domain/issue.ts:1`). `pages/store/versions.ts:27`

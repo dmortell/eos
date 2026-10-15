@@ -1,6 +1,6 @@
 // Assign by hand (Phase 3.4): with outlets chosen in the grid, click a panel port in a rack view — their ports go
 // onto consecutive free ports from there (moving off wherever they were), pinned so re-allocation never moves them.
-// Dave: allocate automatically, then grab a bunch of outlets and put them on other panels.
+// User: allocate automatically, then grab a bunch of outlets and put them on other panels.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Id, Link } from '../domain/types'
 import { pickPrim } from './pick'
@@ -18,7 +18,7 @@ export class AssignTool implements Tool {
 	down(e: PointerIn, c: ToolCtx): void {
 		const hit = pickPrim(c.prims(), e.p, c.tol())
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined, d = hit?.src ? c.store.get(hit.src) : undefined
-		// a port: from there; the panel itself (Dave: drag the outlet rows "to a panel"): from its first free port
+		// a port: from there; the panel itself (User: drag the outlet rows "to a panel"): from its first free port
 		if (d?.type !== 'device' || d.kind !== 'panel') { c.say?.('Click a panel (or one of its ports) in a rack view — the outlets go on from there'); return }
 		const outlets = this.outlets.map((id) => c.index.get(id)).filter((o) => o?.type === 'outlet').sort((a, b) => naturalCompare(a!.label, b!.label))
 		const wants = outlets.flatMap((o) => (o!.type === 'outlet' ? o!.ports.map((p) => ({ outletId: o!.id, port: p.port })) : []))

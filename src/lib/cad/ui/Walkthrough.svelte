@@ -1,4 +1,4 @@
-<!-- The WALKTHROUGH window (Help › Walkthrough; Dave 2026-10-15: "keep it open for reference"): a project from start to
+<!-- The WALKTHROUGH window (Help › Walkthrough; User 2026-10-15: "keep it open for reference"): a project from start to
      release, stage by stage, short numbered steps (helpContent.ts WALKTHROUGH / WALKTHROUGH_JA). EN / 日本語 at the top
      switches the language (remembered in this browser); a stage folds on a click of its heading. -->
 <script lang="ts">

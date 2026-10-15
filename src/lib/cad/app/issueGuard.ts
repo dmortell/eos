@@ -1,4 +1,4 @@
-// Protect issued uploads (backlog, Dave 2026-10-04): an issued drawing keeps its floorplan only as a reference to the
+// Protect issued uploads (backlog, User 2026-10-04): an issued drawing keeps its floorplan only as a reference to the
 // file + page (`underlay:<fileId>#<page>` in the frozen copy, domain/issue.ts) and its package PDF as a file; deleting
 // or replacing either file would change or blank old issues. Uploads asks here before a delete or a same-name upload.
 // Reads the frozen copies (only when a file is deleted / replaced, which is rare).

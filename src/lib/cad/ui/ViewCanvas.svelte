@@ -78,7 +78,7 @@
 	let cam = $state<Camera>({ x: 0, y: 0, k: 0.05 })
 	let marquee = $state<Bounds | null>(null)
 	/** The selection box as drawn: inside an edited viewport the tool works in the viewport's view mm, so it goes onto
-	 *  the paper (Dave: "the select marquee is not visible" — it was drawn off the page). */
+	 *  the paper (User: "the select marquee is not visible" — it was drawn off the page). */
 	const mq = $derived.by((): Bounds | null => {
 		if (!marquee || !vpe) return marquee
 		const a = vpe.toPaper({ x: marquee.x0, y: marquee.y0 }), b = vpe.toPaper({ x: marquee.x1, y: marquee.y1 })
@@ -136,7 +136,7 @@
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: ws.layers.locked.size ? applyLayers(raw, project.index, { locked: ws.layers.locked }).pick : raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
 	// on a sheet the paper and its windows share the sheet's id, so that isn't highlighted (the picked VIEWPORT is, below);
-	// what's drawn on the paper (lines, notes, shapes) is, like in a view (Dave: a selected line on a sheet showed nothing)
+	// what's drawn on the paper (lines, notes, shapes) is, like in a view (User: a selected line on a sheet showed nothing)
 	const selected = $derived(new Set(spec.kind === 'sheet' ? ws.selection.filter((id) => id !== spec.sheetId) : ws.selection))
 	// the picked viewport: its frame and (unlocked) corner grips, a constant size on screen
 	const vpHighlight = $derived(spec.kind !== 'sheet' || !ws.viewportId || !ws.selection.includes(spec.sheetId) ? []
@@ -200,7 +200,7 @@
 	let viewKey = ''
 	$effect(() => { const c = cam; untrack(() => { if (viewKey && !hiddenUntilFit) cams.save(viewKey, c) }) })
 
-	/** Zoom previous (Z P, Dave 2026-10-14): every zoom or pan is remembered once it has paused for a moment. */
+	/** Zoom previous (Z P, User 2026-10-14): every zoom or pan is remembered once it has paused for a moment. */
 	const zooms = new ZoomHistory()
 	let settling: ReturnType<typeof setTimeout> | undefined
 	const settleNow = () => { clearTimeout(settling); settling = undefined; if (viewKey && !hiddenUntilFit) zooms.settle(viewKey, cam) }
@@ -213,7 +213,7 @@
 		if (c) cam = c
 		return !!c
 	}
-	/** Zoom window (Z W): two clicks in ACAD input, a press-drag in EOS (Dave) — corners in screen px. */
+	/** Zoom window (Z W): two clicks in ACAD input, a press-drag in EOS (User) — corners in screen px. */
 	let zwin = $state<{ a: Pt | null; b: Pt | null } | null>(null)
 	export function zoomWindow(): void {
 		zwin = { a: null, b: null }
@@ -228,7 +228,7 @@
 		cam = fit({ x0: Math.min(p.x, q.x), y0: Math.min(p.y, q.y), x1: Math.max(p.x, q.x), y1: Math.max(p.y, q.y) }, w, h, 0)
 	}
 
-	/** A plan whose floorplan is still rendering: its first fit waits for it (Dave: fitting to the outlets first and
+	/** A plan whose floorplan is still rendering: its first fit waits for it (User: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
 	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
 		project.dataIndex.ofType('underlay').some((u) => u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
@@ -297,7 +297,7 @@
 		else zoomExtents()
 	}
 
-	/** R / Shift+R and the ↻ ↺ buttons (Dave 2026-10-15): the selection turned 90° right (clockwise as seen) or left, about
+	/** R / Shift+R and the ↻ ↺ buttons (User 2026-10-15): the selection turned 90° right (clockwise as seen) or left, about
 	 *  the middle of what this view draws of it — one undo step, as the Rotate tool (runs ending on it follow). Null = done,
 	 *  else why not. */
 	export function turn90(dir: 1 | -1): string | null {
@@ -371,7 +371,7 @@
 		ws.say(`Selected ${ids.length} similar item${ids.length === 1 ? '' : 's'} in this view`)
 	}
 	const nudger = new Nudge()
-	/** An arrow key: the selection moves 50 mm (`big`: 500 mm; Dave: 1 mm was too small) in this view; on a sheet's
+	/** An arrow key: the selection moves 50 mm (`big`: 500 mm; User: 1 mm was too small) in this view; on a sheet's
 	 *  paper 1 / 10 mm; a rack row moves devices 1 U. */
 	export function nudge(dx: number, dy: number, big: boolean): void {
 		// editing inside a viewport: the model view's own step and directions (an elevation's up is z), not the paper's
@@ -464,7 +464,7 @@
 	/** The tool's cursor for what's under the pointer (Select: crosshair on a grip, move on what moves). */
 	const cursorCss = $derived.by(() => { void tick; return ws.tool.cursorNow?.() ?? ws.tool.cursor })
 	/** Length · angle · Δ in the status bar while drawing a run / line (from its last point) or dragging (from where the
-	 *  drag started) — backlog "Length / angle readout" (Dave: in the status bar, not at the cursor). */
+	 *  drag started) — backlog "Length / angle readout" (User: in the status bar, not at the cursor). */
 	const readout = $derived.by(() => {
 		void tick
 		const t = ws.tool, from = t.dragFrom?.() ?? (['line', 'trunk', 'conduit', 'wall'].includes(ws.toolId) ? t.lastPoint?.(ctx()) : null)
@@ -476,7 +476,7 @@
 	$effect(() => {
 		if (!active) return
 		const up = toolKind === 'elevation' || toolKind === 'section' || toolKind === 'row'
-		// with SNAP on, the point a click would take on the grid (Dave 2026-10-15: the readout ignored the grid)
+		// with SNAP on, the point a click would take on the grid (User 2026-10-15: the readout ignored the grid)
 		const g = ws.drafting.snap && spec.kind !== 'sheet' ? ws.drafting.grid : 0, r = (v: number) => (g ? Math.round(v / g) * g : Math.round(v))
 		ws.viewInfo = {
 			loading: floorplanPending,
@@ -548,7 +548,7 @@
 		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
 		if (e.button === 1 || e.button === 2) {
 			// Pan / zoom content on: a right / middle drag inside the edited or selected viewport pans ITS view, not the sheet
-			// (Dave 2026-10-15); a right click there is still a right click
+			// (User 2026-10-15); a right click there is still a right click
 			const cv = contentVpAt(e)
 			if (cv) vpPan = { at: paperAt(e), vp: cv, g: null }
 			panning = { ...local(e), moved: false, button: e.button }; return
@@ -569,7 +569,7 @@
 			// outside the edited viewport nothing is picked (the frame only); a double-click there leaves it
 			if (!inWindow(vpe, q)) { if (count >= 2) exitVp(); return }
 			if (ws.vpContentNav) { vpPan = { at: q, vp: vpe.vp, g: null }; return }
-			// annotations go on the VIEW, never into the model from a sheet (Dave 2026-10-07): an annotation tool leaves the
+			// annotations go on the VIEW, never into the model from a sheet (User 2026-10-07): an annotation tool leaves the
 			// viewport first, and the note is tied to it as when it isn't being edited
 			if (ANNOTATION_TOOLS.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
 		}
@@ -634,11 +634,11 @@
 			if (vpPan) { if (panning.moved) vpPan.g?.commit(ws.selection); else vpPan.g?.rollback(); vpPan = null }
 			const click = !panning.moved && panning.button === 2
 			panning = null
-			// a right CLICK (no drag) = Esc (Dave): the first ends what's being drawn (a run with 2+ points is kept, a
+			// a right CLICK (no drag) = Esc (User): the first ends what's being drawn (a run with 2+ points is kept, a
 			// half-made one dropped, an armed bulk patch / interconnect let go) and stays in the tool; the next, with
 			// nothing in progress, goes back to Select; in Select it clears the selection
 			// a right-click ON something (Select tool, nothing in progress) opens its menu (UX21); one not selected is
-			// selected first (Dave 2026-10-12: it cleared the selection instead)
+			// selected first (User 2026-10-12: it cleared the selection instead)
 			if (click && menuAt(e)) return
 			if (click) {
 				const handled = ws.tool.key?.({ key: 'Escape' } as KeyboardEvent, ctx()) ?? false
@@ -712,7 +712,7 @@
 		if (toolDown || vpPan || wDrag || panning) cancel()
 	}
 	export function refresh(): void { tick++ }
-	/** What's on screen, in view mm (the print ▾'s "on screen", Dave 2026-10-15). */
+	/** What's on screen, in view mm (the print ▾'s "on screen", User 2026-10-15). */
 	export function visibleBounds(): { x0: number; y0: number; x1: number; y1: number } { const a = toModel(cam, { x: 0, y: 0 }), b = toModel(cam, { x: w, y: h }); return { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) } }
 	/** The view as on screen, onto the clipboard as a PNG (decision T160, View › Copy view as picture). The SVG is
 	 *  drawn by the browser from a copy carrying its computed styles (the component's CSS doesn't travel with it) and its

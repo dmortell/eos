@@ -1,7 +1,7 @@
 // The TITLE BLOCK drawn on a sheet (Phase 4.2): Pages' three layouts as display-list prims in paper mm, so the
 // screen and the PDF draw the same thing — a STRIP down the right (default), a BAND along the bottom, or a COMPACT box
 // in the bottom-right corner. The full-width items in their order (logo images, logo text, the drawing office's block,
-// wide fields — all placed like fields, Dave 2026-10-05), the revision table, then the half-width fields as a grid.
+// wide fields — all placed like fields, User 2026-10-05), the revision table, then the half-width fields as a grid.
 // Returns the prims and the area it takes.
 import type { TbShown, TbCell } from '../domain/titleBlock'
 import type { Prim, Bounds } from './display'

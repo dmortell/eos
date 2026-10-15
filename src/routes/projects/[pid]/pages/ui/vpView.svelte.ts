@@ -316,7 +316,7 @@ export class VpView {
 		this.on.view?.({ zoom: v.zoom, x: v.x + dx / m.scale, y: v.y + dy / m.scale })
 	}
 	/** Zoom at the cursor. MODEL SPACE free-zooms its own content view (keyed per pane+tab). A SHEET VIEWPORT has no
-	 *  zoom of its own (Dave 2026-09-30): zooming changes its SCALE — any whole 1:N, like the Sheets tool — so what is
+	 *  zoom of its own (User 2026-09-30): zooming changes its SCALE — any whole 1:N, like the Sheets tool — so what is
 	 *  shown is what prints at the scale in its title block. The content view keeps zoom 1: a zoom z folds into the scale
 	 *  (N' = N / z, view += (z − 1)·C — the content maps as view + z·(C + (P − C)/N)), which also absorbs an older
 	 *  viewport's leftover content zoom the first time it is zoomed. */
@@ -573,7 +573,7 @@ export class VpView {
 		const sp = this.toClient(at[0], at[1]); if (!sp) return null
 		const r = svg.getBoundingClientRect()
 		// client px → .vp-LOCAL px: on a zoomed sheet the viewport is CSS-scaled, so divide by its on-screen scale (else the
-		// toolbar lands far from the box — Dave, Zone 3303 elevations)
+		// toolbar lands far from the box — User, Zone 3303 elevations)
 		const k = this.vpW ? r.width / this.vpW : 1
 		// `line`: ONE view (a line section or an elevation marker — drop again = another linked viewport; flip / turn)
 		return { x: (sp.x - r.left) / (k || 1), y: (sp.y - r.top) / (k || 1), id: s.id, line: s.kind === 'line' || s.kind === 'elev', elev: s.kind === 'elev',

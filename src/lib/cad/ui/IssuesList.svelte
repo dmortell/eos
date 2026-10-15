@@ -39,7 +39,7 @@
 		onreissue(list, pkg?.type === 'package' ? pkg : undefined)
 		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
 	}
-	/** An issue from before packages (Dave D9): a list package of its sheets, and the issue linked to it — one undo step. */
+	/** An issue from before packages (User D9): a list package of its sheets, and the issue linked to it — one undo step. */
 	function makePackage(i: Issue) {
 		const order = Math.max(0, ...project.index.ofType('package').map((p) => p.order)) + 10
 		const p = packageFromIssue(i, newId(), order)

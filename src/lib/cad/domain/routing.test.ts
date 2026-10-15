@@ -42,7 +42,7 @@ describe('routing', () => {
 		expect(r.lengthM).toBe(Math.ceil((RACK_DROP + 9000) / 1000 + 0.5))   // 11.36 + 0.5 → 12
 		expect(r.segs).toEqual([{ shape: 'T1', seg: 'T1s0' }])
 	})
-	it('an outlet by a stub shorter than the join distance joins the run beside it, not the stub (Dave: Journey TV06 — a 38 mm end bit, "not connected")', () => {
+	it('an outlet by a stub shorter than the join distance joins the run beside it, not the stub (User: Tourney TV06 — a 38 mm end bit, "not connected")', () => {
 		// T1 ends with a 38 mm bit going off sideways at x = 10000; the outlet is nearest that bit
 		const stubbed = { ...run('T1', 'L1', [[0, 500, 0], [10000, 500, 0], [10000, 538, 0]]) }
 		const ix = new ProjectIndex([...project().byId.values()].map((e) => (e.id === 'T1' ? stubbed : e)).concat([outlet('O1', 'L1', 10000, 1100), link('K1', 'O1')] as Entity[]))
@@ -168,7 +168,7 @@ describe('routing', () => {
 	})
 })
 
-describe('cable schedule (Dave: on screen, then Excel)', () => {
+describe('cable schedule (User: on screen, then Excel)', () => {
 	it('one row per link: from the panel, to the outlet port, route + slack = installed length; no route flagged', () => {
 		const ix = project([outlet('O1', 'L1', 8000, 1500), link('K1', 'O1'), outlet('O9', 'L2', 0, 0), link('K9', 'O9', 2)])
 		const rows = cableSchedule(ix, routeLinks(ix, { slackM: 0.5, wastePct: 10 }), { slackM: 0.5, wastePct: 10 })

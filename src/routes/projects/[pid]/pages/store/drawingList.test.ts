@@ -4,7 +4,7 @@ import { newSheetDoc } from './mappers'
 import type { PagesSheetDoc, Place } from './schema'
 
 const places: Place[] = [
-	{ id: 'b', name: 'Hibiya', kind: 'building', parentId: null, order: 0 },
+	{ id: 'b', name: 'building1', kind: 'building', parentId: null, order: 0 },
 	{ id: 'f', name: '33F', kind: 'floor', parentId: 'b', order: 0 },
 ]
 const sheet = (id: string, over: Partial<PagesSheetDoc> = {}): PagesSheetDoc =>
@@ -19,16 +19,16 @@ describe('drawing list', () => {
 	]
 	const rows = sheetRows(sheets, places)
 	it('rows carry the place path; filters by text, kind, tag and status', () => {
-		expect(rows[0].placePath).toBe('Hibiya › 33F')
+		expect(rows[0].placePath).toBe('building1 › 33F')
 		expect(rows[1].placePath).toBe('')
-		expect(filterRows(rows, { q: 'hibiya', status: 'active' }).map((r) => r.id)).toEqual(['A'])
+		expect(filterRows(rows, { q: 'building1', status: 'active' }).map((r) => r.id)).toEqual(['A'])
 		expect(filterRows(rows, { kind: 'plan' }).map((r) => r.id)).toEqual(['A', 'C'])
 		expect(filterRows(rows, { tag: 'late' }).map((r) => r.id)).toEqual(['C'])
 	})
 	it('sorts naturally with blanks last; groups with the (none) group last; a row under each tag', () => {
 		expect(sortRows(rows, 'number').map((r) => r.id)).toEqual(['B', 'A', 'C'])
 		expect(sortRows(rows, 'number', -1).map((r) => r.id)).toEqual(['A', 'B', 'C'])
-		expect(groupRows(rows, 'place').map((g) => g.label)).toEqual(['Hibiya › 33F', '(no place)'])
+		expect(groupRows(rows, 'place').map((g) => g.label)).toEqual(['building1 › 33F', '(no place)'])
 		expect(groupRows(rows, 'tag').map((g) => [g.label, g.rows.length])).toEqual([['issue1', 2], ['late', 1], ['(no tag)', 1]])
 	})
 	it('renumbers by pattern, padded or not', () => {

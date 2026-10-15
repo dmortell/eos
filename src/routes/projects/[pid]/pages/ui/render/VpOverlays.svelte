@@ -136,7 +136,7 @@
 {/if}
 <!-- F6: connection points (Visio-style ×) — where a trunk / pipe end attaches -->
 {#each v.connMarks as c, i (i)}
-	<!-- half the grip size (Dave: they filled the screen with many points) -->
+	<!-- half the grip size (User: they filled the screen with many points) -->
 	<g stroke="#22c55e" stroke-width={1.2 * sw} opacity="0.9"><line x1={c.x - gs * 0.35} y1={c.y - gs * 0.35} x2={c.x + gs * 0.35} y2={c.y + gs * 0.35} /><line x1={c.x - gs * 0.35} y1={c.y + gs * 0.35} x2={c.x + gs * 0.35} y2={c.y - gs * 0.35} /></g>
 {/each}
 <!-- object-snap marker (constant screen size): □ endpoint · △ midpoint · ○ centre · ◇ quadrant -->

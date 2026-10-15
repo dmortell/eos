@@ -20,7 +20,7 @@ describe('patch schedule', () => {
 		expect(c1[PATCH_HEAD.indexOf('From Label')]).toBe('33-001.A')   // the outlet port label the panel port carries
 		expect(c1[PATCH_HEAD.length - 1]).toBe('C1') // Key = the cord's id
 	})
-	it('each end: device, label, then rack, U, face, port (Dave 2026-10-11)', () => {
+	it('each end: device, label, then rack, U, face, port (User 2026-10-11)', () => {
 		expect(PATCH_HEAD.slice(1, 13)).toEqual(['From Device', 'From Label', 'From Rack', 'From U', 'From Face', 'From Port', 'To Device', 'To Label', 'To Rack', 'To U', 'To Face', 'To Port'])
 		const c1 = patchScheduleRows(ix()).find((r) => r.cells.at(-1) === 'C1')!.cells
 		expect(c1.slice(1, 7)).toEqual(['Panel 1', '33-001.A', 'A01', expect.any(Number), 'front', 1])
@@ -53,7 +53,7 @@ describe('a sheet per room (patch-list-plan.md D4)', () => {
 	})
 })
 
-describe('patch changes in the schedule (backlog check, Dave)', () => {
+describe('patch changes in the schedule (backlog check, User)', () => {
 	it('an add, a move and a removal each show in their group; moved / removed cords say where they were', () => {
 		// both cords installed on site; then: C1 moved to switch port 5, C2 removed, a new cord P1:3 → SW1:3 added
 		let ents: Entity[] = demoProject().map((e) => (e.type === 'cord' ? { ...(e as Cord), status: 'installed' as const } : e))

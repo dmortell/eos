@@ -96,7 +96,7 @@
 			{#if panesCount === 1}
 				<button class="strip-btn" title="Split editor right" onclick={ws.splitVertical}><Icon name="panels" size={14} /></button>
 			{:else if pi === 1}
-				<!-- only the RIGHT pane closes the split: the left pane (p1) always remains (Dave 2026-09-23) -->
+				<!-- only the RIGHT pane closes the split: the left pane (p1) always remains (User 2026-09-23) -->
 				<button class="strip-btn" title="Close this split" onclick={() => ws.closePane(pi)}><Icon name="close" size={14} /></button>
 			{/if}
 			{#if tabMenuOpen}

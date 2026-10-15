@@ -1,4 +1,4 @@
-// What a backup holds (ADR 0008 §2): the whole project, or a set of MODELS (levels — Journey's 33F is two of them,
+// What a backup holds (ADR 0008 §2): the whole project, or a set of MODELS (levels — Tourney's 33F is two of them,
 // "33F 3303" and "33F 3307"). A model holds the level, what stands on it (spaces, outlets, underlays, plan shapes,
 // sections, racks with their rows, devices and cords) and the links / cords with an end on it. A link with only one
 // end inside CROSSES the edge: it is kept with the backup, marked with the end that is outside.

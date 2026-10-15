@@ -20,7 +20,7 @@ export type PageDoc = {
 	scale: string
 	frames: SheetFrame[]
 	/** The sheet has had a viewport (its default one was seeded, or one was added): a sheet the user then EMPTIES
-	 *  stays empty — only a brand-new sheet gets the default viewport (Dave: Delete "did nothing", it re-seeded). */
+	 *  stays empty — only a brand-new sheet gets the default viewport (User: Delete "did nothing", it re-seeded). */
 	seeded?: boolean
 	revisions?: { name: string; note: string; t: number }[]
 	modelId?: import('./3dview/types').ModelId

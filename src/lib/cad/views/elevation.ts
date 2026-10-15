@@ -17,7 +17,7 @@ import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
-const LABEL = 1.8, DATUM_LABEL = 1.8, RACK_NAME = 2.5   // paper mm: printed at these sizes at any viewport scale (Dave 2026-10-15: 0.5 / 0.9 were tiny on a 1:10 sheet)
+const LABEL = 1.8, DATUM_LABEL = 1.8, RACK_NAME = 2.5   // paper mm: printed at these sizes at any viewport scale (User 2026-10-15: 0.5 / 0.9 were tiny on a 1:10 sheet)
 /** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
 const FACEPLATE_MM = 86
 
@@ -25,7 +25,7 @@ export interface Item { depth: number; prims: Prim[] }
 
 /** `range` (a section): only what lies between depth `far` and `near` (view depth: larger = nearer), clipped to u0..u1
  *  across; `extra` = more items (a section's cut walls), drawn in depth order with the rest. */
-/** `band` (UX review UX14, a test for Dave): an elevation's depth band — what's nearer than `near` is left out (as a
+/** `band` (UX review UX14, a test for User): an elevation's depth band — what's nearer than `near` is left out (as a
  *  section cuts it away), what's beyond `far` is drawn faded, so the near things read. */
 export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpace, o: { scale: number; range?: { near: number; far: number; u0: number; u1: number }; band?: { near: number; far: number }; extra?: Item[]; blocks?: (id: Id) => Block | undefined }): Prim[] {
 	const k = o.scale, level = ix.get(levelId) as Level | undefined
@@ -33,7 +33,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	const rect = rectView, uSpan = spanIn(sp)
 
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) items.push(rackItem(ix, r, sp, rect, uSpan, k))
-	// only outlets placed in an elevation / section (on a wall): one placed on a plan is a plan symbol (Dave 2026-10-10)
+	// only outlets placed in an elevation / section (on a wall): one placed on a plan is a plan symbol (User 2026-10-10)
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at && ot.inElevations) items.push(outletItem(ot, level, sp, rect, k))
 	// Path nodes on another level (a riser's far end) are lifted by the difference in level heights.
 	const elev = (id?: Id) => { const l = id ? ix.get(id) : undefined; return l?.type === 'level' ? l.elevationMm : 0 }
@@ -104,7 +104,7 @@ const rectView: RectFn = (u0, u1, z0, z1, cls, src, fill = true) =>
 /** The u extent of some model points in this view. */
 const spanIn = (sp: ViewSpace): SpanFn => (pts) => { const us = pts.map((p) => sp.fromWorld(p).x); return [Math.min(...us), Math.max(...us)] as const }
 
-/** A 3D block's insert as this view draws it (the Insert tool's ghost, Dave 2026-10-14): its side, not its top. */
+/** A 3D block's insert as this view draws it (the Insert tool's ghost, User 2026-10-14): its side, not its top. */
 export function blockSideView(ins: Shape, b: Block, sp: ViewSpace, k: number): Prim[] {
 	return solidItems(ins, b, sp, rectView, spanIn(sp), (n) => n.z, k).sort((x, y) => x.depth - y.depth).flatMap((it) => it.prims)
 }
@@ -113,13 +113,13 @@ function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
 	return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([x, y]) => { const q = rotate({ x, y }, rot); return { x: at.x + q.x, y: at.y + q.y, z } })
 }
 
-/** A rack in an ARCHITECTURAL view: its body and its devices as plain boxes — no device names (Dave 2026-10-15: the rack view is the
+/** A rack in an ARCHITECTURAL view: its body and its devices as plain boxes — no device names (User 2026-10-15: the rack view is the
  *  schematic one) — and its name ABOVE it at the rack view's size. It stands on its room's floor. */
 function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, k: number): Item {
 	const [u0, u1] = uSpan(footprint(r.at!, r.widthMm, r.depthMm, r.rot))
 	const h = r.heightMm ?? r.heightU * RU_MM + 150, f = roomFloor(ix, r.spaceId)
 	const prims: Prim[] = [rect(u0, u1, f, f + h, 'rack', r.id)]
-	// its devices as plain boxes at their U, when its front or rear faces the viewer — no names (Dave 2026-10-15)
+	// its devices as plain boxes at their U, when its front or rear faces the viewer — no names (User 2026-10-15)
 	const facing = sp.frame ? rackFrontNormal(r).x * sp.frame.n.x + rackFrontNormal(r).y * sp.frame.n.y : 0
 	const face = facing > 0.5 ? 'front' : facing < -0.5 ? 'rear' : null
 	if (face) {
@@ -163,7 +163,7 @@ function viewGeom(g: Shape['geom'], to: (p: Pt) => Pt): Shape['geom'] | null {
 	}
 }
 
-/** Drawing on a plan (Dave 2026-10-10: not shown in elevations): a flat line, box, circle or polygon — no height, no
+/** Drawing on a plan (User 2026-10-10: not shown in elevations): a flat line, box, circle or polygon — no height, no
  *  role, not on an elevation's plane. A line rising (its nodes at different heights or levels) is a 3D line: shown. */
 function planDrawing(s: Shape): boolean {
 	if (s.role || s.plane?.kind === 'vertical' || !isFlat(s)) return false
@@ -250,7 +250,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 	return []   // plan notes and dimensions don't show in elevations
 }
 
-/** A 3D block's insert seen in this view (Dave 2026-10-14): its boxes as any box is; its lines unless they collapse to
+/** A 3D block's insert seen in this view (User 2026-10-14): its boxes as any box is; its lines unless they collapse to
  *  a point here (seen end-on); its labels ({TAG} texts) facing you, centred over its top; its flat regions and plain
  *  texts (flat on the plan, so seen edge-on here) not at all. */
 function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (n: { z: number; levelId?: Id }, s: Shape) => number, k: number): Item[] {
@@ -272,7 +272,7 @@ function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: Sp
 
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */
 /** A trunk / conduit cut off by a section's end (it runs on past the cut line): an S-shaped break across it there — two
- *  semicircles, top one bulging out of the view, the lower one back in (Dave 2026-10-15). Drawn on its body (the
+ *  semicircles, top one bulging out of the view, the lower one back in (User 2026-10-15). Drawn on its body (the
  *  closed outline), as tall as it is where it's cut. */
 function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number): Prim[] {
 	const out: Prim[] = []
@@ -304,7 +304,7 @@ function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number): Pr
 	return out
 }
 
-/** The storey lines, drawn and named as the rack view draws them (Dave 2026-10-15): CSL (the slab above) and FSL (the
+/** The storey lines, drawn and named as the rack view draws them (User 2026-10-15): CSL (the slab above) and FSL (the
  *  floor slab) solid and a little heavier, the ceiling dashed, FFL solid — and, for every room whose racks this view
  *  shows with its OWN floor / ceiling (a server room's FL+200 floor), that room's lines too, so a difference shows. */
 function datums(ix: ProjectIndex, prims: Prim[], level: Level | undefined, k: number): Prim[] {

@@ -7,7 +7,7 @@ import { newId } from '../domain/ids'
 import { snapPt, placeAt, type Tool, type ToolCtx, type PointerIn } from './tools'
 
 /**
- * Rack, on the plan (Dave: racks are drawn on the floor plan, then assigned to rows).
+ * Rack, on the plan (User: racks are drawn on the floor plan, then assigned to rows).
  *  - With a `target` (Place from the racks list): put that rack where you click, then back to Select.
  *  - Without: each click draws a NEW rack, like the last one drawn (room, row, size, kind, rotation), named after it
  *    (A01 → A02). The tool stays on, so a row is just clicks in a line — a click beside the last rack butts the new one

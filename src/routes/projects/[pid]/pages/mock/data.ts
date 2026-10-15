@@ -48,7 +48,7 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 	subhead?: boolean }
 
 /** The project sits above the tree as a label (click → project props). */
-export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }
+export const NAV_PROJECT = { id: 'project', label: 'Project Tourney', kind: 'project' }
 
 /** B18: the navigator node id of a drawing, looked up by its label (the Ctrl-K palette only has titles);
  *  undefined when the drawing isn't in the tree. */
@@ -62,7 +62,7 @@ export function navDrawingId(label: string, nodes: NavNode[] = NAV_TREE): string
 }
 
 export const NAV_TREE: NavNode[] = [
-	{ id: 'b-hibiya', label: 'Hibiya Midtown', folder: 'building', children: [
+	{ id: 'b-building1', label: 'building1', folder: 'building', children: [
 		{ id: 'f33', label: '33F', folder: 'floor', children: [
 			{ id: 'f33-plan', label: '33F — Floorplan', drawing: 'plan' },
 			{ id: 'f33-hlo', label: '33F — High Level Outlets', drawing: 'sheet' },
@@ -109,21 +109,21 @@ export const REVISIONS = ['A', 'B', 'C', 'D']
 // ── Ctrl-K command palette ─────────────────────────────────────────────────
 export type PItem = { title: string; kind: 'plan' | 'sheet' | 'elevation' | 'place'; path?: string }
 export const PALETTE_ITEMS: PItem[] = [
-	{ title: '33F — Floorplan', kind: 'plan', path: 'Hibiya · 33F' },
-	{ title: '33F — High Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
-	{ title: '33F — Low Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
-	{ title: '33F — Trunk Routes', kind: 'sheet', path: 'Hibiya · 33F' },
-	{ title: 'Zone 3303 — Outlets', kind: 'sheet', path: 'Hibiya · 33F · Zone 3303' },
-	{ title: 'IDF1 — Rack Elevation', kind: 'elevation', path: 'Hibiya · 33F · Zone 3303' },
-	{ title: 'Zone 3303', kind: 'place', path: 'Hibiya · 33F' },
-	{ title: 'IDF1', kind: 'place', path: 'Hibiya · 33F · Zone 3303' },
-	{ title: '30F — Floorplan', kind: 'plan', path: 'Hibiya · 30F' },
+	{ title: '33F — Floorplan', kind: 'plan', path: 'building1 · 33F' },
+	{ title: '33F — High Level Outlets', kind: 'sheet', path: 'building1 · 33F' },
+	{ title: '33F — Low Level Outlets', kind: 'sheet', path: 'building1 · 33F' },
+	{ title: '33F — Trunk Routes', kind: 'sheet', path: 'building1 · 33F' },
+	{ title: 'Zone 3303 — Outlets', kind: 'sheet', path: 'building1 · 33F · Zone 3303' },
+	{ title: 'IDF1 — Rack Elevation', kind: 'elevation', path: 'building1 · 33F · Zone 3303' },
+	{ title: 'Zone 3303', kind: 'place', path: 'building1 · 33F' },
+	{ title: 'IDF1', kind: 'place', path: 'building1 · 33F · Zone 3303' },
+	{ title: '30F — Floorplan', kind: 'plan', path: 'building1 · 30F' },
 	{ title: 'Office 1201 — Outlets', kind: 'sheet', path: 'Shinmaru · 18F' },
 ]
 
 // ── Properties panel: mock fields per tree-node kind (label → placeholder) ──
 export const NODE_FIELDS: Record<string, [string, string][]> = {
-	project: [['Client', 'Journey K.K.'], ['Number', 'EOS-2314'], ['Address', 'Chiyoda, Tokyo'], ['Discipline', 'ICT / Structured Cabling']],
+	project: [['Client', 'Tourney K.K.'], ['Number', 'EOS-2314'], ['Address', 'Chiyoda, Tokyo'], ['Discipline', 'ICT / Structured Cabling']],
 	building: [['Address', '—'], ['Floors', '—']],
 	floor: [['Level', '—'], ['Elevation (mm)', '0']],
 	zone: [['Type', 'Office'], ['Server room', 'IDF1']],

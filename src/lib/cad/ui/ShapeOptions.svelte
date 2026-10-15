@@ -16,7 +16,7 @@
 	<label class="opt" title="How deep the box is, from the work plane away from you (mm)">Depth <input type="number" min="1" step="10" value={o.depth ?? 600} onchange={(e) => set({ depth: Math.max(1, Number(e.currentTarget.value) || 600) })} /></label>
 	<span class="hint">corner to corner: its width and height (or type width,height) · its front on the work plane · Shift: square</span>
 {:else}
-<!-- the Box tool's footprint is picked from its flyout in the tools (Box / Cylinder / Polygon box, Dave 2026-10-15) -->
+<!-- the Box tool's footprint is picked from its flyout in the tools (Box / Cylinder / Polygon box, User 2026-10-15) -->
 {#if !box}<label class="opt">Shape
 	<select value={o.kind} onchange={(e) => set({ kind: e.currentTarget.value as ShapeKind })}>
 		<option value="rect">Rectangle</option><option value="polygon">Polygon</option><option value="ellipse">Ellipse</option><option value="arc">Arc (3 points)</option>

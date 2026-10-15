@@ -21,7 +21,7 @@ const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms))
 describe('PagesStore', () => {
 	const P = 'proj1'
 	const boot = () => {
-		const f = fakeDb(), s = new PagesStore(f.db, P, 'dave', { delayMs: 1 })
+		const f = fakeDb(), s = new PagesStore(f.db, P, 'user', { delayMs: 1 })
 		s.start()
 		f.pushOne(`projects/${P}`, { id: P, name: 'X' })
 		f.pushMany(`projects/${P}/drawings`, [])
@@ -68,7 +68,7 @@ describe('PagesStore', () => {
 		expect(s.sheetsIn('p1').map((x) => x.title)).toEqual(['A', 'B'])
 		await tick()
 		expect(f.writes.filter((w) => w.path === `projects/${P}/drawings`).map((w) => [w.data.toolType, w.data.drawingNumber, w.data.createdBy]))
-			.toEqual([['pages', '', 'dave'], ['pages', '', 'dave'], ['pages', '', 'dave']])
+			.toEqual([['pages', '', 'user'], ['pages', '', 'user'], ['pages', '', 'user']])
 	})
 	it('applies a remote sheet change, keeps a pending local one, and drops a remotely deleted sheet', async () => {
 		const { f, s } = boot()
@@ -93,7 +93,7 @@ describe('PagesStore', () => {
 	})
 	it('reports REMOTE model changes and deletions to onModels — never the echo of its own save', async () => {
 		const f = fakeDb(), calls: [string[], string[]][] = []
-		const s = new PagesStore(f.db, P, 'dave', { delayMs: 1, onModels: (c, r) => calls.push([c.map((d) => d.id), r]) })
+		const s = new PagesStore(f.db, P, 'user', { delayMs: 1, onModels: (c, r) => calls.push([c.map((d) => d.id), r]) })
 		s.start()
 		const path = `projects/${P}/models`
 		f.pushMany(path, [{ id: 'a', name: 'A', objects: [] }])

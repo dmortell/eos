@@ -1,5 +1,5 @@
 // Properties › SIZE on a ROTATED box (a 2D rect / ellipse, a 3D box / rack): a box turns about its CENTRE, so growing
-// it from its unrotated top-left corner moved the centre and the whole thing slid (Dave: "when I change w/h … its
+// it from its unrotated top-left corner moved the centre and the whole thing slid (User: "when I change w/h … its
 // position changes"). Keep the corner the user SEES — the top-left corner as drawn (rotated) — fixed instead. An
 // unrotated box is unchanged: its top-left stays where it was, as before. Pure.
 import type { Pt } from './geometry'

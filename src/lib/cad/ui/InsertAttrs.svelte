@@ -1,4 +1,4 @@
-<!-- BLOCK ATTRIBUTES on one or several inserts (backlog "Block attributes on an insert", Dave 2026-10-05): each attribute
+<!-- BLOCK ATTRIBUTES on one or several inserts (backlog "Block attributes on an insert", User 2026-10-05): each attribute
      their blocks have (declared, or a `{TAG}` in a text) with its value — "mixed" where they differ — and Shown:
      unticked keeps the value as data but doesn't draw it (hidden). Blank = the block's default. One undo step per edit. -->
 <script lang="ts">

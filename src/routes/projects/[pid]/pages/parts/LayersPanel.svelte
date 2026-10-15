@@ -179,7 +179,7 @@
 								title={inMulti(l.id) ? `${selLayers.length} layers selected — drag to move them together` : 'Drag to reorder (sets draw z-order) · Ctrl / Shift+click: select several'}
 								{...dr.row(l.id)} onclick={(e) => rowClick(e, l.id)}>
 								<!-- in a sheet viewport (paper) the eye hides the layer in THAT viewport only (VP Freeze) — hiding it
-								     everywhere by accident is too easy; Shift+click hides it globally (Dave 2026-09-26) -->
+								     everywhere by accident is too easy; Shift+click hides it globally (User 2026-09-26) -->
 								<button class="ly-eye" class:vp={!!frozen} aria-label="Show/hide {l.name}"
 									title={away ? `Shown only in the viewport it was made in — click to show it ${frameId ? 'in this viewport too' : 'everywhere'}` : frozen ? (vpHidden ? 'Show in this viewport' : 'Hide in this viewport only') + ' · Shift+click: ' + (l.visible ? 'hide everywhere' : 'show everywhere') : l.visible ? 'Hide' : 'Show'}
 									onclick={(e) => { e.stopPropagation(); eyeClick(e, l) }}>

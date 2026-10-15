@@ -30,7 +30,7 @@
 	{@const s = v.structure}
 	<g pointer-events="none">
 		{#each s.slabs as b, i (i)}<rect x={s.x0} y={b.y0} width={s.x1 - s.x0} height={b.y1 - b.y0} fill={s.floorColor} fill-opacity="0.35" stroke={s.floorColor} stroke-width="1" vector-effect="non-scaling-stroke" />{/each}
-		<!-- raised floor + ceiling: 1 px, darker tones (Dave: were too faint) -->
+		<!-- raised floor + ceiling: 1 px, darker tones (User: were too faint) -->
 		{#each s.floors as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#6b6152" stroke-width="1" vector-effect="non-scaling-stroke" />{/each}
 		{#each s.ceilings as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#7d5f74" stroke-width="1" stroke-dasharray="6 3" vector-effect="non-scaling-stroke" />{/each}
 		<!-- the ceiling SLAB's underside (the plenum between it and the ceiling): thin dash-dot -->
@@ -155,7 +155,7 @@
 	.section-line { stroke:#0e7490; stroke-dasharray:12 4 2 4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-line.sel { stroke-dasharray:none; }
 	/* the region it sees (only while selected): the SELECTION look of any shape (SEL teal, full strength, dashed) — the
-	   old 40 % stroke / 7 % fill was hard to see (Dave 2026-10-01) */
+	   old 40 % stroke / 7 % fill was hard to see (User 2026-10-01) */
 	.section-region { fill:#0e74901f; stroke:#0e7490; stroke-width:1.5; stroke-dasharray:6 3; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-depth { fill:#fff; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
 	/* A section seen in an elevation: its band (dashed; faint when it sees every height), solid when selected. */

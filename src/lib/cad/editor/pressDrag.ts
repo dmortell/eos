@@ -1,4 +1,4 @@
-// EOS input mode's press-drag drawing (Dave 2026-10-13): press at the first point, drag, release at the second. The
+// EOS input mode's press-drag drawing (User 2026-10-13): press at the first point, drag, release at the second. The
 // click tools (line / trunk / conduit / wall runs, dimension) only understand clicks, so this turns one press-drag into
 // the clicks they already take — nothing in the tools changes. Shape tools (rectangle, ellipse, box, image) already
 // draw on a press-drag themselves and are left alone.

@@ -1,6 +1,6 @@
 # Phase 7 — Decommission
 
-**Status:** DRAFT for Dave's review (2026-10-02). Nothing is deleted before the answers (§6).
+**Status:** DRAFT for User's review (2026-10-02). Nothing is deleted before the answers (§6).
 - **Exit** (analysis §7): `src/routes/projects/[pid]/` holds only the cad tool and Uploads (plus Surveys).
 - **Retires:** Pages, and with it every legacy route.
 
@@ -22,7 +22,7 @@
 | Project | Pages sheets | Pages models | Sheets-tool sheets | packages | other registry leaves | cad entities |
 |---|---|---|---|---|---|---|
 | Test Project | 10 | 4 | 7 (+1 sheetPackage) | 2 | outlets 2, racks 5, frames 2, risers 2, page 1 | 377 |
-| Journey | 8 | 8 | 19 | 1 | racks 37, outlets 27, risers 2, page 3 | 1,197 |
+| Tourney | 8 | 8 | 19 | 1 | racks 37, outlets 27, risers 2, page 3 | 1,197 |
 | LR | — | — | 2 | — | outlets 32, risers 2 | **0 (never imported)** |
 | Netflix 123 | — | — | — | — | outlets 4, racks 4 | **0 (never imported)** |
 
@@ -47,15 +47,15 @@
 | # | Slice | Contents | Check |
 |---|---|---|---|
 | 7.1 | **Untangle** (no behaviour change) | move frames' port-label engine + types and `CAD_FILE` constants into `lib`; the project page's `Project` type from `lib/types`; nothing outside the doomed folders imports them | svelte-check clean; cad import still identical on Test Project |
-| 7.2 | **Import Pages sheets** | Pages sheets → cad sheets (paper, frames → viewports by direction / scale / model → level, clip), `revLog` → revisions, `projects.pages.titleBlock` → settings (same model), global Pages blocks → cad blocks | Journey's 8 Pages sheets open in cad looking like Pages' |
-| 7.3 | **Import Sheets-tool sheets** | viewport sources: outlets → plan, racks → rack row, risers → riser view, text → paper text, model3d → plan / section, fillrate → a note; title, number, paper, revisions; sheetPackages / packages → §6 Q4 | Journey's 19 sheets in the register |
-| 7.4 | **Pages models** (§6 Q3) | model objects → cad shapes on their level (walls → walls with openings, conduits / trunks → runs, prisms → boxes, annotations → shapes), sections → sections, layers | Journey 33F model in the cad plan, no duplicates of imported runs |
+| 7.2 | **Import Pages sheets** | Pages sheets → cad sheets (paper, frames → viewports by direction / scale / model → level, clip), `revLog` → revisions, `projects.pages.titleBlock` → settings (same model), global Pages blocks → cad blocks | Tourney's 8 Pages sheets open in cad looking like Pages' |
+| 7.3 | **Import Sheets-tool sheets** | viewport sources: outlets → plan, racks → rack row, risers → riser view, text → paper text, model3d → plan / section, fillrate → a note; title, number, paper, revisions; sheetPackages / packages → §6 Q4 | Tourney's 19 sheets in the register |
+| 7.4 | **Pages models** (§6 Q3) | model objects → cad shapes on their level (walls → walls with openings, conduits / trunks → runs, prisms → boxes, annotations → shapes), sections → sections, layers | Tourney 33F model in the cad plan, no duplicates of imported runs |
 | 7.5 | **Soft retire** | the project page, palette and title bar list only cad, Uploads, Surveys; old routes still open by URL with a "retired — use cad" banner; import LR + Netflix into cad first (§6 Q2) | Every project opens in cad with its data |
 | 7.6 | **Delete** | the route folders above + legacy-only `lib` (rack, pages, versioning, autosave, history, panzoom, formNav, ui/print, types/pages + versioning, catalog/service; check logger), in one commit after the grace period; Firestore data kept untouched | svelte-check + tests clean; the exit |
 
 Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
 
-## 3. Questions for Dave (referred to as §6 above)
+## 3. Questions for User (referred to as §6 above)
 
 1. **The `pages/` folder:**
    - Your standing rule is "don't edit files in the pages folder", and another session works there in bug-fix mode.
@@ -78,16 +78,16 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
    deleted, just unused)?
 7. **workspace / edit3d / parts / surveys routes:** delete with the rest?
 
-## 3a. Decisions (Dave, 2026-10-02)
+## 3a. Decisions (User, 2026-10-02)
 
 1. **No deleting yet.** cad still lacks functionality. The old tools' links move into a CLOSED accordion on the
    project page.
    - 7.6 (delete) stays planned, but is not implemented until cad is feature complete.
 2. **Untangle now (7.1):** move the type / constants Uploads uses (and the port-label engine the cad importer needs)
    out of the old folders.
-3. **Projects:** import **LR** into cad. **Netflix 123** will be deleted (by Dave), so it isn't imported.
+3. **Projects:** import **LR** into cad. **Netflix 123** will be deleted (by User), so it isn't imported.
 4. **History:** not imported into Issues.
-5. **Legacy risers / fillrate:** left as they are until Dave has finished testing for gaps.
+5. **Legacy risers / fillrate:** left as they are until User has finished testing for gaps.
 6. **Racks library → global device templates:** try it.
 7. **Surveys tool:** kept. The other routes (workspace, edit3d, parts): decided later.
 8. **Pages models (Q3):** pending the counts below.
@@ -96,7 +96,7 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
 | Project | cad (from Outlets / drawn) | Pages models |
 |---|---|---|
 | Test Project | 6 runs (trunk 4, tray 1, + the test riser), 1 wall (drawn in cad), 29 racks | "test": 4 prisms, 3 conduits · "4F": 7 prisms, 1 conduit, 1 wall, 26 notes, 1 section · "1F": 14 notes · "Room A": empty |
-| Journey | 15 runs (conduit 11, trunk 3, tray 1), 25 racks, 580 outlets | "Zone 3303": 61 prisms, 13 conduits, 3 walls, 130 notes, 3 sections · "Hibiya Midtown": 10 prisms, 9 conduits · "Zone 3307": 5 conduits, 63 notes · "10F L10 WeWork": 55 notes · four floors with 0–1 notes |
+| Tourney | 15 runs (conduit 11, trunk 3, tray 1), 25 racks, 580 outlets | "Zone 3303": 61 prisms, 13 conduits, 3 walls, 130 notes, 3 sections · "building1": 10 prisms, 9 conduits · "Zone 3307": 5 conduits, 63 notes · "10F L10 building2": 55 notes · four floors with 0–1 notes |
 | LR | not imported yet | none |
 
 - Pages "prisms" are boxes: racks / furniture / equipment drawn in Pages. cad's racks come from the Racks tool, so
@@ -131,4 +131,4 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
 - **The import:** the cad page's import imported **753 items**: 374 outlets, 154 devices, 110 links, 41 racks,
   32 spaces, 19 levels, 18 rack rows, 3 underlays, a building, settings.
 - **Things to check:** 161, kept as import notes (right sidebar).
-- **Netflix 123:** not imported (Dave will delete it).
+- **Netflix 123:** not imported (User will delete it).

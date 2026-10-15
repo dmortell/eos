@@ -1,4 +1,4 @@
-<!-- Project settings › USAGES, CABLE TYPES, LENGTHS & LABELS, SHEETS, FILES (Dave 2026-10-05):
+<!-- Project settings › USAGES, CABLE TYPES, LENGTHS & LABELS, SHEETS, FILES (User 2026-10-05):
      - USAGES (backlog "Editable usage list"): code, label, color; add, delete (refused while outlets or panels use it).
      - CABLE TYPES (backlog "Cable types editor"): label, media, color, outer diameter (fill uses it), the defaults for new
        outlets / cords; add, delete (refused while an outlet port or a cord uses it, or it's a default).

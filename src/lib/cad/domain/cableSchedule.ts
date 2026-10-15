@@ -1,4 +1,4 @@
-// The CABLE SCHEDULE (backlog "Cable schedule Excel", Dave: on screen first, like the BOM): one row per permanent cable
+// The CABLE SCHEDULE (backlog "Cable schedule Excel", User: on screen first, like the BOM): one row per permanent cable
 // (a link, or a multi-core cable's cores together) —
 // from (the panel end), to (the outlet port, or the other panel), its label, cable type, the route's length, the
 // slack added at the outlet, the installed length, and the 90 m permanent-link flag. Pure; tested.
@@ -54,7 +54,7 @@ export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: C
 			over90: !!r?.over90, handSet: !!r?.handSet,
 			...(r?.problem ? { problem: r.problem } : {}),
 		}
-	// by label (Dave 2026-10-11), unlabelled last; then the kind and the panel end
+	// by label (User 2026-10-11), unlabelled last; then the kind and the panel end
 	}).sort((a, b) => +!a.label - +!b.label || naturalCompare(a.label, b.label) || KIND[a.kind] - KIND[b.kind] || naturalCompare(a.from, b.from))
 	// the estimated cables after the real ones, by label: from = its room, to = the outlet port
 	const est = estimates.map((e): CableRow => {

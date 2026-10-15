@@ -1,6 +1,6 @@
 # Pages — managing drawings, models and places (plan)
 
-Decisions agreed with Dave on 2026-09-24. This covers how Pages stores and organises its sheets, models and
+Decisions agreed with User on 2026-09-24. This covers how Pages stores and organises its sheets, models and
 places, how versions and revisions work, and how existing Sheets / tool data comes in. The Pages tool will
 replace the Sheets tool, and over time the other tools' drawings, by rebuilding their features on Pages' code.
 
@@ -142,7 +142,7 @@ The old tools keep running on their own collections. Pages imports once and neve
     the viewport and its source, and leaves that frame for a decision later.
   - The original Sheets docs are left untouched.
 - **Risers → building model:** import levels and riser geometry from the risers docs for the one or two
-  projects that need it (Hibiya, LR).
+  projects that need it (building1, LR).
 - **Outlets → place models** (DONE 2026-09-24, `store/outletsImport.ts`): a place's Import button brings its
   outlets doc in as block inserts + trunk conduits (re-import updates). A zone gets its own model and plan;
   33F holds the 3303 items (a full-floor 33F with just the trunks is a todo).
@@ -156,7 +156,7 @@ Each phase ships on its own and gets live-checked in the browser.
    `pagesStore.svelte.ts`; string model ids; `ents` → `shapes`): shared types (`Place`, `SheetDoc` content, `Frame`, the `Model` additions); Firestore
    services for the `pages` field on the project doc, sheets (registry `toolType: 'pages'`) and models, with debounced
    saving. Unit tests for the mappers.
-2. **Places** (DONE 2026-09-24: `store/placeTree.ts`, `placeProps.ts`, place helpers in `places.ts`, `parts/treeDrag.svelte.ts`, navigator places mode): seed from project data (writing to a real project needs Dave's OK per project; start on Test
+2. **Places** (DONE 2026-09-24: `store/placeTree.ts`, `placeProps.ts`, place helpers in `places.ts`, `parts/treeDrag.svelte.ts`, navigator places mode): seed from project data (writing to a real project needs User's OK per project; start on Test
    Project). The tree reads Pages places; add / rename / move / delete places.
 3. **Models persisted** (DONE 2026-09-24: registry <-> `projects/{pid}/models`, place models, Missing model, undo by id): floor and building models load and save; a floor node opens its stored model;
    "Missing model" placeholder; the in-memory mock models go.
@@ -173,7 +173,7 @@ Each phase ships on its own and gets live-checked in the browser.
    stamps survive undo; packages from the drawings dialog.)
    **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
    overwrite-or-bump prompt.
-8. **Imports:** Sheets sheet → Pages sheet (one at a time); risers → building model (Hibiya, LR).
+8. **Imports:** Sheets sheet → Pages sheet (one at a time); risers → building model (building1, LR).
    (Sheets import DONE 2026-09-24: `store/sheetsImport.ts`; the drawings dialog's "Import from Sheets" tab, and
    ⋮ › "Import into Pages" on another tool's register drawing in the tree. Outlets viewports map to the place
    model of their outlets doc at the same scale + centre, annotations → frame-scoped shapes; other viewports keep

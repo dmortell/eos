@@ -1,6 +1,6 @@
 # ADR 0001: Project data first; drawings are generated; tables are first-class
 
-**Status:** Accepted (Dave, 2026-10-02: "the new drawing tool owns locations, ports, labels and cords").
+**Status:** Accepted (User, 2026-10-02: "the new drawing tool owns locations, ports, labels and cords").
 
 ## Context
 
@@ -52,7 +52,7 @@ The legacy tools hold the real domain model, split across four stores that don't
   - the risers engine
   - fill-rate `packing`
 - **Legacy outlets linked N:1 to one location** (several drawn outlets sharing a location) can't be represented. The
-  importer reports them in an issues list for a person to resolve. Dave confirmed on 2026-10-02 that this is never
+  importer reports them in an issues list for a person to resolve. User confirmed on 2026-10-02 that this is never
   intentional ("several outlets should not intentionally point to one frame location"), so the importer treats it as
   a data error: it keeps the first outlet and reports the rest.
 - **Generated drawings can't be hand-edited.** The release valves are per-viewport overrides (hide, nudge a label) and

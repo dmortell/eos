@@ -104,7 +104,7 @@
 				() => { const now = Date.now(); project.store.transact(`${name}: labels printed`, (tx) => { for (const d of r.panels) tx.put(markPrinted(project.index, d, now)) }) })
 		} catch (e) { project.error = `Panel PDF failed: ${(e as Error).message}` }
 	}
-	// "+ Server room": a form in the list — which floor (the open one by default) and its name (Dave 2026-10-12)
+	// "+ Server room": a form in the list — which floor (the open one by default) and its name (User 2026-10-12)
 	let adding = $state<{ levelId: string; name: string; typed: boolean } | null>(null)
 	const floors = $derived([...project.index.levels].sort((a, b) => b.number - a.number || a.order - b.order))
 	function startAdd() { adding = { levelId, name: nextRoomName(project.index, levelId), typed: false } }
@@ -143,7 +143,7 @@
 		anchor = r.id
 		ws.select(e.ctrlKey || e.metaKey ? (selected.has(r.id) ? ws.selection.filter((x) => x !== r.id) : [...ws.selection, r.id]) : [r.id])
 	}
-	/** Drag a rack up / down its row (the rack view's order, Dave 2026-10-12), kept as the room's hand order for that row. */
+	/** Drag a rack up / down its row (the rack view's order, User 2026-10-12), kept as the room's hand order for that row. */
 	const drag = new DragReorder((id, targetId, after) => {
 		const next = moveRack(project.index, id, targetId, after), r = project.index.get<Rack>(id)
 		if (next) project.store.transact(`Rack order: ${r?.name ?? 'rack'}`, (tx) => tx.put(next))

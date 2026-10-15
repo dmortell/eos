@@ -53,7 +53,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		if (u.type !== 'underlay' || u.levelId !== levelId || u.hidden) continue
 		const pl = o.underlay?.(u)
 		if (!pl) continue
-		// a level can have several floorplans (zones, Dave: 33F = 3303 + 3307); `origin` moves one off the others
+		// a level can have several floorplans (zones, User: 33F = 3303 + 3307); `origin` moves one off the others
 		const dx = u.origin?.x ?? 0, dy = u.origin?.y ?? 0, c = pl.clip
 		// W7: the revision compared with, in red under this one (its own calibration, this one's offset; never picked)
 		const was = o.compare?.(u), old = was && was !== u.fileId ? o.underlay?.({ ...u, fileId: was }) : undefined
@@ -98,7 +98,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		out.push(...outletPrims(ot, k, o.blocks).map((p) => (col && p.k !== 'text' && p.k !== 'image' ? { ...p, color: col } : p)))
 	}
 	// section cut lines (Phase 6.2) on top
-	// a room's elevations (A–D) as one marker in the room, not four crossing cut lines (Dave 2026-10-15)
+	// a room's elevations (A–D) as one marker in the room, not four crossing cut lines (User 2026-10-15)
 	const byRoom = new Map<string, SectionCut[]>()
 	for (const sec of sectionsOn(ix, levelId)) {
 		const room = sec.roomElev ? ix.get(sec.roomElev.roomId) : undefined
@@ -268,7 +268,7 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 	let ang = (Math.atan2(u.y, u.x) * 180) / Math.PI
 	if (ang > 90) ang -= 180; else if (ang <= -90) ang += 180
 	const r = (ang * Math.PI) / 180, up = { x: Math.sin(r), y: -Math.cos(r) }, mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }
-	const text = g.text ?? (len < 10000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(1)} m`)   // mm up to 10 m (Dave)
+	const text = g.text ?? (len < 10000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(1)} m`)   // mm up to 10 m (User)
 	return [
 		...[ext(a, a2, g.gapA ?? gap), ext(b, b2, g.gapB ?? gap)].filter((p): p is Prim => !!p),
 		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', src },
@@ -382,7 +382,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 	return out
 }
 
-/** A rack: footprint, an X, and a thick BACK line on its rear edge (local −y; the front is +y, ADR 0004 — Dave: a back
+/** A rack: footprint, an X, and a thick BACK line on its rear edge (local −y; the front is +y, ADR 0004 — User: a back
  *  line on the edge reads better than a front line outside it). */
 function rackPrims(r: Rack, k: number): Prim[] {
 	const at = r.at!, rot = r.rot ?? 0, hw = r.widthMm / 2, hd = r.depthMm / 2

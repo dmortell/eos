@@ -1,4 +1,4 @@
-// WALLS FROM A ROOM (Dave 2026-10-15, "allow walls to be generated from a room rect"): one closed wall along a room's
+// WALLS FROM A ROOM (User 2026-10-15, "allow walls to be generated from a room rect"): one closed wall along a room's
 // outline, its INSIDE face on the outline (the centreline offset outward by half the thickness), slab to slab by
 // default. Pure; the room's Properties › Walls round it makes it (ui/RoomProps.svelte).
 import type { Pt, Space } from './types'

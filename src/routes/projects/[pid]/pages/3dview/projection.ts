@@ -713,7 +713,7 @@ export function doorGeom(o: Prism) {
 /** A RACK in plan, like OpenCad's: its footprint, an X corner to corner, and a FRONT line (60 % of the width) just
  *  outside the front face — the +y side of the unrotated box (the plan's y runs down the sheet), the face the Front
  *  elevation sees and front-mounted devices sit flush with (racksImport deviceY) — RACK_FRONT_GAP mm
- *  off it (OpenCad puts it ⅛ of the depth out; Dave: closer). Rotates with the rack. Plan points (x, y, z). */
+ *  off it (OpenCad puts it ⅛ of the depth out; User: closer). Rotates with the rack. Plan points (x, y, z). */
 export const RACK_FRONT_GAP = 40
 export function rackPlan(o: Extract<Obj, { type: 'prism' }>): { closed: boolean; pts: P3[] }[] {
 	const cx = o.x + o.w / 2, cy = o.y + o.d / 2, a = ((o.rot ?? 0) * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)

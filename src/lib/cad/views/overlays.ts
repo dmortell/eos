@@ -15,7 +15,7 @@ import { traceCircuit } from '../domain/cords'
 import { fillTone, estCount } from '../domain/fill'
 
 /** The selected ports (rack rows), a tint over their cells — then their labels and the panel's name (drawn over its
- *  ports) again on top, so neither is lost under the highlight (Dave 2026-10-07). */
+ *  ports) again on top, so neither is lost under the highlight (User 2026-10-07). */
 export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	if (!s) return []
 	const want = new Set(s.ports.map(String))
@@ -23,7 +23,7 @@ export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel'), ...namesOver(prims, [s.on])]
 }
 
-/** The panel ports linked to the selected OUTLETS (Dave 2026-10-10: pick outlets in the list, see their ports on the
+/** The panel ports linked to the selected OUTLETS (User 2026-10-10: pick outlets in the list, see their ports on the
  *  frame), drawn as selected ports. */
 export function outletPortCells(ix: ProjectIndex, prims: Prim[], selection: Id[]): Prim[] {
 	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
@@ -172,7 +172,7 @@ export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], dept
 	return []
 }
 
-/** The work plane's GRIP (Dave 2026-10-10: make it movable): where its line starts by the drawing, and what dragging
+/** The work plane's GRIP (User 2026-10-10: make it movable): where its line starts by the drawing, and what dragging
  *  it sets — the elevation's work depth (in the plan) or the plan's Z (in the elevation). A grip, not the whole line:
  *  at Z 0 the line lies on the floor line, where most things sit. Null = no line here. */
 export function workPlaneGrip(spec: ViewSpec, other: ViewSpec, prims: Prim[], depth: number, z: number): { at: Pt; what: 'depth' | 'z' } | null {

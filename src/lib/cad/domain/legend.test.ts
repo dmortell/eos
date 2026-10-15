@@ -1,4 +1,4 @@
-// Legends, boxes, a sheet from the current view, new layers hidden in existing drawings (Dave, 2026-10-05).
+// Legends, boxes, a sheet from the current view, new layers hidden in existing drawings (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'

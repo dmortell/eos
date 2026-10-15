@@ -1,4 +1,4 @@
-// Editing INSIDE a selected run (Dave, 2026-10-05): its nodes (a click on a grip) and segments (a second click on the
+// Editing INSIDE a selected run (User, 2026-10-05): its nodes (a click on a grip) and segments (a second click on the
 // run), a selected segment dragged whole, the nodes of OTHER runs that sit on the moving ones (they move along: joined
 // nodes move together), and two runs joined into one when a node is dropped on the other run's node.
 import type { Id, Pt } from '../domain/types'

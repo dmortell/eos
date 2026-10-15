@@ -1,4 +1,4 @@
-<!-- Settings › SHEETS: the sheet CATEGORY list (sheets-organising slice 2; Dave D1: one GLOBAL list, every project).
+<!-- Settings › SHEETS: the sheet CATEGORY list (sheets-organising slice 2; User D1: one GLOBAL list, every project).
      Label, the number prefix "Renumber group" offers (code), order (▲ ▼), how many of THIS project's sheets use it.
      Delete only hides it (retired: other projects may use it — it still names their sheets, it isn't offered any more);
      Restore brings it back. Typed categories found on this project's sheets can be added. Saved straight to the global

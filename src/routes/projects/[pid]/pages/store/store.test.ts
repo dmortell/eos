@@ -7,8 +7,8 @@ import type { SheetFrame } from '../types'
 
 const P = 'pid'
 const input: TreeInput = {
-	project: { id: P, name: 'Hibiya', address: 'Hibiya', floors: [
-		{ number: 10, label: 'L10 WeWork', serverRoomCount: 1 },
+	project: { id: P, name: 'building1', address: 'building1', floors: [
+		{ number: 10, label: 'L10 building2', serverRoomCount: 1 },
 		{ number: 30, serverRoomCount: 2, roomNames: { A: 'IDF1', B: 'IDF2' } },
 		{ number: 33, serverRoomCount: 1, areas: [{ id: '3303', label: '3303', legacy: true }, { id: '3307', label: '3307' }] },
 	] },
@@ -22,10 +22,10 @@ describe('seedPlaces (drawings-plan §2.1)', () => {
 	const places = seedPlaces(input, counter())
 	const byName = (n: string) => places.find((p) => p.name === n)!
 	it('mirrors the navigator: buildings › floors › zones / rooms › rows, with no drawing leaves', () => {
-		expect(childrenOf(places, null).map((p) => p.name)).toEqual(['Hibiya', 'Other building'])
-		expect(childrenOf(places, byName('Hibiya').id).map((p) => p.name)).toEqual(['33F', '30F'])
+		expect(childrenOf(places, null).map((p) => p.name)).toEqual(['building1', 'Other building'])
+		expect(childrenOf(places, byName('building1').id).map((p) => p.name)).toEqual(['33F', '30F'])
 		expect(childrenOf(places, byName('33F').id).map((p) => p.name)).toEqual(['Zone 3303', 'Zone 3307', 'Room A'])
-		expect(ancestorsOf(places, byName('Row A').id).map((p) => p.name)).toEqual(['Hibiya', '30F', 'IDF2'])
+		expect(ancestorsOf(places, byName('Row A').id).map((p) => p.name)).toEqual(['building1', '30F', 'IDF2'])
 		expect(places.some((p) => /Low Level|Risers/.test(p.name))).toBe(false)
 	})
 	it('records the old-data link on each seeded node, and orders siblings from 0', () => {
@@ -33,7 +33,7 @@ describe('seedPlaces (drawings-plan §2.1)', () => {
 		expect(byName('Zone 3307').legacy).toEqual({ floor: 33, area: '3307' })
 		expect(byName('IDF2').legacy).toEqual({ floor: 30, room: 'B' })
 		expect(byName('Row A').legacy).toEqual({ floor: 30, room: 'B', row: 'ra' })
-		expect(byName('Hibiya').legacy).toBeUndefined()
+		expect(byName('building1').legacy).toBeUndefined()
 		expect(childrenOf(places, byName('30F').id).map((p) => p.order)).toEqual([0, 1])
 	})
 	it('ancestorsOf stops on a cycle', () => {

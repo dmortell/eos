@@ -33,7 +33,7 @@
 		return qs ? `?${qs}` : ''
 	}
 
-	// the older tools (cad replaces them; Dave still refers to them — review R96 put cad first)
+	// the older tools (cad replaces them; User still refers to them — review R96 put cad first)
 	const TOOLS: { label: string; href: string; icon: string }[] = [
 		{ label: 'Sheets', href: 'sheets', icon: 'fileText' },
 		{ label: 'Floorplans', href: 'outlets', icon: 'mapPin' },

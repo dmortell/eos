@@ -11,10 +11,10 @@ progress are in `docs/phases/`. What comes next is in `docs/plan/`.
 | Folder / file | What |
 |---|---|
 | `docs/plan/` | The plan from here on: `backlog.md` (decided, ready to build), `decisions.md` (open questions), `later.md` (postponed); feature plans such as `layers.md` |
-| `docs/phases/` | `phase1.md` … `phase7.md`: each phase's plan, Dave's decisions and the build log; `phase8.md`: the backlog batches as they're built |
+| `docs/phases/` | `phase1.md` … `phase7.md`: each phase's plan, User's decisions and the build log; `phase8.md`: the backlog batches as they're built |
 | `docs/adr/` | The architecture decisions (below) |
 | `docs/glossary.md` | The terms, and their names in the old tools |
-| `docs/archive/` | Inputs, frozen: `gap-analysis.md` (legacy tools vs cad, with Dave's ticks), `todo.md` (Dave's raw todo batches), `pages-features.md` (the Pages feature list from Phase 0), `plan-sources.md` (the plan's G / T / P ids → their source) |
+| `docs/archive/` | Inputs, frozen: `gap-analysis.md` (legacy tools vs cad, with User's ticks), `todo.md` (User's raw todo batches), `pages-features.md` (the Pages feature list from Phase 0), `plan-sources.md` (the plan's G / T / P ids → their source) |
 
 ## Phase 0 deliverables
 
@@ -34,7 +34,7 @@ progress are in `docs/phases/`. What comes next is in `docs/plan/`.
 | `domain/drawing.ts` | Drawing records (views, sheets, viewports, layers, groups, blocks) |
 | `domain/conventions.ts` (+ test) | The one implementation of the geometric conventions, tested as statements about what a viewer sees |
 
-Phase 0 is done when Dave has signed off the ADRs. Their status lines record what is decided and what is still
+Phase 0 is done when User has signed off the ADRs. Their status lines record what is decided and what is still
 assumed.
 
 ## Planned layout (later phases)

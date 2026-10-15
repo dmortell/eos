@@ -1,7 +1,7 @@
 # Patch list management — plan for review
 
 **Status: BUILT 2026-10-11 — slices 1–4 and D5 (decisions D1–D8 below); D7 reviewed (From label, configurable); inline editing built. Logged in
-`../phases/phase8.md`.** Dave asked for:
+`../phases/phase8.md`.** User asked for:
 - the status of the selected patches can be set (e.g. Installed);
 - changes set the status automatically;
 - the full patch list can be exported, or part of it (one room, or every changed patch);
@@ -138,7 +138,7 @@ Every path that changes a cord goes through these rules, so the list, Properties
 
 **Total about 450 lines with tests; slices ship 1 → 4, each committed and checked live on Test Project.**
 
-## Decisions (Dave 2026-10-11)
+## Decisions (User 2026-10-11)
 
 - **D1** New cords as Installed: **build**, with an obvious toggle for an engineer surveying a built site or a
   designer planning a new install (Slice 4).
@@ -150,7 +150,7 @@ Every path that changes a cord goes through these rules, so the list, Properties
 - **D6** F / T badges: **dropped**.
 - **D7** Reviewed 2026-10-11: sort by the **From label** inside each group, or by From place / To label / cord ID (the dialog's "sort by"); columns per end: Device, Label, Rack, U, Face, Port.
 - **D8** Status back from the returned Excel: **not now**.
-- Dave's note on the gap table: inline editing in the list — consider it at least for cord ID, status and notes
+- User's note on the gap table: inline editing in the list — consider it at least for cord ID, status and notes
   — BUILT 2026-10-11: double-click Cord ID / Status / Notes; Enter / Shift+Enter down / up, Tab / Shift+Tab across.
 
 Not in this plan (still in `decisions.md` / `later.md` / `backlog.md`): hovering a cord (18), patch bench / by rule /

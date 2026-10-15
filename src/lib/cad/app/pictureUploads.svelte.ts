@@ -1,4 +1,4 @@
-// PASTED PICTURES (backlog "Paste a screenshot or picture", Dave 2026-10-12): the same picture pasted again is the same
+// PASTED PICTURES (backlog "Paste a screenshot or picture", User 2026-10-12): the same picture pasted again is the same
 // file — found by its content (SHA-256, kept on the file doc as `sha256`), in this session or in the project's Uploads —
 // so it's uploaded once. A new one gets its file id at once and is shown from the clipboard's own bytes while it
 // uploads, so it can be placed straight away; `pending` counts the uploads still going (the "Uploading…" mark).

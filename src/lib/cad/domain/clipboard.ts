@@ -1,5 +1,5 @@
 // Copy / paste (backlog "Clipboard"): the selection goes to the SYSTEM clipboard as marked JSON, so it pastes across
-// levels, sheets, tabs and projects. A paste is AS-IS (Dave): same coordinates, same labels — the user sorts out
+// levels, sheets, tabs and projects. A paste is AS-IS (User): same coordinates, same labels — the user sorts out
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
 import type { Id, Pt, Rack, Device, Space, Level } from './types'

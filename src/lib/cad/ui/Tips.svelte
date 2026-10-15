@@ -1,4 +1,4 @@
-<!-- The TIPS window (Help › Tips; Dave 2026-10-15: "a tip of the day … with prev / next buttons"): one tip at a time
+<!-- The TIPS window (Help › Tips; User 2026-10-15: "a tip of the day … with prev / next buttons"): one tip at a time
      (helpContent.ts TIPS / TIPS_JA), ‹ › to step through, EN / 日本語 shared with the Walkthrough. It opens by itself
      once a day (CadShell) until "Show at start" is unticked; each day starts on the next tip. -->
 <script lang="ts">

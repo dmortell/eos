@@ -1,7 +1,7 @@
 // Per-VIEWPORT Selection store (R3 commit 2a, review.md §R3). A "viewport" here is a sheet FRAME id or a
 // model-layout TAB id acting as its own viewport — the same id space `viewState.svelte.ts`'s `viewId` and
 // +page.svelte's `activeVpOf`/`activeVps` already use — NOT the document/tab id: two frames on the same
-// sheet select independently, and (per Dave's amendment) the SAME viewport shown in two split panes shares
+// sheet select independently, and (per User's amendment) the SAME viewport shown in two split panes shares
 // one selection, so the key is viewId alone, not pane+viewId. Replaces the old tab-shared `docSel` (entity
 // ids) and the global `modelSel` store (3dview/models.svelte, shared across every viewport showing a
 // model) for the kinds wired in this commit (entity, model-object, guide). Section/node/frame selection

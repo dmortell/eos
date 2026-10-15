@@ -1,4 +1,4 @@
-// The backbone cable list and the links table rows (Dave, 2026-10-05).
+// The backbone cable list and the links table rows (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { cableGroups, cableColour, linkRows } from './cableList'

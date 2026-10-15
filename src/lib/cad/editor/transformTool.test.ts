@@ -1,4 +1,4 @@
-// Rotate / Mirror tools (Dave, 2026-10-12): pivot or mirror line, one undo step, Ctrl keeps the originals.
+// Rotate / Mirror tools (User, 2026-10-12): pivot or mirror line, one undo step, Ctrl keeps the originals.
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'

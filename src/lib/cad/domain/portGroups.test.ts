@@ -1,4 +1,4 @@
-// Labelled port ranges on a panel (portGroups.ts), as Dave described them: P3A's U41 48-port panel, the top half tied
+// Labelled port ranges on a panel (portGroups.ts), as User described them: P3A's U41 48-port panel, the top half tied
 // to R301, the bottom half to R302.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
@@ -31,7 +31,7 @@ describe('labelled port ranges', () => {
 		expect(world(split).portLabel({ on: 'A41', port: 7 })).toBe('P3A-R301:07')
 		expect(world().portLabel({ on: 'B41', port: 1 })).toBe('P3A~R302:01')
 	})
-	it('"In two" leaves the labels to the cables — split BEFORE linking still reads P3A-R301 / P3A-R302 once linked (Dave)', () => {
+	it('"In two" leaves the labels to the cables — split BEFORE linking still reads P3A-R301 / P3A-R302 once linked (User)', () => {
 		const halves = splitPanel(world().get<Device>('P41')!, 2)
 		expect(halves).toEqual([{ from: 1, to: 24 }, { from: 25, to: 48 }])
 		expect(world(halves, false).portLabel({ on: 'P41', port: 25 })).toBe('P3A-41-B:01')   // not linked yet: the panel's name

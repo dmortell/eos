@@ -1,4 +1,4 @@
-// What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (Dave): the active pane's
+// What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (User): the active pane's
 // level, each pane's view, the active pane and — split on two levels — each pane's level.
 // `?level=<id>&v=plan,front&a=1[&levels=<id0>,<id1>]` — views: plan | front | rear | left | right |
 // row.<spaceId>.<face>[.<rowId>] | sheet.<sheetId> | portmap.<deviceId>~<deviceId>… | ports.<rackId>[.<deviceId>] |

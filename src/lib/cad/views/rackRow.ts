@@ -27,7 +27,7 @@ export interface RowSpec { spaceId: Id; rowId?: Id; face: 'front' | 'rear' }
 
 /**
  * Where each rack sits along the view (x0). Rows one after another (by row order) with a gap; within a row, racks
- * drawn on the plan run LEFT TO RIGHT AS SEEN FROM THEIR FRONT (Dave: racks are drawn on the floor plan, then assigned
+ * drawn on the plan run LEFT TO RIGHT AS SEEN FROM THEIR FRONT (User: racks are drawn on the floor plan, then assigned
  * to rows — no row builder); racks not on the plan follow, by their order field.
  */
 export function rackLayout(ix: ProjectIndex, spec: RowSpec): { rack: Rack; x0: number }[] {
@@ -61,7 +61,7 @@ export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: numbe
 /** The cell of port `n` (1-based) on a device, in view mm, or null if the device shows no ports. */
 export function portCell(d: Device, n: number, devX: number, devZ0: number): { x: number; y: number; w: number; h: number } | null {
 	if (!d.portCount || d.kind === 'pdu') return null
-	// ~24 ports a row, up to two rows a U: a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24 (Dave: it read as
+	// ~24 ports a row, up to two rows a U: a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24 (User: it read as
 	// 48 — its two rows of 48 tiny cells looked like one)
 	const { rows, cols } = portGrid(d)
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
@@ -77,7 +77,7 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 export function labelLines(label: string): { full: string[]; short: string[] } {
 	const parts = label.split(/[.\-]/).filter(Boolean)
 	if (parts.length <= 1) return { full: [label], short: [label] }
-	// two parts stack too (Dave: "01A.014A" on one line was ~3 mm in an 18 mm port — unreadable; stacked it's twice the size)
+	// two parts stack too (User: "01A.014A" on one line was ~3 mm in an 18 mm port — unreadable; stacked it's twice the size)
 	if (parts.length === 2) return { full: parts, short: parts }
 	const full = parts.length > 3 ? [parts.slice(0, parts.length - 2).join('.'), ...parts.slice(-2)] : parts
 	return { full, short: parts.slice(-2) }
@@ -95,7 +95,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	const out: Prim[] = [], cords: Prim[] = []
 	// "deviceId:port" → cell centre, half its height and its rack's frame, for cords
 	const portAt = new Map<string, { x: number; y: number; hh: number; rack: RackFrame }>()
-	// "deviceId:port" with a cord in (one being removed doesn't count): its cell gets a green edge (Dave: "patched ports
+	// "deviceId:port" with a cord in (one being removed doesn't count): its cell gets a green edge (User: "patched ports
 	// should have an indicator")
 	const patched = new Set(ix.cords.filter((c) => c.status !== 'remove').flatMap((c) => [`${c.a.on}:${c.a.port}`, `${c.b.on}:${c.b.port}`]))
 	const layout = rackLayout(ix, spec)
@@ -142,7 +142,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		}
 		for (const d of inRack) {
 			if (d.face === 'none') continue
-			// a device on the other face only: a faint outline, "(rear)" / "(front)" — what takes the U from behind (Dave);
+			// a device on the other face only: a faint outline, "(rear)" / "(front)" — what takes the U from behind (User);
 			// not pickable, so clicks reach this face's devices. A both-face device MOUNTED on the other side is drawn so
 			// too where a device on this side shares its U (else it shows as usual: its ports on this face stay usable).
 			const behind = d.kind !== 'pdu' && ((d.face !== 'both' && d.face !== spec.face)
@@ -186,12 +186,12 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			const note = d.panel?.labelsPrintedAt ? (stale.size ? `  ⚠ ${stale.size} label${stale.size > 1 ? 's' : ''} changed since printed` : '  · printed') : ''
 			out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, fill: true, cls: `device device-${d.kind}`, src: d.id })
 			const nameCls = stale.size ? 'device-label device-stale' : 'device-label'
-			// with ports, the name is drawn AFTER them, at the top left with a halo (Dave: the panel's own label was hidden
+			// with ports, the name is drawn AFTER them, at the top left with a halo (User: the panel's own label was hidden
 			// behind its ports; the strip above a 1U panel's ports is only ~8 mm, too small to read); without, it sits in
 			// the device as before
 			const grid = portCell(d, 1, dx, z0), nameSize = Math.min(RU_MM * 0.35, (z1 - z0) * 0.4)
 			// narrow kit (≤ NARROW_MM, e.g. a vertical manager or a 0U strip in a frame): the name runs up its middle, turned —
-			// as the old Racks tool drew it (Dave 2026-10-13); no port count after it
+			// as the old Racks tool drew it (User 2026-10-13); no port count after it
 			const narrow = w <= NARROW_MM && z1 - z0 > w
 			const nameText: Prim = narrow
 				? { k: 'text', at: { x: dx + Math.min(w * 0.6, 40) * 0.35, y: -(z0 + z1) / 2 }, text: d.name + note, size: Math.min(w * 0.6, 40, (z1 - z0) / Math.max(4, d.name.length) * 1.4), anchor: 'middle', rot: -90, cls: nameCls, src: grid ? undefined : d.id, minPx: 6 }
@@ -225,12 +225,12 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
 			// 24 ports or more: a tick under the middle of the ports, up from the device's bottom edge to the ports (6 mm at most)
-			// (Dave: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)
+			// (User: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)
 			if (d.portCount >= 24 && gx1 > gx0) {
 				const x = (gx0 + gx1) / 2
 				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x, y: Math.max(gBottom, -z0 - 6) }], cls: 'port-mid' })
 			}
-			// over the ports (Dave: P3C U32 / U37's name covered them): the name is normal size until the port labels can be
+			// over the ports (User: P3C U32 / U37's name covered them): the name is normal size until the port labels can be
 			// read, then small (a 1U 48-port panel's port label size) and see-through, in the top-left corner
 			// a panel split into labelled ranges (P3A-R301 / P3A-R302): each range's label at the top left of its first port
 			// instead of the one name (its top edge where the name's would be, for the first row)
@@ -277,7 +277,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 /** The `sub` of the room's floor / ceiling lines in a rack view: dragged to set `Space.floorMm` / `ceilingMm`. */
 export const ROOM_FLOOR = 'room-floor', ROOM_CEILING = 'room-ceiling'
 
-/** The storey around the racks (Dave): the top of the floor slab under the raised floor, the ceiling and the
+/** The storey around the racks (User): the top of the floor slab under the raised floor, the ceiling and the
  *  underside of the slab above, as lines (the slab ones a little heavier than FFL), from the level's heights (y up
  *  from FFL = negative) — and the server room's OWN floor and ceiling where it has them (they replace the level's
  *  ceiling). Drawn under the racks, on the Room lines layer; nothing from the level when it has no heights. */
@@ -291,7 +291,7 @@ function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number,
 	if (h) {
 		const ceil = h.clearHeightMm, soffit = ceil + h.plenumMm, floor = h.raisedFloorMm
 		if (roomCeil == null) out.push(line(-ceil, 'riser-ceiling', ROOM_CEILING), label(-ceil - 30, `CEILING FFL+${ceil}`))
-		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `CSL FFL+${soffit}`))   // CSL / FSL as in sections (Dave 2026-10-15)
+		out.push(line(-soffit, 'datum datum-slab'), label(-soffit - 30, `CSL FFL+${soffit}`))   // CSL / FSL as in sections (User 2026-10-15)
 		if (floor > 0) out.push(line(floor, 'datum datum-slab'), label(floor + 70, `FSL FFL-${floor}`))
 	}
 	if (roomCeil != null) out.push(line(-roomCeil, 'riser-ceiling', ROOM_CEILING), label(-roomCeil - 30, `${room?.name ?? 'ROOM'} CEILING FL${sign(roomCeil)}`))

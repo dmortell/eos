@@ -1,7 +1,7 @@
 # ADR 0004: 2.5D, and one set of geometric conventions
 
 **Status:**
-- **Accepted:** 2.5D (Dave, 2026-10-02).
+- **Accepted:** 2.5D (User, 2026-10-02).
 - **Proposed:** the conventions below. They match Pages as of f10f2dd0, so Pages data imports without flipping
   signs.
 

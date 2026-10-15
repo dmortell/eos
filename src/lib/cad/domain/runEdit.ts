@@ -57,7 +57,7 @@ export function setRunPlace(s: Shape, heights: Heights | undefined, p: RunPlace)
 
 /** The server rooms a run can be set to serve: those on every level it reaches, plus any it serves already (so a
  *  stale one can be unticked). Serving decides only where cables may JOIN the run (an outlet's drop, a rack's); once
- *  in, a cable goes along any run — a riser needs none (Dave 2026-10-10: Journey's high conduits served 33IDF1 only,
+ *  in, a cable goes along any run — a riser needs none (User 2026-10-10: Tourney's high conduits served 33IDF1 only,
  *  so 33IDF2's TV07 / TV08 found no run beside them). */
 export function servableRooms(ix: ProjectIndex, s: Shape): Space[] {
 	if (s.geom.kind !== 'path') return []

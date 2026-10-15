@@ -1,6 +1,6 @@
 # ADR 0007: One shape type for everything drawn
 
-**Status:** Accepted (Dave, 2026-10-02).
+**Status:** Accepted (User, 2026-10-02).
 - "2D shapes should be identical to 3D shapes with height 0, and lines (polys) should be convertible to trunks or
   walls by giving them width / depth / height / z."
 - Then: one Shape for *all* drawn items: text, dimensions, leaders, clouds, images, paper and viewport lines, groups
@@ -53,7 +53,7 @@ redrawn.
 
   "Make block from selection" turns grouped shapes into a block. Blocks are global (shared by all projects) or per
   project.
-- **Outlet graphics** are any block, so a symbol, a block or the user's own grouped shapes all work (Dave's
+- **Outlet graphics** are any block, so a symbol, a block or the user's own grouped shapes all work (User's
   pages-features answer). Text in a block can show attributes (`{LABEL}`, `{PORTS}`) filled from the outlet.
 - **Labels and auto-numbering** work on any shape.
 
@@ -68,7 +68,7 @@ redrawn.
 | Guides | Work planes (ADR 0006), saved per level. |
 | Viewports | Part of the sheet. |
 
-## Decided: outlets, racks and devices stay data (Dave, 2026-10-02)
+## Decided: outlets, racks and devices stay data (User, 2026-10-02)
 
 "Keep outlets and racks as is. Devices too, but if I need to add odd items like modems / ONUs in racks or computers /
 monitors / phones on furniture then I'll use blocks / groups."
@@ -79,7 +79,7 @@ follows.
 
 ## Background: should outlets and racks be shapes too?
 
-Dave (2026-10-02): "not certain about outlets, racks and devices — I feel they are shapes, as they need selection /
+User (2026-10-02): "not certain about outlets, racks and devices — I feel they are shapes, as they need selection /
 grips and other functions like shapes, but willing to try your way for now."
 
 **The alternative** is to fold them into ADR 0007 the way walls and trunks were:

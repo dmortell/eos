@@ -1,4 +1,4 @@
-// SELECT SIMILAR (backlog, Dave 2026-10-06): what counts as "the same kind" as a selected thing. A shape: the same
+// SELECT SIMILAR (backlog, User 2026-10-06): what counts as "the same kind" as a selected thing. A shape: the same
 // block (an insert), else the same role (wall / trunk / conduit …) or drawn kind (line / rect / text …) on the same
 // layer; a rack or device: the same kind; anything else: the same type. The canvas applies it to what its view shows.
 // Pure; tested in similar.test.ts.

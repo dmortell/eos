@@ -17,7 +17,7 @@ const HEADING = [1.6, 1.35, 1.2, 1.1, 1.05, 1]
 /** About how wide text draws (Latin ~0.6 of its size, bold a little more, CJK a full em). */
 export const mdWidth = (t: string, size: number, bold = false) => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) >= 0x2e80 ? 1 : bold ? 0.66 : 0.6) * size, 0)
 
-/** **bold**, *italic*, ***both***, ~~struck through~~, __underlined__ (Dave 2026-10-14: no longer a second bold) and
+/** **bold**, *italic*, ***both***, ~~struck through~~, __underlined__ (User 2026-10-14: no longer a second bold) and
  *  `code` (shown plain) in one line → runs. */
 export function parseInline(s: string): Run[] {
 	const out: Run[] = []

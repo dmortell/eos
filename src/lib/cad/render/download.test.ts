@@ -1,4 +1,4 @@
-// File names for downloads: fileSafe, and (Dave 2026-10-15) the project's pattern, then the user's edit before saving.
+// File names for downloads: fileSafe, and (User 2026-10-15) the project's pattern, then the user's edit before saving.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { fileSafe, patternName, saveFile, setFileNamer } from './download'
 

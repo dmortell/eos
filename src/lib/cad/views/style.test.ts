@@ -1,4 +1,4 @@
-// Shape style: a shape's own line color, lineweight and line type reach its prims (Dave, 2026-10-05).
+// Shape style: a shape's own line color, lineweight and line type reach its prims (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { shapePrims } from './plan'
 import { displayListToDxf } from '../render/dxf'

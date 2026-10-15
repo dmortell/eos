@@ -1,4 +1,4 @@
-// CABLE ROUTING (Phase 5.1–5.2): every link's route over the drawn containment, recomputed from the data (Dave: never
+// CABLE ROUTING (Phase 5.1–5.2): every link's route over the drawn containment, recomputed from the data (User: never
 // stored). The graph: each run segment is cut wherever another run's node touches it (a tee or a shared end, within
 // JOIN_MM in 3D), and riser ends meet the other level's runs the same way. A link's route:
 //   outlet → the nearest point of the nearest run of its tier (or a wall run) that serves its server room — a drop:
@@ -17,7 +17,7 @@ import { cablesOf } from './multicore'
 import { roomFloor } from './devices'
 
 export const JOIN_MM = 50
-/** The furthest an outlet reaches (plan + height) to join a run (Dave: 10 m); beyond it the port has no route. */
+/** The furthest an outlet reaches (plan + height) to join a run (User: 10 m); beyond it the port has no route. */
 export const MAX_OUTLET_DROP_MM = 10_000
 /** Why an outlet has no route, and what to do about it (/cad/agent gotcha 4: it only said what was missing). */
 export const noRunProblem = (tier: string) => `no ${tier} run within ${MAX_OUTLET_DROP_MM / 1000} m of the outlet serving its room — draw a ${tier} run within ${MAX_OUTLET_DROP_MM / 1000} m, or tick its server room in a run's Serves (Properties)`
@@ -159,7 +159,7 @@ function tapOn(g: Graph, i: number, x: P3): Tap {
 export { outletZ }
 
 /** What the tap searches need of a graph, worked out once per graph: per level, the segments a cable can join (not a
- *  riser; not a stub shorter than JOIN_MM — it has no length in the graph, so a route from it goes nowhere: Journey
+ *  riser; not a stub shorter than JOIN_MM — it has no length in the graph, so a route from it goes nowhere: Tourney
  *  TV06, a 38 mm end bit), in segment order; and a plan grid of them (cells of TAP_CELL mm) for the outlets' nearest run. */
 interface TapIndex { byLevel: Map<Id, number[]>; grid: Map<string, number[]> }
 const TAP_CELL = 2000

@@ -1,4 +1,4 @@
-// Dimensions and notes on plans / elevations (Dave, 2026-10-05).
+// Dimensions and notes on plans / elevations (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
@@ -34,7 +34,7 @@ describe('dimensions', () => {
 		expect(d({ x: 3000, y: 4000 }, 'horizontal')).toEqual(['3000'])
 		expect(d({ x: 3000, y: 4000 }, 'vertical')).toEqual(['4000'])
 	})
-	it('Shift on the second point keeps it level or plumb with the first (Dave’s todo)', () => {
+	it('Shift on the second point keeps it level or plumb with the first (User’s todo)', () => {
 		const h = harness(PLAN), t = new DimTool(() => 'aligned'), shift = (x: number, y: number) => ({ ...at(x, y), shift: true })
 		t.down(at(0, 0), h.ctx()); t.down(shift(2400, 300), h.ctx()); t.down(at(1000, -600), h.ctx())
 		expect((h.store.get(h.sel()[0]) as Shape).geom).toMatchObject({ a: { x: 0, y: 0 }, b: { x: 2400, y: 0 } })

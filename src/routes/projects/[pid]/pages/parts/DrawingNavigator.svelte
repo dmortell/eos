@@ -382,7 +382,7 @@
 	}
 	const drawingIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'box' }
 
-	let expanded = $state(new Set<string>(['b-hibiya', 'f33', 'z3303']))
+	let expanded = $state(new Set<string>(['b-building1', 'f33', 'z3303']))
 	// open the ancestors a caller asks for (buildings are open by default — un-collapse them too)
 	$effect(() => {
 		const ids = reveal; if (!ids.length) return

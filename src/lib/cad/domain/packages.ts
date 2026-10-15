@@ -1,7 +1,7 @@
 // PACKAGES (sheets-organising §3, slice 6): re-usable sets of sheets for issuing — a LIST of sheet ids, or a RULE
 // (a saved register filter: categories, levels, rooms, tags, disciplines). Which sheets a package holds now, what has
 // changed in it since it last went out (added / withdrawn / never issued), freezing a rule to a list, and a package
-// made from an old issue (Dave D9). Pure; tested in packages.test.ts.
+// made from an old issue (User D9). Pure; tested in packages.test.ts.
 import type { Id, Contact } from './types'
 import type { Issue, SheetPackage, SheetRule } from './drawing'
 import { filterRows, type ListFilter, type SheetRow } from './sheetList'
@@ -56,7 +56,7 @@ export function sinceLastIssue(members: SheetRow[], last: Issue | undefined): { 
 	}
 }
 
-/** A list package from an old issue's sheets (Dave D9: "Make package"): its name and purpose; the issue then links
+/** A list package from an old issue's sheets (User D9: "Make package"): its name and purpose; the issue then links
  *  to it, so the next issue of the package diffs against it. */
 export function packageFromIssue(i: Issue, id: Id, order: number): SheetPackage {
 	return { type: 'package', id, name: i.name, purpose: i.purpose, ...(i.to ? { recipients: [{ name: i.to }] } : {}), sheetIds: i.sheets.map((s) => s.sheetId), order }

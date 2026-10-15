@@ -1,4 +1,4 @@
-// The GUIDE tool (Dave 2026-10-14 todo): a click places a vertical guide, a horizontal one or both (a cross) through
+// The GUIDE tool (User 2026-10-14 todo): a click places a vertical guide, a horizontal one or both (a cross) through
 // the point (snapped; or a typed point); pressing on a guide drags it (snaps too); Delete / Backspace removes the guide
 // under the cursor. Guides are this view's, on this screen (domain/guides.ts); the tool reads and writes them through
 // `ToolCtx.guides`.

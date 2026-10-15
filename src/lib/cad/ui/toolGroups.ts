@@ -1,5 +1,5 @@
 // The tool strip's TOOLS in their groups (split out of ToolStrip.svelte so the agent guide, a server route, reads them).
-// Grouping (Dave 2026-10-15, "better grouping of the tools overall"): Select / modify · Draw (2D) · Build (3D: box,
+// Grouping (User 2026-10-15, "better grouping of the tools overall"): Select / modify · Draw (2D) · Build (3D: box,
 // wall, opening) · Spaces and views (room, section) · Annotate (with Dimension's Measure and Guide lines) · Cabling ·
 // Drawings. TOOL_FAMILIES = the strip's buttons (tool strip option 2, "flyouts"): a family is ONE button showing the
 // item last used from it; its corner mark, a long press or a click on it while it's in use opens the others. An item is
@@ -19,13 +19,13 @@ export const TOOL_GROUPS: { name: string; tools: { id: ToolId; label: string; ic
 /** One tool by id (its label and icon). */
 export const toolInfo = (id: ToolId) => TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)
 
-/** The Shape / Box tools' kinds as flyout items (Dave 2026-10-15: Rectangle, Polygon, Ellipse, Arc; Box, Cylinder,
+/** The Shape / Box tools' kinds as flyout items (User 2026-10-15: Rectangle, Polygon, Ellipse, Arc; Box, Cylinder,
  *  Polygon). */
 export const VARIANTS: Record<string, { label: string; icon: string }> = {
 	'shape:rect': { label: 'Rectangle', icon: 'rect' }, 'shape:polygon': { label: 'Polygon', icon: 'hexagon' },
 	'shape:ellipse': { label: 'Ellipse', icon: 'k-ellipse' }, 'shape:arc': { label: 'Arc (3 points)', icon: 'k-arc' },
 	'box:rect': { label: 'Box / desk', icon: 'box' }, 'box:ellipse': { label: 'Cylinder', icon: 'k-cylinder' }, 'box:polygon': { label: 'Polygon box', icon: 'pentagon' },
-	// the Section tool: a cut line, or a drawn room's four walls (Dave 2026-10-15)
+	// the Section tool: a cut line, or a drawn room's four walls (User 2026-10-15)
 	'section:line': { label: 'Section (a cut line)', icon: 'squareSplitVertical' }, 'section:room': { label: 'Room elevations (A–D: click inside a room)', icon: 'k-elevmark' },
 }
 /** A flyout item: its tool and variant ("shape:polygon" → shape, polygon). */

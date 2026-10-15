@@ -6,7 +6,7 @@ import { demoProject } from '../domain/fixtures'
 import type { Shape } from '../domain/shapes'
 
 describe('object snaps', () => {
-	it('a box’s corners and the middles of its edges (Dave 2026-10-14), turned ones too', () => {
+	it('a box’s corners and the middles of its edges (User 2026-10-14), turned ones too', () => {
 		const top = { type: 'shape', id: 'TOP', levelId: 'L33', geom: { kind: 'rect', centre: { x: 20000, y: 20000 }, size: { x: 1200, y: 600 } }, extent: 50 } as Shape
 		const ix = new ProjectIndex([...demoProject(), top])
 		expect(snapAt(ix, 'L33', { x: 19403, y: 19704 }, 20)).toMatchObject({ p: { x: 19400, y: 19700 }, kind: 'node' })

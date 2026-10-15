@@ -1,6 +1,6 @@
 // A NEW project's settings (walkthrough 2026-10-14: a project made from scratch had none — only the legacy import made
-// them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). Dave 2026-10-14: cable types CAT6A,
-// CAT6, OS2, OM4; outlet usages (none), AP, AV (was TV, Dave 2026-10-15), CCTV. Pure.
+// them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). User 2026-10-14: cable types CAT6A,
+// CAT6, OS2, OM4; outlet usages (none), AP, AV (was TV, User 2026-10-15), CCTV. Pure.
 import type { ProjectSettings } from './types'
 import { DEFAULT_TITLE_BLOCK } from './titleBlock'
 

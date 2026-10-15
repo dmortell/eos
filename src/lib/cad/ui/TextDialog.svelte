@@ -1,4 +1,4 @@
-<!-- TEXT DIALOG (Dave 2026-10-15: "don't use the status bar for inputs like file names, use a dialog"): one line of
+<!-- TEXT DIALOG (User 2026-10-15: "don't use the status bar for inputs like file names, use a dialog"): one line of
      free text asked by `ws.askInDialog` — Enter / OK applies, Esc / Cancel does nothing. -->
 <script lang="ts">
 	import { tick } from 'svelte'

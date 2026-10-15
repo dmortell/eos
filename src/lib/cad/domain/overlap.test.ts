@@ -1,4 +1,4 @@
-// Allow U overlaps with a warning (Dave, 2026-10-05): a shelf, or a device with "May overlap", can share Us on the
+// Allow U overlaps with a warning (User, 2026-10-05): a shelf, or a device with "May overlap", can share Us on the
 // same side; the rack view marks those Us.
 import { describe, it, expect } from 'vitest'
 import { placementProblem, clashUs } from './devices'
@@ -23,7 +23,7 @@ describe('U overlaps', () => {
 	})
 })
 
-describe('0U PDUs (Dave, 2026-10-05)', () => {
+describe('0U PDUs (User, 2026-10-05)', () => {
 	it('dragged across the rack it goes to the other side; a small drag keeps its side', async () => {
 		const pdu = dev('P', 1, 30, { kind: 'pdu', face: 'none' })
 		const g = startDeviceDrag([pdu]), rackOf = () => rack

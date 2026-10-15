@@ -1,4 +1,4 @@
-// Renumber (ADR 0002, Dave: high priority, "any shape with a label"): give a run of labelled things consecutive numbers
+// Renumber (ADR 0002, User: high priority, "any shape with a label"): give a run of labelled things consecutive numbers
 // in one number group, in the order picked, in reading order, or in their current label order. Outlets carry the
 // change into their port labels; racks change their name; shapes their label.
 import type { Id, Pt } from './types'
@@ -44,7 +44,7 @@ export const numberGroups = (label: string): string[] => splitGroups(label).filt
 
 /**
  * The things renumbered, in the order given: start, start + step, … Only the ones whose text changes.
- * Every item takes the FORMAT of the first item of its type (Dave: "the label format should follow the first item"):
+ * Every item takes the FORMAT of the first item of its type (User: "the label format should follow the first item"):
  * picking "A.037", then "A001" gives "A.038", not "A038". An outlet's port labels follow: a port label that starts
  * with the outlet's label gets the new label in front; any other (imported "01A.024A") has its matching number
  * changed.

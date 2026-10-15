@@ -1,4 +1,4 @@
-// A LEGEND drawn (backlog "Legend on the drawing", Dave 2026-10-05): a framed table from its top-left point — its
+// A LEGEND drawn (backlog "Legend on the drawing", User 2026-10-05): a framed table from its top-left point — its
 // title, then a row per symbol (the block's own drawing, fitted in a square) or layer (a color swatch), its name and
 // how many. Paper mm × k (1 on a sheet, the plot scale on a plan). Every prim is the legend's (picked / dragged as one).
 import type { Pt } from '../domain/types'

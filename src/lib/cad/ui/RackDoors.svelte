@@ -10,7 +10,7 @@
 	let { project, racks = [], boxes = [] }: { project: CadProject; racks?: Rack[]; boxes?: Shape[] } = $props()
 
 	type Doors = NonNullable<Rack['doors']>
-	// cabinets and VCMs (Dave: VCMs have doors too), and boxes drawn as rectangles (backlog "Door swings on other objects")
+	// cabinets and VCMs (User: VCMs have doors too), and boxes drawn as rectangles (backlog "Door swings on other objects")
 	const cabinets = $derived<(Rack | Shape)[]>([...racks.filter((r) => r.kind === 'cabinet' || r.kind === 'vcm'), ...boxes.filter((s) => s.geom.kind === 'rect')])
 	/** The value every cabinet shares, or `null` when they differ. */
 	function shared<K extends keyof Doors>(k: K): Doors[K] | null {

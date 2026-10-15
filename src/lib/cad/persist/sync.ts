@@ -112,7 +112,7 @@ export class Sync {
 }
 
 /** The top-level fields an edit changed (added, altered or removed), plus the doc's identity and meta: all an edit
- *  writes (Dave 2026-10-15, edits in two tabs — a tab's older copy of the other fields isn't written back). An item
+ *  writes (User 2026-10-15, edits in two tabs — a tab's older copy of the other fields isn't written back). An item
  *  moved to another level changes `scope` too. */
 export function changedFields(before: Entity, after: StoredDoc): string[] {
 	const was = stripUndefined(before as unknown as Record<string, unknown>)

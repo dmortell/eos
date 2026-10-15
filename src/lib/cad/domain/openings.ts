@@ -1,4 +1,4 @@
-// OPENINGS (Phase 6.1): holes in walls — a door or a window is a hole (Dave) with a width, a Z (its bottom above FFL),
+// OPENINGS (Phase 6.1): holes in walls — a door or a window is a hole (User) with a width, a Z (its bottom above FFL),
 // an H (its height) and an optional swing. Hosted on one wall segment at a distance `at` along it, so they move with
 // the wall. Pure geometry for the plan (wall pieces around the holes, jambs, the door leaf + arc) and for elevations
 // (the hole's outline); tested in openings.test.ts.
@@ -79,7 +79,7 @@ export function planOpenings(s: Shape, segId: string, w: number): { pieces: [Pt,
 	return { pieces, jambs, swings, holes }
 }
 
-/** A SLAB-TO-SLAB wall's height range above its level's FFL (Dave: walls round IDF / UPS rooms go full height): from
+/** A SLAB-TO-SLAB wall's height range above its level's FFL (User: walls round IDF / UPS rooms go full height): from
  *  the structural slab under the raised floor to the underside of the slab above. Undefined for an ordinary wall. */
 export function wallSpan(ix: { get(id: string | undefined): unknown }, s: Shape): { z0: number; z1: number } | undefined {
 	if (s.role?.kind !== 'wall' || !s.role.slabToSlab) return undefined

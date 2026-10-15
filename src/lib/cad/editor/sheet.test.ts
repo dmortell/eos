@@ -42,7 +42,7 @@ function harness() {
 }
 
 describe('viewports on a sheet', () => {
-	it('a drag on its FRAME moves the viewport; in its middle it only picks it — nothing moves (Dave: dragged by mistake; W32: a click inside picks it)', () => {
+	it('a drag on its FRAME moves the viewport; in its middle it only picks it — nothing moves (User: dragged by mistake; W32: a click inside picks it)', () => {
 		const h = harness(), t = new SelectTool()
 		h.drag(t, { x: 100, y: 100 }, { x: 130, y: 110 })   // the middle: picked, nothing moves
 		expect(h.vp()).toBe('V')

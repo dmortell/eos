@@ -37,7 +37,7 @@
 	const placed = $derived(inserts.filter((s) => s.levelId))
 	/** Rectangles (boxes) and ellipses: they turn about their centre. */
 	const turnable = $derived(shapes.filter((s) => s.geom.kind === 'rect' || s.geom.kind === 'ellipse'))
-	/** Rectangles and ellipses on the plan: their width / depth are typed for all of them at once (Dave 2026-10-14). */
+	/** Rectangles and ellipses on the plan: their width / depth are typed for all of them at once (User 2026-10-14). */
 	const sized = $derived(regions.filter((s) => s.geom.kind === 'rect' || s.geom.kind === 'ellipse'))
 	const sizeOf = (s: Shape) => (s.geom.kind === 'rect' ? s.geom.size : s.geom.kind === 'ellipse' ? { x: s.geom.rx * 2, y: s.geom.ry * 2 } : { x: 0, y: 0 })
 	const resized = (s: Shape, axis: 'x' | 'y', v: number): Shape => {

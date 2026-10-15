@@ -127,7 +127,7 @@
 		treeNode: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null
 	}
 	let session = $state<Session>({
-		// No tabs at start (Dave, 2026-09-23: the four mock demo tabs are gone) — open drawings / floors from the
+		// No tabs at start (User, 2026-09-23: the four mock demo tabs are gone) — open drawings / floors from the
 		// project tree; an empty pane shows "No page open".
 		tabs: [],
 		panes: [{ id: 'p1', activeId: '', tool: 'Select', layout: 'sheet' }],
@@ -156,7 +156,7 @@
 	// (a per-user UI convenience); the viewport CONTENT view (viewState.getView) is the document-side
 	// pan/zoom. Backed by viewState.svelte.ts (R2) — same key shapes + localStorage, see that file.
 	$effect(() => viewState.loadPersisted())
-	// View-state KEYS (Dave, B18 follow-up): split SIDE (pane id — `p1` left, `p2` right, see splitVertical)
+	// View-state KEYS (User, B18 follow-up): split SIDE (pane id — `p1` left, `p2` right, see splitVertical)
 	// × DRAWING (`didOf` → the tab's stable docId; a sheet frame keeps its own frame id, already stable in
 	// the drawing's doc) × view ORIENTATION (the projection, for pan/zoom/orbit). Keyed by the drawing — not
 	// the session tab id — a closed-and-reopened drawing comes back with its views as they were.
@@ -265,7 +265,7 @@
 	// and undoable (it rides `snapModels`). The Viewport creates / moves / re-aims / deletes markers as model
 	// edits itself (it reads `mdl.sections`); the page keeps only the shared SELECTION and the sheet-side
 	// action: each of the 4 arrows drops that direction's elevation as a viewport FRAME on the current sheet
-	// (Dave, 2026-09-22). The 'sec' id prefix keeps them distinct from tab ids.
+	// (User, 2026-09-22). The 'sec' id prefix keeps them distinct from tab ids.
 	// Locate a section (across models) by id → its model id + the section object. Ids are globally unique.
 	function findSection(id: string): { mid: ModelId; sec: Section } | null {
 		for (const m of models) { const sec = (m.sections ?? []).find((s) => s.id === id); if (sec) return { mid: m.id, sec } }
@@ -300,7 +300,7 @@
 		return s && sectionOClip(s) ? sectionTitle(s).toUpperCase() : undefined
 	}
 	// Drop a section's view as a viewport FRAME LINKED to it (SheetFrame.section) on the current sheet: every call adds
-	// ANOTHER one (Dave: a section usually drives several elevation viewports — on one sheet or many — each with its own
+	// ANOTHER one (User: a section usually drives several elevation viewports — on one sheet or many — each with its own
 	// view-scoped annotations, freezes, scale, z band …; none of that lives on the section). A BOX drops direction `dir`
 	// (its clip, live); a LINE / an ELEVATION MARKER ignores `dir` — its one view is its OClip (live, liveOClip), the
 	// frame filed under the nearest ElevDir. The frame is sized to the view's proportions and fitted (scale + centred view).
@@ -335,7 +335,7 @@
 		selStore.set(sheet.id, selOnly([{ kind: 'frame', id: fid }]))
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	// ── the frames a section drives (phase 3 / Dave: usually several, on several sheets) ──
+	// ── the frames a section drives (phase 3 / User: usually several, on several sheets) ──
 	/** Every drawing to scan for linked frames: the loaded docs (with their stored sheet's number / title), and the
 	 *  stored sheets not loaded yet. */
 	function linkSources(): { loaded: LinkSource[]; stored: LinkSource[] } {
@@ -409,7 +409,7 @@
 	const newFrameId = () => newId('vf')
 	// Exactly one active viewport per sheet: activating a frame deactivates its siblings. Entering a frame
 	// also drops its page-level (border) selection — a frame selection is NOT retained across activation
-	// (Dave's call, R3 commit 3): the border-select and "inside, editing" states are visually and
+	// (User's call, R3 commit 3): the border-select and "inside, editing" states are visually and
 	// interactionally distinct, so re-entering shows a clean canvas, not a stale selected-border outline
 	// underneath. Symmetric with the paper-space dblclick-exit, which already cleared it the same way.
 	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id); selStore.set(tabId, selClear()) }
@@ -577,7 +577,7 @@
 		if (a?.kind === 'sheet') return (targetFrameOf(a.id)?.proj ?? 'plan') as Proj
 		return projOf(pane, a)
 	}
-	// A sheet viewport's DIRECTION change (ViewCube / 3D popout) is a PREVIEW until "Keep" (Dave 2026-09-26: a front view
+	// A sheet viewport's DIRECTION change (ViewCube / 3D popout) is a PREVIEW until "Keep" (User 2026-09-26: a front view
 	// accidentally left as 3D prints wrong). The original is remembered here; Revert — or leaving the viewport / the
 	// sheet — puts it back. Keep makes it the viewport's direction (one undo step).
 	let viewPreview = $state<Record<string, { tab: string; orig: Proj; label: string; wasActive: boolean }>>({})
@@ -607,7 +607,7 @@
 			for (const f of fs) {
 				const av = f.id
 				// a sheet viewport: a projection it has a view for keeps it; a new one opens CENTRED on the content at the
-				// frame's own scale (carrying a focus point could land on empty space — Dave lost a copied viewport's front)
+				// frame's own scale (carrying a focus point could land on empty space — User lost a copied viewport's front)
 				// …in EVERY pane showing this sheet (the direction is the sheet's — the other pane would open the new one at
 				// its default view, off on empty space)
 				if (proj !== 'iso') for (const q of session.panes) if ((q.id === pane.id || didOf(q.activeId) === didOf(a.id)) && !viewState.hasView(q.id, didOf(av), proj)) centreFrameContent(q.id, a.id, f, proj)
@@ -1278,7 +1278,7 @@
 	let openProjectOpen = $state(false)
 	let defaultsOpen = $state(false)   // D10: Format › Drawing Defaults…
 	function openProject(id: string) { if (id && id !== page.params.pid) goto(`/projects/${id}/pages`) }
-	// The palette path ('Hibiya · 30F · Zone …') names the floor → the drawing views that floor's model.
+	// The palette path ('building1 · 30F · Zone …') names the floor → the drawing views that floor's model.
 	const floorOfPath = (path?: string) => path?.split(' · ').find((seg) => /^\d+F$/.test(seg))
 	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false, floor: floorOfPath(i.path) }) }
 	function onGlobalKey(e: KeyboardEvent) {
@@ -1377,7 +1377,7 @@
 		{ tool: 'Line' },
 		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Arc'] },   // 2D draws
 		{ sep: 'building' },
-		// Boxes · Walls · Openings (Dave 2026-10-01)
+		// Boxes · Walls · Openings (User 2026-10-01)
 		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
 		{ group: 'conduits', label: 'Walls · trunks · pipes', members: ['Wall', 'Trunk', 'Pipe'] },   // node / segment graph tools
 		{ group: 'openings', label: 'Openings', members: ['Door', 'Window', 'Hole'] },
@@ -1460,7 +1460,7 @@
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, OTRACK: true, WIRE: false, LWT: false, CEN: false })
-	let snapStep = $state(10)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP) — default 10 mm (Dave)
+	let snapStep = $state(10)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP) — default 10 mm (User)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
 	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an
@@ -1500,7 +1500,7 @@
 	// `acadMode`) are GETTERS instead, so reading `ws.statusText` tracks only
 	// `statusText` — `ws` itself never changes identity, and every other `ws.x` read stays as narrow as
 	// before this bundling. NOT the full B17 fix — the module-level singletons (models/layers/imgEdit/docs/
-	// viewState/selStore) still leak across a project→project client-side navigation; that's Dave's call,
+	// viewState/selStore) still leak across a project→project client-side navigation; that's User's call,
 	// not started here.
 	const workspace: Workspace = {
 		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf, toolIs, toolLabel,

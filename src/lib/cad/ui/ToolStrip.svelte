@@ -1,4 +1,4 @@
-<!-- The TOOL STRIP (UX03, the Pages look; Dave: icons + groups) — tool strip option 2, FLYOUTS (Dave 2026-10-15): one
+<!-- The TOOL STRIP (UX03, the Pages look; User: icons + groups) — tool strip option 2, FLYOUTS (User 2026-10-15): one
      button per family (toolGroups.ts TOOL_FAMILIES), showing the item in use from it, else the one last used (kept in
      this browser). A click uses it; the corner mark, a right-click, a long press (touch) or a click on the family that
      is already in use opens the others. An item can be a tool's variant (Rectangle / Polygon / Ellipse / Arc; Box /
@@ -46,7 +46,7 @@
 	}
 	function away(e: PointerEvent) { if (open && !(e.target as Element | null)?.closest?.('.fly, .mark')) open = null }
 
-	// touch (Dave 2026-10-15: the mark is very small): a long press opens the family; the click that ends it is eaten
+	// touch (User 2026-10-15: the mark is very small): a long press opens the family; the click that ends it is eaten
 	let press: ReturnType<typeof setTimeout> | null = null, longPressed = false
 	function down(f: string[], e: PointerEvent) {
 		longPressed = false
@@ -67,7 +67,7 @@
 <svelte:window onpointerdown={away} onkeydown={(e) => { if (e.key === 'Escape' && open) { open = null; e.stopPropagation() } }} />
 
 <div class="strip" class:vertical role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
-	<!-- the Drawings group (Viewport) only while a sheet is open (Dave 2026-10-15); it's last, so nothing moves -->
+	<!-- the Drawings group (Viewport) only while a sheet is open (User 2026-10-15); it's last, so nothing moves -->
 	{#each TOOL_FAMILIES.filter((g) => g.name !== 'Drawings' || kind === 'sheet') as g, gi (g.name)}
 		{#if gi}<span class="sep" role="separator"></span>{/if}
 		{#each g.families as f (fam(f))}

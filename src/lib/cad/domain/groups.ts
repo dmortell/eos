@@ -1,4 +1,4 @@
-// GROUPS (backlog "Group / ungroup", Dave 2026-10-05): drawn shapes with the same `groupId` select and move as one.
+// GROUPS (backlog "Group / ungroup", User 2026-10-05): drawn shapes with the same `groupId` select and move as one.
 // Ctrl+G groups the selected shapes (any old groups they were in are dissolved into the new one), Ctrl+Shift+G
 // ungroups. A click or window on one member selects the whole group. Pure: each returns the entities to write / delete.
 import type { Id } from './types'

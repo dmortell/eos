@@ -101,14 +101,14 @@ export function drawingArea(ix: ProjectIndex, s: Sheet, o: SheetOpts = {}): { x:
 }
 
 /** A viewport's view, in the view's own drawing mm, drawn for paper at 1:N (annotation sizes follow the scale), with
- *  the layers hidden in it left out and layer colors applied. Only the viewport's own list counts (Dave 2026-10-13: a
+ *  the layers hidden in it left out and layer colors applied. Only the viewport's own list counts (User 2026-10-13: a
  *  viewport's layers are its own, apart from the model's eye) — on screen as in print. */
 export function viewportContent(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Prim[] {
 	return applyLayers(viewContent(ix, vp, o), ix, { hidden: new Set(vp.frozen ?? []), sort: vp.view.spec.kind === 'plan' }).draw
 }
 
 /** The layers a viewport draws anything on — its view with nothing hidden, and the notes tied to it (Layers: the
- *  others are folded away while it's picked, Dave 2026-10-14). */
+ *  others are folded away while it's picked, User 2026-10-14). */
 export function viewportLayers(ix: ProjectIndex, sheet: Sheet, vp: Viewport, o: SheetOpts = {}): Set<Id> {
 	const out = new Set<Id>()
 	for (const p of viewportContent(ix, { ...vp, frozen: undefined }, { ...sheetLook(sheet, o), vps: sheet.viewports })) if (p.layer) out.add(p.layer)
@@ -186,7 +186,7 @@ function notePrims(ix: ProjectIndex, s: Shape, sheet: Sheet, o: SheetOpts): Prim
 	// the layer rules, as a plan item gets them (Q41): hidden (a paper note: the sheet's own layers; a tied note: its viewport's) and By-layer color
 	const layered = (prims: Prim[], hidden: Iterable<string>) => applyLayers(prims, ix, { hidden: new Set(hidden) }).draw
 	if (!vp) return layered(shapePrims(s, 1, blocks), sheet.frozen ?? [])
-	// clipped to its window like the view it marks up (Dave: zoomed in, a tied cloud flew off the page)
+	// clipped to its window like the view it marks up (User: zoomed in, a tied cloud flew off the page)
 	const t = toPaper(vp), k = 1 / vp.scale, r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }
 	return layered(shapePrims(s, vp.scale, blocks), vp.frozen ?? []).map((p) => placePrim(p, t, k, clip, p.src))
 }
@@ -212,7 +212,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		// text fields ({LEVEL}, {COUNT:…}, domain/fields.ts) read the viewport's level (a riser: the whole project)
 		const ctx = fieldCtx(ix, { project: o.projectName, today: o.fieldDate, sheet, blocks: o.blocks, ...(vp.view.spec.kind === 'riser' ? {} : { levels: [vp.view.levelId] }) })
 		for (const p of withFields(viewportContent(ix, vp, { ...o, vps: sheet.viewports }), ctx)) out.push(placePrim(p, t, k, clip))
-		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (Dave: viewports got
+		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (User: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
 		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
 		// its number, in a small circle above the window's top-left corner
@@ -244,7 +244,7 @@ function autoLabel(ix: ProjectIndex, vp: Viewport): string | undefined {
 	if (spec.kind === 'schedule') return `${scheduleTitle(ix, spec.spaceId)}${spec.after ? ' (continued)' : spec.start && spec.start > 1 ? ` (from #${spec.start})` : ''}`
 	if (spec.kind !== 'section') return undefined
 	const s = ix.get(spec.sectionId)
-	return s?.type === 'section' ? `SECTION ${s.name}-${s.name}` : undefined   // plain hyphen (Dave): PDF fonts have no ′
+	return s?.type === 'section' ? `SECTION ${s.name}-${s.name}` : undefined   // plain hyphen (User): PDF fonts have no ′
 }
 
 /** A sensible first viewport: most of the drawing area (left of / above the title block), at 1:100, centred on the
@@ -291,7 +291,7 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 	}
 }
 
-/** A new, empty sheet after the last one: the next number, "New sheet", A3 landscape (Dave: no name prompt). */
+/** A new, empty sheet after the last one: the next number, "New sheet", A3 landscape (User: no name prompt). */
 export function blankSheet(sheets: Sheet[], id: Id): Sheet {
 	const last = [...sheets].sort((a, b) => a.order - b.order).at(-1)
 	return { type: 'sheet', id, number: last ? nextLabel(last.number) : 'S001', title: 'New sheet', order: (last?.order ?? 0) + 1,
@@ -385,7 +385,7 @@ export function freeSpot(sheet: Pick<Sheet, 'viewports'>, room: { x: number; y: 
 	return { x: room.x, y: room.y }
 }
 
-/** A model view printed on its own (Dave 2026-10-15: Ctrl+P on a plan / section / rack view → "the whole view", or the
+/** A model view printed on its own (User 2026-10-15: Ctrl+P on a plan / section / rack view → "the whole view", or the
  *  print ▾'s "on screen"): an unsaved A3 sheet without a title block, its one viewport borderless and named under it
  *  with its scale — landscape unless what's printed is taller than wide. `visible` = what's on screen (absent: the
  *  view's whole extent, at the largest standard scale that fits). The PDF path draws it like any sheet. */

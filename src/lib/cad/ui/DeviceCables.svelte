@@ -1,4 +1,4 @@
-<!-- Take every cable / cord off the selected devices' ports (Dave 2026-10-10: unlink P3A's panels U4–U10 at once): one
+<!-- Take every cable / cord off the selected devices' ports (User 2026-10-10: unlink P3A's panels U4–U10 at once): one
      device, or several picked with a box or Ctrl-click in a rack view. At once, as one undo step ("— Undo brings them
      back"), as on selected ports: only what the button names goes. -->
 <script lang="ts">

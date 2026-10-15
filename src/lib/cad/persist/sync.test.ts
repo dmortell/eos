@@ -277,10 +277,10 @@ describe('pending writes', () => {
 // a field the type doesn't have: the store and the server take any field
 type Named = Shape & { name?: string }
 const named = (s: Shape, name: string) => ({ ...s, name }) as unknown as Shape
-describe('edits in two tabs (Dave 2026-10-15: field-level saving)', () => {
+describe('edits in two tabs (User 2026-10-15: field-level saving)', () => {
 	it('a tab holding an older copy writes only the fields it changed — the other tab\'s newer field survives', async () => {
 		const server = new MemoryBackend()
-		const a = client(server, 'dave'), b = client(server, 'dave2')
+		const a = client(server, 'user'), b = client(server, 'user2')
 		a.store.transact('Add', (tx) => tx.put(named(box('x'), 'one')))
 		await a.sync.flush(); await tick()
 		// tab B goes stale: it stops listening, then A renames the box
@@ -290,7 +290,7 @@ describe('edits in two tabs (Dave 2026-10-15: field-level saving)', () => {
 		// B, still with name 'one', moves it: only geom (and meta) go to the server
 		const bx = b.store.get('x') as Named
 		expect(bx.name).toBe('one')
-		const bs = new Sync(b.store, server, { user: 'dave2' })
+		const bs = new Sync(b.store, server, { user: 'user2' })
 		b.store.transact('Move', (tx) => tx.put(moved(bx, 900)))
 		await bs.flush(); await tick()
 		const onServer = server.docs.get('x') as unknown as Named
@@ -299,7 +299,7 @@ describe('edits in two tabs (Dave 2026-10-15: field-level saving)', () => {
 	})
 	it('a field removed by an edit is removed on the server', async () => {
 		const server = new MemoryBackend()
-		const a = client(server, 'dave')
+		const a = client(server, 'user')
 		a.store.transact('Add', (tx) => tx.put(named(box('y'), 'n')))
 		await a.sync.flush(); await tick()
 		const { name: _n, ...rest } = a.store.get('y') as Named

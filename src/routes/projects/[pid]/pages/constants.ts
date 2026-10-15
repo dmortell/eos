@@ -51,7 +51,7 @@ export const clampViewZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(VIEW_ZOO
 export const clampCanvasZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, z))
 export type PaperSize = 'A4' | 'A3' | 'A2'
 /** XP7: the paper margin (mm) a sheet starts with — drawn as a guide, frames snap to it. */
-export const DEFAULT_MARGIN_MM = 5   // the printed border, 5 mm in (Dave 2026-09-26); the title block sits on it
+export const DEFAULT_MARGIN_MM = 5   // the printed border, 5 mm in (User 2026-09-26); the title block sits on it
 /** ISO A-series paper, landscape [width, height] in mm. */
 export const PAPER_SIZES: Record<PaperSize, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420] }
 /** On-screen paper dimensions (px) for a size + orientation. */

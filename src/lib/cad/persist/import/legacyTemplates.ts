@@ -1,5 +1,5 @@
 // The Racks tool's per-project device LIBRARY (`racks/{pid}_library`.templates) → cad's GLOBAL device templates
-// (`settings/cadDeviceTemplates`, Phase 7: Dave "try importing racks library to global device templates"). Ids are
+// (`settings/cadDeviceTemplates`, Phase 7: User "try importing racks library to global device templates"). Ids are
 // stable (`lib-<legacy id>`), so importing again changes nothing; the same device in several projects' libraries
 // (name + kind + U + ports) becomes one template. Pure; tested in legacyTemplates.test.ts.
 import type { DeviceKind } from '../../domain/types'

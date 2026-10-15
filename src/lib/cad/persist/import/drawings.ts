@@ -170,7 +170,7 @@ export function planDrawings(src: DrawingsSource, choice: DrawingsChoice, existi
 	}
 	counts.layers = layers.created.map((l) => l.name)
 
-	// a new layer starts frozen in the sheets that already exist (Dave: issued sheets don't change)
+	// a new layer starts frozen in the sheets that already exist (User: issued sheets don't change)
 	const sheetsNow = new Map(existing.filter((e): e is Sheet => e.type === 'sheet').map((s) => [s.id, s]))
 	const touched = new Set<Id>()
 	for (const l of layers.created) for (const s of freezeInExisting([...sheetsNow.values()], l.id)) { sheetsNow.set(s.id, s); touched.add(s.id) }

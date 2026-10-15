@@ -1,5 +1,5 @@
 <!-- CORD LABELS: the patch cords bought, as batches of pre-printed labels (ui/CordBatches.svelte) — its own dialog
-     (Dave 2026-10-12: easier to find than inside the schedule export), from the Patching tab's "Cord labels…" and
+     (User 2026-10-12: easier to find than inside the schedule export), from the Patching tab's "Cord labels…" and
      Cabling › Cord label batches…. -->
 <script lang="ts">
 	import CadDialog from './CadDialog.svelte'

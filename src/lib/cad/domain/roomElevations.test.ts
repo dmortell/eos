@@ -1,4 +1,4 @@
-// Room elevations A–D (Dave 2026-10-15): four sections, each looking at one wall from inside the room.
+// Room elevations A–D (User 2026-10-15): four sections, each looking at one wall from inside the room.
 import { describe, it, expect } from 'vitest'
 import { roomElevations, PAST_WALL_MM } from './roomElevations'
 import { sectionFrame } from '../views/sectionMarks'
@@ -24,7 +24,7 @@ describe('room elevations', () => {
 	})
 })
 
-describe('the plan shows a room\'s elevations as one marker (Dave 2026-10-15)', () => {
+describe('the plan shows a room\'s elevations as one marker (User 2026-10-15)', () => {
 	it('a circle and a lettered pointer per section, picking it — no cut lines for them; another section keeps its line', async () => {
 		const { planDisplayList } = await import('../views/plan')
 		const { ProjectIndex } = await import('./project')

@@ -1,4 +1,4 @@
-// The SITE view's OpenStreetMap data (a test, Dave 2026-09-27): geocode the project address (Nominatim), fetch the
+// The SITE view's OpenStreetMap data (a test, User 2026-09-27): geocode the project address (Nominatim), fetch the
 // buildings around it (Overpass API), and turn them into footprints in LOCAL METRES about the site point (x east,
 // y north) with heights from their tags (OSM "Simple 3D Buildings": height / min_height, building:levels ×
 // LEVEL_M, building:part pieces, roof shape / colour). Pure except the two fetches (injectable); tested in osm.test.ts.

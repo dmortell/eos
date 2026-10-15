@@ -1,4 +1,4 @@
-<!-- FIND A DEVICE / PANEL (backlog, Dave 2026-10-05): type part of a device's name, model or its rack's name — matches
+<!-- FIND A DEVICE / PANEL (backlog, User 2026-10-05): type part of a device's name, model or its rack's name — matches
      from the whole project. Enter (or a click) opens that room's rack view on the device's side, zoomed to its rack, with
      the device selected. -->
 <script lang="ts">

@@ -1,4 +1,4 @@
-// The side and bottom panels (Dave: hide / show and resize them): sizes in px and which are shown, per user in this
+// The side and bottom panels (User: hide / show and resize them): sizes in px and which are shown, per user in this
 // browser (all projects). The drawing takes whatever is left.
 const KEY = 'cad-panels:2'   // :2 — the tables start closed (UX review L1)
 type Side = 'left' | 'right' | 'bottom'
@@ -10,9 +10,9 @@ export class Panels {
 	/** The tables panel (UX review T1–T3): floating (x / y / w / h in the drawing area) or docked under the drawing,
 	 *  folded to its bar, or maximised over the drawing. */
 	tables = $state({ float: false, x: 40, y: 60, w: 960, h: 320, folded: false, max: false })
-	/** Split view: the left pane's share of the width (0.15–0.85; Dave: drag the bar between them). */
+	/** Split view: the left pane's share of the width (0.15–0.85; User: drag the bar between them). */
 	split = $state(0.5)
-	/** The table picked for each kind of view (rack view → Outlets …), kept over a refresh (Dave 2026-10-10). */
+	/** The table picked for each kind of view (rack view → Outlets …), kept over a refresh (User 2026-10-10). */
 	tableFor: Record<string, string> = {}
 
 	constructor() {

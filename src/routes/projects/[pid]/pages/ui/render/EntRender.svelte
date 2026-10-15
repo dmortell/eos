@@ -158,7 +158,7 @@
 			<text x={rx + (cr.x + cr.w / 2) * rw} y={ry + (cr.y + cr.h / 2) * rh} text-anchor="middle" dominant-baseline="middle" fill="#ef4444" font-size={Math.min(cr.w * rw, cr.h * rh) / 12}>Missing file: {srcName(e.src ?? '')}</text>
 		{:else if !href && e.src?.startsWith(PDF_SRC)}
 			<!-- the PDF page is still rendering (a few seconds, once per session): just a faint dashed outline where it will
-			     appear — the small spinner sits in the view's scale tag / bar (Dave: the big one was obtrusive); screen only -->
+			     appear — the small spinner sits in the view's scale tag / bar (User: the big one was obtrusive); screen only -->
 			<rect class="vp-screen pdf-loading" pointer-events="none" x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke="#94a3b8" stroke-opacity="0.6"
 				stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{6 / (canvasZoom || 1)} {4 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />
 		{:else}

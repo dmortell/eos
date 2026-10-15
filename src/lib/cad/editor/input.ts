@@ -1,5 +1,5 @@
 // Typed points while drawing (ADR 0005 "typed input"). The numbers are the MODEL's, the same as Properties show
-// (Dave: "typed y-points must be consistent with the rest of the model"): in a plan or on a sheet x,y are the stored
+// (User: "typed y-points must be consistent with the rest of the model"): in a plan or on a sheet x,y are the stored
 // coordinates (y down the sheet); in an elevation (`yUp`) y is HEIGHT, as Properties show Z. Results are VIEW points
 // (y down on screen), ready to hand to a tool.
 //   x,y        absolute            @dx,dy     relative to the last point
@@ -12,7 +12,7 @@ export type Typed = { kind: 'point'; p: Pt } | { kind: 'error'; message: string 
 
 const NUM = /^-?\d+(\.\d+)?$|^-?\.\d+$/
 
-/** A numpad has no comma (Dave 2026-10-14): `..` types one — `1200..600` = `1200,600`. A single `.` stays a decimal point. */
+/** A numpad has no comma (User 2026-10-14): `..` types one — `1200..600` = `1200,600`. A single `.` stays a decimal point. */
 export const numpadCommas = (text: string): string => text.replace(/\.\./g, ',')
 
 /** What the typing box's text does to the active tool: a value the tool reads itself first (Rotate's angle, a box's

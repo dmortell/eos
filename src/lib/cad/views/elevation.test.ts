@@ -24,7 +24,7 @@ const view = (dir: 'front' | 'rear' | 'left' | 'right', ents = placed()) => elev
 const srcs = (dir: 'front' | 'rear' | 'left' | 'right') => new Set(view(dir).map((p) => p.src).filter(Boolean))
 
 describe('what an elevation shows', () => {
-	it('architectural (Dave 2026-10-15): the facing devices as plain boxes — front: SW1 (front) and P1 (both); rear: P1; a side none — and no device names', () => {
+	it('architectural (User 2026-10-15): the facing devices as plain boxes — front: SW1 (front) and P1 (both); rear: P1; a side none — and no device names', () => {
 		expect(srcs('front').has('SW1') && srcs('front').has('P1')).toBe(true)
 		expect(srcs('rear').has('SW1')).toBe(false)
 		expect(srcs('rear').has('P1')).toBe(true)
@@ -43,7 +43,7 @@ describe('what an elevation shows', () => {
 		const ys = view('rear').filter((x) => (x.src === 'O1' || x.src === 'O2') && x.k === 'line').map((x) => (x as { pts: { x: number }[] }).pts[0].x)
 		expect(ys[0]).toBeGreaterThan(ys[1])   // seen from behind, the order flips
 	})
-	it('what was placed on the PLAN stays there: outlets, blocks, flat shapes and lines, notes, dimensions (Dave 2026-10-10)', () => {
+	it('what was placed on the PLAN stays there: outlets, blocks, flat shapes and lines, notes, dimensions (User 2026-10-10)', () => {
 		const sh = (id: string, geom: object, extra = {}) => ({ type: 'shape', id, levelId: 'L33', geom, ...extra }) as Shape
 		const flat = (id: string, z: number) => ({ id, x: 1000, y: 2000, z })
 		const plan: Entity[] = [

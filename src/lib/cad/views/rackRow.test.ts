@@ -64,7 +64,7 @@ describe('the rack row', () => {
 		expect(textOf(5)).toEqual([])
 		expect(prims.find((p) => p.src === 'P1' && p.sub === '1' && p.k === 'line')?.cls).toContain('port-linked')
 	})
-	it('a port with a cord in has a green edge — both ends; a linked port with none doesn’t (Dave: "patched ports should have an indicator")', () => {
+	it('a port with a cord in has a green edge — both ends; a linked port with none doesn’t (User: "patched ports should have an indicator")', () => {
 		const cls = (on: string, n: number) => (view('front').find((p) => p.k === 'line' && p.src === on && p.sub === String(n)) as { cls: string }).cls
 		expect(cls('P1', 1)).toContain('port-patched')    // C1
 		expect(cls('SW1', 1)).toContain('port-patched')
@@ -95,7 +95,7 @@ describe('0U devices', () => {
 	})
 })
 
-describe('the U scale stays readable (Dave: a PDU covered R311’s numbers)', () => {
+describe('the U scale stays readable (User: a PDU covered R311’s numbers)', () => {
 	it('U numbers draw after the rack’s devices, and a PDU hugs the outside of the rails', () => {
 		const wide: Rack = { type: 'rack', id: 'RW', levelId: 'L33', spaceId: 'SR-A', order: 2, name: 'W', kind: 'cabinet', heightU: 42, widthMm: 750, depthMm: 1000 }
 		const pdu: Device = { type: 'device', id: 'PDU9', rackId: 'RW', name: 'PDU', kind: 'pdu', u: 1, heightU: 30, face: 'front', portCount: 0 }
@@ -117,14 +117,14 @@ describe('row order comes from the plan', () => {
 		// turned 180° (front faces up the sheet), the viewer's left-to-right runs the other way along x
 		expect(names([mk('C', 3000, 180), mk('A', 1000, 180), mk('B', 2000, 180)])).toEqual(['C', 'B', 'A'])
 	})
-	it('a row that turns a corner: each run by its own direction, the runs along the first (Dave: V06, P3C, V05)', () => {
+	it('a row that turns a corner: each run by its own direction, the runs along the first (User: V06, P3C, V05)', () => {
 		const mk = (id: string, x: number, y: number, rot = 0): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y }, rot })
 		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row A', order: 0 }
 		// Test Project IDF 2: three racks along the wall (turned 90°), then the frame flanked by its managers
 		const ents = [mk('R313', -2242, -10808, 90), mk('R312', -2242, -10208, 90), mk('R311', -2225, -9308, 90), mk('V05', -3124, -7059), mk('V06', -3824, -7059), mk('P3C', -3450, -7008)]
 		expect(rackLayout(ix([row, ...ents]), { spaceId: 'SR-B', face: 'front' }).map((l) => l.rack.name)).toEqual(['R313', 'R312', 'R311', 'V06', 'P3C', 'V05'])
 	})
-	it('managers turned round stay in their frame’s line; the widest run sets the way (Dave: Journey IDF1 — P3A left of R301)', () => {
+	it('managers turned round stay in their frame’s line; the widest run sets the way (User: Tourney IDF1 — P3A left of R301)', () => {
 		const mk = (id: string, x: number, y: number, rot: number, widthMm: number): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm, depthMm: 1000, at: { x, y }, rot })
 		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row A', order: 0 }
 		// the racks face up the sheet (180°); round the corner P3A faces right (270°), its two managers left (90°) — and
@@ -158,13 +158,13 @@ describe('port cells and labels', () => {
 		expect(at('column', 2).x).toBe(at('column', 1).x)
 		expect(at('column', 2).y).toBeGreaterThan(at('column', 1).y)
 	})
-	it('a 96-port 2U switch is 4 rows of 24 (Dave: its 2 rows of 48 tiny cells read as 48 ports)', () => {
+	it('a 96-port 2U switch is 4 rows of 24 (User: its 2 rows of 48 tiny cells read as 48 ports)', () => {
 		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96 }
 		const ys = new Set(Array.from({ length: 96 }, (_, i) => Math.round(portCell(big, i + 1, 0, 0)!.y)))
 		expect(ys.size).toBe(4)
 		expect(portCell(big, 1, 0, 0)!.w).toBeCloseTo(430 / 24)
 	})
-	it('numbered down, a 96-port 2U switch goes down each U’s pair of rows: 2 under 1, 49 under 2, 50 under 49 (Dave: Journey’s Arista CCS-720XP-96)', () => {
+	it('numbered down, a 96-port 2U switch goes down each U’s pair of rows: 2 under 1, 49 under 2, 50 under 49 (User: Tourney’s Arista CCS-720XP-96)', () => {
 		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96, portNumbering: 'column' }
 		const at = (p: number) => portCell(big, p, 0, 0)!
 		expect([2, 49, 50].map((p) => at(p).x)).toEqual([at(1).x, at(1).x, at(1).x])
@@ -172,7 +172,7 @@ describe('port cells and labels', () => {
 		expect(at(3).y).toBe(at(1).y); expect(at(3).x).toBeGreaterThan(at(1).x)   // 3 beside 1
 		expect(at(48).x).toBe(at(96).x)   // the last column: 47 / 48 over 95 / 96
 	})
-	it('24 ports or more: a tick under the middle of the ports, from the bottom edge (Dave: left outlets to the left switch ports)', () => {
+	it('24 ports or more: a tick under the middle of the ports, from the bottom edge (User: left outlets to the left switch ports)', () => {
 		const dev = (id: string, u: number, portCount: number) => ({ type: 'device', id, rackId: 'R1', name: id, kind: 'panel', u, heightU: 1, face: 'both', portCount }) as Device
 		const prims = view('front', [dev('P48', 10, 48), dev('P12', 12, 12)])
 		const ticks = prims.filter((p) => p.k === 'line' && p.cls === 'port-mid') as { pts: { x: number; y: number }[] }[]
@@ -188,18 +188,18 @@ describe('port cells and labels', () => {
 		expect(up.y).toBeGreaterThanOrEqual(Math.max(...cell(25).map((q) => q.y)))
 		expect(at(12)).toHaveLength(0)   // the 12-port panel has none
 	})
-	it('a device with few ports keeps port-sized cells (Dave: a server / tower PC drew huge ports)', () => {
+	it('a device with few ports keeps port-sized cells (User: a server / tower PC drew huge ports)', () => {
 		const server: Device = { type: 'device', id: 'SV', rackId: 'R1', name: 'SV', kind: 'server', u: 10, heightU: 2, face: 'front', portCount: 2 }
 		const c = portCell(server, 1, 0, 0)!
 		expect(c.w).toBeLessThanOrEqual(18)
 		expect(c.h).toBeLessThanOrEqual(30)
 		const panel: Device = { ...server, kind: 'panel', heightU: 1, portCount: 24 }
 		expect(portCell(panel, 1, 0, 0)!.w).toBeCloseTo(430 / 24)          // panels are unchanged
-		// a 200 mm tower PC's ports sit on the PC (Dave: R311's were drawn off to the left of it)
+		// a 200 mm tower PC's ports sit on the PC (User: R311's were drawn off to the left of it)
 		const tower: Device = { ...server, widthMm: 200, portCount: 4 }
 		for (let n = 1; n <= 4; n++) { const c = portCell(tower, n, 0, 0)!; expect(c.x).toBeGreaterThanOrEqual(-100); expect(c.x + c.w).toBeLessThanOrEqual(100) }
 	})
-	it('a two-part label in a 48-port panel is stacked, about twice the size of one line (Dave: P3C U37 unreadable)', () => {
+	it('a two-part label in a 48-port panel is stacked, about twice the size of one line (User: P3C U37 unreadable)', () => {
 		const prims = view('front', [{ type: 'device', id: 'P48', rackId: 'R1', name: 'P48', kind: 'panel', u: 10, heightU: 1, face: 'both', portCount: 48, portLabels: { '1': '01A.014A' } } as Device])
 		const texts = prims.filter((p) => p.k === 'text' && p.src === 'P48' && p.sub === '1') as { text: string; size: number }[]
 		expect(texts.map((t) => t.text)).toEqual(['01A', '014A'])
@@ -220,7 +220,7 @@ describe('port cells and labels', () => {
 	})
 })
 
-describe('narrow kit (Dave 2026-10-13)', () => {
+describe('narrow kit (User 2026-10-13)', () => {
 	it('a device 150 mm wide or less has its name turned up its middle; a wider one keeps it level; no port count', () => {
 		const rackId = (ix().racks.find((r) => r.spaceId === 'SR-A') as Rack).id
 		const thin = { type: 'device', id: 'VM1', rackId, name: 'VCM-1', kind: 'manager', u: 30, heightU: 6, face: 'front', portCount: 0, widthMm: 120 } as Entity

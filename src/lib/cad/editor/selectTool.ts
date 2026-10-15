@@ -109,7 +109,7 @@ export class SelectTool implements Tool {
 	#hovGrip: Pt | null = null
 	/** The selection that grip belongs to: once it's deleted or changes, the grip isn't drawn (the pointer needn't move). */
 	#hovFor = ''
-	/** …and those items as they were then: an undo / redo / remote edit that changes one (its grip moves) hides it too (Dave 2026-10-15). */
+	/** …and those items as they were then: an undo / redo / remote edit that changes one (its grip moves) hides it too (User 2026-10-15). */
 	#hovEnts: unknown[] = []
 	/** A rack view's room floor / ceiling line under the pointer (drag it up / down): drawn as a bar. */
 	#hovRoom: Handle | null = null
@@ -211,7 +211,7 @@ export class SelectTool implements Tool {
 	#handles(c: ToolCtx): ReturnType<typeof handlesFor> {
 		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
 		if (!one) return { handles: [], decor: [] }
-		// a block insert: corner grips scale it about its insert point (Dave 2026-10-15) — on a plan, a sheet's paper, or an elevation it was placed in
+		// a block insert: corner grips scale it about its insert point (User 2026-10-15) — on a plan, a sheet's paper, or an elevation it was placed in
 		if (one.type === 'shape' && one.geom.kind === 'insert' && !one.vpId) {
 			const g = one.geom, k = c.space.spec.kind
 			const anchor = k === 'plan' || k === 'sheet' ? g.at : c.space.fromWorld({ x: g.at.x, y: g.at.y, z: g.z ?? 0 })
@@ -353,7 +353,7 @@ export class SelectTool implements Tool {
 			}
 			if (seg) this.#segPick = { shape: id, seg }
 		}
-		// Shift on ANOTHER device of the rack last clicked (its body or a port): every device between them (Dave: select
+		// Shift on ANOTHER device of the rack last clicked (its body or a port): every device between them (User: select
 		// U10, Shift-click U4); press here again on one of them to drag them
 		const spec = c.space.spec, isDev = !!id && c.store.get(id)?.type === 'device'
 		if (spec.kind === 'row' && isDev && e.shift && !e.ctrl && this.#devAnchor && this.#devAnchor !== id) {
@@ -397,7 +397,7 @@ export class SelectTool implements Tool {
 		const pid = this.#cycle ? c.selection[0] : id
 		if (pid) {
 			const id = pid
-			// Ctrl: a click toggles it (Dave: Shift is kept for constraints while dragging; port ranges in racks still use
+			// Ctrl: a click toggles it (User: Shift is kept for constraints while dragging; port ranges in racks still use
 			// Shift); a Ctrl-DRAG copies the selection with it — let go of Ctrl mid-drag and it moves instead
 			if (add) this.#toggle = id
 			const grp = withGroups(c.index.shapes, [id])   // a member of a group picks the whole group
@@ -671,7 +671,7 @@ export class SelectTool implements Tool {
 			for (const g of run.geom.segs) if (ps.segs.includes(g.id) && at.get(g.a) && at.get(g.b)) out.push({ k: 'line', pts: [at.get(g.a)!, at.get(g.b)!], cls: 'seg-sel' })
 		}
 		// what a click would take (UX06), unless it's already selected: its outline (a port: just that cell, its label left
-		// as drawn — a blue copy over it made it unreadable, Dave 2026-10-07)
+		// as drawn — a blue copy over it made it unreadable, User 2026-10-07)
 		const hv = this.#hov
 		if (hv && !this.#gesture && (hv.sub ? true : !c.selection.includes(hv.id))) {
 			const hoverHasShape = c.prims().some((p) => p.src === hv.id && p.k !== 'text' && p.k !== 'image' && (!hv.sub || p.sub === hv.sub))

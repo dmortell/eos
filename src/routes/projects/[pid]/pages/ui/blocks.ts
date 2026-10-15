@@ -21,7 +21,7 @@ export type AttrDef = {
 	pos: Pt
 	height: number
 	/** Never smaller than this many PAPER mm (the Sheets tool's outlet-label rule: max(the model height, 2.5 paper mm ×
-	 *  the scale)) — so a label stays readable at 1:100 (Dave: Pages' outlet labels were half the Sheets size). */
+	 *  the scale)) — so a label stays readable at 1:100 (User: Pages' outlet labels were half the Sheets size). */
 	minPaper?: number
 	/** false = stored and edited, never drawn (e.g. TYPE). */
 	visible?: boolean

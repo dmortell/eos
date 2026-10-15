@@ -1,4 +1,4 @@
-// The Shape tool (rectangle / ellipse / regular polygon) and Shift constraints (Dave, 2026-10-05).
+// The Shape tool (rectangle / ellipse / regular polygon) and Shift constraints (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
@@ -67,7 +67,7 @@ describe('the Shape tool', () => {
 		expect(h.store.undoLabels).toEqual(['Draw rect'])
 		expect(planDisplayList(new ProjectIndex(h.store.all()), 'L33', { scale: 100 }).some((p) => p.src === s.id)).toBe(true)
 	})
-	it('typed (Dave 2026-10-14): a typed first corner, then width,depth towards the cursor — a box at its height', () => {
+	it('typed (User 2026-10-14): a typed first corner, then width,depth towards the cursor — a box at its height', () => {
 		const h = harness(PLAN), t = new ShapeTool(() => opts({ height: 50, z: 750 }), 'box')
 		expect(t.typedLabel()).toBeNull()                       // the first corner: a point
 		expect(t.typedText('1000,2000', h.ctx())).toBe(false)   // …read as x,y
@@ -87,7 +87,7 @@ describe('the Shape tool', () => {
 		expect(poly.typedText('500', h.ctx())).toBe(false)
 		expect(poly.typedLabel()).toMatch(/Radius/)
 	})
-	it('a Box drawn in an elevation (Dave 2026-10-14): width and height by its corners, depth from the options, its front on the work plane', () => {
+	it('a Box drawn in an elevation (User 2026-10-14): width and height by its corners, depth from the options, its front on the work plane', () => {
 		const spec: ViewSpec = { kind: 'elevation', dir: 'front' }, sp = spaceOf(spec), h = harness(spec)
 		const t = new ShapeTool(() => opts({ kind: 'polygon', depth: 600 }), 'box')   // a polygon footprint is a rectangle here
 		t.down(at(1000, -720), h.ctx()); t.up(at(1000, -720), h.ctx()); t.down(at(2200, -770), h.ctx())   // u 1000..2200, z 720..770
@@ -103,7 +103,7 @@ describe('the Shape tool', () => {
 		const ys = prims.flatMap((p) => (p.k === 'line' ? p.pts.map((q) => -q.y) : []))
 		expect([Math.min(...ys), Math.max(...ys)]).toEqual([720, 770])
 	})
-	it('a typed size draws ONE box and starts no other (Dave 2026-10-14: a second box began at "1200,600")', () => {
+	it('a typed size draws ONE box and starts no other (User 2026-10-14: a second box began at "1200,600")', () => {
 		const h = harness(PLAN), t = new ShapeTool(() => opts())
 		t.down(at(5000, 5000), h.ctx()); t.up(at(5000, 5000), h.ctx()); t.hover(at(6000, 6000), h.ctx())
 		expect(typeInto(t, '1200..600', h.ctx(), { x: 6000, y: 6000 }, false)).toBeNull()

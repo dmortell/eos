@@ -1,4 +1,4 @@
-// SHEETS → PDF (Phase 4.3, Dave: the issued PDF is what goes out): each sheet's display list drawn with jspdf at true
+// SHEETS → PDF (Phase 4.3, User: the issued PDF is what goes out): each sheet's display list drawn with jspdf at true
 // paper mm — vector lines and text, images (floorplans, logos) embedded. One code path for "PDF" and for issuing
 // (4.6). Styles mirror Prims.svelte's classes. Screen-only things (the paper edge, the margin guide, hidden viewport
 // frames, LOD that hides small text) follow the paper, not the screen.
@@ -13,7 +13,7 @@ import type { Sheet } from '../domain/drawing'
 import { sheetDisplayList, paperSize, type SheetOpts } from '../views/sheet'
 import { jsPDF, GState } from 'jspdf'
 
-/** `title`: the page's name in the PDF's outline (bookmarks — the viewer's sidebar; Dave 2026-10-15: "each page given a name"). */
+/** `title`: the page's name in the PDF's outline (bookmarks — the viewer's sidebar; User 2026-10-15: "each page given a name"). */
 export interface PdfPage { w: number; h: number; prims: Prim[]; title?: string }
 
 /** Sheets as PDF pages: each its own paper size, drawn exactly as on screen (views/sheet.ts). */
@@ -88,7 +88,7 @@ function monoStyle(st: Style): Style {
 	return { ...st, stroke: ink(st.stroke), text: '#000000', ...(st.fill && st.fill !== 'none' && !WHITE.test(st.fill) ? { fill: '#d4d4d4' } : {}) }
 }
 
-export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster; /** all ink black, fills light grey, pictures grey (decision T121: cheap prints) */ mono?: boolean; /** a TrueType font (base64) for the text the standard fonts can't show — Japanese … as real, selectable text instead of pictures (Settings › Files, Dave 2026-10-15) */ font?: string } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
+export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { compress?: boolean; rasterText?: TextRaster; /** all ink black, fills light grey, pictures grey (decision T121: cheap prints) */ mono?: boolean; /** a TrueType font (base64) for the text the standard fonts can't show — Japanese … as real, selectable text instead of pictures (Settings › Files, User 2026-10-15) */ font?: string } = {}): Promise<{ pdf: jsPDF; unsupported: string[]; rasterised: string[] }> {
 	const first = pages[0] ?? { w: 420, h: 297, prims: [] }
 	const pdf = new jsPDF({ unit: 'mm', format: [first.w, first.h], orientation: first.w > first.h ? 'landscape' : 'portrait', compress: o.compress ?? true })
 	const unsupported = new Set<string>(), rasterised = new Set<string>()

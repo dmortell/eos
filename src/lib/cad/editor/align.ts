@@ -1,4 +1,4 @@
-// ALIGN / DISTRIBUTE (backlog, G248; Dave 2026-10-12 "do 27"): the selection's boxes (in the view's own x / y — a plan,
+// ALIGN / DISTRIBUTE (backlog, G248; User 2026-10-12 "do 27"): the selection's boxes (in the view's own x / y — a plan,
 // an elevation, a sheet) lined up on the left / centre / right / top / middle / bottom of them all, or spread with
 // equal gaps across / down (the first and last stay). `alignMoves` (pure) = each box's move; `applyAlign` writes them.
 // Tested in align.test.ts.

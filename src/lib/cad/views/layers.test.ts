@@ -119,7 +119,7 @@ describe('hiding, locking and coloring', () => {
 	})
 })
 
-describe('port labels layer (Dave 2026-10-07)', () => {
+describe('port labels layer (User 2026-10-07)', () => {
 	it("a device's port labels go on Port labels: hiding it keeps the racks and ports, hiding Racks keeps the labels", () => {
 		const index = ix()
 		const prims = rackRowDisplayList(index, { spaceId: 'SR-A', face: 'front' })

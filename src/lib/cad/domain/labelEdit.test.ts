@@ -1,4 +1,4 @@
-// Edit a label in place (Dave, 2026-10-05): which things have words, and the thing with new ones.
+// Edit a label in place (User, 2026-10-05): which things have words, and the thing with new ones.
 import { describe, it, expect } from 'vitest'
 import { labelKind, labelOf, withLabel } from './labelEdit'
 import { demoProject } from './fixtures'

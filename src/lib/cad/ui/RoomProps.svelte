@@ -23,7 +23,7 @@
 	const level = $derived(project.index.get(room.levelId))
 	const levelCeil = $derived(level?.type === 'level' ? level.heights.clearHeightMm : undefined)
 	const set = (label: string, patch: Partial<Space>) => put(project.store, room, label, patch)
-	/** Walls round it (Dave 2026-10-15): one closed wall along the outline, the Wall tool's thickness, slab to slab. */
+	/** Walls round it (User 2026-10-15): one closed wall along the outline, the Wall tool's thickness, slab to slab. */
 	function makeWalls() {
 		const w = wallsRound(room, project.settings?.toolDefaults?.wall?.w ?? 100, levelCeil ?? 2700)
 		if (!w) return
@@ -31,7 +31,7 @@
 		ws.select([w.id])
 		ws.say(`Walls round ${room.name}: one wall, slab to slab · Ctrl+Z undoes`)
 	}
-	// a drawn room round racks of ANOTHER room whose own floor / ceiling differ from the level's (Dave 2026-10-15: IDF2
+	// a drawn room round racks of ANOTHER room whose own floor / ceiling differ from the level's (User 2026-10-15: IDF2
 	// round 33IDF2's racks): its elevations draw both sets of lines; say so here
 	const otherDatums = $derived.by(() => {
 		if (server || !room.boundary || room.boundary.length < 3) return []

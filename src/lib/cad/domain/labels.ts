@@ -72,7 +72,7 @@ export function reformatPorts<T extends { label: string; ports: { port: number; 
 	return changed ? { ...o, ports } : null
 }
 
-/** Port labels made again from the outlet's own label, for the ports that don't contain it (Dave 2026-10-10: Journey
+/** Port labels made again from the outlet's own label, for the ports that don't contain it (User 2026-10-10: Tourney
  *  outlets renumbered to 245… kept ports "056.A"; a panel showed 056). Ports that carry the label in any form —
  *  "L30.A.001-A01" on outlet 001 — are left alone. Null = none to change. */
 export function portsFromLabel<T extends { label: string; ports: { port: number; label: string }[] }>(o: T, style: 'alpha' | 'numeric', sep: PortSep): T | null {

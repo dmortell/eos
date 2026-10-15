@@ -13,7 +13,7 @@
 	let { project, ws, items }: { project: CadProject; ws: Workspace; items: Entity[] } = $props()
 
 	const one = $derived(items.length === 1 ? items[0] : undefined)
-	/** Use as default (Dave 2026-10-15): this item's settings become what its tool starts with, kept with the project. */
+	/** Use as default (User 2026-10-15): this item's settings become what its tool starts with, kept with the project. */
 	const asDefault = $derived(useAsDefault(one))
 	function setDefault() {
 		const s = project.settings, d = asDefault

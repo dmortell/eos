@@ -1,6 +1,6 @@
 # Phase 6 — Elevations and sections
 
-**Status:** REVIEWED (Dave, 2026-10-02) — answers in §6a.
+**Status:** REVIEWED (User, 2026-10-02) — answers in §6a.
 - **Exit** (analysis §8): a room elevation of a comms room with outlets at height.
 - **Retires:** the Pages 3D engine (`pages/3dview/`) as the source of elevations / sections.
 
@@ -57,7 +57,7 @@
 | 6.1 | **Openings** | Door / Window tools (click a wall: width, sill, head from the tool bar); plan gaps + swing; Properties; drawn in elevations | A door into IDF1 shows in plan and the 1F front elevation |
 | 6.2 | **Sections** | Section record + ViewSpec; a Section tool (two clicks + side); marks on the plan; depth / top / bottom clip; cut walls hatched; on sheets | A section through IDF1 shows only IDF1's racks and walls |
 | 6.3 | **Room elevations** | "Room elevations" on a room → 4 sections; outlets as faceplates at height; labels | IDF1 A–D, outlets at height on its walls — the Phase 6 exit |
-| 6.4 | *(optional)* 3D view | read-only three.js view of a level (boxes for racks / walls / runs) | Only if Dave wants it (§6 Q4) |
+| 6.4 | *(optional)* 3D view | read-only three.js view of a level (boxes for racks / walls / runs) | Only if User wants it (§6 Q4) |
 
 Rough size: ~1.2k lines. 6.2 is the core; 6.1 and 6.3 are small.
 
@@ -65,7 +65,7 @@ Rough size: ~1.2k lines. 6.2 is the core; 6.1 and 6.3 are small.
 
 cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
 
-## 6. Questions for Dave
+## 6. Questions for User
 
 1. **Sections as stored records** with a cut line drawn on the plan (Revit-style marks) — OK? Or only room
    elevations made from rooms, with no free sections?
@@ -79,7 +79,7 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
 5. **Doors / windows:** just door, window and hole with width / sill / head / swing, or do you need others (a
    double door, a roller shutter …)?
 
-## 6a. Decisions (Dave, 2026-10-02)
+## 6a. Decisions (User, 2026-10-02)
 
 1. **Sections are drawn with cut lines** on the plan (stored records).
 2. **6.3 Room elevations and 6.4 3D view:** later options, not now.
@@ -88,10 +88,10 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
    - **Fields:** **width**, **Z** (its bottom above FFL), **H** (its height) and a **swing** (none / left / right;
      `flip` = opens to the other side), drawn as a door arc on the plan.
    - **Model:** `Opening { id, segId, at, width, z, h, swing?, flip? }`. This replaces `sill` / `head` / `kind`
-     ("head" was the top, Z + H; Dave doesn't need either term). No data had openings yet.
+     ("head" was the top, Z + H; User doesn't need either term). No data had openings yet.
 
 **Now:** 6.1 openings, 6.2 sections.
-5. **Slab-to-slab walls** (Dave: "some walls (around the IDF rooms and UPS rooms) will be full height slab to
+5. **Slab-to-slab walls** (User: "some walls (around the IDF rooms and UPS rooms) will be full height slab to
    slab"): `WallRole.slabToSlab` (Properties: "Slab to slab"). Such a wall runs from the structural slab under the
    raised floor to the underside of the slab above, following the level's heights (`wallSpan`).
 
@@ -135,7 +135,7 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
   - R301–R303 are seen end-on, with TR1 at the ceiling;
   - P3A (east, behind the viewer) is left out.
 
-### After 6.2 (Dave, 2026-10-02)
+### After 6.2 (User, 2026-10-02)
 - **Openings in Properties fit the sidebar:** two short lines per opening (W / Z / H, then Swing / Flip /
   Delete). The Flip button had been cut off.
 - **Handles** (`editor/handles.ts`, tests). Grips that edit a property of the selected thing on the plan:
@@ -158,7 +158,7 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
 - **Live checks:** wall handles slide a door; the swing grip stepped none → left → right with the arc drawn; a
   right-click mid-section went back to Select without making one; the camera came back identical after a reload.
 
-### More on openings / right-click (Dave, 2026-10-02)
+### More on openings / right-click (User, 2026-10-02)
 - **Swing by drag:** besides a click (which steps the swing), DRAG the round grip to where the door leaf should be.
   The side of the wall picks the face, the half of the hole picks the hinge; back over the wall = no swing.
 - **Holes are selectable:**
@@ -178,10 +178,10 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
 
 ### Todo
 - **Shift constraints during drags:** pressing / releasing Shift mid-drag should constrain (H / V / along the
-  host, 15° steps) live — for node grips, handles and moves (Dave, 2026-10-02).
-- **Fix the drag marquee:** selecting shapes by window doesn't pick them up (Dave, 2026-10-02).
+  host, 15° steps) live — for node grips, handles and moves (User, 2026-10-02).
+- **Fix the drag marquee:** selecting shapes by window doesn't pick them up (User, 2026-10-02).
 
-### Door swings solid; rack doors (Dave, 2026-10-02)
+### Door swings solid; rack doors (User, 2026-10-02)
 - **Door swing arcs** are solid thin lines now (the dashes were hard to see), on screen and in PDFs.
 - **Rack doors:**
   - `Rack.doors { front?, rear?: 'single' | 'split', hinge? }`, offered in Properties for `cabinet` racks.
@@ -192,7 +192,7 @@ cad is 10.0k lines (non-test) after Phase 5, against the ~20k total target.
     devices" problem doesn't arise; a door need not hide anything.
 - **Grip shapes, for later:** a round grip will also suit ROTATE.
 
-### Shift is for constraints (Dave, 2026-10-02)
+### Shift is for constraints (User, 2026-10-02)
 - **On the canvas Shift no longer adds to / removes from the selection** (it clashed with Shift-to-constrain).
   Ctrl-click toggles shapes and Ctrl+marquee adds to the selection.
 - **Shift ranges stay** where Shift isn't a constraint: panel ports in rack views, and the grids (Outlets / Sheets).

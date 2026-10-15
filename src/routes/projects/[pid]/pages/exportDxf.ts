@@ -196,7 +196,7 @@ export function setExtents(doc: DxfDoc, e: Ext) {
 }
 /** The *Active viewport's centre (12 / 22) and height (40), 5 % margin, fitting a ~16:10 window either way — what
  *  LibreCAD opens on. Patched into the text: @tarikjabiri/dxf ignores its VPORT's viewCenter / viewHeight and always
- *  writes 0,0 / 200 (the content then opened off screen, Dave 2026-09-27). */
+ *  writes 0,0 / 200 (the content then opened off screen, User 2026-09-27). */
 export function activeView(dxf: string, e: Ext): string {
 	const cx = (e.x0 + e.x1) / 2, cy = (e.y0 + e.y1) / 2, h = Math.max(1, (e.y1 - e.y0) * 1.05, ((e.x1 - e.x0) * 1.05) / 1.6)
 	return dxf.replace(/(\n2\n\*Active\n[\s\S]*?\n12\n)0(\n22\n)0([\s\S]*?\n40\n)200\n/, `$1${cx}$2${cy}$3${h}\n`)

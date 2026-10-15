@@ -38,7 +38,7 @@ export function reveal(c: Camera, b: Bounds, w: number, h: number, pad = 24): Ca
 	return { k: c.k, x: w / 2 - ((b.x0 + b.x1) / 2) * c.k, y: h / 2 - ((b.y0 + b.y1) / 2) * c.k }
 }
 
-/** Zoom previous (AutoCAD ZOOM P, Dave 2026-10-14): each view's settled cameras — every zoom or pan once it pauses —
+/** Zoom previous (AutoCAD ZOOM P, User 2026-10-14): each view's settled cameras — every zoom or pan once it pauses —
  *  newest last, up to `max`. `settle` records where the view came to rest; `back` steps to the one before. */
 export class ZoomHistory {
 	#stacks = new Map<string, Camera[]>()

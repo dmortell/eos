@@ -117,7 +117,7 @@
 	const pick = (id: string, e: MouseEvent) => rp.pick(id, e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal)
 	const typeLabel = (id: string) => cableTypeLabel(project.settings, id)
 
-	// ── inline editing (Dave's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes
+	// ── inline editing (User's note on patch-list-plan.md; tableKit.CellEdit): double-click a Cord ID, Status or Notes
 	// cell, or F2 / Enter on the selected row; Enter runs down a column (typing a run of cord IDs), Tab along the row ──
 	type Field = 'to' | 'cordId' | 'status' | 'notes'
 	// To last: F2 / Enter still opens the Cord ID first (typing a run of IDs); a double-click opens To (W17)
@@ -146,7 +146,7 @@
 	{/snippet}
 	{#snippet sel()}<CordActions {project} {ws} cords={selCords} />{/snippet}
 	{#snippet tail()}
-		<!-- what new cords start as, shown where cords are listed (D1); the patch list out (Dave 2026-10-12: easy to find) -->
+		<!-- what new cords start as, shown where cords are listed (D1); the patch list out (User 2026-10-12: easy to find) -->
 		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
 		<button class="tb" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch schedule · cord BOM…</button>
 	{/snippet}

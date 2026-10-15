@@ -1,6 +1,6 @@
 # ADR 0005: Drafting scope
 
-**Status:** Accepted in principle (Dave, 2026-10-02: "command line + core ~25 commands"). The list below is proposed.
+**Status:** Accepted in principle (User, 2026-10-02: "command line + core ~25 commands"). The list below is proposed.
 
 ## Context
 
@@ -27,7 +27,7 @@ Every drawing tool is a command script, so typed and clicked input share one pat
 |---|---|
 | Draw / annotate | LINE, PLINE, RECT, CIRCLE, ARC, TEXT, NOTE (multi-line), DIM (linear + aligned), LEADER / CALLOUT, CLOUD, IMAGE, SYMBOL |
 | Modify | MOVE, COPY, ROTATE, SCALE, MIRROR, ERASE, ARRAY (rectangular + along a path, for outlet runs), OFFSET, TRIM, EXTEND, STRETCH, MATCHPROP, ALIGN / DISTRIBUTE |
-| Aids and view | OSNAP (end, mid, centre, intersection, perpendicular, nearest, plus domain snaps: outlet, port, wall face, containment node, and the work-plane snaps of ADR 0006), GRID / SNAP, ZOOM (extents / window / object), PAN, LAYER, UNDO / REDO. **ORTHO / POLAR later** (Dave: "osnap and grid snap only for now"); Shift-constrain while drawing (H / V / 15°) covers most of it meanwhile |
+| Aids and view | OSNAP (end, mid, centre, intersection, perpendicular, nearest, plus domain snaps: outlet, port, wall face, containment node, and the work-plane snaps of ADR 0006), GRID / SNAP, ZOOM (extents / window / object), PAN, LAYER, UNDO / REDO. **ORTHO / POLAR later** (User: "osnap and grid snap only for now"); Shift-constrain while drawing (H / V / 15°) covers most of it meanwhile |
 
 **Typed input while drawing (all kept).** This is how you give an exact offset or length:
 
@@ -39,7 +39,7 @@ Every drawing tool is a command script, so typed and clicked input share one pat
 | a bare number, e.g. `1200` | **direct distance entry**: that far from the last point, towards the cursor. With Shift-constrain or a snap it gives exact horizontal / vertical runs. |
 | `Z` / `Depth` values | sets the work plane (ADR 0006) |
 
-Typed x,y are the model's own coordinates, the ones Properties show (Dave, 2026-10-02: "typed y-points must be
+Typed x,y are the model's own coordinates, the ones Properties show (User, 2026-10-02: "typed y-points must be
 consistent with the rest of the model"). In a plan or on a sheet, y is the stored y, which runs down the sheet. In an
 elevation, y is height. This replaces the first AutoCAD-style y-up reading.
 

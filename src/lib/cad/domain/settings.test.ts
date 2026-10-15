@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { defaultSettings } from './settings'
 
 describe('defaultSettings (a new project)', () => {
-	it('has the usages and cable types Dave chose, and the outlet default is one of them', () => {
+	it('has the usages and cable types User chose, and the outlet default is one of them', () => {
 		const s = defaultSettings()
 		expect(s.usages.map((u) => u.label)).toEqual(['AP', 'AV', 'CCTV'])
 		expect(s.cableTypes.map((t) => t.label)).toEqual(['CAT6A', 'CAT6', 'OS2', 'OM4'])

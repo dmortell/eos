@@ -61,7 +61,7 @@ export function describeNode(input: TreeInput & { project: ProjectFull }, id: st
 		return {
 			kind: 'floor', title: 'FLOOR',
 			sections: [
-				{ label: 'FLOOR', fields: [ro('number', 'Floor', floorName(n)), ed('label', 'Label', f.label, 'text', 'e.g. "L10 WeWork"'), ed('building', 'Building', f.building, 'text', 'Empty = from the risers')] },
+				{ label: 'FLOOR', fields: [ro('number', 'Floor', floorName(n)), ed('label', 'Label', f.label, 'text', 'e.g. "L10 building2"'), ed('building', 'Building', f.building, 'text', 'Empty = from the risers')] },
 				{ label: 'CONTENTS', fields: [ro('rooms', 'Server rooms', roomsOf(f).map((r) => f.roomNames?.[r] || `Room ${r}`).join(', ')), ro('zones', 'Zones', (f.areas ?? []).map((a) => a.label).join(', ')),
 					ro('racks', 'Racks', count(docs, 'racks')), ro('devices', 'Devices', count(docs, 'devices')), ro('drawings', 'Drawings', drawingsOn(n)),
 					ro('riserRooms', 'Riser rooms', (riser?.rooms ?? []).filter((x) => x.floor === n).map((x) => `${x.label} (${x.kind})`).join(', '))] },

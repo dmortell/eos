@@ -1,6 +1,6 @@
 # Firestore data structure — reference
 
-Surveyed 2026-09-23 from the code (read-only) plus a look at the live Hibiya project. Firebase project
+Surveyed 2026-09-23 from the code (read-only) plus a look at the live building1 project. Firebase project
 `sunny-jetty-180208` (`src/lib/db.svelte.ts`). There are **no** `firestore.rules` / `firebase.json` /
 `storage.rules` in the repo. `AGENTS.md` and `racks/firestore-collections.md` describe an OLDER layout
 (`frames/{pid}` single doc, `racks/{pid}`) — trust this file / the code instead.
@@ -115,7 +115,7 @@ files named in the table.
 **Inconsistencies:** outlets reads `floors` raw (others use `migrateFloors`); frames/racks/patching/elevations
 append a missing floor to `projects.floors` on save; `deleteFloor` misses patching docs and area outlets docs;
 room letters hard-coded A–D in many places; three meanings of "room" and two of "zone"; the workspace knows only
-`risers/{pid}`; stray data exists (Hibiya has a floor numbered `3307` — an old stand-in for the 33F area 3307 —
+`risers/{pid}`; stray data exists (building1 has a floor numbered `3307` — an old stand-in for the 33F area 3307 —
 and registry drawings pointing at floors 1 and 200 that aren't in `floors`).
 
 ## Conventions

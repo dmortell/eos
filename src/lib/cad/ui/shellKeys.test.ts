@@ -24,7 +24,7 @@ describe('the keys (review R85 step 1: one list for the shell and Help)', () => 
 	})
 })
 
-describe('AutoCAD zoom: Z, then E / W / P (Dave 2026-10-14)', () => {
+describe('AutoCAD zoom: Z, then E / W / P (User 2026-10-14)', () => {
 	function shell() {
 		const calls: string[] = [], said: string[] = []
 		const canvas = { key: () => false, takesTyping: () => false, endNudge: () => {}, cancelZoomWindow: () => false,
@@ -64,7 +64,7 @@ describe('the walkthrough in two languages', () => {
 	})
 })
 
-describe('tips (Dave 2026-10-15)', () => {
+describe('tips (User 2026-10-15)', () => {
 	it('the Japanese tips match the English ones one for one', async () => {
 		const { TIPS, TIPS_JA } = await import('./helpContent')
 		expect(TIPS_JA.length).toBe(TIPS.length)

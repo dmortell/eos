@@ -187,7 +187,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	}
 	// the floorplan files the sheets went out on (W4: which revision), on the transmittal and the issue record
 	const floorplans = floorplansIn(pages.map((p) => p.prims))
-	// the cover page(s) first (Dave D5: the first sheet's size, the project title block), frozen with the issue
+	// the cover page(s) first (User D5: the first sheet's size, the project title block), frozen with the issue
 	let coverN = 0
 	if (f.cover && plan.length) {
 		const rows: CoverRow[] = [

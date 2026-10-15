@@ -47,7 +47,7 @@ import type { ToolDefaults } from '../domain/toolDefaults'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
-/** Which views each tool works in (Dave: an Outlet click in a rack view added outlets by mistake). Select works
+/** Which views each tool works in (User: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section', 'portmap', 'ports', 'schedule', 'fill'],
@@ -58,7 +58,7 @@ export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	device: ['row'], cord: ['row'], assign: ['row'],
 	text: ['sheet', 'plan', 'elevation', 'section'], leader: ['sheet', 'plan', 'elevation', 'section'], cloud: ['sheet', 'plan', 'elevation', 'section'],
 }
-/** The annotation tools: on a sheet they always annotate the VIEW (an edited viewport is left first, Dave 2026-10-07),
+/** The annotation tools: on a sheet they always annotate the VIEW (an edited viewport is left first, User 2026-10-07),
  *  so they work while any viewport is being edited, whatever it shows. */
 export const ANNOTATION_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['text', 'leader', 'cloud', 'dimension'])
 /** `onSheet`: the view is a viewport being edited on a sheet. */
@@ -75,7 +75,7 @@ function loadDrafting(): Drafting {
 	} catch { return d }
 }
 
-/** How plans and rack views look ON SCREEN for this user (Dave 2026-10-12: a personal toggle, not a project setting —
+/** How plans and rack views look ON SCREEN for this user (User 2026-10-12: a personal toggle, not a project setting —
  *  sheets have their own): floorplans black and white, outlets in their usage's color, cords along the channels. */
 export interface ScreenLook { gray: boolean; byUsage: boolean; cordChannels: boolean }
 const SCREEN_KEY = 'cad-screen'
@@ -93,7 +93,7 @@ function loadGuides(): Record<string, Guide[]> {
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
 
 export class Workspace {
-	/** Each pane's level (Dave: 2F plan beside 3F plan, area plan 3303 beside 3307) and which pane is active.
+	/** Each pane's level (User: 2F plan beside 3F plan, area plan 3303 beside 3307) and which pane is active.
 	 *  `levelId` is the ACTIVE pane's: whatever reads or sets "the open level" (Properties, the tools, the tables,
 	 *  Floors, the Navigator, Project › Rename this level…) works on the pane you're in. */
 	paneLevels = $state<(Id | null)[]>([null, null])
@@ -138,7 +138,7 @@ export class Workspace {
 	shapeOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true })
 	/** The Box tool's options: a desk by default (750 high, from the floor). */
 	boxOpts = $state<ShapeOpts>({ kind: 'rect', sides: 6, inscribed: true, height: 750, z: 0, depth: 600 })
-	/** The Section tool: a cut line, or Room elevations A–D (a click inside a drawn room makes its four; Dave 2026-10-15). */
+	/** The Section tool: a cut line, or Room elevations A–D (a click inside a drawn room makes its four; User 2026-10-15). */
 	sectionMode = $state<'line' | 'room'>('line')
 	/** The Image tool's picture (Draw › Image…): its file in Uploads and page, and its name for the hint. */
 	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
@@ -178,7 +178,7 @@ export class Workspace {
 		this.screen = { ...this.screen, [k]: !this.screen[k] }
 		try { localStorage.setItem(SCREEN_KEY, JSON.stringify(this.screen)) } catch { /* storage blocked */ }
 	}
-	/** GUIDES (Dave's todo): construction lines per view (`levelId|specKey` → guides), this user's, kept in this browser;
+	/** GUIDES (User's todo): construction lines per view (`levelId|specKey` → guides), this user's, kept in this browser;
 	 *  never in the drawing or the print. `guideAxis` = what the Guide tool places next. */
 	guides = $state<Record<string, Guide[]>>(loadGuides())
 	guideAxis = $state<Guide['axis'] | 'both'>('both')
@@ -291,7 +291,7 @@ export class Workspace {
 	get tool(): Tool { return this.tools[this.toolId] }
 
 	/** A passing note that clears itself (bottom of the drawing): what doesn't need the status bar's line — it no longer
-	 *  hides the hint, a viewport-edit prefix or a tool's own message (Dave 2026-10-12: "Drawn on the … layer"). */
+	 *  hides the hint, a viewport-edit prefix or a tool's own message (User 2026-10-12: "Drawn on the … layer"). */
 	toast = $state<string | null>(null)
 	#toastTimer: ReturnType<typeof setTimeout> | undefined
 	notify = (msg: string): void => {
@@ -318,7 +318,7 @@ export class Workspace {
 	/** Arm an interconnect from these ports (backbone / tie cables, Phase 5): the next port clicked — in any room, on
 	 *  any floor — is where they start on the other panel. */
 	interconnectFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }) }
-	/** The tool to go back to once the armed Patch to… / Link to… is done or Esc'd (Dave: the crosshair stayed, and two
+	/** The tool to go back to once the armed Patch to… / Link to… is done or Esc'd (User: the crosshair stayed, and two
 	 *  more port clicks made a patch cord). */
 	#bulkReturn: ToolId = 'select'
 	#armBulk(b: BulkFrom): void {
@@ -387,7 +387,7 @@ export class Workspace {
 	get pickedViewports(): Id[] { return this.viewportId ? [this.viewportId, ...this.vpMore] : [] }
 	/** Editing the model INSIDE a sheet viewport (UX review S5): double-click it; Esc / a double-click outside leaves. */
 	vpEdit = $state<{ sheetId: Id; vpId: Id } | null>(null)
-	/** "Pan / zoom content" (Dave: instead of Alt): a drag inside the selected / edited viewport pans its view and the
+	/** "Pan / zoom content" (User: instead of Alt): a drag inside the selected / edited viewport pans its view and the
 	 *  wheel steps its scale, with no Alt. */
 	vpContentNav = $state(false)
 	/** An elevation's DEPTH BAND (UX14, a test): around the work depth, `front` mm towards the viewer and `back` mm away.
@@ -417,7 +417,7 @@ export class Workspace {
 		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
 	}
 	askText = (label: string, value: string, apply: (t: string) => void): void => { this.prompt = { label, value, text: true, apply } }
-	/** Free text asked in a dialog, not the status bar (Dave 2026-10-15: names, port targets — see TextDialog). */
+	/** Free text asked in a dialog, not the status bar (User 2026-10-15: names, port targets — see TextDialog). */
 	textAsk = $state<{ title: string; label: string; value: string; hint?: string; ok: string; apply: (t: string) => void } | null>(null)
 	askInDialog = (o: { title: string; label: string; value: string; hint?: string; ok?: string }, apply: (t: string) => void): void => { this.textAsk = { ok: 'OK', ...o, apply } }
 	/** The text being edited in place on the drawing (double-click / F2; backlog "Text options"). */

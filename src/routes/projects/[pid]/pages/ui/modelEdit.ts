@@ -40,7 +40,7 @@ export function deleteModelSel(mdl: Model, edit: EditScope, ids: string[]): void
 	edit.mark('Delete'); edit.end()
 }
 
-/** Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (Dave's spec):
+/** Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (User's spec):
  *    1 segment  → delete that segment;
  *    2 segments → join them into one (drop the node, connect the two far ends);
  *    3+ segments → keep the FIRST TWO joined into one, delete the rest.

@@ -1,7 +1,7 @@
 # Editing merge — one editing path for shapes, 3D objects and sheet viewports
 
 **Status:** phases 0–4 DONE 2026-09-27 (CHANGELOG rounds 15–16; one-kind rule lifted: ents + objs mix, frames don't).
-Open follow-ups: multi-frame Properties panel, multi-frame Ctrl+C, a ghost preview for paper commands; phase 5 optional. Planned 2026-09-27. Asked for by Dave ("ctrl-drag should have been working on all shapes including
+Open follow-ups: multi-frame Properties panel, multi-frame Ctrl+C, a ghost preview for paper commands; phase 5 optional. Planned 2026-09-27. Asked for by User ("ctrl-drag should have been working on all shapes including
 viewports — why separate move / drag / select functions?"). Supersedes the scattered todos it absorbs:
 `todo.md` → "P1 — ONE editing path for paper space", "REFACTOR: unify editing" (the frame part) and "Unify PRIMARY
 viewport … (d) PaperPage ↔ Viewport merge".
@@ -146,4 +146,4 @@ viewport): just an `ents` source on the paper surface with `space: 'paper'`. Als
 ## 7. Size
 
 Phase 0 S · Phase 1 M · Phase 2 M · Phase 3 M · Phase 4 S–M → about 3–4 focused days. Phases 0–2 alone deliver
-what Dave asked for (frames behave like shapes); 3–4 finish the job.
+what User asked for (frames behave like shapes); 3–4 finish the job.

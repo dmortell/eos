@@ -1,4 +1,4 @@
-// The SITE view's three.js scene (a test, Dave 2026-09-27): the buildings around the project address extruded from
+// The SITE view's three.js scene (a test, User 2026-09-27): the buildings around the project address extruded from
 // their OpenStreetMap footprints (./osm.ts), THE building in full — its building:part pieces, facades with a window
 // grid per storey, roof colour, floor lines — the neighbours as quiet massing, the OSM map on the ground, sun +
 // shadows, orbit / pan / zoom (OrbitControls). three.js is imported dynamically, so it only loads with this view.

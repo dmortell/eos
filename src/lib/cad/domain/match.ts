@@ -1,4 +1,4 @@
-// MATCH PROPERTIES (backlog, Dave 2026-10-10): copy one shape's layer and look onto another — color, fill, line type,
+// MATCH PROPERTIES (backlog, User 2026-10-10): copy one shape's layer and look onto another — color, fill, line type,
 // lineweight, and a text's size onto a text. What it IS stays (its geometry, its role, a line's end marks).
 import type { Id } from './types'
 import type { Entity, Layer } from './drawing'

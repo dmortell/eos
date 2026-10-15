@@ -1,4 +1,4 @@
-// Lists of the PERMANENT cables (Dave, 2026-10-05): the backbone / tie cables grouped panel ↔ panel for the sidebar's
+// Lists of the PERMANENT cables (User, 2026-10-05): the backbone / tie cables grouped panel ↔ panel for the sidebar's
 // "Cables (n)" (backlog "Backbone cable list"), and one row per link for the Links table (backlog "Links table").
 // Pure.
 import type { Id, Link, Device, Rack, Level, ProjectSettings } from './types'

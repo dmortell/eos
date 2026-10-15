@@ -99,7 +99,7 @@ function importPlaces(c: ImportCtx): void {
 	const settings: ProjectSettings = {
 		type: 'settings', id: 'settings', portSuffix: 'alpha',
 		usages: [
-			// Dave 2026-10-15: no Desk (an outlet with no usage is a desk / data outlet), AP, AV, CCTV
+			// User 2026-10-15: no Desk (an outlet with no usage is a desk / data outlet), AP, AV, CCTV
 			{ id: 'AP', label: 'AP', color: '#10b981' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
 			{ id: 'PR', label: 'Printer', color: '#f59e0b' }, { id: 'TV', label: 'AV', color: '#8b5cf6' },
 			{ id: 'N/A', label: 'Not used', color: '#9ca3af' },

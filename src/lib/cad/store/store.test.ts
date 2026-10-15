@@ -131,7 +131,7 @@ describe('read-only while someone else restores', () => {
 	it('refuses local edits, gestures, undo and redo with the reason; remote changes still arrive', () => {
 		const s = new EntityStore(), said: string[] = []
 		s.transact('Add', (tx) => tx.put(box('a')))
-		s.readOnly = 'Dave is restoring 1F'
+		s.readOnly = 'User is restoring 1F'
 		s.onRefuse = (r) => said.push(r)
 		expect(s.transact('Add b', (tx) => tx.put(box('b')))).toBeNull()
 		const g = s.begin('Drag'); g.update((tx) => tx.put(moved(tx.get('a') as Shape, 900))); expect(g.commit()).toBeNull()
@@ -139,7 +139,7 @@ describe('read-only while someone else restores', () => {
 		expect(s.canUndo).toBe(false)
 		s.applyRemote([box('c')])
 		expect([s.has('b'), xOf(s, 'a'), s.has('c')]).toEqual([false, 0, true])
-		expect(said).toEqual(['Dave is restoring 1F', 'Dave is restoring 1F', 'Dave is restoring 1F'])
+		expect(said).toEqual(['User is restoring 1F', 'User is restoring 1F', 'User is restoring 1F'])
 		s.readOnly = null
 		s.clearHistory()
 		expect(s.canUndo).toBe(false)

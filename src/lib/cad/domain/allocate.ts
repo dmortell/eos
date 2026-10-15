@@ -1,6 +1,6 @@
 // Allocation (Phase 3.4, phase3.md §4): which panel port each outlet port is cabled to. Allocation IS the set of
 // horizontal links — this computes the links to add (and, when re-allocating, the unpinned ones to drop); it writes
-// nothing. Rules (Dave, phase3.md §9):
+// nothing. Rules (User, phase3.md §9):
 //  - an outlet port goes to a panel of ITS server room (OutletPort.serverRoomId ↔ the panel's room);
 //  - low ports → low (floor) panels; high ports → HIGH panels first, and only when those are full, onto floor-panel
 //    ports left over after the low ports;
@@ -69,7 +69,7 @@ export function panelRoom(ix: ProjectIndex, d: Device): Id | undefined {
 
 /**
  * Panels of a server room that take outlets, in FILL ORDER: racks left to right in row order, then top U down. Only
- * the room's PATCH FRAMES when it has any (Dave: outlets go to their designated frames); otherwise every rack.
+ * the room's PATCH FRAMES when it has any (User: outlets go to their designated frames); otherwise every rack.
  */
 export function panelsInOrder(ix: ProjectIndex, roomId: Id): Device[] {
 	const all = ix.devices.filter((d) => d.kind === 'panel' && d.portCount > 0 && panelRoom(ix, d) === roomId)
@@ -232,7 +232,7 @@ export function assignFrom(ix: ProjectIndex, wants: { outletId: Id; port: number
 	return { add, remove, left: wants.length - add.length, skipped: skippedText(skipped) }
 }
 
-/** Drag picked PANEL PORTS onto another panel's port (Dave 2026-10-10): the outlets on them move there, in port order,
+/** Drag picked PANEL PORTS onto another panel's port (User 2026-10-10): the outlets on them move there, in port order,
  *  onto free ports from the one dropped on (as Assign). Ports with a patch cord stay (`patched`: take the cord off
  *  first); ports with no outlet on them are skipped. */
 export function movePorts(ix: ProjectIndex, from: { on: Id; ports: number[] }, start: { on: Id; port: number }): { add: Link[]; remove: Id[]; left: number; skipped: string; patched: number[] } {

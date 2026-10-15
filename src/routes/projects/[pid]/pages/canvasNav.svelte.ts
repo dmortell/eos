@@ -71,7 +71,7 @@ export class CanvasNav {
 	 *  split, layout toggle) never do (B28). A mount refit (`skipIfPersisted`) leaves a remembered view /
 	 *  canvas alone (B27). Fit resets the 3D orbit of the same viewport whose content it resets (B30). */
 	/** `keepViews`: a pane only changed SIZE (split / unsplit) — refit a paper sheet, but leave a model view's pan / zoom
-	 *  / orbit alone (Dave: splitting reset the left model tab's view). */
+	 *  / orbit alone (User: splitting reset the left model tab's view). */
 	fitPane = (idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean; keepViews?: boolean } = {}) => {
 		const h = this.#h, p = h.panes()[idx]; if (!p) return
 		const pr = this.activeProj(p), av = this.activeViewportId(p)

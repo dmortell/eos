@@ -12,7 +12,7 @@ describe('typed points (the model\'s coordinates, as Properties show them)', () 
 		expect(pt(parseTyped('1000,-2600', null, null))).toEqual({ x: 1000, y: -2600 })
 		expect(pt(parseTyped('1000,2600', null, null, true))).toEqual({ x: 1000, y: -2600 })   // 2.6 m up = view y −2600
 	})
-	it('numpads (Dave 2026-10-14): `..` works as well as a comma; one `.` is still a decimal point', () => {
+	it('numpads (User 2026-10-14): `..` works as well as a comma; one `.` is still a decimal point', () => {
 		expect(pt(parseTyped('1000..500', null, null))).toEqual({ x: 1000, y: 500 })
 		expect(pt(parseTyped('@12.5..-3', { x: 0, y: 0 }, null))).toEqual({ x: 12.5, y: -3 })
 		expect(pt(parseTyped('1000,500', null, null))).toEqual({ x: 1000, y: 500 })

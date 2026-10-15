@@ -1,4 +1,4 @@
-// ELEVATION HANDLES (backlog "Drag top / bottom edges in elevations", Dave 2026-10-05): with a wall selected in an
+// ELEVATION HANDLES (backlog "Drag top / bottom edges in elevations", User 2026-10-05): with a wall selected in an
 // elevation or section, each segment seen side-on has a square on its TOP edge (drag = its height) and on its BOTTOM
 // edge (drag = the whole wall's base; every top stays), and each of its openings the same (top = the hole's height, bottom = its sill;
 // the other edge stays). Heights are mm, to 10 mm, snapping to the datum lines when near (Alt: free). A slab-to-slab wall's height follows its level, so it
@@ -15,7 +15,7 @@ import type { Prim } from '../views/display'
 import { ROOM_FLOOR, ROOM_CEILING } from '../views/rackRow'
 
 const r10 = (v: number, free: boolean) => (free ? v : Math.round(v / 10) * 10)
-/** The datum lines a top / base grip snaps to (Dave 2026-10-15): FSL (floor slab), FFL, CLG, CSL (ceiling slab above). */
+/** The datum lines a top / base grip snaps to (User 2026-10-15): FSL (floor slab), FFL, CLG, CSL (ceiling slab above). */
 export type Datums = { heights?: Heights; tol?: number }
 function datumSnap(o: Datums): (z: number, free: boolean) => number {
 	if (!o.heights) return r10
@@ -46,7 +46,7 @@ export function elevationHandles(e: Entity, sp: ViewSpace, dat: Datums = {}): Ha
 		if (!role.slabToSlab) out.push({ at: sp.fromWorld({ ...mid, z: z0 + h }), shape: 'square', label: 'Wall height',
 			drag: (p, free) => withH(Math.max(50, zs(zOf(p), free) - z0)) })
 		// the bottom: the WHOLE wall's base moves by the same amount and every height grows to match, so every top stays
-		// (Dave 2026-10-15: a room's wall is one path — moving only this side's two corners while the shared height grew
+		// (User 2026-10-15: a room's wall is one path — moving only this side's two corners while the shared height grew
 		// lifted the neighbouring sides' tops)
 		out.push({ at: sp.fromWorld({ ...mid, z: z0 }), shape: 'square', label: 'Wall base',
 			drag: (p, free) => {

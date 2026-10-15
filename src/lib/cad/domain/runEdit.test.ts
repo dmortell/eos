@@ -1,4 +1,4 @@
-// Run edits shared by one run's and several runs' Properties (Dave, 2026-10-05).
+// Run edits shared by one run's and several runs' Properties (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { makePath, toContainment } from './make'
 import { convertRun, kindOf, placeNow, setRunPlace, mainZ, servableRooms, toggleServes } from './runEdit'
@@ -9,7 +9,7 @@ import type { Shape } from './shapes'
 const heights = { raisedFloorMm: 300, clearHeightMm: 2700, plenumMm: 600 }
 const trunk = (z: number) => toContainment(makePath({ levelId: 'L' }, [{ x: 0, y: 0 }, { x: 2000, y: 0 }, { x: 2000, y: 0, z: 300 }], { z }), { w: 100, h: 50 }, { tier: 'low', form: 'trunk' })
 
-describe('which server rooms a run serves (Dave: Journey TV07 / TV08 — the high conduits served 33IDF1 only)', () => {
+describe('which server rooms a run serves (User: Tourney TV07 / TV08 — the high conduits served 33IDF1 only)', () => {
 	const room = (id: string, levelId: string, kind = 'server room') => ({ type: 'space', id, levelId, kind, name: id })
 	const conduit = (serves?: string[]) => ({ ...trunk(3000), id: 'C', role: { kind: 'containment', form: 'conduit', tier: 'high', ...(serves ? { serves } : {}) } }) as Shape
 	const ix = (s: Shape) => new ProjectIndex([room('IDF2', 'L'), room('IDF1', 'L'), room('OFFICE', 'L', 'office'), room('IDF9', 'L9'), s] as Entity[])

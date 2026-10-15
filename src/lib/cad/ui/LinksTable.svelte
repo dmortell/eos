@@ -1,4 +1,4 @@
-<!-- The LINKS table (backlog "Links table", Dave 2026-10-05): every permanent cable — panel → outlet runs, ties within a
+<!-- The LINKS table (backlog "Links table", User 2026-10-05): every permanent cable — panel → outlet runs, ties within a
      room, backbones between rooms — with both ends, the label it carries, its cable type and status (both editable),
      its length, and remove. A click selects the link (its route lights up on the plan); Ctrl / Shift add. -->
 <script lang="ts">

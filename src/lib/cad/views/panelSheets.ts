@@ -1,4 +1,4 @@
-// PRINTED PANEL SHEETS (backlog "Printable panels with their labels", Dave 2026-10-06): a room's patch panels on A4
+// PRINTED PANEL SHEETS (backlog "Printable panels with their labels", User 2026-10-06): a room's patch panels on A4
 // landscape pages for the installer — each panel a grid of its ports, 24 across like the real panel, every cell with
 // its port number and its label (stacked, as big as fits). Panels in fill order (racks in row order, top U down), as
 // many to a page as fit. A display list in paper mm, printed by render/pdf.ts like a sheet. Pure; tested in

@@ -1,4 +1,4 @@
-// EDITING INSIDE A VIEWPORT (UX review S5 / UX17; Dave: "editing inside viewports, from Pages and Sheets"): what a
+// EDITING INSIDE A VIEWPORT (UX review S5 / UX17; User: "editing inside viewports, from Pages and Sheets"): what a
 // tool needs to work in a sheet viewport's own view — its space (plan / elevation / section / rack row), its pickable
 // prims in view mm, and the maps between paper mm and view mm. Pure.
 import type { ProjectIndex } from '../domain/project'

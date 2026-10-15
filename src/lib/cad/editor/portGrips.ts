@@ -1,4 +1,4 @@
-// Grips in a rack view (Dave 2026-10-10): a selected patch cord's two ends — drag one onto another port to re-patch
+// Grips in a rack view (User 2026-10-10): a selected patch cord's two ends — drag one onto another port to re-patch
 // it — and a "+" on the selected port(s): a click starts a patch cord from them (they carry a link but no cord) or a
 // link (they have none), as Port Properties › Patch to… / Link to… do. Pure: read from the drawn prims and the index.
 import type { Prim } from '../views/display'

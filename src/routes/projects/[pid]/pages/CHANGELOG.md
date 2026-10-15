@@ -5,7 +5,7 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 condensed into "Earlier work" at the end); `review.md §0a` tracks which review findings are closed.
 
 ## Bug-fix round (2026-10-02) — the code review's correctness items (`docs/pages-analysis.md` §4A)
-Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-start plan proceeds in `src/lib/cad/`.
+Pages is in BUG-FIX mode (User 2026-10-02): no new features while the clean-start plan proceeds in `src/lib/cad/`.
 - **No demo models**: the registry starts empty — `m1`–`m4` (33F / Rack A / 30F / 18F) and the `FLOOR_MODEL_ID`
   fallback (15 places) are gone. A tab / viewport with no model shows nothing; drawing there is refused with a note.
 - **Layer changes are undo steps**: every Layers-panel change (show / hide, lock, colour, rename, reorder, presets,
@@ -48,7 +48,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
   a page its own; screen only).
 - **Alt+drag = pan a sheet viewport's CONTENT** — inactive, selected or active (in the active one on empty space;
   Alt-press on a shape stays "move without snap") — no need for Pan content.
-- **A sheet viewport's zoom IS its scale** (Dave 2026-09-30): model space keeps free zoom, but zooming a sheet viewport
+- **A sheet viewport's zoom IS its scale** (User 2026-09-30): model space keeps free zoom, but zooming a sheet viewport
   (Alt+wheel anywhere over it, or the wheel inside it with Pan content) changes its scale to a whole 1:N — like the
   Sheets tool — about the cursor, so what you see is what prints. One undo step per burst ("Viewport scale 1:N"). An
   older viewport's leftover content zoom folds into its scale the first time it is zoomed. The active-viewport bar's
@@ -93,7 +93,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
   ViewCube's new direction (the sheet's — both show it, by design) is now centred in every pane showing it, not just
   the one clicked. Plan TEXT (labels, notes, callouts, legends) no longer shows in elevations — it was drawn at its plan
   coords, high above (an elevation's own text still shows; 3D still lifts plan callouts).
-- **Elevations now match the plan as drawn** (Dave 2026-10-01: "are left & right swapped?"). The engine came from a y-up
+- **Elevations now match the plan as drawn** (User 2026-10-01: "are left & right swapped?"). The engine came from a y-up
   world; Pages draws plans y-down, so (1) LEFT / RIGHT were mirrored — now LEFT is seen from the left (the plan's top on
   its left), RIGHT from the right (`geometry` DIR_T / ELEV_BASIS, 3dview BASIS, `lineSectionDir`, the box-section
   arrows) — and (2) hidden lines in every plain / box-section elevation were back to front: the object NEAREST the viewer
@@ -105,7 +105,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
   with its name; click its outline to select it, then drag the top / bottom handle to set Z↑ / Z↓ (one undo step;
   the plan keeps the depth handle). Not over its own viewport, not in a riser drawing's collapsed heights.
 - A new box / wall / trunk / rack on a HIDDEN or LOCKED layer is refused with a note (like shapes): it was created on
-  Hibiya's locked Furniture layer — invisible to picking, uneditable. Items rows on a locked layer show a lock.
+  building1's locked Furniture layer — invisible to picking, uneditable. Items rows on a locked layer show a lock.
 - **Rack front fixed** (a regression from the elevation fix, caught by the code review `docs/pages-analysis.md`): a
   rack's FRONT is now its +y face — the side the Front elevation is seen from. The plan's front line moved there,
   front / both-mounted devices sit flush with it (imported, added, or re-mounted in Properties — one helper,
@@ -123,7 +123,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
 - **Lineweights for 3D objects**: walls / boxes / conduits draw at their layer's lineweight in mm like 2D shapes (true
   width with LWT on, hairlines with it off; the old px "Thickness" maps to mm).
 - **Printing always uses true lineweights** (like AutoCAD's plot), whatever the LWT display toggle.
-- **A floor model's datum is FL±0 = the top of the raised floor** (Dave: racks / furniture sat on the slab; `ui/levels.ts`,
+- **A floor model's datum is FL±0 = the top of the raised floor** (User: racks / furniture sat on the slab; `ui/levels.ts`,
   tested): its `levels` stay stored above the slab top (the Risers tool's heights) but read from FL — the structure
   lines (raised floor at 0, slab top at −raised floor, ceiling / ceiling slab FL-relative), trunk / pipe heights
   (under floor = on the slab below FL; plenum / below ceiling from FL), a new section box (slab top → ceiling slab)
@@ -178,7 +178,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
     (existing frames unchanged; Properties › Hidden lines). A section line / marker view looks along −n of its line's
     frame (its OClip depth is negative) — `lookNegOf` flips the depth order there (else the FAR wall hid everything:
     caught live on Test Project 4F › Elevations, the racks vanished).
-- todo: E7 (per-port labels) closed — not needed (Dave: only for a new Frames tool).
+- todo: E7 (per-port labels) closed — not needed (User: only for a new Frames tool).
 
 ## Round 18 (2026-09-27) — editing follow-ups
 - **Ctrl mid-drag, live**: pressing Ctrl during a move drag turns it into a copy at once (the originals jump back, copies
@@ -252,7 +252,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
   IMAGE › File › Replace… swaps an image's PDF page / picture for another uploaded one (this project's first, then other
   projects' — only referenced), placed by its Uploads calibration (else keeping the size); layer, opacity, live stay.
   Insert › From Uploads… adds one (a PDF follows its calibration live; in an elevation it stands on the ground line).
-  Tested: Test Project › 4F's floorplan replaced with Project Journey's "L3303 Plan Clean-EIRE.pdf".
+  Tested: Test Project › 4F's floorplan replaced with Project Tourney's "L3303 Plan Clean-EIRE.pdf".
 - **Pictures / PDFs from this computer are saved**: Insert › Image… (several, pictures or PDFs), a paste (Ctrl+V a
   screenshot — at the cursor) and a drag-and-drop from the OS onto a viewport (at the drop point) all upload the file
   to the project's Uploads (a `files` doc under a free name — never overwriting another file) and insert it on the
@@ -304,7 +304,7 @@ Pages is in BUG-FIX mode (Dave 2026-10-02): no new features while the clean-star
   `ui/elevFrame.test.ts`; `frameAt(o, deg)` builds an oblique one (used from phase 2).
 - **Fix — Properties › W / H of a ROTATED shape or box moved it**: it turns about its centre, so growing from the
   unrotated corner slid it; now its drawn top-left corner stays put (`ui/resizeKeep.ts`, 2D rect / ellipse + 3D box).
-- **DXF opens on the drawing** (Dave: LibreCAD opened with it off screen): `$EXTMIN` / `$EXTMAX` + the `*Active`
+- **DXF opens on the drawing** (User: LibreCAD opened with it off screen): `$EXTMIN` / `$EXTMAX` + the `*Active`
   view's centre / height from the content (patched into the text — `@tarikjabiri/dxf` ignores them). File menu item
   renamed **Export DXF…**.
 - **Outlet labels as big as in the Sheets tool**: a block attribute can have a `minPaper` height; an outlet's LABEL is

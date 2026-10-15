@@ -1,6 +1,6 @@
 // Paper notes (Phase 4.5): TEXT (click, type), LEADER (click the tip, then more points, Enter / right-click → its
 // text) and revision CLOUD (click round the area, Enter / right-click closes it) on a sheet's paper — shapes owned by
-// the sheet, in paper mm — or, drawn inside a viewport, tied to it in its view mm (Dave: notes must follow a
+// the sheet, in paper mm — or, drawn inside a viewport, tied to it in its view mm (User: notes must follow a
 // viewport's rescale / pan / move). Backspace drops the last point; Esc cancels.
 import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Prim } from '../views/display'
@@ -19,7 +19,7 @@ import { PLOT_SCALE } from '../views/display'
 /** A note tied to a viewport put back on the paper where it showed (domain/sheetEdit.ts). */
 export { untie } from '../domain/sheetEdit'
 
-/** A note's grips (Dave: notes need grips when selected): the text's anchor (index -1), or each leader / cloud point,
+/** A note's grips (User: notes need grips when selected): the text's anchor (index -1), or each leader / cloud point,
  *  where they show — on the paper through the viewport a note is tied to. */
 export function noteGrips(s: Shape, vp?: Viewport): { at: Pt; index: number }[] {
 	const t = vp ? toPaper(vp) : (p: Pt) => p, g = s.geom
@@ -111,7 +111,7 @@ export class NoteTool implements Tool {
 	}
 	move(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
 	hover(e: PointerIn, c: ToolCtx): void { this.#hover = this.#pt(e, c) }
-	/** A new text goes on the drawing at once with the words "Text", its box open on it to type over (Dave 2026-10-05: no
+	/** A new text goes on the drawing at once with the words "Text", its box open on it to type over (User 2026-10-05: no
 	 *  prompt in the tool bar). On RELEASE: opened on press, the rest of the click would take the focus from the box. */
 	up(e: PointerIn, c: ToolCtx): void {
 		// a leader pressed at its tip and DRAGGED to where its words go: a two-point callout, made on release
@@ -153,7 +153,7 @@ export class NoteTool implements Tool {
 				c.select([s.id])
 				return s.id
 			}
-			// its words are typed on the drawing at its end (Dave 2026-10-05: no tool-bar prompt); none is fine
+			// its words are typed on the drawing at its end (User 2026-10-05: no tool-bar prompt); none is fine
 			if (c.editText) c.editText(make(''))
 			else c.askText?.('Callout text (optional)', '', (t) => make(t.trim()))
 		} else if (pts.length) c.say?.(this.id === 'cloud' ? 'A cloud needs at least 3 points' : 'A callout needs a tip and at least one more point')
@@ -167,7 +167,7 @@ export class NoteTool implements Tool {
 		return false
 	}
 
-	/** The points so far and a rubber band to the cursor. A cloud shows its scallops as it will be drawn (Dave
+	/** The points so far and a rubber band to the cursor. A cloud shows its scallops as it will be drawn (User
 	 *  2026-10-09), its closing edge too; with two points, the one scalloped edge. */
 	preview(c: ToolCtx): Prim[] {
 		if (!this.#pts.length || !this.#hover) return []

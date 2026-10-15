@@ -97,7 +97,7 @@ describe('entity grips', () => {
 	})
 })
 
-// ── the ONE rotate-handle rule (Dave 2026-09-23: Shift didn't constrain model rotate handles) ──
+// ── the ONE rotate-handle rule (User 2026-09-23: Shift didn't constrain model rotate handles) ──
 describe('handleAngle / every rotate handle snaps to 15° with Shift', () => {
 	const c: [number, number] = [0, 0]
 	const at = (deg: number): [number, number] => { const r = ((deg - 90) * Math.PI) / 180; return [Math.cos(r) * 100, Math.sin(r) * 100] }

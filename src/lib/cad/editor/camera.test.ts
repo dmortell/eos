@@ -1,4 +1,4 @@
-// Zoom previous (Dave 2026-10-14): each view steps back through where it came to rest.
+// Zoom previous (User 2026-10-14): each view steps back through where it came to rest.
 import { describe, it, expect } from 'vitest'
 import { ZoomHistory } from './camera'
 

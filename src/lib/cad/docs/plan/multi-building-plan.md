@@ -1,7 +1,6 @@
 # Several buildings in one project — plan
 
-Dave 2026-10-16: "prep a plan for multi buildings — Journey has 3 floors in one building, and 1 floor in another, with 3
-more floors coming in a third building and an office in Osaka". Backlog item "Several buildings in a project" (P3 · L).
+User 2026-10-16: "prep a plan for multi buildings — Tourney has 2 buildings. Backlog item "Several buildings in a project" (P3 · L).
 
 ## Where cad is today
 
@@ -19,16 +18,16 @@ more floors coming in a third building and an office in Osaka". Backlog item "Se
 - **Labels** (`FF.Z.NNN-SPP`): no building token. Server-room letters (`Space.code`) are per level.
 - **Sheets:** no `{BUILDING}` field, no building key in the title block, and no grouping by building (a sheet's
   `placeId` may already be a building id).
-- **Journey, as it is now:**
+- **Tourney, as it is now:**
 
   | Building (legacy `projects.floors`) | Floors | In cad |
   |---|---|---|
-  | Hibiya Midtown | 12F, 30F, 33F (areas 3303, 3307) | All under a building named "Project Journey" |
-  | Hibiya Fort Tower | 10F (L10 WeWork) | Missing — the import dropped it |
+  | Midtown | 12F, 30F, 33F (areas 3303, 3307) | All under a building named "Project Tourney" |
+  | Fort Tower | 10F | Missing — the import dropped it |
   | Third building | 3 floors coming | — |
   | Osaka office | — | — |
 
-  There is also a second, empty "Project Journey" building record.
+  There is also a second, empty "Project Tourney" building record.
 
 ## The model
 
@@ -59,26 +58,26 @@ more floors coming in a third building and an office in Osaka". Backlog item "Se
      have the same floor number and zone letters, or when a server-room letter repeats.
    - `{BUILDING}` text field and a title-block "Building" key; `{building}` in the file-name pattern.
    - Sheets › Group by building. Sheet numbers optionally prefixed with the code.
-4. **Journey migration (S):**
-   - From the legacy `projects.floors[].building`: create Hibiya Midtown (12F, 30F, 33F 3303 / 3307) and Hibiya Fort
-     Tower (10F L10 WeWork, imported from its legacy floor).
-   - Rename "Project Journey" to Hibiya Midtown.
+4. **Tourney migration (S):**
+   - From the legacy `projects.floors[].building`: create building1 (12F, 30F, 33F 3303 / 3307) and building2
+     Tower (10F L10 building2, imported from its legacy floor).
+   - Rename "Project Tourney" to building1.
    - Later: the third building (Floors… for it once its floors are known) and the Osaka office.
-   - Undoable, and run only with Dave's go-ahead.
+   - Undoable, and run only with User's go-ahead.
 5. **Across buildings (S each, later):**
    - The BOM, cable and outlet schedules filtered or grouped by building.
    - Backbone links between buildings' server rooms with a typed length (no route). Fill and riser views ignore them.
    - Find / Ctrl+K shows the building on each hit.
 
-## Decisions for Dave
+## Decisions for User
 
-1. **Building code in labels:** add `{B}` to Journey's patterns, or keep labels as they are (floor numbers differ
+1. **Building code in labels:** add `{B}` to Tourney's patterns, or keep labels as they are (floor numbers differ
    anyway: 10 / 12 / 30 / 33)? Default: off, available per project.
-2. **Osaka office:** a building in Journey, or its own project? A building keeps one BOM and one register. A project
+2. **Osaka office:** a building in Tourney, or its own project? A building keeps one BOM and one register. A project
    keeps its own sheets, numbering and members.
 3. **Sheet numbers:** one sequence for the project, or per building (`MT-S001`, `FT-S001`)?
 4. **Riser view:** per building only, or also a side-by-side "all buildings" view (stacks next to each other, no
    links drawn)?
 5. **Server-room letters:** unique per building (A in MT and A in FT both allowed) or across the project?
 
-Order: phase 1, then 4 (Journey on it), then 2 and 3; phase 5 as needed.
+Order: phase 1, then 4 (Tourney on it), then 2 and 3; phase 5 as needed.

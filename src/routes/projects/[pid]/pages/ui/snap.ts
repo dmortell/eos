@@ -290,7 +290,7 @@ export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p:
 // ── paper-space frame snap (R8-lite) ──
 // A sheet's viewport FRAMES (PaperPage.svelte) snap in PAPER mm, a different space/unit than
 // everything above (model mm). Ported from sheets/Viewport.svelte's existing frame-snap
-// (paper edges / margins / title-block / 5mm grid, Alt disables) per Dave's ask to match that
+// (paper edges / margins / title-block / 5mm grid, Alt disables) per User's ask to match that
 // tool's convention rather than invent a new one — v1 here covers paper edges + grid only.
 
 export const PAPER_SNAP_STEP = 5   // grid spacing, PAPER mm (distinct unit from SNAP_STEP=100, model mm)

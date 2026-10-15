@@ -1,4 +1,4 @@
-<!-- The RIGHT-CLICK MENU on a selected item (UX21; Dave: "ok for context-menu, but keep right-click = Esc while
+<!-- The RIGHT-CLICK MENU on a selected item (UX21; User: "ok for context-menu, but keep right-click = Esc while
      drawing"): its commands with their keys, so the keys are learnt from it. Esc or a click outside closes it. -->
 <script lang="ts">
 	import type { MenuItem } from './cadMenus'

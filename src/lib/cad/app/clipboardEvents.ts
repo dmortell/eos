@@ -30,7 +30,7 @@ const typing = (t: EventTarget | null) => typeof Element !== 'undefined' && t in
 const anyDialog = () => typeof document !== 'undefined' && !!document.querySelector('[role=dialog]')
 const items = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
-/** Cut never asks (Dave): Undo brings it all back; the message says what a paste won't (links, cords). */
+/** Cut never asks (User): Undo brings it all back; the message says what a paste won't (links, cords). */
 function cutNow(project: CadProject, ws: Workspace, ids: string[]): void {
 	const i = deleteImpact(project.store, ids), lost = impactText({ ...i, devices: 0 })
 	deleteEntities(project.store, ids)
@@ -130,7 +130,7 @@ export function clipboardEvents({ project, ws, target, inRow, image, note, curso
 	function pasteClipHere(clip: NonNullable<ReturnType<typeof parseClip>>): void {
 		const to = target()
 		if (!to) { ws.say(inRow() ? 'Point at a rack, then paste: devices go into the rack under the mouse' : 'Paste into a plan, onto a sheet (notes), or into a rack (devices)'); return }
-		// as-is: same place, same labels (Dave); Ctrl+Shift+V: its middle at the cursor
+		// as-is: same place, same labels (User); Ctrl+Shift+V: its middle at the cursor
 		const shifted = Date.now() < atCursorUntil
 		atCursorUntil = 0
 		const p = shifted && to.kind !== 'rack' ? cursor?.() : null, c = p ? clipCentre(clip) : null

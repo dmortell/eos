@@ -2,7 +2,7 @@
 // each was slow. Two ways to repeat them:
 //  - Array (editor/moveTool.ts): N copies of the selection, a step apart.
 //  - Outlets onto desks: the outlets drawn on one desk, onto every other selected desk of the same block, turned with it.
-// Unlike a paste (as-is, ADR 0002 / Dave), the copied outlets are NUMBERED ON: each continues its usage's series on the
+// Unlike a paste (as-is, ADR 0002 / User), the copied outlets are NUMBERED ON: each continues its usage's series on the
 // level, as the Outlet tool numbers the next one (W11), and its ports follow.
 import type { Id, Pt, Outlet } from './types'
 import type { Entity } from './drawing'

@@ -1,4 +1,4 @@
-// Draw order (Dave, 2026-10-05): Ctrl+] / Ctrl+[ and Shift for front / back, among a level's (or sheet's) shapes.
+// Draw order (User, 2026-10-05): Ctrl+] / Ctrl+[ and Shift for front / back, among a level's (or sheet's) shapes.
 import { describe, it, expect } from 'vitest'
 import { reorderShapes, byDrawOrder, type Shape } from './shapes'
 import { planDisplayList } from '../views/plan'

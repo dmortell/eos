@@ -1,4 +1,4 @@
-// HIDDEN LINES in elevations / sections (elevation-section-plan.md phase 6, Dave: "objects BEHIND walls are properly
+// HIDDEN LINES in elevations / sections (elevation-section-plan.md phase 6, User: "objects BEHIND walls are properly
 // hidden unless seen through holes"). Exact, not painted: every object's 3D faces (walls already cut into panels around
 // their openings — `faces3d(o, cuts)` → wallBoxes / segmentGaps, a box split round a hole through it — prismPanels) are
 // taken into the view's own coords (u = x·t along the drawing, v = z up, d = x·n away from the viewer — any ElevFrame,

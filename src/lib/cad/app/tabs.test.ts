@@ -55,7 +55,7 @@ describe('drawing tabs', () => {
 		const b = t.open(0, sheet('S2'), false, 0)
 		expect(b.id).not.toBe(a.id)
 	})
-	it('switching a tab to a view another tab has open shows that tab — no duplicate (Dave); old duplicates merge on load', () => {
+	it('switching a tab to a view another tab has open shows that tab — no duplicate (User); old duplicates merge on load', () => {
 		const t = new Tabs('dup')
 		t.ensure(0, plan('L1'))
 		const s1 = t.open(0, sheet('S1'), true, 0)

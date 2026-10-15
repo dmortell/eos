@@ -1,4 +1,4 @@
-// Move / Copy with a base point (Dave, 2026-10-05).
+// Move / Copy with a base point (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'

@@ -1,4 +1,4 @@
-<!-- A LEGEND's properties (backlog "Legend on the drawing", Dave 2026-10-05): its title and text size, and which rows it
+<!-- A LEGEND's properties (backlog "Legend on the drawing", User 2026-10-05): its title and text size, and which rows it
      shows — each symbol in use and each layer with something on it, with their counts; ticking one adds it (each legend
      keeps its own choice; untouched, it shows every symbol in use). "All symbols" / "None" set them in one go. -->
 <script lang="ts">

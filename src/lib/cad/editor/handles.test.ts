@@ -79,7 +79,7 @@ describe('segment width bars (backlog "Segment width grip")', () => {
 	})
 })
 
-describe('a section end grip with Shift (Dave 2026-10-15)', () => {
+describe('a section end grip with Shift (User 2026-10-15)', () => {
 	it('keeps the line level / plumb (15° steps from the other end)', () => {
 		const sec = { type: 'section', id: 'S', levelId: 'L', name: 'A', a: { x: 0, y: 0 }, b: { x: 3000, y: 0 }, depth: 2000 } as Entity
 		const end = handlesFor(sec).handles[1]
@@ -90,7 +90,7 @@ describe('a section end grip with Shift (Dave 2026-10-15)', () => {
 	})
 })
 
-describe('a drawn room’s outline grips (Dave 2026-10-15)', () => {
+describe('a drawn room’s outline grips (User 2026-10-15)', () => {
 	const room = { type: 'space', id: 'R', levelId: 'L', kind: 'room', name: 'IDF2', order: 1, boundary: [{ x: -4100, y: -11450 }, { x: -1280, y: -11450 }, { x: -1280, y: -6330 }, { x: -4100, y: -6330 }] } as Entity
 	it('a corner per point, a bar per side; the right side slides 750 right, both its corners with it', () => {
 		const hs = handlesFor(room).handles
@@ -102,7 +102,7 @@ describe('a drawn room’s outline grips (Dave 2026-10-15)', () => {
 	})
 })
 
-describe('a block insert\'s scale grips (Dave 2026-10-15)', () => {
+describe('a block insert\'s scale grips (User 2026-10-15)', () => {
 	it('four corners of what it draws; dragging one twice as far from the insert point doubles its scale (0.05 steps)', async () => {
 		const { insertScaleHandles } = await import('./handles')
 		const ins = { type: 'shape', id: 'I', levelId: 'L', geom: { kind: 'insert', blockId: 'b', at: { x: 0, y: 0 }, scale: 1 } } as unknown as Shape

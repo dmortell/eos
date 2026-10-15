@@ -1,4 +1,4 @@
-<!-- A name typed where it shows (Dave 2026-10-12: names aren't typed in the status bar): focused and selected at once;
+<!-- A name typed where it shows (User 2026-10-12: names aren't typed in the status bar): focused and selected at once;
      Enter or clicking away saves (an empty or unchanged name does nothing), Esc cancels. Keys stay in the box. Used for
      renames (a ✎ / Rename… swaps the label for this) and for new things (a room, a row, a layer …). -->
 <script lang="ts">

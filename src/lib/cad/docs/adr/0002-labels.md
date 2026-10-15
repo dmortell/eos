@@ -1,6 +1,6 @@
 # ADR 0002: Labels are plain text, stored once; Renumber now, Relabel later
 
-**Status:** Accepted (Dave, 2026-10-02): "switch to text labels with relabel (low priority, maybe later) and renumber
+**Status:** Accepted (User, 2026-10-02): "switch to text labels with relabel (low priority, maybe later) and renumber
 (high priority) tool". This replaces the earlier draft, where labels were rendered live from structured parts and a
 template.
 

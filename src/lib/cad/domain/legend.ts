@@ -1,4 +1,4 @@
-// LEGENDS (backlog "Legend on the drawing", Dave 2026-10-05): what a legend can list — every symbol (block) in use on
+// LEGENDS (backlog "Legend on the drawing", User 2026-10-05): what a legend can list — every symbol (block) in use on
 // its levels with how many, and the layers that have something on them (a swatch) — and which rows one legend shows
 // (each legend chooses its own; by default every symbol in use). Pure.
 import type { Id, Outlet } from './types'

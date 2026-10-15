@@ -4,9 +4,9 @@ import type { TreeInput } from './projectTree'
 
 const P = 'pid'
 const project: ProjectFull = {
-	id: P, name: 'Hibiya', address: 'Hibiya', client: 'Midtown', clientCode: 'MT', members: ['u1', 'u2'],
+	id: P, name: 'building1', address: 'building1', client: 'Midtown', clientCode: 'MT', members: ['u1', 'u2'],
 	floors: [
-		{ number: 10, label: 'L10 WeWork', serverRoomCount: 1 },
+		{ number: 10, label: 'L10 building2', serverRoomCount: 1 },
 		{ number: 30, serverRoomCount: 2, roomNames: { A: 'IDF1', B: 'IDF2' } },
 		{ number: 33, serverRoomCount: 1, areas: [{ id: '3303', label: '3303', legacy: true, primary: true }] },
 	],
@@ -22,13 +22,13 @@ const field = (info: ReturnType<typeof describeNode>, key: string) => info?.sect
 describe('describeNode', () => {
 	it('project: editable name / codes / client / address, a read-only summary', () => {
 		const i = describeNode(input, P)!
-		expect(field(i, 'name')).toMatchObject({ value: 'Hibiya', edit: 'text' })
+		expect(field(i, 'name')).toMatchObject({ value: 'building1', edit: 'text' })
 		expect(field(i, 'floors')!.value).toBe('10F, 30F, 33F')
 		expect(field(i, 'members')!.value).toBe('2')
 		expect(field(i, 'id')!.edit).toBeUndefined()
 	})
 	it('building: its floors and risers; derived ones say so', () => {
-		const i = describeNode(input, 'b:Hibiya')!
+		const i = describeNode(input, 'b:building1')!
 		expect(field(i, 'floors')!.value).toBe('30F, 33F')
 		expect(field(i, 'risers')!.value).toBe('12F-33F Risers (12–33F)')
 		expect(i.note).toMatch(/Derived/)
@@ -53,26 +53,26 @@ describe('describeNode', () => {
 
 describe('fieldPatch', () => {
 	it('project fields; an empty name is refused', () => {
-		expect(fieldPatch(input, P, 'name', ' Project Journey ')).toEqual({ name: 'Project Journey' })
+		expect(fieldPatch(input, P, 'name', ' Project Tourney ')).toEqual({ name: 'Project Tourney' })
 		expect(fieldPatch(input, P, 'name', '  ')).toBeNull()
 		expect(fieldPatch(input, P, 'id', 'x')).toBeNull()
 	})
 	it('renaming a DERIVED building names it and pins its floors to the new name', () => {
-		const patch = fieldPatch(input, 'b:Hibiya', 'name', 'Hibiya Midtown')!
-		expect(patch.buildings).toEqual(['Hibiya Midtown'])
+		const patch = fieldPatch(input, 'b:building1', 'name', 'building1 tower')!
+		expect(patch.buildings).toEqual(['building1 tower'])
 		const fl = patch.floors as { number: number; building?: string }[]
-		expect(fl.map((f) => [f.number, f.building])).toEqual([[10, undefined], [30, 'Hibiya Midtown'], [33, 'Hibiya Midtown']])
+		expect(fl.map((f) => [f.number, f.building])).toEqual([[10, undefined], [30, 'building1 tower'], [33, 'building1 tower']])
 	})
 	it('renaming "Other building" works the same; a taken name is refused', () => {
-		const patch = fieldPatch(input, 'b:Other building', 'name', 'Hibiya Fort Tower')!
-		expect(patch.buildings).toEqual(['Hibiya', 'Hibiya Fort Tower'])
-		expect((patch.floors as { number: number; building?: string }[]).find((f) => f.number === 10)!.building).toBe('Hibiya Fort Tower')
-		expect(fieldPatch(input, 'b:Other building', 'name', 'Hibiya')).toBeNull()
+		const patch = fieldPatch(input, 'b:Other building', 'name', 'building2')!
+		expect(patch.buildings).toEqual(['building1', 'building2'])
+		expect((patch.floors as { number: number; building?: string }[]).find((f) => f.number === 10)!.building).toBe('building2')
+		expect(fieldPatch(input, 'b:Other building', 'name', 'building1')).toBeNull()
 	})
 	it('floor label / building (empty clears), zone label, room name (empty clears)', () => {
 		const fl = (patch: Record<string, unknown> | null, n: number) => (patch!.floors as Record<string, unknown>[]).find((f) => f.number === n)!
 		expect(fl(fieldPatch(input, 'f:10', 'label', ''), 10)).not.toHaveProperty('label')
-		expect(fl(fieldPatch(input, 'f:10', 'building', 'Hibiya Fort Tower'), 10).building).toBe('Hibiya Fort Tower')
+		expect(fl(fieldPatch(input, 'f:10', 'building', 'building2'), 10).building).toBe('building2')
 		expect((fl(fieldPatch(input, 'a:33:3303', 'label', 'Zone A'), 33).areas as { label: string }[])[0].label).toBe('Zone A')
 		expect(fl(fieldPatch(input, 'r:30:B', 'name', 'Comms'), 30).roomNames).toEqual({ A: 'IDF1', B: 'Comms' })
 		expect(fl(fieldPatch(input, 'r:30:A', 'name', ''), 30).roomNames).toEqual({ B: 'IDF2' })

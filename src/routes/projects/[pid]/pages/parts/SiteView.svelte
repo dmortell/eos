@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The SITE view (a test, Dave 2026-09-27): shown over the editor while the PROJECT is selected above the tree. It
+	// The SITE view (a test, User 2026-09-27): shown over the editor while the PROJECT is selected above the tree. It
 	// asks for the site address (the project's Address field), finds it on OpenStreetMap (Nominatim), fetches the
 	// buildings around it (Overpass) and renders THE building in 3D — its parts, facades, roof, floor lines — among its
 	// neighbours on the OSM map (site/siteScene.ts, three.js). Nothing is stored except the address, when you save it.

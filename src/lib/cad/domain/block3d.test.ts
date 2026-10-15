@@ -1,4 +1,4 @@
-// 3D blocks (Dave 2026-10-14): furniture drawn with the Box tool, made into a block, shown in every plan, elevation and
+// 3D blocks (User 2026-10-14): furniture drawn with the Box tool, made into a block, shown in every plan, elevation and
 // section as seen from there.
 import { describe, it, expect } from 'vitest'
 import { blockFromShapes, is3d, placed3d, explodeInsert, type Block } from './blocks'

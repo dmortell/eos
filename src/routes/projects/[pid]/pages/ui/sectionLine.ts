@@ -128,7 +128,7 @@ export function moveSection(s0: Section, dx: number, dy: number): Partial<LineSe
 	return { clip: { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) } }
 }
 
-// ── the sheet frames a section drives (Dave: one section usually feeds SEVERAL elevation viewports, on one sheet or
+// ── the sheet frames a section drives (User: one section usually feeds SEVERAL elevation viewports, on one sheet or
 // many, each with its own annotations / freezes / scale — none of that lives on the section) ──
 /** One linked frame: its drawing (`did`; a stored sheet also has `sheetId`), the frame, and how to name them. */
 export type SectionLink = { did: string; sheetId?: string; frameId: string; frame: string; sheet: string }

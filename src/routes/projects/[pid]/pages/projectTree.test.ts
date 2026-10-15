@@ -3,10 +3,10 @@ import { buildProjectTree, drawingPlace, drawingKind, buildingOf, findNodePath, 
 import type { NavNode } from './mock/data'
 
 const P = 'pid'
-// Shaped like the live Hibiya project (docs/firestore-structure.md): 10F outside the riser range, 33F with areas.
+// Shaped like the live building1 project (docs/firestore-structure.md): 10F outside the riser range, 33F with areas.
 const input: TreeInput = {
-	project: { id: P, name: 'Hibiya', address: 'Hibiya', floors: [
-		{ number: 10, label: 'L10 WeWork', serverRoomCount: 1 },
+	project: { id: P, name: 'building1', address: 'building1', floors: [
+		{ number: 10, label: 'L10 building2', serverRoomCount: 1 },
 		{ number: 12, serverRoomCount: 1 },
 		{ number: 30, serverRoomCount: 2, roomNames: { A: 'IDF1', B: 'IDF2' } },
 		{ number: 33, serverRoomCount: 3, roomNames: { A: 'IDF1', B: 'IDF2', C: 'IDF3307' }, areas: [{ id: '3303', label: '3303', legacy: true, primary: true }, { id: '3307', label: '3307' }] },
@@ -38,19 +38,19 @@ describe('projectTree helpers', () => {
 	})
 	it('buildingOf: explicit building > inside a riser range > Other building', () => {
 		const r = [{ id: 'r', fromFloor: 12, toFloor: 33 }]
-		expect(buildingOf({ number: 30 }, r, 'Hibiya')).toBe('Hibiya')
-		expect(buildingOf({ number: 10 }, r, 'Hibiya')).toBe(OTHER_BUILDING)
-		expect(buildingOf({ number: 10, building: 'Hibiya Fort Tower' }, r, 'Hibiya')).toBe('Hibiya Fort Tower')
+		expect(buildingOf({ number: 30 }, r, 'building1')).toBe('building1')
+		expect(buildingOf({ number: 10 }, r, 'building1')).toBe(OTHER_BUILDING)
+		expect(buildingOf({ number: 10, building: 'building2' }, r, 'building1')).toBe('building2')
 	})
 })
 
-describe('buildProjectTree (Hibiya-shaped)', () => {
+describe('buildProjectTree (building1-shaped)', () => {
 	const { project, tree } = buildProjectTree(input)
 	it('project label + buildings: the riser building first, 10F apart', () => {
-		expect(project.label).toBe('Hibiya')
-		expect(labels(tree).slice(0, 2)).toEqual(['Hibiya', OTHER_BUILDING])
-		expect(labels(find(tree, 'b:Hibiya')!.children)).toEqual(['12F-33F Risers', '33F', '30F', '12F'])
-		expect(labels(find(tree, `b:${OTHER_BUILDING}`)!.children)).toEqual(['10F — L10 WeWork'])
+		expect(project.label).toBe('building1')
+		expect(labels(tree).slice(0, 2)).toEqual(['building1', OTHER_BUILDING])
+		expect(labels(find(tree, 'b:building1')!.children)).toEqual(['12F-33F Risers', '33F', '30F', '12F'])
+		expect(labels(find(tree, `b:${OTHER_BUILDING}`)!.children)).toEqual(['10F — L10 building2'])
 	})
 	it('33F: areas as zones, the legacy area takes the unsuffixed outlets drawing; server rooms by name', () => {
 		const f33 = find(tree, 'f:33')!
@@ -66,16 +66,16 @@ describe('buildProjectTree (Hibiya-shaped)', () => {
 		expect(rb.children![0]).toMatchObject({ drawing: 'elevation', docId: 'drawing:d1' })
 	})
 	it('saved buildings come first in their order, empty ones included; an explicit floor building wins', () => {
-		const { tree: t } = buildProjectTree({ ...input, project: { ...input.project, buildings: ['Hibiya Fort Tower', 'Hibiya', 'Annex'],
-			floors: [...(input.project.floors as object[]).filter((f) => (f as { number: number }).number !== 10), { number: 10, label: 'L10 WeWork', serverRoomCount: 1, building: 'Hibiya Fort Tower' }] as never } })
-		expect(labels(t).slice(0, 3)).toEqual(['Hibiya Fort Tower', 'Hibiya', 'Annex'])
-		expect(labels(find(t, 'b:Hibiya Fort Tower')!.children)).toEqual(['10F — L10 WeWork'])
+		const { tree: t } = buildProjectTree({ ...input, project: { ...input.project, buildings: ['building2', 'building1', 'Annex'],
+			floors: [...(input.project.floors as object[]).filter((f) => (f as { number: number }).number !== 10), { number: 10, label: 'L10 building2', serverRoomCount: 1, building: 'building2' }] as never } })
+		expect(labels(t).slice(0, 3)).toEqual(['building2', 'building1', 'Annex'])
+		expect(labels(find(t, 'b:building2')!.children)).toEqual(['10F — L10 building2'])
 		expect(find(t, 'b:Annex')).toMatchObject({ children: [], meta: 'drag floors here' })
 		expect(find(t, `b:${OTHER_BUILDING}`)).toBeUndefined()
 	})
 	it('findNodePath finds a node by id, or a drawing by docId, with its ancestors', () => {
 		const r = findNodePath(tree, { id: 'row:30:B:rb' })!
-		expect(r.node.label).toBe('Row B'); expect(r.ancestors.map((n) => n.id)).toEqual(['b:Hibiya', 'f:30', 'r:30:B'])
+		expect(r.node.label).toBe('Row B'); expect(r.ancestors.map((n) => n.id)).toEqual(['b:building1', 'f:30', 'r:30:B'])
 		const d = findNodePath(tree, { docId: 'drawing:d1' })!
 		expect(d.node.label).toBe('Front Elevation 30F Room B'); expect(d.ancestors.at(-2)!.floor).toBe('30F')
 		expect(findNodePath(tree, { id: 'nope' })).toBeNull()

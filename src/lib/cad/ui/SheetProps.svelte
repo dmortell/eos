@@ -191,7 +191,7 @@
 				{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value="elev:{d}">Elevation {d}</option>{/each}
 				{#each rooms as r (r.id)}
 					{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}
-					<!-- one row of the room's racks (Dave: a sheet of 4AR01 … r6 only) -->
+					<!-- one row of the room's racks (User: a sheet of 4AR01 … r6 only) -->
 					{#each rowsOf(r.id) as row (row.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}:{row.id}">{r.name} · {row.name} racks {f}</option>{/each}{/each}
 				{/each}
 				{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}

@@ -1,10 +1,10 @@
 # A project from scratch in cad: workflow walkthrough
 
 **Status:** 2026-10-14. Part 1 is a desk study, written from the code and the Help. Part 2 (at the end) is a live run on
-a new project with Dave's floorplans: action counts, new bottlenecks B40–B52 and the re-ranked list. Nothing here is
-decided. Fixes Dave agrees to go into `backlog.md`.
+a new project with User's floorplans: action counts, new bottlenecks B40–B52 and the re-ranked list. Nothing here is
+decided. Fixes User agrees to go into `backlog.md`.
 
-Dave's brief: start from a new project; then
+User's brief: start from a new project; then
 - upload plans;
 - add outlets, racks and routes;
 - mark up other trades' drawings;
@@ -267,8 +267,8 @@ The ranking is by how often the job happens × how much hand work it costs today
 
 ## Part 2: live run (2026-10-14)
 
-**Setup.** A new project "Workflow test" (`netflix-wftest-5876`) with Dave's three Netflix Sydney SYD005 outlet plans:
-GF, L1 and L2, A3 at 1:100, with no dimensions on them. Dave set the L1 / L2 origins. Writes went only to this project.
+**Setup.** A new project "Workflow test" (`netflix-wftest-5876`) with User's three Netflix Sydney SYD005 outlet plans:
+GF, L1 and L2, A3 at 1:100, with no dimensions on them. User set the L1 / L2 origins. Writes went only to this project.
 
 **Not run live:**
 - Stage 4: there was no other-trade drawing.
@@ -320,7 +320,7 @@ Actions are clicks, keys and typed fields, counted by hand.
   block and Files were empty and could not be added. **Fixed 2026-10-14** (1635f8a1):
   - defaults on the first Apply floors;
   - a button for projects already in that state;
-  - Dave's lists: AP / TV / CCTV and CAT6A / CAT6 / OS2 / OM4.
+  - User's lists: AP / TV / CCTV and CAT6A / CAT6 / OS2 / OM4.
 - **B41 Scale needs a known distance.** These plans have none, only "1/100".
   - cad knows the PDF page size, so a **"paper scale 1:___"** field would calibrate in one step (A3 width → 42 m at
     1:100).
@@ -387,7 +387,7 @@ Then, from the desk study:
 - change highlight (B28);
 - the change-log decision (B30).
 
-### Round 2 (Dave's installer tasks, 2026-10-14)
+### Round 2 (User's installer tasks, 2026-10-14)
 
 Tasks: patch schedule export, mark installed, GF / L2 outlets, the riser down to GF, patch the new outlets, change
 export, rack elevations and riser fill on sheets, an installer package, an ACS panel (800 × 1200 × 200, 1000 off the
@@ -415,9 +415,9 @@ floor) with a floor-to-ceiling riser, and the ACS outlet patched.
 - **B56 A new outlet continues the last outlet's label.** The ACS outlet became "CAM 1.03". A wall outlet's symbol says
   "Auto: Outlet – ceiling".
 - **B57 Wall-mounted equipment is a plain box.** There is no panel / cabinet kind, the same as B32 / B33.
-- **B58 Export file names are fixed** (Dave's todo, now in the backlog).
+- **B58 Export file names are fixed** (User's todo, now in the backlog).
 
-### Round 3: switch ports for ACS / CCTV (Dave, 2026-10-14)
+### Round 3: switch ports for ACS / CCTV (User, 2026-10-14)
 
 Task: assign the switch's first 2 columns to ACS and CCTV.
 - SW1 is a 2U, 96-port switch, numbered down the columns: column 1 = ports 1, 2, 49, 50; column 2 = 3, 4, 51, 52.
@@ -435,9 +435,9 @@ Task: assign the switch's first 2 columns to ACS and CCTV.
   onto a ~12 px port (the view pans on every row pick). Nine actions per cord, with misses.
   - Proposed: the table's To cell editable (type "SW1:41"), or "move these cords' switch ends to the next free ports".
 
-### Round 4: GF routes and riser fill (Dave, 2026-10-14)
+### Round 4: GF routes and riser fill (User, 2026-10-14)
 
-Dave: "GF outlets need route to the patch frame, the fill rate shows 0% usage for the riser."
+User: "GF outlets need route to the patch frame, the fill rate shows 0% usage for the riser."
 
 **Found and fixed in 6de22121:**
 - **The GF trunk missed the riser.** It was started by eye 57 mm from where the L1 → GF riser lands; runs join within
@@ -467,7 +467,7 @@ do update in real time.
 
 ### Round 5: comparing two floorplan revisions (desk check, 2026-10-15)
 
-Dave's todo: how hard is it to switch a plan, or one sheet's viewport, between two PDF floorplans of the same floor
+User's todo: how hard is it to switch a plan, or one sheet's viewport, between two PDF floorplans of the same floor
 to see what the designer changed? Checked against the code as it is after W5 / W9 (Workflow test already holds
 `05 SYD005 1F OUTLET PLAN_20241014 revB.pdf` beside the 20240516 L1 plan).
 
@@ -504,7 +504,7 @@ to see what the designer changed? Checked against the code as it is after W5 / W
 
 ### Round 6: deleting sheets and floor models (live, Workflow test, 2026-10-15)
 
-Dave: "do a walkthrough of deleting sheets and floor models". Everything below was undone afterwards (checked in
+User: "do a walkthrough of deleting sheets and floor models". Everything below was undone afterwards (checked in
 Firestore: 3 levels, 3 sheets, 3 floorplans, 40 links, 40 cords as before).
 
 **Deleting a sheet** — Sheets table: pick the row, Delete → "Delete sheet S002 with its 1 viewport? Undo brings them
@@ -526,14 +526,14 @@ gone from the Navigator; Undo restored all of it (one step).
   floor that exists but has no model" — but the riser view only draws floors that have a level (a floor with none is a
   gap, or "floors with no level" when empty floors are hidden), and nothing says what Apply will do to it.
 
-**Dave's question (Test Project: only 1F and 4F are used; 2F / 3F not needed in the Navigator but still in riser
+**User's question (Test Project: only 1F and 4F are used; 2F / 3F not needed in the Navigator but still in riser
 views).** No new setting is needed: a LEVEL is the floor's model, the building's floor range is the stack. Delete the
 2F / 3F levels (they leave the Navigator; the building keeps them, D4), and make the riser view draw a building floor
 with no level as a plain floor (FFL line, slab, name, the building's typical heights), and make Apply floors leave
 such floors without a level unless asked ("Create its model" on the chip). → backlog W33 (asked first).
 ## Into the backlog (2026-10-14)
 
-Dave: "add the walkthru findings / improvements / fixes to backlog". They are now `backlog.md` § Workflow walkthrough,
+User: "add the walkthru findings / improvements / fixes to backlog". They are now `backlog.md` § Workflow walkthrough,
 W1–W32 (1 P1, 17 P2, 14 P3). Already fixed, so not listed there:
 - B40: default settings;
 - the package bug;
@@ -548,4 +548,4 @@ Left where they already are:
 - B21 / B22: revision series and the DRAFT stamp (decisions);
 - B35: room elevations (`later.md`);
 - B31: automatic backups;
-- B58: export file names (Dave's todo).
+- B58: export file names (User's todo).

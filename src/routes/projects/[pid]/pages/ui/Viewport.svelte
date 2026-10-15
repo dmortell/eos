@@ -48,7 +48,7 @@
 		return () => { if (cmdBus.target === x.cmdTarget) cmdBus.target = null }
 	})
 	// A standalone (model-space) viewport's viewBox is centred on the pane, so a pane that narrows / widens (the split
-	// bar, a split, the side panels) would slide the drawing. Shift the view so the content stays put ON SCREEN (Dave:
+	// bar, a split, the side panels) would slide the drawing. Shift the view so the content stays put ON SCREEN (User:
 	// "the content shouldn't move when the split bar is moved"): screen x = left + (vbx − minX)·u, and minX moves by
 	// −Δw / 2u, so vbx moves by −Δw / 2u − Δleft / u (the right split pane's left edge moves with the bar). Sheet
 	// frames (boxW) keep their own rule.
@@ -131,7 +131,7 @@
 	.vp:hover { border-color:#5ac6d2; }
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
-	.vp-svg.model { background:#fff; }   /* elevations / 3D on paper: white like the plan (Dave 2026-09-26) */
+	.vp-svg.model { background:#fff; }   /* elevations / 3D on paper: white like the plan (User 2026-09-26) */
 	/* B31: model space — AutoCAD-style dark background, edge to edge, no frame border/glow. `--vp-paper` is the
 	   colour an opening's hole / an iso face is filled with to mask what's behind (Model3d). */
 	.vp.model-space { --vp-paper:#212830; background:var(--vp-paper); border-width:0; box-shadow:none; }

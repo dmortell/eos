@@ -1,4 +1,4 @@
-// Group / ungroup (Dave, 2026-10-05): shapes that select and move as one.
+// Group / ungroup (User, 2026-10-05): shapes that select and move as one.
 import { describe, it, expect } from 'vitest'
 import { withGroups, groupShapes, ungroupShapes } from './groups'
 import { EntityStore } from '../store/store'

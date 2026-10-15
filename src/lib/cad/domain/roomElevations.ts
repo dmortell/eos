@@ -1,8 +1,8 @@
-// ROOM ELEVATIONS A–D (Dave 2026-10-15; later.md B35 "elevation of this wall" needed room outlines, which the Room tool
+// ROOM ELEVATIONS A–D (User 2026-10-15; later.md B35 "elevation of this wall" needed room outlines, which the Room tool
 // now draws): a room's four walls as four sections, each looking at its wall from inside. The cut line runs through
 // the room's middle, parallel to the wall, as wide as the room; it reaches just past the wall. Square to the room's
 // outline box (an odd-shaped room gets the four sides of its box). Named "<room> A" … "D": A looks to −y (the wall at the top of the plan), then clockwise: B +x,
-// B +x, C +y, D −x (Dave 2026-10-15: A–D kept, not T / R / B / L). Each records its room and side (`roomElev`): the plan draws one marker for them. Pure; the Section tool's Room elevations item makes them (editor/sectionTool.ts).
+// B +x, C +y, D −x (User 2026-10-15: A–D kept, not T / R / B / L). Each records its room and side (`roomElev`): the plan draws one marker for them. Pure; the Section tool's Room elevations item makes them (editor/sectionTool.ts).
 import type { Id, Pt, Space } from './types'
 import type { SectionCut } from './drawing'
 

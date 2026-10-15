@@ -138,7 +138,7 @@ export function removeNode(s: Shape, nodeId: Id): Shape | null {
 
 /**
  * JOIN node `fromId` into node `intoId` (a node dropped on another): `from`'s segments now end at `into`, and `from`
- * goes. A segment between the two collapses and goes (Dave's edge case: A dropped on B when A–B is a segment);
+ * goes. A segment between the two collapses and goes (User's edge case: A dropped on B when A–B is a segment);
  * two segments left joining the same pair become one. Null when nothing would be left (a single segment).
  */
 export function mergeNode(s: Shape, fromId: Id, intoId: Id): Shape | null {
@@ -162,7 +162,7 @@ export function mergeNode(s: Shape, fromId: Id, intoId: Id): Shape | null {
 }
 
 /** Joining on a PLAN: the node pairs must be at the same height — runs at different heights are joined by hand in an
- *  elevation (Dave 2026-10-12, Review 2 Q7: a plan join merged a low run into a high one and lost its tier).
+ *  elevation (User 2026-10-12, Review 2 Q7: a plan join merged a low run into a high one and lost its tier).
  *  Null = fine; else the message to show. */
 export function joinHeightProblem(a: Shape, b: Shape, pairs: [Id, Id][]): string | null {
 	const at = (id: Id) => (geomOf(a).nodes.find((n) => n.id === id) ?? geomOf(b).nodes.find((n) => n.id === id))?.z
@@ -183,7 +183,7 @@ export function canJoin(a: Shape, b: Shape): boolean {
 }
 
 /**
- * JOIN path `b` into path `a` (Dave: a trunk's node dropped on another trunk's node): one shape (a's id, role, label)
+ * JOIN path `b` into path `a` (User: a trunk's node dropped on another trunk's node): one shape (a's id, role, label)
  * with both graphs, each `[from, into]` node pair (one node from each run, either way round) merged into `into`.
  * b's segments keep b's section as their own where it differs; a wall's openings come along; a run's data merges
  * (`joinRole`). What names b is re-pointed by the caller (`repointRefs`, same transaction).
@@ -284,7 +284,7 @@ export function pieceRefs(all: Iterable<Entity>, s: Shape, out: Shape[]): Entity
 	return repointRefs(all, s.id, (seg) => (seg && owner.get(seg)) || s.id)
 }
 
-/** DISCONNECT at a node (Dave: separate the segments joined there): each segment after the first gets its own copy of
+/** DISCONNECT at a node (User: separate the segments joined there): each segment after the first gets its own copy of
  *  the node, then the path splits into its pieces (a run cut in two, a junction in three). */
 export function splitAtNode(s: Shape, nodeId: Id): Shape[] {
 	const g = geomOf(s), n = g.nodes.find((x) => x.id === nodeId)

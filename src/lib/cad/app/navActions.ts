@@ -40,7 +40,7 @@ export function deleteLevel(project: CadProject, ws: Workspace, id: string): voi
 	const what = contentsText(project.store.all(), on)
 	ws.ask2(`Delete level ${l.name}${what ? ` and what's on it: ${what} (with their devices, links and cords)` : ''}?${vpText}${riserText} The building keeps the floor (riser view; Floors › + model makes it again). Undo brings it back.`, 'Delete level', go)
 }
-// ── server rooms: rename, delete (Dave: "how to delete unused items like SER-B?") ──
+// ── server rooms: rename, delete (User: "how to delete unused items like SER-B?") ──
 export function renameRoom(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
 /** A room goes with its racks (and their devices, links, cords) and rows; the sheet viewports showing it come off;
  *  outlet ports, panels and runs that name it as their server room let go (said in the question). An empty room, shown

@@ -2,7 +2,7 @@
 
 Every id cited in `../plan/` (*From:*), with where it came from. Line numbers are as of 2026-10-03.
 
-## G: gap rows Dave ticked (`gap-analysis.md`)
+## G: gap rows User ticked (`gap-analysis.md`)
 
 | Id | Line | Tool / section | Item |
 |---|---|---|---|
@@ -336,7 +336,7 @@ Every id cited in `../plan/` (*From:*), with where it came from. Line numbers ar
 | G328 | 1896 | Pages — sheets, frames, issue › Paper annotations, legends, symbols | Notes block / tables |
 | G329 | 1897 | Pages — sheets, frames, issue › Paper annotations, legends, symbols | Dimensions on paper |
 
-## T: Dave's todos (`todo.md`)
+## T: User's todos (`todo.md`)
 
 | Id | Line | Batch | Item |
 |---|---|---|---|
@@ -477,7 +477,7 @@ Every id cited in `../plan/` (*From:*), with where it came from. Line numbers ar
 | T135 | 265 | Seventh batch: Drawings tool gaps | Old versions |
 | T136 | 266 | Seventh batch: Drawings tool gaps | A sheet whose viewports have different versions / changes |
 | T137 | 269 | Seventh batch: Drawings tool gaps | Plan checkbacks |
-| T138 | 273 | Seventh batch: Drawings tool gaps | Journey 3303 / 3307 |
+| T138 | 273 | Seventh batch: Drawings tool gaps | Tourney 3303 / 3307 |
 | T139 | 277 | Seventh batch: Drawings tool gaps | Close a polyline |
 | T140 | 278 | Seventh batch: Drawings tool gaps | A line grid that fades with zoom |
 | T141 | 279 | Seventh batch: Drawings tool gaps | Rotate shapes / objects? |
@@ -521,7 +521,7 @@ Every id cited in `../plan/` (*From:*), with where it came from. Line numbers ar
 | P006 | `phases/phase2.md:95` | DXF without the floorplan |
 | P007 | `phases/phase6.md:86` | Hidden-line removal |
 | P008 | `phases/phase1.md:68` | Level heights |
-| P009 | `phases/phase1.md:42` | Journey 33F duplicate locations |
+| P009 | `phases/phase1.md:42` | Tourney 33F duplicate locations |
 | P010 | `phases/phase3.md:76` | Rack tree and row views |
 | P011 | `phases/phase3.md:85` | Port hover tips |
 | P012 | `phases/phase3.md:187` | Panel detail strip |
@@ -531,7 +531,7 @@ Every id cited in `../plan/` (*From:*), with where it came from. Line numbers ar
 | P016 | `phases/phase3.md:423` | Re-route a cord end |
 | P017 | `phases/phase3.md:468` | Rack BOM products |
 | P018 | `phases/phase3.md:142` | Printable panel label sheets |
-| P019 | `phases/phase3.md:530` | Journey data tidy-up |
+| P019 | `phases/phase3.md:530` | Tourney data tidy-up |
 | P020 | `phases/phase3.md:576` | 33F 3303 outlets not linked |
 | P021 | `phases/phase3.md:581` | Find/replace into Renumber / Relabel |
 | P022 | `phases/phase3.md:583` | Move racks to another level |

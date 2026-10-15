@@ -1,4 +1,4 @@
-// Usages and block attributes (Dave, 2026-10-05).
+// Usages and block attributes (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { usageCodes, withUsagesMet, usageUses } from './usages'
 import { insertAttrs, blockAttrDefs, type Block } from './blocks'

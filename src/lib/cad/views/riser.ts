@@ -1,5 +1,5 @@
 // The RISER view (Phase 5.5): the building's backbone as a schematic elevation, generated from the data — nothing is
-// drawn by hand (Dave: "risers from data only is ok for now"). Looking at the building from the front: x = plan x,
+// drawn by hand (User: "risers from data only is ok for now"). Looking at the building from the front: x = plan x,
 // up = true elevation (view y = −z, y down like every view). It shows:
 //   · a band per floor: the slab under FFL, FFL, and the ceiling line (Level.heights); floors with area plans (33F
 //     3303 / 3307) share one band;
@@ -8,7 +8,7 @@
 //   · the BACKBONE cables, grouped per panel pair + cable type + the risers their routes use, each group as one
 //     line room → riser → room labelled "24 × cat6a · 12m". Groups sharing a riser are laid side by side in lanes.
 // Positions are real where the data has them; the view is a schematic (cable lengths come from the plans' routes).
-// Riser view control (Dave 2026-10-12): the project's floor range (settings.riser from / to — one riser view, so
+// Riser view control (User 2026-10-12): the project's floor range (settings.riser from / to — one riser view, so
 // sheets show the same), an EPS box round each riser on every floor it passes, HIGH / LOW on a riser's label (its
 // tier), each group's own label and color (settings.riser.groups; default fibre amber, copper blue) and each floor's
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
@@ -59,7 +59,7 @@ export function mediaColour(ix: ProjectIndex, type: string | undefined): string 
 /**
  * True elevation → the view's height, with floors left out squeezed: each run of hidden floors becomes one break band
  * BREAK_H tall; everything in a shown floor keeps its true size. With `storey` (a floor's own height), the space
- * above a floor's storey up to the next level — floors with no level at all, e.g. Journey's 13F–29F — is squeezed
+ * above a floor's storey up to the next level — floors with no level at all, e.g. Tourney's 13F–29F — is squeezed
  * the same way. `bands` = the squeezed runs, for their break marks (`from` / `to` = the hidden levels, if any).
  */
 export function squeeze(floors: number[], shown: (e: number) => boolean, storey?: (e: number) => number): { z: (z: number) => number; bands: { z0: number; z1: number; from?: number; to?: number }[] } {
@@ -143,7 +143,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const storeyOf = (e: number) => storeyH(byElev.get(e)?.[0])
 	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
 	// each floor as a section through the building (as the old Risers tool): the slab, the raised-floor void above it
-	// up to FFL, the room, the ceiling, the plenum up to the slab above (the voids left white — Dave 2026-10-07) — that slab drawn here too when no floor shows
+	// up to FFL, the room, the ceiling, the plenum up to the slab above (the voids left white — User 2026-10-07) — that slab drawn here too when no floor shows
 	// directly above (the top floor, a floor under a break). Heights: ADR 0004 (slab top at FFL − raised floor).
 	const elevs = [...byElev.keys()].sort((a, b) => a - b)
 	const strip = (za: number, zb: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: -za }, { x: x1, y: -za }, { x: x1, y: -zb }, { x: x0, y: -zb }], closed: true, fill: true, cls })
@@ -185,7 +185,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 			const eps = ix.spaces.find((sp) => sp.kind.toLowerCase() === 'eps' && ids.has(sp.levelId) && !!sp.boundary && inPolygon(sh, sp.boundary))
 			const v = zv(e), hw = sh.w / 2 + EPS_PAD, h = heightsOf(byElev.get(e)![0])
 			// FFL to ceiling; a riser carrying on to the floor above: up to that slab (through the plenum), from the floor
-			// below: down to this floor's slab (through the raised floor) — walled in all the way (Dave 2026-10-15). One that
+			// below: down to this floor's slab (through the raised floor) — walled in all the way (User 2026-10-15). One that
 			// only turns in this floor's ceiling stays FFL to ceiling.
 			const top = sh.z1 > e + ceil + h.plenumMm ? v + ceil + h.plenumMm : v + ceil, bot = sh.z0 < e ? v - h.raisedFloorMm : v
 			out.push({ k: 'line', pts: [{ x: sh.x - hw, y: -bot }, { x: sh.x + hw, y: -bot }, { x: sh.x + hw, y: -top }, { x: sh.x - hw, y: -top }], closed: true, fill: true, cls: 'riser-eps', ...(eps ? { src: eps.id } : {}) })

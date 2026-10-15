@@ -1,4 +1,4 @@
-<!-- CORD LABEL BATCHES (backlog, Dave 2026-10-11) in the Patch schedule · cord BOM dialog: the patch cords bought, a row
+<!-- CORD LABEL BATCHES (backlog, User 2026-10-11) in the Patch schedule · cord BOM dialog: the patch cords bought, a row
      per batch of pre-printed labels typed by hand (type, length, color, first … last label, ordered, delivered), with
      what the cords' Cord IDs use of it; then per type × length × color the cords against the labels bought, the
      shortfall and where the next order continues. Kept in the project settings (one undo step per edit). -->

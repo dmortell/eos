@@ -47,7 +47,7 @@ describe('sheet register', () => {
 	})
 })
 
-describe('print order (Dave, 2026-10-05)', () => {
+describe('print order (User, 2026-10-05)', () => {
 	const ss = [sheet('a', { number: 'S1', order: 1 }), sheet('b', { number: 'S2', order: 2 }), sheet('c', { number: 'S3', order: 3 }), sheet('d', { number: 'S4', order: 4 })]
 	const after = (moved: Sheet[]) => printOrder(ss.map((s) => moved.find((m) => m.id === s.id) ?? s)).map((s) => s.id).join('')
 	it('the selected sheets move one place as a block; at the end they stop', () => {

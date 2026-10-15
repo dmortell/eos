@@ -26,7 +26,7 @@ export const STATUS_TITLE: Record<Cord['status'], string> = { remove: 'REMOVE - 
 const STATUS_BG: Record<Cord['status'], string> = { add: 'FFDBEAFE', replace: 'FFF3E8FF', change: 'FFFEF3C7', remove: 'FFFEE2E2', installed: 'FFDCFCE7' }
 export const STATUS_FG: Record<Cord['status'], string> = { add: 'FF2563EB', replace: 'FF9333EA', change: 'FFD97706', remove: 'FFDC2626', installed: 'FF16A34A' }
 
-/** Each end: device, label, then where it is — rack, U, face, port (Dave 2026-10-11). */
+/** Each end: device, label, then where it is — rack, U, face, port (User 2026-10-11). */
 export const PATCH_HEAD = ['#', 'From Device', 'From Label', 'From Rack', 'From U', 'From Face', 'From Port', 'To Device', 'To Label', 'To Rack', 'To U', 'To Face', 'To Port', 'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes', 'Was From', 'Was To', 'Key']
 const PATCH_WIDTHS = [4, 20, 16, 10, 5, 6, 6, 20, 16, 10, 5, 6, 6, 10, 8, 12, 9, 20, 24, 24, 14]
 
@@ -58,7 +58,7 @@ export function cordsForSchedule(ix: ProjectIndex, spaceId?: Id, by?: ScheduleSo
 /** One worksheet of the patch schedule: a room's cords (or a selection's). */
 export interface ScheduleSheet { name: string; cords: Cord[] }
 
-/** The worksheets: a sheet per room (rooms A → Z; D4, Dave 2026-10-11), or one sheet for them all, each in the
+/** The worksheets: a sheet per room (rooms A → Z; D4, User 2026-10-11), or one sheet for them all, each in the
  *  export's order. */
 export function scheduleSheets(ix: ProjectIndex, cords: Cord[], perRoom: boolean, name = 'Patch Schedule', by?: ScheduleSort): ScheduleSheet[] {
 	if (!perRoom) return [{ name, cords: orderForSchedule(ix, cords, by) }]

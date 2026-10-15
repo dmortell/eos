@@ -43,7 +43,7 @@ export interface Sheet {
 	titleBlock?: { hidden?: boolean; fields?: Record<string, string> }
 	viewports: Viewport[]
 	/** Layers hidden on the sheet's own paper — its notes and legends not tied to a viewport (each viewport has its own
-	 *  `frozen`). Stored, so the sheet prints as it shows (Dave 2026-10-13). */
+	 *  `frozen`). Stored, so the sheet prints as it shows (User 2026-10-13). */
 	frozen?: Id[]
 	/** Issued revisions, oldest first (set by issuing, Phase 4.6); the last is the sheet's current revision. `hash` =
 	 *  the fingerprint of what the sheet showed at that issue (a sheet is "changed" when it no longer matches). */
@@ -57,7 +57,7 @@ export interface Sheet {
 	discipline?: string
 	tags?: string[]
 	status: 'active' | 'archived'
-	/** How this sheet draws (Dave 2026-10-12: a per-sheet setting, not the project's; absent = the project's old
+	/** How this sheet draws (User 2026-10-12: a per-sheet setting, not the project's; absent = the project's old
 	 *  setting, so sheets made before print as they did): floorplans black and white, outlets in their usage's
 	 *  color or their layer's, cords in rack views along the cable channels or straight. */
 	gray?: boolean
@@ -79,7 +79,7 @@ export type ViewSpec =
 	/** A drawing sheet's paper (Phase 4, views/sheet.ts). */
 	| { kind: 'sheet'; sheetId: Id }
 	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts); `hideEmpty` = floors with no server
-	 *  room squeezed into break bands (Dave: like the Midtown risers). */
+	 *  room squeezed into break bands (User: like the Midtown risers). */
 	| { kind: 'riser'; hideEmpty?: boolean }
 	/** A section through a level along a cut line drawn on its plan (Phase 6.2, views/section.ts). */
 	| { kind: 'section'; sectionId: Id }
@@ -152,7 +152,7 @@ export interface BlockDef {
 	type: 'block'
 	id: Id
 	name: string
-	/** Blocks are GLOBAL (Dave, 2026-10-02: no per-project blocks): built-ins in code, the rest in `settings/cadBlocks`. */
+	/** Blocks are GLOBAL (User, 2026-10-02: no per-project blocks): built-ins in code, the rest in `settings/cadBlocks`. */
 	scope: 'global'
 	category?: string
 	shapes: Omit<ShapeCore, 'type' | 'groupId'>[]
@@ -206,7 +206,7 @@ export interface SheetPackage {
 	name: string
 	/** The default purpose of its issues ("For construction" …). */
 	purpose?: string
-	/** Who gets it (Dave D8): printed on the cover page and the transmittal. `contactId` = one of the project's contacts
+	/** Who gets it (User D8): printed on the cover page and the transmittal. `contactId` = one of the project's contacts
 	 *  (Settings › Sheets › Contacts: its name / org as they are now win); none = typed for this package only. */
 	recipients?: { name: string; org?: string; contactId?: Id }[]
 	note?: string
@@ -238,7 +238,7 @@ export interface SectionCut {
 	importedFrom?: string
 	/** A room elevation (the Section tool's Room elevations): its room and its letter: A looks at the wall at the top of the plan, then
 	 *  clockwise B, C, D. The plan draws one elevation marker in the room for them instead of their cut
-	 *  lines (Dave 2026-10-15); a selected one shows its cut line and grips as any section. */
+	 *  lines (User 2026-10-15); a selected one shows its cut line and grips as any section. */
 	roomElev?: { roomId: Id; side: 'A' | 'B' | 'C' | 'D' }
 }
 

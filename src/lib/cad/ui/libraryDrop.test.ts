@@ -1,5 +1,5 @@
 // A library drag over a view (viewportEdit.ts): which views take it, and what the drop does (backlog "Blocks: drag to
-// place", Dave 2026-10-10).
+// place", User 2026-10-10).
 import { describe, it, expect } from 'vitest'
 import { dropTakes, dropEffectFor, libraryDrop } from './viewportEdit'
 import type { Workspace } from '../app/workspace.svelte'

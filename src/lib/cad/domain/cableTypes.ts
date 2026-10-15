@@ -1,4 +1,4 @@
-// The project's CABLE TYPES (backlog "Cable types editor", Dave 2026-10-05): what uses one (so it can't be deleted
+// The project's CABLE TYPES (backlog "Cable types editor", User 2026-10-05): what uses one (so it can't be deleted
 // from under them) and a new type's id. The list lives in `settings.cableTypes`; outlet ports and cords refer to a
 // type by id, and the project's defaults name one for new outlets / cords. Links (outlet cables, ties, backbone) name
 // one too — fill, cores, the riser and the BOM read it.
@@ -34,7 +34,7 @@ export function newCableTypeId(label: string, taken: string[]): string {
 	return id
 }
 
-/** The project's cable types by label, A → Z (Dave 2026-10-05: in the Settings dialog and every dropdown). */
+/** The project's cable types by label, A → Z (User 2026-10-05: in the Settings dialog and every dropdown). */
 export const sortedCableTypes = (st: Pick<ProjectSettings, 'cableTypes'> | undefined): CableType[] =>
 	[...(st?.cableTypes ?? [])].sort((a, b) => naturalCompare(a.label, b.label))
 

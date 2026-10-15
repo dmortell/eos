@@ -1,4 +1,4 @@
-// The COVER PAGE / TRANSMITTAL of an issue (sheets-organising slice 8; Dave D5: the size of the package's first sheet,
+// The COVER PAGE / TRANSMITTAL of an issue (sheets-organising slice 8; User D5: the size of the package's first sheet,
 // with the project's title block): the project, the issue, its purpose and date, who gets it, a note, then the
 // drawing register — No., title, revision, size, and New revision / As last issued / Withdrawn. A long register flows
 // onto more pages of the same size. Drawn as display lists like any sheet (a stand-in sheet with no viewports gives

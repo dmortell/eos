@@ -54,7 +54,7 @@ has datum labels for this in other views (`views/elevation.ts:207-218` "SSL / FF
 ## 3. What cad does that legacy doesn't
 
 - The FFL value in the floor label (`3F  FFL 8.00`, `riser.ts:105`); legacy shows the floor name only.
-- Area plans on the same floor (Journey 33F, 3303 / 3307) share one band, named together (`riser.ts:93-94`, `:104`).
+- Area plans on the same floor (Tourney 33F, 3303 / 3307) share one band, named together (`riser.ts:93-94`, `:104`).
 - Breaks name the floors they leave out, and a gap with no levels at all reads "floors with no level"
   (`riser.ts:29-58`, `:112`). Legacy only gives a count, and its gap is a fixed half storey.
 - Everything is placed from the data: rooms at their racks' x, risers at their real x and true top / bottom heights
@@ -70,4 +70,4 @@ raised floor): **1** (the slab bug), **2** and **3** (void strips), and **4** (s
 break). Together these make each band read like the legacy section: slab, floor void, room, ceiling, plenum.
 Also cheap and useful: **5** (room box to the ceiling height). Take **7** with the existing high / low cables item.
 Leave **6** (EPS rooms) for when EPS spaces exist in the data, and skip **8**, **9** and **10**. Floor-to-floor
-dimensions / datum labels are optional; reuse the elevation datum style if Dave wants them.
+dimensions / datum labels are optional; reuse the elevation datum style if User wants them.

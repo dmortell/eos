@@ -1,7 +1,7 @@
-// The fonts a project's PDFs can embed (Settings › Files › Font in PDFs, Dave 2026-10-15): open-licensed TrueType fonts
+// The fonts a project's PDFs can embed (Settings › Files › Font in PDFs, User 2026-10-15): open-licensed TrueType fonts
 // from Google Fonts' repository, fetched when a PDF is made with one set and kept for the session. jsPDF embeds only the
 // characters a PDF uses. Chinese is not offered yet: the static TTFs there are display faces, and Noto Sans SC / TC
-// are too large to fetch this way. Noto Sans JP (5.7 MB) was compared and dropped for M PLUS 1p (Dave 2026-10-15).
+// are too large to fetch this way. Noto Sans JP (5.7 MB) was compared and dropped for M PLUS 1p (User 2026-10-15).
 export type PdfFontLang = 'ja' | 'ko'
 export const PDF_FONTS: Record<PdfFontLang, { label: string; face: string; url: string }> = {
 	ja: { label: 'Japanese', face: 'M PLUS 1p', url: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplus1p/MPLUS1p-Regular.ttf' },

@@ -1,4 +1,4 @@
-// TITLE BLOCK (Phase 4.2 — ported as it is from Pages' titleBlock.ts, Dave: "keep the pages titleblock model"): ONE
+// TITLE BLOCK (Phase 4.2 — ported as it is from Pages' titleBlock.ts, User: "keep the pages titleblock model"): ONE
 // template per project (`ProjectSettings.titleBlock`) — which fields the sheet's title block shows, in order, plus a
 // logo text, logo images, the drawing office's block and the layout. Values are filled AUTOMATICALLY at render time
 // from the project and the sheet (number, title, revision, date, scale, …); a 'custom' field shows the template's own
@@ -17,10 +17,10 @@ export const TB_AUTO = {
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom' | 'logo' | 'logoText' | 'company'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean
-	/** key 'logo': which logo image this field shows (Dave 2026-10-05: logos are fields, placed and ordered like them) */
+	/** key 'logo': which logo image this field shows (User 2026-10-05: logos are fields, placed and ordered like them) */
 	logo?: 'company' | 'client' }
 export const LOGO_LABEL = { company: 'Our logo', client: 'Client logo' } as const
-/** The block's own items that are fields too (Dave 2026-10-05: the logo images, the logo text and the company block
+/** The block's own items that are fields too (User 2026-10-05: the logo images, the logo text and the company block
  *  are dragged into place like the others); always in the list, full width — cleared, not removed. */
 const FIXED: TbField[] = [
 	{ key: 'logo', logo: 'company', label: LOGO_LABEL.company, wide: true }, { key: 'logo', logo: 'client', label: LOGO_LABEL.client, wide: true },
@@ -153,7 +153,7 @@ export function drawnFallback(author: string | undefined, issuer?: string): stri
 	return (a && (/[\s@]/.test(a) ? initialsOf(a) : a)) || issuer?.trim() || ''
 }
 
-/** Initials for "Drawn": "David Mortell" → "DM"; an email → its local part's first 3 letters ("DMO"). */
+/** Initials for "Drawn": "Dana Morgan" → "DM"; an email → its local part's first 3 letters ("DMO"). */
 export function initialsOf(nameOrEmail: string | null | undefined): string {
 	const s = (nameOrEmail ?? '').trim(); if (!s) return ''
 	if (s.includes('@')) return s.split('@')[0].replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase()

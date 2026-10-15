@@ -1,4 +1,4 @@
-// ROTATE and MIRROR (ADR 0005's Modify commands; review R92, Dave 2026-10-12), base-point tools like Move / Copy.
+// ROTATE and MIRROR (ADR 0005's Modify commands; review R92, User 2026-10-12), base-point tools like Move / Copy.
 // Select first, then:
 //  - Rotate: click the PIVOT, then a second point: the turn is the angle from +x through the pivot to it, as seen
 //    (Shift: 15° steps; snaps apply) — or type an angle in degrees, anticlockwise on screen like the polar input
@@ -158,7 +158,7 @@ export class TransformTool implements Tool {
 }
 
 /** Turn / mirror items in one undo step: runs ending on them follow, notes on a turned section's plane go with it. The
- *  Rotate / Mirror tools and the quick 90° turn (R / Shift+R, Dave 2026-10-15) share it. */
+ *  Rotate / Mirror tools and the quick 90° turn (R / Shift+R, User 2026-10-15) share it. */
 export function transformItems(store: ToolCtx['store'], ids: Id[], xf: Xf, label: string): void {
 	store.transact(label, (tx) => {
 		const was = ids.map((id) => tx.get(id))

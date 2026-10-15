@@ -1,4 +1,4 @@
-// Editing inside a run (Dave, 2026-10-05): two runs joined by dropping a node on the other's node, nodes of other runs
+// Editing inside a run (User, 2026-10-05): two runs joined by dropping a node on the other's node, nodes of other runs
 // that sit on a dragged node move along, Disconnect / Delete on picked nodes and segments.
 import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
@@ -57,7 +57,7 @@ describe('joining two runs', () => {
 	})
 })
 
-describe('runs that already touch at a node (Dave: two trunks near R311)', () => {
+describe('runs that already touch at a node (User: two trunks near R311)', () => {
 	it('dragging the shared node makes them one run, so all three segments move with it', () => {
 		const A = trunk('A', [[-60, -8320], [-1650, -8740]]), B = trunk('B', [[-3420, -8560], [-1650, -8740], [-1670, -7980]])
 		const store = new EntityStore()
@@ -170,7 +170,7 @@ describe('the grip under the pointer', () => {
 	})
 })
 
-describe('the grip under the pointer after an undo (Dave 2026-10-15)', () => {
+describe('the grip under the pointer after an undo (User 2026-10-15)', () => {
 	it('an undo that moves its shape back hides the larger hover grip until the pointer moves', () => {
 		const store = new EntityStore()
 		store.load([...demoProject(), trunk('A', [[0, 0], [1000, 0]])])

@@ -37,7 +37,7 @@ export function levelRisers(all: Iterable<Entity>, levelId: Id): Shape[] {
 export function withoutLevelNodes(s: Shape, levelId: Id, levels: Level[] = []): Shape | null {
 	if (s.geom.kind !== 'path') return s
 	const g0 = s.geom, elev = (id: Id | undefined) => levels.find((l) => l.id === (id ?? s.levelId))?.elevationMm
-	// Dave 2026-10-15: a riser to the deleted floor ends on the nearest floor that still has a model between its other
+	// User 2026-10-15: a riser to the deleted floor ends on the nearest floor that still has a model between its other
 	// end and it (that floor's tray height; FFL for a low run) — only with none in between is it cut back
 	const moved = new Map<Id, PathNode>()
 	const gone0 = elev(levelId)

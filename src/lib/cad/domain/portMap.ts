@@ -1,4 +1,4 @@
-// The PORT MAP (port-map-plan.md, Dave 2026-10-11): every port of the chosen panels / switches with what it reaches —
+// The PORT MAP (port-map-plan.md, User 2026-10-11): every port of the chosen panels / switches with what it reaches —
 // the outlet(s) at the ends of its circuit, the port its cord goes to, and any device port beyond — so network
 // engineers can assign VLANs. Pure; tested in portMap.test.ts. The Excel is render/exports.ts `exportPortMap`.
 import type { ProjectIndex } from './project'
@@ -23,7 +23,7 @@ export interface PortMapRow {
 	patchedTo: string
 	/** A device port at the far end of the circuit beyond the cord (e.g. the switch behind a panel-to-panel tie). */
 	farEnd: string
-	/** What the drawing writes in the port (Dave 2026-10-11, P4: "the label of the item it is connected to on the far
+	/** What the drawing writes in the port (User 2026-10-11, P4: "the label of the item it is connected to on the far
 	 *  end"): the end of the circuit across this port's cord — else, unpatched, the other end of its cable. */
 	far?: { kind: 'outlet'; label: string } | { kind: 'device'; name: string; port: string }
 	cordId: string

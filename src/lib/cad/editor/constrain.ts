@@ -1,4 +1,4 @@
-// SHIFT constrains (backlog "Shift constraints", Dave 2026-10-05): one helper for the path tool, node grips, moves and
+// SHIFT constrains (backlog "Shift constraints", User 2026-10-05): one helper for the path tool, node grips, moves and
 // the shape tool. View coordinates (a plan's x / y, an elevation's u / −z, a sheet's paper mm).
 import type { Pt } from '../domain/types'
 

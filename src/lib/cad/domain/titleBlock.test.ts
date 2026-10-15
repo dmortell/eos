@@ -1,5 +1,5 @@
 // Ported from Pages' titleBlock.test.ts, with the model (domain/titleBlock.ts); the logo images, logo text and company
-// block are fields since 2026-10-05 (Dave: placed and dragged like the others).
+// block are fields since 2026-10-05 (User: placed and dragged like the others).
 import { describe, it, expect } from 'vitest'
 import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, shownTitleBlock, withLogoFields, isFixedField, withDetails } from './titleBlock'
 
@@ -7,9 +7,9 @@ const keys = (fs: ReturnType<typeof withLogoFields>) => fs.map((f) => (f.key ===
 
 describe('title block', () => {
 	it('fills the template from the sheet context; empty values show a dash', () => {
-		const cells = fillTitleBlock(DEFAULT_TITLE_BLOCK, { project: 'Hibiya', title: '33F Outlets', scale: '1:100', size: 'A3 L', number: 'E-101' })
+		const cells = fillTitleBlock(DEFAULT_TITLE_BLOCK, { project: 'building1', title: '33F Outlets', scale: '1:100', size: 'A3 L', number: 'E-101' })
 		expect(cells[0]).toMatchObject({ kind: 'logoText', value: 'J', wide: true })   // the default's logo text, first
-		expect(cells[1]).toEqual({ label: 'Project', value: 'Hibiya', wide: true })
+		expect(cells[1]).toEqual({ label: 'Project', value: 'building1', wide: true })
 		expect(cells.find((c) => c.label === 'Dwg №')!.value).toBe('E-101')
 		expect(cells.find((c) => c.label === 'Rev')!.value).toBe('—')
 	})
@@ -48,8 +48,8 @@ describe('title block', () => {
 		expect(fillTitleBlock({ ...placed, logos: { company: { src: '' } } }, {}).some((c) => c.image)).toBe(false)
 	})
 	it('initials from a name or an email', () => {
-		expect(initialsOf('David Mortell')).toBe('DM')
-		expect(initialsOf('dmortell@gmail.com')).toBe('DMO')
+		expect(initialsOf('Dana Morgan')).toBe('DM')
+		expect(initialsOf('dmorgan@example.com')).toBe('DMO')
 		expect(initialsOf('')).toBe('')
 	})
 })

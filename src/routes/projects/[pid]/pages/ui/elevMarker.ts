@@ -13,7 +13,7 @@
 // elevation, the same view a box section's front arrow (at its bottom edge, pointing up) gives. The command line types
 // angles the CAD way (CCW from +X, Y up: 90 = up the sheet) — userToPlanAngle / planToUserAngle convert.
 //
-// THE LOOK. `elevMarkerMarks` is the ONE function that draws it (Dave, 2026-09-27: the eltag look for now — a circle,
+// THE LOOK. `elevMarkerMarks` is the ONE function that draws it (User, 2026-09-27: the eltag look for now — a circle,
 // a filled triangle pointing where it looks, its number inside; it may become a plain arrow — change only this).
 // It returns plain primitives; ui/render/ElevMarkerGlyph.svelte just renders them.
 import type { Section, LineSection, ElevMarker, OClip, Clip } from '../3dview/types'

@@ -1,6 +1,6 @@
 # ADR 0006: Work planes, 2.5D shapes and vertical runs
 
-**Status:** Accepted as a requirement (Dave, 2026-10-02). He wants to be able to:
+**Status:** Accepted as a requirement (User, 2026-10-02). He wants to be able to:
 - add and edit vertical trunks / conduits
 - draw 2.5D shapes by positioning them on the x/y plane and extending them in z, or the reverse when drawing on an
   elevation
@@ -29,7 +29,7 @@ Every view has one work plane. Clicks are turned into model points on it with `c
 
 - **The other pane shows it** when the view is split: a dashed line in the plan for an elevation's depth, and a line
   in the elevation for the plan's work Z.
-- **No guides and no inset** (Dave, 2026-10-02: "we don't need plane inset and guides slice, the split view works ok
+- **No guides and no inset** (User, 2026-10-02: "we don't need plane inset and guides slice, the split view works ok
   so far"). The earlier ideas of guides as saved work planes, and a pop-up inset of the other view, were dropped. The
   Z / Depth fields plus the split view cover it.
 
@@ -44,7 +44,7 @@ Right at any time.
 - Both panes use the same `ViewCanvas`; a pane is just a view spec plus a camera. That is simpler than Pages' split
   tabs (no tab bookkeeping, no per-tab documents).
 
-The pop-up **inset** that was proposed here was **dropped** (Dave, 2026-10-02): the split view works.
+The pop-up **inset** that was proposed here was **dropped** (User, 2026-10-02): the split view works.
 
 ### 2.5D shapes: draw the profile, then extend it
 

@@ -24,7 +24,7 @@ const isBackground = (l: Layer) => l.group === 'Background'
 export const layerById = (ls: Layer[], id?: string): Layer | undefined => (id ? ls.find((l) => l.id === id) : undefined)
 // An item with no layer (or an unknown one) is always shown/editable in the tool's default ink.
 export const isLayerHidden = (ls: Layer[], id?: string): boolean => { const l = layerById(ls, id); return !!l && !l.visible }
-/** A layer made inside a sheet viewport shows ONLY in the viewports listed in its `onlyIn` (Dave 2026-10-01) — hidden in
+/** A layer made inside a sheet viewport shows ONLY in the viewports listed in its `onlyIn` (User 2026-10-01) — hidden in
  *  model space (no frame), in every other viewport and in viewports made later. */
 export const onlyElsewhere = (l: Layer | undefined, frameId?: string | null): boolean => !!l?.onlyIn && !(frameId && l.onlyIn.includes(frameId))
 /** Hidden in the view `frameId` (a sheet frame id; none = model space): off, or a viewport-only layer of another view. */

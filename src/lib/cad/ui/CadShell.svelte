@@ -79,9 +79,9 @@
 	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
 	const ws = new Workspace()
 	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
-	// every export asks for its file name first (Dave 2026-10-15): filled from the project's pattern (Settings › Files),
-	// else the export's own name; the Save as dialog (Dave: a dialog, not the status bar) — Enter saves, Esc cancels
-	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (Dave 2026-10-15)
+	// every export asks for its file name first (User 2026-10-15): filled from the project's pattern (Settings › Files),
+	// else the export's own name; the Save as dialog (User: a dialog, not the status bar) — Enter saves, Esc cancels
+	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (User 2026-10-15)
 	onMount(() => { if (tipsDue()) layout.open('tips') })
 	let saveAs = $state<{ name: string; ext: string; type: string; done: (n: string | { name: string; action: SaveAction } | null) => void } | null>(null)
 	/** The name from the project's pattern, else the suggested one. {version}: the release this file belongs to, else the
@@ -113,10 +113,10 @@
 	let exportsRef: Exports | undefined = $state()
 	/** The drawing area: floating windows sit in it, its edges dock them. */
 	let planEl: HTMLElement | undefined = $state()
-	/** The tools float over the drawing in a palette (tool strip options 2 + 4, Dave 2026-10-15), else sit in the top bar;
+	/** The tools float over the drawing in a palette (tool strip options 2 + 4, User 2026-10-15), else sit in the top bar;
 	 *  kept in this browser. */
 	const TOOLS_FLOAT_KEY = 'cad-tools-float'
-	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) === 'float' } catch { return false } })())   // the top bar by default (Dave 2026-10-15)
+	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) === 'float' } catch { return false } })())   // the top bar by default (User 2026-10-15)
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	ws.openTitleBlock = () => openSettings('sheets')
 	ws.openWindow = (id) => layout.open(id)
@@ -150,9 +150,9 @@
 	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 
-	// the view state comes back from the URL on a refresh (Dave): each pane's level and view, the active pane — read
+	// the view state comes back from the URL on a refresh (User): each pane's level and view, the active pane — read
 	// from the ADDRESS BAR: page.url still holds the URL the page loaded with (our replaceState doesn't move it), so a
-	// remount (a hot reload) went back to that first view (Dave 2026-10-14: "why did hmr revert to S001?")
+	// remount (a hot reload) went back to that first view (User 2026-10-14: "why did hmr revert to S001?")
 	const fromUrl = readViewState(new URL(typeof location === 'undefined' ? page.url.href : location.href).searchParams)
 	ws.paneLevels = paneLevelsOf(fromUrl)
 	ws.pane = fromUrl.active ?? 0
@@ -244,7 +244,7 @@
 		if (c.source !== 'local') return
 		untrack(() => { const t = tabs.of(activePane); if (t?.preview) tabs.keep(t.id) })
 	}))
-	// a drawing tool's new shapes: say which layer they went on (Dave 2026-10-10) — not paste / copy, which keep theirs
+	// a drawing tool's new shapes: say which layer they went on (User 2026-10-10) — not paste / copy, which keep theirs
 	$effect(() => project.store.subscribe((c) => {
 		if (c.source !== 'local' || ['select', 'move', 'copy', 'array', 'rotate', 'mirror', 'match'].includes(ws.toolId)) return
 		const made = c.ops.filter((o) => !o.before && o.after).map((o) => o.after!)
@@ -259,7 +259,7 @@
 		}
 		// the Layer chip already says it when a layer is picked: only a shape that went somewhere ELSE is news (Q55)
 		const cur = ws.layers.current ? info.find((l) => l.id === ws.layers.current)?.name : undefined
-		if (msg && msg !== (cur ? `Drawn on the ${cur} layer` : null)) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (Dave 2026-10-12)
+		if (msg && msg !== (cur ? `Drawn on the ${cur} layer` : null)) ws.notify(msg)   // a toast: the status line keeps the hint / the tool's own message (User 2026-10-12)
 	}))
 	/** The tab menu (a right-click on a tab). */
 	let tabMenu = $state<{ id: string; x: number; y: number } | null>(null)
@@ -281,7 +281,7 @@
 		if (project.loaded) untrack(() => tabs.prune((v) => exists(v.spec)))
 	})
 	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
-	 *  another floor's racks) goes to the level's plan (Dave: clicking a level with S001 open did nothing visible). */
+	 *  another floor's racks) goes to the level's plan (User: clicking a level with S001 open did nothing visible). */
 	function openLevel(id: string) {
 		if (id !== ws.levelId && panes[activePane].kind === 'plan') tabs.go(activePane, { levelId: id, spec: PLAN })
 		ws.levelId = id
@@ -301,7 +301,7 @@
 		const p = panes[activePane]
 		exportsRef?.portMap(p.kind === 'portmap' && !ws.selection.length ? p.deviceIds : undefined)
 	}
-	/** After undo / redo: select what changed; an edit on another level opens that level first (Dave), unless a sheet
+	/** After undo / redo: select what changed; an edit on another level opens that level first (User), unless a sheet
 	 *  or the riser view (no one level) is showing. */
 	function showHistory(ids: string[]) {
 		const e = ids.length ? project.store.get(ids[0]) : undefined
@@ -345,7 +345,7 @@
 
 	// ...and goes back into it on every change (replaceState: no history entries, SvelteKit's router stays in charge)
 	// Compared with the ADDRESS BAR (location), not page.url: after a replaceState page.url can lag, and a switch back
-	// to what the stale copy said was skipped (Dave: plan → sheet sometimes left v=plan).
+	// to what the stale copy said was skipped (User: plan → sheet sometimes left v=plan).
 	$effect(() => {
 		const state = { levelId: ws.levelId, panes: $state.snapshot(panes) as ViewSpec[], active: activePane, paneLevels: panes.map((_, i) => ws.paneLevels[i] ?? null) }
 		const url = new URL(location.href)
@@ -389,7 +389,7 @@
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
 	let bottom = $state<BottomTab>('outlets')
 	/** The bottom panel follows the view (UX10): sheet → Sheets, rack view → Patch list, else Outlets — unless you picked
-	 *  a tab yourself in that kind of view (remembered per kind in this browser, over a refresh — Dave 2026-10-10). */
+	 *  a tab yourself in that kind of view (remembered per kind in this browser, over a refresh — User 2026-10-10). */
 	const BOTTOM_FOR: Partial<Record<ViewSpec['kind'], BottomTab>> = { sheet: 'sheets', row: 'patch' }
 	const TABLES: BottomTab[] = ['outlets', 'patch', 'sheets', 'links']
 	const pickedFor = (k: ViewSpec['kind']) => { const t = panels.tableFor[k] as BottomTab | undefined; return t && TABLES.includes(t) ? t : undefined }
@@ -417,7 +417,7 @@
 	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
 	$effect(() => { if (ws.toolId === 'insert') untrack(() => layout.open('blocks', false)) })
 	$effect(() => { if (ws.toolId === 'device') untrack(() => layout.open('devices', false)) })
-	// floating windows stay reachable when the browser window (or the drawing area) shrinks (Dave)
+	// floating windows stay reachable when the browser window (or the drawing area) shrinks (User)
 	$effect(() => {
 		const el = planEl
 		if (!el) return
@@ -428,11 +428,11 @@
 	const tablesShown = $derived(panels.shown.bottom && !layout.allHidden)
 	/** The tables in the strip under the drawing (not floating or maximised); folded, the strip is just their bar. */
 	const tablesDocked = $derived(tablesShown && !panels.tables.float && !panels.tables.max)
-	/** Closed, their bar of tabs stays under the drawing (Dave 2026-10-10) — not when every window is hidden. */
+	/** Closed, their bar of tabs stays under the drawing (User 2026-10-10) — not when every window is hidden. */
 	const tablesBar = $derived(!panels.shown.bottom && !layout.allHidden)
 	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : tablesBar ? 29 : 0)
 	// a docked library window keeps its place where its tool doesn't work (a note instead of its list), so the windows
-	// around it don't jump and the Navigator doesn't scroll (Dave 2026-10-15: Blocks came and went with rack views)
+	// around it don't jump and the Navigator doesn't scroll (User 2026-10-15: Blocks came and went with rack views)
 	const docked = (side: 'left' | 'right') => layout.docked(side)
 	const dockW = (side: 'left' | 'right') => (docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived(activeSheets(project))
@@ -454,8 +454,8 @@
 	const pdfAllSheets = () => void sheetsPdf(project, ws, sheetsAll)
 	/** The sheet open in the active pane (File / Sheets › PDF of this sheet). */
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
-	/** Ctrl+P and the print button (Dave 2026-10-15): the open sheet as a PDF, else every sheet. */
-	/** Print (Ctrl+P, the printer button, its ▾ — Dave 2026-10-15): on a sheet, that sheet; on a model view, the whole view
+	/** Ctrl+P and the print button (User 2026-10-15): the open sheet as a PDF, else every sheet. */
+	/** Print (Ctrl+P, the printer button, its ▾ — User 2026-10-15): on a sheet, that sheet; on a model view, the whole view
 	 *  alone on A3 (or what's on screen); "all": every sheet. Each opens the PDF in a new browser tab. */
 	function printWhat(which: 'this' | 'all' | 'view' | 'screen') {
 		const p = panes[activePane], lv = paneLevelIds[activePane] ?? ws.levelId
@@ -469,12 +469,12 @@
 		else ws.say('No sheets yet — Drawings › New sheet')
 	}
 	const printPdf = () => printWhat(openSheetId ? 'this' : 'view')
-	/** R / Shift+R, the ↻ ↺ buttons, Modify and the right-click menu (Dave 2026-10-15): the selection turned 90°. */
+	/** R / Shift+R, the ↻ ↺ buttons, Modify and the right-click menu (User 2026-10-15): the selection turned 90°. */
 	const turn90 = (dir: 1 | -1) => { const why = canvas?.turn90(dir); if (why) ws.say(why) }
 	const printItems = $derived<MenuItem[]>(openSheetId
 		? [{ label: 'This sheet', key: KEYS.print, run: () => printWhat('this') }, { label: `All sheets (${sheetsAll.length})`, run: () => printWhat('all') }]
 		: [{ label: 'Whole view (A3)', key: KEYS.print, run: () => printWhat('view') }, { label: 'On screen (A3)', run: () => printWhat('screen') }, '-', { label: `All sheets (${sheetsAll.length})`, disabled: !sheetsAll.length, run: () => printWhat('all') }])
-	/** The print button's ▾ (Dave 2026-10-15): This sheet / All sheets. */
+	/** The print button's ▾ (User 2026-10-15): This sheet / All sheets. */
 	let printMenu = $state<{ x: number; y: number } | null>(null)
 	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
@@ -847,7 +847,7 @@
 	/* Layout lives here, not in Tailwind arbitrary classes: the panel sizes belong to the component. */
 	.shell {
 		display: grid;
-		height: calc(100dvh - 28px);   /* the page's title bar is 28px: no gap under the status bar (Dave) */
+		height: calc(100dvh - 28px);   /* the page's title bar is 28px: no gap under the status bar (User) */
 		/* column / row sizes come from Panels (resizable, hideable) */
 		grid-template-areas: 'menu menu menu' 'bar bar bar' 'opts opts opts' 'dleft plan dright' 'dleft grid dright' 'status status status';
 	}
@@ -863,7 +863,7 @@
 	.dock-right { grid-area: dright; border-left: 1px solid var(--cad-line); }
 	.plan { grid-area: plan; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 	.grid-panel { grid-area: grid; min-height: 0; min-width: 0; display: flex; }
-	/* a drag on a panel's blank space doesn't select its text (Dave) — tables still do, for copying (fields always do) */
+	/* a drag on a panel's blank space doesn't select its text (User) — tables still do, for copying (fields always do) */
 	.dock, .grid-panel { user-select: none; -webkit-user-select: none; }
 	/* a selected row, the same in every table (UX review V2): the drawing's selection blue, a bar on its left */
 	.shell :global(tr.row-sel) { background: var(--cad-sel, #dbeafe) !important; box-shadow: inset 3px 0 0 #2563eb; }

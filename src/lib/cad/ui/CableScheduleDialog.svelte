@@ -1,4 +1,4 @@
-<!-- The CABLE SCHEDULE on screen (Dave: in a dialog like the BOM, then Excel): one row per cable (a multi-core cable once) — from, to, cable,
+<!-- The CABLE SCHEDULE on screen (User: in a dialog like the BOM, then Excel): one row per cable (a multi-core cable once) — from, to, cable,
      route, slack, installed length, the 90 m flag — with totals; "Problems only" shows the links over 90 m or with no
      route. -->
 <script lang="ts">

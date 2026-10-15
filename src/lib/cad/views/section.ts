@@ -2,7 +2,7 @@
 // drawn (`flip`: the other way). It is the elevation generator (views/elevation.ts) on the section's own frame,
 // limited to `depth` beyond the cut and to the line's length. Walls the line CUTS are drawn as cut (solid), with a
 // gap where the line passes through an opening. On the plan the section shows as a dashed line with arrows looking
-// its way and its name at both ends. Hidden lines: the opaque fills, as in elevations (Dave: no hidden-line removal).
+// its way and its name at both ends. Hidden lines: the opaque fills, as in elevations (User: no hidden-line removal).
 import type { Id, Pt, Level } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import type { SectionCut } from '../domain/drawing'

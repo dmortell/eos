@@ -17,7 +17,7 @@ describe('project file', () => {
 			{ type: 'link', id: 'K7', kind: 'horizontal', a: { on: 'P1', port: 7, face: 'rear' }, b: { on: 'O7', port: 1 }, status: 'design' },
 		])
 		const blk = { type: 'block' as const, id: 'blk-mine', name: 'Mine', scope: 'global' as const, shapes: [] }
-		const f = makeBackup(all, ['L2'], { project: { id: 'p', name: 'P' }, by: { uid: 'u', name: 'Dave' }, blockOf: (id) => (id === 'blk-mine' ? blk : undefined) })
+		const f = makeBackup(all, ['L2'], { project: { id: 'p', name: 'P' }, by: { uid: 'u', name: 'User' }, blockOf: (id) => (id === 'blk-mine' ? blk : undefined) })
 		expect(f.entities.map((e) => e.id).sort()).toEqual(['K7', 'L2', 'O7'])
 		expect(f.parts).toEqual(['L2'])
 		expect(f.library?.blocks.map((b) => b.id)).toEqual(['blk-mine'])

@@ -88,7 +88,7 @@ export function restoreSummary(plan: RestorePlan, backup: Iterable<Entity>, part
 	return { line: `${partsLabel(backAll, parts)}: ${bits.length ? bits.join(', ') : 'nothing to change'}`, skipped }
 }
 
-/** Only the project owner restores (Dave 2026-10-08); a project with no owner set lets anyone who can edit. */
+/** Only the project owner restores (User 2026-10-08); a project with no owner set lets anyone who can edit. */
 export const canRestore = (ownerId: string | undefined, uid: string | undefined): boolean => !ownerId || (!!uid && ownerId === uid)
 
 /** A stored backup is deleted by whoever made it or by the owner (ADR 0008 §8); with no owner set, by anyone. */

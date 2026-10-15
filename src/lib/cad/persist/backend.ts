@@ -6,7 +6,7 @@ import type { StoredDoc } from './docs'
 /** A doc as the server now has it; `data` null = deleted (or no longer in the subscribed scopes). */
 export interface RemoteDoc {
 	id: Id; data: StoredDoc | null
-	/** Only these top-level fields are written (Dave 2026-10-15, edits in two tabs): one absent from `data` is deleted, the
+	/** Only these top-level fields are written (User 2026-10-15, edits in two tabs): one absent from `data` is deleted, the
 	 *  rest of the server's doc stays as it is — so a tab holding an older copy doesn't write back fields it didn't change.
 	 *  Absent = the whole doc (a new entity, a delete). */
 	fields?: string[]

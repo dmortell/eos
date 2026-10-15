@@ -1,4 +1,4 @@
-// A block made from shapes drawn in an elevation (one drawing, Dave 2026-10-14), and stored blocks that still carry
+// A block made from shapes drawn in an elevation (one drawing, User 2026-10-14), and stored blocks that still carry
 // the dropped separate `front` drawing.
 import { describe, it, expect } from 'vitest'
 import { elevationProblem, elevationShapes, elevationBlock, oneDrawing, type Block } from './blocks'

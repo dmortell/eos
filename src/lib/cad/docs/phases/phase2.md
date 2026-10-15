@@ -26,7 +26,7 @@
   renaming carries into the port labels), `Properties` (outlet / rack / shape), `ImportPanel`.
 - **Tests:** 90 (pure modules).
 
-### Checked live on Test Project (with Dave's OK for writes there)
+### Checked live on Test Project (with User's OK for writes there)
 - **Import:** the legacy import wrote 327 items to `projects/250505-115939/cadEntities`. Both levels, the calibrated
   floorplan and the outlets / racks appeared.
 - **Move and undo:** dragging an outlet saved it (rev 2). Undo restored and saved it (rev 3). The Properties panel
@@ -103,7 +103,7 @@
   - rack **Desk001** edited at 18:49:43
   - outlet **A.010** edited at 18:50:13
 
-  They are probably Dave's own edits in another tab; left as they are. Test Project now has 328 items.
+  They are probably User's own edits in another tab; left as they are. Test Project now has 328 items.
 
 ## Slice 4 (done 2026-10-02): elevations, view switching, split view, drawing in elevations
 
@@ -169,7 +169,7 @@
 
 ## Slice 6 (done 2026-10-02): blocks — outlet symbols, make block, explode, legend
 
-- **Blocks are GLOBAL only** (Dave). A library browser comes when there are enough blocks to need one.
+- **Blocks are GLOBAL only** (User). A library browser comes when there are enough blocks to need one.
   - Built-ins live in code (`domain/blocks.ts`): outlet floor box, wall, desk / box, ceiling, Wireless AP. They are
     annotative (paper mm, constant printed size).
   - Blocks people make live in ONE global doc, `settings/cadBlocks`, next to `settings/pagesTags`. That avoids a new
@@ -200,16 +200,16 @@
 - **Secondary routes and per-node fill:** Phase 5.
 
 ## Remaining Phase 2 items (status 2026-10-02)
-1. [ ] **Renumber UI** (deferred by Dave, still high priority): the function is in `domain/labels.ts`.
+1. [ ] **Renumber UI** (deferred by User, still high priority): the function is in `domain/labels.ts`.
 2. [x] **Containment:**
    - typed points / lengths (slice 5)
    - Level = riser to another level (slice 5, key V)
    - insert a node on a segment / branch from a node (slice 5)
    - delete a single node (slice 5, ✕ in Properties)
-3. [x] ~~Plane inset + guides~~ — dropped (Dave): the split view is enough (slice 4).
+3. [x] ~~Plane inset + guides~~ — dropped (User): the split view is enough (slice 4).
 4. [ ] **More snaps:** intersection, perpendicular, nearest.
 5. [x] **Racks:** place / rotate / unplace on the plan; unplaced racks listed by room (slice 3).
-6. [x] **Exports:** outlet schedule to Excel; DXF from the display list (slice 3, checked by Dave).
+6. [x] **Exports:** outlet schedule to Excel; DXF from the display list (slice 3, checked by User).
 7. [x] **Outlet symbols as blocks, make block / explode, legend** (slice 6).
 8. [ ] **Help panel:** keys and tools.
 9. [ ] **Print:** Phase 4 (sheets). Outlets stays for printing until then.

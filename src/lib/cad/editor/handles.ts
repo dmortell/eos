@@ -1,4 +1,4 @@
-// HANDLES: grips that edit a property of the selected thing on the plan, not a node (Dave, Phase 6):
+// HANDLES: grips that edit a property of the selected thing on the plan, not a node (User, Phase 6):
 //   · a wall's openings — the middle square slides the hole along its segment, the end squares resize it (the other
 //     end stays put), the round grip steps the swing: none → left → right → left (other face) → right (other face) → none;
 //   · a section — the end squares move the cut line's ends, the round grip on the far edge sets how deep it sees.
@@ -58,7 +58,7 @@ export function handlesFor(e: Entity): { handles: Handle[]; decor: Prim[] } {
 	return { handles: [], decor: [] }
 }
 
-/** A drawn room's outline (Dave 2026-10-15: "can I edit room rects?"): a square on each corner moves it (Shift: 15°
+/** A drawn room's outline (User 2026-10-15: "can I edit room rects?"): a square on each corner moves it (Shift: 15°
  *  steps from the corner before it); a bar along each side slides that whole side square to itself (both corners). */
 function roomHandles(sp: Space & { boundary: Pt[] }): Handle[] {
 	const b = sp.boundary, n = b.length, label = `Edit room ${sp.name}`
@@ -187,7 +187,7 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 	return {
 		handles: [
 			// an end can't land on the other (a 0-length line has no direction: the section would see nothing)
-			// Shift: 15° steps from the other end (level / plumb), as a line's points (Dave 2026-10-15)
+			// Shift: 15° steps from the other end (level / plumb), as a line's points (User 2026-10-15)
 			{ at: sec.a, shape: 'square', drag: (p, free, shift) => { const a = snap(shift ? angleStep(sec.b, p) : p, free); return Math.hypot(a.x - sec.b.x, a.y - sec.b.y) < 100 ? sec : { ...sec, a: shift ? angleStep(sec.b, a) : a } } },
 			{ at: sec.b, shape: 'square', drag: (p, free, shift) => { const b = snap(shift ? angleStep(sec.a, p) : p, free); return Math.hypot(b.x - sec.a.x, b.y - sec.a.y) < 100 ? sec : { ...sec, b: shift ? angleStep(sec.a, b) : b } } },
 			{ at: far(mid), shape: 'round', drag: (p, free) => {
@@ -201,7 +201,7 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 	}
 }
 
-/** A block insert's SCALE grips (Dave 2026-10-15: "blocks need grips to adjust scale"): a square on each corner of what
+/** A block insert's SCALE grips (User 2026-10-15: "blocks need grips to adjust scale"): a square on each corner of what
  *  it draws in this view; dragging one scales it about its insert point (`anchor`, in view mm) by how much further from
  *  it the grip is — 0.05 steps (Alt: free), at least 0.05. One undo step. */
 export function insertScaleHandles(s: Shape, prims: Prim[], anchor: Pt): Handle[] {

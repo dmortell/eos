@@ -114,7 +114,7 @@ describe('BOM', () => {
 	})
 })
 
-describe('BOM: W26 lines (Dave 2026-10-15)', () => {
+describe('BOM: W26 lines (User 2026-10-15)', () => {
 	const q = (ls: ReturnType<typeof bom>, item: string) => ls.find((l) => l.item === item)?.qty
 	it('a box per outlet by mount; tubing to desk outlets; tests and labels per cable to buy', () => {
 		const lines = bom(p())

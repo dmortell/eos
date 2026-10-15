@@ -6,7 +6,7 @@ import type { NavNode } from '../mock/data'
 import type { CustomFolderDoc, PagesSheetDoc, Place } from './schema'
 
 const places: Place[] = [
-	{ id: 'b', name: 'Hibiya', kind: 'building', parentId: null, order: 0 },
+	{ id: 'b', name: 'building1', kind: 'building', parentId: null, order: 0 },
 	{ id: 'f34', name: '34F', kind: 'floor', parentId: 'b', order: 1 },
 	{ id: 'f33', name: '33F', kind: 'floor', parentId: 'b', order: 0 },
 	{ id: 'z1', name: 'Zone 3303', kind: 'zone', parentId: 'f33', order: 0 },
@@ -43,7 +43,7 @@ describe('treeItems', () => {
 	it('lists live sheets + models, located in the place tree', () => {
 		expect(items.map((i) => i.ref).sort()).toEqual(['m:m33', 'm:mz', 's:E1', 's:E2', 's:O33H', 's:O33L', 's:O34', 's:T33', 's:X'])
 		const o = items.find((i) => i.ref === 's:O33H')!
-		expect([o.building?.name, o.floor?.name, o.zone?.name, o.place?.path]).toEqual(['Hibiya', '33F', 'Zone 3303', 'Hibiya › 33F › Zone 3303'])
+		expect([o.building?.name, o.floor?.name, o.zone?.name, o.place?.path]).toEqual(['building1', '33F', 'Zone 3303', 'building1 › 33F › Zone 3303'])
 		expect(o.within).toEqual(['b', 'f33', 'z1'])
 		expect(o.docId).toBe('sheet:O33H')
 		const m = items.find((i) => i.ref === 'm:m33')!
@@ -54,7 +54,7 @@ describe('treeItems', () => {
 		const it5 = treeItems([sheet('S', { placeId: 'lf' })], [], places)[0]
 		expect(it5.floor?.name).toBe('5F')
 		const f33 = items.find((i) => i.ref === 's:T33')!.floor!, f34 = items.find((i) => i.ref === 's:O34')!.floor!
-		expect(f33.order).toBeLessThan(f34.order)   // 33F has order 0 under Hibiya → shown first
+		expect(f33.order).toBeLessThan(f34.order)   // 33F has order 0 under building1 → shown first
 	})
 })
 
@@ -101,7 +101,7 @@ describe('buildGroupedTree', () => {
 	it('Elevations by category: category › place path', () => {
 		const t = buildGroupedTree(items, viewById([], 'tpl:elev'))
 		expect(labels(t)).toEqual(['Racks', 'Risers'])
-		expect(labels(find(t, 'Racks').children)).toEqual(['Hibiya › 33F › Server room'])
+		expect(labels(find(t, 'Racks').children)).toEqual(['building1 › 33F › Server room'])
 	})
 	it('a folder holding models AND sheets lists the models first under sub-headings', () => {
 		const t = buildGroupedTree(items, { id: 'z', levels: ['zone'] })

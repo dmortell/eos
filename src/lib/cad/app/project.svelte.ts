@@ -43,10 +43,10 @@ function clientTag(): string {
 	return `${id} ${browser}${os ? `/${os}` : ''}`
 }
 
-/** The global block library doc (Dave, 2026-10-02: blocks are global only). */
+/** The global block library doc (User, 2026-10-02: blocks are global only). */
 const BLOCKS_DOC = ['settings', 'cadBlocks'] as const
 const TEMPLATES_DOC = ['settings', 'cadDeviceTemplates'] as const
-/** Sheet categories are GLOBAL (Dave, sheets-organising D1): one list for every project. */
+/** Sheet categories are GLOBAL (User, sheets-organising D1): one list for every project. */
 const CATEGORIES_DOC = ['settings', 'cadSheetCategories'] as const
 const DISCIPLINES_DOC = ['settings', 'cadDisciplines'] as const
 /** The disciplines offered until someone edits the list (Settings › Sheets). */
@@ -108,13 +108,13 @@ export class CadProject {
 	globalBlocks = $state.raw<Record<Id, Block>>({})
 	blocks = $derived(new Map<Id, Block>([...BUILTIN_BLOCKS, ...Object.values(this.globalBlocks).map(oneDrawing)].map((b) => [b.id, b])))
 	blockOf = (id: Id): Block | undefined => this.blocks.get(id)
-	/** Device templates are GLOBAL too (Dave, Phase 3 §9): built-ins + `settings/cadDeviceTemplates`. */
+	/** Device templates are GLOBAL too (User, Phase 3 §9): built-ins + `settings/cadDeviceTemplates`. */
 	globalTemplates = $state.raw<Record<Id, DeviceTemplate>>({})
 	deviceTemplates = $derived([...BUILTIN_DEVICE_TEMPLATES, ...Object.values(this.globalTemplates).sort((a, b) => a.name.localeCompare(b.name))])
 	/** The global sheet category list (`settings/cadSheetCategories`); the built-in one while that doc is empty. */
 	globalSheetCategories = $state.raw<SheetCategory[] | null>(null)
 	sheetCategories = $derived(this.globalSheetCategories?.length ? this.globalSheetCategories : DEFAULT_SHEET_CATEGORIES)
-	/** The global DISCIPLINE list (`settings/cadDisciplines`, Dave D2: "a fixed list"); the defaults while it's empty. */
+	/** The global DISCIPLINE list (`settings/cadDisciplines`, User D2: "a fixed list"); the defaults while it's empty. */
 	globalDisciplines = $state.raw<string[] | null>(null)
 	disciplines = $derived(this.globalDisciplines?.length ? this.globalDisciplines : DEFAULT_DISCIPLINES)
 
@@ -209,7 +209,7 @@ export class CadProject {
 		})()
 		if (!made) return null
 		const { block, insert } = made
-		// furniture (Dave 2026-10-14): drawn on no layer of its own, the insert goes on "Furniture" (made if need be)
+		// furniture (User 2026-10-14): drawn on no layer of its own, the insert goes on "Furniture" (made if need be)
 		const furn = is3d(block) && !insert.layerId && insert.levelId ? ensureLayer('Furniture', this.index.layers, this.store.ofType('sheet'), newId) : null
 		if (furn) insert.layerId = furn.id
 		await setDoc(doc(this.db, ...BLOCKS_DOC), { blocks: { [block.id]: stripUndefined(block) } }, { merge: true })
@@ -229,7 +229,7 @@ export class CadProject {
 		await updateDoc(doc(this.db, ...BLOCKS_DOC), new FieldPath('blocks', id, 'productUrl'), url.trim() ? url.trim() : deleteField())
 	}
 
-	/** Delete a block from the GLOBAL library (Dave: retire, not erase): hidden from pickers, while every insert /
+	/** Delete a block from the GLOBAL library (User: retire, not erase): hidden from pickers, while every insert /
 	 *  outlet already using it keeps drawing it. Built-ins can't be retired. Not undoable (it isn't project data). */
 	async retireBlock(id: Id): Promise<void> {
 		if (this.blocks.get(id)?.builtin) return

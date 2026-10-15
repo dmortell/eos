@@ -1,13 +1,13 @@
 # cad todos
 
-**Frozen 2026-10-03:** Dave's eight todo batches from the gap review, as dictated. Every item (T001–T168) has been merged
+**Frozen 2026-10-03:** User's eight todo batches from the gap review, as dictated. Every item (T001–T168) has been merged
 into `../plan/` (backlog, decisions or later; `plan-sources.md` maps the T ids). Add new todos there, not here.
 
 **Already open in the phase docs:** Shift constraints during drags and the drag marquee fix (phase6.md, Todo);
 Ctrl-drag duplicates shapes and devices (phase6.md, phase3.md); plan the rack-view interactions before building
 (phase3.md); issue only saved sheets (phase4.md); 5.4 prices (phase5.md).
 
-## From the gap review (Dave, 2026-10-03; read up to the Elevations section)
+## From the gap review (User, 2026-10-03; read up to the Elevations section)
 
 ### Drawing and editing shapes
 - [ ] **Disconnect segments at a node:** split trunks / walls / lines into separate shapes at a node, like legacy
@@ -33,7 +33,7 @@ Ctrl-drag duplicates shapes and devices (phase6.md, phase3.md); plan the rack-vi
   with a choice of all cords or only changes.
 - [ ] **Consider a change log.** It means more Firestore writes; weigh that first.
 
-### Patching and ports (Dave, 2026-10-03, second batch)
+### Patching and ports (User, 2026-10-03, second batch)
 Terms: **links** = the rear ports of panels = structured cabling; **cords** = patch cords on the front.
 
 **Test first:**
@@ -73,7 +73,7 @@ Terms: **links** = the rear ports of panels = structured cabling; **cords** = pa
 - [ ] **Auto-labelled views for rack elevations and patch frame drawings?** Decide.
 - [ ] **`?rack=<id>` URL** opens the elevation view at that rack.
 
-### Racks, rows and catalogue (Dave, 2026-10-03, third batch; gaps read up to BOM)
+### Racks, rows and catalogue (User, 2026-10-03, third batch; gaps read up to BOM)
 
 **Test:**
 - [ ] **Test Delete with ports selected:** only the port settings / cord go, never the whole device (fixed 2026-10-02;
@@ -110,10 +110,10 @@ Terms: **links** = the rear ports of panels = structured cabling; **cords** = pa
 - [ ] **Delete buttons with a big impact** (racks, drawings …) use the sliding confirm / cancel component we had. Find
   it first: the nearest found is the inline Confirm / Cancel in `drawings/parts/DrawingList.svelte:405`.
 
-### Fourth batch (Dave, 2026-10-03; gaps read up to the Sheets tool)
+### Fourth batch (User, 2026-10-03; gaps read up to the Sheets tool)
 
 **Project structure:**
-- [ ] **Plan several buildings in one project** (Journey has 3 buildings plus a data centre).
+- [ ] **Plan several buildings in one project** (Tourney has 3 buildings plus a data centre).
 - [ ] **Think through how to use `roomId`.**
 - [ ] **Power and AV:** consider power outlets / cables / panels, and AV cables (HDMI, coax, speaker …).
 
@@ -163,7 +163,7 @@ Terms: **links** = the rear ports of panels = structured cabling; **cords** = pa
 **UI:**
 - [ ] **Fix the cad dark-mode theme.**
 
-### Fifth batch: sheets (Dave, 2026-10-03; gaps read up to DXF)
+### Fifth batch: sheets (User, 2026-10-03; gaps read up to DXF)
 
 **Sheets and viewports:**
 - [ ] **A new sheet fits itself once** its margin and title block exist. Today the first zoom is wrong, so inserted
@@ -210,8 +210,8 @@ Terms: **links** = the rear ports of panels = structured cabling; **cords** = pa
   printing selected sheets" below.
 - [ ] **Check that DXF export works for every sheet.** It's plan-only today (gap list, Pages: DXF).
 
-### Sixth batch (Dave, 2026-10-03; gaps read through the Sheets tool, next: Drawings)
-Model3d views aren't needed in cad yet; Dave ticked some model3d rows in the gap list for later.
+### Sixth batch (User, 2026-10-03; gaps read through the Sheets tool, next: Drawings)
+Model3d views aren't needed in cad yet; User ticked some model3d rows in the gap list for later.
 
 **Navigation and input:**
 - [ ] **Test and review navigation and editing on touch devices.**
@@ -240,7 +240,7 @@ Model3d views aren't needed in cad yet; Dave ticked some model3d rows in the gap
 - [ ] **Kanban tasks from the drawing area:** quick access for adding / editing tasks (the board is at
   `routes/tasks/+page.svelte`). Consider.
 
-### Seventh batch: Drawings tool gaps (Dave, 2026-10-03)
+### Seventh batch: Drawings tool gaps (User, 2026-10-03)
 Photo Surveys stays a separate tool.
 
 **Viewports:**
@@ -270,7 +270,7 @@ Photo Surveys stays a separate tool.
   back.
 
 **Levels and zones:**
-- [ ] **Journey 3303 / 3307:** check how cad holds the two zones' models. Are both on level 33? How would risers go
+- [ ] **Tourney 3303 / 3307:** check how cad holds the two zones' models. Are both on level 33? How would risers go
   to other floors from each zone, and between the zones?
 
 **Drawing and shapes:**
@@ -290,7 +290,7 @@ Photo Surveys stays a separate tool.
   height.
 - [ ] **Height presets or H / L for all items.** Consider.
 
-### Eighth batch (Dave, 2026-10-03; gap review finished)
+### Eighth batch (User, 2026-10-03; gap review finished)
 
 **Layers, blocks and storage:**
 - [ ] **Lineweights per layer, and drawing defaults.** Consider.

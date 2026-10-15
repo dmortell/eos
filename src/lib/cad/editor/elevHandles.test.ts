@@ -1,4 +1,4 @@
-// Drag top / bottom edges in elevations (Dave, 2026-10-05).
+// Drag top / bottom edges in elevations (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { elevationHandles, roomLineHandles } from './elevHandles'
 import { rackRowDisplayList } from '../views/rackRow'
@@ -44,7 +44,7 @@ describe('elevation handles', () => {
 	})
 })
 
-describe('boxes in elevations (Dave, 2026-10-05: a box couldn\'t be moved up / down or resized there)', () => {
+describe('boxes in elevations (User, 2026-10-05: a box couldn\'t be moved up / down or resized there)', () => {
 	const box = { type: 'shape', id: 'B', levelId: 'L', extent: 750, geom: { kind: 'rect', centre: { x: 1000, y: 500 }, size: { x: 1200, y: 600 } } } as unknown as Shape
 	it('its top square sets the height, its bottom the Z (the top stays)', () => {
 		const [top, base] = elevationHandles(box, sp)
@@ -97,7 +97,7 @@ describe('rack views: the room’s floor and ceiling lines drag', () => {
 	})
 })
 
-describe('a room wall (one path, four sides): its base grip (Dave 2026-10-15)', () => {
+describe('a room wall (one path, four sides): its base grip (User 2026-10-15)', () => {
 	const room = {
 		type: 'shape', id: 'R', levelId: 'L', section: { w: 100, h: 3300 }, role: { kind: 'wall', openings: [] },
 		geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 4000, y: 0, z: 0 }, { id: 'c', x: 4000, y: -3000, z: 0 }, { id: 'd', x: 0, y: -3000, z: 0 }],
@@ -112,7 +112,7 @@ describe('a room wall (one path, four sides): its base grip (Dave 2026-10-15)', 
 	})
 })
 
-describe('top / base grips snap to the datum lines (Dave 2026-10-15)', () => {
+describe('top / base grips snap to the datum lines (User 2026-10-15)', () => {
 	const heights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
 	const hs = elevationHandles(wall, sp, { heights, tol: 60 })
 	const top = hs.find((h) => h.label === 'Wall height')!, base = hs.find((h) => h.label === 'Wall base')!
@@ -128,7 +128,7 @@ describe('top / base grips snap to the datum lines (Dave 2026-10-15)', () => {
 	})
 })
 
-describe('opening grips snap to the datum lines too (Dave 2026-10-15)', () => {
+describe('opening grips snap to the datum lines too (User 2026-10-15)', () => {
 	const heights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
 	const hs = elevationHandles(wall, sp, { heights, tol: 60 })
 	it('the head lands on CLG, the sill on FFL', () => {

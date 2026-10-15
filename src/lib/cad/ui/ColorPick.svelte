@@ -1,4 +1,4 @@
-<!-- cad's color field (Dave 2026-10-05: "use a dropdown selector like the one in Pages"): the shared $lib ColorPicker — a
+<!-- cad's color field (User 2026-10-05: "use a dropdown selector like the one in Pages"): the shared $lib ColorPicker — a
      swatch button opening a grid of colors plus Custom — dressed in cad's theme. `allowByLayer` adds "By layer" (the
      shape's own color cleared: undefined), `allowNone` adds "None" ('none'). `compact`: the swatch alone (a layer's
      row), its grid opening to the right. -->
@@ -15,7 +15,7 @@
 		compact?: boolean
 	} = $props()
 
-	/** The Sheets tool's layer palette (rainbow, then browns / greys / black; Dave 2026-10-05), plus a bright yellow
+	/** The Sheets tool's layer palette (rainbow, then browns / greys / black; User 2026-10-05), plus a bright yellow
 	 *  and white. */
 	const COLORS = [
 		'#ef4444', '#f97316', '#f59e0b', '#eab308', '#fde047', '#84cc16', '#22c55e', '#10b981', '#14b8a6',

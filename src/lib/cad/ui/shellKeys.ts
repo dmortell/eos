@@ -34,9 +34,9 @@ export interface ShellKeyCtx {
 	zoomSel(): void
 	/** Ctrl+O: the Open project dialog. */
 	openProject(): void
-	/** Ctrl+P (Dave 2026-10-15): the open sheet as a PDF — else every sheet; the browser's own print never runs. */
+	/** Ctrl+P (User 2026-10-15): the open sheet as a PDF — else every sheet; the browser's own print never runs. */
 	print(): void
-	/** R / Shift+R: the selection turned 90° right / left (Dave 2026-10-15). */
+	/** R / Shift+R: the selection turned 90° right / left (User 2026-10-15). */
 	turn90(dir: 1 | -1): void
 	/** F in a rack view: the other face (front ↔ rear); false = not a rack view. */
 	flipFace(): boolean
@@ -123,7 +123,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 		run: (_e, c) => { const ws = c.ws; if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else c.canvas()?.leaveViewport() } },
 	{ label: 'Zoom to the selection', keys: KEYS.zoomSel, group: 'View', when: (e) => e.key === 'Home' && e.shiftKey, run: (_e, c) => c.zoomSel() },
 	{ label: 'Zoom to fit', keys: `${KEYS.fit} · ${KEYS.zoomExt}`, group: 'View', when: (e) => e.key === 'Home', run: (_e, c) => c.canvas()?.zoomExtents() },
-	// AutoCAD's ZOOM (Dave 2026-10-14): Z, then E / W / P — the second key is read in shellKey (zoomPending)
+	// AutoCAD's ZOOM (User 2026-10-14): Z, then E / W / P — the second key is read in shellKey (zoomPending)
 	{ label: 'Zoom: Z, then E extents (fit) · W window (two clicks; EOS input: drag a box) · P previous (back through each zoom and pan)', keys: `${KEYS.zoomWin} · ${KEYS.zoomPrev}`, group: 'View',
 		when: (e, _c, k, mod) => !mod && !e.altKey && k === 'z', run: (e, c) => { pd(e); zoomPending = Date.now(); c.ws.say('Zoom: E extents · W window · P previous') } },
 	{ label: 'Page up / down (sideways: Shift)', keys: KEYS.page, group: 'View', when: (e) => e.key === 'PageDown' || e.key === 'PageUp', run: (e, c) => { pd(e); c.canvas()?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) } },

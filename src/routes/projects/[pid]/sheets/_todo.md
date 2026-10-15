@@ -131,7 +131,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
          needs its own interception + toggle in OutletsEditPanel).
        - Duplicate-label handling: bump existing duplicates forward / highlight dupes as errors.
        - Batch variant from the multi-select list (better for hundreds of outlets).
-       - Canonical path (Hibiya-style renumber, deferred by Dave 2026-09-07): create/renumber
+       - Canonical path (building1-style renumber, deferred by User 2026-09-07): create/renumber
          FRAMES locations per zone with number ranges (e.g. A→1+, B→301+), set
          labelFormat.outletTemplate to NNN (zone-less), link outlets by label, then
          "Sync from locations" — makes frames canonical instead of free labels.

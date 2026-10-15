@@ -1,6 +1,6 @@
 # cad UX review
 
-**Status:** review for Dave (2026-10-06), written by the Pages session. It is input for `backlog.md` and
+**Status:** review for User (2026-10-06), written by the Pages session. It is input for `backlog.md` and
 `decisions.md`, not a plan of its own: tick what you agree with, and the cad session folds the ticked items into the
 backlog.
 
@@ -9,7 +9,7 @@ cover the domain model, which is better than before (one shape type, entity-per-
 
 **How it was done:**
 - Read `ui/CadShell.svelte`, `ui/ViewCanvas.svelte`, `ui/Properties.svelte`, `app/workspace.svelte.ts`,
-  `editor/tools.ts`, the backlog, the decisions and Dave's todo batches.
+  `editor/tools.ts`, the backlog, the decisions and User's todo batches.
 - Used cad on Test Project in Chrome at 1512 × 795 and 1567 × 784. I selected outlets, switched plan → front
   elevation → rack view → sheet → plan, drew a trunk, dragged a segment, undid both, and opened Split and the layers.
 - Not tested: touch, PDF / DXF output, cords, Renumber, dark mode.
@@ -230,7 +230,7 @@ These are worth keeping through any redesign:
   **P2 · M**
 
 - [ ] **UX15 No 3D check** — the only way to check heights is a whole-floor elevation (UX14). Pages and model3d had an
-  iso / orbit view and a ViewCube. Dave decided 3D is later (`later.md` "3D view"), and that still seems right. Listed
+  iso / orbit view and a ViewCube. User decided 3D is later (`later.md` "3D view"), and that still seems right. Listed
   only so it is weighed against UX14: a good elevation band covers most "is this trunk at the right height" checks.
   **P3 · L**
 
@@ -322,7 +322,7 @@ These are worth keeping through any redesign:
    - UX17: edit through viewports.
    - UX14: elevation depth band.
 
-## Open questions for Dave
+## Open questions for User
 
 - [x] **Toolbar:** icons with a grouped strip (as Pages), or keep text labels but in fixed groups that grey out? *My
   suggestion:* icons + groups, with labels in the titles; text costs too much width. Decision: icons + groups.
@@ -434,7 +434,7 @@ ends with tests, svelte-check and a live check, and is logged in `../phases/phas
    way far items fade and labels stop colliding. (M–L)
 3. **UX15 3D** stays in `later.md`.
 
-### Questions for Dave (the review's four, plus one)
+### Questions for User (the review's four, plus one)
 
 - [ ] **Q1 Tool strip:** icons (labels in the titles), or text labels in fixed groups? *Suggest:* icons from
   `$lib/ui/Icon.svelte`, grouped; text costs too much width.
@@ -451,9 +451,9 @@ Decision: the blue selection and blue/white grips of Sheets look ok
 
 ---
 
-## Screen direction (Pages session, 2026-10-06, after Dave's call)
+## Screen direction (Pages session, 2026-10-06, after User's call)
 
-**Dave's call:** keep building cad. Take the **look of Pages**, the **floating windows of the Sheets tool** (a user
+**User's call:** keep building cad. Take the **look of Pages**, the **floating windows of the Sheets tool** (a user
 closes the ones she doesn't need and keeps two or more important ones open together), the **Pages menu bar** for
 opening dialogs, and **editing inside viewports** from both. Pages' tree is the right idea, but it must make models and
 drawings easier to find. Pages and Sheets stay as they are: bug fixes only, and kept as references.
@@ -553,7 +553,7 @@ One tree in one window, replacing today's Levels / Sheets / Sections / Racks sec
 - **What Pages had and cad leaves out for now:**
   - Pages' custom tree views, smart folders, and dragging to re-file. Search plus the by-place tree should cover
     finding things.
-  - Add them later only if a big project (Journey's 8 + 19 sheets and 4 buildings) still feels lost.
+  - Add them later only if a big project (Tourney's 8 + 19 sheets and 4 buildings) still feels lost.
 
 ### S4 The menu bar (Pages style)
 
@@ -628,20 +628,20 @@ Built and committed phase by phase (each logged in `../phases/phase8.md`):
 - `ui/ViewCanvas.svelte` (≈ 560 lines) and `editor/selectTool.ts` (≈ 525) are still over the ~500-line guide; the
   next work in them should split them (the camera / fit logic; the hover and grips of the Select tool).
 
-### Decisions for Dave
+### Decisions for User
 
 - [ ] **Depth band vs sections** (Q4): try Band on an elevation (front / back / at; Split with the plan to see it).
   Keep it (and store it per view, put it on sheets), or drop it in favour of sections?
 - [x] **Blocks / Racks open docked** under the Navigator when they open by themselves (Insert tool, a rack view) —
-  the review said "the rest floating", but floating they covered the drawing. OK? **Dave: fine.**
-- [x] **The windows' saved layout was reset once** (`cad-windows:2`) so that change reaches every browser. OK? **Dave: fine.**
+  the review said "the rest floating", but floating they covered the drawing. OK? **User: fine.**
+- [x] **The windows' saved layout was reset once** (`cad-windows:2`) so that change reaches every browser. OK? **User: fine.**
 - [x] **Delete without a question for racks with no devices** — a rack (or anything) with nothing going with it is
   deleted at once (Undo brings it back). During testing two empty racks went that way. Keep, or ask for every rack?
-  **Dave: deleting empty items immediately is fine.**
+  **User: deleting empty items immediately is fine.**
 - [x] **Paste in the menus** says "use Ctrl+V": browsers don't let a page paste from a menu click. OK, or hide it?
-  **Dave: fine.**
+  **User: fine.**
 - [x] **`$lib/ui/Window.svelte` not reused** (it's the Sheets tool's, bug-fix only, and lacks close / docking /
-  z-order); cad has its own `CadWindow`. Merge them later, or keep separate? **Dave: merge later if we keep Sheets.**
+  z-order); cad has its own `CadWindow`. Merge them later, or keep separate? **User: merge later if we keep Sheets.**
 
 ---
 
@@ -666,8 +666,8 @@ I made no edits. I also read `CadShell.svelte`, `ViewCanvas.svelte`, `ContextMen
 
 That last one was the biggest gap, and it now works like Pages.
 
-What's left falls into five groups: bugs, **seeing the selection** (Dave: "difficult to see selected outlets"), the
-default layout, **drawing tabs** (Dave's question), and **the tables panel** (Dave: "still takes a lot of space").
+What's left falls into five groups: bugs, **seeing the selection** (User: "difficult to see selected outlets"), the
+default layout, **drawing tabs** (User's question), and **the tables panel** (User: "still takes a lot of space").
 
 ### Bugs found
 
@@ -687,7 +687,7 @@ default layout, **drawing tabs** (Dave's question), and **the tables panel** (Da
   - S001 opened at 645 % on one rack panel, with no paper edge in sight;
   - the IDF1 rack view opened with the slab / ceiling lines and the racks small.
 
-  Keeping the camera through a refresh is right (Dave asked for it), but opening a view from the Navigator, a tab or
+  Keeping the camera through a refresh is right (User asked for it), but opening a view from the Navigator, a tab or
   the menu is a new visit. **Fix:** restore the saved camera only on a refresh (the same URL), or within the same
   session; any other open fits the content (UX13's rule). **P2 · S**
 
@@ -702,9 +702,9 @@ default layout, **drawing tabs** (Dave's question), and **the tables panel** (Da
   **Fix:** in a rack view, default the room filter to the open room (`patchRoom` is already passed in); "All rooms"
   stays one click away. **P2 · S**
 
-### Seeing the selection (Dave: "difficult to see selected outlets?")
+### Seeing the selection (User: "difficult to see selected outlets?")
 
-Dave is right, and the cause is in the colours:
+User is right, and the cause is in the colours:
 
 - [ ] **V1 A selected outlet barely changes on the drawing.** Outlet symbols are drawn blue: stroke `#1d4ed8`, fill
   `#3b82f6` (`ui/Prims.svelte:102`). Selection turns the stroke `#2563eb` and makes it 2.5 px wide (`Prims.svelte:197`,
@@ -770,7 +770,7 @@ Dave is right, and the cause is in the colours:
 
   **P2 · M**
 
-- [ ] **L4 The Navigator's row buttons are invisible until you hover** (Dave: "the hidden buttons beside project name
+- [ ] **L4 The Navigator's row buttons are invisible until you hover** (User: "the hidden buttons beside project name
   in tree are hard to spot").
   - **What's hidden:** every row action is `visibility: hidden` and appears only while the mouse is over its row
     (`ui/Navigator.svelte:149-151`):
@@ -801,7 +801,7 @@ Dave is right, and the cause is in the colours:
 
   **P2 · S**
 
-- [ ] **L5 Viewports get dragged by accident** (Dave: "Accidentally dragging viewports is a problem").
+- [ ] **L5 Viewports get dragged by accident** (User: "Accidentally dragging viewports is a problem").
   - **Why it happens:**
     - On a sheet nearly everything is inside a viewport.
     - A press anywhere inside an **unselected** viewport selects it **and** arms a move in the same press
@@ -815,7 +815,7 @@ Dave is right, and the cause is in the colours:
     - Two earlier decisions assumed this would be fine: "How is a viewport picked?" (T088: keep click-anywhere until
       model mode) and "Is a click-then-drag guard needed?" (T128: no, the pick tolerance is enough). In use, they
       aren't.
-  - **Decision (Dave, 2026-10-06): "Do same as Pages and Sheets."** Both pick and move a viewport **by its frame
+  - **Decision (User, 2026-10-06): "Do same as Pages and Sheets."** Both pick and move a viewport **by its frame
     only**, never by its inside:
     - **Sheets** (`sheets/Viewport.svelte`): four 7 px move strips along the frame edges with a move cursor (`:365`),
       and a 4 px threshold before a move commits (`THRESHOLD`, `:22`, "anti-nudge"). A plain click on the strip
@@ -825,7 +825,7 @@ Dave is right, and the cause is in the colours:
       active (`:162`).
     - **Pages** (`pages/parts/PaperPage.svelte`): an 11 px band just inside the frame (`.vp-band`, cursor move,
       `:490`) drags it; corner grips resize the selected frame. A press in the interior **only deselects**, with no
-      marquee and no move ("A frame's interior never selects (Dave: select by the border or a marquee)", `:283`). A
+      marquee and no move ("A frame's interior never selects (User: select by the border or a marquee)", `:283`). A
       double-click in the interior activates it. Alt-drag / Alt+wheel in the interior pan / scale its content. Shift
       on the band toggles; Ctrl-drag on the band drags a copy. A locked frame is selected but doesn't drag.
   - **Build in cad** (`editor/selectTool.ts:176–205`):
@@ -853,7 +853,7 @@ Dave is right, and the cause is in the colours:
 
   **P1 · S** (~40 lines: the band test in the press, the interior → deselect / window, the hover cursor)
 
-### Drawing tabs (Dave: "would drawing tabs work in cad, like we have in Pages?")
+### Drawing tabs (User: "would drawing tabs work in cad, like we have in Pages?")
 
 **Yes, and cad is better placed for them than Pages was.** In cad a "drawing" is already a small value: a level plus
 a view spec (plan, an elevation, a section, a rack room, the riser view, a sheet). Each view already keeps its own
@@ -861,7 +861,7 @@ camera, the URL already holds the open view, and Back / Forward and the breadcru
 those values, kept in a list.
 
 Today the only ways to move between the drawings you're working on are:
-- the Navigator, a tree that gets very long on Journey (~40 floors × plan + 4 elevations + sections + rooms, plus 27
+- the Navigator, a tree that gets very long on Tourney (~40 floors × plan + 4 elevations + sections + rooms, plus 27
   sheets);
 - Back / Forward, which walks every view you passed through.
 
@@ -906,7 +906,7 @@ Today the only ways to move between the drawings you're working on are:
 
   **P2 · S**
 
-### The tables panel (Dave: "Tables panel hasn't changed" / "still take a lot of space")
+### The tables panel (User: "Tables panel hasn't changed" / "still take a lot of space")
 
 It works, but it is still the old design: a fixed strip under the drawing, about 200 px high, with four tabs written
 sideways and two rows of bars above the data. **Suggest:**
@@ -1002,16 +1002,16 @@ sideways and two rows of bars above the data. **Suggest:**
 3. **Tables:** T2 title bar + maximise · T4 settings out · T6 scope · T5 sort / filter · T3 full width / floating.
 4. **The rest:** V3 · R2 cameras · R3 spinner · L2 · L3 · outlet Properties groups · T7.
 
-### Questions for Dave
+### Questions for User
 
-- [x] **Tabs:** one strip shared by both panes (as Pages), or a strip per pane? *Suggest:* shared. It's simpler to use   and to build, and it matches Pages. **Dave: fine.**
+- [x] **Tabs:** one strip shared by both panes (as Pages), or a strip per pane? *Suggest:* shared. It's simpler to use   and to build, and it matches Pages. **User: fine.**
 - [x] **Preview tab:** single click = preview (reused), double-click / edit = keep; or every open makes a new tab?
-  *Suggest:* the preview tab. Without it, a Navigator browse leaves a dozen tabs behind. **Dave: fine.**
+  *Suggest:* the preview tab. Without it, a Navigator browse leaves a dozen tabs behind. **User: fine.**
 - [x] **Tables:** docked full width under the windows, or a window that can float (e.g. on a second monitor)?
-  **Dave: float.**
+  **User: float.**
 - [ ] **Racks window:** keep it only for rack tasks (find, place, + server room), or retire it into the Navigator?
 - [ ] **Selection:** halo only (V1.1), or also dim everything else while something is selected (V1.3)?
-- [x] **Viewports (L5):** how should a viewport be picked and moved? **Dave: "Do same as Pages and Sheets"**: by its
+- [x] **Viewports (L5):** how should a viewport be picked and moved? **User: "Do same as Pages and Sheets"**: by its
   frame only, with a 4 px anti-nudge threshold; the inside never picks.
 
 ---
@@ -1026,16 +1026,16 @@ All built, committed and logged in `../phases/phase8.md` (commits f918741d → 4
 | V1 selection halo (.1) · V2 one selected-row style · V3 "n selected" + Zoom to selection (Shift+Home) | done |
 | L1 tables closed by default, Racks no longer opens itself · L3 run labels mid-segment + declutter · L4 Navigator ⋮ / right-click menus, F2, Project › level actions | done |
 | D1 drawing tabs (shared, preview tab, per-tab Back / Forward, tab menu, Alt+W / Alt+PgUp/PgDn / Alt+1…9) · D2 Navigator dots, Enter / Ctrl+Enter in its search | done |
-| T1 fold / smaller rows · T2 title bar, horizontal tabs, maximise · T3 float (Dave) · T4 settings → Project › Settings › Lengths & labels, no-route chip · T5 sort / filter · T6 This view / Selection / All · T7 counts, ↑ / ↓, Ctrl+C | done |
+| T1 fold / smaller rows · T2 title bar, horizontal tabs, maximise · T3 float (User) · T4 settings → Project › Settings › Lengths & labels, no-route chip · T5 sort / filter · T6 This view / Selection / All · T7 counts, ↑ / ↓, Ctrl+C | done |
 | Outlet Properties groups · default height placeholder · menus release focus | done |
-| Also: rename / delete a server room (Dave: "how to delete … SER-B?") | done |
+| Also: rename / delete a server room (User: "how to delete … SER-B?") | done |
 
 Notes:
 - Ctrl+W / Ctrl+Tab belong to the browser, so tabs use **Alt+W**, **Alt+PgUp / PgDn**, **Alt+1…9**.
 - The tables can float or dock (not dock left / right like the windows).
 - Labels scale with the drawing, so colliding labels are moved, not hidden by zoom.
 
-Still open for Dave:
+Still open for User:
 - [ ] **L2 Racks window:** keep it for rack tasks (Find a device, Place, + Server room), or retire it into the
   Navigator?
 - [ ] **V1.3 Dim the rest** while something is selected?

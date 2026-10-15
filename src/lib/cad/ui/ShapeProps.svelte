@@ -34,7 +34,7 @@
 	/** A rectangle's floor-tile grid: size (any positive mm, as the grid step is typed) and X / Y offset. */
 	const setTiles = (label: string, patch: Partial<NonNullable<Shape['tiles']>>) => set(label, { tiles: { ...(s.tiles ?? DEFAULT_TILES), ...patch } })
 	const fine = $derived(s.geom.kind === 'rect' && !!s.tiles && tilesTooFine(s.geom.size, s.tiles))
-	// typed size and place (Dave 2026-10-14: a box needed more than its height to be drawn exactly)
+	// typed size and place (User 2026-10-14: a box needed more than its height to be drawn exactly)
 	/** Its middle: a rectangle / circle / ellipse's centre, a polygon's box's middle. */
 	const mid = $derived.by(() => {
 		const g = s.geom

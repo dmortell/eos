@@ -3,7 +3,7 @@
 	// (the "A" of A–A′), depth, which way it looks (flip), its z band (unset = every height), its length / angle; a BOX:
 	// its name + primary sight direction; an ELEVATION MARKER (phase 4): its own number (the callout's while no viewport
 	// shows it), an optional title, the way it looks (angle — the command line's CAD sense, CCW from +X; the four axes;
-	// turn round), the band it sees (width × depth), its z band. All: the sheet viewports it drives (Dave: usually several
+	// turn round), the band it sees (width × depth), its z band. All: the sheet viewports it drives (User: usually several
 	// — each opens its sheet with the frame selected), drop another one, delete (the page asks first while any are linked).
 	import NumCell from './NumCell.svelte'
 	import { blurOnEnter, strVal } from './fields'

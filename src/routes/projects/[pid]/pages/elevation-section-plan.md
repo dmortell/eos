@@ -1,14 +1,14 @@
 # Sections at any angle + the Elevation tool — plan
 
-**Status:** plan APPROVED 2026-09-27 (Dave: "looks fine, implement when ready"). Todo #17 "O4 section marker" + #1
-"Elevation tool". Dave's review notes: OpenCad's section marker looks great (keep its FLIP to change the look
+**Status:** plan APPROVED 2026-09-27 (User: "looks fine, implement when ready"). Todo #17 "O4 section marker" + #1
+"Elevation tool". User's review notes: OpenCad's section marker looks great (keep its FLIP to change the look
 direction); its elevations look good — objects BEHIND walls are properly hidden unless seen through holes (doors /
 windows / openings), which needs DEPTH; sections at any angle matter (drawings with non-orthogonal rooms).
-Decisions (§5, Dave 2026-09-27): (1) box sections STAY alongside line sections for now (review later); (2) the
+Decisions (§5, User 2026-09-27): (1) box sections STAY alongside line sections for now (review later); (2) the
 elevation marker tries the eltag look (may revert to a plain arrow — keep the marker's drawing in one function);
 (3) numbering PER SHEET (like eltags: "1 / A-201").
 
-## 1. What Dave asked for
+## 1. What User asked for
 
 - **O4 (OpenCad's section marker):** a section is a LINE drawn at any angle — dashed, with perpendicular arrows at
   each end and labels **A — A′** — not only today's axis-aligned box with N/E/S/W arrows.
@@ -56,7 +56,7 @@ type ElevFrame = { o: Pt; t: Pt; n: Pt }   // origin (plan mm), unit along the v
 - **Elevation marker:** `{ kind: 'elev', at: Pt, dir: angle, width, depth, name / number }` — a circle-triangle
   callout (the eltag look) pointing the way it looks; grips: position, rotate (15° with Shift), width / depth box
   (shown when selected). ELEV command + an **Elevation** tool beside Section in the strip (Annotate).
-- **One marker → MANY viewports** (Dave): a section line / elevation marker usually drives several elevation
+- **One marker → MANY viewports** (User): a section line / elevation marker usually drives several elevation
   viewports (same or different sheets), each with its OWN annotations (view-scoped shapes), layer freeze / VP lock,
   scale — e.g. one for conduit details, one for wall openings. Drop-as-sheet can be repeated; every linked frame reads
   the marker live; the marker lists its viewports (clickable); deleting a marker that still drives viewports asks
@@ -78,12 +78,12 @@ type ElevFrame = { o: Pt; t: Pt; n: Pt }   // origin (plan mm), unit along the v
 | 3 | **Section line** (O4): tool, render (dashed + arrows + A / A′), grips, Properties (name, depth, flip), drop-as-sheet linked | M |
 | 4 | **Elevation marker** + tool + ELEV command, numbered callout, drop-as-sheet linked | M |
 | 5 | Editing 3D objects inside oblique views; DXF export of oblique views | M |
-| 6 | **Hidden lines in elevations / sections** (Dave): what is behind a wall (by depth along `n`) is hidden, except where the wall has an opening — clip each object's projected faces by the nearer walls' projected panels (walls are already cut into panels around openings, `openingCuts` / `segmentGaps`), nearest first; a flag per view ("Hidden lines", default on) | M–L |
+| 6 | **Hidden lines in elevations / sections** (User): what is behind a wall (by depth along `n`) is hidden, except where the wall has an opening — clip each object's projected faces by the nearer walls' projected panels (walls are already cut into panels around openings, `openingCuts` / `segmentGaps`), nearest first; a flag per view ("Hidden lines", default on) | M–L |
 
 Each phase: one commit, unit tests (projection of a known box at 30°: u / depth values; clip of a wall crossing the
 line), Help + CHANGELOG, live check on Test Project.
 
-## 5. Decisions for Dave
+## 5. Decisions for User
 
 1. Keep the box sections alongside the new line sections (recommended), or convert boxes to lines?
 2. Elevation marker look: the eltag circle + triangle (recommended), or OpenCad's plain arrow?

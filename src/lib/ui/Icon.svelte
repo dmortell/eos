@@ -49,7 +49,7 @@ let lucide: Record<string, any> = {
 	snowflake: Snowflake, sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo, url: Link,
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
 	tag: Tag, funnel: Funnel, folderPlus: FolderPlus, sparkles: Sparkles, columns: Columns2, maximize: Maximize2, pip: PictureInPicture2,
-	// cad tool variants (Dave 2026-10-15): a polygon, a polygon box, a room's outline
+	// cad tool variants (User 2026-10-15): a polygon, a polygon box, a room's outline
 	hexagon: Hexagon, pentagon: Pentagon, squareDashed: SquareDashed, squareSplitVertical: SquareSplitVertical,
 }
 

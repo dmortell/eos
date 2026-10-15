@@ -1,4 +1,4 @@
-// Resize grips on drawn regions (Dave, 2026-10-05).
+// Resize grips on drawn regions (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { regionGrips, dragRegionGrip, gripSpace, dimGrips, nearestIn } from './shapeGrips'
 import { dimensionPrims } from '../views/plan'
@@ -69,7 +69,7 @@ describe('region grips', () => {
 	})
 })
 
-describe('note points (Dave, 2026-10-05: edit line and note end points)', () => {
+describe('note points (User, 2026-10-05: edit line and note end points)', () => {
 	it('a leader: its points; the tip dragged off lets go of what it pointed at; Shift = 15° from the next point', () => {
 		const l = shape({ kind: 'leader', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }], text: 'A', attach: 'X' })
 		expect(regionGrips(l.geom)).toEqual([{ x: 0, y: 0 }, { x: 100, y: 0 }])

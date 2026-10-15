@@ -1,4 +1,4 @@
-// USE AS DEFAULT (Dave 2026-10-15, backlog "Keep a drawn item's settings for the next ones"; then "expand it to the
+// USE AS DEFAULT (User 2026-10-15, backlog "Keep a drawn item's settings for the next ones"; then "expand it to the
 // other drawing tools"): Properties' Use as default saves the selected item's settings as its tool's starting point,
 // kept with the project (`ProjectSettings.toolDefaults`) so everyone drawing in it gets them:
 //  - a rack → the Rack tool (kind, size, rotation, doors, color …); an outlet → the Outlet tool bar (usage, mount,

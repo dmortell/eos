@@ -86,7 +86,7 @@
 		edit(o, `${o.label} → ${roomName(id) || 'no server room'}`, { ports: o.ports.map((p) => ({ ...p, serverRoomId: id || undefined })) })
 	}
 	/** Where each port is cabled: "P3C U37:3" (pinned ◆), or "—"; `patched` = where the cord in that panel port goes
-	 *  (Dave: "indicate which ports of each outlet have been patched") — drawn green. */
+	 *  (User: "indicate which ports of each outlet have been patched") — drawn green. */
 	function panelOf(o: Outlet, port: number): { text: string; pinned: boolean; patched?: string } {
 		const l = project.index.linkAt({ on: o.id, port })
 		const d = l ? project.index.get(l.a.on === o.id ? l.b.on : l.a.on) : undefined
@@ -145,7 +145,7 @@
 	const rp = new RowPick()
 	const pick = (o: Outlet, e: MouseEvent) => rp.pick(o.id, e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal, ws.selection.filter((id) => project.index.get(id)?.type !== 'outlet'))
 
-	// ── find / replace in outlet labels (Dave: 30F's "A.001" should be "001"): the Renumber panel's Find / replace, on
+	// ── find / replace in outlet labels (User: 30F's "A.001" should be "001"): the Renumber panel's Find / replace, on
 	// the selected outlets, else the ones shown here ──
 	function findReplace() {
 		const ids = ws.selection.filter((id) => project.index.get(id)?.type === 'outlet')

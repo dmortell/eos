@@ -133,7 +133,7 @@ Source reports (2026-09-25): title-block comparison, Sheets feature scan, Outlet
 ## J. Layers
 - [x] J1 **Per-viewport layer lock** (Pages has per-viewport freeze only) (S–M) - low priority
 - [x] J2 Block deleting a layer that is active or has items (show a count) (S) - or after confirmation, ensure all items are deleted with the layer
-- [x] J3 Outlet / trunk **low vs. high** layers on import (today one layer each) (S) - low priority, import wont be needed much longer once we import Hibiya/LR sheets
+- [x] J3 Outlet / trunk **low vs. high** layers on import (today one layer each) (S) - low priority, import wont be needed much longer once we import building1/LR sheets
 - [ ] J4 Project-wide layer list shared across models (a big model change; weigh against per-model) (L)
 - [x] J5 Refuse / warn when drawing onto a hidden or locked layer (S)
 

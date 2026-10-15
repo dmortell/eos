@@ -58,7 +58,7 @@ export function libraryDrop(o: { ws: Workspace; ok: () => boolean; input: (e: Mo
 			if (!d || !o.ok()) return
 			e.preventDefault()
 			// the effect the source allows (outlets from the table: 'link'; templates / blocks: 'copy') — one it doesn't
-			// allow makes the browser refuse the drop (Dave: dragging outlets 201–257 onto a panel showed "no drop")
+			// allow makes the browser refuse the drop (User: dragging outlets 201–257 onto a panel showed "no drop")
 			if (e.dataTransfer) e.dataTransfer.dropEffect = dropEffectFor(e.dataTransfer.effectAllowed)
 			if (!d.armed) { d.arm(); d.armed = true }   // the tool it arms, once (it stays armed until the drop / drag end)
 			o.focus?.()

@@ -99,7 +99,7 @@ then the stored backups and the issue tick.
 
 ## Not in this plan
 
-- Firestore scheduled backups / point-in-time recovery: Dave sets them up in the Firebase console.
+- Firestore scheduled backups / point-in-time recovery: User sets them up in the Firebase console.
 - Copying a project from a file (a new project id), restoring one sheet's paper, and rooms as parts — later, if
   asked.
 - Checking ownership anywhere else in the app (the projects list still lets anyone edit settings).

@@ -1,9 +1,9 @@
 # ADR 0003: One Firestore doc per entity; edits are operations; undo is per user
 
 **Status:** Proposed.
-- **Q6:** stay on Firestore (Dave, 2026-10-02: "stay with Firestore for now"). Decided.
+- **Q6:** stay on Firestore (User, 2026-10-02: "stay with Firestore for now"). Decided.
 - **Q1:** assumed that several people occasionally edit the same floor.
-- **Q5:** quotes don't need prices (Dave, 2026-10-02), so the catalogue holds SKUs and quantities only.
+- **Q5:** quotes don't need prices (User, 2026-10-02), so the catalogue holds SKUs and quantities only.
 
 ## Context
 

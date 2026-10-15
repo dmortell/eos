@@ -139,7 +139,7 @@
 			const us = pts.map((p) => p.u), vs = pts.map((p) => p.v)
 			// an elevation's group is v-UP (the text is flipped back upright); the plan is y-down as is
 			const up = dir !== 'plan', s = up ? -1 : 1
-			// a box — and a rack in PLAN (Dave) — has its name centred in it; a rack's elevation keeps it above (its face holds the devices)
+			// a box — and a rack in PLAN (User) — has its name centred in it; a rack's elevation keeps it above (its face holds the devices)
 			if (o.type === 'prism' && (!o.rack || dir === 'plan')) out.push({ id: o.id ?? '', text: o.label, u: (Math.min(...us) + Math.max(...us)) / 2, v: (Math.min(...vs) + Math.max(...vs)) / 2 + s * labelH * 0.35, mid: true })
 			else out.push({ id: o.id ?? '', text: o.label, u: Math.min(...us) + labelH * 0.3, v: up ? Math.max(...vs) + labelH * 0.4 : Math.min(...vs) - labelH * 0.4 })
 		}

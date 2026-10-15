@@ -1,8 +1,8 @@
 // CONTAINMENT FILL (Phase 5.3): how full each run segment is from the cables ROUTED through it (domain/routing.ts),
 // plus the estimated ones (outlet ports not linked yet, domain/estimates.ts) and the cables added to a run by hand
 // (`ContainmentRole.extra`).
-// A cable counts as a SQUARE of its outer diameter (d², Dave) against the section's inside area (`inner`, else the
-// section less a 3 mm wall; a round conduit: πr²). The limit is 40 % (Dave). The packed-cable picture is the legacy Fill rate tool's
+// A cable counts as a SQUARE of its outer diameter (d², User) against the section's inside area (`inner`, else the
+// section less a 3 mm wall; a round conduit: πr²). The limit is 40 % (User). The packed-cable picture is the legacy Fill rate tool's
 // greedy "gravity" packing (fillrate/parts/packing.ts), in mm, with a coarser search step for big bundles. Pure;
 // tested in fill.test.ts.
 import type { Id, Level, ProjectSettings } from './types'
@@ -29,7 +29,7 @@ export function cableColor(settings: ProjectSettings | undefined, types: string[
 	return cableTypeOf(settings, type)?.color || CABLE_COLORS[Math.max(0, types.indexOf(type)) % CABLE_COLORS.length]
 }
 
-/** A run's wall when its inside size isn't set (the legacy Fill rate tool's default, Dave 2026-10-12). */
+/** A run's wall when its inside size isn't set (the legacy Fill rate tool's default, User 2026-10-12). */
 export const DEFAULT_WALL_MM = 3
 /** A section's inside size: its own `inner`, else the outside less a 3 mm wall each side. */
 export function insideOf(s: Section): { w: number; h: number } {

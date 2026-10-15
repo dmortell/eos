@@ -1,4 +1,4 @@
-// The MENU BAR's contents (UX review S4): File · Edit · View · Draw · Modify · Annotate · Cabling · Drawings · Project · Window · Help (menus review option 2, Dave 2026-10-15).
+// The MENU BAR's contents (UX review S4): File · Edit · View · Draw · Modify · Annotate · Cabling · Drawings · Project · Window · Help (menus review option 2, User 2026-10-15).
 // Built from what the shell can do (`MenuCtx`), so the menus never hold state of their own; each item shows its key.
 import type { ToolId } from '../app/workspace.svelte'
 import { WIN_IDS, WIN_TITLES, type WinId } from '../app/windows.svelte'
@@ -42,7 +42,7 @@ export interface MenuCtx {
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
 	remove(): void; hasSelection: boolean
-	/** R / Shift+R: the selection turned 90° (Dave 2026-10-15). */
+	/** R / Shift+R: the selection turned 90° (User 2026-10-15). */
 	turn90(dir: 1 | -1): void
 	selectAll(): void; selectSimilar(): void
 	group(): void; ungroup(): void
@@ -104,7 +104,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Import legacy drawings…', title: 'Bring chosen Pages models (boxes, walls) and Sheets-tool sheets of this project into cad — one undo step', run: c.legacyDrawings },
 			'-',
 			{ label: 'Export', children: [
-				// menus review option 2 (Dave 2026-10-15): every export here once; this level / all levels as a submenu
+				// menus review option 2 (User 2026-10-15): every export here once; this level / all levels as a submenu
 				{ label: 'Outlet schedule (Excel)', children: [{ label: 'This level', run: () => c.outletSchedule(false) }, { label: 'All levels', run: () => c.outletSchedule(true) }] },
 				{ label: 'Frame label sheets (Excel)', title: 'Every server room: a sheet per frame, labels colored by usage (A3)', children: [{ label: 'This level', run: () => c.frameSheets(false) }, { label: 'All levels', run: () => c.frameSheets(true) }] },
 				{ label: 'Panel labels (Excel)', title: 'Every port label of the server rooms, for the label printer', children: [{ label: 'This level', run: () => c.panelLabels(false) }, { label: 'All levels', run: () => c.panelLabels(true) }] },
@@ -159,13 +159,13 @@ export function buildMenus(c: MenuCtx): Menu[] {
 				{ label: 'Show the grid (GRID)', key: KEYS.grid, checked: c.drafting.showGrid, run: () => c.toggleDrafting('showGrid') },
 			] },
 		] },
-		// menus review option 2 (Dave 2026-10-15): CAD-style Draw · Modify · Annotate — every tool in one menu
+		// menus review option 2 (User 2026-10-15): CAD-style Draw · Modify · Annotate — every tool in one menu
 		{ label: 'Draw', items: [
 			tool('line', 'Line'),
 			{ label: 'Shape', disabled: !c.toolOk('shape'), children: [variant('shape', 'rect', 'Rectangle'), variant('shape', 'polygon', 'Polygon'), variant('shape', 'ellipse', 'Ellipse'), variant('shape', 'arc', 'Arc (3 points)')] },
 			{ label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image },
 			'-',
-			// 3D (Dave 2026-10-15: box, wall and opening together)
+			// 3D (User 2026-10-15: box, wall and opening together)
 			{ label: 'Box', disabled: !c.toolOk('box'), children: [variant('box', 'rect', 'Box / desk'), variant('box', 'ellipse', 'Cylinder'), variant('box', 'polygon', 'Polygon box')] },
 			tool('wall', 'Wall'), tool('opening', 'Opening (door, window, hole)'),
 			'-',

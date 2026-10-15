@@ -1,4 +1,4 @@
-// The VIEWPORT tool (backlog "Viewport tool (draw a box)", Dave 2026-10-06): on a sheet, two clicks or a press-drag
+// The VIEWPORT tool (backlog "Viewport tool (draw a box)", User 2026-10-06): on a sheet, two clicks or a press-drag
 // draw a viewport's window (whole paper mm, Alt = free; at least 20 × 20 mm). It shows the view open in the other pane
 // (else the last plan / elevation / rack view looked at, else this level's plan), centred on its content at the
 // largest standard scale that fits the box. One undo step; the viewport is selected and the tool goes back to Select.

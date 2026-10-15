@@ -1,8 +1,8 @@
-// LABELLED PORT RANGES on a panel (Dave 2026-10-10: a 1U 48-port panel at P3A U41 — its top 24 ports tie to R301,
+// LABELLED PORT RANGES on a panel (User 2026-10-10: a 1U 48-port panel at P3A U41 — its top 24 ports tie to R301,
 // its bottom 24 to R302, each half with its own label). A port in a range is labelled "<range label>:NN", NN counted
 // from the range's first port: the 25th port of a panel whose bottom half is "P3A-R302" is "P3A-R302:01". The label
 // shows at both ends of the port's tie / backbone (ProjectIndex.portLabel). A range with no label of its own takes it
-// from its cables — "<this rack>-<the rack they go to>" — worked out each time (Dave split before linking and got
+// from its cables — "<this rack>-<the rack they go to>" — worked out each time (User split before linking and got
 // "P3A-R301-A"). Pure; tested in portGroups.test.ts.
 import type { Device, PortGroup } from './types'
 import type { ProjectIndex } from './project'

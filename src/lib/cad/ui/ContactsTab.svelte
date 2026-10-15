@@ -1,4 +1,4 @@
-<!-- Settings › SHEETS: the project's CONTACTS (review of D8, Dave 2026-10-14: "Project contacts") — who issues go to:
+<!-- Settings › SHEETS: the project's CONTACTS (review of D8, User 2026-10-14: "Project contacts") — who issues go to:
      name, organisation, email. A package picks its recipients from them (Tables › Sheets › Packages › Edit); a change
      here shows on every package that has the contact. Deleting one leaves packages with its name as it was. The
      packages' typed recipients from before can be turned into contacts in one go. Project data: Undo works. -->

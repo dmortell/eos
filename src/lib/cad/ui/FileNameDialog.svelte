@@ -1,4 +1,4 @@
-<!-- SAVE AS (Dave 2026-10-15, "Edit file names on export"): every export asks for its file name before it saves —
+<!-- SAVE AS (User 2026-10-15, "Edit file names on export"): every export asks for its file name before it saves —
      filled from the project's pattern (Settings › Files) or the export's own name. Enter / Save saves; Esc / Cancel
      saves nothing. The extension stays as the export makes it. -->
 <script lang="ts">
@@ -7,7 +7,7 @@
 	import { canShareFile, type SaveAction } from '../render/download'
 
 	let { name, ext, type = '', ondone }: { name: string; ext: string; type?: string; ondone: (r: string | { name: string; action: SaveAction } | null) => void } = $props()
-	// besides Save (Dave 2026-10-15, as the print tab has): Email / share… where the browser shares files; Open / print for a PDF
+	// besides Save (User 2026-10-15, as the print tab has): Email / share… where the browser shares files; Open / print for a PDF
 	const share = $derived(!!type && canShareFile(type)), pdf = $derived(ext.toLowerCase() === 'pdf')
 
 	// svelte-ignore state_referenced_locally

@@ -1,4 +1,4 @@
-<!-- The TOOL PALETTE (tool strip options 2 + 4, Dave 2026-10-15: "try 2 inside the floating palette", like the legacy
+<!-- The TOOL PALETTE (tool strip options 2 + 4, User 2026-10-15: "try 2 inside the floating palette", like the legacy
      Pages tool): the tool strip's flyout buttons in two columns, floating over the drawing area. Drag it by its grip;
      where it sits is kept in this browser (and kept inside the area). ⤒ puts the tools back in the top bar (Window ›
      Tools as a floating palette toggles it). -->

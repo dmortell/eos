@@ -64,7 +64,7 @@ export function rackBom(ix: ProjectIndex, catalog: CatalogProduct[] = [], o: { r
 	for (const sp of spaces) {
 		for (const r of racksInOrder(ix, sp)) {
 			if (!inRow(r)) continue
-			// desks and shelves too (Dave: every rack), and each one's notes on its line
+			// desks and shelves too (User: every rack), and each one's notes on its line
 			if (r.kind === 'desk' || r.kind === 'shelf') { add(skuOf(r), 'Desk / shelf', ['no catalogue SKU', r.notes].filter(Boolean).join(' · '), descriptionOf(r)); continue }
 			const p = r.catalogId ? byId.get(r.catalogId) ?? bySku.get(r.catalogId) : undefined
 			const vcm = r.kind === 'vcm'

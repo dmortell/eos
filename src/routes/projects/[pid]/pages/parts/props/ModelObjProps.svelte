@@ -41,7 +41,7 @@
 	// F6 Place…: armed for THIS box (ui/cptPick); another selection ends it
 	const placing = $derived(!!obj.id && cptPick.obj === obj.id)
 	$effect(() => { const id = obj.id; return () => { if (cptPick.obj === id) cptPick.obj = null } })
-	// R4 (Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep `type: 'prism'`.
+	// R4 (User's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep `type: 'prism'`.
 	const TYPE_LABEL: Record<string, string> = { prism: 'Box', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const isOpening = $derived(obj.type === 'prism' && !!layers.find((l) => l.id === obj.layer)?.opening)

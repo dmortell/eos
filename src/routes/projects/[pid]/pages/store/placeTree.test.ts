@@ -7,7 +7,7 @@ import type { Place } from './schema'
 
 const P = 'pid'
 const input: TreeInput = {
-	project: { id: P, name: 'Hibiya', address: 'Hibiya', floors: [
+	project: { id: P, name: 'building1', address: 'building1', floors: [
 		{ number: 10, serverRoomCount: 1 },
 		{ number: 30, serverRoomCount: 2, roomNames: { A: 'IDF1', B: 'IDF2' } },
 		{ number: 33, serverRoomCount: 1, areas: [{ id: '3303', label: '3303', legacy: true }, { id: '3307', label: '3307' }] },
@@ -35,11 +35,11 @@ describe('place editing (drawings-plan §4)', () => {
 		expect(childrenOf(into, id('30F')).map((p) => [p.name, p.order])).toEqual([['IDF1', 0]])
 		const before = movePlace(places, id('IDF2'), id('IDF1'), 'before')!
 		expect(childrenOf(before, id('30F')).map((p) => [p.name, p.order])).toEqual([['IDF2', 0], ['IDF1', 1]])
-		const top = movePlace(places, id('33F'), id('Hibiya'), 'after')!
-		expect(names(childrenOf(top, null))).toEqual(['Hibiya', '33F', 'Other building'])
+		const top = movePlace(places, id('33F'), id('building1'), 'after')!
+		expect(names(childrenOf(top, null))).toEqual(['building1', '33F', 'Other building'])
 	})
 	it('any nesting is allowed, but never into itself or its own subtree', () => {
-		expect(movePlace(places, id('Hibiya'), id('IDF1'), 'into')).toBeNull()
+		expect(movePlace(places, id('building1'), id('IDF1'), 'into')).toBeNull()
 		expect(movePlace(places, id('30F'), id('30F'), 'into')).toBeNull()
 		const odd = movePlace(places, id('Other building'), id('IDF1'), 'into')!   // a building in a room: fine
 		expect(childrenOf(odd, id('IDF1')).map((p) => p.name)).toEqual(['Other building'])
@@ -75,10 +75,10 @@ describe('buildPlaceTree', () => {
 		expect(JSON.stringify(tree)).not.toMatch(/"d:old"|"d:sheet"/)
 	})
 	it('puts a riser diagram on the nearest place containing every floor in its range', () => {
-		expect(labels(find(tree, id('Hibiya')))[0]).toBe('Risers')
+		expect(labels(find(tree, id('building1')))[0]).toBe('Risers')
 	})
 	it('floor places open their floor model; other places open none; every place row is marked a place', () => {
-		const f = find(tree, id('33F'))!, z = find(tree, id('Zone 3303'))!, b = find(tree, id('Hibiya'))!
+		const f = find(tree, id('33F'))!, z = find(tree, id('Zone 3303'))!, b = find(tree, id('building1'))!
 		expect([f.modelFloor, f.floorNumber, f.place]).toEqual(['33F', 33, true])
 		expect([z.modelFloor, z.floor]).toEqual([null, '33F'])
 		expect(b.modelFloor).toBeNull()

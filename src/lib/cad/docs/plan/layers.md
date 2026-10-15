@@ -2,9 +2,9 @@
 
 **Status:** Slices 1–4 built 2026-10-04 (build log in `docs/phases/phase8.md`). Differences from this plan:
 - **Current layer:** only new lines take it. Notes live on sheet paper, and layers don't reach paper. Click a layer's
-  name to make it current; there's no radio column (Dave: too wide).
-- **Hide or lock a layer:** its selected items leave the selection (Dave).
-- **System layer names** are short, to fit the sidebar: Floorplans, Backbone, and (Dave) Outlets / Trunks for the
+  name to make it current; there's no radio column (User: too wide).
+- **Hide or lock a layer:** its selected items leave the selection (User).
+- **System layer names** are short, to fit the sidebar: Floorplans, Backbone, and (User) Outlets / Trunks for the
   low ones next to Outlets high / Trunks high. Patch cords and Backbone are extra system layers, for the rack and riser views.
 - **Copy / paste** (not built yet) must keep `layerId` and bring a project's layers along to another project. This is
   noted in the backlog's clipboard entry.
@@ -35,7 +35,7 @@
   - ADR 0003: layer visibility is per user, in the workspace — not stored, so it doesn't hide things for everyone, as
     it did in Pages. The one exception is what a viewport prints.
   - ADR 0007: `layerId` is one field on every shape.
-  - Dave: ByLayer by default, a shape's own style overrides it (T148). Outlets are coloured per IDF by layer (T058).
+  - User: ByLayer by default, a shape's own style overrides it (T148). Outlets are coloured per IDF by layer (T058).
     No layers on riser drawings (T072). Model layers are for later (3D).
 
 ## 2. How the old tools did it
@@ -66,7 +66,7 @@
 
 ## 3. The model
 
-- **System layers** (`domain/layers.ts`, in code), in drawing order (as built, Dave: pairs together, the list's first
+- **System layers** (`domain/layers.ts`, in code), in drawing order (as built, User: pairs together, the list's first
   row draws at the bottom): Floorplans, Walls, Drawing (plain shapes, blocks), Racks, Trunks, Trunks high, Risers,
   Backbone, Patch cords, Outlets, Outlets high, Notes, Sections. Each keeps its DXF name (today's).
 - **Project layers:** `Layer` records you add.
@@ -137,7 +137,7 @@
 **About 340 lines in all; Slice 1 alone is useful.** Files near the 500-line limit (`editor/tools.ts` 488,
 `ui/CadShell.svelte` 446) only get one-line hooks; the logic goes in new files.
 
-## 5. Questions for Dave
+## 5. Questions for User
 
 1. **Who does the eye affect?**
    - (a) Only you, only on screen; sheets use viewport freeze.

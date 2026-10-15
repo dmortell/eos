@@ -1,4 +1,4 @@
-// EDIT A LABEL IN PLACE (backlog "Edit a label in place", Dave 2026-10-05): which things have words that can be typed
+// EDIT A LABEL IN PLACE (backlog "Edit a label in place", User 2026-10-05): which things have words that can be typed
 // over on the drawing — an outlet's label (its ports follow), a rack's name, a run's label, a text, a leader's words —
 // what they are now, and the thing with new words. Pure.
 import type { Entity } from './drawing'

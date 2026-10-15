@@ -1,5 +1,5 @@
 // HELP's words (backlog "Help (F1 / ?)", UX22): how-to answers, keys and mouse, function keys. Keep this current with
-// every user-visible feature or key (Dave); each how-to names its area (HOWTO_AREAS). The tools list comes from the tool
+// every user-visible feature or key (User); each how-to names its area (HOWTO_AREAS). The tools list comes from the tool
 // strip (toolGroups.ts) and the hints.
 import { KEY_COMMANDS } from './shellKeys'
 
@@ -217,7 +217,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 	] },
 ]
 
-/** The walkthrough in Japanese (Dave 2026-10-15: an English / Japanese toggle). Menu and button names stay as the
+/** The walkthrough in Japanese (User 2026-10-15: an English / Japanese toggle). Menu and button names stay as the
  *  screen shows them (English); keep the stages and steps in step with WALKTHROUGH. */
 export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 	{ stage: '新規プロジェクト', steps: [
@@ -288,7 +288,7 @@ export const SHORTCUTS: [string, string][] = [...KEY_COMMANDS.filter((k) => k.gr
 
 export const FKEYS: [string, string][] = KEY_COMMANDS.filter((k) => k.group === 'Function keys').map((k): [string, string] => [k.keys, k.label])
 
-/** Help › Tips (Dave 2026-10-15, "tips for new users … with prev / next"): one short tip at a time in the Tips window
+/** Help › Tips (User 2026-10-15, "tips for new users … with prev / next"): one short tip at a time in the Tips window
  *  (ui/Tips.svelte), which opens by itself once a day until its "Show at start" is unticked. */
 export const TIPS: string[] = [
 	'Help › Walkthrough opens the steps from a new project to a release in a window you can keep open while you work.',

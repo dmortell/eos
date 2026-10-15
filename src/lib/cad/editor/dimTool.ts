@@ -1,4 +1,4 @@
-// The DIMENSION tool (backlog "Markup kinds" part 3, Dave 2026-10-05): click the two points to measure (they snap to
+// The DIMENSION tool (backlog "Markup kinds" part 3, User 2026-10-05): click the two points to measure (they snap to
 // what's drawn), then a third click sets where the dimension line sits. Measures along the two points, or only
 // horizontally / vertically (the tool bar). On a plan, an elevation / section (its plane) or a sheet / viewport —
 // wherever notes go (noteTool.ts placeNote). The length is written in mm below a metre, else m.
@@ -30,7 +30,7 @@ export class DimTool implements Tool {
 		else if (this.#pts.length === 2) c.say?.('Click where the dimension line goes')
 		else this.#commit(c)
 	}
-	/** The point clicked (snapped); the SECOND one with Shift held keeps it level or plumb with the first (Dave's todo:
+	/** The point clicked (snapped); the SECOND one with Shift held keeps it level or plumb with the first (User's todo:
 	 *  as lines and runs do, `constrain.ts`). */
 	#point(e: PointerIn, c: ToolCtx): Pt {
 		const p = notePoint(e, c), a = this.#pts[0]

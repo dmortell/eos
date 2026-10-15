@@ -1,8 +1,8 @@
 <!-- The layers list (docs/plan/layers.md) in drawing order: the first row (Floorplans) draws at the bottom. The eye and lock are the user's own (this browser, this
      project — nobody else's view changes); the color, name and order are the project's (undoable). With a viewport
-     picked on a sheet (or edited inside), the eye is THAT viewport's (Dave 2026-10-13: apart from the model's eye;
+     picked on a sheet (or edited inside), the eye is THAT viewport's (User 2026-10-13: apart from the model's eye;
      stored on the sheet, so it prints and everyone sees it); Shift = every viewport on the sheet. Several viewports
-     picked: one eye for all of them, half-shown where they differ; layers none of them draws are folded away (Dave 2026-10-14). On a sheet with no
+     picked: one eye for all of them, half-shown where they differ; layers none of them draws are folded away (User 2026-10-14). On a sheet with no
      viewport picked, the eye is the sheet's own (its paper notes and legends; stored too) — a sheet prints as it shows. Click a name to make it the current layer (highlighted like the open level), where new lines go.
      Ctrl-click / Shift-click names to pick several: the eye, lock, color and line type then change all of them (one undo
      step). Layers sit under group headings (a group field, or a name like "IDF1/Outlets"); a group's eye hides its layers.
@@ -61,7 +61,7 @@
 	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
 	/** Where the eye points, for the titles and the note. */
 	const eyeOf = $derived(vps.length > 1 ? `in the ${vps.length} picked viewports (Shift: every viewport on the sheet)` : vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')
-	/** Any layer can be current (Dave: clicking a name did nothing on most); new lines go on it. */
+	/** Any layer can be current (User: clicking a name did nothing on most); new lines go on it. */
 	const canBeCurrent = (_l: LayerInfo) => true
 
 	/** The layer's record with a change (a system layer gets one the first time it's restyled). */
@@ -75,12 +75,12 @@
 	}
 	const put = (label: string, ...ls: Layer[]) => project.store.transact(label, (tx) => ls.forEach((l) => tx.put(l)))
 
-	// names are typed in the list (Dave 2026-10-12): "+ Layer" opens a name box at the end, ✎ swaps a name for one
+	// names are typed in the list (User 2026-10-12): "+ Layer" opens a name box at the end, ✎ swaps a name for one
 	let adding = $state(false), renaming = $state<string | null>(null)
 	function add(name: string): void {
 		adding = false
 		const order = Math.max(0, ...all.map((l) => l.order)) + 10, id = newId()
-		// it starts hidden in the drawings that already exist (Dave): they don't change when something is drawn on it
+		// it starts hidden in the drawings that already exist (User): they don't change when something is drawn on it
 		const sheets = freezeInExisting(project.store.ofType('sheet'), id)
 		project.store.transact(`Add layer ${name}`, (tx) => { tx.put({ type: 'layer', id, name, order, color: nextLayerColour(project.index.layers) }); for (const s of sheets) tx.put(s) })
 		if (sheets.length) ws.say(`Layer ${name} added — hidden in the viewports of the ${sheets.length} existing sheet${sheets.length === 1 ? '' : 's'} (show it per viewport)`)

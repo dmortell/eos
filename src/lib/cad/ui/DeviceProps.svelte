@@ -64,7 +64,7 @@
 		const cur = d.panel?.usages ?? [], usages = on ? [...new Set([...cur, usage])] : cur.filter((x) => x !== usage)
 		setAll(`${d.name} takes ${usages.join(', ') || 'any usage'}`, { panel: { tier: 'low', ...d.panel, usages: usages.length ? usages : undefined } })
 	}
-	/** A panel's labelled port ranges (backlog A, Dave 2026-10-10); refused with the reason if they don't fit. */
+	/** A panel's labelled port ranges (backlog A, User 2026-10-10); refused with the reason if they don't fit. */
 	function setGroups(d: Device, groups: PortGroup[], label: string) {
 		const why = groupsProblem(groups, d.portCount)
 		if (why) { ws.say(why); return }
@@ -89,7 +89,7 @@
 
 {#if tplFrom}<TemplateDialog from={tplFrom} fresh onsave={putTemplate} onclose={() => (tplFrom = null)} />{/if}
 {#if one}
-	<!-- the selected PORTS first, above the device's own groups: what you clicked is what you want to act on (Dave
+	<!-- the selected PORTS first, above the device's own groups: what you clicked is what you want to act on (User
 	     2026-10-07: "Patch to…" was hard to find at the bottom) -->
 	{#if ws.portSel?.on === one.id}<div class="ports-first"><PortProps {project} {ws} sel={ws.portSel} /></div>{/if}
 {/if}
@@ -184,7 +184,7 @@
 					</span>
 				{/snippet}
 			</Field>
-			<!-- each range on its own full-width line (Dave: the label box was squeezed out of sight): ports from – to, label, ✕ -->
+			<!-- each range on its own full-width line (User: the label box was squeezed out of sight): ports from – to, label, ✕ -->
 			{#each groups as g, i (i)}
 				<div class="range">
 					<input class="inp" type="number" min="1" max={d.portCount} value={g.from} aria-label="First port" title="First port" onchange={(e) => editGroup(d, i, { from: Number(e.currentTarget.value) })} />

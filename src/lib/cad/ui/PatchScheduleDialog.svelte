@@ -1,4 +1,4 @@
-<!-- The PATCH SCHEDULE export (was "Cord BOM", Dave 2026-10-06; patch-list-plan.md Slice 3): what — every cord or only the
+<!-- The PATCH SCHEDULE export (was "Cord BOM", User 2026-10-06; patch-list-plan.md Slice 3): what — every cord or only the
      changes (add / change / remove); where — all rooms (a sheet per room, D4), any one room with cords, the patch list's
      selected rows or the rows it shows; the cord BOM of that on screen (same counting as the Excel's BOM sheet). -->
 <script lang="ts">

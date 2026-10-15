@@ -101,7 +101,7 @@ describe('drawing racks on the plan', () => {
 })
 
 describe('devices in the rack row', () => {
-	it('click a device, Shift-click another in the rack: every device between them on this face (Dave: U10 to U4)', () => {
+	it('click a device, Shift-click another in the rack: every device between them on this face (User: U10 to U4)', () => {
 		const dev = (id: string, u: number, face: Device['face'] = 'both', heightU = 1): Device => ({ type: 'device', id, rackId: 'R1', name: id, kind: 'panel', u, heightU, face, portCount: 24 })
 		const h = harness(ROW, [dev('U10', 10), dev('U8', 7, 'both', 2), dev('U6', 6, 'front'), dev('U5', 5, 'rear'), dev('U4', 4), dev('U2', 2)])
 		const sel = new SelectTool()
@@ -111,7 +111,7 @@ describe('devices in the rack row', () => {
 		expect(h.sel()).toEqual(['U10', 'U8', 'U6', 'U4'])   // top down; the rear-only U5 isn't on this face, U2 is outside
 		expect(h.ports()).toBeNull()
 	})
-	it('outlets dropped on a panel itself (not a port) go on from its first free port (Dave: drag rows "to a panel")', () => {
+	it('outlets dropped on a panel itself (not a port) go on from its first free port (User: drag rows "to a panel")', () => {
 		const px: Device = { type: 'device', id: 'PX', rackId: 'R1', name: 'PX', kind: 'panel', u: 30, heightU: 1, face: 'both', portCount: 24, panel: { tier: 'low' } }
 		const h = harness(ROW, [px])
 		const added: Link[][] = []
@@ -220,7 +220,7 @@ describe('devices in the rack row', () => {
 		expect(cord).toMatchObject({ status: 'add', colour: '#ef4444', a: { face: 'front' }, b: { on: 'SW1', port: 5 } })
 		expect(h.sel()).toEqual([cord!.id])
 	})
-	it('an armed Patch to… / Link to… hands back the tool once made or Esc’d — a stray click doesn’t make a cord (Dave: the crosshair stayed)', () => {
+	it('an armed Patch to… / Link to… hands back the tool once made or Esc’d — a stray click doesn’t make a cord (User: the crosshair stayed)', () => {
 		const h = harness(ROW)
 		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
 		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
@@ -280,7 +280,7 @@ describe('devices in the rack row', () => {
 		shown!.cancel()
 		expect([shown, links(), bulk, done, h.said.at(-1)]).toEqual([null, before, null, 2, 'Nothing linked'])
 	})
-	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (Dave: grips for repatching)', () => {
+	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (User: grips for repatching)', () => {
 		const h = harness(ROW)
 		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }
 		const sel = new SelectTool()

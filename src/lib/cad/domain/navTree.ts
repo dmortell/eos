@@ -1,5 +1,5 @@
-// The NAVIGATOR's tree (UX review S3; Dave: "Pages' tree is the right idea, but it must make models and drawings
-// easier to find"): the building side is the model — buildings › levels › their plan and sections (no elevation rows: Dave 2026-10-15, use sections; the view strip switches), the
+// The NAVIGATOR's tree (UX review S3; User: "Pages' tree is the right idea, but it must make models and drawings
+// easier to find"): the building side is the model — buildings › levels › their plan and sections (no elevation rows: User 2026-10-15, use sections; the view strip switches), the
 // server rooms (rack view, rows, racks) — then the riser view; the sheets after it, grouped by place, each unfolding to
 // its viewports. A search filters as you type and keeps each match's parents. Pure; tested in navTree.test.ts.
 import { categoryOf, DEFAULT_SHEET_CATEGORIES, type SheetCategory } from './sheetCategories'
@@ -50,7 +50,7 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 		const roomNodes = rooms.map((r): NavNode => {
 			const racks = ix.racks.filter((k) => k.spaceId === r.id).sort((a, b) => naturalCompare(a.name, b.name))
 			const rs = rows.filter((w) => w.spaceId === r.id).sort((a, b) => a.order - b.order)
-			const n = racks.filter((k) => k.kind !== 'vcm').length   // cable managers are listed, not counted (Dave 2026-10-10)
+			const n = racks.filter((k) => k.kind !== 'vcm').length   // cable managers are listed, not counted (User 2026-10-10)
 			return {
 				key: `room:${r.id}`, label: r.name, detail: `${n} rack${n === 1 ? '' : 's'}`, kind: 'room', id: r.id, select: r.id,
 				open: { levelId: l.id, spec: { kind: 'row', spaceId: r.id, face: 'front' } },
@@ -60,7 +60,7 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 				],
 			}
 		})
-		// the other rooms the user DREW (Room tool: an outline — EPS, AV, meeting, machine rooms …; Dave 2026-10-15). Zones,
+		// the other rooms the user DREW (Room tool: an outline — EPS, AV, meeting, machine rooms …; User 2026-10-15). Zones,
 		// areas and imported room numbers (no outline) stay out; a click shows it on the plan, selected
 		const drawn = ix.spaces.filter((s) => s.levelId === l.id && s.kind !== 'server room' && s.kind !== 'zone' && s.kind !== 'area' && !!s.boundary?.length)
 			.sort((a, b) => naturalCompare(a.name, b.name))

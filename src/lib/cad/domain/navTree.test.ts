@@ -10,7 +10,7 @@ const ix = () => new ProjectIndex([...demoProject(), sheet as Entity])
 const labels = (ns: NavNode[]): string[] => ns.flatMap((n) => [n.label, ...labels(n.children ?? [])])
 
 describe('navigator tree', () => {
-	it('levels with their plan and server rooms (rack view, racks), no elevation rows (Dave 2026-10-15: use sections); the riser view; sheets', () => {
+	it('levels with their plan and server rooms (rack view, racks), no elevation rows (User 2026-10-15: use sections); the riser view; sheets', () => {
 		const t = navTree(ix())
 		const all = labels(t)
 		expect(all).toEqual(expect.arrayContaining(['Plan', 'IDF-A', 'A01', 'Riser view (building)', 'S001 Plan']))
@@ -79,7 +79,7 @@ describe('the Sheets node grouped (sheets-organising slice 4)', () => {
 	})
 })
 
-describe('navigator: the rooms the user drew (Dave 2026-10-15)', () => {
+describe('navigator: the rooms the user drew (User 2026-10-15)', () => {
 	it('a drawn room or EPS shows under its level; zones and rooms without an outline (imported numbers) do not', () => {
 		const sq = [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }]
 		const extra = [

@@ -1,4 +1,4 @@
-// The GLOBAL tag vocabulary (Dave 2026-09-27): every tag ever used on a Pages sheet, in ANY project — one doc
+// The GLOBAL tag vocabulary (User 2026-09-27): every tag ever used on a Pages sheet, in ANY project — one doc
 // `settings/pagesTags` = { tags: string[], updatedAt }. The tag picker suggests from it (merged with the project's
 // own tags + DEFAULT_TAGS); saving a sheet with a tag it doesn't have yet adds it — in a transaction (read → case-
 // insensitive union → write), so two people adding tags at once can't drop each other's, and never a duplicate.

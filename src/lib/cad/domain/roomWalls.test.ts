@@ -1,4 +1,4 @@
-// Walls from a room (Dave 2026-10-15).
+// Walls from a room (User 2026-10-15).
 import { describe, it, expect } from 'vitest'
 import { offsetOutline, wallsRound } from './roomWalls'
 import type { Space } from './types'

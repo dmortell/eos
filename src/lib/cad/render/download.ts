@@ -11,7 +11,7 @@ export function download(data: BlobPart, filename: string, type: string): void {
 /** A safe file name from free text ("Test Project 1F" → "Test_Project_1F"). */
 export const fileSafe = (s: string) => s.replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^_+|_+$/g, '') || 'export'
 
-/** What an export is, for the project's file-name pattern (Dave 2026-10-15: "Edit file names on export"): `revision` = its
+/** What an export is, for the project's file-name pattern (User 2026-10-15: "Edit file names on export"): `revision` = its
  *  own revision where it has one (a sheet's, a revision PDF's, the BOM's typed one); `version` = the release number
  *  ("03") — a release's own, else the page fills in the project's latest. */
 export interface FileParts { what: string; scope?: string; revision?: string; version?: string }
@@ -30,7 +30,7 @@ export function patternName(pattern: string | undefined, project: string, parts:
 	return `${fileSafe(base)}.${ext}`
 }
 
-/** What Save as does with the file (Dave 2026-10-15: "would Download / Print / Email work in the Save as dialog?"):
+/** What Save as does with the file (User 2026-10-15: "would Download / Print / Email work in the Save as dialog?"):
  *  save it (download), send it with the system share sheet (Outlook, Mail, Teams …), or — a PDF — open it in a tab to
  *  print. */
 export type SaveAction = 'save' | 'share' | 'open'
@@ -66,7 +66,7 @@ export async function saveFile(data: BlobPart, suggested: string, type: string, 
 }
 
 /** The name a file would be saved under, without asking: the project's pattern, else the suggested name (the open cad
- *  page sets how; Ctrl+P names its PDF tab with it, Dave 2026-10-15). */
+ *  page sets how; Ctrl+P names its PDF tab with it, User 2026-10-15). */
 type Patterner = (suggested: string, parts: FileParts | undefined, ext: string) => string
 let patterner: Patterner | null = null
 export function setFilePatterner(f: Patterner | null): void { patterner = f }
@@ -76,7 +76,7 @@ export function fileName(suggested: string, parts?: FileParts): string {
 }
 
 /** A generated PDF in a browser tab opened beforehand (`win`, opened on the click itself so no pop-up blocker stops it;
- *  Dave 2026-10-15): a slim bar — its name, Download (under exactly that name: the viewer's own download names a blob
+ *  User 2026-10-15): a slim bar — its name, Download (under exactly that name: the viewer's own download names a blob
  *  by a random id), Print, Email / share… (the system share sheet: Outlook, Mail …, where the browser has one) — over
  *  the browser's viewer. The tab's title is the name. */
 export function showPdfTab(win: Window, blob: Blob, name: string): void {

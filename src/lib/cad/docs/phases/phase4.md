@@ -1,13 +1,13 @@
 # Phase 4 — Sheets and issue
 
-**Status:** REVIEWED (Dave, 2026-10-02). The answers are in §6, and they change §2 and §3: packages issue a PDF to
+**Status:** REVIEWED (User, 2026-10-02). The answers are in §6, and they change §2 and §3: packages issue a PDF to
 file storage.
 
 **Goal (pages-analysis §7):** sheets with true-scale viewports, a title block, print / PDF, a drawing register,
 revisions and issue in packages. **Exit:** issue a package of plan + rack sheets for Test Project. **Retires:**
 Sheets, Drawings, Packages (their data comes over in Phase 7, or is re-made — §6 Q6).
 
-**Scope rule (Dave, 2026-10-02):** build what's listed here and nothing more. Everything is confirmed "y" in
+**Scope rule (User, 2026-10-02):** build what's listed here and nothing more. Everything is confirmed "y" in
 `pages-features.md` §Sheets; anything else waits for a request.
 
 ## 1. What already exists
@@ -69,7 +69,7 @@ Rough size: 4.1 is the big one; 4.2–4.4 are mostly ports; 4.6 is medium.
 
 cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase 4 budget: ~2.5k.
 
-## 6. Decisions (Dave, 2026-10-02)
+## 6. Decisions (User, 2026-10-02)
 
 1. **Title block:** keep Pages' model.
 2. **Issue keeps both:**
@@ -113,10 +113,10 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
     centred on its content).
   - **Viewport:** level; view (plan, elevations, each server room's racks front / rear); scale 1:N (list + custom);
     window X / Y / W / H; centre + Fit; label; printed frame; lock; delete.
-- **URL state** (Dave): `?level=…&v=plan,sheet.<id>&a=1`. The level, each pane's view and the active pane come back
+- **URL state** (User): `?level=…&v=plan,sheet.<id>&a=1`. The level, each pane's view and the active pane come back
   on a refresh (`app/urlState.ts`, `replaceState` from `$app/navigation`). Cameras stay per session.
 - **Riser target:** with several levels of one number (33F 3303 / 3307), the main plan wins.
-- **Racks list:** the room "Labels" button moved into a **⋯** menu → "Export panel labels (Excel)…" (Dave).
+- **Racks list:** the room "Labels" button moved into a **⋯** menu → "Export panel labels (Excel)…" (User).
 - **Tests:** 211 (`views/sheet.test.ts`, `app/urlState.test.ts`).
 - **Live check on Test Project:**
   - S-001 "Test sheet (cad 4.1)", A3: the 1F plan at 1:100 (230 × 250 mm) and IDF2's racks at 1:20 (150 × 160 mm,
@@ -125,7 +125,7 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
   - A refresh reopened the sheet on 1F.
   - The test sheet stays for 4.2–4.6.
 
-### Fixes after 4.1 (Dave)
+### Fixes after 4.1 (User)
 - The URL sometimes kept `v=plan` after opening a sheet: `page.url` lags after `replaceState`, so the change looked
   like nothing. It now compares with the address bar.
 - U numbers in narrow frames (P3C, 17 mm beside the rails) moved just outside the frame's left edge, where panels
@@ -162,7 +162,7 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
     shown, A3 L, DM, S-001).
   - Switching Plan ↔ sheet three times kept the URL in step.
 
-### Fixes after 4.2 (Dave)
+### Fixes after 4.2 (User)
 - **PDU over R311's U numbers:** a PDU strip now hugs the outside of the 19″ rails (it was 20 mm in from the rack
   edge, on the numbers), and the U scale draws after the rack's devices so nothing covers it. Test in
   `rackRow.test.ts`.
@@ -182,16 +182,16 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
   - Images (floorplan renders as JPEG, logos as PNG at their own proportions) loaded through a canvas.
   - Screen-only things skipped: paper edge, margin guide, hidden frames; text LOD at print resolution.
 - **Fonts:** symbols the standard fonts lack become plain text (№ → No., … → ..., → → ->). Anything else outside
-  Latin-1 is left out and REPORTED in the status line. Both projects' names and labels (Journey 3,088, Test
+  Latin-1 is left out and REPORTED in the status line. Both projects' names and labels (Tourney 3,088, Test
   Project 324) are all Latin-1, so **no Japanese font for now**; embed one if a sheet ever needs it.
 - **UI:** sheet Properties → **PDF** (this sheet); Sheets header → **PDF all** (every sheet, one file). Both are
   downloads; issuing (4.6) builds the same PDF and uploads it instead.
 - **Tests:** 226 (`render/pdf.test.ts`: a page per sheet at its own size, real text in the file, symbol swaps,
   unsupported reported, screen-only skipped).
 - **Checked in the page** (Test Project, no download): S-001 → 1 page 420 mm wide, 23 KB, 31 ms, nothing
-  unsupported. The downloaded file is for Dave to look at.
+  unsupported. The downloaded file is for User to look at.
 
-### Japanese text in PDFs (Dave added a Japanese address to the title block)
+### Japanese text in PDFs (User added a Japanese address to the title block)
 - **Approach:** text the PDF fonts can't show is drawn by the BROWSER's fonts as a ~300 dpi PNG at its place
   (`browserTextRaster`): same anchor, colour and weight.
   - Crisp on paper and small (S001 with the address: 33 KB).
@@ -201,7 +201,7 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
 - **Status line:** "N Japanese text(s) drawn as pictures"; anything still unrenderable is listed.
 - **Title block:** text fitting counts full-width characters as 1 em, so a Japanese line is cut with an ellipsis
   instead of overflowing.
-- **Dave:** "pdf looks fine".
+- **User:** "pdf looks fine".
 
 ### Slice 4.4 — sheet register (built 2026-10-02)
 - **`domain/sheetList.ts`** (ported from Pages' `drawingList.ts` + tests): rows (number, title, place = filed
@@ -216,7 +216,7 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
     shown); **Archive / Restore**; **Excel** (`render/sheetList.ts`, ported from Pages' export).
 - **Tests:** 230.
 - **Live check on Test Project:** two more test sheets made. The register showed S-001 / S-002 / S-003. Selected
-  all three and renumbered S{n:3} from 1 → S001, S002, S003. The Excel download is for Dave.
+  all three and renumbered S{n:3} from 1 → S001, S002, S003. The Excel download is for User.
 
 ### Slice 4.5 — paper notes (built 2026-10-02)
 - **Tools** (sheet views only): **Text** (X), **Leader** (E) and **Cloud** (U), in `editor/noteTool.ts`.
@@ -240,7 +240,7 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
   - All four reload.
   - The PDF has them; the Japanese text is rasterised.
 
-### Notes tied to viewports (Dave, 2026-10-02: "tie vp notes to vp coordinates")
+### Notes tied to viewports (User, 2026-10-02: "tie vp notes to vp coordinates")
 - **What tying means:** a note drawn inside a viewport (its first point / tip decides) gets `vpId`, and its points
   are stored in that viewport's view mm.
   - It follows the viewport's move, rescale and pan.
@@ -291,10 +291,10 @@ cad is 7.2k lines (non-test) after Phase 3, against the ~20k total target. Phase
   4. "Test issue 2": S001 stays A, S002 A → B.
   - Three frozen copies are stored. Both PDFs are in file storage (389 KB each, floorplan included).
   - Read back from the uploaded issue-2 PDF: page 1 is S001 rev A, page 2 is "Test sheet 2 (changed)" rev B.
-  - Transmittal / Reprint downloads are for Dave to try.
+  - Transmittal / Reprint downloads are for User to try.
 
 ### Todo (later)
-- **Issue only saved sheets** (Dave, 2026-10-02): consider blocking Issue until edited sheets are saved as a
+- **Issue only saved sheets** (User, 2026-10-02): consider blocking Issue until edited sheets are saved as a
   revision / version, so each issued sheet shows its latest revision date. Today Issue bumps changed sheets itself,
   so a sheet can go out with edits never reviewed as a version. Decide with versions (`pages/drawings-plan.md`
   model versions + sheet revisions).

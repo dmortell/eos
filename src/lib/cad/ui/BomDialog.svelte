@@ -1,4 +1,4 @@
-<!-- The BILL OF MATERIALS on screen (backlog "On-screen BOM dialog"; Dave: Export → BOM opens this, then Excel): the
+<!-- The BILL OF MATERIALS on screen (backlog "On-screen BOM dialog"; User: Export → BOM opens this, then Excel): the
      project's materials, and the rack BOM — all racks together or row by row, for the rooms ticked (any levels; all at
      first) — with totals and product links; what
      goes in the workbook is chosen here, then "Export to Excel". -->

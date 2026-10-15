@@ -1,4 +1,4 @@
-// F4 = REPEAT THE LAST DEVICE EDIT on the selected devices (Dave 2026-10-07, like Excel's F4): an edit made in device
+// F4 = REPEAT THE LAST DEVICE EDIT on the selected devices (User 2026-10-07, like Excel's F4): an edit made in device
 // Properties (one device or several) is remembered as a field change; F4 applies the same change to whatever devices
 // are selected now, one undo step. Not repeated: its name, its U (both are per device), and the printed-label record
 // (it belongs to that panel's labels). A panel field change (tier, usages) is kept as the changed sub-fields only, so

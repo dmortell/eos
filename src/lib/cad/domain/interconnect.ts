@@ -7,7 +7,7 @@ import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { intoCables } from './multicore'
 
-/** `a.more`: further panels after the first (several panels selected, Dave 2026-10-10: four 24-port panels onto one
+/** `a.more`: further panels after the first (several panels selected, User 2026-10-10: four 24-port panels onto one
  *  96-port switch) — their ports carry on from where the one before stopped on the other device. */
 export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear'; more?: { on: Id; ports: number[] }[] }, b: { on: Id; start: number; face?: 'front' | 'rear' },
 	o: { cableType: string; via?: Id; /** A multi-core type: the links go, in order, into cables of this many cores. */ cores?: number }): { links: Link[]; skipped: string[] } {

@@ -33,7 +33,7 @@ export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Shee
 	catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 }
 
-/** Ctrl+P / the print button (Dave 2026-10-15): the PDF in a new browser tab titled with the file's name (the project's
+/** Ctrl+P / the print button (User 2026-10-15): the PDF in a new browser tab titled with the file's name (the project's
  *  pattern), for the browser to print or save; exports keep their Save as dialog. The tab opens on the key / click itself
  *  (a pop-up blocker allows that, not one opened after the PDF is made) and shows a note until the PDF is ready. */
 export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]): void {
@@ -41,7 +41,7 @@ export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]
 	pdfTab(project, ws, sheets, fileName(suggested, parts).replace(/\.pdf$/i, ''))
 }
 
-/** Ctrl+P on a model view (Dave 2026-10-15): the view alone on A3, no title block — its whole extent, or `visible` (what's
+/** Ctrl+P on a model view (User 2026-10-15): the view alone on A3, no title block — its whole extent, or `visible` (what's
  *  on screen) — in the same print tab. */
 export function viewPdfTab(project: CadProject, ws: Workspace, view: Viewport['view'], visible?: Bounds): void {
 	const title = viewTitle(project, view.spec) ?? 'View', level = view.spec.kind === 'riser' ? undefined : project.index.nameOf(view.levelId)

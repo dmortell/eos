@@ -1,5 +1,5 @@
 <!-- "Make block…" for drawn shapes (not inserts): the name is typed in a box under the button (not the status bar,
-     Dave 2026-10-12); Enter turns the shapes into a global block with one insert in their place, selected. Shapes drawn
+     User 2026-10-12); Enter turns the shapes into a global block with one insert in their place, selected. Shapes drawn
      in an elevation or section make a block as seen there, and its insert stays in that view. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'

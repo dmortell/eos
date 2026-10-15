@@ -69,7 +69,7 @@ export class InsertTool implements Tool {
 		const sheet = spec?.kind === 'sheet' ? c!.store.get(spec.sheetId) : undefined
 		const vp = sheet?.type === 'sheet' ? viewportAt(sheet, h.view) : undefined
 		if (vp) return blockPrims(b, { at: h.view, scale: 1 / vp.scale }, vp.scale, insertAttrs(b), '', 'draft')
-		// a 3D block in an elevation / section: its side as it will stand there (Dave 2026-10-14), not its top
+		// a 3D block in an elevation / section: its side as it will stand there (User 2026-10-14), not its top
 		if (c && is3d(b) && (kind === 'elevation' || kind === 'section')) {
 			const ghost = { type: 'shape', id: '', levelId: c.levelId, geom: { kind: 'insert', blockId: b.id, at: h.at, ...(h.rot ? { rot: h.rot } : {}), ...(h.z ? { z: h.z } : {}) } } as Shape
 			return blockSideView(ghost, b, c.space, PLOT_SCALE).map((p) => ({ ...p, src: undefined, cls: 'draft', ...(p.k === 'line' ? { fill: false } : {}) }))

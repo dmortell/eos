@@ -1,4 +1,4 @@
-<!-- PLANNING · SURVEYING (patch-list-plan.md D1, Dave: "an obvious toggle for an engineer inventorying a built site, or a
+<!-- PLANNING · SURVEYING (patch-list-plan.md D1, User: "an obvious toggle for an engineer inventorying a built site, or a
      designer planning a new install"): what new patch cords start as — ADD (to install) or INSTALLED (already there). A
      project setting, so everyone working on it records the same way; shown wherever cords are made and listed. -->
 <script lang="ts">

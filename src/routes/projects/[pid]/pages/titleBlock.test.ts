@@ -3,8 +3,8 @@ import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, shownTitleBlock } from
 
 describe('title block', () => {
 	it('fills the template from the sheet context; empty values show a dash', () => {
-		const cells = fillTitleBlock(DEFAULT_TITLE_BLOCK, { project: 'Hibiya', title: '33F Outlets', scale: '1:100', size: 'A3 L', number: 'E-101' })
-		expect(cells[0]).toEqual({ label: 'Project', value: 'Hibiya', wide: true })
+		const cells = fillTitleBlock(DEFAULT_TITLE_BLOCK, { project: 'building1', title: '33F Outlets', scale: '1:100', size: 'A3 L', number: 'E-101' })
+		expect(cells[0]).toEqual({ label: 'Project', value: 'building1', wide: true })
 		expect(cells.find((c) => c.label === 'Dwg №')!.value).toBe('E-101')
 		expect(cells.find((c) => c.label === 'Rev')!.value).toBe('—')
 	})
@@ -30,8 +30,8 @@ describe('title block', () => {
 		expect(shownTitleBlock({ fields: [], layout: 'vertical' }, cells)).not.toHaveProperty('layout')
 	})
 	it('initials from a name or an email', () => {
-		expect(initialsOf('David Mortell')).toBe('DM')
-		expect(initialsOf('dmortell@gmail.com')).toBe('DMO')
+		expect(initialsOf('Dana Morgan')).toBe('DM')
+		expect(initialsOf('dmorgan@example.com')).toBe('DMO')
 		expect(initialsOf('')).toBe('')
 	})
 })

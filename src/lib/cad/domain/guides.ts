@@ -1,4 +1,4 @@
-// GUIDES (Dave 2026-10-14 todo): horizontal / vertical construction lines per view, placed with the Guide tool. They
+// GUIDES (User 2026-10-14 todo): horizontal / vertical construction lines per view, placed with the Guide tool. They
 // are a drawing aid on YOUR screen: kept per view in this browser (not in the drawing, never printed). Points snap onto
 // a guide and onto where two guides cross. Pure; tested in guides.test.ts.
 import type { Pt } from './types'

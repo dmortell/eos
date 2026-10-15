@@ -1,8 +1,8 @@
-// WINDOWS (UX review S2, Dave: "the floating windows of the Sheets tool… keep two or more important ones open"):
+// WINDOWS (UX review S2, User: "the floating windows of the Sheets tool… keep two or more important ones open"):
 // the Navigator, Properties, Layers, Blocks, Racks and Cables live in windows. A window is closed, docked in the left
 // or right column (stacked, today's side panels), or floating over the drawing (moved by its title, resized by its
 // corner). The layout is per user, per browser (localStorage), with Reset. Floating windows are kept on screen when
-// the browser window shrinks (Dave: "be careful to handle browser window resizing"). Pure state; ui/CadWindow.svelte
+// the browser window shrinks (User: "be careful to handle browser window resizing"). Pure state; ui/CadWindow.svelte
 // draws it.
 
 export type WinId = 'navigator' | 'properties' | 'layers' | 'blocks' | 'racks' | 'devices' | 'cables' | 'walkthrough' | 'tips'
@@ -22,22 +22,22 @@ export interface WinState {
 export const WIN_TITLES: Record<WinId, string> = { navigator: 'Navigator', properties: 'Properties', layers: 'Layers', blocks: 'Blocks', racks: 'Racks', devices: 'Device library', cables: 'Cables', walkthrough: 'Walkthrough', tips: 'Tips' }
 export const WIN_IDS = Object.keys(WIN_TITLES) as WinId[]
 
-const KEY = 'cad-windows:3'   // :3 — Blocks / Device library float by the tool strip (Dave 2026-10-12); :2 layouts carry over
+const KEY = 'cad-windows:3'   // :3 — Blocks / Device library float by the tool strip (User 2026-10-12); :2 layouts carry over
 const OLD_KEY = 'cad-windows:2'
 const DEFAULTS: Record<WinId, WinState> = {
 	navigator: { open: true, dock: 'left', order: 0, x: 16, y: 48, w: 240, h: 420, folded: false, z: 1 },
 	properties: { open: true, dock: 'right', order: 0, x: 900, y: 48, w: 280, h: 480, folded: false, z: 1 },
 	layers: { open: false, dock: null, order: 1, x: 260, y: 60, w: 260, h: 380, folded: false, z: 1 },
 	// Blocks and the Device library open with their tool (Insert, Device): FLOATING near the tool strip, so they don't
-	// halve the Navigator (Dave 2026-10-12); Racks opens with a rack view, docked under the Navigator
+	// halve the Navigator (User 2026-10-12); Racks opens with a rack view, docked under the Navigator
 	blocks: { open: false, dock: null, order: 2, x: 12, y: 36, w: 260, h: 420, folded: false, z: 1 },
 	racks: { open: false, dock: 'left', order: 3, x: 320, y: 100, w: 240, h: 420, folded: false, z: 1 },
-	// its own window (Dave: the template list gets long): opens with the Device tool, floating like Blocks
+	// its own window (User: the template list gets long): opens with the Device tool, floating like Blocks
 	devices: { open: false, dock: null, order: 4, x: 284, y: 36, w: 240, h: 460, folded: false, z: 1 },
 	cables: { open: false, dock: null, order: 5, x: 350, y: 120, w: 280, h: 300, folded: false, z: 1 },
-	// Help › Walkthrough (Dave 2026-10-15: keep it open for reference): floating, tall enough for a stage or two
+	// Help › Walkthrough (User 2026-10-15: keep it open for reference): floating, tall enough for a stage or two
 	walkthrough: { open: false, dock: null, order: 6, x: 420, y: 60, w: 360, h: 520, folded: false, z: 1 },
-	// Help › Tips (Dave 2026-10-15): small, floating, opens by itself once a day (ui/tipsStart.ts)
+	// Help › Tips (User 2026-10-15): small, floating, opens by itself once a day (ui/tipsStart.ts)
 	tips: { open: false, dock: null, order: 7, x: 460, y: 120, w: 340, h: 190, folded: false, z: 1 },
 }
 const clone = (s: Record<WinId, WinState>) => Object.fromEntries(WIN_IDS.map((id) => [id, { ...s[id] }])) as Record<WinId, WinState>

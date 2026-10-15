@@ -1,4 +1,4 @@
-// The PORT MAP view (port-map-plan.md, Dave 2026-10-11): the chosen panels / switches, each drawn like its faceplate —
+// The PORT MAP view (port-map-plan.md, User 2026-10-11): the chosen panels / switches, each drawn like its faceplate —
 // its ports where they are on the real thing (the rack view's rows and numbering: a 48-port 1U = 2 × 24) — every
 // port with its number small in the top-left corner and, as big as fits, the label of the item at its far end (the
 // outlet a switch port reaches, the switch port a panel port is patched to). For network engineers assigning VLANs.

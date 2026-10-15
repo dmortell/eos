@@ -1,4 +1,4 @@
-// Cable types editor rules (Dave, 2026-10-05).
+// Cable types editor rules (User, 2026-10-05).
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'

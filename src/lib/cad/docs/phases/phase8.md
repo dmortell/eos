@@ -1,11 +1,11 @@
 # Phase 8: the backlog, built in batches
 
-**Plan:** `../plan/backlog.md`, in the order of its "Suggested order" (Dave picks). Each batch is logged here and
+**Plan:** `../plan/backlog.md`, in the order of its "Suggested order" (User picks). Each batch is logged here and
 ticked in the backlog.
 
 ## Batch 2: tiny wins (2026-10-03)
 
-Dave chose Batch 2 first.
+User chose Batch 2 first.
 
 **Code-size split first:** `ui/Properties.svelte` was at 460 lines.
 - The outlet fields (one outlet, and the shared fields of several) moved to a new `ui/OutletProps.svelte`, with no
@@ -20,7 +20,7 @@ Dave chose Batch 2 first.
   It shows in Rack Properties and, for several racks, as "… in N racks".
 - **Patch list:**
   - a **Notes** column, and Find also searches notes;
-  - a cord picked elsewhere, or the cord on a picked port, is **highlighted and scrolled into view** (Dave: "scroll
+  - a cord picked elsewhere, or the cord on a picked port, is **highlighted and scrolled into view** (User: "scroll
     to the clicked port");
   - the scroll runs only when the pick changes, not on every edit.
 - **Outlet Excel:** X / Y (mm) columns (unplaced outlets leave them blank).
@@ -58,7 +58,7 @@ G183, G314. These entries are removed from `../plan/backlog.md` now they're buil
 
 ## Batch 3 (part): Floor manager, Renumber, dark mode (2026-10-03 – 04)
 
-**Dave's answers** (2026-10-03):
+**User's answers** (2026-10-03):
 - **Renumber** covers outlets, racks and labelled shapes.
 - **Floor manager scope:** the building's top and bottom floor, ticking off floors that don't exist (like GF),
   renaming the floor labels, and a heights editor.
@@ -122,9 +122,9 @@ G183, G314. These entries are removed from `../plan/backlog.md` now they're buil
 
 **Sources** (`../archive/plan-sources.md`): G013, G031, G173, G255, P001 (Renumber); T084 (dark mode).
 
-## Batch 1 + Dave's follow-ups (2026-10-04)
+## Batch 1 + User's follow-ups (2026-10-04)
 
-**Dave's follow-ups on Batch 3:**
+**User's follow-ups on Batch 3:**
 - **Renumber:**
   - every item takes the format of the FIRST item of its type: "A.037" first, then "A001", gives "A.038";
   - a rack in the same run keeps a rack's format;
@@ -138,14 +138,14 @@ G183, G314. These entries are removed from `../plan/backlog.md` now they're buil
   - a selected leader / cloud shows a grip per point, and dragging one moves just that point;
   - in view mm when the note is tied to a viewport, snapped 0.5 mm on paper;
   - a text note shows its anchor, and dragging it still moves the whole text.
-- **Riser view, "Hide empty floors"** (Dave: a toggle that hides floors with no rooms):
+- **Riser view, "Hide empty floors"** (User: a toggle that hides floors with no rooms):
   - floors with no server room squeeze into one break band (a zigzag line, labelled "3F – 20F not shown");
   - so does the space between levels where the building has floors with no level ("floors with no level", e.g.
-    Journey 13F–29F);
+    Tourney 13F–29F);
   - rooms, risers and backbone lines move with the squeeze;
   - it's a button on the riser view (`?v=riser.compact`) and a "Risers (floors with server rooms)" choice for sheet
     viewports;
-  - checked live on Journey: 12F, a break, 30F, a break, 33F.
+  - checked live on Tourney: 12F, a break, 30F, a break, 33F.
 
 **Batch 1:**
 - **Delete asks before taking more than you picked** (`deleteImpact` / `impactText`, tested):
@@ -177,7 +177,7 @@ G183, G314. These entries are removed from `../plan/backlog.md` now they're buil
 - **Maker / model:**
   - on racks, with Product (SKU) and Colour; on devices, with Width / Depth;
   - imported from the legacy racks / devices / library, and carried by device templates.
-- **The panel's own name is readable** (Dave: "hidden behind all the ports"):
+- **The panel's own name is readable** (User: "hidden behind all the ports"):
   - drawn after the ports, top left, with a halo;
   - not clickable, so the ports under it still take clicks.
   - The proper panel restyle comes with "Readable panel labels" (Panduit style).
@@ -191,21 +191,21 @@ G183, G314. These entries are removed from `../plan/backlog.md` now they're buil
   "speck in the corner"), was saved, and was restored forever. Saved cameras stuck at that zoom are now ignored.
   S001 opens fitted again.
 - **"Download sheet PDF"** button label in Sheet Properties.
-- **New sheets open fitted** (Dave: a new sheet still needed Fit after adding a viewport):
+- **New sheets open fitted** (User: a new sheet still needed Fit after adding a viewport):
   - The real cause: when a pane switched to a view with no camera of its own, it kept the previous view's "fitted" flag.
   - Coming from a plan whose camera was RESTORED from the last session, the new sheet was never fitted and kept the
     plan's camera (paper as a speck).
   - Now such a view starts unfitted: the new sheet fits its paper, and re-fits when its first viewport's floorplan
     arrives.
   - Checked live: new sheet → fitted; Add viewport → the plan shows at once.
-- **"+ New" sheet** makes "New sheet" straight away, with no title prompt (Dave); rename it in Properties.
-- **No single-letter tool keys** (Dave: he pressed the Leader key by mistake).
+- **"+ New" sheet** makes "New sheet" straight away, with no title prompt (User); rename it in Properties.
+- **No single-letter tool keys** (User: he pressed the Leader key by mistake).
   - O / L / T / C / W / H / Q / K / D / P / N / X / E / U no longer switch tools.
   - Esc still returns to Select.
   - Keys inside a tool (Enter, Backspace, R / V while drawing a run) are unchanged.
   - cad matches ADR 0005 again.
 
-**Checks:** 308 cad tests pass; svelte-check: the 10 old errors, no warnings in cad. Live on Test Project / Journey as
+**Checks:** 308 cad tests pass; svelte-check: the 10 old errors, no warnings in cad. Live on Test Project / Tourney as
 above; every test edit undone.
 - One console error was seen: "MIN_K is not defined". It came from the half-finished moment between two ViewCanvas
   edits (HMR); a fresh load is clean.
@@ -217,7 +217,7 @@ G125 and G018 … G290 are partly built: their remainder is in the backlog.
 
 ## Quick fixes (2026-10-04, after commit 4d122ada)
 
-Dave's next-5 list, item 1 (the two live checks — interconnect run, Make block — left for later).
+User's next-5 list, item 1 (the two live checks — interconnect run, Make block — left for later).
 
 - **Delete a sheet:**
   - a "Delete sheet" button in Sheet Properties, and "Delete" for the selected rows in the Sheets tab;
@@ -236,14 +236,14 @@ Dave's next-5 list, item 1 (the two live checks — interconnect run, Make block
 
 ## Layers, Slices 1–4 (2026-10-04)
 
-Plan and Dave's answers: `docs/plan/layers.md`.
+Plan and User's answers: `docs/plan/layers.md`.
 
 **One list of layers:**
 - System layers in code (`domain/layers.ts`), in drawing order: Floorplans, Walls, Drawing, Racks, Trunks, Trunks
   high, Risers, Backbone, Patch cords, Outlets, Outlets high, Notes, Sections.
-  - Pairs sit together (Dave), so trunks draw over racks.
+  - Pairs sit together (User), so trunks draw over racks.
   - The panel lists them in this order: the first row draws at the bottom.
-  - **Default colours** (Dave): each system layer's default is the colour its items already draw in, shown as a round
+  - **Default colours** (User): each system layer's default is the colour its items already draw in, shown as a round
     dot.
     - The default isn't forced on the items: that would turn an unrouted backbone's red, or a rack's ports and U
       numbers, all one colour.
@@ -260,11 +260,11 @@ Plan and Dave's answers: `docs/plan/layers.md`.
   symbols, never rack bodies).
 - Locked layers are drawn and snap, but can't be picked.
 - Plans paint in layer order. Elevations keep their depth order.
-- Used in every pane and in the plan DXF. Riser and rack views obey it too (Dave, Q7).
+- Used in every pane and in the plan DXF. Riser and rack views obey it too (User, Q7).
 
 **Per user** (`app/layerPrefs.svelte.ts`, this browser, per project):
 - Eye, lock and current layer. Nobody else's view changes, and none of it is undoable.
-- Hiding or locking a layer drops its items from the selection (Dave).
+- Hiding or locking a layer drops its items from the selection (User).
 - Drawing a line, wall, trunk or rack onto a hidden or locked layer is refused, with a message.
 
 **Stored:** `Viewport.frozen`. A frozen layer is left out of that viewport and its PDF; Shift = every viewport on the
@@ -286,7 +286,7 @@ sheet. The dead `ViewDef.hiddenLayers` field is removed.
 - Hidden layers still snap on the plan.
 - Tied sheet notes ignore freeze.
 - Presets, groups and multi-select: a P3 backlog entry.
-- Copy / paste must keep layers (Dave). This is written into the clipboard backlog entry; copy / paste isn't built
+- Copy / paste must keep layers (User). This is written into the clipboard backlog entry; copy / paste isn't built
   yet.
 
 **Checks:**
@@ -317,7 +317,7 @@ copy / cut / paste events.
   - notes onto a sheet. A note tied to a viewport is copied as plain paper points.
   - Links and cords stay behind.
   - Other things, or a paste in the wrong kind of pane, are left out with a message.
-- **A paste is as-is** (Dave, replacing the first build): the same coordinates and the same labels, on any level,
+- **A paste is as-is** (User, replacing the first build): the same coordinates and the same labels, on any level,
   sheet or project; you sort out overlaps and duplicate labels. The first build shifted copies 20 px and gave taken
   labels the next number (T142); both were removed.
 - **References:**
@@ -326,9 +326,9 @@ copy / cut / paste events.
     something not copied.
   - A rack on another level joins that level's server room of the same name, or a new one is made. Its panels' room
     follows.
-- **Layers** (Dave): items keep their layer. Into another project, the layer comes along, or joins a layer of the same
+- **Layers** (User): items keep their layer. Into another project, the layer comes along, or joins a layer of the same
   name.
-- **Cut never asks** (Dave): it deletes straight away. The message says which links / cords a paste won't bring back;
+- **Cut never asks** (User): it deletes straight away. The message says which links / cords a paste won't bring back;
   Undo does.
 - **The pasted items are selected; a paste is one undo step.**
 
@@ -355,7 +355,7 @@ multi-device drag and device-only copy remain in the backlog.
 - **Ctrl+A:** selects everything the active view shows that can be picked — visible, unlocked layers. In a rack row
   that's its devices; on a sheet, its notes.
 - **Nudge** (`editor/nudge.ts`):
-  - Arrow keys move the selection 50 mm, Shift 500 mm (Dave: 1 mm was too small), in the view's directions. On a
+  - Arrow keys move the selection 50 mm, Shift 500 mm (User: 1 mm was too small), in the view's directions. On a
     sheet's paper it's 1 / 10 mm. In a rack row, Up / Down moves devices 1 U; off the rack is refused, with the reason.
   - Holding a key is one undo step; separate presses are separate steps.
 - **Rack devices** (`editor/deviceDrag.ts`, split out of `tools.ts`):
@@ -394,17 +394,17 @@ its view (T126's Alt-drag isn't built).
     view".
   - `SCALES` moved to `views/sheet.ts` and is shared with Sheet Properties.
 - **Picking a viewport says** "Viewport locked — it can't be moved, resized or panned (Properties → Locked)" or, when
-  unlocked, how to move / resize / pan / scale it (Dave).
-- **"Clicking A.008 also selects a trunk"** (Dave): it didn't. Only the outlet was selected. The trunk showed the
+  unlocked, how to move / resize / pan / scale it (User).
+- **"Clicking A.008 also selects a trunk"** (User): it didn't. Only the outlet was selected. The trunk showed the
   outlet's cable ROUTE (to its IDF), drawn in the same amber as the selection. The route is now green dashes, so it no
   longer reads as selected. Hitboxes are unchanged.
-- **Undoing a copy or paste gives back the selection from before it** (Dave). An undo step can carry the selection
+- **Undoing a copy or paste gives back the selection from before it** (User). An undo step can carry the selection
   from before the edit (`Step.sel`, passed to `transact` / `commit`); the app uses it when nothing the undo touched is
   left.
 - **The Select tool's hint mentions Ctrl-drag copy.**
-- **Undo / redo open the level they changed** (Dave). If what came back is on another level (an item's own level, or
+- **Undo / redo open the level they changed** (User). If what came back is on another level (an item's own level, or
   a device's rack's level), that level opens first, then it's selected. Sheets and the riser view stay put.
-- **Notes tied to a viewport are clipped to its window** (Dave: zoomed in, S001's cloud flew off the top of the
+- **Notes tied to a viewport are clipped to its window** (User: zoomed in, S001's cloud flew off the top of the
   page). The cloud already scaled with the content (tested); it just wasn't clipped like the view.
 
 **Checks:**
@@ -417,7 +417,7 @@ its view (T126's Alt-drag isn't built).
   - the unlocked section viewport pans (centre 2488, −1712 → 488, −2112) and goes 1:100 → 1:200;
   - both undone.
 
-## Backlog batch: Dave's picks 1 4 7 9 14 16 18 20 30 33 34 35 37 (2026-10-04)
+## Backlog batch: User's picks 1 4 7 9 14 16 18 20 30 33 34 35 37 (2026-10-04)
 
 **Outlets:**
 - **Several outlets:** Ports (removed ports' links asked about first, as for one) and Room.
@@ -432,8 +432,8 @@ its view (T126's Alt-drag isn't built).
 - **Several devices** (`ui/DeviceMultiProps.svelte`): name, face, height, ports, numbering, width, depth, maker,
   model, and tier for panels. An edit that would overlap is refused, with the reason.
 - **Drop ghost:** the Device tool draws a dashed outline where the device will land (red where it can't).
-- **Racks have no grey fill** (Dave), on screen and in the PDF. They're still picked by their whole body.
-- **Rack doors live check:** R303 is now a cabinet (Dave: leave it) with a split front and a single rear door. Both
+- **Racks have no grey fill** (User), on screen and in the PDF. They're still picked by their whole body.
+- **Rack doors live check:** R303 is now a cabinet (User: leave it) with a split front and a single rear door. Both
   swings show on the plan. The PDF check is left in the backlog (a download).
 
 **Ports and patching:**
@@ -473,7 +473,7 @@ its view (T126's Alt-drag isn't built).
 - Live on Test Project: panels hide / show / resize (then reset); the Outlet tool bar; `?rack=` to R312; doors;
   Make block.
 
-## Backlog batch: Dave's picks 4 6 7 8 10 11 13 23 24 25 30 31 (2026-10-04)
+## Backlog batch: User's picks 4 6 7 8 10 11 13 23 24 25 30 31 (2026-10-04)
 
 **Floorplans and racks:**
 - **Live recalibration:** each floorplan file is watched (`onSnapshot` on `files/{id}`). A new origin / scale /
@@ -509,9 +509,9 @@ its view (T126's Alt-drag isn't built).
   each sheet got it (`revisionColumns`).
 
 **Backlog housekeeping:**
-- Lowered to P3 (Dave): "Zones and server rooms when placing outlets" and "Grayscale floorplan toggle".
-- Closed (Dave): "Outlets / Trunks toggles per viewport" — per-viewport layer freeze covers it.
-- The backlog's per-theme counts table is replaced by one "Remaining" line (Dave).
+- Lowered to P3 (User): "Zones and server rooms when placing outlets" and "Grayscale floorplan toggle".
+- Closed (User): "Outlets / Trunks toggles per viewport" — per-viewport layer freeze covers it.
+- The backlog's per-theme counts table is replaced by one "Remaining" line (User).
 
 **Checks:**
 - 353 cad tests pass (+5: captions / title, desks in the BOM, crossing box, square viewport, revision columns).
@@ -522,7 +522,7 @@ its view (T126's Alt-drag isn't built).
 
 ## 19" = 450 mm, rack view header, tower PC ports, a row on a sheet (2026-10-04)
 
-**A 19" device is 450 mm** (Dave: servers ~430–451 mm, patch panels 462 mm without ears) — `RACK_DEVICE_W` in
+**A 19" device is 450 mm** (User: servers ~430–451 mm, patch panels 462 mm without ears) — `RACK_DEVICE_W` in
 `domain/devices.ts`:
 - Devices with no width are drawn 450 mm wide.
 - The rack's mounting frame is drawn 450 mm wide, leaving more room beside it for 0U PDUs and U numbers.
@@ -530,24 +530,24 @@ its view (T126's Alt-drag isn't built).
 - The cord-length estimate keeps the physical 482.6 mm rail spacing.
 
 **Stored data moved to 450** (a one-off migration, written as remote edits — `updatedBy: migration:19in-450`):
-- devices of 440–490 mm: 23 in Test Project (20 × 445, 3 × 460) and 68 in Journey (all 445);
+- devices of 440–490 mm: 23 in Test Project (20 × 445, 3 × 460) and 68 in Tourney (all 445);
 - all 9 global device templates (480 / 460 / 445).
 - LR's 154 devices have no width and were left as they are; narrow devices (200, 377 mm, PDU strips) too.
 
 **Fixes:**
 - **Ports on narrow devices:** the port grid now sits on the device's own front. A 200 mm tower PC's ports were
-  drawn left of the PC, from a 19" panel's port area (Dave: R311). Test added.
+  drawn left of the PC, from a 19" panel's port area (User: R311). Test added.
 - **Rack view header:** a solid strip over the pane, above the drawing — labels no longer show through the buttons.
 - **The row picker's open list** no longer shows every option highlighted (the options inherited the blue "on" look).
 - **Properties fields are closer together:** 0.25 rem between fields instead of 0.75 rem; the title block's rows have
   no extra padding.
 
 **Sheets:** a viewport's View picker lists each room's rows ("Server room A · Row A racks front"). Sheet **S004
-"4F Server room A — Row A racks"** was made on Test Project (Dave): 4AR01–4AR06 front, at 1:20.
+"4F Server room A — Row A racks"** was made on Test Project (User): 4AR01–4AR06 front, at 1:20.
 
-**Backlog:** "Logos picked from Uploads" now includes uploading a new image in the same dialog (Dave).
+**Backlog:** "Logos picked from Uploads" now includes uploading a new image in the same dialog (User).
 
-**Rack views show the storey** (Dave), from the level's heights, drawn under the racks:
+**Rack views show the storey** (User), from the level's heights, drawn under the racks:
 - the slab under the raised-floor void;
 - the ceiling line ("CEILING +2600");
 - the plenum ("PLENUM 700");
@@ -564,7 +564,7 @@ Test added (354 pass).
 ## 2026-10-04 — rack view polish, floorplans, runs, blocks
 
 **Rack views:**
-- **Storey as lines** (Dave): a thin dashed ceiling line "CEILING FFL+2700"; the slab is a slightly thicker solid line,
+- **Storey as lines** (User): a thin dashed ceiling line "CEILING FFL+2700"; the slab is a slightly thicker solid line,
   top of the floor slab ("SLAB FFL-300") and underside of the slab above ("SLAB FFL+3500"). No more grey rects.
 - **The other face's devices** are drawn faint (dashed, no fill) and named "(rear)" / "(front)", e.g. P3C U42 on the front.
 - **96-port switches** show all their ports: a 2U device gets up to 4 rows of 24 (it showed 48).
@@ -573,7 +573,7 @@ Test added (354 pass).
 - **Minus signs** are plain ASCII "-" (the Unicode minus was swapped in the PDF only; now there's nothing to swap).
 
 **Plans:**
-- **Back line on any box** (Dave changed "front line"): a box shape has a "Back line" checkbox, a thick line on its
+- **Back line on any box** (User changed "front line"): a box shape has a "Back line" checkbox, a thick line on its
   back edge. Racks draw the same thick line on their REAR edge instead of the thin line near the front.
 - **Floorplan per level** (P1): the Floor manager has a Floorplan column: any page of a project PDF; pages not
   calibrated in Uploads are listed but disabled ("calibrate in Uploads"). Picking another replaces it, "—" removes it,
@@ -596,20 +596,20 @@ Z each gives on this level. It moves the run's main height (drops keep their end
 **Other:**
 - Clicking a layer name makes it current (any layer, not only drawing layers).
 - The status bar shows the zoom level.
-- Backlog: marked P3 (Dave): cable type per outlet, segment lengths, cord BOM on screen, grid size setting. Added:
+- Backlog: marked P3 (User): cable type per outlet, segment lengths, cord BOM on screen, grid size setting. Added:
   front / rear mounting on purpose, review the device template picker.
 
 **Checks:** 359 cad tests pass; svelte-check clean in cad; live: slab / ceiling lines, faint P3C U42, stacked P3C labels,
 1F floorplan cropped, Floor manager Floorplan column.
 
 **After commit 3a370697:**
-- **Panel names over ports** (Dave): normal size until zoomed in far enough to read the port labels, then small (a 1U
+- **Panel names over ports** (User): normal size until zoomed in far enough to read the port labels, then small (a 1U
   48-port panel's label size) and see-through in the top-left corner. Same switch in the PDF. Test updated.
 - **Doors on several racks:** the Doors / Hinge fields show for a multi-selection (`ui/RackDoors.svelte`, shared with the
   single-rack Properties): the shared value or "mixed"; an edit sets that field on every cabinet in the selection.
-- **Plain hyphens** (Dave): a section viewport's automatic title is "SECTION A-A" (was an en dash and a prime, which the
+- **Plain hyphens** (User): a section viewport's automatic title is "SECTION A-A" (was an en dash and a prime, which the
   PDF fonts lack).
-- **Front / rear mounting** (backlog, Dave: P3C U42): a device has an optional `mount` (front / rear). A front-and-rear
+- **Front / rear mounting** (backlog, User: P3C U42): a device has an optional `mount` (front / rear). A front-and-rear
   device (a panel) mounted on one side takes only that side of its Us, so it shares them with a device on the other
   side, unless both depths are known and add up to more than the rack's. Set it in Properties (Mount, for 'both'
   devices) or in the Device tool's toolbar before placing. The overlap message says which Mount to set. In the rack
@@ -617,15 +617,15 @@ Z each gives on this level. It moves the run's main height (drops keep their end
 - **Section → sheet** (backlog "Drop a section as a viewport"): the section's Properties (now `ui/SectionProps.svelte`)
   have a Sheet select + "Put on sheet": a new viewport at the largest standard scale (1:20 or further out) that fits
   the drawing area, sized to the cut, top-left; the sheet opens with it selected. Test added.
-- **Floorplan zones** (Dave): the Floor manager's Floorplan cell is a list: each floorplan has a zone name (when there
+- **Floorplan zones** (User): the Floor manager's Floorplan cell is a list: each floorplan has a zone name (when there
   are several), its page, an X / Y offset (`Underlay.origin`) and ✕; "+ Add zone…" adds another. Several floorplans
-  on ONE level — whether zones should rather be separate area levels (as Journey's 33F 3307 is) is in decisions.md.
-- **VCMs have doors** too (Dave).
-- Backlog: P3 (Dave): review the device template picker, dim the other cords, set any cord status, line grid. Added:
+  on ONE level — whether zones should rather be separate area levels (as Tourney's 33F 3307 is) is in decisions.md.
+- **VCMs have doors** too (User).
+- Backlog: P3 (User): review the device template picker, dim the other cords, set any cord status, line grid. Added:
   floorplan zones rotate / drag, blocks in elevations and sections, outlet → block, protect issued uploads.
   Decisions added: zones one model or separate; racks vs cabinets.
 
-**Blocks, node joining, sidebar (Dave):**
+**Blocks, node joining, sidebar (User):**
 - **Blocks panel + Insert tool** (`ui/BlockManager.svelte`, `editor/insertTool.ts`): the block library by category
   with search and previews; click a block, then click in a view to place it (the "Block" tool; stays on, Esc
   stops). Plan: at the click. Elevation / section: the click gives the height (`insert.z`, new), and the block goes
@@ -645,11 +645,11 @@ Z each gives on this level. It moves the run's main height (drops keep their end
 
 ## 2026-10-05 — editing runs, BOM dialog, logos, issued uploads
 
-**Editing runs** (`editor/pathSel.ts`, `domain/pathEdit.ts`; Dave: a trunk's node dropped on another trunk's node did
+**Editing runs** (`editor/pathSel.ts`, `domain/pathEdit.ts`; User: a trunk's node dropped on another trunk's node did
 not connect them):
 - **Two runs join** when a node is dropped on a node of another run of the same kind (trunk + trunk, wall + wall,
   line + line): one run, the dragged one's id; a backbone that chose the other run as its riser (`via`) follows.
-  Runs that already TOUCH at the dragged node join as soon as it is dragged (Dave's two trunks near R311, now one
+  Runs that already TOUCH at the dragged node join as soon as it is dragged (User's two trunks near R311, now one
   trunk with three segments). Unlike runs (a wall and a trunk) don't join; their nodes just move together.
 - **Joined nodes move together:** other runs' nodes on the dragged point (same x / y and height) move with it;
   Alt-drag moves the node alone. A drag that comes back to its start lands exactly there (no grid shift); a click
@@ -664,7 +664,7 @@ not connect them):
 **Snaps and readout:**
 - **Centre snap** on the plan: circles, arcs, boxes, polygons (corner average), images and blocks (insertion
   point); shown as a small circle. Test added.
-- **Length · angle · ΔX / ΔY (ΔZ)** in the status bar (Dave: not at the cursor) while drawing a run / line (from its
+- **Length · angle · ΔX / ΔY (ΔZ)** in the status bar (User: not at the cursor) while drawing a run / line (from its
   last point) and while dragging (from where the drag started).
 
 **Deleting a section shown on sheets** asks: "Delete, keep viewports as elevations" (the named direction nearest the
@@ -683,7 +683,7 @@ the package PDF — can't be deleted (the toast names the issues); a same-name u
 ("plan (2).pdf") instead of replacing it. Other same-name uploads still replace (keeping their calibration).
 Checked live, read-only: L3303's plan is used by "Test issue 1" and "Tender1".
 
-**Backlog:** low priority (Dave): title block approvals / site, Tabs, Help. Not required (Dave): "Outlet → block".
+**Backlog:** low priority (User): title block approvals / site, Tabs, Help. Not required (User): "Outlet → block".
 
 **Checks:** 376 cad tests pass; svelte-check clean.
 
@@ -706,7 +706,7 @@ Junctions keeping all their segments on 15° is left (backlog, P3).
 segment's own width / height (a reducer, a taller wall panel) in the picked box of the run's Properties; "as run" drops
 it. Tests.
 
-**Title block logos are FIELDS** (Dave): "Our logo" / "Client logo" are rows in the field list — dragged into place
+**Title block logos are FIELDS** (User): "Our logo" / "Client logo" are rows in the field list — dragged into place
 like any field, full or half width; they print only the image (a full-width row is as tall as its logo). "Add a
 field…" offers them; ✕ removes the field and its image. Templates from before keep their logos, as the first rows.
 The Logo section keeps the logo text. Tests.
@@ -731,20 +731,20 @@ per link — label, kind, from, to, cable, route m, slack, installed length, the
   ran off the panel: skipped with the reason) and its route said "the far panel is not in a placed rack". Routes:
   "the runs at the two ends are not connected" — Test Project's 1F IDF2 trunks and 4F racks aren't joined to Riser A
   by containment (a data matter). Links undone afterwards.
-- "Rack BOM by row" closed (Dave): the BOM dialog's row-by-row view covers it.
+- "Rack BOM by row" closed (User): the BOM dialog's row-by-row view covers it.
 
 **Checks:** 387 cad tests pass; svelte-check clean. Live: a rectangle drawn on the 1F plan (then undone).
 
-**Resize grips on shapes** (Dave; `editor/shapeGrips.ts`): a selected rectangle shows its 4 corners (the opposite
+**Resize grips on shapes** (User; `editor/shapeGrips.ts`): a selected rectangle shows its 4 corners (the opposite
 one stays; Shift = square) and 4 edge middles (that side moves; a turned rectangle along its own axes); an ellipse its
 4 axis ends (the centre stays; Shift = a circle); a circle 4 radius grips; a polygon its corners. Shown on the plan,
 on the elevation / section a shape was drawn on, and on sheets (also for shapes tied to a viewport); snapped like any
 point. One undo step per drag. Tests (`editor/shapeGrips.test.ts`, 393 pass). Live: a rectangle on 1F resized by its
 corner, then undone.
 
-## Batch: notes everywhere, dimensions, groups, several runs, cable lists (Dave 2026-10-05: "do 4 6 12 15 16 22")
+## Batch: notes everywhere, dimensions, groups, several runs, cable lists (User 2026-10-05: "do 4 6 12 15 16 22")
 
-Import Pages sheets (7.2) and import Sheets-tool sheets (7.3) marked P3 (Dave).
+Import Pages sheets (7.2) and import Sheets-tool sheets (7.3) marked P3 (User).
 
 **Notes on plans and diagrams:** Text / Leader / Cloud now work on plans (in the level's model, current layer) and
 on elevations / sections (on the view's plane, like the Shape tool), as well as sheets. Note Properties
@@ -784,14 +784,14 @@ first 500 rows show, then "narrow it".
 Committed as 849148b4. Also: blank space in the side and bottom panels no longer selects text on a drag (tables
 still do).
 
-## Batch: blocks legend, nodes, issues, print order, several shapes, draw order, points, text, cable types (Dave 2026-10-05: "(a) … do 7 11 12 14 16 17 18 19 22")
+## Batch: blocks legend, nodes, issues, print order, several shapes, draw order, points, text, cable types (User 2026-10-05: "(a) … do 7 11 12 14 16 17 18 19 22")
 
-Marked P3 (Dave): the cord workflow (was P1), own cable type for new links, port hover tips, re-allocate pinned ports,
+Marked P3 (User): the cord workflow (was P1), own cable type for new links, port hover tips, re-allocate pinned ports,
 show all routes, snap to rack corners, layer line type / lineweight, finish the soft retire.
 
-**Blocks and Symbols merged** (Dave chose (a)): the Symbols list is gone (`ui/Legend.svelte` deleted). The Blocks panel
+**Blocks and Symbols merged** (User chose (a)): the Symbols list is gone (`ui/Legend.svelte` deleted). The Blocks panel
 has Library / "On this level (n)": the blocks the open level uses (outlet symbols and inserts) with counts. Each has
-a "show in the legend" checkbox (Dave), stored per project as `settings.legendOmit`, ready for "Legend on the
+a "show in the legend" checkbox (User), stored per project as `settings.legendOmit`, ready for "Legend on the
 drawing".
 
 **Several nodes:** Ctrl-click node grips adds / drops them (Ctrl-DRAG still branches). Delete removes them all and heals
@@ -839,7 +839,7 @@ Live (Test Project, 1F):
 - A text placed, double-clicked: the box opened on it. The first save hit a bug: the shape was read after the edit
   state cleared; fixed. Then F2 made it two lines, drawn one under the other. Both undone.
 
-## Fixes and follow-ups (Dave 2026-10-05)
+## Fixes and follow-ups (User 2026-10-05)
 
 - **Legend checkboxes removed** from the Blocks panel (and `settings.legendOmit`): each legend will choose its own
   symbols / layers ("Legend on the drawing" updated).
@@ -851,8 +851,8 @@ Live (Test Project, 1F):
   - Used by notes, shapes, several shapes, several runs, racks, cords, the cord tool bar and cable types.
   - Palette = the Sheets layer palette plus a bright yellow and white, 7 per row.
   - Layer swatches in the Layers panel stay as they were (a compact swatch, not a field).
-  - Labels say "Color" (Dave); data fields like `cord.colour` keep their names.
-- **TR1's fill rows** (Dave: "3 segments, only the first can be selected"): the Fill list's rows were not clickable and
+  - Labels say "Color" (User); data fields like `cord.colour` keep their names.
+- **TR1's fill rows** (User: "3 segments, only the first can be selected"): the Fill list's rows were not clickable and
   the section picture always showed the fullest segment. A row click now picks that segment in the run and shows its
   section; picking a segment in the view shows it too. (Clicking and segment-picking all three on the plan worked
   live.)
@@ -869,7 +869,7 @@ Checks: 417 cad tests pass; svelte-check clean. Live (Test Project 1F), each tes
 - A rectangle filled yellow from the dropdown (27 swatches).
 - The Text tool opens "Text" selected, with no prompt.
 
-## Batch: callouts, wrapping text, move / copy, attributes, labels in place, usages, find, re-issue, sections list, elevation edges (Dave 2026-10-05: "do 3 4 5 7 8 10 12 14 16 17 21 22")
+## Batch: callouts, wrapping text, move / copy, attributes, labels in place, usages, find, re-issue, sections list, elevation edges (User 2026-10-05: "do 3 4 5 7 8 10 12 14 16 17 21 22")
 
 Image opacity / crop / greyscale marked P3. New P3 todo: a fill-rate drawing as a viewport from a trunk's Properties.
 The resizable split bar (#26) is NOT done: the two panes are a fixed 50 / 50.
@@ -932,14 +932,14 @@ Live (Test Project):
 - A real double-click on outlet A.003 opened its box; Tab went to A.002; Esc.
 - No edits were saved.
 
-## Split bar, label-edit hints, sorted lists, title block items as fields (Dave 2026-10-05)
+## Split bar, label-edit hints, sorted lists, title block items as fields (User 2026-10-05)
 
 - **Resizable split bar:** a bar between the two split views; drag to share the width (15–85 %, kept per browser in
   `Panels.split`), double-click for equal.
 - **Edit in place, made known:** opening the box says "Enter saves · Tab / Shift+Tab: save and edit the next /
   previous outlet (rack, run, text) · Esc cancels"; the Select hint mentions it; the Help backlog entry must feature it.
 - **Cable types and usages A → Z** in the Settings dialog and every dropdown (`sortedCableTypes`, `sortedUsages`).
-- **Title block** (Dave: "where did the client logo field go?" — a logo was only listed once it had an image):
+- **Title block** (User: "where did the client logo field go?" — a logo was only listed once it had an image):
   - The two logo images, the logo text and the company block are always in the field list, so each is dragged into
     place like a field.
   - They can't be removed: clear them, or switch their section off.
@@ -950,9 +950,9 @@ Live (Test Project):
 Checks: 434 cad tests pass; svelte-check clean. Live: the split dragged to 30 / 70 and back with a double-click; S001's
 title block editor lists Client logo, Logo text, Company, Our logo, then the fields.
 
-## Batch: overlaps, legend, box tool, new layers hidden, sheet from a view (Dave 2026-10-05: "do 4 10 13 17 18")
+## Batch: overlaps, legend, box tool, new layers hidden, sheet from a view (User 2026-10-05: "do 4 10 13 17 18")
 
-Marked P3 (Dave): issue register for the PM, devices list per rack, usage colors / port counts / hover tips, drag racks
+Marked P3 (User): issue register for the PM, devices list per rack, usage colors / port counts / hover tips, drag racks
 from the list, hover a cord.
 
 - **U overlaps with a warning** (`overlapAllowed`, `clashUs` in `domain/devices.ts`):
@@ -970,7 +970,7 @@ from the list, hover a cord.
   - Footprint rectangle / ellipse / polygon, with Height (750 by default) and Z in the tool bar.
   - A single region on the plan now has Height and Z in Properties.
   - Boxes show in elevations and sections.
-- **New layers start hidden in existing drawings** (Dave's version of "Hide in new viewports"; `freezeInExisting`): adding
+- **New layers start hidden in existing drawings** (User's version of "Hide in new viewports"; `freezeInExisting`): adding
   a layer freezes it in every existing viewport, in the same undo step, so issued / finished sheets don't change when
   something is drawn on it. Viewports made later show it.
 - **A sheet from the current view:** each non-sheet pane bar has "To sheet…".
@@ -986,16 +986,16 @@ Project 1F), all undone:
 - A box got Height 750 / Z 0.
 - "New sheet from this view" made S006 with the plan at 1:50.
 
-## Boxes in elevations, then: box widths, doors on boxes, shape style, lineweights in print, logo grips, PDUs (Dave 2026-10-05)
+## Boxes in elevations, then: box widths, doors on boxes, shape style, lineweights in print, logo grips, PDUs (User 2026-10-05)
 
-**Boxes in elevations** (Dave: couldn't drag a box up / down or resize it there):
+**Boxes in elevations** (User: couldn't drag a box up / down or resize it there):
 - A box at Z 0 has no `plane`, and a move only changed Z when a plan plane was already there; `moveBy` now gives it
   one (and an insert its own Z).
 - A selected box has top / bottom squares (height; Z with the top kept) in elevations and sections.
-- On "walls block everything": a wall-last / smallest-first pick rule was tried, then taken out. Dave will use sections
+- On "walls block everything": a wall-last / smallest-first pick rule was tried, then taken out. User will use sections
   for vertical edits.
 
-Marked P3 (Dave): quick switcher, Project Properties, Floor manager, Journey tidy-up (was P1), section top / bottom +
+Marked P3 (User): quick switcher, Project Properties, Floor manager, Tourney tidy-up (was P1), section top / bottom +
 hatching, connection points on boxes, RCP, riser view control.
 
 - **Box grips in elevations, the rest:** left / right squares at the box's sides as seen: drag one, the other stays.
@@ -1024,14 +1024,14 @@ hatching, connection points on boxes, RCP, riser view control.
 Checks: 450 cad tests pass (new: `views/style.test.ts`, PDU / box width / box handle tests); svelte-check clean. Not
 tried live: the logo grips and PDUs (the Test Project rack view checked has no PDU).
 
-## Box grips, cord BOM, select similar, panel PDF, viewport tool (Dave 2026-10-06: "do 1 14 16 27 30")
+## Box grips, cord BOM, select similar, panel PDF, viewport tool (User 2026-10-06: "do 1 14 16 27 30")
 
-Marked P1 (Dave): cords drawn along the cable channels. Marked P3 (Dave): LR import notes, old cord ends check, riser
+Marked P1 (User): cords drawn along the cable channels. Marked P3 (User): LR import notes, old cord ends check, riser
 floor / ceiling check, version-model ADR, shape style, label format, rack order, device library builder, port drag
 select, more snaps, DXF for every view, revisions and packages, viewport handling, more viewport types (its one-row
 picker was already built).
 
-- **Box grips in elevations look like the plan's** (Dave: "nothing like the grips on floorplans"): a box's top / bottom
+- **Box grips in elevations look like the plan's** (User: "nothing like the grips on floorplans"): a box's top / bottom
   / side grips were the blue-and-white handle squares; they're now the amber shape-resize grips, at the size of a
   rectangle's edge-middle grips on the plan (a new `'grip'` handle shape, `editor/elevHandles.ts`).
 - **Cord BOM on screen** (`ui/CordBomDialog.svelte`, `cordBom` in `domain/reports.ts`): the patch list's "Cord BOM…"
@@ -1055,14 +1055,14 @@ cord BOM test); svelte-check: none in cad. Live (Test Project 1F): a box in the 
 grips; Select similar picked the 4 rectangles on Walls; the Cord BOM dialog listed 7 lines (43 cords); a dragged
 viewport on S003 came out 73 × 48 mm showing Elevation front, then undone. Not tried live: the Excel and PDF downloads
 (the panel PDF is rendered in a test).
-- **Logo grip only when the logo is picked** (Dave: "why is logo resize grip permanently on? and why is it different
+- **Logo grip only when the logo is picked** (User: "why is logo resize grip permanently on? and why is it different
   from all other grips?"): it showed whenever the sheet was selected, which is any click on the paper, and it used
   the blue / white handle style. Now a click on a logo picks it (a dashed amber outline; "Logo: drag the grip…"), and
   only then its bottom-edge grip shows, as an amber resize grip; a press anywhere else drops it
   (`logoBoxes` / `logoAt` / `logoHandles(…, key)` in `editor/logoHandles.ts`). Live (S001): clicking the title block
   showed no grip; clicking the logo showed the outline and one amber grip.
 
-## UX remediation, Phase A: quick fixes (Dave 2026-10-06: "implement as much as you can in all phases", `../plan/ux-review.md`)
+## UX remediation, Phase A: quick fixes (User 2026-10-06: "implement as much as you can in all phases", `../plan/ux-review.md`)
 
 - **UX09 The selection follows the view:** showing another view in a pane lets go of whatever neither pane draws
   (`setPane` in CadShell asks each canvas `draws(id)` after the switch). Live: a sheet selected, then Plan → Properties
@@ -1102,10 +1102,10 @@ Checks: 459 cad tests pass; svelte-check: none in cad.
 - **UX06 Hover:** the Select tool shows what a click would take — a light-blue outline (a port: just its cell) — and
   the cursor says what a press does: crosshair on a grip, move on what moves, pointer on the rest. Live: an outlet
   outlined under the pointer, cursor "move".
-- **UX07 / Q5 One selection colour (Dave: as the Sheets tool):** selection blue `#2563eb` (was amber; orange is high
+- **UX07 / Q5 One selection colour (User: as the Sheets tool):** selection blue `#2563eb` (was amber; orange is high
   runs, amber the cord trace); every grip white with a blue edge, 8 px, a picked node filled blue; round grips
   (swing, depth) the same look, round. Selected viewports blue.
-- **UX03 Tool strip (Dave: icons + groups):** icons (Pages' names) in fixed groups — Select / modify · Draw · Annotate
+- **UX03 Tool strip (User: icons + groups):** icons (Pages' names) in fixed groups — Select / modify · Draw · Annotate
   · Building · Cabling · Sheet; a tool that doesn't work here is greyed with "works in …" in its title, so nothing
   moves. Undo / Redo / Delete / Split / panel switches became icons.
 - **UX12 (part) Views:** the strip over each pane has back / forward (‹ ›, Alt+← / Alt+→, per pane, a deleted sheet
@@ -1119,7 +1119,7 @@ Checks: 459 cad tests pass; svelte-check: nothing in cad.
 
 ## UX remediation, S2 windows + S4 menu bar (+ Help, the title block dialog) (`../plan/ux-review.md`)
 
-- **S2 Windows** (`app/windows.svelte.ts`, `ui/CadWindow.svelte`; Dave: the Sheets tool's floating windows):
+- **S2 Windows** (`app/windows.svelte.ts`, `ui/CadWindow.svelte`; User: the Sheets tool's floating windows):
   - Navigator (levels, sheets, sections), Properties, Layers, Blocks, Racks, Cables are windows.
   - A window is closed, docked in the left / right column (stacked, sharing the height — today's side panels) or
     floating over the drawing. Drag a floating window by its title; drop it on the drawing's left / right edge (a blue
@@ -1156,7 +1156,7 @@ Checks: 464 cad tests pass (new: `app/windows.test.ts`); svelte-check: nothing i
 
 ## UX remediation, S5: editing inside viewports (UX17) + the viewport chip (UX18) (`../plan/ux-review.md`)
 
-- **Edit the model through a viewport** (`views/vpFrame.ts`, ViewCanvas; Dave: "editing inside viewports, from both
+- **Edit the model through a viewport** (`views/vpFrame.ts`, ViewCanvas; User: "editing inside viewports, from both
   Pages and Sheets"):
   - Double-click a viewport (or its chip's "Edit inside") to enter it. The paper dims round it, its frame turns blue,
     the status bar says "editing Plan at 1:50", and the tool strip offers that view's tools (plan, elevation, section,
@@ -1169,7 +1169,7 @@ Checks: 464 cad tests pass (new: `app/windows.test.ts`); svelte-check: nothing i
     showing another view in the pane. Clicks outside the window do nothing while inside (frame-only picking, decided
     (c)). Entering opens the viewport's level.
   - Not yet: the in-place label editor (double-click / F2) inside a viewport — edit those labels in the view itself.
-- **The viewport chip** (`ui/ViewportChip.svelte`, UX18; Dave: "Alt is not intuitive, I prefer the pan/zoom content
+- **The viewport chip** (`ui/ViewportChip.svelte`, UX18; User: "Alt is not intuitive, I prefer the pan/zoom content
   toggle"): on the selected (or edited) viewport's corner, at screen size: its scale (pick 1:N), **Pan / zoom
   content** (on: a drag inside the viewport pans its view and the wheel steps its scale — no Alt; Alt still works
   once), and Edit inside / Done.
@@ -1184,7 +1184,7 @@ Checks: 464 cad tests pass; svelte-check: nothing in cad.
 
 ## UX remediation, S3: the Navigator tree (`../plan/ux-review.md`)
 
-- **One tree for the model and the sheets** (`domain/navTree.ts`, `ui/Navigator.svelte`; Dave: "Pages' tree is the
+- **One tree for the model and the sheets** (`domain/navTree.ts`, `ui/Navigator.svelte`; User: "Pages' tree is the
   right idea, but it must make models and drawings easier to find"):
   - Buildings › levels (with their outlet count) › Plan, Front / Rear / Left / Right elevation, the level's sections,
     its server rooms (n racks) › rows and racks; then the riser view; then Sheets (n), grouped by place when there's
@@ -1210,7 +1210,7 @@ Checks: 466 cad tests pass (new: `domain/navTree.test.ts`); svelte-check: nothin
   folding groups — rack: General · Position and size · Room, row, level · Product and notes; device: General ·
   Position · Product and size · Ports and labels; shape: General · Style — remembered per kind of thing in this
   browser. (Outlets, runs, sheets, cords and notes keep their own panels for now.)
-- **UX21 Right-click menu** (`ui/ContextMenu.svelte`; Dave: "ok for context-menu, but keep right-click = Esc while
+- **UX21 Right-click menu** (`ui/ContextMenu.svelte`; User: "ok for context-menu, but keep right-click = Esc while
   drawing"): a right-click on something SELECTED (Select tool) opens its commands with their keys — Edit label (F2),
   Cut, Copy, Delete, Select similar, Group / Ungroup and draw order for shapes, Properties. Anywhere else, and while
   drawing, a right-click is still Esc.
@@ -1226,7 +1226,7 @@ similar, Properties. No data written.
 
 Checks: 466 cad tests pass; svelte-check: nothing in cad.
 
-## UX remediation, D2: a depth band on elevations, to test (UX14; Dave: "currently prefer sections, but I would like to test depth bands")
+## UX remediation, D2: a depth band on elevations, to test (UX14; User: "currently prefer sections, but I would like to test depth bands")
 
 - An elevation's strip has **Band**: on, the elevation shows only what lies near its work depth — `front` mm towards
   you (default 1000) and `back` mm away (default 4000) round the work depth (`at`, blank = the middle of the floor).
@@ -1238,16 +1238,16 @@ Checks: 466 cad tests pass; svelte-check: nothing in cad.
 Live (Test Project, 1F front): Band on → 138 drawn elements → 78, 6 of them faded. No data written.
 
 Checks: 467 cad tests pass (new: the depth band test in `views/elevation.test.ts`); svelte-check: nothing in cad.
-- **One drag undocks and places a window** (Dave: "the initial dragging … gets interrupted, so it takes two drags"):
+- **One drag undocks and places a window** (User: "the initial dragging … gets interrupted, so it takes two drags"):
   the title drag listens on the browser window, so it carries on after the window comes out of its dock (drawn in a
   new place); the dock-edge marker moved to the shell (`layout.dropSide`). Live: one drag took the Navigator from the
-  left dock to the middle of the drawing. Dave's answers to the other decisions are in `../plan/ux-review.md`.
+  left dock to the middle of the drawing. User's answers to the other decisions are in `../plan/ux-review.md`.
 
 ## Second UX review, group 1: seeing the selection, space, bugs (`../plan/ux-review.md` "Second review")
 
-- **V1 Selection halo** (Dave: "difficult to see selected outlets"): every selected line, outline or circle gets a
+- **V1 Selection halo** (User: "difficult to see selected outlets"): every selected line, outline or circle gets a
   wide pale-blue halo behind it, constant on screen (9 px), so blue outlets show as picked too (`ui/Prims.svelte`).
-  Bands turn blue whole and texts go bold as before. (Dimming everything else is a question for Dave.)
+  Bands turn blue whole and texts go bold as before. (Dimming everything else is a question for User.)
 - **V2 One selected-row style** in every table: the drawing's selection blue with a blue bar on the left (was a
   near-white amber).
 - **R1 Right-click menu on Windows:** the browser's own `contextmenu` arrives after the button is let go and landed
@@ -1256,7 +1256,7 @@ Checks: 467 cad tests pass (new: the depth band test in `views/elevation.test.ts
 - **L1 More room:** the tables start closed (`cad-panels:2`, so every browser starts that way) and Racks no longer
   opens by itself in a rack view (the Navigator lists rooms and racks; Window › Racks for its tools). With the
   Navigator and Properties docked, the drawing is ~78 % of the width here (1708 of 2188 px) and the full height.
-- **T1–T3 The tables panel** (`ui/TablesPanel.svelte`; Dave: "float"): one title bar with horizontal tabs (Outlets ·
+- **T1–T3 The tables panel** (`ui/TablesPanel.svelte`; User: "float"): one title bar with horizontal tabs (Outlets ·
   Patch list · Sheets · Links), a summary ("Outlets · 47 · 12 selected"), fold to the bar, **maximise** over the
   drawing (Esc back), **float** over the drawing (move by the bar, resize by the corner, kept on screen) or dock under
   it, and close. Rows 20 px. Ctrl+, opens / closes it.
@@ -1265,13 +1265,13 @@ Live (Test Project): tables closed at start (drawing 1708 × 975); Ctrl+, opened
 floated → 975; maximised and Esc back; docked; closed. No data written.
 
 Checks: 467 cad tests pass; svelte-check: nothing in cad.
-- **Delete / rename a server room** (Dave: "how to delete unused items in levels tree, like SER-B?"): the Navigator's
+- **Delete / rename a server room** (User: "how to delete unused items in levels tree, like SER-B?"): the Navigator's
   room rows have ✎ and ✕ on hover. A room goes with its rows and racks (and their devices, links, cords); it asks
   first when racks go too or outlet ports name it as their server room, and an empty room just goes. In Help.
 
 ## Second UX review, group 2: drawing tabs (D1, D2)
 
-- **Drawing tabs** (`app/tabs.svelte.ts`, `ui/TabStrip.svelte`; Dave: shared by both panes, with a preview tab):
+- **Drawing tabs** (`app/tabs.svelte.ts`, `ui/TabStrip.svelte`; User: shared by both panes, with a preview tab):
   - One strip over the drawing; each tab is a level + a view (plan, elevation, section, rack room, riser, sheet).
     A click shows it in the active pane; in Split the shown tabs are marked 1 / 2.
   - A single click in the Navigator (or Enter in its search) opens the view in the **preview** tab (italic), which the
@@ -1285,7 +1285,7 @@ Checks: 467 cad tests pass; svelte-check: nothing in cad.
   - Kept per project in this browser; a deleted sheet's / section's tabs close.
   - The viewport chip has **Open view**: the viewport's model view in its own tab.
 - **D2** The Navigator marks rows that have an open tab (a dot).
-- Fixes: View menu's Back / Forward read the old per-pane history (`hist is not defined`, Dave); svelte-check's
+- Fixes: View menu's Back / Forward read the old per-pane history (`hist is not defined`, User); svelte-check's
   "used before its declaration" errors in CadShell / ViewCanvas (my svelte-check filter had been missing cad's
   double-backslash paths — fixed; checks below are with the right filter). The right-click / tab menus moved to
   `ui/cadMenus.ts` (CadShell 596 → 574 lines).
@@ -1295,7 +1295,7 @@ existing tab; Navigator dots on the open views; × closed the rear tab.
 
 Checks: 471 cad tests pass (new: `app/tabs.test.ts`); svelte-check: 10 errors (the baseline, none in cad), no cad
 warnings.
-- **L4 Navigator row menus** (Dave: "the hidden buttons beside project name in tree are hard to spot"): no more
+- **L4 Navigator row menus** (User: "the hidden buttons beside project name in tree are hard to spot"): no more
   hover-only buttons. Every row with commands has a faint ⋮ (stronger on hover), and the same menu on right-click:
   level — Open plan · Rename… (F2) · Delete level…; room — Open rack view · Rename… · Delete room…; sheet — Open ·
   Rename… · Renumber… · PDF · Archive; section — Open · Rename… · Delete section; Sheets — New sheet · PDF of all
@@ -1338,39 +1338,39 @@ Checks: 474 cad tests pass (new: `ui/tableKit.test.ts`); svelte-check: 10 (basel
   Circuit, remembered per kind. A blank Height shows the default it uses ("300 — wall default").
 - **Menus give the keys back:** a menu closed by Esc, a pick or a click outside blurs its button, so the next keys go
   to the drawing (the View button stayed outlined).
-- Still open for Dave: the Racks window (keep for its tools, or retire into the Navigator — L2) and dimming the rest
+- Still open for User: the Racks window (keep for its tools, or retire into the Navigator — L2) and dimming the rest
   while something is selected (V1.3).
 
 Live (Test Project): R311 selected → "1 selected (rack)", 4 halo outlines; the chip zoomed 182 % → 869 % onto it;
 the spinner showed while the floorplan rendered. No data written.
 
 Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline), no cad warnings.
-- **Fixes (Dave):** "clicking tabs does nothing" — showing a tab cloned its view with `structuredClone`, which throws
+- **Fixes (User):** "clicking tabs does nothing" — showing a tab cloned its view with `structuredClone`, which throws
   on a `$state` proxy (the tab list is state); Back / Forward and the chip's Open view had the same; now
   `$state.snapshot`. Live: clicking 1F plan / 1F front elevation tabs switched the view. "S006: ports unreadable due
   to the white background of panel labels when zoomed in; panel labels too faint" — a panel's name over its ports no
   longer has a white halo, and its small (zoomed-in) form is full strength, dark and semi-bold (screen and PDF).
   Live: S006 at 1323 %: names halo-free and solid over 134 readable port labels.
-- **Viewports and layers (Dave: "in viewport, hiding layers does not hide them"):** the Layers eye (hide, only for
+- **Viewports and layers (User: "in viewport, hiding layers does not hide them"):** the Layers eye (hide, only for
   you) now hides the layer inside sheet viewports too, on screen (`SheetOpts.hidden`); what prints is still each
   viewport's ❄ freeze. The ❄ column also shows while editing inside a viewport. Live: Walls' eye on S001 → 22 wall
   prims → 0 → 22.
-- **Viewports are picked by their frame only** (Dave: "too easy to drag viewports around page by mistake … only on the
+- **Viewports are picked by their frame only** (User: "too easy to drag viewports around page by mistake … only on the
   frame border, like Pages and Sheets"): the frame isn't filled for picking any more, so a click in a viewport's middle
   is the paper (or a note there); its border picks and drags it, a corner resizes it, a double-click anywhere inside
   edits inside it. Help updated. (While testing, a ❄ on S001's viewport was clicked by mistake and clicked back — no net
   change.)
-- **Selected labels readable when zoomed in** (Dave: "outlet labels are unreadable on plans when selected and zoomed
+- **Selected labels readable when zoomed in** (User: "outlet labels are unreadable on plans when selected and zoomed
   in, the blur is bad"): `.sel`'s blue stroke also outlined selected TEXT, and a text stroke isn't screen-constant, so
   it grew with the zoom and smeared the label; selected text is now bold blue with no outline.
-- **The selection box shows while editing inside a viewport** (Dave: "the select marquee is not visible"): it was
+- **The selection box shows while editing inside a viewport** (User: "the select marquee is not visible"): it was
   drawn in the viewport's view mm on the paper (off the page); it's mapped onto the paper now. The box is a little
   stronger everywhere (1.5 px, 12 % fill). Live (S001, inside the plan viewport): the box sat inside the frame and
   selected 30 items; selected labels: no stroke, blue, 600.
-- **Usage can be cleared** (Dave: "most outlets don't need to display it, just specific ones"): Usage has "— none (not
+- **Usage can be cleared** (User: "most outlets don't need to display it, just specific ones"): Usage has "— none (not
   shown)" in outlet Properties (one or several) and "—" in the outlet table. A blank usage draws nothing under the
   symbol, takes a general panel in allocation (like before) and counts as "other" in the schedule totals.
-- **Port counts in the middle of the outlet** (Dave: "port numbers should be shown in the center of the outlet"; they
+- **Port counts in the middle of the outlet** (User: "port numbers should be shown in the center of the outlet"; they
   were to the right): centred in every built-in outlet symbol. A text wholly inside a filled shape of its block
   (`onSolid` in `views/blocks.ts`) is white (`on-fill`, over the layer colour and the selection); a port count on an
   outline symbol (ceiling, faceplates) is dark with a halo sized in em, so it doesn't grow with the zoom. The AP's
@@ -1387,7 +1387,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **Labels edited inside a viewport** (backlog "Edit labels in place" follow-up): double-click / F2 on a label while
   editing in a viewport opens the box where the words show on the paper (`TextEditBox` takes the viewport's space,
   prims and view → paper mapping). Live (S001): A003's box sat on its label (490,799 vs 487,797), Esc left it.
-- **Cords along the cable channels** (backlog P1, Dave: "a toggle to switch between the current cord rendering and
+- **Cords along the cable channels** (backlog P1, User: "a toggle to switch between the current cord rendering and
   using the side channels"): `views/cordRoute.ts` ports the legacy patching tool's `computeRoute`
   (`patching/parts/cableUtils.ts`) to view mm — each end drops below its port and runs to the channel on its side
   (along the panel edges, outside the port area); a cord changing sides in one rack crosses through the horizontal
@@ -1397,7 +1397,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   **Cord channels** in a rack view's strip — a project setting (`settings.cordRoute`, stored as 'channels' /
   'straight' so a merge-save can't revert it), followed by sheets, PDFs and issued copies. Tests:
   `views/cordRoute.test.ts` (5). Live (Test Project, IDF2 front, all rows): 19 cords, all orthogonal; left ON there.
-- **Selection drawn as Pages / Sheets do** (Dave: "the halo is enough [no dimming], but I prefer the selection
+- **Selection drawn as Pages / Sheets do** (User: "the halo is enough [no dimming], but I prefer the selection
   rendering of Pages and Sheets"): no halo, no recolouring — a selected item keeps its own colour and weight; a thin
   blue line (1.75 px) is drawn over its lines and circles, and a dashed blue box (padded 4 px) goes round each
   selected symbol, box or text (a run or wall — open lines only — gets just the line). Grips were already the Sheets
@@ -1407,27 +1407,27 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   (15 KB), cord BOM / patch schedule (13 KB), PDF of all sheets (6 pages, 681 KB), sheet register Excel (7 KB),
   transmittal (7 KB), reprint (391 KB PDF), a sheet "as issued" (S001 rev B, 401 KB PDF), panel labels Excel (IDF2,
   360 labels, 16 KB), panels PDF (13 panels, 2 pages, 15 KB) — every one made its file with the right name and type.
-  The "Mark printed" offers were cancelled. Opening the files (are their contents right?) is still for Dave.
+  The "Mark printed" offers were cancelled. Opening the files (are their contents right?) is still for User.
 - **Touch pass** (backlog P2 quick win; synthetic touch pointers, no iPad): a tap selects; a one-finger drag on empty
   space does nothing; a pinch does nothing; the canvas is `touch-action: auto`, so an iPad scrolls / zooms the whole
   page. Findings moved into the "Touch: pan and pinch zoom" backlog entry.
 - **Plan: organising sheets and issue packages** — `../plan/sheets-organising.md` (categories, derived level / room
   / issue-state columns, group / sort / filter, bulk edit, packages as a list or a rule, re-issue diff, cover page;
-  9 slices, ~1,300 lines; questions D1–D9 for Dave).
+  9 slices, ~1,300 lines; questions D1–D9 for User).
 - **Device library: drag onto a rack** (backlog P2): a Device library section in the Racks window — every template
   (built-in and global ★), a find box, grouped by kind with its U. Drag one over a rack view: the Device tool's ghost
   follows at the snapped U (red when it overlaps or runs off the rack); the drop adds it (one undo step, selected),
   and the tool you had comes back when the drag ends. A click arms the Device tool with it instead. Help updated.
   Live (IDF2 front): "Fibre panel 24 LC" dragged onto R313 → ghost, PP4 added and selected, Select back; undone.
-- **Device library in its own window** (Dave: "it might get very long"): Window › Device library, docked under Racks;
+- **Device library in its own window** (User: "it might get very long"): Window › Device library, docked under Racks;
   it opens with the Device tool (as Blocks opens with Insert). The Racks window is back to racks only.
-- **F4 repeats the last device edit** (Dave, like Excel): a field changed on a device (or several) in Properties is
+- **F4 repeats the last device edit** (User, like Excel): a field changed on a device (or several) in Properties is
   remembered as the change itself (`domain/repeatEdit.ts`); select other devices, F4 puts it on them, one undo step.
   Not repeated: name, U (per device) and the printed-label record; a panel change carries only the changed panel
   fields (another panel keeps its reservations / printed labels); a device the change won't fit is skipped and named.
   Help (keys + how-to) updated. Tests: `domain/repeatEdit.test.ts` (3). Live (IDF2): Maker "F4TEST" on one switch,
   F4 on another → "Repeated "Device maker" on 1 device"; both undone.
-- **Sheets plan decisions** (Dave 2026-10-07) recorded in `../plan/sheets-organising.md`: categories GLOBAL
+- **Sheets plan decisions** (User 2026-10-07) recorded in `../plan/sheets-organising.md`: categories GLOBAL
   (`settings/cadSheetCategories`, retire not delete), discipline kept, review flag and DRAFT stamp later, cover page
   at the first sheet's size, packages by list or rule, rev codes typed per issue first, recipients on the package,
   "Make package" for old issues.
@@ -1445,7 +1445,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   register Excel has Category / Level / Room instead of Place / Kind. Tests: `sheetList.test.ts` (+4). Live (Test
   Project): 6 sheets → Rack elevations ×3, Plans ×2, Sections ×1, all auto; group by level 1F 3 · 4F 3; chips Rack
   elevations → 3, + 4F → 2.
-- **Slice 2 — the category list, GLOBAL (Dave D1):** `settings/cadSheetCategories` (`{ categories }`, replaced whole
+- **Slice 2 — the category list, GLOBAL (User D1):** `settings/cadSheetCategories` (`{ categories }`, replaced whole
   on save), read by `CadProject` like the device templates; the built-in list while it's empty. Project › Settings ›
   **Sheets** (`SheetCategoriesTab.svelte`): rename, code (the Renumber prefix), order ▲▼, how many sheets here use
   it; ✕ RETIRES a category (other projects may use it: it still names their sheets, it isn't offered any more),
@@ -1454,7 +1454,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   `sheetCategories.test.ts` (4). Live: Details ▲ then ▼ — saved to the global doc and back in the built-in order
   (the doc now exists, equal to the defaults).
 - **Slice 6 — packages:** a `package` entity (`SheetPackage` in `domain/drawing.ts`): name, purpose, recipients
-  (Dave D8), note, and EITHER a list of sheet ids OR a rule (category / level / room / tag / discipline ids — D6);
+  (User D8), note, and EITHER a list of sheet ids OR a rule (category / level / room / tag / discipline ids — D6);
   `issue.packageId` links an issue to it. `domain/packages.ts`: members now (a list in its order, gone / archived
   sheets left out; a rule in print order, never archived), rule from the chips, rule in words, freeze to list, last
   issue, since then (added / withdrawn / never issued), a package from an old issue, recipients as lines. Sheets tab ›
@@ -1466,7 +1466,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   elevations → + From chips "Rack set TEST" = 3 sheets, 2 not issued; Issue… filled from it (cancelled); Make package
   on Issue 04 → linked, nothing since; both undone.
 - **Slice 7 — re-issue diff + change notes:** the Issue panel is a table — per sheet its new revision (from → code,
-  the code editable; "Set all to…" for P01 → C01, Dave D7) and **what changed** (prefilled with the purpose), or "stays
+  the code editable; "Set all to…" for P01 → C01, User D7) and **what changed** (prefilled with the purpose), or "stays
   B (unchanged since issued)"; **By** (initials, remembered in this browser). Issuing a package marks sheets **added**
   since its last issue and lists the **withdrawn** ones (recorded on the issue: `issue.withdrawn`). A typed code that
   is blank or one the sheet already has is refused before anything is written (`withCodes`, `revCodeProblem` in
@@ -1474,7 +1474,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   the purpose (old revisions print exactly as before — their fingerprints don't change). Tests: `issue.test.ts` (+2).
   Live: S001 / S006 / 2 → C / A / A; "B" on S001 refused, Issue disabled; cancelled.
 - **Slice 8 — cover page + transmittal:** `views/transmittalPage.ts` draws the cover as display lists on the package's
-  first sheet's paper with the project title block (Dave D5) — project, "TRANSMITTAL — Issue 05 · name", purpose,
+  first sheet's paper with the project title block (User D5) — project, "TRANSMITTAL — Issue 05 · name", purpose,
   date, To (the package's recipients, D8), note, then the register (No., title, rev, size, New revision / As last
   issued / Withdrawn in red); a long register flows onto more pages ("page 2 of 3"). The Issue panel's **Cover page**
   (on by default) puts it first in the package PDF; the cover is frozen with the issue (`cover-<issueId>`, rev = page
@@ -1503,7 +1503,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   fingerprint in the background (floorplans placed, one sheet at a time, a pause between), only while something asks
   (`want()`), again ~1 s after an edit; one per project. The register's **Issue state** box adds the column (coloured)
   and a State chip; the Navigator shows an amber ● on a sheet changed since its last issue (when known). The DRAFT
-  stamp is later (Dave D4). Tests: `issue.test.ts` (+1). Live (Test Project): 2, S006 Not issued; S001 / S003 / S004 /
+  stamp is later (User D4). Tests: `issue.test.ts` (+1). Live (Test Project): 2, S006 Not issued; S001 / S003 / S004 /
   S005 Changed since — true: this week's drawing changes (port counts in outlets, run labels, cord channels) change
   how they print, so the next issue gives them new revisions; 4 dots in the Navigator.
 - **Slice 9 — history:** sheet Properties › **Issued in** — every issue that included it, newest first, at which
@@ -1511,13 +1511,13 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   issues (newest first, how many new revisions, the PDF). Tests: `issue.test.ts` (+1). Live: S001 → Issue 03 B new ·
   Issue 02 A · Issue 01 A new. **The plan is built** (the backlog's "Organising sheets" and "Revisions and packages"
   entries are done; review / approval, the DRAFT stamp and version history stay for later).
-- **Fixes (Dave 2026-10-07):** an auto category (worked out from the viewports) is plain grey "(auto)", not italic;
+- **Fixes (User 2026-10-07):** an auto category (worked out from the viewports) is plain grey "(auto)", not italic;
   the tables in the bottom panel are as wide as their content, from the left (the register was stretched to the
   panel: Category 228 px, an empty Tags 144 px, Level 49 px) — the register's edit boxes and category picker fit
   their text (`field-sizing: content`), long patch-list notes are cut with … (full text on hover). Live: register
   1229 → 738 px. Backlog: "Uploads from inside cad" (link or embed) added.
 
-## Batch (Dave 2026-10-07): 1 2 3 4 5 6 10 13 14 23 30
+## Batch (User 2026-10-07): 1 2 3 4 5 6 10 13 14 23 30
 
 - **1 — oversized files split** along real seams, no behaviour change: CadShell 609 → 497 (`WindowBody.svelte` the
   windows' insides, `SplitBar.svelte`, `ui/shellKeys.ts` the keys with a context like the menus', `app/shellActions.ts`
@@ -1555,20 +1555,20 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   iPad pass is still worth doing.
 - **Docs:** `../local-storage.md` lists every key cad keeps in the browser (12 in localStorage, 1 in sessionStorage):
   what each holds, per project or not, which file writes it, and how to add one. The ~500-line file limit is relaxed
-  for now (Dave) — backlog note updated.
+  for now (User) — backlog note updated.
 - **30 — Issue register for the PM:** Sheets › Issues › **Issue register (Excel)** — a row per sheet that went out
   (by number), a column per issue (in issue order, "Issue 03 name" + date) with the revision it went at (bold = new in
   that issue, red "withdrawn"); **latest only** = one column, each sheet's last revision · issue · date
   (`issueRegister` in `domain/issue.ts`, `render/issueRegister.ts`). Tests: `issue.test.ts` (+2). Live: both files made
   (7 KB each). Help: touch, port tips, B/W and the register added.
-- **10, revised (Dave: "B/W should toggle for printing too"):** B/W is now a PROJECT setting (`settings.grayFloorplans`,
+- **10, revised (User: "B/W should toggle for printing too"):** B/W is now a PROJECT setting (`settings.grayFloorplans`,
   stored true / false; one undo step), like Cord channels: floorplan image prims carry `gray`, so the screen, sheet
   viewports, sheet PDFs and issued copies all follow it — the PDF loader draws a gray image in grayscale before
   embedding it (kept apart from the same image in colour), and the frozen copy keeps the flag (switching B/W is a real
   change to an issued sheet). The per-browser `drafting.grayPlan` is gone. Tests: `pdf.test.ts` (+1). Live: B/W on →
   plan and S001 gray → back off.
 
-## Batch (Dave 2026-10-07, second): 1 5 7 9 10 12 13 20 23 24
+## Batch (User 2026-10-07, second): 1 5 7 9 10 12 13 20 23 24
 
 - **Backlog:** not needed → `later.md` (snap to rack corners, dim other cords, check old cord ends, F8 / F10, selectable
   Japanese PDF text, per-viewport port-label / cord toggles — replaced by the Port labels layer); low priority (P3, and
@@ -1598,7 +1598,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   issued, frozen; built) and project VERSIONS (named snapshots of every `cadEntities` doc, in `cadVersions`); no
   major / minor model versions; issuing auto-saves a version (`issue.versionId`); restore = the whole project as one
   undo step, keeping the live issue history; what Version history / Revert / Issue gate / Change history then need;
-  six questions for Dave.
+  six questions for User.
 - **13 — Bulk patching by drag:** a drag that ARMS a tool (`ws.startDrag` / `endDrag`, the Device library's drag
   generalised): drag outlet rows from the Outlets table (the selection when the row is in it) onto a panel port in a
   rack view — Assign from there (pinned); drag Port Properties' "Patch … to…" / "Interconnect to…" onto the first port
@@ -1619,10 +1619,10 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
 - **24 — Open project (Ctrl+O):** File › Open project… / Ctrl+O — the Pages tool's dialog ported
   (`OpenProjectDialog.svelte`, cad's colours): every project (trashed hidden), search over name / codes / client,
   "My projects", newest first, ↑ / ↓ / Enter; picking one opens it in cad (the route is keyed by project, so the
-  workspace starts fresh). Help: Ctrl+O. Live: Ctrl+O → Project Journey, Test Project (open), LR; Esc closed it.
-- **Riser voids white (Dave):** the raised-floor void and ceiling plenum are no longer shaded (`riser-void` strips
+  workspace starts fresh). Help: Ctrl+O. Live: Ctrl+O → Project Tourney, Test Project (open), LR; Esc closed it.
+- **Riser voids white (User):** the raised-floor void and ceiling plenum are no longer shaded (`riser-void` strips
   and their styles removed); slabs, FFL and ceiling lines unchanged. Live: S007 shows 0 voids, 5 slabs.
-- **Dave 2026-10-07 follow-ups:**
+- **User 2026-10-07 follow-ups:**
   - Rack pair focus removed (Shift+double-click, Esc back to the row): not needed. Double-click a rack still fits it.
   - Annotations on sheets go on the VIEW only: Text / Leader / Cloud / Dimension used inside a viewport being edited
     leave it first, so the note is tied to the viewport (never written into the model from a sheet). Help entry.
@@ -1633,7 +1633,7 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
   - Patch to… easier to find: the selected ports' section is at the TOP of Device Properties (boxed), Patch to… /
     Interconnect to… are blue buttons with their keys; P / I arm them; right-click a selected port → Patch to… /
     Interconnect to… first in the menu. Help: keys + the patching answer. Live: all three, P armed the Cord tool.
-- **Dave 2026-10-07, second round:**
+- **User 2026-10-07, second round:**
   - Annotation tools (Text / Leader / Cloud / Dimension) are enabled while ANY viewport is being edited (a rack or
     riser view had them greyed out, so they couldn't be used): `toolWorksIn(id, kind, onSheet)`, `ANNOTATION_TOOLS`.
     Live: S006 rack viewport in edit mode → Text / Leader / Dimension on, Line off.
@@ -1644,9 +1644,9 @@ Checks: 475 cad tests pass (new: the declutter test); svelte-check: 10 (baseline
     thing's shapes and leaves its words as drawn; a text alone still turns blue.
   - "Interconnect" → "Link" in every label, menu, message and help (Link to…, key L); code names unchanged.
 
-## Backups (Dave 2026-10-08; ADR `../adr/0008-backups.md`, plan `../plan/backups-plan.md`)
+## Backups (User 2026-10-08; ADR `../adr/0008-backups.md`, plan `../plan/backups-plan.md`)
 
-Called **backups**, not versions (Dave: clearer to a new user). Dave's answers: no automatic backup when issuing (a
+Called **backups**, not versions (User: clearer to a new user). User's answers: no automatic backup when issuing (a
 tick), the project owner only restores, a 30 s countdown, models (levels) only, keep until deleted by hand.
 
 - **1 — What a model holds** (`domain/backupParts.ts`): `inParts` — a level, its spaces, outlets, underlays, plan
@@ -1688,7 +1688,7 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   live (an issue uploads a PDF): the tick and warning checked, cancelled.
 - Help: back up / restore a file, keep and clean up backups, the issue tick.
 
-## Batch: shapes per elevation, file storage, multi-core cables (Dave 2026-10-09: "do 5 2 12")
+## Batch: shapes per elevation, file storage, multi-core cables (User 2026-10-09: "do 5 2 12")
 
 - **Shapes that belong to one elevation** (backlog P2, G266): a FLAT shape drawn on an elevation's / section's plane —
   text, leader, cloud, dimension, a flat Shape-tool shape, and now a LINE — belongs to that view (`ownFrame` /
@@ -1724,7 +1724,7 @@ tick), the project owner only restores, a 30 s countdown, models (levels) only, 
   of 12"; installing core 1 installed its 12 (not the 6); all undone (links back to 162) and the cores cleared.
   Also: the schedule's totals line lost its spaces before "· N without a route" (fixed).
 
-## Batch: change history, fill by hand, text fields, routes by hand, frame label Excel (Dave 2026-10-09: "do 1 2 3 4", then "do 12 as well")
+## Batch: change history, fill by hand, text fields, routes by hand, frame label Excel (User 2026-10-09: "do 1 2 3 4", then "do 12 as well")
 
 Also: floorplan zones rotate / drag and several buildings marked not required (→ `../plan/later.md`).
 
@@ -1773,7 +1773,7 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
 - Fix (found while testing): cancelling the Issue panel switched the Sheets tab to its Issues view; now only a
   finished issue goes there, Cancel stays where you were (`IssuePanel` `onclose(issued)`). Live: Sheets → Issue… →
   Cancel → still Sheets.
-- **Frame label sheets in Excel (grid layout)** (backlog P2, G097 / G131 / T050; Dave "do 12 as well"): the Frames
+- **Frame label sheets in Excel (grid layout)** (backlog P2, G097 / G131 / T050; User "do 12 as well"): the Frames
   export (`frames/parts/exportExcel.ts`) ported onto cad's racks — `render/frameSheets.ts`: `frameRacks` (pure: a
   room's patch frames, else racks holding a panel, in row order; each device a block from its top U; a panel's ports
   24 a row in its numbering, each cell the port label + the usage of the outlet it reaches, or the usage a
@@ -1786,9 +1786,9 @@ Also: floorplan zones rotate / drag and several buildings marked not required (�
   in the page and read back, nothing saved): one sheet "1F IDF2", R312 and R311 (42U) start 3 U lower than P3C
   (45U), labels coloured by usage (desk blue, others green), managers as merged blocks, A3 landscape fit, footer.
 
-## Batch: menu fix, rack elevation context, markup kinds (Dave 2026-10-09)
+## Batch: menu fix, rack elevation context, markup kinds (User 2026-10-09)
 
-Dave: the Racks window's room ⋯ menu "looks weird with labels centered"; rack elevation context = the server room's
+User: the Racks window's room ⋯ menu "looks weird with labels centered"; rack elevation context = the server room's
 own floor / ceiling lines and the view toggles (draggable walls a maybe → `../plan/later.md`); markup = arrowheads,
 images, and blocks for datum, detail and elevation tags (no north arrow).
 
@@ -1813,7 +1813,7 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   colour (solid even on a dashed line), on plans, sheets and elevations (`endItems`), screen and PDF. Properties ›
   Start / End for one or several plain lines (LineStyle). Tests: `plan.test.ts` (+1). Live (1F): a line given an arrow
   and a tick → one head, one tick drawn; undone.
-- **Markup: drawing symbols** (backlog "Markup kinds" part 5; no north arrow — Dave): built-in annotative blocks in a
+- **Markup: drawing symbols** (backlog "Markup kinds" part 5; no north arrow — User): built-in annotative blocks in a
   Symbol group (`drawingSymbols` in domain/blocks.ts) — Datum (level): a quartered target on its line, "{NAME}
   {HEIGHT}" (FFL +0); Detail callout: a split bubble, {NUMBER} over {ON_SHEET}; Elevation tag: the bubble with a
   filled pointer on its edge (turn the insert to aim it). Their words are block attributes with defaults (Properties
@@ -1833,11 +1833,11 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   done; "Images in elevations" stays (P2). Tests: `plan.test.ts` (+1). Live (S001): eire-logo.png and 3PAGE.pdf
   page 2 placed by dragging, both drawn (the PDF page rasterised), the logo resized by its corner grip; both removed
   (undo, and a delete for one placed before an HMR reload).
-- **PDF of this sheet** (Dave 2026-10-09: "I can't find it"): File and Sheets menus › PDF of this sheet — the sheet
+- **PDF of this sheet** (User 2026-10-09: "I can't find it"): File and Sheets menus › PDF of this sheet — the sheet
   open in the active pane (greyed when none). It was already on the Navigator's right-click (PDF), the sheet's
   Properties (Download sheet PDF) and Tables › Sheets (PDF of the selection); Help gains "Make a PDF of a sheet". Live:
   the item shows, enabled on S001 (not clicked: a download).
-- **Lines on sheets: selection and grips** (Dave 2026-10-09: "lines inside views show selection and grips nicely,
+- **Lines on sheets: selection and grips** (User 2026-10-09: "lines inside views show selection and grips nicely,
   but lines on sheets don't"): the sheet canvas highlighted nothing (the paper and its windows share the sheet's id),
   so a selected paper line, note or shape had no blue line / box — now everything selected but the sheet itself is.
   A line drawn inside a viewport is tied to it in its view mm, but the Select tool gripped it as paper mm (grips off
@@ -1852,7 +1852,7 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   the tool hint and Help say where it goes. Tests: `elevation.test.ts` (+1). Live (1F front elevation):
   eire-logo.png dragged in, drawn, selected with its 8 grips, moved and resized by its right-edge grip (4240 → 5970
   mm, left edge kept); removed (an undo, then a delete after a reload had cleared undo).
-- **Work plane grip** (Dave 2026-10-10: "should the green dashed work plane be movable?" — yes): with a plan and an
+- **Work plane grip** (User 2026-10-10: "should the green dashed work plane be movable?" — yes): with a plan and an
   elevation split, the green work-plane line in each pane gets a green grip where it starts by the drawing, its value
   beside it ("Work depth −8180 (auto)" / "Work Z +1040"). Dragging it (Select tool) sets the elevation's work depth
   (plan) or the plan's Z (elevation) in 10 mm steps (Alt: free); a double-click on the plan's grip sets the depth back
@@ -1860,12 +1860,12 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   `workPlaneGrip` / `workPlaneAt` in views/overlays.ts (tested in the new `overlays.test.ts`), ViewCanvas the drag and
   the grab cursor; Help "Set where drawing in an elevation goes". Live (1F front + plan): depth −8180 → −5990 by a
   drag, double-click → auto; Z dragged to +1040 and back to 0.
-- **Cloud preview** (backlog ⚡, Dave 2026-10-09): the Revision cloud tool's rubber band is scalloped as the cloud will
+- **Cloud preview** (backlog ⚡, User 2026-10-09): the Revision cloud tool's rubber band is scalloped as the cloud will
   be drawn — one bumpy edge for two points, then the closed cloud (`cloudPts` exported from views/plan.ts; bumps 6
   printed mm: paper mm on a sheet, × the plot scale elsewhere). Tests: `notes.test.ts` (+1). Live (1F plan): one
   scalloped edge, then a closed cloud following the cursor; dropped with Esc. Backlog: penetration fill and linked
-  symbols moved to P3 (Dave: low priority) — no P1 / P2 left.
-- **Plan things not in elevations** (Dave 2026-10-10: "when outlets, symbols, 2d blocks, dimensions etc are placed on a
+  symbols moved to P3 (User: low priority) — no P1 / P2 left.
+- **Plan things not in elevations** (User 2026-10-10: "when outlets, symbols, 2d blocks, dimensions etc are placed on a
   plan, they should not be displayed on elevations"): elevations and sections now show only outlets and block inserts
   placed IN an elevation / section (new `inElevations` flag, set by the Outlet and Insert tools there), and no flat
   plan drawing (`planDrawing` in views/elevation.ts: a line, box, circle or polygon with no height, role or vertical
@@ -1874,12 +1874,12 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   `elevation.test.ts` (+1, fixtures' outlets marked as placed on walls), `insertTool.test.ts`. Live (1F front + plan):
   the elevation shows no outlets (the plan's 32 still drawn); a faceplate placed in the elevation shows there; undone.
   Help: "What a plan shows in elevations".
-- **Show in elevations tickbox** (Dave 2026-10-10): Properties › Elevations "show in elevations" sets `inElevations`
+- **Show in elevations tickbox** (User 2026-10-10): Properties › Elevations "show in elevations" sets `inElevations`
   on an outlet or a block insert (plan / elevation inserts; not sheet ones) — one, or several at once (mixed =
   indeterminate). Fixes outlets / blocks placed in elevations before the flag, and shows a plan-placed wall outlet
   there. Live (1F): ticked outlet A003 → it showed in the front elevation; undone → gone, box unticked. Help updated.
 
-### Batch 5 (Dave 2026-10-10: "do 2 5 6 7 10. do the blocks drag")
+### Batch 5 (User 2026-10-10: "do 2 5 6 7 10. do the blocks drag")
 
 - **Layer line type and lineweight** (backlog ⚡): Layers › the line sample on a row opens Line type + Lineweight
   selects (undoable; a system layer gets its record on first change). `applyLayers` (views/layers.ts) puts them on
@@ -1925,9 +1925,9 @@ images, and blocks for datum, detail and elevation tags (no north arrow).
   `ui/libraryDrop.test.ts` (3). Live (1F plan): "Faceplate - power, single" dragged in with HTML drag events — ghost
   shown, the insert placed and selected, Select back; undone. Left in the backlog: a block's own front drawing.
 
-Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
+Batch 5 done (User's 2, 5, 6, 7, 10 + blocks drag).
 
-### Follow-ups (Dave 2026-10-10)
+### Follow-ups (User 2026-10-10)
 
 - **Say the layer a drawing went on** ("a toast might be a good idea"): `domain/layers.ts` `drawnOn(created, layers)` —
   "Drawn on the Walls layer" for new plan / view shapes (paper shapes: nothing); `CadShell` subscribes to the store
@@ -1936,15 +1936,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **0U PDU selection box too wide:** `primBounds` measured the PDU's turned name (rot −90) as flat text, so the box
   was as wide as the name is long. Turned text is now measured turned (also tightens picking and zoom-to-fit).
   Test: `views/display.test.ts`.
-- **Rack order round a corner (Journey IDF1):** R301–R303 face up (180°); round the corner P3A faces right (270°) and
+- **Rack order round a corner (Tourney IDF1):** R301–R303 face up (180°); round the corner P3A faces right (270°) and
   its two VCMs left (90°). Runs were grouped by exact rotation and ranked along the FIRST rack in the data (a VCM), so
   the view read R301 R302 R303 then P3A. `racksInOrder` now groups a run by its line (rotation mod 180), orders each run
-  from the facing with the most width, and ranks runs along the widest run: VCM P3A VCM R301 R302 R303 (Dave: P3A left
+  from the facing with the most width, and ranks runs along the widest run: VCM P3A VCM R301 R302 R303 (User: P3A left
   of R301). IDF 2 unchanged. Allocation follows the same order, but existing links stay. Help: "Change the order of
   racks in a rack view". Test in `views/rackRow.test.ts`.
 - **Server room rack counts leave out VCMs:** the Navigator's "N racks" beside a server room skips `kind: 'vcm'`;
   the managers are still listed under it. Test in `domain/navTree.test.ts`.
-- **Labelled port ranges on a panel (Dave: option A — P3A U41, top 24 → R301, bottom 24 → R302):**
+- **Labelled port ranges on a panel (User: option A — P3A U41, top 24 → R301, bottom 24 → R302):**
   `PanelInfo.groups` = `{ from, to, label }[]`; `domain/portGroups.ts`: `groupPortLabel` ("P3A-R302:01" for the 25th
   port, numbered within the range), `groupsProblem` (off the panel / back to front / overlapping), `splitPanel` (In two:
   each half labelled "<rack>-<the rack its cables go to>", else "<panel>-A / -B"). `ProjectIndex.portLabel`: own label,
@@ -1952,123 +1952,123 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Rack view: each range's label over its first port instead of the panel name. Properties › Ports and labels › Split
   labels (In two, edit from / to / label, + Range, ✕). Help: "Give half a panel its own label". Tests:
   `domain/portGroups.test.ts` (5). Not tried live: Test Project has no 48-port panel with ties.
-- **Drag tabs to reorder (Dave):** `Tabs.move(id, target, after)` (the panes keep their tabs; saved with the list);
+- **Drag tabs to reorder (User):** `Tabs.move(id, target, after)` (the panes keep their tabs; saved with the list);
   the strip uses `$lib` DragReorder, a blue line on the side the tab goes. Help: "Work with the drawing tabs". Test in
   `app/tabs.test.ts`. Live: a tab dragged to the front and back with drag events — order changed, views unchanged.
   Off the backlog.
-- **Duplicate tabs (Dave: "why are there duplicate tabs shown?"):** switching a tab's view in place (the view bar's
+- **Duplicate tabs (User: "why are there duplicate tabs shown?"):** switching a tab's view in place (the view bar's
   Plan / Front …, a level picked elsewhere, Back / Forward) never checked for another tab open on that view; only the
   Navigator's open did. `Tabs.go` / `sync` / `nav` now show that open tab instead (the current tab is left as it was),
   and duplicates saved before merge on load (the first kept, panes moved to it). Test in `app/tabs.test.ts`. Live:
   Test Project's two "IDF2 racks · Row A" and two "1F plan" tabs merged — 7 tabs, all different.
-- **Unlink several panels at once (Dave: P3A's panels U4–U10 in Journey):** `domain/ports.ts` `cablesOnDevices`;
+- **Unlink several panels at once (User: P3A's panels U4–U10 in Tourney):** `domain/ports.ts` `cablesOnDevices`;
   `ui/DeviceCables.svelte` — Remove links (N) / Remove cords (N) for one device (Properties › Ports and labels) or
   several (DeviceMultiProps); asks first, one undo step. Test in `domain/ports.test.ts`.
-- **Shift-click a range of devices (Dave: select U10, Shift-click U4):** `domain/devices.ts` `devicesBetween` — the
+- **Shift-click a range of devices (User: select U10, Shift-click U4):** `domain/devices.ts` `devicesBetween` — the
   rack's devices shown on this face whose Us fall between the two, top down (0U PDUs left out); `SelectTool` keeps the
   last device clicked (body or port) as the anchor, and a Shift-click on another device of that rack selects the range
   (a Shift-click on the same device still selects a port range). Help: "Select a run of devices in a rack, and unlink
-  them". Test in `editor/racks.test.ts`. Not clicked live: Dave was working in the tab.
-- **Drag outlet rows onto a panel itself (Dave: Journey, rows from the bottom panel to a panel to allocate):** this
+  them". Test in `editor/racks.test.ts`. Not clicked live: User was working in the tab.
+- **Drag outlet rows onto a panel itself (User: Tourney, rows from the bottom panel to a panel to allocate):** this
   already worked onto a PORT; `AssignTool` now takes a drop (or click) on the panel's body too — from its first free
   port. Hints and Help say so (and that a rack view opens the tables on the Patch list: pick Outlets). Test in
   `editor/racks.test.ts`. Live (Test Project): an outlet row dragged onto PP3's edge linked its 4 ports; undone.
-- **Closed tables keep their tab bar (Dave):** closed, the tables leave their bar under the drawing — the four tabs and
+- **Closed tables keep their tab bar (User):** closed, the tables leave their bar under the drawing — the four tabs and
   an open button; a tab opens the panel on it (`TablesPanel` `closed`, `CadShell` `tablesBar`; not when Ctrl+. hides
   everything). Help: "Open, move and dock windows". Live: ✕ left the 28 px bar; Outlets opened it on the outlet table.
-- **Gap under the status bar (Dave):** the shell was `100vh − 3rem` (42 px) under a 28 px title bar, leaving 14 px
+- **Gap under the status bar (User):** the shell was `100vh − 3rem` (42 px) under a 28 px title bar, leaving 14 px
   empty. The cad page's Titlebar is now `height={28}` and the shell `100dvh − 28px`. Live: the status bar ends at the
   window's bottom, no page scroll.
-- **Outlet drag refused in a real browser (Dave: outlets 201–257 onto the U10 panel, "drop remains disabled"):** the
+- **Outlet drag refused in a real browser (User: outlets 201–257 onto the U10 panel, "drop remains disabled"):** the
   table starts the drag with `effectAllowed = 'link'` and the view answered every dragover with `dropEffect = 'copy'`;
   a drop effect the source doesn't allow makes the browser show "no drop" and never fire `drop`. Synthetic drag events
   (the earlier live checks) skip that check. `dropEffectFor(effectAllowed)` now answers in kind. Test in
   `ui/libraryDrop.test.ts`.
-- **The picked table survives a refresh (Dave: "refresh resets bottom panel tab to Patch List"):** the table picked per
+- **The picked table survives a refresh (User: "refresh resets bottom panel tab to Patch List"):** the table picked per
   kind of view was kept for the session only; it's now `Panels.tableFor`, saved with the panel layout in this browser.
   Live: Outlets picked in the rack view, page reloaded — Outlets again.
-- **Panel ports showing 001 / 046–056 for outlets 201–257 (Dave, Journey P3A):** not the drag. A Renumber at 08:31
+- **Panel ports showing 001 / 046–056 for outlets 201–257 (User, Tourney P3A):** not the drag. A Renumber at 08:31
   UTC renamed 56 outlets on 33F 3303 to 201–257; 12 kept their old port labels (201: 001.A…, 245: 056.A …) because
   those port labels didn't contain the outlet's old label — the legacy Outlets import keeps the old tool's port labels
-  as they were (Dave: 001–078 came from it). The drag at 08:44 linked them; a panel port shows the outlet PORT's label.
-  Journey has 25 such outlets, all on 33F 3303 (some — TV01…08 with ports 058… — may be meant). Repair, chosen by
-  Dave per selection: `domain/labels.ts` `portsFromLabel` and, in outlet Properties, a warning with Ports from label
+  as they were (User: 001–078 came from it). The drag at 08:44 linked them; a panel port shows the outlet PORT's label.
+  Tourney has 25 such outlets, all on 33F 3303 (some — TV01…08 with ports 058… — may be meant). Repair, chosen by
+  User per selection: `domain/labels.ts` `portsFromLabel` and, in outlet Properties, a warning with Ports from label
   (ports that contain the label are left alone; through `relabel`: asks for printed panels; undoable). Help: "A panel
-  port shows the wrong outlet number". Tests in `domain/labels.test.ts`. Journey not changed by me.
-- **Outlets picked in the list show their panel ports (Dave):** `views/overlays.ts` `outletPortCells` — the ports
+  port shows the wrong outlet number". Tests in `domain/labels.test.ts`. Tourney not changed by me.
+- **Outlets picked in the list show their panel ports (User):** `views/overlays.ts` `outletPortCells` — the ports
   linked to selected outlets drawn as selected ports in rack views (added to ViewCanvas's port highlight). Test in
   `views/overlays.test.ts`. Live (Test Project): an outlet linked to PP3, its row clicked — 4 ports lit; undone.
-- **Drag picked panel ports to another panel (Dave: "if not patched, drag them to the first port to start allocating
+- **Drag picked panel ports to another panel (User: "if not patched, drag them to the first port to start allocating
   from"):** `domain/allocate.ts` `movePorts` — the picked ports' outlets, in port order, onto free ports from the drop
   port (`assignFrom`, pinned); ports with a cord stay and are reported. `SelectTool`: a press on a picked port of a
   PANEL whose picked ports carry outlets starts it (a switch, or ports with no outlets, still drag the device — the
   old "Select drags a device" test caught that); the release on a panel moves them and picks them there; a click
   picks that port alone. Help: "Move outlets from one panel to another". Test in `editor/racks.test.ts`. The drag
   itself not tried live (synthetic pointer drags on the canvas); the tool test runs the real Select tool.
-- **Split labels named from the cables, always (Dave: Journey P3A U41 read P3A-R301A / P3A-R301B):** "In two" was
+- **Split labels named from the cables, always (User: Tourney P3A U41 read P3A-R301A / P3A-R301B):** "In two" was
   clicked before the ties existed, so it stored the fallback "<panel>-A / -B" (the panel is named P3A-R301). A range's
   `label` is now optional: none = `rangeLabel` works it out from its cables each time ("<rack>-<far rack>", else
   "<panel>-A…"; cached per index); a typed label wins; clearing it goes back. "In two" and "+ Range" store no label;
-  the Properties field shows the worked-out one in grey. Tests in `domain/portGroups.test.ts`. Checked on Journey's
+  the Properties field shows the worked-out one in grey. Tests in `domain/portGroups.test.ts`. Checked on Tourney's
   data in memory (nothing written): with its two labels cleared, P3A U41 reads P3A-R301:01–24 / P3A-R302:01–24, and
-  R302-P3A's ports P3A-R302:NN. Dave clears the two typed labels himself.
-- **Split label boxes out of sight (Dave: "I can't see the split label fields"):** with ranges, each line (from, to,
+  R302-P3A's ports P3A-R302:NN. User clears the two typed labels himself.
+- **Split label boxes out of sight (User: "I can't see the split label fields"):** with ranges, each line (from, to,
   label, ✕) sat in the 2nd column of the 6.5rem / 1fr row; the number boxes and ✕ left the label box 10 px wide. Each
   range is now its own full-width line under "Split labels" (`.range` grid: 3rem – 3rem 1fr ✕); + Range sits on the
   header row. Live (Test Project, PP3 "In two", undone): label boxes 110 px, PP3-A / PP3-B shown in grey.
-- **Kind for several devices (Dave: "need to be able to edit Kind in props for multi-selected devices/panels"):**
+- **Kind for several devices (User: "need to be able to edit Kind in props for multi-selected devices/panels"):**
   `DeviceMultiProps` has a Kind select ("mixed" where they differ), one undo step, F4 repeats it. Help: "Make the
   same change to more devices".
-- **Link several panels to a switch, labelled by the switch port (Dave: Journey P3A U13–U24 → the three 96-port
+- **Link several panels to a switch, labelled by the switch port (User: Tourney P3A U13–U24 → the three 96-port
   switches 33NACC1–3; "Link to" missing with 4 panels selected; the panels didn't show the switch label; "they could
   probably just show port numbers 1 to 96"):** `bulkInterconnect` takes `a.more` (further panels; each carries on
   from where the one before stopped on the target). Several panels selected: Properties › "⟷ Link N panels to…" or L
   arms it (`ws.interconnectPanels`, top panel first by rack then U); the hint counts every port. `portLabel`: a
   device ↔ device link with a SWITCH at one end reads the switch port at both ends — its own label, else "01"–"96"
   (after the panel's own labels and split ranges; before the rack-pair tie label). 33NACC2 / 33NACC3 were kind
-  panel; Dave set them to switch. Help: "Link several panels to a switch". Test in `domain/interconnect.test.ts`.
-- **Switch ports numbered down each U (Dave: "those Arista switches have ports in an odd order, port 2 is below port
+  panel; User set them to switch. Help: "Link several panels to a switch". Test in `domain/interconnect.test.ts`.
+- **Switch ports numbered down each U (User: "those Arista switches have ports in an odd order, port 2 is below port
   1, and ports 49 and 50 are on rows 3 and 4 below port 2"):** "Down (2 under 1)" ran down all four rows of a 96-port
   2U switch (1–4 in the first column). It now goes down each U's pair of rows: 1–48 on rows 1–2, 49–96 on rows 3–4.
   One helper, `portAt` (domain/devices.ts), for the rack view, the frame sheets and the panel label sheets (each had
-  its own copy). 1–2-row devices are unchanged; the only 3+-row devices numbered down in any project are Journey's
+  its own copy). 1–2-row devices are unchanged; the only 3+-row devices numbered down in any project are Tourney's
   three CCS-720XP-96 (checked read-only). Help: "Number a switch's ports down". Test in `views/rackRow.test.ts`.
-- **Patch to… / Link to… hand the tool back (Dave: "after linking … the cursor remains a crosshair — what will
+- **Patch to… / Link to… hand the tool back (User: "after linking … the cursor remains a crosshair — what will
   clicking further ports do?"):** the armed bulk was made on the click, but the Cord tool stayed, so two more port
   clicks made a patch cord. Arming (`ws.#armBulk`) remembers the tool you had; the cord tool calls `done` once the
   bulk is made or Esc'd and the workspace puts that tool back. Picking the Cord tool yourself still makes cord after
   cord. Help: "Link several panels to a switch". Test in `editor/racks.test.ts`. Live (Test Project): L → Cord tool,
   Esc → Select again; nothing written.
-- **No dashed box round a selected run (Dave: "the dashed select rect around trunks looks odd"):** runs were meant to
+- **No dashed box round a selected run (User: "the dashed select rect around trunks looks odd"):** runs were meant to
   get the blue line only, but a labelled run's name (text) or a riser symbol brought the box back round the whole run.
   `Prims.svelte` now never boxes an item drawn as a run (`run…` / `riser…` / `run-label` prims). Live (Test Project
   1F plan): TR2 selected shows its grips and blue line, no box.
-- **Layer up in a run's General group (Dave: "in trunk props, Layer appears way down below nodes and segments"):** the
+- **Layer up in a run's General group (User: "in trunk props, Layer appears way down below nodes and segments"):** the
   Layer row is drawn once at the end of Properties; for one run / line it's now in PathProps' General group (Kind,
   Label, Length, Layer) and not repeated at the bottom. LayerPick's row now matches the other Properties rows (6.5rem
   label, same box) — it had its own narrower, muted one. Live (Test Project TR2): Layer under Length, aligned.
-- **An outlet next to a tiny stub joins the real run (Dave: Journey TV06 "not connected, there is a high level trunk
+- **An outlet next to a tiny stub joins the real run (User: Tourney TV06 "not connected, there is a high level trunk
   beside it"):** TV06 (high) took its nearest high run, conduit 5m3-h8C-JYJ1 — but the nearest part was a 38 mm end
   bit, shorter than JOIN_MM (50), so both its ends merged into one graph node and it had no pieces: a route starting
   on it went nowhere ("the runs at the two ends are not connected"). `outletTap` and `rackTaps` now skip a segment with
   no pieces; the outlet joins the segment beside it (38 mm further). Test in `domain/routing.test.ts` (fails without
-  the fix). Journey in memory, nothing written: TV06.A / .B → 20 m.
-- **Edit which server rooms a run serves (Dave: Journey TV07 / TV08 not connected; "allow editing which rooms a
+  the fix). Tourney in memory, nothing written: TV06.A / .B → 20 m.
+- **Edit which server rooms a run serves (User: Tourney TV07 / TV08 not connected; "allow editing which rooms a
   conduit / trunk serves. Do vertical risers also need it across floors?"):** `role.serves` came only from the legacy
   Outlets import and nothing showed it; every high conduit on 33F 3303 served 33IDF1 only, so 33IDF2's high outlets
   (TV07, TV08, CCTV01–04, AP01, TEL01) found no run ("no high run within 10 m … serving its room"). Run Properties ›
   General › Serves: a box per server room on the run's levels (and any it serves already); none = every room
   (`servableRooms` / `toggleServes`, domain/runEdit.ts). Risers: no — serving only gates where a cable JOINS (outlet
-  drop, rack); the walk uses any run. Tests in `domain/runEdit.test.ts`. Journey in memory, nothing written: with
+  drop, rack); the walk uses any run. Tests in `domain/runEdit.test.ts`. Tourney in memory, nothing written: with
   33IDF2 ticked on 5m3-h8C-JYJ1 all 8 route (4–23 m). Live (Test Project TR2): ticked 33IDF1, Edit › Undo, back to
   none (checked in Firestore). Help: "Which server rooms a run serves".
-- **A tick under the middle of the ports (Dave: "cable outlet ports on the left of the frame to switch ports on the
+- **A tick under the middle of the ports (User: "cable outlet ports on the left of the frame to switch ports on the
   left, and same for the right"):** a device or panel with 24 ports or more gets a short tick at the centre of its port
   grid, from its bottom edge up to the ports (6 mm at most; class `port-mid`, also in PDF / DXF). Tried 10 mm up into
-  the gap between the middle ports — Dave: the ~3 mm one looked fine. Test in `views/rackRow.test.ts`. Live (Test
+  the gap between the middle ports — User: the ~3 mm one looked fine. Test in `views/rackRow.test.ts`. Live (Test
   Project 33IDF2 racks): ticks on the 24-port panels, fibre enclosure, 48- and 96-port switches. Help: "Find the
   middle of a panel's or switch's ports".
-- **Cord-end grips, a + on a selected port, a green edge on patched ports, a shorter drop (Dave: "grips on each end of
+- **Cord-end grips, a + on a selected port, a green edge on patched ports, a shorter drop (User: "grips on each end of
   a selected patch cord would be great for repatching …"):** a selected cord in a rack view shows a grip on each end
   (the ends of its drawn line); dragging one onto another port re-patches that end (`repatch`, which now also refuses
   the cord's own other end; an installed cord becomes a `change`). The drop takes the NEAREST port cell — the topmost
@@ -2081,16 +2081,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/racks.test.ts`, `views/rackRow.test.ts`, `views/cordRoute.test.ts`. Live (Test Project 33IDF2, P3C): green
   edges; cord P3C-37:15 → P3C-35:15 dragged to 17 and back to 15 (as before: ADD, 1 m); + on P3C-35:18 armed a patch,
   on P3C-36:3 a link, Esc back to Select each time. Help: "Re-patch a cord, or start one from a port".
-- **Patched outlet ports in the Outlets table (Dave: "indicate which ports of each outlet have been patched (maybe
+- **Patched outlet ports in the Outlets table (User: "indicate which ports of each outlet have been patched (maybe
   change the pinned indicator to green?)"):** the Panel column's "P3C U37:15" reads green (bold) when that panel port
   has a cord in (not one being removed) — the rack view's green edge; its tooltip says where the cord goes. The whole
   entry rather than only the ◆: pinned and patched are separate (an unpinned port can be patched), so the ◆ stays
   "pinned". Header: "Panel (◆ pinned · green patched)". Live (Test Project 1F): A.004 U37:15, A.005 U37:17, A.008
   U37:6 / U37:7 green — the green-edged ports on P3C-37. Help: in "Re-patch a cord, or start one from a port".
-- **Cable schedule sorted by label (Dave 2026-10-11):** the dialog and its Excel export list cables by label, in
+- **Cable schedule sorted by label (User 2026-10-11):** the dialog and its Excel export list cables by label, in
   natural order (O2 before O10), unlabelled last; ties by kind, then the panel end (was: kind, then panel end).
   Test in `domain/routing.test.ts`.
-- **Patch list management, Slice 1 — the status rules (`docs/plan/patch-list-plan.md`, Dave's D1–D8 2026-10-11):**
+- **Patch list management, Slice 1 — the status rules (`docs/plan/patch-list-plan.md`, User's D1–D8 2026-10-11):**
   - A `change` moved back onto its old ends is `installed` again, with no history (legacy rule). A cord marked
     `remove` doesn't move ("restore it first").
   - Removing a `change` (a move not yet made on site) takes the cord out from its OLD ends, so Restore gives the
@@ -2131,7 +2131,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `render/exports.test.ts`. Live (Test Project): the picker lists All rooms / 33IDF2 / Server room A / the rows shown
   (35); 33IDF2 + changes only → 11 cords (8 add, 3 remove), as the list shows. Not exported (a download). Help:
   "Export the patch schedule (all, a room, the changes)".
-- **Patch list management, Slice 4 — Planning · Surveying (D1, Dave: "an obvious toggle for engineer inventorying a
+- **Patch list management, Slice 4 — Planning · Surveying (D1, User: "an obvious toggle for engineer inventorying a
   built site, or designer planning a new install"):** project setting `newCordStatus: 'add' | 'installed'` (stored
   both ways); `ui/CordMode.svelte` = the two-way toggle, in the Patch list bar ("New cords Planning · Surveying"), the
   Cord tool's option bar (so it shows while patching — also after a port's + or Patch to…) and Settings › Cable
@@ -2141,23 +2141,23 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   cord, message shown; then Delete (1) → confirm, Planning — Firestore: 35 cords (32 add, 3 remove) as before;
   `newCordStatus: 'add'` is now stored (was unset — same meaning). Help: "Record the cords of a built site
   (Surveying)". **Slices 1–4 of `patch-list-plan.md` done.**
-- **Patch list follow-ups (Dave 2026-10-11):** (1) the Planning · Surveying toggle was unnoticeable — the picked side is
+- **Patch list follow-ups (User 2026-10-11):** (1) the Planning · Surveying toggle was unnoticeable — the picked side is
   now primary blue (as the view strip's Racks front / rear). (2) **D7 reviewed:** the patch schedule sorts inside each
   status group by the **From label** (blanks last, ties by From place), or by the dialog's "sort by" (From rack / U /
   port, To label, cord ID) — `ScheduleSort`, `SCHEDULE_SORTS`, `orderForSchedule(ix, cords, by)`. (3) Columns per end:
   **Device, Label, Rack, U, Face, Port** (U and Face split); the Status / Cord ID columns are found by header name
   (the import's fallback too; its old-file "#" fallback keeps the place order). (4) **Inline editing** in the patch
-  list (Dave's note on the plan): double-click Cord ID / Status / Notes; Enter / Shift+Enter = save + the same cell
+  list (User's note on the plan): double-click Cord ID / Status / Notes; Enter / Shift+Enter = save + the same cell
   on the next / previous row, Tab / Shift+Tab = the next / previous cell (Cord ID → Status → Notes → next row), Esc
   cancels, leaving saves (only the cell still being edited — a key that moved on has saved it already); the status
   goes through `setStatus` and is saved on leaving (arrow keys on a closed select would otherwise save each step).
   Ctrl+A in the list ignores the edit box. Tests in `render/exports.test.ts`. Live (Test Project): T-1 Enter T-2 Tab
   Tab → in row 2's Notes; Shift+Tab ×2, cleared, Shift+Enter, cleared, Enter, Esc — Firestore: no cord IDs, 32 add /
-  3 remove as before. **Exported** (Dave OK'd): `Patching-Test_Project-20261011.xlsx` — sheets 33IDF2 (3 remove, 8
+  3 remove as before. **Exported** (User OK'd): `Patching-Test_Project-20261011.xlsx` — sheets 33IDF2 (3 remove, 8
   add), Server room A (24 add), Bill of Materials; the new header; rows by From label (4A001-01, 4A001-02, 4A002-01 …).
   Help: "Import cord IDs from a returned patch schedule", "Edit cord IDs, status and notes in the patch list"; the
   export entry. Backlog: cord label batches are typed by hand (no generating).
-- **Port map for VLANs, Slice 1 — the list (`port-map-plan.md`, Dave 2026-10-11):** `domain/portMap.ts`
+- **Port map for VLANs, Slice 1 — the list (`port-map-plan.md`, User 2026-10-11):** `domain/portMap.ts`
   `portMapRows(ix, deviceIds)` / `portMapDevices` — every port of the chosen panels / switches (room → rack → top U
   down): its label, the outlet(s) at the ends of its circuit (`traceCircuit`; both for a panel-to-panel cross-connect)
   and where they are, **Patched To** = the other end of this port's cord with its label, **Far End** = a device port
@@ -2168,7 +2168,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   cord's other end, whatever the circuit. Tests in `domain/portMap.test.ts`. Live (Test Project, P3C-37 selected):
   48 ports; :6 → P3C-35:6, :15 → outlets 01A.004A / 01A.031B, patched to P3C-35:15 · 01A.031B; :17 → Patch Panel HL
   :14. Help: "Port map for VLANs (Excel for network engineers)". The drawing (Slice 2) waits for P1–P4.
-- **Port map for VLANs, Slice 2 — the drawing (`port-map-plan.md`; Dave's decisions P1–P4):** a new view kind
+- **Port map for VLANs, Slice 2 — the drawing (`port-map-plan.md`; User's decisions P1–P4):** a new view kind
   `{ kind: 'portmap'; deviceIds }` (`domain/drawing.ts`) drawn by `views/portMap.ts` `portMapDisplayList` — each device
   like its faceplate, its ports where they are (the rack view's rows and numbering), every port with its number / own
   label small in the top-left corner and the far item's label stacked as big as fits (paper mm at 1:1). The far item
@@ -2178,12 +2178,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   its strip: the name, Excel (VLAN), To sheet…. Wired through `specKey` / `specLabel` / `spaceOf` (no model, like the
   riser), the URL (`portmap.<id>~<id>`), tabs (no level), `viewName`, `viewTitle` / `viewExists`, the sheet viewport
   content and picker, ToolStrip (Select only), CadShell (level changes leave it alone). The Excel's columns are now Room
-  · Rack · U · Port · Device · Port label (Dave). VLANs stay in the Excel (P1). Tests in `views/portMap.test.ts`,
+  · Rack · U · Port · Device · Port label (User). VLANs stay in the Excel (P1). Tests in `views/portMap.test.ts`,
   `app/urlState.test.ts`. Live (Test Project 33IDF2): Patch Panel LL + 24-Port Patch Panel + Network Switch 48p → the
   view: switch :3 → 01A.022B, :22 → 01A.035A, :28 → 01A.025A (bottom row), the panel's outlet labels; To sheet › New
   sheet → S008 at 1:1, viewport Properties "Port map · …"; undone — Firestore: sheets S001–S007, 35 cords (32 add, 3
   remove) as before. Help: "Port map drawing of switches and panels (for VLANs)". Backlog entry removed (built).
-- **Usage buttons (backlog, G128; Dave 2026-10-11 "do 6"):** `ui/UsageButtons.svelte` — one button per usage of the
+- **Usage buttons (backlog, G128; User 2026-10-11 "do 6"):** `ui/UsageButtons.svelte` — one button per usage of the
   project's list in its colour, the picked one filled, "—" = none; a code the list lacks shows as its own button; with
   several outlets that differ none is filled. In Outlet Properties for one outlet and for several (replacing the
   selects). The Outlet tool's bar ("as last" blank, one line) and the Outlets table keep their selects. Live (Test
@@ -2271,20 +2271,20 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the drawing's undo: each change offers "Put it back". An uncalibrated page is now shown as if drawn at 1:100 (amber
   buttons) so it can be scaled in place (`PROVISIONAL_SF`; `PdfCache.calib` keeps each page's calibration as placed).
   Tests in `editor/calibrateTool.test.ts`. Live (Test Project 1F): **every Test Project floorplan file is shared with
-  Journey**, so nothing was saved: Floors… › Scale → the plan, two clicks, "it measures 25295 mm", 20000 → "This
+  Tourney**, so nothing was saved: Floors… › Scale → the plan, two clicks, "it measures 25295 mm", 20000 → "This
   floorplan file is also used by 1 other project — its scale changes there too" → Cancel; the file's calibration
   checked unchanged (35.281 mm/pt, origin 240, 676, crop 45, 35, 764 × 779). (A Ctrl+A meant for the prompt went to the
   plan and selected all — no writes.) Help: "Calibrate a floorplan on the plan (origin, scale, crop)".
-- **Fixes (Dave 2026-10-12):** the Racks window shows a nameless rack as its kind (and model) in grey italics, and Find a
+- **Fixes (User 2026-10-12):** the Racks window shows a nameless rack as its kind (and model) in grey italics, and Find a
   device shows a nameless device as its kind (search matches the kind too). New / edit device template: the "Saved to
   the device library…" note sits on its own line above the buttons.
-- **A ring of runs stays clear inside (Dave 2026-10-12, "see 1F plan"):** `domain/runOutline.ts` `nestLoops` sorts the
+- **A ring of runs stays clear inside (User 2026-10-12, "see 1F plan"):** `domain/runOutline.ts` `nestLoops` sorts the
   outline's loops into outsides and their holes (a loop inside an odd number of others is a hole of the smallest one
   round it); a closed line prim takes `holes` — screen: one `<path>` with even-odd fill; PDF: the holes as more
   subpaths, `fillEvenOdd` / `fillStrokeEvenOdd`; DXF: each hole its own closed polyline. Kept by the sheet, rack-row
   and issue copies of a display list. Test in `domain/runOutline.test.ts`. Live (Test Project 1F): the high trunk loop
   → its middle clear, the floorplan showing through.
-- **Pasted pictures: once, and placed while they upload (Dave 2026-10-12):** `app/pictureUploads.svelte.ts`
+- **Pasted pictures: once, and placed while they upload (User 2026-10-12):** `app/pictureUploads.svelte.ts`
   `PictureUploads.add` hashes the picture (SHA-256, kept on its file doc as `sha256`; `storeFile` takes `extra` fields);
   the same bytes → the same file, from this session (even mid-upload) or the project's files (a `sha256` query, kept to
   the project's own) — not uploaded again. A new one gets its file id at once (`freeFileId`, ids handed out this
@@ -2294,7 +2294,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   synthetic paste of a generated PNG): the spinner, a box dragged at once (shown from the blob), the upload done in
   ~3 s; the same picture again → "already in Uploads … (not uploaded again)"; the `sha256` lookup finds it (a fresh
   session's path); Undo → gone; the upload deleted (UploadThing + its `files` doc) and checked.
-- **Server rooms and rows in the Racks window, not the status bar (Dave 2026-10-12):** "+ Server room" opens a form at
+- **Server rooms and rows in the Racks window, not the status bar (User 2026-10-12):** "+ Server room" opens a form at
   the top of the list — Floor (every level, top first; the open one marked and picked) and Name (`nextRoomName` for
   that floor until typed over) — Add room / Enter, Cancel / Esc; added on another floor → says so. Room and row names
   rename in place (new `ui/InlineName.svelte`: click → an input, Enter / clicking away saves, Esc keeps it).
@@ -2319,7 +2319,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/elevHandles.test.ts`. Live (Test Project 1F, 33IDF2): F → rear and back; the level ceiling dragged →
   "33IDF2 CEILING FL+2490"; FFL dragged up → "33IDF2 FLOOR FL+50", the racks on it; both undone. Help: the room
   floor / ceiling entry, keys (F).
-- **Cord label batches by type, length and colour (backlog, T070; "do 19"; labels typed by hand, Dave 2026-10-11):**
+- **Cord label batches by type, length and colour (backlog, T070; "do 19"; labels typed by hand, User 2026-10-11):**
   `CordBatch` (type, length, colour, first / last label, ordered, delivered) in `ProjectSettings.cordBatches` (undoable
   settings writes). `domain/cordBatches.ts`: `labelRange` (same prefix, a number counting up, its width kept),
   `batchUse` (the cords whose Cord ID is in the range — not ones being removed —, free, last used, next free; a cord of
@@ -2330,14 +2330,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `domain/cordBatches.test.ts`. Live (Test Project): + Batch, 2AR-0001 … 2AR-0100 → 100 labels, 0 used, next 2AR-0001;
   Cat6A · 1 m: 1 cord, 100 labels, next order 2AR-0101; uutp kinds short 2 / 12 / 17; undone (3 steps). Assigning a free
   label to a cord from its batch is not built (offered). Help: "Record the patch cords bought (label batches)".
-- **The Patching tab (Dave 2026-10-12, "users may not find export / label batches"):** the bottom table "Patch list" is
+- **The Patching tab (User 2026-10-12, "users may not find export / label batches"):** the bottom table "Patch list" is
   now **Patching** (Cabling › Patching (patch list)). Its bar ends with a group of the files and records: **Patch list…**
   (was Export…: the schedule as Excel + the cord BOM), **Cord labels…** (the label batches, now their own dialog —
   `ui/CordLabelsDialog.svelte`, also Cabling › Cord label batches…; out of the schedule dialog, back to 40rem) and
   Import cord IDs…. Help: the tab's new names. Live: the tab, the three buttons, the Cord labels dialog.
-- **Names typed where they show, not in the status bar (Dave 2026-10-12):** new `ui/NameInput.svelte` (focused and
+- **Names typed where they show, not in the status bar (User 2026-10-12):** new `ui/NameInput.svelte` (focused and
   selected; Enter / clicking away saves, Esc cancels; `create` saves a suggested name as is). **Renames by an action
-  button** (a click on a name selects, Dave): Navigator — ✎ on hover (and F2, ⋮ › Rename… / Renumber…, Project ›
+  button** (a click on a name selects, User): Navigator — ✎ on hover (and F2, ⋮ › Rename… / Renumber…, Project ›
   Rename this level…) swaps the row's label for the box (`ws.navRename`, unfolded to it; `navActions.applyRename` for
   levels, rooms, sections, a sheet's title / number); Layers — ✎ on hover (double-click rename gone); Properties ›
   Row › Rename (RowProps). **New things in a box by their field:** Properties › Room › New server room… and Row › New
@@ -2359,7 +2359,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `editor/outletTool.ts`; a port beyond the last outlet's count takes its first port's room; the **first outlet on a
   level** takes the level's server room when it has exactly one. Test in `editor/editor.test.ts`. Live (Test Project
   1F): the bar's Zone / Server room lists; an outlet's Zone → Zone A, undone. Help: "An outlet's zone and server room".
-- **Drag racks to reorder in the Racks window (backlog, Dave 2026-10-12; "do 10"):** the ▲ / ▼ buttons are gone; a rack
+- **Drag racks to reorder in the Racks window (backlog, User 2026-10-12; "do 10"):** the ▲ / ▼ buttons are gone; a rack
   drags up / down its row (`DragReorder`, a ⠿ grip on hover, a drop line). `domain/devices.ts` `moveRack(ix, id,
   target, after)` (replaces `nudgeRack`) writes the row's whole hand order; another row → refused with a hint.
   Test in `views/rackRow.test.ts`. Live (Test Project 1F, IDF1 Row 1, synthetic drag events): R303 dropped on R301 →
@@ -2394,13 +2394,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   picked (lucide align / distribute icons added to `$lib/ui/Icon.svelte`). Tests in `editor/align.test.ts`. Live
   (Test Project 1F, three outlets): the row (distribute off — one of them isn't placed), Align left → "1 moved",
   undone. Help: "Align or distribute things".
-- **Outlets by usage or by layer colour (Dave 2026-10-12):** a project setting `outletColour` ('usage' — unset — or
+- **Outlets by usage or by layer colour (User 2026-10-12):** a project setting `outletColour` ('usage' — unset — or
   'layer', stored both ways) switched by **Usage colours** on the plan strip (by B/W; one undo step); `views/plan.ts`
   skips the usage colour when 'layer' (the layer's colour, else the class's, as before). Panel port tints in rack views
   are unaffected. Test in `views/portTip.test.ts`. Live (Test Project 1F): on → three usage colours; off → none;
   undone. Help: "Usage colours and outlet tips".
 - **Dimension text and extension-line grips (backlog "Dimension text and grips", G259 — the grips; `<>` and units →
-  later, Dave 2026-10-12):** a dimension's geometry gets `textAt` (its text dragged there; unset = centred off its
+  later, User 2026-10-12):** a dimension's geometry gets `textAt` (its text dragged there; unset = centred off its
   line) and `gapA` / `gapB` (each extension line's gap from its point; unset = 1 paper mm); drawn by
   `dimensionPrims`, carried by moves, elevations' plane mapping and a viewport note put back on paper. Grips 3–5
   (`shapeGrips.ts` `dimGrips`, found in the view's prims since they're paper-sized): the text (drag = `textAt`) and
@@ -2418,7 +2418,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Navigator's Delete level…). Tests in `domain/floors.test.ts`. Live (Test Project): + Area "T1" on 2F → "2F T1"
   (FFL 3.800, in the Navigator), renamed "2F Tenant T1", ✕ deleted; 3F → 4 refused ("4F is already floor 4"); 4F → 5
   (FFL 15.200, the range 5F…), undone. Help: "Floors: range, names, heights, numbers, area plans".
-- **Dimension text in mm up to 10 m; Reset handles; the Floor manager in two tabs (Dave 2026-10-12):** `dimensionPrims`
+- **Dimension text in mm up to 10 m; Reset handles; the Floor manager in two tabs (User 2026-10-12):** `dimensionPrims`
   writes the length in mm below 10 m (was 1 m), then "12.5 m"; the Properties placeholder too. The dimension's
   "Text and gaps back as drawn" link is now a **Reset handles** button. The Floor manager (one wide table that mixed
   "+ Area" with "+ Add zone…" and scrolled sideways) is split: **Floors & heights** (range, names, heights, No., FFL;
@@ -2427,19 +2427,19 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "Choose a floorplan…" / "+ Another page…"; "+ Area plan" per floor; a short explanation of plan / floorplan / area
   plan on top). Extra floorplans on a plan are named "Floorplan n" (was "Zone n"). Live (Test Project): both tabs
   without a sideways scrollbar; + Area plan → its name box, Esc cancels. Help: "Floors…", "Edit a dimension".
-- **No "Heights from the old Risers tool" in the Floor manager (Dave 2026-10-12):** the button and its handler are gone
+- **No "Heights from the old Risers tool" in the Floor manager (User 2026-10-12):** the button and its handler are gone
   (and `persist/import/legacyHeights.ts` with its test, removed). Live (Test Project): the dialog opens
   without it.
-- **Paste at the cursor (backlog, G232; Dave 2026-10-12):** Ctrl+Shift+V pastes with the middle of what was copied
+- **Paste at the cursor (backlog, G232; User 2026-10-12):** Ctrl+Shift+V pastes with the middle of what was copied
   (`domain/clipboard.ts` `clipCentre`: its points' box — outlets / racks at, path nodes, outlines, text points) on the
   pointer: `pasteClip` gets the move `d`. The paste event doesn't carry Shift, so `clipboardEvents` `key` notes a
   Ctrl+Shift+V keydown (1 s) and ViewCanvas `pasteCursor` gives the pointer in the target's points (a viewport being
   edited: its view mm). A rack target pastes devices as before; no pointer over the pane = in place, with a message.
   Test in `domain/clipboard.test.ts`. Live (Test Project 1F): the "1070" dimension copied, Ctrl+Shift+V with the
   pointer to its left → the copy there; undone. Help: "Move, copy or nudge things", Keys. Backlog: 20 / 21 (import
-  Pages / Sheets-tool sheets) → `later.md` (Dave).
+  Pages / Sheets-tool sheets) → `later.md` (User).
 - **Riser view control, group label / colour, high / low hops (backlog, G021 G145–G149 G194 G195 G277 G315 T073 T076;
-  Dave 2026-10-12 "do 4 5 6"):** `views/riser.ts`:
+  User 2026-10-12 "do 4 5 6"):** `views/riser.ts`:
   - **Floors lowest – top** on the riser strip: `settings.riser.from / to` (floor numbers; one riser view, so its sheet
     viewports show the same; one undo step each). Floors outside aren't drawn, risers are cut at the range's slab
     ends, rooms off it drop out (a group with an end off it isn't drawn).
@@ -2460,7 +2460,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   the 33IDF1–IDF4A backbone: Properties › Backbone, label "BB-1 test" shown, undone. High / low hops not seen live (that
   group has no route) — the unit test covers them. Help: "The riser view: floors, EPS rooms, high / low, cable groups".
 - **A run drawn to the middle of another splits it (backlog "More snaps", the part folded in from "Join runs on draw";
-  Dave 2026-10-12):** a trunk / conduit whose first or last point lies ON another containment run on the level (a
+  User 2026-10-12):** a trunk / conduit whose first or last point lies ON another containment run on the level (a
   segment within 0.5 mm in plan) joins it, with no key needed (as ending on a node already did): `domain/pathEdit.ts`
   `splitRunsAt` gives that run a node exactly there (two segments for one), so the junction moves both
   (`followersOf`); when the heights differ, `runZAt` finds the run's height and the new run gets a drop / rise to it
@@ -2468,7 +2468,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   to TR1 (a node added there)". Routing already treated
   such a tee as joined. Tests in `domain/pathEdit.test.ts`. Live (Test Project 1F): a trunk at Z 2950 from TR1's
   midpoint (TR1 at 2590) → joined, a drop added; dragging the junction moved both; both undone. Help: "Draw a run".
-- **Arc (backlog, G241; Dave 2026-10-12: "add arc to the shape dropdown for the rect tool"):** Shape tool › Shape: **Arc
+- **Arc (backlog, G241; User 2026-10-12: "add arc to the shape dropdown for the rect tool"):** Shape tool › Shape: **Arc
   (3 points)** (not in the Box tool's footprints) — click its start, a point it passes through, its end; the preview
   follows. `domain/shapes.ts` `arcThrough` (the circle through three points; clockwise on screen from start to end, or
   the other way round when the middle point says so; null when in a line), `arcPoints` (start / middle / end), `arcPts`
@@ -2485,11 +2485,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   field is the template's). Live (Test Project): the menu item opens the dialog over cad with the project's details;
   closed unsaved. Help: "Project details".
 
-## Review fixes (`../plan/review-2026-10-12.md`, Dave 2026-10-12: "start fixing the bugs")
+## Review fixes (`../plan/review-2026-10-12.md`, User 2026-10-12: "start fixing the bugs")
 
 - **R15 Issued PDFs keep styles:** `domain/issue.ts` `freeze` keeps each prim's colour, lineweight and line type (it
   kept line colour only), so issue PDFs print dashed / weighted / layer-coloured items as File › PDF does, and a
-  style-only change marks a sheet changed. Sheets issued before this read "Changed since" once (Dave: he'll handle
+  style-only change marks a sheet changed. Sheets issued before this read "Changed since" once (User: he'll handle
   it). Test in `domain/issue.test.ts`.
 - **R31–R34 Keys and pointers during a drag / under a dialog:**
   - `store/store.ts`: `busy` while a drag is open; `undo` / `redo` refuse then (the drag's restore would undo the
@@ -2526,7 +2526,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - Tests in `domain/blocks.test.ts`, `render/dxf.test.ts`.
 - **R37 follow-up:** the Outlet tool bar's zone / server room apply only on the level they belong to (spaces are per
   level), so on another floor the next outlet takes that floor's own (`editor/outletTool.ts`).
-- **R25 Fill against the inside size (Dave 2026-10-12: a 3 mm wall default + a field):** `domain/fill.ts`
+- **R25 Fill against the inside size (User 2026-10-12: a 3 mm wall default + a field):** `domain/fill.ts`
   `insideOf` — a run's own inside size, else its outside less a 3 mm wall each side (the legacy Fill rate tool's
   default), used for fill % and the packed-cables picture; every run's fill % goes up a little (a 50×30 tray with
   10 × Ø8: 43 % → 61 %, as legacy). Run Properties › Size and height › **Inside** W × H (a conduit: Ø), the default
@@ -2540,11 +2540,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   as if 1:100 until Origin / Scale / Crop there calibrate them) and PDFs the Uploads viewer never opened (no page
   count yet: page 1); issue PDFs (`issue-…`) stay out (`app/projectFiles.ts`, `ui/FloorManager.svelte`). Help:
   "Calibrate a floorplan on the plan".
-- **R53 (part) "Drawn on the … layer" is a toast** (Dave 2026-10-12): `ws.notify` shows it at the bottom of the
+- **R53 (part) "Drawn on the … layer" is a toast** (User 2026-10-12): `ws.notify` shows it at the bottom of the
   drawing for 2.5 s, so the status line keeps the tool hint, the "Editing inside the viewport —" prefix and a tool's
   own message posted after it ("Joined to TR1 …") (`app/workspace.svelte.ts`, `ui/CadShell.svelte`). Live (Test
   Project): a line drawn → the toast, the hint stays; undone.
-- **R42 B/W, Usage colors and Cord channels: per user on screen, per sheet on paper (Dave 2026-10-12):** the plan /
+- **R42 B/W, Usage colors and Cord channels: per user on screen, per sheet on paper (User 2026-10-12):** the plan /
   rack-view strip's buttons are this user's screen only, kept in the browser (`ws.screen`, `app/workspace.svelte.ts`;
   no undo step, nobody else's view changes); each sheet has its own in Properties › **Display** (`Sheet.gray /
   outletColour / cordRoute`, `views/sheet.ts` `sheetLook` — used for the sheet on screen, edited viewports, PDFs and
@@ -2588,7 +2588,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   checks rack by rack (`domain/validate.ts`). Test in `editor/notes.test.ts`.
 - **R55 Right-click on something not selected** (Select tool, nothing being drawn) selects it and opens its menu (it
   cleared the selection); on empty space it is still Esc (`ui/ViewCanvas.svelte`). Help: Keys.
-- **Import legacy drawings (Dave: a FEW Journey drawings, once, by choice — not a bulk importer):** File › **Import
+- **Import legacy drawings (User: a FEW Tourney drawings, once, by choice — not a bulk importer):** File › **Import
   legacy drawings…** (`ui/LegacyDrawingsDialog.svelte`) reads, read-only (`persist/import/legacyDrawings.ts`), the
   project's Pages models, Sheets-tool sheets, `models3d/{pid}` and `sheetLayers`; lists models (boxes / walls ticks, a
   level each, preselected from the name: "Zone 3303" → 33F 3303) and sheets (a level each, from the Outlets doc's
@@ -2602,15 +2602,15 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   annotations → notes tied to the viewport (dimension, rect, ellipse, text, callout → leader, line, cloud, legend,
   elevation tag / detail / outlet → built-in symbol inserts, faceplate / door / north → shapes); hidden-layer ones,
   grids, images and photo markers are left out and listed. Stamped `importedFrom` (Shape, Sheet), so a re-import skips
-  what's there. Dry run on Journey's real data: Zone 3303 → 60 boxes (R01 left out) + 3 walls, new layers Furniture /
+  what's there. Dry run on Tourney's real data: Zone 3303 → 60 boxes (R01 left out) + 3 walls, new layers Furniture /
   Openings; the 5 sheets → 99 of their 100 annotations (the legend is on a layer hidden in its viewport). Help: "Bring
   in a drawing from Pages or the Sheets tool".
-- **Several runs › Location › "each by its tier"** (Dave 2026-10-12, for the Journey repair): high runs to the ceiling
+- **Several runs › Location › "each by its tier"** (User 2026-10-12, for the Tourney repair): high runs to the ceiling
   plenum, low runs under the floor, wall runs on the wall — each from its own level's heights, one undo step
-  (`ui/RunsMultiProps.svelte`). **Journey repaired with it** (review R13b), after a whole-project backup "Before
+  (`ui/RunsMultiProps.svelte`). **Tourney repaired with it** (review R13b), after a whole-project backup "Before
   run-height repair (review R13b)": its 14 imported runs sat at Z −300 — 30F (6) and 33F 3303 (8) each selected with
   Ctrl+A → 9 high at Z 2950, 5 low at Z −150 (checked in Firestore). Help: "Put several runs at their heights at once".
-- **R43 The view strip and the tool row no longer overflow (Dave 2026-10-12: Display ▾ popover; options on their own
+- **R43 The view strip and the tool row no longer overflow (User 2026-10-12: Display ▾ popover; options on their own
   row):** a building view's strip is Plan · Elevation… (Front / Rear / Left / Right) · Riser · Section… · **Display ▾**,
   with To sheet… pinned at the right; Display ▾ holds what that view shows on your screen — a plan: B/W floorplans,
   Usage colors, Fill, Routes (its key under it); an elevation: the depth band; the riser view: Hide empty floors and
@@ -2619,7 +2619,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   Undo / Redo off the row); the status bar keeps its line for prompts and messages (`ui/CadShell.svelte`). Live (Test
   Project): the strip fits; Display ▾ opens with the plan's four; the Outlet tool's options on the new row. Help: the
   entries that named strip buttons.
-- **R49 (part) Tool libraries float (Dave 2026-10-12):** Blocks (Insert tool) and the Device library (Device tool) open
+- **R49 (part) Tool libraries float (User 2026-10-12):** Blocks (Insert tool) and the Device library (Device tool) open
   floating at the top-left of the drawing, not docked under the Navigator (which they halved); a layout saved before
   carries over with those two closed until their tool opens them (`app/windows.svelte.ts`, layout key `cad-windows:3`).
   Live (Test Project): after a reload the Navigator has its height back; the Insert tool opens Blocks floating.
@@ -2630,7 +2630,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R58 One icon per meaning:** Split = two columns, Hide every window = eye-off, float a window / the tables =
   picture-in-picture, maximise the tables = maximise, Select similar = sparkles (they shared panels / expand / copy with
   the Viewport tool, the Copy tool and each other) (`$lib/ui/Icon.svelte` + `columns`, `maximize`, `pip`).
-- **Import legacy drawings — Dave's answers:** a clipped model3d elevation (the comms elevations) → a cad SECTION on
+- **Import legacy drawings — User's answers:** a clipped model3d elevation (the comms elevations) → a cad SECTION on
   its clip box (`drawingsSheets.ts` `clipSection`: the cut along the box's near face as seen from that direction, a → b
   the way the named elevation's u runs so it looks the same way unflipped, depth = the box's depth), named from the
   sheet title ("Comms1 elevation" → Comms1, "3303 Comms 2 Elevation" → Comms 2, unique per level), stamped
@@ -2642,13 +2642,13 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   imported wall stays a box with a note; walls from an earlier import host them too. Odd viewport scales snap to the
   nearest standard scale by ratio (1:20.16 → 1:20, 1:35.74 → 1:50), centre kept; notes keep the sizes they were drawn
   at. A sheet whose viewport's floor doesn't match a level goes by its title ("3307 Sensaphone" → 33F 3307).
-- **Journey: legacy drawings imported (Dave 2026-10-12, review R1–R5):** File › Import legacy drawings… run on
-  Journey — Pages model Zone 3303's boxes and walls onto 33F 3303 (58 boxes, 3 walls, the door and hole as openings in
+- **Tourney: legacy drawings imported (User 2026-10-12, review R1–R5):** File › Import legacy drawings… run on
+  Tourney — Pages model Zone 3303's boxes and walls onto 33F 3303 (58 boxes, 3 walls, the door and hole as openings in
   them, new layer Furniture; rack box R01 left out) and the Sheets-tool sheets 3303 Sensaphone (→ 33F 3303), 3307
   Sensaphone (→ 33F 3307), 30F Sensaphone (→ 30F), Comms1 elevation and 3303 Comms 2 Elevation (sections Comms1 / Comms 2
   on 33F 3303, at 1:20 and 1:50), 105 tied notes — one undo step. Checked: the Comms1 sheet shows its section with the
-  walls, furniture and red notes. Everything else in Journey's Pages / Sheets / Drawings / model3d data stays behind
-  (Dave: not needed).
+  walls, furniture and red notes. Everything else in Tourney's Pages / Sheets / Drawings / model3d data stays behind
+  (User: not needed).
 - **R48 Tab titles tell drawings apart:** a rack view's tab names its level, room, row and a rear face ("1F · 33IDF2
   racks (rear)"), a section's its level; a tab whose level / room is gone says so; a plan tab with no level of its own
   reads "Plan (current level)" (`domain/navTree.ts` `viewName`, also the Navigator and the tab list). Live (Test
@@ -2686,16 +2686,16 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   (`app/issue.ts` `saveFrozen` / `loadFrozen`, `app/pdf.svelte.ts` `imageAsWas`). Copies frozen before today have no
   snapshot and reprint as before. (R24d left as is: cad measures a calibration line along its length, which is right;
   Uploads measures along x or y.)
-- **Power faceplates from the front (Dave 2026-10-12):** the built-in power faceplate blocks get a FRONT drawing in
+- **Power faceplates from the front (User 2026-10-12):** the built-in power faceplate blocks get a FRONT drawing in
   real mm (`domain/blocks.ts` `Block.front`, `powerFront`): a 70 × 115 plate, a 50 × 90 frame for the sockets, each
   socket two upright prong lines over an earth circle (single: one socket; dual: two, one above the other). An insert
   placed on a wall in an elevation / section draws it (`frontOf` in `views/elevation.ts`, and the Insert tool's ghost
-  there); the plan keeps the edge-on plan symbol. Data faceplates too (Dave, same day): the same plate and frame, a
+  there); the plan keeps the edge-on plan symbol. Data faceplates too (User, same day): the same plate and frame, a
   14 × 12 rectangle per RJ45 socket (`plateFront`, `power` / `rj45`). Test in
   `domain/blocks.test.ts`. Live (Test Project 1F front elevation): power dual and data dual placed — plate, frame, two
   sockets each;
   undone. (Help not touched: another session was editing helpContent.ts.)
-- **R85 step 1 (Dave: step by step) — one list of keyboard commands:** `ui/shellKeys.ts` `KEY_COMMANDS` (label, keys,
+- **R85 step 1 (User: step by step) — one list of keyboard commands:** `ui/shellKeys.ts` `KEY_COMMANDS` (label, keys,
   group, when, run), in the old else-if order; the shell runs the first that matches, and Help's Keys and Function
   keys are built from it plus a list of mouse gestures and drawing-time keys (`ui/helpContent.ts`), so what Help shows
   is what the keys do. Menus and tooltips still have their own strings (steps 2 / 3). Test in `ui/shellKeys.test.ts`.
@@ -2704,11 +2704,11 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   panels' unused `columns` / `rows` getters, ViewStrip's empty module script, reports' copy of `levelElevation` (it uses
   routing's). (labels.ts `renumber` / `renumberOutlets` stay: their tests document the label rules.) Help: a
   faceplate's front in elevations (for eos-d9's blocks change).
-- **Faceplate fronts on sheets and in the Blocks window (Dave 2026-10-12, Journey sheet 010 Comms1 elevation):** a block
+- **Faceplate fronts on sheets and in the Blocks window (User 2026-10-12, Tourney sheet 010 Comms1 elevation):** a block
   put inside an elevation / section VIEWPORT on a sheet (a sheet note tied to it, `vpId`) now draws its front drawing
   too (`views/sheet.ts` `notePrims`, at the viewport's scale: a plate is 3.5 × 5.75 mm at 1:20); the Insert tool's
   ghost over such a viewport shows it; the Blocks window shows a block's front when it has one
-  (`views/blocks.ts` `blockPreview`). Test in `views/sheet.test.ts`. Seen on Journey's sheet 010 (view only, nothing
+  (`views/blocks.ts` `blockPreview`). Test in `views/sheet.test.ts`. Seen on Tourney's sheet 010 (view only, nothing
   written): its five faceplates now show plate, frame and sockets. Placed at their old insertion points, they are
   larger than the old symbols, so a few may want moving.
 - **R73 / R74 / R71 One Project settings dialog:** Project › Floors…, Project › Settings… and Sheets › Title block… are
@@ -2728,14 +2728,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   without asking (sheet categories only retire; calibration has "Put it back"). A question asked from the dialog (the
   relabel-ports offer, the close question) and the status message now show inside it — the drawing's question box and
   status line sit under the backdrop. "New cords start as" stays in both Cable types and the Patching bar (same
-  setting, but a Patching-tab button Dave asked for). Help updated. Live (Test Project, worktree server): deep links,
+  setting, but a Patching-tab button User asked for). Help updated. Live (Test Project, worktree server): deep links,
   tabs, the not-applied tint + close question, calibrate hide / return, Project details… checked.
 - **R96 The global palette (title bar's Find) shows cad:** a "CAD" entry first; the project's cad levels ("1F plan") and
   sheets open in cad (`?v=plan&level=…`, `?v=sheet.…`), read once by type from `cadEntities`; the older tools stay at
   the end as "… (old tool)"; the legacy Sheets-tool sheets and Outlets floor links are gone from it
   (`$lib/palette/CommandPalette.svelte`). Type-checked; not seen live (the shared browser was busy with the agents'
   dev servers).
-- **R77–R81, R52 The tables (Dave 2026-10-12: "Dialogs + tables"):**
+- **R77–R81, R52 The tables (User 2026-10-12: "Dialogs + tables"):**
   - **R80 look:** headers, row lines and grey text from the `--cad-*` tokens (`ui/TablesPanel.svelte`; they were
     Tailwind zinc, unreadable in Kestrel Dark), a selected row in the dark theme uses `--cad-sel`; `SortTh` has a real
     button (Tab reaches it, Enter sorts); one `ui/StatusChip.svelte` for cord statuses, link kinds, issue states and
@@ -2759,7 +2759,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     row sticks under it). Outlets: Allocate N / Re-allocate… / Assign N → port… / Find/replace… on the selection; ⋯
     Allocate / Re-allocate this level, Re-allocate pinned links too, Find / replace in the shown; No panel yet and
     no-route chips. Patching: status chips; the cord actions on the selection; New cords (Planning · Surveying) and
-    Patch list… stay visible (Dave: easy to find); ⋯ Cord labels…, Import cord IDs…, Purge removed (N). Sheets: ▲▼,
+    Patch list… stay visible (User: easy to find); ⋯ Cord labels…, Import cord IDs…, Purge removed (N). Sheets: ▲▼,
     PDF, Issue…, Duplicate, Archive / Restore, Delete on the selection; ⋯ PDF / Excel of the rows shown, Issue state
     column, Group by. Links: design / installed chips (were a select), Remove N on the selection. Packages: + From
     selection on a register selection, ⋯ + From chips. Issues: ⋯ Issue register (all / latest only).
@@ -2782,7 +2782,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   editing inside a viewport, an amber "Editing in a viewport ✕" that leaves it (the hint no longer carries that
   prefix) (`ui/CadShell.svelte`). With the toast for "Drawn on …" (earlier today), the status line keeps prompts and
   messages only.
-- **Blocks drawn one way; elevation blocks only in their elevation (Dave 2026-10-12):** how a view draws a block — its
+- **Blocks drawn one way; elevation blocks only in their elevation (User 2026-10-12):** how a view draws a block — its
   plan symbol or its front — is decided once (`domain/blocks.ts` `faceFor(viewKind)` / `blockFace`) and every path
   draws through `shapePrims(…, face)`: the plan, an elevation / section (its insert branch now only projects the point
   into the view, then `shapePrims(…, 'front')`), a note in a viewport (`notePrims`: the viewport's face), the Insert
@@ -2818,7 +2818,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   group. The header says "3 racks · 5 outlets" instead of "8 items" (`PropsHeader`). The Renumber group renders
   after the header (it sat above it, so the header jumped). `PropGroup` takes an `id` for remembering its fold when
   the title carries a count. Help: "Edit several things at once (Properties)".
-- **R65 Rooms and rows have their own Properties (Dave agreed 2026-10-12):** a server room or a row of racks is
+- **R65 Rooms and rows have their own Properties (User agreed 2026-10-12):** a server room or a row of racks is
   selected from the Navigator (its room / row row — `domain/navTree.ts` gives them `select`, tested; the rack view
   still opens), the Racks window's room header (new **Properties** button) or a rack's **Room … ›** link (it replaces
   the rack's "for every rack in …" Room floor / ceiling fields). The shell keeps such a selection when a view opens
@@ -2914,7 +2914,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **R85 step 2 — one table of key labels:** `ui/shellKeys.ts` `KEYS` (undo, redo, group, draw order, F-keys, tabs,
   view keys …); the keyboard list (and so Help) and every menu / right-click / tab menu key read it
   (`ui/cadMenus.ts`), so a key named in a menu is the key the shell runs. Step 3 (button tooltips) next.
-- **R47 A level per pane (Dave agreed: "area plans make it more useful: 3303 beside 3307"):** `app/workspace.svelte.ts`
+- **R47 A level per pane (User agreed: "area plans make it more useful: 3303 beside 3307"):** `app/workspace.svelte.ts`
   keeps `paneLevels` (one per pane) and `pane` (the active one); `levelId` is now a getter / setter on the ACTIVE
   pane's entry, so everything that reads or sets the open level (Properties, the tools' ToolCtx via each canvas's own
   `levelId`, the Outlets table, Navigator current, Floors, Project › Rename this level…, Find, undo's level switch)
@@ -3001,7 +3001,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `/cad` link) made a tab for the plan before the levels loaded, so it had no level; once the level came the pane went
   to that level's own tab, and a click on the orphan bounced back there. A level-bound view with no level never
   becomes a tab now, and one saved like that is dropped on load (`app/tabs.svelte.ts` `unplaced`; test).
-- **Review follow-ups (Dave 2026-10-12: 16, 19, 20, 21, 22; 18 = keep the selection):** Link to… lists its cables
+- **Review follow-ups (User 2026-10-12: 16, 19, 20, 21, 22; 18 = keep the selection):** Link to… lists its cables
   before making them, like Patch to… (`editor/cordTool.ts`, `ui/PatchPreview.svelte` takes a title / OK label and
   no fill choice; test); undo / redo of something on the other pane's level makes that pane active (`ui/CadShell.svelte`
   `showHistory`); a tab's ✕ shows on shown / focused tabs and on touch screens (`ui/TabStrip.svelte`); dialog footer
@@ -3022,7 +3022,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q4** Floors settings read `project.rev` for the building (stale skip after Apply; a new building per Apply).
 - **Q29** an error shows beside Saved / Saving…, with ✕; a saving error clears once the next writes go through
   (`app/project.svelte.ts`, `ui/CadShell.svelte`).
-- **Q5** one height rule for an outlet with no Z (Dave): by mount — ceiling = the level's clear height, wall = 300,
+- **Q5** one height rule for an outlet with no Z (User): by mount — ceiling = the level's clear height, wall = 300,
   else 0 — in the elevation (it went by tier), routing, Properties, moves (`moveBy` takes a lookup for the level) and
   pastes. One table of default level heights: `heightsOf(level)` / `DEFAULT_HEIGHTS` (`domain/floors.ts`), used by the
   elevation, riser, section, openings, the draw tools' defaults and the legacy importer; tests.
@@ -3042,7 +3042,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   they are when Delete is clicked, not when asked; the question says how many runs / viewports (`editor/commands.ts`
   `roomViewports` / `roomViewportsOff`, `app/navActions.ts` `deleteRoom`; test).
 - **Q20** a Sheets-tool sheet's date no longer prints forever: the title block shows the latest revision's date once
-  there is a dated one, over a stored date field (only the importer ever wrote one — so Journey's sheets need no
+  there is a dated one, over a stored date field (only the importer ever wrote one — so Tourney's sheets need no
   clean-up); the importer puts the date on the current revision when that has none, and keeps it as a field only on a
   sheet with no revisions (`views/sheet.ts` `titleBlockContext`, `persist/import/drawings.ts`; tests).
 - **Q35** the project's cord type and color are taken in when the project loads (and again when they change in
@@ -3155,7 +3155,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   goes when it is linked. Usage N/A and unplaced outlets get none. Perf: 1000 outlets × 2 ports over 800 segments,
   2000 estimates ≈ 0.1 s on top of a 30 ms graph (2000 links over the same graph: 0.18 s). Help; tests.
 - **Q28** the project BOM counts what is to be bought: cables already installed and cords already in place (or only
-  moved / taken out) are left out — only cords to add or replace count (Dave 2026-10-12; the dialog says so;
+  moved / taken out) are left out — only cords to add or replace count (User 2026-10-12; the dialog says so;
   `domain/reports.ts` `bom`, `cableMetres(…, only)`). Also: a multi-core cable whose cores end on two panels names
   each panel with its own ports in the cable schedule (it named the first core's panel with every core's ports;
   `domain/cableSchedule.ts`); Ctrl+Shift+V / Ctrl-copy of notes drawn on an elevation centre on their plan places and
@@ -3188,10 +3188,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "(for everyone)"); Display keeps Hide empty floors (the view's own) and a line saying where the floors went
   (`ui/ViewBasics.svelte`, `views/riser.ts` `withRiserEnd`, `ui/ViewStrip.svelte`). Planning · Surveying says "for
   everyone" beside the toggle, in its titles and its undo step (`ui/CordMode.svelte`). Help; test.
-- **Q7 follow-up (Dave):** on a plan, runs at different heights are not joined — dropping a node on another run's
+- **Q7 follow-up (User):** on a plan, runs at different heights are not joined — dropping a node on another run's
   node at another height says "join them in an elevation view"; one that would have been absorbed just moves along
   (`domain/pathEdit.ts` `joinHeightProblem`, `editor/pathSel.ts`, `editor/dragParts.ts`, `editor/selectTool.ts`); test; Help.
-- **Q48 follow-up (Dave 2026-10-12): the selected outlet's estimated route, estimates in the BOM and the cable schedule.**
+- **Q48 follow-up (User 2026-10-12): the selected outlet's estimated route, estimates in the BOM and the cable schedule.**
   Selecting an outlet whose server room is SET on a port (`Estimate.roomSet` in `domain/estimates.ts` — not one guessed
   from the zone / level / nearest run) draws its estimated routes with the selection highlight, finer green dashes
   (`routesOf` in `views/overlays.ts`, class `trace-route-est` in `ui/Prims.svelte`). The BOM counts estimates
@@ -3300,19 +3300,19 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   "(Used by tests only.)"; `dev/dryRun.listProjects` and the stale DockColumn comment removed; `IMPORTED_AT` is
   computed per import run. Not done: the as-issued floorplan cache (`app/pdf.svelte.ts`, R39 part).
 
-## Features (Dave 2026-10-13)
+## Features (User 2026-10-13)
 
 - **Uploads in cad** — File › Uploads… opens `ui/UploadsDialog.svelte` (a large CadDialog) hosting the Uploads tool. The tool moved to `$lib/uploads/` (`Uploads.svelte`, `PdfViewer.svelte`, `DimensionLine`, `provider.ts`, `uploader.ts`, new `deleteFile.ts`), with `embedded` (no title bar, fills its box) and `onopen` (Uploads) props; the `/uploads` route and its `[fileid]` page use the same components, and `uploads/provider.ts` / `uploader.ts` re-export so the older tools keep working. A file opens in the viewer inside the dialog; Esc steps back (viewer tool, file list, close). Same Firestore `files/{id}` docs, so edits show in cad at once.
 - **ACAD / EOS input mode** — a status-bar button (`ws.inputMode`, kept per browser in localStorage `cad-input-mode`; no key). ACAD = today. EOS = the wheel pans (Shift+wheel sideways; Ctrl / Alt / Meta or right-button + wheel zooms), and line / trunk / conduit / wall / dimension draw on a press-drag. The logic is in two pure files: `editor/inputMode.ts` (`wheelAction`) and `editor/pressDrag.ts` (`PressDrag` / `PressDragInput`: press = first click, release after a drag = second click; mid-run the release adds the segment, a plain click is delivered at the release); `ui/ViewCanvas.svelte` only routes events to them, the tools are unchanged. Rectangle / ellipse / box / image already draw on a press-drag in `ShapeTool`; an arc stays three clicks. Tests: `editor/inputMode.test.ts`.
 
-## Features (Dave 2026-10-13)
+## Features (User 2026-10-13)
 
 - **Text to and from office apps:** Ctrl+V of plain text copied in another app pastes a text shape at the pointer (`app/clipboardEvents.ts` `note` hook to `ViewCanvas.pasteNote` to `pasteTextNote` in `editor/noteTool.ts`; the Text tool's 2.5 mm size and the current layer; the middle of the view when the pointer is elsewhere; Edit > Paste too). Ctrl+C of cad items puts their words on the clipboard (`readableClip` in `domain/pasteText.ts`), one per line; cad's own JSON waits in localStorage (`cad.clip`, shared by tabs) and is used on paste only while the clipboard still holds exactly those words.
 - **Pasted tables:** tab-separated cells (Excel) and an HTML `<table>` (Word, a web page) become a markdown table note (`pastedNote`, `parseTsv`, `htmlTable`).
 - **Markdown notes:** a text with the `markdown` flag (Properties > Markdown) is laid out by `views/markdown.ts` `layoutMarkdown` (pure: headings, bullets, numbered lists, bold / italic, pipe tables with alignment, word-wrapped to the box width) and becomes ordinary text and line prims (`markdownPrims`, called from `views/plan.ts`), so the screen, PDF (bold / italic via `note-b` / `note-i`) and DXF (TEXT per run, polylines for table lines) need no new code paths.
 - Not done: italic is not drawn in DXF; run widths are estimated (0.6 em Latin, 0.66 bold, 1 em CJK) as everywhere else, so bold runs can sit a little off in a PDF; a markdown note that rotates is laid out unrotated and turned about its point.
 
-## Features (Dave 2026-10-13)
+## Features (User 2026-10-13)
 
 - **Layer presets, groups, multi-select** (`ui/LayersPanel.svelte`, `app/layerPrefs.svelte.ts`, `domain/layers.ts`):
   - Presets: a "Presets…" menu above the list; **+** saves the current eye states under a name, picking one shows exactly that set, the bin deletes it. Kept per user and project in this browser with the other layer settings (`LayerPrefs.presets`).
@@ -3324,7 +3324,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   - DXF hatch: a region's fill (`shape-fill`) is a solid HATCH of its color (polygon boundary; a circle as an arc edge). Tests in `render/dxf.test.ts`, `domain/shapeDefaults.test.ts`.
 - **Floor-tile grid** (`domain/tiles.ts`): `Shape.tiles { mm, dx, dy }` on a box (rect). Properties › Box › Floor tiles (default 600 mm; the size is read with `gridStepOf`, like the status bar's grid step). Lines every `mm` from the box's top-left corner in its own turned frame, shifted by X / Y; drawn by `views/plan.ts` as `tile-line` prims (screen, PDF, DXF layer `A-FLOR-TILE`). More than 300 lines across one axis is left off (Properties says so). Test in `domain/tiles.test.ts`.
 
-## Features (Dave 2026-10-13)
+## Features (User 2026-10-13)
 
 - **Viewport handling (1)-(3)** several viewports can be picked on a sheet: Ctrl-click a frame (on a picked one drops it), or drag a window on the empty paper (left to right: enclosed; right to left: touched). `ws.viewportId` stays the first, `ws.vpMore` holds the rest (`pickedViewports`). A drag, the arrow keys and Delete act on all of them (`deleteViewports`, one undo step, "Undo brings it back"). Properties shows a "Viewports picked" note. Ctrl-drag leaves the originals and moves copies (with their views and tied notes); the copies are picked.
 - **Viewport handling (2)** copy / cut / paste / duplicate: a clip can carry `viewports` (+ `levelNames`) and the notes tied to them, which stay tied (`makeViewportClip`, `pasteClip` in `domain/clipboard.ts`, `app/clipboardEvents.ts`). Pasted onto another sheet or into another project: the same level, else the level of the same name, else the first; a room, section, rack or run the project lacks makes the viewport show a plan (the paste says so: Fit in Properties). The same sheet without a position (Ctrl+V, Ctrl+D) puts the copy 10 mm to one side. Ctrl+D (`duplicateViewports`, `KEYS.duplicate`) duplicates the picked viewports only. Tests in `editor/sheet.test.ts`.
@@ -3333,7 +3333,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Blocks: front drawings** the rest of eos-d9's work (`faceFor` / `frontOf` / `Block.front`, 250bfadb: a block's front is drawn in elevations, sections and elevation viewports) was authoring: shapes drawn in an elevation or section now become a block's front. `frontProblem` / `frontFromShapes` / `frontBlock` (`domain/blocks.ts`): real mm, y down, centred on the middle of the shapes (a text's size x the plot scale); a NEW block gets a plain box of the front's width as its plan symbol, or one of your own blocks takes the front (`CadProject.makeBlockFront`, `ui/MakeBlock.svelte`: Make block... and "Add as the front of..."); one insert replaces the shapes in that elevation at the same place and height. The Insert tool now sets `inElevations` on a plan insert of any block that HAS a front (a change from 2026-10-10's "plan symbol only", for blocks with a front only; untick in Properties). The Blocks window tags such blocks "front". Tests in `domain/blockFront.test.ts`, `editor/insertTool.test.ts`.
 - **Linked symbols** `link?: InsertLink` (`{ kind: 'sheet', sheetId } | { kind: 'url', url }`, `domain/links.ts`) on the insert's geometry, so each marker has its own target. Properties › Link (`ui/InsertProps.svelte`) picks Nothing / A sheet / A web page (`linkUrl` accepts http, https and mailto only, adds https:// to a bare host; scripts never open). The Select tool's hover shows a badge "↗ target · double-click opens" (screen only, class `draft-label`); a double-click calls `ToolCtx.openLink` -> `Workspace.openLink`: a sheet in a tab, a URL via `window.open(url, '_blank', 'noopener,noreferrer')`. Outlets (not inserts) take no link. Tests in `domain/links.test.ts`, `editor/linkedSymbols.test.ts`.
 
-## Decisions (Dave 2026-10-13)
+## Decisions (User 2026-10-13)
 
 - **Q73 Faceplates show only on the view they were drawn on** the Insert tool no longer sets `inElevations` for a plan insert of a block with a front: the 2026-10-10 rule stands (a block placed on a plan shows only on the plan, one placed in an elevation only there; the tick in Properties still shows a plan insert's front in elevations). Test in `editor/insertTool.test.ts`.
 - **Q74 Make block from shapes on a sheet** Properties › Make block now takes sheet shapes (`blockable` allows `sheetId`; `blockProblem` refuses mixing places). Shapes tied to a viewport (`vpId`) are in that view’s mm: the block is in model mm, the insert keeps `vpId` and the layer. Untied paper shapes (paper mm) are scaled × the sheet’s FIRST viewport scale (`paperBlockScale`), the insert on paper gets `scale: 1/N` (same printed size); no viewport = paper size. `ws.say` tells which. Tests in `domain/blocks.test.ts`.
@@ -3341,10 +3341,10 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - **Q76 Finish / Cancel for a path on touch** `Workspace.touchInput` (the last press was a finger, set in `ViewCanvas.onDown`) and `Workspace.pathPending` (points in the run being drawn, kept by the active canvas) show Finish and Cancel chips in `CadShell`'s options row (`ViewCanvas.finishPath` / `cancelPath`, the same as Enter / Esc). A double-tap already finished a path (`PathTool.down` on `count >= 2`); `ClickCounter.press` now takes a tolerance and a touch press gets 24 px (a finger wobbles more than 5). Tests in `ui/canvasInfo.test.ts`.
 - **Q77 Purge removed asks before purging** the Patch list's ⋯ › Purge removed (N) now asks (`ws.ask2`, `PatchList.purgeRemoved`): it names how many cords go and that the installer's list can't bring them back; yes runs the same `runCordAction(... 'installed')`, ONE undo step. The Installed action on a selection that includes cords marked for removal is unchanged (it says what went, Undo brings them back).
 
-## Layers per viewport and per sheet (Dave 2026-10-13)
+## Layers per viewport and per sheet (User 2026-10-13)
 
 - **A viewport's layers are its own** `viewportContent` and tied notes hide only `Viewport.frozen` — the user's eye
-  (`ws.layers.hidden`) no longer reaches a viewport, so the screen shows what prints (Dave: section lines printed with the
+  (`ws.layers.hidden`) no longer reaches a viewport, so the screen shows what prints (User: section lines printed with the
   Sections layer turned off). With a viewport picked or edited, the Layers panel's eyes (and a group's eye, several picked
   layers, presets) set that viewport's list (Shift: every viewport on the sheet); the separate ❄ button is gone. Drawing
   inside a viewport is refused on a layer hidden in that viewport (`toolBlock` gets the viewport's list).
@@ -3353,12 +3353,12 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   gone: nothing on a sheet follows a per-user setting, so the PDF, an issue and the screen draw the same list.
 - **New layers start hidden in existing viewports** as before for + Layer and import; now also for a layer that comes
   with a paste from another project (`pasteClip` → `freezeInExisting`).
-- **Several viewports picked (Dave 2026-10-14, options 1 + 2)** the panel works on every picked viewport
+- **Several viewports picked (User 2026-10-14, options 1 + 2)** the panel works on every picked viewport
   (`ws.pickedViewports`): one eye per layer, `eyeState` = on / off / mixed (a faint eye; a click shows it in all), and
   presets / group eyes / multi-picked layers set them all. Layers none of them draws on (`viewportLayers`: the view's
   content with nothing hidden, plus its tied notes, on `dataIndex`) fold under "Not in these views (N)", still settable.
 
-## One drawing per 2D block (Dave 2026-10-14)
+## One drawing per 2D block (User 2026-10-14)
 
 - A 2D block is ONE drawing, drawn the same in every view (an insert still shows only in the view it was placed in):
   `Block.front`, `frontOf`, `BlockFace`, `faceFor`, `blockFace` are gone; `shapePrims`, `blockPreview`, the Insert ghost,
@@ -3368,30 +3368,30 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   `elevationShapes` / `elevationBlock`, through `makeBlock`), its insert in that elevation; "Add as the front of…" is
   gone. A stored block that still has a `front` reads as that drawing (`oneDrawing`, in `project.blocks`).
 
-## 3D blocks (Dave 2026-10-14)
+## 3D blocks (User 2026-10-14)
 
 - A block with a box (a region with `extent`) is 3D (`is3d`): Make block on boxes files it under Furniture, its heights
   from the lowest one's bottom (the insert keeps that Z). Its inserts are model: `placed3d` turns one into shapes on its
   level (moved, turned, lifted by the insert's Z, `{TAG}`s filled, all carrying the insert's id), and the plan and the
   elevation / section generators draw those as any box / line — in every view, whatever `frame` / `inElevations` say.
-- What each view shows (Dave's rule): boxes always; lines unless they collapse to a point there (a line straight up on a
+- What each view shows (User's rule): boxes always; lines unless they collapse to a point there (a line straight up on a
   plan, one running away from the viewer in an elevation); labels (`{TAG}` texts, `isLabel`) everywhere, in an elevation
   centred over the block's top; flat regions and plain texts only on plans (edge-on elsewhere).
 - Default Z 0; drag it in an elevation to lift it (`behaviours.ts` already moves an insert's z). Explode → the boxes
   where they stand.
 - Dropped from the Blocks window into an elevation / section on a wall, a 3D block faces the viewer with its back on the
   wall's face (`backOf` = how far it reaches behind its point), not its middle; no `inElevations` / `frame` stored.
-- Furniture defaults (Dave 2026-10-14): a 3D block's insert goes on the project layer "Furniture" (`ensureLayer`: made
+- Furniture defaults (User 2026-10-14): a 3D block's insert goes on the project layer "Furniture" (`ensureLayer`: made
   the first time, in the same undo step, frozen in existing viewports like any new layer) — from Make block when the
   boxes had no layer of their own, from the Insert tool when the current layer is Drawing.
 
-## Markdown strikethrough and underline (Dave 2026-10-14)
+## Markdown strikethrough and underline (User 2026-10-14)
 
 - `~~text~~` strikes through, `__text__` underlines (it was a second bold; `**text**` is the only bold now); `\~`
   escapes. `emit` adds each struck / underlined stretch's line as a `rule` item (through at −0.3 × size, under at
   +0.15 × size, word to word, not past a trailing space), so the screen, PDF and DXF draw it as a table's rules.
 
-## AutoCAD zoom keys (Dave 2026-10-14)
+## AutoCAD zoom keys (User 2026-10-14)
 
 - Z, then E (extents = Home) · W (zoom window) · P (zoom previous); any other key, or 5 s, ends the wait
   (`shellKeys.ts` `zoomPending`). Window: two clicks in ACAD input, a press-drag in EOS (a click + click works there
@@ -3404,14 +3404,14 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 - Found in the workflow walkthrough: a project made from scratch had no settings entity (only the legacy import made
   one), so Project settings › Usages, Cable types, Lengths & labels, Sheets (title block) and Files said "This project
   has no settings yet", and nothing could be added.
-- `domain/settings.ts` `defaultSettings()` (Dave 2026-10-14): usages AP, TV, CCTV (and none); cable types CAT6A, CAT6,
+- `domain/settings.ts` `defaultSettings()` (User 2026-10-14): usages AP, TV, CCTV (and none); cable types CAT6A, CAT6,
   OS2, OM4; new outlets and cords CAT6A. "Apply floors" puts them in the same undo step when the project has none; a
   project already without them gets a "Start with the default settings" button in those tabs.
 - The Outlet tool's first outlet has no usage (was "desk"); its tool bar Usage gains "(none)" ('' = as last).
 
 ## A guide for AI assistants (/cad/agent)
 
-- Dave 2026-10-14: "is there sufficient instructions in Help for another LLM … to control the browser and develop
+- User 2026-10-14: "is there sufficient instructions in Help for another LLM … to control the browser and develop
   project designs?" — no (Help is written for a person who sees the screen), so a plain-text page at `/cad/agent`
   (`src/routes/cad/agent/+server.ts`, outside the sign-in screen) serves `ui/agentGuide.ts`: ground rules (only the
   named project, ask before deleting / importing / issuing / downloading, never sign in), what a project holds, the
@@ -3444,7 +3444,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   PdfCache keeps each page's look and bumps `lookRev` when one changes; the register's states re-check on it (a mask
   edit isn't a project edit). Issue and preview use the same print (`app/issue.ts` `printNow`). Tests in
   `domain/issue.test.ts`. Not covered: a re-uploaded file under the same id (its url) — that's W4.
-- W1 follow-up (Dave 2026-10-14: "Undo and Keep"): the calibration offer's buttons are **Undo** (was "Put it back")
+- W1 follow-up (User 2026-10-14: "Undo and Keep"): the calibration offer's buttons are **Undo** (was "Put it back")
   and **Keep** (was "Cancel", which read as undoing it but kept the change); Esc = Keep. Help updated.
 
 ## Walkthrough P2 quick wins (2026-10-14)
@@ -3457,7 +3457,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
   field's placeholder shows the scale the page is at now; another floor's floorplan is rendered first (its page size
   comes from the render: `PageCalibUsed.page`). Tested live in Workflow test on L2 (2F, A3): "Scaled: drawn at 1:100
   (an A3 page)", then Undo. Tests in `editor/calibrateTool.test.ts`; Help's calibration answer updated.
-- **W9 First-run path** (B1, B2, B4; with Dave's todo "Upload from Settings › Plans & floorplans"):
+- **W9 First-run path** (B1, B2, B4; with User's todo "Upload from Settings › Plans & floorplans"):
   - Projects › New Project › Save opens the new project in cad (`Projects.svelte` `onsaved` → `goto`).
   - An empty project's page (ImportPanel) is now "Start {project}": the three steps and **Set up floors…** (Project
     settings on Floors & heights); the legacy import is folded under "Or bring in a project from the older tools".
@@ -3493,7 +3493,7 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
     fullest. B61's "puts the fullest, not the one you picked" was the riser case: a picked segment was already used.
   - Tests in `views/fillSection.test.ts`, `domain/legend.test.ts`. Seen live: Workflow test's S003 now reads "Fill ·
     Riser L1 ↕ GF" / "Fill · Riser L2 ↕ L1".
-- **Revision compare check** (Dave's todo): desk-checked, written up in `../plan/workflow-walkthrough.md` Round 5;
+- **Revision compare check** (User's todo): desk-checked, written up in `../plan/workflow-walkthrough.md` Round 5;
   it shaped W4 and W7.
 - **W4 A new revision of a floorplan** (B8, B11):
   - Plans & floorplans: each floorplan row has **New revision…** (Upload the new PDF…, or a PDF already in Uploads).
@@ -3593,9 +3593,9 @@ Batch 5 done (Dave's 2, 5, 6, 7, 10 + blocks drag).
 
 ## Backlog P3s (2026-10-15)
 
-Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skipping the ❓ ones.
+User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skipping the ❓ ones.
 
-- **Guides** (Dave's todo, T155): the **Guide** tool (Draw group, crosshair): a click places a cross, or only a
+- **Guides** (User's todo, T155): the **Guide** tool (Draw group, crosshair): a click places a cross, or only a
   vertical / horizontal guide (tool bar › Place), through the snapped point (typed points too); press on a guide to
   drag it (it snaps); Delete removes the one under the cursor; tool bar › Clear N takes this view's off.
   - Kept per view (`levelId|specKey`; inside an edited viewport, its view's) in this browser
@@ -3636,10 +3636,10 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Migration: not automatic (no write on open) — Contacts shows "N recipients typed on packages … Add them as
     contacts" (one undo step).
   - Tests in `domain/packages.test.ts`. Seen live: the Contacts section in Workflow test (no packages to migrate).
-- **Shift constrains dimensions** (Dave's todo): the Dimension tool's SECOND point with Shift held is kept level or
+- **Shift constrains dimensions** (User's todo): the Dimension tool's SECOND point with Shift held is kept level or
   plumb with the first (`axisLock`, `editor/constrain.ts`), in the preview and the click; the third click (where the
   line sits) is free. Test in `editor/dimTool.test.ts`; the hint and Help say so.
-- **Fewer gotchas in /cad/agent** (Dave's todo):
+- **Fewer gotchas in /cad/agent** (User's todo):
   1. Drawn onto a layer this user has HIDDEN (CadShell's drawn-on effect, `layerOf` of each new entity): that layer is
      shown again, toast "Outlets high was hidden — shown again, so you see what you drew".
   2. A greyed tool clicked (strip, Help, menus' tool entries): `pickTool` — a tool that works on plans opens this
@@ -3708,10 +3708,10 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - The Sheets table's Issue state column is on by default (⋯ hides it). Seen live.
   - The Issue panel's "Package" field is now "Issue name" (it only ever named the issue; a package is made in Packages
     › + From selection — its tooltip says so); issuing a package shows "of package X". NOT built: making a package
-    automatically from an issued selection (a design choice for Dave).
+    automatically from an issued selection (a design choice for User).
   - Noticed: pictures (logos, pasted screenshots) are still flagged "Set origin" in Uploads — left, as an image can be
     a floorplan.
-- **Dave 2026-10-15 on the above:** W24b closed — issuing a selection does NOT make a package (the Issues list's Make
+- **User 2026-10-15 on the above:** W24b closed — issuing a selection does NOT make a package (the Issues list's Make
   package button does, when wanted). Outlets must draw over desks → noted under the ❓ "Three bands" entry. New todos
   in backlog.md: "Keep a drawn item's settings for the next ones" (or a Use as default button) and "Another word for
   Issue" (both ❓).
@@ -3770,23 +3770,23 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A **Measure** tool (tool strip › Draw, after Dimension; plans, elevations, sections): two clicks (snaps, Shift 15°)
     → the distance beside the line and in the status line with its X / Y (along / up) parts; nothing is drawn.
     `editor/measureTool.ts` + test; hint + Help. Seen live on 1F.
-- **Hover grip after Delete** (Dave 2026-10-15): the larger grip under the pointer stayed drawn after its shape was
+- **Hover grip after Delete** (User 2026-10-15): the larger grip under the pointer stayed drawn after its shape was
   deleted, until the pointer moved. `selectTool.ts` now keeps the selection it was found on (`#hovFor`) and draws it
   only while that selection is the same and still exists. Test in `editor/pathSel.test.ts`; seen live on Test Project
   (a rectangle drawn, a corner hovered, Delete: the grip went with it).
-- **Help › Walkthrough** (Dave 2026-10-15): Help menu › "Walkthrough: a project from start to issue" opens Help on a
+- **Help › Walkthrough** (User 2026-10-15): Help menu › "Walkthrough: a project from start to issue" opens Help on a
   new Walkthrough section (`helpContent.ts` `WALKTHROUGH`, nine stages of short numbered steps: new project,
   floorplans, server rooms and racks, outlets, containment and risers, allocation and patching, sheets, issue and
   package, exports and backups); it sits folded at the top of Help otherwise, and search reaches it.
   `HelpDialog`'s `keys` prop is now `start: 'keys' | 'walk'`.
-- **Keys & mouse layout** (Dave 2026-10-15): long key / mouse texts wrap in their own column (they ran across the
+- **Keys & mouse layout** (User 2026-10-15): long key / mouse texts wrap in their own column (they ran across the
   other one: `kbd` was nowrap); Function keys now come first, then an ACAD / EOS input tip (replacing its one-line
   row), then Keys & mouse. Seen live.
-- **EPS boxes slab to slab** (Dave 2026-10-15), `views/riser.ts`: a riser carrying on to the floor above draws that
+- **EPS boxes slab to slab** (User 2026-10-15), `views/riser.ts`: a riser carrying on to the floor above draws that
   floor's EPS box up to the slab above (through the plenum); one coming from the floor below, down to this floor's
   slab (through the raised floor). A riser that only turns in this floor's ceiling stays FFL → ceiling. Test in
   `views/riser.test.ts`; seen live on Test Project's riser view.
-- **Use as default** (Dave 2026-10-15: the button, kept with the project; backlog "Keep a drawn item's settings for
+- **Use as default** (User 2026-10-15: the button, kept with the project; backlog "Keep a drawn item's settings for
   the next ones"): one item selected → Properties › **Use as default** (under its name) saves its settings as its
   tool's starting point in `ProjectSettings.toolDefaults` (`domain/toolDefaults.ts` `useAsDefault`), one undo step:
   - a rack → the Rack tool: kind, size, height, rotation (square too), doors, color, product — over "like the last
@@ -3799,7 +3799,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     `domain/toolDefaults.test.ts`, `editor/racks.test.ts`; Help how-to + the Rack hint. Tried live on Test Project:
     R301 → Use as default → a rack drawn on 4F came out 4-post, 45U, 750 × 1070, turned 180°; both undone (checked in
     Firestore).
-- **Export file names** (Dave 2026-10-15: "both" — a project pattern, and each export editable; then "dont use
+- **Export file names** (User 2026-10-15: "both" — a project pattern, and each export editable; then "dont use
   statusbar for inputs like filenames, use a dialog"): every export now saves through `render/download.ts`
   `saveFile(data, name, type, { what, scope })`, which asks the page's namer first: CadShell opens **Save as**
   (`ui/FileNameDialog.svelte`), filled from `ProjectSettings.fileNamePattern` (`patternName`: {project} {what} {scope}
@@ -3812,7 +3812,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   on Test Project: the outlet schedule's Save as with its own name, then with the pattern
   ("Test_Project_Outlet_schedule_4F_20261015"); Esc saved nothing; the BOM dialog's Save as cancelled leaves the
   dialog open; the pattern cleared afterwards (checked in Firestore).
-- **"Issue" becomes "Release"** (Dave 2026-10-15): every word a user sees or gets in a file — Release… / Releases /
+- **"Issue" becomes "Release"** (User 2026-10-15): every word a user sees or gets in a file — Release… / Releases /
   Re-release… / Released revisions / Released in / Changed since last release / Not released, the Release panel and
   list, undo labels, Help (area "Sheets and releases"), the agent guide, Settings, Uploads ("Released sheets",
   "Release PDF"), `issueTag` → "Release 03" (file names, cover, transmittal "Release No." / "This release"), the
@@ -3821,16 +3821,16 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   renamed groups resets once; files already uploaded keep their "Issue NN" names. The reprint, revision PDF,
   transmittal and register downloads now go through the Save as dialog too. Built by an agent in a worktree, merged
   there (helpContent / SettingsPanel conflicts resolved), tests 1156 pass, svelte-check clean in cad.
-- **Walkthrough window** (Dave 2026-10-15: "so useful … a floating / dockable window so the user can keep it open"):
+- **Walkthrough window** (User 2026-10-15: "so useful … a floating / dockable window so the user can keep it open"):
   Help › Walkthrough now opens a **Walkthrough** window (`WinId 'walkthrough'`, floating 360 × 520 by default; docks
   left / right like the others; Window › Walkthrough toggles it). `ui/Walkthrough.svelte` draws the stages (each folds
   on its heading) for both the window and Help's section, which keeps Help's search and gains **Open in a window**.
   HelpDialog's `start: 'walk'` is gone. Seen live: the menu opens it with 9 stages, it docked right under Racks, Help's
   button opens it and closes Help; closed again afterwards.
-- **Leader → Callout** (Dave 2026-10-15): the tool, menu, Properties title, undo label, messages, Help and the agent guide say Callout; the tool id / geom kind stay `leader`.
-- **Help: no Walkthrough window button** (Dave 2026-10-15): Help's walkthrough section no longer has Open in a window (Help › Walkthrough and the Window menu open it).
-- **{revision} / {version} in export names** (Dave 2026-10-15): `{revision}` = the export's own revision (a single sheet PDF's last revision, a revision PDF's code, the BOM's typed Revision); `{version}` = the release number, 2 digits (a release's reprint / transmittal: its own; else the project's latest). Unknown = left out with its separator. Settings › Files and Help list them; tests in `render/download.test.ts`. Tried live: "{project} {what} {revision} R{version}" → "Test_Project_S001_Test_sheet_cad_4.1_C_R05" for S001's PDF (cancelled); pattern cleared.
-- **Use as default, every drawing tool** (Dave 2026-10-15: "can it be expanded to the other drawing tools?"): also an
+- **Leader → Callout** (User 2026-10-15): the tool, menu, Properties title, undo label, messages, Help and the agent guide say Callout; the tool id / geom kind stay `leader`.
+- **Help: no Walkthrough window button** (User 2026-10-15): Help's walkthrough section no longer has Open in a window (Help › Walkthrough and the Window menu open it).
+- **{revision} / {version} in export names** (User 2026-10-15): `{revision}` = the export's own revision (a single sheet PDF's last revision, a revision PDF's code, the BOM's typed Revision); `{version}` = the release number, 2 digits (a release's reprint / transmittal: its own; else the project's latest). Unknown = left out with its separator. Settings › Files and Help list them; tests in `render/download.test.ts`. Tried live: "{project} {what} {revision} R{version}" → "Test_Project_S001_Test_sheet_cad_4.1_C_R05" for S001's PDF (cancelled); pattern cleared.
+- **Use as default, every drawing tool** (User 2026-10-15: "can it be expanded to the other drawing tools?"): also an
   outlet (the Outlet tool bar: usage, mount, ports, cable type), a box's shape (rect / ellipse / polygon + sides), a
   text's alignment, a callout's frame, a revision cloud's arc size, a dimension's kind, a legend's text size, a
   section's depth. The Box / Dimension / Outlet tool bars take the defaults once a session (`ws.#seed`), and a Use as
@@ -3838,11 +3838,11 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   resets the box tool bar). Not offered: blocks, pictures, viewports, rooms (nothing a tool starts from). Tests in
   `domain/toolDefaults.test.ts`, `app/workspace.test.ts`; Help how-to rewritten. Tried live: the 1F callout (Box frame)
   → saved `callout: { border: 'box' }`; Undo took it out (checked in Firestore).
-- **Navigator: no elevation rows** (Dave 2026-10-15: "drop the elevations, the user should be using sections
+- **Navigator: no elevation rows** (User 2026-10-15: "drop the elevations, the user should be using sections
   instead"): each level lists Plan, its sections and its server rooms (`domain/navTree.ts`); with an elevation open its
   level row is the marked one (`Navigator.svelte` isCurrent). Help's Navigator answer says so. Generic rooms in the tree
-  (AV / meeting / EPS …, Dave "consider") not built yet — asked first (imported room outlines could flood it).
-- **W26 More BOM lines** (B24; Dave 2026-10-15 picked them), `domain/reports.ts` `bom`, by rule from the model
+  (AV / meeting / EPS …, User "consider") not built yet — asked first (imported room outlines could flood it).
+- **W26 More BOM lines** (B24; User 2026-10-15 picked them), `domain/reports.ts` `bom`, by rule from the model
   (descriptions, no SKUs yet):
   - Outlets: a box per outlet by mount — "Back box (wall)", "Surface box (ceiling)", "Floor box" (floor / box);
     desk outlets: "Spiral / mesh tubing to desk outlets" at `DESK_TUBING_M` = 1.5 m each (note "N desk outlets ×
@@ -3850,12 +3850,12 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Fibre terminations: a connector / pigtail at each end of each fibre core to buy.
   - Testing & labelling: a copper permanent-link test per copper link, a fibre test per core, cable labels and port
     labels at both ends — links to buy plus estimated cables (ports not linked yet).
-  - Not now (Dave): containment fittings / supports, fire-stopping. Tests in `domain/reports.test.ts`; Help's BOM
+  - Not now (User): containment fittings / supports, fire-stopping. Tests in `domain/reports.test.ts`; Help's BOM
     answer. Seen live in Test Project's BOM: Back box (wall) 3, Floor box 55, tubing 2 m (1 desk outlet), 183 tests,
     366 cable / port labels.
-- **Desk tubing 2 m** (Dave 2026-10-15: height-adjustable desks are common): `DESK_TUBING_M` 1.5 → 2.
-- **Walkthrough EN / 日本語; not in Help** (Dave 2026-10-15): the Walkthrough window has an EN / 日本語 switch (`WALKTHROUGH_JA`, menu and button names left in English as on screen; the choice kept in this browser, `cad-walkthrough-lang`); a test keeps both versions the same shape. Help (F1) no longer carries the walkthrough — Help › Walkthrough only.
-- **W33 Floors without a model** (Dave 2026-10-15: "2F and 3F don't need to appear in the Navigator but should still be
+- **Desk tubing 2 m** (User 2026-10-15: height-adjustable desks are common): `DESK_TUBING_M` 1.5 → 2.
+- **Walkthrough EN / 日本語; not in Help** (User 2026-10-15): the Walkthrough window has an EN / 日本語 switch (`WALKTHROUGH_JA`, menu and button names left in English as on screen; the choice kept in this browser, `cad-walkthrough-lang`); a test keeps both versions the same shape. Help (F1) no longer carries the walkthrough — Help › Walkthrough only.
+- **W33 Floors without a model** (User 2026-10-15: "2F and 3F don't need to appear in the Navigator but should still be
   in riser views"; no new setting): a level is the floor's model, the building's range is the stack.
   - `domain/floors.ts` `floorsWithoutLevel`: the building's floors with no level as stand-ins (`floor:<n>`) in their
     storey (`restack` already gave them one — 4F stays put), named from the pattern, the heights of the floor below.
@@ -3864,27 +3864,27 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     deleted level isn't brought back, and such floors don't make Apply "stale"; Floors & heights lists them under the
     chips: "No model: **+ 2F model**" makes one again (named, the nearest floor's heights, stacked).
   - Tests in `domain/floors.test.ts`, `views/riser.test.ts`.
-- **W34–W36 Deleting sheets and levels** (walkthrough Round 6, Dave 2026-10-15 "build them"):
+- **W34–W36 Deleting sheets and levels** (walkthrough Round 6, User 2026-10-15 "build them"):
   - W34: deleting a RELEASED sheet (`selectionActions.ts`) says "Released: S001 (A, B, C). It is in “Initial package”."
     and offers **Archive instead** (status archived) beside **Delete**.
   - W35: the delete-level question counts what goes (`commands.ts` `contentsText`: "7 outlets, 1 run, 1 floorplan").
   - W36: `levelContents` no longer takes runs of OTHER floors that merely reach the level (the whole run used to be
     deleted); `levelRisers` names them in the question, and the delete ends each riser on the nearest floor with a model
     between its other end and the deleted floor (tray height; FFL for a low run), else cuts it back to its own floor
-    (`withoutLevelNodes`) — Dave: "trim them back to the next available floor". The Floors dialog still counts such a
+    (`withoutLevelNodes`) — User: "trim them back to the next available floor". The Floors dialog still counts such a
     level as not empty (Apply keeps it). Help: two new how-tos.
-  - Tests in `editor/notes.test.ts`. Live in Test Project (Dave: 1F and 4F are the only floors in use): deleted the 2F
+  - Tests in `editor/notes.test.ts`. Live in Test Project (User: 1F and 4F are the only floors in use): deleted the 2F
     (asked: "1 run from other floors … a run on 1F", cut back to 1F — no floor in between) and 3F (empty, just went)
     levels; the Navigator lists 1F / 4F; the riser view still draws 2F (FFL 3.80) and 3F (7.60) with their EPS boxes;
     Floors shows "No model: + 2F model + 3F model" and Apply stays off; + 2F model made it again at 3800 (Undo took it
     out). The released-sheet question was seen on S001 and cancelled. **Left as is on purpose**: Test Project without
     the 2F / 3F levels.
-- **Navigator: the rooms you drew** (Dave 2026-10-15: "list all rooms the user creates"): under each level, after its
+- **Navigator: the rooms you drew** (User 2026-10-15: "list all rooms the user creates"): under each level, after its
   server rooms, every room with an outline (Room tool: EPS, AV, meeting, machine rooms …; detail "EPS" or its kind),
   rename / delete in its ⋮; a click opens the plan with the room selected and panned into view. Zones, areas and
   imported room numbers (no outline — imports never make one) stay out, so no flag is needed. Test in
   `domain/navTree.test.ts`; seen live in Test Project ("Room 2" drawn on 1F, listed; undone).
-- **Menus, option 2** (Dave 2026-10-15: "try 2 for now … rename 'Sheets & releases' to Drawings"): the menu bar is
+- **Menus, option 2** (User 2026-10-15: "try 2 for now … rename 'Sheets & releases' to Drawings"): the menu bar is
   File · Edit · View · **Draw** · **Modify** · **Annotate** · Cabling · **Drawings** · Project · Window · Help
   (`ui/cadMenus.ts`). Every tool is in one menu (Draw: Line, Shape, Box, Image…, Wall, Opening, Room / EPS, Section,
   Measure, Guide lines; Modify: Move, Copy, Array, Rotate, Mirror, Match properties, Renumber; Annotate: Text, Callout,
@@ -3894,13 +3894,13 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   releases the picked sheets or says to pick them), Title block…. View: a Drafting submenu for SNAP / OSNAP / GRID.
   Help, hints, the agent guide and the walkthrough name the new paths. Options 1 and 3 documented in the backlog for a
   later review. Seen live: the bar, Drawings › Packages opening the Packages view.
-- **Small changes** (Dave 2026-10-15): View › **Fill rates** (was Fill); Match properties is **Format painter** (menu,
+- **Small changes** (User 2026-10-15): View › **Fill rates** (was Fill); Match properties is **Format painter** (menu,
   right-click, undo label, Help); the first outlet on a level is a **Box** at Z 0, Low, no usage (was Floor), drawn
   with the built-in symbol now named **Outlet - box** (was Outlet - desk/box); default usages: a new project AP, **AV**
   (was TV), CCTV; a project imported from the old tools AP (was Wireless AP), CCTV (new), Printer, AV (was TV / AV),
   Not used — no Desk: an imported outlet whose usage was "desk" (or none) gets no usage. Existing projects keep their
   usage lists. Tests: `domain/settings.test.ts`, `editor/editor.test.ts`.
-- **Tools: flyouts in a floating palette** (tool strip options 2 + 4, Dave 2026-10-15 "try 2 inside the floating
+- **Tools: flyouts in a floating palette** (tool strip options 2 + 4, User 2026-10-15 "try 2 inside the floating
   palette"): `ui/toolGroups.ts` `TOOL_FAMILIES` — 19 buttons for the 32 tools, the groups as the menus (Select / modify ·
   Draw · Annotate · Building · Cabling · Drawings; Dimension now under Annotate, Renumber and Format painter under
   Modify). A family button shows the tool in use from it, else the last one picked (kept in this browser,
@@ -3910,7 +3910,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   as a row (`cad-tools-float`). Help: a new how-to; the tool-strip mentions now point at the families / menus. Seen
   live: the palette, the Text flyout → Callout (the family then shows Callout), the drag, the dock to the top bar (19
   buttons, ~550 px instead of ~900); test settings cleared afterwards.
-- **Tools regrouped; shape / box kinds as flyouts** (Dave 2026-10-15): the tools are back in the top bar by default
+- **Tools regrouped; shape / box kinds as flyouts** (User 2026-10-15): the tools are back in the top bar by default
   (Window › Tools as a floating palette still floats them — "some users may like it"). Groups: Select / modify · Draw
   (Line, Shape) · **Build (3D)** (Box, Wall, Opening) · **Spaces and views** (Room, Section) · Annotate (Dimension /
   Measure / Guide lines now one family; Text / Callout / Cloud; Legend / Block) · Cabling · Drawings — 18 buttons.
@@ -3924,7 +3924,7 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   point a click takes when SNAP is on (guides did snap to the grid — the readout didn't). Seen live: the bar, the Box
   flyout → Cylinder (a second click reopened it), the Shape flyout order, New project… opening Create Project (closed
   unsaved).
-- **Room elevations A–D; Viewport only on sheets** (Dave 2026-10-15, "do the 2 grouping ideas"):
+- **Room elevations A–D; Viewport only on sheets** (User 2026-10-15, "do the 2 grouping ideas"):
   - The Section button is a family: **Section** (a cut line) · **Room elevations (A–D)** (`ws.sectionMode`; Draw ›
     Section ▸ the same). A click inside a room drawn with the Room tool (the smallest one there) makes four sections
     (`domain/roomElevations.ts`): "<room> A" … "D" — A looks to −y (up the plan), then B +x, C +y, D −x — each cut
@@ -3933,46 +3933,46 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - The Drawings group (Viewport) shows only while a sheet is open (it's last, so nothing moves).
   - Tests: `domain/roomElevations.test.ts` (each section's looking direction checked through `sectionFrame`). Help: a
     new how-to; the Section hint.
-  - Live in Test Project (Dave: "draw a room around IDF2"): a room **IDF2** drawn with the Room tool round R311–R313
+  - Live in Test Project (User: "draw a room around IDF2"): a room **IDF2** drawn with the Room tool round R311–R313
     and P3C (typed corners from the floorplan's walls: −4100, −11450 → −1280, −6330); Room elevations inside it made
     IDF2 A–D; IDF2 D opened on P3C / V05 / V06. **Kept** (the room was asked for; the four sections to look at).
-- **Section grips and marks** (Dave 2026-10-15: "the grips don't obey shift … labels and arrowheads should be smaller"): a section's end grips take Shift — 15° steps from the other end, so a cut stays level / plumb (`editor/handles.ts`; test in `handles.test.ts`); its arrowheads and names on the plan are 2.5 paper mm (were 4 and 3.5). "IDF2 C much too wide": its cut line had been dragged to −340 … −4130 (3.79 m, past the room's right wall at −1280) with its ends 10 mm out of level — the section shows what's between the line's ends, so it widened with the drag.
-- **Section names not bold** (Dave 2026-10-15: "the font looks very thick and large"): weight 400 on screen (was 700) and not bold in PDFs, 2 paper mm (was 2.5 → 3.5 before). Test Project's IDF2 C put back wall to wall (−1280 → −4100, level at −8060; its depth left as Dave set it, 1400) — a direct write, at Dave's request.
-- **Room outlines editable; a section's width is its cut line's** (Dave 2026-10-15: "can I edit room rects?"; "why does
+- **Section grips and marks** (User 2026-10-15: "the grips don't obey shift … labels and arrowheads should be smaller"): a section's end grips take Shift — 15° steps from the other end, so a cut stays level / plumb (`editor/handles.ts`; test in `handles.test.ts`); its arrowheads and names on the plan are 2.5 paper mm (were 4 and 3.5). "IDF2 C much too wide": its cut line had been dragged to −340 … −4130 (3.79 m, past the room's right wall at −1280) with its ends 10 mm out of level — the section shows what's between the line's ends, so it widened with the drag.
+- **Section names not bold** (User 2026-10-15: "the font looks very thick and large"): weight 400 on screen (was 700) and not bold in PDFs, 2 paper mm (was 2.5 → 3.5 before). Test Project's IDF2 C put back wall to wall (−1280 → −4100, level at −8060; its depth left as User set it, 1400) — a direct write, at User's request.
+- **Room outlines editable; a section's width is its cut line's** (User 2026-10-15: "can I edit room rects?"; "why does
   extending C 750 mm beyond the right wall make the view 16 m wide?"):
   - A selected room drawn with the Room tool has grips on the plan (`editor/handles.ts` `roomHandles`): a square on each
     corner (Shift: 15° from the corner before) and a bar along each side that slides the whole side square to itself;
-    10 mm steps (Alt: free); one undo step "Edit room …". Help's room-elevations answer says so. Dave dragged IDF2's
+    10 mm steps (Alt: free); one undo step "Edit room …". Help's room-elevations answer says so. User dragged IDF2's
     right side live (automated drags don't reach the canvas). Test in `handles.test.ts`.
   - The 16 m: a long run crossing the section's band (Test Project's 16 m trunk TR1, reached once C ran past the wall)
     was drawn clipped to the cut line's ends, but its FULL length set the datum lines (FFL / CLG / SSL) and the view's
     extents / fit. `primBounds` now respects a prim's clip and the datums are sized from it (`views/display.ts`,
     `views/elevation.ts`), so the view is the cut line's width. Test in `views/section.test.ts`.
-- **Truncation marks** (Dave 2026-10-15: "can truncated trunks / conduits show a truncate mark, an S-shaped squiggle like two semicircles?"): in a section, a run that carries on past the cut line's end gets an S-break across it there (`views/elevation.ts` `truncMarks`: two semicircles, the upper bulging out of the view, the lower back in; as tall as the run, at least 3 paper mm; class `run-break`, screen + PDF). A run that stops inside the section gets none. Test in `views/section.test.ts`; Dave saw it on the blue conduit in IDF2 C.
-- **Truncation mark the run's own height** (Dave 2026-10-15): the 3 paper mm minimum is gone — the S-break is exactly as tall as the trunk / conduit where it's cut.
-- **Wall base grip keeps every top** (Dave 2026-10-15, IDF2 C: dragging a room wall's bottom down made the box's top move up): a room's wall is one path, and the base grip moved only the seen side's two corners while the wall's shared height grew, so the other sides' tops rose. Now the whole wall's base moves by the same amount and every height (wall + per-side) grows to match. Tested in `editor/elevHandles.test.ts`; checked live in the split tab (−310 at all four corners, 3590 high, top stayed at 3280; undone).
-- **Elevation top / base grips snap to the datum lines; FSL / CSL** (Dave 2026-10-15: "add snapping to the datum lines … would FSL and CSL make more sense for floor and ceiling slab?"): a wall's or box's top / base grip lands on FSL (floor slab), FFL, CLG or CSL (slab above) of its level when within 2× the pick tolerance (zoom-aware), else 10 mm steps; Alt: free (`editor/elevHandles.ts` `datumSnap`, heights + tol passed by selectTool). The datum labels were SSL / SSL above, now FSL / CSL (`views/elevation.ts`). Help entry "Set a wall's or box's height in an elevation or section". Tests in `elevHandles.test.ts`; live in IDF2 C: the base snapped to −300 (undone).
-- **Section icon** (Dave 2026-10-15): the Section tool (and its cut-line variant) uses Lucide square-split-vertical (registered as `squareSplitVertical` in `$lib/ui/Icon.svelte`); Room elevations keeps its marker icon.
-- **Opening grips snap too** (Dave 2026-10-15): an opening's head / sill grips in elevations snap to FSL / FFL / CLG / CSL like the wall's. Test in `elevHandles.test.ts`.
-- **Re-patch asks in a dialog** (Dave 2026-10-15, askText review: "Re-patch target"): Re-patch… opens a small dialog (To port / From port, with the example) instead of the status-bar prompt. Generic `ui/TextDialog.svelte` + `ws.askInDialog` for future free-text asks; the other askText calls stay in the status bar (Dave's review).
-- **Tips** (Dave 2026-10-15: "Help › Tips window"): `ui/Tips.svelte` (WinId `tips`, floating 340×190) shows one of 15 tips (`helpContent.ts` TIPS / TIPS_JA) with ‹ › and n / N, EN / 日本語 shared with the Walkthrough, and a "Show at start" tick. `ui/tipsStart.ts`: it opens by itself once a day (first cad load of the day), each day on the next tip; per browser. Help › Tips opens it any time; Help entry "Tips for getting started". Tests in `shellKeys.test.ts`.
-- **Hover grip after undo; unshaded wall faces** (Dave 2026-10-15): the larger hover grip remembers the selected items as they were when hovered; an undo / redo / remote edit that changes one hides it until the pointer moves (`selectTool.ts` `#hovEnts`; test in `pathSel.test.ts`). A wall face seen in an elevation / section is white, not grey (still hides what's behind it); walls cut by a section keep their dark fill (`Prims.svelte` `.wall.filled`, `pdf.ts`). Checked live in IDF2 D.
-- **Field-level saving** (Dave 2026-10-15, "edits in two tabs overwrite each other" → "Field-level merge"): an edit to an existing entity writes only the top-level fields it changed (plus id / type / scope / meta), via `set(…, { mergeFields })` with `deleteField()` for a removed one (`persist/sync.ts` `changedFields`, `RemoteDoc.fields`, `persist/firestore.ts`; the memory server merges the same way, `mergeFields`). A tab holding an older copy (Project settings in two tabs, a stale or hot-reloaded tab) no longer writes back fields the other tab changed. New entities and deletes are still whole-doc. Same top-level field edited in both tabs: the last write still wins (field by field, not deeper). Tests in `sync.test.ts`; checked live against Firestore with a throwaway doc (untouched field kept, changed map replaced whole, removed field deleted; deleted after).
-- **Architectural rack drawing in sections / elevations; datums like the rack view** (Dave 2026-10-15: "make the rack labels look more similar to 33IDF2 … render datum labels / lines same as 33IDF2 … I don't need rack device details or labels", then "draw device rects in sections"): a rack is its body, its facing devices as plain boxes (no names) and its name ABOVE it at the rack view's size (0.9 paper mm; was 1.8 and inside the rack — the label ignored the room's own floor). The storey lines are drawn and named as the rack view's: CSL FFL+… / CEILING FFL+… / FFL / FSL FFL−… (the rack view's SLAB labels became CSL / FSL to match), 0.5 paper mm; plus the own floor / ceiling lines of every room whose racks the view shows ("33IDF2 FLOOR FL+200"). A drawn room round racks of another room with its own floor / ceiling says so in its Properties (`RoomProps.svelte` warning). Walkthrough (EN / JA): several rows in a room → + Row, assign racks. Tests in `elevation.test.ts`, `rackRow.test.ts`; checked live in IDF2 RACKS beside the 33IDF2 rack view.
-- **Right-drag pans a viewport's content; bigger section labels for print** (Dave 2026-10-15: "with pan / zoom content on, I need right-mouse to pan the view content instead of the full sheet"; "the labels are tiny in a sheet view at 1:10"): with Pan / zoom content on, a right / middle drag inside the edited or the selected viewport pans its view (one undo step), not the sheet; a right click without a drag is still a right click (`ViewCanvas.svelte` `contentVpAt`). Section / elevation datum labels 1.8 and rack names 2.5 paper mm (were 0.5 / 0.9 to match the rack view on screen — viewports draw sections at their own scale, so paper mm is what prints). Checked live on S008 (right-drag moved the content, undone); Help updated.
-- **Ctrl+P and a print button** (Dave 2026-10-15): Ctrl+P (instead of the browser's print) and a printer button in the top bar (by Undo / Redo / Delete) make the PDF of the sheet open in the active pane — no sheet open: of every sheet — through the Save as dialog (`CadShell.svelte` `printPdf`, `shellKeys.ts` KEYS.print + its command, so Keys & mouse lists it; File › Export › PDF of this sheet shows the key). Help's "Make a PDF of a sheet" says so. Checked live on S008 (key and button open Save as; cancelled).
-- **Ctrl+P opens the PDF in a browser tab** (Dave 2026-10-15: "instead of the Save as dialog, generate the pdf in a tab with title set to the default filename template … keep the Save as dialog for export menu items"): Ctrl+P and the printer button open a new browser tab on the key / click (so no pop-up blocker stops it), show "Making the PDF…", then the PDF in the browser's viewer to print or save; the tab title (and the PDF's own title) is the file name from Settings › Files' pattern without asking (`render/download.ts` `fileName` / `setFilePatterner` / `showInTab`; `app/shellActions.ts` `sheetsPdfTab`; `sheetsPdfName` shared with the download). A blocked tab says so. File › Export keeps Save as. Checked live: Ctrl+P on S008 opened a tab titled S008_New_sheet (closed).
-- **Navigator row order** (Dave 2026-10-15): name · ✎ (hover) · count · ⋮ · the open-tab dot in a fixed slot at the far right, so the dots line up (`Navigator.svelte` `.dotslot`). Checked live.
-- **Print tab's file name; Blocks keeps its place; no ✎ in the Navigator** (Dave 2026-10-15): (1) Chrome's PDF viewer saved the blob: URL as "852c7d55-….pdf" — the print tab now opens the PDF at /cad-print/<id>/<file name>.pdf, put in the "cad-print" cache by the page and answered by `static/cad-print-sw.js` (a service worker scoped to /cad-print/ only; the last 10 kept), so Download offers the pattern's name; no service worker / cache → the blob: tab as before (`render/download.ts` `servedFileUrl`). Checked live: Test_Project_sheets.pdf. (2) A DOCKED library window (Blocks, Device library) no longer leaves the dock in a view its tool doesn't work in — it keeps its place with "Not used in this view", so the Navigator above it doesn't resize and scroll (floating ones still step aside). Checked live in the 33IDF1 rack view. (3) The Navigator's hover ✎ is gone: Rename is in ⋮ (with F2 shown) and F2 on the row; Help updated. Double-click stays "keep as a tab".
-- **Print ▾; the print tab's own Download / Print / Email; PDF bookmarks** (Dave 2026-10-15): the printer button has a ▾: This sheet (Ctrl+P) / All sheets (n). The /cad-print/ service worker is gone (the viewer's Download re-fetched the path from the server, skipping the worker, and saved an HTML 404 as .htm; `static/cad-print-sw.js` deleted, browsers that registered it drop it and its cache, `dropOldPrintWorker`). The print tab is now a slim bar — the file name, **Download** (an <a download> under exactly the pattern's name), **Print**, **Email / share…** (the system share sheet with the PDF attached — Outlook, Mail, Teams …, where the browser offers file sharing) — over the browser's viewer (`render/download.ts` `showPdfTab`). Each sheet is a bookmark ("S008 New sheet") in the PDF's outline, shown in the viewer's sidebar (`render/pdf.ts` PdfPage.title; names the standard fonts can't show keep what they can). Checked live: the ▾ menu, and Ctrl+P opens the tab titled S008_New_sheet (the title was lost at first: emptying the head took it). Backlog: blocks in rack views, PDF of a model view.
-- **PDF of a model view; Save as can share / open; bookmarks tip** (Dave 2026-10-15: "Ctrl+P on a model view should print the whole view; the print button can have a dropdown for whole view or on screen, both A3"; "would Download / Print / Email work in the Save as dialog?"): on a plan / elevation / section / rack view Ctrl+P (and the printer button) prints the whole view alone on A3 — an unsaved sheet with no title block, one borderless viewport at the largest standard scale that fits, its name and scale under it, landscape unless taller (`views/sheet.ts` `printSheet`, `app/shellActions.ts` `viewPdfTab`); the ▾ there: Whole view (A3) / On screen (A3, `ViewCanvas.visibleBounds`) / All sheets; on a sheet: This sheet / All sheets. Save as (every export) gains Email / share… (where the browser shares that file type) and, for a PDF, Open / print (the print tab) — `saveFile` actions save / share / open. Tips (EN / JA): Ctrl+P, the ▾ and the PDF bookmarks. Help updated. Backlog: Japanese fonts in PDFs. Checked live: Ctrl+P on Section IDF2 B → tab Test_Project_1F_Section_IDF2_B; Save as on S008 shows the four buttons and Open / print opened its tab.
-- **One elevation marker for a room's elevations** (Dave 2026-10-15; T / R / B / L names tried, then "leave A–D"): a room elevation section records its room and letter (`SectionCut.roomElev`, set by `roomElevations`); the plan draws them as ONE marker at the middle of the room — a circle and a pointer per section the way it looks, lettered A–D — instead of four crossing cut lines (`views/sectionMarks.ts` `roomElevMarker`, `views/plan.ts`); a pointer selects its section, whose cut line and reach then show (`editor/handles.ts` decor). Screen + PDF styles. Test Project: IDF2's sections back to IDF2 A–D (they had been renamed T / R / B / L) with roomElev set. Help updated. Test in `roomElevations.test.ts`.
-- **Walls round a room** (Dave 2026-10-15, backlog "Walls from a room"): a room with an outline has Properties › Walls round it — one closed wall along the outline, its INSIDE face on it (the centreline offset out by half the Wall tool's thickness, `domain/roomWalls.ts` `offsetOutline` / `wallsRound`), slab to slab; one undo step, the wall selected. Help updated. Tests in `roomWalls.test.ts`; tried live on IDF2 (undone).
-- **Font in PDFs; full bookmark names; backlog tidy** (Dave 2026-10-15: "embed fonts toggle in Settings › Files, other languages set per project"): Project › Settings › Files › Font in PDFs — None (pictures) / Japanese (M PLUS 1p) / Korean (Nanum Gothic), per project (`ProjectSettings.pdfFont`). Set, every PDF (sheets, print tab, releases) embeds that open-licensed TrueType font, fetched from Google Fonts' repository on jsDelivr when a PDF is made and kept for the session (`app/pdfFonts.ts`); jsPDF embeds only the characters used (a test page: 240 KB). Text the standard fonts can't show is then real, selectable text instead of a picture (`render/pdf.ts` `font`); a font that doesn't load falls back to pictures. Chinese not offered yet (Noto Sans SC / TC too large to fetch this way). Bookmarks keep Japanese names (the viewer draws them — checked in Chrome; the Latin-only filter is gone). Checked: the setting in Settings › Files; a jsPDF page with the font shows Japanese text and a Japanese bookmark in Chrome's viewer. Backlog: Navigator clicks (one rule) added; blocks in rack views, T / B / L / R, one room not two dropped (Dave); later.md: the scripting hook and W29 dropped (boxes already take a Z).
-- **Drawing symbols from Dave's samples** (Dave 2026-10-15: "in Section C I added a centreline marker, elevation level indicator and other useful items, make blocks for these" — pasted pictures there): built-in annotative symbol blocks (`domain/blocks.ts` drawingSymbols): Level marker (elevation) — the line in from the left to a quartered target, NAME above and HEIGHT below ending at it; Elevation marker (4-way) — ON_SHEET in the bubble, a pointer each way named UP / RIGHT / DOWN / LEFT (defaults A–D); Break line - straight (a zigzag); Break line - round (pipe / duct, an S); Centreline mark (℄). The existing Datum (level), Detail callout and 1-way Elevation tag cover the rest; contract / demolition / centre LINES are line types (dash-dot, dashed). Checked in the Blocks window. (An accidental faceplate insert in Section C during the check was undone.)
-- **Project row +; Noto Sans JP as a PDF font choice** (Dave 2026-10-15: "a '+' button would be a good quick way to add a model"; "compare M PLUS 1p and Noto Sans"): the Navigator's project (building) row has a + — a menu of + 2F model … for the building's floors without a model (W33 `floorsWithoutLevel`: the storey's elevation, the heights of the floor below), then Floors…; none → Floors… opens (`Navigator.svelte` `openAdd`). Help updated. Settings › Files › Font in PDFs also offers Japanese (Noto Sans JP) — Google Fonts' static TTF, 5.7 MB to fetch once per session (`pdfFonts.ts` 'ja-noto'). A side-by-side comparison PDF (both faces at 14 / 10 / 7 pt) was made for Dave to choose. Backlog: several buildings.
-- **Turn 90° (R / Shift+R); Noto dropped** (Dave 2026-10-15: "a hotkey or buttons for rotating selected items 90° left / right?"; "drop Noto, too big"): R turns the selection 90° right (clockwise as seen), Shift+R left — also ↻ ↺ buttons in the top bar (by Delete), Modify › Turn 90° right / left and the right-click menu — about the middle of what the view draws of it, one undo step, as the Rotate tool (`editor/transformTool.ts` `transformItems`, now shared; `ViewCanvas.turn90`). Plans and sheets (where Rotate works). Keys & mouse lists it; Help "Turn things 90°". Checked live: R turned an elevation tag clockwise (pointer up → right; undone). Settings › Files › Font in PDFs: Noto Sans JP removed (5.7 MB), M PLUS 1p stays for Japanese.
-- **Block scale grips** (Dave 2026-10-15: "blocks need grips to adjust scale"): a selected block insert has a square on each corner of what it draws; dragging one scales it about its insert point by how much further from it the grip is — 0.05 steps (Alt: free), at least 0.05 (`editor/handles.ts` `insertScaleHandles`, used by the select tool on plans, sheets and the elevation it was placed in). Help "Make a block bigger or smaller". Test in `handles.test.ts`; checked live (an elevation tag to 2.1; undone).
-- **Tab bar without a scrollbar** (Dave 2026-10-15: "the open sheets tab bar is getting scrollbars"): tabs shrink to fit as a browser's do (200 px down to 80 px, the name cut with …), the strip's scrollbar is hidden, the mouse wheel scrolls it when even that doesn't fit, and the ▾ list has every tab (`TabStrip.svelte`). Checked live: 16 tabs fit. (And a stray "t" before the new Help entry fixed.)
-- **Tabs keep their width** (Dave 2026-10-15: "tabs shouldn't shrink to fit, they should overflow hidden, the dropdown on the right is for selecting tabs off the right side"): the shrinking is undone; the strip is overflow hidden (no scrollbar), the ▾ list picks a hidden tab and scrolls it into view, the wheel scrolls the strip too. Checked live.
-- **Navigator clicks: one rule** (Dave 2026-10-15, "if it works with touch"): a click on a row's name opens it (a view, a sheet) or selects it (a room, a rack); a row with neither (the building, Sheets and its groups) is just marked — only the ▸, or a double-click on a group's name, folds it; on a touch screen (pointer: coarse) the ▸ is 26 × 28 px (`Navigator.svelte`). Checked live: a click on Sheets › 1F marks it, a double-click unfolds it. Help updated.
+- **Truncation marks** (User 2026-10-15: "can truncated trunks / conduits show a truncate mark, an S-shaped squiggle like two semicircles?"): in a section, a run that carries on past the cut line's end gets an S-break across it there (`views/elevation.ts` `truncMarks`: two semicircles, the upper bulging out of the view, the lower back in; as tall as the run, at least 3 paper mm; class `run-break`, screen + PDF). A run that stops inside the section gets none. Test in `views/section.test.ts`; User saw it on the blue conduit in IDF2 C.
+- **Truncation mark the run's own height** (User 2026-10-15): the 3 paper mm minimum is gone — the S-break is exactly as tall as the trunk / conduit where it's cut.
+- **Wall base grip keeps every top** (User 2026-10-15, IDF2 C: dragging a room wall's bottom down made the box's top move up): a room's wall is one path, and the base grip moved only the seen side's two corners while the wall's shared height grew, so the other sides' tops rose. Now the whole wall's base moves by the same amount and every height (wall + per-side) grows to match. Tested in `editor/elevHandles.test.ts`; checked live in the split tab (−310 at all four corners, 3590 high, top stayed at 3280; undone).
+- **Elevation top / base grips snap to the datum lines; FSL / CSL** (User 2026-10-15: "add snapping to the datum lines … would FSL and CSL make more sense for floor and ceiling slab?"): a wall's or box's top / base grip lands on FSL (floor slab), FFL, CLG or CSL (slab above) of its level when within 2× the pick tolerance (zoom-aware), else 10 mm steps; Alt: free (`editor/elevHandles.ts` `datumSnap`, heights + tol passed by selectTool). The datum labels were SSL / SSL above, now FSL / CSL (`views/elevation.ts`). Help entry "Set a wall's or box's height in an elevation or section". Tests in `elevHandles.test.ts`; live in IDF2 C: the base snapped to −300 (undone).
+- **Section icon** (User 2026-10-15): the Section tool (and its cut-line variant) uses Lucide square-split-vertical (registered as `squareSplitVertical` in `$lib/ui/Icon.svelte`); Room elevations keeps its marker icon.
+- **Opening grips snap too** (User 2026-10-15): an opening's head / sill grips in elevations snap to FSL / FFL / CLG / CSL like the wall's. Test in `elevHandles.test.ts`.
+- **Re-patch asks in a dialog** (User 2026-10-15, askText review: "Re-patch target"): Re-patch… opens a small dialog (To port / From port, with the example) instead of the status-bar prompt. Generic `ui/TextDialog.svelte` + `ws.askInDialog` for future free-text asks; the other askText calls stay in the status bar (User's review).
+- **Tips** (User 2026-10-15: "Help › Tips window"): `ui/Tips.svelte` (WinId `tips`, floating 340×190) shows one of 15 tips (`helpContent.ts` TIPS / TIPS_JA) with ‹ › and n / N, EN / 日本語 shared with the Walkthrough, and a "Show at start" tick. `ui/tipsStart.ts`: it opens by itself once a day (first cad load of the day), each day on the next tip; per browser. Help › Tips opens it any time; Help entry "Tips for getting started". Tests in `shellKeys.test.ts`.
+- **Hover grip after undo; unshaded wall faces** (User 2026-10-15): the larger hover grip remembers the selected items as they were when hovered; an undo / redo / remote edit that changes one hides it until the pointer moves (`selectTool.ts` `#hovEnts`; test in `pathSel.test.ts`). A wall face seen in an elevation / section is white, not grey (still hides what's behind it); walls cut by a section keep their dark fill (`Prims.svelte` `.wall.filled`, `pdf.ts`). Checked live in IDF2 D.
+- **Field-level saving** (User 2026-10-15, "edits in two tabs overwrite each other" → "Field-level merge"): an edit to an existing entity writes only the top-level fields it changed (plus id / type / scope / meta), via `set(…, { mergeFields })` with `deleteField()` for a removed one (`persist/sync.ts` `changedFields`, `RemoteDoc.fields`, `persist/firestore.ts`; the memory server merges the same way, `mergeFields`). A tab holding an older copy (Project settings in two tabs, a stale or hot-reloaded tab) no longer writes back fields the other tab changed. New entities and deletes are still whole-doc. Same top-level field edited in both tabs: the last write still wins (field by field, not deeper). Tests in `sync.test.ts`; checked live against Firestore with a throwaway doc (untouched field kept, changed map replaced whole, removed field deleted; deleted after).
+- **Architectural rack drawing in sections / elevations; datums like the rack view** (User 2026-10-15: "make the rack labels look more similar to 33IDF2 … render datum labels / lines same as 33IDF2 … I don't need rack device details or labels", then "draw device rects in sections"): a rack is its body, its facing devices as plain boxes (no names) and its name ABOVE it at the rack view's size (0.9 paper mm; was 1.8 and inside the rack — the label ignored the room's own floor). The storey lines are drawn and named as the rack view's: CSL FFL+… / CEILING FFL+… / FFL / FSL FFL−… (the rack view's SLAB labels became CSL / FSL to match), 0.5 paper mm; plus the own floor / ceiling lines of every room whose racks the view shows ("33IDF2 FLOOR FL+200"). A drawn room round racks of another room with its own floor / ceiling says so in its Properties (`RoomProps.svelte` warning). Walkthrough (EN / JA): several rows in a room → + Row, assign racks. Tests in `elevation.test.ts`, `rackRow.test.ts`; checked live in IDF2 RACKS beside the 33IDF2 rack view.
+- **Right-drag pans a viewport's content; bigger section labels for print** (User 2026-10-15: "with pan / zoom content on, I need right-mouse to pan the view content instead of the full sheet"; "the labels are tiny in a sheet view at 1:10"): with Pan / zoom content on, a right / middle drag inside the edited or the selected viewport pans its view (one undo step), not the sheet; a right click without a drag is still a right click (`ViewCanvas.svelte` `contentVpAt`). Section / elevation datum labels 1.8 and rack names 2.5 paper mm (were 0.5 / 0.9 to match the rack view on screen — viewports draw sections at their own scale, so paper mm is what prints). Checked live on S008 (right-drag moved the content, undone); Help updated.
+- **Ctrl+P and a print button** (User 2026-10-15): Ctrl+P (instead of the browser's print) and a printer button in the top bar (by Undo / Redo / Delete) make the PDF of the sheet open in the active pane — no sheet open: of every sheet — through the Save as dialog (`CadShell.svelte` `printPdf`, `shellKeys.ts` KEYS.print + its command, so Keys & mouse lists it; File › Export › PDF of this sheet shows the key). Help's "Make a PDF of a sheet" says so. Checked live on S008 (key and button open Save as; cancelled).
+- **Ctrl+P opens the PDF in a browser tab** (User 2026-10-15: "instead of the Save as dialog, generate the pdf in a tab with title set to the default filename template … keep the Save as dialog for export menu items"): Ctrl+P and the printer button open a new browser tab on the key / click (so no pop-up blocker stops it), show "Making the PDF…", then the PDF in the browser's viewer to print or save; the tab title (and the PDF's own title) is the file name from Settings › Files' pattern without asking (`render/download.ts` `fileName` / `setFilePatterner` / `showInTab`; `app/shellActions.ts` `sheetsPdfTab`; `sheetsPdfName` shared with the download). A blocked tab says so. File › Export keeps Save as. Checked live: Ctrl+P on S008 opened a tab titled S008_New_sheet (closed).
+- **Navigator row order** (User 2026-10-15): name · ✎ (hover) · count · ⋮ · the open-tab dot in a fixed slot at the far right, so the dots line up (`Navigator.svelte` `.dotslot`). Checked live.
+- **Print tab's file name; Blocks keeps its place; no ✎ in the Navigator** (User 2026-10-15): (1) Chrome's PDF viewer saved the blob: URL as "852c7d55-….pdf" — the print tab now opens the PDF at /cad-print/<id>/<file name>.pdf, put in the "cad-print" cache by the page and answered by `static/cad-print-sw.js` (a service worker scoped to /cad-print/ only; the last 10 kept), so Download offers the pattern's name; no service worker / cache → the blob: tab as before (`render/download.ts` `servedFileUrl`). Checked live: Test_Project_sheets.pdf. (2) A DOCKED library window (Blocks, Device library) no longer leaves the dock in a view its tool doesn't work in — it keeps its place with "Not used in this view", so the Navigator above it doesn't resize and scroll (floating ones still step aside). Checked live in the 33IDF1 rack view. (3) The Navigator's hover ✎ is gone: Rename is in ⋮ (with F2 shown) and F2 on the row; Help updated. Double-click stays "keep as a tab".
+- **Print ▾; the print tab's own Download / Print / Email; PDF bookmarks** (User 2026-10-15): the printer button has a ▾: This sheet (Ctrl+P) / All sheets (n). The /cad-print/ service worker is gone (the viewer's Download re-fetched the path from the server, skipping the worker, and saved an HTML 404 as .htm; `static/cad-print-sw.js` deleted, browsers that registered it drop it and its cache, `dropOldPrintWorker`). The print tab is now a slim bar — the file name, **Download** (an <a download> under exactly the pattern's name), **Print**, **Email / share…** (the system share sheet with the PDF attached — Outlook, Mail, Teams …, where the browser offers file sharing) — over the browser's viewer (`render/download.ts` `showPdfTab`). Each sheet is a bookmark ("S008 New sheet") in the PDF's outline, shown in the viewer's sidebar (`render/pdf.ts` PdfPage.title; names the standard fonts can't show keep what they can). Checked live: the ▾ menu, and Ctrl+P opens the tab titled S008_New_sheet (the title was lost at first: emptying the head took it). Backlog: blocks in rack views, PDF of a model view.
+- **PDF of a model view; Save as can share / open; bookmarks tip** (User 2026-10-15: "Ctrl+P on a model view should print the whole view; the print button can have a dropdown for whole view or on screen, both A3"; "would Download / Print / Email work in the Save as dialog?"): on a plan / elevation / section / rack view Ctrl+P (and the printer button) prints the whole view alone on A3 — an unsaved sheet with no title block, one borderless viewport at the largest standard scale that fits, its name and scale under it, landscape unless taller (`views/sheet.ts` `printSheet`, `app/shellActions.ts` `viewPdfTab`); the ▾ there: Whole view (A3) / On screen (A3, `ViewCanvas.visibleBounds`) / All sheets; on a sheet: This sheet / All sheets. Save as (every export) gains Email / share… (where the browser shares that file type) and, for a PDF, Open / print (the print tab) — `saveFile` actions save / share / open. Tips (EN / JA): Ctrl+P, the ▾ and the PDF bookmarks. Help updated. Backlog: Japanese fonts in PDFs. Checked live: Ctrl+P on Section IDF2 B → tab Test_Project_1F_Section_IDF2_B; Save as on S008 shows the four buttons and Open / print opened its tab.
+- **One elevation marker for a room's elevations** (User 2026-10-15; T / R / B / L names tried, then "leave A–D"): a room elevation section records its room and letter (`SectionCut.roomElev`, set by `roomElevations`); the plan draws them as ONE marker at the middle of the room — a circle and a pointer per section the way it looks, lettered A–D — instead of four crossing cut lines (`views/sectionMarks.ts` `roomElevMarker`, `views/plan.ts`); a pointer selects its section, whose cut line and reach then show (`editor/handles.ts` decor). Screen + PDF styles. Test Project: IDF2's sections back to IDF2 A–D (they had been renamed T / R / B / L) with roomElev set. Help updated. Test in `roomElevations.test.ts`.
+- **Walls round a room** (User 2026-10-15, backlog "Walls from a room"): a room with an outline has Properties › Walls round it — one closed wall along the outline, its INSIDE face on it (the centreline offset out by half the Wall tool's thickness, `domain/roomWalls.ts` `offsetOutline` / `wallsRound`), slab to slab; one undo step, the wall selected. Help updated. Tests in `roomWalls.test.ts`; tried live on IDF2 (undone).
+- **Font in PDFs; full bookmark names; backlog tidy** (User 2026-10-15: "embed fonts toggle in Settings › Files, other languages set per project"): Project › Settings › Files › Font in PDFs — None (pictures) / Japanese (M PLUS 1p) / Korean (Nanum Gothic), per project (`ProjectSettings.pdfFont`). Set, every PDF (sheets, print tab, releases) embeds that open-licensed TrueType font, fetched from Google Fonts' repository on jsDelivr when a PDF is made and kept for the session (`app/pdfFonts.ts`); jsPDF embeds only the characters used (a test page: 240 KB). Text the standard fonts can't show is then real, selectable text instead of a picture (`render/pdf.ts` `font`); a font that doesn't load falls back to pictures. Chinese not offered yet (Noto Sans SC / TC too large to fetch this way). Bookmarks keep Japanese names (the viewer draws them — checked in Chrome; the Latin-only filter is gone). Checked: the setting in Settings › Files; a jsPDF page with the font shows Japanese text and a Japanese bookmark in Chrome's viewer. Backlog: Navigator clicks (one rule) added; blocks in rack views, T / B / L / R, one room not two dropped (User); later.md: the scripting hook and W29 dropped (boxes already take a Z).
+- **Drawing symbols from User's samples** (User 2026-10-15: "in Section C I added a centreline marker, elevation level indicator and other useful items, make blocks for these" — pasted pictures there): built-in annotative symbol blocks (`domain/blocks.ts` drawingSymbols): Level marker (elevation) — the line in from the left to a quartered target, NAME above and HEIGHT below ending at it; Elevation marker (4-way) — ON_SHEET in the bubble, a pointer each way named UP / RIGHT / DOWN / LEFT (defaults A–D); Break line - straight (a zigzag); Break line - round (pipe / duct, an S); Centreline mark (℄). The existing Datum (level), Detail callout and 1-way Elevation tag cover the rest; contract / demolition / centre LINES are line types (dash-dot, dashed). Checked in the Blocks window. (An accidental faceplate insert in Section C during the check was undone.)
+- **Project row +; Noto Sans JP as a PDF font choice** (User 2026-10-15: "a '+' button would be a good quick way to add a model"; "compare M PLUS 1p and Noto Sans"): the Navigator's project (building) row has a + — a menu of + 2F model … for the building's floors without a model (W33 `floorsWithoutLevel`: the storey's elevation, the heights of the floor below), then Floors…; none → Floors… opens (`Navigator.svelte` `openAdd`). Help updated. Settings › Files › Font in PDFs also offers Japanese (Noto Sans JP) — Google Fonts' static TTF, 5.7 MB to fetch once per session (`pdfFonts.ts` 'ja-noto'). A side-by-side comparison PDF (both faces at 14 / 10 / 7 pt) was made for User to choose. Backlog: several buildings.
+- **Turn 90° (R / Shift+R); Noto dropped** (User 2026-10-15: "a hotkey or buttons for rotating selected items 90° left / right?"; "drop Noto, too big"): R turns the selection 90° right (clockwise as seen), Shift+R left — also ↻ ↺ buttons in the top bar (by Delete), Modify › Turn 90° right / left and the right-click menu — about the middle of what the view draws of it, one undo step, as the Rotate tool (`editor/transformTool.ts` `transformItems`, now shared; `ViewCanvas.turn90`). Plans and sheets (where Rotate works). Keys & mouse lists it; Help "Turn things 90°". Checked live: R turned an elevation tag clockwise (pointer up → right; undone). Settings › Files › Font in PDFs: Noto Sans JP removed (5.7 MB), M PLUS 1p stays for Japanese.
+- **Block scale grips** (User 2026-10-15: "blocks need grips to adjust scale"): a selected block insert has a square on each corner of what it draws; dragging one scales it about its insert point by how much further from it the grip is — 0.05 steps (Alt: free), at least 0.05 (`editor/handles.ts` `insertScaleHandles`, used by the select tool on plans, sheets and the elevation it was placed in). Help "Make a block bigger or smaller". Test in `handles.test.ts`; checked live (an elevation tag to 2.1; undone).
+- **Tab bar without a scrollbar** (User 2026-10-15: "the open sheets tab bar is getting scrollbars"): tabs shrink to fit as a browser's do (200 px down to 80 px, the name cut with …), the strip's scrollbar is hidden, the mouse wheel scrolls it when even that doesn't fit, and the ▾ list has every tab (`TabStrip.svelte`). Checked live: 16 tabs fit. (And a stray "t" before the new Help entry fixed.)
+- **Tabs keep their width** (User 2026-10-15: "tabs shouldn't shrink to fit, they should overflow hidden, the dropdown on the right is for selecting tabs off the right side"): the shrinking is undone; the strip is overflow hidden (no scrollbar), the ▾ list picks a hidden tab and scrolls it into view, the wheel scrolls the strip too. Checked live.
+- **Navigator clicks: one rule** (User 2026-10-15, "if it works with touch"): a click on a row's name opens it (a view, a sheet) or selects it (a room, a rack); a row with neither (the building, Sheets and its groups) is just marked — only the ▸, or a double-click on a group's name, folds it; on a touch screen (pointer: coarse) the ▸ is 26 × 28 px (`Navigator.svelte`). Checked live: a click on Sheets › 1F marks it, a double-click unfolds it. Help updated.

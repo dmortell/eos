@@ -1,4 +1,4 @@
-<!-- EDIT WORDS IN PLACE (backlog "Text options", "Edit a label in place"; Dave 2026-10-05): double-click (or F2) a
+<!-- EDIT WORDS IN PLACE (backlog "Text options", "Edit a label in place"; User 2026-10-05): double-click (or F2) a
      text, a leader, an outlet, a rack or a run's label and its words open in a box on the drawing where they show.
      Enter saves (Shift+Enter: a new line in a text / leader), Tab / Shift+Tab save and go on to the next / previous
      thing of the same kind in reading order, Esc leaves it as it was; clicking away saves. One undo step each. An
@@ -65,7 +65,7 @@
 		return { rows: Math.max(1, t.length), cols: Math.max(4, ...t.map((l) => l.length + 1)) }
 	})
 	$effect(() => { if (box) { box.focus(); box.select() } })
-	// say how it works (Dave: Tab to the next label is the useful part — make it known)
+	// say how it works (User: Tab to the next label is the useful part — make it known)
 	const NEXT = { outlet: 'outlet', rack: 'rack', run: 'run', text: 'text' } as const
 	$effect(() => { if (kind) untrack(() => ws.say(`Enter saves${kind === 'text' ? ' (Shift+Enter: new line)' : ''} · Tab / Shift+Tab: save and edit the next / previous ${NEXT[kind]} · Esc cancels`)) })
 

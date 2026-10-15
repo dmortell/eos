@@ -165,7 +165,7 @@
 		<!-- a 2-point line / run: its length; typing one moves the second end along the line (backlog "Edit line and note end points") -->
 		<label class="row" title="The second end moves along the line">Length (mm) <input class="inp" type="number" min="1" value={Math.round(twoPoint.len)} onchange={(e) => setLength(Number(e.currentTarget.value))} /></label>
 	{/if}
-	<!-- up here, not under the long Segments / Nodes lists (Dave 2026-10-10) -->
+	<!-- up here, not under the long Segments / Nodes lists (User 2026-10-10) -->
 	<LayerPick {project} ids={[s.id]} />
 	{#if s.role?.kind === 'containment' && rooms.length}
 		<!-- which server rooms' cables may join it (outlet drops, racks); none ticked = every room -->
