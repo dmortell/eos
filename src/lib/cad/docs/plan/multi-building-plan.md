@@ -1,83 +1,81 @@
-# Several buildings in one project — plan
+# Several buildings — one project per building, grouped
 
-User 2026-10-16: "prep a plan for multi buildings — Tourney has 2 buildings. Backlog item "Several buildings in a project" (P3 · L).
+User 2026-10-16: "I'm not keen on the large changes needed to add buildings to a project (the only things two buildings
+would have in common is the project name). Keep buildings as separate projects and group them: an Add building command
+creates a new project with a `masterId` linking all buildings to a document with the project name, used just to keep
+them together in project lists. Open Project lists 'Project Name - Building Name'." This replaces the earlier
+one-project-many-buildings plan (it touched floors, riser view, labels and sheets throughout).
 
-## Where cad is today
-
-- **The model already has buildings.** `Building` (`domain/types.ts:26`) has a name, order and its own `floors` range,
-  and every `Level` has a `buildingId`. The Navigator groups levels under their building (`navTree.ts:72`).
-  `backupParts.ts` already tells buildings apart.
-- **In practice there is one building.**
-  - Floors… (`FloorsPanel.svelte`) edits only `ofType('building')[0]`.
-  - `planFloors` / `restack` / `renumberFloor` / `renameFloors` (`domain/floors.ts`) take every level, whatever its
-    building. A second building's 10F would be restacked onto the first one's.
-  - Only Floors… (on its first Apply) and the legacy import create a building, and both make exactly one.
-  - Nothing renames, adds, orders or deletes buildings.
-- **Riser view:** one per project (`settings.riser`). It draws every level, banded by elevation alone, so two buildings'
-  floors at the same height would merge into one band. Its spec has `buildingId`, but nothing uses it.
-- **Labels** (`FF.Z.NNN-SPP`): no building token. Server-room letters (`Space.code`) are per level.
-- **Sheets:** no `{BUILDING}` field, no building key in the title block, and no grouping by building (a sheet's
-  `placeId` may already be a building id).
-- **Tourney, as it is now:**
-
-  | Building (legacy `projects.floors`) | Floors | In cad |
-  |---|---|---|
-  | Midtown | 12F, 30F, 33F (areas 3303, 3307) | All under a building named "Project Tourney" |
-  | Fort Tower | 10F | Missing — the import dropped it |
-  | Third building | 3 floors coming | — |
-  | Osaka office | — | — |
-
-  There is also a second, empty "Project Tourney" building record.
+Example — Project Tourney: building1 (12F, 30F, 33F with areas 3303 / 3307), building2 (10F), a third building
+(3 floors coming), an office in Osaka.
 
 ## The model
 
-- **Building:** name, **code** (short: `MT`, `FT`, `OSK` — for labels, file names and sheet numbers), order, site
-  address (title block; the Osaka office has its own), and its own floors range, datum and heights. Each building's
-  levels stack on that building's own datum (FFL ±0), never against another building's.
-- **No "site" or "campus" entity.** A Tokyo / Osaka grouping is only the order and the address. Buildings aren't linked
-  in space: cabling between them is a link with a typed length, not a drawn route.
-- **A level** belongs to exactly one building, as it does now. Moving a level to another building is an explicit
-  command.
+- **Group doc** `projectGroups/{masterId}` = `{ name, ownerId, members, createdAt }`. It holds only the shared name (and
+  who may see the group), nothing else.
+- **Each building is an ordinary project** (`projects/{pid}`), as today, plus `masterId` and `buildingName`. Its
+  floors, cad entities, sheets, releases, legacy tools and backups are all its own; nothing in cad's model changes.
+- **Shown as** "Project Tourney – building1". A project with no `masterId` shows its own name as today.
+- **Add building** (Projects page, and Project › Add building… in cad): makes a new project in the same group. It
+  copies the settings that should match (below), creates the group doc on first use (the current project gets
+  `masterId` and `buildingName`), and opens the new project's Floors….
+
+## Issues found, and how to meet them
+
+1. **Settings that should stay the same across buildings** (usages, cable types, label patterns, title-block template
+   and logos, file-name pattern, client / company details, PDF font). Each project keeps its own copy:
+   - **copied** on Add building;
+   - **"Copy settings from…"** (another building of the group) brings one up to date.
+   - The alternative, live sharing through the group doc, would make every settings read look in two places — not
+     worth it for settings that rarely change.
+2. **Who can see what.** Members are per project. Add building copies the members; the group doc keeps the union, so
+   the list can show the group. A member of one building only sees that building, and the group name.
+   - Firestore rules aren't in the repo: `projectGroups` needs a rule (read for members, write for the owner).
+3. **The project name lives in two places.** Rename the group: the group doc, and every building's display follows
+   (`name` is no longer typed per building; the building part is `buildingName`). Old links and backups keep working
+   because ids don't change.
+4. **Cabling between buildings** (backbone building1 IDF ↔ building2 IDF) can't be one link, since links live in one
+   project. Each end becomes an **external link**: a port linked to "building2 · 10F IDF · FP1:1–12" (text, with
+   cores and length typed), so schedules, the BOM and labels list it. A later "check both ends" could compare the
+   two projects.
+5. **Releases and drawing registers that span buildings.** A release belongs to one project; a package for "the
+   whole job" would need sheets from several. For now: one release per building, issued together (same name /
+   date). Later, if needed, a group-level transmittal listing the buildings' releases.
+6. **Reports across buildings** (one BOM / outlet count for the job): read each building's project and add them
+   up — a "Group report" on the Projects page, later. Each building's own reports are unchanged.
+7. **Labels and server-room letters** never clash, because each building is its own project. A building code in
+   labels is only needed if they're mixed outside cad (an option, later).
+8. **Switching buildings** in cad: the title bar shows "Project Tourney – building1 ▾" and lists the group's other
+   buildings, which open in place (no trip back to the Projects page). Ctrl+K / Open Project search the group.
+9. **The legacy tools** (frames, racks, outlets, Pages) use the same `projects/{pid}`, so they see buildings as
+   projects too. Their project pickers should show "Name – Building" the same way (one helper: `projectTitle(p)`).
+10. **Deleting a building:** the project's normal soft delete; the group doc goes when its last building does.
+    Moving a project into or out of a group: Projects page › Group with… / Ungroup.
+11. **Tourney today is one project holding building1** (its floors are in cad), with building2's 10F only in the
+    legacy `projects.floors` (the import dropped it). Migration:
+    - group the project as "Project Tourney – building1";
+    - Add building → "building2", importing its 10F from the legacy data. The legacy tools' docs for 10F stay under
+      the old pid — the new project imports what cad needs.
+    - Also drop the stray empty second `building` doc.
+    - Run with the user's go-ahead, and reversible.
+12. **The Osaka office** is just another building in the group; its own address is on its sheets.
 
 ## Phases
 
-1. **Buildings you can manage (M):**
-   - Project › Buildings… lists buildings: add, rename, code, address, order, and delete when empty.
-   - The Navigator gets "+ Building", and each building row keeps its "+" (floor models) and Floors….
-   - Floors… takes the building: its range, names, heights and Apply touch only that building's levels.
-     `planFloors` / `restack` / `renumber` / `renameFloors` filter by `buildingId`.
-   - "Move to building…" on a level.
-   - Merge the duplicate empty building on load (the empty one is deleted).
-2. **Riser view per building (M):**
-   - Each building row gets its own "Riser view". The spec's `buildingId` is used, and the riser settings
-     (range, groups) live per building.
-   - Bands come from that building's levels only.
-   - Links to another building show as an off-page note ("→ FT 10F IDF") instead of a drawn riser.
-3. **Labels and naming (S–M):**
-   - An optional building token `{B}` in the label patterns (e.g. `MT.33.A.001-A01`). It's needed when two buildings
-     have the same floor number and zone letters, or when a server-room letter repeats.
-   - `{BUILDING}` text field and a title-block "Building" key; `{building}` in the file-name pattern.
-   - Sheets › Group by building. Sheet numbers optionally prefixed with the code.
-4. **Tourney migration (S):**
-   - From the legacy `projects.floors[].building`: create building1 (12F, 30F, 33F 3303 / 3307) and building2
-     Tower (10F L10 building2, imported from its legacy floor).
-   - Rename "Project Tourney" to building1.
-   - Later: the third building (Floors… for it once its floors are known) and the Osaka office.
-   - Undoable, and run only with User's go-ahead.
-5. **Across buildings (S each, later):**
-   - The BOM, cable and outlet schedules filtered or grouped by building.
-   - Backbone links between buildings' server rooms with a typed length (no route). Fill and riser views ignore them.
-   - Find / Ctrl+K shows the building on each hit.
+1. **Groups (S–M):**
+   - `masterId` / `buildingName` / `projectGroups`.
+   - `projectTitle(p)` everywhere a project is named: the Projects page, Open Project, the recent list, the title bar.
+   - The Projects page list grouped.
+   - Add building (copies settings and members), rename group, Group with… / Ungroup.
+   - A Firestore rule for `projectGroups`.
+2. **Tourney migration (S):** as item 11.
+3. **In cad (S):** the title bar's building switcher; Copy settings from…; external links (item 4).
+4. **Later:** group report, group transmittal, a building code in labels.
 
-## Decisions for User
+## Decisions for the user
 
-1. **Building code in labels:** add `{B}` to Tourney's patterns, or keep labels as they are (floor numbers differ
-   anyway: 10 / 12 / 30 / 33)? Default: off, available per project.
-2. **Osaka office:** a building in Tourney, or its own project? A building keeps one BOM and one register. A project
-   keeps its own sheets, numbering and members.
-3. **Sheet numbers:** one sequence for the project, or per building (`MT-S001`, `FT-S001`)?
-4. **Riser view:** per building only, or also a side-by-side "all buildings" view (stacks next to each other, no
-   links drawn)?
-5. **Server-room letters:** unique per building (A in MT and A in FT both allowed) or across the project?
-
-Order: phase 1, then 4 (Tourney on it), then 2 and 3; phase 5 as needed.
+1. **Title blocks:** should {PROJECT} print "Project Tourney" (the group) or "Project Tourney – building1"? Suggested:
+   the group name in {PROJECT}, and a new {BUILDING} field.
+2. **Settings:** copy-on-create plus "Copy settings from…" (suggested), or live-shared via the group?
+3. **Members:** copied per building (suggested), or one member list for the whole group?
+4. **Sheet numbers:** each building numbers its own (S001…), or prefixed by a building code?
