@@ -13,6 +13,7 @@ const fake = vi.hoisted(() => ({
 
 vi.mock('firebase/firestore', () => ({
 	collection: () => ({}),
+	deleteField: () => ({ deleted: true }),
 	doc: (_c: unknown, id: string) => ({ id }),
 	query: (_c: unknown, w: { scopes: string[] }) => w,
 	where: (_f: string, _op: string, scopes: string[]) => ({ scopes }),

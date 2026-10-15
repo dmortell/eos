@@ -1,7 +1,7 @@
 // The Firestore backend (ADR 0003): `projects/{pid}/cadEntities/{id}`, one doc per entity, listeners by `scope`,
 // writes in batches of ≤ 500. The Firestore instance is passed in (the app's `firestore` from $lib/db.svelte), so this
 // file has no Svelte imports and nothing here runs until a project opens the cad tool.
-import { collection, doc, onSnapshot, query, where, writeBatch, type Firestore } from 'firebase/firestore'
+import { collection, deleteField, doc, onSnapshot, query, where, writeBatch, type Firestore } from 'firebase/firestore'
 import type { Backend, RemoteDoc } from './backend'
 import type { StoredDoc } from './docs'
 
@@ -36,7 +36,11 @@ export class FirestoreBackend implements Backend {
 			const batch = writeBatch(this.db)
 			for (const d of docs.slice(i, i + BATCH_LIMIT)) {
 				const ref = doc(this.#col(), d.id)
-				if (d.data) batch.set(ref, d.data)
+				if (d.data && d.fields) {
+					// only the changed fields (two tabs: a field the other tab changed meanwhile stays); a removed one deleted
+					const data = d.data as Record<string, unknown>
+					batch.set(ref, Object.fromEntries(d.fields.map((k) => [k, k in data ? data[k] : deleteField()])), { mergeFields: d.fields })
+				} else if (d.data) batch.set(ref, d.data)
 				else batch.delete(ref)
 			}
 			commits.push(batch.commit())

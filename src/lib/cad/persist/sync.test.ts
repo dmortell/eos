@@ -273,3 +273,35 @@ describe('pending writes', () => {
 		expect(xOf(store, 'a')).toBe(40)
 	})
 })
+
+describe('edits in two tabs (Dave 2026-10-15: field-level saving)', () => {
+	it('a tab holding an older copy writes only the fields it changed — the other tab\'s newer field survives', async () => {
+		const server = new MemoryBackend()
+		const a = client(server, 'dave'), b = client(server, 'dave2')
+		a.store.transact('Add', (tx) => tx.put({ ...box('x'), name: 'one' } as Shape))
+		await a.sync.flush(); await tick()
+		// tab B goes stale: it stops listening, then A renames the box
+		b.sync.stop()
+		a.store.transact('Rename', (tx) => tx.put({ ...(a.store.get('x') as Shape), name: 'two' } as Shape))
+		await a.sync.flush(); await tick()
+		// B, still with name 'one', moves it: only geom (and meta) go to the server
+		const bx = b.store.get('x') as Shape
+		expect(bx.name).toBe('one')
+		const bs = new Sync(b.store, server, { user: 'dave2' })
+		b.store.transact('Move', (tx) => tx.put(moved(bx, 900)))
+		await bs.flush(); await tick()
+		const onServer = server.docs.get('x') as unknown as Shape
+		expect(onServer.name).toBe('two')
+		expect(onServer.geom.kind === 'rect' && onServer.geom.centre.x).toBe(900)
+	})
+	it('a field removed by an edit is removed on the server', async () => {
+		const server = new MemoryBackend()
+		const a = client(server, 'dave')
+		a.store.transact('Add', (tx) => tx.put({ ...box('y'), name: 'n' } as Shape))
+		await a.sync.flush(); await tick()
+		const { name: _n, ...rest } = a.store.get('y') as Shape & { name?: string }
+		a.store.transact('Unname', (tx) => tx.put(rest as Shape))
+		await a.sync.flush(); await tick()
+		expect('name' in (server.docs.get('y') as object)).toBe(false)
+	})
+})

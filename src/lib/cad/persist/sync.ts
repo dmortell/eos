@@ -7,7 +7,7 @@
 // re-apply stale docs).
 import type { EntityStore, Change } from '../store/store'
 import type { Backend, RemoteDoc } from './backend'
-import { toDoc, fromDoc, scopeOf, type StoredDoc } from './docs'
+import { toDoc, fromDoc, scopeOf, stripUndefined, type StoredDoc } from './docs'
 import { sameEntity } from '../domain/restorePlan'
 import type { Entity } from '../domain/drawing'
 import type { Id } from '../domain/types'
@@ -68,7 +68,7 @@ export class Sync {
 			catch (e) { this.opts.onError?.(e); continue }   // an ownerless shape: refused, not saved to a scope nobody loads
 			this.#revs.set(op.id, rev)
 			this.#pending.set(op.id, rev)
-			docs.push({ id: op.id, data })
+			docs.push({ id: op.id, data, ...(data && op.before ? { fields: changedFields(op.before, data) } : {}) })
 		}
 		if (!docs.length && c.ops.length) return
 		this.#notify()
@@ -109,4 +109,15 @@ export class Sync {
 		if (puts.length || dels.length) this.store.applyRemote(puts, dels)
 		this.#notify()
 	}
+}
+
+/** The top-level fields an edit changed (added, altered or removed), plus the doc's identity and meta: all an edit
+ *  writes (Dave 2026-10-15, edits in two tabs — a tab's older copy of the other fields isn't written back). An item
+ *  moved to another level changes `scope` too. */
+export function changedFields(before: Entity, after: StoredDoc): string[] {
+	const was = stripUndefined(before as unknown as Record<string, unknown>)
+	const keys = new Set([...Object.keys(was), ...Object.keys(after)])
+	const out = new Set(['id', 'type', 'scope', 'rev', 'updatedAt', 'updatedBy', ...('client' in after ? ['client'] : [])])
+	for (const k of keys) if (!out.has(k) && JSON.stringify(was[k]) !== JSON.stringify(after[k])) out.add(k)
+	return [...out]
 }

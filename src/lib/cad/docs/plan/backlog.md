@@ -18,15 +18,9 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 3 entries (3 P3 ❓ review todos — tips for new users built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 2 entries (2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
 
-- [ ] ❓ **Edits in two tabs overwrite each other** (Dave 2026-10-15 todo, "review how to handle") — the settings doc
-  (and any whole entity) is saved whole (`persist/firestore.ts` `batch.set`), so a tab holding an older copy (Project
-  settings open in two tabs, a stale or hot-reloaded tab) writes it back and drops the other tab's newer fields — seen
-  2026-10-15 when a just-saved export file-name pattern vanished. Options: field-level merge for settings, a version
-  check (refuse / rebase a write made from an older copy), or "changed in another tab — reload" on the dialog. **P3 ·
-  M**.
 - [ ] ❓ **Menus: review options 1 and 3 later** (Dave 2026-10-15: "I like all 3, try 2 for now, review the others
   later"). The review found: tools with no menu (Line, Shape, Box, Wall, Opening, Room, Section, Guide, Measure, Move,
   Copy); exports twice (File › Export and Cabling › Schedules; sheet PDFs in File and Sheets; Tables in Window and

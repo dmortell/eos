@@ -4,7 +4,13 @@ import type { Id } from '../domain/types'
 import type { StoredDoc } from './docs'
 
 /** A doc as the server now has it; `data` null = deleted (or no longer in the subscribed scopes). */
-export interface RemoteDoc { id: Id; data: StoredDoc | null }
+export interface RemoteDoc {
+	id: Id; data: StoredDoc | null
+	/** Only these top-level fields are written (Dave 2026-10-15, edits in two tabs): one absent from `data` is deleted, the
+	 *  rest of the server's doc stays as it is — so a tab holding an older copy doesn't write back fields it didn't change.
+	 *  Absent = the whole doc (a new entity, a delete). */
+	fields?: string[]
+}
 
 export interface Backend {
 	/** Calls back with the current docs in `scopes` (once, even when there are none — that is the "loaded" signal),
@@ -42,9 +48,10 @@ export class MemoryBackend implements Backend {
 		const changed: { doc: RemoteDoc; scope: string; was?: string }[] = []
 		for (const d of docs) {
 			const prev = this.docs.get(d.id)
-			if (d.data) this.docs.set(d.id, structuredClone(d.data))
+			const next = d.data && d.fields && prev ? mergeFields(prev, d.data, d.fields) : d.data
+			if (next) this.docs.set(d.id, structuredClone(next))
 			else this.docs.delete(d.id)
-			changed.push({ doc: { id: d.id, data: d.data ? structuredClone(d.data) : null }, scope: d.data?.scope ?? prev?.scope ?? '', was: prev?.scope })
+			changed.push({ doc: { id: d.id, data: next ? structuredClone(next) : null }, scope: next?.scope ?? prev?.scope ?? '', was: prev?.scope })
 		}
 		queueMicrotask(() => {
 			for (const sub of this.#subs) {
@@ -54,4 +61,12 @@ export class MemoryBackend implements Backend {
 			}
 		})
 	}
+}
+
+/** The server's doc with only `fields` taken from `data` (one absent there is deleted) — what Firestore's
+ *  set(…, { mergeFields }) does. */
+export function mergeFields(prev: StoredDoc, data: StoredDoc, fields: string[]): StoredDoc {
+	const out: Record<string, unknown> = { ...prev }
+	for (const k of fields) { if (k in data) out[k] = data[k]; else delete out[k] }
+	return out as StoredDoc
 }
