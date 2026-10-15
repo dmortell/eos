@@ -108,6 +108,9 @@
 	// ── row menus (UX review L4, Dave: "the hidden buttons … are hard to spot"): a faint ⋮ on every row with commands,
 	// the same menu on right-click; Delete only inside the menu (no ✕ under the pointer) ──
 	let menu = $state<{ n: NavNode; x: number; y: number; items?: MenuItem[] } | null>(null)
+	/** A row with nothing to open or select (the building, Sheets and its groups), clicked: just marked (Dave 2026-10-15: one
+	 *  rule — a label click opens / selects, only ▸ (or a double-click) folds). */
+	let picked = $state<string | null>(null)
 	function openMenu(n: NavNode, e: MouseEvent) { menu = { n, x: e.clientX, y: e.clientY } }
 	/** The project row's + (Dave 2026-10-15): a model for a floor that has none (W33), else Floors…. */
 	function openAdd(n: NavNode, e: MouseEvent) {
@@ -189,7 +192,7 @@
 	{@const unfolded = !!q || open.has(n.key)}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="row k-{n.kind}" tabindex="-1" oncontextmenu={(e) => { if (rowMenu(n).length) { e.preventDefault(); openMenu(n, e) } }}
-		onkeydown={(e) => { if (e.key === 'F2' && renameOf(n)) { e.preventDefault(); e.stopPropagation(); renameOf(n)!() } }} class:cur={isCurrent(n)} class:hi={hiKey === n.key} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
+		onkeydown={(e) => { if (e.key === 'F2' && renameOf(n)) { e.preventDefault(); e.stopPropagation(); renameOf(n)!() } }} class:cur={isCurrent(n) || picked === n.key} class:hi={hiKey === n.key} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
 		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
 		{#if ws.navRename && n.id === ws.navRename.id && n.kind !== 'rack'}
 			{@const r = ws.navRename}
@@ -197,7 +200,7 @@
 				<NameInput wide value={renameValue(r.id, r.field)} title={r.field === 'number' ? 'Sheet number' : r.field === 'title' ? 'Sheet title' : 'Name'}
 					onsave={(t) => { const { id, field } = r; ws.navRename = null; applyRename(project, id, t, field) }} oncancel={() => (ws.navRename = null)} /></span>
 		{:else}
-		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : undefined} onclick={() => (n.open ? onopen(n) : toggle(n.key))} ondblclick={() => { if (n.open) onopen(n, true) }}>
+		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : kids.length ? 'Double-click (or ▸) folds it' : undefined} onclick={() => { if (n.open) onopen(n); else if (n.select) ws.select([n.select]); else picked = n.key }} ondblclick={() => { if (n.open) onopen(n, true); else if (kids.length) toggle(n.key) }}>
 			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
 			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
@@ -224,6 +227,8 @@
 	.row.cur { background: var(--cad-sel); }
 	.row.sel .t { color: #1d4ed8; font-weight: 600; }
 	.tw { width: 14px; flex: 0 0 14px; font-size: 9px; color: var(--cad-muted); text-align: center; }
+	/* a finger-sized ▸ on a touch screen (folding is the ▸'s alone now) */
+	@media (pointer: coarse) { .tw { width: 26px; flex-basis: 26px; min-height: 28px; font-size: 13px; } }
 	.lbl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 1px 0; text-align: left; color: var(--cad-text); }
 	.lbl :global(svg) { flex: 0 0 auto; color: var(--cad-faint); }
 	.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
