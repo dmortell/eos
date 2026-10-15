@@ -208,6 +208,7 @@
 	.section-arrow.filled { fill: #0f766e; }
 	.section-arrow { stroke: #0f766e; }
 	text.section-label { fill: #0f766e; font-weight: 400; }   /* not bold (Dave 2026-10-15: too thick) */
+	.run-break { stroke: #334155; fill: none; stroke-width: 1.2px; vector-effect: non-scaling-stroke; }   /* a run cut off by a section's end (S-break) */
 	.cut.filled { fill: #334155; }
 	.cut { stroke: #0f172a; }
 	.opening { stroke: #475569; }

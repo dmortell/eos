@@ -59,8 +59,20 @@ describe('a long run through a section (Dave 2026-10-15: "the view extends to 16
 		const ps = sectionDisplayList(new ProjectIndex([level, trunk] as Entity[]), sec, { scale: 100 })
 		const datum = ps.find((p) => p.k === 'line' && p.cls.includes('datum-ffl'))!
 		const b = primBounds(datum)
-		expect(b.x1 - b.x0).toBeLessThan(5000 + 3000 + 1)   // the 5 m cut (+ the datum's 1.5 m either side), not the 16 m run
+		expect(b.x1 - b.x0).toBeLessThan(5000 + 3000 + 200)   // the 5 m cut (+ the datum's 1.5 m either side, + the break marks), not the 16 m run
 		const run = primBounds(ps.find((p) => p.src === 'T')!)
 		expect([run.x0, run.x1]).toEqual([0, 5000])
+	})
+})
+
+describe('a run cut off by a section\'s end (Dave 2026-10-15: a truncate mark)', () => {
+	it('gets an S-shaped break where it runs on past the cut line; one that stops inside gets none', () => {
+		const run = (id: string, x0: number, x1: number) => ({ type: 'shape', id, levelId: 'L1', role: { kind: 'containment', form: 'trunk', tier: 'high' }, section: { w: 100, h: 50 },
+			geom: { kind: 'path', nodes: [{ id: `${id}0`, x: x0, y: -1000, z: 2900 }, { id: `${id}1`, x: x1, y: -1000, z: 2900 }], segs: [{ id: `${id}s`, a: `${id}0`, b: `${id}1` }] } })
+		const ps = sectionDisplayList(new ProjectIndex([level, run('LONG', -8000, 8000), run('INSIDE', 1000, 4000)] as Entity[]), sec, { scale: 100 })
+		const breaks = ps.filter((p) => p.k === 'line' && p.cls === 'run-break')
+		expect(breaks.map((p) => p.src)).toEqual(['LONG', 'LONG'])   // both ends of the 5 m cut
+		const xs = breaks.map((p) => (p.k === 'line' ? Math.round(p.pts[0].x) + 0 : NaN)).sort((a, b) => a - b)
+		expect(xs).toEqual([0, 5000])
 	})
 })

@@ -84,7 +84,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (it.depth > r.near || it.depth < r.far) return false
 			const xs = it.prims.flatMap(across)
 			return xs.length > 0 && Math.max(...xs) >= r.u0 && Math.min(...xs) <= r.u1
-		}).map((it) => ({ ...it, prims: it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })) }))
+		}).map((it) => ({ ...it, prims: [...it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })), ...truncMarks(ix, it.prims, r.u0, r.u1, k)] }))
 	}
 	if (o.band) {
 		const b = o.band
@@ -270,6 +270,41 @@ function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: Sp
 }
 
 /** Level datum lines across the drawing: slab, FFL, ceiling, slab above — with their heights. */
+/** A trunk / conduit cut off by a section's end (it runs on past the cut line): an S-shaped break across it there — two
+ *  semicircles, top one bulging out of the view, the lower one back in (Dave 2026-10-15). Drawn on its body (the
+ *  closed outline), as tall as it is where it's cut. */
+function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number, k: number): Prim[] {
+	const out: Prim[] = []
+	for (const p of prims) {
+		if (p.k !== 'line' || !p.src) continue
+		const s = ix.get(p.src)
+		if (s?.type !== 'shape' || s.role?.kind !== 'containment') continue
+		const xs = p.pts.map((q) => q.x), ys = p.pts.map((q) => q.y)
+		for (const [edge, out1] of [[u0, -1], [u1, 1]] as const) {
+			if (!(out1 < 0 ? Math.min(...xs) < edge - 1 : Math.max(...xs) > edge + 1)) continue
+			// its height there: an outline's own; a run drawn as a thick line (its width = the run's height): across its
+			// line where it crosses the edge
+			let top: number, h: number
+			if (p.closed) { top = Math.min(...ys); h = Math.max(...ys) - top }
+			else {
+				const i = p.pts.findIndex((q, j) => j > 0 && (p.pts[j - 1].x - edge) * (q.x - edge) <= 0)
+				if (i < 1 || !p.w) continue
+				const a = p.pts[i - 1], b = p.pts[i], t = b.x === a.x ? 0 : (edge - a.x) / (b.x - a.x)
+				h = p.w; top = a.y + (b.y - a.y) * t - h / 2
+			}
+			if (h <= 0) continue
+			// at least 3 paper mm tall (a 50 mm trunk at 1:100 would be a hair), centred on the run
+			if (h < 3 * k) { top -= (3 * k - h) / 2; h = 3 * k }
+			const r = h / 4, N = 8, pts: Pt[] = []
+			// upper half: centre (edge, top + r), from the top round the outside to the middle; lower half: round the inside
+			for (let i = 0; i <= N; i++) { const a = -Math.PI / 2 + (Math.PI * i) / N; pts.push({ x: edge + out1 * r * Math.cos(a), y: top + r + r * Math.sin(a) }) }
+			for (let i = 1; i <= N; i++) { const a = -Math.PI / 2 + (Math.PI * i) / N; pts.push({ x: edge - out1 * r * Math.cos(a), y: top + 3 * r + r * Math.sin(a) }) }
+			out.push({ k: 'line', pts, cls: 'run-break', src: p.src })
+		}
+	}
+	return out
+}
+
 function datums(prims: Prim[], level: Level | undefined, k: number): Prim[] {
 	if (!level) return []
 	// as drawn: a prim clipped to a section's ends counts only inside its clip
