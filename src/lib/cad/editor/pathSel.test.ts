@@ -169,3 +169,22 @@ describe('the grip under the pointer', () => {
 		expect(hovered()).toHaveLength(0)
 	})
 })
+
+describe('the grip under the pointer after an undo (Dave 2026-10-15)', () => {
+	it('an undo that moves its shape back hides the larger hover grip until the pointer moves', () => {
+		const store = new EntityStore()
+		store.load([...demoProject(), trunk('A', [[0, 0], [1000, 0]])])
+		store.transact('Move', (tx) => tx.put(trunk('A', [[0, 0], [1500, 0]])))
+		const sel = ['A']
+		const ctx = () => ({
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 2900, w: 100, h: 50 }, prims: () => [], tol: () => 10,
+			space: spaceOf(PLAN), work: { z: 2900, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' }),
+			selection: sel, select: () => {}, setMarquee: () => {}, ask: () => {}, say: () => {},
+		}) as unknown as ToolCtx
+		const t = new SelectTool(), hovered = () => t.preview(ctx()).filter((p) => p.k === 'line' && p.cls === 'grip grip-hover')
+		t.hover({ p: { x: 1500, y: 0 }, shift: false, ctrl: false, alt: false }, ctx())
+		expect(hovered()).toHaveLength(1)
+		store.undo()
+		expect(hovered()).toHaveLength(0)
+	})
+})

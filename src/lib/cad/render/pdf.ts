@@ -36,7 +36,7 @@ const STYLES: Record<string, Style> = {
 	'viewport-label': { text: '#334155' },
 	run: { stroke: '#0ea5e9', opacity: 0.55 }, 'run-high': { stroke: '#f97316', fill: '#f97316' }, centre: { opacity: 1 },
 	'run-hit': { skip: true }, 'run-body': { stroke: '#0ea5e9', fill: '#0ea5e9', fillOpacity: 0.2, opacity: 1, width: 0.25 }, 'run-ceiling': { dash: [1.5, 1] }, 'run-primary': { width: 0.5, fillOpacity: 0.32 },
-	wall: { stroke: '#475569', opacity: 0.8 }, riser: { stroke: '#be185d', fill: '#fce7f3' }, 'riser-label': { text: '#be185d' },
+	wall: { stroke: '#475569', opacity: 0.8, fill: '#ffffff' }, riser: { stroke: '#be185d', fill: '#fce7f3' }, 'riser-label': { text: '#be185d' },
 	rack: { stroke: '#1e293b', fill: 'none' }, 'rack-x': { stroke: '#94a3b8' }, 'rack-back': { stroke: '#1e293b', width: 0.6 }, 'rack-rails': { stroke: '#64748b', fill: 'none' },
 	outlet: { stroke: '#1d4ed8', fill: '#3b82f6' }, 'outlet-high': { dash: [0.8, 0.5] },
 	device: { stroke: '#334155', fill: '#cbd5e1' }, 'device-panel': { fill: '#e0f2fe' }, 'device-switch': { fill: '#dcfce7' },

@@ -122,6 +122,7 @@
 	.run-ceiling { stroke-dasharray: 6 4; }
 	.run-primary { stroke-width: 2.5; fill-opacity: 0.32; }
 	.wall { stroke: #475569; opacity: 0.8; }
+	.wall.filled { fill: #ffffff; }   /* a wall face in elevations: not shaded (Dave 2026-10-15), still hides what's behind it */
 	.riser { stroke: #be185d; fill: #fce7f3; }
 	.rack { stroke: #1e293b; fill: none; }   /* no shading (Dave); still picked by its whole body */
 	.rack-x { stroke: #94a3b8; }
