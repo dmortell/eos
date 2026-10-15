@@ -18,8 +18,15 @@ in `todo.md`, P = a phase-doc line.
 **File size:** the ~500-line limit is RELAXED for now (Dave 2026-10-07: "relax on getting files under 500 lines").
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
-**Remaining:** 5 entries (Dave 2026-10-15: walls from a room, T / B / L / R names, one room not two; 2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+**Remaining:** 7 entries (Dave 2026-10-15: blocks in rack views, PDF of a model view, walls from a room, T / B / L / R names, one room not two; 2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, Dave 2026-10-15; no ⚡ quick wins left) — Dave's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (Dave 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (Dave 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## Dave's todos (2026-10-15, review later)
+
+- [ ] ❓ **Blocks in rack views** (Dave 2026-10-15, "for later, discuss … data only?") — today the Blocks window steps aside
+  in rack views. To discuss: blocks placed on a rack face (a blanking panel, a label, a shelf item drawn as a block) or data-only
+  blocks (counted in the BOM, listed with the rack, not drawn). **P3**.
+- [ ] ❓ **PDF of a model view** (Dave 2026-10-15: "on model views could Ctrl+P make a PDF with just that view, no title
+  block?") — yes: the view as on screen (or its extents) on a page sized to it at its scale (1:100 …), no title block;
+  the print ▾ would add "This view". To decide: what is printed (visible area vs extents) and the paper size. **P3 · S–M**.
 
 - [ ] **Walls from a room** (Dave 2026-10-15, "for later") — select a room drawn with the Room tool → one command
   makes a wall along its outline (one path, closed; the current wall defaults, slab to slab optional). **P3 · S**.

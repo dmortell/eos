@@ -455,7 +455,10 @@
 	/** The sheet open in the active pane (File / Sheets › PDF of this sheet). */
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** Ctrl+P and the print button (Dave 2026-10-15): the open sheet as a PDF, else every sheet. */
-	const printPdf = () => { const sh = openSheetId ? project.index.get(openSheetId) : undefined; if (sh?.type === 'sheet') sheetsPdfTab(project, ws, [sh]); else if (sheetsAll.length) sheetsPdfTab(project, ws, sheetsAll); else ws.say('No sheets yet — Drawings › New sheet') }
+	const printSheets = (which: 'this' | 'all') => { const sh = openSheetId ? project.index.get(openSheetId) : undefined; if (which === 'this' && sh?.type === 'sheet') sheetsPdfTab(project, ws, [sh]); else if (sheetsAll.length) sheetsPdfTab(project, ws, sheetsAll); else ws.say('No sheets yet — Drawings › New sheet') }
+	const printPdf = () => printSheets('this')
+	/** The print button's ▾ (Dave 2026-10-15): This sheet / All sheets. */
+	let printMenu = $state<{ x: number; y: number } | null>(null)
 	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
 	// a row picked in a table: the active view pans it into view when it's off-screen (R52); only the pick re-runs this
@@ -689,6 +692,7 @@
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
 		<button class="ib" disabled={!sheetsAll.length} onclick={printPdf} title={openSheetId ? `Print: this sheet as a PDF in a new browser tab (${KEYS.print}) — print or save it from there` : `Print: all sheets as a PDF in a new browser tab (${KEYS.print}) — open a sheet for just that one`}><Icon name="print" size={15} /></button>
+		<button class="ib caret" disabled={!sheetsAll.length} aria-label="Print: this sheet or all sheets" title="This sheet or all sheets" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); printMenu = { x: r.left, y: r.bottom } }}>▾</button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>
@@ -782,6 +786,7 @@
 	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
+	{#if printMenu}<ContextMenu x={printMenu.x} y={printMenu.y} items={[{ label: 'This sheet', key: KEYS.print, disabled: !openSheetId, run: () => printSheets('this') }, { label: `All sheets (${sheetsAll.length})`, run: () => printSheets('all') }]} onclose={() => (printMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
 	<!-- the tables docked under the drawing (floating / maximised they sit in the drawing area, above) -->
@@ -855,6 +860,7 @@
 	/* one or two views side by side */
 	.panes { display: flex; flex: 1; min-height: 0; background: var(--cad-line); }
 	.ib { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--cad-muted); }
+	.ib.caret { width: 14px; margin-left: -4px; font-size: 10px; }
 	.ib:hover:not(:disabled) { background: var(--cad-hover); color: var(--cad-text); }
 	.ib:disabled { opacity: 0.35; }
 	.ib.on { background: var(--cad-sel, #dbeafe); color: var(--cad-link, #1d4ed8); }

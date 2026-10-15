@@ -13,11 +13,12 @@ import type { Sheet } from '../domain/drawing'
 import { sheetDisplayList, paperSize, type SheetOpts } from '../views/sheet'
 import { jsPDF, GState } from 'jspdf'
 
-export interface PdfPage { w: number; h: number; prims: Prim[] }
+/** `title`: the page's name in the PDF's outline (bookmarks — the viewer's sidebar; Dave 2026-10-15: "each page given a name"). */
+export interface PdfPage { w: number; h: number; prims: Prim[]; title?: string }
 
 /** Sheets as PDF pages: each its own paper size, drawn exactly as on screen (views/sheet.ts). */
 export function sheetPages(ix: ProjectIndex, sheets: Sheet[], o: SheetOpts = {}): PdfPage[] {
-	return sheets.map((s) => ({ ...paperSize(s), prims: sheetDisplayList(ix, s, o) }))
+	return sheets.map((s) => ({ ...paperSize(s), prims: sheetDisplayList(ix, s, o), title: [s.number, s.title].filter(Boolean).join(' ') }))
 }
 /** An image URL → a data URL jspdf can embed, with its natural size (null = skip it). */
 export type ImageLoader = (url: string, kind: 'photo' | 'logo', gray?: boolean) => Promise<{ data: string; format: 'PNG' | 'JPEG'; w: number; h: number } | null>
@@ -203,6 +204,8 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		}
 		setClip(undefined)
 	})
+	// each named page a bookmark (the standard fonts can't hold Japanese: those names keep only what they can show)
+	pages.forEach((page, i) => { if (page.title) { const t = pdfText(page.title).text.replace(/[^\x20-\x7e\xa0-\xff]/g, '').trim(); if (t) pdf.outline.add(null, t, { pageNumber: i + 1 }) } })
 	return { pdf, unsupported: [...unsupported], rasterised: [...rasterised] }
 }
 

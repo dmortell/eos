@@ -9,7 +9,7 @@ import { newId } from '../domain/ids'
 import { repeatOn } from '../domain/repeatEdit'
 import { beyondPorts, beyondPortsText } from '../domain/devices'
 import { downloadSheetsPdf, sheetsPdfBlob, sheetsPdfName, unsupportedNote } from './sheetsPdf'
-import { fileName, showInTab, servedFileUrl } from '../render/download'
+import { fileName, showPdfTab, dropOldPrintWorker } from '../render/download'
 import { specLabel, isPaperSpec, type ViewSpec } from '../views/space'
 import { viewName } from '../domain/navTree'
 import { portMapTitle } from '../domain/portMap'
@@ -36,6 +36,7 @@ export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Shee
  *  pattern), for the browser to print or save; exports keep their Save as dialog. The tab opens on the key / click itself
  *  (a pop-up blocker allows that, not one opened after the PDF is made) and shows a note until the PDF is ready. */
 export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]): void {
+	dropOldPrintWorker()
 	const win = window.open('', '_blank')
 	if (!win) { ws.say('The browser blocked the new tab — allow pop-ups for this site, or use File › Export › PDF of this sheet'); return }
 	win.document.title = 'Making the PDF…'
@@ -43,11 +44,10 @@ export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]
 	const { suggested, parts } = sheetsPdfName(project, sheets, ws.monoPdf)
 	const name = fileName(suggested, parts).replace(/\.pdf$/i, '')
 	void sheetsPdfBlob(project, sheets, ws.monoPdf, name)
-		.then(async (r) => {
-			// at a path ending in the file's name, so the viewer's Download offers it (else a blob: URL in the tab)
-			const url = await servedFileUrl(r.blob, 'application/pdf', name)
-			if (url) win.location.href = url; else showInTab(win, r.blob, 'application/pdf', name)
-			ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'} in a new tab${unsupportedNote(r.unsupported, r.rasterised)}`) })
+		.then((r) => {
+			showPdfTab(win, r.blob, name)
+			ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'} in a new tab${unsupportedNote(r.unsupported, r.rasterised)}`)
+		})
 		.catch((e) => { win.close(); project.error = `PDF failed: ${(e as Error).message}` })
 }
 

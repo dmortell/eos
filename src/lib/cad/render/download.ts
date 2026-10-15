@@ -56,38 +56,46 @@ export function fileName(suggested: string, parts?: FileParts): string {
 	return patterner ? patterner(suggested, parts, ext) : suggested
 }
 
-/** A generated file shown in a browser tab opened beforehand (`win`, opened on the click itself so no pop-up blocker
- *  stops it): the tab's title is `title` (the file's name), the browser's viewer prints or saves it. */
-export function showInTab(win: Window, data: BlobPart, type: string, title: string): void {
-	const url = URL.createObjectURL(new Blob([data], { type }))
+/** A generated PDF in a browser tab opened beforehand (`win`, opened on the click itself so no pop-up blocker stops it;
+ *  Dave 2026-10-15): a slim bar — its name, Download (under exactly that name: the viewer's own download names a blob
+ *  by a random id), Print, Email / share… (the system share sheet: Outlook, Mail …, where the browser has one) — over
+ *  the browser's viewer. The tab's title is the name. */
+export function showPdfTab(win: Window, blob: Blob, name: string): void {
+	const file = `${name}.pdf`, url = URL.createObjectURL(blob)
 	const d = win.document
-	d.title = title
+	d.head.replaceChildren()
+	const style = d.createElement('style')
+	style.textContent = 'body{margin:0;display:flex;flex-direction:column;height:100vh;font:13px system-ui,sans-serif;background:#f4f4f5}' +
+		'.bar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #d4d4d8;background:#fff}' +
+		'.n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#27272a}' +
+		'button{padding:4px 12px;border:1px solid #d4d4d8;border-radius:5px;background:#fff;cursor:pointer;font:inherit}button:hover{background:#f4f4f5}' +
+		'button.go{background:#2563eb;border-color:#2563eb;color:#fff}button.go:hover{background:#1d4ed8}' +
+		'.msg{color:#71717a;font-size:12px}iframe{flex:1;border:0;width:100%}'
+	d.head.appendChild(style)
+	d.title = name   // after the head was emptied (that took the title with it)
 	d.body.replaceChildren()
-	d.body.style.margin = '0'
-	const f = d.createElement('iframe')
-	f.src = url
-	f.title = title
-	f.style.cssText = 'border:0;width:100vw;height:100vh;display:block'
-	d.body.appendChild(f)
+	const bar = d.createElement('div'), label = d.createElement('span'), msg = d.createElement('span')
+	bar.className = 'bar'; label.className = 'n'; label.textContent = file; msg.className = 'msg'
+	const button = (text: string, title: string, run: () => void, go = false) => {
+		const b = d.createElement('button'); b.textContent = text; b.title = title; if (go) b.className = 'go'; b.onclick = run; return b
+	}
+	const frame = d.createElement('iframe')
+	frame.src = url; frame.title = name
+	const pdfFile = new File([blob], file, { type: 'application/pdf' })
+	const nav = win.navigator as Navigator
+	const canShare = typeof nav.canShare === 'function' && nav.canShare({ files: [pdfFile] })
+	bar.append(label, msg,
+		button('Download', `Save as ${file}`, () => { const a = d.createElement('a'); a.href = url; a.download = file; a.click() }, true),
+		button('Print', 'Print it (or the viewer’s own print button)', () => { try { frame.contentWindow?.print() } catch { msg.textContent = 'Use the viewer’s print button' } }),
+		...(canShare ? [button('Email / share…', 'Send it with Outlook, Mail, Teams … (the system share sheet)', () => { nav.share({ files: [pdfFile], title: name }).catch(() => { /* cancelled */ }) })] : []))
+	d.body.append(bar, frame)
 }
 
-/** The generated file at a real path ending in its name — /cad-print/<id>/<name>.pdf, answered from the browser's cache by
- *  static/cad-print-sw.js — so a viewer's Download offers that name, not a blob: URL's random id (Dave 2026-10-15).
- *  Keeps the last 10. Null where service workers or the cache aren't available (then a blob: URL does). */
-export async function servedFileUrl(data: BlobPart, type: string, name: string): Promise<string | null> {
-	if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || typeof caches === 'undefined') return null
+/** The /cad-print/ service worker of 2026-10-15 is gone (a viewer's Download skipped it and saved an HTML 404): drop it
+ *  and its cache where a browser still has them. */
+export function dropOldPrintWorker(): void {
 	try {
-		const reg = await navigator.serviceWorker.register('/cad-print-sw.js', { scope: '/cad-print/' })
-		if (!reg.active) {
-			const w = reg.installing ?? reg.waiting
-			if (w) await new Promise<void>((ok) => { const on = () => { if (w.state === 'activated') { w.removeEventListener('statechange', on); ok() } }; w.addEventListener('statechange', on); on() })
-		}
-		const file = `${name}.${type === 'application/pdf' ? 'pdf' : 'bin'}`
-		const path = `/cad-print/${Math.random().toString(36).slice(2, 10)}/${encodeURIComponent(file)}`
-		const c = await caches.open('cad-print')
-		const old = await c.keys()
-		for (const k of old.slice(0, Math.max(0, old.length - 9))) await c.delete(k)
-		await c.put(path, new Response(new Blob([data], { type }), { headers: { 'Content-Type': type, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file)}` } }))
-		return path
-	} catch { return null }
+		void navigator.serviceWorker?.getRegistrations().then((rs) => { for (const r of rs) if (r.scope.endsWith('/cad-print/')) void r.unregister() })
+		void caches?.delete('cad-print')
+	} catch { /* not available */ }
 }
