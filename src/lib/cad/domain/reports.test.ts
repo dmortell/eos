@@ -123,12 +123,12 @@ describe('BOM: W26 lines (Dave 2026-10-15)', () => {
 		expect(q(lines, 'Copper permanent-link test')).toBe(links)
 		expect(q(lines, 'Cable labels (both ends)')).toBe(links * 2)
 		expect(q(lines, 'Port labels (both ends)')).toBe(links * 2)
-		// one outlet on a desk: no floor box for it, 1.5 m of tubing (rounded up to whole metres)
+		// one outlet on a desk: no floor box for it, 2 m of tubing
 		const ents = demoProject(), first = ents.find((e) => e.type === 'outlet')!
 		const desk = bom(new ProjectIndex(ents.map((e) => (e.id === first.id ? { ...e, mount: 'desk' } : e)) as typeof ents))
 		expect(q(desk, 'Floor box')).toBe(1)
 		const tube = desk.find((l) => l.item.startsWith('Spiral / mesh tubing'))
-		expect(tube).toMatchObject({ unit: 'm', qty: 2, note: '1 desk outlet × 1.5 m' })
+		expect(tube).toMatchObject({ unit: 'm', qty: 2, note: '1 desk outlet × 2 m' })
 	})
 	it('fibre: a connector at each end of each core, a test per core; estimated cables tested and labelled too', () => {
 		const ents = demoProject(), link = ents.find((e) => e.type === 'link')!

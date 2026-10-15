@@ -149,8 +149,8 @@ export function runLengths(p: ProjectIndex): RunLength[] {
 
 export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty: number; note?: string }
 
-/** Tubing per desk outlet (W26): the cables' run from the floor box up to the desk. */
-export const DESK_TUBING_M = 1.5
+/** Tubing per desk outlet (W26): the cables' run from the floor box up to the desk (rising with a sit-stand desk). */
+export const DESK_TUBING_M = 2   // Dave 2026-10-15: 2 m, height-adjustable desks are common
 
 /**
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths

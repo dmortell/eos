@@ -3853,3 +3853,4 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - Not now (Dave): containment fittings / supports, fire-stopping. Tests in `domain/reports.test.ts`; Help's BOM
     answer. Seen live in Test Project's BOM: Back box (wall) 3, Floor box 55, tubing 2 m (1 desk outlet), 183 tests,
     366 cable / port labels.
+- **Desk tubing 2 m** (Dave 2026-10-15: height-adjustable desks are common): `DESK_TUBING_M` 1.5 → 2.
