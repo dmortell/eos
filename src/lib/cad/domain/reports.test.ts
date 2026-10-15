@@ -112,3 +112,32 @@ describe('BOM', () => {
 		expect(cable(lines)).toBeLessThan(cable(base))
 	})
 })
+
+describe('BOM: W26 lines (Dave 2026-10-15)', () => {
+	const q = (ls: ReturnType<typeof bom>, item: string) => ls.find((l) => l.item === item)?.qty
+	it('a box per outlet by mount; tubing to desk outlets; tests and labels per cable to buy', () => {
+		const lines = bom(p())
+		expect(q(lines, 'Floor box')).toBe(2)                                // the demo's two floor outlets
+		const links = p().links.filter((l) => l.status !== 'installed').length
+		expect(q(lines, 'Copper permanent-link test')).toBe(links)
+		expect(q(lines, 'Cable labels (both ends)')).toBe(links * 2)
+		expect(q(lines, 'Port labels (both ends)')).toBe(links * 2)
+		// one outlet on a desk: no floor box for it, 1.5 m of tubing (rounded up to whole metres)
+		const ents = demoProject(), first = ents.find((e) => e.type === 'outlet')!
+		const desk = bom(new ProjectIndex(ents.map((e) => (e.id === first.id ? { ...e, mount: 'desk' } : e)) as typeof ents))
+		expect(q(desk, 'Floor box')).toBe(1)
+		const tube = desk.find((l) => l.item.startsWith('Spiral / mesh tubing'))
+		expect(tube).toMatchObject({ unit: 'm', qty: 2, note: '1 desk outlet × 1.5 m' })
+	})
+	it('fibre: a connector at each end of each core, a test per core; estimated cables tested and labelled too', () => {
+		const ents = demoProject(), link = ents.find((e) => e.type === 'link')!
+		const st = { ...defaultSettings(), cableTypes: [...defaultSettings().cableTypes, { id: 'om4', label: 'OM4', media: 'fibre' as const, color: '#f59e0b' }] }
+		const fibre = [...ents.filter((e) => e.type !== 'settings'), st, { ...link, id: 'F1', cableType: 'om4' }, { ...link, id: 'F2', cableType: 'om4' }] as typeof ents
+		const lines = bom(new ProjectIndex(fibre))
+		expect(q(lines, 'Connector / pigtail OM4')).toBe(4)
+		expect(q(lines, 'Fibre test (per core)')).toBe(2)
+		const est = [{ outletId: 'O', port: 1, cableType: 'cat6a' }, { outletId: 'O', port: 2, cableType: 'cat6a' }]
+		const before = q(bom(p()), 'Copper permanent-link test')!
+		expect(q(bom(p(), [], undefined, est), 'Copper permanent-link test')).toBe(before + 2)
+	})
+})

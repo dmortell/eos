@@ -13,6 +13,7 @@ import { sameEnd } from './cords'
 import { isVertical } from './shapes'
 import { rackBom, makerModel } from './rackBom'
 import { estimateMetres, type Estimate } from './estimates'
+import { cablesOf } from './multicore'
 import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
@@ -148,6 +149,9 @@ export function runLengths(p: ProjectIndex): RunLength[] {
 
 export interface BomLine { category: string; item: string; unit: 'ea' | 'm'; qty: number; note?: string }
 
+/** Tubing per desk outlet (W26): the cables' run from the floor box up to the desk. */
+export const DESK_TUBING_M = 1.5
+
 /**
  * Quantities for a quote. Items with a catalogue id are counted by it; the rest by a readable description. Lengths
  * are rounded UP to whole metres per line. Cable comes from the routes (Phase 5); links with no route are counted
@@ -176,10 +180,37 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 		else lines.set(k, { category, item, unit, qty })
 	}
 
+	// cables to buy (not installed yet) and the estimated ones (ports not linked yet), in the scope
+	const buyLinks = p.links.filter((l) => l.status !== 'installed' && (!rooms || endIn(l.a) || endIn(l.b)))
+	const buyEst = rooms ? estimates.filter((e) => e.roomId && rooms.has(e.roomId)) : estimates
+	let deskOutlets = 0
 	for (const o of p.outlets) {
 		if (!outletIn(o)) continue
 		add('Outlets', `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
 		for (const pt of o.ports) add('Outlets', `Jack / module ${label(pt.cableType)}`, 'ea', 1)
+		// W26 (Dave 2026-10-15): what each outlet sits in — a back box in a wall, a surface box on a ceiling, a floor box;
+		// a desk outlet goes in the desk's own module, its cables up in tubing
+		const box = o.mount === 'wall' ? 'Back box (wall)' : o.mount === 'ceiling' ? 'Surface box (ceiling)' : o.mount === 'floor' || o.mount === 'box' ? 'Floor box' : null
+		if (box) add('Outlets', box, 'ea', 1)
+		if (o.mount === 'desk') deskOutlets++
+	}
+	if (deskOutlets) {
+		const item = `Spiral / mesh tubing to desk outlets (${DESK_TUBING_M} m each)`
+		add('Outlets', item, 'm', deskOutlets * DESK_TUBING_M)
+		notes.set(`Outlets|${item}|m`, `${deskOutlets} desk outlet${deskOutlets === 1 ? '' : 's'} × ${DESK_TUBING_M} m`)
+	}
+	// W26: fibre terminations (a connector at each end of each core), testing (a test per copper link, per fibre core) and
+	// labelling (both ends of every cable, and each port it lands on)
+	const isFibre = (t: string | undefined) => !!t && cableMedia(st, t) === 'fibre'
+	for (const l of buyLinks) if (isFibre(l.cableType)) add('Fibre terminations', `Connector / pigtail ${label(l.cableType ?? '')}`, 'ea', 2)
+	const copperTests = buyLinks.filter((l) => !isFibre(l.cableType)).length + buyEst.filter((e) => !isFibre(e.cableType)).length
+	const fibreTests = buyLinks.filter((l) => isFibre(l.cableType)).length + buyEst.filter((e) => isFibre(e.cableType)).length
+	if (copperTests) add('Testing & labelling', 'Copper permanent-link test', 'ea', copperTests)
+	if (fibreTests) add('Testing & labelling', 'Fibre test (per core)', 'ea', fibreTests)
+	const cables = cablesOf(buyLinks).length + buyEst.length
+	if (cables) {
+		add('Testing & labelling', 'Cable labels (both ends)', 'ea', cables * 2)
+		add('Testing & labelling', 'Port labels (both ends)', 'ea', (buyLinks.length + buyEst.length) * 2)
 	}
 	// racks, VCMs and their containment accessories by SKU (the Racks tool's rules, rackBom)
 	for (const l of rackBom(p, catalog, rooms ? { rooms: [...rooms] } : {})) {
@@ -203,7 +234,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 		notes.set(`Cable|${item}|m`, `${n} cable${n === 1 ? '' : 's'} × ${avg} m`)
 	}
 	// only what is to be bought: cables already installed and cords already in place (or only moved / taken out) aren't
-	const routed = cableMetres(p, routes ?? routeLinks(p, cable), cable, p.links.filter((l) => l.status !== 'installed' && (!rooms || endIn(l.a) || endIn(l.b))))
+	const routed = cableMetres(p, routes ?? routeLinks(p, cable), cable, buyLinks)
 	const avgOf = (type: string) => { const m = routed.find((x) => x.type === type), n = m ? m.links - m.unrouted : 0; return m && n > 0 ? Math.ceil(m.metres / n) : null }
 	for (const m of routed) {
 		const item = `${label(m.type)} (incl. ${cable.wastePct}% waste)`

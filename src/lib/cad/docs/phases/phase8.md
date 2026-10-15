@@ -3842,3 +3842,14 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   instead"): each level lists Plan, its sections and its server rooms (`domain/navTree.ts`); with an elevation open its
   level row is the marked one (`Navigator.svelte` isCurrent). Help's Navigator answer says so. Generic rooms in the tree
   (AV / meeting / EPS …, Dave "consider") not built yet — asked first (imported room outlines could flood it).
+- **W26 More BOM lines** (B24; Dave 2026-10-15 picked them), `domain/reports.ts` `bom`, by rule from the model
+  (descriptions, no SKUs yet):
+  - Outlets: a box per outlet by mount — "Back box (wall)", "Surface box (ceiling)", "Floor box" (floor / box);
+    desk outlets: "Spiral / mesh tubing to desk outlets" at `DESK_TUBING_M` = 1.5 m each (note "N desk outlets ×
+    1.5 m"). Faceplates and modules were already there ("N-port outlet (mount)", "Jack / module …").
+  - Fibre terminations: a connector / pigtail at each end of each fibre core to buy.
+  - Testing & labelling: a copper permanent-link test per copper link, a fibre test per core, cable labels and port
+    labels at both ends — links to buy plus estimated cables (ports not linked yet).
+  - Not now (Dave): containment fittings / supports, fire-stopping. Tests in `domain/reports.test.ts`; Help's BOM
+    answer. Seen live in Test Project's BOM: Back box (wall) 3, Floor box 55, tubing 2 m (1 desk outlet), 183 tests,
+    366 cable / port labels.
