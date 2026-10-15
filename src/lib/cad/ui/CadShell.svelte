@@ -60,6 +60,7 @@
 	import { WindowLayout, WIN_TITLES, type WinId } from '../app/windows.svelte'
 	import ToolStrip from './ToolStrip.svelte'
 	import ToolPalette from './ToolPalette.svelte'
+	import type { ShapeOpts } from '../editor/shapeTool'
 	import { TOOL_GROUPS } from './toolGroups'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
@@ -107,7 +108,7 @@
 	/** The tools float over the drawing in a palette (tool strip options 2 + 4, Dave 2026-10-15), else sit in the top bar;
 	 *  kept in this browser. */
 	const TOOLS_FLOAT_KEY = 'cad-tools-float'
-	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) !== 'bar' } catch { return true } })())
+	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) === 'float' } catch { return false } })())   // the top bar by default (Dave 2026-10-15)
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	ws.openTitleBlock = () => openSettings('sheets')
 	ws.openWindow = (id) => layout.open(id)
@@ -463,10 +464,10 @@
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
-		tool: pickTool, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
+		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
-		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails,
+		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
@@ -503,6 +504,14 @@
 	function helpTool(id: ToolId) { pickTool(id) }
 	/** A tool picked (the strip, Help): in a view it doesn't work in, the pane goes to this level's PLAN when the tool
 	 *  works there and the tool is armed (/cad/agent gotcha 2: it only said where it works); otherwise it says where. */
+	/** The Shape / Box tools' kind as a flyout variant (Rectangle / Polygon / Ellipse / Arc; Box / Cylinder / Polygon box). */
+	const toolVariant = (t: ToolId) => (t === 'shape' ? ws.shapeOpts.kind : t === 'box' ? ws.boxOpts.kind : undefined)
+	/** A pick from the tools: a variant sets that tool's kind first. */
+	function pickItem(id: ToolId, variant?: string) {
+		if (variant && id === 'shape') ws.shapeOpts = { ...ws.shapeOpts, kind: variant as ShapeOpts['kind'] }
+		if (variant && id === 'box') ws.boxOpts = { ...ws.boxOpts, kind: variant as ShapeOpts['kind'] }
+		if (ws.toolId !== id) pickTool(id)
+	}
 	function pickTool(id: ToolId) {
 		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id); return }
 		const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id
@@ -662,7 +671,7 @@
 
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
-		{#if !toolsFloat}<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} />{/if}
+		{#if !toolsFloat}<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} variantOf={toolVariant} onTool={pickItem} />{/if}
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
@@ -714,7 +723,7 @@
 
 	<!-- the drawing: one or two panes, floating windows over it -->
 	<main class="plan relative" bind:this={planEl}>
-		{#if toolsFloat}<ToolPalette tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} onTool={pickTool} ondock={() => setToolsFloat(false)} />{/if}
+		{#if toolsFloat}<ToolPalette tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} variantOf={toolVariant} onTool={pickItem} ondock={() => setToolsFloat(false)} />{/if}
 		<TabStrip {tabs} {project} panes={panes.length} {activePane} onshow={(id) => showTab(id)} onclose={closeTab} onmenu={(id, x, y) => (tabMenu = { id, x, y })} />
 		<AskBox {ws} />
 		<PatchPreview {ws} />

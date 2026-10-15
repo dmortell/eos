@@ -57,6 +57,8 @@ export interface MenuCtx {
 	drafting: { snap: boolean; osnap: boolean; showGrid: boolean }; toggleDrafting(k: 'snap' | 'osnap' | 'showGrid'): void
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
+	/** A tool set to one of its kinds (Shape: rect / polygon / ellipse / arc; Box: rect / ellipse / polygon). */
+	toolVariant(id: ToolId, v: string): void
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
 	/** The Sheets table on one of its views, or a release of the picked sheets started (Drawings menu). */
 	sheetsTab(which: 'register' | 'packages' | 'issues' | 'release'): void
@@ -69,6 +71,8 @@ export interface MenuCtx {
 	floors(): void; settings(): void; backups(): void
 	/** The project's details (name, codes, client, address, logos — the projects page's dialog); absent = not offered. */
 	projectDetails?: () => void
+	/** A new project (the projects page's New Project dialog) — for the Walkthrough's first step. */
+	newProject(): void
 	hasLevel: boolean; renameLevel(): void; deleteLevel(): void
 	// Window / Help
 	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
@@ -81,6 +85,8 @@ export interface MenuCtx {
 
 export function buildMenus(c: MenuCtx): Menu[] {
 	const tool = (id: ToolId, label: string, key?: string): MenuItem => ({ label, key, disabled: !c.toolOk(id), run: () => c.tool(id), ...(c.toolOk(id) ? {} : { title: 'Not in this view' }) })
+	/** A Shape / Box kind (the tools' flyout items). */
+	const variant = (id: ToolId, v: string, label: string): MenuItem => ({ label, disabled: !c.toolOk(id), run: () => c.toolVariant(id, v) })
 	return [
 		{ label: 'File', items: [
 			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Project › Floors…) and the issued package PDFs live in Uploads (backlog "Uploads
@@ -152,12 +158,15 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		] },
 		// menus review option 2 (Dave 2026-10-15): CAD-style Draw · Modify · Annotate — every tool in one menu
 		{ label: 'Draw', items: [
-			tool('line', 'Line'), tool('shape', 'Shape (rectangle, ellipse, polygon, arc)'), tool('box', 'Box / desk'),
+			tool('line', 'Line'),
+			{ label: 'Shape', disabled: !c.toolOk('shape'), children: [variant('shape', 'rect', 'Rectangle'), variant('shape', 'polygon', 'Polygon'), variant('shape', 'ellipse', 'Ellipse'), variant('shape', 'arc', 'Arc (3 points)')] },
 			{ label: 'Image…', title: 'A picture from this computer or Uploads, on a plan, an elevation, a section or a sheet', disabled: !c.toolOk('image'), run: c.image },
 			'-',
-			tool('wall', 'Wall'), tool('opening', 'Opening (door, window, hole)'), tool('room', 'Room / EPS'), tool('section', 'Section'),
+			// 3D (Dave 2026-10-15: box, wall and opening together)
+			{ label: 'Box', disabled: !c.toolOk('box'), children: [variant('box', 'rect', 'Box / desk'), variant('box', 'ellipse', 'Cylinder'), variant('box', 'polygon', 'Polygon box')] },
+			tool('wall', 'Wall'), tool('opening', 'Opening (door, window, hole)'),
 			'-',
-			tool('measure', 'Measure a distance'), tool('guide', 'Guide lines'),
+			tool('room', 'Room / EPS'), tool('section', 'Section (a wall or room elevation)'),
 		] },
 		{ label: 'Modify', items: [
 			tool('move', 'Move'), tool('copy', 'Copy'),
@@ -169,7 +178,9 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			tool('renumber', 'Renumber'),
 		] },
 		{ label: 'Annotate', items: [
-			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'), tool('dimension', 'Dimension'),
+			tool('dimension', 'Dimension'), tool('measure', 'Measure a distance'), tool('guide', 'Guide lines'),
+			'-',
+			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'),
 			'-',
 			tool('legend', 'Legend'), tool('insert', 'Block…'),
 		] },
@@ -199,6 +210,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Title block…', title: 'The project’s title block template — Project settings, tab Sheets', run: c.titleBlock },
 		] },
 		{ label: 'Project', items: [
+			{ label: 'New project…', title: 'Start another project: the projects page opens on New Project (codes, name, client, address, logos, members) — Save opens it in cad', run: c.newProject },
+			'-',
 			...(c.projectDetails ? [{ label: 'Project details…', title: 'Name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn), company and logos (when its template has none); the template’s own logos are set in Title block…', run: c.projectDetails }] : []),
 			{ label: 'Floors…', title: "The building's floors, their names and heights — Project settings, tab Floors & heights", run: c.floors },
 			{ label: 'Settings…', title: 'Project settings: floors, plans, usages, cable types, lengths & labels, sheets, files', run: c.settings },

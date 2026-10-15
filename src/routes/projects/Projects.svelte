@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { getContext } from "svelte";
+	import { getContext, untrack } from "svelte";
 	import { Firestore, Button, type Session } from "$lib";
 	import InputNew from "$lib/ui/InputNew.svelte";
 	import Checkbox from "$lib/ui/Checkbox.svelte";
 	import ProjectSettingsDialog from "./ProjectSettingsDialog.svelte";
 	import { formatDate } from "$lib/utils/date";
-	import { goto } from "$app/navigation";
+	import { goto, replaceState } from "$app/navigation";
+	import { page } from "$app/state";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
@@ -103,6 +104,15 @@
 		selected = null
 		editorOpen = true
 	}
+	// cad's Project › New project… comes here as ?new=1: the New Project dialog opens at once (the param is dropped)
+	$effect(() => {
+		if (page.url.searchParams.get('new') !== '1') return
+		untrack(() => {
+			openCreate()
+			const u = new URL(page.url); u.searchParams.delete('new')
+			replaceState(u, {})
+		})
+	})
 
 	function openEdit(project: Project) {
 		if (!canEditProject(project)) return

@@ -7,7 +7,7 @@
 	import type { ToolId } from '../app/workspace.svelte'
 	import type { ViewSpec } from '../views/space'
 
-	let { tool, kind, onSheet = false, onTool, ondock }: { tool: ToolId; kind: ViewSpec['kind']; onSheet?: boolean; onTool: (id: ToolId) => void; ondock: () => void } = $props()
+	let { tool, kind, onSheet = false, variantOf, onTool, ondock }: { tool: ToolId; kind: ViewSpec['kind']; onSheet?: boolean; variantOf?: (t: ToolId) => string | undefined; onTool: (id: ToolId, variant?: string) => void; ondock: () => void } = $props()
 
 	const KEY = 'cad-tool-palette'
 	let pos = $state<{ x: number; y: number }>((() => { try { const p = JSON.parse(localStorage.getItem(KEY) ?? 'null'); return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : { x: 8, y: 8 } } catch { return { x: 8, y: 8 } } })())
@@ -34,7 +34,7 @@
 		<span class="dots">⠿</span>
 		<button class="dock" title="Put the tools back in the top bar (Window › Tools as a floating palette)" onpointerdown={(e) => e.stopPropagation()} onclick={ondock}>⤒</button>
 	</div>
-	<ToolStrip {tool} {kind} {onSheet} vertical {onTool} />
+	<ToolStrip {tool} {kind} {onSheet} vertical {variantOf} {onTool} />
 </div>
 
 <style>

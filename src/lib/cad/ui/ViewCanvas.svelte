@@ -453,9 +453,11 @@
 	$effect(() => {
 		if (!active) return
 		const up = toolKind === 'elevation' || toolKind === 'section' || toolKind === 'row'
+		// with SNAP on, the point a click would take on the grid (Dave 2026-10-15: the readout ignored the grid)
+		const g = ws.drafting.snap && spec.kind !== 'sheet' ? ws.drafting.grid : 0, r = (v: number) => (g ? Math.round(v / g) * g : Math.round(v))
 		ws.viewInfo = {
 			loading: floorplanPending,
-			xy: cursor ? `X ${Math.round(cursor.x)} · ${up ? 'Z' : 'Y'} ${Math.round(up ? -cursor.y : cursor.y)}` : null,
+			xy: cursor ? `X ${r(cursor.x)} · ${up ? 'Z' : 'Y'} ${r(up ? -cursor.y : cursor.y)}` : null,
 			readout, scale: spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`,
 			zoom: Math.round(cam.k * PX_MM * (spec.kind === 'sheet' ? 1 : PLOT_SCALE) * 100), mmPerPx: Math.round(1 / cam.k),
 			...(vpe ? { extra: `editing ${specLabel(vpe.vp.view.spec)} at 1:${vpe.vp.scale}` } : spec.kind === 'elevation' ? { extra: `work depth ${Math.round(work.depth)}` } : {}),

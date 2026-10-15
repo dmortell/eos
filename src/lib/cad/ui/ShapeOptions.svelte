@@ -16,11 +16,11 @@
 	<label class="opt" title="How deep the box is, from the work plane away from you (mm)">Depth <input type="number" min="1" step="10" value={o.depth ?? 600} onchange={(e) => set({ depth: Math.max(1, Number(e.currentTarget.value) || 600) })} /></label>
 	<span class="hint">corner to corner: its width and height (or type width,height) · its front on the work plane · Shift: square</span>
 {:else}
-<label class="opt">{box ? 'Footprint' : 'Shape'}
+<!-- the Box tool's footprint is picked from its flyout in the tools (Box / Cylinder / Polygon box, Dave 2026-10-15) -->
+{#if !box}<label class="opt">Shape
 	<select value={o.kind} onchange={(e) => set({ kind: e.currentTarget.value as ShapeKind })}>
-		<option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="polygon">Polygon</option>
-		{#if !box}<option value="arc">Arc (3 points)</option>{/if}
-	</select></label>
+		<option value="rect">Rectangle</option><option value="polygon">Polygon</option><option value="ellipse">Ellipse</option><option value="arc">Arc (3 points)</option>
+	</select></label>{/if}
 {#if o.kind === 'polygon'}
 	<label class="opt" title="Number of sides (3–12)">Sides <input type="number" min="3" max="12" value={o.sides} onchange={(e) => set({ sides: Math.max(3, Math.min(12, Number(e.currentTarget.value) || 6)) })} /></label>
 	<label class="opt" title="Inscribed: the second click is a corner · circumscribed: the middle of an edge">

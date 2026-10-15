@@ -3910,3 +3910,17 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   as a row (`cad-tools-float`). Help: a new how-to; the tool-strip mentions now point at the families / menus. Seen
   live: the palette, the Text flyout → Callout (the family then shows Callout), the drag, the dock to the top bar (19
   buttons, ~550 px instead of ~900); test settings cleared afterwards.
+- **Tools regrouped; shape / box kinds as flyouts** (Dave 2026-10-15): the tools are back in the top bar by default
+  (Window › Tools as a floating palette still floats them — "some users may like it"). Groups: Select / modify · Draw
+  (Line, Shape) · **Build (3D)** (Box, Wall, Opening) · **Spaces and views** (Room, Section) · Annotate (Dimension /
+  Measure / Guide lines now one family; Text / Callout / Cloud; Legend / Block) · Cabling · Drawings — 18 buttons.
+  Flyout items can be a tool's kind (`toolGroups.ts` VARIANTS): Shape → Rectangle, Polygon, Ellipse, Arc (the options
+  bar's Shape list in the same order); Box → Box / desk, Cylinder, Polygon box (the Box tool's Footprint list is gone).
+  Icons: Opening = a door, Room = a dashed square, Section = an elevation mark (Kestrel), Polygon / Cylinder / Arc /
+  Ellipse glyphs. Touch: a long press opens a family, a click on the family in use opens it too, the corner mark's hit
+  area is larger. Menus follow: Draw › Shape ▸ / Box ▸ kinds, Measure and Guide lines under Annotate. Also: Project ›
+  **New project…** (the projects page opens on New Project — `/projects?new=1`; the Walkthrough's first step says so);
+  the **Outlet - floor box** symbol's circle touches the square (r 0.9 → 1.5); the status bar's X / Y show the grid
+  point a click takes when SNAP is on (guides did snap to the grid — the readout didn't). Seen live: the bar, the Box
+  flyout → Cylinder (a second click reopened it), the Shape flyout order, New project… opening Create Project (closed
+  unsaved).

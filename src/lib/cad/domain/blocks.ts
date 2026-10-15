@@ -71,7 +71,7 @@ const ports = (sizeMm = 1.2, cy = 0): BlockShape => sh({ kind: 'text', at: { x: 
 /** The built-in outlet symbols (paper mm, centred on the outlet). */
 export const BUILTIN_BLOCKS: Block[] = [
 	{ type: 'block', id: 'builtin:outlet-floor', name: 'Outlet - floor box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
-		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 0.9 }, solid), label, usage, ports(1.1)] },
+		shapes: [sh({ kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 3, y: 3 } }), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.5 }, solid), label, usage, ports(1.1)] },
 	{ type: 'block', id: 'builtin:outlet-wall', name: 'Outlet - wall', scope: 'global', category: 'outlet', annotative: true, builtin: true,
 		shapes: [sh({ kind: 'polygon', pts: [{ x: -1.6, y: -1.2 }, { x: 1.6, y: -1.2 }, { x: 0, y: 1.5 }] }, solid), label, usage, ports(1.2, -0.3)] },
 	{ type: 'block', id: 'builtin:outlet-box', name: 'Outlet - box', scope: 'global', category: 'outlet', annotative: true, builtin: true,
