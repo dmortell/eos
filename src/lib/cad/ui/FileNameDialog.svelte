@@ -4,14 +4,17 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import CadDialog from './CadDialog.svelte'
+	import { canShareFile, type SaveAction } from '../render/download'
 
-	let { name, ext, ondone }: { name: string; ext: string; ondone: (name: string | null) => void } = $props()
+	let { name, ext, type = '', ondone }: { name: string; ext: string; type?: string; ondone: (r: string | { name: string; action: SaveAction } | null) => void } = $props()
+	// besides Save (Dave 2026-10-15, as the print tab has): Email / share… where the browser shares files; Open / print for a PDF
+	const share = $derived(!!type && canShareFile(type)), pdf = $derived(ext.toLowerCase() === 'pdf')
 
 	// svelte-ignore state_referenced_locally
 	let value = $state(ext ? name.replace(new RegExp(`\\.${ext}$`, 'i'), '') : name)
 	let input: HTMLInputElement | undefined = $state()
 	$effect(() => { void tick().then(() => { input?.focus(); input?.select() }) })
-	const save = () => { if (value.trim()) ondone(value.trim()) }
+	const save = (action: SaveAction = 'save') => { if (value.trim()) ondone(action === 'save' ? value.trim() : { name: value.trim(), action }) }
 </script>
 
 <CadDialog title="Save as" width="34rem" top="20vh" onclose={() => ondone(null)}>
@@ -23,7 +26,9 @@
 	{#snippet footer()}
 		<span class="keys">Enter saves · Esc cancels</span>
 		<button class="btn" onclick={() => ondone(null)}>Cancel</button>
-		<button class="btn go" disabled={!value.trim()} onclick={save}>Save</button>
+		{#if share}<button class="btn" disabled={!value.trim()} title="Send it with Outlook, Mail, Teams … (the system share sheet)" onclick={() => save('share')}>Email / share…</button>{/if}
+		{#if pdf}<button class="btn" disabled={!value.trim()} title="Open it in a new browser tab to print" onclick={() => save('open')}>Open / print</button>{/if}
+		<button class="btn go" disabled={!value.trim()} onclick={() => save()}>Save</button>
 	{/snippet}
 </CadDialog>
 

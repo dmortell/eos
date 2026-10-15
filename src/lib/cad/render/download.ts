@@ -30,19 +30,38 @@ export function patternName(pattern: string | undefined, project: string, parts:
 	return `${fileSafe(base)}.${ext}`
 }
 
-/** How the app names a file before it is saved: the pattern, then the user's edit (null = cancelled). Set by the
- *  open cad page (CadShell); unset (tests, other pages) = the suggested name as it is. */
-type Namer = (suggested: string, parts: FileParts | undefined, ext: string) => Promise<string | null>
+/** What Save as does with the file (Dave 2026-10-15: "would Download / Print / Email work in the Save as dialog?"):
+ *  save it (download), send it with the system share sheet (Outlook, Mail, Teams …), or — a PDF — open it in a tab to
+ *  print. */
+export type SaveAction = 'save' | 'share' | 'open'
+/** How the app names a file before it is saved: the pattern, then the user's edit (null = cancelled) and, from the
+ *  dialog, what to do with it. Set by the open cad page (CadShell); unset (tests, other pages) = the suggested name. */
+type Namer = (suggested: string, parts: FileParts | undefined, ext: string, type: string) => Promise<string | { name: string; action: SaveAction } | null>
 let namer: Namer | null = null
 export function setFileNamer(f: Namer | null): void { namer = f }
+
+/** Can this browser share a file of this type (the dialog's "Email / share…")? */
+export function canShareFile(type: string): boolean {
+	try { return typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x', { type })] }) } catch { return false }
+}
 
 /** Save a file under a name the user can change first (and the project's pattern fills). Returns the name saved, or
  *  null when they cancelled. */
 export async function saveFile(data: BlobPart, suggested: string, type: string, parts?: FileParts): Promise<string | null> {
 	const ext = suggested.match(/\.([a-z0-9]+)$/i)?.[1] ?? ''
-	const name = namer ? await namer(suggested, parts, ext) : suggested
-	if (!name) return null
-	download(data, ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`) ? `${name}.${ext}` : name, type)
+	const got = namer ? await namer(suggested, parts, ext, type) : suggested
+	if (!got) return null
+	const { name, action } = typeof got === 'string' ? { name: got, action: 'save' as SaveAction } : got
+	const file = ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`) ? `${name}.${ext}` : name
+	if (action === 'share') {
+		// still within the dialog click's user activation (a few seconds), which share needs
+		try { await navigator.share({ files: [new File([data], file, { type })], title: name }); return name } catch { return null }
+	}
+	if (action === 'open') {
+		const win = window.open('', '_blank')
+		if (win) { showPdfTab(win, new Blob([data], { type }), file.replace(/\.pdf$/i, '')); return name }
+	}
+	download(data, file, type)
 	return name
 }
 

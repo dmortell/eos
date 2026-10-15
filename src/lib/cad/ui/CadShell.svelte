@@ -16,7 +16,7 @@
 	import { drawnOn, layersOf, layerOf } from '../domain/layers'
 	import SplitBar from './SplitBar.svelte'
 	import { shellKey, ARROWS, KEYS } from './shellKeys'
-	import { newSheetIn, sheetsPdf, sheetsPdfTab, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
+	import { newSheetIn, sheetsPdf, sheetsPdfTab, viewPdfTab, repeatDeviceEdit, selectedText as selectedTextOf, activeSheets, viewTitle, viewExists, toggleDrafting as toggleDraftingOf } from '../app/shellActions'
 	import { onDestroy, onMount, setContext, tick, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import { replaceState, goto } from '$app/navigation'
@@ -47,14 +47,14 @@
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
-	import { setFileNamer, setFilePatterner, patternName, type FileParts } from '../render/download'
+	import { setFileNamer, setFilePatterner, patternName, type FileParts, type SaveAction } from '../render/download'
 	import FileNameDialog from './FileNameDialog.svelte'
 	import TextDialog from './TextDialog.svelte'
 	import { tipsDue } from './tipsStart'
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
-	import { buildMenus, selectionMenu, tabMenuOf } from './cadMenus'
+	import { buildMenus, selectionMenu, tabMenuOf, type MenuItem } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
@@ -83,7 +83,7 @@
 	// else the export's own name; the Save as dialog (Dave: a dialog, not the status bar) — Enter saves, Esc cancels
 	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (Dave 2026-10-15)
 	onMount(() => { if (tipsDue()) layout.open('tips') })
-	let saveAs = $state<{ name: string; ext: string; done: (n: string | null) => void } | null>(null)
+	let saveAs = $state<{ name: string; ext: string; type: string; done: (n: string | { name: string; action: SaveAction } | null) => void } | null>(null)
 	/** The name from the project's pattern, else the suggested one. {version}: the release this file belongs to, else the
 	 *  project's latest ("03"; none released: left out). */
 	function patterned(suggested: string, parts: FileParts | undefined, ext: string): string {
@@ -92,9 +92,9 @@
 		return (all ? patternName(project.settings?.fileNamePattern, project.name, all, ext) : null) ?? suggested
 	}
 	$effect(() => {
-		setFileNamer((suggested, parts, ext) => new Promise((done) => {
+		setFileNamer((suggested, parts, ext, type) => new Promise((done) => {
 			saveAs?.done(null)
-			saveAs = { name: patterned(suggested, parts, ext), ext, done: (n) => { saveAs = null; done(n) } }
+			saveAs = { name: patterned(suggested, parts, ext), ext, type, done: (n) => { saveAs = null; done(n) } }
 		}))
 		setFilePatterner(patterned)
 		return () => { setFileNamer(null); setFilePatterner(null) }
@@ -455,8 +455,23 @@
 	/** The sheet open in the active pane (File / Sheets › PDF of this sheet). */
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
 	/** Ctrl+P and the print button (Dave 2026-10-15): the open sheet as a PDF, else every sheet. */
-	const printSheets = (which: 'this' | 'all') => { const sh = openSheetId ? project.index.get(openSheetId) : undefined; if (which === 'this' && sh?.type === 'sheet') sheetsPdfTab(project, ws, [sh]); else if (sheetsAll.length) sheetsPdfTab(project, ws, sheetsAll); else ws.say('No sheets yet — Drawings › New sheet') }
-	const printPdf = () => printSheets('this')
+	/** Print (Ctrl+P, the printer button, its ▾ — Dave 2026-10-15): on a sheet, that sheet; on a model view, the whole view
+	 *  alone on A3 (or what's on screen); "all": every sheet. Each opens the PDF in a new browser tab. */
+	function printWhat(which: 'this' | 'all' | 'view' | 'screen') {
+		const p = panes[activePane], lv = paneLevelIds[activePane] ?? ws.levelId
+		if ((which === 'view' || which === 'screen') && p && p.kind !== 'sheet' && lv) {
+			viewPdfTab(project, ws, { levelId: lv, spec: $state.snapshot(p) as Exclude<ViewSpec, { kind: 'sheet' }> }, which === 'screen' ? canvas?.visibleBounds() : undefined)
+			return
+		}
+		const sh = openSheetId ? project.index.get(openSheetId) : undefined
+		if (which === 'this' && sh?.type === 'sheet') sheetsPdfTab(project, ws, [sh])
+		else if (sheetsAll.length) sheetsPdfTab(project, ws, sheetsAll)
+		else ws.say('No sheets yet — Drawings › New sheet')
+	}
+	const printPdf = () => printWhat(openSheetId ? 'this' : 'view')
+	const printItems = $derived<MenuItem[]>(openSheetId
+		? [{ label: 'This sheet', key: KEYS.print, run: () => printWhat('this') }, { label: `All sheets (${sheetsAll.length})`, run: () => printWhat('all') }]
+		: [{ label: 'Whole view (A3)', key: KEYS.print, run: () => printWhat('view') }, { label: 'On screen (A3)', run: () => printWhat('screen') }, '-', { label: `All sheets (${sheetsAll.length})`, disabled: !sheetsAll.length, run: () => printWhat('all') }])
 	/** The print button's ▾ (Dave 2026-10-15): This sheet / All sheets. */
 	let printMenu = $state<{ x: number; y: number } | null>(null)
 	const selectedText = $derived(selectedTextOf(project, ws))
@@ -691,8 +706,8 @@
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
-		<button class="ib" disabled={!sheetsAll.length} onclick={printPdf} title={openSheetId ? `Print: this sheet as a PDF in a new browser tab (${KEYS.print}) — print or save it from there` : `Print: all sheets as a PDF in a new browser tab (${KEYS.print}) — open a sheet for just that one`}><Icon name="print" size={15} /></button>
-		<button class="ib caret" disabled={!sheetsAll.length} aria-label="Print: this sheet or all sheets" title="This sheet or all sheets" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); printMenu = { x: r.left, y: r.bottom } }}>▾</button>
+		<button class="ib" disabled={!openSheetId && panes[activePane]?.kind === 'sheet'} onclick={printPdf} title={openSheetId ? `Print: this sheet as a PDF in a new browser tab (${KEYS.print}) — ▾ for all sheets` : `Print: this whole view on A3 as a PDF in a new browser tab (${KEYS.print}) — ▾ for what's on screen, or all sheets`}><Icon name="print" size={15} /></button>
+		<button class="ib caret" aria-label="Print options" title="Print: this sheet / whole view / on screen / all sheets" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); printMenu = { x: r.left, y: r.bottom } }}>▾</button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>
@@ -781,12 +796,12 @@
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
-	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} ondone={saveAs.done} />{/if}
+	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} type={saveAs.type} ondone={saveAs.done} />{/if}
 	{#if ws.textAsk}{@const q = ws.textAsk}<TextDialog title={q.title} label={q.label} value={q.value} hint={q.hint} ok={q.ok} ondone={(t) => { const apply = q.apply; ws.textAsk = null; if (t != null) apply(t) }} />{/if}
 	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
-	{#if printMenu}<ContextMenu x={printMenu.x} y={printMenu.y} items={[{ label: 'This sheet', key: KEYS.print, disabled: !openSheetId, run: () => printSheets('this') }, { label: `All sheets (${sheetsAll.length})`, run: () => printSheets('all') }]} onclose={() => (printMenu = null)} />{/if}
+	{#if printMenu}<ContextMenu x={printMenu.x} y={printMenu.y} items={printItems} onclose={() => (printMenu = null)} />{/if}
 	<Exports bind:this={exportsRef} {project} {ws} {level} {projectName} roomId={patchRoom} />
 
 	<!-- the tables docked under the drawing (floating / maximised they sit in the drawing area, above) -->

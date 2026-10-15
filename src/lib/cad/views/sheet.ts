@@ -384,3 +384,23 @@ export function freeSpot(sheet: Pick<Sheet, 'viewports'>, room: { x: number; y: 
 		for (let x = room.x; x + w <= room.x + room.w; x += step) if (clear(x, y)) return { x, y }
 	return { x: room.x, y: room.y }
 }
+
+/** A model view printed on its own (Dave 2026-10-15: Ctrl+P on a plan / section / rack view → "the whole view", or the
+ *  print ▾'s "on screen"): an unsaved A3 sheet without a title block, its one viewport borderless and named under it
+ *  with its scale — landscape unless what's printed is taller than wide. `visible` = what's on screen (absent: the
+ *  view's whole extent, at the largest standard scale that fits). The PDF path draws it like any sheet. */
+export function printSheet(ix: ProjectIndex, view: Viewport['view'], title: string, visible?: Bounds, o: SheetOpts = {}): Sheet {
+	const probe: Viewport = { id: 'print-vp', view, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 100, centre: { x: 0, y: 0 } }
+	const b = visible ?? contentBounds(ix, probe, o)
+	const land = !b || b.x1 - b.x0 >= b.y1 - b.y0, m = 10
+	const sheet: Sheet = { type: 'sheet', id: 'print', number: '', title, order: 0, paper: { size: 'A3', orientation: land ? 'landscape' : 'portrait', marginMm: m },
+		viewports: [], status: 'active', titleBlock: { hidden: true } }
+	const { w, h } = paperSize(sheet), rect = { x: m, y: m, w: w - 2 * m, h: h - 2 * m - 8 }   // room under it for its name
+	let vp: Viewport
+	if (visible) {
+		const bw = Math.max(1, visible.x1 - visible.x0), bh = Math.max(1, visible.y1 - visible.y0)
+		const scale = SCALES.find((n) => bw / n <= rect.w && bh / n <= rect.h) ?? SCALES.at(-1)!
+		vp = { id: 'print-vp', view, rect, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) } }
+	} else vp = boxViewport(ix, view, rect, 'print-vp', o)
+	return { ...sheet, viewports: [{ ...vp, border: false, label: title }] }
+}

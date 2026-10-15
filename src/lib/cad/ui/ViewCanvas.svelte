@@ -698,6 +698,8 @@
 		if (toolDown || vpPan || wDrag || panning) cancel()
 	}
 	export function refresh(): void { tick++ }
+	/** What's on screen, in view mm (the print ▾'s "on screen", Dave 2026-10-15). */
+	export function visibleBounds(): { x0: number; y0: number; x1: number; y1: number } { const a = toModel(cam, { x: 0, y: 0 }), b = toModel(cam, { x: w, y: h }); return { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) } }
 	/** The view as on screen, onto the clipboard as a PNG (decision T160, View › Copy view as picture). The SVG is
 	 *  drawn by the browser from a copy carrying its computed styles (the component's CSS doesn't travel with it) and its
 	 *  pictures as data urls (an SVG drawn as an image loads nothing from outside). */

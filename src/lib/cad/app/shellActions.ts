@@ -2,14 +2,15 @@
 // F4 (repeat the last device edit), the status bar's "12 selected (outlets)".
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
-import type { Sheet } from '../domain/drawing'
+import type { Sheet, Viewport } from '../domain/drawing'
+import type { Bounds } from '../views/display'
 import type { Device, Id } from '../domain/types'
-import { blankSheet } from '../views/sheet'
+import { blankSheet, printSheet } from '../views/sheet'
 import { newId } from '../domain/ids'
 import { repeatOn } from '../domain/repeatEdit'
 import { beyondPorts, beyondPortsText } from '../domain/devices'
 import { downloadSheetsPdf, sheetsPdfBlob, sheetsPdfName, unsupportedNote } from './sheetsPdf'
-import { fileName, showPdfTab, dropOldPrintWorker } from '../render/download'
+import { fileName, fileSafe, showPdfTab, dropOldPrintWorker } from '../render/download'
 import { specLabel, isPaperSpec, type ViewSpec } from '../views/space'
 import { viewName } from '../domain/navTree'
 import { portMapTitle } from '../domain/portMap'
@@ -36,13 +37,26 @@ export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Shee
  *  pattern), for the browser to print or save; exports keep their Save as dialog. The tab opens on the key / click itself
  *  (a pop-up blocker allows that, not one opened after the PDF is made) and shows a note until the PDF is ready. */
 export function sheetsPdfTab(project: CadProject, ws: Workspace, sheets: Sheet[]): void {
+	const { suggested, parts } = sheetsPdfName(project, sheets, ws.monoPdf)
+	pdfTab(project, ws, sheets, fileName(suggested, parts).replace(/\.pdf$/i, ''))
+}
+
+/** Ctrl+P on a model view (Dave 2026-10-15): the view alone on A3, no title block — its whole extent, or `visible` (what's
+ *  on screen) — in the same print tab. */
+export function viewPdfTab(project: CadProject, ws: Workspace, view: Viewport['view'], visible?: Bounds): void {
+	const title = viewTitle(project, view.spec) ?? 'View', level = view.spec.kind === 'riser' ? undefined : project.index.nameOf(view.levelId)
+	const what = level && !title.startsWith(level) ? `${level} ${title}` : title
+	const sheet = printSheet(project.index, view, what, visible, { underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })
+	pdfTab(project, ws, [sheet], fileName(`${fileSafe(`${project.name} ${what}`)}.pdf`, { what }).replace(/\.pdf$/i, ''))
+}
+
+/** The print tab: opened on the key / click itself, "Making the PDF…" until it's ready. */
+function pdfTab(project: CadProject, ws: Workspace, sheets: Sheet[], name: string): void {
 	dropOldPrintWorker()
 	const win = window.open('', '_blank')
 	if (!win) { ws.say('The browser blocked the new tab — allow pop-ups for this site, or use File › Export › PDF of this sheet'); return }
 	win.document.title = 'Making the PDF…'
 	win.document.body.textContent = 'Making the PDF…'
-	const { suggested, parts } = sheetsPdfName(project, sheets, ws.monoPdf)
-	const name = fileName(suggested, parts).replace(/\.pdf$/i, '')
 	void sheetsPdfBlob(project, sheets, ws.monoPdf, name)
 		.then((r) => {
 			showPdfTab(win, r.blob, name)
