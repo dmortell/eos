@@ -84,7 +84,7 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (it.depth > r.near || it.depth < r.far) return false
 			const xs = it.prims.flatMap(across)
 			return xs.length > 0 && Math.max(...xs) >= r.u0 && Math.min(...xs) <= r.u1
-		}).map((it) => ({ ...it, prims: [...it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })), ...truncMarks(ix, it.prims, r.u0, r.u1, k)] }))
+		}).map((it) => ({ ...it, prims: [...it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })), ...truncMarks(ix, it.prims, r.u0, r.u1)] }))
 	}
 	if (o.band) {
 		const b = o.band
@@ -273,7 +273,7 @@ function solidItems(ins: Shape, b: Block, sp: ViewSpace, rect: RectFn, uSpan: Sp
 /** A trunk / conduit cut off by a section's end (it runs on past the cut line): an S-shaped break across it there — two
  *  semicircles, top one bulging out of the view, the lower one back in (Dave 2026-10-15). Drawn on its body (the
  *  closed outline), as tall as it is where it's cut. */
-function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number, k: number): Prim[] {
+function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number): Prim[] {
 	const out: Prim[] = []
 	for (const p of prims) {
 		if (p.k !== 'line' || !p.src) continue
@@ -293,8 +293,6 @@ function truncMarks(ix: ProjectIndex, prims: Prim[], u0: number, u1: number, k: 
 				h = p.w; top = a.y + (b.y - a.y) * t - h / 2
 			}
 			if (h <= 0) continue
-			// at least 3 paper mm tall (a 50 mm trunk at 1:100 would be a hair), centred on the run
-			if (h < 3 * k) { top -= (3 * k - h) / 2; h = 3 * k }
 			const r = h / 4, N = 8, pts: Pt[] = []
 			// upper half: centre (edge, top + r), from the top round the outside to the middle; lower half: round the inside
 			for (let i = 0; i <= N; i++) { const a = -Math.PI / 2 + (Math.PI * i) / N; pts.push({ x: edge + out1 * r * Math.cos(a), y: top + r + r * Math.sin(a) }) }
