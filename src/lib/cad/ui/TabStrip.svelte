@@ -71,10 +71,9 @@
 
 <style>
 	.tabbar { display: flex; align-items: stretch; height: 28px; flex: 0 0 auto; background: var(--cad-subtle); border-bottom: 1px solid var(--cad-line); }
-	/* no scrollbar (Dave 2026-10-15): tabs shrink to fit first, as a browser's do; past that the wheel scrolls the strip and the list (▾) has them all */
-	.strip { flex: 1; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: none; }
-	.strip::-webkit-scrollbar { display: none; }
-	.tab { display: flex; align-items: center; gap: 5px; flex: 0 1 200px; min-width: 80px; max-width: 200px; padding: 0 4px 0 10px; border-right: 1px solid var(--cad-line); font-size: 12px; color: var(--cad-muted); cursor: pointer; white-space: nowrap; user-select: none; }
+	/* no scrollbar (Dave 2026-10-15): tabs keep their width, the ones past the right edge are hidden — the list (▾) picks them (and scrolls the strip to it); the wheel scrolls it too */
+	.strip { flex: 1; min-width: 0; display: flex; overflow: hidden; }
+	.tab { display: flex; align-items: center; gap: 5px; flex: none; max-width: 200px; padding: 0 4px 0 10px; border-right: 1px solid var(--cad-line); font-size: 12px; color: var(--cad-muted); cursor: pointer; white-space: nowrap; user-select: none; }
 	.tab:hover { background: var(--cad-hover); color: var(--cad-text); }
 	.tab.shown { color: var(--cad-text); }
 	.tab.on { background: var(--cad-panel, white); color: var(--cad-text); box-shadow: inset 0 -2px 0 #2563eb; }
