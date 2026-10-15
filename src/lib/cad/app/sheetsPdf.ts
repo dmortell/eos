@@ -3,7 +3,7 @@
 import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
 import { sheetPages, pagesToPdf, browserTextRaster } from '../render/pdf'
-import { download, fileSafe } from '../render/download'
+import { fileSafe, saveFile } from '../render/download'
 import { placeUnderlays, pictureLoader } from './issue'
 import { panelPages } from '../views/panelSheets'
 import type { Device } from '../domain/types'
@@ -15,21 +15,21 @@ export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono =
 	return { blob: pdf.output('blob'), pages: pages.length, unsupported, rasterised }
 }
 
-export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] }> {
+export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] } | null> {
 	const r = await sheetsPdfBlob(project, sheets, mono)
 	const name = `${sheets.length === 1 ? `${sheets[0].number} ${sheets[0].title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`
-	download(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf')
+	if (!await saveFile(r.blob, `${fileSafe(name)}.pdf`, 'application/pdf', sheets.length === 1 ? { what: `${sheets[0].number} ${sheets[0].title}${mono ? ' mono' : ''}` } : { what: `Sheets${mono ? ' mono' : ''}` })) return null
 	return { pages: r.pages, unsupported: r.unsupported, rasterised: r.rasterised }
 }
 
 /** A room's patch panels with their port labels as a PDF for the installer (views/panelSheets.ts). Returns the
  *  panels printed (to offer "Mark printed"). */
-export async function downloadPanelSheets(project: CadProject, room: { id: string; name: string }): Promise<{ pages: number; panels: Device[]; unsupported: string[]; rasterised: string[] }> {
+export async function downloadPanelSheets(project: CadProject, room: { id: string; name: string }): Promise<{ pages: number; panels: Device[]; unsupported: string[]; rasterised: string[] } | null> {
 	const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 	const { pages, panels } = panelPages(project.index, room.id, { title: `Panel labels — ${project.name} · ${room.name}`, date })
 	if (!pages.length) return { pages: 0, panels, unsupported: [], rasterised: [] }
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, pictureLoader(project), { rasterText: browserTextRaster })
-	download(pdf.output('blob'), `${fileSafe(`${project.name} ${room.name} panels`)}.pdf`, 'application/pdf')
+	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${room.name} panels`)}.pdf`, 'application/pdf', { what: 'Panel labels', scope: room.name })) return null
 	return { pages: pages.length, panels, unsupported, rasterised }
 }
 

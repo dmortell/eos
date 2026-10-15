@@ -44,6 +44,7 @@
 			const sheets = scheduleSheets(project.index, cords, perRoom, roomOf ? project.index.nameOf(roomOf) : where === 'sel' ? 'Selected' : 'Patch Schedule', sortBy)
 			const tag = [where === 'all' ? '' : what, changesOnly ? 'changes' : ''].filter(Boolean).join('-')
 			const n = await exportPatchSchedule(project.index, projectName, sheets, typeLabel, tag)
+			if (n === null) return   // the name box was cancelled: the dialog stays
 			ondone(`Patch schedule (${what}${perRoom && sheets.length > 1 ? `, ${sheets.length} sheets` : ''}): ${n} cord${n === 1 ? '' : 's'}${changesOnly ? ' to add / change / remove' : ''}`)
 			onclose()
 		}

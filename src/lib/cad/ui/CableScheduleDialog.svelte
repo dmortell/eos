@@ -17,7 +17,7 @@
 
 	async function exportXlsx() {
 		busy = true
-		try { await exportCableSchedule(rows, projectName); ondone(`Cable schedule: ${rows.length} cables`); onclose() }
+		try { if (await exportCableSchedule(rows, projectName)) { ondone(`Cable schedule: ${rows.length} cables`); onclose() } }
 		catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}

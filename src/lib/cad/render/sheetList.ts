@@ -1,7 +1,7 @@
 // Excel of the sheet register (Phase 4.4 — ported from Pages' drawingListExport.ts): the rows as shown (filtered,
 // sorted), or just the selection. exceljs is loaded on demand.
 import { revisionColumns, type SheetRow } from '../domain/sheetList'
-import { download, fileSafe } from './download'
+import { fileSafe, saveFile } from './download'
 
 const COLS: { head: string; width: number; get: (r: SheetRow) => string | number }[] = [
 	{ head: 'Sheet No.', width: 14, get: (r) => r.number },
@@ -17,7 +17,7 @@ const COLS: { head: string; width: number; get: (r: SheetRow) => string | number
 	{ head: 'Status', width: 10, get: (r) => r.status },
 ]
 
-export async function exportSheetRows(rows: SheetRow[], projectName: string): Promise<void> {
+export async function exportSheetRows(rows: SheetRow[], projectName: string): Promise<boolean> {
 	const ExcelJS = await import('exceljs')
 	const wb = new ExcelJS.Workbook()
 	const ws = wb.addWorksheet('Sheets')
@@ -32,5 +32,5 @@ export async function exportSheetRows(rows: SheetRow[], projectName: string): Pr
 	revs.forEach((_, i) => (ws.getColumn(COLS.length + i + 1).width = 11))
 	for (const r of rows) ws.addRow([...COLS.map((c) => c.get(r)), ...revs.map((v) => v.dateOf(r))])
 	ws.views = [{ state: 'frozen', ySplit: 1 }]
-	download(await wb.xlsx.writeBuffer(), `Sheets_${fileSafe(projectName)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	return !!await saveFile(await wb.xlsx.writeBuffer(), `Sheets_${fileSafe(projectName)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: 'Sheet list' })
 }

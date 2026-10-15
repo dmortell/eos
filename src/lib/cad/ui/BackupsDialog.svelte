@@ -10,7 +10,7 @@
 	import { floorsOf, type Parts } from '../domain/backupParts'
 	import { canRestore, canDeleteBackup } from '../domain/restorePlan'
 	import { backupsCol, storeBackup, loadBackup, renameBackup, deleteBackups, gzipText, backupFileName, type BackupHead } from '../app/backups'
-	import { download } from '../render/download'
+	import { saveFile } from '../render/download'
 
 	let { project, onclose, onrestore, say }: {
 		project: CadProject; onclose: () => void; say: (msg: string) => void
@@ -61,7 +61,7 @@
 	const restore = (h: BackupHead) => run('Loading…', async () => { onrestore({ file: await loadBackup(project, h), name: h.name }) })
 	const fetchFile = (h: BackupHead) => run('Loading…', async () => {
 		const blob = await gzipText(JSON.stringify(await loadBackup(project, h)))
-		download(blob, backupFileName(project.name, h.name, new Date(h.at)), 'application/gzip')
+		await saveFile(blob, backupFileName(project.name, h.name, new Date(h.at)), 'application/gzip', { what: 'Backup', scope: h.name })
 	})
 
 	const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} kB`)

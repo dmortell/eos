@@ -3799,3 +3799,16 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     `domain/toolDefaults.test.ts`, `editor/racks.test.ts`; Help how-to + the Rack hint. Tried live on Test Project:
     R301 → Use as default → a rack drawn on 4F came out 4-post, 45U, 750 × 1070, turned 180°; both undone (checked in
     Firestore).
+- **Export file names** (Dave 2026-10-15: "both" — a project pattern, and each export editable; then "dont use
+  statusbar for inputs like filenames, use a dialog"): every export now saves through `render/download.ts`
+  `saveFile(data, name, type, { what, scope })`, which asks the page's namer first: CadShell opens **Save as**
+  (`ui/FileNameDialog.svelte`), filled from `ProjectSettings.fileNamePattern` (`patternName`: {project} {what} {scope}
+  {date}; an empty token drops its separator) or the export's own name; Enter / Save saves, Esc / Cancel saves
+  nothing (the export returns null / false and its caller says nothing; the BOM / cable / patch dialogs stay open).
+  Settings › Files › **Export file names** sets the pattern, with an example. Covered: patch schedule, panel labels
+  (Excel + PDF), port map, BOM, cable schedule, frame sheets, outlet schedule, sheet list, sheet PDFs, DXF, backups
+  (download + from the list). The release reprint / transmittal names come with the Release rename merge. Tests in
+  `render/download.test.ts` (the old fileSafe test kept), `render/patchRoundTrip.test.ts` mocks saveFile. Tried live
+  on Test Project: the outlet schedule's Save as with its own name, then with the pattern
+  ("Test_Project_Outlet_schedule_4F_20261015"); Esc saved nothing; the BOM dialog's Save as cancelled leaves the
+  dialog open; the pattern cleared afterwards (checked in Firestore).

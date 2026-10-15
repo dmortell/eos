@@ -3,7 +3,7 @@
 import type { ProjectIndex } from '../domain/project'
 import type { Id } from '../domain/types'
 import { outletSchedule, type OutletRow } from '../domain/reports'
-import { download, fileSafe } from './download'
+import { fileSafe, saveFile } from './download'
 
 interface Col { head: string; width: number; get: (r: OutletRow) => string | number }
 
@@ -37,9 +37,9 @@ export function scheduleTable(ix: ProjectIndex, levelId?: Id): { head: string[];
 	}
 }
 
-export async function exportOutletSchedule(ix: ProjectIndex, projectName: string, level?: { id: Id; name: string }): Promise<void> {
+export async function exportOutletSchedule(ix: ProjectIndex, projectName: string, level?: { id: Id; name: string }): Promise<boolean> {
 	const f = await outletScheduleFile(ix, projectName, level)
-	download(f.data, f.name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+	return !!await saveFile(f.data, f.name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: 'Outlet schedule', scope: level?.name })
 }
 /** The outlet schedule workbook (the download's; attached to an issue, W21). */
 export async function outletScheduleFile(ix: ProjectIndex, projectName: string, level?: { id: Id; name: string }): Promise<{ data: ArrayBuffer; name: string }> {

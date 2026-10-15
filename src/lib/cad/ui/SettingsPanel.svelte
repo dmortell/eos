@@ -29,6 +29,7 @@
 	import CordMode from './CordMode.svelte'
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { defaultSettings } from '../domain/settings'
+	import { FILE_TOKENS, patternName } from '../render/download'
 
 	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files' } = $props()
 
@@ -178,6 +179,9 @@
 	</div>
 {:else if tab === 'files'}
 	<div class="form">
+		<label title="The name every export starts with: {FILE_TOKENS.join(' ')}. Blank = each export's own name">Export file names
+			<input class="pat" value={st.fileNamePattern ?? ''} placeholder={'{project} {what} {scope} {date}'} onchange={(e) => { const v = e.currentTarget.value.trim(); save(v ? `Export file names ${v}` : 'Export file names: each export’s own', (s) => ({ ...s, fileNamePattern: v || undefined })) }} /></label>
+		<p class="wide text-zinc-500">{st.fileNamePattern ? `e.g. ${patternName(st.fileNamePattern, project.name, { what: 'Cable schedule', scope: 'L1' }, 'xlsx')}.` : 'Blank: each export keeps its own name.'} {'{what}'} is the export (Cable schedule, BOM, Plan …), {'{scope}'} its floor or room when it has one, {'{date}'} today as 20261015. Every export asks for the name before it saves, filled from this — Enter keeps it, Esc cancels.</p>
 		<label title="Where cad puts the files it uploads: issue PDFs and title-block logos">New uploads go to
 			<select value={st.fileStorage ?? 'uploadthing'} onchange={(e) => { const v = e.currentTarget.value as FileStorage; save(v === 'firebase' ? 'Uploads to Firebase Storage' : 'Uploads to UploadThing', (s) => ({ ...s, fileStorage: v })) }}>
 				<option value="uploadthing">UploadThing</option><option value="firebase">Firebase Storage</option>
@@ -225,6 +229,7 @@
 	input, select { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 4px; background: var(--cad-input, white); color: inherit; }
 	input.lbl { width: 10rem; }
 	input.num { width: 4.5rem; }
+	input.pat { width: 22rem; }
 	input.code { width: 10rem; font-family: ui-monospace, monospace; }
 	input.mm { width: 5rem; margin: 0 2px; }
 	.del { color: var(--cad-muted, #71717a); padding: 0 4px; }
