@@ -1,7 +1,7 @@
 // ELEVATION HANDLES (backlog "Drag top / bottom edges in elevations", Dave 2026-10-05): with a wall selected in an
 // elevation or section, each segment seen side-on has a square on its TOP edge (drag = its height) and on its BOTTOM
 // edge (drag = the whole wall's base; every top stays), and each of its openings the same (top = the hole's height, bottom = its sill;
-// the other edge stays). Heights are mm, to 10 mm (Alt: free). A slab-to-slab wall's height follows its level, so it
+// the other edge stays). Heights are mm, to 10 mm, snapping to the datum lines when near (Alt: free). A slab-to-slab wall's height follows its level, so it
 // has no top square. Pure; tested in elevHandles.test.ts.
 import type { Entity } from '../domain/drawing'
 import type { Shape, Opening } from '../domain/shapes'
@@ -59,9 +59,9 @@ export function elevationHandles(e: Entity, sp: ViewSpace, dat: Datums = {}): Ha
 			const c = { x: a.x + ends.t.x * o.at, y: a.y + ends.t.y * o.at }
 			const withOp = (patch: Partial<Opening>): Shape => ({ ...s, role: { ...role, openings: role.openings.map((x) => (x.id === o.id ? { ...x, ...patch } : x)) } })
 			out.push({ at: sp.fromWorld({ ...c, z: o.z + o.h }), shape: 'square', label: 'Opening height',
-				drag: (p, free) => withOp({ h: Math.max(100, r10(zOf(p), free) - o.z) }) })
+				drag: (p, free) => withOp({ h: Math.max(100, zs(zOf(p), free) - o.z) }) })
 			out.push({ at: sp.fromWorld({ ...c, z: o.z }), shape: 'square', label: 'Opening sill',
-				drag: (p, free) => { const top = o.z + o.h, z = Math.min(r10(zOf(p), free), top - 100); return withOp({ z, h: top - z }) } })
+				drag: (p, free) => { const top = o.z + o.h, z = Math.min(zs(zOf(p), free), top - 100); return withOp({ z, h: top - z }) } })
 		}
 	}
 	return out

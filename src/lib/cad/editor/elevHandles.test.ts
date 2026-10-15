@@ -127,3 +127,13 @@ describe('top / base grips snap to the datum lines (Dave 2026-10-15)', () => {
 		expect(next.geom.kind === 'path' && next.geom.nodes.map((n) => n.z)).toEqual([-300, -300])
 	})
 })
+
+describe('opening grips snap to the datum lines too (Dave 2026-10-15)', () => {
+	const heights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+	const hs = elevationHandles(wall, sp, { heights, tol: 60 })
+	it('the head lands on CLG, the sill on FFL', () => {
+		const head = hs.find((h) => h.label === 'Opening height')!, sill = hs.find((h) => h.label === 'Opening sill')!
+		expect((head.drag!({ x: 0, y: -2630 }, false) as Shape).role).toMatchObject({ openings: [{ h: 2600 }] })
+		expect((sill.drag!({ x: 0, y: -40 }, false) as Shape).role).toMatchObject({ openings: [{ z: 0, h: 2100 }] })
+	})
+})
