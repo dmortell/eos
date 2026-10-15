@@ -24,7 +24,7 @@ export function sectionMarks(sec: SectionCut, k: number): Prim[] {
 		{ x: p.x - along.x * s * 0.5, y: p.y - along.y * s * 0.5 },
 		{ x: p.x + look.x * s, y: p.y + look.y * s },
 	], closed: true, fill: true, cls: 'section-arrow', src: sec.id })
-	const label = (p: Pt): Prim => ({ k: 'text', at: { x: p.x - look.x * s * 0.9, y: p.y - look.y * s * 0.9 + 1.2 * k }, text: sec.name, size: 2.5 * k, anchor: 'middle', cls: 'section-label', src: sec.id })
+	const label = (p: Pt): Prim => ({ k: 'text', at: { x: p.x - look.x * s * 0.9, y: p.y - look.y * s * 0.9 + 1.2 * k }, text: sec.name, size: 2 * k, anchor: 'middle', cls: 'section-label', src: sec.id })
 	return [{ k: 'line', pts: [sec.a, sec.b], cls: 'section-line', src: sec.id }, arrow(sec.a), arrow(sec.b), label(sec.a), label(sec.b)]
 }
 

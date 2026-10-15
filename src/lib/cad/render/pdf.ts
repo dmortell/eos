@@ -50,7 +50,7 @@ const STYLES: Record<string, Style> = {
 	'tb-label': { text: '#94a3b8' }, 'tb-value': { text: '#1f2937', bold: true }, 'tb-logo': { text: '#1f2937', bold: true }, legend: { stroke: '#64748b', fill: '#ffffff', width: 0.25 }, 'legend-rule': { stroke: '#94a3b8' }, 'legend-title': { text: '#0f172a', bold: true }, 'legend-text': { text: '#1f2937' },
 	'tb-company-name': { text: '#1f2937', bold: true }, 'tb-company': { text: '#475569' },
 	label: { text: '#0f172a' },
-	'section-line': { stroke: '#0f766e', width: 0.35, dash: [2, 0.8, 0.4, 0.8] }, 'section-arrow': { stroke: '#0f766e', fill: '#0f766e' }, 'section-label': { text: '#0f766e', bold: true },
+	'section-line': { stroke: '#0f766e', width: 0.35, dash: [2, 0.8, 0.4, 0.8] }, 'section-arrow': { stroke: '#0f766e', fill: '#0f766e' }, 'section-label': { text: '#0f766e', bold: false },
 	cut: { stroke: '#0f172a', fill: '#334155', width: 0.25 }, 'opening-pick': { skip: true },
 	opening: { stroke: '#475569', width: 0.15 }, 'opening-swing': { stroke: '#475569', width: 0.13 }, 'rack-door': { stroke: '#475569', width: 0.13 }, 'opening-hole': { fill: '#ffffff', stroke: '#475569', width: 0.15 },
 	'riser-slab': { fill: '#e7e5e4' }, 'riser-ffl': { stroke: '#57534e', width: 0.3 }, 'riser-ceiling': { stroke: '#a8a29e', width: 0.15, dash: [1.5, 1] },
