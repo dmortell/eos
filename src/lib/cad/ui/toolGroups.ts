@@ -10,7 +10,7 @@ export const TOOL_GROUPS: { name: string; tools: { id: ToolId; label: string; ic
 	{ name: 'Select / modify', tools: [{ id: 'select', label: `Select (${KEYS.esc})`, icon: 'k-select' }, { id: 'move', label: 'Move', icon: 'move' }, { id: 'copy', label: 'Copy', icon: 'copy' }, { id: 'array', label: 'Array', icon: 'grid' }, { id: 'rotate', label: 'Rotate', icon: 'rotateRight' }, { id: 'mirror', label: 'Mirror', icon: 'flip' }, { id: 'match', label: 'Format painter', icon: 'paintbrush' }, { id: 'renumber', label: 'Renumber', icon: 'tag' }] },
 	{ name: 'Draw', tools: [{ id: 'line', label: 'Line', icon: 'k-line' }, { id: 'shape', label: 'Shape (rectangle, polygon, ellipse, arc)', icon: 'rect' }] },
 	{ name: 'Build (3D)', tools: [{ id: 'box', label: 'Box / desk (box, cylinder, polygon)', icon: 'box' }, { id: 'wall', label: 'Wall', icon: 'brickWall' }, { id: 'opening', label: 'Opening (door, window, hole)', icon: 'doorOpen' }] },
-	{ name: 'Spaces and views', tools: [{ id: 'room', label: 'Room (an EPS round a riser)', icon: 'squareDashed' }, { id: 'section', label: 'Section (a wall or room elevation)', icon: 'k-elevmark' }] },
+	{ name: 'Spaces and views', tools: [{ id: 'room', label: 'Room (an EPS round a riser)', icon: 'squareDashed' }, { id: 'section', label: 'Section (a wall or room elevation)', icon: 'squareSplitVertical' }] },
 	{ name: 'Annotate', tools: [{ id: 'dimension', label: 'Dimension', icon: 'ruler' }, { id: 'measure', label: 'Measure a distance (nothing drawn)', icon: 'moveHorizontal' }, { id: 'guide', label: 'Guide lines (your screen only)', icon: 'crosshair' }, { id: 'text', label: 'Text', icon: 'k-text' }, { id: 'leader', label: 'Callout', icon: 'callout' }, { id: 'cloud', label: 'Revision cloud', icon: 'highlighter' }, { id: 'legend', label: 'Legend', icon: 'list' }, { id: 'insert', label: 'Insert a block', icon: 'package' }] },
 	{ name: 'Cabling', tools: [{ id: 'outlet', label: 'Outlet', icon: 'circleDot' }, { id: 'trunk', label: 'Trunk', icon: 'route' }, { id: 'conduit', label: 'Conduit', icon: 'rows' }, { id: 'rack', label: 'Rack', icon: 'server' }, { id: 'device', label: 'Device', icon: 'pcCase' }, { id: 'cord', label: 'Patch cord', icon: 'cable' }] },
 	{ name: 'Drawings', tools: [{ id: 'viewport', label: 'Viewport (draw a box on the sheet)', icon: 'panels' }] },
@@ -26,7 +26,7 @@ export const VARIANTS: Record<string, { label: string; icon: string }> = {
 	'shape:ellipse': { label: 'Ellipse', icon: 'k-ellipse' }, 'shape:arc': { label: 'Arc (3 points)', icon: 'k-arc' },
 	'box:rect': { label: 'Box / desk', icon: 'box' }, 'box:ellipse': { label: 'Cylinder', icon: 'k-cylinder' }, 'box:polygon': { label: 'Polygon box', icon: 'pentagon' },
 	// the Section tool: a cut line, or a drawn room's four walls (Dave 2026-10-15)
-	'section:line': { label: 'Section (a cut line)', icon: 'k-section' }, 'section:room': { label: 'Room elevations (A–D: click inside a room)', icon: 'k-elevmark' },
+	'section:line': { label: 'Section (a cut line)', icon: 'squareSplitVertical' }, 'section:room': { label: 'Room elevations (A–D: click inside a room)', icon: 'k-elevmark' },
 }
 /** A flyout item: its tool and variant ("shape:polygon" → shape, polygon). */
 export const itemOf = (item: string): { tool: ToolId; variant?: string } => { const [tool, variant] = item.split(':'); return { tool: tool as ToolId, ...(variant ? { variant } : {}) } }
