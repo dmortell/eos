@@ -35,7 +35,7 @@
 </script>
 
 <div class="tabbar">
-	<div class="strip" bind:this={strip} role="tablist">
+	<div class="strip" bind:this={strip} role="tablist" onwheel={(e) => { if (strip && Math.abs(e.deltaY) > Math.abs(e.deltaX)) strip.scrollLeft += e.deltaY }}>
 		{#each tabs.list as t (t.id)}
 			{@const pane = tabs.paneTab.slice(0, panes).indexOf(t.id)}
 			<div class="tab" class:on={tabs.paneTab[activePane] === t.id} class:shown={pane >= 0} class:preview={t.preview} data-tab={t.id} role="tab" tabindex="-1"
@@ -71,8 +71,10 @@
 
 <style>
 	.tabbar { display: flex; align-items: stretch; height: 28px; flex: 0 0 auto; background: var(--cad-subtle); border-bottom: 1px solid var(--cad-line); }
-	.strip { flex: 1; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: thin; }
-	.tab { display: flex; align-items: center; gap: 5px; max-width: 200px; padding: 0 4px 0 10px; border-right: 1px solid var(--cad-line); font-size: 12px; color: var(--cad-muted); cursor: pointer; white-space: nowrap; user-select: none; }
+	/* no scrollbar (Dave 2026-10-15): tabs shrink to fit first, as a browser's do; past that the wheel scrolls the strip and the list (▾) has them all */
+	.strip { flex: 1; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: none; }
+	.strip::-webkit-scrollbar { display: none; }
+	.tab { display: flex; align-items: center; gap: 5px; flex: 0 1 200px; min-width: 80px; max-width: 200px; padding: 0 4px 0 10px; border-right: 1px solid var(--cad-line); font-size: 12px; color: var(--cad-muted); cursor: pointer; white-space: nowrap; user-select: none; }
 	.tab:hover { background: var(--cad-hover); color: var(--cad-text); }
 	.tab.shown { color: var(--cad-text); }
 	.tab.on { background: var(--cad-panel, white); color: var(--cad-text); box-shadow: inset 0 -2px 0 #2563eb; }
@@ -80,7 +82,7 @@
 	.tab.dragging { opacity: 0.5; }
 	.tab.drop-before { box-shadow: inset 2px 0 0 #2563eb; }
 	.tab.drop-after { box-shadow: inset -2px 0 0 #2563eb; }
-	.t { overflow: hidden; text-overflow: ellipsis; }
+	.t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 	.pn { font-size: 9px; font-weight: 700; color: white; background: #2563eb; border-radius: 3px; padding: 0 4px; }
 	.x { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; min-height: 20px; border-radius: 3px; visibility: hidden; color: var(--cad-muted); }
 	/* on hover, the active / shown tab, a focused tab, and always on touch screens (review R81: no hover there) */
