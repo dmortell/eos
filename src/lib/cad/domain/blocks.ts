@@ -106,9 +106,46 @@ function drawingSymbols(): Block[] {
 		{ type: 'block', id: 'builtin:elevation-tag', name: 'Elevation tag', scope: 'global', category: 'symbol', annotative: true, builtin: true,
 			attrs: [{ tag: 'NUMBER', label: 'Elevation no.', default: '1' }, { tag: 'ON_SHEET', label: 'On sheet', default: 'A-201' }],
 			// the pointer sits on the circle's edge (its base follows the arc), clear of the number inside
-			shapes: [sh({ kind: 'polygon', pts: [...Array.from({ length: 9 }, (_, i) => { const t = ((-130 + i * 10) * Math.PI) / 180; return { x: 4 * Math.cos(t), y: 4 * Math.sin(t) } }), { x: 0, y: -7.5 }] }, solid),
+			shapes: [pointer(0),
 				sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 4 }), seg(-4, 0, 4, 0), text(0, -0.9, '{NUMBER}', 2.2), text(0, 2.8, '{ON_SHEET}', 1.8)] },
+		// ── Dave 2026-10-15 (drawn from his samples in Section C) ──
+		// a level marker as elevations show it: the line runs in from the left to a quartered target; the name above the line
+		// and the height below it, both ending at the target
+		{ type: 'block', id: 'builtin:level-marker', name: 'Level marker (elevation)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			attrs: [{ tag: 'NAME', label: 'Name', default: 'FLOOR 1F' }, { tag: 'HEIGHT', label: 'Height', default: 'FL±0' }],
+			shapes: [seg(-24, 0, 1.6, 0), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.6 }), quarter(1.6, 180), quarter(1.6, 0), right(-2.6, -0.8, '{NAME}', 2), right(-2.6, 2.9, '{HEIGHT}', 2)] },
+		// a 4-way interior elevation marker: the sheet the elevations are on in the circle, a pointer each way with its name
+		{ type: 'block', id: 'builtin:elevation-marker-4', name: 'Elevation marker (4-way)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			attrs: [{ tag: 'ON_SHEET', label: 'On sheet', default: 'A-201' }, { tag: 'UP', label: 'Up', default: 'A' }, { tag: 'RIGHT', label: 'Right', default: 'B' }, { tag: 'DOWN', label: 'Down', default: 'C' }, { tag: 'LEFT', label: 'Left', default: 'D' }],
+			shapes: [pointer(0), pointer(90), pointer(180), pointer(270), sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 4 }), text(0, 0.7, '{ON_SHEET}', 1.8),
+				text(0, -8.6, '{UP}', 2), text(8.6, 0.7, '{RIGHT}', 2, 'left'), text(0, 10.6, '{DOWN}', 2), right(-8.6, 0.7, '{LEFT}', 2)] },
+		// break lines: where a drawing is cut short — straight (a zigzag in the line) and round (a pipe or duct: an S)
+		{ type: 'block', id: 'builtin:break-straight', name: 'Break line - straight', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			shapes: [poly([[-15, 0], [-1.5, 0], [-0.75, -2.5], [0.75, 2.5], [1.5, 0], [15, 0]])] },
+		{ type: 'block', id: 'builtin:break-round', name: 'Break line - round (pipe / duct)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			shapes: [poly([...arc(0, -1.5, 1.5, -90, 90), ...arc(0, 1.5, 1.5, -90, -270)])] },
+		// the centreline mark (℄): an L over a C, set at the end of a centreline (a dash-dot line)
+		{ type: 'block', id: 'builtin:centreline', name: 'Centreline mark', scope: 'global', category: 'symbol', annotative: true, builtin: true,
+			shapes: [poly(arc(0, 0, 2, 45, 315)), poly([[-0.4, -3], [-0.4, 3], [2.6, 3]])] },
 	]
+}
+/** A pointer on the 4 mm bubble's edge (its base follows the arc), towards `deg` (0 = up, clockwise). */
+function pointer(deg: number): BlockShape {
+	const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)
+	const turn = (p: Pt) => ({ x: Math.round((p.x * c - p.y * s) * 1000) / 1000, y: Math.round((p.x * s + p.y * c) * 1000) / 1000 })
+	return sh({ kind: 'polygon', pts: [...Array.from({ length: 9 }, (_, i) => { const t = ((-130 + i * 10) * Math.PI) / 180; return { x: 4 * Math.cos(t), y: 4 * Math.sin(t) } }), { x: 0, y: -7.5 }].map(turn) }, solid)
+}
+/** Text ending at x (right-aligned). */
+function right(x: number, y: number, t: string, sizeMm: number): BlockShape { return sh({ kind: 'text', at: { x, y }, text: t, sizeMm, align: 'right' }) }
+/** An open polyline through [x, y] points. */
+function poly(pts: [number, number][]): BlockShape {
+	const nodes = pts.map(([x, y]) => ({ id: newId(), x, y, z: 0 }))
+	return sh({ kind: 'path', nodes, segs: nodes.slice(1).map((n, i) => ({ id: newId(), a: nodes[i].id, b: n.id })) })
+}
+/** Points along an arc (degrees, 0 = +x, y down = clockwise on paper), every 15°. */
+function arc(cx: number, cy: number, r: number, from: number, to: number): [number, number][] {
+	const n = Math.max(2, Math.round(Math.abs(to - from) / 15))
+	return Array.from({ length: n + 1 }, (_, i) => { const a = ((from + ((to - from) * i) / n) * Math.PI) / 180; return [Math.round((cx + r * Math.cos(a)) * 1000) / 1000, Math.round((cy + r * Math.sin(a)) * 1000) / 1000] as [number, number] })
 }
 
 /** Data / power faceplates, single / dual gang: the plate from the front, real mm (one drawing, Dave 2026-10-14). */
