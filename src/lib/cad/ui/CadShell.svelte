@@ -448,6 +448,8 @@
 	const pdfAllSheets = () => void sheetsPdf(project, ws, sheetsAll)
 	/** The sheet open in the active pane (File / Sheets › PDF of this sheet). */
 	const openSheetId = $derived.by(() => { const p = panes[activePane]; return p?.kind === 'sheet' ? p.sheetId : undefined })
+	/** Ctrl+P and the print button (Dave 2026-10-15): the open sheet as a PDF, else every sheet. */
+	const printPdf = () => { if (openSheetId) pdfSheet(openSheetId); else if (sheetsAll.length) pdfAllSheets(); else ws.say('No sheets yet — Drawings › New sheet') }
 	const selectedText = $derived(selectedTextOf(project, ws))
 	function zoomSel() { if (!canvas?.zoomToSelection()) ws.say('Nothing selected is drawn in this view') }
 	// a row picked in a table: the active view pans it into view when it's off-screen (R52); only the pick re-runs this
@@ -455,7 +457,7 @@
 	const toggleDrafting = (k: 'snap' | 'osnap' | 'showGrid') => toggleDraftingOf(ws, k)
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
-		outletSchedule: (all) => exportsRef?.outletSchedule(all), frameSheets: (all) => exportsRef?.frameSheets(all), panelLabels: (all) => exportsRef?.panelLabels(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => (uploadsOpen = true), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true),
+		outletSchedule: (all) => exportsRef?.outletSchedule(all), frameSheets: (all) => exportsRef?.frameSheets(all), panelLabels: (all) => exportsRef?.panelLabels(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => (uploadsOpen = true), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true), print: printPdf,
 		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
@@ -552,7 +554,7 @@
 	const onKey = (e: KeyboardEvent) => shellKey(e, {
 		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
-		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true),
+		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true), print: printPdf,
 		flipFace: () => {
 			const s = panes[activePane]
 			if (s.kind !== 'row') return false
@@ -680,6 +682,7 @@
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
+		<button class="ib" disabled={!sheetsAll.length} onclick={printPdf} title={openSheetId ? `PDF of this sheet (${KEYS.print})` : `PDF of all sheets (${KEYS.print}) — open a sheet for just that one`}><Icon name="print" size={15} /></button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>

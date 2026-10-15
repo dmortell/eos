@@ -34,6 +34,8 @@ export interface ShellKeyCtx {
 	zoomSel(): void
 	/** Ctrl+O: the Open project dialog. */
 	openProject(): void
+	/** Ctrl+P (Dave 2026-10-15): the open sheet as a PDF — else every sheet; the browser's own print never runs. */
+	print(): void
 	/** F in a rack view: the other face (front ↔ rear); false = not a rack view. */
 	flipFace(): boolean
 }
@@ -53,7 +55,7 @@ export const KEYS = {
 	del: 'Delete', delAlt: 'Backspace', selectAll: 'Ctrl+A', group: 'Ctrl+G', ungroup: 'Ctrl+Shift+G',
 	toFront: 'Ctrl+Shift+]', forward: 'Ctrl+]', backward: 'Ctrl+[', toBack: 'Ctrl+Shift+[',
 	editLabel: 'F2', repeatDevice: 'F4', help: 'F1', keys: '?', osnap: 'F3', grid: 'F7', snap: 'F9',
-	find: 'Ctrl+K', openProject: 'Ctrl+O', hideAll: 'Ctrl+.', tables: 'Ctrl+,',
+	find: 'Ctrl+K', openProject: 'Ctrl+O', print: 'Ctrl+P', hideAll: 'Ctrl+.', tables: 'Ctrl+,',
 	closeTab: 'Alt+W', nextTab: 'Alt+PgDn', prevTab: 'Alt+PgUp', tabN: 'Alt+1…9', backView: 'Alt+←', fwdView: 'Alt+→',
 	fit: 'Home', zoomSel: 'Shift+Home', zoomExt: 'Z E', zoomWin: 'Z W', zoomPrev: 'Z P', page: 'PgUp / PgDn', esc: 'Esc', flip: 'F', patch: 'P', link: 'L',
 } as const
@@ -98,6 +100,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Help', keys: KEYS.help, group: 'Function keys', when: (e) => e.key === 'F1', run: (e, c) => { pd(e); c.help(false) } },
 	{ label: 'Find a level, view, sheet, room, rack, device, outlet', keys: KEYS.find, group: 'View', when: (_e, _c, k, mod) => mod && k === 'k', run: (e, c) => { pd(e); c.layout.open('navigator'); c.ws.navSearch++ } },
 	{ label: 'Open another project', keys: KEYS.openProject, group: 'View', when: (_e, _c, k, mod) => mod && k === 'o', run: (e, c) => { pd(e); c.openProject() } },
+	{ label: 'PDF of the open sheet (else of all sheets)', keys: KEYS.print, group: 'View', when: (_e, _c, k, mod) => mod && k === 'p', run: (e, c) => { pd(e); c.print() } },
 	{ label: 'Keys and mouse (this list)', keys: KEYS.keys, group: 'Help', when: (e, _c, _k, mod) => e.key === '?' && !mod, run: (e, c) => { pd(e); c.help(true) } },
 	{ label: 'Hide / show every window', keys: KEYS.hideAll, group: 'View', when: (e, _c, _k, mod) => mod && e.key === '.', run: (e, c) => { pd(e); c.layout.allHidden = !c.layout.allHidden } },
 	{ label: 'Show / hide the tables', keys: KEYS.tables, group: 'View', when: (e, _c, _k, mod) => mod && e.key === ',', run: (e, c) => { pd(e); c.panels.toggle('bottom') } },

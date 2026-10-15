@@ -113,7 +113,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 				{ label: 'Patch schedule · cord BOM…', run: c.cordBom },
 				{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
 				'-',
-				{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
+				{ label: 'PDF of this sheet', key: KEYS.print, disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 				{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 				{ label: 'Monochrome PDFs', checked: c.monoPdf, title: 'Sheet PDFs in black ink: lines and text black, fills light grey, floorplans and pictures grey (for cheap prints)', run: c.toggleMonoPdf },
 			] },
