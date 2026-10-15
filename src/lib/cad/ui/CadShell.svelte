@@ -431,7 +431,9 @@
 	/** Closed, their bar of tabs stays under the drawing (Dave 2026-10-10) — not when every window is hidden. */
 	const tablesBar = $derived(!panels.shown.bottom && !layout.allHidden)
 	const tablesRow = $derived(tablesDocked ? (panels.tables.folded ? 29 : panels.size.bottom) : tablesBar ? 29 : 0)
-	const docked = (side: 'left' | 'right') => layout.docked(side).filter((id) => !offHere(id))
+	// a docked library window keeps its place where its tool doesn't work (a note instead of its list), so the windows
+	// around it don't jump and the Navigator doesn't scroll (Dave 2026-10-15: Blocks came and went with rack views)
+	const docked = (side: 'left' | 'right') => layout.docked(side)
 	const dockW = (side: 'left' | 'right') => (docked(side).length ? panels.size[side] : 0)
 	const sheetsAll = $derived(activeSheets(project))
 	/** A Navigator row: its view in the active pane (its level first); a rack zooms to itself; a sheet / rack / section is
@@ -714,9 +716,11 @@
 	</div>
 
 	{#snippet winBody(id: WinId)}
+		{#if offHere(id)}<p class="offhere">Not used in this view — back with a view it works in.</p>{:else}
 		<WindowBody {id} {project} {ws} {level} {projectName} current={{ levelId: ws.levelId ?? undefined, spec: panes[activePane] }} tabbed={new Set(tabs.list.map((t) => viewKeyOf(t.view)))}
 			on={{ navOpen, floors: () => openSettings('floors'), settings: () => openSettings('usages'), newSheet, pdfAll: pdfAllSheets, pdf: pdfSheet,
 				insert: (b) => { if (b) { ws.insertBlock = b; setTool('insert') } else setTool('select') }, view: (s) => setPane(activePane, s) }} />
+		{/if}
 	{/snippet}
 
 	{#snippet tables(closed = false)}
@@ -792,6 +796,7 @@
 </div>
 
 <style>
+	.offhere { margin: 8px 10px; font-size: 11px; color: var(--cad-faint); }
 	.err { display: inline-flex; align-items: center; gap: 2px; margin-right: 8px; color: #dc2626; }
 	.err-x { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; min-height: 18px; border-radius: 3px; color: inherit; }
 	.err-x:hover { background: #fee2e2; }

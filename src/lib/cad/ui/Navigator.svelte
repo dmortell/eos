@@ -138,9 +138,9 @@
 	function rowMenu(n: NavNode): MenuItem[] {
 		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : n.kind === 'space' ? 'Show on the plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
 		if (n.kind === 'level' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
-		if ((n.kind === 'room' || n.kind === 'space') && id) return [...open, '-', { label: 'Rename…', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
-		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
-		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
+		if ((n.kind === 'room' || n.kind === 'space') && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
+		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
+		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',
 			...(['place', 'category', 'level', 'package'] as const).map((b) => ({ label: `Group by ${b}`, checked: sheetsBy === b, run: () => groupSheets(b) }))]
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
@@ -188,8 +188,7 @@
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>
 		{/if}
-		<!-- Dave 2026-10-15: ✎ left of the count; the open-tab dot last, in a slot every row keeps, so the dots line up -->
-		{#if renameOf(n) && ws.navRename?.id !== n.id}<button class="act ren" title={n.kind === 'sheet' ? 'Rename (its title; Renumber is in ⋮) — F2' : 'Rename — F2'} onclick={() => renameOf(n)!()}><Icon name="edit" size={11} /></button>{/if}
+		<!-- Dave 2026-10-15: no ✎ (Rename is in ⋮, F2); the open-tab dot last, in a slot every row keeps, so the dots line up -->
 		{#if n.detail}<span class="d">{n.detail}</span>{/if}
 		{#if n.kind === 'sheets'}<button class="act txt" title="A new A3 landscape sheet, opened in a tab" onclick={onnewsheet}>+ New</button>{/if}
 		{#if rowMenu(n).length}<button class="act more" title="Commands (or right-click the row)" onclick={(e) => openMenu(n, e)}>⋮</button>{/if}
@@ -220,10 +219,6 @@
 	.act { min-width: 20px; min-height: 20px; padding: 0 4px; font-size: 11px; color: var(--cad-faint); border-radius: 3px; }
 	.act.txt { color: var(--cad-muted); }
 	.act.more { font-weight: 700; opacity: 0.55; }
-	/* ✎: on hover, and on the current / selected row or one with the focus (keyboard); always on a touch screen */
-	.act.ren { display: none; align-items: center; justify-content: center; }
-	.row:hover .act.ren, .row:focus-within .act.ren, .row.cur .act.ren, .row.sel .act.ren { display: inline-flex; }
-	@media (hover: none) { .act.ren { display: inline-flex; } }
 	.row:hover .act { color: var(--cad-link, #2563eb); opacity: 1; }
 	.act:hover { background: var(--cad-hover); }
 	.none { padding: 8px; color: var(--cad-faint); }

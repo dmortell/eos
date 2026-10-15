@@ -70,3 +70,24 @@ export function showInTab(win: Window, data: BlobPart, type: string, title: stri
 	f.style.cssText = 'border:0;width:100vw;height:100vh;display:block'
 	d.body.appendChild(f)
 }
+
+/** The generated file at a real path ending in its name — /cad-print/<id>/<name>.pdf, answered from the browser's cache by
+ *  static/cad-print-sw.js — so a viewer's Download offers that name, not a blob: URL's random id (Dave 2026-10-15).
+ *  Keeps the last 10. Null where service workers or the cache aren't available (then a blob: URL does). */
+export async function servedFileUrl(data: BlobPart, type: string, name: string): Promise<string | null> {
+	if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || typeof caches === 'undefined') return null
+	try {
+		const reg = await navigator.serviceWorker.register('/cad-print-sw.js', { scope: '/cad-print/' })
+		if (!reg.active) {
+			const w = reg.installing ?? reg.waiting
+			if (w) await new Promise<void>((ok) => { const on = () => { if (w.state === 'activated') { w.removeEventListener('statechange', on); ok() } }; w.addEventListener('statechange', on); on() })
+		}
+		const file = `${name}.${type === 'application/pdf' ? 'pdf' : 'bin'}`
+		const path = `/cad-print/${Math.random().toString(36).slice(2, 10)}/${encodeURIComponent(file)}`
+		const c = await caches.open('cad-print')
+		const old = await c.keys()
+		for (const k of old.slice(0, Math.max(0, old.length - 9))) await c.delete(k)
+		await c.put(path, new Response(new Blob([data], { type }), { headers: { 'Content-Type': type, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file)}` } }))
+		return path
+	} catch { return null }
+}
