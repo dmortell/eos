@@ -71,6 +71,8 @@ export interface MenuCtx {
 	// Window / Help
 	win: { shown(id: WinId): boolean; toggle(id: WinId): void; reset(): void }
 	help(keys?: boolean): void
+	/** Help opened on the walkthrough: a project from start to issue. */
+	walkthrough(): void
 }
 
 export function buildMenus(c: MenuCtx): Menu[] {
@@ -200,6 +202,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Help', items: [
 			{ label: 'Help', key: KEYS.help, run: () => c.help() },
 			{ label: 'Keys and mouse', key: KEYS.keys, run: () => c.help(true) },
+			{ label: 'Walkthrough: a project from start to issue', run: () => c.walkthrough() },
 		] },
 	]
 }

@@ -152,11 +152,64 @@ export const HOWTO: HowTo[] = [
 	{ area: 'project', q: 'Bring in a drawing from Pages or the Sheets tool', a: 'File › Import legacy drawings… lists this project’s Pages models and Sheets-tool sheets (reading them changes nothing). Tick a Pages model to bring its boxes and walls (untick either) onto the level picked beside it — each goes on the cad layer of the same name, made if missing (a new layer starts frozen in the sheets that already exist); its opening boxes (doors, holes) become openings in the imported wall they sit in (a door-height one is a door, swinging as in Pages; one in no imported wall stays a box); its conduits and 2D shapes stay behind. Tick a sheet for a cad sheet with the same title, number and paper: its viewport shows the picked level’s plan or elevation, and its annotations come as notes tied to the viewport. An elevation clipped to a box (a comms room elevation) comes as a section on that box, named from the sheet (e.g. Comms1), so only what is inside the box shows. An odd scale (1:20.16) snaps to the nearest standard one, centred as before. The dialog lists what will come and what is left out (e.g. annotations on layers hidden in that viewport). Import is one undo step; things already imported are skipped, so importing again adds only what’s new.' },
 ]
 
+/** Help › Walkthrough: a project from start to issue, stage by stage (the flow of the 2026-10-14 workflow walkthrough,
+ *  docs/plan/workflow-walkthrough.md). Short steps; the how-tos have the detail. */
+export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
+	{ stage: 'New project', steps: [
+		'Projects › New Project: codes, name, client, address, logos, members → Save (it opens in cad).',
+		'Set up floors…: lowest and top floor, name pattern (L{n}, GF) → Apply, then each floor’s heights.',
+		'Project › Settings…: check Usages, Cable types and Sheets (a new project starts with defaults).',
+	] },
+	{ stage: 'Floorplans', steps: [
+		'Next: add floorplans → (or Project › Floors… › Plans & floorplans): Upload… on each floor’s row, or drop the PDF on it.',
+		'Type the drawing’s scale in 1: (100, or “100 A1” for another paper size) and Enter.',
+		'Set up each floor…: Origin, then Crop, floor by floor (the floor below shows in red to check they line up).',
+		'A new revision later: New revision… on its row keeps the calibration; Compare… shows the old one in red under it.',
+	] },
+	{ stage: 'Server rooms and racks', steps: [
+		'+ Server room on the plan, then the Rack tool: one click per rack (a click beside the last one bays it).',
+		'Open the rack view: drag devices from the Device library onto a U (F4 repeats the last device edit).',
+		'Switch ports for ACS, CCTV…: pick them, Reserve for….',
+	] },
+	{ stage: 'Outlets', steps: [
+		'Outlet tool: pick usage, mount, ports and server room in its tool bar, then click each outlet (labels number on).',
+		'Desks: outlets on one desk → select them with the other desks → right-click › Copy outlets onto the other desks.',
+		'A row of them: Array (beside Copy). Labels later: Renumber, or Find / replace.',
+	] },
+	{ stage: 'Containment and risers', steps: [
+		'Trunk / Conduit tool from a rack: click the route, Enter ends it (R = rise / drop).',
+		'V = a riser to another floor: that floor’s plan opens and you carry on from the riser’s top.',
+		'Kind (tray / ladder / trunk) and size in Properties; View › Fill shows how full each segment is.',
+		'Room tool round a riser = an EPS (named in the riser view).',
+	] },
+	{ stage: 'Allocation and patching', steps: [
+		'Outlets table (Cabling › Tables) › ⋯ › Allocate this level: every outlet port gets a panel port in its server room.',
+		'Rack view: panel Properties › Select the ports not patched yet → P (patch to) → pick the first switch port → preview → OK.',
+		'Re-patch… moves cords in bulk; File › Export › Patch schedule for the installer.',
+	] },
+	{ stage: 'Sheets', steps: [
+		'Sheets › New sheet from this view (a plan comes at 1:100 on its floorplan), then the title and number.',
+		'Properties › A copy for each… › floor / server room: the same sheet for the others.',
+		'Add more views: drag a viewport box (Viewport tool) or a view’s “Put this view on a sheet”.',
+		'Title block: Sheets › Title block… (from Project details).',
+	] },
+	{ stage: 'Issue and package', steps: [
+		'Sheets › Sheets table: pick the sheets → Issue…: issue name, purpose, revision, change note; With: BOM / cable / outlet schedule.',
+		'The issue PDF (and Excel files) go in Uploads; the Issues list links them, Make package keeps the set for next time.',
+		'Changes later: revision clouds (tagged with the next revision), change notes, then Issue… again on the package.',
+		'Sheet Properties › Show changes since C: what moved since that issue, in orange and red.',
+	] },
+	{ stage: 'Exports and backups', steps: [
+		'File › Export: Bill of materials… (per server room, client and revision in the header), Cable schedule…, outlet schedules, panel labels, DXF, PDFs.',
+		'Project › Backups… › Back up now before big changes; File › Download backup… for a copy on disk.',
+	] },
+]
+
 /** The keyboard: from the shell's own list (ui/shellKeys.ts KEY_COMMANDS — what Help shows is what the keys do), plus
  *  the mouse and the keys tools take while drawing. */
 const MOUSE: [string, string][] = [
 	['Copy / Cut / Paste', 'Ctrl+C / X / V'], ['Paste with its middle at the pointer', 'Ctrl+Shift+V'],
-	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel (ACAD input) · Ctrl / Alt + wheel, or right-button + wheel (EOS input)'], ['EOS input: pan up / down · sideways', 'Wheel · Shift+wheel'], ['EOS input: draw a line, run segment or dimension', 'Press at the first point, drag, release at the second (a click still works)'], ['ACAD / EOS input (status bar, kept per user)', 'Click ACAD / EOS at the right of the status bar'], ['15° steps / H-V / square', 'Shift while drawing or dragging (a dragged node keeps all its segments on 15°, a junction too)'],
+	['Pan', 'Right- or middle-drag'], ['Zoom at the cursor', 'Wheel (ACAD input) · Ctrl / Alt + wheel, or right-button + wheel (EOS input)'], ['EOS input: pan up / down · sideways', 'Wheel · Shift+wheel'], ['EOS input: draw a line, run segment or dimension', 'Press at the first point, drag, release at the second (a click still works)'], ['15° steps / H-V / square', 'Shift while drawing or dragging (a dragged node keeps all its segments on 15°, a junction too)'],
 	['No snap for this drag', 'Alt'], ['Finish a run', 'Enter · right-click'], ['Cancel what is drawn · deselect', 'Right-click on empty space'], ['Commands for something (selects it first)', 'Right-click it (Select tool)'],
 	['Copy by dragging', 'Ctrl-drag'], ['Branch a run from a node', 'Ctrl-drag the node'], ['Pull a node off another run', 'Alt-drag the node'],
 	['Window / crossing selection', 'Drag left → right / right → left'], ['Cycle through things stacked under the cursor', 'Click again on the same spot'],

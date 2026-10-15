@@ -1,21 +1,27 @@
-<!-- HELP (F1 / ?, Help menu; backlog "Help (F1 / ?)", UX22; modelled on Pages' HelpDialog): how-to answers (label
+<!-- HELP (F1 / ?, Help menu; backlog "Help (F1 / ?)", UX22; modelled on Pages' HelpDialog): the walkthrough (a project start to issue), how-to answers (label
      editing with F2 / Tab first), keys and mouse, function keys and every tool — click a tool to pick it. One search
-     box filters all of it; `keys` opens on the keys list. -->
+     box filters all of it; `start` opens on the keys (function keys and the ACAD / EOS tip first) or the walkthrough. -->
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
 	import CadDialog from './CadDialog.svelte'
-	import { HOWTO, HOWTO_AREAS, SHORTCUTS, FKEYS } from './helpContent'
+	import { HOWTO, HOWTO_AREAS, SHORTCUTS, FKEYS, WALKTHROUGH } from './helpContent'
 	import { TOOL_GROUPS } from './toolGroups'
 	import type { ToolId } from '../app/workspace.svelte'
 
-	let { onclose, ontool, keys = false, hints }: { onclose: () => void; ontool: (id: ToolId) => void; keys?: boolean; hints: Partial<Record<ToolId, string>> } = $props()
+	/** `start`: open on the keys (Keys and mouse, ?) or the walkthrough (Help › Walkthrough), else the top. */
+	let { onclose, ontool, start, hints }: { onclose: () => void; ontool: (id: ToolId) => void; start?: 'keys' | 'walk'; hints: Partial<Record<ToolId, string>> } = $props()
 
 	let q = $state('')
 	let input: HTMLInputElement | undefined = $state()
 	let keysEl: HTMLElement | undefined = $state()
-	$effect(() => { void tick().then(() => { input?.focus(); if (keys) keysEl?.scrollIntoView({ block: 'start' }) }) })
+	let walkEl: HTMLElement | undefined = $state()
+	// svelte-ignore state_referenced_locally
+	let walkOpen = $state(start === 'walk')
+	$effect(() => { void tick().then(() => { input?.focus(); (start === 'keys' ? keysEl : start === 'walk' ? walkEl : undefined)?.scrollIntoView({ block: 'start' }) }) })
 	const hit = (...t: string[]) => { const w = q.trim().toLowerCase(); return !w || t.some((x) => x.toLowerCase().includes(w)) }
+	const walk = $derived(WALKTHROUGH.map((s) => ({ ...s, steps: s.steps.filter((x) => hit(x, s.stage, 'walkthrough')) })).filter((s) => s.steps.length))
+	const tipShown = $derived(hit('ACAD EOS input mode wheel pan zoom drag'))
 	let opened = $state<string | null>(HOWTO.find((h) => h.featured)?.q ?? null)
 	const howto = $derived(HOWTO.filter((h) => hit(h.q, h.a, HOWTO_AREAS[h.area])))
 	/** The how-tos by area, in HOWTO_AREAS' order (review R84). */
@@ -31,6 +37,18 @@
 		<input bind:this={input} class="q" aria-label="Search help" placeholder="Search help — e.g. label, snap, viewport, patch…" bind:value={q} />
 	{/snippet}
 		<div class="body">
+			{#if walk.length}
+				<h3 bind:this={walkEl}>Walkthrough</h3>
+				<div class="how" class:open={walkOpen || !!q.trim()}>
+					<button class="how-q" onclick={() => (walkOpen = !walkOpen)}>A project from start to issue, stage by stage</button>
+					{#if walkOpen || q.trim()}
+						{#each walk as s, i (s.stage)}
+							<h4 class="stage">{i + 1}. {s.stage}</h4>
+							<ol>{#each s.steps as x (x)}<li>{x}</li>{/each}</ol>
+						{/each}
+					{/if}
+				</div>
+			{/if}
 			{#if howto.length}
 				<h3>How do I…</h3>
 				{#each areas as g (g.a)}
@@ -43,13 +61,17 @@
 					{/each}
 				{/each}
 			{/if}
-			{#if shortcuts.length}
-				<h3 bind:this={keysEl}>Keys &amp; mouse</h3>
-				<div class="grid">{#each shortcuts as [a, b] (a)}<div class="row"><span>{a}</span><kbd>{b}</kbd></div>{/each}</div>
-			{/if}
+			<span bind:this={keysEl}></span>
 			{#if fkeys.length}
 				<h3>Function keys</h3>
 				<div class="grid">{#each fkeys as [k, what] (k)}<div class="row"><span>{what}</span><kbd>{k}</kbd></div>{/each}</div>
+			{/if}
+			{#if tipShown}
+				<p class="tip"><b>ACAD or EOS input</b> — pick it at the right of the status bar (kept per user). <b>ACAD</b>: the wheel zooms, click, click to draw, as in AutoCAD. <b>EOS</b>: the wheel pans (Shift+wheel sideways), Ctrl / Alt + wheel zooms, and press–drag–release draws a line, segment or dimension (clicks still work).</p>
+			{/if}
+			{#if shortcuts.length}
+				<h3>Keys &amp; mouse</h3>
+				<div class="grid">{#each shortcuts as [a, b] (a)}<div class="row"><span>{a}</span><kbd>{b}</kbd></div>{/each}</div>
 			{/if}
 			{#if !q.trim() || hit('typed point coordinates')}
 				<h3>Typing points</h3>
@@ -63,7 +85,7 @@
 					{/each}
 				</div>
 			{/each}
-			{#if !howto.length && !shortcuts.length && !fkeys.length && !tools.length}<p class="none">Nothing matches “{q}”.</p>{/if}
+			{#if !walk.length && !howto.length && !shortcuts.length && !fkeys.length && !tools.length}<p class="none">Nothing matches “{q}”.</p>{/if}
 		</div>
 </CadDialog>
 
@@ -77,8 +99,15 @@
 	code { font-family: ui-monospace, Consolas, monospace; color: var(--cad-link, #1d4ed8); font-size: 11px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2px 18px; }
 	.row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; border-bottom: 1px solid var(--cad-line, #f4f4f5); }
-	.row span { color: var(--cad-muted); }
-	kbd { font-family: ui-monospace, Consolas, monospace; font-size: 11px; white-space: nowrap; }
+	.row { min-width: 0; align-items: baseline; }
+	.row span { flex: 1 1 55%; min-width: 0; color: var(--cad-muted); }
+	/* a long key / mouse text wraps inside its own column (it used to run across the next one) */
+	kbd { flex: 0 1 auto; max-width: 50%; text-align: right; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+	.tip { margin: 10px 0 2px; padding: 6px 8px; border-radius: 4px; background: var(--cad-feature, #eff6ff); }
+	.tip b { color: var(--cad-text); font-weight: 600; }
+	h4.stage { margin: 8px 0 2px 14px; }
+	ol { margin: 0 0 4px 14px; padding-left: 18px; list-style: decimal; color: var(--cad-muted); }
+	ol li { padding: 1px 0; }
 	.how { border-bottom: 1px solid var(--cad-line, #f4f4f5); }
 	.how.featured { background: var(--cad-feature, #eff6ff); border-radius: 4px; padding: 0 6px; }
 	.how-q { width: 100%; text-align: left; padding: 5px 0; font-size: 12px; color: var(--cad-text); }
