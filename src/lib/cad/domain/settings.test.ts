@@ -4,7 +4,7 @@ import { defaultSettings } from './settings'
 describe('defaultSettings (a new project)', () => {
 	it('has the usages and cable types Dave chose, and the outlet default is one of them', () => {
 		const s = defaultSettings()
-		expect(s.usages.map((u) => u.label)).toEqual(['AP', 'TV', 'CCTV'])
+		expect(s.usages.map((u) => u.label)).toEqual(['AP', 'AV', 'CCTV'])
 		expect(s.cableTypes.map((t) => t.label)).toEqual(['CAT6A', 'CAT6', 'OS2', 'OM4'])
 		expect(s.cableTypes.find((t) => t.id === s.defaults.outletCableType)?.label).toBe('CAT6A')
 		expect(s.cableTypes.find((t) => t.id === s.defaults.cordCableType)).toBeTruthy()

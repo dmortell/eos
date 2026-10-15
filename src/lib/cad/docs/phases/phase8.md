@@ -3894,3 +3894,9 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   releases the picked sheets or says to pick them), Title block…. View: a Drafting submenu for SNAP / OSNAP / GRID.
   Help, hints, the agent guide and the walkthrough name the new paths. Options 1 and 3 documented in the backlog for a
   later review. Seen live: the bar, Drawings › Packages opening the Packages view.
+- **Small changes** (Dave 2026-10-15): View › **Fill rates** (was Fill); Match properties is **Format painter** (menu,
+  right-click, undo label, Help); the first outlet on a level is a **Box** at Z 0, Low, no usage (was Floor), drawn
+  with the built-in symbol now named **Outlet - box** (was Outlet - desk/box); default usages: a new project AP, **AV**
+  (was TV), CCTV; a project imported from the old tools AP (was Wireless AP), CCTV (new), Printer, AV (was TV / AV),
+  Not used — no Desk: an imported outlet whose usage was "desk" (or none) gets no usage. Existing projects keep their
+  usage lists. Tests: `domain/settings.test.ts`, `editor/editor.test.ts`.

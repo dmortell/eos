@@ -99,8 +99,9 @@ function importPlaces(c: ImportCtx): void {
 	const settings: ProjectSettings = {
 		type: 'settings', id: 'settings', portSuffix: 'alpha',
 		usages: [
-			{ id: 'desk', label: 'Desk', color: '#3b82f6' }, { id: 'AP', label: 'Wireless AP', color: '#10b981' },
-			{ id: 'PR', label: 'Printer', color: '#f59e0b' }, { id: 'TV', label: 'TV / AV', color: '#8b5cf6' },
+			// Dave 2026-10-15: no Desk (an outlet with no usage is a desk / data outlet), AP, AV, CCTV
+			{ id: 'AP', label: 'AP', color: '#10b981' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
+			{ id: 'PR', label: 'Printer', color: '#f59e0b' }, { id: 'TV', label: 'AV', color: '#8b5cf6' },
 			{ id: 'N/A', label: 'Not used', color: '#9ca3af' },
 		],
 		cableTypes: [{ id: 'cat6a', label: 'Cat6A', media: 'copper', color: '#3b82f6' }, { id: 'cat6', label: 'Cat6', media: 'copper', color: '#2563eb' }, { id: 'os2', label: 'OS2 fibre', media: 'fibre', color: '#eab308' }],

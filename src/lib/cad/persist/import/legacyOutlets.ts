@@ -66,7 +66,7 @@ function importOutlet(c: ImportCtx, docId: string, floor: number, levelId: strin
 	const portLabels: string[] = o.portLabels?.length ? o.portLabels : portLabelsFor(label, count)
 	const out: Outlet = {
 		type: 'outlet', id: c.id(`outlet:${docId}:${o.id}`), levelId, label,
-		tier: o.level === 'high' ? 'high' : 'low', usage: o.usage ?? 'desk', mount: 'floor', ...placed,
+		tier: o.level === 'high' ? 'high' : 'low', usage: o.usage && o.usage !== 'desk' ? o.usage : '', mount: 'floor', ...placed,
 		...(o.roomNumber ? { roomId: c.space(floor, 'room', o.roomNumber) } : {}),
 		ports: Array.from({ length: count }, (_, i) => ({ port: i + 1, label: portLabels[i] ?? `${label}.${i + 1}`, cableType: o.cableType ?? 'cat6a' })),
 	}

@@ -211,3 +211,22 @@ describe('the outlet tool', () => {
 		expect(at(11000).label).toBe('ACS 33-002')
 	})
 })
+
+describe('the first outlet on a level (Dave 2026-10-15)', () => {
+	it('is a box at Z 0 with no usage, drawn with the "Outlet - box" symbol', async () => {
+		const { defaultOutletBlock, BUILTIN_BLOCKS } = await import('../domain/blocks')
+		const store = new EntityStore()
+		store.load(demoProject().filter((e) => e.type !== 'outlet' && e.type !== 'link' && e.type !== 'cord'))
+		let sel: string[] = []
+		const c = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L33', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 }, snap: (p: { x: number; y: number }) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		} as unknown as ToolCtx
+		new OutletTool().down({ p: { x: 1000, y: 1000 }, shift: false, ctrl: false, alt: false }, c)
+		const o = store.get(sel[0]) as Outlet
+		expect(o).toMatchObject({ mount: 'box', usage: '', tier: 'low' })
+		expect(o.z ?? 0).toBe(0)
+		const block = BUILTIN_BLOCKS.find((b) => b.id === defaultOutletBlock(o))
+		expect(block?.name).toBe('Outlet - box')
+	})
+})

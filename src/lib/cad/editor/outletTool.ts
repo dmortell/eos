@@ -49,7 +49,7 @@ export class OutletTool implements Tool {
 		// W11: height and tier by mount. The same mount as the last one keeps its height and tier (sticky); a new mount
 		// starts from its own — ceiling: High at the level's clear height (no Z: `outletZ`); wall: the Usages tab's
 		// "New wall outlets at" (300); floor / box: Low at 0; desk: as the last one.
-		const mount = nx.mount ?? like?.mount ?? prev?.mount ?? 'floor'
+		const mount = nx.mount ?? like?.mount ?? prev?.mount ?? 'box'   // the first outlet: a box at Z 0, no usage (Dave 2026-10-15)
 		const same = like && like.mount === mount ? like : undefined
 		const tier = nx.tier ?? same?.tier ?? (mount === 'ceiling' ? 'high' : mount === 'floor' || mount === 'box' ? 'low' : like?.tier ?? prev?.tier ?? 'low')
 		const planZ = same ? same.z : mount === 'wall' ? c.settings?.defaults.wallOutletMm ?? 300 : mount === 'desk' ? like?.z ?? prev?.z : mount === 'ceiling' ? undefined : 0

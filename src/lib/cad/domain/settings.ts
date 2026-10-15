@@ -1,6 +1,6 @@
 // A NEW project's settings (walkthrough 2026-10-14: a project made from scratch had none — only the legacy import made
 // them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). Dave 2026-10-14: cable types CAT6A,
-// CAT6, OS2, OM4; outlet usages (none), AP, TV, CCTV. Pure.
+// CAT6, OS2, OM4; outlet usages (none), AP, AV (was TV, Dave 2026-10-15), CCTV. Pure.
 import type { ProjectSettings } from './types'
 import { DEFAULT_TITLE_BLOCK } from './titleBlock'
 
@@ -10,7 +10,7 @@ export function defaultSettings(): ProjectSettings {
 	return {
 		type: 'settings', id: 'settings', portSuffix: 'alpha', titleBlock: structuredClone(titleBlock),
 		usages: [
-			{ id: 'AP', label: 'AP', color: '#16a34a' }, { id: 'TV', label: 'TV', color: '#db2777' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
+			{ id: 'AP', label: 'AP', color: '#16a34a' }, { id: 'AV', label: 'AV', color: '#db2777' }, { id: 'CCTV', label: 'CCTV', color: '#9333ea' },
 		],
 		cableTypes: [
 			{ id: 'cat6a', label: 'CAT6A', media: 'copper', color: '#3b82f6' }, { id: 'cat6', label: 'CAT6', media: 'copper', color: '#2563eb' },

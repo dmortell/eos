@@ -59,7 +59,7 @@ function importLocations(c: ImportCtx, floor: number, fd: any, out: Map<string, 
 				// Keyed by floor: location ids repaired from (zone, number) repeat on every floor.
 				type: 'outlet', id: c.id(`location:${floor}:${loc.id}`), levelId: c.levelId(floor), label,
 				zoneId: c.space(floor, 'zone', zone), ...(loc.roomNumber ? { roomId: c.space(floor, 'room', loc.roomNumber) } : {}),
-				tier: loc.isHighLevel ? 'high' : 'low', usage: loc.locationType ?? 'desk', mount: loc.isHighLevel ? 'ceiling' : 'floor',
+				tier: loc.isHighLevel ? 'high' : 'low', usage: loc.locationType && loc.locationType !== 'desk' ? loc.locationType : '', mount: loc.isHighLevel ? 'ceiling' : 'floor',
 				ports: Array.from({ length: loc.portCount }, (_, i) => ({
 					port: i + 1,
 					label: generated.get(`${loc.id}:${i + 1}`) ?? fallback[i],
