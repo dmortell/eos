@@ -4,7 +4,7 @@ import { handlesFor, handleAt, segWidthHandles } from './handles'
 import { makeWall, makeRun } from '../domain/make'
 import { makeOpening } from '../domain/openings'
 import type { Shape, Opening } from '../domain/shapes'
-import type { SectionCut } from '../domain/drawing'
+import type { SectionCut, Entity } from '../domain/drawing'
 
 const w = makeWall('L', [{ x: 0, y: 0 }, { x: 4000, y: 0 }], 100, 2600)
 const seg = w.geom.kind === 'path' ? w.geom.segs[0].id : ''
@@ -75,5 +75,16 @@ describe('segment width bars (backlog "Segment width grip")', () => {
 		expect(s.geom.kind === 'path' && s.geom.segs[0].section).toBeUndefined()
 		expect(segWidthHandles(run, [g[0].id], 150)).toEqual([])
 		expect(segWidthHandles(run, [])).toEqual([])
+	})
+})
+
+describe('a section end grip with Shift (Dave 2026-10-15)', () => {
+	it('keeps the line level / plumb (15° steps from the other end)', () => {
+		const sec = { type: 'section', id: 'S', levelId: 'L', name: 'A', a: { x: 0, y: 0 }, b: { x: 3000, y: 0 }, depth: 2000 } as Entity
+		const end = handlesFor(sec).handles[1]
+		const free = end.drag!({ x: 3800, y: 70 }, false, false) as { b: { x: number; y: number } }
+		expect(free.b.y).toBe(70)
+		const level = end.drag!({ x: 3800, y: 70 }, false, true) as { b: { x: number; y: number } }
+		expect(level.b.y).toBe(0)
 	})
 })

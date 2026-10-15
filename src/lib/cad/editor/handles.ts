@@ -11,6 +11,7 @@ import type { Prim } from '../views/display'
 import { segEnds } from '../domain/openings'
 import { sectionFrame } from '../views/section'
 import { corners, defaultBend } from '../domain/bends'
+import { angleStep } from './constrain'
 
 /** square = moves / stretches a position; round = sets a property (swing, depth); bar = a whole hole (drag slides it,
  *  click selects it); grip = resizes a drawn shape, drawn like its resize grips on the plan (a box's edges in elevations). */
@@ -166,8 +167,9 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 	return {
 		handles: [
 			// an end can't land on the other (a 0-length line has no direction: the section would see nothing)
-			{ at: sec.a, shape: 'square', drag: (p, free) => { const a = snap(p, free); return Math.hypot(a.x - sec.b.x, a.y - sec.b.y) < 100 ? sec : { ...sec, a } } },
-			{ at: sec.b, shape: 'square', drag: (p, free) => { const b = snap(p, free); return Math.hypot(b.x - sec.a.x, b.y - sec.a.y) < 100 ? sec : { ...sec, b } } },
+			// Shift: 15° steps from the other end (level / plumb), as a line's points (Dave 2026-10-15)
+			{ at: sec.a, shape: 'square', drag: (p, free, shift) => { const a = snap(shift ? angleStep(sec.b, p) : p, free); return Math.hypot(a.x - sec.b.x, a.y - sec.b.y) < 100 ? sec : { ...sec, a: shift ? angleStep(sec.b, a) : a } } },
+			{ at: sec.b, shape: 'square', drag: (p, free, shift) => { const b = snap(shift ? angleStep(sec.a, p) : p, free); return Math.hypot(b.x - sec.a.x, b.y - sec.a.y) < 100 ? sec : { ...sec, b: shift ? angleStep(sec.a, b) : b } } },
 			{ at: far(mid), shape: 'round', drag: (p, free) => {
 				const d = (p.x - mid.x) * look.x + (p.y - mid.y) * look.y
 				return { ...sec, depth: Math.max(100, free ? Math.round(d) : Math.round(d / 100) * 100) }

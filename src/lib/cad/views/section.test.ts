@@ -40,7 +40,7 @@ describe('sections', () => {
 		const m = sectionMarks(sec, 100)
 		expect(m.map((p) => p.k === 'image' ? '' : p.cls)).toEqual(['section-line', 'section-arrow', 'section-arrow', 'section-label', 'section-label'])
 		const arrow = m[1]
-		expect(arrow.k === 'line' && Math.min(...arrow.pts.map((q) => q.y))).toBe(-400)   // the tip points up the sheet (−y)
+		expect(arrow.k === 'line' && Math.min(...arrow.pts.map((q) => q.y))).toBe(-250)   // the tip points up the sheet (−y): 2.5 paper mm at 1:100
 		const ix = new ProjectIndex([level, sec] as Entity[])
 		expect(planDisplayList(ix, 'L1', { scale: 100 }).filter((p) => p.src === 'X')).toHaveLength(5)
 	})
