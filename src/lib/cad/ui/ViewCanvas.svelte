@@ -424,6 +424,15 @@
 	function exitVp(): void { leaveVp(ws, sheet); tick++ }
 	/** A drag that pans the edited viewport's view (Pan / zoom content on): the viewport at the press, the gesture. */
 	let vpPan: { at: Pt; vp: Sheet['viewports'][number]; g: ReturnType<typeof project.store.begin> | null } | null = null
+	/** The viewport a right / middle drag pans with Pan / zoom content on: the edited one, else the selected one (alone, not
+	 *  locked) — when the press is inside it. */
+	function contentVpAt(e: PointerEvent): Sheet['viewports'][number] | undefined {
+		if (!sheet || !ws.vpContentNav) return undefined
+		const q = paperAt(e)
+		if (vpe) return inWindow(vpe, q) ? vpe.vp : undefined
+		const v = !ws.vpMore.length && ws.selection.includes(sheet.id) ? sheet.viewports.find((x) => x.id === ws.viewportId) : undefined
+		return v && !v.locked && q.x > v.rect.x && q.x < v.rect.x + v.rect.w && q.y > v.rect.y && q.y < v.rect.y + v.rect.h ? v : undefined
+	}
 
 	/** Click counting (a pointerdown's `detail` is always 0): ui/canvasInfo.ts. */
 	const TOUCH_DOUBLE_TAP_PX = 24
@@ -523,7 +532,13 @@
 		try { svg!.setPointerCapture(e.pointerId) } catch { /* a synthetic pointer (tests, automation) has none */ }
 		held = null
 		if (e.pointerType === 'touch' && touch.down(e.pointerId, local(e))) return
-		if (e.button === 1 || e.button === 2) { panning = { ...local(e), moved: false, button: e.button }; return }
+		if (e.button === 1 || e.button === 2) {
+			// Pan / zoom content on: a right / middle drag inside the edited or selected viewport pans ITS view, not the sheet
+			// (Dave 2026-10-15); a right click there is still a right click
+			const cv = contentVpAt(e)
+			if (cv) vpPan = { at: paperAt(e), vp: cv, g: null }
+			panning = { ...local(e), moved: false, button: e.button }; return
+		}
 		if (e.button !== 0) return
 		// picking a zoom window: the first press is one corner, the next press (or, in EOS, the release of a drag) the other
 		if (zwin) { const s = local(e); if (!zwin.a) zwin = { a: s, b: s }; else zoomTo(zwin.a, s); return }
@@ -565,8 +580,13 @@
 		if (e.pointerType === 'touch' && touch.move(e.pointerId, local(e))) return
 		if (panning) {
 			const s = local(e)
-			if (panning.moved || Math.hypot(s.x - panning.x, s.y - panning.y) > 3) { cam = panBy(cam, s.x - panning.x, s.y - panning.y); panning = { ...panning, ...s, moved: true } }
-			return
+			if (!vpPan) {
+				if (panning.moved || Math.hypot(s.x - panning.x, s.y - panning.y) > 3) { cam = panBy(cam, s.x - panning.x, s.y - panning.y); panning = { ...panning, ...s, moved: true } }
+				return
+			}
+			// the viewport's view (below), once the drag is more than a click
+			if (!panning.moved && Math.hypot(s.x - panning.x, s.y - panning.y) <= 3) return
+			if (!panning.moved) panning = { ...panning, moved: true }
 		}
 		if (vpPan && sheet) {
 			// pan the edited viewport's view by the drag (paper mm × its scale), one undo step
@@ -597,6 +617,7 @@
 		held = null
 		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
 		if (panning) {
+			if (vpPan) { if (panning.moved) vpPan.g?.commit(ws.selection); else vpPan.g?.rollback(); vpPan = null }
 			const click = !panning.moved && panning.button === 2
 			panning = null
 			// a right CLICK (no drag) = Esc (Dave): the first ends what's being drawn (a run with 2+ points is kept, a

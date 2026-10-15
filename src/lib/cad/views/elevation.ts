@@ -17,7 +17,7 @@ import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
 export const RU_MM = 44.45
-const LABEL = 1.8, DATUM_LABEL = 0.5, RACK_NAME = 0.9   // paper mm (datums and rack names as the rack view draws them at 1:100, Dave 2026-10-15)
+const LABEL = 1.8, DATUM_LABEL = 1.8, RACK_NAME = 2.5   // paper mm: printed at these sizes at any viewport scale (Dave 2026-10-15: 0.5 / 0.9 were tiny on a 1:10 sheet)
 /** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
 const FACEPLATE_MM = 86
 
