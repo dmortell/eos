@@ -56,3 +56,10 @@ describe('Help lists each key once', () => {
 		expect(dup(HOWTO.map((h) => h.q))).toEqual([])
 	})
 })
+
+describe('the walkthrough in two languages', () => {
+	it('the Japanese version has the same stages and the same number of steps in each', async () => {
+		const { WALKTHROUGH, WALKTHROUGH_JA } = await import('./helpContent')
+		expect(WALKTHROUGH_JA.map((s) => s.steps.length)).toEqual(WALKTHROUGH.map((s) => s.steps.length))
+	})
+})

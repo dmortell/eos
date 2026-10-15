@@ -3854,3 +3854,4 @@ Dave 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     answer. Seen live in Test Project's BOM: Back box (wall) 3, Floor box 55, tubing 2 m (1 desk outlet), 183 tests,
     366 cable / port labels.
 - **Desk tubing 2 m** (Dave 2026-10-15: height-adjustable desks are common): `DESK_TUBING_M` 1.5 → 2.
+- **Walkthrough EN / 日本語; not in Help** (Dave 2026-10-15): the Walkthrough window has an EN / 日本語 switch (`WALKTHROUGH_JA`, menu and button names left in English as on screen; the choice kept in this browser, `cad-walkthrough-lang`); a test keeps both versions the same shape. Help (F1) no longer carries the walkthrough — Help › Walkthrough only.

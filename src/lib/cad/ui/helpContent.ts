@@ -207,6 +207,59 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 	] },
 ]
 
+/** The walkthrough in Japanese (Dave 2026-10-15: an English / Japanese toggle). Menu and button names stay as the
+ *  screen shows them (English); keep the stages and steps in step with WALKTHROUGH. */
+export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
+	{ stage: '新規プロジェクト', steps: [
+		'Projects › New Project:コード、名前、クライアント、住所、ロゴ、メンバーを入力 → Save(cadで開きます)。',
+		'Set up floors…:最下階と最上階、名前のパターン(L{n}、GF)→ Apply、続けて各階の高さを入力。',
+		'Project › Settings…:Usages、Cable types、Sheets を確認(新規プロジェクトには既定値が入っています)。',
+	] },
+	{ stage: 'フロアプラン', steps: [
+		'Next: add floorplans →(または Project › Floors… › Plans & floorplans):各階の行で Upload…、または PDF をドロップ。',
+		'図面の縮尺を 1: に入力(100、用紙サイズが違う場合は「100 A1」)して Enter。',
+		'Set up each floor…:階ごとに Origin、次に Crop(下の階が赤で表示され、位置合わせを確認できます)。',
+		'改訂版が来たら:行の New revision… でキャリブレーションを引き継ぎ、Compare… で旧版を赤で重ねて表示。',
+	] },
+	{ stage: 'サーバー室とラック', steps: [
+		'プランで + Server room、次に Rack ツール:ラック1台につき1クリック(直前のラックの横をクリックすると隣接配置)。',
+		'ラックビューを開き、Device library から機器を U 位置へドラッグ(F4 で直前の機器編集を繰り返し)。',
+		'ACS、CCTV などのスイッチポート:ポートを選んで Reserve for…。',
+	] },
+	{ stage: 'アウトレット', steps: [
+		'Outlet ツール:ツールバーで用途、取付、ポート数、サーバー室を選び、アウトレットを順にクリック(ラベルは連番)。',
+		'デスク:1台のデスクにアウトレットを配置 → 他のデスクと一緒に選択 → 右クリック › Copy outlets onto the other desks。',
+		'一列に並べる:Array(Copy の隣)。ラベルは後から Renumber、または Find / replace。',
+	] },
+	{ stage: 'ケーブルラックとライザー', steps: [
+		'ラックから Trunk / Conduit ツール:経路をクリック、Enter で終了(R = 上げ / 下げ)。',
+		'V = 他の階へのライザー:その階のプランが開き、ライザーの上端から続けて描けます。',
+		'種類(トレイ / ラダー / トランク)とサイズは Properties で。View › Fill で各区間の占有率を表示。',
+		'ライザーを囲んで Room ツール = EPS(ライザービューに名前が表示されます)。',
+	] },
+	{ stage: '割り当てとパッチ', steps: [
+		'Outlets テーブル(Cabling › Tables)› ⋯ › Allocate this level:全アウトレットポートにサーバー室のパネルポートを割り当て。',
+		'ラックビュー:パネルの Properties › Select the ports not patched yet → P(パッチ先)→ 最初のスイッチポートを選択 → プレビュー → OK。',
+		'Re-patch… でコードをまとめて付け替え。File › Export › Patch schedule で施工者向けに出力。',
+	] },
+	{ stage: 'シート', steps: [
+		'Sheets › New sheet from this view(プランはフロアプランに合わせて 1:100 で配置)、続けてタイトルと番号。',
+		'Properties › A copy for each… › 階 / サーバー室:同じシートを他の階・部屋にも作成。',
+		'ビューを追加:ビューポートの枠をドラッグ(Viewport ツール)、またはビューの「Put this view on a sheet」。',
+		'図枠:Sheets › Title block…(Project details の内容を使用)。',
+	] },
+	{ stage: 'リリースとパッケージ', steps: [
+		'Sheets › Sheets table:シートを選択 → Release…:リリース名、目的、リビジョン、変更内容。With: で BOM / ケーブル / アウトレット表を同梱。',
+		'リリースの PDF(と Excel)は Uploads に保存。Releases 一覧からリンク、Make package で次回用にセットを保存。',
+		'後の変更:リビジョンクラウド(次のリビジョンでタグ付け)と変更内容を入れて、パッケージで再度 Release…。',
+		'シートの Properties › Show changes since C:そのリリース以降に動いたものをオレンジと赤で表示。',
+	] },
+	{ stage: '出力とバックアップ', steps: [
+		'File › Export:Bill of materials…(サーバー室ごと、ヘッダーにクライアントとリビジョン)、Cable schedule…、アウトレット表、パネルラベル、DXF、PDF。',
+		'大きな変更の前に Project › Backups… › Back up now。ディスクに保存するなら File › Download backup…。',
+	] },
+]
+
 /** The keyboard: from the shell's own list (ui/shellKeys.ts KEY_COMMANDS — what Help shows is what the keys do), plus
  *  the mouse and the keys tools take while drawing. */
 const MOUSE: [string, string][] = [
