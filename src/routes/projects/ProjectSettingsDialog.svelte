@@ -304,7 +304,7 @@
 				<div class="text-xs text-gray-700">Address</div>
 				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftAddress} placeholder="Site / project address" />
 			</div>
-t		<div>
+			<div>
 				<div class="text-xs text-gray-700">Building</div>
 				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftBuilding} placeholder="e.g. building1 — the title block's {'{'}BUILDING{'}'}" />
 			</div>

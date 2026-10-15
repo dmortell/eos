@@ -49,8 +49,17 @@ Example — Project Tourney: building1 (12F, 30F, 33F with areas 3303 / 3307), b
    buildings, which open in place (no trip back to the Projects page). Ctrl+K / Open Project search the group.
 9. **The legacy tools** (frames, racks, outlets, Pages) use the same `projects/{pid}`, so they see buildings as
    projects too. Their project pickers should show "Name – Building" the same way (one helper: `projectTitle(p)`).
-10. **Deleting a building:** the project's normal soft delete; the group doc goes when its last building does.
-    Moving a project into or out of a group: Projects page › Group with… / Ungroup.
+10. **Delete, ungroup, move (User 2026-10-16: "a way to delete buildings, and ungroup a building from a project or
+    transfer it out of the current project"):** on the Projects page, each building's menu:
+    - **Delete building:** the project's normal soft delete (restorable from Archived). The group doc goes when its
+      last building does. Deleting the last building deletes the project as today.
+    - **Ungroup:** the building becomes a project of its own. Its `name` becomes "Group – Building" (editable), and
+      `masterId` / `buildingName` are cleared (`buildingName` can stay for {BUILDING}).
+    - **Move to another project…:** set `masterId` to the other group. Its settings stay its own until "Copy settings
+      from…".
+    - **Group with…:** a standalone project joins a group (or two standalone projects form a new one).
+    - A building's data never moves, since only `masterId` changes, so all three are safe and reversible. Members
+      are kept; the group's member union is recomputed.
 11. **Tourney today is one project holding building1** (its floors are in cad), with building2's 10F only in the
     legacy `projects.floors` (the import dropped it). Migration:
     - group the project as "Project Tourney – building1";
@@ -66,7 +75,8 @@ Example — Project Tourney: building1 (12F, 30F, 33F with areas 3303 / 3307), b
    - `masterId` / `buildingName` / `projectGroups`.
    - `projectTitle(p)` everywhere a project is named: the Projects page, Open Project, the recent list, the title bar.
    - The Projects page list grouped.
-   - Add building (copies settings and members), rename group, Group with… / Ungroup.
+   - Add building (copies settings and members), rename group, and each building's Delete / Ungroup / Move to another
+     project… / Group with… (item 10).
    - A Firestore rule for `projectGroups`.
 2. **Tourney migration (S):** as item 11.
 3. **In cad (S):** the title bar's building switcher; Copy settings from…; external links (item 4).
