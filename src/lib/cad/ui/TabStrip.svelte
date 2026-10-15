@@ -35,7 +35,7 @@
 </script>
 
 <div class="tabbar">
-	<div class="strip" bind:this={strip} role="tablist" onwheel={(e) => { if (strip && Math.abs(e.deltaY) > Math.abs(e.deltaX)) strip.scrollLeft -= e.deltaY }}>
+	<div class="strip" bind:this={strip} role="tablist" onwheel={(e) => { if (strip && Math.abs(e.deltaY) > Math.abs(e.deltaX)) strip.scrollLeft += e.deltaY }}>
 		{#each tabs.list as t (t.id)}
 			{@const pane = tabs.paneTab.slice(0, panes).indexOf(t.id)}
 			<div class="tab" class:on={tabs.paneTab[activePane] === t.id} class:shown={pane >= 0} class:preview={t.preview} data-tab={t.id} role="tab" tabindex="-1"
