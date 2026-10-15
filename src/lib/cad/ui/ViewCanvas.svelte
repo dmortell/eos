@@ -30,6 +30,7 @@
 	import { similarTo } from '../domain/similar'
 	import { pickAt } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
+	import { transformItems } from '../editor/transformTool'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
 	import { guideSnap } from '../domain/guides'
@@ -296,6 +297,19 @@
 		else zoomExtents()
 	}
 
+	/** R / Shift+R and the ↻ ↺ buttons (Dave 2026-10-15): the selection turned 90° right (clockwise as seen) or left, about
+	 *  the middle of what this view draws of it — one undo step, as the Rotate tool (runs ending on it follow). Null = done,
+	 *  else why not. */
+	export function turn90(dir: 1 | -1): string | null {
+		if (!toolWorksIn('rotate', toolKind)) return 'Turning works on a plan or a sheet'
+		const ids = [...ws.selection], sel = new Set(ids)
+		const b = unionBounds((vpe ? vpe.prims : prims).filter((p) => p.src && sel.has(p.src)).map(primBounds))
+		if (!ids.length || !b) return 'Select what to turn in this view first'
+		// view y runs down, so +90 turns clockwise as seen
+		transformItems(project.store, ids, { kind: 'rotate', c: { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }, deg: 90 * dir }, `Turn 90° ${dir > 0 ? 'right' : 'left'}`)
+		tick++
+		return null
+	}
 	/** Zoom to the selection (UX review V3; Shift+Home): what this view draws of it, with a margin. False = none here. */
 	export function zoomToSelection(): boolean {
 		const sel = new Set(ws.selection), src = vpe ? onPaper(vpe.prims, vpe.vp) : prims

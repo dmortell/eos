@@ -369,7 +369,7 @@ export interface ProjectSettings {
 	fileNamePattern?: string
 	/** A font embedded in this project's PDFs for the text the standard fonts can't show (Settings › Files, Dave 2026-10-15):
 	 *  Japanese / Korean as real, selectable text; absent = drawn as pictures. app/pdfFonts.ts loads it. */
-	pdfFont?: 'ja' | 'ja-noto' | 'ko'
+	pdfFont?: 'ja' | 'ko'
 	/** What the Rack / Trunk / Conduit / Wall / Box / Text tools start with: Properties › Use as default
 	 *  (domain/toolDefaults.ts). */
 	toolDefaults?: import('./toolDefaults').ToolDefaults

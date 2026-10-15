@@ -36,6 +36,8 @@ export interface ShellKeyCtx {
 	openProject(): void
 	/** Ctrl+P (Dave 2026-10-15): the open sheet as a PDF — else every sheet; the browser's own print never runs. */
 	print(): void
+	/** R / Shift+R: the selection turned 90° right / left (Dave 2026-10-15). */
+	turn90(dir: 1 | -1): void
 	/** F in a rack view: the other face (front ↔ rear); false = not a rack view. */
 	flipFace(): boolean
 }
@@ -55,7 +57,7 @@ export const KEYS = {
 	del: 'Delete', delAlt: 'Backspace', selectAll: 'Ctrl+A', group: 'Ctrl+G', ungroup: 'Ctrl+Shift+G',
 	toFront: 'Ctrl+Shift+]', forward: 'Ctrl+]', backward: 'Ctrl+[', toBack: 'Ctrl+Shift+[',
 	editLabel: 'F2', repeatDevice: 'F4', help: 'F1', keys: '?', osnap: 'F3', grid: 'F7', snap: 'F9',
-	find: 'Ctrl+K', openProject: 'Ctrl+O', print: 'Ctrl+P', hideAll: 'Ctrl+.', tables: 'Ctrl+,',
+	find: 'Ctrl+K', openProject: 'Ctrl+O', print: 'Ctrl+P', turnRight: 'R', turnLeft: 'Shift+R', hideAll: 'Ctrl+.', tables: 'Ctrl+,',
 	closeTab: 'Alt+W', nextTab: 'Alt+PgDn', prevTab: 'Alt+PgUp', tabN: 'Alt+1…9', backView: 'Alt+←', fwdView: 'Alt+→',
 	fit: 'Home', zoomSel: 'Shift+Home', zoomExt: 'Z E', zoomWin: 'Z W', zoomPrev: 'Z P', page: 'PgUp / PgDn', esc: 'Esc', flip: 'F', patch: 'P', link: 'L',
 } as const
@@ -97,6 +99,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 		run: (e, c) => { pd(e); c.ws.patchDevice(c.project.index.get(c.ws.selection[0]) as Device) } },
 	{ label: 'Link the selected panel ports to… (then click the first port on the other panel)', keys: KEYS.link, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'l' && !!c.ws.portSel && isPanel(c, c.ws.portSel.on), run: (e, c) => { pd(e); c.ws.interconnectFrom(c.ws.portSel!) } },
 	{ label: 'Rack view: the other face (front ↔ rear)', keys: KEYS.flip, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && !e.shiftKey && k === 'f' && c.flipFace(), run: (e) => pd(e) },
+	{ label: 'Turn the selection 90° right (clockwise) / left', keys: `${KEYS.turnRight} / ${KEYS.turnLeft}`, group: 'Edit', when: (e, c, k, mod) => !mod && !e.altKey && k === 'r' && c.ws.toolId === 'select' && c.ws.selection.length > 0, run: (e, c) => { pd(e); c.turn90(e.shiftKey ? -1 : 1) } },
 	{ label: 'Help', keys: KEYS.help, group: 'Function keys', when: (e) => e.key === 'F1', run: (e, c) => { pd(e); c.help(false) } },
 	{ label: 'Find a level, view, sheet, room, rack, device, outlet', keys: KEYS.find, group: 'View', when: (_e, _c, k, mod) => mod && k === 'k', run: (e, c) => { pd(e); c.layout.open('navigator'); c.ws.navSearch++ } },
 	{ label: 'Open another project', keys: KEYS.openProject, group: 'View', when: (_e, _c, k, mod) => mod && k === 'o', run: (e, c) => { pd(e); c.openProject() } },

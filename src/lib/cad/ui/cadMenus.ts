@@ -42,6 +42,8 @@ export interface MenuCtx {
 	undo(): void; redo(): void; canUndo: boolean; canRedo: boolean
 	copy(): void; cut(): void; paste(): void
 	remove(): void; hasSelection: boolean
+	/** R / Shift+R: the selection turned 90° (Dave 2026-10-15). */
+	turn90(dir: 1 | -1): void
 	selectAll(): void; selectSimilar(): void
 	group(): void; ungroup(): void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void
@@ -174,6 +176,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			tool('move', 'Move'), tool('copy', 'Copy'),
 			{ label: 'Array', disabled: !c.toolOk('array') || !c.hasSelection, title: 'Copies of the selection in a line, a step apart: type how many, click the base point and the step · copied outlets are numbered on', run: () => c.tool('array') },
 			{ label: 'Rotate', disabled: !c.toolOk('rotate') || !c.hasSelection, title: c.toolOk('rotate') ? 'Turn the selection about a point you click: by a second point’s angle, or typed degrees (anticlockwise) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('rotate') },
+			{ label: 'Turn 90° right', key: KEYS.turnRight, disabled: !c.toolOk('rotate') || !c.hasSelection, run: () => c.turn90(1) },
+			{ label: 'Turn 90° left', key: KEYS.turnLeft, disabled: !c.toolOk('rotate') || !c.hasSelection, run: () => c.turn90(-1) },
 			{ label: 'Mirror', disabled: !c.toolOk('mirror') || !c.hasSelection, title: c.toolOk('mirror') ? 'Mirror the selection in a line you click (two points) · Ctrl-click keeps the originals' : 'Works in plans and sheets', run: () => c.tool('mirror') },
 			'-',
 			{ label: 'Format painter', disabled: !c.toolOk('match'), title: 'Copy the selected shape’s layer and look (color, fill, line type, lineweight, text size) onto the shapes you click', run: () => c.tool('match') },
@@ -242,6 +246,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 /** The right-click menu on the selection (UX21): its commands, with their keys. */
 export function selectionMenu(sel: (Entity | undefined)[], c: {
 	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void; match(): void
+	turn90?: (dir: 1 | -1) => void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
 	/** Outlets and desks (blocks) selected: copy the outlets on one desk onto the others (W13). */
 	desks?: () => void
@@ -258,6 +263,7 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 		{ label: 'Cut', key: KEYS.cut, run: () => document.execCommand('cut') },
 		{ label: 'Copy', key: KEYS.copy, run: () => document.execCommand('copy') },
 		{ label: 'Delete', key: KEYS.del, run: c.remove },
+		...(c.turn90 && shapes.length + sel.filter((x) => x?.type === 'rack' || x?.type === 'outlet').length ? [{ label: 'Turn 90° right', key: KEYS.turnRight, run: () => c.turn90!(1) } as MenuItem, { label: 'Turn 90° left', key: KEYS.turnLeft, run: () => c.turn90!(-1) } as MenuItem] : []),
 		'-',
 		{ label: 'Select similar', run: c.similar },
 		...(c.desks && sel.some((x) => x?.type === 'outlet') && sel.filter((x) => x?.type === 'shape' && x.geom.kind === 'insert').length >= 2

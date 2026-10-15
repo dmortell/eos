@@ -469,6 +469,8 @@
 		else ws.say('No sheets yet — Drawings › New sheet')
 	}
 	const printPdf = () => printWhat(openSheetId ? 'this' : 'view')
+	/** R / Shift+R, the ↻ ↺ buttons, Modify and the right-click menu (Dave 2026-10-15): the selection turned 90°. */
+	const turn90 = (dir: 1 | -1) => { const why = canvas?.turn90(dir); if (why) ws.say(why) }
 	const printItems = $derived<MenuItem[]>(openSheetId
 		? [{ label: 'This sheet', key: KEYS.print, run: () => printWhat('this') }, { label: `All sheets (${sheetsAll.length})`, run: () => printWhat('all') }]
 		: [{ label: 'Whole view (A3)', key: KEYS.print, run: () => printWhat('view') }, { label: 'On screen (A3)', run: () => printWhat('screen') }, '-', { label: `All sheets (${sheetsAll.length})`, disabled: !sheetsAll.length, run: () => printWhat('all') }])
@@ -486,7 +488,7 @@
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
 		paste: () => { navigator.clipboard.readText().then((t) => { if (!clipboard.pasteText(t)) ws.say('Nothing to paste — copy items (Ctrl+C) or text from another app first') }, () => ws.say('The browser didn’t let the page read the clipboard — use Ctrl+V')) },
-		remove: deleteSelected, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
+		remove: deleteSelected, turn90, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
 		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
 		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), zoomSel, split: panes.length === 2, toggleSplit,
@@ -505,7 +507,7 @@
 
 	/** The right-click menu on the selection (UX21): its commands, with their keys. */
 	const contextItems = $derived(ws.contextMenu ? selectionMenu(ws.selection.map((id) => project.index.get(id)), {
-		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(), match: () => setTool('match'),
+		editLabel: (id) => ws.editText(id), remove: deleteSelected, similar: () => canvas?.selectSimilar(), match: () => setTool('match'), turn90,
 		group: groupKey, order: orderKey, properties: () => layout.open('properties'),
 		ports: portActions(), desks: outletsOntoDesksCmd,
 	}) : [])
@@ -578,7 +580,7 @@
 	const onKey = (e: KeyboardEvent) => shellKey(e, {
 		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
-		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true), print: printPdf,
+		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true), print: printPdf, turn90,
 		flipFace: () => {
 			const s = panes[activePane]
 			if (s.kind !== 'row') return false
@@ -708,6 +710,8 @@
 		<button class="ib" disabled={!project.canRedo} onclick={() => showHistory(project.redo())} title="Redo ({KEYS.redo}) — selects what it changed (on its level)"><Icon name="redo" size={15} /></button>
 		<button class="ib" disabled={!openSheetId && panes[activePane]?.kind === 'sheet'} onclick={printPdf} title={openSheetId ? `Print: this sheet as a PDF in a new browser tab (${KEYS.print}) — ▾ for all sheets` : `Print: this whole view on A3 as a PDF in a new browser tab (${KEYS.print}) — ▾ for what's on screen, or all sheets`}><Icon name="print" size={15} /></button>
 		<button class="ib caret" aria-label="Print options" title="Print: this sheet / whole view / on screen / all sheets" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); printMenu = { x: r.left, y: r.bottom } }}>▾</button>
+		<button class="ib" disabled={!ws.selection.length} onclick={() => turn90(-1)} title="Turn the selection 90° left (Shift+R)"><Icon name="rotateLeft" size={15} /></button>
+		<button class="ib" disabled={!ws.selection.length} onclick={() => turn90(1)} title="Turn the selection 90° right (R)"><Icon name="rotateRight" size={15} /></button>
 		<button class="ib" disabled={!ws.selection.length && !ws.portSel && !ws.openingSel} onclick={deleteSelected} title="Delete the selection (Delete key) — asks first when more goes with it; Undo brings it back"><Icon name="trash" size={15} /></button>
 		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		<button class="ib {panes.length === 2 ? 'on' : ''}" onclick={toggleSplit} title="Two views side by side (plan + elevation, or two levels) — each pane has its own view and level"><Icon name="columns" size={15} /></button>

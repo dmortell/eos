@@ -106,15 +106,7 @@ export class TransformTool implements Tool {
 			c.store.transact(n === 1 ? `${verb} a copy` : `${verb} copies of ${n} items`, (tx) => { for (const x of r.put) tx.put(applyXf(x, xf, get)) })
 			c.select(r.select)
 		} else {
-			c.store.transact(n === 1 ? verb : `${verb} ${n} items`, (tx) => {
-				const was = ids.map((id) => tx.get(id))
-				for (const id of ids) {
-					const en = tx.get(id)
-					if (en) tx.put(applyXf(en, xf, (x) => tx.get(x)))
-				}
-				for (const sh of followAttachedMap(c.store.ofType('shape') as Shape[], new Set(ids), xfPt(xf))) tx.put(sh)   // runs ending on them follow
-				followSections(tx, was, c.store.ofType('shape'), new Set(ids))   // notes on a turned section's plane go with it
-			})
+			transformItems(c.store, ids, xf, n === 1 ? verb : `${verb} ${n} items`)
 			c.select(ids)
 		}
 		this.cancel()
@@ -163,4 +155,18 @@ export class TransformTool implements Tool {
 		const turn = xf.kind === 'rotate' ? (r: number) => r + xf.deg : (r: number) => 2 * lineDeg(xf.a, xf.b) - r
 		return [...band, ...c.prims().filter((p) => p.src && ids.has(p.src)).map((p) => ghost(p, P, turn, xf.kind === 'mirror'))]
 	}
+}
+
+/** Turn / mirror items in one undo step: runs ending on them follow, notes on a turned section's plane go with it. The
+ *  Rotate / Mirror tools and the quick 90° turn (R / Shift+R, Dave 2026-10-15) share it. */
+export function transformItems(store: ToolCtx['store'], ids: Id[], xf: Xf, label: string): void {
+	store.transact(label, (tx) => {
+		const was = ids.map((id) => tx.get(id))
+		for (const id of ids) {
+			const en = tx.get(id)
+			if (en) tx.put(applyXf(en, xf, (x) => tx.get(x)))
+		}
+		for (const sh of followAttachedMap(store.ofType('shape') as Shape[], new Set(ids), xfPt(xf))) tx.put(sh)   // runs ending on them follow
+		followSections(tx, was, store.ofType('shape'), new Set(ids))   // notes on a turned section's plane go with it
+	})
 }
