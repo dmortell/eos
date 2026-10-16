@@ -24,7 +24,12 @@ const DONE: Record<CordAction, (n: number) => string> = {
 
 /** The actions that do something to these cords, with how many each touches. */
 export function cordActionsFor(cords: Cord[]): { a: CordAction; label: string; title: string; n: number }[] {
-	return ACTIONS.map((x) => { const r = cordAction(cords, x.a); return { ...x, n: r.put.length + r.del.length } }).filter((x) => x.n > 0)
+	return ACTIONS.map((x) => {
+		const r = cordAction(cords, x.a)
+		// only removals picked: "Removed on site", as Properties says (Round 8: "Installed" on a REMOVE row read wrong)
+		const out = x.a === 'installed' && !r.put.length && r.del.length ? { ...x, label: 'Removed on site' } : x
+		return { ...out, n: r.put.length + r.del.length }
+	}).filter((x) => x.n > 0)
 }
 
 export function runCordAction(project: CadProject, ws: Workspace, cords: Cord[], a: CordAction): void {

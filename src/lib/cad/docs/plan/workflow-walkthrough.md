@@ -704,3 +704,15 @@ released S001 in the Sheets table → Archive instead → Archived 1 → Restore
    noted only (the placeholder says "e.g. Tender release 1").
 Good: the release bar (a revision and "what changed" per sheet), the register's links to each release's PDF, Make
 package naming the package after the release, Archive / Restore.
+
+### 8.3 Changes on site
+
+Patching table: four cords Installed (row menu, then a range); Re-patch… one installed cord to SW1:20 → CHANGE (↶,
+"Was …" in Properties); Remove on another installed one → REMOVE (struck through); Patch schedule · cord BOM (counts by
+status, "changes only"); Properties › Removed on site → its record goes.
+
+**Found:**
+9. With only REMOVE cords picked, the table's button and row menu said "Installed (1)" (it does take them out) while
+   Properties says "Removed on site". → "Removed on site (1)" there too — built (`cordActions`).
+Good: the status chips with counts, Re-patch in a dialog, the strike-through for removals, Revert in Properties, the
+cord BOM by status.
