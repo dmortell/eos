@@ -4,6 +4,7 @@ import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { RoomTool, riserInside, serverRoomInside } from './roomTool'
+import { roomParts } from './commands'
 import { spaceOf, PLAN } from '../views/space'
 import { planDisplayList } from '../views/plan'
 import { defaultLayer } from '../domain/layers'
@@ -76,5 +77,18 @@ describe('a room drawn round a server room’s racks (R7-28)', () => {
 		expect(serverRoomInside({ index: ix, levelId: 'L33' }, poly.map((p) => ({ x: p.x + 1e6, y: p.y })))).toBeUndefined()   // racks outside
 		const outlined = new ProjectIndex([...demoProject(), { ...sr, boundary: poly } as Entity, rack('RX1', 90000)])
 		expect(serverRoomInside({ index: outlined, levelId: 'L33' }, poly)).toBeUndefined()                                 // it has one already
+	})
+})
+
+describe('what goes with a deleted room', () => {
+	it('its rows, racks and room elevations (roomParts)', () => {
+		const store = new EntityStore()
+		const sr = { type: 'space', id: 'SRX', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9, boundary: [{ x: 0, y: 0 }, { x: 3000, y: 0 }, { x: 3000, y: 2000 }, { x: 0, y: 2000 }] } as Entity
+		const row = { type: 'rackRow', id: 'RW', spaceId: 'SRX', name: 'A' } as unknown as Entity
+		const rack = { type: 'rack', id: 'RX1', levelId: 'L33', spaceId: 'SRX', name: 'RX1', at: { x: 1000, y: 1000 }, widthMm: 600, depthMm: 1000, heightU: 42 } as unknown as Entity
+		const elev = { type: 'section', id: 'SA', levelId: 'L33', name: 'IDF 9 A', a: { x: 0, y: 1000 }, b: { x: 3000, y: 1000 }, depth: 1000, roomElev: { roomId: 'SRX', side: 'A' } } as unknown as Entity
+		const cut = { type: 'section', id: 'SC', levelId: 'L33', name: 'A', a: { x: 0, y: 1000 }, b: { x: 3000, y: 1000 }, depth: 1000 } as unknown as Entity
+		store.load([...demoProject(), sr, row, rack, elev, cut])
+		expect(roomParts(store, 'SRX').sort()).toEqual(['RW', 'RX1', 'SA'])   // a plain cut line is not the room's
 	})
 })

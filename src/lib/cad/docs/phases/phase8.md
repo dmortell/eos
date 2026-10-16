@@ -4087,3 +4087,7 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     brings them back. An amber "Windows hidden · Show (Ctrl+.)" chip while Hide all windows is on.
   - The Room tool's name and the Rack tool's new server room name are asked in a dialog (`ToolCtx.askInDialog`), not
     the status bar.
+- **A room deleted among several picked items** (User 2026-10-16: "does deleting a room always leave sections behind?"):
+  the Navigator delete and a lone room's Delete already took its racks, rows and elevations; a Delete of a room with
+  other items took only the room. Now it takes the same (`roomParts`) and the viewports showing them come off. Test in
+  `editor/roomTool.test.ts`; live: a room + a line deleted, its four elevations went too.

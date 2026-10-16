@@ -277,6 +277,15 @@ export function impactText(i: DeleteImpact): string | null {
 	return parts.length ? parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : null
 }
 
+/** What goes with a deleted room: its rows, its racks (their devices, links and cords follow in deleteEntities) and its
+ *  room elevations. */
+export function roomParts(store: EntityStore, roomId: Id): Id[] {
+	return [
+		...store.all().filter((e) => e.type === 'rackRow' && e.spaceId === roomId).map((e) => e.id),
+		...store.ofType('rack').filter((k) => k.spaceId === roomId).map((k) => k.id),
+		...roomElevations(store, roomId),
+	]
+}
 /** A room's elevations (Section › Room elevations, A–D): the sections drawn for it. */
 export function roomElevations(store: EntityStore, roomId: Id): Id[] {
 	return store.ofType('section').filter((s) => s.roomElev?.roomId === roomId).map((s) => s.id)

@@ -3,13 +3,14 @@
 // and the Edit menu all call these.
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
-import { deleteEntities, deleteViewports, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, groupSelection, ungroupSelection } from '../editor/commands'
+import { deleteEntities, deleteViewports, deleteImpact, impactText, installedCordsGoing, sectionViewports, retargetSectionViewports, roomParts, roomViewportsOff, groupSelection, ungroupSelection } from '../editor/commands'
 import { deletePicked } from '../editor/pathSel'
 import { pieceRefs } from '../domain/pathEdit'
 import { reservePorts, reservationsOf, portRanges } from '../domain/ports'
 import { removeCord } from '../domain/cords'
 import { kindOf, countsText, selectionKinds } from '../ui/propsKit'
 import type { Entity, Sheet } from '../domain/drawing'
+import type { Txn } from '../store/store'
 import { reorderShapes } from '../domain/shapes'
 import { deleteRoom, deleteRow } from './navActions'
 
@@ -62,16 +63,20 @@ export function deleteSelected(project: CadProject, ws: Workspace): void {
 	if (lone?.type === 'space') { deleteRoom(project, ws, lone.id); return }
 	if (lone?.type === 'rackRow') { deleteRow(project, lone.id); ws.select([]); ws.say(UNDONE(`Deleted row ${lone.name} (its racks stay in the room)`)); return }
 	// a rack's devices, a device's links / cords, a sheet's viewports / notes go too: ask first, saying what
-	const ids = ws.selection, also = impactText(deleteImpact(project.store, ids))
+	// rooms among several picked items take what goes with them, as a room's own delete does (their racks, rows and
+	// room elevations; the viewports showing them come off) — they used to stay behind
+	const rooms = ws.selection.filter((id) => project.store.get(id)?.type === 'space')
+	const ids = [...new Set([...ws.selection, ...rooms.flatMap((r) => roomParts(project.store, r))])], also = impactText(deleteImpact(project.store, ids))
+	const roomsOff = (tx: Txn) => { for (const r of rooms) roomViewportsOff(project.store, r)(tx) }
 	// a section shown in viewports: keep them as plain elevations (same view direction), or take them off too
-	const shown = sectionViewports(project.store, ids)
+	const shown = rooms.length ? [] : sectionViewports(project.store, ids)
 	if (shown.length) {
 		const del = (keep: boolean) => () => { deleteEntities(project.store, ids, retargetSectionViewports(project.store, project.index, ids, keep)); ws.select([]) }
 		const where = [...new Set(shown.map((h) => h.sheet.number))].join(', ')
 		ws.ask2(`The section is shown in ${shown.length} viewport${shown.length === 1 ? '' : 's'} (${where})${also ? `; ${also} go too` : ''}.`, 'Delete, keep viewports as elevations', del(true), { label: 'Delete with its viewports', apply: del(false) })
 		return
 	}
-	const go = () => { deleteEntities(project.store, ids); ws.select([]) }
+	const go = () => { deleteEntities(project.store, ids, rooms.length ? roomsOff : undefined); ws.select([]) }
 	const items = ids.map((id) => project.store.get(id)).filter((e): e is Entity => !!e)
 	// W34: a RELEASED sheet (or one listed in a package) says so, and Archive (keeps its record) comes first
 	const released = items.filter((e): e is Sheet => e.type === 'sheet' && !!e.revisions?.length)
