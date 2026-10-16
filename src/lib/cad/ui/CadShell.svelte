@@ -29,7 +29,7 @@
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, isPaperSpec, isPaperKind, type ViewSpec } from '../views/space'
 	import type { CalibMode } from '../editor/calibrateTool'
-	import type { Level, Underlay } from '../domain/types'
+	import type { Level, Pt, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import CatalogueDialog from './CatalogueDialog.svelte'
 	import SettingsDialog, { type SettingsTab } from './SettingsDialog.svelte'
@@ -42,7 +42,7 @@
 	import Exports from './Exports.svelte'
 	import TablesPanel from './TablesPanel.svelte'
 	import TabStrip from './TabStrip.svelte'
-	import { Tabs, viewKey as viewKeyOf, type TabView } from '../app/tabs.svelte'
+	import { Tabs, levelBound, viewKey as viewKeyOf, type TabView } from '../app/tabs.svelte'
 	import type { NavNode } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
@@ -55,7 +55,7 @@
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf, type MenuItem } from './cadMenus'
-	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf } from '../app/navActions'
+	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, addServerRoom } from '../app/navActions'
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
 	import { longPress } from './longPress'
@@ -306,7 +306,8 @@
 			const gone = s.kind === 'sheet' ? !project.store.get(s.sheetId) : s.kind === 'section' ? !project.store.get(s.sectionId) : false
 			if (gone && project.loaded) untrack(() => setPane(i, PLAN))
 		})
-		if (project.loaded) untrack(() => tabs.prune((v) => exists(v.spec)))
+		// …and a tab of a floor whose model was deleted (User 2026-10-16: "(level gone) plan" tabs stayed)
+		if (project.loaded) untrack(() => tabs.prune((v) => exists(v.spec) && !(levelBound(v) && v.levelId && project.store.get(v.levelId)?.type !== 'level')))
 	})
 	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
 	 *  another floor's racks) goes to the level's plan (User: clicking a level with S001 open did nothing visible). */
@@ -526,7 +527,7 @@
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
 		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
-		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true),
+		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId),
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
@@ -624,10 +625,14 @@
 		calib: (u) => project.pdf.calib[`${u.fileId}#${u.page ?? 1}`],
 		write: (u, field, value, what) => {
 			const page = u.page ?? 1
-			const save = () => project.setPageCalib(u.fileId, page, field, value).then(
+			const key = `${u.fileId}#${page}`
+			// a new origin moves the floorplan on the plan: the view moves with it once it's redrawn (User 2026-10-16: the
+			// plan jumped a second after the click, and the crop's corners were then clicked in the wrong place)
+			const follow = (to: unknown) => { const c = project.pdf.calib[key]; if (field === 'origin' && c && to && typeof to === 'object') originFollow = { key, from: { ...c.origin }, to: to as Pt } }
+			const save = () => { follow(value); return project.setPageCalib(u.fileId, page, field, value).then(
 				(was) => ws.offerRevert(`${what} — saved in the floorplan's file (Uploads and every project using it).`, 'Undo',
-					() => void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Undone — the floorplan is as it was'), (e) => (project.error = `Couldn't undo it: ${(e as Error).message}`))),
-				(e) => (project.error = `Couldn't save the calibration: ${(e as Error).message}`))
+					() => { follow(was ?? { x: 0, y: 0 }); void project.setPageCalib(u.fileId, page, field, was).then(() => ws.say('Undone — the floorplan is as it was'), (e) => (project.error = `Couldn't undo it: ${(e as Error).message}`)) }),
+				(e) => (project.error = `Couldn't save the calibration: ${(e as Error).message}`)) }
 			// the calibration is the FILE's: another project using the same floorplan moves with it — ask first
 			project.fileProjects(u.fileId).then((pids) => {
 				const others = pids.filter((p) => p !== project.pid).length
@@ -636,6 +641,16 @@
 			}, () => void save())
 		},
 	}
+	/** A new origin waiting to be drawn: when the page is redrawn with it, the view pans by as much as the floorplan moved,
+	 *  so it stays where it was on screen. */
+	let originFollow = $state<{ key: string; from: Pt; to: Pt } | null>(null)
+	$effect(() => {
+		const f = originFollow
+		if (!f) return
+		const c = project.pdf.calib[f.key]
+		if (!c || c.origin.x !== f.to.x || c.origin.y !== f.to.y) return
+		untrack(() => { originFollow = null; canvas?.panModel(-(f.to.x - f.from.x) * c.sf, -(f.to.y - f.from.y) * c.sf) })
+	})
 	const CALIB_SAY: Record<CalibMode, string> = {
 		origin: 'Click the point on the floorplan that is 0, 0 (a grid corner, a column) — Esc stops',
 		scale: 'Click one end of a distance you know on the floorplan (a grid spacing, a dimension) — Esc stops',

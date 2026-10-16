@@ -31,7 +31,7 @@ export const HOWTO: HowTo[] = [
 	{ area: 'draw', q: 'Measure a distance (check a floorplan’s scale)', a: 'The Measure tool (the tools’ Measure button, or Draw › Measure a distance), in a plan, an elevation or a section: click two points — they snap to what’s drawn; Shift keeps 15° steps — and the distance shows beside the line and in the status line, with its X / Y parts (in an elevation: along / up). Nothing is drawn. Click again to measure again; Esc clears. To set a floorplan’s scale from a known length, use the Scale tool in Uploads (or Calibrate).' },
 	{ area: 'draw', q: 'Select several things', a: 'Ctrl-click or Shift-click adds / drops one (in a rack view Shift-click picks a range). Drag a box on empty space: left → right takes what it encloses, right → left what it touches; with Ctrl or Shift held it adds to the selection. Ctrl+A takes everything this view shows (in a table, with the table clicked: its shown rows); Edit › Select similar takes everything like the selection.' },
 	{ area: 'views', q: 'Find a level, view, sheet, room or rack', a: 'The Navigator window (Ctrl+K puts you in its search box): type part of a name — matching rows show with their parents, and the devices and outlets found under them (an outlet not placed yet opens its plan, selected; “N more” = type more to narrow it). ↑ / ↓ move the highlight, Enter opens it (Ctrl+Enter keeps its tab); the results stay after a click, so a double-click keeps the tab; Esc clears the search. A click opens the row’s view in the active pane; a rack opens its room’s rack view zoomed to it; a sheet unfolds to its viewports, and a click on one opens that view. A click on a name opens or selects it; only the ▸ (or a double-click on a group) folds a group open or shut — on a touch screen the ▸ is finger-sized. The open view’s row is marked. Under each level: its Plan, its sections, its server rooms and the rooms you drew (Room tool: EPS, AV, meeting rooms …; a click shows it on the plan) — no elevation rows (use a section, or the view strip’s Elevation switch; with an elevation open its level is marked).' },
-	{ area: 'project', q: 'Add or rename a server room or a row of racks', a: 'Window › Racks › + Server room: pick its Floor (the open one first) and type its name — Add room (Enter). In the same list, click a room’s or a row’s name to rename it there (Enter saves, Esc keeps it). Or select a rack: Properties › Room › New server room… or Row › New row… opens a name box under the field (the rack joins it; Enter adds, Esc cancels), and clicking the row’s name under the Row field renames it there. A room has its own Properties: click it in the Navigator, its Properties button in the Racks window, or a rack’s “Room … ›” link — name, code, its rows (+ Row, rename, ▲ ▼ order, containment, ✕), a summary (racks, panels, ports used / free, outlets it serves), Open rack view, Place racks on the plan and Delete room. A row clicked in the Navigator has its own too (name, containment, its racks). Renaming is done in the list, never in the status bar — the amber status bar asks only for a drawing command’s values, and for a name the drawing itself needs: the Rack tool’s new server room, a Leader’s text.' },
+	{ area: 'project', q: 'Add or rename a server room or a row of racks', a: 'Cabling › New server room… (or a floor’s right-click menu in the Navigator) names one on that floor; Window › Racks › + Server room: pick its Floor (the open one first) and type its name — Add room (Enter). In the same list, click a room’s or a row’s name to rename it there (Enter saves, Esc keeps it). Or select a rack: Properties › Room › New server room… or Row › New row… opens a name box under the field (the rack joins it; Enter adds, Esc cancels), and clicking the row’s name under the Row field renames it there. A room has its own Properties: click it in the Navigator, its Properties button in the Racks window, or a rack’s “Room … ›” link — name, code, its rows (+ Row, rename, ▲ ▼ order, containment, ✕), a summary (racks, panels, ports used / free, outlets it serves), Open rack view, Place racks on the plan and Delete room. A row clicked in the Navigator has its own too (name, containment, its racks). Renaming is done in the list, never in the status bar — the amber status bar asks only for a drawing command’s values, and for a name the drawing itself needs: the Rack tool’s new server room, a Leader’s text.' },
 	{ area: 'project', q: 'Delete a level, a server room or a section', a: 'In the Navigator, select the row and press F2 (or ⋮ › Rename…): its name turns into a box — type, Enter saves, Esc cancels; ⋮ › Delete… deletes it. A level goes with everything on it; a server room with its racks (and their devices, links, cords) — it asks first when more goes with it, and an empty level or room just goes (the status line says so). A section: click its row (or the cut line on the plan) and press Delete. Undo brings any of them back.' },
 	{ area: 'views', q: 'Go back to the view you were in', a: 'The ‹ › buttons at the left of each pane\'s strip, or Alt+← / Alt+→. Each pane keeps its own history.' },
 	{ area: 'sheets', q: 'Put a view on a sheet', a: 'In the view, "To sheet…" on its strip: a new sheet or one that\'s there (also Drawings › New sheet from this view), centred where you\'re looking at a scale that fits. A plan zoomed out to the whole floor goes on at 1:100 instead, filling the sheet\'s drawing area, centred on the floorplan\'s crop. Or on a sheet, the Viewport tool: drag a box — it shows the other pane\'s view (or the last one you looked at), scaled to fit.' },
@@ -168,7 +168,7 @@ export const HOWTO: HowTo[] = [
 export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 	{ stage: 'New project', steps: [
 		'Project › New project… (or New Project on the projects page): codes, name, client, address, logos, members → Save (it opens in cad).',
-		'Set up floors…: lowest and top floor, name pattern (L{n}, GF) → Apply, then each floor’s heights.',
+		'Set up floors…: lowest and top floor, name pattern (L{n}, GF), Tenant floors (e.g. 3-8, 12 — only they get a model) → Apply, then each floor’s heights.',
 		'Project › Settings…: check Usages, Cable types and Sheets (a new project starts with defaults).',
 		'Floors not in use: right-click › Delete level… — the building keeps them (riser view, heights); Floors › + model brings one back.',
 	] },
@@ -179,7 +179,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 		'A new revision later: New revision… on its row keeps the calibration; Compare… shows the old one in red under it.',
 	] },
 	{ stage: 'Server rooms and racks', steps: [
-		'+ Server room on the plan, then the Rack tool: one click per rack (a click beside the last one bays it).',
+		'Cabling › New server room… (or right-click the floor in the Navigator), then the Rack tool: one click per rack (a click beside the last one bays it).',
 		'More than one row of racks in a room: room Properties › Rows › + Row, then select each row’s racks › Properties › Row (the rack view shows one row at a time; e.g. name the views 33IDF2-Row A).',
 		'Open the rack view: drag devices from the Device library onto a U (F4 repeats the last device edit).',
 		'Switch ports for ACS, CCTV…: pick them, Reserve for….',
@@ -223,7 +223,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 	{ stage: '新規プロジェクト', steps: [
 		'Project › New project…(またはプロジェクト一覧の New Project):コード、名前、クライアント、住所、ロゴ、メンバーを入力 → Save(cadで開きます)。',
-		'Set up floors…:最下階と最上階、名前のパターン(L{n}、GF)→ Apply、続けて各階の高さを入力。',
+		'Set up floors…:最下階と最上階、名前のパターン(L{n}、GF)、Tenant floors(例 3-8, 12:その階だけモデルを作成)→ Apply、続けて各階の高さを入力。',
 		'Project › Settings…:Usages、Cable types、Sheets を確認(新規プロジェクトには既定値が入っています)。',
 		'使わない階:右クリック › Delete level…(建物には階として残り、ライザービューと高さはそのまま)。Floors › + model で戻せます。',
 	] },
@@ -234,7 +234,7 @@ export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 		'改訂版が来たら:行の New revision… でキャリブレーションを引き継ぎ、Compare… で旧版を赤で重ねて表示。',
 	] },
 	{ stage: 'サーバー室とラック', steps: [
-		'プランで + Server room、次に Rack ツール:ラック1台につき1クリック(直前のラックの横をクリックすると隣接配置)。',
+		'Cabling › New server room…(または Navigator で階を右クリック)、次に Rack ツール:ラック1台につき1クリック(直前のラックの横をクリックすると隣接配置)。',
 		'部屋にラックの列が複数ある場合:部屋の Properties › Rows › + Row で列を作り、各列のラックを選んで Properties › Row で割り当て(ラックビューは1列ずつ表示。例 33IDF2-Row A)。',
 		'ラックビューを開き、Device library から機器を U 位置へドラッグ(F4 で直前の機器編集を繰り返し)。',
 		'ACS、CCTV などのスイッチポート:ポートを選んで Reserve for…。',

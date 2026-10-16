@@ -1,6 +1,6 @@
 // The Floor manager's rules: a range with gaps, names from a pattern, elevations stacked from the heights.
 import { describe, it, expect } from 'vitest'
-import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, floorsWithoutLevel, DEFAULT_HEIGHTS, DEFAULT_NAMES, heightsOf, outletZ } from './floors'
+import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, floorsWithoutLevel, parseFloorList, DEFAULT_HEIGHTS, DEFAULT_NAMES, heightsOf, outletZ } from './floors'
 import { moveBy } from '../editor/behaviours'
 import type { Outlet } from './types'
 import type { Level } from './types'
@@ -127,5 +127,27 @@ describe('floors without a model (W33, User 2026-10-15)', () => {
 		let n = 0
 		const r = planFloors([lvl(1, 0), lvl(4, 11400)], { lowest: 1, top: 5, skip: [], names: DEFAULT_NAMES, buildingId: 'B', before: [1, 2, 3, 4] }, () => 0, () => `N${n++}`)
 		expect(r.add.map((l) => l.number)).toEqual([5])
+	})
+})
+
+describe('tenant floors (User 2026-10-16: "3-8, 12")', () => {
+	const h = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
+	const lvl = (n: number) => ({ type: 'level', id: `L${n}`, buildingId: 'B', number: n, name: `${n}F`, order: n, elevationMm: 0, heights: h }) as Level
+	it('reads ranges, single floors, basements and F suffixes', () => {
+		expect(parseFloorList('3-8, 12')).toEqual([3, 4, 5, 6, 7, 8, 12])
+		expect(parseFloorList('1 - 3 12F')).toEqual([1, 2, 3, 12])
+		expect(parseFloorList('B2, 1~2')).toEqual([-2, 1, 2])
+		expect(parseFloorList('-1, 3F-4F')).toEqual([-1, 3, 4])
+		expect(parseFloorList('  ')).toEqual([])
+		expect(parseFloorList('3, x')).toBeNull()
+	})
+	it('a 20-floor building with tenant floors 1–3: three models; empty others go; a deleted tenant floor comes back', () => {
+		let n = 0
+		const r = planFloors([], { lowest: 1, top: 20, skip: [], names: DEFAULT_NAMES, buildingId: 'B', models: [1, 2, 3] }, () => 0, () => `N${n++}`)
+		expect(r.add.map((l) => l.number)).toEqual([1, 2, 3])
+		const s = planFloors([lvl(1), lvl(5), lvl(9)], { lowest: 1, top: 20, skip: [], names: DEFAULT_NAMES, buildingId: 'B', before: [1, 2, 3, 5, 9], models: [1, 2, 3] }, (id) => (id === 'L9' ? 4 : 0), () => `N${n++}`)
+		expect(s.add.map((l) => l.number)).toEqual([2, 3])
+		expect(s.remove.map((l) => l.number)).toEqual([5])
+		expect(s.keep.map((l) => l.number)).toEqual([9])   // has content: kept, reported
 	})
 })

@@ -67,7 +67,7 @@ export interface MenuCtx {
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
 	/** The Sheets table on one of its views, or a release of the picked sheets started (Drawings menu). */
 	sheetsTab(which: 'register' | 'packages' | 'issues' | 'release'): void
-	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void
+	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void; serverRoom(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	/** Draw › Image…: pick the picture, then the Image tool. */
@@ -194,7 +194,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			tool('legend', 'Legend'), tool('insert', 'Block…'),
 		] },
 		{ label: 'Cabling', items: [
-			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'),
+			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), { label: 'New server room…', title: 'A server room on the open floor — racks belong to one; then the Rack tool draws its racks', run: c.serverRoom }, tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'),
 			'-',
 			{ label: 'Tables', children: [
 				{ label: 'Outlets', run: () => c.openTable('outlets') },

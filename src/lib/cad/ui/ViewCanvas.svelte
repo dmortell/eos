@@ -9,7 +9,7 @@
 	import { toolWorksIn, ANNOTATION_TOOLS, type Workspace } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn, PortSel } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
-	import type { Pt } from '../domain/types'
+	import type { Pt, Underlay } from '../domain/types'
 	import type { InsertLink } from '../domain/links'
 	import { TOL_PX } from '../editor/tools'
 	import { planDisplayList } from '../views/plan'
@@ -115,8 +115,11 @@
 	})
 	const work = $derived.by((): WorkPlane => ({ z: ws.opts.z, depth: ws.depth ?? depthAt(spec.kind === 'plan' ? other : spec) }))
 	function depthAt(s?: ViewSpec): number { return s && s.kind === 'elevation' ? spaceOf(s).depthOf({ ...centre, z: 0 }) : 0 }
+	/** The floorplans on the plan — the one being cropped whole (User 2026-10-16: re-cropping showed only the old crop, so
+	 *  no corner outside it could be picked). */
+	const planUnderlay = (u: Underlay) => { const p = project.pdf.placement(u), t = ws.calibTarget; return p && t?.mode === 'crop' && t.underlay.id === u.id ? { ...p, clip: undefined } : p }
 	const drawn = $derived(spec.kind === 'plan'
-		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: project.pdf.placement, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage, compare: ws.compareOn ? ws.compareFile : undefined })
+		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: planUnderlay, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage, compare: ws.compareOn ? ws.compareFile : undefined })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec, { cords: ws.screen.cordChannels ? 'channels' : 'straight' })
 			: spec.kind === 'sheet'
@@ -329,6 +332,8 @@
 		if (next) cam = next
 		return true
 	}
+	/** Move the view by (dx, dy) model mm, the zoom kept (CadShell: the view follows a floorplan whose origin changed). */
+	export function panModel(dx: number, dy: number): void { cam = { ...cam, x: cam.x - dx * cam.k, y: cam.y - dy * cam.k } }
 	export function zoomExtents(): void {
 		const b = contentBounds(prims)
 		if (b) cam = fit(b, w, h)

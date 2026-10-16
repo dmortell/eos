@@ -3997,3 +3997,18 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   (`multi-building-plan.md`), the review of the other `askText` prompts, Three bands and W8 (`later.md`).
 - **Keep is the primary button** (User 2026-10-16): the "done — Undo / Keep" bar (a floorplan's scale, origin, crop …)
   shows Keep in the primary color and Undo plain, on the canvas (`AskBox`) and in Project settings (`SettingsDialog`).
+- **Walkthrough Round 7 fixes** (User 2026-10-16: "fix 2, 5, 8, 9 and 6"; tenant floors asked the same day):
+  - **Tenant floors** (Floors & heights): after the range, "Tenant floors" takes "3-8, 12" (B1 / -1 basements, F
+    suffix, spaces or commas; `domain/floors.ts` `parseFloorList`). Apply (or Enter) makes models only for those floors,
+    brings back a deleted one, and removes the empty models of the others (`planFloors` `models`); ones with content are
+    kept and named. Saved as `building.floors.tenant`. Live: 20 floors, "1-3, 5" added 5F, "1-3" removed it again.
+  - **No layout shift** (2): the Undo / Keep bar in Project settings floats over the foot of the list instead of
+    pushing every row down; the "No model: + nF model" list sits under the buttons, so adding models never moves them.
+  - **The view follows a new origin** (5): when the floorplan is redrawn with its new origin (or the Undo), the view
+    pans by as much as it moved (`CadShell` `originFollow`, `ViewCanvas.panModel`) — no jump under the cursor. Live: an
+    origin at B/02 and its Undo left the plan where it was on screen.
+  - **Re-cropping** (6): while Crop runs, that floorplan shows its whole page (the old crop off), so corners outside it
+    can be picked; ✕ beside Crop removes a crop (Undo / Keep after).
+  - **New server room…** (8): in Cabling and in a floor's right-click menu in the Navigator (a name dialog, the next
+    free name offered; `navActions.addServerRoom`) — it was only in Window › Racks. Walkthrough and Help say so.
+  - **Tabs of a deleted floor close** (9): the "(level gone) plan" tabs are pruned like a deleted sheet's.

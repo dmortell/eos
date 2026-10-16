@@ -549,3 +549,32 @@ Left where they already are:
 - B35: room elevations (`later.md`);
 - B31: automatic backups;
 - B58: export file names (User's todo).
+
+## Round 7: a 20-floor building, the client on 1–3 (live, 2026-10-16, in progress)
+
+User: "re-run the walkthru (clear the project, keep the PDF floorplans, reset origins and scales / crops) and look for
+UX improvements, in particular how hard it is to find tools / buttons without switching focus between menus,
+Properties, toolbar, status bar". The project was backed up first (Project › Backups…), then cleared; the floorplans'
+origin / scale / crop were reset. Three outlet plans only, so the GF plan stands in for 3F.
+
+| Stage | What it took | Actions |
+|---|---|---|
+| Floors | Top 20 → Apply (20 models) → Remove empty floor models (19) → + 2F model, + 3F model | ~7 |
+| Floorplans | pick 3 PDFs; type 100 + Enter + Keep on each; Set up each floor (origin, 2 crop corners × 3) | ~25 |
+
+**Found (R7-n) and what was done:**
+1. No direct "the client uses 1–3": the chips mean "the floor exists". → **Tenant floors** field ("3-8, 12"), built.
+2. Layout shifts made clicks miss: the Undo / Keep bar pushed the Plans list down; the No-model list moved the buttons.
+   → bar floats at the foot; list under the buttons — built.
+3. The same 1:100 typed for each floorplan (a "same for all" would save it) — open.
+4. Set up each floor's steps are only in the status bar (bottom left) while the eye is on the drawing and the Undo /
+   Keep bubble (top) — open: show the step in the bubble.
+5. The plan jumped about a second after Origin (the redraw), so crop corners clicked quickly landed in the wrong place.
+   → the view follows the floorplan — built.
+6. Re-cropping showed only the old crop, Fit fitted it, and there was no way to remove a crop. → whole page while
+   cropping, ✕ removes a crop — built.
+7. "Hide all windows" can leave no panels with no hint why; the two unlabeled layout icons (top right) were tried first
+   — open.
+8. "+ Server room" only in Window › Racks (not open at first). → Cabling › New server room… and the floor's menu in the
+   Navigator — built.
+9. "(level gone) plan" tabs stayed after their floor went. → closed — built.

@@ -3,6 +3,7 @@
 import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
+import { newServerRoom, nextRoomName } from '../domain/devices'
 import { deleteEntities, levelContents, levelRisers, withoutLevelNodes, contentsText, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
@@ -76,4 +77,23 @@ export function deleteRow(project: CadProject, id: string): void {
 		for (const k of racks) tx.put({ ...k, rowId: undefined })
 		if (room?.type === 'space' && room.rackOrder?.[id]) { const { [id]: _, ...rest } = room.rackOrder; tx.put({ ...room, rackOrder: Object.keys(rest).length ? rest : undefined }) }
 	})
+}
+
+/** A new server room on a floor (User 2026-10-16: "+ Server room" was only in the Racks window, which isn't open at
+ *  first): its name in a dialog, the next free one offered (SR-A …); Cabling › New server room… and a floor's menu in
+ *  the Navigator. */
+export function addServerRoom(project: CadProject, ws: Workspace, levelId: string | null): void {
+	const l = levelId ? project.index.get(levelId) : undefined
+	if (l?.type !== 'level') { ws.say('Open a floor first — the server room goes on it'); return }
+	ws.textAsk = {
+		title: `New server room on ${l.name}`, label: 'Name', value: nextRoomName(project.index, l.id), ok: 'Add',
+		hint: 'Then draw its racks with the Rack tool (Cabling › Rack); Window › Racks lists the rooms and their racks.',
+		apply: (t) => {
+			const name = t.trim()
+			if (!name) return
+			const room = newServerRoom(project.index, l.id, name)
+			project.store.transact(`New server room ${room.name}`, (tx) => tx.put(room))
+			ws.say(`${room.name} added on ${l.name} — draw its racks with the Rack tool`)
+		},
+	}
 }

@@ -68,9 +68,14 @@
 				{/if}
 			</div>
 			<div class="body">
+				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
+				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onsetupfloors} onplans={() => (tab = 'plans')} />
+				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
 				{#if ws.confirm && !hidden}
 					{@const q = ws.confirm}
-					<div class="ask" role="alertdialog" aria-label="Question">
+					<!-- over the list at its foot, not in it (User 2026-10-16: at the top it pushed every row down and the next
+					     click missed) -->
+					<div class="askhold"><div class="ask" role="alertdialog" aria-label="Question">
 						<p>{q.msg}</p>
 						<div class="row">
 							<button bind:this={yesBtn} class:yes={!q.revert} onclick={() => answer(q.apply)}>{q.yes}</button>
@@ -78,11 +83,8 @@
 							<button class:pri={q.revert} onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
 							<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 						</div>
-					</div>
+					</div></div>
 				{/if}
-				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
-				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onsetupfloors} onplans={() => (tab = 'plans')} />
-				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
 			</div>
 		</div>
 </CadDialog>
@@ -96,7 +98,12 @@
 	.tabs .dot { margin-left: 4px; color: #f59e0b; font-size: 9px; vertical-align: middle; }
 	.tabs .details { margin-top: auto; color: #2563eb; border-top: 1px solid var(--cad-line, #e4e4e7); border-radius: 0; padding-top: 6px; }
 	.body { flex: 1; min-width: 0; overflow: auto; }
-	.ask { position: sticky; top: 0; z-index: 1; margin: 8px 12px; padding: 10px 12px; border-radius: 8px; background: var(--cad-panel, white); border: 1px solid #f59e0b; box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); }
+	/* takes no room: the bar floats over the foot of the list (.body is a column filling the dialog, so the holder sits
+	   at its bottom even when the list is short) */
+	.body { display: flex; flex-direction: column; }
+	.body > :global(*) { flex-shrink: 0; }   /* the panels keep their height and scroll */
+	.askhold { position: sticky; bottom: 0; height: 0; margin-top: auto; z-index: 2; }
+	.ask { position: absolute; bottom: 0; left: 0; right: 0; margin: 8px 12px; padding: 10px 12px; border-radius: 8px; background: var(--cad-panel, white); border: 1px solid #f59e0b; box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); }
 	.ask p { margin: 0 0 8px; }
 	.ask .row { display: flex; align-items: center; gap: 6px; }
 	.ask button { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); color: inherit; }

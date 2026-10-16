@@ -16,7 +16,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import { specKey, type ViewSpec } from '../views/space'
 	import { navTree, filterTree, pathTo, findItems, searchHits, type NavNode, type NavOpts, type FindItem } from '../domain/navTree'
-	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf, applyRename } from '../app/navActions'
+	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, renameRoom as renameRoomOf, deleteRoom as deleteRoomOf, applyRename, addServerRoom } from '../app/navActions'
 	import NameInput from './NameInput.svelte'
 	import { Icon } from '$lib'
 	import { viewKey } from '../app/tabs.svelte'
@@ -155,7 +155,7 @@
 	/** A row's commands (empty = no ⋮). */
 	function rowMenu(n: NavNode): MenuItem[] {
 		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : n.kind === 'space' ? 'Show on the plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
-		if (n.kind === 'level' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
+		if (n.kind === 'level' && id) return [...open, { label: 'New server room…', run: () => addServerRoom(project, ws, id) }, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
 		if ((n.kind === 'room' || n.kind === 'space') && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
 		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
 		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]

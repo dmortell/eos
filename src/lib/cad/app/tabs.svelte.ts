@@ -22,7 +22,7 @@ export interface Tab {
 /** Two views are the same drawing: the same spec, and the same level unless it's a sheet / the riser view / a paper view
  *  (a port map, a schedule …). */
 /** A view drawn on one level (a plan, an elevation, a section, a rack view) — not a sheet, the riser or paper. */
-const levelBound = (v: TabView) => !(v.spec.kind === 'sheet' || v.spec.kind === 'riser' || isPaperSpec(v.spec))
+export const levelBound = (v: TabView) => !(v.spec.kind === 'sheet' || v.spec.kind === 'riser' || isPaperSpec(v.spec))
 /** A level-bound view whose level isn't known yet (cad opened before the levels loaded): never a tab of its own — it
  *  showed as a "Plan (current level)" tab that a click couldn't open (the pane went to the level's own tab). */
 export const unplaced = (v: TabView) => levelBound(v) && !v.levelId

@@ -11,7 +11,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
-	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
+	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, parseFloorList, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
 	import NameInput from './NameInput.svelte'
 	import { levelContents, levelRisers } from '../editor/commands'
 	import { newId } from '../domain/ids'
@@ -35,7 +35,7 @@
 		const nums = main.map((l) => l.number), f = building?.floors
 		const lo = f?.lowest ?? (nums.length ? Math.min(...nums) : 1), hi = f?.top ?? (nums.length ? Math.max(...nums) : 1)
 		// no level ≠ no floor: a floor is only "not there" when it's ticked off here
-		return { lo, hi, skip: f?.skip ?? [], above: f?.above ?? DEFAULT_NAMES.above, below: f?.below ?? DEFAULT_NAMES.below, ground: f?.ground ?? DEFAULT_NAMES.ground!, heights: main[0]?.heights ?? DEFAULT_HEIGHTS }
+		return { lo, hi, skip: f?.skip ?? [], above: f?.above ?? DEFAULT_NAMES.above, below: f?.below ?? DEFAULT_NAMES.below, ground: f?.ground ?? DEFAULT_NAMES.ground!, tenant: f?.tenant ?? '', heights: main[0]?.heights ?? DEFAULT_HEIGHTS }
 	})
 	let lowest = $state(init.lo)
 	let top = $state(init.hi)
@@ -43,22 +43,34 @@
 	let above = $state(init.above)
 	let below = $state(init.below)
 	let ground = $state(init.ground)
+	/** The tenant floors ("3-8, 12", User 2026-10-16): only they get a model; blank = every floor. */
+	let tenant = $state(init.tenant)
+	const tenantNums = $derived(parseFloorList(tenant))
 	let typical = $state<Heights>({ ...init.heights })
 
 	// ── what's applied: the building's record (or, before the first Apply, what the form started from) ──
 	const applied = $derived.by(() => {
 		const f = building?.floors
-		return f ? { lo: f.lowest, hi: f.top, skip: f.skip ?? [], above: f.above ?? DEFAULT_NAMES.above, below: f.below ?? DEFAULT_NAMES.below, ground: f.ground ?? DEFAULT_NAMES.ground! } : init
+		return f ? { lo: f.lowest, hi: f.top, skip: f.skip ?? [], above: f.above ?? DEFAULT_NAMES.above, below: f.below ?? DEFAULT_NAMES.below, ground: f.ground ?? DEFAULT_NAMES.ground!, tenant: f.tenant ?? '' } : init
 	})
 	const sameSet = (a: number[], b: number[]) => a.length === b.length && a.every((x) => b.includes(x))
 	/** The range / names typed here differ from the applied ones. */
-	const pending = $derived(lowest !== applied.lo || top !== applied.hi || !sameSet(skip, applied.skip) || above !== applied.above || below !== applied.below || ground !== applied.ground)
+	const pending = $derived(lowest !== applied.lo || top !== applied.hi || !sameSet(skip, applied.skip) || above !== applied.above || below !== applied.below || ground !== applied.ground || tenant.trim() !== applied.tenant.trim())
 	/** The levels don't match the range (a floor with no level, a level off the range): Apply has something to do. */
 	const want = $derived(new Set(floorNumbers(lowest, top, skip)))
 	/** W33: floors of the applied range with no level — their model was deleted on purpose (not in the Navigator; the riser
 	 *  view still draws them). Apply leaves them; "+ model" makes one. */
 	const noModel = $derived(building?.floors ? floorNumbers(applied.lo, applied.hi, applied.skip).filter((n) => !main.some((l) => l.number === n)) : [])
-	const stale = $derived([...want].some((n) => !main.some((l) => l.number === n) && !noModel.includes(n)) || levels.some((l) => !want.has(l.number)))
+	/** The applied tenant floors (in the range): a tenant floor with no model, or an empty model of another floor, is
+	 *  something for Apply to do. */
+	const tenantApplied = $derived.by(() => { const t = parseFloorList(applied.tenant); return t?.length ? new Set(t.filter((n) => want.has(n))) : null })
+	const stale = $derived.by(() => {
+		void project.rev
+		const off = levels.some((l) => !want.has(l.number))
+		const t = tenantApplied
+		if (t) return off || [...t].some((n) => !main.some((l) => l.number === n)) || main.some((l) => !t.has(l.number) && !contents(l.id))
+		return off || [...want].some((n) => !main.some((l) => l.number === n) && !noModel.includes(n))
+	})
 	/** For the dialog: is there an unapplied range, and apply it. */
 	export function isPending(): boolean { return pending }
 	export function apply(): void { applyRange() }
@@ -185,10 +197,12 @@
 		if (lowest > top) [lowest, top] = [top, lowest]   // a backwards range is the same floors the right way round (Q40)
 		const b: Building = building ?? { type: 'building', id: newId(), name: project.name || 'Building', order: 0 }
 		const was = b.floors ? floorNumbers(b.floors.lowest, b.floors.top, b.floors.skip) : undefined   // W33: floors already there
-		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id, before: was }, contents, newId)
+		const models = tenantNums
+		if (!models) { ws.say('Tenant floors: type floor numbers and ranges, e.g. 3-8, 12 (B1 or -1 for a basement)'); return }
+		const r = planFloors(levels, { lowest, top, skip, names, buildingId: b.id, before: was, ...(models.length ? { models } : {}) }, contents, newId)
 		commit(`Floors ${floorName(Math.min(lowest, top), names)}–${floorName(Math.max(lowest, top), names)}`, r.add,
 			(tx) => {
-				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground, ...(b.floors?.datum != null ? { datum: b.floors.datum } : {}) } } as Building)
+				tx.put({ ...b, floors: { lowest, top, skip: skip.length ? [...skip] : undefined, above, below, ground, ...(b.floors?.datum != null ? { datum: b.floors.datum } : {}), ...(tenant.trim() ? { tenant: tenant.trim() } : {}) } } as Building)
 				if (!project.settings) tx.put(defaultSettings())   // a new project's first floors bring its settings
 			}, r.remove.map((l) => l.id), skip)
 		const parts = [r.add.length && `${r.add.length} added`, r.remove.length && `${r.remove.length} removed`].filter(Boolean)
@@ -303,9 +317,14 @@
 				<button class="chip" class:off={skip.includes(n)} class:has={main.some((l) => l.number === n)} title={skip.includes(n) ? 'Not a floor of this building' : noModel.includes(n) ? 'A floor of this building with no model (level): + model below makes one' : 'A floor of this building'} onclick={() => toggle(n)}>{floorName(n, names)}</button>
 			{/each}
 		</div>
-		{#if noModel.length}
-			<p class="hint">No model: {#each noModel as n (n)}<button class="mini" title="Make a level for {floorName(n, names)} (it shows in the Navigator again)" onclick={() => createModel(n)}>+ {floorName(n, names)} model</button>{/each}</p>
-		{/if}
+		<!-- the client's floors (User 2026-10-16): a 20-floor building, the client on 1–3 → three models, the rest stay
+		     floors of the building (riser view) -->
+		<div class="row">
+			<label title="The floors the client uses: only they get a model (a plan in the Navigator); the others stay floors of the building (riser view). Blank = every floor. Applied with Apply floors.">Tenant floors
+				<input class="pat wide" class:bad={!tenantNums} bind:value={tenant} placeholder="every floor — or e.g. 3-8, 12" onkeydown={(e) => { if (e.key === 'Enter' && tenantNums) applyRange() }} /></label>
+			{#if !tenantNums}<span class="na">e.g. 3-8, 12 (B1 for a basement)</span>
+			{:else if tenantNums.length}<span class="hint">{tenantNums.filter((n) => want.has(n)).length} floor{tenantNums.filter((n) => want.has(n)).length === 1 ? '' : 's'} with a model</span>{/if}
+		</div>
 		<div class="row">
 			<button class="btn pri" disabled={!pending && !stale} title={pending ? 'Add the floors of the range, remove the empty levels off it, keep the names' : stale ? 'The levels don’t match the range: add the floors with no level, remove the empty ones off it' : 'Nothing to apply — change the range or the names first'} onclick={applyRange}>Apply floors</button>
 			{#if pending}<span class="na" role="status">not applied</span>{/if}
@@ -319,6 +338,10 @@
 			<!-- first run (W9): floors applied, no floorplan anywhere yet → the next step -->
 			{#if onplans && main.length && !pending && !hasFloorplans}<button class="btn pri next" title="Add each floor's floorplan (a PDF page)" onclick={onplans}>Next: add floorplans →</button>{/if}
 		</div>
+		<!-- under the buttons, so its length (it changes with every + model) never moves them -->
+		{#if noModel.length}
+			<p class="hint">No model: {#each noModel as n (n)}<button class="mini" title="Make a level for {floorName(n, names)} (it shows in the Navigator again)" onclick={() => createModel(n)}>+ {floorName(n, names)} model</button>{/each}</p>
+		{/if}
 	</section>
 
 	<section>
@@ -404,7 +427,9 @@
 					<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
 						<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
 						<button onclick={() => oncalibrate(z, 'scale')} title="Click both ends of a distance you know, then type it">Scale</button>
-						<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows">Crop</button>
+						<button onclick={() => oncalibrate(z, 'crop')} title="Click two corners: only that part shows (the whole page shows while you pick them)">Crop</button>
+						<!-- User 2026-10-16: a crop could only be replaced, never taken off -->
+						{#if cal?.crop}<button title="Remove the crop: the whole page shows again (Undo / Keep after)" aria-label="Remove the crop" onclick={() => ws.calibIO.write(z, 'crop', undefined, 'Crop removed: the whole page shows')}>✕</button>{/if}
 						<!-- W5: the scale from the title block, no measuring -->
 						<label class="ratio" title="Drawn at 1:… — type the scale from the floorplan's title block (100) and press Enter. When it's for another paper size than this PDF page{cal?.page && paperOf(cal.page) ? ` (${paperOf(cal.page)})` : ''}, add it: 100 A1">1:<input placeholder={cal && !cal.provisional ? String(ratioOf(cal.sf)) : '___'} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void setPaperScale(z, e.currentTarget.value, e.currentTarget) } }} onchange={(e) => void setPaperScale(z, e.currentTarget.value, e.currentTarget)} /></label>
 					</span>
@@ -459,6 +484,8 @@
 	.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 	input { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	input.pat { width: 5.5rem; font-family: ui-monospace, monospace; }
+	input.pat.wide { width: 12rem; }
+	input.bad { border-color: #dc2626; }
 	input.name { width: 7rem; }
 	input.no { width: 3.2rem; }
 	td.nm { white-space: nowrap; }

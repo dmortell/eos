@@ -93,19 +93,38 @@ export interface FloorPlanResult {
 	keep: Level[]
 }
 
-/** What setting the building's range does to its levels. `contents(levelId)` counts what's on a level. */
-export function planFloors(levels: Level[], o: { lowest: number; top: number; skip: number[]; names: FloorNames; buildingId: Id; before?: number[] }, contents: (id: Id) => number, newId: () => Id): FloorPlanResult {
+/** What setting the building's range does to its levels. `contents(levelId)` counts what's on a level. `models` (the
+ *  tenant floors, User 2026-10-16 "3-8, 12"): only these floors get a model — one is made for each that has none
+ *  (even one deleted before), and the empty models of the other floors go (they stay floors of the building). */
+export function planFloors(levels: Level[], o: { lowest: number; top: number; skip: number[]; names: FloorNames; buildingId: Id; before?: number[]; models?: number[] }, contents: (id: Id) => number, newId: () => Id): FloorPlanResult {
 	const want = new Set(floorNumbers(o.lowest, o.top, o.skip))
 	const main = levels.filter((l) => !l.area)
+	const tenant = o.models?.length ? new Set(o.models.filter((n) => want.has(n))) : null
 	// W33: a floor already in the range with no level had its model deleted on purpose — Apply doesn't bring it back
-	// (its chip creates it); only floors NEW to the range get a level
-	const have = new Set([...main.map((l) => l.number), ...(o.before ?? [])])
+	// (its chip creates it); only floors NEW to the range get a level — unless the tenant floors name it
+	const have = new Set([...main.map((l) => l.number), ...(tenant ? [] : o.before ?? [])])
 	const heights = main[0]?.heights ?? DEFAULT_HEIGHTS
-	const add: Level[] = [...want].filter((n) => !have.has(n)).map((n) => ({
+	const add: Level[] = [...want].filter((n) => !have.has(n) && (!tenant || tenant.has(n))).map((n) => ({
 		type: 'level', id: newId(), buildingId: o.buildingId, number: n, name: floorName(n, o.names), order: n, elevationMm: 0, heights: { ...heights },
 	}))
-	const gone = levels.filter((l) => !want.has(l.number))
+	const gone = levels.filter((l) => !want.has(l.number) || (tenant && !tenant.has(l.number)))
 	return { add, remove: gone.filter((l) => !contents(l.id)), keep: gone.filter((l) => contents(l.id) > 0) }
+}
+
+/** "3-8, 12" / "3~8 12F" / "B2, 1-3" → floor numbers (B2 / -2 = basement 2), in order, once each; null when a part
+ *  isn't a floor or a range. Blank → []. */
+export function parseFloorList(t: string): number[] | null {
+	const s = t.trim().replace(/([\dfF])\s*[-–~]\s*/g, '$1~')   // a dash after a number is a range; one before it a minus
+	if (!s) return []
+	const num = (x: string) => { const m = /^(-|[bB])?(\d+)[fF]?$/.exec(x); return m ? (m[1] ? -Number(m[2]) : Number(m[2])) : NaN }
+	const out = new Set<number>()
+	for (const part of s.split(/[\s,、]+/).filter(Boolean)) {
+		const [a, b] = part.split('~')
+		const lo = num(a), hi = b === undefined ? lo : num(b)
+		if (!Number.isFinite(lo) || !Number.isFinite(hi) || Math.abs(hi - lo) > 500) return null
+		for (let n = Math.min(lo, hi); n <= Math.max(lo, hi); n++) out.add(n)
+	}
+	return [...out].sort((x, y) => x - y)
 }
 
 /** Every level renamed from the pattern; an area level reads "<floor name> <area>". Only the ones that change. */
