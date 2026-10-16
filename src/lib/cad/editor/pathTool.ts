@@ -67,7 +67,10 @@ export class PathTool implements Tool {
 		}
 		if (e.key.toLowerCase() === 'v' && this.pts.length && this.id !== 'wall') {
 			const here = c.index.get(c.levelId)
-			c.ask('Riser to level number', here?.type === 'level' ? here.number + 1 : 0, (n) => this.riserTo(n, c))
+			// the other floors with a model, as buttons at the top of the drawing too (R7-17: the question was only in the
+			// status bar, bottom left, far from the cursor)
+			const floors = c.index.levels.filter((l) => !l.area && l.id !== c.levelId).sort((a, b) => b.number - a.number)
+			c.ask('Riser to level number', here?.type === 'level' ? here.number + 1 : 0, (n) => this.riserTo(n, c), floors.map((l) => ({ label: l.name, value: l.number })))
 			return true
 		}
 		// Esc with nothing drawn yet is not ours: the shell then goes back to Select

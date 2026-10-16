@@ -61,7 +61,7 @@
 			<option value="">Elevation…</option>
 			{#each DIRS as d (d)}<option value={d}>{specLabel({ kind: 'elevation', dir: d })}</option>{/each}
 		</select>
-		<button class:on={spec.kind === 'riser'} title="The building's risers and backbone, floor by floor" onclick={() => { if (spec.kind !== 'riser') ws.openInTab({ levelId, spec: { kind: 'riser' } }) }}>Riser</button><!-- its own tab (W32), not over the plan's -->
+		<button class:on={spec.kind === 'riser'} title="The building's risers and backbone, floor by floor" onclick={() => { if (spec.kind !== 'riser') ws.openInTab({ levelId, spec: { kind: 'riser', ...(project.store.ofType('building').some((b) => !!b.floors?.tenant) ? { hideEmpty: true } : {}) } }) }}>Riser</button><!-- its own tab (W32), not over the plan's -->
 		{#if sections.length || section}
 			<select class="secs" class:on={!!section} value={section?.id ?? ''} title="Sections on this level (draw one with the Section tool on the plan)"
 				onchange={(e) => { if (e.currentTarget.value) go({ kind: 'section', sectionId: e.currentTarget.value }) }}>

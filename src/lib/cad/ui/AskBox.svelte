@@ -6,11 +6,12 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import { askKey, typingIn } from './keyGuards'
 
-	let { ws }: { ws: Workspace } = $props()
+	let { ws, onanswer }: { ws: Workspace; /** after a prompt is answered here (the drawing redraws its tool) */ onanswer?: () => void } = $props()
 	const q = $derived(ws.confirm)
 	/** R7-4 (User 2026-10-16): while a floorplan is calibrated (Origin / Scale / Crop, Set up each floor) the step to do
 	 *  shows here, where the eye is — not only in the status bar at the bottom left. */
 	const step = $derived(ws.toolId === 'calibrate' ? ws.message : null)
+	const pq = $derived(ws.prompt)
 	let yesBtn: HTMLButtonElement | undefined = $state()
 	// an offer to put something back (ws.offerRevert) never takes the focus, and Enter doesn't answer it: only a click
 	$effect(() => { if (q && !q.revert && yesBtn && !typingIn(document.activeElement) && !document.querySelector('[role=dialog]')) yesBtn.focus() })
@@ -44,6 +45,12 @@
 	</div>
 {:else if step}
 	<div class="ask step-only" role="status">{step}</div>
+{:else if pq?.choices}{@const p = pq}{@const cs = pq.choices}
+	<!-- R7-17: a typed question with a few answers (V: which floor) — here as buttons as well as in the status bar -->
+	<div class="ask step-only" role="group" aria-label={p.label}>
+		<p>{p.label} — or type it in the status bar:</p>
+		<div class="row choices">{#each cs as ch (ch.value)}<button onclick={() => { ws.prompt = null; p.apply(ch.value); onanswer?.() }}>{ch.label}</button>{/each}<span class="keys">Esc</span></div>
+	</div>
 {/if}
 
 <style>
@@ -56,5 +63,6 @@
 	button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 	.step { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid var(--cad-line, #e4e4e7); }
 	.step-only { border-color: #2563eb; }
+	.choices { flex-wrap: wrap; }
 	.keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 </style>

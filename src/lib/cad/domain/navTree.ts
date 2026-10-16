@@ -76,7 +76,9 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 	for (const b of buildings) out.push({ key: `bld:${b.id}`, label: b.name, kind: 'building', id: b.id, children: (byBuilding.get(b.id) ?? []).map(levelNode) })
 	const loose = levels.filter((l) => !known.has(l.buildingId))
 	if (loose.length) out.push({ key: 'bld:none', label: buildings.length ? 'Other levels' : 'Levels', kind: 'building', children: loose.map(levelNode) })
-	out.push({ key: 'riser', label: 'Riser view (building)', kind: 'riser', open: { spec: { kind: 'riser' } } })
+	// a building with tenant floors opens its riser view with the empty floors hidden (R7-19: 20 storeys, the client's 3)
+	const tenant = buildings.some((b) => !!b.floors?.tenant)
+	out.push({ key: 'riser', label: 'Riser view (building)', kind: 'riser', open: { spec: { kind: 'riser', ...(tenant ? { hideEmpty: true } : {}) } } })
 
 	// the sheets, grouped by PLACE (its filed place, else the levels its viewports show) — or, chosen in the Sheets row's
 	// ⋮ (sheets-organising slice 4), by category (list order), level (level order; a sheet under each of its levels)

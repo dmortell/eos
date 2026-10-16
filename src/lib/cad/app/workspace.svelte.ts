@@ -90,7 +90,8 @@ function loadGuides(): Record<string, Guide[]> {
 }
 
 /** The tool-bar prompt: a number (rise to Z, riser level) or a typed point (text). `apply` gets the raw text. */
-export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void }
+/** `choices`: answers also shown as buttons at the top of the drawing (R7-17: V's floors) */
+export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void; choices?: { label: string; value: string }[] }
 
 export class Workspace {
 	/** Each pane's level (User: 2F plan beside 3F plan, area plan 3303 beside 3307) and which pane is active.
@@ -420,8 +421,8 @@ export class Workspace {
 	/** An offer to undo something done outside the undo stack ("Undo" · "Keep", backlog W1): Enter never answers it (a
 	 *  later Enter once silently reverted a crop), and the shell closes it when the view or the dialog changes. */
 	offerRevert = (msg: string, yes: string, apply: () => void): void => { this.confirm = { msg, yes, apply, revert: true } }
-	ask = (label: string, value: number, apply: (v: number) => void): void => {
-		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) } }
+	ask = (label: string, value: number, apply: (v: number) => void, choices?: { label: string; value: number }[]): void => {
+		this.prompt = { label, value: String(value), text: false, apply: (t) => { const v = Number(t); if (t.trim() !== '' && Number.isFinite(v)) apply(v) }, ...(choices?.length ? { choices: choices.map((c) => ({ label: c.label, value: String(c.value) })) } : {}) }
 	}
 	askText = (label: string, value: string, apply: (t: string) => void): void => { this.prompt = { label, value, text: true, apply } }
 	/** Free text asked in a dialog, not the status bar (User 2026-10-15: names, port targets — see TextDialog). */

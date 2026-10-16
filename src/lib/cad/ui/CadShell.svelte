@@ -823,7 +823,7 @@
 	<main class="plan relative" bind:this={planEl}>
 		{#if toolsFloat}<ToolPalette tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} variantOf={toolVariant} onTool={pickItem} ondock={() => setToolsFloat(false)} />{/if}
 		<TabStrip {tabs} {project} panes={panes.length} {activePane} onshow={(id) => showTab(id)} onclose={closeTab} onmenu={(id, x, y) => (tabMenu = { id, x, y })} />
-		<AskBox {ws} />
+		<AskBox {ws} onanswer={() => canvas?.refresh()} />
 		<PatchPreview {ws} />
 		{#if project.loaded && !project.levels.length}
 			<ImportPanel {project} {projectName} onsetup={() => { settingsTab = 'floors'; settingsOpen = true }} />

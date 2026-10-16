@@ -162,7 +162,7 @@ export class SelectTool implements Tool {
 		if (onGrip || h) { this.#hov = null; this.#hovRoom = null; this.#cursor = 'crosshair'; return }
 		this.#hovRoom = this.#roomLineAt(c, e.p)
 		if (this.#hovRoom) { this.#hov = null; this.#cursor = 'ns-resize'; return }
-		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol()), id = hit?.src, en = id ? c.store.get(id) : undefined
+		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol(), undefined, (s) => cabling(c, s)), id = hit?.src, en = id ? c.store.get(id) : undefined
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
 		if (!id || !en || (en.type === 'sheet' && !sub)) { this.#hov = null; this.#cursor = 'default'; return }
@@ -271,7 +271,7 @@ export class SelectTool implements Tool {
 		// a rack view: the room's floor / ceiling line drags up / down (Space.floorMm / ceilingMm)
 		const rl = this.#roomLineAt(c, e.p), room = c.space.spec.kind === 'row' ? c.store.get(c.space.spec.spaceId) : undefined
 		if (rl && room) { this.#handle = { h: rl, base: room }; this.#start = e.p; this.#hovRoom = null; return }
-		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol()), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined   // a cord over a port: the port (W15)
+		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol(), undefined, (s) => cabling(c, s)), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined   // a cord over a port: the port (W15)
 		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
 		// them in place (backlog "Text options", "Edit a label in place")
 		// a linked symbol: a double-click opens its sheet or web page
@@ -746,4 +746,10 @@ export class SelectTool implements Tool {
 		this.#followers = new Map(); this.#absorbed = 0; this.#joinRefused = null; this.#segDrag = null; this.#segPick = null; this.#portRange = null
 		c.setMarquee(null)
 	}
+}
+
+/** Outlets, racks and devices: a click on one takes it, even where a desk or another block is drawn over it (R7-23). */
+function cabling(c: ToolCtx, id: string): boolean {
+	const t = c.store.get(id)?.type
+	return t === 'outlet' || t === 'rack' || t === 'device'
 }

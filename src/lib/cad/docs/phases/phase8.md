@@ -4059,3 +4059,12 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   to is enough — the desk they sit on is found (the nearest desk of that block on the floor); the right-click entry
   shows with one desk picked (`outletsOntoDesks`). Test in `outletArray.test.ts`. Live: 1-005 + the other Desk1 →
   1-006 on it.
+- **R7-23, R7-24, R7-17, R7-19** (User 2026-10-16):
+  - A click takes an outlet, rack or device under the pointer even where a desk or other block is drawn over it
+    (`pickPrim` `prefer`, the Select tool). Test in `editor/pick.test.ts`. Live: the outlet on a desk → Outlet 1-005.
+  - Plans & floorplans starts drawing every floorplan it lists, so each row shows its 1:N and the crop ✕ before its
+    floor is opened. Live: 1F / 2F / 3F all "1:100" and ✕ after a reload.
+  - V (riser to another floor) also shows its question at the top of the drawing with a button per floor (the other
+    floors with a model); typing in the status bar still works (`Prompt.choices`, `AskBox`). Live: "Riser to level
+    number — 3F · 2F".
+  - A building with tenant floors opens its riser view with the empty floors hidden (Navigator and the Riser button).

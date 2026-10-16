@@ -58,7 +58,7 @@ export interface ToolCtx {
 	/** The selection box being dragged; `crossing` = dragged right → left (selects what it touches). */
 	setMarquee(b: Bounds | null, crossing?: boolean): void
 	/** Ask the user for a number (the tool bar prompt); `apply` runs on Enter. */
-	ask(label: string, value: number, apply: (v: number) => void): void
+	ask(label: string, value: number, apply: (v: number) => void, choices?: { label: string; value: number }[]): void
 	/** Rack-row views only: the rack and U under a view point. */
 	rowHit?(p: Pt): { rack: Rack; u: number } | null
 	/** One opening of a wall selected (null = none) and which one is (Phase 6: holes are selectable). */

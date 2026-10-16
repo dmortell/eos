@@ -21,7 +21,13 @@ export function pickStack(prims: Prim[], p: Pt, tol: number): Id[] {
 }
 
 /** The topmost prim under `p` with a source — for its `sub` (a port number on a device …). */
-export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean): Prim | undefined {
+export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean, prefer?: (src: Id) => boolean): Prim | undefined {
+	// what's preferred under the point wins over what's drawn on top of it (R7-23: an outlet on a desk — the desk's fill
+	// is drawn over it, so a click took the desk)
+	if (prefer) for (let i = prims.length - 1; i >= 0; i--) {
+		const pr = prims[i]
+		if (pr.src && !skip?.(pr.src) && prefer(pr.src) && primDist(pr, p) <= tol) return pr
+	}
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const pr = prims[i]
 		if (!pr.src || skip?.(pr.src)) continue

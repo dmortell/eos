@@ -448,6 +448,8 @@
 				<label class="off" title="Move this floorplan right (mm)">X <input type="number" step="100" value={z.origin?.x ?? 0} onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} /></label>
 				<label class="off" title="Move this floorplan down (mm)">Y <input type="number" step="100" value={z.origin?.y ?? 0} onchange={(e) => setOffset(l, z, 'y', e.currentTarget.value)} /></label>
 				{#if oncalibrate}
+					<!-- R7-24: start drawing it, so its scale (1:N) and crop (✕) are known before its floor is opened -->
+					{@const _drawn = project.pdf.placement(z)}
 					{@const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]}
 					<!-- calibrate on the plan (not in Uploads): what it writes is the file's, shared with Uploads and other projects -->
 					<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
