@@ -280,9 +280,13 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
 	if (isPaperSpec(view.spec)) return paperViewport(ix, sheet, view, id, o)   // paper is drawn at 1:1, from its top-left
 	const scale = SCALES.find((n) => w / n <= roomW && h / n <= roomH) ?? SCALES.at(-1)!
-	if (view.spec.kind === 'plan' && scale > PLOT_SCALE) {
-		const f = floorplanBounds(ix, view.levelId, o.underlay), c = f ?? visible
-		return { id, view, scale: PLOT_SCALE, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }
+	// a plan with floorplans: the whole floor (their crop), however far in the pane was zoomed (R7-16, User 2026-10-16:
+	// zoomed in on the rack room, the sheet showed 262 × 97 mm of it), at 1:100, filling the drawing area
+	const f = view.spec.kind === 'plan' ? floorplanBounds(ix, view.levelId, o.underlay) : null
+	if (f || (view.spec.kind === 'plan' && scale > PLOT_SCALE)) {
+		const c = f ?? visible
+		const at = PLOT_SCALE   // the drawings' 1:100 (W18); the viewport can be resized or rescaled after
+		return { id, view, scale: at, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }
 	}
 	const size = { w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) }
 	return {

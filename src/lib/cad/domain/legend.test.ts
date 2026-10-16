@@ -74,6 +74,16 @@ describe('a sheet from the current view', () => {
 		// no floorplan: the middle of what the pane shows
 		expect(viewViewport(ix, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 0, y0: 0, x1: 80000, y1: 40000 }, 'V').centre).toEqual({ x: 40000, y: 20000 })
 	})
+	it('a plan with floorplans zoomed IN: still the whole floor at 1:100 (R7-16)', () => {
+		const ixU = new ProjectIndex([...ix.byId.values(), { type: 'underlay', id: 'U', levelId: 'L33', fileId: 'F' } as Entity])
+		const underlay = () => ({ url: '', x: 0, y: 0, w: 84000, h: 59400, clip: { x0: 0, y0: 0, x1: 30000, y1: 20000 } })
+		const vp = viewViewport(ixU, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 12000, y0: 2000, x1: 16000, y1: 4000 }, 'V', { underlay })
+		expect(vp.scale).toBe(100)
+		expect(vp.centre).toEqual({ x: 15000, y: 10000 })
+		// a floor too big for the sheet at 1:100: still 1:100 (the viewport is resized / rescaled after)
+		const big = () => ({ url: '', x: 0, y: 0, w: 84000, h: 59400, clip: { x0: 0, y0: 0, x1: 80000, y1: 50000 } })
+		expect(viewViewport(ixU, sheet, { levelId: 'L33', spec: { kind: 'plan' } }, { x0: 0, y0: 0, x1: 1000, y1: 1000 }, 'V', { underlay: big }).scale).toBe(100)
+	})
 })
 
 describe('floorplans on their own (W7)', () => {

@@ -40,6 +40,17 @@
 	const cableTypes = $derived(sortedCableTypes(project.settings))
 	/** The cable every port of the outlet takes (undefined: its ports differ). */
 	const cableOf = (o: Outlet): string | undefined => { const t = o.ports[0]?.cableType; return o.ports.every((p) => p.cableType === t) ? t : undefined }
+	/** A new mount (R7-13, User 2026-10-16: box → ceiling kept Z 0, so the outlet sat on the floor): a Z that was only the
+	 *  old mount's default goes, so the new mount's height applies (ceiling = the clear height); a typed one stays. */
+	function withMount(o: Outlet, mount: Outlet['mount']): Outlet {
+		const lv = project.index.get(o.levelId), level = lv?.type === 'level' ? lv : undefined
+		if (o.z === undefined || o.z !== outletZ({ ...o, z: undefined }, level)) return { ...o, mount }
+		const { z: _z, ...rest } = o
+		return { ...rest, mount }
+	}
+	function setMount(list: Outlet[], mount: Outlet['mount']) {
+		project.store.transact(list.length > 1 ? `Mount (${list.length} outlets)` : 'Mount', (tx) => { for (const o of list) tx.put(withMount(o, mount)) })
+	}
 	function setOutlets(label: string, patch: (o: Outlet) => Partial<Outlet>) {
 		project.store.transact(`${label} (${outlets.length} outlets)`, (tx) => { for (const o of outlets) tx.put({ ...o, ...patch(o) }) })
 	}
@@ -123,7 +134,7 @@
 			</select>
 		</label>
 		<label class="row">Mount
-			<select class="inp" value={pick((o) => o.mount, '' as Outlet['mount'])} onchange={(e) => setOutlets('Mount', () => ({ mount: e.currentTarget.value as Outlet['mount'] }))}>
+			<select class="inp" value={pick((o) => o.mount, '' as Outlet['mount'])} onchange={(e) => setMount(outlets, e.currentTarget.value as Outlet['mount'])}>
 				{#if isMixed((o) => o.mount)}<option value="">{MIXED}</option>{/if}
 				{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
 			</select>
@@ -168,7 +179,7 @@
 			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
 		</label>
 		<label class="row">Mount
-			<select class="inp" value={o.mount} onchange={(e) => put(o, 'Mount', { mount: e.currentTarget.value as Outlet['mount'] })}>
+			<select class="inp" value={o.mount} onchange={(e) => setMount([o], e.currentTarget.value as Outlet['mount'])}>
 				{#each MOUNTS as m (m)}<option value={m}>{m}</option>{/each}
 			</select>
 		</label>

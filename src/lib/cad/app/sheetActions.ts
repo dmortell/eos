@@ -7,7 +7,7 @@ import { duplicateSheet, numberFrom, sheetsFromTemplate, templateOf, type SheetT
 import { printOrder } from '../domain/sheetList'
 import { newId } from '../domain/ids'
 import type { Workspace } from './workspace.svelte'
-import type { ViewSpec } from '../views/space'
+import { specLabel, isPaperKind, type ViewSpec } from '../views/space'
 import type { Bounds } from '../views/display'
 import { blankSheet, viewViewport, fitViewport } from '../views/sheet'
 import { makeViewportClip, pasteClip, type Pasted } from '../domain/clipboard'
@@ -79,7 +79,10 @@ export function numberSheets(project: CadProject, ids: Id[], pattern: string): n
  *  sheet; one undo step, the sheet selected with the new viewport picked. The sheet and the viewport. */
 export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId: Id; spec: Exclude<ViewSpec, { kind: 'sheet' }> }, visible: Bounds, target: string): { sheet: Sheet; vpId: Id; scale: number } | null {
 	const sheets = (project.store.ofType('sheet') as Sheet[]).filter((s) => s.status !== 'archived')
-	const base = target === 'new' ? blankSheet(sheets, newId()) : project.index.get<Sheet>(target)
+	// a new sheet is named after its view (R7-16, User 2026-10-16: it was "New sheet"): "1F plan", "1F north elevation"
+	const lv = project.index.nameOf(view.levelId), what = view.spec.kind === 'plan' ? 'plan' : view.spec.kind === 'elevation' ? `${view.spec.dir} elevation` : specLabel(view.spec)
+	const title = isPaperKind(view.spec.kind) || view.spec.kind === 'riser' || !lv ? specLabel(view.spec) : `${lv} ${what}`
+	const base = target === 'new' ? { ...blankSheet(sheets, newId()), title } : project.index.get<Sheet>(target)
 	if (base?.type !== 'sheet') return null
 	const vp = viewViewport(project.index, base, view, visible, newId(), { ...project.sheetBase, underlay: project.pdf.placement })   // the floorplans' crop centres a floor's sheet (W18)
 	const next = { ...base, viewports: [...base.viewports, vp] }

@@ -4018,3 +4018,11 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - **The step where the eye is** (R7-4): while a floorplan is calibrated (Origin / Scale / Crop, Set up each floor) the
     step to do shows in the box at the top of the drawing (`AskBox`), and under an Undo / Keep offer as "Next: …" —
     not only in the status bar. Live: "1F (1 of 3): Click the point …", then "Next: 1F (1 of 3): Click one corner …".
+- **R7-13, R7-16, default usages** (User 2026-10-16):
+  - A new **Mount** in outlet Properties drops a Z that was only the old mount's default (box Z 0 → ceiling now takes
+    the clear height); a typed Z stays (`OutletProps.withMount`). Live: 1-001 / 1-002 / 1-004 box → ceiling: Z blank,
+    "2600 — ceiling default".
+  - **New sheet from this view** on a plan with floorplans frames the whole floor (their crop) at 1:100 however far in
+    the pane was zoomed (`viewViewport`), and the sheet is named after its view ("1F plan", "1F north elevation";
+    `viewToSheet`). Live: zoomed in on the rack room → S002 "1F plan", the whole floor.
+  - **Default usages** for a new project: ACS, AP, AV, CCTV, EMS, BMS, N/A, TEL, PR, RS, TV (`defaultSettings`).
