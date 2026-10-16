@@ -35,7 +35,8 @@
 			<span>Paper</span><span>{sheet.paper.size} {sheet.paper.orientation} · margin {sheet.paper.marginMm} mm</span>
 			<span>Viewports</span><span>{sheet.viewports.length}</span>
 		</div>
-		<div class="acts"><button class="btn" title="Its Properties: number, title, category, paper, viewports, changes, revisions" onclick={() => ws.select([sheet.id])}>Select sheet</button></div>
+		<div class="acts"><button class="btn" title="Its Properties: number, title, category, paper, viewports, changes, revisions" onclick={() => ws.select([sheet.id])}>Select sheet</button>
+			<button class="btn" title="Release this sheet: the Sheets table opens with the release form for it" onclick={() => { ws.select([sheet.id]); ws.releaseSheets() }}>Release…</button></div>
 	</PropGroup>
 {:else if current?.spec.kind === 'riser'}
 	<PropGroup kind="view" title="Riser view">

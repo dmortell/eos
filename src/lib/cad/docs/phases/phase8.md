@@ -4045,7 +4045,8 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     the list follows (`cordTool` `setStart`).
   - **Allocate this level** is a button on the Outlets table's bar whenever the floor has unallocated ports (with
     their count), and in the Cabling menu (`navActions.allocateLevel`; opens the Outlets table); still in ⋯.
-  - **Release…** in a sheet's Properties (General, beside Title block template…) opens the Sheets table with the
+  - **Release…** in a sheet's Properties (General, beside Title block template…, and in the open sheet's "This sheet"
+    basics beside Select sheet) opens the Sheets table with the
     release form for it (`ws.releaseSheets`).
 - **A floor with no server room takes the building's only one** (Round 7: 2F's first outlets, served from 1F's IDF 1,
   had none, so nothing could be allocated): `outletTool` — the tool bar's room, else the last outlet's, else the
