@@ -3986,3 +3986,12 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
 - **A dialog opened from a dialog is on top** (User 2026-10-16: Patching › Patch schedule › Export to Excel showed Save as
   UNDER the schedule): `CadDialog` `toRoot` moves itself to the END of cad's root even when it's already a child of it
   (Save as is declared in CadShell's own markup, so it stayed where it was declared, before the schedule dialog).
+- **Remove empty floor models** (User 2026-10-16: "a building with 100 floors but the client only uses 1 — how do I
+  clear 99 floors from the Navigator?"; option 1a): Floors & heights has **Remove empty floor models (n)** beside
+  Rename all — every floor model (level) with nothing on it (`contents` = 0: no content, floorplan, section, viewport,
+  riser reaching it) and no area plan, except the open one, goes in one undo step after an inline "Remove n empty floor
+  models? They stay in the riser view." They stay floors of the building (W33: riser view, "+ nF model"); off while the
+  range isn't applied. Help's unused-floors entry says so. Live in Test Project: + 2F / + 3F model made two empty
+  models, the button said (2), Remove took both — back to 1F / 4F with 2F / 3F as "No model".
+- **Not needed** (User 2026-10-16): the Tourney migration and external links between buildings
+  (`multi-building-plan.md`), the review of the other `askText` prompts, Three bands and W8 (`later.md`).

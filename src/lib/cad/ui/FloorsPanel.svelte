@@ -209,6 +209,22 @@
 		ws.say(`${l.name} has a model again — it's in the Navigator; Undo takes it out`)
 	}
 
+	/** Floor models with nothing on them (User 2026-10-16: "a building with 100 floors but the client uses 1"): no
+	 *  content, section, viewport, floorplan or riser, no area plan; the open one stays. They go in one undo step and
+	 *  stay floors of the building (riser view; "+ model" makes one again). */
+	const emptyModels = $derived.by(() => {
+		void project.rev
+		return main.filter((l) => l.id !== ws.levelId && !contents(l.id) && !levels.some((a) => a.area && a.number === l.number))
+	})
+	let askEmpty = $state(false)
+	function removeEmpty() {
+		askEmpty = false
+		const gone = emptyModels
+		if (!gone.length) return
+		commit(`Remove ${gone.length} empty floor model${gone.length === 1 ? '' : 's'}`, [], NOOP, gone.map((l) => l.id))
+		ws.say(`${gone.length} empty floor model${gone.length === 1 ? '' : 's'} removed — still floors of the building (riser view); Undo brings them back`)
+	}
+
 	function renameAll() {
 		const r = renameFloors(levels, names)
 		if (!r.length) { ws.say('The names already match the pattern'); return }
@@ -294,6 +310,12 @@
 			<button class="btn pri" disabled={!pending && !stale} title={pending ? 'Add the floors of the range, remove the empty levels off it, keep the names' : stale ? 'The levels don’t match the range: add the floors with no level, remove the empty ones off it' : 'Nothing to apply — change the range or the names first'} onclick={applyRange}>Apply floors</button>
 			{#if pending}<span class="na" role="status">not applied</span>{/if}
 			<button class="btn" title="Rename every level from the pattern (area plans keep their suffix)" onclick={renameAll}>Rename all from the pattern</button>
+			{#if askEmpty && emptyModels.length}
+				<span class="na">Remove {emptyModels.length} empty floor model{emptyModels.length === 1 ? '' : 's'}? They stay in the riser view.</span>
+				<button class="btn pri" onclick={removeEmpty}>Remove</button><button class="btn" onclick={() => (askEmpty = false)}>Cancel</button>
+			{:else}
+				<button class="btn" disabled={!emptyModels.length || pending} title={pending ? 'Apply floors first' : emptyModels.length ? `Remove the models of the floors with nothing on them (${emptyModels.map((l) => l.name).join(', ')}) — they leave the Navigator, stay floors of the building (riser view); “+ model” makes one again; one undo step. The open floor stays.` : 'Every floor model has something on it (or is open)'} onclick={() => (askEmpty = true)}>Remove empty floor models{emptyModels.length ? ` (${emptyModels.length})` : ''}</button>
+			{/if}
 			<!-- first run (W9): floors applied, no floorplan anywhere yet → the next step -->
 			{#if onplans && main.length && !pending && !hasFloorplans}<button class="btn pri next" title="Add each floor's floorplan (a PDF page)" onclick={onplans}>Next: add floorplans →</button>{/if}
 		</div>

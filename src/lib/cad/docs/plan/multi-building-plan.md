@@ -71,15 +71,15 @@ Example — Project Tourney: building1 (12F, 30F, 33F with areas 3303 / 3307), b
 
 ## Phases
 
-1. **Groups (S–M):**
+1. **Groups (S–M) — BUILT 2026-10-16** (`src/lib/projectGroups.ts`, `phase8.md`):
    - `masterId` / `buildingName` / `projectGroups`.
    - `projectTitle(p)` everywhere a project is named: the Projects page, Open Project, the recent list, the title bar.
    - The Projects page list grouped.
    - Add building (copies settings and members), rename group, and each building's Delete / Ungroup / Move to another
      project… / Group with… (item 10).
    - A Firestore rule for `projectGroups`.
-2. **Tourney migration (S):** as item 11.
-3. **In cad (S):** the title bar's building switcher; Copy settings from…; external links (item 4).
+2. **Tourney migration (S):** as item 11 — **not needed** (User 2026-10-16).
+3. **In cad (S):** the title bar's building switcher; Copy settings from… — BUILT 2026-10-16 (Buildings ▸). External links (item 4): **not needed** (User 2026-10-16).
 4. **Later (nice to have):** group report, group transmittal, a building code in labels.
 
 ## Decisions (User 2026-10-16)

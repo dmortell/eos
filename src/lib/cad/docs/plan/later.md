@@ -120,7 +120,7 @@ wanted. *From:* ids as in `backlog.md`.
 - **Connection points on boxes** — centre + edge midpoints by default, or your own (U / V), shown as × marks, for routing to desks. **P3 · M** (User 2026-10-05: low priority) (~150 lines, after the Box tool). *cad today:* missing. *From:* G272 **Not needed (User 2026-10-13).**
 - **Box: draw from the middle** — a modifier to draw a box outwards from its centre. User 2026-10-14: not needed.
 
-## Later (User 2026-10-15) — from the backlog's ❓ list
+## Not needed (User 2026-10-16) — were "later" (User 2026-10-15), from the backlog's ❓ list
 
 - **Three bands: underlay, model, annotations** — draw everything in three bands, bottom to top (underlay, model,
   annotations), each shown / hidden / faded / locked as one, draw order only inside a band; and a fixed order inside the
