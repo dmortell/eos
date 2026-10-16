@@ -4,6 +4,7 @@ import type { CadProject } from './project.svelte'
 import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
 import { newServerRoom, nextRoomName } from '../domain/devices'
+import { allocate } from '../domain/allocate'
 import { deleteEntities, levelContents, levelRisers, withoutLevelNodes, contentsText, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
@@ -96,4 +97,16 @@ export function addServerRoom(project: CadProject, ws: Workspace, levelId: strin
 			ws.say(`${room.name} added on ${l.name} — draw its racks with the Rack tool`)
 		},
 	}
+}
+
+/** Cabling › Allocate this level (Round 7: Allocate was only in the Outlets table's ⋯ menu): every unallocated outlet
+ *  port of the open level onto a panel of its server room — the table's own Allocate this level; asks first only when
+ *  existing links would move (they don't here: existing links stay). */
+export function allocateLevel(project: CadProject, ws: Workspace, levelId: string | null): void {
+	if (!levelId) { ws.say('Open a floor first'); return }
+	const r = allocate(project.index, { levelId, reallocate: false, includePinned: false })
+	const n = r.add.length, left = r.unallocated.length
+	if (!n) { ws.say(left ? `Nothing to allocate — ${left} port(s) can't be placed (Outlets table: the list)` : 'Every outlet port on this floor is already allocated'); return }
+	project.applyLinks('Allocate this level', r.add, r.remove)
+	ws.say(`Allocate this level: ${n} port(s) to panels${left ? ` · ${left} can't be placed` : ''} — Undo brings them back`)
 }

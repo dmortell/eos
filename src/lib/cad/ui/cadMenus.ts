@@ -67,7 +67,7 @@ export interface MenuCtx {
 	openTable(t: 'outlets' | 'patch' | 'sheets' | 'links'): void
 	/** The Sheets table on one of its views, or a release of the picked sheets started (Drawings menu). */
 	sheetsTab(which: 'register' | 'packages' | 'issues' | 'release'): void
-	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void; serverRoom(): void
+	cordBom(): void; cordLabels(): void; portMap(): void; portMapView(): void; cableSchedule(): void; bom(): void; catalogue(): void; serverRoom(): void; allocate(): void
 	// Sheets
 	newSheet(): void; sheetFromView(): void; canSheetFromView: boolean; titleBlock(): void
 	/** Draw › Image…: pick the picture, then the Image tool. */
@@ -196,6 +196,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 		{ label: 'Cabling', items: [
 			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), { label: 'New server room…', title: 'A server room on the open floor — racks belong to one; then the Rack tool draws its racks', run: c.serverRoom }, tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'),
 			'-',
+			{ label: 'Allocate this level', title: 'Every unallocated outlet port on the open floor onto a panel of its server room (racks in row order, top U down); existing links stay — the Outlets table shows the result', run: c.allocate },
 			{ label: 'Tables', children: [
 				{ label: 'Outlets', run: () => c.openTable('outlets') },
 				{ label: 'Patching', run: () => c.openTable('patch') },

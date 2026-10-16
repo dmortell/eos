@@ -294,7 +294,9 @@
 			<label class="row">{l} <input class="inp" value={s.titleBlock?.fields?.[k] ?? ''} placeholder="initials" onchange={(e) => putSheet(`${l} by`, { titleBlock: { ...s.titleBlock, fields: { ...s.titleBlock?.fields, [k]: e.currentTarget.value.trim() } } })} /></label>
 		{/each}
 		<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
-		<div class="acts"><button class="btn" title="The project's title block (on every sheet): fields, logos, company, sizes" onclick={() => ws.openTitleBlock()}>Title block template…</button></div>
+		<div class="acts"><button class="btn" title="The project's title block (on every sheet): fields, logos, company, sizes" onclick={() => ws.openTitleBlock()}>Title block template…</button>
+			<!-- Round 7 (User 2026-10-16): Release was only in the Sheets table's bar and the Drawings menu -->
+			<button class="btn" title="Release this sheet: the Sheets table opens with the release form for it (name, purpose, revision, what changed, BOM / schedules) — Ctrl-click more rows there to release them together" onclick={() => ws.releaseSheets()}>Release…</button></div>
 	</PropGroup>
 	<PropGroup kind="sheet" title="Paper">
 		<label class="row">Size

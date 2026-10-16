@@ -23,6 +23,9 @@ export interface PatchPreview {
 	fill: boolean
 	/** absent = no in-step / fill choice (Link to… always takes the next free port) */
 	setFill?(on: boolean): void
+	/** the target port the cords start at, and changing it (R7-15, User 2026-10-16: the first switch port is hard to hit at
+	 *  Fit zoom — port 3 was taken; the preview now fixes it instead of a new click) */
+	start?: number; ports?: number; setStart?(n: number): void
 	/** the heading and the OK button; default "Patch N cords" / "Patch N" */
 	title?: string; okLabel?: string
 	ok(): void
@@ -90,6 +93,7 @@ export class CordTool implements Tool {
 		if (this.bulk) {
 			const bulk = this.bulk, target = { on: r.on, start: r.port, face: r.face }
 			const plan = (fill: boolean) => bulkPatch(c.index, bulk, target, this.defaults(), { fill })
+			const tdev = c.index.get(r.on), tports = tdev?.type === 'device' ? tdev.portCount : undefined
 			const write = (res: { cords: Cord[]; skipped: string[] }) => {
 				if (res.cords.length) {
 					c.store.transact(`Patch ${res.cords.length} cords`, (tx) => { for (const k of res.cords) tx.put(k) })
@@ -110,6 +114,8 @@ export class CordTool implements Tool {
 				from: name(bulk.on), to: name(r.on), fill, skipped: res.skipped,
 				rows: res.cords.map((k) => ({ a: k.a.port, aLabel: c.index.portLabel(k.a), b: k.b.port, bLabel: c.index.portLabel(k.b) })),
 				setFill: (on) => { host.setFill(on); show(on) },
+				start: target.start, ports: tports,
+				setStart: (n) => { if (n >= 1 && (!tports || n <= tports)) { target.start = n; show(fill) } },
 				ok: () => { host.show(null); write(res) },
 				cancel: () => { host.show(null); c.say?.('Nothing patched'); this.bulk = null; this.done() },
 			})

@@ -83,6 +83,7 @@
 	.bar :global(.tb) { display: inline-flex; align-items: center; gap: 3px; min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
 	.bar :global(.tb:hover:not(:disabled)) { background: var(--cad-hover); }
 	.bar :global(.tb:disabled) { opacity: 0.4; }
+	.bar :global(.tb.pri) { background: #2563eb; border-color: #2563eb; color: white; }   /* the next step (Allocate this level) */
 	.bar :global(.tb.danger) { color: #b91c1c; }
 	.bar :global(.tb:focus-visible) { outline: 2px solid #2563eb; outline-offset: 1px; }
 </style>

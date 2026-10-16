@@ -99,6 +99,8 @@
 
 	// ── cable lengths (Phase 5.2): the project's routes; slack / waste are project settings ──
 	const cable = $derived(cableSettings(project.index))
+	/** Ports on this level not on a panel port yet (R7: Allocate was only in the ⋯ menu — a button when there are some). */
+	const unallocated = $derived.by(() => { void project.rev; return project.index.outlets.filter((o) => o.levelId === levelId).reduce((n, o) => n + o.ports.filter((p) => !project.index.linkAt({ on: o.id, port: p.port })).length, 0) })
 	const routeOf = (o: Outlet, port: number) => { const l = project.index.linkAt({ on: o.id, port }); return l ? project.routes.get(l.id) : undefined }
 	const routed = $derived.by(() => {
 		const rs = project.index.outlets.filter((o) => o.levelId === levelId).flatMap((o) => o.ports.map((p) => routeOf(o, p.port))).filter((r) => !!r)
@@ -174,6 +176,7 @@
 	hint="Select outlets (click · Shift · Ctrl) to allocate, assign or rename them — or drag them onto a panel · ⋯ for the whole level">
 	{#snippet chips()}
 		<StatusChip tone="warn" label="No panel yet{unassigned ? ` (${rows.length})` : ''}" upper={false} off={!unassigned} title="Show only the outlets with a port that isn't on a panel port yet (e.g. added after install)" onclick={() => (unassigned = !unassigned)} />
+		{#if unallocated && !selectedOutlets}<button class="tb pri" title="Cable every unallocated outlet port on this level to a panel of its server room: racks in row order, top U down. Existing links stay. (Also ⋯ › Allocate this level, and Cabling › Allocate this level.)" onclick={() => runAllocate(false, true)}>Allocate this level ({unallocated} port{unallocated === 1 ? '' : 's'})</button>{/if}
 		{#if routed.none}<StatusChip tone="bad" label="{routed.none} no route" upper={false} off={!noRoute} title="Show only the outlets with a port that has no route over the containment — why: {routed.why.join(" · ")}" onclick={() => (noRoute = !noRoute)} /><span class="why" title={routed.why.join(' · ')}>{routed.why[0]}{routed.why.length > 1 ? ` (+${routed.why.length - 1} more reasons)` : ""}</span>{/if}
 		{#if routed.n}<span class="muted" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
 		{#if routed.over}<b class="over90">{routed.over} over 90 m</b>{/if}

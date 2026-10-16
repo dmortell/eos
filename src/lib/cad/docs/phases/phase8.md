@@ -4040,3 +4040,10 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
 - **No "Open …" in the Navigator's row menus** (User 2026-10-16: "is this needed? any difference from clicking the
   label?" — none): Open plan / Open rack view / Show on the plan / Open are gone from the ⋮ menus; a click on the name
   does it. Live: IDF 1's menu is Rename… / Delete room….
+- **R7-15 and the hard-to-find steps** (User 2026-10-16):
+  - The bulk Patch preview has **Start at port [n] of N**: a neighbour of the port meant was clicked → set it here,
+    the list follows (`cordTool` `setStart`).
+  - **Allocate this level** is a button on the Outlets table's bar whenever the floor has unallocated ports (with
+    their count), and in the Cabling menu (`navActions.allocateLevel`; opens the Outlets table); still in ⋯.
+  - **Release…** in a sheet's Properties (General, beside Title block template…) opens the Sheets table with the
+    release form for it (`ws.releaseSheets`).

@@ -26,6 +26,11 @@
 		<label class="fill" title="Off: port for port from the one clicked — a pair is skipped when either port is taken. On: every free port goes to the next free port on the other device (taken ones are passed over). Ctrl on the click picks the other way for that time.">
 			<input type="checkbox" checked={p.fill} onchange={(e) => setFill(e.currentTarget.checked)} /> Fill free ports only</label>
 		{/if}
+		{#if p.setStart && p.start}{@const setStart = p.setStart}
+		<!-- R7-15: the port clicked was a neighbour of the one meant — set it here -->
+		<label class="fill" title="The port on {p.to} the cords start at (the one you clicked) — change it here instead of clicking again">
+			Start at port <input class="start" type="number" min="1" max={p.ports} value={p.start} onchange={(e) => setStart(Number(e.currentTarget.value))} />{#if p.ports}<span class="of">of {p.ports}</span>{/if}</label>
+		{/if}
 		{#if p.rows.length}
 			<div class="list">
 				{#each p.rows as r, i (i)}
@@ -52,6 +57,8 @@
 
 <style>
 	.fill { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 12px; }
+	.start { width: 4rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
+	.of { color: var(--cad-muted, #71717a); }
 	.list { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto 2rem minmax(0, 1fr); gap: 1px 6px; overflow: auto; min-height: 0; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; padding: 4px 6px; }
 	.n { text-align: right; font-variant-numeric: tabular-nums; }
 	.lbl { font-family: ui-monospace, monospace; font-size: 11px; color: var(--cad-muted, #71717a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

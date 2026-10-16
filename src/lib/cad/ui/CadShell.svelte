@@ -55,7 +55,7 @@
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf, type MenuItem } from './cadMenus'
-	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, addServerRoom } from '../app/navActions'
+	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, addServerRoom, allocateLevel } from '../app/navActions'
 	import { portMapPick } from '../domain/portMap'
 	import ContextMenu from './ContextMenu.svelte'
 	import { longPress } from './longPress'
@@ -146,6 +146,7 @@
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	ws.openTitleBlock = () => openSettings('sheets')
 	ws.openSettings = (t) => openSettings(t)
+	ws.releaseSheets = () => { openTable('sheets'); ws.sheetsAsk = 'release' }
 	ws.openWindow = (id) => layout.open(id)
 	ws.startRenumber = () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) }
 	ws.restoreBackup = async (id) => {
@@ -541,7 +542,7 @@
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
 		drafting: ws.drafting, toggleDrafting,
 		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
-		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId),
+		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId), allocate: () => { allocateLevel(project, ws, ws.levelId); openTable('outlets') },
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),

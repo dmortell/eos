@@ -224,6 +224,9 @@ export class Workspace {
 	 *  sheet Properties). */
 	openTitleBlock: () => void = () => {}
 	/** Open the project's Settings on a tab ('usages' …: SettingsDialog SettingsTab); set by the shell. */
+	/** The Sheets table with Release… started on the selected sheet(s); set by the shell (Round 7: Release was only in the
+	 *  Sheets table's bar and the Drawings menu). */
+	releaseSheets: () => void = () => {}
 	openSettings: (tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files') => void = () => {}
 	/** Open one of the shell's windows ('blocks', 'devices' …: app/windows.svelte.ts WinId); set by the shell. */
 	openWindow: (id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables') => void = () => {}
