@@ -550,7 +550,7 @@ Left where they already are:
 - B31: automatic backups;
 - B58: export file names (User's todo).
 
-## Round 7: a 20-floor building, the client on 1–3 (live, 2026-10-16, in progress)
+## Round 7: a 20-floor building, the client on 1–3 (live, 2026-10-16)
 
 User: "re-run the walkthru (clear the project, keep the PDF floorplans, reset origins and scales / crops) and look for
 UX improvements, in particular how hard it is to find tools / buttons without switching focus between menus,
@@ -578,3 +578,34 @@ origin / scale / crop were reset. Three outlet plans only, so the GF plan stands
 8. "+ Server room" only in Window › Racks (not open at first). → Cabling › New server room… and the floor's menu in the
    Navigator — built.
 9. "(level gone) plan" tabs stayed after their floor went. → closed — built.
+
+**Second half (after the fixes above), on 1F:**
+
+| Stage | What it took | Actions | Where the controls were |
+|---|---|---|---|
+| Server room | Cabling › New server room… → Add (name offered) | 2 | menu → dialog |
+| Racks | Rack tool, 3 clicks (bayed, in IDF 1 by itself) | 4 | tool bar → plan |
+| Devices | Properties › Open rack view; Cabling › Device; 2 panels + switch, one library pick | ~7 | Properties → menu → floating library → rack |
+| Outlets | Outlet tool, 4 clicks; then Ctrl-select 3 › AP, Mount ceiling | ~9 | tool bar row → plan → Properties |
+| Trunk | Cabling › Trunk, 3 points + Enter (attached to R02, plenum Z) | 5 | menu → plan |
+| Allocate | Outlets table › ⋯ › Allocate this level | 2 | bottom table, its ⋯ (far right) |
+| Patch | panel › Select the 8 … not patched › P › first switch port › Patch 8 | 4 | Properties → key → rack → dialog |
+| Sheet | Drawings › New sheet from this view | 1 | menu |
+| Release | Sheets bar › Release… › name, BOM › Release | 5 | bottom table bar (inline form) |
+
+Each stage crosses 3–4 places (menu or tool bar, the drawing, Properties on the right, the tables at the bottom).
+The two that are hard to find: **Allocate** (a ⋯ menu at the far end of the bottom table) and **Release** (the
+Sheets table's bar; also Drawings › Release…).
+
+**Found:**
+10. Esc during Set up each floor first answers the Undo / Keep offer (Keep), a second Esc stops the pass.
+11. Rack tool: good — the room is picked by itself, racks bay.
+12. In the rack view Device sits in the Rack tool's flyout; the Device library opens floating over the first rack
+    (covering R01) and stays open after the tool ends.
+13. Mount → ceiling leaves Z 0 (the outlet default's Z 0 is kept), so a ceiling outlet sits on the floor in elevations.
+14. Allocate: "8 no route" in the table with "?" lengths; why (no run within 10 m of the outlet) and what to do is only
+    in a port's Properties.
+15. Bulk patch: the switch's first port is hard to hit at Fit zoom (port 3 was taken); the preview shows it, but can't
+    change the first port.
+16. New sheet from this view: the viewport is the part of the plan on screen (262 × 97 mm), not the floor; its title is
+    "New sheet".
