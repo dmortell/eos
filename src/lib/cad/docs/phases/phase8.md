@@ -4099,3 +4099,11 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   file). They wait for Save (● on just the tabs with unsaved edits; closing asks Save / Discard); the other tabs still
   save at once. Project › Project details… opens Project settings on Details. Live: an author edit saved from cad and
   put back; both dialogs and New project checked.
+- **Walkthrough Round 8 — the less-used functions** (User 2026-10-16; findings in `../plan/workflow-walkthrough.md`
+  "Round 8"): a group's building named in its title block (no Building field: "Group – Annex"), Navigator top row and
+  start card; the Group with another project dialog titled to match; releases newest first by number; the Sheets
+  table's Delete offers Archive for a released sheet; cords to remove say "Removed on site" in the patch list; Esc
+  takes a just-placed note away; Title block… scrolls to the title block; a selected viewport says so in the status
+  bar; a block's corner grip scales about the opposite corner; the cable schedule names cable types and words
+  unmeasured estimates plainly; undo / redo go field by field over other people's changes (`store.ts` `mergeBack`);
+  the riser view's floor pickers widened; a library window asked for where it can't work opens for the next view.
