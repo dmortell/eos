@@ -76,11 +76,16 @@ const isDesk = (e: Entity | undefined): e is Desk => e?.type === 'shape' && e.ge
 export function outletsOntoDesks(ix: ProjectIndex, ids: Id[]): { put: Entity[]; select: Id[]; desks: number } | { problem: string } {
 	const sel = ids.map((id) => ix.get(id))
 	const outlets = sel.filter((e): e is Outlet => e?.type === 'outlet' && !!e.at).sort((a, b) => naturalCompare(a.label, b.label))
-	const desks = sel.filter(isDesk)
-	if (!outlets.length || desks.length < 2) return { problem: 'Select the outlets on one desk, and that desk with the desks to copy them to (blocks)' }
+	const picked = sel.filter(isDesk)
+	if (!outlets.length || !picked.length) return { problem: 'Select the outlets on one desk, and the desks to copy them to (blocks)' }
 	const mid = { x: outlets.reduce((s, o) => s + o.at!.x, 0) / outlets.length, y: outlets.reduce((s, o) => s + o.at!.y, 0) / outlets.length }
 	const dist = (d: Desk) => Math.hypot(d.geom.at.x - mid.x, d.geom.at.y - mid.y)
-	const from = desks.reduce((a, b) => (dist(b) < dist(a) ? b : a))
+	// the desk the outlets sit on needn't be selected (Round 7, User 2026-10-16: "outlets + the other desks" gave no
+	// command): the nearest desk of the picked desks' block on that floor, selected or not
+	const level = outlets[0].levelId, blocks = new Set(picked.map((d) => d.geom.blockId))
+	const near = ix.ofType('shape').filter((s): s is Desk => isDesk(s) && s.levelId === level && blocks.has(s.geom.blockId))
+	const from = (near.length ? near : picked).reduce((a, b) => (dist(b) < dist(a) ? b : a))
+	const desks = picked.includes(from) ? picked : [from, ...picked]
 	const to = readingOrder(desks.filter((d) => d !== from && d.geom.blockId === from.geom.blockId && d.levelId === from.levelId), (d) => d.geom.at)
 	if (!to.length) return { problem: 'None of the other selected desks is the same block as the one with the outlets' }
 	const clip = makeClip(ix, outlets.map((o) => o.id), '')

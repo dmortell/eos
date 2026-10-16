@@ -52,6 +52,13 @@ describe('outletsOntoDesks', () => {
 			['34-005', { x: -400, y: 3100 }, 180], ['34-006', { x: -400, y: 2900 }, 180],
 		])
 	})
+	it('the desk the outlets sit on needn’t be selected (Round 7)', () => {
+		const i = ix([out('A', '34-001', { x: 0, y: 0 }), desk('D0', { x: 0, y: 0 }), desk('D1', { x: 2400, y: 0 })])
+		const r = outletsOntoDesks(i, ['A', 'D1'])
+		if ('problem' in r) throw new Error(r.problem)
+		expect(r.desks).toBe(1)
+		expect(outlets(r.put).map((o) => o.at)).toEqual([{ x: 2400, y: 0 }])
+	})
 	it('says what to select when it can’t', () => {
 		const i = ix([out('A', '34-001', { x: 0, y: 0 }), desk('D0', { x: 0, y: 0 }), desk('X', { x: 900, y: 0 }, 0, 'CHAIR')])
 		expect(outletsOntoDesks(i, ['A', 'D0'])).toHaveProperty('problem')

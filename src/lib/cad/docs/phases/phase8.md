@@ -4054,3 +4054,7 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
 - **Riser view, Hide empty floors** (Round 7): a floor a riser starts or ends on is kept (2F, fed up the riser from
   1F's IDF 1, was squeezed away, so the riser led nowhere) — `riserDisplayList` `shown`; and the view refits when
   the option is turned on or off (`ViewCanvas`). Live: 20 floors → 1F + 2F with the riser (6 cables · 12 %).
+- **Copy outlets onto the other desks without the first desk selected** (Round 7): the outlets + the desks to copy
+  to is enough — the desk they sit on is found (the nearest desk of that block on the floor); the right-click entry
+  shows with one desk picked (`outletsOntoDesks`). Test in `outletArray.test.ts`. Live: 1-005 + the other Desk1 →
+  1-006 on it.

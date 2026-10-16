@@ -274,8 +274,8 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 		...(c.turn90 && shapes.length + sel.filter((x) => x?.type === 'rack' || x?.type === 'outlet').length ? [{ label: 'Turn 90° right', key: KEYS.turnRight, run: () => c.turn90!(1) } as MenuItem, { label: 'Turn 90° left', key: KEYS.turnLeft, run: () => c.turn90!(-1) } as MenuItem] : []),
 		'-',
 		{ label: 'Select similar', run: c.similar },
-		...(c.desks && sel.some((x) => x?.type === 'outlet') && sel.filter((x) => x?.type === 'shape' && x.geom.kind === 'insert').length >= 2
-			? [{ label: 'Copy outlets onto the other desks', title: 'The outlets on one desk, onto every other selected desk of the same block — turned with each desk, numbered on', run: c.desks } as MenuItem] : []),
+		...(c.desks && sel.some((x) => x?.type === 'outlet') && sel.filter((x) => x?.type === 'shape' && x.geom.kind === 'insert').length >= 1
+			? [{ label: 'Copy outlets onto the other desks', title: 'The outlets on one desk, onto every other selected desk of the same block (the desk they sit on needn’t be selected) — turned with each desk, numbered on', run: c.desks } as MenuItem] : []),
 		...(one?.type === 'shape' ? [{ label: 'Format painter…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
 			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group(false) } as MenuItem] : []),
