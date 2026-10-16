@@ -106,7 +106,11 @@
 	{#if one}<TextField label="Name" value={one.name} onchange={(v) => v && set('Rename rack', { name: v })} />{/if}
 	<SelectField label="Kind" value={rk((r) => r.kind).value} mixed={rk((r) => r.kind).mixed} options={RACK_KINDS} onchange={(v) => set('Rack kind', { kind: v as Rack['kind'] })} />
 	<LayerPick {project} ids={racks.map((r) => r.id)} />
-	{#if one}<div class="acts ind"><button class="btn" title="A link that opens this rack's room in the rack view, zoomed to this rack (?rack=)" onclick={() => copyLink(one)}>Copy link</button></div>{/if}
+	<div class="acts ind">
+		<!-- Renumber (User 2026-10-16): the Renumber tool, the selected racks as its first picks -->
+		{#if ws.toolId !== 'renumber'}<button class="btn" title="The Renumber tool: the selected racks are the first picks — click the next ones in order, set start / step, then Renumber" onclick={() => ws.startRenumber()}>Renumber</button>{/if}
+		{#if one}<button class="btn" title="A link that opens this rack's room in the rack view, zoomed to this rack (?rack=)" onclick={() => copyLink(one)}>Copy link</button>{/if}
+	</div>
 </PropGroup>
 <PropGroup kind="rack" title="Position and size">
 	{#if one?.at}

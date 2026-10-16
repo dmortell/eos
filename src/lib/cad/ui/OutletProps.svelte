@@ -22,6 +22,8 @@
 	import { shared, MIXED, num, put as kitPut } from './propsKit'
 
 	let { project, ws, outlets }: { project: CadProject; ws: Workspace; outlets: Outlet[] } = $props()
+	/** Properties › Renumber (User 2026-10-16): the Renumber tool, these as its first picks. */
+	const RENUMBER_TIP = 'The Renumber tool: the selected ones are the first picks — click the next ones in order, set start / step, then Renumber'
 
 	const serverRooms = $derived(project.index.spaces.filter((s) => s.kind === 'server room'))
 	const usages = $derived(sortedUsages(project.settings))
@@ -113,7 +115,7 @@
 	<PropGroup kind="outlet" title="General">
 		<!-- "—" clears it (User: most outlets don't need their usage shown) — it then draws nothing under the symbol -->
 		<Field label="Usage">
-			<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} />
+			<UsageButtons {usages} value={pick((o) => o.usage ?? '', undefined)} mixed={isMixed((o) => o.usage ?? '')} onpick={(id) => setOutlets('Usage', () => ({ usage: id }))} onmore={() => ws.openSettings('usages')} />
 		</Field>
 		<label class="row">Tier
 			<select class="inp" value={pick((o) => o.tier, '')} onchange={(e) => setOutlets('Tier', () => ({ tier: e.currentTarget.value as Outlet['tier'] }))}>
@@ -134,6 +136,7 @@
 			</select>
 		</label>
 		<LayerPick {project} ids={outlets.map((o) => o.id)} />
+		{#if ws.toolId !== 'renumber'}<div class="acts ind"><button class="btn" title={RENUMBER_TIP} onclick={() => ws.startRenumber()}>Renumber</button></div>{/if}
 	</PropGroup>
 	<PropGroup kind="outlet" title="Position">
 		<label class="row" title="Height above the floor (FFL); blank = the default for each one's mount">Z (mm) <input class="inp" type="number" value={pick((o) => o.z, undefined) ?? ''} placeholder={isMixed((o) => o.z) ? MIXED : 'mount default'} onchange={(e) => { const z = num(e.currentTarget.value); if (z !== null) setOutlets('Height', () => ({ z })) }} /></label>
@@ -160,7 +163,7 @@
 	<!-- groups (UX review "Outlet Properties still flat"): General (with its layer) · Position · Ports · Circuit -->
 	<PropGroup kind="outlet" title="General">
 		<label class="row">Label <input class="inp font-mono" value={o.label} onchange={(e) => renameIt(o, e.currentTarget)} /></label>
-		<Field label="Usage"><UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} /></Field>
+		<Field label="Usage"><UsageButtons {usages} value={o.usage} onpick={(id) => id !== (o.usage ?? '') && put(o, 'Usage', { usage: id })} onmore={() => ws.openSettings('usages')} /></Field>
 		<label class="row">Tier
 			<select class="inp" value={o.tier} onchange={(e) => put(o, 'Tier', { tier: e.currentTarget.value as Outlet['tier'] })}><option value="low">Low</option><option value="high">High</option></select>
 		</label>
@@ -184,6 +187,7 @@
 			</select>
 		</label>
 		<LayerPick {project} ids={[o.id]} />
+		{#if ws.toolId !== 'renumber'}<div class="acts ind"><button class="btn" title={RENUMBER_TIP} onclick={() => ws.startRenumber()}>Renumber</button></div>{/if}
 	</PropGroup>
 	<PropGroup kind="outlet" title="Position">
 		<!-- a blank height shows the default it uses (a floor box 0, a wall outlet 300, a ceiling one the ceiling) -->

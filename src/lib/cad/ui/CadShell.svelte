@@ -145,7 +145,9 @@
 	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) === 'float' } catch { return false } })())   // the top bar by default (User 2026-10-15)
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	ws.openTitleBlock = () => openSettings('sheets')
+	ws.openSettings = (t) => openSettings(t)
 	ws.openWindow = (id) => layout.open(id)
+	ws.startRenumber = () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) }
 	ws.restoreBackup = async (id) => {
 		try {
 			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined
@@ -572,19 +574,19 @@
 		if (variant && id === 'section') ws.sectionMode = variant === 'room' ? 'room' : 'line'
 		if (ws.toolId !== id) pickTool(id)
 	}
-	function pickTool(id: ToolId) {
-		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id); return }
+	function pickTool(id: ToolId, keep = false) {
+		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id, keep); return }
 		const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id
 		if (level && TOOL_VIEWS[id].includes('plan')) {
 			setPane(activePane, PLAN)
-			void tick().then(() => { setTool(id); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })
+			void tick().then(() => { setTool(id, keep); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })
 			return
 		}
 		ws.say(`The ${n} tool works in ${TOOL_VIEWS[id].join(', ')} views — open one to use it`)
 	}
-	function setTool(id: ToolId) {
+	function setTool(id: ToolId, keep = false) {
 		canvas?.cancel()
-		if (id === 'renumber') ws.select([])   // a fresh pick: the click order is the numbering order
+		if (id === 'renumber' && !keep) ws.select([])   // a fresh pick: the click order is the numbering order (Properties › Renumber keeps the selection as the first picks)
 		if (id === 'match') { const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; ws.matchTool.source = one?.type === 'shape' ? one.id : null }
 		if (id === 'rack') { ws.rackTool.target = null; ws.rackTool.product = null }   // the Rack button draws new racks (like the last); Place in the list sets a target, the catalogue a product
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null

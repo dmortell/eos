@@ -223,8 +223,12 @@ export class Workspace {
 	/** Set by the app: open Project settings on its Sheets tab, with the title block template (Sheets › Title block…,
 	 *  sheet Properties). */
 	openTitleBlock: () => void = () => {}
+	/** Open the project's Settings on a tab ('usages' …: SettingsDialog SettingsTab); set by the shell. */
+	openSettings: (tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files') => void = () => {}
 	/** Open one of the shell's windows ('blocks', 'devices' …: app/windows.svelte.ts WinId); set by the shell. */
 	openWindow: (id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables') => void = () => {}
+	/** Properties › Renumber (outlet / rack): the Renumber tool, the selection kept as its first picks (CadShell). */
+	startRenumber: () => void = () => {}
 	/** Open the Restore dialog on a stored backup (an issue's, from the Issues list); set by the shell. */
 	restoreBackup: (backupId: string) => void = () => {}
 	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
