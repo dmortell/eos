@@ -129,7 +129,7 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined):
 			// a 3D block: its boxes and lines placed in the model, seen from above — the higher over the lower (a desk's top
 			// hides its legs); what collapses there (a vertical line) isn't drawn
 			if (b && is3d(b)) return placed3d(s, b).filter((p) => !upright(p.geom)).map((p, i) => ({ p, i, top: topOf(p) })).sort((x, y) => x.top - y.top || x.i - y.i).flatMap(({ p }) => shapePrims(p, k, blocks))
-			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden), s.id, 'shape')
+			if (b) return blockPrims(b, { at: g.at, rot: g.rot, scale: g.scale }, k, insertAttrs(b, g.attrs, g.hidden, g.z ?? 0), s.id, 'shape')
 			const r = 2 * k   // a missing block: a marked box so it can still be found and fixed
 			return [{ k: 'line', pts: [{ x: g.at.x - r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y - r }, { x: g.at.x + r, y: g.at.y + r }, { x: g.at.x - r, y: g.at.y + r }], closed: true, cls: 'missing', src: s.id }]
 		}

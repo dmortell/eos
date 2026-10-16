@@ -21,7 +21,7 @@ const LABEL = 1.8, DATUM_LABEL = 1.8, RACK_NAME = 2.5   // paper mm: printed at 
 /** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
 const FACEPLATE_MM = 86
 
-export interface Item { depth: number; prims: Prim[] }
+export interface Item { depth: number; prims: Prim[]; /** placed in this very view: a section's range doesn't cut it */ own?: boolean }
 
 /** `range` (a section): only what lies between depth `far` and `near` (view depth: larger = nearer), clipped to u0..u1
  *  across; `extra` = more items (a section's cut walls), drawn in depth order with the rest. */
@@ -64,7 +64,10 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 			if (b && is3d(b)) { if (s.levelId === levelId) items.push(...solidItems(s, b, sp, rect, uSpan, zOf, k)); continue }
 			if (s.levelId !== levelId || !g.inElevations || (g.frame && !(sp.frame && sameWay(g.frame, sp.frame)))) continue
 			const p = { x: g.at.x, y: g.at.y, z: g.z ?? 0 }, { rot: _r, ...flat } = g
-			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks) })
+			// placed in THIS view (a datum, a level marker beside the drawing): kept wherever it was put — a section's width
+			// and depth don't cut it (User 2026-10-17: a datum set beside Section IDF 1 A vanished)
+			const own = !!(g.frame && sp.frame && sameFrame(g.frame, sp.frame))
+			items.push({ depth: sp.depthOf(p) + 1, prims: shapePrims({ ...s, geom: { ...flat, at: sp.fromWorld(p) } }, k, o.blocks), ...(own ? { own } : {}) })
 			continue
 		}
 		if (planDrawing(s)) continue
@@ -80,11 +83,13 @@ export function elevationDisplayList(ix: ProjectIndex, levelId: Id, sp: ViewSpac
 	if (o.range) {
 		const r = o.range
 		const across = (p: Prim) => (p.k === 'line' ? p.pts.map((q) => q.x) : p.k === 'circle' ? [p.c.x - p.r, p.c.x + p.r] : p.k === 'text' ? [p.at.x] : [p.x, p.x + p.w])
+		const own = items.filter((it) => it.own)
 		kept = items.filter((it) => {
+			if (it.own) return false
 			if (it.depth > r.near || it.depth < r.far) return false
 			const xs = it.prims.flatMap(across)
 			return xs.length > 0 && Math.max(...xs) >= r.u0 && Math.min(...xs) <= r.u1
-		}).map((it) => ({ ...it, prims: [...it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })), ...truncMarks(ix, it.prims, r.u0, r.u1)] }))
+		}).map((it) => ({ ...it, prims: [...it.prims.map((p) => ({ ...p, clip: { x0: Math.max(r.u0, p.clip?.x0 ?? r.u0), x1: Math.min(r.u1, p.clip?.x1 ?? r.u1), y0: p.clip?.y0 ?? -1e6, y1: p.clip?.y1 ?? 1e6 } })), ...truncMarks(ix, it.prims, r.u0, r.u1)] })).concat(own)
 	}
 	if (o.band) {
 		const b = o.band

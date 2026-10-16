@@ -10,7 +10,7 @@ import { project, unproject, type ElevFrame } from './conventions'
 import { newId } from './ids'
 
 /** The `{TAG}`s that are DATA fields (drawing fields, filled from the project), not block attributes an insert fills. */
-export const DATA_FIELDS = ['PROJECT', 'BUILDING', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE'] as const
+export const DATA_FIELDS = ['PROJECT', 'BUILDING', 'LEVEL', 'SHEET', 'SHEET_TITLE', 'DATE', 'Z'] as const
 /** Is this `{TAG}` a data field (not a block attribute an insert fills)? */
 export const isDataField = (tag: string) => (DATA_FIELDS as readonly string[]).includes(tag) || tag.startsWith('COUNT:')
 
@@ -41,7 +41,7 @@ export const isLabel = (s: BlockShape): boolean => s.geom.kind === 'text' && /\{
  */
 export function placed3d(ins: Shape, b: Block): Shape[] {
 	if (ins.geom.kind !== 'insert' || !ins.levelId) return []
-	const { at, rot = 0, scale = 1, z = 0 } = ins.geom, attrs = insertAttrs(b, ins.geom.attrs, ins.geom.hidden)
+	const { at, rot = 0, scale = 1, z = 0 } = ins.geom, attrs = insertAttrs(b, ins.geom.attrs, ins.geom.hidden, z)
 	return b.shapes.flatMap((bs): Shape[] => {
 		let g = placeGeometry(bs.geom, at, rot, scale)
 		if (g.kind === 'text') { const text = fillAttrs(g.text, attrs); if (!text) return []; g = { ...g, text } }
@@ -96,7 +96,7 @@ function drawingSymbols(): Block[] {
 	return [
 		// a level datum: a quartered target on the line, its name and height above the line
 		{ type: 'block', id: 'builtin:datum', name: 'Datum (level)', scope: 'global', category: 'symbol', annotative: true, builtin: true,
-			attrs: [{ tag: 'NAME', label: 'Name', default: 'FFL' }, { tag: 'HEIGHT', label: 'Height', default: '+0' }],
+			attrs: [{ tag: 'NAME', label: 'Name', default: 'FFL' }, { tag: 'HEIGHT', label: 'Height', default: '{Z}' }],
 			shapes: [sh({ kind: 'circle', centre: { x: 0, y: 0 }, r: 1.6 }), quarter(1.6, 180), quarter(1.6, 0), seg(-1.6, 0, 18, 0), text(2.6, -0.7, '{NAME} {HEIGHT}', 2, 'left')] },
 		// a detail callout: the detail's number over the sheet it is drawn on
 		{ type: 'block', id: 'builtin:detail', name: 'Detail callout', scope: 'global', category: 'symbol', annotative: true, builtin: true,
@@ -189,13 +189,20 @@ export const outletAttrs = (o: Outlet): Record<string, string> => ({ LABEL: o.la
 
 /** An INSERT's attributes: every `{TAG}` in the block blank unless the insert sets it (an outlet symbol placed as a
  *  plain block — a power faceplate — has no label / ports / usage to show; User, A009). */
-export function insertAttrs(b: Block, attrs: Record<string, string> = {}, hidden: string[] = []): Record<string, string> {
+export function insertAttrs(b: Block, attrs: Record<string, string> = {}, hidden: string[] = [], z = 0): Record<string, string> {
 	const out: Record<string, string> = {}
 	for (const d of blockAttrDefs(b)) out[d.tag] = d.default ?? ''
-	const all = { ...out, ...attrs }
+	const all: Record<string, string> = { ...out, ...attrs }
+	// {Z}: this insert's height above FFL, "+2010" (User 2026-10-17: a datum read "FFL +0" wherever it was placed) — in
+	// the block's texts and in any attribute value (the datum's Height defaults to it)
+	const zt = formatZ(z)
+	for (const k of Object.keys(all)) if (all[k].includes('{Z}')) all[k] = all[k].replaceAll('{Z}', zt)
+	if (b.shapes.some((s) => s.geom.kind === 'text' && s.geom.text.includes('{Z}'))) all.Z = zt   // only where a text uses it
 	for (const t of hidden) all[t] = ''   // a hidden attribute keeps its value (data) but doesn't draw
 	return all
 }
+/** A height for {Z}: whole mm with its sign, "+2010" / "-300" / "+0". */
+export const formatZ = (z: number): string => `${z < 0 ? '-' : '+'}${Math.abs(Math.round(z))}`
 
 /** A block's ATTRIBUTES (backlog "Block attributes on an insert"): its declared ones (`attrs`, with label and default)
  *  then any other `{TAG}` its texts use, in that order — not the data fields ({PROJECT}, {LEVEL} …, domain/fields.ts). */
@@ -345,7 +352,7 @@ export function explodeInsert(ins: Shape, block: Block, k = 1, o: { frame?: Elev
 	const frame = ins.levelId ? o.frame : undefined
 	const b = block
 	const { at, rot = 0, scale = 1, z } = ins.geom, s = scale * (b.annotative ? k : 1)
-	const attrs = insertAttrs(block, ins.geom.attrs, ins.geom.hidden)
+	const attrs = insertAttrs(block, ins.geom.attrs, ins.geom.hidden, ins.geom.z ?? 0)
 	const owner = ins.levelId ? { levelId: ins.levelId } : ins.viewId ? { viewId: ins.viewId } : { sheetId: ins.sheetId!, ...(ins.vpId ? { vpId: ins.vpId } : {}) }
 	// on an elevation's plane: where the view drew it (its u, at its height; elevations draw inserts unturned)
 	const onPlane = frame ? project(frame, { x: at.x, y: at.y, z: z ?? 0 }) : null

@@ -819,3 +819,15 @@ level marker, elevation tag) in the Blocks window, a block placed in a section a
 round). Open for review: 5 (empty-floor viewport strip), 14 (outlets on a desk don't move / turn with it), 16 (Use as
 default's tool bar after Undo), 23 (riser range only floors with a model), 25 (new layers hidden on existing sheets),
 26 (datum block height). Noted only: 8, 13, 19, 21, 27.
+
+### Round 8 follow-up (User 2026-10-17)
+
+- 14: decided — outlets don't move with the desk they sit on (by design).
+- 25: decided — a new layer doesn't print on existing sheets until it's turned on per viewport (by design).
+- 26: built — {Z} in a block's texts or attribute values is the insert's height above FFL ("+2010"); the Datum
+  (level) block's Height defaults to {Z} (type over it to fix it). A block placed in a section beside its width (a
+  datum, a level marker) is drawn there — the section's width and depth no longer cut blocks placed in that view.
+- Project details by two people at once: a save wrote every field, so one person's form put back the other's older
+  values. → a save writes only the fields changed since the form opened (members: who was added / removed, applied to
+  the list as it is), and fields not touched take the other person's save as it arrives — built
+  (`ProjectDetailsForm`). Live: tab B saved the author, tab A then the client — both kept.

@@ -88,7 +88,21 @@
 	}
 	// another project (cad's route keeps one form for the open project): start again from it
 	let shownId = untrack(() => project?.id)
-	$effect(() => { const id = project?.id; untrack(() => { if (id !== shownId) { shownId = id; d = fromProject() } }) })
+	// what the form started from: a save writes only the fields changed since (User 2026-10-17: two people editing the
+	// details — a save wrote every field, so one person's form put back the other's older values)
+	let base: Draft = untrack(() => $state.snapshot(d) as Draft)
+	$effect(() => { const id = project?.id; untrack(() => { if (id !== shownId) { shownId = id; d = fromProject(); base = $state.snapshot(d) as Draft } }) })
+	// someone else's save arriving: the fields this form hasn't touched take it (they'd show as unsaved edits otherwise)
+	$effect(() => {
+		if (mode === 'create') return
+		const live = fromProject()
+		untrack(() => {
+			const now = $state.snapshot(d) as Draft
+			for (const k of Object.keys(live) as (keyof Draft)[]) {
+				if (norm(k, now[k]) === norm(k, base[k]) && norm(k, live[k]) !== norm(k, base[k])) { (d as Record<string, unknown>)[k] = live[k]; (base as Record<string, unknown>)[k] = live[k] }
+			}
+		})
+	})
 
 	// which parts have unsaved edits (the ● on just those tabs)
 	const COMPANY: (keyof Draft)[] = ['companyName', 'companyLogoUrl', 'companyAddress', 'companyContact']
@@ -161,14 +175,27 @@
 				await db.save('projects', { id, name, clientCode, projectCode, ...fields(), ownerId: session?.user?.uid, createdAt: now, updatedAt: now, deleted: false })
 				onsaved?.(id)
 			} else if (project?.id) {
+				const now0 = $state.snapshot(d) as Draft, all = fields() as Record<string, unknown>
+				const FIELD: Partial<Record<keyof Draft, string>> = { description: 'description', client: 'client', address: 'address', building: 'buildingName', author: 'author', logoUrl: 'logoUrl',
+					companyName: 'companyName', companyLogoUrl: 'companyLogoUrl', companyAddress: 'companyAddress', companyContact: 'companyContact', sections: 'titleBlockSections' }
+				const changed = (k: keyof Draft) => norm(k, now0[k]) !== norm(k, base[k])
+				const patch: Record<string, unknown> = {}
+				for (const [k, f] of Object.entries(FIELD) as [keyof Draft, string][]) if (changed(k)) patch[f] = all[f]
+				// members: who this form added / removed, applied to the list as it is now (someone else may have changed it)
+				if (changed('members')) {
+					const added = now0.members.filter((m) => !base.members.includes(m)), gone = base.members.filter((m) => !now0.members.includes(m))
+					patch.members = [...new Set([...(project.members ?? []).filter((m) => !gone.includes(m)), ...added])]
+				}
 				// a building of a group: its title follows the group and its building name (User 2026-10-16)
-				await db.save('projects', { id: project.id, name: project.masterId ? fullName(project.groupName ?? name, d.building) : name, ...fields(), updatedAt: now })
+				if (changed('name') || changed('building')) patch.name = project.masterId ? fullName(project.groupName ?? name, d.building) : name
+				if (Object.keys(patch).length) await db.save('projects', { id: project.id, ...patch, updatedAt: now })
+				base = now0
 				onsaved?.(project.id)
 			}
 		} finally { saving = false }
 	}
 	/** Back to what the project has (Discard). */
-	export function discard(): void { d = fromProject() }
+	export function discard(): void { d = fromProject(); base = $state.snapshot(d) as Draft }
 
 	async function archive() {
 		if (!project?.id || !canEdit()) return

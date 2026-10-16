@@ -156,7 +156,17 @@ describe('drawing symbols (Markup kinds part 5)', () => {
 		const sym = BUILTIN_BLOCKS.filter((b) => b.category === 'symbol')
 		expect(sym.map((b) => b.name)).toEqual(['Datum (level)', 'Detail callout', 'Elevation tag', 'Level marker (elevation)', 'Elevation marker (4-way)', 'Break line - straight', 'Break line - round (pipe / duct)', 'Centreline mark'])
 		expect(sym.every((b) => b.annotative)).toBe(true)
-		expect(sym.slice(0, 5).map((b) => blockAttrDefs(b).map((d) => `${d.tag}=${d.default}`))).toEqual([['NAME=FFL', 'HEIGHT=+0'], ['NUMBER=1', 'ON_SHEET=A-501'], ['NUMBER=1', 'ON_SHEET=A-201'], ['NAME=FLOOR 1F', 'HEIGHT=FL±0'], ['ON_SHEET=A-201', 'UP=A', 'RIGHT=B', 'DOWN=C', 'LEFT=D']])
+		expect(sym.slice(0, 5).map((b) => blockAttrDefs(b).map((d) => `${d.tag}=${d.default}`))).toEqual([['NAME=FFL', 'HEIGHT={Z}'], ['NUMBER=1', 'ON_SHEET=A-501'], ['NUMBER=1', 'ON_SHEET=A-201'], ['NAME=FLOOR 1F', 'HEIGHT=FL±0'], ['ON_SHEET=A-201', 'UP=A', 'RIGHT=B', 'DOWN=C', 'LEFT=D']])
 		expect(insertAttrs(sym[1], { NUMBER: '3' })).toEqual({ NUMBER: '3', ON_SHEET: 'A-501' })
+	})
+})
+
+describe('{Z}: an insert\'s height (User 2026-10-17)', () => {
+	it('fills block texts and attribute values; the datum reads where it sits', () => {
+		const datum = BUILTIN_BLOCKS.find((b) => b.id === 'builtin:datum')!
+		expect(fillAttrs('{NAME} {HEIGHT}', insertAttrs(datum, {}, [], 2010))).toBe('FFL +2010')
+		expect(fillAttrs('{NAME} {HEIGHT}', insertAttrs(datum, { HEIGHT: '+3500' }, [], 2010))).toBe('FFL +3500')   // typed: kept
+		expect(fillAttrs('{HEIGHT}', insertAttrs(datum, {}, [], -300))).toBe('-300')
+		expect(blockAttrDefs(datum).map((a) => a.tag)).toEqual(['NAME', 'HEIGHT'])                                     // Z isn't an attribute
 	})
 })

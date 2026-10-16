@@ -4107,3 +4107,8 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   bar; a block's corner grip scales about the opposite corner; the cable schedule names cable types and words
   unmeasured estimates plainly; undo / redo go field by field over other people's changes (`store.ts` `mergeBack`);
   the riser view's floor pickers widened; a library window asked for where it can't work opens for the next view.
+- **Round 8 follow-up** (User 2026-10-17): {Z} for blocks (an insert's height; the datum's Height defaults to it) —
+  `insertAttrs(…, z)`, `formatZ`, tests in `domain/blocks.test.ts`, `views/datumZ.test.ts`; blocks placed in a
+  section are kept outside its width / depth (`elevation.ts` Item.own); Project details saves only changed fields and
+  takes others' saves into untouched fields (`ProjectDetailsForm`). Decided: outlets don't follow desks; new layers
+  stay off on existing sheets until turned on.
