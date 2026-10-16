@@ -24,7 +24,7 @@
 | Test Project | 10 | 4 | 7 (+1 sheetPackage) | 2 | outlets 2, racks 5, frames 2, risers 2, page 1 | 377 |
 | Tourney | 8 | 8 | 19 | 1 | racks 37, outlets 27, risers 2, page 3 | 1,197 |
 | LR | — | — | 2 | — | outlets 32, risers 2 | **0 (never imported)** |
-| Netflix 123 | — | — | — | — | outlets 4, racks 4 | **0 (never imported)** |
+| Project 123 | — | — | — | — | outlets 4, racks 4 | **0 (never imported)** |
 
 ### Not imported into cad yet
 - Pages: models, sheets, places, title block, global blocks.
@@ -50,7 +50,7 @@
 | 7.2 | **Import Pages sheets** | Pages sheets → cad sheets (paper, frames → viewports by direction / scale / model → level, clip), `revLog` → revisions, `projects.pages.titleBlock` → settings (same model), global Pages blocks → cad blocks | Tourney's 8 Pages sheets open in cad looking like Pages' |
 | 7.3 | **Import Sheets-tool sheets** | viewport sources: outlets → plan, racks → rack row, risers → riser view, text → paper text, model3d → plan / section, fillrate → a note; title, number, paper, revisions; sheetPackages / packages → §6 Q4 | Tourney's 19 sheets in the register |
 | 7.4 | **Pages models** (§6 Q3) | model objects → cad shapes on their level (walls → walls with openings, conduits / trunks → runs, prisms → boxes, annotations → shapes), sections → sections, layers | Tourney 33F model in the cad plan, no duplicates of imported runs |
-| 7.5 | **Soft retire** | the project page, palette and title bar list only cad, Uploads, Surveys; old routes still open by URL with a "retired — use cad" banner; import LR + Netflix into cad first (§6 Q2) | Every project opens in cad with its data |
+| 7.5 | **Soft retire** | the project page, palette and title bar list only cad, Uploads, Surveys; old routes still open by URL with a "retired — use cad" banner; import LR + Project 123 into cad first (§6 Q2) | Every project opens in cad with its data |
 | 7.6 | **Delete** | the route folders above + legacy-only `lib` (rack, pages, versioning, autosave, history, panzoom, formNav, ui/print, types/pages + versioning, catalog/service; check logger), in one commit after the grace period; Firestore data kept untouched | svelte-check + tests clean; the exit |
 
 Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
@@ -62,7 +62,7 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
    - Deleting it needs your explicit go-ahead and that session stopped.
    - OK to plan for it in 7.6, after the soft retire?
 2. **Projects:**
-   - LR and Netflix 123 have never been imported into cad (you said "don't need LR at this time").
+   - LR and Project 123 have never been imported into cad (you said "don't need LR at this time").
    - Import both before the soft retire, or retire per project?
 3. **Pages models (7.4):**
    - Import their 3D objects too, or only the sheets (the models' walls / trunks may duplicate what cad already
@@ -85,7 +85,7 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
    - 7.6 (delete) stays planned, but is not implemented until cad is feature complete.
 2. **Untangle now (7.1):** move the type / constants Uploads uses (and the port-label engine the cad importer needs)
    out of the old folders.
-3. **Projects:** import **LR** into cad. **Netflix 123** will be deleted (by User), so it isn't imported.
+3. **Projects:** import **LR** into cad. **Project 123** will be deleted (by User), so it isn't imported.
 4. **History:** not imported into Issues.
 5. **Legacy risers / fillrate:** left as they are until User has finished testing for gaps.
 6. **Racks library → global device templates:** try it.
@@ -125,10 +125,10 @@ Rough size: the imports are the work (~1.5k lines). Deletion removes ~95k.
   - Stable ids `lib-<legacy id>`; one per distinct device across projects.
 - **Run once:** 4 libraries / 10 entries → **9 global templates** in `settings/cadDeviceTemplates` (the two "Shelf"
   entries merged): Blanking panel 1u, Switch 10U, Shelf, Test device, Rack PDU 0U (24U), Network switch 2u 96p,
-  Patch Frame (2U 48p), APC AR8841 PDU (30U), Switch Chasis (11U 240p, from Netflix 123's library).
+  Patch Frame (2U 48p), APC AR8841 PDU (30U), Switch Chasis (11U 240p, from Project 123's library).
 
 ### LR imported (2026-10-02)
 - **The import:** the cad page's import imported **753 items**: 374 outlets, 154 devices, 110 links, 41 racks,
   32 spaces, 19 levels, 18 rack rows, 3 underlays, a building, settings.
 - **Things to check:** 161, kept as import notes (right sidebar).
-- **Netflix 123:** not imported (User will delete it).
+- **Project 123:** not imported (User will delete it).

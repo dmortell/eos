@@ -267,7 +267,7 @@ The ranking is by how often the job happens × how much hand work it costs today
 
 ## Part 2: live run (2026-10-14)
 
-**Setup.** A new project "Workflow test" (`netflix-wftest-5876`) with User's three Netflix Sydney SYD005 outlet plans:
+**Setup.** A new project "Workflow test" with three of User's outlet plans (a client office):
 GF, L1 and L2, A3 at 1:100, with no dimensions on them. User set the L1 / L2 origins. Writes went only to this project.
 
 **Not run live:**
@@ -469,7 +469,7 @@ do update in real time.
 
 User's todo: how hard is it to switch a plan, or one sheet's viewport, between two PDF floorplans of the same floor
 to see what the designer changed? Checked against the code as it is after W5 / W9 (Workflow test already holds
-`05 SYD005 1F OUTLET PLAN_20241014 revB.pdf` beside the 20240516 L1 plan).
+the 1F outlet plan revB (2024-10-14) beside the 2024-05-16 L1 plan).
 
 **Today, to bring in revB and look at it:**
 

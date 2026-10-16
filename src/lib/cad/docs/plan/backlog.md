@@ -61,7 +61,7 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 
 ## Workflow walkthrough (2026-10-14)
 
-From `workflow-walkthrough.md`: a project built from scratch (Workflow test, Netflix SYD005) plus four installer
+From `workflow-walkthrough.md`: a project built from scratch (Workflow test) plus four installer
 rounds. The B numbers are that doc's bottlenecks. Fixed already: B40 default settings, the package bug, B53 snap
 to a riser's end, the riser reach, reload view, "(run gone)". Ordered by the walkthrough's ranking.
 
