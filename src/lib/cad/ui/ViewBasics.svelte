@@ -66,5 +66,6 @@
 	.kv { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 1px 0.25rem; }
 	.kv span:nth-child(odd) { color: var(--cad-muted); }
 	.range { display: inline-flex; align-items: center; gap: 4px; }
-	.range .inp { width: auto; min-width: 0; flex: 1; }
+	/* each wide enough for "lowest" (Round 8: 53 px cut it to "lowe") */
+	.range .inp { width: auto; min-width: 4.5rem; flex: 1; }
 </style>

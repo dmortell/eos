@@ -780,3 +780,15 @@ Undo.
     easy to hit another row's Delete while the question is open (it then asks about that one instead) — noted only.
 Good: chosen-model backups, Compare before Restore, Restore greyed when nothing would change, the dialog's own Undo
 naming its step, field-level saves keeping both tabs' usages.
+
+### 8.8 Riser view
+
+Riser view (building) of the 20-floor building, tenant 1–3: Properties › Floors range; Display › Hide empty floors off
+(all 20 floors, refitted) and on; the riser, its EPS and IDF 1 picked.
+
+**Found:**
+22. The Floors range's pickers were 53 px wide — "lowest" showed as "lowe". → at least 4.5 rem — built (`ViewBasics`).
+23. The Floors range lists only the floors with a model (1F–3F here), so with Hide empty off (all 20 floors) the view
+    can't be narrowed to, say, 1F–10F — open (minor).
+Good: Hide empty floors refits; the riser shows what it carries ("6 cables · 12 %"), EPS round it, IDF 1 as a room box;
+a click on the riser or its label picks the trunk.
