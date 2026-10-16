@@ -119,7 +119,7 @@
 		<ContactsTab {project} />
 	</section>
 	<section>
-		<p class="h">Title block <span class="hint">— the project's, on every sheet</span></p>
+		<p class="h" id="settings-title-block">Title block <span class="hint">— the project's, on every sheet</span></p>
 		{#if st}
 			<div class="tb"><TitleBlockEditor template={st.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid, storage: st.fileStorage }} /></div>
 		{:else}{@render none()}{/if}

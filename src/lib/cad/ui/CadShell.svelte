@@ -145,7 +145,10 @@
 	const TOOLS_FLOAT_KEY = 'cad-tools-float'
 	let toolsFloat = $state((() => { try { return localStorage.getItem(TOOLS_FLOAT_KEY) === 'float' } catch { return false } })())   // the top bar by default (User 2026-10-15)
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
-	ws.openTitleBlock = () => openSettings('sheets')
+	// Title block…: the Sheets tab, scrolled to its Title block section (Round 8: it opened on the categories, the block
+	// below the fold)
+	function openTitleBlock() { openSettings('sheets'); void tick().then(() => tick()).then(() => document.getElementById('settings-title-block')?.scrollIntoView({ block: 'start' })) }
+	ws.openTitleBlock = openTitleBlock
 	ws.openSettings = (t) => openSettings(t)
 	ws.releaseSheets = () => { openTable('sheets'); ws.sheetsAsk = 'release' }
 	ws.openWindow = (id) => layout.open(id)
@@ -544,7 +547,7 @@
 		drafting: ws.drafting, toggleDrafting,
 		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId), allocate: () => { allocateLevel(project, ws, ws.levelId); openTable('outlets') },
-		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
+		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: openTitleBlock, image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails: detailsTabs ? () => openSettings('details') : projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },

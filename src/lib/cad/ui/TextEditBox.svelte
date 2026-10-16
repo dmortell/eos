@@ -97,7 +97,14 @@
 		if (composing(k)) return   // Enter / Esc / Tab commit or cancel the IME's conversion, not the edit
 		if (k.key === 'Enter' && (!k.shiftKey || !at?.multi)) { k.preventDefault(); save() }
 		else if (k.key === 'Tab') { k.preventDefault(); step(k.shiftKey) }
-		else if (k.key === 'Escape') { done = true; ws.textEdit = null }
+		else if (k.key === 'Escape') {
+			// a note the Text tool has just placed (still "Text", its step the last one): Esc takes it away too (Round 8: Esc
+			// after typing left a "Text" note behind — the hint says Esc cancels). Read BEFORE clearing: `at` derives from
+			// ws.textEdit
+			const fresh = at?.text === 'Text' && project.store.undoLabels.at(-1) === 'Text'
+			done = true; ws.textEdit = null
+			if (fresh) { project.undo(); ws.select([]) }
+		}
 	}
 </script>
 

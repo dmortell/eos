@@ -87,6 +87,9 @@ export function repeatDeviceEdit(project: CadProject, ws: Workspace): void {
 export function selectedText(project: CadProject, ws: Workspace): string {
 	const n = ws.selection.length
 	if (!n) return ''
+	// viewports picked on the selected sheet: say so (Round 8: it said "1 selected (sheet)" while Properties showed a viewport)
+	const vps = ws.viewportId && n === 1 ? ws.pickedViewports.length : 0
+	if (vps) return `${vps} selected (viewport${vps > 1 ? 's' : ''})`
 	const kinds = [...new Set(ws.selection.map((id) => project.index.get(id)?.type).filter(Boolean))]
 	return `${n} selected${kinds.length === 1 ? ` (${kinds[0]}${n > 1 ? 's' : ''})` : ''}`
 }

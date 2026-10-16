@@ -716,3 +716,21 @@ status, "changes only"); Properties › Removed on site → its record goes.
    Properties says "Removed on site". → "Removed on site (1)" there too — built (`cordActions`).
 Good: the status chips with counts, Re-patch in a dialog, the strike-through for removals, Revert in Properties, the
 cord BOM by status.
+
+### 8.4 Inside a sheet
+
+S002: double-click into its viewport (Editing in a viewport ✕ / Done), a trunk picked and its Properties; Esc out; the
+viewport selected (scale, window, Fit); the Text tool inside the viewport (a note tied to it); Drawings › Title block….
+
+**Found:**
+10. The Text tool's new note, typed into and then Esc'd ("Esc cancels" in the hint), stayed behind reading "Text". →
+    Esc takes a just-placed note away (its step is undone) — built (`TextEditBox`; read `at` before clearing
+    ws.textEdit — it derives from it).
+11. Drawings › Title block… opened the Sheets tab on its categories; the title block was below categories, disciplines
+    and contacts. → it scrolls to the Title block section — built.
+12. A selected viewport said "1 selected (sheet)" in the status bar (Properties: Viewport). → "1 selected (viewport)"
+    — built (`selectedText`).
+13. A click on a magenta symbol inside the viewport picked nothing — it was the floorplan PDF's own drawing, not an
+    outlet (only the walkthrough's own outlets are cad objects) — not a bug; noted for anyone testing on these PDFs.
+Good: editing in a viewport (the chip and Done), picking model items through the paper, notes tied to their viewport,
+the title block's Project cell now naming the building.
