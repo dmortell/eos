@@ -792,3 +792,30 @@ Riser view (building) of the 20-floor building, tenant 1–3: Properties › Flo
     can't be narrowed to, say, 1F–10F — open (minor).
 Good: Hide empty floors refits; the riser shows what it carries ("6 cables · 12 %"), EPS round it, IDF 1 as a room box;
 a click on the riser or its label picks the trunk.
+
+### 8.9 Layers and blocks
+
+Window › Layers › + Layer "Round 8" (then deleted); Window › Blocks in the riser view and in Section IDF 1 A; a
+Datum (level) block placed in the section (then undone).
+
+**Found:**
+24. Window › Blocks in the riser view said "steps aside in this view — it comes back with the plan", but it hadn't
+    opened, so it didn't come back in the section either. → asked for where it can't work it opens anyway (shown in
+    the next view that takes it) and says where it shows (a plan, elevation or section; the Device library: a rack
+    view) — built (`CadShell` win.toggle).
+25. A new layer is hidden in every existing sheet's viewports ("hidden in the viewports of the 3 existing sheets (show
+    it per viewport)") — said, but a user drawing desks on a new Furniture layer may not expect them missing from the
+    sheets — open (design question).
+26. The Datum (level) block placed at Z 2010 still reads "FFL +0": its Height is a typed attribute, not where it sits
+    — open (a {Z} field for blocks would fill it).
+27. Section IDF 1 A shows only FFL — no ceiling or slab lines — where IDF 1 has no walls (the IDF2 sections with walls
+    show FSL / CSL) — noted only.
+Good: + Layer inline (Enter adds), the per-layer eye / lock / delete with Undo, the symbol blocks (centreline, datum,
+level marker, elevation tag) in the Blocks window, a block placed in a section at the clicked height.
+
+### Round 8 in short
+
+27 findings; built: 1–4, 6, 7, 9–12, 15, 17, 18, 20, 22, 24 (and Project details as tabs, option A, before the
+round). Open for review: 5 (empty-floor viewport strip), 14 (outlets on a desk don't move / turn with it), 16 (Use as
+default's tool bar after Undo), 23 (riser range only floors with a model), 25 (new layers hidden on existing sheets),
+26 (datum block height). Noted only: 8, 13, 19, 21, 27.

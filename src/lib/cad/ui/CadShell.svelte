@@ -550,7 +550,11 @@
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: openTitleBlock, image: () => (imagePickOpen = true),
 		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails: detailsTabs ? () => openSettings('details') : projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
-		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
+		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => {
+			// asked for where it can't work: open it anyway, to show in the next view it can (Round 8: it said "comes back with the
+			// plan" but wasn't open, so it didn't)
+			if (offHere(id)) { if (!layout.wins[id as WinId].open) layout.open(id as WinId); ws.say(`${WIN_TITLES[id as WinId]} shows in ${id === 'devices' ? 'a rack view' : 'a plan, elevation or section'} — not in this view`) } else layout.toggle(id)
+		}, reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), tips: () => layout.open('tips'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
 	}))
 
