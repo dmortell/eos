@@ -734,3 +734,18 @@ viewport selected (scale, window, Fit); the Text tool inside the viewport (a not
     outlet (only the walkthrough's own outlets are cad objects) — not a bug; noted for anyone testing on these PDFs.
 Good: editing in a viewport (the chip and Done), picking model items through the paper, notes tied to their viewport,
 the title block's Project cell now naming the building.
+
+### 8.5 Editing helpers
+
+1F plan: a desk block selected (corner grips), R (turn 90°), a corner grip dragged; outlet 1-021 › Use as default,
+then Undo. (Renumber and Copy outlets onto desks: Round 7.)
+
+**Found:**
+14. Turning (or moving) a desk leaves the outlet on it where it was — it ends up on the desk's edge. Outlets aren't tied
+    to the desk they sit on — open (a design question: should an outlet placed on a desk move / turn with it?).
+15. A block's corner grip scaled about the block's insert point: both sides moved, the block grew by twice the drag
+    (a 30 px pull gave × 2.05). → it scales about the opposite corner, which stays put — built (`insertScaleHandles`).
+16. Undo of Use as default puts the project's defaults back, but the tool bar's Usage / Mount stay as adopted until the
+    page is reloaded — open (minor).
+Good: R / Shift+R turn the selection and Properties shows the angle; Use as default says what it keeps (usage, mount,
+ports, cable type).

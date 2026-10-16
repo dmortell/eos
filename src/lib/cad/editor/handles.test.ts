@@ -103,15 +103,16 @@ describe('a drawn room’s outline grips (User 2026-10-15)', () => {
 })
 
 describe('a block insert\'s scale grips (User 2026-10-15)', () => {
-	it('four corners of what it draws; dragging one twice as far from the insert point doubles its scale (0.05 steps)', async () => {
+	it('four corners of what it draws; dragging one twice as far from the opposite corner doubles its scale (0.05 steps), that corner staying put (Round 8)', async () => {
 		const { insertScaleHandles } = await import('./handles')
 		const ins = { type: 'shape', id: 'I', levelId: 'L', geom: { kind: 'insert', blockId: 'b', at: { x: 0, y: 0 }, scale: 1 } } as unknown as Shape
 		const prims = [{ k: 'line', pts: [{ x: -100, y: -100 }, { x: 100, y: 100 }], cls: 'shape', src: 'I' }] as Prim[]
 		const hs = insertScaleHandles(ins, prims, { x: 0, y: 0 })
 		expect(hs.map((h) => h.at)).toEqual([{ x: -100, y: -100 }, { x: 100, y: -100 }, { x: 100, y: 100 }, { x: -100, y: 100 }])
-		const next = hs[2].drag!({ x: 200, y: 200 }, false) as Shape
+		const next = hs[2].drag!({ x: 300, y: 300 }, false) as Shape
 		expect(next.geom.kind === 'insert' && next.geom.scale).toBe(2)
-		const tiny = hs[2].drag!({ x: 1, y: 1 }, false) as Shape
+		expect(next.geom.kind === 'insert' && next.geom.at).toEqual({ x: 100, y: 100 })   // (-100,-100) + 2 × (100, 100): the far corner stays
+		const tiny = hs[2].drag!({ x: -99, y: -99 }, false) as Shape   // onto the far corner: the smallest scale
 		expect(tiny.geom.kind === 'insert' && tiny.geom.scale).toBe(0.05)
 	})
 })

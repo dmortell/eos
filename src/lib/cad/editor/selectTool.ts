@@ -215,7 +215,9 @@ export class SelectTool implements Tool {
 		if (one.type === 'shape' && one.geom.kind === 'insert' && !one.vpId) {
 			const g = one.geom, k = c.space.spec.kind
 			const anchor = k === 'plan' || k === 'sheet' ? g.at : c.space.fromWorld({ x: g.at.x, y: g.at.y, z: g.z ?? 0 })
-			return { handles: insertScaleHandles(one, c.prims(), anchor), decor: [] }
+			const flat = k === 'plan' || k === 'sheet'
+			const place = (v: Pt) => { if (flat) return { at: v }; const w = c.space.toWorld(v, c.work); return { at: { x: w.x, y: w.y }, z: w.z } }
+			return { handles: insertScaleHandles(one, c.prims(), anchor, place), decor: [] }
 		}
 		if (c.space.spec.kind === 'plan') {
 			// + the picked segments' width bars (a run with a section)

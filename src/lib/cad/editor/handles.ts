@@ -202,22 +202,28 @@ function sectionHandles(sec: SectionCut): { handles: Handle[]; decor: Prim[] } {
 }
 
 /** A block insert's SCALE grips (User 2026-10-15: "blocks need grips to adjust scale"): a square on each corner of what
- *  it draws in this view; dragging one scales it about its insert point (`anchor`, in view mm) by how much further from
- *  it the grip is — 0.05 steps (Alt: free), at least 0.05. One undo step. */
-export function insertScaleHandles(s: Shape, prims: Prim[], anchor: Pt): Handle[] {
+ *  it draws in this view; dragging one scales it about the OPPOSITE corner, which stays put (Round 8: about the insert
+ *  point both sides moved, twice the drag) — by how much further from that corner the grip is, 0.05 steps (Alt: free),
+ *  at least 0.05; the insert point (`anchor`, view mm) moves with it, `place` turning it back into the insert's fields
+ *  (a plan / sheet: `at` itself). One undo step. */
+export function insertScaleHandles(s: Shape, prims: Prim[], anchor: Pt, place: (v: Pt) => { at: Pt; z?: number } = (v) => ({ at: v })): Handle[] {
 	const g = s.geom
 	if (g.kind !== 'insert') return []
 	const ps = prims.filter((p) => p.k !== 'image' && p.src === s.id)
 	if (!ps.length) return []
 	const bs = ps.map(primBounds), x0 = Math.min(...bs.map((b) => b.x0)), y0 = Math.min(...bs.map((b) => b.y0)), x1 = Math.max(...bs.map((b) => b.x1)), y1 = Math.max(...bs.map((b) => b.y1))
 	const k0 = g.scale ?? 1
-	return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }].map((corner): Handle => ({
+	const corners = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]
+	return corners.map((corner, i): Handle => ({
 		at: corner, shape: 'square', label: 'Block scale',
 		drag: (p, free) => {
-			const d0 = Math.hypot(corner.x - anchor.x, corner.y - anchor.y)
+			const opp = corners[(i + 2) % 4]
+			const d0 = Math.hypot(corner.x - opp.x, corner.y - opp.y)
 			if (d0 < 1e-6) return s
-			const k = k0 * (Math.hypot(p.x - anchor.x, p.y - anchor.y) / d0)
-			return { ...s, geom: { ...g, scale: Math.max(0.05, free ? Math.round(k * 1000) / 1000 : Math.round(k * 20) / 20) } } as Shape
+			const raw = k0 * (Math.hypot(p.x - opp.x, p.y - opp.y) / d0)
+			const k = Math.max(0.05, free ? Math.round(raw * 1000) / 1000 : Math.round(raw * 20) / 20), r = k / k0
+			const moved = place({ x: opp.x + (anchor.x - opp.x) * r, y: opp.y + (anchor.y - opp.y) * r })
+			return { ...s, geom: { ...g, scale: k, at: { x: Math.round(moved.at.x), y: Math.round(moved.at.y) }, ...(moved.z !== undefined ? { z: Math.round(moved.z) } : {}) } } as Shape
 		},
 	}))
 }
