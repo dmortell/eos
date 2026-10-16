@@ -50,7 +50,9 @@
 	}
 	function toRoot(node: HTMLElement) {
 		const root = node.parentElement?.closest('.shell') ?? document.body
-		if (node.parentElement !== root) {
+		// last in the root even when it's already there: a dialog opened FROM another (Save as from Patch schedule) is
+		// on top of it (same z-index — the later one wins)
+		if (node !== root.lastElementChild) {
 			// moving a node drops the focus inside it: give it back
 			const had = node.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null
 			root.appendChild(node)

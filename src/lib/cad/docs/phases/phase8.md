@@ -3983,3 +3983,6 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   (CadShell `pickTool(id, keep)`; hidden while the tool is on). The Usage buttons end with **⋯**, which opens
   Settings › Usages (`ws.openSettings`). Help's Renumber entry says so. Live in Test Project: outlet 201 and rack R313
   start the tool as pick 1; ⋯ opens Usages.
+- **A dialog opened from a dialog is on top** (User 2026-10-16: Patching › Patch schedule › Export to Excel showed Save as
+  UNDER the schedule): `CadDialog` `toRoot` moves itself to the END of cad's root even when it's already a child of it
+  (Save as is declared in CadShell's own markup, so it stayed where it was declared, before the schedule dialog).
