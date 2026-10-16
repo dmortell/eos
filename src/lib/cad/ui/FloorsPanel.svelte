@@ -151,6 +151,30 @@
 		const page = paperOf(cal.page)
 		ws.calibIO.write(z, 'scale', rec, `Scaled: drawn at ${rec.paper}${q!.paper ? '' : page ? ` (an ${page} page)` : ''}`)
 	}
+	/** R7-3: the same 1:N for every floorplan (each page once), one Undo for them all. Asks first when a file is also
+	 *  another project's (its calibration is the file's). */
+	async function scaleAll(us: Underlay[], t: string, input: HTMLInputElement) {
+		const q = parsePaperScale(t)
+		if (!q) { ws.say('Type the scale as 100 or 1:100 — add the paper size when it is not the PDF page size: 100 A1'); return }
+		input.value = ''
+		const pages = [...new Map(us.map((z) => [`${z.fileId}#${z.page ?? 1}`, z])).values()]
+		const recs: { z: Underlay; rec: NonNullable<ReturnType<typeof paperScaleRecord>> }[] = []
+		for (const z of pages) {
+			await project.pdf.placed(z)
+			const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`], rec = cal?.page && paperScaleRecord(q.n, cal.page, q.paper)
+			if (rec) recs.push({ z, rec })
+		}
+		if (!recs.length) { ws.say('The floorplans couldn’t be opened — try again in a moment'); return }
+		const go = async () => {
+			const was: unknown[] = []
+			for (const { z, rec } of recs) was.push(await project.setPageCalib(z.fileId, z.page ?? 1, 'scale', rec))
+			ws.offerRevert(`Scaled ${recs.length} floorplan${recs.length === 1 ? '' : 's'}: drawn at 1:${q.n}${q.paper ? ` at ${q.paper}` : ''} — saved in their files (Uploads and every project using them).`, 'Undo',
+				() => void Promise.all(recs.map(({ z }, i) => project.setPageCalib(z.fileId, z.page ?? 1, 'scale', was[i]))).then(() => ws.say('Undone — the floorplans are as they were'), (e) => (project.error = `Couldn't undo it: ${(e as Error).message}`)))
+		}
+		const others = new Set((await Promise.all(recs.map(({ z }) => project.fileProjects(z.fileId).catch(() => [] as string[])))).flat().filter((p) => p !== project.pid))
+		if (others.size) ws.ask2(`These floorplan files are also used by ${others.size} other project${others.size === 1 ? '' : 's'} — their scale changes there too.`, 'Change them', () => void go())
+		else await go().catch((e) => (project.error = `Couldn't save the scale: ${(e as Error).message}`))
+	}
 	function removeFloorplan(l: Level, z: Underlay) {
 		project.store.transact(`${l.name}: no floorplan ${fileName(z.fileId)}`, (tx) => tx.del(z.id))
 		ws.say(`${l.name}: floorplan ${fileName(z.fileId)} removed — Undo brings it back`)
@@ -382,7 +406,9 @@
 		<!-- W6: Origin then Crop on every floor's floorplan in one go, lowest first, the floor below in red to line up -->
 		{#if onsetupfloors && hasFloorplans}
 			{@const all = main.flatMap((l) => underlaysOf(l)).filter((u) => !u.hidden)}
-			<div class="row"><button class="btn pri" title="Origin, then Crop, on each floor's floorplan in turn (lowest floor first) without coming back here — the floor below shows in red to check they line up; Esc stops" onclick={() => onsetupfloors(all)}>Set up each floor…</button><span class="hint">Origin + Crop on {all.length} floorplan{all.length === 1 ? '' : 's'}; set each scale with 1: first</span></div>
+			<!-- R7-3 (User 2026-10-16): one scale for every floorplan, typed once -->
+			<div class="row"><label class="ratio" title="Every floorplan here is drawn at 1:… — type it once (100, or 100 A1 for another paper size) and press Enter; each one's own 1: box below still sets one">Scale of all {all.length}: 1:<input placeholder="100" onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void scaleAll(all, e.currentTarget.value, e.currentTarget) } }} /></label>
+				<button class="btn pri" title="Origin, then Crop, on each floor's floorplan in turn (lowest floor first) without coming back here — the floor below shows in red to check they line up; Esc stops" onclick={() => onsetupfloors(all)}>Set up each floor…</button><span class="hint">Origin + Crop on {all.length} floorplan{all.length === 1 ? '' : 's'}</span></div>
 		{/if}
 		{#each main as l (l.id)}
 			<div class="floor">

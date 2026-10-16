@@ -566,9 +566,9 @@ origin / scale / crop were reset. Three outlet plans only, so the GF plan stands
 1. No direct "the client uses 1–3": the chips mean "the floor exists". → **Tenant floors** field ("3-8, 12"), built.
 2. Layout shifts made clicks miss: the Undo / Keep bar pushed the Plans list down; the No-model list moved the buttons.
    → bar floats at the foot; list under the buttons — built.
-3. The same 1:100 typed for each floorplan (a "same for all" would save it) — open.
-4. Set up each floor's steps are only in the status bar (bottom left) while the eye is on the drawing and the Undo /
-   Keep bubble (top) — open: show the step in the bubble.
+3. The same 1:100 typed for each floorplan. → "Scale of all n: 1:" — built.
+4. Set up each floor's steps were only in the status bar (bottom left) while the eye is on the drawing and the Undo /
+   Keep bubble (top). → the step shows in the bubble ("Next: …") — built.
 5. The plan jumped about a second after Origin (the redraw), so crop corners clicked quickly landed in the wrong place.
    → the view follows the floorplan — built.
 6. Re-cropping showed only the old crop, Fit fitted it, and there was no way to remove a crop. → whole page while

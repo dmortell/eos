@@ -8,6 +8,9 @@
 
 	let { ws }: { ws: Workspace } = $props()
 	const q = $derived(ws.confirm)
+	/** R7-4 (User 2026-10-16): while a floorplan is calibrated (Origin / Scale / Crop, Set up each floor) the step to do
+	 *  shows here, where the eye is — not only in the status bar at the bottom left. */
+	const step = $derived(ws.toolId === 'calibrate' ? ws.message : null)
 	let yesBtn: HTMLButtonElement | undefined = $state()
 	// an offer to put something back (ws.offerRevert) never takes the focus, and Enter doesn't answer it: only a click
 	$effect(() => { if (q && !q.revert && yesBtn && !typingIn(document.activeElement) && !document.querySelector('[role=dialog]')) yesBtn.focus() })
@@ -34,7 +37,10 @@
 			<!-- Keep is the usual answer to "this was done": the primary button (User 2026-10-16) --><button class:pri={q.revert} onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
 			<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 		</div>
+		{#if step}<p class="step"><b>Next:</b> {step}</p>{/if}
 	</div>
+{:else if step}
+	<div class="ask step-only" role="status">{step}</div>
 {/if}
 
 <style>
@@ -45,5 +51,7 @@
 	button.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
 	button.pri { border-color: #2563eb; color: white; background: #2563eb; }
 	button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+	.step { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid var(--cad-line, #e4e4e7); }
+	.step-only { border-color: #2563eb; }
 	.keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 </style>

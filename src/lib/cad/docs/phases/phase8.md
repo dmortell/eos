@@ -4012,3 +4012,9 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - **New server room…** (8): in Cabling and in a floor's right-click menu in the Navigator (a name dialog, the next
     free name offered; `navActions.addServerRoom`) — it was only in Window › Racks. Walkthrough and Help say so.
   - **Tabs of a deleted floor close** (9): the "(level gone) plan" tabs are pruned like a deleted sheet's.
+  - **One scale for all** (R7-3): Plans & floorplans has "Scale of all n: 1:[ ]" beside Set up each floor — every
+    floorplan page gets 1:N (or "100 A1") at once, one Undo for them all; asks first when a file is another project's
+    too. Live: 3 floorplans at 1:100 in one Enter.
+  - **The step where the eye is** (R7-4): while a floorplan is calibrated (Origin / Scale / Crop, Set up each floor) the
+    step to do shows in the box at the top of the drawing (`AskBox`), and under an Undo / Keep offer as "Next: …" —
+    not only in the status bar. Live: "1F (1 of 3): Click the point …", then "Next: 1F (1 of 3): Click one corner …".
