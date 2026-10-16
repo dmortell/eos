@@ -58,7 +58,11 @@ export class OutletTool implements Tool {
 		// zone and server room: the tool bar's, else the last outlet's; the first outlet on a level takes the level's
 		// server room when it has just one (backlog "Zones and server rooms when placing outlets")
 		const zoneId = nx.zoneId ?? prev?.zoneId
-		const roomOf = (i: number) => nx.serverRoomId ?? (prev ? prev.ports[i]?.serverRoomId ?? prev.ports[0]?.serverRoomId : rooms.length === 1 ? rooms[0].id : undefined)
+		// …else the building's only server room, on whatever floor (Round 7, User 2026-10-16: 2F's first outlets, served
+		// from IDF 1 on 1F, came out with none)
+		const all = c.index.spaces.filter((s) => s.kind === 'server room')
+		const only = rooms.length === 1 ? rooms[0].id : !rooms.length && all.length === 1 ? all[0].id : undefined
+		const roomOf = (i: number) => nx.serverRoomId ?? (prev ? prev.ports[i]?.serverRoomId ?? prev.ports[0]?.serverRoomId : only)
 		const o: Outlet = {
 			type: 'outlet', id: newId(), levelId: c.levelId, label,
 			tier, usage, mount,

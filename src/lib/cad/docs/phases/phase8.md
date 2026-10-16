@@ -4047,3 +4047,7 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     their count), and in the Cabling menu (`navActions.allocateLevel`; opens the Outlets table); still in ⋯.
   - **Release…** in a sheet's Properties (General, beside Title block template…) opens the Sheets table with the
     release form for it (`ws.releaseSheets`).
+- **A floor with no server room takes the building's only one** (Round 7: 2F's first outlets, served from 1F's IDF 1,
+  had none, so nothing could be allocated): `outletTool` — the tool bar's room, else the last outlet's, else the
+  level's only room, else the project's only room. Test in `editor.test.ts`. Live: 2F outlets → IDF 1; Allocate this
+  level (6 ports) → PP1 9–14, routed up the riser (26 / 26 / 14 m); patched with Start at port 11 (a click had hit 20).

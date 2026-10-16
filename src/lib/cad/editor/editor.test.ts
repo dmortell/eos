@@ -179,6 +179,22 @@ describe('the outlet tool', () => {
 		expect(o.zoneId).toBeUndefined()
 		expect(o.ports.every((p) => p.serverRoomId === 'SR-A')).toBe(true)
 	})
+	it('a floor with no server room: the building’s only one (Round 7: 2F served from 1F’s IDF 1)', async () => {
+		const store = new EntityStore()
+		store.load([...demoProject().filter((e) => e.type !== 'outlet' && e.type !== 'link'),
+			{ type: 'level', id: 'L32', buildingId: 'B', number: 32, name: '32F', order: 32, elevationMm: 128000 } as Entity])
+		const rooms = new ProjectIndex(store.all()).spaces.filter((s) => s.kind === 'server room')
+		let sel: string[] = []
+		const tool = new OutletTool(() => ({}))
+		const c: ToolCtx = {
+			store, index: new ProjectIndex(store.all()), levelId: 'L32', opts: { z: 0, w: 100, h: 50 }, prims: () => [], tol: () => 1,
+			space: spaceOf(PLAN), work: { z: 0, depth: 0 },
+			snap: (p) => ({ p, kind: 'grid' }), selection: sel, select: (ids: string[]) => { sel = ids }, setMarquee: () => {}, ask: () => {},
+		}
+		tool.down({ p: { x: 5000, y: 5000 }, shift: false, ctrl: false, alt: false }, c)
+		const o = store.get(sel[0]) as Outlet
+		expect(o.ports.every((p) => p.serverRoomId === (rooms.length === 1 ? rooms[0].id : undefined))).toBe(true)
+	})
 	it('height and tier by mount; another usage continues its own series (W11)', async () => {
 		const store = new EntityStore()
 		store.load(demoProject())
