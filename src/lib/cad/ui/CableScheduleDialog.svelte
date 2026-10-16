@@ -6,12 +6,15 @@
 	import type { CadProject } from '../app/project.svelte'
 	import { cableSchedule, scheduleTotals, estimatedTotals } from '../domain/cableSchedule'
 	import { cableSettings } from '../domain/routing'
+	import { cableTypeLabel } from '../domain/cableTypes'
 	import { exportCableSchedule } from '../render/exports'
 
 	let { project, projectName, onclose, ondone }: { project: CadProject; projectName: string; onclose: () => void; ondone: (msg: string) => void } = $props()
 
 	let problems = $state(false), busy = $state(false)
-	const all = $derived(cableSchedule(project.index, project.routes, cableSettings(project.index), project.estimates))
+	// the cable type by its name ("CAT6A"), not its id ("cat6a") — on screen and in the Excel (Round 8)
+	const typeName = (t: string) => { const [id, ...rest] = t.split(' '); return [cableTypeLabel(project.settings, id), ...rest].join(' ') }
+	const all = $derived(cableSchedule(project.index, project.routes, cableSettings(project.index), project.estimates).map((r) => ({ ...r, type: typeName(r.type) })))
 	const rows = $derived(problems ? all.filter((r) => r.over90 || r.lengthM == null) : all)
 	const t = $derived(scheduleTotals(all)), et = $derived(estimatedTotals(all))
 
@@ -25,7 +28,7 @@
 
 <CadDialog title="Cable schedule" width="72rem" top="5vh" {onclose}>
 	{#snippet bar()}
-		<span>{t.links} cables · <b>{t.metres} m</b> installed{#if t.unrouted}{' · '}<span class="bad">{t.unrouted} without a route</span>{/if}{#if t.over90}{' · '}<span class="bad">{t.over90} over 90 m</span>{/if}{#if et.cables}{' · '}<span class="est">+ {et.cables} estimated (not allocated yet) <b>{et.metres} m</b>{#if et.unrouted}, {et.unrouted} without a route{/if}</span>{/if}</span>
+		<span>{t.links} cables · <b>{t.metres} m</b> installed{#if t.unrouted}{' · '}<span class="bad">{t.unrouted} without a route</span>{/if}{#if t.over90}{' · '}<span class="bad">{t.over90} over 90 m</span>{/if}{#if et.cables}{' · '}<span class="est">+ {et.cables} not allocated yet{#if et.unrouted === et.cables}{' — no route to estimate them by'}{:else}, estimated <b>{et.metres} m</b>{#if et.unrouted} ({et.unrouted} without a route){/if}{/if}</span>{/if}</span>
 		<label><input type="checkbox" bind:checked={problems} /> Problems only</label>
 		<span class="grow"></span>
 		<button class="btn go" disabled={busy || !rows.length} onclick={exportXlsx}>{busy ? 'Exporting…' : `Export to Excel${problems ? ' (these)' : ''}`}</button>

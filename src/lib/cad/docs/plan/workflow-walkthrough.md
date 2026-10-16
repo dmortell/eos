@@ -749,3 +749,17 @@ then Undo. (Renumber and Copy outlets onto desks: Round 7.)
     page is reloaded — open (minor).
 Good: R / Shift+R turn the selection and Properties shows the angle; Use as default says what it keeps (usage, mount,
 ports, cable type).
+
+### 8.6 Reports
+
+File › Export ▸ Cable schedule… (on screen); View › Fill rates on the 1F plan. (Bill of materials: Round 7; the port
+map and the PDFs download at once — not run.)
+
+**Found:**
+17. The cable schedule's Cable column (and its Excel) showed the type's id, "cat6a", not its name "CAT6A". → the name
+    — built (`CableScheduleDialog`).
+18. "+ 10 estimated (not allocated yet) 0 m, 10 without a route" — the 0 m read as a measurement. → "+ 10 not
+    allocated yet — no route to estimate them by" when none can be measured — built.
+19. View › Fill rates is greyed in a section or elevation view with no word why (its tooltip says "on the plan") —
+    noted only.
+Good: fill rates on each run (8 %, 16 %, 12 %), the schedule's 90 m flag and "Problems only".
