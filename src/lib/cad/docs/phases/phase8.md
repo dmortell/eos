@@ -4069,3 +4069,13 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     number — 3F · 2F".
   - A building with tenant floors opens its riser view with the empty floors hidden (Navigator and the Riser button).
 - **A sheet from a section is named after the section** ("1F Room 1 A", was "1F Section") — `viewToSheet`.
+- **R7-30, R7-27, the V button, R7-28** (User 2026-10-16):
+  - A block on a layer of the project's own (a desk, furniture) draws under the cabling — racks, runs, outlets —
+    whatever its layer's place (`applyLayers` sort); the outlets on desks show. Test in `views/layers.test.ts`.
+  - A submenu opens on hover and on a click on its name (the click used to toggle it shut right after the hover had
+    opened it — File › Export, Draw › Section seemed to open only from ▸) — `MenuBar`.
+  - **Riser to floor… (V)** on the tool bar while a trunk / conduit is drawn on a plan (`PathTool.askRiser`,
+    `ViewCanvas.riserPath`); it asks the floor with buttons, as V does. Walkthrough and Help say so.
+  - A room drawn round a server room's racks (one with no outline yet) asks "make them IDF 1's room outline (no second
+    room)?" — IDF 1's outline / A new room (`roomTool` `serverRoomInside`, `ToolCtx.ask2`). Test in
+    `editor/roomTool.test.ts`. Live: IDF 1 got its outline.

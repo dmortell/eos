@@ -65,17 +65,20 @@ export class PathTool implements Tool {
 			c.ask('Rise / drop to Z (mm above FFL)', c.opts.z, (z) => this.riseTo(z, c))
 			return true
 		}
-		if (e.key.toLowerCase() === 'v' && this.pts.length && this.id !== 'wall') {
-			const here = c.index.get(c.levelId)
-			// the other floors with a model, as buttons at the top of the drawing too (R7-17: the question was only in the
-			// status bar, bottom left, far from the cursor)
-			const floors = c.index.levels.filter((l) => !l.area && l.id !== c.levelId).sort((a, b) => b.number - a.number)
-			c.ask('Riser to level number', here?.type === 'level' ? here.number + 1 : 0, (n) => this.riserTo(n, c), floors.map((l) => ({ label: l.name, value: l.number })))
-			return true
-		}
+		if (e.key.toLowerCase() === 'v' && this.pts.length && this.id !== 'wall') { this.askRiser(c); return true }
 		// Esc with nothing drawn yet is not ours: the shell then goes back to Select
 		if (e.key === 'Escape') { if (!this.pts.length) return false; if (this.pts.length >= 2) this.finish(c); else this.cancel(); return true }
 		return false
+	}
+	/** V, or the tool bar's "Riser to floor…" (R7, User 2026-10-16: V was only in the hint line): which floor the riser
+	 *  goes to — the run carries on from its top there. */
+	askRiser(c: ToolCtx): void {
+		if (!this.pts.length || this.id === 'wall') { c.say?.('Click where the run starts first, then Riser to floor…'); return }
+		const here = c.index.get(c.levelId)
+		// the other floors with a model, as buttons at the top of the drawing too (R7-17: the question was only in the
+		// status bar, bottom left, far from the cursor)
+		const floors = c.index.levels.filter((l) => !l.area && l.id !== c.levelId).sort((a, b) => b.number - a.number)
+		c.ask('Riser to level number', here?.type === 'level' ? here.number + 1 : 0, (n) => this.riserTo(n, c), floors.map((l) => ({ label: l.name, value: l.number })))
 	}
 
 	/** A riser: a vertical segment from the last point up / down to another level, then the run ends there. It arrives

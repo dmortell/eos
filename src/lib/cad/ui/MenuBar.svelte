@@ -42,8 +42,10 @@
 					{#each m.items as it, i (i)}
 						{#if it === '-'}<div class="sep"></div>
 						{:else if 'children' in it}
+							<!-- hover opens it; a click on its name opens it too (R7-27: the click used to toggle it shut again right after
+							     the hover had opened it, so it seemed to open only from the ▸) -->
 							<div class="subwrap" role="none" onmouseenter={() => { if (!it.disabled) sub = it.label }}>
-								<button class="item" class:on={sub === it.label} role="menuitem" aria-haspopup="menu" disabled={it.disabled} title={it.title} onclick={() => (sub = sub === it.label ? null : it.label)}>
+								<button class="item" class:on={sub === it.label} role="menuitem" aria-haspopup="menu" disabled={it.disabled} title={it.title} onclick={() => (sub = it.label)}>
 									<span class="tick"></span><span class="lbl">{it.label}</span><span class="key">▸</span>
 								</button>
 								{#if sub === it.label}

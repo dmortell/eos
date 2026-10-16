@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { EntityStore } from '../store/store'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { RoomTool, riserInside } from './roomTool'
+import { RoomTool, riserInside, serverRoomInside } from './roomTool'
 import { spaceOf, PLAN } from '../views/space'
 import { planDisplayList } from '../views/plan'
 import { defaultLayer } from '../domain/layers'
@@ -63,5 +63,18 @@ describe('the Room tool', () => {
 		expect(ps.map((p) => p.k)).toEqual(['line', 'text'])
 		expect(ps[0]).toMatchObject({ closed: true, dash: 'dashed' })
 		expect(ps[1]).toMatchObject({ text: 'EPS 3', at: { x: 600, y: 200 } })
+	})
+})
+
+describe('a room drawn round a server room’s racks (R7-28)', () => {
+	it('is offered as that server room’s outline when it has none', () => {
+		const sr = { type: 'space', id: 'SRX', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9 } as Entity
+		const rack = (id: string, x: number) => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SRX', name: id, at: { x, y: 90000 }, widthMm: 600, depthMm: 1000, heightU: 42 }) as unknown as Entity
+		const ix = new ProjectIndex([...demoProject(), sr, rack('RX1', 90000), rack('RX2', 90600)])
+		const poly = [{ x: 89000, y: 89000 }, { x: 92000, y: 89000 }, { x: 92000, y: 91000 }, { x: 89000, y: 91000 }]
+		expect(serverRoomInside({ index: ix, levelId: 'L33' }, poly)?.id).toBe('SRX')
+		expect(serverRoomInside({ index: ix, levelId: 'L33' }, poly.map((p) => ({ x: p.x + 1e6, y: p.y })))).toBeUndefined()   // racks outside
+		const outlined = new ProjectIndex([...demoProject(), { ...sr, boundary: poly } as Entity, rack('RX1', 90000)])
+		expect(serverRoomInside({ index: outlined, levelId: 'L33' }, poly)).toBeUndefined()                                 // it has one already
 	})
 })

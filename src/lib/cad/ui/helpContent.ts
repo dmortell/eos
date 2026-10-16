@@ -191,7 +191,7 @@ export const WALKTHROUGH: { stage: string; steps: string[] }[] = [
 	] },
 	{ stage: 'Containment and risers', steps: [
 		'Trunk / Conduit tool from a rack: click the route, Enter ends it (R = rise / drop).',
-		'V = a riser to another floor: that floor’s plan opens and you carry on from the riser’s top.',
+		'V (or Riser to floor… on the tool bar) = a riser to another floor — pick the floor: its plan opens and you carry on from the riser’s top.',
 		'Kind (tray / ladder / trunk) and size in Properties; View › Fill rates shows how full each segment is.',
 		'Room tool round a riser = an EPS (named in the riser view).',
 	] },
@@ -246,7 +246,7 @@ export const WALKTHROUGH_JA: { stage: string; steps: string[] }[] = [
 	] },
 	{ stage: 'ケーブルラックとライザー', steps: [
 		'ラックから Trunk / Conduit ツール:経路をクリック、Enter で終了(R = 上げ / 下げ)。',
-		'V = 他の階へのライザー:その階のプランが開き、ライザーの上端から続けて描けます。',
+		'V(またはツールバーの Riser to floor…)= 他の階へのライザー(階を選択):その階のプランが開き、ライザーの上端から続けて描けます。',
 		'種類(トレイ / ラダー / トランク)とサイズは Properties で。View › Fill rates で各区間の占有率を表示。',
 		'ライザーを囲んで Room ツール = EPS(ライザービューに名前が表示されます)。',
 	] },

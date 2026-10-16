@@ -66,6 +66,8 @@ export interface ToolCtx {
 	openingId?(): string | null
 	/** Ask for text (the tool-bar prompt); `apply` runs on Enter. */
 	askText?(label: string, value: string, apply: (t: string) => void): void
+	/** A question with a yes (and an optional second answer) in the box at the top of the drawing (ws.ask2). */
+	ask2?(msg: string, yes: string, apply: () => void, alt?: { label: string; apply: () => void }): void
 	/** Sheet views only: select one viewport of the selected sheet (null = the sheet itself), and which one is. */
 	selectViewport?(id: Id | null, toggle?: boolean): void
 	viewportId?(): Id | null

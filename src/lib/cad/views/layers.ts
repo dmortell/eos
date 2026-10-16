@@ -35,7 +35,12 @@ export function applyLayers(prims: Prim[], ix: ProjectIndex, f: LayerFilter = {}
 	if (f.sort) {
 		// a prim on no layer (a datum, a label with no source) stays with the layer drawn just before it
 		let o = -Infinity
-		const keyed = draw.map((p, i) => { if (p.layer) o = byId.get(p.layer)?.order ?? o; return { p, o, i } })
+		// a block (a desk, other furniture) on a layer of the project's own goes under the cabling — racks, runs, outlets
+		// — just above Drawing, whatever that layer's place (R7-30, User: "outlets should draw over desks"; a desk's
+		// fill hid the outlets on it)
+		const blockAt = (byId.get('sys:drawing')?.order ?? 30) + 5
+		const isBlock = (p: Prim) => { const l = p.layer ? byId.get(p.layer) : undefined, e = p.src ? ix.get(p.src) : undefined; return !!l && !l.system && e?.type === 'shape' && e.geom.kind === 'insert' }
+		const keyed = draw.map((p, i) => { if (p.layer) o = byId.get(p.layer)?.order ?? o; return { p, o: isBlock(p) ? blockAt + o / 1e6 : o, i } })
 		keyed.sort((a, b) => a.o - b.o || a.i - b.i)
 		draw.splice(0, draw.length, ...keyed.map((x) => x.p))
 	}

@@ -35,6 +35,15 @@ export function newRoom(c: Pick<ToolCtx, 'index' | 'levelId'>, boundary: Pt[], n
 	return { type: 'space', id: newId(), levelId: c.levelId, kind, name: name?.trim() || `${eps ? 'EPS' : 'Room'} ${n}`, boundary, order: here.length + 1 }
 }
 
+/** A server room on this level with no outline yet whose placed racks all stand inside `poly`. */
+export function serverRoomInside(c: Pick<ToolCtx, 'index' | 'levelId'>, poly: Pt[]): Space | undefined {
+	return c.index.spaces.find((s) => {
+		if (s.kind !== 'server room' || s.levelId !== c.levelId || s.boundary?.length) return false
+		const racks = c.index.racks.filter((r) => r.spaceId === s.id && r.at)
+		return racks.length > 0 && racks.every((r) => inPolygon(r.at!, poly))
+	})
+}
+
 export class RoomTool implements Tool {
 	readonly id = 'room'
 	readonly cursor = 'crosshair'
@@ -76,8 +85,19 @@ export class RoomTool implements Tool {
 			c.store.transact(`New ${r.kind === 'eps' ? 'EPS' : 'room'} ${r.name}`, (tx) => tx.put(r))
 			c.select([r.id])
 		}
-		if (c.askText) c.askText(room.kind === 'eps' ? 'EPS name (a riser is inside it)' : 'Room name', room.name, make)
-		else make(room.name)
+		const named = () => { if (c.askText) c.askText(room.kind === 'eps' ? 'EPS name (a riser is inside it)' : 'Room name', room.name, make); else make(room.name) }
+		// round a server room's racks (R7-28, User 2026-10-16: it became a second room beside IDF 1 — the IDF2 / 33IDF2
+		// case): offer to make it that server room's outline instead
+		const sr = serverRoomInside(c, pts)
+		if (sr && c.ask2) {
+			c.ask2(`These corners hold ${sr.name}'s racks — make them ${sr.name}'s room outline (no second room)?`, `${sr.name}'s outline`, () => {
+				c.store.transact(`${sr.name}: room outline`, (tx) => tx.put({ ...sr, boundary: pts }))
+				c.select([sr.id])
+				c.say?.(`${sr.name} has its outline — its walls, room elevations and sheets go with it`)
+			}, { label: 'A new room', apply: named })
+			return
+		}
+		named()
 	}
 	cancel(): void { this.pts = []; this.#hover = null }
 

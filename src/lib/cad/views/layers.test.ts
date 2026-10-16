@@ -92,6 +92,14 @@ describe('hiding, locking and coloring', () => {
 		const first = draw.findIndex((p) => p.src === 'O1'), trunk = draw.findIndex((p) => p.src === 'T1')
 		expect(first).toBeLessThan(trunk)
 	})
+	it('a block on a layer of the project’s own (a desk) draws under the outlets, whatever its layer’s order (R7-30)', () => {
+		const o1 = demoProject().find((e) => e.id === 'O1') as Entity & { at: { x: number; y: number } }
+		const desk = { type: 'shape', id: 'DESK', levelId: 'L33', layerId: 'FURN', geom: { kind: 'insert', blockId: 'X', at: o1.at, w: 1600, h: 800 } } as unknown as Entity
+		const i = ix([layer('FURN', 500), desk]), { draw } = applyLayers(plan(i), i, { sort: true })
+		const d = draw.findIndex((p) => p.src === 'DESK'), o = draw.findIndex((p) => p.src === 'O1')
+		expect(d).toBeGreaterThanOrEqual(0)
+		expect(d).toBeLessThan(o)
+	})
 	it('a layer frozen in a viewport is left out of that viewport only (it prints that way)', () => {
 		const i = ix(), vp = (frozen?: string[]): Viewport => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 0, y: 0, w: 100, h: 100 }, scale: 100, centre: { x: 0, y: 0 }, ...(frozen ? { frozen } : {}) })
 		expect(viewportContent(i, vp()).some((p) => p.src === 'O1')).toBe(true)
