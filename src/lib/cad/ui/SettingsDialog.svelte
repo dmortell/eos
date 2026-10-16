@@ -1,4 +1,5 @@
 <!-- PROJECT SETTINGS: everything project-wide in one dialog with a tab list (it was three: Floors…, Settings… and
+	const TABS = $derived(detailsTabs ? [...DETAIL_TABS, ...SETTING_TABS] : SETTING_TABS)
      Title block…). Floors & heights · Plans & floorplans (FloorsPanel) · Usages · Cable types · Lengths & labels ·
      Drawing style (the look new shapes start with) · Sheets (categories + the title block template) · Files (SettingsPanel), and a link to Project details… (the
      projects page's dialog, which the route hosts). The menu entries open it on their tab.
@@ -8,7 +9,11 @@
      (Enter / Esc) still answer it. The footer's Undo undoes the last step (the shell's Undo is behind the backdrop). While a floorplan is calibrated on the plan the dialog is hidden (`hidden`), and it
      comes back as it was when the Calibrate tool ends. -->
 <script module lang="ts">
-	export type SettingsTab = 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'
+	export type DetailsPart = 'details' | 'company' | 'members'
+	export type SettingsTab = DetailsPart | 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'
+	/** The project's details form (name, client, company, members — the Projects page's), handed in by the route: shown as
+	 *  this dialog's first three tabs (User 2026-10-16, option A). `dirty`: unsaved edits (the tab's ●; closing asks). */
+	export interface DetailsTabs { panel: import('svelte').Snippet<[DetailsPart | null]>; readonly dirty: boolean; readonly dirtyParts: DetailsPart[]; save(): unknown; discard(): void }
 </script>
 
 <script lang="ts">
@@ -21,19 +26,30 @@
 	import type { Underlay } from '../domain/types'
 	import type { CalibMode } from '../editor/calibrateTool'
 
-	let { project, ws, tab = $bindable('floors'), hidden = false, onclose, oncalibrate, onsetupfloors, projectDetails }: {
+	let { project, ws, tab = $bindable('floors'), hidden = false, onclose, oncalibrate, onsetupfloors, projectDetails, detailsTabs }: {
 		project: CadProject; ws: Workspace; tab?: SettingsTab; hidden?: boolean; onclose: () => void
 		oncalibrate?: (u: Underlay, mode: CalibMode) => void; onsetupfloors?: (us: Underlay[]) => void; projectDetails?: () => void
+		detailsTabs?: DetailsTabs
 	} = $props()
 
-	const TABS: [SettingsTab, string][] = [['floors', 'Floors & heights'], ['plans', 'Plans & floorplans'], ['usages', 'Usages'], ['cables', 'Cable types'], ['lengths', 'Lengths & labels'], ['drawing', 'Drawing style'], ['sheets', 'Sheets'], ['files', 'Files']]
+	const DETAIL_TABS: [SettingsTab, string][] = [['details', 'Details'], ['company', 'Company'], ['members', 'Members']]
+	const isDetail = (t: SettingsTab): t is DetailsPart => t === 'details' || t === 'company' || t === 'members'
+	const SETTING_TABS: [SettingsTab, string][] = [['floors', 'Floors & heights'], ['plans', 'Plans & floorplans'], ['usages', 'Usages'], ['cables', 'Cable types'], ['lengths', 'Lengths & labels'], ['drawing', 'Drawing style'], ['sheets', 'Sheets'], ['files', 'Files']]
+	const TABS = $derived(detailsTabs ? [...DETAIL_TABS, ...SETTING_TABS] : SETTING_TABS)
 	let dlg: HTMLElement | undefined = $state()
 	let floors: ReturnType<typeof FloorsPanel> | undefined = $state()
 	let yesBtn: HTMLButtonElement | undefined = $state()
 
 	/** Close, unless the floor range typed in Floors & heights isn't applied: then ask (Apply / Discard; Cancel stays). */
 	function requestClose(then?: () => void) {
-		const done = () => { onclose(); then?.() }
+		const close = () => { onclose(); then?.() }
+		// unsaved project details: Save / Discard (Cancel stays)
+		const done = () => {
+			const dt = detailsTabs
+			if (!dt?.dirty) { close(); return }
+			tab = 'details'
+			ws.ask2('The project details have unsaved changes. Save them?', 'Save', async () => { await dt.save(); close() }, { label: 'Discard', apply: () => { dt.discard(); close() } })
+		}
 		if (!floors?.isPending()) { done(); return }
 		tab = 'floors'
 		ws.ask2('The floor range typed in Floors & heights isn’t applied. Apply the floor range?', 'Apply', () => { floors?.apply(); done() }, { label: 'Discard', apply: done })
@@ -61,16 +77,19 @@
 		<div class="cols">
 			<div class="tabs" role="tablist" aria-orientation="vertical">
 				{#each TABS as [id, label] (id)}
-					<button role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id)}>{label}{#if id === 'floors' && floors?.isPending()}<span class="dot" title="The floor range isn’t applied">●</span>{/if}</button>
+					<button role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id)}>{label}{#if id === 'floors' && floors?.isPending()}<span class="dot" title="The floor range isn’t applied">●</span>{/if}{#if isDetail(id) && detailsTabs?.dirtyParts.includes(id)}<span class="dot" title="Unsaved project details (Save at the foot)">●</span>{/if}</button>
+					{#if id === 'members'}<span class="sep"></span>{/if}
 				{/each}
-				{#if projectDetails}
+				{#if projectDetails && !detailsTabs}
 					<button class="details" title="The projects page’s dialog: name, codes, client, address, author, company, logos — the title block takes the name, client, address (Site), author (a blank Drawn) and company (when its template has none); its logos are set in Title block…" onclick={() => requestClose(projectDetails)}>Project details…</button>
 				{/if}
 			</div>
 			<div class="body">
 				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
+				<!-- the details form too (its drafts survive a look at another tab) -->
+				{#if detailsTabs}<div class="details-body" class:shut={!isDetail(tab)}>{@render detailsTabs.panel(isDetail(tab) ? tab : null)}</div>{/if}
 				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onsetupfloors} onplans={() => (tab = 'plans')} />
-				{#if tab !== 'floors' && tab !== 'plans'}<SettingsPanel {project} {ws} {tab} />{/if}
+				{#if tab !== 'floors' && tab !== 'plans' && !isDetail(tab)}<SettingsPanel {project} {ws} {tab} />{/if}
 				{#if ws.confirm && !hidden}
 					{@const q = ws.confirm}
 					<!-- over the list at its foot, not in it (User 2026-10-16: at the top it pushed every row down and the next
@@ -96,6 +115,9 @@
 	.tabs button:hover { color: inherit; }
 	.tabs button.on { background: var(--cad-sel, #dbeafe); color: #1d4ed8; font-weight: 500; }
 	.tabs .dot { margin-left: 4px; color: #f59e0b; font-size: 9px; vertical-align: middle; }
+	.tabs .sep { height: 1px; margin: 4px 0; background: var(--cad-line, #e4e4e7); }
+	.details-body { padding: 12px 16px; max-width: 40rem; }
+	.details-body.shut { display: none; }
 	.tabs .details { margin-top: auto; color: #2563eb; border-top: 1px solid var(--cad-line, #e4e4e7); border-radius: 0; padding-top: 6px; }
 	.body { flex: 1; min-width: 0; overflow: auto; }
 	/* takes no room: the bar floats over the foot of the list (.body is a column filling the dialog, so the holder sits

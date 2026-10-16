@@ -32,7 +32,7 @@
 	import type { Level, Pt, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import CatalogueDialog from './CatalogueDialog.svelte'
-	import SettingsDialog, { type SettingsTab } from './SettingsDialog.svelte'
+	import SettingsDialog, { type SettingsTab, type DetailsTabs } from './SettingsDialog.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
 	import { Icon } from '$lib'
@@ -70,8 +70,9 @@
 	import { addBuilding, buildingsOf, type GroupedProject } from '$lib/projectGroups'
 	import { fromDoc, type StoredDoc } from '../persist/docs'
 
-	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). */
-	let { pid, user, userName = '', projectName, ownerId, projectDetails, details }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void; details?: ProjectDetails } = $props()
+	/** `projectDetails`: open the project's details dialog (the route has it — it's the projects page's). `detailsTabs`: the
+	 *  same form as Project settings' Details · Company · Members tabs (User 2026-10-16) — then the menu opens those. */
+	let { pid, user, userName = '', projectName, ownerId, projectDetails, details, detailsTabs }: { pid: string; user: string; userName?: string; projectName: string; ownerId?: string; projectDetails?: () => void; details?: ProjectDetails; detailsTabs?: DetailsTabs } = $props()
 
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
@@ -544,7 +545,7 @@
 		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId), allocate: () => { allocateLevel(project, ws, ws.levelId); openTable('outlets') },
 		newSheet, sheetFromView: () => canvas?.toSheet('new'), canSheetFromView: activeKind !== 'sheet', titleBlock: () => openSettings('sheets'), image: () => (imagePickOpen = true),
-		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails, newProject: () => goto('/projects?new=1'),
+		floors: () => openSettings('floors'), settings: () => openSettings('usages'), projectDetails: detailsTabs ? () => openSettings('details') : projectDetails, newProject: () => goto('/projects?new=1'),
 		hasLevel: !!level, renameLevel: () => { if (level) { layout.open('navigator'); renameLevelOf(project, ws, level.id) } }, deleteLevel: () => level && deleteLevelOf(project, ws, level.id),
 		win: { shown: (id) => layout.shown(id) && !offHere(id), toggle: (id) => { if (offHere(id)) ws.say(`${WIN_TITLES[id]} steps aside in this view — it comes back with the plan`); else layout.toggle(id) }, reset: () => layout.reset() },
 		help: (keys) => (helpOpen = keys ? 'keys' : 'help'), walkthrough: () => layout.open('walkthrough'), tips: () => layout.open('tips'), toolsFloat, toggleToolsFloat: () => setToolsFloat(!toolsFloat),
@@ -860,7 +861,7 @@
 	</main>
 
 	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
-	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} />{/if}
+	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}

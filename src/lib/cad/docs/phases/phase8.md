@@ -4091,3 +4091,11 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   the Navigator delete and a lone room's Delete already took its racks, rows and elevations; a Delete of a room with
   other items took only the room. Now it takes the same (`roomParts`) and the viewports showing them come off. Test in
   `editor/roomTool.test.ts`; live: a room + a line deleted, its four elevations went too.
+- **Project settings vs Project details — option A** (User 2026-10-16): the details are one form,
+  `routes/projects/ProjectDetailsForm.svelte`, in three parts — Details (name, codes, description, client, author,
+  address, building, client logo, title block parts, Archive) · Company · Members. The Projects page's dialog (now
+  "Project details" / "New project") shows them as tabs down the left; cad's Project settings shows the same form as
+  its first three tabs (the cad route hands it in as a snippet — `DetailsTabs` — so `src/lib/cad` imports no route
+  file). They wait for Save (● on just the tabs with unsaved edits; closing asks Save / Discard); the other tabs still
+  save at once. Project › Project details… opens Project settings on Details. Live: an author edit saved from cad and
+  put back; both dialogs and New project checked.
