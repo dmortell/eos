@@ -30,7 +30,12 @@
 	const KEY = 'cad-tool-flyouts'
 	let last = $state<Record<string, string>>((() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') } catch { return {} } })())
 	const fam = (f: string[]) => f[0]
-	const shown = (f: string[]): string => f.find(inUse) ?? (f.includes(last[fam(f)]) ? last[fam(f)] : f[0])
+	// …unless it doesn't work in this view and another of the family does (R7-12, User 2026-10-16: in a rack view the
+	// Rack button showed Rack, greyed, and Device was hidden in its flyout)
+	const shown = (f: string[]): string => {
+		const pref = f.find(inUse) ?? (f.includes(last[fam(f)]) ? last[fam(f)] : f[0])
+		return ok(pref) ? pref : f.find(ok) ?? pref
+	}
 	function pick(f: string[], item: string) {
 		if (f.length > 1) { last = { ...last, [fam(f)]: item }; try { localStorage.setItem(KEY, JSON.stringify(last)) } catch { /* storage blocked */ } }
 		open = null

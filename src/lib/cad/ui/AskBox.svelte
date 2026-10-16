@@ -20,6 +20,9 @@
 		if (!q) return
 		const a = askKey(e)
 		if (!a || (a === 'yes' && q.revert)) return
+		// R7-10 (User 2026-10-16): while a floorplan is calibrated, Esc keeps the change AND reaches the tool (it stops
+		// the pass) — one Esc, not two
+		if (a === 'cancel' && q.revert && ws.toolId === 'calibrate') { ws.confirm = null; return }
 		e.preventDefault(); e.stopPropagation()
 		if (a === 'cancel') ws.confirm = null
 		else answer(q.apply)

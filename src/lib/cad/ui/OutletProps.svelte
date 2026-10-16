@@ -44,9 +44,13 @@
 	 *  old mount's default goes, so the new mount's height applies (ceiling = the clear height); a typed one stays. */
 	function withMount(o: Outlet, mount: Outlet['mount']): Outlet {
 		const lv = project.index.get(o.levelId), level = lv?.type === 'level' ? lv : undefined
-		if (o.z === undefined || o.z !== outletZ({ ...o, z: undefined }, level)) return { ...o, mount }
+		// the tier follows too, as the Outlet tool sets it (ceiling High; floor / box Low) — when it was the old mount's
+		// (an AP moved to the ceiling stayed Low, so it looked for a low run and had no route)
+		const tierOf = (m: Outlet['mount']) => (m === 'ceiling' ? 'high' : m === 'floor' || m === 'box' ? 'low' : undefined)
+		const tier = tierOf(mount) && (!tierOf(o.mount) || o.tier === tierOf(o.mount)) ? tierOf(mount)! : o.tier
+		if (o.z === undefined || o.z !== outletZ({ ...o, z: undefined }, level)) return { ...o, mount, tier }
 		const { z: _z, ...rest } = o
-		return { ...rest, mount }
+		return { ...rest, mount, tier }
 	}
 	function setMount(list: Outlet[], mount: Outlet['mount']) {
 		project.store.transact(list.length > 1 ? `Mount (${list.length} outlets)` : 'Mount', (tx) => { for (const o of list) tx.put(withMount(o, mount)) })

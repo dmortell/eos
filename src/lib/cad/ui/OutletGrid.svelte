@@ -102,7 +102,10 @@
 	const routeOf = (o: Outlet, port: number) => { const l = project.index.linkAt({ on: o.id, port }); return l ? project.routes.get(l.id) : undefined }
 	const routed = $derived.by(() => {
 		const rs = project.index.outlets.filter((o) => o.levelId === levelId).flatMap((o) => o.ports.map((p) => routeOf(o, p.port))).filter((r) => !!r)
-		return { n: rs.length, none: rs.filter((r) => r.problem).length, over: rs.filter((r) => r.over90).length }
+		// R7-14 (User 2026-10-16): why there's no route, in the table — the reasons, most common first
+		const why = new Map<string, number>()
+		for (const r of rs) if (r.problem) why.set(r.problem, (why.get(r.problem) ?? 0) + 1)
+		return { n: rs.length, none: rs.filter((r) => r.problem).length, over: rs.filter((r) => r.over90).length, why: [...why].sort((a, b) => b[1] - a[1]).map(([p]) => p) }
 	})
 
 	// ── allocation (Phase 3.4): preview in the tool bar, apply as one undo step ──
@@ -171,7 +174,7 @@
 	hint="Select outlets (click · Shift · Ctrl) to allocate, assign or rename them — or drag them onto a panel · ⋯ for the whole level">
 	{#snippet chips()}
 		<StatusChip tone="warn" label="No panel yet{unassigned ? ` (${rows.length})` : ''}" upper={false} off={!unassigned} title="Show only the outlets with a port that isn't on a panel port yet (e.g. added after install)" onclick={() => (unassigned = !unassigned)} />
-		{#if routed.none}<StatusChip tone="bad" label="{routed.none} no route" upper={false} off={!noRoute} title="Show only the outlets with a port that has no route over the containment" onclick={() => (noRoute = !noRoute)} />{/if}
+		{#if routed.none}<StatusChip tone="bad" label="{routed.none} no route" upper={false} off={!noRoute} title="Show only the outlets with a port that has no route over the containment — why: {routed.why.join(" · ")}" onclick={() => (noRoute = !noRoute)} /><span class="why" title={routed.why.join(' · ')}>{routed.why[0]}{routed.why.length > 1 ? ` (+${routed.why.length - 1} more reasons)` : ""}</span>{/if}
 		{#if routed.n}<span class="muted" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
 		{#if routed.over}<b class="over90">{routed.over} over 90 m</b>{/if}
 		{#if issues.length}
@@ -238,6 +241,8 @@
 </TableFrame>
 
 <style>
+	/* why there's no route (R7-14): one line, the full list on hover */
+	.why { font-size: 11px; color: #b91c1c; max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.hov:hover { background: var(--cad-hover); }
 	.over90 { color: #dc2626; }
 	.issues { position: relative; color: #b45309; }

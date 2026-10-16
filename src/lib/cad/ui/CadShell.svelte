@@ -445,7 +445,21 @@
 	// Blocks opens with the Insert tool, unless you closed it this session (Racks no longer opens by itself in a rack
 	// view, UX review L1: the Navigator lists each room's racks; Window › Racks for its tools)
 	$effect(() => { if (ws.toolId === 'insert') untrack(() => layout.open('blocks', false)) })
-	$effect(() => { if (ws.toolId === 'device') untrack(() => layout.open('devices', false)) })
+	// the Device library opens with the Device tool — floating at the drawing's right edge, not over the first rack — and
+	// goes again when the tool ends, if the tool opened it (R7-12, User 2026-10-16: it covered R01 and stayed open)
+	let devicesByTool = false
+	$effect(() => {
+		const on = ws.toolId === 'device'
+		untrack(() => {
+			if (on && !layout.shown('devices')) {
+				layout.open('devices', false)
+				if (!layout.shown('devices')) return
+				devicesByTool = true
+				const w = layout.wins.devices
+				if (!w.dock && planEl) layout.float('devices', Math.max(12, planEl.clientWidth - w.w - 12), 36)
+			} else if (!on && devicesByTool) { devicesByTool = false; layout.shut('devices') }
+		})
+	})
 	// floating windows stay reachable when the browser window (or the drawing area) shrinks (User)
 	$effect(() => {
 		const el = planEl

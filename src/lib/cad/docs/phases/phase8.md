@@ -4026,3 +4026,14 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     the pane was zoomed (`viewViewport`), and the sheet is named after its view ("1F plan", "1F north elevation";
     `viewToSheet`). Live: zoomed in on the rack room → S002 "1F plan", the whole floor.
   - **Default usages** for a new project: ACS, AP, AV, CCTV, EMS, BMS, N/A, TEL, PR, RS, TV (`defaultSettings`).
+- **R7-10, R7-12, R7-14 and the lengths** (User 2026-10-16: "fix 10 12 14 … try filling the lengths"):
+  - One Esc during Set up each floor keeps the change AND stops the pass (`AskBox`: Esc on an Undo / Keep offer reaches
+    the Calibrate tool). Live: origin, one Esc → "Floor setup stopped" (1F's origin then put back to 324, 267).
+  - A tool family's button shows a member that works in this view when the last-used one doesn't (`ToolStrip.shown`):
+    in a rack view the Rack button is Device. The Device library opens at the drawing's right edge (not over the first
+    rack) and goes again when the tool ends, if the tool opened it (`windows.shut`). Live in IDF 1.
+  - The Outlets table says WHY there's no route, beside the "n no route" chip (the reasons, most common first; all on
+    hover).
+  - A mount change sets the tier as the Outlet tool does (ceiling High; floor / box Low) when it was the old mount's —
+    an AP moved to the ceiling stayed Low, so it looked for a low run. Live: 1-001 / 1-002 / 1-004 → ceiling, High;
+    1-003 → wall, High: every port routed (17, 5, 6, 14 m + slack), none "?".

@@ -85,6 +85,8 @@ export class WindowLayout {
 		this.save()
 	}
 	close(id: WinId): void { this.wins[id].open = false; this.closedByUser.add(id); this.save() }
+	/** Put away a window a tool opened by itself, when the tool ends — not "closed by the user" (it opens with the tool again). */
+	shut(id: WinId): void { this.wins[id].open = false; this.save() }
 	toggle(id: WinId): void { if (this.shown(id)) this.close(id); else { this.closedByUser.delete(id); this.open(id) } }
 	front(id: WinId): void {
 		const top = Math.max(...WIN_IDS.map((k) => this.wins[k].z))
