@@ -609,3 +609,35 @@ Sheets table's bar; also Drawings › Release…).
     change the first port.
 16. New sheet from this view: the viewport is the part of the plan on screen (262 × 97 mm), not the floor; its title is
     "New sheet".
+
+**Third part (after fixes 10–16): risers, a second floor, desks, a new revision, a second release.**
+
+| Stage | What it took | Actions |
+|---|---|---|
+| Riser 1F → 2F | Cabling › Trunk, R03, a point, V, 2 + Enter (2F opens), 2 points, Enter | 8 |
+| 2F outlets | Outlet tool, 3 clicks; Server room / AP / ceiling in Properties | ~7 |
+| Allocate 2F | the new **Allocate this level (6 ports)** button | 1 |
+| Patch 2F | panel › Select the 6 … › P › a switch port › **Start at port** 11 › Patch 6 | 6 |
+| Riser view | Display › Hide empty floors (+ Fit) | 2 |
+| Desks | Insert block ×2, outlet on one, outlet + the other desk › right-click › Copy outlets onto the other desks | ~8 |
+| New revision | Plans & floorplans › 1F › New revision… › revB; Compare… › previous | 3 |
+| Release + changes | sheet › **Release…** › name › Release; Revision cloud (4 clicks + Enter); Show changes since A | ~10 |
+
+**Found:**
+17. V (riser to another floor) asks the level number in the status bar, bottom left, while the cursor is on the
+    drawing — open.
+18. 2F's first outlets, served from 1F's IDF 1, got no server room (so nothing to allocate). → the building's only
+    server room — built.
+19. The riser view of a 20-floor building with the client on 1–3 shows 20 storeys, the riser a speck at the bottom;
+    Hide empty floors is off by default — open (default it on when tenant floors are set?).
+20. Hide empty floors didn't refit the view. → refits — built.
+21. Hide empty floors also hid 2F (no server room), where the riser goes. → floors a riser starts / ends on stay — built.
+22. Copy outlets onto the other desks needed the desk the outlets sit on selected too (and gave no hint). → found by
+    itself — built.
+23. A click on an outlet sitting on a desk selects the desk (the desk draws over it) — open (the parked draw-order item;
+    a pick priority for outlets over furniture would do).
+24. Plans & floorplans shows a floorplan's 1:N and its crop ✕ only after that floor has been drawn this session — open.
+25. Release… in an open sheet's Properties needed Select sheet first. → in the sheet's basics too — built.
+26. Show changes since A: 3 marks (the cloud, the revision) — good.
+
+Not run this round: Re-patch, exports (downloads), room elevations / a section on a sheet, Array / Renumber.
