@@ -22,8 +22,9 @@
 	/** `panel`: the Issue panel while issuing (over the table, as in the register). */
 	let { project, ws, seg, panel, busy, onreissue, onpackages }: { project: CadProject; ws: Workspace; seg?: Snippet; panel?: Snippet; busy: boolean; onreissue: (sheets: Sheet[], pkg?: SheetPackage) => void; onpackages: () => void } = $props()
 
-	const issues = $derived([...project.index.ofType('issue')].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)))
-	const numbers = $derived(issueNumbers(issues))
+	// newest first by number (Round 8: several on one day came out 1, 3, 2 — sorted by date then by random id)
+	const numbers = $derived(issueNumbers([...project.index.ofType('issue')]))
+	const issues = $derived([...project.index.ofType('issue')].sort((a, b) => (numbers.get(b.id) ?? 0) - (numbers.get(a.id) ?? 0)))
 	const owner = $derived(canRestore(project.ownerId, project.user))
 	/** The issue whose details are being edited in its row (Edit / Done). */
 	let editing = $state<string | null>(null)

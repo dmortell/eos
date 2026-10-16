@@ -25,7 +25,6 @@
 	import SortTh from './SortTh.svelte'
 	import TableFrame from './TableFrame.svelte'
 	import type { MenuItem } from './cadMenus'
-	import { deleteEntities, deleteImpact, impactText } from '../editor/commands'
 	import { duplicateSheets, numberSheets } from '../app/sheetActions'
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import { ISSUE_STATE_TEXT } from '../domain/issue'
@@ -115,12 +114,11 @@
 	let busy = $state(false)
 	/** Delete the selected sheets: at once when nothing goes with them; asked first, saying what, when viewports or
 	 *  notes go too. */
+	// the Delete key's own delete (Round 8: this button skipped W34 — a released sheet, or one in a package, went without
+	// "Archive instead")
 	function deletePicked() {
-		const ids = picked.map((r) => r.id), also = impactText(deleteImpact(project.store, ids))
-		const what = ids.length === 1 ? `sheet ${sheetOf(ids[0]).number}` : `${ids.length} sheets`
-		const go = () => { deleteEntities(project.store, ids); ws.select([]) }
-		if (!also) { go(); ws.say(`Deleted ${what} — Undo brings ${ids.length === 1 ? 'it' : 'them'} back`); return }
-		ws.ask2(`Delete ${what} with ${also}? Undo brings them back.`, 'Delete', go)
+		ws.select(picked.map((r) => r.id))
+		ws.remove()
 	}
 	/** The sheets in one PDF, in the table's order. */
 	async function pdf(list: SheetRow[]) {

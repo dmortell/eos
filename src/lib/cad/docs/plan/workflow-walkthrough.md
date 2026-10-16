@@ -688,3 +688,19 @@ settings from › Building 1; a sheet; Ungroup; Group with another project (back
    an empty floor has nothing to frame; the whole drawing area would read better).
 Good: Add building copies the details and settings and opens it; Copy settings from is one click with Undo; Ungroup /
 Group back / Delete (to Archived, Restore) each one dialog with what happens in words.
+
+### 8.2 Releases
+
+Released S001 + S002 as B ("03 Round 8", a note per sheet); the Releases register; Make package on it; Delete on the
+released S001 in the Sheets table → Archive instead → Archived 1 → Restore. (Revision clouds and Compare: Round 7.)
+
+**Found:**
+6. The Releases register listed three releases of one day as 1, 3, 2 (by date, then by their random ids). → newest
+   first by number — built (`IssuesList`).
+7. The Sheets table's Delete deleted a released sheet (in a package too) with the plain "Delete sheet S001 with 1
+   viewport?" — W34's "Released: … Archive instead" came only with the Delete key. → the button uses the same delete —
+   built (`SheetsTab`).
+8. Typing "03 …" as the release name gives "Release 03 03 Round 8" in the file name (the number is added anyway) —
+   noted only (the placeholder says "e.g. Tender release 1").
+Good: the release bar (a revision and "what changed" per sheet), the register's links to each release's PDF, Make
+package naming the package after the release, Archive / Restore.
