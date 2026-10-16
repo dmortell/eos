@@ -120,6 +120,20 @@ describe('other people', () => {
 		expect(xOf(s, 'b')).toBe(777)                           // theirs: kept
 		expect(res.skipped.map((o) => o.id)).toEqual(['b'])
 	})
+	it('undo goes ahead field by field: my field back, their other field kept (Round 8)', () => {
+		const s = new EntityStore()
+		s.load([{ type: 'settings', id: 'S', usages: ['AP'], lengths: 1 } as never])
+		s.transact('Add usage', (tx) => tx.put({ ...(tx.get('S') as object), usages: ['AP', 'B'] } as never))
+		s.applyRemote([{ ...(s.get('S') as object), lengths: 2 } as never])          // they change another field
+		const res = s.undo()!
+		expect(res.skipped).toEqual([])
+		expect(s.get('S')).toMatchObject({ usages: ['AP'], lengths: 2 })
+		s.redo()
+		expect(s.get('S')).toMatchObject({ usages: ['AP', 'B'], lengths: 2 })
+		// …but not when they changed the same field since
+		s.applyRemote([{ ...(s.get('S') as object), usages: ['AP', 'B', 'C'] } as never])
+		expect(s.undo()!.skipped.map((o) => o.id)).toEqual(['S'])
+	})
 	it('remote changes are not in my undo history', () => {
 		const s = new EntityStore()
 		s.applyRemote([makeText({ sheetId: 'S' }, { x: 0, y: 0 }, 'theirs')])

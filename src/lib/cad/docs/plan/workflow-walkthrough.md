@@ -763,3 +763,20 @@ map and the PDFs download at once — not run.)
 19. View › Fill rates is greyed in a section or elevation view with no word why (its tooltip says "on the plan") —
     noted only.
 Good: fill rates on each run (8 %, 16 %, 12 %), the schedule's 90 m flag and "Problems only".
+
+### 8.7 Safety nets
+
+Project › Backups: a chosen-models backup (3F) → Restore… → Compare ("3F: nothing to change", Restore greyed) → Delete;
+two tabs on Project settings › Usages: B adds R8B, A adds R8A (B's shows in A at once), A's dialog Undo, B's dialog
+Undo.
+
+**Found:**
+20. Tab B's Undo of its usage was refused — "Undo skipped 1 item(s) someone else changed since" — although tab A had
+    already undone its own change, so the usages were back as B left them. Undo compared whole records (and a record
+    back from the database lists its keys in another order). → undo / redo go field by field: a step applies when
+    each field it changed still holds what it left; other people's changes to other fields stay — built
+    (`store.ts` `mergeBack`, order-blind compare; test in `store.test.ts`).
+21. The backups list's own Delete buttons sit in each row and the "Delete 1 backup?" question's Delete sits just above —
+    easy to hit another row's Delete while the question is open (it then asks about that one instead) — noted only.
+Good: chosen-model backups, Compare before Restore, Restore greyed when nothing would change, the dialog's own Undo
+naming its step, field-level saves keeping both tabs' usages.

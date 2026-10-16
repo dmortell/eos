@@ -224,9 +224,16 @@ export class EntityStore {
 		for (const op of ops) {
 			const expect = source === 'undo' ? op.after : op.before
 			const target = source === 'undo' ? op.before : op.after
-			if ((this.#map.get(op.id) ?? null) !== expect) { skipped.push(op); continue }
-			this.#write(op.id, target)
-			applied.push(op)
+			const cur = this.#map.get(op.id) ?? null
+			if (cur === expect) { this.#write(op.id, target); applied.push(op); continue }
+			// someone else changed it since (Round 8: tab B's Undo was refused after tab A had added and undone a usage):
+			// still fine when every FIELD this step changed holds what the step left — those go back, the rest stays theirs
+			const merged = mergeBack(cur, expect, target)
+			if (!merged) { skipped.push(op); continue }
+			const out = this.#seal(merged)
+			this.#write(op.id, out)
+			// recorded as it really went (redo then expects this result)
+			applied.push(source === 'undo' ? { id: op.id, before: out, after: cur } : { id: op.id, before: cur, after: out })
 		}
 		const emitted = applied.map((op) => (source === 'undo' ? { id: op.id, before: op.after, after: op.before } : op))
 		if (emitted.length) this.#emit({ source, label: step.label, ops: emitted, final: true })
@@ -251,6 +258,28 @@ export class EntityStore {
 	#seal<T extends Entity>(e: T): T {
 		return this.#freeze ? deepFreeze(e) : e
 	}
+}
+
+/** Field-level undo / redo over someone else's change: `cur` (now) with the fields that changed from `from` to `to` set
+ *  back to `to` — only when each of those fields in `cur` still holds `from`'s value; null (skip it) when one doesn't,
+ *  or when the entity was made or deleted by either side. */
+export function mergeBack(cur: Entity | null, from: Entity | null, to: Entity | null): Entity | null {
+	if (!cur || !from || !to) return null
+	const a = from as unknown as Record<string, unknown>, b = to as unknown as Record<string, unknown>, c = cur as unknown as Record<string, unknown>
+	const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !same(a[k], b[k]))
+	if (keys.some((k) => !same(c[k], a[k]))) return null
+	const out: Record<string, unknown> = { ...c }
+	for (const k of keys) { if (k in b) out[k] = b[k]; else delete out[k] }
+	return out as unknown as Entity
+}
+
+/** Deep equality that ignores key order (a record back from the database may list its keys in another order). */
+function same(x: unknown, y: unknown): boolean {
+	if (x === y) return true
+	if (!x || !y || typeof x !== 'object' || typeof y !== 'object' || Array.isArray(x) !== Array.isArray(y)) return false
+	const a = x as Record<string, unknown>, b = y as Record<string, unknown>
+	const ka = Object.keys(a).filter((k) => a[k] !== undefined), kb = Object.keys(b).filter((k) => b[k] !== undefined)
+	return ka.length === kb.length && ka.every((k) => same(a[k], b[k]))
 }
 
 /** Freeze a record and everything in it, so an accidental in-place edit throws instead of silently desyncing. */
