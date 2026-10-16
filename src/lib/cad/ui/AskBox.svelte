@@ -29,9 +29,9 @@
 	<div class="ask" role="alertdialog" aria-label="Question">
 		<p>{q.msg}</p>
 		<div class="row">
-			<button bind:this={yesBtn} class="yes" onclick={() => answer(q.apply)}>{q.yes}</button>
+			<button bind:this={yesBtn} class:yes={!q.revert} onclick={() => answer(q.apply)}>{q.yes}</button>
 			{#if q.alt}{@const alt = q.alt}<button class="yes" onclick={() => answer(alt.apply)}>{alt.label}</button>{/if}
-			<button onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
+			<!-- Keep is the usual answer to "this was done": the primary button (User 2026-10-16) --><button class:pri={q.revert} onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
 			<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 		</div>
 	</div>
@@ -43,6 +43,7 @@
 	.row { display: flex; align-items: center; gap: 6px; }
 	button { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); color: inherit; }
 	button.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
+	button.pri { border-color: #2563eb; color: white; background: #2563eb; }
 	button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 	.keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 </style>

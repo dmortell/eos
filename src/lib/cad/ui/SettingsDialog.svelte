@@ -73,9 +73,9 @@
 					<div class="ask" role="alertdialog" aria-label="Question">
 						<p>{q.msg}</p>
 						<div class="row">
-							<button bind:this={yesBtn} class="yes" onclick={() => answer(q.apply)}>{q.yes}</button>
+							<button bind:this={yesBtn} class:yes={!q.revert} onclick={() => answer(q.apply)}>{q.yes}</button>
 							{#if q.alt}{@const alt = q.alt}<button class="yes" onclick={() => answer(alt.apply)}>{alt.label}</button>{/if}
-							<button onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
+							<button class:pri={q.revert} onclick={() => (ws.confirm = null)}>{q.revert ? 'Keep' : 'Cancel'}</button>
 							<span class="keys">{q.revert ? 'Esc' : 'Enter · Esc'}</span>
 						</div>
 					</div>
@@ -101,6 +101,7 @@
 	.ask .row { display: flex; align-items: center; gap: 6px; }
 	.ask button { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 2px 10px; background: var(--cad-input, white); color: inherit; }
 	.ask button.yes { border-color: #d97706; color: #92400e; background: #fffbeb; }
+	.ask button.pri { border-color: #2563eb; color: white; background: #2563eb; }   /* Keep (User 2026-10-16: primary) */
 	.ask button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 	.ask .keys { margin-left: auto; font-size: 10px; color: var(--cad-muted, #71717a); }
 	.msg { flex: 1; min-width: 0; min-height: 16px; color: var(--cad-muted, #52525b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

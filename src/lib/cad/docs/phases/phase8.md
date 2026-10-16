@@ -3995,3 +3995,5 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   models, the button said (2), Remove took both — back to 1F / 4F with 2F / 3F as "No model".
 - **Not needed** (User 2026-10-16): the Tourney migration and external links between buildings
   (`multi-building-plan.md`), the review of the other `askText` prompts, Three bands and W8 (`later.md`).
+- **Keep is the primary button** (User 2026-10-16): the "done — Undo / Keep" bar (a floorplan's scale, origin, crop …)
+  shows Keep in the primary color and Undo plain, on the canvas (`AskBox`) and in Project settings (`SettingsDialog`).
