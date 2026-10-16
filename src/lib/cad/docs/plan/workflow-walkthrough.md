@@ -641,3 +641,25 @@ Sheets table's bar; also Drawings › Release…).
 26. Show changes since A: 3 marks (the cloud, the revision) — good.
 
 Not run this round: Re-patch, exports (downloads), room elevations / a section on a sheet, Array / Renumber.
+
+**Last part (after fixes 17, 19, 23, 24): the stages not run before.**
+
+| Stage | What it took | Actions |
+|---|---|---|
+| Re-patch | 2 cords in the Patching table › Re-patch… › "SW1:41" › Enter (a dialog) | 3 |
+| Exports | File › Export ▸ › Bill of materials… (preview checked, not downloaded) | 3 |
+| Room elevations | Draw › Room / EPS, 4 corners, C, name; Draw › Section ▸ › Room elevations, click in the room | ~9 |
+| Section on a sheet | open Section A › To sheet… › New sheet from this view (1:25) | 2 |
+| Array | select › Modify › Array › base, 3 + Enter, step | 5 |
+| Renumber | the 3 copies › Properties › Renumber 3 › Start 21 › Renumber 3 | 4 |
+
+**Found:**
+27. Submenus (File › Export, Draw › Section) open only from their ▸ — not on hover or a click on the name — open.
+28. A Room drawn round IDF 1's racks becomes a second room ("Room 1") beside the server room IDF 1 — the one-space-two-
+    rooms case again (IDF2 / 33IDF2) — open: offer "this is IDF 1's outline" when it holds a server room's racks.
+29. A sheet from a section was titled "1F Section". → the section's name ("1F Room 1 A") — built.
+30. An outlet on a desk is still drawn under the desk's fill (invisible; a click now takes it, R7-23) — open (the
+    parked draw-order item: draw outlets over furniture).
+31. The room's name is asked in the status bar (the askText review was dropped — noted only).
+Good: Re-patch, the BOM preview (16 lines, estimates for unrouted ports), Room elevations A–D in two clicks, Array
+numbering on, Renumber with port labels following.

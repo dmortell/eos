@@ -4068,3 +4068,4 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
     floors with a model); typing in the status bar still works (`Prompt.choices`, `AskBox`). Live: "Riser to level
     number — 3F · 2F".
   - A building with tenant floors opens its riser view with the empty floors hidden (Navigator and the Riser button).
+- **A sheet from a section is named after the section** ("1F Room 1 A", was "1F Section") — `viewToSheet`.
