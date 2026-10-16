@@ -4079,3 +4079,11 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A room drawn round a server room's racks (one with no outline yet) asks "make them IDF 1's room outline (no second
     room)?" — IDF 1's outline / A new room (`roomTool` `serverRoomInside`, `ToolCtx.ask2`). Test in
     `editor/roomTool.test.ts`. Live: IDF 1 got its outline.
+- **R7-28 follow-up, R7-7, room names in a dialog** (User 2026-10-16):
+  - Deleting a room takes its room elevations (A–D) too, and their sheet viewports come off (the question says so) —
+    `roomElevations`, `roomViewports` (commands). Workflow test: Room 1 deleted with S004 and its sections; IDF 1 got
+    elevations A–D and S003 "1F IDF 1 A".
+  - A Navigator (tree) button at the top left of the tool row shows / hides the tree; with every window hidden it
+    brings them back. An amber "Windows hidden · Show (Ctrl+.)" chip while Hide all windows is on.
+  - The Room tool's name and the Rack tool's new server room name are asked in a dialog (`ToolCtx.askInDialog`), not
+    the status bar.

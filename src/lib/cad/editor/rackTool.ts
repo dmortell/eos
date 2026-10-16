@@ -40,7 +40,13 @@ export class RackTool implements Tool {
 		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
 		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
 		const p = e.alt ? at : bayAt(like, at, this.#widthNext(like, c), onLevel)   // beside the last one: bayed (W14)
-		if (!room) { c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), (t) => t.trim() && this.#draw(c, p, like, newServerRoom(c.index, c.levelId, t.trim()))); return }
+		if (!room) {
+			const draw = (t: string) => t.trim() && this.#draw(c, p, like, newServerRoom(c.index, c.levelId, t.trim()))
+			// the name in a dialog (User 2026-10-16: names are asked in a dialog, not the status bar)
+			if (c.askInDialog) c.askInDialog({ title: 'New server room', label: 'Name', value: nextRoomName(c.index, c.levelId), ok: 'Add', hint: 'Racks belong to a server room — this floor has none yet; the rack goes in it.' }, draw)
+			else c.askText?.('New server room (racks belong to a room)', nextRoomName(c.index, c.levelId), draw)
+			return
+		}
 		this.#draw(c, p, like, room)
 	}
 	/** The width the next rack is drawn at (as #draw makes it). */

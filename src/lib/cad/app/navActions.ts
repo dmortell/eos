@@ -5,7 +5,7 @@ import type { Workspace } from './workspace.svelte'
 import type { Level } from '../domain/types'
 import { newServerRoom, nextRoomName } from '../domain/devices'
 import { allocate } from '../domain/allocate'
-import { deleteEntities, levelContents, levelRisers, withoutLevelNodes, contentsText, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, deleteImpact, impactText } from '../editor/commands'
+import { deleteEntities, levelContents, levelRisers, withoutLevelNodes, contentsText, levelViewports, levelViewportsOff, roomViewports, roomViewportsOff, roomElevations, deleteImpact, impactText } from '../editor/commands'
 
 /** Rename in the Navigator, in place (its row's label becomes an input — ws.navRename). */
 export function renameLevel(_project: CadProject, ws: Workspace, id: string): void { ws.navRename = { id } }
@@ -56,13 +56,15 @@ export function deleteRoom(project: CadProject, ws: Workspace, id: string): void
 	const ports = project.index.outlets.reduce((n, o) => n + o.ports.filter((pt) => pt.serverRoomId === id).length, 0)
 	const runs = project.index.shapes.filter((s) => s.role?.kind === 'containment' && s.role.serves?.includes(id)).length
 	// what's in it NOW (a rack added while the question was open goes too), not when asked
-	const go = () => deleteEntities(project.store, [id, ...rowsIn(), ...racksIn()], roomViewportsOff(project.store, id))
+	const elevs = roomElevations(project.store, id)
+	const go = () => deleteEntities(project.store, [id, ...rowsIn(), ...racksIn(), ...roomElevations(project.store, id)], roomViewportsOff(project.store, id))
 	const also = [racks.length ? `${racks.length} rack${racks.length === 1 ? '' : 's'} (with their devices, links and cords)` : '', impactText(deleteImpact(project.store, racks)) ?? ''].filter(Boolean)[0]
-	if (!racks.length && !ports && !runs && !vps.length) { go(); ws.say(`Deleted room ${r.name}${rows.length ? ` (and its ${rows.length} empty row${rows.length === 1 ? '' : 's'})` : ''} — Undo brings it back`); return }
+	if (!racks.length && !ports && !runs && !vps.length && !elevs.length) { go(); ws.say(`Deleted room ${r.name}${rows.length ? ` (and its ${rows.length} empty row${rows.length === 1 ? '' : 's'})` : ''} — Undo brings it back`); return }
 	const sheets = new Set(vps.map((v) => v.sheet.id)).size
 	const notes = [
 		ports ? ` ${ports} outlet port${ports === 1 ? '' : 's'} name it as their server room — they'll have none.` : '',
 		runs ? ` ${runs} run${runs === 1 ? '' : 's'} serve${runs === 1 ? 's' : ''} it — it's taken off what ${runs === 1 ? 'it serves' : 'they serve'} (a run serving only it then serves every room).` : '',
+		elevs.length ? ` Its ${elevs.length} room elevation${elevs.length === 1 ? '' : 's'} go${elevs.length === 1 ? 'es' : ''} too.` : '',
 		vps.length ? ` ${vps.length} viewport${vps.length === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'} show${vps.length === 1 ? 's' : ''} it — ${vps.length === 1 ? 'it comes' : 'they come'} off.` : '',
 	].join('')
 	ws.ask2(`Delete room ${r.name}${also ? ` with ${also}` : ''}?${notes} Undo brings it back.`, 'Delete room', go)

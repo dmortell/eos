@@ -763,6 +763,9 @@
 
 	<!-- tools and their options -->
 	<div class="bar flex items-center gap-1 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
+		<!-- the Navigator on / off at the top left (R7-7, User 2026-10-16: no sign where the tree went) -->
+		<button class="ib {layout.shown('navigator') ? 'on' : ''}" onclick={() => { if (layout.allHidden) { layout.allHidden = false; if (!layout.wins.navigator.open) layout.open('navigator') } else layout.toggle('navigator') }} title="{layout.shown('navigator') ? 'Hide' : 'Show'} the Navigator (the project tree)"><Icon name="listTree" size={15} /></button>
+		<span class="mx-1 h-5 w-px bg-zinc-200"></span>
 		{#if !toolsFloat}<ToolStrip tool={ws.toolId} kind={activeKind} onSheet={!!vpEditKind} variantOf={toolVariant} onTool={pickItem} />{/if}
 		<span class="ml-auto"></span>
 		<button class="ib" disabled={!project.canUndo} onclick={() => showHistory(project.undo())} title="Undo ({KEYS.undo}) — selects what came back or changed (on its level)"><Icon name="undo" size={15} /></button>
@@ -781,6 +784,8 @@
 	<div class="opts flex items-center gap-2 border-b border-[var(--cad-line)] bg-[var(--cad-panel)] px-2">
 		<!-- always on show (review R53): the active tool, the layer new items go on, and editing inside a viewport -->
 		<span class="chip tool" title="The active tool (Esc: back to Select)">{toolName}</span>
+		<!-- R7-7: Hide all windows had no sign it was on -->
+		{#if layout.allHidden}<button class="chip hidden-on" title="Every window and the tables are hidden (View › Hide all windows, Ctrl+.)" onclick={() => (layout.allHidden = false)}>Windows hidden · Show <kbd>Ctrl+.</kbd></button>{/if}
 		<label class="chip" title="The layer new lines, notes and blocks go on (walls, runs, outlets and racks go on their own)">Layer
 			<select value={ws.layers.current ?? ''} onchange={(e) => ws.layers.setCurrent(e.currentTarget.value || null)}>
 				<option value="">by kind</option>
@@ -920,6 +925,7 @@
 	.opts .chip.tool { font-weight: 600; }
 	.opts .chip select { font-size: 11px; border: 0; background: transparent; color: inherit; }
 	.opts .chip.vp { background: #fef3c7; border-color: #f59e0b; }
+	.opts .chip.hidden-on { background: #fef3c7; border-color: #f59e0b; cursor: pointer; }
 	.opts .hint { color: var(--cad-muted, #71717a); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
 	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }

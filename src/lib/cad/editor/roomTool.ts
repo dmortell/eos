@@ -85,7 +85,13 @@ export class RoomTool implements Tool {
 			c.store.transact(`New ${r.kind === 'eps' ? 'EPS' : 'room'} ${r.name}`, (tx) => tx.put(r))
 			c.select([r.id])
 		}
-		const named = () => { if (c.askText) c.askText(room.kind === 'eps' ? 'EPS name (a riser is inside it)' : 'Room name', room.name, make); else make(room.name) }
+		// its name in a dialog (R7, User 2026-10-16: names are asked in a dialog, not the status bar)
+		const named = () => {
+			const eps = room.kind === 'eps'
+			if (c.askInDialog) c.askInDialog({ title: eps ? 'New EPS' : 'New room', label: 'Name', value: room.name, ok: 'Add', hint: eps ? 'A riser stands inside it: the riser view names its EPS box after it.' : 'Properties renames it or changes its kind later.' }, make)
+			else if (c.askText) c.askText(eps ? 'EPS name (a riser is inside it)' : 'Room name', room.name, make)
+			else make(room.name)
+		}
 		// round a server room's racks (R7-28, User 2026-10-16: it became a second room beside IDF 1 — the IDF2 / 33IDF2
 		// case): offer to make it that server room's outline instead
 		const sr = serverRoomInside(c, pts)

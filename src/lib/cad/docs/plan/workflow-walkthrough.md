@@ -574,7 +574,8 @@ origin / scale / crop were reset. Three outlet plans only, so the GF plan stands
 6. Re-cropping showed only the old crop, Fit fitted it, and there was no way to remove a crop. → whole page while
    cropping, ✕ removes a crop — built.
 7. "Hide all windows" can leave no panels with no hint why; the two unlabeled layout icons (top right) were tried first
-   — open.
+   → a Navigator (tree) button at the top left shows / hides the tree (and brings hidden windows back); an amber
+   "Windows hidden · Show" chip on the tool bar while they are hidden.
 8. "+ Server room" only in Window › Racks (not open at first). → Cabling › New server room… and the floor's menu in the
    Navigator — built.
 9. "(level gone) plan" tabs stayed after their floor went. → closed — built.

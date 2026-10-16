@@ -207,8 +207,10 @@ export function levelViewportsOff(store: EntityStore, levelId: Id): (tx: Txn) =>
 /** The sheet viewports showing this server room: its racks (rack view), its patch schedule, its racks' port sheets. */
 export function roomViewports(store: EntityStore, roomId: Id): { sheet: Sheet; vp: Viewport }[] {
 	const racks = new Set(store.ofType('rack').filter((r) => r.spaceId === roomId).map((r) => r.id))
+	// …and its room elevations (Round 7: deleting a room left its A–D sections and their sheets behind)
+	const elevs = new Set(roomElevations(store, roomId))
 	return viewportsWhere(store, ({ view: { spec } }) =>
-		(spec.kind === 'row' || spec.kind === 'schedule') ? spec.spaceId === roomId : spec.kind === 'ports' && racks.has(spec.rackId))
+		(spec.kind === 'row' || spec.kind === 'schedule') ? spec.spaceId === roomId : spec.kind === 'ports' ? racks.has(spec.rackId) : spec.kind === 'section' && elevs.has(spec.sectionId))
 }
 /** Inside a room's delete: the viewports showing it come off their sheets (tied notes back on the paper). */
 export function roomViewportsOff(store: EntityStore, roomId: Id): (tx: Txn) => void {
@@ -273,4 +275,9 @@ export function impactText(i: DeleteImpact): string | null {
 	const parts = (Object.entries(i) as [keyof DeleteImpact, number][]).filter(([, n]) => n > 0)
 		.map(([k, n]) => `${n} ${n === 1 ? k.slice(0, -1) : k}`)
 	return parts.length ? parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : null
+}
+
+/** A room's elevations (Section › Room elevations, A–D): the sections drawn for it. */
+export function roomElevations(store: EntityStore, roomId: Id): Id[] {
+	return store.ofType('section').filter((s) => s.roomElev?.roomId === roomId).map((s) => s.id)
 }

@@ -428,7 +428,7 @@
 			...(kind === 'sheet' && !f && sheet ? { sheetSnap: (p: Pt, alt: boolean) => (alt || !ws.drafting.osnap ? null : snapThroughViewport(project.index, sheet, p, tol * 1.5)) } : {}),
 			guides: { list: () => ws.guidesOf(guideKey), set: (gs) => ws.setGuides(guideKey, gs), axis: () => ws.guideAxis },
 			grid: ws.drafting.snap ? ws.drafting.grid : 0,
-			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, ask2: ws.ask2, say: ws.say,
+			selection: ws.selection, select: ws.select, setMarquee: (b, x) => { marquee = b; crossing = !!x }, ask: ws.ask, askText: ws.askText, askInDialog: ws.askInDialog, ask2: ws.ask2, say: ws.say,
 			...(kind === 'sheet' ? { selectViewport: ws.selectViewport, selectViewports: ws.selectViewports, viewportId: () => ws.viewportId, viewportIds: () => ws.pickedViewports, enterViewport: enterVp, contentNav: () => ws.vpContentNav } : {}),
 			openLevel: (id: string, at?: Pt) => { ws.openLevel(id); if (at) ws.centreOn = at },
 			openLink: (l: InsertLink) => { if (l.kind === 'sheet' && project.index.get(l.sheetId)?.type !== 'sheet') ws.say('The linked sheet is gone'); else ws.openLink(l) },
