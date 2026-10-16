@@ -42,7 +42,7 @@
 	})
 	const target = $derived(projects.find((x) => x.id === targetId))
 
-	const title = $derived(!action ? '' : action.kind === 'add' ? 'Add a building' : action.kind === 'move' ? 'Move to another project' : action.kind === 'rename' ? 'Rename the project group'
+	const title = $derived(!action ? '' : action.kind === 'add' ? 'Add a building' : action.kind === 'move' ? (action.project.masterId ? 'Move to another project' : 'Group with another project') : action.kind === 'rename' ? 'Rename the project group'
 		: action.kind === 'ungroup' ? 'Ungroup this building' : 'Delete this building')
 
 	async function go() {

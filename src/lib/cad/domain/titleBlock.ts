@@ -101,7 +101,12 @@ export type TbCell = { label: string; value: string; wide: boolean; /** a logo f
  *  image, an empty logo text or company block, or a switched-off section shows nothing (and takes no room). */
 export function fillTitleBlock(t: TitleBlockTemplate | undefined, ctx: TbContext): TbCell[] {
 	const off = new Set(t?.hidden ?? [])
-	return withLogoFields(t).flatMap((f): TbCell[] => {
+	const fields = withLogoFields(t)
+	// no Building field: the Project cell names the building too, "Group – Annex" (Round 8: a group's buildings printed
+	// the same project name on every sheet)
+	const building = ctx.building?.trim()
+	if (building && !fields.some((f) => f.key === 'building') && ctx.project?.trim() && !ctx.project.includes(building)) ctx = { ...ctx, project: `${ctx.project.trim()} – ${building}` }
+	return fields.flatMap((f): TbCell[] => {
 		if (f.key === 'logo') {   // its image (no label printed)
 			const img = f.logo && t?.logos?.[f.logo]
 			return img?.src && !off.has('logo') ? [{ label: f.label, value: '', wide: !!f.wide, image: img }] : []

@@ -655,12 +655,36 @@ Not run this round: Re-patch, exports (downloads), room elevations / a section o
 | Renumber | the 3 copies › Properties › Renumber 3 › Start 21 › Renumber 3 | 4 |
 
 **Found:**
-27. Submenus (File › Export, Draw › Section) open only from their ▸ — not on hover or a click on the name — open.
+27. Submenus (File › Export, Draw › Section) open only from their ▸ — not on hover or a click on the name — built.
 28. A Room drawn round IDF 1's racks becomes a second room ("Room 1") beside the server room IDF 1 — the one-space-two-
-    rooms case again (IDF2 / 33IDF2) — open: offer "this is IDF 1's outline" when it holds a server room's racks.
+    rooms case again (IDF2 / 33IDF2) — built: it offers "IDF 1's outline".
 29. A sheet from a section was titled "1F Section". → the section's name ("1F Room 1 A") — built.
-30. An outlet on a desk is still drawn under the desk's fill (invisible; a click now takes it, R7-23) — open (the
-    parked draw-order item: draw outlets over furniture).
-31. The room's name is asked in the status bar (the askText review was dropped — noted only).
+30. An outlet on a desk is still drawn under the desk's fill (invisible; a click now takes it, R7-23) (the
+    parked draw-order item: draw outlets over furniture) — built (furniture blocks under the cabling).
+31. The room's name is asked in the status bar — built (a dialog).
 Good: Re-patch, the BOM preview (16 lines, estimates for unrouted ports), Room elevations A–D in two clicks, Array
 numbering on, Renumber with port labels following.
+
+## Round 8: the less-used functions (live, 2026-10-16)
+
+User 2026-10-16: "walkthru again and look for more improvements, especially in more obscure functions". Run on
+Workflow test (backup first); nine areas, roughly most likely to turn up problems first. Fixed as found where small;
+the rest listed for review.
+
+### 8.1 Buildings
+
+Add building (Projects page › + Building, "Annex") → it opens in cad, empty; Set up floors 1–3; Project › Copy
+settings from › Building 1; a sheet; Ungroup; Group with another project (back in); Delete this building (Archived).
+
+**Found:**
+1. The empty project's start card said "Start Workflow test" in every building. → "Start Workflow test – Annex" —
+   built.
+2. The Navigator's top row said "WORKFLOW TEST" in every building of the group. → "Workflow test – Annex" — built.
+3. The title block printed "Workflow test" on every building's sheets (the default template has no Building field).
+   → with no Building field the Project cell reads "Workflow test – Annex" — built (`fillTitleBlock`).
+4. A standalone project's ⋯ says "Group with another project…" but the dialog was titled "Move to another project". →
+   titled to match — built.
+5. A sheet from an empty floor's plan gets a thin viewport strip (283 × 105 mm) at the top of the paper — open (minor:
+   an empty floor has nothing to frame; the whole drawing area would read better).
+Good: Add building copies the details and settings and opens it; Copy settings from is one click with Undo; Ungroup /
+Group back / Delete (to Archived, Restore) each one dialog with what happens in words.

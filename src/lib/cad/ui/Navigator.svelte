@@ -165,6 +165,11 @@
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
 		return []
 	}
+	// a building of a project group names itself too, "Group – Annex" (Round 8: every building's tree said the group)
+	function buildingLabel(label: string): string {
+		const d = project.details as { masterId?: string; buildingName?: string } | undefined, b = d?.buildingName?.trim()
+		return d?.masterId && b && !label.includes(b) ? `${label} – ${b}` : label
+	}
 	const ICON: Record<NavNode['kind'], string> = { building: 'home', level: 'layers', view: 'rect', section: 'scan', room: 'server', space: 'square', row: 'rows', rack: 'server', riser: 'route', sheets: 'fileText', place: 'folder', sheet: 'fileText', viewport: 'panels' }
 </script>
 
@@ -202,7 +207,7 @@
 					onsave={(t) => { const { id, field } = r; ws.navRename = null; applyRename(project, id, t, field) }} oncancel={() => (ws.navRename = null)} /></span>
 		{:else}
 		<button class="lbl" title={n.open ? 'Open (a preview tab) · double-click: keep it as a tab' : kids.length ? 'Double-click (or ▸) folds it' : undefined} onclick={() => { if (n.open) onopen(n); else if (n.select) ws.select([n.select]); else picked = n.key }} ondblclick={() => { if (n.open) onopen(n, true); else if (kids.length) toggle(n.key) }}>
-			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.label}</span>
+			<Icon name={ICON[n.kind]} size={12} /><span class="t">{n.kind === 'building' ? buildingLabel(n.label) : n.label}</span>
 			<!-- a sheet changed since its last issue (only known while the register's Issue column works them out) -->
 			{#if n.kind === 'sheet' && n.id}{@const sh = project.dataIndex.get(n.id)}{#if sh?.type === 'sheet' && states.of(sh) === 'changed'}<span class="chg" title="Changed since its last release ({sh.revisions?.at(-1)?.code})">●</span>{/if}{/if}
 		</button>

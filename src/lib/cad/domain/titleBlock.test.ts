@@ -13,6 +13,12 @@ describe('title block', () => {
 		expect(cells.find((c) => c.label === 'Dwg №')!.value).toBe('E-101')
 		expect(cells.find((c) => c.label === 'Rev')!.value).toBe('—')
 	})
+	it('a building with no Building field: the Project cell names it (Round 8)', () => {
+		const cells = fillTitleBlock(DEFAULT_TITLE_BLOCK, { project: 'Group', building: 'Annex' })
+		expect(cells.find((c) => c.label === 'Project')!.value).toBe('Group – Annex')
+		const own = fillTitleBlock({ fields: [{ key: 'project', label: 'Project' }, { key: 'building', label: 'Building' }] }, { project: 'Group', building: 'Annex' })
+		expect(own.find((c) => c.label === 'Project')!.value).toBe('Group')   // the template shows the building itself
+	})
 	it('relabels, orders and adds custom fixed text per project; no template → the default', () => {
 		const cells = fillTitleBlock({ fields: [{ key: 'custom', label: 'Client', value: 'Mitsui', wide: true }, { key: 'number', label: 'Drawing' }] }, { number: '7' })
 		expect(cells).toEqual([{ label: 'Client', value: 'Mitsui', wide: true }, { label: 'Drawing', value: '7', wide: false }])   // no logo text, company, images: nothing for them

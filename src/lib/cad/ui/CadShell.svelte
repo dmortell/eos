@@ -836,7 +836,7 @@
 		<AskBox {ws} onanswer={() => canvas?.refresh()} />
 		<PatchPreview {ws} />
 		{#if project.loaded && !project.levels.length}
-			<ImportPanel {project} {projectName} onsetup={() => { settingsTab = 'floors'; settingsOpen = true }} />
+			<ImportPanel {project} projectName={(details as { masterId?: string } | undefined)?.masterId && details?.buildingName ? `${projectName} – ${details.buildingName}` : projectName} onsetup={() => { settingsTab = 'floors'; settingsOpen = true }} />
 		{:else if level}
 			<div class="panes" bind:this={panesEl}>
 				{#each panes as spec, i (i)}
