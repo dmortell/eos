@@ -4037,3 +4037,6 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   - A mount change sets the tier as the Outlet tool does (ceiling High; floor / box Low) when it was the old mount's —
     an AP moved to the ceiling stayed Low, so it looked for a low run. Live: 1-001 / 1-002 / 1-004 → ceiling, High;
     1-003 → wall, High: every port routed (17, 5, 6, 14 m + slack), none "?".
+- **No "Open …" in the Navigator's row menus** (User 2026-10-16: "is this needed? any difference from clicking the
+  label?" — none): Open plan / Open rack view / Show on the plan / Open are gone from the ⋮ menus; a click on the name
+  does it. Live: IDF 1's menu is Rename… / Delete room….

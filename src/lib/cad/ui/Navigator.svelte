@@ -154,11 +154,12 @@
 	}
 	/** A row's commands (empty = no ⋮). */
 	function rowMenu(n: NavNode): MenuItem[] {
-		const id = n.id, open = n.open ? [{ label: n.kind === 'room' ? 'Open rack view' : n.kind === 'level' ? 'Open plan' : n.kind === 'space' ? 'Show on the plan' : 'Open', run: () => onopen(n, true) } as MenuItem] : []
-		if (n.kind === 'level' && id) return [...open, { label: 'New server room…', run: () => addServerRoom(project, ws, id) }, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
-		if ((n.kind === 'room' || n.kind === 'space') && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
-		if (n.kind === 'sheet' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
-		if (n.kind === 'section' && id) return [...open, '-', { label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
+		// no "Open …" entry (User 2026-10-16: a click on the row's name does the same)
+		const id = n.id
+		if (n.kind === 'level' && id) return [{ label: 'New server room…', run: () => addServerRoom(project, ws, id) }, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
+		if ((n.kind === 'room' || n.kind === 'space') && id) return [{ label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
+		if (n.kind === 'sheet' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
+		if (n.kind === 'section' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',
 			...(['place', 'category', 'level', 'package'] as const).map((b) => ({ label: `Group by ${b}`, checked: sheetsBy === b, run: () => groupSheets(b) }))]
 		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
