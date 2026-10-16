@@ -139,7 +139,10 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	// floors: one band per elevation (area plans share it); floors with no server room can be squeezed into breaks
 	const byElev = new Map<number, Level[]>()
 	for (const l of levels) byElev.set(l.elevationMm, [...(byElev.get(l.elevationMm) ?? []), l])
-	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e)
+	// …and the floors a riser starts or ends on, where the run carries on across the floor (Round 7, User 2026-10-16:
+	// with empty floors hidden, 2F — its outlets fed up the riser from 1F's IDF 1 — went, and the riser led nowhere)
+	const holds = (e: number, z: number) => { const ls = byElev.get(e); return z >= e - (ls?.[0]?.heights?.raisedFloorMm ?? 300) && z < e + storeyH(ls?.[0]) - (ls?.[0]?.heights?.raisedFloorMm ?? 300) }
+	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e) || shafts.some((s) => holds(e, s.z0) || holds(e, s.z1))
 	const storeyOf = (e: number) => storeyH(byElev.get(e)?.[0])
 	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
 	// each floor as a section through the building (as the old Risers tool): the slab, the raised-floor void above it

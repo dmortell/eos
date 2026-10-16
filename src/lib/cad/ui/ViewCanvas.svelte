@@ -183,6 +183,17 @@
 	const guideKey = $derived(vpe ? `${vpe.levelId}|${specKey(vpe.vp.view.spec)}` : `${levelId}|${specKey(spec)}`)
 	const viewGuides = $derived(ws.guidesOf(guideKey))
 	$effect(() => { if (active) ws.activeGuideKey = guideKey })   // the tool bar's Clear takes the active pane's
+	// the riser view refits when empty floors are hidden / shown (Round 7: hiding 18 floors left the rest a speck at
+	// the bottom of the old view)
+	let riserCompact: boolean | undefined = undefined
+	$effect(() => {
+		const h = spec.kind === 'riser' ? !!spec.hideEmpty : undefined
+		untrack(() => {
+			const was = riserCompact
+			riserCompact = h
+			if (h !== undefined && was !== undefined && h !== was) queueMicrotask(() => zoomExtents())
+		})
+	})
 	const guidePrims = $derived.by((): Prim[] => {
 		const L = 1e6, raw = viewGuides.map((g): Prim => ({ k: 'line', pts: g.axis === 'v' ? [{ x: g.at, y: -L }, { x: g.at, y: L }] : [{ x: -L, y: g.at }, { x: L, y: g.at }], cls: 'guide' }))
 		return vpe ? onPaper(raw, vpe.vp) : raw

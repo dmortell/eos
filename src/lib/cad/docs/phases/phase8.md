@@ -4051,3 +4051,6 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   had none, so nothing could be allocated): `outletTool` — the tool bar's room, else the last outlet's, else the
   level's only room, else the project's only room. Test in `editor.test.ts`. Live: 2F outlets → IDF 1; Allocate this
   level (6 ports) → PP1 9–14, routed up the riser (26 / 26 / 14 m); patched with Start at port 11 (a click had hit 20).
+- **Riser view, Hide empty floors** (Round 7): a floor a riser starts or ends on is kept (2F, fed up the riser from
+  1F's IDF 1, was squeezed away, so the riser led nowhere) — `riserDisplayList` `shown`; and the view refits when
+  the option is turned on or off (`ViewCanvas`). Live: 20 floors → 1F + 2F with the riser (6 cables · 12 %).
