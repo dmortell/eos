@@ -1,0 +1,53 @@
+# Hacky code — review (2026-10-17)
+
+A read-only survey of `src/lib/cad` (tests, docs, bench, dev, persist/import skipped), for the User's todo "Look for more
+hacky code to improve" (backlog). Nothing fixed yet; paths relative to `src/lib/cad/`. Line numbers as of commit
+2698d2dd.
+
+## Top 8 to fix first
+1. `ws.focus` / `ws.centreOn` are one-shot requests held as shared state: whichever pane's fit effect runs first takes
+   them (FindDevice waits a `tick()` so "the plan doesn't take it"; Navigator / CadShell don't) — ui/ViewCanvas.svelte
+   ~268-300. Fix: a request naming its pane / view, or a direct `canvas.focus(id)`.
+2. Swallowed errors: app/issueStates.svelte.ts ~43-50 (one catch round the whole sheet loop — one bad sheet hides the
+   rest), persist/sync.ts ~46 (a remote delete dropped without a trace), app/restoreNotice.svelte.ts ~90. Fix: per-sheet
+   try / catch that logs; warn / surface the others.
+3. `ProjectIndex.get<T>()` is an unchecked cast posing as a generic (domain/project.ts ~54; `ix.get<Rack>(…)` callers),
+   and `store.get('settings') as ProjectSettings` in several places. Fix: `getOf(type, id)` that checks the type; one
+   `settingsOf(store)`.
+4. REGION shape kinds drifted: domain/validate.ts ~15 lacks `ellipse` (editor/selectTool.ts ~44, views/plan.ts ~118
+   have it) — an ellipse with `extent` fails validation but resizes. Fix: one exported set in domain/shapes.ts.
+5. render/download.ts `namer` / `patterner` module globals installed by a CadShell effect: two shells (HMR) — the last
+   wins, an unmount nulls the other's. Fix: pass via context / an argument.
+6. Prim `cls` strings used as semantics (~118 `cls.startsWith/includes` checks; render/dxf.ts maps CSS class → DXF
+   layer by regex): renaming a CSS class changes picking and DXF layers. Fix: a typed `role` / `layer` field on Prim.
+7. Rack height `heightU * 44.45 + 150` written 3× (views/rackRow.ts, views/elevation.ts, ui/RackProps.svelte), the
+   rack-unit constant 4× (RU_MM ×2, RU, U_MM). Fix: one domain/units.ts and one `rackHeight()`.
+8. CordTool's 6 positional constructor params (editor/cordTool.ts, app/workspace.svelte.ts) and ~20 Workspace
+   `foo: () => void = () => {}` slots CadShell overwrites (a late-bound locator: calling one before mount does nothing).
+   Fix: a `CordToolDeps` object; one typed `ShellActions` injected once.
+
+## The rest, by kind
+- **Effects that should be derived / mirror state**: ViewCanvas `tick` counter + `ws.pathPending` mirror (~93-95,
+  516); `ws.viewInfo`, `ws.activeGuideKey` pushed up by effects (~718-731, ~199); CadShell mirrors `ws.activeSheet`,
+  `ws.newCordStatus`, project name / owner by effects (~224, 614, 86); an effect reads + writes `ws.levelId` /
+  `paneLevels` (~435-440); an effect on `project.rev` runs `setPane()` / `tabs.prune()` on every edit (~335-343); an
+  async `buildingsOf()` in an effect without cancellation (~90-94).
+- **Type escapes**: casts right after a discriminant check that already narrows (domain/labelEdit.ts, usages.ts,
+  toolDefaults.ts, clipboard.ts); `SelKind` not a discriminated union (`k.items as Outlet[]` ×7 in Properties);
+  `data as unknown as Project[]` on unvalidated Firestore data (ui/OpenProjectDialog.svelte ~28); pasteText.ts ~65
+  re-implements `labelOf()` through a double cast; FindDevice `r!` ×5 after a non-guard filter.
+- **DOM / Svelte**: EditHistorySettings copies SettingsPanel's scoped styles (shared form row components wanted);
+  `document.querySelector('[role=dialog]')` decides whether keys reach the drawing (shellKeys, clipboardEvents,
+  AskBox) — fix: a `ws.modalOpen` count kept by CadDialog; a window CustomEvent `'cad-open'` as a bus (CadShell ↔
+  CommandPalette); Properties' delegated Enter / Esc sets `t.value` and blurs in a microtask.
+- **Parameters**: `makeBox(levelId, centre, w, d, z, h, rot)`, `dimGrips(prims, id, a, b, a2, b2)`,
+  `dragDevices(…, copy: boolean, …)`, `setTool(id, keep)`, `groupKey(ungroup)`, `tabs.open(i, view, keep, rev)`.
+- **Drift / copies**: Find matching differs between FindDevice and Ctrl+K (navTree), the rear-face rule copied in both;
+  the path-tool id list (`line / trunk / conduit / wall`) in 3–4 places; the tool display-name expression ×4;
+  `SettingsTab` / window-id unions restated in workspace.svelte.ts (already missing details / company / members).
+- **Timers / polling**: a double `tick()` before scrolling Settings to the title block (CadShell ~176); 100 ms / 250 ms
+  polls in app/backups.ts and restoreNotice; `queueMicrotask(zoomExtents)` in a ViewCanvas effect (~208).
+- **Global state**: shellKeys' `zoomPending` chord state at module level.
+- **Strings parsed for structure**: `${fileId}#${page}` built and split in 6 places; `${dev}:${port}` split in
+  overlays.ts; SheetProps' viewport picker splits `key.split(':')` (an unknown key → a row spec with `spaceId: ''`);
+  app/issueGuard.ts finds file use by substring search over serialised JSON (id-prefix false positives).

@@ -25,7 +25,7 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   itself to fake a match): a pass over cad for workarounds that should be done properly — e.g. text matched by
   side effects, `as` casts hiding a type gap, effects that write state they read (the PortTip loop), positional
   constructor parameters growing (CordTool), raw `history.*` calls (CLAUDE.md), sed-shaped code. List them first,
-  then fix by area. **P2 · M**.
+  then fix by area. **P2 · M**. Surveyed 2026-10-17: `docs/plan/hacky-code.md` (top 8 first).
 
 - [ ] ❓ **Design log — why, when and who asked** (User 2026-10-17 todo: "I often have to search old versions / notes /
   emails to figure out why or when or who requested some change"). Today: a sheet's Properties › Changes since last
