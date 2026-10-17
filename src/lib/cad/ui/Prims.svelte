@@ -281,7 +281,10 @@
 	.far { opacity: 0.3; }
 	.band-edge { stroke: #7c3aed; stroke-dasharray: 10 6; stroke-width: 1.2; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
-	text.draft-label { fill: #2563eb; }
+	/* a white halo: readable over the drawing's lines (Round 10: the port +'s tip over a rack's edges) */
+	text.draft-label { fill: #2563eb; paint-order: stroke; stroke: white; stroke-width: 3px; stroke-linejoin: round; }
+	/* a cord to another row: where it goes, under its stub */
+	text.cord-stub-label { fill: #334155; paint-order: stroke; stroke: white; stroke-width: 0.25em; stroke-linejoin: round; }
 	/* the Device tool's drop ghost; red = it can't go there */
 	.draft-bad { stroke: #dc2626; opacity: 0.8; stroke-dasharray: 4 3; }
 	/* GRIPS look like the Sheets tool's (User 2026-10-06): white, a blue edge; a picked one filled blue */

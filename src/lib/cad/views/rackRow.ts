@@ -255,7 +255,17 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	let lane = 0
 	for (const c of ix.cords) {
 		const a = portAt.get(`${c.a.on}:${c.a.port}`), b = portAt.get(`${c.b.on}:${c.b.port}`)
-		if (!a || !b || (c.a.face && c.a.face !== spec.face) || (c.b.face && c.b.face !== spec.face)) continue
+		if ((c.a.face && c.a.face !== spec.face) || (c.b.face && c.b.face !== spec.face)) continue
+		// one end in this view, the other in another row (User 2026-10-17: a cord to Row B was drawn in neither): a short
+		// stub down from the port and, under it, where it goes — upright, no wider than the port, so neighbours don't overlap
+		if ((a || b) && !(a && b)) {
+			const p = (a ?? b)!, other = a ? c.b : c.a, y0 = p.y + p.hh, len = Math.max(30, p.hh * 3)
+			cords.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, src: c.id, color: c.colour })
+			const size = Math.min(p.hh * 1.6, 14)
+			cords.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', src: c.id, minPx: 7 })
+			continue
+		}
+		if (!a || !b) continue
 		if (o.cords === 'channels') { cords.push({ k: 'line', pts: channelRoute(a, b, lane++), cls: `cord cord-${c.status}`, src: c.id, color: c.colour }); continue }
 		const sag = Math.min(200, Math.abs(a.x - b.x) * 0.15 + Math.abs(a.y - b.y) * 0.05)
 		cords.push({ k: 'line', pts: [a, { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y) + sag }, b], cls: `cord cord-${c.status}`, src: c.id, color: c.colour })

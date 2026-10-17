@@ -30,7 +30,9 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   (2) a note on any item (Properties) that the log lists; (3) an edit history: each undo step's label (already
   written: "Patch R02 · SW1 : 39 → …") kept with who and when, so "who moved this rack, when" is answerable — and
   linked to the backup / version before it. Ties in with history / versions and outside review (above). **P? · L**
-  (design first).
+  (design first). User's idea for clouds (2026-10-17, discuss later): a cloud's number NUMERIC (sheet revisions are
+  letters), from an editable list of changes in the cloud's Properties — picking a change sets the number; several
+  clouds can point at one change; the log then reads "Rev A change 3".
 
 - [ ] ❓ **Several racks at once: Alt-drag copy, copy / cut / paste** (User 2026-10-17 todo) — consider letting several
   racks be selected in a rack view (rows) or on a plan and Alt-dragged (Ctrl: a copy) or copied / cut / pasted to

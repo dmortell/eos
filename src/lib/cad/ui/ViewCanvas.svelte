@@ -28,7 +28,7 @@
 	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet, Entity } from '../domain/drawing'
 	import { similarTo } from '../domain/similar'
-	import { pickAt } from '../editor/pick'
+	import { pickAt, pickPrim, preferPort } from '../editor/pick'
 	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { transformItems } from '../editor/transformTool'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
@@ -172,8 +172,17 @@
 	})
 	const preview = $derived.by((): Prim[] => {
 		void tick; void ws.selection; void project.rev; void cam.k
-		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : []
+		const raw = active ? (ws.tool.preview?.(ctx()) ?? []) : idleOutline
 		return vpe ? onPaper(raw, vpe.vp) : raw
+	})
+	/** The other pane of a split: what's under the pointer outlined, as the active pane's tool does (Round 10: only the
+	 *  active pane showed it, while the port tip showed in both) — a port cell, else the thing. Nothing else of the tool. */
+	let idleHover = $state.raw<{ id: string; sub?: string } | null>(null)
+	const idleOutline = $derived.by((): Prim[] => {
+		const h = idleHover
+		if (!h || active) return []
+		return prims.flatMap((p): Prim[] => (p.src !== h.id || p.k === 'image' || p.k === 'text' || (h.sub !== undefined && p.sub !== h.sub)) ? []
+			: [p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false }])
 	})
 	/** Show changes (W23): on this sheet, what is new or changed since its last issue and what has gone — worked out
 	 *  again as it's edited (the sheet frozen now vs the issued copy); on screen only. */
@@ -653,7 +662,13 @@
 		}
 		if (zwin) { if (zwin.a) zwin = { ...zwin, b: local(e) }; return }
 		cursor = input(e).p
-		if (!active) return
+		if (!active) {
+			// a rack view in the other pane: what a click there would take, outlined (Select / Patch cord)
+			const hit = spec.kind === 'row' && (ws.toolId === 'select' || ws.toolId === 'cord') ? preferPort(prims, pickPrim(prims, cursor, TOL_PX / cam.k), cursor) : undefined
+			const next = hit?.src ? { id: hit.src, sub: hit.k === 'image' ? undefined : hit.sub } : null
+			if (next?.id !== idleHover?.id || next?.sub !== idleHover?.sub) idleHover = next
+			return
+		}
 		if (held && held.id === e.pointerId) {
 			const s = local(e)
 			if (Math.hypot(s.x - held.at.x, s.y - held.at.y) <= LONG_PRESS_SLOP) return
@@ -812,7 +827,7 @@
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={zwin ? 'crosshair' : panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
-		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onCancel} onlostpointercapture={onCancel} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; tick++ }}
+		onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onCancel} onlostpointercapture={onCancel} onpointerleave={() => { ws.tool.unhover?.(); cursor = null; idleHover = null; tick++ }}
 		oncontextmenu={onMenu} ondragover={lib.over} ondrop={lib.drop} ondragleave={lib.leave}>
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
