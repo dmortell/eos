@@ -92,7 +92,7 @@ export function untie(s: Shape, vp: Viewport): Shape {
 			// a dimension keeps the real length it measured in the view (on paper it would measure paper mm)
 			case 'dimension': return { ...g, a: t(g.a), b: t(g.b), offset: g.offset * k, text: g.text ?? `${Math.round(dimLen(g))}`, ...(g.textAt ? { textAt: t(g.textAt) } : {}), ...(g.gapA != null ? { gapA: g.gapA * k } : {}), ...(g.gapB != null ? { gapB: g.gapB * k } : {}) }
 			case 'insert': { const sc = (g.scale ?? 1) * (annotativeIn(g.blockId) ? 1 : k); return { ...g, at: t(g.at), scale: sc === 1 ? undefined : sc } }
-			case 'legend': return { ...g, at: t(g.at) }
+			case 'legend': case 'changeList': return { ...g, at: t(g.at) }
 		}
 	})()
 	const { vpId: _drop, ...rest } = s as Shape & { vpId?: string }

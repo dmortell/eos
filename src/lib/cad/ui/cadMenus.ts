@@ -191,7 +191,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			tool('text', 'Text'), tool('leader', 'Callout'), tool('cloud', 'Revision cloud'),
 			'-',
-			tool('legend', 'Legend'), tool('insert', 'Block…'),
+			tool('legend', 'Legend'), tool('changelist', 'Change list'), tool('insert', 'Block…'),
 		] },
 		{ label: 'Cabling', items: [
 			tool('outlet', 'Outlet'), tool('trunk', 'Trunk'), tool('conduit', 'Conduit'), { label: 'New server room…', title: 'A server room on the open floor — racks belong to one; then the Rack tool draws its racks', run: c.serverRoom }, tool('rack', 'Rack'), tool('device', 'Device'), tool('cord', 'Patch cord'),

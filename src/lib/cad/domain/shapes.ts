@@ -81,7 +81,9 @@ export type Geometry =
 	| { kind: 'leader'; pts: Pt[]; text?: string; attach?: Id; /** A callout's frame round its words (backlog "Callouts"); absent = none. */ border?: 'underline' | 'box' }
 	/** `rev` = the sheet revision it marks (W20: drawn on a sheet it takes the revision being prepared; a delta tag shows
 	 *  it, and it hides once a later revision is issued). None = shown always, untagged (clouds from before W20). */
-	| { kind: 'cloud'; pts: Pt[]; arcMm?: number; rev?: string }
+	| { kind: 'cloud'; pts: Pt[]; arcMm?: number; rev?: string
+		/** The design log's change it marks (step 2): its triangle shows `tag`, the change's number (else `rev`, as before). */
+		changeId?: Id; tag?: string }
 	| { kind: 'image'; fileId: string; page?: number; centre: Pt; size: { x: number; y: number }; rot?: number; /** the picture's own width ÷ height: its box keeps it on every resize (older images: the box's ratio when first resized) */ ratio?: number }
 	/** A placed block. `linked` inserts follow edits to the definition; a copied insert was exploded into shapes. */
 	| { kind: 'insert'; blockId: Id; at: Pt; rot?: number; scale?: number; attrs?: Record<string, string>; /** Attributes kept as data but not drawn (Properties → Attributes). */ hidden?: string[]; /** Height above FFL (mm): where it shows in elevations / sections (a wall faceplate). */ z?: number; /** Placed in an elevation / section: shown there too; one placed on a plan is a plan symbol only (User 2026-10-10). */ inElevations?: boolean; /** The elevation / section it was placed in: shown ONLY there — not on the plan or in other views (User 2026-10-12). Absent (older inserts, or ticked “show in elevations” on the plan): the plan and every elevation. */ frame?: ElevFrame; /** A sheet or web page this marker opens (double-click); each insert has its own target. */ link?: InsertLink }
@@ -89,6 +91,10 @@ export type Geometry =
 	 *  its viewports show), with counts. `at` = its top-left; `rows` = the row keys it shows ('block:<id>' / 'layer:<id>';
 	 *  absent = every symbol in use); sizes are paper mm. Drawn from the data each time, so it keeps itself up to date. */
 	| { kind: 'legend'; at: Pt; title?: string; rows?: string[]; sizeMm?: number }
+	/** The CHANGE LIST (design log step 2, User 2026-10-17): on a sheet, the changes of the current numbering round linked
+	 *  to its package's sheets (or to it, outside a package) — No and What — drawn from the Log each time, like a legend.
+	 *  `at` = its top-left, paper mm; `sizeMm` its text size. */
+	| { kind: 'changeList'; at: Pt; title?: string; sizeMm?: number }
 
 export type GeometryKind = Geometry['kind']
 
@@ -214,7 +220,7 @@ export function moveGeometry(g: Geometry, d: { x: number; y: number; z?: number 
 		case 'dimension': return { ...g, a: add(g.a), b: add(g.b), ...(g.textAt ? { textAt: add(g.textAt) } : {}) }
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(add) }
 		case 'image': return { ...g, centre: add(g.centre) }
-		case 'insert': case 'legend': return { ...g, at: add(g.at) }
+		case 'insert': case 'legend': case 'changeList': return { ...g, at: add(g.at) }
 	}
 }
 
@@ -239,7 +245,7 @@ export function placeGeometry(g: Geometry, at: Pt, rot = 0, scale = 1): Geometry
 		}
 		case 'leader': case 'cloud': return { ...g, pts: g.pts.map(P) }
 		case 'insert': return { ...g, at: P(g.at), rot: turn(g.rot), scale: (g.scale ?? 1) * scale }
-		case 'legend': return { ...g, at: P(g.at) }
+		case 'legend': case 'changeList': return { ...g, at: P(g.at) }
 	}
 }
 
@@ -306,7 +312,7 @@ export function rotateGeometry(g: Geometry, pivot: Pt, deg: number): Geometry {
 		case 'polygon': case 'leader': case 'cloud': return { ...g, pts: g.pts.map(P) }
 		case 'text': case 'insert': return { ...g, at: P(g.at), rot: turn(g.rot) }
 		case 'dimension': return mapDim(g, P, (a) => a + deg)
-		case 'legend': return { ...g, at: P(g.at) }
+		case 'legend': case 'changeList': return { ...g, at: P(g.at) }
 	}
 }
 
@@ -336,7 +342,7 @@ export function mirrorGeometry(g: Geometry, a: Pt, b: Pt): Geometry {
 			return { ...g, at: P(g.at), rot: rotField(turned ? r + 180 : r), ...align }
 		}
 		case 'dimension': return mapDim(g, P, (r) => 2 * th - r)
-		case 'legend': return { ...g, at: P(g.at) }
+		case 'legend': case 'changeList': return { ...g, at: P(g.at) }
 	}
 }
 

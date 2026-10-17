@@ -95,7 +95,7 @@ export function clipCentre(clip: Clip): Pt | null {
 			case 'path': own.push(...g.nodes); break
 			case 'polygon': case 'leader': case 'cloud': own.push(...g.pts); break
 			case 'dimension': own.push(g.a, g.b); break
-			case 'text': case 'insert': case 'legend': own.push(g.at); break
+			case 'text': case 'insert': case 'legend': case 'changeList': own.push(g.at); break
 			case 'circle': case 'arc': own.push({ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }); break
 			default: own.push(...(outlineOf(g) ?? []))
 		}

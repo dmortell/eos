@@ -9,8 +9,8 @@ import type { CadProject } from './project.svelte'
 import { storeFile } from './projectFiles'
 import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
 import type { Issue, Sheet, DesignChange } from '../domain/drawing'
-import { sheetNotes, releasedOn } from '../domain/changes'
-import type { Underlay } from '../domain/types'
+import { sheetNotes, releasedOn, currentCycle } from '../domain/changes'
+import type { Underlay, ProjectSettings } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
 import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, issueTitle, type IssuePlanRow } from '../domain/issue'
@@ -155,6 +155,9 @@ export type IssueForm = {
 	attach?: Attachment[]
 	/** Back up the whole project with it (ADR 0008 §7) — off unless ticked: a full copy each time. */
 	backup?: boolean
+	/** The design log (step 2): new changes number from 1 again after this release (a major one), and what becomes of
+	 *  the released sheets' revision clouds — kept (hidden once a later major revision is out) or deleted. */
+	newRound?: boolean; clouds?: 'keep' | 'delete'
 }
 export type IssueResult = { issue: Issue; unsupported: string[]; rasterised: string[] }
 
@@ -233,6 +236,12 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 			const cs = logChanges(project).map((c) => (tx.get(c.id) as DesignChange | undefined) ?? c)
 			tx.put(issuedRevision(cur, b.rev, sheetNotes(cur, cs)))
 			for (const c of releasedOn(cs, cur.id, b.rev.code, (id) => tx.get(id)?.type === 'sheet')) tx.put(c)
+			// its revision clouds are in the frozen copy: deleted now if asked (numbering starts again — User 2026-10-17)
+			if (f.clouds === 'delete') for (const s of project.store.ofType('shape')) if (s.sheetId === cur.id && s.geom.kind === 'cloud' && (s.geom.rev || s.geom.changeId)) tx.del(s.id)
+		}
+		if (f.newRound) {
+			const st = tx.get('settings') as ProjectSettings | undefined
+			if (st) tx.put({ ...st, changeCycle: currentCycle(logChanges(project), st.changeCycle) + 1 })
 		}
 		tx.put(issue)
 	})

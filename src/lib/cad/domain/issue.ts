@@ -31,13 +31,17 @@ export const draftRev = (s: Pick<Sheet, 'revisions'>, first = 'A'): string => ne
 export function cloudShown(s: Pick<Sheet, 'revisions'>, rev: string | undefined): boolean {
 	if (!rev) return true
 	const codes = (s.revisions ?? []).map((r) => r.code), i = codes.lastIndexOf(rev)
-	return i < 0 || i === codes.length - 1
+	// hidden by a later MAJOR revision only: A's clouds stay through A.1, A.2 (design log, User 2026-10-17)
+	return i < 0 || codes.slice(i + 1).every((c) => majorOf(c) === majorOf(rev))
 }
+/** "A.2" → "A". */
+export const majorOf = (code: string): string => code.split('.')[0]
 /** At an issue as `code`: the sheet's clouds still on a draft revision (not among its issued ones — drawn before the
  *  code was chosen) take `code`, so the next issue hides them. Returns the clouds to rewrite. */
-export function tagDraftClouds<S extends { id: string; sheetId?: string; geom: { kind: string; rev?: string } }>(shapes: S[], s: Pick<Sheet, 'id' | 'revisions'>, code: string): S[] {
+export function tagDraftClouds<S extends { id: string; sheetId?: string; geom: { kind: string; rev?: string; changeId?: string } }>(shapes: S[], s: Pick<Sheet, 'id' | 'revisions'>, code: string): S[] {
 	const issued = new Set((s.revisions ?? []).map((r) => r.code))
-	return shapes.filter((x) => x.sheetId === s.id && x.geom.kind === 'cloud' && x.geom.rev && !issued.has(x.geom.rev) && x.geom.rev !== code)
+	// (a cloud marking a change but no revision yet is a draft too)
+	return shapes.filter((x) => x.sheetId === s.id && x.geom.kind === 'cloud' && (x.geom.rev ? !issued.has(x.geom.rev) : !!x.geom.changeId) && x.geom.rev !== code)
 		.map((x) => ({ ...x, geom: { ...x.geom, rev: code } }))
 }
 

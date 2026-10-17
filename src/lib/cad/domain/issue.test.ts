@@ -32,6 +32,12 @@ describe('revision clouds (W20)', () => {
 		const s = sheet(['A', 'B'])
 		expect([undefined, 'B', 'C', 'A'].map((r) => cloudShown(s, r))).toEqual([true, true, true, false])
 		expect(cloudShown(sheet([]), 'A')).toBe(true)
+		// only a later MAJOR revision hides it: A's clouds stay through A.1, A.2 (design log)
+		expect([cloudShown(sheet(['A', 'A.1']), 'A'), cloudShown(sheet(['A', 'A.1', 'B']), 'A.1')]).toEqual([true, false])
+	})
+	it('a cloud marking a change but no revision yet takes the code at the release', () => {
+		const out = tagDraftClouds([{ id: 'c', sheetId: 'S', geom: { kind: 'cloud', changeId: 'k' } }], sheet(['A']), 'A.1')
+		expect(out.map((x) => x.geom.rev)).toEqual(['A.1'])
 	})
 	it('at an issue as P1: the sheet’s clouds on a draft code take P1; issued ones, others’ and untagged stay', () => {
 		const c = (id: string, rev?: string, sheetId = 'S') => ({ id, sheetId, geom: { kind: 'cloud', ...(rev ? { rev } : {}) } })

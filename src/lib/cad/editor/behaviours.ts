@@ -125,7 +125,7 @@ export function mirrorEntity<T extends Entity>(e: T, a: Pt, b: Pt): T {
 /** A point of a non-path geometry that stands for where it is (a note's anchor, a box's centre …). */
 function anchorOf(g: Geometry): Pt {
 	switch (g.kind) {
-		case 'text': case 'insert': case 'legend': return g.at
+		case 'text': case 'insert': case 'legend': case 'changeList': return g.at
 		case 'rect': case 'image': case 'circle': case 'ellipse': case 'arc': return g.centre
 		case 'dimension': return g.a
 		case 'leader': case 'cloud': case 'polygon': return g.pts[0] ?? { x: 0, y: 0 }

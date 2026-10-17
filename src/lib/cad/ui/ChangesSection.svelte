@@ -18,7 +18,7 @@
 	const list = $derived(sheet ? pendingChanges(sheet, all) : changesAbout(all, ids))
 	const names = $derived(askedNames(all))
 	/** Open changes of this round not yet linked here: for Link… */
-	const others = $derived(all.filter((c) => c.cycle === currentCycle(all) && c.status === 'open' && !ids.every((id) => c.links.includes(id))).sort((a, b) => a.n - b.n))
+	const others = $derived(all.filter((c) => c.cycle === currentCycle(all, project.settings?.changeCycle) && c.status === 'open' && !ids.every((id) => c.links.includes(id))).sort((a, b) => a.n - b.n))
 	const many = $derived(ids.length > 1 ? ` (${ids.length} items)` : '')
 
 	let what = $state(''), asked = $state('')
@@ -26,7 +26,7 @@
 	const put = (c: DesignChange, label: string, patch: Partial<DesignChange>) => project.store.transact(label, (tx) => tx.put({ ...c, ...patch }))
 	function add() {
 		if (!what.trim()) return
-		const c = newChange(all, newId(), { what, asked, links: ids, by: project.user ? { uid: project.user, name: project.userName } : undefined })
+		const c = newChange(all, newId(), { what, asked, links: ids, by: project.user ? { uid: project.user, name: project.userName } : undefined }, project.settings?.changeCycle)
 		project.store.transact(`Change ${c.n}`, (tx) => tx.put(c))
 		ws.say(`Change ${c.n} logged${many}${sheet ? ' — its next release records it' : ''} · Tables › Log lists every change`)
 		what = ''

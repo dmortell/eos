@@ -39,6 +39,7 @@
 	import RackRowProps from './RackRowProps.svelte'
 	import ChangeProps from './ChangeProps.svelte'
 	import ChangesSection from './ChangesSection.svelte'
+	import ChangeListProps from './ChangeListProps.svelte'
 	import './props.css'
 
 	let { project, ws, current, onfloors }: {
@@ -129,6 +130,8 @@
 		<SectionProps {project} {ws} s={one} />
 	{:else if one.type === 'shape' && NOTES.has(one.geom.kind)}
 		<NoteProps {project} s={one} />
+	{:else if one.type === 'shape' && one.geom.kind === 'changeList'}
+		<ChangeListProps {project} {ws} s={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'legend'}
 		<LegendProps {project} s={one} />
 	{:else if one.type === 'shape' && one.geom.kind === 'path'}

@@ -9,6 +9,10 @@
 	import Field from './fields/Field.svelte'
 	import PropGroup from './PropGroup.svelte'
 	import LayerPick from './LayerPick.svelte'
+	import type { DesignChange } from '../domain/drawing'
+	import { currentCycle, newChange } from '../domain/changes'
+	import { newId } from '../domain/ids'
+	import { enterKey } from './keyGuards'
 
 	let { project, s }: { project: CadProject; s: Shape } = $props()
 
@@ -19,6 +23,31 @@
 		const st = { ...s.style, ...patch }
 		for (const k of Object.keys(st) as (keyof typeof st)[]) if (st[k] === undefined) delete st[k]
 		put(label, { style: Object.keys(st).length ? st : undefined })
+	}
+	// a cloud marks a CHANGE of the design log (step 2): its triangle shows the change's number; this round's changes
+	const changes = $derived(project.index.ofType('change') as DesignChange[])
+	const round = $derived(currentCycle(changes, project.settings?.changeCycle))
+	const pickable = $derived(changes.filter((c) => c.cycle === round && (c.status === 'open' || c.status === 'done')).sort((a, b) => a.n - b.n))
+	/** Point the cloud at a change ('' = none): its tag becomes the number, and the change is linked to the cloud's sheet
+	 *  (so the sheet's release and the package's change list have it) — one undo step. */
+	function markChange(c: DesignChange | null, label = c ? `Cloud: change ${c.n}` : 'Cloud: no change', isNew = false) {
+		if (s.geom.kind !== 'cloud') return
+		const { changeId: _c, tag: _t, ...rest } = s.geom
+		const geom = c ? { ...rest, changeId: c.id, tag: String(c.n) } : rest
+		project.store.transact(label, (tx) => {
+			tx.put({ ...s, geom })
+			if (!c) return
+			const link = !!s.sheetId && !c.links.includes(s.sheetId)
+			if (link) tx.put({ ...c, links: [...c.links, s.sheetId!] })
+			else if (isNew) tx.put(c)
+		})
+	}
+	let newWhat = $state('')
+	function markNew() {
+		if (!newWhat.trim()) return
+		const c = newChange(changes, newId(), { what: newWhat, links: s.sheetId ? [s.sheetId] : [], by: project.user ? { uid: project.user, name: project.userName } : undefined }, project.settings?.changeCycle)
+		markChange(c, `Change ${c.n} (cloud)`, true)
+		newWhat = ''
 	}
 	/** mm per point. */
 	const PT = 25.4 / 72
@@ -59,6 +88,14 @@
 		</span></span>
 {:else if g.kind === 'cloud'}
 	<label class="row">Arc (mm) <input class="inp" type="number" min="2" step="1" value={g.arcMm ?? 6} onchange={(e) => num(e.currentTarget.value) && setGeom('Cloud arcs', { arcMm: Math.max(2, Number(e.currentTarget.value)) })} /></label>
+	<!-- the design log's change it marks: its number in the triangle; a new one typed here is logged, linked to the sheet -->
+	<label class="row" title="The change this cloud marks (Tables › Log): its number shows in the triangle and in the sheet's change list. Several clouds can mark one change.">Change
+		<select class="inp" value={g.changeId ?? ''} onchange={(e) => markChange(pickable.find((c) => c.id === e.currentTarget.value) ?? null)}>
+			<option value="">none</option>
+			{#each pickable as c (c.id)}<option value={c.id}>{c.n}. {c.what}</option>{/each}
+			{#if g.changeId && !pickable.some((c) => c.id === g.changeId)}<option value={g.changeId}>{g.tag ?? '?'} (an earlier round)</option>{/if}
+		</select></label>
+	<label class="row" title="Log a new change and mark it with this cloud (Enter)">New change <input class="inp" bind:value={newWhat} placeholder="what changed" onkeydown={(e) => enterKey(e) && markNew()} /></label>
 	<!-- W20: the revision it marks — its delta tag; it hides once a later revision of the sheet is issued -->
 	<label class="row" title="The sheet revision this cloud marks: shown in its delta tag; once a later revision is released it is hidden (kept — its own release still prints it). Blank = no tag, always shown">Revision <input class="inp" value={g.rev ?? ''} placeholder="none" onchange={(e) => setGeom('Cloud revision', { rev: e.currentTarget.value.trim() || undefined })} /></label>
 {:else if g.kind === 'dimension'}

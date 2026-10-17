@@ -185,11 +185,13 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined):
 		case 'cloud': {
 			const out: Prim[] = [{ k: 'line', pts: cloudPts(g.pts, (g.arcMm ?? 6) * k), closed: true, cls: 'cloud', src: s.id }]
 			// W20: its DELTA TAG — a triangle with the revision code, off its top-right corner
-			if (g.rev) {
-				const x = Math.max(...g.pts.map((q) => q.x)), y = Math.min(...g.pts.map((q) => q.y)), h = 6 * k, w = h * 1.15
+			// (its change's number when it marks one — design log step 2 — else the revision code)
+			const label = g.tag ?? g.rev
+			if (label) {
+				const x = Math.max(...g.pts.map((q) => q.x)), y = Math.min(...g.pts.map((q) => q.y)), h = 6 * k, w = h * 1.15 + Math.max(0, label.length - 1) * 2 * k   // wider for "12"
 				const c = { x: x + w * 0.4, y: y - h * 0.3 }
 				out.push({ k: 'line', pts: [{ x: c.x, y: c.y - h * 0.66 }, { x: c.x + w / 2, y: c.y + h * 0.34 }, { x: c.x - w / 2, y: c.y + h * 0.34 }], closed: true, cls: 'cloud', src: s.id },
-					{ k: 'text', at: { x: c.x, y: c.y + h * 0.22 }, text: g.rev, size: 2.6 * k, anchor: 'middle', cls: 'note', src: s.id })
+					{ k: 'text', at: { x: c.x, y: c.y + h * 0.22 }, text: label, size: 2.6 * k, anchor: 'middle', cls: 'note', src: s.id })
 			}
 			return out
 		}

@@ -223,7 +223,7 @@ function pointsOf(g: Geometry): Pt[] {
 		case 'circle': case 'arc': return [{ x: g.centre.x - g.r, y: g.centre.y - g.r }, { x: g.centre.x + g.r, y: g.centre.y + g.r }]
 		case 'ellipse': return ellipsePts(g)
 		case 'polygon': case 'leader': case 'cloud': return g.pts
-		case 'text': case 'insert': case 'legend': return [g.at]
+		case 'text': case 'insert': case 'legend': case 'changeList': return [g.at]
 		case 'dimension': return [g.a, g.b]
 		case 'image': return [g.centre]
 	}
@@ -256,7 +256,7 @@ function scaleGeometry(g: Geometry, k: number): Geometry {
 		case 'ellipse': return { ...g, centre: m(g.centre), rx: g.rx * k, ry: g.ry * k }
 		case 'circle': case 'arc': return { ...g, centre: m(g.centre), r: g.r * k }
 		case 'dimension': return { ...g, a: m(g.a), b: m(g.b), offset: g.offset * k, ...(g.textAt ? { textAt: m(g.textAt) } : {}) }
-		case 'insert': case 'legend': return { ...g, at: m(g.at) }
+		case 'insert': case 'legend': case 'changeList': return { ...g, at: m(g.at) }
 	}
 }
 
@@ -264,7 +264,7 @@ function scaleGeometry(g: Geometry, k: number): Geometry {
  *  section (what you draw in an elevation), and not be blocks themselves. */
 export function elevationProblem(shapes: Shape[]): string | null {
 	if (!shapes.length) return 'Select the shapes drawn in the elevation first'
-	if (shapes.some((s) => s.geom.kind === 'insert' || s.geom.kind === 'legend')) return 'A block is made of drawn shapes, not blocks or legends'
+	if (shapes.some((s) => s.geom.kind === 'insert' || s.geom.kind === 'legend' || s.geom.kind === 'changeList')) return 'A block is made of drawn shapes, not blocks or legends'
 	const planes = shapes.map((s) => (s.plane?.kind === 'vertical' ? s.plane : null))
 	if (planes.some((p) => !p)) return 'Those shapes aren’t all drawn in an elevation or section'
 	const first = planes[0]!
@@ -285,7 +285,7 @@ export function elevationShapes(shapes: Shape[], k = 100): { shapes: BlockShape[
 		if (g.kind === 'path') return { ...g, nodes: g.nodes.map((n) => { const q = project(pl.frame, n); return { ...n, x: q.u, y: -q.v, z: 0 } }) }
 		// a text's size is paper mm in the view (drawn × the drawing scale `k`); in a block it is real mm
 		if (g.kind === 'text') return { ...g, at: { x: g.at.x, y: -g.at.y }, sizeMm: g.sizeMm * k }
-		if (g.kind === 'insert' || g.kind === 'legend') return { ...g, at: { x: g.at.x, y: -g.at.y } }
+		if (g.kind === 'insert' || g.kind === 'legend' || g.kind === 'changeList') return { ...g, at: { x: g.at.x, y: -g.at.y } }
 		return mirrorGeometry(g, { x: 0, y: 0 }, { x: 1, y: 0 })
 	}
 	const shown = shapes.map((s) => ({ s, geom: view(s.geom) }))

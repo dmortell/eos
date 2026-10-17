@@ -23,6 +23,7 @@ import { titleBlockPrims } from './titleBlock'
 import { scheduleTitle, patchScheduleLayout } from './schedule'
 import { fieldCtx, withFields } from '../domain/fields'
 import { cloudShown } from '../domain/issue'
+import { changeListPrims } from './changeList'
 import { fillTitleBlock, shownTitleBlock, withDetails, drawnFallback, type TbContext, type TbShown, type TitleBlockTemplate, type ProjectDetails } from '../domain/titleBlock'
 
 /** ISO A sizes, portrait (w × h, mm). */
@@ -230,7 +231,9 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	const notes: Prim[] = []
 	// (a revision cloud of an EARLIER issued revision is kept but not drawn, W20 — its own issue's frozen copy has it)
 	for (const s of ix.shapes.filter((x) => x.sheetId === sheet.id && (x.geom.kind !== 'cloud' || cloudShown(sheet, x.geom.rev))).sort(byDrawOrder))
-		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(sheet.frozen ?? []) }).draw : notePrims(ix, s, sheet, o)))
+		notes.push(...(s.geom.kind === 'legend' ? applyLayers(legendShapePrims(ix, s, shown, 1, o.blocks), ix, { hidden: new Set(sheet.frozen ?? []) }).draw
+			: s.geom.kind === 'changeList' ? applyLayers(changeListPrims(ix, s, sheet), ix, { hidden: new Set(sheet.frozen ?? []) }).draw
+			: notePrims(ix, s, sheet, o)))
 	// their text fields read the sheet and its viewports' levels
 	out.push(...withFields(notes, fieldCtx(ix, { project: o.projectName, building: o.details?.buildingName?.trim(), today: o.fieldDate, sheet, blocks: o.blocks, levels: shown })))
 	return out

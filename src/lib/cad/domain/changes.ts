@@ -7,12 +7,12 @@ import type { Id } from './types'
 export const REF_KINDS: [ChangeRefKind, string][] = [['email', 'Email'], ['meeting', 'Meeting'], ['rfi', 'RFI'], ['phone', 'Phone'], ['site', 'Site'], ['other', 'Other']]
 export const STATUSES: [DesignChange['status'], string][] = [['open', 'Open'], ['done', 'Done'], ['rejected', 'Rejected'], ['superseded', 'Superseded']]
 
-/** The numbering round now: the highest any change has (1 when there are none). */
-export const currentCycle = (cs: DesignChange[]): number => Math.max(1, ...cs.map((c) => c.cycle))
+/** The numbering round now: the highest any change has, or `start` (settings.changeCycle: a release began a new one). */
+export const currentCycle = (cs: DesignChange[], start = 1): number => Math.max(start, ...cs.map((c) => c.cycle))
 
 /** A new change, numbered next in the current round, dated today unless given. */
-export function newChange(cs: DesignChange[], id: Id, f: { what: string; links?: Id[]; date?: string; asked?: string; by?: DesignChange['by']; at?: number }): DesignChange {
-	const cycle = currentCycle(cs), n = Math.max(0, ...cs.filter((c) => c.cycle === cycle).map((c) => c.n)) + 1
+export function newChange(cs: DesignChange[], id: Id, f: { what: string; links?: Id[]; date?: string; asked?: string; by?: DesignChange['by']; at?: number }, start = 1): DesignChange {
+	const cycle = currentCycle(cs, start), n =Math.max(0, ...cs.filter((c) => c.cycle === cycle).map((c) => c.n)) + 1
 	return { type: 'change', id, cycle, n, date: f.date ?? today(), what: f.what.trim(), links: f.links ?? [], status: 'open', at: f.at ?? Date.now(),
 		...(f.asked?.trim() ? { asked: f.asked.trim() } : {}), ...(f.by ? { by: f.by } : {}) }
 }
@@ -58,4 +58,25 @@ export function changeMatches(c: DesignChange, q: string): boolean {
 	const t = q.trim().toLowerCase()
 	if (!t) return true
 	return [String(c.n), c.what, c.why, c.asked, c.ref?.text, c.by?.name, c.date].some((x) => x?.toLowerCase().includes(t))
+}
+
+/** The CHANGE LIST's rows: this round's changes linked to any of these sheets (its package's, or the sheet alone),
+ *  by number — rejected / superseded ones left off. */
+export const listChanges = (cs: DesignChange[], sheetIds: Id[], cycle: number): DesignChange[] =>
+	cs.filter((c) => c.cycle === cycle && c.status !== 'rejected' && c.status !== 'superseded' && c.links.some((l) => sheetIds.includes(l))).sort((a, b) => a.n - b.n)
+
+/** The sheets a sheet's change list covers: its package's (the first not archived that holds it), else itself. */
+export function listSheets(pkgs: { sheetIds?: Id[]; archived?: boolean }[], sheetId: Id): Id[] {
+	return pkgs.find((p) => !p.archived && p.sheetIds?.includes(sheetId))?.sheetIds ?? [sheetId]
+}
+
+/** A long "what" in lines of at most `n` characters, broken at spaces. */
+export function wrap(text: string, n: number): string[] {
+	const out: string[] = []
+	let line = ''
+	for (const w of text.split(/\s+/).filter(Boolean)) {
+		if (line && (line + ' ' + w).length > n) { out.push(line); line = w } else line = line ? `${line} ${w}` : w
+	}
+	if (line) out.push(line)
+	return out.length ? out : ['']
 }

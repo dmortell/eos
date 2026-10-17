@@ -58,7 +58,7 @@ export function defaultLayer(e: Entity): Id | undefined {
 			if (r?.kind === 'wall') return 'sys:walls'
 			if (r?.kind === 'containment') return r.tier === 'high' ? 'sys:cont-high' : 'sys:cont-low'
 			const g = e.geom.kind
-			return g === 'text' || g === 'leader' || g === 'cloud' || g === 'legend' ? 'sys:notes' : 'sys:drawing'
+			return g === 'text' || g === 'leader' || g === 'cloud' || g === 'legend' || g === 'changeList' ? 'sys:notes' : 'sys:drawing'
 		}
 		default: return undefined
 	}

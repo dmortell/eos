@@ -60,7 +60,7 @@
 	let newWhat = $state(''), newAsked = $state('')
 	function add() {
 		if (!newWhat.trim()) return
-		const c = newChange(changes, newId(), { what: newWhat, asked: newAsked, by: project.user ? { uid: project.user, name: project.userName } : undefined })
+		const c = newChange(changes, newId(), { what: newWhat, asked: newAsked, by: project.user ? { uid: project.user, name: project.userName } : undefined }, project.settings?.changeCycle)
 		project.store.transact(`Change ${c.n}`, (tx) => tx.put(c))
 		ws.say(`Change ${c.n} logged — link it to items from their Properties (Changes › Link the selection)`)
 		newWhat = ''

@@ -31,6 +31,14 @@
 	const toggleAttach = (a: Attachment, on: boolean) => (attach = on ? [...attach.filter((x) => x !== a), a] : attach.filter((x) => x !== a))
 	/** Back up the whole project with this issue (ADR 0008 §7): off by default — every one is a full copy. */
 	let backup = $state(false)
+	/** Number changes from 1 again: ticked for a major revision that isn't a sheet's first (A → B, not A or A.1), until
+	 *  the box is used. */
+	let newRound = $state(false), roundTouched = false, clouds = $state<'keep' | 'delete'>('keep')
+	$effect(() => {
+		const p = plan
+		if (!p || roundTouched) return
+		newRound = p.some((r) => { const code = codes[r.sheet.id] ?? r.rev; return r.changed && !code.includes('.') && !!r.sheet.revisions?.length })
+	})
 	const projectSize = $derived.by(() => { if (!backup) return ''; const n = JSON.stringify(project.store.all()).length; return n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} kB` })
 	let codes = $state<Record<string, string>>({}), descs = $state<Record<string, string>>({}), setAll = $state('')
 	let by = $state((() => { try { return localStorage.getItem('cad-issue-by') ?? '' } catch { return '' } })())
@@ -62,7 +70,7 @@
 		try {
 			try { localStorage.setItem('cad-issue-by', by.trim()) } catch { /* storage blocked */ }
 			const r = await issuePackage(project, sheets, { name: name.trim(), purpose, date, to: to.trim() || undefined, note: note.trim() || undefined, first: first.trim() || 'A', packageId: pkg?.id,
-				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, attach: [...attach], recipients: pkg?.recipients ? resolveRecipients(pkg.recipients, project.settings?.contacts) : to.trim() ? [{ name: to.trim() }] : undefined })   // contacts as they are now
+				codes: $state.snapshot(codes), descs: $state.snapshot(descs), by, withdrawn, cover, backup, newRound, clouds, attach: [...attach], recipients: pkg?.recipients ? resolveRecipients(pkg.recipients, project.settings?.contacts) : to.trim() ? [{ name: to.trim() }] : undefined })   // contacts as they are now
 			const bumped = r.issue.sheets.filter((s) => s.changed).length
 			const att = r.issue.attachments?.length ? ` with ${r.issue.attachments.length} Excel file(s)` : ''
 			ws.say(`Released ${r.issue.name}: ${r.issue.sheets.length} sheet(s), ${bumped} new revision(s); PDF${att} saved to Uploads${unsupportedNote(r.unsupported, r.rasterised)}`)
@@ -89,6 +97,10 @@
 		<span class="flex items-center gap-1" title="Excel files released with the PDF: made as File › Export makes them, saved to Uploads with the release, listed on the cover page and in the Releases list">With:
 			{#each Object.entries(ATTACHMENT_NAME) as [a, label] (a)}<label><input type="checkbox" checked={attach.includes(a as Attachment)} onchange={(e) => toggleAttach(a as Attachment, e.currentTarget.checked)} /> {label}</label>{/each}</span>
 		<label title="Keep a backup of the whole project with this release, so it can be restored from the Releases list later. Each one is a full copy of the project: tick it only for a release you may need to go back to."><input type="checkbox" bind:checked={backup} /> Back up the project with this release</label>
+		<!-- the design log (step 2): after a major release new changes number from 1 again; its clouds kept or deleted -->
+		<label title="New changes in the Log number from 1 again after this release (ticked for a major revision that isn't a sheet's first). The change list on the package's sheet then starts empty."><input type="checkbox" checked={newRound} onchange={(e) => { roundTouched = true; newRound = e.currentTarget.checked }} /> Number changes from 1 again</label>
+		<label title="The released sheets' revision clouds: they're in the released copy either way. Keep = they stay (hidden once a later major revision is released); Delete = gone from the drawing now (Undo brings them back).">Clouds
+			<select class="inp" bind:value={clouds}><option value="keep">keep</option><option value="delete">delete</option></select></label>
 		<label title="Who releases it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => enterKey(e) && applyAll()} onchange={applyAll} /></label>
 		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Releasing…' : 'Release'}</button>

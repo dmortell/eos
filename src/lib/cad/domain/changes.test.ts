@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DesignChange, Sheet } from './drawing'
-import { newChange, currentCycle, changesAbout, askedNames, sheetNotes, releasedOn, pendingChanges, changeMatches } from './changes'
+import { newChange, currentCycle, changesAbout, askedNames, sheetNotes, releasedOn, pendingChanges, changeMatches, listChanges, listSheets, wrap } from './changes'
 
 const sheet = (id: string, extra: Partial<Sheet> = {}): Sheet => ({ type: 'sheet', id, number: id, title: id, order: 0, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, viewports: [], status: 'active', ...extra })
 
@@ -37,5 +37,18 @@ describe('design log changes', () => {
 		const [after2] = releasedOn([after1], 'S2', 'A', isSheet)
 		expect(after2.status).toBe('done')
 		expect(sheetNotes(s2, [{ ...c, status: 'rejected' }])).toEqual([])
+	})
+})
+
+describe('the change list', () => {
+	it('lists this round’s changes linked to the package’s sheets, by number; wraps long ones', () => {
+		const mk = (id: string, n: number, links: string[], extra: Partial<DesignChange> = {}): DesignChange => ({ ...newChange([], id, { what: id, links }), n, ...extra })
+		const cs = [mk('b', 2, ['S2']), mk('a', 1, ['S1']), mk('x', 3, ['S9']), mk('r', 4, ['S1'], { status: 'rejected' }), mk('old', 1, ['S1'], { cycle: 0 })]
+		const sheets = listSheets([{ sheetIds: ['S1', 'S2'] }], 'S2')
+		expect(sheets).toEqual(['S1', 'S2'])
+		expect(listSheets([{ sheetIds: ['S1'] }], 'S7')).toEqual(['S7'])
+		expect(listChanges(cs, sheets, 1).map((c) => c.id)).toEqual(['a', 'b'])
+		expect(wrap('Move outlets 1-004 to 1-006 to the east wall of the meeting room', 20)).toEqual(['Move outlets 1-004', 'to 1-006 to the east', 'wall of the meeting', 'room'])
+		expect(currentCycle(cs, 3)).toBe(3)
 	})
 })
