@@ -21,6 +21,17 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
 **Remaining:** 3 entries — PDF layers (User 2026-10-16 todo; default usages and Project settings vs details built), the menus and tool-strip reviews (User 2026-10-16: several buildings built as project groups, its Tourney migration / external links not needed; Three bands and W8 not needed; Navigator clicks built; fonts, walls from a room, the room marker built; blocks in rack views, T / B / L / R, one room not two dropped; 2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, User 2026-10-15; no ⚡ quick wins left) — User's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (User 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (User 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
 ## User's todos (2026-10-15, review later)
 
+- [ ] ❓ **Design log — why, when and who asked** (User 2026-10-17 todo: "I often have to search old versions / notes /
+  emails to figure out why or when or who requested some change"). Today: a sheet's Properties › Changes since last
+  release (what · asked by · date, carried onto the revision when released) and named backups — nothing project-wide,
+  nothing on a thing (an outlet, a rack, a cord), and no record of who edited what. Consider: (1) a project Design log
+  (Tables tab): date · what · why · asked by · reference (email subject, RFI / meeting no.) · linked items / sheets ·
+  the release it went out in — searchable, filterable by person / item; a sheet's change notes appear in it too;
+  (2) a note on any item (Properties) that the log lists; (3) an edit history: each undo step's label (already
+  written: "Patch R02 · SW1 : 39 → …") kept with who and when, so "who moved this rack, when" is answerable — and
+  linked to the backup / version before it. Ties in with history / versions and outside review (above). **P? · L**
+  (design first).
+
 - [ ] ❓ **Several racks at once: Alt-drag copy, copy / cut / paste** (User 2026-10-17 todo) — consider letting several
   racks be selected in a rack view (rows) or on a plan and Alt-dragged (Ctrl: a copy) or copied / cut / pasted to
   another place, with their devices (and what of their cords / links: kept within the copied set, dropped
