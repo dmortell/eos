@@ -33,7 +33,7 @@ export interface Clip {
  *  viewport). */
 function untieNote(s: Shape, ix: ProjectIndex): Shape {
 	if (!s.sheetId || !s.vpId) return s
-	const vp = ix.get<Sheet>(s.sheetId)?.viewports.find((v) => v.id === s.vpId)
+	const vp = ix.getOf('sheet', s.sheetId)?.viewports.find((v) => v.id === s.vpId)
 	if (vp) return untie(s, vp)
 	const { vpId: _, ...rest } = s
 	return rest as Shape
@@ -61,14 +61,14 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 
 /** The picked viewports of a sheet as a clip: each with its view, and the notes tied to it (they stay tied). */
 export function makeViewportClip(ix: ProjectIndex, sheetId: Id, vpIds: Id[], pid: string): Clip | null {
-	const sheet = ix.get<Sheet>(sheetId)
+	const sheet = ix.getOf('sheet', sheetId)
 	const viewports = sheet?.type === 'sheet' ? sheet.viewports.filter((v) => vpIds.includes(v.id)) : []
 	if (!sheet || !viewports.length) return null
 	const have = new Set(viewports.map((v) => v.id))
 	const items = ix.shapes.filter((x) => x.sheetId === sheetId && !!x.vpId && have.has(x.vpId))
 	const used = new Set(items.map((e) => e.layerId).filter(Boolean))
 	const levelNames: Record<Id, string> = {}
-	for (const v of viewports) { const l = ix.get<Level>(v.view.levelId); if (l) levelNames[l.id] = l.name }
+	for (const v of viewports) { const l = ix.getOf('level', v.view.levelId); if (l) levelNames[l.id] = l.name }
 	return { mark: CLIP_MARK, pid, from: { kind: 'sheet', id: sheetId }, items, viewports, levelNames, layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
 }
 
@@ -126,7 +126,7 @@ export interface Pasted { put: Entity[]; select: Id[]; skipped: number; problem?
 /** Where a pasted viewport's view points: the same level, else the level of the same name, else the first; a view of
  *  something this project doesn't have becomes the plan. */
 function viewHere(ix: ProjectIndex, clip: Clip, v: Viewport): { view: Viewport['view']; reset: boolean } {
-	const lv = ix.get<Level>(v.view.levelId) ?? ix.levels.find((l) => l.name === clip.levelNames?.[v.view.levelId]) ?? ix.levels[0]
+	const lv = ix.getOf('level', v.view.levelId) ?? ix.levels.find((l) => l.name === clip.levelNames?.[v.view.levelId]) ?? ix.levels[0]
 	const sp = v.view.spec, has = (id: Id | undefined) => !id || !!ix.get(id)
 	const ok = sp.kind === 'row' ? has(sp.spaceId) && has(sp.rowId) : sp.kind === 'section' ? has(sp.sectionId) : sp.kind === 'ports' ? has(sp.rackId) && has(sp.deviceId)
 		: sp.kind === 'fill' ? has(sp.shapeId) : sp.kind === 'portmap' ? sp.deviceIds.every(has) : sp.kind === 'schedule' ? has(sp.spaceId) : true
@@ -138,7 +138,7 @@ function viewHere(ix: ProjectIndex, clip: Clip, v: Viewport): { view: Viewport['
 export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const { ix, to } = t, toLevel = to.kind === 'level'
 	if (to.kind === 'rack') return pasteDevices(clip, ix, to.id)
-	const sheet = to.kind === 'sheet' ? ix.get<Sheet>(to.id) : undefined
+	const sheet = to.kind === 'sheet' ? ix.getOf('sheet', to.id) : undefined
 	const vps = sheet?.type === 'sheet' ? clip.viewports ?? [] : []
 	const racks = new Set(clip.items.filter((e) => e.type === 'rack').map((e) => e.id))
 	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || (e.type === 'device' && racks.has(e.rackId)) || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
@@ -185,7 +185,7 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		if (e.type === 'outlet') {
 			const { zoneId, roomId, hostShapeId, ...rest } = e
 			return {
-				...rest, levelId: to.id, ...layer(e), ...(e.at ? { at: move(e.at) } : {}), ...(dz ? { z: outletZ(e, t.ix.get<Level>(e.levelId)) + dz } : {}),
+				...rest, levelId: to.id, ...layer(e), ...(e.at ? { at: move(e.at) } : {}), ...(dz ? { z: outletZ(e, t.ix.getOf('level', e.levelId)) + dz } : {}),
 				...(ok(zoneId) ? { zoneId } : {}), ...(ok(roomId) ? { roomId } : {}), ...(hostShapeId && copied.has(hostShapeId) ? { hostShapeId } : {}),
 				ports: e.ports.map((p) => { const { serverRoomId, ...q } = p; return { ...q, ...(ok(serverRoomId) ? { serverRoomId } : {}) } }),
 			}
@@ -259,7 +259,7 @@ export function fresh(dv: Device): Device {
 /** Devices into a rack, each at its own U (as-is); refused if any would overlap or not fit. A copied rack's devices
  *  come too (its contents into this rack). Links / cords never come. */
 function pasteDevices(clip: Clip, ix: ProjectIndex, rackId: Id): Pasted {
-	const rack = ix.get<Rack>(rackId)
+	const rack = ix.getOf('rack', rackId)
 	const devs = clip.items.filter((e): e is Device => e.type === 'device')
 	const skipped = clip.items.length - devs.length
 	if (!rack || !devs.length) return { put: [], select: [], skipped }

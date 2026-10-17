@@ -119,7 +119,7 @@ function endRacks(ix: ProjectIndex, roomId: Id): Rack[] {
 	const inRoom = ix.racks.filter((r) => r.spaceId === roomId && r.at)
 	const frames = inRoom.filter((r) => r.patchFrame)
 	if (frames.length || inRoom.length) return frames.length ? frames : inRoom
-	const sp = ix.get<Space>(roomId)
+	const sp = ix.getOf('space', roomId)
 	if (sp?.type !== 'space' || !sp.boundary?.length) return []
 	const c = sp.boundary.reduce((a, q) => ({ x: a.x + q.x / sp.boundary!.length, y: a.y + q.y / sp.boundary!.length }), { x: 0, y: 0 })
 	return [{ type: 'rack', id: `${roomId}:centre`, levelId: sp.levelId, spaceId: roomId, order: 0, name: sp.name, kind: '4-post', heightU: 42, widthMm: 600, depthMm: 1000, at: c }]

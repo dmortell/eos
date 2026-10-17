@@ -32,7 +32,7 @@ export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?
 	 *  the routes. */
 	fills?: Map<string, SegFill> }
 
-const settingsOf = (ix: ProjectIndex) => ix.get('settings') as ProjectSettings | undefined
+const settingsOf = (ix: ProjectIndex) => ix.getOf('settings', 'settings')
 
 /** The riser settings with one end of the floor range set to a floor number, or cleared (null = the lowest / top
  *  floor); the groups stay. Properties of the riser view sets it — a project setting, so every riser view and its
@@ -43,7 +43,7 @@ export function withRiserEnd(riser: ProjectSettings['riser'], end: 'from' | 'to'
 }
 /** A backbone group's style key: its two racks and cable type (stable while routes change). */
 export function backboneKey(ix: ProjectIndex, l: Link): string | null {
-	const rackOf = (on: Id) => { const d = ix.get<Device>(on); return d?.type === 'device' ? d.rackId : undefined }
+	const rackOf = (on: Id) => { const d = ix.getOf('device', on); return d?.type === 'device' ? d.rackId : undefined }
 	const a = rackOf(l.a.on), b = rackOf(l.b.on)
 	if (!a || !b) return null
 	return `${a < b ? a : b}|${a < b ? b : a}|${l.cableType ?? ''}`
@@ -210,7 +210,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	}
 
 	// backbone groups
-	const rackOf = (on: Id) => { const d = ix.get<Device>(on); return d?.type === 'device' ? ix.get<Rack>(d.rackId) : undefined }
+	const rackOf = (on: Id) => { const d = ix.getOf('device', on); return d?.type === 'device' ? ix.getOf('rack', d.rackId) : undefined }
 	const roomBox = (rack: Rack | undefined) => rooms.find((r) => r.sp.id === rack?.spaceId)
 	const shaftIds = new Set(shafts.map((s) => s.s.id))
 	type Group = { a: Id; b: Id; type: string; risers: Id[]; links: Link[]; lengths: number[]; unrouted: number }
@@ -232,7 +232,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	/** The tier of the runs the group's routes take on the floor at elevation `z` (their flat segments): the first found. */
 	const tierOn = (links: Link[], z: number): 'high' | 'low' | undefined => {
 		for (const l of links) for (const sg of routes.get(l.id)?.segs ?? []) {
-			const s = ix.get<Shape>(sg.shape)
+			const s = ix.getOf('shape', sg.shape)
 			if (s?.type !== 'shape' || s.role?.kind !== 'containment' || s.role.tier === 'wall' || s.geom.kind !== 'path') continue
 			const seg = s.geom.segs.find((q) => q.id === sg.seg), a = s.geom.nodes.find((q) => q.id === seg?.a), b = s.geom.nodes.find((q) => q.id === seg?.b)
 			if (a && b && !isVertical(a, b) && levelElevation(ix, a.levelId ?? s.levelId) === z) return s.role.tier
@@ -242,7 +242,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const lanesAt = new Map<Id, number>()   // per riser: lanes used so far
 	let n = 0
 	for (const g of groups.values()) {
-		const ra = ix.get<Rack>(g.a)!, rb = ix.get<Rack>(g.b)!, A = roomBox(ra), B = roomBox(rb)
+		const ra = ix.getOf('rack', g.a)!, rb = ix.getOf('rack', g.b)!, A = roomBox(ra), B = roomBox(rb)
 		if (!A || !B) continue
 		const lo = A.z <= B.z ? { rack: ra, box: A } : { rack: rb, box: B }, hi = lo.rack === ra ? { rack: rb, box: B } : { rack: ra, box: A }
 		const inRoom = (z: number) => -(zv(z) + 600 + (n % 6) * 120)

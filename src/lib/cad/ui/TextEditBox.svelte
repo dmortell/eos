@@ -29,7 +29,7 @@
 	/** Paper mm per view mm (1 outside a viewport). */
 	const unit = $derived.by(() => { if (!frame) return 1; const a = frame.toPaper({ x: 0, y: 0 }), b = frame.toPaper({ x: 1000, y: 0 }); return Math.hypot(b.x - a.x, b.y - a.y) / 1000 })
 
-	const e = $derived(project.index.get<Entity>(ws.textEdit ?? undefined))
+	const e = $derived(project.index.get(ws.textEdit ?? undefined))
 	const kind = $derived(labelKind(e))
 	const ALIGN = { start: 'left', middle: 'centre', end: 'right' } as const
 	/** Where its words start (view mm), how big they show, and which way they're aligned — null when not in this view. */
@@ -85,7 +85,7 @@
 		const was = e
 		if (!was || !kind) return
 		const ids = [...new Set(prims.map((q) => q.src).filter((id): id is string => !!id))]
-		const same = ids.map((id) => project.index.get<Entity>(id)).filter((x): x is Entity => !!x && labelKind(x) === kind)
+		const same = ids.map((id) => project.index.get(id)).filter((x): x is Entity => !!x && labelKind(x) === kind)
 		const pos = new Map(same.map((x) => [x.id, placeOf(x)?.p]))
 		const order = readingOrder(same, (x) => pos.get(x.id), space.spec.kind === 'sheet' ? 5 : 500)
 		const i = order.findIndex((x) => x.id === was.id), next = order[(i + (back ? -1 : 1) + order.length) % order.length]

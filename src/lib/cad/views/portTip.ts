@@ -2,7 +2,7 @@
 // cable plugged into it (to an outlet port, or another panel's port: a tie / backbone) and the patch cords on it.
 // Pure; tested in portTip.test.ts. Shown by PortTip.svelte.
 import type { ProjectIndex } from '../domain/project'
-import type { Outlet, PortRef, ProjectSettings } from '../domain/types'
+import type { Outlet, PortRef } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
 import { portUse, patchProblem } from '../domain/cords'
@@ -63,7 +63,7 @@ export function outletUnder(ix: ProjectIndex, prims: Prim[], p: { x: number; y: 
 
 /** The outlet tip's lines: its label, its usage · tier · mount, then each port's label and the panel port it's on. */
 export function outletTip(ix: ProjectIndex, o: Outlet): string[] {
-	const st = ix.get('settings') as ProjectSettings | undefined
+	const st = ix.getOf('settings', 'settings')
 	const usage = st?.usages?.find((u) => u.id === o.usage)?.label ?? o.usage
 	const out = [o.label, [usage, o.tier, o.mount].filter(Boolean).join(' · ')]
 	for (const pt of o.ports) {

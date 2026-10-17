@@ -2,7 +2,7 @@
 // note / handle grips, viewport moves on a sheet, devices in rack rows, logo grips. Pure input → store edits; the
 // surface (ui/ViewCanvas.svelte) routes pointer events here like any tool.
 import type { Gesture } from '../store/store'
-import type { Id, Pt, ProjectSettings, Rack, Device, Level } from '../domain/types'
+import type { Id, Pt, Rack, Device, Level } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import type { Shape } from '../domain/shapes'
 import { ownFrame, sameFrame } from '../domain/shapes'
@@ -236,7 +236,7 @@ export class SelectTool implements Tool {
 		if (c.space.spec.kind === 'sheet') {
 			// the picked logo's height grip, with its outline
 			if (one.type !== 'sheet' || this.#logo?.sheet !== one.id || c.viewportId?.()) { this.#logo = null; return { handles: [], decor: [] } }
-			const l = logoHandles(c.index, one, c.store.get('settings') as ProjectSettings | undefined, this.#logo.key, c.details)
+			const l = logoHandles(c.index, one, c.settings, this.#logo.key, c.details)
 			return { handles: l.handles, decor: l.outline.length ? [{ k: 'line', pts: l.outline, closed: true, cls: 'logo-sel' }] : [] }
 		}
 		return { handles: elevationHandles(one, c.space, { heights: heightsOf(c.index.get('levelId' in one ? one.levelId : undefined) as Level | undefined), tol: c.tol() * 2 }), decor: [] }   // a wall's top / bottom edges in an elevation / section (they snap to the datum lines)
@@ -307,7 +307,7 @@ export class SelectTool implements Tool {
 			}
 			const sheet = id ? c.store.get(id) : undefined
 			// a title-block logo: a click picks it (its height grip shows); a press anywhere else drops it
-			const logo = sheet?.type === 'sheet' ? logoAt(logoBoxes(c.index, sheet, c.store.get('settings') as ProjectSettings | undefined, c.details), e.p) : null
+			const logo = sheet?.type === 'sheet' ? logoAt(logoBoxes(c.index, sheet, c.settings, c.details), e.p) : null
 			this.#logo = sheet && logo ? { sheet: sheet.id, key: logo } : null
 			if (sheet && logo) { c.select([sheet.id]); c.selectViewport(null); c.say?.('Logo: drag the grip on its bottom edge to change its height (on every sheet)'); return }
 			if (sheet?.type === 'sheet') {

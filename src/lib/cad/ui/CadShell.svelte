@@ -148,7 +148,7 @@
 	$effect(() => recordEdits(project, (m) => ws.say(m), () => ws.workingOn))
 	/** The status bar's "Working on 3" chip (step 5): the change this tab's edits are tagged with. */
 	const working = $derived.by(() => {
-		const c = ws.workingOn ? project.index.get<DesignChange>(ws.workingOn) : undefined
+		const c = ws.workingOn ? project.index.getOf('change', ws.workingOn) : undefined
 		if (c?.type !== 'change') return undefined
 		const off = !project.settings?.editHistory
 		return { text: `Working on ${c.n}: ${c.what}`, title: `Edits are tagged with change ${c.n}${off ? ' — but the edit history is off (Settings › Files), so nothing is kept' : ' in the edit history'}. Click: open the change.`,
@@ -731,7 +731,7 @@
 		if (setupWas) { ws.compareOn = setupWas.on; ws.compareWith = setupWas.with; setupWas = null }
 	}
 	function setupFloors(us: Underlay[]) {
-		const lv = (u: Underlay) => project.index.get<Level>(u.levelId)
+		const lv = (u: Underlay) => project.index.getOf('level', u.levelId)
 		const order = [...us].sort((a, b) => (lv(a)?.number ?? 0) - (lv(b)?.number ?? 0))
 		setupWas = { on: ws.compareOn, with: ws.compareWith }
 		setupSteps = order.flatMap((u, i) => {

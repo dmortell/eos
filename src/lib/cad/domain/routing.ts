@@ -190,7 +190,7 @@ function tapIndex(g: Graph): TapIndex {
  *  lowest segment on a tie. Searched ring by ring over a grid, so it looks at the runs near the outlet only. */
 export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined): Tap | null {
 	if (!o.at) return null
-	const level = ix.get<Level>(o.levelId)
+	const level = ix.getOf('level', o.levelId)
 	const x = { ...o.at, z: levelElevation(ix, o.levelId) + outletZ(o, level) }
 	const { grid } = tapIndex(g)
 	let best: Tap | null = null
@@ -337,8 +337,8 @@ export function bestSegs(g: Graph, from: Stage, best: { node: number; tap: Tap }
 /** `routeLinks` over a graph already built (the estimates share it: domain/estimates.ts). */
 export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = DEFAULT_CABLE): Map<Id, Route> {
 	const out = new Map<Id, Route>()
-	const deviceOf = (id: Id) => ix.get<Device>(id)
-	const rackOfDevice = (d: Device | undefined) => (d ? ix.get<Rack>(d.rackId) : undefined)
+	const deviceOf = (id: Id) => ix.getOf('device', id)
+	const rackOfDevice = (d: Device | undefined) => (d ? ix.getOf('rack', d.rackId) : undefined)
 	// one Dijkstra per (rack, panel height): cheap at these sizes, and shared by the panel's links
 	const runs = new Map<string, ReturnType<typeof fromTaps> & { taps: Tap[] }>()
 	const tapCache = new Map<string, Tap | null>()

@@ -68,7 +68,7 @@ export function clipboardEvents({ project, ws, target, inRow, image, note, curso
 	function copy(e: ClipboardEvent, cut: boolean): void {
 		if (notMine(e) || window.getSelection()?.toString() || !ws.selection.length) return
 		// viewports picked on the selected sheet: they go with their views and tied notes
-		const sheet = ws.selection.length === 1 && ws.viewportId ? project.index.get<Sheet>(ws.selection[0]) : undefined
+		const sheet = ws.selection.length === 1 && ws.viewportId ? project.index.getOf('sheet', ws.selection[0]) : undefined
 		const vclip = sheet?.type === 'sheet' ? makeViewportClip(project.index, sheet.id, ws.pickedViewports, project.pid) : null
 		if (sheet?.type === 'sheet' && vclip) {
 			e.preventDefault()

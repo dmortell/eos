@@ -115,10 +115,10 @@ const descriptionOf = (r: Rack) => (makerModel(r) ? `${makerModel(r)} (${describ
 /** The rooms a rack BOM can be for: those with racks, grouped by level (levels in order, rooms by name). */
 export function bomRooms(ix: ProjectIndex): { levelId: Id; level: string; rooms: { id: Id; name: string; racks: number }[] }[] {
 	const count = new Map<Id, number>(), levelOf = new Map<Id, Id>()
-	for (const r of ix.racks) { count.set(r.spaceId, (count.get(r.spaceId) ?? 0) + 1); if (!levelOf.has(r.spaceId)) levelOf.set(r.spaceId, ix.get<Space>(r.spaceId)?.levelId ?? r.levelId) }
+	for (const r of ix.racks) { count.set(r.spaceId, (count.get(r.spaceId) ?? 0) + 1); if (!levelOf.has(r.spaceId)) levelOf.set(r.spaceId, ix.getOf('space', r.spaceId)?.levelId ?? r.levelId) }
 	return [...ix.levels].sort((a, b) => a.order - b.order).flatMap((lv) => {
 		const rooms = [...count.keys()].filter((id) => levelOf.get(id) === lv.id)
-			.map((id) => ({ id, name: ix.get<Space>(id)?.name || '(room gone)', racks: count.get(id)! })).sort((a, b) => naturalCompare(a.name, b.name))
+			.map((id) => ({ id, name: ix.getOf('space', id)?.name || '(room gone)', racks: count.get(id)! })).sort((a, b) => naturalCompare(a.name, b.name))
 		return rooms.length ? [{ levelId: lv.id, level: lv.name, rooms }] : []
 	})
 }

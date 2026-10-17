@@ -19,7 +19,7 @@ export interface FieldCtx { values: Partial<Record<(typeof DATA_FIELDS)[number],
 export function fieldCtx(ix: ProjectIndex, o: { project?: string; building?: string; levels?: Iterable<Id>; sheet?: Sheet; blocks?: (id: Id) => Block | undefined; today?: string }): FieldCtx {
 	const levels = o.levels ? new Set(o.levels) : null
 	const on = (levelId: Id | undefined) => !levels || (!!levelId && levels.has(levelId))
-	const names = levels ? [...levels].map((id) => ix.get<Level>(id)).filter((l): l is Level => l?.type === 'level').sort((a, b) => a.order - b.order).map((l) => l.name) : []
+	const names = levels ? [...levels].map((id) => ix.getOf('level', id)).filter((l): l is Level => l?.type === 'level').sort((a, b) => a.order - b.order).map((l) => l.name) : []
 	const d = new Date(), today = o.today ?? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 	let placed: Map<Id, number> | null = null
 	const counts = () => {

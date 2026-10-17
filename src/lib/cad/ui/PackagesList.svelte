@@ -78,7 +78,7 @@
 	function issue(p: SheetPackage) {
 		const m = packageMembers(p, rows)
 		if (!m.length) { ws.say(`${p.name} has no sheets now`); return }
-		const sheets = m.map((r) => project.index.get<Sheet>(r.id)).filter((s): s is Sheet => s?.type === 'sheet')
+		const sheets = m.map((r) => project.index.getOf('sheet', r.id)).filter((s): s is Sheet => s?.type === 'sheet')
 		ws.select(sheets.map((s) => s.id))
 		onissue(p, sheets)
 	}

@@ -15,7 +15,7 @@
 	/** What it lists: its level — or, on a sheet, the levels its viewports show. */
 	const levels = $derived.by(() => {
 		if (s.levelId) return new Set([s.levelId])
-		const sheet = s.sheetId ? project.index.get<Sheet>(s.sheetId) : undefined
+		const sheet = s.sheetId ? project.index.getOf('sheet', s.sheetId) : undefined
 		return new Set(sheet?.type === 'sheet' ? sheet.viewports.map((v) => v.view.levelId) : [])
 	})
 	const all = $derived(legendCandidates(project.index, levels, project.blockOf))

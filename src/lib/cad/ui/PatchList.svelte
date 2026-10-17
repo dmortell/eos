@@ -156,7 +156,7 @@
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
-				{@const rep = r.status === 'replace' ? replacedText(project.index.get<Cord>(r.id)!, typeLabel) : ''}
+				{@const rep = r.status === 'replace' ? replacedText(project.index.getOf('cord', r.id)!, typeLabel) : ''}
 				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
 					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>

@@ -27,7 +27,7 @@ export function duplicateSheets(project: CadProject, ids: Id[]): Id[] {
  *  that has none from it yet — viewports re-pointed (a room's rack views fitted to its racks), titled and numbered on
  *  from it — one undo step. The copies' ids. */
 export function sheetsForEach(project: CadProject, sheetId: Id, kind: 'level' | 'room'): Id[] {
-	const s = project.index.get<Sheet>(sheetId)
+	const s = project.index.getOf('sheet', sheetId)
 	if (s?.type !== 'sheet') return []
 	const tpl = templateOf(s), ix = project.index
 	const levels = (ix.ofType('level') as Level[]).filter((l) => !l.area).sort((a, b) => a.number - b.number)
@@ -56,7 +56,7 @@ export function pickPasted(ws: Workspace, r: Pasted): void {
 /** Ctrl+D: a copy of the picked viewports (with their views and tied notes) a little to one side on the same sheet,
  *  one undo step; the copies are picked. False = no viewport is picked. */
 export function duplicateViewports(project: CadProject, ws: Workspace): boolean {
-	const sheet = ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined
+	const sheet = ws.selection.length === 1 ? project.index.getOf('sheet', ws.selection[0]) : undefined
 	const clip = sheet?.type === 'sheet' ? makeViewportClip(project.index, sheet.id, ws.pickedViewports, project.pid) : null
 	if (!sheet || !clip) return false
 	const r = pasteClip(clip, { pid: project.pid, ix: project.index, to: { kind: 'sheet', id: sheet.id } })
@@ -118,7 +118,7 @@ export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId:
 		: view.spec.kind === 'row' ? [project.index.nameOf(view.spec.spaceId), view.spec.rowId ? project.index.nameOf(view.spec.rowId) : 'racks', view.spec.face].filter(Boolean).join(' ')
 		: specLabel(view.spec)
 	const title = isPaperKind(view.spec.kind) || view.spec.kind === 'riser' || !lv ? specLabel(view.spec) : `${lv} ${what}`
-	const base = target === 'new' ? { ...blankSheet(sheets, newId()), title } : project.index.get<Sheet>(target)
+	const base = target === 'new' ? { ...blankSheet(sheets, newId()), title } : project.index.getOf('sheet', target)
 	if (base?.type !== 'sheet') return null
 	const vp = viewViewport(project.index, base, view, visible, newId(), { ...project.sheetBase, underlay: project.pdf.placement })   // the floorplans' crop centres a floor's sheet (W18)
 	// a second row of the same room and face onto a sheet still titled after the first: "Rows A–B" (Round 9)

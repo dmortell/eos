@@ -15,7 +15,8 @@ import { importLegacy, type ImportResult } from '../persist/import/legacy'
 import { loadLegacy } from '../persist/import/load'
 import { PdfCache } from './pdf.svelte'
 import { RestoreNotices } from './restoreNotice.svelte'
-import type { Id, Level, Link, ProjectSettings } from '../domain/types'
+import type { Id, Level, Link } from '../domain/types'
+import { settingsOf } from '../domain/settings'
 import type { Shape } from '../domain/shapes'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath } from 'firebase/firestore'
 import { BUILTIN_BLOCKS, blockFromShapes, blockProblem, paperBlockScale, elevationBlock, elevationProblem, explodeInsert, oneDrawing, is3d, type Block } from '../domain/blocks'
@@ -81,7 +82,7 @@ export class CadProject {
 	/** The index as of the last final change: it holds still while a drag runs. */
 	dataIndex = $derived.by((): ProjectIndex => { void this.dataRev; return untrack(() => this.index) })
 	levels = $derived.by((): Level[] => [...this.index.levels].sort((a, b) => a.order - b.order))
-	settings = $derived.by(() => { void this.rev; return this.store.get('settings') as ProjectSettings | undefined })
+	settings = $derived.by(() => { void this.rev; return settingsOf((id) => this.store.get(id)) })
 	/** Every link's cable route and length over the drawn containment (Phase 5), recomputed with the data — but not on
 	 *  each frame of a drag (the whole project re-routed per pointer move): the last routes hold until it ends. */
 	#routingHeld: Routing | null = null

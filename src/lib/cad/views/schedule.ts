@@ -39,7 +39,7 @@ export function patchScheduleDisplayList(ix: ProjectIndex, spaceId: Id | undefin
 /** The schedule drawn from cord `start`, and `next`: the cord # the next viewport carries on from (none = everything is shown;
  *  `rows + 1` when `start` is already past the end). */
 export function patchScheduleLayout(ix: ProjectIndex, spaceId: Id | undefined, start = 1, o: ScheduleOpts = {}): { prims: Prim[]; next?: number } {
-	const st = ix.get<ProjectSettings>('settings')
+	const st = ix.getOf('settings', 'settings')
 	const typeLabel = (id: string) => cableTypeLabel(st?.type === 'settings' ? st : undefined, id)
 	const rows = patchScheduleRows(ix, cordsForSchedule(ix, spaceId), typeLabel).map((r) => ({ status: r.status, cells: r.cells.map(String) }))
 	const out: Prim[] = [{ k: 'text', at: { x: 0, y: 4 }, text: scheduleTitle(ix, spaceId), size: 3.5, cls: 'legend-title' }]

@@ -27,7 +27,7 @@ describe('port map view', () => {
 	})
 	it('ports where they are on the device: 48 ports in 1U = 2 rows of 24', () => {
 		const i = ix(), ps = portMapDisplayList(i, ['SW1'])
-		expect(portGrid(i.get<Device>('SW1')!)).toEqual({ rows: 2, cols: 24 })
+		expect(portGrid(i.getOf('device', 'SW1')!)).toEqual({ rows: 2, cols: 24 })
 		const c1 = cell(ps, 'SW1', 1), c25 = cell(ps, 'SW1', 25), c24 = cell(ps, 'SW1', 24)
 		expect(c25.pts[0].x).toBe(c1.pts[0].x)          // port 25 under port 1
 		expect(c25.pts[0].y).toBeGreaterThan(c1.pts[0].y)

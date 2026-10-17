@@ -66,7 +66,7 @@ export function riserLevels(ix: ProjectIndex, s: Shape, g: { a: Id; b: Id }): st
 	if (s.geom.kind !== 'path') return null
 	const na = s.geom.nodes.find((n) => n.id === g.a), nb = s.geom.nodes.find((n) => n.id === g.b)
 	if (!na || !nb || na.x !== nb.x || na.y !== nb.y) return null
-	const la = ix.get<Level>(na.levelId ?? s.levelId ?? ''), lb = ix.get<Level>(nb.levelId ?? s.levelId ?? '')
+	const la = ix.getOf('level', na.levelId ?? s.levelId ?? ''), lb = ix.getOf('level', nb.levelId ?? s.levelId ?? '')
 	if (la?.type !== 'level' || lb?.type !== 'level' || la.id === lb.id) return null
 	const [hi, lo] = la.number >= lb.number ? [la, lb] : [lb, la]
 	return `${hi.name} ↕ ${lo.name}`
@@ -74,9 +74,9 @@ export function riserLevels(ix: ProjectIndex, s: Shape, g: { a: Id; b: Id }): st
 
 /** The fill of every run segment that has cables routed through it, estimated through it or added by hand. */
 export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct = FILL_LIMIT_PCT, estimates: readonly Estimate[] = []): Map<string, SegFill> {
-	const st = ix.get<ProjectSettings>('settings'), settings = st?.type === 'settings' ? st : undefined
+	const st = ix.getOf('settings', 'settings'), settings = st?.type === 'settings' ? st : undefined
 	const out = new Map<string, SegFill>()
-	const entry = (shape: Id, seg: Id, s = ix.get<Shape>(shape)): SegFill => {
+	const entry = (shape: Id, seg: Id, s = ix.getOf('shape', shape)): SegFill => {
 		const k = segKey(shape, seg)
 		let f = out.get(k)
 		if (!f) {

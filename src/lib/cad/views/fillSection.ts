@@ -18,7 +18,7 @@ export const pctText = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` :
 
 /** The run and segment named: "T1 · seg 2"; a riser segment: "T1 · Riser L1 ↕ GF" ("Riser L1 ↕ GF" unnamed). */
 export function fillTitle(ix: ProjectIndex, shapeId: Id, segId: Id): string {
-	const s = ix.get<Shape>(shapeId)
+	const s = ix.getOf('shape', shapeId)
 	if (s?.type !== 'shape' || s.geom.kind !== 'path') return 'Fill section (run gone)'
 	const i = s.geom.segs.findIndex((g) => g.id === segId)
 	const run = s.label || ix.nameOf(s.id)
@@ -31,11 +31,11 @@ export function fillTitle(ix: ProjectIndex, shapeId: Id, segId: Id): string {
 export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id, fills: Map<string, SegFill>): Prim[] {
 	const out: Prim[] = [{ k: 'text', at: { x: 0, y: 4 }, text: `Fill · ${fillTitle(ix, shapeId, segId)}`, size: 3.5, cls: 'legend-title' }]
 	const note = (y: number, text: string, color?: string): Prim => ({ k: 'text', at: { x: 0, y }, text, size: 2.5, cls: 'legend-text', ...(color ? { color } : {}) })
-	const s = ix.get<Shape>(shapeId), seg = s?.type === 'shape' && s.geom.kind === 'path' ? s.geom.segs.find((g) => g.id === segId) : undefined
+	const s = ix.getOf('shape', shapeId), seg = s?.type === 'shape' && s.geom.kind === 'path' ? s.geom.segs.find((g) => g.id === segId) : undefined
 	const f = fills.get(segKey(shapeId, segId))
 	if (!s || !seg) return out
 	if (!f) return [...out, note(9, 'No cables through this segment')]
-	const st = ix.get<ProjectSettings>('settings'), settings = st?.type === 'settings' ? st : undefined
+	const st = ix.getOf('settings', 'settings'), settings = st?.type === 'settings' ? st : undefined
 	const od = (t: string) => f.od?.[t] ?? cableOd(settings, t)
 	// colors as Properties › Fill draws them: by the cable types of the whole run
 	const runTypes = [...new Set(s.geom.kind === 'path' ? s.geom.segs.flatMap((g) => Object.keys(fills.get(segKey(shapeId, g.id))?.cables ?? {})) : [])]

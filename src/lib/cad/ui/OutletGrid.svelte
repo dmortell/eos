@@ -68,10 +68,10 @@
 	// ── editing in place (tableKit.CellEdit): double-click, or F2 / Enter on the selected row ──
 	type Field = 'label' | 'usage' | 'tier' | 'room'
 	const ed = new CellEdit<Field>({
-		fields: (id) => { const o = project.index.get<Outlet>(id); return o?.type === 'outlet' ? ['label', 'usage', 'tier', ...(oneRoom(o) ? ['room' as const] : [])] : [] },
+		fields: (id) => { const o = project.index.getOf('outlet', id); return o?.type === 'outlet' ? ['label', 'usage', 'tier', ...(oneRoom(o) ? ['room' as const] : [])] : [] },
 		ids: () => rows.map((o) => o.id),
 		save: (id, field, v) => {
-			const o = project.index.get<Outlet>(id)
+			const o = project.index.getOf('outlet', id)
 			if (o?.type !== 'outlet') return
 			if (field === 'label') rename(o, v)
 			else if (field === 'usage') { if (v !== (o.usage ?? '')) edit(o, 'Usage', { usage: v }) }

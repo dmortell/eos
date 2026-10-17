@@ -47,7 +47,7 @@
 	const ed = new CellEdit<Field>({
 		fields: () => ['what', 'asked', 'status'], ids: () => rows.map((c) => c.id),
 		save: (id, field, value) => {
-			const c = project.index.get<DesignChange>(id)
+			const c = project.index.getOf('change', id)
 			if (c?.type !== 'change') return
 			const v = value.trim()
 			if (field === 'what' && v && v !== c.what) put(c, `Change ${c.n}: what`, { what: v })

@@ -2,6 +2,7 @@
 // them — so Usages, Cable types, Lengths & labels, Sheets and Files were empty). User 2026-10-14: cable types CAT6A,
 // CAT6, OS2, OM4; outlet usages (none) + ACS, AP, AV, CCTV, EMS, BMS, N/A, TEL, PR, RS, TV (User 2026-10-16). Pure.
 import type { ProjectSettings } from './types'
+import type { Entity } from './drawing'
 import { DEFAULT_TITLE_BLOCK } from './titleBlock'
 
 export function defaultSettings(): ProjectSettings {
@@ -22,4 +23,11 @@ export function defaultSettings(): ProjectSettings {
 		],
 		defaults: { outletCableType: 'cat6a', cordCableType: 'cat6a', cordColour: '#3b82f6', panelPorts: 24 },
 	}
+}
+
+/** The project's settings entity, checked (hacky-code review #3: `get('settings') as ProjectSettings` trusted whatever
+ *  had the id). `get` = the store's, a transaction's or the index's lookup. */
+export function settingsOf(get: (id: string) => Entity | undefined): ProjectSettings | undefined {
+	const e = get('settings')
+	return e?.type === 'settings' ? e : undefined
 }

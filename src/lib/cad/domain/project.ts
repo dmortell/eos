@@ -51,7 +51,13 @@ export class ProjectIndex {
 		}
 	}
 
-	get<T extends Entity = Entity>(id: Id | undefined): T | undefined { return id ? (this.byId.get(id) as T | undefined) : undefined }
+	get(id: Id | undefined): Entity | undefined { return id ? this.byId.get(id) : undefined }
+	/** The entity of this type with this id — undefined when there's none, or it's another type (hacky-code review #3: a
+	 *  generic `get<Rack>()` returned whatever had the id, labelled a Rack). */
+	getOf<K extends Entity['type']>(type: K, id: Id | undefined): Extract<Entity, { type: K }> | undefined {
+		const e = id ? this.byId.get(id) : undefined
+		return e?.type === type ? (e as Extract<Entity, { type: K }>) : undefined
+	}
 	nameOf(id: Id | undefined): string { const e = this.get(id) as { name?: string; label?: string } | undefined; return e?.name ?? e?.label ?? '' }
 
 	/** The link plugged into a port (either end), if any. */

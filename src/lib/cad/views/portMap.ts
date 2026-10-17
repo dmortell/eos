@@ -32,7 +32,7 @@ export function portMapDisplayList(ix: ProjectIndex, deviceIds: Id[]): Prim[] {
 	const out: Prim[] = [], rows = portMapRows(ix, deviceIds)
 	let y = 0
 	for (const id of [...new Set(rows.map((r) => r.deviceId))]) {
-		const d = ix.get<Device>(id)!, mine = rows.filter((r) => r.deviceId === id), g = portGrid(d), first = mine[0]
+		const d = ix.getOf('device', id)!, mine = rows.filter((r) => r.deviceId === id), g = portGrid(d), first = mine[0]
 		const w = g.cols * CELL_W + 2 * PAD, h = g.rows * CELL_H + 2 * PAD, top = y + TITLE_H
 		out.push({ k: 'text', at: { x: 0, y: y + 4 }, text: `${d.name} — ${first.rack} U${d.u}${first.room ? ` · ${first.room}` : ''} · ${d.portCount} ports`, size: 3.2, cls: 'device-label', src: d.id })
 		out.push({ k: 'line', pts: [{ x: 0, y: top }, { x: w, y: top }, { x: w, y: top + h }, { x: 0, y: top + h }], closed: true, fill: true, cls: `device device-${d.kind}`, src: d.id })

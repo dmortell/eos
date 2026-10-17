@@ -44,7 +44,7 @@ export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: C
 			for (const c of cores) by.set(c[end].on, [...(by.get(c[end].on) ?? []), c])
 			return [...by.values()].map((g) => ix.portPlace(g[0][end]).replace(/ : \d+/, ` : ${portRanges(g.map((c) => c[end].port))}`)).join(', ')
 		}
-		const n = Math.max(coresOf(ix.get<ProjectSettings>('settings'), l.cableType), cores.length)
+		const n = Math.max(coresOf(ix.getOf('settings', 'settings'), l.cableType), cores.length)
 		return {
 			linkId: l.id, kind: l.kind, label: ix.portLabel(horizontal ? l.b : l.a) || ix.portLabel(l.b) || '',
 			from: place('a'), to: place('b'), type: `${l.cableType ?? 'cable'}${l.cable ? ` (${cores.length} of ${n} cores)` : ''}`,

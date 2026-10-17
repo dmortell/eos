@@ -36,7 +36,7 @@ export interface CableGroup {
 export function cableGroups(ix: ProjectIndex): CableGroup[] {
 	const levels = [...ix.levels].sort((x, y) => x.order - y.order)
 	const at = (on: Id) => {
-		const d = ix.get<Device>(on), r = d?.type === 'device' ? ix.get<Rack>(d.rackId) : undefined, lv = r ? ix.get<Level>(r.levelId) : undefined
+		const d = ix.getOf('device', on), r = d?.type === 'device' ? ix.getOf('rack', d.rackId) : undefined, lv = r ? ix.getOf('level', r.levelId) : undefined
 		return d?.type === 'device' && r ? { d, r, lv, i: lv ? levels.indexOf(lv) : -1 } : null
 	}
 	const groups = new Map<string, CableGroup & { lo: number; keys: Set<Id> }>()
@@ -77,7 +77,7 @@ export interface LinkRow {
 
 /** Every permanent link as a table row: a horizontal one shows as a "run" (panel → outlet). Panel end first. */
 export function linkRows(ix: ProjectIndex, lengthOf: (id: Id) => number | undefined = () => undefined): LinkRow[] {
-	const st = ix.get<ProjectSettings>('settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t))
+	const st = ix.getOf('settings', 'settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t))
 	return ix.links.map((l) => ({
 		id: l.id, kind: l.kind === 'horizontal' ? 'run' : l.kind,
 		a: ix.portPlace(l.a), b: ix.portPlace(l.b), label: ix.portLabel(l.b) || ix.portLabel(l.a),

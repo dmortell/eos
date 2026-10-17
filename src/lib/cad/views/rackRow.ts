@@ -279,7 +279,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		// FFL is the room's floor too until it has its own (then that line is the one to drag — editor/selectTool.ts)
 		const ownFloor = sp?.type === 'space' && !!sp.floorMm
 		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line', ...(ownFloor ? {} : { sub: ROOM_FLOOR }) }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line' },
-			...storeyPrims(ix.get<Level>((sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
+			...storeyPrims(ix.getOf('level', (sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
 	}
 	return [...lines, ...up(out), ...up(cords)]
 }

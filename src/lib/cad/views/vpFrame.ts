@@ -25,7 +25,7 @@ export function viewportFrame(ix: ProjectIndex, sheet: Sheet, vpId: Id, o: Sheet
 	const vp = sheet.viewports.find((v) => v.id === vpId)
 	if (!vp) return null
 	const spec = vp.view.spec
-	const sec = spec.kind === 'section' ? ix.get<SectionCut>(spec.sectionId) : undefined
+	const sec = spec.kind === 'section' ? ix.getOf('section', spec.sectionId) : undefined
 	if (spec.kind === 'section' && sec?.type !== 'section') return null
 	const space = sec?.type === 'section' ? sectionSpace(sec) : spaceOf(spec)
 	const r = vp.rect

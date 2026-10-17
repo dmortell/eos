@@ -11,16 +11,16 @@ import { intoCables } from './multicore'
  *  96-port switch) — their ports carry on from where the one before stopped on the other device. */
 export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear'; more?: { on: Id; ports: number[] }[] }, b: { on: Id; start: number; face?: 'front' | 'rear' },
 	o: { cableType: string; via?: Id; /** A multi-core type: the links go, in order, into cables of this many cores. */ cores?: number }): { links: Link[]; skipped: string[] } {
-	const devB = ix.get<Device>(b.on)
+	const devB = ix.getOf('device', b.on)
 	const links: Link[] = [], skipped: string[] = []
 	if (devB?.type !== 'device') return { links, skipped: ['Not a device'] }
 	const busy = (r: PortRef) => !!ix.linkAt({ on: r.on, port: r.port })
 	let nb = b.start
 	sources: for (const src of [a, ...(a.more ?? [])]) {
-		const devA = ix.get<Device>(src.on)
+		const devA = ix.getOf('device', src.on)
 		if (devA?.type !== 'device') { skipped.push('Not a device'); continue }
 		if (devA.id === devB.id) { skipped.push('Pick a port on ANOTHER panel'); continue }
-		const roomA = ix.get<Rack>(devA.rackId)?.spaceId, roomB = ix.get<Rack>(devB.rackId)?.spaceId
+		const roomA = ix.getOf('rack', devA.rackId)?.spaceId, roomB = ix.getOf('rack', devB.rackId)?.spaceId
 		const kind: Link['kind'] = roomA && roomA === roomB ? 'tie' : 'backbone'
 		for (const pa of src.ports) {
 			const ra: PortRef = { on: src.on, port: pa, ...(a.face ? { face: a.face } : {}) }
@@ -48,7 +48,7 @@ export function riserRuns(ix: ProjectIndex): { id: Id; label: string }[] {
 /** Every containment run a cable can be sent through (Port Properties › Route through): risers first, then by level
  *  and label — "TR1 · 1F", "R2 (riser)". */
 export function containmentRuns(ix: ProjectIndex): { id: Id; label: string }[] {
-	const order = (id: Id | undefined) => ix.get<Level>(id)?.order ?? 0
+	const order = (id: Id | undefined) => ix.getOf('level', id)?.order ?? 0
 	return ix.shapes.filter((s) => s.role?.kind === 'containment' && s.geom.kind === 'path').map((s) => {
 		const lv = new Set(s.geom.kind === 'path' ? s.geom.nodes.map((n) => n.levelId ?? s.levelId) : []), riser = lv.size > 1
 		return { id: s.id, riser, order: order(s.levelId), label: `${s.label || (riser ? 'Riser' : 'Run')}${riser ? ' (riser)' : ` · ${ix.nameOf(s.levelId)}`}` }

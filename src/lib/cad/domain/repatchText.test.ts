@@ -7,7 +7,7 @@ import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
 const ix = (extra: Entity[] = []) => new ProjectIndex([...demoProject(), ...extra])
-const C = (i: ProjectIndex, id: string) => i.get<Cord>(id)!
+const C = (i: ProjectIndex, id: string) => i.getOf('cord', id)!
 const sw1 = { on: 'SW1', port: 1 }
 
 describe('portFromText', () => {

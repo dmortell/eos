@@ -3,7 +3,6 @@
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { ProjectSettings } from '../domain/types'
 	import { historyCount, trimHistory } from '../app/editHistory'
 	import { roughSize } from '../domain/history'
 
@@ -11,7 +10,7 @@
 
 	const on = $derived(!!project.settings?.editHistory)
 	function setOn(v: boolean) {
-		const st = project.store.get('settings') as ProjectSettings | undefined
+		const st = project.settings
 		if (st) project.store.transact(v ? 'Edit history on' : 'Edit history off', (tx) => tx.put({ ...st, editHistory: v || undefined }))
 		ws.say(v ? 'Edit history on — every edit from now on is kept: who, when, what (Properties › History, Project › History…)' : 'Edit history off — what is kept stays until deleted')
 	}

@@ -39,7 +39,7 @@
 	}
 	const counts = $derived(layerCounts(project.dataIndex))   // final changes only: not recounted on each frame of a drag
 	// the picked viewports — or the one being edited inside: the eyes are theirs then (stored, what prints)
-	const sheet = $derived(ws.vpEdit ? project.index.get<Sheet>(ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.get<Sheet>(ws.selection[0]) : undefined)
+	const sheet = $derived(ws.vpEdit ? project.index.getOf('sheet', ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.getOf('sheet', ws.selection[0]) : undefined)
 	const vps = $derived(sheet?.type === 'sheet' ? (ws.vpEdit ? [ws.vpEdit.vpId] : ws.pickedViewports).flatMap((id) => sheet.viewports.filter((v) => v.id === id)) : [])
 	const vp = $derived(vps[0])
 	// what the picked viewports draw on (final changes only, with the look the sheet draws in)
@@ -57,7 +57,7 @@
 	const groups = $derived(groupLayers(rows))
 	const flat = $derived([...groups.flatMap((g) => g.layers.map((l) => l.id)), ...(showIdle ? idle.map((l) => l.id) : [])])   // the order on screen, for Shift-click ranges
 	// the sheet the active pane shows, when no viewport is picked: its own paper's layers
-	const paper = $derived(!vp && ws.activeSheet ? project.index.get<Sheet>(ws.activeSheet) : undefined)
+	const paper = $derived(!vp && ws.activeSheet ? project.index.getOf('sheet', ws.activeSheet) : undefined)
 	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
 	/** Where the eye points, for the titles and the note. */
 	const eyeOf = $derived(vps.length > 1 ? `in the ${vps.length} picked viewports (Shift: every viewport on the sheet)` : vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')
@@ -66,7 +66,7 @@
 
 	/** The layer's record with a change (a system layer gets one the first time it's restyled). */
 	const record = (l: LayerInfo, change: Partial<Layer>): Layer => {
-		const next: Layer = { ...(project.index.get<Layer>(l.id) ?? { type: 'layer', id: l.id, name: l.name, order: l.order }), ...change }
+		const next: Layer = { ...(project.index.getOf('layer', l.id) ?? { type: 'layer', id: l.id, name: l.name, order: l.order }), ...change }
 		if (!next.color) delete next.color
 		if (!next.weightMm) delete next.weightMm
 		if (!next.dash) delete next.dash

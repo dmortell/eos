@@ -1,6 +1,6 @@
 // The PLAN generator: one level's data → a display list (plan mm, y down). Pure: underlay placement and the drawing
 // scale come in as inputs. Draw order: underlays, shapes / walls, containment, racks, outlets, labels on top.
-import type { Id, Pt, Outlet, Rack, Underlay, ProjectSettings, Space } from '../domain/types'
+import type { Id, Pt, Outlet, Rack, Underlay, Space } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
@@ -92,7 +92,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	out.push(...over)
 	// outlets in their usage's color (backlog "Usage colors and outlet tips"): the symbol, not its label — unless the
 	// view draws them by layer (Usage colors off: the user's on screen, the sheet's on paper)
-	const byUsage = o.byUsage ?? (ix.get('settings') as ProjectSettings | undefined)?.outletColour !== 'layer'
+	const byUsage = o.byUsage ?? ix.getOf('settings', 'settings')?.outletColour !== 'layer'
 	for (const ot of ix.outlets) if (ot.levelId === levelId && ot.at) {
 		const col = byUsage ? usageColour((id) => ix.get(id), ot.usage) : undefined
 		out.push(...outletPrims(ot, k, o.blocks).map((p) => (col && p.k !== 'text' && p.k !== 'image' ? { ...p, color: col } : p)))

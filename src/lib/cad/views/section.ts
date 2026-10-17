@@ -34,7 +34,7 @@ export function sectionDisplayList(ix: ProjectIndex, sec: SectionCut, o: { scale
 
 /** Walls crossing the cut line: their cut faces, solid, full wall height (or slab to slab), with a gap at openings. */
 function cutWalls(ix: ProjectIndex, sec: SectionCut, f: ElevFrame, len: number): Item[] {
-	const level = ix.get<Level>(sec.levelId)
+	const level = ix.getOf('level', sec.levelId)
 	const out: Item[] = []
 	for (const s of ix.shapes) {
 		if (s.levelId !== sec.levelId || s.role?.kind !== 'wall' || s.geom.kind !== 'path') continue

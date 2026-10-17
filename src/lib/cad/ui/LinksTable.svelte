@@ -30,7 +30,7 @@
 		if (t.scope === 'all') return list
 		const sel = new Set(ws.selection)
 		return list.filter((r) => {
-			const l = project.index.get<Link>(r.id)
+			const l = project.index.getOf('link', r.id)
 			if (l?.type !== 'link') return false
 			return t.scope === 'sel' ? sel.has(l.id) || sel.has(l.a.on) || sel.has(l.b.on) : !levelId || levelOf(l.a.on) === levelId || levelOf(l.b.on) === levelId
 		})
@@ -50,7 +50,7 @@
 
 	/** A core of a multi-core cable: the edit goes to all its cores (they share type and status). */
 	function edit(id: string, label: string, patch: Partial<Link>) {
-		const l = project.index.get<Link>(id)
+		const l = project.index.getOf('link', id)
 		if (l?.type !== 'link') return
 		const all = l.cable ? project.index.links.filter((x) => x.cable === l.cable) : [l]
 		project.store.transact(label, (tx) => { for (const x of all) tx.put({ ...x, ...patch }) })
@@ -65,7 +65,7 @@
 	const ed = new CellEdit<Field>({
 		fields: () => FIELDS, ids: () => shown.map((r) => r.id),
 		save: (id, field, value) => {
-			const l = project.index.get<Link>(id)
+			const l = project.index.getOf('link', id)
 			if (l?.type !== 'link') return
 			if (field === 'type') { const v = value.trim(); if (v !== (l.cableType ?? '')) edit(id, 'Cable type', { cableType: v || undefined }) }
 			else if (value !== l.status) edit(id, 'Link status', { status: value as Link['status'] })

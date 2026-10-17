@@ -10,7 +10,8 @@ import { storeFile } from './projectFiles'
 import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
 import type { Issue, Sheet, DesignChange } from '../domain/drawing'
 import { sheetNotes, releasedOn, currentCycle } from '../domain/changes'
-import type { Underlay, ProjectSettings } from '../domain/types'
+import type { Underlay } from '../domain/types'
+import { settingsOf } from '../domain/settings'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
 import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, issueTitle, type IssuePlanRow } from '../domain/issue'
@@ -240,7 +241,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 			if (f.clouds === 'delete') for (const s of project.store.ofType('shape')) if (s.sheetId === cur.id && s.geom.kind === 'cloud' && (s.geom.rev || s.geom.changeId)) tx.del(s.id)
 		}
 		if (f.newRound) {
-			const st = tx.get('settings') as ProjectSettings | undefined
+			const st = settingsOf((id) => tx.get(id))
 			if (st) tx.put({ ...st, changeCycle: currentCycle(logChanges(project), st.changeCycle) + 1 })
 		}
 		tx.put(issue)

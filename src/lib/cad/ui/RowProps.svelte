@@ -9,7 +9,7 @@
 
 	let { project, ws, rowId }: { project: CadProject; ws: Workspace; rowId: string } = $props()
 
-	const row = $derived(project.index.get<RackRow>(rowId))
+	const row = $derived(project.index.getOf('rackRow', rowId))
 	const count = $derived(project.index.racks.filter((r) => r.rowId === rowId).length)
 	const put = (label: string, patch: Partial<RackRow>) => { const r = row; if (r?.type === 'rackRow') kitPut(project.store, r, label, patch) }
 </script>

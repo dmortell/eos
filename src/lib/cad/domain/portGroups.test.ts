@@ -22,7 +22,7 @@ const world = (groups?: PortGroup[], linked = true) => new ProjectIndex([
 describe('labelled port ranges', () => {
 	const split = [{ from: 1, to: 24, label: 'P3A-R301' }, { from: 25, to: 48, label: 'P3A-R302' }]
 	it('a port in a range is "<label>:NN" counted from the range’s first port — the 25th is P3A-R302:01', () => {
-		const ix = world(split), d = ix.get<Device>('P41')!
+		const ix = world(split), d = ix.getOf('device', 'P41')!
 		expect([groupPortLabel(ix, d, 1), groupPortLabel(ix, d, 24), groupPortLabel(ix, d, 25), groupPortLabel(ix, d, 48)]).toEqual(['P3A-R301:01', 'P3A-R301:24', 'P3A-R302:01', 'P3A-R302:24'])
 		expect(ix.portLabel({ on: 'P41', port: 25 })).toBe('P3A-R302:01')
 	})
@@ -32,7 +32,7 @@ describe('labelled port ranges', () => {
 		expect(world().portLabel({ on: 'B41', port: 1 })).toBe('P3A~R302:01')
 	})
 	it('"In two" leaves the labels to the cables — split BEFORE linking still reads P3A-R301 / P3A-R302 once linked (User)', () => {
-		const halves = splitPanel(world().get<Device>('P41')!, 2)
+		const halves = splitPanel(world().getOf('device', 'P41')!, 2)
 		expect(halves).toEqual([{ from: 1, to: 24 }, { from: 25, to: 48 }])
 		expect(world(halves, false).portLabel({ on: 'P41', port: 25 })).toBe('P3A-41-B:01')   // not linked yet: the panel's name
 		const linked = world(halves)

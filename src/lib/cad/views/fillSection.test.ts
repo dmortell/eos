@@ -12,7 +12,7 @@ const withCables = () => demoProject().map((e) => (e.id === 'T1' && e.type === '
 
 describe('fill section on paper', () => {
 	const ix = new ProjectIndex(withCables())
-	const run = ix.get<Shape>('T1')!, seg = run.geom.kind === 'path' ? run.geom.segs[0] : undefined
+	const run = ix.getOf('shape', 'T1')!, seg = run.geom.kind === 'path' ? run.geom.segs[0] : undefined
 	const fills = fillBySegment(ix, new Map())
 	it('its % is the segment’s fill, with its cables by type and every cable drawn inside the section', () => {
 		const f = fills.get(segKey('T1', seg!.id))!
@@ -37,7 +37,7 @@ describe('fill section on paper', () => {
 		// the run's far end on 32F: its vertical segment is a riser
 		const ents = withCables().map((e) => (e.id === 'T1' && e.type === 'shape' && e.geom.kind === 'path' ? { ...e, label: '', geom: { ...e.geom, nodes: e.geom.nodes.map((n, i) => (i === 2 ? { ...n, levelId: 'L32' } : n)) } } : e))
 		const ix2 = new ProjectIndex([...ents, { type: 'level', id: 'L32', buildingId: 'B', number: 32, name: '32F', order: 32, elevationMm: 128000 } as Entity])
-		const r = ix2.get<Shape>('T1')!
+		const r = ix2.getOf('shape', 'T1')!
 		if (r.geom.kind !== 'path') throw new Error('a path')
 		expect(riserLevels(ix2, r, r.geom.segs[1])).toBe('33F ↕ 32F')
 		expect(riserLevels(ix2, r, r.geom.segs[0])).toBeNull()

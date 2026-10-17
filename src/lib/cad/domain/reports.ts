@@ -249,7 +249,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	}
 	for (const c of p.cords) if ((c.status === 'add' || c.status === 'replace') && (!rooms || deviceIn(c.a.on) || deviceIn(c.b.on))) add('Patch cords', `${label(c.cableType)} ${c.lengthM} m`, 'ea', 1)
 	const runIn = (s: Shape) => !levelsIn || (levelsIn.has(s.levelId ?? '') && (!(s.role?.kind === 'containment' && s.role.serves?.length) || s.role.serves.some((r) => rooms!.has(r))))
-	for (const r of runLengths(p)) { const s = p.get<Shape>(r.id); if (!s || runIn(s)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM) }
+	for (const r of runLengths(p)) { const s = p.getOf('shape', r.id); if (!s || runIn(s)) add('Containment', `${r.form} ${r.size}`, 'm', r.horizontalM + r.verticalM) }
 	for (const s of p.shapes) {
 		if (levelsIn && !levelsIn.has(s.levelId ?? '')) continue
 		if (s.role?.kind === 'penetration') add('Penetrations', `Core drill Ø${s.role.diaMm} through ${s.role.through}`, 'ea', 1)

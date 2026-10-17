@@ -16,7 +16,7 @@
 		const s = q.trim().toLowerCase()
 		if (!s) return []
 		return project.index.devices
-			.map((d) => ({ d, r: project.index.get<Rack>(d.rackId) }))
+			.map((d) => ({ d, r: project.index.getOf('rack', d.rackId) }))
 			.filter(({ d, r }) => r?.type === 'rack' && `${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
 			.sort((a, b) => naturalCompare(`${a.r!.name} ${a.d.name}`, `${b.r!.name} ${b.d.name}`))
 			.slice(0, 10)

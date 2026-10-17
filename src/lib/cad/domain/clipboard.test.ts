@@ -41,7 +41,7 @@ describe('copy', () => {
 describe('paste', () => {
 	it('as-is (User): new ids, but the same place and the same labels, even back where it came from', () => {
 		const i = ix(), r = pasteClip(copy(i, ['O1']), target(i, { kind: 'level', id: 'L33' }))
-		const o = r.put[0] as Outlet, was = i.get<Outlet>('O1')!
+		const o = r.put[0] as Outlet, was = i.getOf('outlet', 'O1')!
 		expect(o.id).not.toBe('O1')
 		expect(o).toMatchObject({ label: was.label, at: was.at, zoneId: was.zoneId })
 		expect(o.ports.map((p) => p.label)).toEqual(was.ports.map((p) => p.label))

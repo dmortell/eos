@@ -145,7 +145,7 @@
 	}
 	/** Drag a rack up / down its row (the rack view's order, User 2026-10-12), kept as the room's hand order for that row. */
 	const drag = new DragReorder((id, targetId, after) => {
-		const next = moveRack(project.index, id, targetId, after), r = project.index.get<Rack>(id)
+		const next = moveRack(project.index, id, targetId, after), r = project.index.getOf('rack', id)
 		if (next) project.store.transact(`Rack order: ${r?.name ?? 'rack'}`, (tx) => tx.put(next))
 		else ws.say('A rack moves within its own row — set its row in Properties to move it to another')
 	}, (id) => groups.flatMap((g) => g.racks).findIndex((x) => x.id === id))

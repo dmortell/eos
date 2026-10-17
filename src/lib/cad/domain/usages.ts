@@ -2,6 +2,7 @@
 // (so it can't be deleted from under them), a new one's id, and the codes an import meets that the list doesn't have
 // yet (the legacy import wrote a fixed 5, so RS / FR / WC / LK showed as raw codes). Pure.
 import type { ProjectSettings, Outlet, Device } from './types'
+import { settingsOf } from './settings'
 import type { Entity } from './drawing'
 import { naturalCompare } from './labels'
 
@@ -56,6 +57,6 @@ export const sortedUsages = (st: Pick<ProjectSettings, 'usages'> | undefined): U
  *  (backlog "Usage colors and outlet tips"); undefined = no such usage / no color. */
 export function usageColour(get: (id: string) => Entity | undefined, usage: string | undefined): string | undefined {
 	if (!usage) return undefined
-	const st = get('settings') as ProjectSettings | undefined
+	const st = settingsOf(get)
 	return st?.usages?.find((u) => u.id === usage)?.color
 }

@@ -36,7 +36,7 @@ describe('routing speed (Q56): same graph, same taps', () => {
 	it('the nearest run for every outlet equals the scan over all segments', () => {
 		for (const o of ix.outlets) {
 			let best: { seg: number; drop: number } | null = null
-			const oz = levelElevation(ix, o.levelId) + outletZ(o, ix.get<Level>(o.levelId))
+			const oz = levelElevation(ix, o.levelId) + outletZ(o, ix.getOf('level', o.levelId))
 			g.segs.forEach((s, i) => {
 				const role = s.shape.role
 				if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !s.levelIds.has(o.levelId)) return

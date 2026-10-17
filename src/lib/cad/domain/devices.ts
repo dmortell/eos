@@ -184,7 +184,7 @@ export const sharesU = (a: Pick<Device, 'u' | 'heightU'>, b: Pick<Device, 'u' | 
 /** Shift-click a second device in a rack view (User 2026-10-10: select U10, Shift-click U4): every device of that rack
  *  shown on this face whose Us fall between the two (inclusive), top down. Null = not two devices in one rack. */
 export function devicesBetween(ix: ProjectIndex, aId: Id, bId: Id, face: 'front' | 'rear'): Id[] | null {
-	const a = ix.get<Device>(aId), b = ix.get<Device>(bId)
+	const a = ix.getOf('device', aId), b = ix.getOf('device', bId)
 	if (a?.type !== 'device' || b?.type !== 'device' || a.rackId !== b.rackId) return null
 	const lo = Math.min(a.u, b.u), hi = Math.max(a.u + a.heightU - 1, b.u + b.heightU - 1)
 	return ix.devicesIn(a.rackId).filter((d) => d.kind !== 'pdu' && (d.face === 'both' || d.face === face) && sharesU(d, { u: lo, heightU: hi - lo + 1 })).map((d) => d.id)

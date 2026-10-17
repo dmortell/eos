@@ -193,7 +193,7 @@ export function findItems(ix: ProjectIndex, q: string, max = 15): { items: FindI
 	if (w.length < 2) return { items: [], more: 0 }
 	const out: FindItem[] = []
 	for (const d of ix.devices) {
-		const r = ix.get<Rack>(d.rackId)
+		const r = ix.getOf('rack', d.rackId)
 		if (r?.type !== 'rack' || !`${d.name} ${d.model ?? ''}`.toLowerCase().includes(w)) continue
 		out.push({ key: `find:${d.id}`, kind: 'rack', label: d.name.trim() || d.kind, detail: `${r.name} · U${d.u} · ${ix.nameOf(r.levelId)}`, select: d.id, focus: r.id,
 			open: { levelId: r.levelId, spec: { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' } } })

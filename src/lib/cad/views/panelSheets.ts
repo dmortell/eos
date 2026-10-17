@@ -46,7 +46,7 @@ function panelPrims(ix: ProjectIndex, d: Device, y0: number, x0 = M): Prim[] {  
  *  panels from the top U down — a frame, in the Frames tool — or one device, drawn as the printed sheets draw them,
  *  in paper mm from (0, 0). */
 export function portGridDisplayList(ix: ProjectIndex, rackId: Id, deviceId?: Id): Prim[] {
-	const one = deviceId ? ix.get<Device>(deviceId) : undefined
+	const one = deviceId ? ix.getOf('device', deviceId) : undefined
 	const devices = deviceId ? (one?.type === 'device' && one.portCount > 0 ? [one] : [])
 		: ix.devices.filter((d) => d.rackId === rackId && d.kind === 'panel' && d.portCount > 0).sort((a, b) => b.u + b.heightU - (a.u + a.heightU))
 	const out: Prim[] = []

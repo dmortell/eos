@@ -33,10 +33,10 @@
 	/** Re-issue (backlog "Next issue from the last list"): that package's sheets (those still here, not archived)
 	 *  selected in the register and the Issue panel opened on them; add / drop sheets in the register, then Issue… again. */
 	function reissue(i: Issue) {
-		const list = i.sheets.map((x) => project.index.get<Sheet>(x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
+		const list = i.sheets.map((x) => project.index.getOf('sheet', x.sheetId)).filter((s): s is Sheet => s?.type === 'sheet' && s.status !== 'archived')
 		if (!list.length) { ws.say('None of its sheets are left'); return }
 		ws.select(list.map((s) => s.id))
-		const pkg = i.packageId ? project.index.get<SheetPackage>(i.packageId) : undefined
+		const pkg = i.packageId ? project.index.getOf('package', i.packageId) : undefined
 		onreissue(list, pkg?.type === 'package' ? pkg : undefined)
 		if (list.length < i.sheets.length) ws.say(`${i.sheets.length - list.length} of its sheets are gone or archived`)
 	}

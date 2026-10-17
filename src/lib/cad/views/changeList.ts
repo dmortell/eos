@@ -6,7 +6,6 @@ import type { Prim } from './display'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import type { DesignChange, Sheet, SheetPackage } from '../domain/drawing'
-import type { ProjectSettings } from '../domain/types'
 import { currentCycle, listChanges, listSheets, wrap } from '../domain/changes'
 
 /** Characters on a line of What before it wraps. */
@@ -14,7 +13,7 @@ const WRAP = 48
 
 export function changeListPrims(ix: ProjectIndex, s: Shape, sheet: Sheet): Prim[] {
 	if (s.geom.kind !== 'changeList') return []
-	const all = ix.ofType('change') as DesignChange[], st = ix.get('settings') as ProjectSettings | undefined
+	const all = ix.ofType('change') as DesignChange[], st = ix.getOf('settings', 'settings')
 	const rows = listChanges(all, listSheets(ix.ofType('package') as SheetPackage[], sheet.id), currentCycle(all, st?.changeCycle))
 	const at = s.geom.at, id = s.id, size = s.geom.sizeMm ?? 2.5, lineH = size * 1.5, pad = size * 0.6, noW = size * 2.6
 	const lines = rows.map((c) => wrap(c.what, WRAP))
