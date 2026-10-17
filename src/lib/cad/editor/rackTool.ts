@@ -36,7 +36,10 @@ export class RackTool implements Tool {
 			return
 		}
 		const onLevel = c.index.racks.filter((r) => r.levelId === c.levelId)
-		const like = this.last?.levelId === c.levelId ? this.last : onLevel.at(-1)   // the last one drawn ON THIS level
+		// the last one drawn ON THIS level, as it is NOW (Round 9: turned 180° in Properties after it was drawn, the next ones
+		// still came out at 0° — the tool kept its own copy)
+		const fresh = this.last ? c.store.get(this.last.id) : undefined
+		const like = fresh?.type === 'rack' && fresh.levelId === c.levelId ? fresh : onLevel.at(-1)
 		const room = like?.spaceId ?? c.index.spaces.find((s) => s.levelId === c.levelId && s.kind === 'server room')?.id
 		// no server room on this level yet: name one, and it comes with the rack (a new level can get its first rack)
 		const p = e.alt ? at : bayAt(like, at, this.#widthNext(like, c), onLevel)   // beside the last one: bayed (W14)

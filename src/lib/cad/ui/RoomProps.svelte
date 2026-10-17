@@ -6,6 +6,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Space, RackRow } from '../domain/types'
+	import { nextRowName } from '../domain/labels'
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
 	import { put } from './propsKit'
@@ -117,7 +118,7 @@
 			<p class="muted">No rows yet</p>
 		{/each}
 		{#if adding}
-			<div class="row"><span class="muted">New row</span><NameInput wide create value={`Row ${rows.length + 1}`} placeholder="Its name" title="Enter: add it · Esc: cancel" onsave={addRow} oncancel={() => (adding = false)} /></div>
+			<div class="row"><span class="muted">New row</span><NameInput wide create value={nextRowName(rows.map((w) => w.name))} placeholder="Its name" title="Enter: add it · Esc: cancel" onsave={addRow} oncancel={() => (adding = false)} /></div>
 		{:else}
 			<div class="acts"><button class="btn" title="A new row in this room (put racks in it from a rack's Row field)" onclick={() => (adding = true)}>+ Row</button></div>
 		{/if}

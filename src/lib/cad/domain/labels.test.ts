@@ -81,3 +81,13 @@ describe('ports from the outlet label (Tourney: 245 kept ports 056.A after a ren
 		expect(portsFromLabel(o('203', ['203.A']), 'alpha', '.')).toBeNull()
 	})
 })
+
+describe('nextRowName (Round 9)', () => {
+	it('steps the last row\'s letter or number', async () => {
+		const { nextRowName } = await import('./labels')
+		expect(nextRowName([])).toBe('Row 1')
+		expect(nextRowName(['Row A'])).toBe('Row B')
+		expect(nextRowName(['Row 1', 'Row 2'])).toBe('Row 3')
+		expect(nextRowName(['Hot aisle'])).toBe('Row 2')
+	})
+})

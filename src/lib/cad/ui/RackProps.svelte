@@ -7,7 +7,7 @@
 	import type { Id, Rack, RackRow } from '../domain/types'
 	import type { CatalogProduct } from '$lib/catalog/types'
 	import { deviceCounts, newServerRoom, nextRoomName, moveRacksToLevel, racksToRoom } from '../domain/devices'
-	import { naturalCompare } from '../domain/labels'
+	import { naturalCompare, nextRowName } from '../domain/labels'
 	import { newId } from '../domain/ids'
 	import { untrack } from 'svelte'
 	import { shared, putMany } from './propsKit'
@@ -97,7 +97,7 @@
 {#snippet nameBox(kind: 'room' | 'row')}
 	{#if naming === kind && racks[0]}
 		<div class="row"><span class="muted">{kind === 'room' ? 'New server room' : 'New row'}</span>
-			<NameInput wide create value={kind === 'room' ? nextRoomName(project.index, racks[0].levelId) : `Row ${rowsIn(racks[0].spaceId).length + 1}`} placeholder="Its name"
+			<NameInput wide create value={kind === 'room' ? nextRoomName(project.index, racks[0].levelId) : nextRowName(rowsIn(racks[0].spaceId).map((w) => w.name))} placeholder="Its name"
 				title="Enter: add it · Esc: cancel" onsave={named} oncancel={() => (naming = null)} /></div>
 	{/if}
 {/snippet}

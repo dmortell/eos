@@ -42,6 +42,16 @@ export function nextLabel(label: string, step = 1): string {
 	return n === undefined ? `${label}1` : setNumber(label, n + step)
 }
 
+/** The name for a room's next row, after its last one: "Row A" → "Row B", "Row 3" → "Row 4", none → "Row 1" (Round 9:
+ *  after "Row A" it offered "Row 2"). */
+export function nextRowName(names: string[]): string {
+	const last = names.at(-1)?.trim()
+	if (!last) return 'Row 1'
+	const m = /^(.*?)([A-Z])$/.exec(last)
+	if (m && m[2] !== 'Z' && (!m[1] || /[\s\-_.]$/.test(m[1]))) return `${m[1]}${String.fromCharCode(m[2].charCodeAt(0) + 1)}`
+	return numberAt(last) !== undefined ? nextLabel(last) : `Row ${names.length + 1}`
+}
+
 /** How port labels follow the outlet label: letters or numbers, after a separator ('.', '-' or none): 201.A, 201A,
  *  201-A, 201.1, 201-1. A project setting (ProjectSettings.portSuffix / portSeparator). */
 export type PortSep = '.' | '-' | ''
