@@ -209,12 +209,13 @@ export function revCodeProblem(s: Sheet, code: string): string | null {
 /** The sheet with its new revision (what it shows once issued: the title block's rev / date read from it). */
 export const withRevision = (s: Sheet, rev: Required<Sheet>['revisions'][number]): Sheet => ({ ...s, revisions: [...(s.revisions ?? []), rev] })
 /** A sheet's change notes since its last issue as one line — what a new revision's "what changed" defaults to. */
-export const changesText = (s: Sheet): string => (s.changes ?? []).map((c) => c.text.trim()).filter(Boolean).join('; ')
+export const changesText = (s: Sheet, notes: SheetChange[] = s.changes ?? []): string => notes.map((c) => c.text.trim()).filter(Boolean).join('; ')
 /** Change notes one per line, for a tip: "2026-10-09 Moved rack A3 (asked: client)". */
 export const changeLines = (cs: SheetChange[] = []): string => cs.map((c) => `${c.date} ${c.text}${c.asked ? ` (asked: ${c.asked})` : ''}`).join('\n')
 /** Issued at a new revision: its change notes go onto the revision (and its "what changed" defaults to them). */
-export function issuedRevision(s: Sheet, rev: Required<Sheet>['revisions'][number]): Sheet {
-	const changes = (s.changes ?? []).filter((c) => c.text.trim()), desc = rev.desc ?? (changesText(s) || undefined)
+/** `notes`: its own and the design log's changes pending on it (domain/changes.ts sheetNotes). */
+export function issuedRevision(s: Sheet, rev: Required<Sheet>['revisions'][number], notes: SheetChange[] = s.changes ?? []): Sheet {
+	const changes = notes.filter((c) => c.text.trim()), desc = rev.desc ?? (changesText(s, notes) || undefined)
 	return { ...withRevision(s, { ...rev, ...(desc ? { desc } : {}), ...(changes.length ? { changes } : {}) }), changes: undefined }
 }
 

@@ -242,6 +242,32 @@ export interface SectionCut {
 	roomElev?: { roomId: Id; side: 'A' | 'B' | 'C' | 'D' }
 }
 
-export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SheetPackage | SectionCut
+/** A CHANGE in the design log (docs/plan/design-log.md, User 2026-10-17): what changed, why, who asked, where it came
+ *  from, what it's about — numbered within the current major revision (`cycle`, `n`: "3"; the log reads "Rev A · 3").
+ *  Items, sheets and (later) clouds point at it through `links`; a release records where it went out (`released`). */
+export interface DesignChange {
+	type: 'change'
+	id: Id
+	/** The numbering round: 1 until the first major release starts round 2 (design log phase 2) … */
+	cycle: number
+	n: number
+	/** YYYY-MM-DD: when it was asked for. */
+	date: string
+	what: string
+	why?: string
+	asked?: string
+	ref?: { kind: ChangeRefKind; text: string }
+	/** The items and sheets it is about (ids; a deleted one stays listed as gone). */
+	links: Id[]
+	status: 'open' | 'done' | 'rejected' | 'superseded'
+	/** Who entered it, and when (ms). */
+	by?: { uid: string; name: string }
+	at: number
+	/** Where it went out: a sheet at a revision. */
+	released?: { sheetId: Id; code: string }[]
+}
+export type ChangeRefKind = 'email' | 'meeting' | 'rfi' | 'phone' | 'site' | 'other'
+
+export type DrawingEntity = ViewDef | Sheet | Shape | Layer | Group | BlockDef | Issue | SheetPackage | SectionCut | DesignChange
 export type Entity = DomainEntity | DrawingEntity
 export type EntityType = Entity['type']

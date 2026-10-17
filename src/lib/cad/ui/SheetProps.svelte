@@ -16,8 +16,9 @@
 	import { sectionsOn } from '../views/section'
 	import { portMapTitle } from '../domain/portMap'
 	import { downloadSheetsPdf, unsupportedNote } from '../app/sheetsPdf'
-	import { printRevision, today, lastIssued, frozenNow } from '../app/issue'
+	import { printRevision, lastIssued, frozenNow } from '../app/issue'
 	import PropGroup from './PropGroup.svelte'
+	import ChangesSection from './ChangesSection.svelte'
 	import Field from './fields/Field.svelte'
 	import { duplicateSheets, sheetsForEach } from '../app/sheetActions'
 	import { issuesOfSheet, issueTag, changeLines, primChanges } from '../domain/issue'
@@ -67,14 +68,7 @@
 	const num = (v: string) => Number(v)
 	/** A cleared number box keeps the value (it isn't 0): put it back and say nothing changed (Q40). */
 	const blank = (e: Event & { currentTarget: HTMLInputElement }, was: number) => { if (e.currentTarget.value.trim()) return false; e.currentTarget.value = String(was); return true }
-	// change notes since the last issue: add one (dated today), edit or remove
-	let newText = $state(''), newAsked = $state('')
-	$effect(() => { void s.id; newText = ''; newAsked = '' })   // another sheet picked: start empty
-	function addChange() {
-		if (!newText.trim()) return
-		putSheet('Add change note', { changes: [...(s.changes ?? []), { id: newId(), date: today(), text: newText.trim(), ...(newAsked.trim() ? { asked: newAsked.trim() } : {}) }] })
-		newText = ''
-	}
+	// change notes typed before the design log: edit or remove (new ones are log changes: ChangesSection)
 	const setChange = (id: string, patch: Partial<SheetChange>) => putSheet('Edit change note', { changes: (s.changes ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) })
 
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear, its
@@ -324,18 +318,19 @@
 	</PropGroup>
 	<!-- change history (backlog T102): what changed, when and who asked, between issues; issuing moves them onto the
 	     new revision ("what changed" defaults to them) -->
-	<PropGroup kind="sheet" title={s.revisions?.length ? 'Changes since last release' : 'Changes'}>
+	<!-- the design log's changes linked to this sheet, not yet released on it (they go onto its next revision) -->
+	<ChangesSection {project} {ws} ids={[s.id]} sheet={s} kind="sheet" />
+	{#if s.changes?.length}
+	<!-- notes typed before the design log: kept, still editable, released with the others -->
+	<PropGroup kind="sheet" title="Earlier notes">
 		{#each s.changes ?? [] as c (c.id)}
 			<div class="chg"><span class="text-zinc-500">{c.date}</span>
 				<input class="inp" value={c.text} placeholder="what changed" aria-label="Change of {c.date}: what changed" onchange={(e) => setChange(c.id, { text: e.currentTarget.value.trim() })} />
 				<input class="inp" value={c.asked ?? ''} placeholder="asked by" title="Who asked for it" aria-label="Change of {c.date}: asked by" onchange={(e) => setChange(c.id, { asked: e.currentTarget.value.trim() || undefined })} />
 				<button class="btn del" title="Remove this note" aria-label="Remove the change note of {c.date}" onclick={() => putSheet('Remove change note', { changes: (s.changes ?? []).filter((x) => x.id !== c.id) })}>×</button></div>
 		{/each}
-		<div class="chg"><span class="text-zinc-500">{today()}</span>
-			<input class="inp" bind:value={newText} placeholder="what changed" aria-label="New change: what changed" onkeydown={(e) => enterKey(e) && addChange()} />
-			<input class="inp" bind:value={newAsked} placeholder="asked by" title="Who asked for it" aria-label="New change: asked by" onkeydown={(e) => enterKey(e) && addChange()} />
-			<button class="btn" disabled={!newText.trim()} title="Note this change; the next release records it on the new revision" onclick={addChange}>Add</button></div>
 	</PropGroup>
+	{/if}
 	{#if s.revisions?.length}
 		<!-- each issued revision, printable exactly as it went out (its frozen copy) -->
 		<PropGroup kind="sheet" title="Released revisions">

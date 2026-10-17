@@ -47,7 +47,7 @@ export function selectionKinds(items: readonly Entity[]): SelKind[] {
 
 const KIND: Record<string, [string, string]> = {
 	outlet: ['Outlet', 'circleDot'], rack: ['Rack', 'server'], device: ['Device', 'pcCase'], sheet: ['Sheet', 'fileText'], cord: ['Patch cord', 'cable'],
-	section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], rackRow: ['Row of racks', 'rows'], level: ['Level', 'layers'],
+	section: ['Section', 'scan'], link: ['Cable', 'cable'], space: ['Room', 'home'], rackRow: ['Row of racks', 'rows'], change: ['Change', 'history'], level: ['Level', 'layers'],
 }
 const SHAPE: Record<string, [string, string]> = {
 	wall: ['Wall', 'brickWall'], containment: ['Run', 'route'], opening: ['Opening', 'opening'], riser: ['Riser', 'route'], penetration: ['Penetration', 'opening'],

@@ -37,6 +37,8 @@
 	import type { ViewSpec } from '../views/space'
 	import RoomProps from './RoomProps.svelte'
 	import RackRowProps from './RackRowProps.svelte'
+	import ChangeProps from './ChangeProps.svelte'
+	import ChangesSection from './ChangesSection.svelte'
 	import './props.css'
 
 	let { project, ws, current, onfloors }: {
@@ -135,7 +137,13 @@
 		<InsertProps {project} {ws} s={one} {current} />
 	{:else if one.type === 'shape'}
 		<ShapeProps {project} {ws} s={one} />
+	{:else if one.type === 'change'}
+		<ChangeProps {project} {ws} c={one} />
 	{:else}
 		<p class="font-semibold">{one.type}</p>
+	{/if}
+	<!-- the design log's changes about what's selected (a sheet shows its own in SheetProps; a change is itself one) -->
+	{#if items.length && !(one && (one.type === 'sheet' || one.type === 'change')) && ws.toolId !== 'renumber'}
+		<ChangesSection {project} {ws} ids={items.map((x) => x.id)} />
 	{/if}
 </div>

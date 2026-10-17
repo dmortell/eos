@@ -4,7 +4,7 @@
      window over the drawing (move it by its bar, resize it by its corner); maximised it fills the drawing area while
      you allocate or patch (Esc or the button brings the drawing back). -->
 <script lang="ts" module>
-	export type TableTab = 'outlets' | 'patch' | 'sheets' | 'links'
+	export type TableTab = 'outlets' | 'patch' | 'sheets' | 'links' | 'log'
 </script>
 
 <script lang="ts">
@@ -20,6 +20,7 @@
 	import PatchList from './PatchList.svelte'
 	import SheetsTab from './SheetsTab.svelte'
 	import LinksTable from './LinksTable.svelte'
+	import LogTable from './LogTable.svelte'
 
 
 	let { project, ws, panels, level, projectName, roomId, inRoomView, tab, onpick, onview, area, closed = false }: {
@@ -37,11 +38,11 @@
 	const open = () => { set({ folded: false }); panels.toggle('bottom') }
 	// in the order of the work: outlets, their cables, the cords, then the drawings (User 2026-10-17: Sheets sat between two
 	// cabling tabs)
-	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['links', 'Links'], ['patch', 'Patching'], ['sheets', 'Sheets']]
+	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['links', 'Links'], ['patch', 'Patching'], ['sheets', 'Sheets'], ['log', 'Log']]
 	/** The folded bar's summary: how many rows the open table has, and how many of them are selected. */
 	const summary = $derived.by(() => {
 		const sel = new Set(ws.selection), ix = project.dataIndex   // the count holds still during a drag
-		const list = tab === 'outlets' ? ix.outlets.filter((o) => o.levelId === level?.id) : tab === 'patch' ? ix.cords : tab === 'links' ? ix.links : ix.ofType('sheet')
+		const list = tab === 'outlets' ? ix.outlets.filter((o) => o.levelId === level?.id) : tab === 'patch' ? ix.cords : tab === 'links' ? ix.links : tab === 'log' ? ix.ofType('change') : ix.ofType('sheet')
 		const n = list.filter((e) => sel.has(e.id)).length
 		return `${list.length}${n ? ` · ${n} selected` : ''}`
 	})
@@ -114,6 +115,7 @@
 			{#if tab === 'patch'}<PatchList {project} {ws} {projectName} {roomId} {inRoomView} />
 			{:else if tab === 'sheets'}<SheetsTab {project} {ws} {onview} />
 			{:else if tab === 'links'}<LinksTable {project} {ws} levelId={level?.id} />
+			{:else if tab === 'log'}<LogTable {project} {ws} />
 			{:else if level}<OutletGrid {project} {ws} levelId={level.id} />{/if}
 		</div>
 		{#if t.float && !t.max}<div class="corner" role="presentation" title="Drag to resize" onpointerdown={cornerDown}></div>{/if}

@@ -83,7 +83,7 @@ No change → no triangle, as today (deleting the letter hides it).
 
 ## Phases
 
-1. **Changes + Log tab + item / sheet links**, sheet notes moved in — **M**.
+1. **Changes + Log tab + item / sheet links** — **M** — BUILT 2026-10-17 (`domain/changes.ts`, `ui/LogTable.svelte`, `ui/ChangesSection.svelte`, `ui/ChangeProps.svelte`; a release records them). Old sheet notes are NOT moved: they stay as "Earlier notes" and release as before (no write to existing projects).
 2. **Clouds point at changes**, numbering per major revision, the package's change list viewport, "Clear clouds
    after release" — **M**.
 3. **Title block revision + minor versions + Bump version** — **S–M**.
@@ -94,4 +94,4 @@ No change → no triangle, as today (deleting the letter hides it).
 
 - Packages and revisions: is a revision the PACKAGE's (every sheet in it goes A → B together) or each sheet's? The
   sheets carry their own revisions today; the change list is per package.
-- The change list viewport's columns (Rev · No · What · Asked · Date?) and whether it can run over two sheets.
+- The change list: columns No and What (User 2026-10-17). Whether it can run over two sheets.

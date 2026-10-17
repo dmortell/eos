@@ -8,7 +8,8 @@ import { doc, getDoc, runTransaction } from 'firebase/firestore'
 import type { CadProject } from './project.svelte'
 import { storeFile } from './projectFiles'
 import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
-import type { Issue, Sheet } from '../domain/drawing'
+import type { Issue, Sheet, DesignChange } from '../domain/drawing'
+import { sheetNotes, releasedOn } from '../domain/changes'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
@@ -23,6 +24,9 @@ import { newId } from '../domain/ids'
 import { splitChunks } from '../persist/chunks'
 import { storeBackup } from './backups'
 import { projectPdfFont } from './pdfFonts'
+
+/** The design log's changes. */
+export const logChanges = (project: CadProject): DesignChange[] => project.store.ofType('change') as DesignChange[]
 
 const key = (sheetId: string, rev: string) => `${sheetId}~${encodeURIComponent(rev)}`
 const col = (p: CadProject) => `projects/${p.pid}/cadIssued`
@@ -179,7 +183,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		// so the print's delta tags read it and the next issue hides them
 		const retag = tagDraftClouds(project.store.ofType('shape'), row.sheet, row.rev)
 		if (retag.length) project.store.transact(`Revision clouds on ${row.sheet.number}: ${row.rev}`, (tx) => { for (const s of retag) tx.put(s) })
-		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId })
+		const next = issuedRevision(row.sheet, { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId }, sheetNotes(row.sheet, logChanges(project)))
 		const prims = frozenNow(project, next)
 		await saveFrozen(project, row.sheet, row.rev, issueId, prims)
 		bumped.push({ id: row.sheet.id, rev: { code: row.rev, date: f.date, note: f.purpose, ...extra, issueId, hash: printNow(project, prims) } })
@@ -222,7 +226,14 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	// someone issued the same revision while this ran (the PDF is already uploaded; the frozen copies are theirs or ours)
 	for (const b of bumped) { const cur = project.store.get(b.id); if (cur?.type === 'sheet' && cur.revisions?.some((r) => r.code === b.rev.code)) throw new Error(`${cur.number || cur.title} got revision ${b.rev.code} meanwhile (another release) — nothing was recorded; release again`) }
 	project.store.transact(`Release ${f.name}`, (tx) => {
-		for (const b of bumped) { const cur = tx.get(b.id); if (cur?.type === 'sheet') tx.put(issuedRevision(cur, b.rev)) }
+		for (const b of bumped) {
+			const cur = tx.get(b.id)
+			if (cur?.type !== 'sheet') continue
+			// the design log's changes pending on it go onto the revision too, and record that they went out
+			const cs = logChanges(project).map((c) => (tx.get(c.id) as DesignChange | undefined) ?? c)
+			tx.put(issuedRevision(cur, b.rev, sheetNotes(cur, cs)))
+			for (const c of releasedOn(cs, cur.id, b.rev.code, (id) => tx.get(id)?.type === 'sheet')) tx.put(c)
+		}
 		tx.put(issue)
 	})
 	return { issue, unsupported, rasterised }

@@ -228,6 +228,8 @@ export class Workspace {
 	/** The Sheets table with Release… started on the selected sheet(s); set by the shell (Round 7: Release was only in the
 	 *  Sheets table's bar and the Drawings menu). */
 	releaseSheets: () => void = () => {}
+	/** Opens the Tables' Log tab (the design log). */
+	openLog: () => void = () => {}
 	openSettings: (tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files') => void = () => {}
 	/** Open one of the shell's windows ('blocks', 'devices' …: app/windows.svelte.ts WinId); set by the shell. */
 	openWindow: (id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables') => void = () => {}

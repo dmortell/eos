@@ -8,6 +8,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
+	import { sheetNotes } from '../domain/changes'
 	import { lastIssueOf, resolveRecipients } from '../domain/packages'
 	import { previewIssue, issuePackage, freshSheets, today, ATTACHMENT_NAME, type Attachment } from '../app/issue'
 	import { runToken } from '../app/runToken'
@@ -18,6 +19,8 @@
 	let { project, ws, sheets, pkg, onclose }: { project: CadProject; ws: Workspace; sheets: Sheet[]; pkg?: SheetPackage; onclose: (issued?: boolean) => void } = $props()
 
 	const PURPOSES = ISSUE_PURPOSES
+	/** A sheet's change notes: its own and the design log's changes pending on it. */
+	const notesOf = (s: Sheet) => sheetNotes(s, project.index.ofType('change'))
 	// svelte-ignore state_referenced_locally
 	let name = $state(pkg?.name ?? ''), purpose = $state(pkg?.purpose ?? 'For construction'), date = $state(today()), to = $state(resolveRecipients(pkg?.recipients, project.settings?.contacts).map((r) => (r.org ? `${r.name} (${r.org})` : r.name)).join(', ')), note = $state(''), first = $state('A')
 	let plan = $state.raw<IssuePlanRow[] | null>(null), busy = $state(false), err = $state('')
@@ -106,8 +109,8 @@
 							<td class="whitespace-nowrap"><span class="text-zinc-500">{r.from ? `${r.from} →` : 'new'}</span>
 								<input class="inp w-14 font-mono" class:bad={!!revCodeProblem(r.sheet, r.rev)} value={r.rev} title={revCodeProblem(r.sheet, r.rev) ?? 'Its new revision (type another code to override)'}
 									onchange={(e) => (codes = { ...codes, [r.sheet.id]: e.currentTarget.value })} /></td>
-							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={changesText(r.sheet) || purpose}
-								title={r.sheet.changes?.length ? `Its change notes (Sheet Properties), recorded on the revision:\n${changeLines(r.sheet.changes)}` : 'What changed (else the purpose)'} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
+							<td><input class="inp w-full" value={descs[r.sheet.id] ?? ''} placeholder={changesText(r.sheet, notesOf(r.sheet)) || purpose}
+								title={notesOf(r.sheet).length ? `Its change notes (Sheet Properties, the Log), recorded on the revision:\n${changeLines(notesOf(r.sheet))}` : 'What changed (else the purpose)'} onchange={(e) => (descs = { ...descs, [r.sheet.id]: e.currentTarget.value })} /></td>
 						{:else}
 							<td class="text-zinc-400" colspan="2">stays {r.rev} (unchanged since released)</td>
 						{/if}

@@ -151,6 +151,7 @@
 	ws.openTitleBlock = openTitleBlock
 	ws.openSettings = (t) => openSettings(t)
 	ws.releaseSheets = () => { openTable('sheets'); ws.sheetsAsk = 'release' }
+	ws.openLog = () => openTable('log')
 	ws.openWindow = (id) => layout.open(id)
 	ws.startRenumber = () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) }
 	ws.restoreBackup = async (id) => {
@@ -420,12 +421,12 @@
 	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
 
 
-	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links'
+	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links' | 'log'
 	let bottom = $state<BottomTab>('outlets')
 	/** The bottom panel follows the view (UX10): sheet → Sheets, rack view → Patch list, else Outlets — unless you picked
 	 *  a tab yourself in that kind of view (remembered per kind in this browser, over a refresh — User 2026-10-10). */
 	const BOTTOM_FOR: Partial<Record<ViewSpec['kind'], BottomTab>> = { sheet: 'sheets', row: 'patch' }
-	const TABLES: BottomTab[] = ['outlets', 'patch', 'sheets', 'links']
+	const TABLES: BottomTab[] = ['outlets', 'patch', 'sheets', 'links', 'log']
 	const pickedFor = (k: ViewSpec['kind']) => { const t = panels.tableFor[k] as BottomTab | undefined; return t && TABLES.includes(t) ? t : undefined }
 	$effect(() => { const k = activeKind; untrack(() => (bottom = pickedFor(k) ?? BOTTOM_FOR[k] ?? 'outlets')) })
 	function pickBottom(t: BottomTab) { bottom = t; panels.tableFor[activeKind] = t; panels.save() }
