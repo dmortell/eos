@@ -4123,3 +4123,9 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   each (`FloorsPanel`); Plans & floorplans' wording without "level" and without the 33F 3303 example ("part of a floor
   with its own drawing data"; Help too); the status bar's "1:100" explained in its tooltip (model views draw text and
   symbols for 1:100, the % is the zoom, a viewport has its own scale).
+- **Walkthrough Round 9 — a busy server room** (User 2026-10-17; `../plan/workflow-walkthrough.md` "Round 9"): an
+  empty view keeps its zoom when the first thing is drawn; the Rack tool draws like the last rack as it is now, its
+  hint about lines of racks; Navigator racks under their rows ("Row A", not "Row Row A"); the next row named after
+  the last; the status bar in words ("row"); a click on a port takes the cell under the pointer (`pickPrim`); a rack
+  view goes on a sheet whole, titled with room and row, and a new viewport goes beside the others; a Tip on cord
+  channels.

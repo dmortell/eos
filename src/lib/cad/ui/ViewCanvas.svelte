@@ -277,7 +277,13 @@
 			// asked to centre on a point (a riser carrying on, W27): the active view, its zoom kept
 			const c = ws.centreOn
 			if (c && active && w && h) { cam = { ...cam, x: w / 2 - c.x * cam.k, y: h / 2 - c.y * cam.k }; fittedFor = RESTORED; ws.centreOn = null; return }
-			if (!ps.length || !w || !h) return
+			if (!ps.length) {
+				// a view that is really EMPTY (the project loaded, no floorplan on its way) keeps its zoom: drawing the first thing
+				// in it no longer fits to that thing (Round 9: the first rack filled the pane at 1259 %, the next click went wild)
+				if (w && h && project.loaded && !project.index.ofType('underlay').some((u) => u.levelId === levelId)) fittedFor = key
+				return
+			}
+			if (!w || !h) return
 			// the content's bounds only when they're needed (not on every change, e.g. each frame of a drag)
 			const check = fittedFor === RESTORED && cams.firstCheck(vk)
 			if (!check && (fittedFor === key || fittedFor === RESTORED)) return

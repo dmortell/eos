@@ -831,3 +831,43 @@ default's tool bar after Undo), 23 (riser range only floors with a model), 25 (n
   values. → a save writes only the fields changed since the form opened (members: who was added / removed, applied to
   the list as it is), and fields not touched take the other person's save as it arrives — built
   (`ProjectDetailsForm`). Live: tab B saved the author, tab A then the client — both kept.
+
+## Round 9: a busy server room (live, 2026-10-17)
+
+A new throwaway project "Round 9 test" (1F–2F): server room MDF, two rows of four racks facing away from a middle
+(hot) aisle, Rows A / B, patch panels and switches from the Device library, cords within and across the rows (one
+view zoomed, and the way the User works: a split with Row A beside Row B), six floor-box outlets allocated and
+patched in bulk, an under-floor trunk, both rows on a sheet, MDF's outline drawn round the racks, its room
+elevations. No patching across buildings (User).
+
+**Found:**
+1. The first rack drawn on an empty floor zoomed the pane to it (1259 %), so "a click beside the last rack" for the
+   next became awkward. → an empty view (project loaded, no floorplan on its way) keeps its zoom; the first thing
+   drawn no longer fits the view to it — built (`ViewCanvas`).
+2. The Rack tool's hint said "farther off starts a new row", but no Row was made. → "starts a new line of racks
+   (put each line in its own Row: Properties › Row)" — built.
+3. Turned 180° in Properties after it was drawn, R05 was still drawn "like" at 0° by the next clicks (the tool kept
+   its own copy). → the tool re-reads the last rack — built (`rackTool`).
+4. After "Row A" the next row was offered as "Row 2". → "Row B" (`nextRowName`) — built.
+5. The Navigator read "Row Row A" / "Row Row B" and listed the racks flat after the rows. → names as given, each
+   rack under its row — built (`navTree`).
+6. The status bar said "1 selected (rackRow)". → "row" (and room, floorplan, cable) — built.
+7. A click on a port took the wrong one — the tip said PP1 port 1, the click picked port 3 (or 2): a port's label is
+   drawn at a minimum on-screen size and spilled over the next cell, and the click tolerance reached a later cell.
+   Cords landed one port off too. → a click takes the port cell under the pointer, as the tip shows — built
+   (`pickPrim`). The User: "we might need a magnifier for those tiny ports" — open (a loupe over a device, or the
+   port under the pointer lit with its number before the click).
+8. Patching across the rows works both ways: in one "All rows" view (zoomed, wheel to zoom out / in again — a
+   horizontal scroll doesn't pan) and across a split (Row A in one pane, Row B in the other) — no change.
+9. A rack view put on a sheet copied the pane's zoom (1:5 of two racks) and was titled "1F Racks front". → the
+   whole row at the largest scale that fits, titled "1F MDF Row A front" — built (`viewViewport`, `viewToSheet`).
+10. A second view put on the sheet landed exactly over the first (both at 10, 10). → it goes where it fits beside
+    the others, at a smaller standard scale if it must — built (`findSpot`). Open: a rack row's viewport includes
+    its slab / ceiling lines, so much of it is empty above the racks — a tighter frame would leave room for two rows
+    at one scale.
+11. "1F MDF racks · R…": a tab's title is cut at the end, where "Row B" tells it from Row A's — noted only.
+12. The room elevations' four-way marker sits over the room's name on the plan — noted only.
+13. The bulk-patch tool bar shows its own hint and the Patch cord hint after it — noted only.
+Good: the Device library's templates, "Select the 12 allocated ports not patched yet" → "Patch 12 ports to…" with a
+preview (Fill free ports only), Allocate this level, "no low run within 10 m …" saying exactly why the floor-box
+outlets had no route, cord lengths filled in (1–1.5 m in a row, 3 m across), the MDF outline offer, Room elevations.

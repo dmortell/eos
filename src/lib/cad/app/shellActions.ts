@@ -90,7 +90,9 @@ export function selectedText(project: CadProject, ws: Workspace): string {
 	// viewports picked on the selected sheet: say so (Round 8: it said "1 selected (sheet)" while Properties showed a viewport)
 	const vps = ws.viewportId && n === 1 ? ws.pickedViewports.length : 0
 	if (vps) return `${vps} selected (viewport${vps > 1 ? 's' : ''})`
-	const kinds = [...new Set(ws.selection.map((id) => project.index.get(id)?.type).filter(Boolean))]
+	// in words, not type names (Round 9: "1 selected (rackRow)")
+	const WORD: Record<string, string> = { rackRow: 'row', space: 'room', underlay: 'floorplan', link: 'cable' }
+	const kinds = [...new Set(ws.selection.map((id) => project.index.get(id)?.type).filter(Boolean))].map((t) => WORD[t!] ?? t)
 	return `${n} selected${kinds.length === 1 ? ` (${kinds[0]}${n > 1 ? 's' : ''})` : ''}`
 }
 
