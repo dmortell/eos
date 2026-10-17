@@ -293,7 +293,10 @@
 			// no fit before the pane has BOTH sizes: a fit into a 0-high pane clamps to the smallest zoom (a new sheet
 			// came up as a speck in the corner, and that camera was then saved and restored)
 			// asked to show one thing (a `?rack=` link): fit to it instead, once it's drawn here
-			const want = ws.focus, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
+			// only the active pane, and only once it shows the view the request names (not the other pane, nor the view
+			// being switched away from — hacky-code review #1)
+			const req = ws.focus, mine = !!req && active && (!req.kind || req.kind === spec.kind) && (!req.levelId || req.levelId === levelId)
+			const want = mine ? req!.id : null, fb = want && w && h ? unionBounds(ps.filter((p) => p.src === want).map(primBounds)) : null
 			if (fb) { cam = fit(fb, w, h); fittedFor = RESTORED; ws.focus = null; return }   // RESTORED: no re-fit over it
 			// asked to centre on a point (a riser carrying on, W27): the active view, its zoom kept
 			const c = ws.centreOn

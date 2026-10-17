@@ -8,7 +8,6 @@
 	import type { Device, Rack } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
 	import { naturalCompare } from '../domain/labels'
-	import { tick } from 'svelte'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview?: (s: ViewSpec) => void } = $props()
 
@@ -22,13 +21,14 @@
 			.sort((a, b) => naturalCompare(`${a.r!.name} ${a.d.name}`, `${b.r!.name} ${b.d.name}`))
 			.slice(0, 10)
 	})
-	async function open(d: Device, r: Rack) {
+	function open(d: Device, r: Rack) {
+		const spec: ViewSpec = { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' }
+		// the whole rack in view, the device picked in it — the request names the rack view, so the plan can't take it
+		ws.focusOn(r.id, spec, r.levelId)
 		ws.levelId = r.levelId
-		onview?.({ kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' })
+		onview?.(spec)
 		ws.select([d.id])
 		q = ''
-		await tick()
-		ws.focus = r.id   // the whole rack in view, the device picked in it — set once the rack view is up (else the plan takes it)
 	}
 	function key(e: KeyboardEvent) {
 		if (composing(e)) return   // the IME's ↑ / ↓ / Enter / Esc (picking, committing a conversion)

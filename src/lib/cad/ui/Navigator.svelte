@@ -54,7 +54,7 @@
 	/** Devices and outlets matching the search too (review R56), under the tree's matches. */
 	const finds = $derived.by(() => findItems(project.dataIndex, q))
 	// a find opens and the results stay (a double-click then keeps its tab; Esc clears the search)
-	function openFind(n: FindItem, keep = false) { onopen(n, keep); if (n.focus) ws.focus = n.focus }
+	function openFind(n: FindItem, keep = false) { onopen(n, keep); if (n.focus) ws.focusOn(n.focus, n.open?.spec, n.open?.levelId) }
 	/** Enter / ↑ / ↓ in the search: the highlighted row of everything it shows that opens (tree rows, then finds). */
 	const hits = $derived(q.trim() ? searchHits(shown, finds.items) : [])
 	let at = $state(0)

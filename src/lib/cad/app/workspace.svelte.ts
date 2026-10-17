@@ -205,9 +205,12 @@ export class Workspace {
 	sheetChanges = $state.raw<{ sheetId: Id; rev: string; issued: Prim[] } | null>(null)
 	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
 	viewInfo = $state.raw<ViewInfo | null>(null)
-	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. Reactive, so a
-	 *  focus set after a view switch still fits (Find: set it after the new view is up, or the old view takes it). */
-	focus = $state<Id | null>(null)
+	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. It names the view
+	 *  kind (and level) it is meant for: only the ACTIVE pane showing that kind of view takes it — so neither the other pane nor the
+	 *  view being switched away from fits it first (hacky-code review #1). Set with `focusOn`. */
+	focus = $state.raw<{ id: Id; kind?: ViewSpec['kind']; levelId?: Id } | null>(null)
+	/** Fit the active pane to `id` once it shows `spec` (on `levelId`); no spec = whatever it shows. */
+	focusOn(id: Id, spec?: ViewSpec, levelId?: Id): void { this.focus = { id, ...(spec ? { kind: spec.kind } : {}), ...(levelId ? { levelId } : {}) } }
 	/** The Outlet tool's settings for the next outlet (tool bar); unset = like the last one placed. */
 	outletNext = $state.raw<OutletNext>({})
 	/** The user's hidden / locked / current layers (loaded by the app with the project id). */

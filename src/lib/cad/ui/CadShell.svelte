@@ -427,7 +427,7 @@
 		url.searchParams.delete('rack')
 		try { replaceState(url, untrack(() => page.state)) } catch { /* the router isn't ready */ }
 		if (r?.type !== 'rack') { ws.say('The rack in that link is not in this project'); return }
-		untrack(() => { ws.focus = r.id; ws.levelId = r.levelId; setPane(activePane, { kind: 'row', spaceId: r.spaceId, face: 'front' }); ws.select([r.id]) })
+		untrack(() => { const spec: ViewSpec = { kind: 'row', spaceId: r.spaceId, face: 'front' }; ws.focusOn(r.id, spec, r.levelId); ws.levelId = r.levelId; setPane(activePane, spec); ws.select([r.id]) })
 	})
 
 	/** Open the first level once levels arrive (and if the open one disappears); a pane whose level went shows the
@@ -518,7 +518,7 @@
 		if (!o) return
 		if (o.levelId && o.levelId !== ws.levelId) ws.levelId = o.levelId
 		setPane(activePane, $state.snapshot(o.spec) as ViewSpec, keep ? 'keep' : 'open')
-		if (n.kind === 'rack' && n.id) ws.focus = n.id
+		if (n.kind === 'rack' && n.id) ws.focusOn(n.id, o.spec, o.levelId)
 		if (n.select) ws.select([n.select])
 		if (n.kind === 'space') ws.reveal++   // a room drawn on the plan: pan it into view, selected
 	}
