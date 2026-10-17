@@ -40,6 +40,7 @@
 	import ChangeProps from './ChangeProps.svelte'
 	import ChangesSection from './ChangesSection.svelte'
 	import ChangeListProps from './ChangeListProps.svelte'
+	import HistorySection from './HistorySection.svelte'
 	import './props.css'
 
 	let { project, ws, current, onfloors }: {
@@ -149,4 +150,6 @@
 	{#if items.length && !(one && (one.type === 'sheet' || one.type === 'change')) && ws.toolId !== 'renumber'}
 		<ChangesSection {project} {ws} ids={items.map((x) => x.id)} />
 	{/if}
+	<!-- the edit history (design log step 4): who changed it, when — while the project keeps one -->
+	{#if one && project.settings?.editHistory}<HistorySection {project} id={one.id} />{/if}
 </div>

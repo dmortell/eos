@@ -73,7 +73,7 @@ export interface MenuCtx {
 	/** Draw › Image…: pick the picture, then the Image tool. */
 	image(): void
 	// Project
-	floors(): void; settings(): void; backups(): void
+	floors(): void; settings(): void; backups(): void; history(): void
 	/** The project's details (name, codes, client, address, logos — the projects page's dialog); absent = not offered. */
 	projectDetails?: () => void
 	/** A new project (the projects page's New Project dialog) — for the Walkthrough's first step. */
@@ -230,6 +230,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Floors…', title: "The building's floors, their names and heights — Project settings, tab Floors & heights", run: c.floors },
 			{ label: 'Settings…', title: 'Project settings: floors, plans, usages, cable types, lengths & labels, sheets, files', run: c.settings },
 			{ label: 'Backups…', title: 'Back up the project or chosen models, restore, download or delete backups', run: c.backups },
+			{ label: 'History…', title: 'Who changed what, and when — the project’s edit history (switched on in Settings › Files)', run: c.history },
 			'-',
 			{ label: 'Rename this level…', disabled: !c.hasLevel, run: c.renameLevel },
 			{ label: 'Delete this level…', disabled: !c.hasLevel, run: c.deleteLevel },

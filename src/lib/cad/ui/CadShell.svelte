@@ -55,6 +55,8 @@
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import { issueStatesOf } from '../app/issueStates.svelte'
 	import type { Sheet } from '../domain/drawing'
+	import { recordEdits } from '../app/editHistory'
+	import HistoryDialog from './HistoryDialog.svelte'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf, type MenuItem } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, addServerRoom, allocateLevel } from '../app/navActions'
@@ -142,13 +144,15 @@
 	})
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
+	// the edit history (design log step 4): this tab's edits, while the project's switch is on
+	$effect(() => recordEdits(project, (m) => ws.say(m)))
 	const panels = new Panels()
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
 	let helpOpen = $state<false | 'help' | 'keys'>(false)
 	let imagePickOpen = $state(false), uploadsOpen = $state(false)
 	let legacyOpen = $state(false)
-	let openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false)
+	let openProjectOpen = $state(false), backupOpen = $state<false | 'download' | 'restore'>(false), backupsOpen = $state(false), historyOpen = $state(false)
 	/** A stored backup to restore (Project › Backups… › Restore…). */
 	let restoreSource = $state.raw<{ file: ProjectFile; name: string } | undefined>()
 	let exportsRef: Exports | undefined = $state()
@@ -547,7 +551,7 @@
 	/** The menu bar (UX review S4): rebuilt when what it shows changes (ticks, what's possible). */
 	const menus = $derived(buildMenus({
 		outletSchedule: (all) => exportsRef?.outletSchedule(all), frameSheets: (all) => exportsRef?.frameSheets(all), panelLabels: (all) => exportsRef?.panelLabels(all), dxf: () => exportsRef?.dxf(), pdfAllSheets, hasSheets: sheetsAll.length > 0, pdfThisSheet: () => openSheetId && pdfSheet(openSheetId), onSheet: !!openSheetId, uploads: () => (uploadsOpen = true), surveys: () => window.open(`/survey?project=${pid}`, '_blank', 'noopener'), monoPdf: ws.monoPdf, toggleMonoPdf: ws.toggleMonoPdf, copyView: () => { void canvas?.copyPicture().then((m) => ws.say(m)) }, openProject: () => (openProjectOpen = true),
-		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), canRestore: canRestore(project.ownerId, project.user),
+		backup: (m) => { restoreSource = undefined; backupOpen = m }, legacyDrawings: () => (legacyOpen = true), backups: () => (backupsOpen = true), history: () => (historyOpen = true), canRestore: canRestore(project.ownerId, project.user),
 		undo: () => showHistory(project.undo()), redo: () => showHistory(project.redo()), canUndo: project.canUndo, canRedo: project.canRedo,
 		copy: () => document.execCommand('copy'), cut: () => document.execCommand('cut'),
 		paste: () => { navigator.clipboard.readText().then((t) => { if (!clipboard.pasteText(t)) ws.say('Nothing to paste — copy items (Ctrl+C) or text from another app first') }, () => ws.say('The browser didn’t let the page read the clipboard — use Ctrl+V')) },
@@ -889,6 +893,7 @@
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}
 	<RestoreNotice {project} />
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
+	{#if historyOpen}<HistoryDialog {project} {ws} onclose={() => (historyOpen = false)} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} type={saveAs.type} ondone={saveAs.done} bump={saveBump} />{/if}

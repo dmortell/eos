@@ -335,6 +335,8 @@ export interface ProjectSettings {
 	/** The design log's numbering round (domain/changes.ts): a release that starts a new round raises it, so new changes
 	 *  number from 1 again. Absent = 1. */
 	changeCycle?: number
+	/** Keep an EDIT HISTORY (who changed what, when — app/editHistory.ts): off unless switched on in Settings › Files. */
+	editHistory?: boolean
 	/** How a new outlet's port labels are made from its label: "33-001" → 33-001.A / .B, or .1 / .2 (ADR 0002). */
 	portSuffix: 'alpha' | 'numeric'
 	/** Between the outlet label and the suffix: '.' (default) 201.A, '' 201A, '-' 201-A. */

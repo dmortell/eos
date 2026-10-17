@@ -31,6 +31,7 @@
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { defaultSettings } from '../domain/settings'
 	import { FILE_TOKENS, patternName } from '../render/download'
+	import EditHistorySettings from './EditHistorySettings.svelte'
 
 	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files' } = $props()
 
@@ -194,6 +195,7 @@
 				{#each Object.entries(PDF_FONTS) as [k, f] (k)}<option value={k}>{f.label} ({f.face})</option>{/each}
 			</select></label>
 		<p class="wide text-zinc-500">For this project's sheet PDFs and releases: its language's text as selectable, searchable text. Chinese isn't offered yet.</p>
+		<EditHistorySettings {project} {ws} />
 	</div>
 {:else}
 	<table>
