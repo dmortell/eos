@@ -48,6 +48,9 @@
 	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
 	import PortTip from './PortTip.svelte'
+	import PortLights from './PortLights.svelte'
+	import { portLights } from '../views/portTip'
+	import type { PortRef } from '../domain/types'
 	import OutletTip from './OutletTip.svelte'
 	import { applyAlign, type AlignHow } from '../editor/align'
 	import ViewStrip, { type PaneNav } from './ViewStrip.svelte'
@@ -249,6 +252,7 @@
 	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
 		project.dataIndex.ofType('underlay').some((u) => u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
 
+	let switchCheck: { vk: string; ps: Prim[] } | null = null
 	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the
 	 *  pane changes size a lot (split / unsplit). A view seen before gets its own camera back instead. */
 	$effect(() => {
@@ -268,6 +272,14 @@
 				// plan whose camera was RESTORED kept that flag, never fitted, and showed the paper as a speck)
 				if (saved) { cam = saved.cam; fittedFor = saved.fitted }
 				else fittedFor = null
+				switchCheck = { vk, ps }
+			}
+			// the first drawing AFTER the switch (this run may still have the last view's — a pane switched from the plan to
+			// Row A was fitted to the plan and showed nothing, Round 10): a camera showing none of it fits once
+			if (switchCheck?.vk === vk && ps.length && w && h) {
+				if (switchCheck.ps !== ps) switchCheck = null   // checked again on the next drawing while it's still the switch's
+				const b = contentBounds(ps), v = visibleArea(cam, w, h)
+				if (b && (v.x1 < b.x0 || v.x0 > b.x1 || v.y1 < b.y0 || v.y0 > b.y1)) { cam = fit(b, w, h); fittedFor = key; return }
 			}
 			// no fit before the pane has BOTH sizes: a fit into a 0-high pane clamps to the smallest zoom (a new sheet
 			// came up as a speck in the corner, and that camera was then saved and restored)
@@ -280,7 +292,8 @@
 			if (!ps.length) {
 				// a view that is really EMPTY (the project loaded, no floorplan on its way) keeps its zoom: drawing the first thing
 				// in it no longer fits to that thing (Round 9: the first rack filled the pane at 1259 %, the next click went wild)
-				if (w && h && project.loaded && !project.index.ofType('underlay').some((u) => u.levelId === levelId)) fittedFor = key
+				// (a plan only: a pane switched to a rack view is empty for a moment, and was then never fitted — Round 10)
+				if (spec.kind === 'plan' && w && h && project.loaded && !project.index.ofType('underlay').some((u) => u.levelId === levelId)) fittedFor = key
 				return
 			}
 			if (!w || !h) return
@@ -734,6 +747,16 @@
 	export function cancel(): void { pdrag.cancel(); pdActive = false; vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
 	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what
 	 *  it was doing rather than commit it where it was. Nothing pressed (after a normal pointerup) = nothing to do. */
+	/** The rack view's lit ports: far ends of the port under the pointer (in either pane), free / taken while patching. */
+	const portLit = $derived(spec.kind === 'row'
+		? portLights(project.index, prims, spec.face, { hover: ws.hoverPort, first: ws.patchFirst, bulk: ws.bulkFrom, patching: ws.toolId === 'cord' })
+		: new Map<string, string>())
+	/** The port under the pointer here, for every pane (only when it changes). */
+	function onPort(r: PortRef | null): void {
+		const h = ws.hoverPort
+		if (r === h || (r && h && r.on === h.on && r.port === h.port && r.face === h.face)) return
+		ws.hoverPort = r
+	}
 	function altHover(e: KeyboardEvent) {
 		if (e.key !== 'Alt' || !cursor || !active || toolDown || panning) return
 		ws.tool.hover?.({ p: cursor, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.type === 'keydown' }, ctx())
@@ -794,6 +817,7 @@
 		<g transform="translate({cam.x} {cam.y}) scale({cam.k})" visibility={hiddenUntilFit ? 'hidden' : undefined}>
 			{#each gridLines as g, i (i)}<line class="gridline" class:major={g.major} x1={g.a.x} y1={g.a.y} x2={g.b.x} y2={g.b.y} vector-effect="non-scaling-stroke" />{/each}
 			<Prims {prims} {selected} k={cam.k} />
+			{#if spec.kind === 'row'}<PortLights {prims} lit={portLit} />{/if}
 			<Prims prims={linked} selected={new Set()} />
 			<Prims prims={wGripPrims} selected={new Set()} k={cam.k} />
 			<Prims prims={traceHighlight} selected={new Set()} k={cam.k} />
@@ -827,7 +851,7 @@
 		{#if chipVp}<ViewportChip {project} {ws} {sheet} vp={chipVp} editing={!!vpe} {cam} onenter={() => enterVp(chipVp.id)} onexit={exitVp} />{/if}
 	{/if}
 	{#if hiddenUntilFit}<div class="loading">Loading floorplan…</div>{/if}
-	{#if spec.kind === 'row'}<PortTip ix={project.index} {prims} {cursor} {cam} face={spec.face} dragging={toolDown || !!panning} grab={ws.tool.id === 'select'} />{/if}
+	{#if spec.kind === 'row'}<PortTip ix={project.index} {prims} {cursor} {cam} face={spec.face} dragging={toolDown || !!panning} grab={ws.tool.id === 'select'} onport={onPort} />{/if}
 	{#if spec.kind === 'plan' && ws.toolId === 'select'}<OutletTip ix={project.index} {prims} {cursor} {cam} dragging={toolDown || !!panning} />{/if}
 	{#if ws.textEdit && active}{#key ws.textEdit}<TextEditBox {project} {ws} {space} {cam} {prims} frame={vpe ? { space: vpe.space, prims: vpe.prims, toPaper: vpe.toPaper } : undefined} />{/key}{/if}
 </div>

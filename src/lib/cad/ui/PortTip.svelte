@@ -6,18 +6,23 @@
 <script lang="ts">
 	import type { ProjectIndex } from '../domain/project'
 	import type { Prim } from '../views/display'
-	import type { Pt } from '../domain/types'
+	import type { Pt, PortRef } from '../domain/types'
+	import { untrack } from 'svelte'
 	import { toScreen, type Camera } from '../editor/camera'
 	import { portCellUnder, portTip, portTipUse } from '../views/portTip'
 
-	let { ix, prims, cursor, cam, face, dragging, grab = false }: { ix: ProjectIndex; prims: Prim[]; cursor: Pt | null; cam: Camera; face: 'front' | 'rear'; dragging: boolean
+	let { ix, prims, cursor, cam, face, dragging, grab = false, onport }: { ix: ProjectIndex; prims: Prim[]; cursor: Pt | null; cam: Camera; face: 'front' | 'rear'; dragging: boolean
 		/** the Select tool: Alt-drag from a port takes the device — said in the tip, and with Alt held the port isn't lit */
-		grab?: boolean } = $props()
+		grab?: boolean
+		/** told the port under the pointer (null off the ports): every pane lights its far ends */
+		onport?: (r: PortRef | null) => void } = $props()
 
 	let alt = $state(false)
 	const onKey = (e: KeyboardEvent) => { alt = e.altKey }
 	const cell = $derived(cursor && !dragging ? portCellUnder(prims, cursor) : null)
 	const port = $derived(cell ? { on: cell.src!, port: Number(cell.sub), face } : null)
+	// untracked: the callback reads and writes the workspace's hover port (tracked, it looped)
+	$effect(() => { const p = port; untrack(() => onport?.(p)) })
 	const lines = $derived(port ? portTip(ix, port) : [])
 	const use = $derived(port ? portTipUse(ix, port) : '')
 	const at = $derived(cursor ? toScreen(cam, cursor) : { x: 0, y: 0 })

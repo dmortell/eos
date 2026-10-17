@@ -2,7 +2,7 @@
 import type { CadProject } from './project.svelte'
 import type { Sheet } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
-import type { Id, Level } from '../domain/types'
+import type { Id, Level, RackRow } from '../domain/types'
 import { duplicateSheet, numberFrom, sheetsFromTemplate, templateOf, type SheetTarget } from '../domain/sheetEdit'
 import { printOrder } from '../domain/sheetList'
 import { newId } from '../domain/ids'
@@ -74,6 +74,39 @@ export function numberSheets(project: CadProject, ids: Id[], pattern: string): n
 	return changed.length
 }
 
+/** A rack sheet's title: "1F MDF Row A front", two rows "1F MDF Rows A–B front" (rows named "Row X"), else
+ *  "1F MDF Row A + Hot aisle front"; no row: the room's racks. */
+export function rowSheetTitle(project: CadProject, levelId: Id, spaceId: Id, rowIds: (Id | undefined)[], face: string): string {
+	const ix = project.index, names = rowIds.map((r) => (r ? ix.nameOf(r) : 'racks'))
+	const tags = names.map((n) => /^Row\s+(\S+)$/i.exec(n)?.[1])
+	const rows = names.length === 2 && tags.every(Boolean) ? `Rows ${tags[0]}–${tags[1]}` : names.join(' + ')
+	return [ix.nameOf(levelId), ix.nameOf(spaceId), rows, face].filter(Boolean).join(' ')
+}
+
+/** "Rows on sheets" (User 2026-10-17): every row of a server room on sheets, two rows a sheet side by side, the
+ *  fronts then the rears, titled "1F MDF Rows A–B front" and numbered on — one undo step. A room without rows: its
+ *  racks, front and rear. The new sheets' ids. */
+export function roomRowsToSheets(project: CadProject, ws: Workspace, spaceId: Id): Id[] {
+	const ix = project.index, room = ix.get(spaceId)
+	if (room?.type !== 'space') return []
+	const rows = (ix.ofType('rackRow') as RackRow[]).filter((r) => r.spaceId === spaceId && ix.racks.some((k) => k.rowId === r.id)).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+	const groups: (Id | undefined)[][] = rows.length ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, i) => rows.slice(2 * i, 2 * i + 2).map((r) => r.id)) : [[undefined]]
+	if (!ix.racks.some((k) => k.spaceId === spaceId)) { ws.say(`${room.name} has no racks yet`); return [] }
+	const sheets = (project.store.ofType('sheet') as Sheet[]).filter((s) => s.status !== 'archived'), made: Sheet[] = []
+	const o = { ...project.sheetBase, underlay: project.pdf.placement }
+	for (const face of ['front', 'rear'] as const) for (const g of groups) {
+		let sh: Sheet = { ...blankSheet([...sheets, ...made], newId()), title: rowSheetTitle(project, room.levelId, spaceId, g, face) }
+		for (const rowId of g) {
+			const view = { levelId: room.levelId, spec: { kind: 'row' as const, spaceId, face, ...(rowId ? { rowId } : {}) } }
+			sh = { ...sh, viewports: [...sh.viewports, viewViewport(ix, sh, view, { x0: 0, y0: 0, x1: 1, y1: 1 }, newId(), o)] }
+		}
+		made.push(sh)
+	}
+	project.store.transact(`${made.length} rack sheets for ${room.name}`, (tx) => { for (const s of made) tx.put(s) })
+	ws.say(`${made.length} sheets: ${made.map((s) => `${s.number} ${s.title}`).join(' · ')} — Undo takes them off`)
+	return made.map((s) => s.id)
+}
+
 /** Put a view on a sheet (backlog "A sheet from the current view", split out of ViewCanvas): a viewport centred on
  *  `visible` (what the pane shows), at the largest standard scale it fits at, on a new sheet (`target` 'new') or that
  *  sheet; one undo step, the sheet selected with the new viewport picked. The sheet and the viewport. */
@@ -88,7 +121,12 @@ export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId:
 	const base = target === 'new' ? { ...blankSheet(sheets, newId()), title } : project.index.get<Sheet>(target)
 	if (base?.type !== 'sheet') return null
 	const vp = viewViewport(project.index, base, view, visible, newId(), { ...project.sheetBase, underlay: project.pdf.placement })   // the floorplans' crop centres a floor's sheet (W18)
-	const next = { ...base, viewports: [...base.viewports, vp] }
+	// a second row of the same room and face onto a sheet still titled after the first: "Rows A–B" (Round 9)
+	let retitle = base.title
+	const one = base.viewports.length === 1 ? base.viewports[0].view : null, s = view.spec
+	if (one && one.spec.kind === 'row' && s.kind === 'row' && one.spec.spaceId === s.spaceId && one.spec.face === s.face && one.spec.rowId !== s.rowId
+		&& base.title === rowSheetTitle(project, one.levelId, s.spaceId, [one.spec.rowId], s.face)) retitle = rowSheetTitle(project, one.levelId, s.spaceId, [one.spec.rowId, s.rowId], s.face)
+	const next = { ...base, title: retitle, viewports: [...base.viewports, vp] }
 	project.store.transact(target === 'new' ? `New sheet ${next.number} from this view` : `View onto ${next.number}`, (tx) => tx.put(next))
 	ws.select([next.id])
 	ws.selectViewport(vp.id)

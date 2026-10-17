@@ -27,6 +27,12 @@
 	const touchOnly = typeof matchMedia === 'function' && matchMedia('(hover: none)').matches
 	let listOpen = $state(false)
 	let strip: HTMLDivElement | undefined = $state()
+	/** A title as a head (cut with … when the tab is narrow) and a tail always shown: the part after the last " · ", or
+	 *  the last words (10 characters or so, from a space). */
+	function cut(s: string): [string, string] {
+		const i = s.lastIndexOf(' · '), n = i >= 0 && s.length - i - 3 <= 14 ? i : s.lastIndexOf(' ', s.length - 10)
+		return n > 0 ? [s.slice(0, n), s.slice(n)] : [s, '']
+	}
 	// the active pane's tab scrolls into view
 	$effect(() => {
 		const id = tabs.paneTab[activePane]
@@ -38,6 +44,7 @@
 	<div class="strip" bind:this={strip} role="tablist" onwheel={(e) => { if (strip && Math.abs(e.deltaY) > Math.abs(e.deltaX)) strip.scrollLeft += e.deltaY }}>
 		{#each tabs.list as t (t.id)}
 			{@const pane = tabs.paneTab.slice(0, panes).indexOf(t.id)}
+			{@const [head, tail] = cut(title(t))}
 			<div class="tab" class:on={tabs.paneTab[activePane] === t.id} class:shown={pane >= 0} class:preview={t.preview} data-tab={t.id} role="tab" tabindex="-1"
 				{...dr.row(t.id)} draggable={!touchOnly} class:drop-before={dr.isBefore(t.id)} class:drop-after={dr.isAfter(t.id)} class:dragging={dr.dragId === t.id}
 				aria-selected={tabs.paneTab[activePane] === t.id} title="{title(t)}{t.preview ? ' — preview: double-click to keep it' : ''}"
@@ -45,7 +52,8 @@
 				onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); onclose(t.id) } }}
 				oncontextmenu={(e) => { e.preventDefault(); onmenu(t.id, e.clientX, e.clientY) }}>
 				<Icon name={ICON[t.view.spec.kind] ?? 'rect'} size={12} />
-				<span class="t">{title(t)}</span>
+				<!-- cut in the MIDDLE: the end tells tabs apart ("… Row B", User 2026-10-17) -->
+				<span class="t"><span class="h">{head}</span>{#if tail}<span class="e">{tail}</span>{/if}</span>
 				{#if panes === 2 && pane >= 0}<span class="pn">{pane + 1}</span>{/if}
 				<!-- the tab menu without a right button (a tablet): under the ⋮ -->
 				<button class="dots" title="Tab menu (or a right-click / long press on the tab)" aria-label="Tab menu"
@@ -81,7 +89,9 @@
 	.tab.dragging { opacity: 0.5; }
 	.tab.drop-before { box-shadow: inset 2px 0 0 #2563eb; }
 	.tab.drop-after { box-shadow: inset -2px 0 0 #2563eb; }
-	.t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+	.t { display: flex; min-width: 0; }
+	.h { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+	.e { flex: none; white-space: pre; }
 	.pn { font-size: 9px; font-weight: 700; color: white; background: #2563eb; border-radius: 3px; padding: 0 4px; }
 	.x { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; min-height: 20px; border-radius: 3px; visibility: hidden; color: var(--cad-muted); }
 	/* on hover, the active / shown tab, a focused tab, and always on touch screens (review R81: no hover there) */

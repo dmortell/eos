@@ -20,6 +20,7 @@ import { rackRowDisplayList, rackLayout, rackHeight, rowHit, RU_MM } from '../vi
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack, Cord, Link } from '../domain/types'
 import { useAsDefault } from '../domain/toolDefaults'
+import { portLights } from '../views/portTip'
 import { defaultSettings } from '../domain/settings'
 
 const ROW: ViewSpec = { kind: 'row', spaceId: 'SR-A', face: 'front' }
@@ -219,6 +220,29 @@ describe('devices in the rack row', () => {
 		const cord = h.store.ofType('cord').find((c) => c.a.on === 'P1' && c.a.port === 3)
 		expect(cord).toMatchObject({ status: 'add', colour: '#ef4444', a: { face: 'front' }, b: { on: 'SW1', port: 5 } })
 		expect(h.sel()).toEqual([cord!.id])
+		// Enter: the next pair (User 2026-10-17)
+		expect(h.said.at(-1)).toMatch(/Enter: .*P1 : 4.*SW1 : 6|Enter: .*4.*6/)
+		expect(tool.key({ key: 'Enter' } as KeyboardEvent, h.ctx())).toBe(true)
+		expect(h.store.ofType('cord').some((c) => c.a.on === 'P1' && c.a.port === 4 && c.b.on === 'SW1' && c.b.port === 6)).toBe(true)
+		// typed ports: the first, then a bare number = a port of the device the last cord went to
+		h.store.transact('free P1:1-2', (tx) => { tx.del('C1'); tx.del('C2') })
+		expect(tool.typedText('Panel 1:1', h.ctx())).toBeNull()
+		expect(tool.first).toMatchObject({ on: 'P1', port: 1, face: 'front' })
+		expect(tool.typedText('9', h.ctx())).toBeNull()
+		expect(h.store.ofType('cord').some((c) => c.a.on === 'P1' && c.a.port === 1 && c.b.on === 'SW1' && c.b.port === 9)).toBe(true)
+		expect(tool.first).toBeNull()
+		expect(tool.typedText('Panel 1:2', h.ctx())).toBeNull()
+		expect(tool.typedText('Switch 1:999', h.ctx())).toMatch(/no port 999/)
+	})
+	it('lit ports: free / taken while patching, the far ends of the hovered port’s cords', () => {
+		const h = harness(ROW, [{ type: 'cord', id: 'K1', a: { on: 'P1', port: 3, face: 'front' }, b: { on: 'SW1', port: 5, face: 'front' }, cableType: 'cat6a', colour: '#000', lengthM: 1, status: 'add' } as Cord])
+		const ix = new ProjectIndex(h.store.all()), prims = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })
+		const idle = portLights(ix, prims, 'front', { hover: null, first: { on: 'P1', port: 4, face: 'front' }, bulk: null, patching: false })
+		expect(idle.size).toBe(0)
+		const m = portLights(ix, prims, 'front', { hover: null, first: { on: 'P1', port: 4, face: 'front' }, bulk: null, patching: true })
+		expect([m.get('P1:4'), m.get('SW1:5'), m.get('P1:3'), m.get('SW1:6')]).toEqual(['from', 'taken', 'taken', 'free'])
+		const far = portLights(ix, prims, 'front', { hover: { on: 'SW1', port: 5, face: 'front' }, first: null, bulk: null, patching: false })
+		expect(far.get('P1:3')).toBe('far')
 	})
 	it('an armed Patch to… / Link to… hands back the tool once made or Esc’d — a stray click doesn’t make a cord (User: the crosshair stayed)', () => {
 		const h = harness(ROW)

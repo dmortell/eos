@@ -158,6 +158,8 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (project.store.busy && ARROWS[e.key]) { e.preventDefault(); return }   // a nudge mid-drag would fight the drag (Q40)
 	if (!mod && canvas?.key(e)) { e.preventDefault(); return }   // the active tool first (Enter, Backspace, R …)
 	if (!mod && /^[0-9@.\-]$/.test(e.key) && canvas?.takesTyping()) { e.preventDefault(); c.typePoint(e.key); return }
+	// a cord half made: letters start its other end too ("SW2:10" — the S and W were shortcuts, User 2026-10-17)
+	if (!mod && !e.altKey && /^[a-z]$/i.test(e.key) && c.ws.toolId === 'cord' && c.ws.patchFirst && canvas?.takesTyping()) { e.preventDefault(); c.typePoint(e.key); return }
 	const k = e.key.toLowerCase()
 	for (const cmd of KEY_COMMANDS) if (cmd.when(e, c, k, mod)) { cmd.run(e, c, k); return }
 }

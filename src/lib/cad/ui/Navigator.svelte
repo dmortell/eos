@@ -10,7 +10,7 @@
 	import { KEYS } from './shellKeys'
 	import { composing } from './keyGuards'
 	import { issueStatesOf } from '../app/issueStates.svelte'
-	import { duplicateSheets } from '../app/sheetActions'
+	import { duplicateSheets, roomRowsToSheets } from '../app/sheetActions'
 	import { untrack, tick } from 'svelte'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
@@ -157,7 +157,9 @@
 		// no "Open …" entry (User 2026-10-16: a click on the row's name does the same)
 		const id = n.id
 		if (n.kind === 'level' && id) return [{ label: 'New server room…', run: () => addServerRoom(project, ws, id) }, '-', { label: 'Rename…', key: 'F2', run: () => renameLevel(id) }, { label: 'Delete level…', run: () => deleteLevel(id) }]
-		if ((n.kind === 'room' || n.kind === 'space') && id) return [{ label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
+		if ((n.kind === 'room' || n.kind === 'space') && id) return [
+			...(n.kind === 'room' ? [{ label: 'Rows on sheets', title: 'Every row of this room on new sheets — two rows a sheet, fronts then rears', run: () => { const ids = roomRowsToSheets(project, ws, id); if (ids.length) ws.select([ids[0]]) } }, '-' as const] : []),
+			{ label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
 		if (n.kind === 'sheet' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
 		if (n.kind === 'section' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',

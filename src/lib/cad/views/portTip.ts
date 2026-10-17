@@ -72,3 +72,34 @@ export function outletTip(ix: ProjectIndex, o: Outlet): string[] {
 	}
 	return out
 }
+
+/** How each port cell of a rack view is lit (User 2026-10-17, "ports are tiny"): key `device:port` →
+ *  - `far`: the other end of a cord / cable on the port under the pointer (`hover`, in any pane);
+ *  - while a cord is being patched (`patching`: the Patch cord tool's first port, or a bulk patch / link armed):
+ *    `from` = the ports patched from, `taken` = a port already carrying a cord (for links: a cable), `free` = the rest. */
+export function portLights(ix: ProjectIndex, prims: Prim[], face: 'front' | 'rear', s: { hover: PortRef | null; first: PortRef | null; bulk: { on: string; ports: number[]; kind?: 'cord' | 'link' } | null; patching: boolean }): Map<string, string> {
+	const m = new Map<string, string>()
+	const onFace = (r: PortRef) => !r.face || r.face === face
+	if (s.patching && (s.first || s.bulk)) {
+		const link = s.bulk?.kind === 'link', corded = new Set<string>()
+		if (!link) for (const c of ix.cords) for (const e of [c.a, c.b]) if (onFace(e)) corded.add(`${e.on}:${e.port}`)
+		for (const p of prims) {
+			if (p.k !== 'line' || !p.closed || !p.src || !p.sub || !p.cls.startsWith('port')) continue
+			const k = `${p.src}:${p.sub}`
+			m.set(k, (link ? ix.linkAt({ on: p.src, port: Number(p.sub), face }) : corded.has(k)) ? 'taken' : 'free')
+		}
+		if (s.first && onFace(s.first)) m.set(`${s.first.on}:${s.first.port}`, 'from')
+		if (s.bulk) for (const n of s.bulk.ports) m.set(`${s.bulk.on}:${n}`, 'from')
+	}
+	const h = s.hover
+	if (h) {
+		const same = (a: PortRef) => a.on === h.on && a.port === h.port && (!a.face || !h.face || a.face === h.face)
+		for (const c of ix.cords) {
+			const o = same(c.a) ? c.b : same(c.b) ? c.a : null
+			if (o && onFace(o)) m.set(`${o.on}:${o.port}`, 'far')
+		}
+		const far = ix.farEnd(h)
+		if (far && ix.get(far.on)?.type === 'device') m.set(`${far.on}:${far.port}`, 'far')
+	}
+	return m
+}

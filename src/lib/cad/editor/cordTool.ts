@@ -10,6 +10,14 @@ import { pickPrim } from './pick'
 import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
 import { bulkInterconnect } from '../domain/interconnect'
 import { coresOf } from '../domain/multicore'
+import { portFromText } from '../domain/repatchText'
+
+/** "PP1 has no port 25" — a device's port past its last one (the next pair, a typed port). */
+function noPort(c: ToolCtx, r: PortRef): string | null {
+	const d = c.index.get(r.on)
+	if (d?.type !== 'device') return 'Not a device port'
+	return d.portCount && (r.port < 1 || r.port > d.portCount) ? `${d.name} has no port ${r.port} (ports 1–${d.portCount})` : null
+}
 
 /** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
 export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link'; /** links only: more panels, in order, after the first */ more?: { on: Id; ports: number[] }[] }
@@ -38,15 +46,25 @@ export interface PatchPreviewHost { show(p: PatchPreview | null): void; fill(): 
 export class CordTool implements Tool {
 	readonly id = 'cord'
 	readonly cursor = 'crosshair'
-	#first: PortRef | null = null
+	#own: PortRef | null = null
 	#hover: { x: number; y: number } | null = null
+	/** After a cord: the next pair (both ports + 1), patched by Enter (User 2026-10-17) */
+	#next: { a: PortRef; b: PortRef } | null = null
+	/** The port the last cord went to: a bare typed number means another port of ITS device */
+	#lastTo: PortRef | null = null
 
 	/** `bulk`: ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
 	/** `linkType` = the cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
 	/** `done`: a bulk patch / link has been made (or Esc'd) — the workspace puts back the tool you had. */
-	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}, private previewHost?: PatchPreviewHost) {}
+	/** `firstPort`: where the port picked first is held — the workspace, so every pane can light the free / taken ports
+	 *  while a cord is half made (User 2026-10-17); absent: the tool keeps it. */
+	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}, private previewHost?: PatchPreviewHost,
+		private firstPort?: { get: () => PortRef | null; set: (r: PortRef | null) => void }) {}
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
+	/** The port picked first (a cord half made). */
+	get first(): PortRef | null { return this.firstPort ? this.firstPort.get() : this.#own }
+	#setFirst(r: PortRef | null): void { if (this.firstPort) this.firstPort.set(r); else this.#own = r }
 
 	/** The device port under a click, on the face being viewed. */
 	#portAt(e: PointerIn, c: ToolCtx): PortRef | null {
@@ -122,43 +140,80 @@ export class CordTool implements Tool {
 			show(fill0, first)
 			return
 		}
-		if (!this.#first) {
-			const p = patchProblem(c.index, r)
-			if (p) { c.say?.(p); return }
-			this.#first = r
-			return
-		}
+		if (!this.first) { this.#pickFirst(r, c); return }
+		this.#patchTo(r, c)
+	}
+	/** The first port of a cord; the reason it can't be, said and returned. */
+	#pickFirst(r: PortRef, c: ToolCtx): string | null {
+		const p = patchProblem(c.index, r) ?? noPort(c, r)
+		if (p) { c.say?.(p); return p }
+		this.#setFirst(r)
+		this.#next = null
+		c.say?.(`From ${c.index.portPlace(r)} — click the port to patch to, or type it (SW1:41) · Esc cancels`)
+		return null
+	}
+	/** The cord from the first port to `r`; the reason it can't be, said and returned. */
+	#patchTo(r: PortRef, c: ToolCtx): string | null {
+		const first = this.first!
 		// the armed port clicked again: let go of it (Q50)
-		if (this.#first.on === r.on && this.#first.port === r.port && this.#first.face === r.face) { this.#first = null; c.say?.('Cord cancelled'); return }
-		const res = makeCord(c.index, this.#first, r, this.defaults())
-		if (!res.cord) { c.say?.(res.problem ?? 'No cord'); return }
+		if (first.on === r.on && first.port === r.port && first.face === r.face) { this.#setFirst(null); c.say?.('Cord cancelled'); return null }
+		const bad = noPort(c, r)
+		if (bad) { c.say?.(bad); return bad }
+		const res = makeCord(c.index, first, r, this.defaults())
+		if (!res.cord) { const m = res.problem ?? 'No cord'; c.say?.(m); return m }
 		const cord: Cord = res.cord
 		c.store.transact(`Patch ${c.index.portPlace(cord.a)} → ${c.index.portPlace(cord.b)}`, (tx) => tx.put(cord))
 		c.select([cord.id])
-		if (cord.status === 'installed') c.say?.('Cord recorded as INSTALLED (surveying)')
-		this.#first = null
+		this.#setFirst(null)
+		this.#lastTo = r
+		// Enter: the next pair (User 2026-10-17 — quicker than Patch to… for a short run)
+		const next = { a: { ...first, port: first.port + 1 }, b: { ...r, port: r.port + 1 } }
+		this.#next = noPort(c, next.a) || noPort(c, next.b) ? null : next
+		c.say?.(`Patched ${c.index.portPlace(first)} → ${c.index.portPlace(r)}${cord.status === 'installed' ? ' as INSTALLED (surveying)' : ''}${this.#next ? ` · Enter: ${c.index.portPlace(next.a)} → ${c.index.portPlace(next.b)}` : ''}`)
+		return null
 	}
 	move(e: PointerIn): void { this.#hover = e.p }
 	up(): void {}
 	hover(e: PointerIn): void { this.#hover = e.p }
 	/** A view change cancels the half-made cord but KEEPS a bulk selection: an interconnect goes to another room /
-	 *  floor, so the user switches views between picking the ports and clicking the target. Esc drops both. */
-	cancel(): void { this.#first = null; this.#hover = null }
-	key(e: KeyboardEvent): boolean {
+	 *  floor, so the user switches views between picking the ports and clicking the target. Esc drops both. The next
+	 *  pair (Enter) is kept too — a split's other pane takes the focus. */
+	cancel(): void { this.#setFirst(null); this.#hover = null }
+	key(e: KeyboardEvent, c?: ToolCtx): boolean {
 		if (e.key === 'Escape' && this.bulk) { this.cancel(); this.bulk = null; this.done(); return true }
-		if (e.key === 'Escape' && this.#first) { this.cancel(); return true }
+		if (e.key === 'Escape' && this.first) { this.cancel(); return true }
+		if (e.key === 'Escape') this.#next = null
+		if (e.key === 'Enter' && c && !this.first && !this.bulk && this.#next) {
+			const n = this.#next
+			if (!this.#pickFirst(n.a, c)) this.#patchTo(n.b, c)
+			if (this.first) this.#setFirst(null)   // the second end refused: nothing half made
+			return true
+		}
 		return false
+	}
+	/** Typed ports (the status bar): "SW1:41", "R01 · PP1 : 5", or a bare number = that port of the device the last cord
+	 *  went to (User 2026-10-17). The first port, or the other end of the half-made cord. */
+	typed(): void {}
+	typedText(text: string, c: ToolCtx): string | null {
+		if (this.bulk) return 'A bulk patch: click the first target port'
+		if (c.space.spec.kind !== 'row') return 'Type ports in a rack view'
+		const near = this.#lastTo ?? this.first
+		if (!near && /^\s*\d+\s*$/.test(text)) return 'Type device : port, e.g. PP1:5'
+		const p = portFromText(c.index, text, near ?? { on: '', port: 0 })
+		if ('problem' in p) return p.problem
+		const r: PortRef = { ...p.to, face: p.to.face ?? c.space.spec.face }
+		return this.first ? this.#patchTo(r, c) : this.#pickFirst(r, c)
 	}
 
 	/** A rubber band from the first port to the cursor. */
 	preview(c: ToolCtx): Prim[] {
-		if (!this.#first || !this.#hover) return []
-		const f = this.#first
+		if (!this.first || !this.#hover) return []
+		const f = this.first
 		const cell = c.prims().find((p) => p.k === 'line' && p.src === f.on && p.sub === String(f.port) && p.cls.startsWith('port'))
 		if (!cell || cell.k !== 'line') return []
 		const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
 		const from = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
 		return [{ k: 'line', pts: [from, this.#hover], cls: 'cord cord-add draft', color: this.defaults().colour }]
 	}
-	get armed(): boolean { return !!this.#first }
+	get armed(): boolean { return !!this.first }
 }

@@ -1,6 +1,6 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level each pane shows, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
-import type { Id, Level, Outlet, Device } from '../domain/types'
+import type { Id, Level, Outlet, Device, PortRef } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { gridStepOf } from '../editor/snap'
@@ -280,8 +280,13 @@ export class Workspace {
 	patchPreview = $state.raw<PatchPreview | null>(null)
 	/** Bulk patch maps in step (false) or fills only the target's free ports (true) — kept as last chosen. */
 	patchFill = $state(false)
+	/** The Patch cord tool's first port (a cord half made): every rack view lights the free / taken ports by it. */
+	patchFirst = $state.raw<PortRef | null>(null)
+	/** The port under the pointer in a rack view (any pane): every rack view lights the far ends of its cords and cable. */
+	hoverPort = $state.raw<PortRef | null>(null)
 	readonly cordTool = new CordTool(() => ({ ...this.cordDefaults, status: this.newCordStatus }), { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone(),
-		{ show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } })
+		{ show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } },
+		{ get: () => this.patchFirst, set: (r) => { this.patchFirst = r } })
 	/** The Calibrate tool's floorplan and step (Project settings › Plans & floorplans › Origin / Scale / Crop); the app
 	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
 	calibTarget = $state.raw<CalibTarget | null>(null)
