@@ -166,8 +166,11 @@ export class SelectTool implements Tool {
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
 		if (!id || !en || (en.type === 'sheet' && !sub)) { this.#hov = null; this.#cursor = 'default'; return }
-		this.#hov = { id, sub }
-		this.#cursor = c.rowHit ? (en.type === 'device' && !sub ? 'move' : 'pointer') : canMove(en) || (en.type === 'sheet' && sub) ? 'move' : 'pointer'
+		// Alt over a port of a rack view's device: the DEVICE is what a drag takes (a panel all ports had nothing else to grab
+		// it by, User 2026-10-17) — shown whole
+		const grab = !!c.rowHit && e.alt && en.type === 'device'
+		this.#hov = { id, sub: grab ? undefined : sub }
+		this.#cursor = c.rowHit ? (en.type === 'device' && (!sub || grab) ? 'move' : 'pointer') : canMove(en) || (en.type === 'sheet' && sub) ? 'move' : 'pointer'
 	}
 
 	dragFrom(): Pt | null { return this.#gesture ? (this.#grip?.grip.at ?? this.#start) : null }

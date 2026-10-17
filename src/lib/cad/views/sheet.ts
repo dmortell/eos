@@ -285,7 +285,10 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 	const w = Math.max(1, visible.x1 - visible.x0), h = Math.max(1, visible.y1 - visible.y0)
 	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
 	if (isPaperSpec(view.spec)) return paperViewport(ix, sheet, view, id, o)   // paper is drawn at 1:1, from its top-left
-	const scale = SCALES.find((n) => w / n <= roomW && h / n <= roomH) ?? SCALES.at(-1)!
+	// a rack row fits HALF the area (side by side or one above the other, whichever is larger): the aisle's other row goes
+	// beside it at the same scale (User 2026-10-17 — alone, Row A took the sheet at 1:10 and Row B went in a corner at 1:50)
+	const fits = (n: number, W: number, H: number) => w / n <= W && h / n <= H
+	const scale = SCALES.find((n) => view.spec.kind === 'row' ? fits(n, (roomW - 5) / 2, roomH) || fits(n, roomW, (roomH - 5) / 2) : fits(n, roomW, roomH)) ?? SCALES.at(-1)!
 	// a plan with floorplans: the whole floor (their crop), however far in the pane was zoomed (R7-16, User 2026-10-16:
 	// zoomed in on the rack room, the sheet showed 262 × 97 mm of it), at 1:100, filling the drawing area
 	const f = view.spec.kind === 'plan' ? floorplanBounds(ix, view.levelId, o.underlay) : null
@@ -354,7 +357,10 @@ export function fitViewport(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): 
 
 /** What a viewport's view draws (floorplan images left out), in view mm; undefined = nothing. */
 function contentBounds(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Bounds | undefined {
-	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image')
+	// a rack view's extent is its racks: the storey's FFL / ceiling / slab lines are for architectural drawings, not row
+	// schematics (User 2026-10-17) — framing them left the sheet's rows mostly empty above the racks; they're cut at the frame
+	const row = vp.view.spec.kind === 'row'
+	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image' && !(row && /\broom-line\b/.test(p.cls)))
 	if (!ps.length) return undefined
 	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
 	for (const p of ps) {

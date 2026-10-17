@@ -9,9 +9,14 @@ import { portUse } from '../domain/cords'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
+	const q = portCellUnder(prims, p)
+	return q ? { on: q.src!, port: Number(q.sub), face } : null
+}
+/** The port CELL drawn under `p` (its outline: the rack view lights it up, User 2026-10-17 "tiny ports"). */
+export function portCellUnder(prims: Prim[], p: { x: number; y: number }): Extract<Prim, { k: 'line' }> | null {
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const q = prims[i]
-		if (q.k === 'line' && q.closed && q.src && q.sub && q.cls.startsWith('port') && inPolygon(p, q.pts)) return { on: q.src, port: Number(q.sub), face }
+		if (q.k === 'line' && q.closed && q.src && q.sub && q.cls.startsWith('port') && inPolygon(p, q.pts)) return q
 	}
 	return null
 }
