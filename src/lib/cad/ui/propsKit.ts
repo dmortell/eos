@@ -52,7 +52,7 @@ const KIND: Record<string, [string, string]> = {
 const SHAPE: Record<string, [string, string]> = {
 	wall: ['Wall', 'brickWall'], containment: ['Run', 'route'], opening: ['Opening', 'opening'], riser: ['Riser', 'route'], penetration: ['Penetration', 'opening'],
 	path: ['Line', 'k-line'], rect: ['Rectangle', 'rect'], ellipse: ['Ellipse', 'ellipse'], circle: ['Circle', 'ellipse'], polygon: ['Polygon', 'polygon'],
-	text: ['Text', 'k-text'], leader: ['Callout', 'callout'], cloud: ['Cloud', 'highlighter'], dimension: ['Dimension', 'ruler'], legend: ['Legend', 'list'], insert: ['Block', 'package'], image: ['Image', 'image'],
+	text: ['Text', 'k-text'], leader: ['Callout', 'callout'], cloud: ['Cloud', 'cloud'], dimension: ['Dimension', 'ruler'], legend: ['Legend', 'list'], insert: ['Block', 'package'], image: ['Image', 'image'],
 }
 /** What one thing is called, and its icon — the Properties header's word, also used by messages about it ("Deleted
  *  trunk T1"), so a thing has one name everywhere. */

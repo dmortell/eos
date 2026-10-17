@@ -113,6 +113,8 @@ export class SelectTool implements Tool {
 	#hovEnts: unknown[] = []
 	/** A rack view's room floor / ceiling line under the pointer (drag it up / down): drawn as a bar. */
 	#hovRoom: Handle | null = null
+	/** The pointer on the selected port's + (its tip shows) */
+	#hovPlus = false
 	#cursor = 'default'
 	/** A double-clicked text, edited in place when the button comes up. */
 	#editOnUp: Id | null = null
@@ -142,7 +144,7 @@ export class SelectTool implements Tool {
 
 	/** The cursor for what's under the pointer: a grip → crosshair, something that moves → move, else pointer / arrow. */
 	cursorNow(): string { return this.#cursor }
-	unhover(): void { this.#hov = null; this.#hovGrip = null; this.#hovRoom = null; this.#cursor = 'default' }
+	unhover(): void { this.#hov = null; this.#hovGrip = null; this.#hovRoom = null; this.#hovPlus = false; this.#cursor = 'default' }
 	/** A rack view: the room's floor / ceiling line under `p` — where nothing else is (a rack's foot stays the rack's). */
 	#roomLineAt(c: ToolCtx, p: Pt): Handle | null {
 		if (c.space.spec.kind !== 'row' || pickPrim(c.prims(), p, c.tol())) return null
@@ -153,7 +155,8 @@ export class SelectTool implements Tool {
 		const rg = this.#regionGrips(c), ng = this.#noteGrips(c)
 		const h = handleAt(this.#handles(c).handles, e.p, t), g = gripAt(this.grips(c), e.p, t)
 		const pl = this.#plus(c)
-		if (pl && near(pl.at)) { this.#hov = null; this.#hovGrip = null; this.#cursor = 'pointer'; return }
+		this.#hovPlus = !!pl && near(pl.at)
+		if (this.#hovPlus) { this.#hov = null; this.#hovGrip = null; this.#cursor = 'pointer'; return }
 		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at
 			?? this.#cordGrips(c).find((q) => near(q.at))?.at ?? null
 		this.#hovGrip = onGrip
@@ -714,6 +717,9 @@ export class SelectTool implements Tool {
 		if (pl) out.push({ k: 'circle', c: pl.at, r: 6 * px, fill: true, cls: 'grip grip-round' },
 			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: 'grip-plus' },
 			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
+		// …and what it does, while the pointer is on it (User 2026-10-17)
+		if (pl && this.#hovPlus && !this.#gesture) out.push({ k: 'text', at: { x: pl.at.x + 10 * px, y: pl.at.y - 8 * px }, size: 11 * px, anchor: 'start', cls: 'draft-label',
+			text: pl.kind === 'cord' ? 'Patch from here — click, then the port to patch to' : 'Link from here — click, then the first port to link to (another room or floor: switch views)' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
 		if (this.#hovRoom?.span && !this.#gesture) out.push({ k: 'line', pts: this.#hovRoom.span, cls: 'grip-bar' })
 		const gripLive = this.#hovFor === c.selection.join(',') && c.selection.every((id, i) => { const e = c.store.get(id); return e && e === this.#hovEnts[i] })

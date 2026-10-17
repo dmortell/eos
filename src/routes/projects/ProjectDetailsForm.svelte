@@ -129,7 +129,7 @@
 		const q = memberSearch.trim().toLowerCase()
 		if (!q) return []
 		return allUsers
-			.filter(u => !d.members.includes(u.id) && u.email && u.email.includes('@ei') &&
+			.filter(u => !d.members.includes(u.id) && u.email &&
 				((u.displayName?.toLowerCase().includes(q)) || (u.email?.toLowerCase().includes(q))))
 			.slice(0, 5)
 	})

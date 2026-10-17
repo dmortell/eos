@@ -694,6 +694,8 @@
 			e.preventDefault()
 			// ACAD: the wheel zooms. EOS: it pans; Ctrl / Alt / Meta (or the right button held) + wheel zooms (editor/inputMode.ts)
 			const a = wheelAction(ws.inputMode, e, panning?.button === 2)
+			// a wheel turned with the right button held: its release isn't a right CLICK (it opened the menu, User 2026-10-17)
+			if (panning && !panning.moved) panning = { ...panning, moved: true }
 			if (a.kind === 'pan') { cam = panBy(cam, a.dx, a.dy); return }
 			if (!((e.altKey || ws.vpContentNav) && rescale(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), a.factor)
 		}
@@ -732,6 +734,11 @@
 	export function cancel(): void { pdrag.cancel(); pdActive = false; vpPan?.g?.rollback(); vpPan = null; wDrag = false; panning = null; ws.tool.cancel(ctx()); toolDown = false; tick++ }
 	/** The pointer was taken away (pointercancel: a palm / system gesture; lost capture with no pointerup): put back what
 	 *  it was doing rather than commit it where it was. Nothing pressed (after a normal pointerup) = nothing to do. */
+	function altHover(e: KeyboardEvent) {
+		if (e.key !== 'Alt' || !cursor || !active || toolDown || panning) return
+		ws.tool.hover?.({ p: cursor, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.type === 'keydown' }, ctx())
+		tick++
+	}
 	function onCancel(e: PointerEvent) {
 		held = null
 		if (e.pointerType === 'touch' && touch.up(e.pointerId)) return
@@ -776,6 +783,9 @@
 	export const isElevation = () => spec.kind === 'elevation'
 </script>
 
+<!-- Alt pressed / let go with the pointer still: the hover is taken again (Alt over a port shows the device a drag takes —
+     it waited for the pointer to move, User 2026-10-17) -->
+<svelte:window onkeydown={altHover} onkeyup={altHover} />
 <div class="surface" class:active bind:clientWidth={w} bind:clientHeight={h}>
 	<svg bind:this={svg} width={w} height={h} role="application" aria-label={specLabel(spec)}
 		style:cursor={zwin ? 'crosshair' : panning?.moved || wDrag ? 'grabbing' : ws.toolId === 'select' && onWGrip(cursor) ? 'grab' : cursorCss}
