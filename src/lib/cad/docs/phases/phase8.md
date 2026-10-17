@@ -4118,3 +4118,8 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   risers and vertical runs get their band and %, a section only in its cut (`fillBandsElev`, test
   `views/fillElev.test.ts`); a release's name starting with its number isn't repeated ("Release 03 Round 8",
   `issueTitle`) in its PDF, reprint, transmittal and register.
+- **Questions of 2026-10-17** (User): the tables in the order of the work — Outlets · Links · Patching · Sheets
+  (`TablesPanel`); Floors & heights: more than 8 floors with no model share one picker + "+ model" instead of a button
+  each (`FloorsPanel`); Plans & floorplans' wording without "level" and without the 33F 3303 example ("part of a floor
+  with its own drawing data"; Help too); the status bar's "1:100" explained in its tooltip (model views draw text and
+  symbols for 1:100, the % is the zoom, a viewport has its own scale).

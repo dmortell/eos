@@ -78,7 +78,7 @@
 			aria-pressed={ws.inputMode === 'eos'} onclick={ws.toggleInputMode}>{ws.inputMode === 'eos' ? 'EOS' : 'ACAD'}</button>
 	</div>
 	{#if v}
-		<span class="scale" title="{v.mmPerPx} mm a pixel">{v.scale} · {v.zoom}%{v.extra ? ` · ${v.extra}` : ''}</span>
+		<span class="scale" title={v.scale === 'paper mm' ? `Paper mm · ${v.mmPerPx} mm a pixel` : `${v.scale}: plans, elevations and sections draw their text and symbols for 1:100 — the % is the zoom. A viewport on a sheet has its own scale (shown here while you edit inside it). ${v.mmPerPx} mm a pixel`}>{v.scale} · {v.zoom}%{v.extra ? ` · ${v.extra}` : ''}</span>
 	{/if}
 	<button class="fit" title="Zoom to fit ({KEYS.fit})" onclick={onfit}>Fit</button>
 </footer>

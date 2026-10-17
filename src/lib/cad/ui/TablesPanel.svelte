@@ -35,7 +35,9 @@
 	const floating = $derived(t.float && !t.max && !closed), max = $derived(t.max && !closed), folded = $derived(closed || (t.folded && !t.max))
 	/** Open the closed panel, unfolded. */
 	const open = () => { set({ folded: false }); panels.toggle('bottom') }
-	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['patch', 'Patching'], ['sheets', 'Sheets'], ['links', 'Links']]
+	// in the order of the work: outlets, their cables, the cords, then the drawings (User 2026-10-17: Sheets sat between two
+	// cabling tabs)
+	const TABS: [TableTab, string][] = [['outlets', 'Outlets'], ['links', 'Links'], ['patch', 'Patching'], ['sheets', 'Sheets']]
 	/** The folded bar's summary: how many rows the open table has, and how many of them are selected. */
 	const summary = $derived.by(() => {
 		const sel = new Set(ws.selection), ix = project.dataIndex   // the count holds still during a drag

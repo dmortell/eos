@@ -45,6 +45,8 @@
 	let ground = $state(init.ground)
 	/** The tenant floors ("3-8, 12", User 2026-10-16): only they get a model; blank = every floor. */
 	let tenant = $state(init.tenant)
+	/** The floor picked for "+ model" when there are many (see the No model row). */
+	let modelFor = $state<number | null>(null)
 	const tenantNums = $derived(parseFloorList(tenant))
 	let typical = $state<Heights>({ ...init.heights })
 
@@ -363,7 +365,13 @@
 			{#if onplans && main.length && !pending && !hasFloorplans}<button class="btn pri next" title="Add each floor's floorplan (a PDF page)" onclick={onplans}>Next: add floorplans →</button>{/if}
 		</div>
 		<!-- under the buttons, so its length (it changes with every + model) never moves them -->
-		{#if noModel.length}
+		{#if noModel.length > 8}
+			<!-- many floors with no model (User 2026-10-17: a building of 100s of floors, the client on a few): a picker, not a
+			     button per floor -->
+			<p class="hint">{noModel.length} floors have no model (they stay in the riser view).
+				<select class="inp" aria-label="Floor to make a model for" bind:value={modelFor}><option value={null}>Floor…</option>{#each noModel as n (n)}<option value={n}>{floorName(n, names)}</option>{/each}</select>
+				<button class="mini" disabled={modelFor == null} title="Make a level for this floor (it shows in the Navigator)" onclick={() => { if (modelFor != null) { createModel(modelFor); modelFor = null } }}>+ model</button></p>
+		{:else if noModel.length}
 			<p class="hint">No model: {#each noModel as n (n)}<button class="mini" title="Make a level for {floorName(n, names)} (it shows in the Navigator again)" onclick={() => createModel(n)}>+ {floorName(n, names)} model</button>{/each}</p>
 		{/if}
 	</section>
@@ -402,7 +410,7 @@
 	</section>
 {:else if part === 'plans'}
 	<section>
-		<p class="hint">Each floor has a <b>plan</b> (its level in the Navigator), drawn over its <b>floorplan</b> — a calibrated page of a project PDF. When the floor is drawn on two or more pages, add each one and move it into place with X / Y. An <b>area plan</b> is a separate plan of part of a floor, such as a tenant office with its own drawing (33F 3303): it has the floor's number and heights, and its own floorplans.</p>
+		<p class="hint">Each floor’s <b>plan</b> is drawn over its <b>floorplan</b> — a page of a PDF, set to scale. If the floor is drawn on two or more pages, add each page and move it into place with X / Y. An <b>area plan</b> is a separate plan for part of a floor, with its own drawing data (a tenant office, say): it shares the floor’s number and heights.</p>
 		<!-- W6: Origin then Crop on every floor's floorplan in one go, lowest first, the floor below in red to line up -->
 		{#if onsetupfloors && hasFloorplans}
 			{@const all = main.flatMap((l) => underlaysOf(l)).filter((u) => !u.hidden)}
@@ -413,11 +421,11 @@
 		{#each main as l (l.id)}
 			<div class="floor">
 				<div class="fhead"><b>{l.name}</b>
-					<button class="btn sm" title="A separate plan of part of this floor — a tenant office on its own floorplan (e.g. 3303)" onclick={() => (addingArea = l.id)}>+ Area plan</button></div>
+					<button class="btn sm" title="A separate plan for part of this floor, with its own drawing data (a tenant office, say)" onclick={() => (addingArea = l.id)}>+ Area plan</button></div>
 				{@render plan(l, null)}
 				{#each areasOf(l) as a (a.id)}{@render plan(a, l)}{/each}
 				{#if addingArea === l.id}
-					<div class="plan"><div class="pname">Area plan</div><div><NameInput create placeholder="e.g. 3303 — Enter adds it" wide={false} onsave={(t) => addArea(l, t)} oncancel={() => (addingArea = null)} /></div></div>
+					<div class="plan"><div class="pname">Area plan</div><div><NameInput create placeholder="its name, e.g. North wing — Enter adds it" wide={false} onsave={(t) => addArea(l, t)} oncancel={() => (addingArea = null)} /></div></div>
 				{/if}
 			</div>
 		{/each}
