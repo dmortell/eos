@@ -1,95 +1,97 @@
-# Design log — sketch (for review)
+# Design log — sketch (decisions 2026-10-17)
 
-User 2026-10-17: *"I often have to search old versions / notes / emails to figure out why or when or who requested
-some change."* This sketches one place that answers **what changed, why, who asked, when, and in which release**, for
-the User to review before anything is built. Backlog: "Design log — why, when and who asked".
+User 2026-10-17: *"We often have to search old versions / notes / emails to figure out why or when or who requested
+some change."* One place that answers **what changed, why, who asked, when, and in which release**. Backlog: "Design
+log — why, when and who asked". Decisions from the User's review are marked ✔.
 
 ## What there is today
 
 - **A sheet's change notes** — Properties › Changes since last release: date · what · asked by (`Sheet.changes`,
-  `SheetChange`). At a release they move onto that revision (`revisions[].changes`), fill the Release panel's
-  "What changed" and the title block's revision table.
+  `SheetChange`). At a release they move onto that revision (`revisions[].changes`) and fill the Release panel's
+  "What changed".
 - **Revision clouds** — a cloud carries a revision letter; its triangle shows it (no letter = no triangle).
 - **Backups** — named snapshots with who / when / a note (`BackupHead`).
-- **Undo steps** — every edit already has a readable label ("Patch R02 · SW1 : 39 → R05 · SW2 : 10", "Move 3
-  outlets") but it lives only in this tab's undo stack and is gone on reload. Nothing records who edited what.
-
-Missing: a project-wide list, notes on items (an outlet, a rack, a cord), the link from a cloud to the reason for it,
-and an edit history.
+- **Undo steps** — every edit has a readable label ("Patch R02 · SW1 : 39 → R05 · SW2 : 10") but only in this tab's
+  undo stack. Nothing records who edited what.
 
 ## The idea in one line
 
-**One kind of record — a change — that sheets, clouds and items point at**, listed in a Log table; plus an automatic
-edit history kept beside it.
+**One kind of record — a change — that clouds, sheets and items point at**, listed in a Log table and in a change list
+on the package's sheet; plus an optional edit history kept beside it.
 
-## 1. Changes (the log)
+## 1. Changes
 
-A `change` entity in the project store (synced, undoable like everything else):
+A `change` entity in the project store (synced, undoable like everything else). Fields as first proposed ✔ (the User:
+what / who / date would do, but try these to see how it looks):
 
 | field | |
 |---|---|
-| `no` | running number in the project, never reused: **C-001, C-002 …** |
+| `n` | its number within the current major revision: **1, 2, 3 …** ✔ — it continues through the minor versions (Rev A had 1–5, A.1 adds 6, 7) ✔ and restarts at 1 after the next major release ✔ |
+| `cycle` | the major revision it goes out in (A, B …) — with `n` the log reads "Rev A · 3" |
 | `date` | when it was asked for (defaults to today) |
-| `what` | the change, one line ("Move outlets 1-004…1-006 to the east wall") |
-| `why` | optional, longer ("Client moved the reception desk") |
-| `asked` | who asked — free text (client, consultant, site) |
-| `ref` | where it came from: kind (email · meeting · RFI · phone · site · other) + text (the email's subject, RFI no., minutes item) |
-| `links` | the items, sheets and levels it's about |
-| `status` | open · done · rejected · superseded (by another change) |
-| `by` / `at` | who entered it, when (filled in, not typed) |
-| `released` | filled at each release: the sheets and revision it went out in (`S003 rev B`) |
+| `what` | one line ("Move outlets 1-004…1-006 to the east wall") |
+| `why` | optional, longer |
+| `asked` | free text, names already used offered as you type ✔ |
+| `ref` | where it came from: email · meeting · RFI · phone · site · other + text (subject, RFI no.) — a reference only, no attachments for now ✔ |
+| `links` | the items and sheets it's about |
+| `status` | open · done · rejected · superseded — rejected / superseded stay in the Log, greyed ✔ |
+| `by` / `at` | who entered it, when (filled in) |
+| `released` | the version it went out in (A, A.1 …) and on which sheets |
 
 **Where you see it**
 
-- **Tables › Log** (bottom panel, a tab after Sheets): No · Date · What · Asked · Ref · Items · Sheets · Released ·
-  Status · By. Search over every column, filter by person / status / sheet / level; a row's click selects and shows
-  its items (as the Outlets table does); double-click edits; Excel export.
-- **A sheet's Properties › Changes since last release** becomes a view of the log: the open changes linked to this
-  sheet. Adding one there makes a change linked to the sheet (today's notes, same place, same keys). At release the
-  change gets `released` and the revision table lists it — as now.
-- **Any item's Properties › Changes (n)**: the changes linked to it, newest first; **+ Note** makes one already
-  linked to it (and to the sheets showing it? — question 3).
-- **Selection › Log a change…**: one change linked to everything selected.
+- **Tables › Log** (bottom panel, after Sheets): Rev · No · Date · What · Asked · Ref · Items · Sheets · Version ·
+  Status · By. Search, filters (person, status, sheet, revision); a row's click shows its items; double-click edits;
+  Excel export.
+- **The package's change list** ✔ — a viewport on one sheet of the package (as the User does now): every change of
+  this package since the last major release, with the version each went out in ✔; it starts empty again after the
+  next major release. The clouds' numbers refer to it.
+- **A sheet's Properties › Changes** — the open changes linked to that sheet; adding one there links it to the sheet
+  (today's notes, same place).
+- **An item's Properties › Changes (n)** — the changes that name it. **+ Note** creates a change with that item in its
+  links: it shows on the item and in the Log, and reaches a sheet / the package list only when you link it there (or
+  draw a cloud for it) ✔ — nothing lands on a submittal unexpectedly.
+- **Selection › Log a change…** — one change linked to everything selected.
 
-Existing sheet notes are moved into changes once (each linked to its sheet; released ones keep their revision).
+Existing sheet notes become changes once (linked to their sheet; released ones keep their revision).
 
-## 2. Clouds point at a change (the User's idea)
+## 2. Clouds
 
-A cloud gets a **change** instead of (or as well as) a free revision letter: its Properties lists the open changes
-(+ new) — pick one and the cloud's tag shows its number. Several clouds can point at one change. At release the
-title block's table reads "B — C-012, C-014 …" and the Log shows which clouds / sheets each went out on.
+A cloud points at a change: its Properties lists this revision's changes (+ new); picking one sets the cloud's
+number. **The triangle shows just the number, "3"** ✔ (the letter is in the title block). Several clouds can point at
+one change. After a major release the clouds are usually deleted or moved to a hidden layer and numbering restarts
+from 1 — a "Clear clouds after release" choice in the release dialog (delete / move to a layer) does it in one step.
+No change → no triangle, as today (deleting the letter hides it).
 
-What the triangle shows is question 1: the **project number** (C-012, stable forever, the same on every sheet and
-in emails) or a **number within the revision** ("B3" — Rev B change 3, short, but it changes meaning per revision).
-Proposal: store the project number, let the tag show either (a project setting).
+## 3. Revisions and versions in the title block
 
-## 3. Edit history (automatic)
+- The title block's revision part shows **only the revision and its date** ✔ — no description / notes (those are in
+  the package's change list).
+- **Major revision** A, B … = a big submittal; **minor version** A.1, A.2 … = a small update to the sheet after it ✔.
+- **Bump version** in the Save as PDF / release dialogs ✔: offered when the sheet has changed since its last PDF —
+  A → A.1, A.1 → A.2. A major release (A → B) stays the Release… dialog's job.
 
-Every settled local edit (the store's committed step) is written once, append-only, to its own Firestore collection
-beside the project (`cadHistory/{pid}/steps`) — not to the store, so it never undoes or syncs back:
-`{ at, by: { uid, name }, label, ids (the entities it touched, capped), n }`.
+## 4. Edit history (optional)
 
-- **An item's Properties › History**: the edits that touched it — "2026-10-17 14:02 · User · Move rack R03".
-- **Project › History…**: the whole list, filtered by person / day / level, with the backup taken before each day.
-- **"Working on C-012"** (a chip in the status bar, set from the Log): while it's on, edits are tagged with that
-  change, so an item's history answers *why* as well as *who / when*.
+- **A project toggle, off by default** ✔ — turn it on after the first major release.
+- Every settled local edit is written once, append-only, to its own collection (`cadHistory/{pid}/steps`), not the
+  store: `{ at, by: { uid, name }, label, ids (capped), n }`. Everyone on the project can read it ✔.
+- **Settings shows its size** (entries, rough storage) and **Delete history older than…** ✔ — watch storage and speed.
+- An item's Properties › History ("2026-10-17 14:02 · User · Move rack R03"); Project › History… for the whole list.
+- Later: **"Working on Rev A · 3"** — a status-bar chip; while it's on, edits are tagged with that change (why as well
+  as who / when).
 
-Cost: one small write per edit (a drag is one), read only when someone opens a history. Keep a year (a setting)?
-
-## Phases (if the User agrees)
+## Phases
 
 1. **Changes + Log tab + item / sheet links**, sheet notes moved in — **M**.
-2. **Clouds point at changes**; the revision table lists them — **S–M**.
-3. **Edit history** + item History + Project › History — **M**.
-4. **"Working on"** tag — **S**.
-5. Later, with outside review (backlog): a reviewer's markup arrives as changes asked by them.
+2. **Clouds point at changes**, numbering per major revision, the package's change list viewport, "Clear clouds
+   after release" — **M**.
+3. **Title block revision + minor versions + Bump version** — **S–M**.
+4. **Edit history** (toggle, size, trim) + item History + Project › History — **M**.
+5. "Working on" tag — **S**. Later, with outside review: a reviewer's markups arrive as changes asked by them.
 
-## Questions for the User
+## Still open
 
-1. A cloud's tag: the project number (C-012) or the number within the revision (B3)?
-2. Is "asked by" free text enough, or a list of people / companies kept in the project (consistent names, filters)?
-3. A note on an item: should it also show on the sheets that item is on (open changes) — or only on the sheets you
-   link?
-4. Should rejected / superseded changes stay visible in the Log by default, or be filtered off?
-5. Edit history: who may read it (everyone on the project)? And how long to keep it?
-6. Attachments — paste an email's text or a screenshot into a change, or just the reference?
+- Packages and revisions: is a revision the PACKAGE's (every sheet in it goes A → B together) or each sheet's? The
+  sheets carry their own revisions today; the change list is per package.
+- The change list viewport's columns (Rev · No · What · Asked · Date?) and whether it can run over two sheets.
