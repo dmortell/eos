@@ -22,6 +22,7 @@
 	import TextField from './fields/TextField.svelte'
 	import SelectField from './fields/SelectField.svelte'
 	import CheckField from './fields/CheckField.svelte'
+	import { rackHeight } from '../domain/units'
 
 	let { project, ws, racks }: { project: CadProject; ws: Workspace; racks: Rack[] } = $props()
 
@@ -121,7 +122,7 @@
 	<NumberField label="Height" unit="U" min={1} value={rk((r) => r.heightU).value} mixed={rk((r) => r.heightU).mixed} onchange={(v) => v != null && v >= 1 && set('Rack height', { heightU: v })} />
 	<NumberField label="Width" unit="mm" min={100} value={rk((r) => r.widthMm).value} mixed={rk((r) => r.widthMm).mixed} onchange={(v) => setSize('Rack width', { widthMm: v })} />
 	<NumberField label="Depth" unit="mm" min={100} value={rk((r) => r.depthMm).value} mixed={rk((r) => r.depthMm).mixed} onchange={(v) => setSize('Rack depth', { depthMm: v })} />
-	<NumberField label="Height" unit="mm" blank title="Its height in mm; blank = worked out from its U" placeholder={one ? `from U: ${Math.round(one.heightU * 44.45 + 150)}` : 'from U'}
+	<NumberField label="Height" unit="mm" blank title="Its height in mm; blank = worked out from its U" placeholder={one ? `from U: ${Math.round(rackHeight({ heightU: one.heightU }))}` : 'from U'}
 		value={rk((r) => r.heightMm).value} mixed={rk((r) => r.heightMm).mixed} onchange={(v) => setSize('Rack height', { heightMm: v })} />
 	<NumberField label="Rotation" unit="°" title="Not rotated (0), its front faces the +y side; turned clockwise" value={rk((r) => r.rot ?? 0).value} mixed={rk((r) => r.rot ?? 0).mixed} onchange={(v) => v != null && set(racks.length > 1 ? 'Rotate racks' : 'Rotate rack', { rot: v })} />
 	{#if one?.at}

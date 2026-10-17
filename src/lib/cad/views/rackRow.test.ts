@@ -1,6 +1,7 @@
 // What the rack-row view shows (Phase 3.1), as behaviour.
 import { describe, it, expect } from 'vitest'
-import { rackRowDisplayList, rackLayout, labelLines, portCell, rackCaption, RU_MM } from './rackRow'
+import { rackRowDisplayList, rackLayout, labelLines, portCell, rackCaption } from './rackRow'
+import { RU_MM } from '../domain/units'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { layersOf, primLayer } from '../domain/layers'

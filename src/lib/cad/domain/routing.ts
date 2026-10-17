@@ -11,6 +11,7 @@
 // (domain/estimates.ts). Pure; tested in routing.test.ts.
 import { outletZ } from './floors'
 import type { Id, Outlet, Rack, Device, Level, Link } from './types'
+import { RU_MM } from './units'
 import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 import { cablesOf } from './multicore'
@@ -24,7 +25,7 @@ export const noRunProblem = (tier: string) => `no ${tier} run within ${MAX_OUTLE
 /** How far above / below a riser's end its shaft reaches to meet a run on that floor (a storey). */
 export const RISER_REACH_MM = 4_500
 export const MAX_PERMANENT_LINK_M = 90
-const U_MM = 44.45
+
 
 type P3 = { x: number; y: number; z: number }
 /** A piece of a run segment between two graph nodes (`t0`/`t1` along the segment, 0 → 1). */
@@ -216,7 +217,7 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 }
 
 /** The panel's height (its middle) above the rack's floor. */
-export const panelZ = (d: Device | undefined) => (d ? (d.u - 1 + d.heightU / 2) * U_MM + 100 : 1000)
+export const panelZ = (d: Device | undefined) => (d ? (d.u - 1 + d.heightU / 2) * RU_MM + 100 : 1000)
 
 /** How far (plan) a rack reaches for runs to join: the runs in its room, not one across the floor. */
 export const RACK_REACH_MM = 3000

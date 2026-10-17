@@ -4,6 +4,7 @@
 // seen square-on; the interval method of ADR 0004 replaces this when sections need precise hidden lines).
 import { heightsOf, outletZ } from '../domain/floors'
 import type { Id, Pt, Pt3, Level, Rack, Outlet, Space } from '../domain/types'
+import { RU_MM, rackHeight, rackUBase } from '../domain/units'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
 import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, sameWay, arcPoints, arcThrough } from '../domain/shapes'
@@ -16,7 +17,7 @@ import { primBounds, type Prim } from './display'
 import { is3d, isLabel, placed3d, type Block } from '../domain/blocks'
 import { pictureRef } from '../domain/issue'
 
-export const RU_MM = 44.45
+
 const LABEL = 1.8, DATUM_LABEL = 1.8, RACK_NAME = 2.5   // paper mm: printed at these sizes at any viewport scale (User 2026-10-15: 0.5 / 0.9 were tiny on a 1:10 sheet)
 /** A faceplate at true size (a standard single-gang plate), so it doesn't grow on smaller-scale drawings. */
 const FACEPLATE_MM = 86
@@ -122,13 +123,13 @@ function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
  *  schematic one) — and its name ABOVE it at the rack view's size. It stands on its room's floor. */
 function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, k: number): Item {
 	const [u0, u1] = uSpan(footprint(r.at!, r.widthMm, r.depthMm, r.rot))
-	const h = r.heightMm ?? r.heightU * RU_MM + 150, f = roomFloor(ix, r.spaceId)
+	const h = rackHeight(r), f = roomFloor(ix, r.spaceId)
 	const prims: Prim[] = [rect(u0, u1, f, f + h, 'rack', r.id)]
 	// its devices as plain boxes at their U, when its front or rear faces the viewer — no names (User 2026-10-15)
 	const facing = sp.frame ? rackFrontNormal(r).x * sp.frame.n.x + rackFrontNormal(r).y * sp.frame.n.y : 0
 	const face = facing > 0.5 ? 'front' : facing < -0.5 ? 'rear' : null
 	if (face) {
-		const base = (h - r.heightU * RU_MM) / 2 + f, mid = (u0 + u1) / 2
+		const base = rackUBase(r) + f, mid = (u0 + u1) / 2
 		for (const d of ix.devicesIn(r.id)) {
 			if (d.kind === 'pdu' || d.face === 'none' || (d.face !== 'both' && d.face !== face)) continue
 			const hw = Math.min(r.widthMm, d.widthMm ?? RACK_DEVICE_W) / 2, z0 = base + (d.u - 1) * RU_MM

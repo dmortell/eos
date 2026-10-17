@@ -4,6 +4,8 @@
 // when big — elevations-plan §3.3), patch cords between ports on this face. Labels come from ProjectIndex.portLabel:
 // a panel port shows the label of the outlet port it is linked to (ADR 0002).
 import type { Id, Rack, Device, Level, Space } from '../domain/types'
+import { RU_MM, rackHeight, rackUBase } from '../domain/units'
+
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted, reservedFor } from '../domain/ports'
@@ -12,8 +14,8 @@ import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
 import { usageColour } from '../domain/usages'
 
-export const RU_MM = 44.45
-const RAIL_W = RACK_DEVICE_W  // the 19" mounting frame / device width (no ears — domain/devices.ts)
+
+const DEVICE_W = RACK_DEVICE_W  // a device's width in the 19" frame (no ears — domain/devices.ts)
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
 const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
 const ON_PORTS_NAME_MM = 6.85 // a device name drawn over its ports: a 1U 48-port panel's stacked port label size
@@ -45,13 +47,13 @@ export function rackLayout(ix: ProjectIndex, spec: RowSpec): { rack: Rack; x0: n
 	return out
 }
 
-export const rackHeight = (r: Rack) => r.heightMm ?? r.heightU * RU_MM + 150
+
 
 /** Which rack and which U are under a view point (U = the rack unit the point is in, 1-based from the bottom). */
 export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: number }): { rack: Rack; u: number } | null {
 	for (const { rack, x0 } of rackLayout(ix, spec)) {
 		if (p.x < x0 || p.x > x0 + rack.widthMm) continue
-		const base = (rackHeight(rack) - rack.heightU * RU_MM) / 2 + roomFloor(ix, spec.spaceId)   // racks stand on the room's floor
+		const base = rackUBase(rack) + roomFloor(ix, spec.spaceId)   // racks stand on the room's floor
 		const u = Math.floor((-p.y - base) / RU_MM) + 1
 		return u >= 1 && u <= rack.heightU ? { rack, u } : null
 	}
@@ -66,7 +68,7 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	const { rows, cols } = portGrid(d)
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
 	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
-	const area = Math.min(PORT_AREA_W, (d.widthMm ?? RAIL_W) - 20)
+	const area = Math.min(PORT_AREA_W, (d.widthMm ?? DEVICE_W) - 20)
 	const w = Math.min(area / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
 	const [row, col] = portAt(d.portNumbering, n, rows, cols)
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
@@ -105,18 +107,18 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	const title = [ix.nameOf(room?.levelId), room?.name].filter(Boolean).join(' — ') + (spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : '') + ` · ${spec.face}`
 	out.push({ k: 'text', at: { x: layout[0].x0, y: -top - 230 }, text: title, size: 110, cls: 'label' })
 	for (const { rack, x0 } of layout) {
-		const h = rackHeight(rack), base = (h - rack.heightU * RU_MM) / 2, mid = x0 + rack.widthMm / 2
+		const h = rackHeight(rack), base = rackUBase(rack), mid = x0 + rack.widthMm / 2
 		const uScale: Prim[] = []
 		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', src: rack.id })
 		// U ticks and numbers (every U) INSIDE the rack's own edges — racks narrower
 		// than 19" rails (cable managers, desks) have no U scale (theirs would land on the neighbours)
-		if (rack.widthMm >= RAIL_W && rack.kind !== 'vcm' && rack.kind !== 'desk') {
+		if (rack.widthMm >= DEVICE_W && rack.kind !== 'vcm' && rack.kind !== 'desk') {
 			// the 19" mounting frame: rail to rail, U1 to the top U
 			const top = base + rack.heightU * RU_MM
-			out.push({ k: 'line', pts: [{ x: mid - RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -base }, { x: mid + RAIL_W / 2, y: -top }, { x: mid - RAIL_W / 2, y: -top }], closed: true, cls: 'rack-rails' })
+			out.push({ k: 'line', pts: [{ x: mid - DEVICE_W / 2, y: -base }, { x: mid + DEVICE_W / 2, y: -base }, { x: mid + DEVICE_W / 2, y: -top }, { x: mid - DEVICE_W / 2, y: -top }], closed: true, cls: 'rack-rails' })
 			// numbers sit in the margin beside the rails when it's wide enough; a narrow frame (P3C: 17 mm) puts them
 			// just outside its left edge, where panels can't cover them
-			const roomy = (rack.widthMm - RAIL_W) / 2 >= 48
+			const roomy = (rack.widthMm - DEVICE_W) / 2 >= 48
 			// a tick and a number on every U, on both rails (left: reading out from the left edge; right: mirrored)
 			const tl = x0 + (roomy ? 6 : 2), tr = x0 + rack.widthMm - (roomy ? 6 : 2)
 			// Us where devices on one side overlap (allowed: a shelf, or "May overlap") read bold red with a "!"
@@ -137,7 +139,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		// the rack's cable channels (along the panel edges, outside the port area; a narrow rack: inside its edges) and
 		// its horizontal managers on this face — for cords drawn along the channels
 		const frame: RackFrame = {
-			id: rack.id, mid, chan: rack.widthMm >= RAIL_W ? PORT_AREA_W / 2 + 6 : Math.max(5, rack.widthMm / 2 - 15),
+			id: rack.id, mid, chan: rack.widthMm >= DEVICE_W ? PORT_AREA_W / 2 + 6 : Math.max(5, rack.widthMm / 2 - 15),
 			managers: inRack.filter((d) => d.kind === 'manager' && sidesOf(d).includes(spec.face)).map((d) => -(base + (d.u - 1) * RU_MM + (d.heightU * RU_MM) / 2)),
 		}
 		for (const d of inRack) {
@@ -148,7 +150,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			const behind = d.kind !== 'pdu' && ((d.face !== 'both' && d.face !== spec.face)
 				|| (!!d.mount && d.mount !== spec.face && inRack.some((o) => o.id !== d.id && sidesOf(o).includes(spec.face) && sharesU(o, d))))
 			if (behind) {
-				const w = Math.min(rack.widthMm, d.widthMm ?? RAIL_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
+				const w = Math.min(rack.widthMm, d.widthMm ?? DEVICE_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 				out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, cls: 'device-other' })
 				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.mount ?? d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', minPx: 6 })
@@ -157,7 +159,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
 				// on its side (left / right as seen from the front — mirrored from the rear; backlog "0U PDUs")
 				const onLeft = ((d.pduSide ?? 'left') === 'left') === (spec.face !== 'rear')
-				const x = onLeft ? Math.max(x0 + 2, mid - RAIL_W / 2 - 44) : Math.min(x0 + rack.widthMm - 42, mid + RAIL_W / 2 + 4)
+				const x = onLeft ? Math.max(x0 + 2, mid - DEVICE_W / 2 - 44) : Math.min(x0 + rack.widthMm - 42, mid + DEVICE_W / 2 + 4)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
 				// its name up the strip, its power inlets at the bottom (where the feed comes in), its sockets along it
@@ -179,7 +181,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				}
 				continue
 			}
-			const w = Math.min(rack.widthMm, d.widthMm ?? RAIL_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
+			const w = Math.min(rack.widthMm, d.widthMm ?? DEVICE_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
 			const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
 			// a printed panel whose labels have changed since says so, and the changed ports are flagged
 			const stale = new Set(changedSincePrinted(ix, d))

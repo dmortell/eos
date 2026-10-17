@@ -2,6 +2,7 @@
 // rules — the port gate, the install workflow (add / remove / change / installed), estimated lengths snapped up to
 // stock lengths, bulk patching, and the circuit trace (outlet → link → panel → cord → switch …).
 import type { Id, Cord, Device, PortRef, Rack } from './types'
+import { RU_MM, RAIL_W } from './units'
 import type { ProjectIndex } from './project'
 import { racksInOrder, portGrid, portAt } from './devices'
 import { newId } from './ids'
@@ -11,7 +12,7 @@ export const STANDARD_LENGTHS = [0.3, 0.5, 1, 1.5, 2, 3, 5, 7, 10, 15, 20, 30]
 /** A raw length snapped UP to a stock cord length (the longest when it's longer than all). */
 export const snapToStandard = (m: number) => STANDARD_LENGTHS.find((l) => l >= m) ?? STANDARD_LENGTHS[STANDARD_LENGTHS.length - 1]
 
-const RU = 44.45, RAIL_W = 482.6, RACK_GAP = 200
+const RACK_GAP = 200
 const SLACK_SAME_RU = 2, SLACK_CROSS_RU = 5
 
 /** `status`: what a new cord starts as — `add` (planning a new install) or `installed` (surveying a built site), the
@@ -80,21 +81,21 @@ export function cordLength(ix: ProjectIndex, a: PortRef, b: PortRef): number {
 		const ma = managers(ra)
 		if (left(da, a.port) !== left(db, b.port) && ma.length) {
 			const m = nearest(ma, (ua + ub) / 2)
-			vertical = (Math.abs(ua - m) + Math.abs(m - ub)) * RU
+			vertical = (Math.abs(ua - m) + Math.abs(m - ub)) * RU_MM
 			horizontal += RAIL_W
-		} else vertical = Math.abs(ua - ub) * RU
+		} else vertical = Math.abs(ua - ub) * RU_MM
 	} else {
-		vertical = Math.abs(ua - ub) * RU
+		vertical = Math.abs(ua - ub) * RU_MM
 		const { dist, aIsLeft } = rackApart(ix, ra, rb)
 		horizontal += dist
 		// a port on the far side from the way the cord leaves crosses through a manager
 		for (const [d, port, r, u, exitLeft] of [[da, a.port, ra, ua, !aIsLeft], [db, b.port, rb, ub, aIsLeft]] as const) {
 			const ms = managers(r)
-			if (left(d, port) !== exitLeft && ms.length) { vertical += 2 * Math.abs(u - nearest(ms, u)) * RU; horizontal += RAIL_W }
+			if (left(d, port) !== exitLeft && ms.length) { vertical += 2 * Math.abs(u - nearest(ms, u)) * RU_MM; horizontal += RAIL_W }
 		}
 	}
 	const depth = (a.face ?? 'front') !== (b.face ?? 'front') ? ra.depthMm : 0
-	const slack = (same ? SLACK_SAME_RU : SLACK_CROSS_RU) * RU
+	const slack = (same ? SLACK_SAME_RU : SLACK_CROSS_RU) * RU_MM
 	return snapToStandard((vertical + horizontal + depth + slack) / 1000)
 }
 

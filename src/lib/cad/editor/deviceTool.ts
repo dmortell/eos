@@ -5,7 +5,8 @@ import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Device, Id } from '../domain/types'
 import { deviceFromTemplate, placementProblem, nearestFreeU, RACK_DEVICE_W, roomFloor, type DeviceTemplate } from '../domain/devices'
 import { nextLabel, naturalCompare } from '../domain/labels'
-import { rackLayout, rackHeight, RU_MM } from '../views/rackRow'
+import { rackLayout } from '../views/rackRow'
+import { RU_MM, rackUBase } from '../domain/units'
 import type { Prim } from '../views/display'
 
 const PREFIX: Partial<Record<Device['kind'], string>> = { panel: 'PP', switch: 'SW', manager: 'CM', server: 'SV', shelf: 'SH', pdu: 'PDU' }
@@ -57,7 +58,7 @@ export class DeviceTool implements Tool {
 		// where `down` puts it: the U under the cursor, else the nearest free one (red: nowhere)
 		const want = this.#make(t, l.rack.id, t.kind === 'pdu' ? 1 : h.u, t.name, c), all = c.store.ofType('device')
 		const free = placementProblem(want, l.rack, all) ? nearestFreeU(want, l.rack, all) : want.u
-		const u = free ?? want.u, bad = free === null, base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2 + roomFloor(c.index, spec.spaceId)
+		const u = free ?? want.u, bad = free === null, base = rackUBase(l.rack) + roomFloor(c.index, spec.spaceId)
 		const w = Math.min(t.widthMm ?? RACK_DEVICE_W, l.rack.widthMm), x0 = l.x0 + (l.rack.widthMm - w) / 2, x1 = x0 + w
 		const y0 = -(base + (u - 1) * RU_MM), y1 = -(base + (u - 1 + t.heightU) * RU_MM)
 		return [{ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls: bad ? 'draft draft-bad' : 'draft' }]
