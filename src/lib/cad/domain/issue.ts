@@ -25,7 +25,12 @@ export function nextRev(code: string | undefined, first = 'A'): string {
 
 /** REVISION CLOUDS (W20). The revision a cloud drawn on this sheet now marks: the one being prepared (after the
  *  last issued; the first: `first`). */
-export const draftRev = (s: Pick<Sheet, 'revisions'>, first = 'A'): string => nextRev(s.revisions?.at(-1)?.code, first)
+export const draftRev = (s: Pick<Sheet, 'revisions'>, first = 'A'): string => nextMajor(s.revisions?.at(-1)?.code, first)
+/** MAJOR and MINOR revisions (design log step 3, User 2026-10-17): a big submittal is A, B …; a small update after it a
+ *  version A.1, A.2. The next major after A.2 is B (the default for a release); the next minor after A is A.1, after
+ *  A.1 A.2 ("Bump version"). */
+export const nextMajor = (code: string | undefined, first = 'A'): string => nextRev(code ? majorOf(code) : undefined, first)
+export const nextMinor = (code: string | undefined, first = 'A'): string => (!code ? first : code.includes('.') ? nextRev(code) : `${code}.1`)
 /** Is a cloud of revision `rev` shown on this sheet? Untagged, or of the last issued revision, or of one not issued
  *  yet: yes. Of an EARLIER revision: no — it is kept (and prints in that revision's frozen copy), just not drawn. */
 export function cloudShown(s: Pick<Sheet, 'revisions'>, rev: string | undefined): boolean {
@@ -193,7 +198,7 @@ export function planIssue(sheets: Sheet[], now: (s: Sheet) => string, first = 'A
 	return sheets.map((sheet) => {
 		const last = sheet.revisions?.at(-1)
 		const changed = !last || last.hash !== now(sheet)
-		return { sheet, changed, from: last?.code, rev: changed ? nextRev(last?.code, first) : last!.code }
+		return { sheet, changed, from: last?.code, rev: changed ? nextMajor(last?.code, first) : last!.code }
 	})
 }
 

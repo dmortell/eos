@@ -14,7 +14,9 @@ export const fileSafe = (s: string) => s.replace(/[^\p{L}\p{N}._-]+/gu, '_').rep
 /** What an export is, for the project's file-name pattern (User 2026-10-15: "Edit file names on export"): `revision` = its
  *  own revision where it has one (a sheet's, a revision PDF's, the BOM's typed one); `version` = the release number
  *  ("03") — a release's own, else the page fills in the project's latest. */
-export interface FileParts { what: string; scope?: string; revision?: string; version?: string }
+export interface FileParts { what: string; scope?: string; revision?: string; version?: string
+	/** The sheets a PDF holds: Save as offers "Bump version…" when they changed since their release (design log step 3). */
+	sheetIds?: string[] }
 
 /** The tokens a pattern can use (Settings › Files › Export file names). */
 export const FILE_TOKENS = ['{project}', '{what}', '{scope}', '{revision}', '{version}', '{date}'] as const

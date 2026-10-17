@@ -86,7 +86,7 @@ No change → no triangle, as today (deleting the letter hides it).
 1. **Changes + Log tab + item / sheet links** — **M** — BUILT 2026-10-17 (`domain/changes.ts`, `ui/LogTable.svelte`, `ui/ChangesSection.svelte`, `ui/ChangeProps.svelte`; a release records them). Old sheet notes are NOT moved: they stay as "Earlier notes" and release as before (no write to existing projects).
 2. **Clouds point at changes**, numbering per major revision, the package's change list (a legend-like shape — BUILT 2026-10-17: `views/changeList.ts`, the Change list tool, a cloud's Change, the Release form's "Number changes from 1 again" and Clouds keep / delete), "Clear clouds
    after release" — **M**.
-3. **Title block revision + minor versions + Bump version** — **S–M**.
+3. **Title block revision + minor versions + Bump version** — **S–M** — BUILT 2026-10-17 (`nextMajor` / `nextMinor`; REV · DATE only in the title block; Next revision / Bump version in the release form; Bump version… in a changed sheet's Properties and its PDF's Save as — they open the release form preset to versions).
 4. **Edit history** (toggle, size, trim) + item History + Project › History — **M**.
 5. "Working on" tag — **S**. Later, with outside review: a reviewer's markups arrive as changes asked by them.
 

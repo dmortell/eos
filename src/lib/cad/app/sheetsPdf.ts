@@ -21,7 +21,8 @@ export async function sheetsPdfBlob(project: CadProject, sheets: Sheet[], mono =
 export function sheetsPdfName(project: CadProject, sheets: Sheet[], mono = false): { suggested: string; parts: FileParts } {
 	const one = sheets.length === 1 ? sheets[0] : undefined
 	const suggested = `${fileSafe(`${one ? `${one.number} ${one.title}` : `${project.name} sheets`}${mono ? ' (mono)' : ''}`)}.pdf`
-	return { suggested, parts: one ? { what: `${one.number} ${one.title}${mono ? ' mono' : ''}`, revision: one.revisions?.at(-1)?.code } : { what: `Sheets${mono ? ' mono' : ''}` } }
+	const sheetIds = sheets.map((s) => s.id)
+	return { suggested, parts: one ? { what: `${one.number} ${one.title}${mono ? ' mono' : ''}`, revision: one.revisions?.at(-1)?.code, sheetIds } : { what: `Sheets${mono ? ' mono' : ''}`, sheetIds } }
 }
 
 export async function downloadSheetsPdf(project: CadProject, sheets: Sheet[], mono = false): Promise<{ pages: number; unsupported: string[]; rasterised: string[] } | null> {

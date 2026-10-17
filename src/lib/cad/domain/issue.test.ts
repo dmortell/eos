@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, issueTitle, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds, primChanges, changeOverlay } from './issue'
+import { nextRev, nextMajor, nextMinor, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, issueTitle, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds, primChanges, changeOverlay } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -36,7 +36,8 @@ describe('revision clouds (W20)', () => {
 		expect([cloudShown(sheet(['A', 'A.1']), 'A'), cloudShown(sheet(['A', 'A.1', 'B']), 'A.1')]).toEqual([true, false])
 	})
 	it('a cloud marking a change but no revision yet takes the code at the release', () => {
-		const out = tagDraftClouds([{ id: 'c', sheetId: 'S', geom: { kind: 'cloud', changeId: 'k' } }], sheet(['A']), 'A.1')
+		const cloud: { id: string; sheetId: string; geom: { kind: string; rev?: string; changeId?: string } } = { id: 'c', sheetId: 'S', geom: { kind: 'cloud', changeId: 'k' } }
+		const out = tagDraftClouds([cloud], sheet(['A']), 'A.1')
 		expect(out.map((x) => x.geom.rev)).toEqual(['A.1'])
 	})
 	it('at an issue as P1: the sheet’s clouds on a draft code take P1; issued ones, others’ and untagged stay', () => {
@@ -58,6 +59,10 @@ describe('issue numbers', () => {
 })
 
 describe('issue', () => {
+	it('major and minor: B after A.2, A.1 after A, A.2 after A.1', () => {
+		expect([nextMajor('A'), nextMajor('A.2'), nextMajor(undefined), nextMajor('P01.1')]).toEqual(['B', 'B', 'A', 'P02'])
+		expect([nextMinor('A'), nextMinor('A.1'), nextMinor('A.9'), nextMinor(undefined)]).toEqual(['A.1', 'A.2', 'A.10', 'A'])
+	})
 	it('next revision: first, letters with carry, numbers keeping their width', () => {
 		expect(nextRev(undefined)).toBe('A')
 		expect(nextRev(undefined, 'P01')).toBe('P01')

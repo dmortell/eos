@@ -21,7 +21,8 @@
 	import ChangesSection from './ChangesSection.svelte'
 	import Field from './fields/Field.svelte'
 	import { duplicateSheets, sheetsForEach } from '../app/sheetActions'
-	import { issuesOfSheet, issueTag, changeLines, primChanges } from '../domain/issue'
+	import { issuesOfSheet, issueTag, changeLines, primChanges, nextMinor } from '../domain/issue'
+	import { issueStatesOf } from '../app/issueStates.svelte'
 	import type { Issue, SheetChange } from '../domain/drawing'
 	import { ordered, categoryOf } from '../domain/sheetCategories'
 	import { drawnFallback } from '../domain/titleBlock'
@@ -62,6 +63,9 @@
 		putSheet(on ? `Tag ${t}` : `Untag ${t}`, { tags: next.length ? next : undefined })
 	}
 	const putSheet = (label: string, patch: Partial<Sheet>) => project.store.transact(label, (tx) => tx.put({ ...s, ...patch }))
+	// changed since its last release (worked out while this shows): Bump version… is offered
+	$effect(() => { if (s.revisions?.length) return issueStatesOf(project).want() })
+	const changedSince = $derived(!!s.revisions?.length && issueStatesOf(project).of(s) === 'changed')
 	/** How it draws: its own setting, else the project's old one (as it prints). */
 	const look = $derived({ gray: s.gray ?? !!project.settings?.grayFloorplans, byUsage: (s.outletColour ?? project.settings?.outletColour) !== 'layer', channels: (s.cordRoute ?? project.settings?.cordRoute) === 'channels' })
 	const putVp = (label: string, patch: Partial<Viewport>) => putSheet(label, { viewports: s.viewports.map((v) => (v.id === vp?.id ? { ...v, ...patch } : v)) })
@@ -290,7 +294,9 @@
 		<label class="row">Title block <span><input type="checkbox" checked={!s.titleBlock?.hidden} onchange={(e) => putSheet(e.currentTarget.checked ? 'Show title block' : 'Hide title block', { titleBlock: { ...s.titleBlock, hidden: e.currentTarget.checked ? undefined : true } })} /> on this sheet</span></label>
 		<div class="acts"><button class="btn" title="The project's title block (on every sheet): fields, logos, company, sizes" onclick={() => ws.openTitleBlock()}>Title block template…</button>
 			<!-- Round 7 (User 2026-10-16): Release was only in the Sheets table's bar and the Drawings menu -->
-			<button class="btn" title="Release this sheet: the Sheets table opens with the release form for it (name, purpose, revision, what changed, BOM / schedules) — Ctrl-click more rows there to release them together" onclick={() => ws.releaseSheets()}>Release…</button></div>
+			<button class="btn" title="Release this sheet: the Sheets table opens with the release form for it (name, purpose, revision, what changed, BOM / schedules) — Ctrl-click more rows there to release them together" onclick={() => ws.releaseSheets()}>Release…</button>
+			<!-- design log step 3: a small update after its submittal -->
+			{#if changedSince}<button class="btn" title="Release it at its next version ({s.revisions?.at(-1)?.code} → {nextMinor(s.revisions?.at(-1)?.code)}): a small update after its submittal — its clouds stay, change numbers carry on" onclick={() => ws.bumpVersion([s.id])}>Bump version…</button>{/if}</div>
 	</PropGroup>
 	<PropGroup kind="sheet" title="Paper">
 		<label class="row">Size

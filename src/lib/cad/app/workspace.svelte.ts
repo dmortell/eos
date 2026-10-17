@@ -229,6 +229,11 @@ export class Workspace {
 	/** The Sheets table with Release… started on the selected sheet(s); set by the shell (Round 7: Release was only in the
 	 *  Sheets table's bar and the Drawings menu). */
 	releaseSheets: () => void = () => {}
+	/** The release form opens with minor versions (A → A.1) for its changed sheets: Bump version (design log step 3) —
+	 *  taken once by the form. */
+	releaseMinor = $state(false)
+	/** Bump version: these sheets selected, the release form opened on them with their next minor version. */
+	bumpVersion(sheetIds: Id[]): void { this.select(sheetIds); this.releaseMinor = true; this.releaseSheets() }
 	/** Opens the Tables' Log tab (the design log). */
 	openLog: () => void = () => {}
 	openSettings: (tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files') => void = () => {}

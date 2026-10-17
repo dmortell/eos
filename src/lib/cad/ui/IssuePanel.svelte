@@ -7,7 +7,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
-	import { ISSUE_PURPOSES, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
+	import { ISSUE_PURPOSES, nextMajor, nextMinor, withCodes, revCodeProblem, changesText, changeLines, type IssuePlanRow } from '../domain/issue'
 	import { sheetNotes } from '../domain/changes'
 	import { lastIssueOf, resolveRecipients } from '../domain/packages'
 	import { previewIssue, issuePackage, freshSheets, today, ATTACHMENT_NAME, type Attachment } from '../app/issue'
@@ -48,6 +48,13 @@
 	const last = $derived(pkg ? lastIssueOf(pkg, project.index.ofType('issue')) : undefined)
 	const added = $derived(new Set(last ? sheets.filter((s) => !last.sheets.some((x) => x.sheetId === s.id)).map((s) => s.id) : []))
 	const withdrawn = $derived(last ? last.sheets.filter((x) => !sheets.some((s) => s.id === x.sheetId)).map((x) => ({ sheetId: x.sheetId, number: x.number, title: x.title, rev: x.rev })) : [])
+	/** Every changed sheet to its next MAJOR revision (B) or MINOR version (A.1) — design log step 3. */
+	function level(minor: boolean) {
+		if (!plan) return
+		codes = Object.fromEntries(plan.filter((r) => r.changed).map((r) => [r.sheet.id, minor ? nextMinor(r.from, first.trim() || 'A') : nextMajor(r.from, first.trim() || 'A')]))
+	}
+	// opened by Bump version (a sheet's Properties, Save as): its minor versions, once the plan is in
+	$effect(() => { if (plan && ws.releaseMinor) untrack(() => { ws.releaseMinor = false; level(true) }) })
 	function applyAll() { if (!plan || !setAll.trim()) return; codes = Object.fromEntries(plan.filter((r) => r.changed).map((r) => [r.sheet.id, setAll.trim()])) }
 	// re-checked when the sheets or the first rev change (not on every project edit)
 	// A run token: a slow older preview finishing after a newer one must not replace it (nor one after the panel closed).
@@ -102,6 +109,11 @@
 		<label title="The released sheets' revision clouds: they're in the released copy either way. Keep = they stay (hidden once a later major revision is released); Delete = gone from the drawing now (Undo brings them back).">Clouds
 			<select class="inp" bind:value={clouds}><option value="keep">keep</option><option value="delete">delete</option></select></label>
 		<label title="Who releases it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
+		<!-- design log step 3: a big submittal (A → B) or a small update after one (A → A.1) -->
+		<span class="flex items-center gap-1">
+			<button class="btn" disabled={!plan} title="Every changed sheet to its next revision: a major release (A → B, A.2 → B)" onclick={() => level(false)}>Next revision</button>
+			<button class="btn" disabled={!plan} title="Every changed sheet to its next version: a small update after a submittal (A → A.1, A.1 → A.2) — its clouds stay, numbering carries on" onclick={() => level(true)}>Bump version</button>
+		</span>
 		<label title="Give every sheet getting a new revision this code (P01 → C01 at construction)">Set all to <input class="inp w-14 font-mono" bind:value={setAll} placeholder="C01" onkeydown={(e) => enterKey(e) && applyAll()} onchange={applyAll} /></label>
 		<button class="btn primary" disabled={busy || !plan || problems.length > 0} title={problems.join(' · ')} onclick={issue}>{busy ? 'Releasing…' : 'Release'}</button>
 		<button class="btn" disabled={busy} onclick={() => onclose()}>Cancel</button>

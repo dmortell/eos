@@ -54,14 +54,14 @@ const colW = (c: TbCell) => (c.image ? 40 : c.kind === 'logoText' ? Math.min(60,
 const revsH = (s: TbShown) => (s.revisions?.length ? REV_HEAD + s.revisions.length * REV_ROW : 0)
 
 function revisionTable(out: Prim[], s: TbShown, x: number, y: number, w: number): void {
-	const cols = [0, 0.2, 0.54].map((f) => x + f * w), heads = ['REV', 'DATE', 'NOTE']
+	// the revision and its date only (User 2026-10-17: what changed is in the package's change list, not the title block)
+	const cols = [0, 0.4].map((f) => x + f * w), heads = ['REV', 'DATE']
 	heads.forEach((t, i) => out.push({ k: 'text', at: { x: cols[i] + PAD, y: y + REV_HEAD - 0.9 }, text: t, size: 1.6, cls: 'tb-label' }))
 	out.push(rule(x, y + REV_HEAD, x + w, y + REV_HEAD))
 	s.revisions!.forEach((r, j) => {
 		const ry = y + REV_HEAD + (j + 1) * REV_ROW
-		// what changed (sheets-organising slice 7), else the issue's purpose — old revisions read as before
-		;[r.code, r.date, r.desc ?? r.note ?? ''].forEach((t, i) => {
-			const cw = (i < 2 ? cols[i + 1] : x + w) - cols[i]
+		;[r.code, r.date].forEach((t, i) => {
+			const cw = (i < 1 ? cols[i + 1] : x + w) - cols[i]
 			out.push({ k: 'text', at: { x: cols[i] + PAD, y: ry - 1 }, text: fit(t, cw - 2 * PAD, 2), size: 2, cls: 'tb-value' })
 		})
 		out.push(rule(x, ry, x + w, ry))

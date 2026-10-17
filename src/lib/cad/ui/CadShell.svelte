@@ -53,6 +53,8 @@
 	import { tipsDue } from './tipsStart'
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { pictureRef, issueNumbers } from '../domain/issue'
+	import { issueStatesOf } from '../app/issueStates.svelte'
+	import type { Sheet } from '../domain/drawing'
 	import UploadsDialog from './UploadsDialog.svelte'
 	import { buildMenus, selectionMenu, tabMenuOf, type MenuItem } from './cadMenus'
 	import { renameLevel as renameLevelOf, deleteLevel as deleteLevelOf, addServerRoom, allocateLevel } from '../app/navActions'
@@ -110,7 +112,19 @@
 	// else the export's own name; the Save as dialog (User: a dialog, not the status bar) — Enter saves, Esc cancels
 	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (User 2026-10-15)
 	onMount(() => { if (tipsDue()) layout.open('tips') })
-	let saveAs = $state<{ name: string; ext: string; type: string; done: (n: string | { name: string; action: SaveAction } | null) => void } | null>(null)
+	let saveAs = $state<{ name: string; ext: string; type: string; sheetIds?: string[]; done: (n: string | { name: string; action: SaveAction } | null) => void } | null>(null)
+	// a sheet PDF's Save as: its sheets' states are worked out while it's open, and those changed since their release
+	// offer Bump version… (design log step 3)
+	$effect(() => { if (saveAs?.sheetIds?.length) return issueStatesOf(project).want() })
+	const saveBump = $derived.by(() => {
+		const ids = saveAs?.sheetIds
+		if (!ids?.length) return undefined
+		const st = issueStatesOf(project)
+		const changed = ids.map((id) => project.index.get(id)).filter((s): s is Sheet => s?.type === 'sheet' && st.of(s) === 'changed')
+		if (!changed.length) return undefined
+		const one = changed.length === 1 ? changed[0] : null
+		return { text: `${one ? `${one.number} has` : `${changed.length} sheets have`} changed since ${one ? `revision ${one.revisions?.at(-1)?.code}` : 'their release'}.`, run: () => ws.bumpVersion(changed.map((s) => s.id)) }
+	})
 	/** The name from the project's pattern, else the suggested one. {version}: the release this file belongs to, else the
 	 *  project's latest ("03"; none released: left out). */
 	function patterned(suggested: string, parts: FileParts | undefined, ext: string): string {
@@ -121,7 +135,7 @@
 	$effect(() => {
 		setFileNamer((suggested, parts, ext, type) => new Promise((done) => {
 			saveAs?.done(null)
-			saveAs = { name: patterned(suggested, parts, ext), ext, type, done: (n) => { saveAs = null; done(n) } }
+			saveAs = { name: patterned(suggested, parts, ext), ext, type, sheetIds: parts?.sheetIds, done: (n) => { saveAs = null; done(n) } }
 		}))
 		setFilePatterner(patterned)
 		return () => { setFileNamer(null); setFilePatterner(null) }
@@ -877,7 +891,7 @@
 	{#if backupsOpen}<BackupsDialog {project} onclose={() => (backupsOpen = false)} say={(m) => ws.say(m)} onrestore={(src) => { restoreSource = src; backupOpen = 'restore' }} />{/if}
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
-	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} type={saveAs.type} ondone={saveAs.done} />{/if}
+	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} type={saveAs.type} ondone={saveAs.done} bump={saveBump} />{/if}
 	{#if ws.textAsk}{@const q = ws.textAsk}<TextDialog title={q.title} label={q.label} value={q.value} hint={q.hint} ok={q.ok} ondone={(t) => { const apply = q.apply; ws.textAsk = null; if (t != null) apply(t) }} />{/if}
 	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}

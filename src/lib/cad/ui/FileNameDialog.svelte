@@ -6,7 +6,10 @@
 	import CadDialog from './CadDialog.svelte'
 	import { canShareFile, type SaveAction } from '../render/download'
 
-	let { name, ext, type = '', ondone }: { name: string; ext: string; type?: string; ondone: (r: string | { name: string; action: SaveAction } | null) => void } = $props()
+	let { name, ext, type = '', ondone, bump }: { name: string; ext: string; type?: string; ondone: (r: string | { name: string; action: SaveAction } | null) => void
+		/** Sheets changed since their release: "Bump version…" — nothing saved, the release form opens on them at their next
+		 *  minor version (design log step 3). */
+		bump?: { text: string; run: () => void } } = $props()
 	// besides Save (User 2026-10-15, as the print tab has): Email / share… where the browser shares files; Open / print for a PDF
 	const share = $derived(!!type && canShareFile(type)), pdf = $derived(ext.toLowerCase() === 'pdf')
 
@@ -23,6 +26,7 @@
 		{#if ext}<span class="ext">.{ext}</span>{/if}
 	</label>
 	<p class="hint">Project › Settings… › Files sets the pattern names start from.</p>
+	{#if bump}<p class="hint bump">{bump.text} <button class="btn" title="Save nothing now: release them at their next version (A → A.1) — the release makes the PDF" onclick={() => { ondone(null); bump.run() }}>Bump version…</button></p>{/if}
 	{#snippet footer()}
 		<span class="keys">Enter saves · Esc cancels</span>
 		<button class="btn" onclick={() => ondone(null)}>Cancel</button>
@@ -37,4 +41,5 @@
 	input { flex: 1; min-width: 0; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 5px; padding: 5px 8px; font-size: 13px; background: var(--cad-input, white); color: var(--cad-text); }
 	.ext { color: var(--cad-muted); font-size: 13px; }
 	.hint { margin: 8px 0 0; font-size: 11px; color: var(--cad-muted); }
+	.bump { display: flex; align-items: center; gap: 6px; color: var(--cad-text); }
 </style>
