@@ -80,7 +80,10 @@ export function numberSheets(project: CadProject, ids: Id[], pattern: string): n
 export function viewToSheet(project: CadProject, ws: Workspace, view: { levelId: Id; spec: Exclude<ViewSpec, { kind: 'sheet' }> }, visible: Bounds, target: string): { sheet: Sheet; vpId: Id; scale: number } | null {
 	const sheets = (project.store.ofType('sheet') as Sheet[]).filter((s) => s.status !== 'archived')
 	// a new sheet is named after its view (R7-16, User 2026-10-16: it was "New sheet"): "1F plan", "1F north elevation"
-	const lv = project.index.nameOf(view.levelId), what = view.spec.kind === 'plan' ? 'plan' : view.spec.kind === 'elevation' ? `${view.spec.dir} elevation` : view.spec.kind === 'section' ? project.index.nameOf(view.spec.sectionId) || 'section' : specLabel(view.spec)
+	const lv = project.index.nameOf(view.levelId), what = view.spec.kind === 'plan' ? 'plan' : view.spec.kind === 'elevation' ? `${view.spec.dir} elevation` : view.spec.kind === 'section' ? project.index.nameOf(view.spec.sectionId) || 'section'
+		// a rack view: its room and row (Round 9: "1F Racks front" said neither)
+		: view.spec.kind === 'row' ? [project.index.nameOf(view.spec.spaceId), view.spec.rowId ? project.index.nameOf(view.spec.rowId) : 'racks', view.spec.face].filter(Boolean).join(' ')
+		: specLabel(view.spec)
 	const title = isPaperKind(view.spec.kind) || view.spec.kind === 'riser' || !lv ? specLabel(view.spec) : `${lv} ${what}`
 	const base = target === 'new' ? { ...blankSheet(sheets, newId()), title } : project.index.get<Sheet>(target)
 	if (base?.type !== 'sheet') return null

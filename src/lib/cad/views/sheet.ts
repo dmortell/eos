@@ -276,6 +276,12 @@ export function floorplanBounds(ix: ProjectIndex, levelId: Id, underlay: SheetOp
  *  floorplan's crop (not the whole PDF page with the architect's title block). */
 export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['view'], visible: Bounds, id: Id, o: SheetOpts = {}): Viewport {
 	const a = drawingArea(ix, sheet, o), inset = 5
+	// a rack view goes on whole — its racks, not the part the pane was zoomed to (Round 9: zoomed in on a panel's ports,
+	// the sheet got 1:5 of two racks)
+	if (view.spec.kind === 'row') {
+		const b = contentBounds(ix, { id, view, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 1, centre: { x: 0, y: 0 } }, o)
+		if (b) { const m = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 0.03; visible = { x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m } }
+	}
 	const w = Math.max(1, visible.x1 - visible.x0), h = Math.max(1, visible.y1 - visible.y0)
 	const roomW = a.w - 2 * inset, roomH = a.h - 2 * inset
 	if (isPaperSpec(view.spec)) return paperViewport(ix, sheet, view, id, o)   // paper is drawn at 1:1, from its top-left
@@ -290,10 +296,19 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 		const at = PLOT_SCALE   // the drawings' 1:100 (W18); the viewport can be resized or rescaled after
 		return { id, view, scale: at, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }
 	}
-	const size = { w: Math.min(roomW, Math.ceil(w / scale)), h: Math.min(roomH, Math.ceil(h / scale)) }
+	// where it fits beside what's on the sheet — at a smaller standard scale if it must (Round 9: Row B went on exactly
+	// over Row A); nothing fits at all: the first scale, top-left, as before
+	const room = { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH }
+	const sized = (n: number) => ({ w: Math.min(roomW, Math.ceil(w / n)), h: Math.min(roomH, Math.ceil(h / n)) })
+	let at = scale, size = sized(scale), spot = findSpot(sheet, room, size.w, size.h)
+	for (const n of SCALES.filter((n) => n > scale)) {
+		if (spot) break
+		const sz = sized(n), sp = findSpot(sheet, room, sz.w, sz.h)
+		if (sp) { at = n; size = sz; spot = sp }
+	}
 	return {
-		id, view, scale, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
-		rect: { ...freeSpot(sheet, { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH }, size.w, size.h), ...size },
+		id, view, scale: at, centre: { x: Math.round((visible.x0 + visible.x1) / 2), y: Math.round((visible.y0 + visible.y1) / 2) },
+		rect: { ...(spot ?? { x: room.x, y: room.y }), ...size },
 	}
 }
 
@@ -384,11 +399,15 @@ export function paperViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vi
  *  top-left in 5 mm steps, that keeps 5 mm clear of every viewport on the sheet (W22: a second "Put on sheet" landed on
  *  top of the first). No room left: the top-left, as before. */
 export function freeSpot(sheet: Pick<Sheet, 'viewports'>, room: { x: number; y: number; w: number; h: number }, w: number, h: number): { x: number; y: number } {
+	return findSpot(sheet, room, w, h) ?? { x: room.x, y: room.y }
+}
+/** The first spot (top-left first) where a w × h window clears the sheet's viewports; null when there's none. */
+export function findSpot(sheet: Pick<Sheet, 'viewports'>, room: { x: number; y: number; w: number; h: number }, w: number, h: number): { x: number; y: number } | null {
 	const gap = 5, step = 5, vps = sheet.viewports.map((v) => v.rect)
 	const clear = (x: number, y: number) => vps.every((r) => x + w + gap <= r.x || r.x + r.w + gap <= x || y + h + gap <= r.y || r.y + r.h + gap <= y)
 	for (let y = room.y; y + h <= room.y + room.h; y += step)
 		for (let x = room.x; x + w <= room.x + room.w; x += step) if (clear(x, y)) return { x, y }
-	return { x: room.x, y: room.y }
+	return null
 }
 
 /** A model view printed on its own (User 2026-10-15: Ctrl+P on a plan / section / rack view → "the whole view", or the

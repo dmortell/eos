@@ -294,6 +294,7 @@ export const FKEYS: [string, string][] = KEY_COMMANDS.filter((k) => k.group === 
 export const TIPS: string[] = [
 	'Help › Walkthrough opens the steps from a new project to a release in a window you can keep open while you work.',
 	'Ctrl+K jumps to the Navigator’s search: type part of a level, view, sheet, room or rack name.',
+	'In a rack view, Display ▾ › Cord channels draws patch cords along the cable managers as they’d really run; untick it to see them hanging straight from port to port (easier to follow one cord). On a sheet: Properties › Cord channels.',
 	'Double-click a label (or select it and press F2) to edit it on the drawing; Tab saves it and opens the next one.',
 	'Set one item up the way you like it, then Properties › Use as default: the next ones you draw start the same.',
 	'A tool button with a small corner mark is a family: click the mark (or press and hold) to pick another, e.g. Polygon under Rect.',
@@ -314,6 +315,7 @@ export const TIPS: string[] = [
 export const TIPS_JA: string[] = [
 	'Help › Walkthrough で、新規プロジェクトからリリースまでの手順をウィンドウで開いたまま作業できます。',
 	'Ctrl+K で Navigator の検索へ:階、ビュー、シート、部屋、ラックの名前の一部を入力します。',
+	'ラックビューの Display ▾ › Cord channels でパッチコードをケーブルマネージャーに沿って(実際の配線どおり)表示。チェックを外すとポート間を直線で表示(1本を追いやすい)。シートでは Properties › Cord channels。',
 	'ラベルをダブルクリック(または選択して F2)で図面上で編集。Tab で保存して次のラベルへ。',
 	'設定済みのアイテムを選び Properties › Use as default:次に描くものが同じ設定で始まります。',
 	'角に小さな印のあるツールボタンはファミリー:印をクリック(または長押し)で別のツールへ(例:Rect の下に Polygon)。',
