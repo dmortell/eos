@@ -26,15 +26,21 @@
 	}
 </script>
 
-<label title="Keep who changed what, and when: one small record per edit (a drag is one), beside the project — read in an item's Properties › History and Project › History…. Off by default; switch it on after the first major release, and watch its size here.">
-	Edit history <span><input type="checkbox" checked={on} onchange={(e) => setOn(e.currentTarget.checked)} /> keep one</span></label>
-<p class="wide text-zinc-500">
+<!-- grid items of Settings' form (its `label { display: contents }` doesn't reach in here): a name, then its control -->
+<span title="Keep who changed what, and when: one small record per edit (a drag is one), beside the project — read in an item's Properties › History and Project › History…. Off by default; switch it on after the first major release, and watch its size here.">Edit history</span>
+<label class="ctl"><input type="checkbox" checked={on} onchange={(e) => setOn(e.currentTarget.checked)} /> keep one</label>
+<p class="wide">
 	{#if err}Couldn’t read its size: {err}{:else if count === null}Counting…{:else}{count} entr{count === 1 ? 'y' : 'ies'} kept{count ? ` (about ${roughSize(count)})` : ''}.{/if}
 	<button class="btn" onclick={recount}>Recount</button>
 </p>
-<label title="Delete the entries older than this many days (everyone's): keeps the history from growing without end">Delete older than
-	<span><input class="num" type="number" min="1" step="30" bind:value={days} /> days <button class="btn" disabled={busy || !count} onclick={trim}>Delete…</button></span></label>
+<span title="Delete the entries older than this many days (everyone's): keeps the history from growing without end">Delete older than</span>
+<span class="ctl"><input class="num" type="number" min="1" step="30" aria-label="Days" bind:value={days} /> days <button class="btn" disabled={busy || !count} onclick={trim}>Delete…</button></span>
 
 <style>
-	.num { width: 5rem; }
+	.ctl { display: flex; align-items: center; gap: 6px; }
+	.wide { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--cad-muted); }
+	/* as Settings' own inputs and buttons (SettingsPanel.svelte; its styles are scoped to it) */
+	.num { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 4px; background: var(--cad-input, white); color: inherit; }
+	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn:disabled { opacity: 0.4; }
 </style>
