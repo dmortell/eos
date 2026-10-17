@@ -22,6 +22,20 @@ export function pickStack(prims: Prim[], p: Pt, tol: number): Id[] {
 
 /** The topmost prim under `p` with a source — for its `sub` (a port number on a device …). */
 export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean, prefer?: (src: Id) => boolean): Prim | undefined {
+	return exactPort(prims, pickNear(prims, p, tol, skip, prefer), p)
+}
+/** A port cell picked within the tolerance, while the point is INSIDE another port cell: that one (Round 9: the tip
+ *  said PP1 port 1, the click took port 3 — the tolerance reaches over the next tiny cell, drawn later). */
+function exactPort(prims: Prim[], hit: Prim | undefined, p: Pt): Prim | undefined {
+	// (a port's LABEL too: drawn at a minimum on-screen size, it spills over the next cell and took the click)
+	if (!hit || hit.k === 'image' || !hit.sub || !/^port\b/.test(hit.cls) || (hit.k === 'line' && hit.closed && inPolygon(p, hit.pts))) return hit
+	for (let i = prims.length - 1; i >= 0; i--) {
+		const pr = prims[i]
+		if (pr.k === 'line' && pr.src && pr.sub && pr.closed && /^port\b/.test(pr.cls) && inPolygon(p, pr.pts)) return pr
+	}
+	return hit
+}
+function pickNear(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean, prefer?: (src: Id) => boolean): Prim | undefined {
 	// what's preferred under the point wins over what's drawn on top of it (R7-23: an outlet on a desk — the desk's fill
 	// is drawn over it, so a click took the desk)
 	if (prefer) for (let i = prims.length - 1; i >= 0; i--) {
