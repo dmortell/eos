@@ -871,3 +871,33 @@ elevations. No patching across buildings (User).
 Good: the Device library's templates, "Select the 12 allocated ports not patched yet" → "Patch 12 ports to…" with a
 preview (Fill free ports only), Allocate this level, "no low run within 10 m …" saying exactly why the floor-box
 outlets had no route, cord lengths filled in (1–1.5 m in a row, 3 m across), the MDF outline offer, Room elevations.
+
+## Round 10: patching between rows, again (live, 2026-10-17)
+
+Same project ("Round 9 test"), after the Round 9 follow-ups: Row B in one pane, Row A in the other (the User's way),
+the Patch cord tool across them, typed ports, Enter for the next pairs, the port lights, Alt to grab a device, the
+port's + tip, "Rows on sheets".
+
+**Built for this round** (User 2026-10-17): the port under the pointer lit with its number; the far ends of its cords
+and cable lit blue in either pane; while a cord is half made every rack view shows free (green) / taken (red) ports
+and the first one (yellow); Enter patches the next pair; the other end typed in the status bar (SW2:10, letters too
+once a cord is half made); Alt shows the device a drag takes, at once; a tip on a port's +; a room's rows on sheets
+in one go ("Rows A–B", fronts then rears); tab titles cut in the middle; a cloud icon for the revision cloud; no
+context menu after a right-button wheel.
+
+**Found:**
+1. A pane switched from the plan to Row A showed nothing: it had been fitted to the plan's drawing (the switch's
+   first run still had it) and never again. → after a switch, a camera that shows none of the new drawing fits — built.
+2. While patching, a panel's ports with no label showed green (free), but a click on one is refused. → grey
+   ("blocked") — built.
+3. Typing SW2:10 after the first port: "S" and "W" were shortcuts (S switched to Select and dropped the cord). →
+   letters go to the status bar while a cord is half made — built.
+4. A port tip's far-end callback read and wrote the same state inside an effect (an update loop that froze the
+   tips) — fixed before it shipped.
+5. Cords to another row aren't drawn in either row's view (only the port's green fill says it's patched) — the far
+   end lit on hover now shows where it goes. Open: a short stub with "→ R05 SW2:10" at the port?
+6. The Select tool's hover outline shows only in the active pane, while the port tip and lights show in both — a
+   click in the other pane makes it active first. Noted only.
+7. The + tip is drawn over the rack's lines (no halo). Noted only.
+Good: patching at Fit zoom across the split (SW1:32 → SW2:21, lit ports made the 2 px targets findable), Enter for
+three pairs in a row, typed SW2:10, the far end lit in the other pane, Rows on sheets (S003 / S004 at 1:20).

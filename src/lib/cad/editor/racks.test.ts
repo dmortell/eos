@@ -240,7 +240,7 @@ describe('devices in the rack row', () => {
 		const idle = portLights(ix, prims, 'front', { hover: null, first: { on: 'P1', port: 4, face: 'front' }, bulk: null, patching: false })
 		expect(idle.size).toBe(0)
 		const m = portLights(ix, prims, 'front', { hover: null, first: { on: 'P1', port: 4, face: 'front' }, bulk: null, patching: true })
-		expect([m.get('P1:4'), m.get('SW1:5'), m.get('P1:3'), m.get('SW1:6')]).toEqual(['from', 'taken', 'taken', 'free'])
+		expect([m.get('P1:4'), m.get('SW1:5'), m.get('P1:3'), m.get('SW1:6'), m.get('P1:10')]).toEqual(['from', 'taken', 'taken', 'free', 'blocked'])
 		const far = portLights(ix, prims, 'front', { hover: { on: 'SW1', port: 5, face: 'front' }, first: null, bulk: null, patching: false })
 		expect(far.get('P1:3')).toBe('far')
 	})

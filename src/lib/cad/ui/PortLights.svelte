@@ -15,6 +15,7 @@
 	.pl { pointer-events: none; stroke-width: 1; }
 	.free { fill: rgb(34 197 94 / 0.3); stroke: #16a34a; }
 	.taken { fill: rgb(239 68 68 / 0.35); stroke: #dc2626; }
+	.blocked { fill: rgb(100 116 139 / 0.35); stroke: #64748b; }
 	.from { fill: rgb(250 204 21 / 0.6); stroke: #f59e0b; stroke-width: 2; }
 	.far { fill: rgb(56 189 248 / 0.55); stroke: #0284c7; stroke-width: 2; }
 </style>

@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Outlet, PortRef, ProjectSettings } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
-import { portUse } from '../domain/cords'
+import { portUse, patchProblem } from '../domain/cords'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
@@ -76,7 +76,8 @@ export function outletTip(ix: ProjectIndex, o: Outlet): string[] {
 /** How each port cell of a rack view is lit (User 2026-10-17, "ports are tiny"): key `device:port` →
  *  - `far`: the other end of a cord / cable on the port under the pointer (`hover`, in any pane);
  *  - while a cord is being patched (`patching`: the Patch cord tool's first port, or a bulk patch / link armed):
- *    `from` = the ports patched from, `taken` = a port already carrying a cord (for links: a cable), `free` = the rest. */
+ *    `from` = the ports patched from, `taken` = a port already carrying a cord (for links: a cable), `blocked` = one a
+ *    cord can't go on (a panel port without a label), `free` = the rest. */
 export function portLights(ix: ProjectIndex, prims: Prim[], face: 'front' | 'rear', s: { hover: PortRef | null; first: PortRef | null; bulk: { on: string; ports: number[]; kind?: 'cord' | 'link' } | null; patching: boolean }): Map<string, string> {
 	const m = new Map<string, string>()
 	const onFace = (r: PortRef) => !r.face || r.face === face
@@ -86,7 +87,9 @@ export function portLights(ix: ProjectIndex, prims: Prim[], face: 'front' | 'rea
 		for (const p of prims) {
 			if (p.k !== 'line' || !p.closed || !p.src || !p.sub || !p.cls.startsWith('port')) continue
 			const k = `${p.src}:${p.sub}`
-			m.set(k, (link ? ix.linkAt({ on: p.src, port: Number(p.sub), face }) : corded.has(k)) ? 'taken' : 'free')
+			const r = { on: p.src, port: Number(p.sub), face }
+			// a panel port with no label refuses a cord (Round 10: it showed free): blocked, grey
+			m.set(k, (link ? ix.linkAt(r) : corded.has(k)) ? 'taken' : !link && patchProblem(ix, r) ? 'blocked' : 'free')
 		}
 		if (s.first && onFace(s.first)) m.set(`${s.first.on}:${s.first.port}`, 'from')
 		if (s.bulk) for (const n of s.bulk.ports) m.set(`${s.bulk.on}:${n}`, 'from')
