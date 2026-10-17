@@ -543,7 +543,7 @@
 		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), zoomSel, split: panes.length === 2, toggleSplit,
 		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
-		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan',
+		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan', fillHere: activeKind === 'plan' || activeKind === 'elevation' || activeKind === 'section',
 		drafting: ws.drafting, toggleDrafting,
 		tool: pickTool, toolVariant: pickItem, toolOk: (id) => toolWorksIn(id, activeKind, !!vpEditKind), openTable, sheetsTab: (w) => { openTable('sheets'); ws.sheetsAsk = w },
 		cordBom: () => exportsRef?.openCordBom(), cordLabels: () => exportsRef?.openCordLabels(), portMap: portMapExcel, portMapView, cableSchedule: () => exportsRef?.openCables(), bom: () => exportsRef?.openBom(), catalogue: () => (catalogueOpen = true), serverRoom: () => addServerRoom(project, ws, ws.levelId), allocate: () => { allocateLevel(project, ws, ws.levelId); openTable('outlets') },

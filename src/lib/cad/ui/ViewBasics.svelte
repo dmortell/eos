@@ -6,13 +6,18 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { ViewSpec } from '../views/space'
 	import { withRiserEnd } from '../views/riser'
+	import { floorsWithoutLevel } from '../domain/floors'
 	import PropGroup from './PropGroup.svelte'
 	import Field from './fields/Field.svelte'
 
 	let { project, ws, current, onfloors }: { project: CadProject; ws: Workspace; current?: { levelId?: string; spec: ViewSpec }; onfloors?: () => void } = $props()
 
 	/** The floors a riser range can start / end at (area plans share their floor), lowest first. */
-	const floorsUp = $derived(project.levels.filter((l) => !l.area).sort((a, b) => a.number - b.number))
+	// every floor of the building, a model or not (User 2026-10-17: with 20 floors shown, the range offered only 1F–3F)
+	const floorsUp = $derived.by(() => {
+		const all = [...project.levels.filter((l) => !l.area), ...project.index.ofType('building').flatMap((b) => floorsWithoutLevel(project.levels, b))]
+		return [...new Map(all.map((l) => [l.number, l])).values()].sort((a, b) => a.number - b.number)
+	})
 	const range = $derived(project.settings?.riser)
 	function setRiserEnd(end: 'from' | 'to', v: string) {
 		const st = project.settings

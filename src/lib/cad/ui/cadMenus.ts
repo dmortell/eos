@@ -58,7 +58,7 @@ export interface MenuCtx {
 	tables: boolean; toggleTables(): void
 	hideAll: boolean; toggleHideAll(): void
 	back(): void; forward(): void; canBack: boolean; canFwd: boolean
-	fill: boolean; toggleFill(): void; isPlan: boolean
+	fill: boolean; toggleFill(): void; isPlan: boolean; /** a plan, elevation or section: fill rates draw there */ fillHere: boolean
 	drafting: { snap: boolean; osnap: boolean; showGrid: boolean }; toggleDrafting(k: 'snap' | 'osnap' | 'showGrid'): void
 	// tools (Insert, Cabling)
 	tool(id: ToolId): void; toolOk(id: ToolId): boolean
@@ -155,7 +155,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			{ label: 'Split', checked: c.split, run: c.toggleSplit },
 			{ label: 'Copy view as picture', title: 'The active view as you see it, onto the clipboard as a picture (paste it into an email or a report)', run: c.copyView },
 			'-',
-			{ label: 'Fill rates', title: 'Draw each run’s fill (the % of its limit) on the plan', checked: c.fill, disabled: !c.isPlan, run: c.toggleFill },
+			{ label: 'Fill rates', title: c.fillHere ? 'Draw each run’s fill (the % of its limit) — on a plan, elevation or section (risers too)' : 'Fill rates show on a plan, an elevation or a section', checked: c.fill, disabled: !c.fillHere, run: c.toggleFill },
 			{ label: 'Drafting', children: [
 				{ label: 'Snap to grid (SNAP)', key: KEYS.snap, checked: c.drafting.snap, run: () => c.toggleDrafting('snap') },
 				{ label: 'Object snaps (OSNAP)', key: KEYS.osnap, checked: c.drafting.osnap, run: () => c.toggleDrafting('osnap') },

@@ -1,6 +1,6 @@
 // Issuing, the pure part: revision codes, frozen lists + fingerprints, which sheets a package bumps.
 import { describe, it, expect } from 'vitest'
-import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds, primChanges, changeOverlay } from './issue'
+import { nextRev, freeze, fingerprint, planIssue, withRevision, issuedRevision, changesText, underlayRef, parseUnderlayRef, transmittalRows, issueNumbers, nextIssueNumber, issueTag, issueTitle, withCodes, revCodeProblem, issueState, issuesOfSheet, issueRegister, sheetPrint, pageLook, draftRev, cloudShown, tagDraftClouds, primChanges, changeOverlay } from './issue'
 import type { Issue, Sheet } from './drawing'
 import type { Prim } from '../views/display'
 
@@ -190,5 +190,14 @@ describe('what changed since the last issue (W23)', () => {
 		const clip = { x0: 0, y0: 0, x1: 5, y1: 5 }
 		const o = changeOverlay({ added: [{ k: 'line', pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], closed: true, fill: true, color: '#f00', cls: 'wall', clip }], gone: [text('A01')] })
 		expect(o).toEqual([{ ...text('A01'), cls: 'chg-gone' }, { k: 'line', pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], closed: true, cls: 'chg-new', clip }])
+	})
+})
+
+describe('a release\'s title (Round 8 #8)', () => {
+	it('names the number once', () => {
+		expect(issueTitle(3, '03 Round 8')).toBe('Release 03 Round 8')
+		expect(issueTitle(3, 'Release 3 – Round 8')).toBe('Release 03 Round 8')
+		expect(issueTitle(3, 'Tender')).toBe('Release 03 Tender')
+		expect(issueTitle(3, '30 rooms')).toBe('Release 03 30 rooms')   // another number stays
 	})
 })

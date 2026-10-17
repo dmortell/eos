@@ -8,7 +8,8 @@ import type { Entity } from '../domain/drawing'
 import type { PortSel } from '../editor/tools'
 import type { Route } from '../domain/routing'
 import type { Estimate } from '../domain/estimates'
-import type { ViewSpec } from './space'
+import type { ViewSpec, ViewSpace } from './space'
+import { levelElevation } from '../domain/routing'
 import { primBounds, unionBounds } from './display'
 import { spaceOf } from './space'
 import { traceCircuit } from '../domain/cords'
@@ -77,6 +78,35 @@ export function fillBands(ix: ProjectIndex, fills: Iterable<BandFill> | Map<stri
 		const tone = fillTone(f.pct), w = (sg?.section ?? s.section)?.w ?? 100, est = estCount(f)
 		out.push({ k: 'line', pts: [a, b], w: Math.max(w, 150), cls: `fill-band fill-${tone}` })
 		out.push({ k: 'text', at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, text: `${Number.isFinite(f.pct) ? `${Math.round(f.pct)}%` : 'no size'}${est ? ` · ${est} est.` : ''}`, size: 2.2 * plotScale, anchor: 'middle', cls: `fill-label fill-${tone}` })
+	}
+	return out
+}
+
+/** Fill rates in an ELEVATION or SECTION (User 2026-10-17: risers and vertical conduits too): each run segment of this
+ *  level — or rising / dropping to it — seen in `space`, the same bands and % as the plan. Heights are this level's
+ *  (a node on another level is lifted by the difference of their FFLs). `range` (a section): only what lies in its cut. */
+export function fillBandsElev(ix: ProjectIndex, fills: Iterable<BandFill> | Map<string, BandFill>, levelId: Id, space: ViewSpace, plotScale: number,
+	range?: { near: number; far: number; u0: number; u1: number }): Prim[] {
+	const out: Prim[] = [], base = levelElevation(ix, levelId)
+	for (const f of fills instanceof Map ? fills.values() : fills) {
+		const s = ix.get(f.shape)
+		if (s?.type !== 'shape' || s.geom.kind !== 'path') continue
+		const g = s.geom, sg = g.segs.find((x) => x.id === f.seg), a = g.nodes.find((n) => n.id === sg?.a), b = g.nodes.find((n) => n.id === sg?.b)
+		if (!a || !b) continue
+		const la = a.levelId ?? s.levelId, lb = b.levelId ?? s.levelId
+		if (la !== levelId && lb !== levelId) continue
+		const w3 = (n: typeof a, l: Id | undefined) => ({ x: n.x, y: n.y, z: n.z + levelElevation(ix, l) - base })
+		const A = w3(a, la), B = w3(b, lb)
+		if (range) {
+			const d = (space.depthOf(A) + space.depthOf(B)) / 2
+			if (d > range.near || d < range.far) continue
+		}
+		const pa = space.fromWorld(A), pb = space.fromWorld(B)
+		if (range && Math.max(pa.x, pb.x) < range.u0 || range && Math.min(pa.x, pb.x) > range.u1) continue
+		if (Math.hypot(pb.x - pa.x, pb.y - pa.y) < 0.5) continue   // end-on in this view
+		const tone = fillTone(f.pct), w = (sg?.section ?? s.section)?.w ?? 100, est = estCount(f)
+		out.push({ k: 'line', pts: [pa, pb], w: Math.max(w, 150), cls: `fill-band fill-${tone}` })
+		out.push({ k: 'text', at: { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 }, text: `${Number.isFinite(f.pct) ? `${Math.round(f.pct)}%` : 'no size'}${est ? ` · ${est} est.` : ''}`, size: 2.2 * plotScale, anchor: 'middle', cls: `fill-label fill-${tone}` })
 	}
 	return out
 }

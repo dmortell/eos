@@ -230,6 +230,12 @@ export function issueNumbers(issues: Issue[]): Map<string, number> {
 export const nextIssueNumber = (issues: Issue[]): number => Math.max(0, ...issueNumbers(issues).values()) + 1
 /** How an issue's number reads in names: "Issue 03". */
 export const issueTag = (n: number): string => `Release ${String(n).padStart(2, '0')}`
+/** "Release 03 Round 8" — the tag and the release's name, without the number twice when the name starts with it
+ *  ("03 Round 8", "3 – Round 8", "Release 3 Round 8"; Round 8 #8: the file read "Release 03 03 Round 8"). */
+export function issueTitle(n: number, name: string): string {
+	const rest = n ? name.replace(new RegExp(`^\\s*(release\\s*)?0*${n}(?!\\d)\\s*[-–:.]?\\s*`, 'i'), '') : name
+	return `${issueTag(n)}${rest.trim() ? ` ${rest.trim()}` : ''}`
+}
 
 /** The transmittal's rows: the package's sheets in sheet-number order. */
 export function transmittalRows(issue: Issue): Issue['sheets'] {
@@ -284,7 +290,7 @@ export function issueRegister(issues: Issue[], latest = false): { columns: { id:
 		}) }
 	}
 	return {
-		columns: ordered.map((i) => ({ id: i.id, head: `${issueTag(nums.get(i.id) ?? 0)} ${i.name}`, date: i.date })),
+		columns: ordered.map((i) => ({ id: i.id, head: issueTitle(nums.get(i.id) ?? 0, i.name), date: i.date })),
 		rows: ids.map((id) => ({ ...sheets.get(id)!, cells: ordered.map((i) => cellOf(i, id)) })),
 	}
 }

@@ -283,7 +283,9 @@ export function viewViewport(ix: ProjectIndex, sheet: Sheet, view: Viewport['vie
 	// a plan with floorplans: the whole floor (their crop), however far in the pane was zoomed (R7-16, User 2026-10-16:
 	// zoomed in on the rack room, the sheet showed 262 × 97 mm of it), at 1:100, filling the drawing area
 	const f = view.spec.kind === 'plan' ? floorplanBounds(ix, view.levelId, o.underlay) : null
-	if (f || (view.spec.kind === 'plan' && scale > PLOT_SCALE)) {
+	// an EMPTY plan (nothing drawn yet): the floor's sheet too, not a strip the size of the pane (Round 8 #5)
+	const empty = view.spec.kind === 'plan' && !f && !contentBounds(ix, { id, view, rect: { x: 0, y: 0, w: 1, h: 1 }, scale: 1, centre: { x: 0, y: 0 } }, o)
+	if (f || empty || (view.spec.kind === 'plan' && scale > PLOT_SCALE)) {
 		const c = f ?? visible
 		const at = PLOT_SCALE   // the drawings' 1:100 (W18); the viewport can be resized or rescaled after
 		return { id, view, scale: at, centre: { x: Math.round((c.x0 + c.x1) / 2), y: Math.round((c.y0 + c.y1) / 2) }, rect: { x: a.x + inset, y: a.y + inset, w: roomW, h: roomH } }

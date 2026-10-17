@@ -4112,3 +4112,9 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   section are kept outside its width / depth (`elevation.ts` Item.own); Project details saves only changed fields and
   takes others' saves into untouched fields (`ProjectDetailsForm`). Decided: outlets don't follow desks; new layers
   stay off on existing sheets until turned on.
+- **Round 8 #23, #5, #19, #8** (User 2026-10-17): the riser view's floor range offers every floor of the building
+  (`ViewBasics` + `floorsWithoutLevel`); a sheet from an empty plan is the floor's sheet at 1:100 filling the drawing
+  area (`viewViewport`, test `views/sheetEmptyPlan.test.ts`); View › Fill rates in elevations and sections too —
+  risers and vertical runs get their band and %, a section only in its cut (`fillBandsElev`, test
+  `views/fillElev.test.ts`); a release's name starting with its number isn't repeated ("Release 03 Round 8",
+  `issueTitle`) in its PDF, reprint, transmittal and register.

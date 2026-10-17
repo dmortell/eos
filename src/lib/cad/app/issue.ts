@@ -12,7 +12,7 @@ import type { Issue, Sheet } from '../domain/drawing'
 import type { Underlay } from '../domain/types'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, type IssuePlanRow } from '../domain/issue'
+import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, issueTitle, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { fileSafe, saveFile } from '../render/download'
 import { bomFile, cableScheduleFile, XLSX_TYPE, type XlsxFile } from '../render/exports'
@@ -204,7 +204,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 		coverN = cover.length
 	}
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
-	const name = `${fileSafe(`${project.name} ${issueTag(number)} ${f.name} ${f.date}`)}.pdf`
+	const name = `${fileSafe(`${project.name} ${issueTitle(number, f.name)} ${f.date}`)}.pdf`
 	const file = await uploadPdf(project, new File([pdf.output('blob')], name, { type: 'application/pdf' }))
 	// the schedules that go with it (W21), as they are now; named after the issue
 	const attachments: NonNullable<Issue['attachments']> = []
@@ -250,7 +250,7 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 	const pages = await Promise.all([...cover, ...issue.sheets.map((s) => loadFrozen(project, s.sheetId, s.rev))])
 	const { pdf, unsupported, rasterised } = await pagesToPdf(pages, frozenImages(project), { rasterText: browserTextRaster, font: await projectPdfFont(project.settings) })
 	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
-	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? `${issueTag(n)} ` : ''}${issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${issue.name} reprint`, ...(n ? { version: String(n).padStart(2, '0') } : {}) })) return null
+	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? issueTitle(n, issue.name) : issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${issue.name} reprint`, ...(n ? { version: String(n).padStart(2, '0') } : {}) })) return null
 	return { unsupported, rasterised }
 }
 

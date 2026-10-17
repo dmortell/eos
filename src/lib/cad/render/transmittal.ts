@@ -1,7 +1,7 @@
 // The TRANSMITTAL of an issue (Phase 4.6) as Excel: the package header (project, package, purpose, date, to, PDF),
 // then each sheet with the revision it went at and whether that revision is new in this package.
 import type { Issue } from '../domain/drawing'
-import { transmittalRows, issueTag } from '../domain/issue'
+import { transmittalRows, issueTitle } from '../domain/issue'
 import { fileSafe, saveFile } from './download'
 
 /** `number` = the issue's number (domain/issue issueNumbers): in the header and the file name. */
@@ -24,5 +24,5 @@ export async function exportTransmittal(issue: Issue, projectName: string, numbe
 	// sheets of the package's last issue that aren't in this one (sheets-organising slice 8)
 	for (const s of issue.withdrawn ?? []) ws.addRow([s.number, s.title, s.rev, '', 'Withdrawn']).getCell(5).font = { color: { argb: 'FFB91C1C' } }
 	;[14, 44, 6, 8, 16].forEach((w, i) => (ws.getColumn(i + 1).width = w))
-	await saveFile(await wb.xlsx.writeBuffer(), `Transmittal_${fileSafe(`${projectName} ${number ? `${issueTag(number)} ` : ''}${issue.name} ${issue.date}`)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: `Transmittal ${issue.name}`, ...(number ? { version: String(number).padStart(2, '0') } : {}) })
+	await saveFile(await wb.xlsx.writeBuffer(), `Transmittal_${fileSafe(`${projectName} ${number ? issueTitle(number, issue.name) : issue.name} ${issue.date}`)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { what: `Transmittal ${issue.name}`, ...(number ? { version: String(number).padStart(2, '0') } : {}) })
 }

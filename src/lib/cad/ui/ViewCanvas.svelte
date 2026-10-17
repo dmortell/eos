@@ -24,7 +24,7 @@
 	import { toolBlock } from '../domain/layers'
 	import { riserDisplayList } from '../views/riser'
 	import { paperDisplayList } from '../views/paper'
-	import { sectionDisplayList, sectionSpace, sectionsOn } from '../views/section'
+	import { sectionDisplayList, sectionSpace, sectionsOn, sectionFrame } from '../views/section'
 	import type { SectionCut } from '../domain/drawing'
 	import type { Sheet, Entity } from '../domain/drawing'
 	import { similarTo } from '../domain/similar'
@@ -55,7 +55,7 @@
 	import { frozenNow } from '../app/issue'
 	import { primChanges, changeOverlay } from '../domain/issue'
 	import { TOOL_GROUPS } from './toolGroups'
-	import { portCells, outletPortCells, circuitOf, fillBands, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
+	import { portCells, outletPortCells, circuitOf, fillBands, fillBandsElev, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
 	let { project, ws, levelId, spec, other, active = true, onspec, onfocus, nav }: {
@@ -148,7 +148,9 @@
 	 *  pane's work plane. */
 	const portHighlight = $derived(spec.kind === 'row' ? [...outletPortCells(project.index, prims, ws.selection), ...portCells(prims, ws.portSel)] : [])   // + the ports of outlets picked in the list
 	const traceHighlight = $derived(spec.kind === 'row' ? circuitOf(project.index, prims, ws.selection, ws.portSel) : [])
-	const fillOverlay = $derived(spec.kind === 'plan' && ws.showFill ? fillBands(project.index, project.fills, levelId, PLOT_SCALE) : [])
+	// the fill bands: a plan's runs, or (User 2026-10-17) an elevation's / section's — risers and drops too; a section only in its cut
+	const fillOverlay = $derived(!ws.showFill ? [] : spec.kind === 'plan' ? fillBands(project.index, project.fills, levelId, PLOT_SCALE)
+		: spec.kind === 'elevation' || spec.kind === 'section' ? fillBandsElev(project.index, project.fills, levelId, space, PLOT_SCALE, section ? { near: 50, far: -section.depth, u0: 0, u1: sectionFrame(section).len } : undefined) : [])
 	const routeHighlight = $derived(spec.kind === 'plan' && (ws.selection.length || ws.portSel) ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel, project.estimates) : [])   // routes read only when there's something to show
 	// the Routes toggle: every cable's route, colored by server room (backlog "Show all routes")
 	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId, project.estimates) : null)
