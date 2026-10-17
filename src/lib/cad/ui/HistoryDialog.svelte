@@ -4,7 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { HistoryEntry } from '../domain/history'
-	import { recentHistory } from '../app/editHistory'
+	import { recentHistory, forChange } from '../app/editHistory'
 	import CadDialog from './CadDialog.svelte'
 
 	let { project, ws, onclose }: { project: CadProject; ws: Workspace; onclose: () => void } = $props()
@@ -34,7 +34,7 @@
 		{:else if !shown.length}<p class="muted">{rows.length ? 'Nothing matches.' : 'No edits recorded yet.'}</p>
 		{:else}
 			{#each shown as r, i (i)}
-				<button class="h" title="Select what it touched{r.n > r.ids.length ? ` (the first ${r.ids.length} of ${r.n})` : ''}" onclick={() => pick(r)}><span class="t">{when(r.at)}</span><span class="w">{r.by.name || r.by.uid}</span><span class="l">{r.label}</span><span class="n">{r.n > 1 ? r.n : ''}</span></button>
+				<button class="h" title="Select what it touched{r.n > r.ids.length ? ` (the first ${r.ids.length} of ${r.n})` : ''}" onclick={() => pick(r)}><span class="t">{when(r.at)}</span><span class="w">{r.by.name || r.by.uid}</span><span class="l">{r.label}{forChange(project, r)}</span><span class="n">{r.n > 1 ? r.n : ''}</span></button>
 			{/each}
 		{/if}
 	</div>

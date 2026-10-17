@@ -232,6 +232,8 @@ export class Workspace {
 	/** The release form opens with minor versions (A → A.1) for its changed sheets: Bump version (design log step 3) —
 	 *  taken once by the form. */
 	releaseMinor = $state(false)
+	/** The design log's change being worked on in this tab ("Working on 3", step 5): the edit history tags edits with it. */
+	workingOn = $state<Id | null>(null)
 	/** Bump version: these sheets selected, the release form opened on them with their next minor version. */
 	bumpVersion(sheetIds: Id[]): void { this.select(sheetIds); this.releaseMinor = true; this.releaseSheets() }
 	/** Opens the Tables' Log tab (the design log). */

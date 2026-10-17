@@ -5,17 +5,19 @@ import type { Change } from '../store/store'
 import type { Id } from './types'
 
 /** One edit as kept. `ids`: what it touched (at most MAX_IDS — a bulk edit's first ones), `n`: how many it touched. */
-export interface HistoryEntry { at: number; by: { uid: string; name: string }; label: string; ids: Id[]; n: number }
+export interface HistoryEntry { at: number; by: { uid: string; name: string }; label: string; ids: Id[]; n: number
+	/** The design log's change this edit was made for ("Working on …", step 5). */
+	changeId?: Id }
 
 export const MAX_IDS = 50
 
 /** A settled edit of this tab as an entry; null for what isn't one (another tab's edit, the load, a drag still moving,
  *  nothing changed). Undo / redo are entries too ("Undo: Move rack R03"). */
-export function historyEntry(c: Change, by: HistoryEntry['by'], at: number): HistoryEntry | null {
+export function historyEntry(c: Change, by: HistoryEntry['by'], at: number, changeId?: Id | null): HistoryEntry | null {
 	if (!c.final || !c.ops.length || (c.source !== 'local' && c.source !== 'gesture' && c.source !== 'undo' && c.source !== 'redo')) return null
 	const ids = [...new Set(c.ops.map((o) => o.id))]
 	const label = (c.label ?? '').trim() || 'Edit'
-	return { at, by, label: c.source === 'undo' ? `Undo: ${label}` : c.source === 'redo' ? `Redo: ${label}` : label, ids: ids.slice(0, MAX_IDS), n: ids.length }
+	return { at, by, label: c.source === 'undo' ? `Undo: ${label}` : c.source === 'redo' ? `Redo: ${label}` : label, ids: ids.slice(0, MAX_IDS), n: ids.length, ...(changeId ? { changeId } : {}) }
 }
 
 /** Newest first, then by label (two edits in the same millisecond keep an order). */

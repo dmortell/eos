@@ -28,3 +28,11 @@ describe('edit history entries', () => {
 		expect([roughSize(0), roughSize(10), roughSize(10000)]).toEqual(['nothing', '3 kB', '3.0 MB'])
 	})
 })
+
+describe('working on a change', () => {
+	it('tags the entry with it', () => {
+		const e = historyEntry({ source: 'local', label: 'Move rack R03', ops: [{ id: 'R3', before: null, after: null }], final: true }, by, 1, 'chg1')!
+		expect(e.changeId).toBe('chg1')
+		expect('changeId' in historyEntry({ source: 'local', label: 'x', ops: [{ id: 'R3', before: null, after: null }], final: true }, by, 1, null)!).toBe(false)
+	})
+})

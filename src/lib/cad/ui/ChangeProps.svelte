@@ -7,6 +7,10 @@
 	import type { DesignChange, ChangeRefKind } from '../domain/drawing'
 	import { askedNames, STATUSES, REF_KINDS } from '../domain/changes'
 	import PropGroup from './PropGroup.svelte'
+	import { untrack } from 'svelte'
+	import type { HistoryEntry } from '../domain/history'
+	import { historyForChange } from '../app/editHistory'
+	import { runToken } from '../app/runToken'
 
 	let { project, ws, c }: { project: CadProject; ws: Workspace; c: DesignChange } = $props()
 
@@ -14,7 +18,16 @@
 	const names = $derived(askedNames(project.index.ofType('change') as DesignChange[]))
 	const name = (id: string) => { const e = project.index.get(id); return e?.type === 'sheet' ? `${e.number} ${e.title}` : e ? `${project.index.nameOf(id) || e.type}` : '(deleted)' }
 	const kindOf = (id: string) => project.index.get(id)?.type ?? ''
-	const setRef = (kind: ChangeRefKind | '', text: string) => put('reference', { ref: kind || text.trim() ? { kind: (kind || 'other') as ChangeRefKind, text: text.trim() } : undefined })
+	// the edits made for it (step 5), read when it's picked
+	let edits = $state.raw<HistoryEntry[] | null>(null)
+	const runs = runToken()
+	function loadEdits() {
+		edits = null
+		const current = runs.start()
+		historyForChange(project, c.id).then((r) => { if (current()) edits = r }, () => { if (current()) edits = [] })
+	}
+	$effect(() => { if (!project.settings?.editHistory) return; void c.id; untrack(loadEdits); return () => runs.cancel() })
+	const setRef =(kind: ChangeRefKind | '', text: string) => put('reference', { ref: kind || text.trim() ? { kind: (kind || 'other') as ChangeRefKind, text: text.trim() } : undefined })
 </script>
 
 <PropGroup kind="change" title="Change {c.n}">
@@ -44,8 +57,18 @@
 <PropGroup kind="change" title="Record">
 	{#if c.released?.length}<p>Released: {c.released.map((r) => `${name(r.sheetId)} rev ${r.code}`).join(' · ')}</p>{:else}<p class="muted">Not released yet</p>{/if}
 	<p class="muted">Round {c.cycle} · logged {new Date(c.at).toLocaleString()}{c.by ? ` by ${c.by.name || c.by.uid}` : ''}</p>
-	<div class="acts"><button class="btn" onclick={() => ws.openLog()}>Log ›</button></div>
+	<div class="acts"><button class="btn" onclick={() => ws.openLog()}>Log ›</button>
+		<!-- step 5: while on, this tab's edits are tagged with it in the edit history -->
+		<button class="btn" class:on={ws.workingOn === c.id} title={ws.workingOn === c.id ? 'Stop: edits are no longer tagged with it' : `Tag the edits you make from now on with change ${c.n} (the edit history — Settings › Files — keeps them), so an item's History says why`} onclick={() => { ws.workingOn = ws.workingOn === c.id ? null : c.id }}>{ws.workingOn === c.id ? 'Stop working on it' : 'Work on this change'}</button></div>
 </PropGroup>
+{#if project.settings?.editHistory}
+	<PropGroup kind="change" title="Edits made for it">
+		{#if edits === null}<p class="muted">Loading…</p>
+		{:else if !edits.length}<p class="muted">None yet — Work on this change, then edit: those edits are listed here.</p>
+		{:else}{#each edits as e, i (i)}<div class="ed"><span class="muted">{new Date(e.at).toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="muted">{e.by.name || e.by.uid}</span><span>{e.label}</span></div>{/each}{/if}
+		<div class="acts"><button class="btn" onclick={loadEdits}>Refresh</button></div>
+	</PropGroup>
+{/if}
 
 <style>
 	.row { display: grid; grid-template-columns: 5rem 1fr; align-items: center; gap: 4px; margin-bottom: 3px; }
@@ -55,5 +78,8 @@
 	.go { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.go:not(:disabled):hover { text-decoration: underline; }
 	.k { color: var(--cad-faint); font-size: 11px; }
-	.acts { display: flex; gap: 4px; margin-top: 4px; }
+	.acts { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+	.on { background: #fef3c7; border-color: #f59e0b; }
+	.ed { display: grid; grid-template-columns: 6.5rem 4.5rem 1fr; gap: 4px; font-size: 11px; }
+	.ed span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

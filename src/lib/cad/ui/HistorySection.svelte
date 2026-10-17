@@ -5,7 +5,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Id } from '../domain/types'
 	import type { HistoryEntry } from '../domain/history'
-	import { historyOf } from '../app/editHistory'
+	import { historyOf, forChange } from '../app/editHistory'
 	import { runToken } from '../app/runToken'
 	import PropGroup from './PropGroup.svelte'
 
@@ -28,7 +28,7 @@
 	{:else if !rows.length}<p class="muted">No edits recorded for it — the history keeps edits made since it was switched on.</p>
 	{:else}
 		{#each rows as r, i (i)}
-			<div class="h" title="{r.label}{r.n > 1 ? ` (${r.n} things in that edit)` : ''}"><span class="t">{when(r.at)}</span><span class="w">{r.by.name || r.by.uid}</span><span class="l">{r.label}</span></div>
+			<div class="h" title="{r.label}{r.n > 1 ? ` (${r.n} things in that edit)` : ''}"><span class="t">{when(r.at)}</span><span class="w">{r.by.name || r.by.uid}</span><span class="l">{r.label}{forChange(project, r)}</span></div>
 		{/each}
 	{/if}
 	<div class="acts"><button class="btn" onclick={load}>Refresh</button></div>

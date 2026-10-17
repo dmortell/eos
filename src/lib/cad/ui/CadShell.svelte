@@ -54,7 +54,7 @@
 	import ImagePickDialog from './ImagePickDialog.svelte'
 	import { pictureRef, issueNumbers } from '../domain/issue'
 	import { issueStatesOf } from '../app/issueStates.svelte'
-	import type { Sheet } from '../domain/drawing'
+	import type { Sheet, DesignChange } from '../domain/drawing'
 	import { recordEdits } from '../app/editHistory'
 	import HistoryDialog from './HistoryDialog.svelte'
 	import UploadsDialog from './UploadsDialog.svelte'
@@ -145,7 +145,15 @@
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
 	// the edit history (design log step 4): this tab's edits, while the project's switch is on
-	$effect(() => recordEdits(project, (m) => ws.say(m)))
+	$effect(() => recordEdits(project, (m) => ws.say(m), () => ws.workingOn))
+	/** The status bar's "Working on 3" chip (step 5): the change this tab's edits are tagged with. */
+	const working = $derived.by(() => {
+		const c = ws.workingOn ? project.index.get<DesignChange>(ws.workingOn) : undefined
+		if (c?.type !== 'change') return undefined
+		const off = !project.settings?.editHistory
+		return { text: `Working on ${c.n}: ${c.what}`, title: `Edits are tagged with change ${c.n}${off ? ' — but the edit history is off (Settings › Files), so nothing is kept' : ' in the edit history'}. Click: open the change.`,
+			open: () => ws.select([c.id]), stop: () => { ws.workingOn = null } }
+	})
 	const panels = new Panels()
 	/** The windows (UX review S2): Navigator, Properties, Layers, Blocks, Racks, Cables — docked, floating or closed. */
 	const layout = new WindowLayout()
@@ -912,7 +920,7 @@
 		{:else if tablesBar}{@render tables(true)}{/if}
 	</section>
 
-	<StatusBar {ws} hint="" onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} />
+	<StatusBar {ws} hint="" onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} {working} />
 </div>
 
 <style>

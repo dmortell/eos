@@ -88,7 +88,7 @@ No change → no triangle, as today (deleting the letter hides it).
    after release" — **M**.
 3. **Title block revision + minor versions + Bump version** — **S–M** — BUILT 2026-10-17 (`nextMajor` / `nextMinor`; REV · DATE only in the title block; Next revision / Bump version in the release form; Bump version… in a changed sheet's Properties and its PDF's Save as — they open the release form preset to versions).
 4. **Edit history** (toggle, size, trim) + item History + Project › History — **M** — BUILT 2026-10-17 (`domain/history.ts`, `app/editHistory.ts`: `projects/{pid}/cadHistory`, one doc per settled local edit / undo / redo while settings.editHistory is on).
-5. "Working on" tag — **S**. Later, with outside review: a reviewer's markups arrive as changes asked by them.
+5. "Working on" tag — **S** — BUILT 2026-10-17 (`ws.workingOn`, the status bar chip, Work on it in the Log and a change's Properties, entries' `changeId`, a change's Edits made for it). Later, with outside review: a reviewer's markups arrive as changes asked by them.
 
 ## Still open
 

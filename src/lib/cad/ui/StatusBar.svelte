@@ -9,10 +9,12 @@
 	import { GRID_STEPS, gridStepOf } from '../editor/snap'
 	import type { Workspace } from '../app/workspace.svelte'
 
-	let { ws, hint, onfit, onanswer, selected, onzoomsel }: {
+	let { ws, hint, onfit, onanswer, selected, onzoomsel, working }: {
 		ws: Workspace; hint: string; onfit: () => void; onanswer: () => void
 		/** "12 selected (outlets)" (UX review V3); a click zooms to them. */
 		selected: string; onzoomsel: () => void
+		/** The change being worked on ("Working on 3", design log step 5): its chip; a click opens it, × stops. */
+		working?: { text: string; title: string; open: () => void; stop: () => void }
 	} = $props()
 
 	/** A typed grid step: kept when it is a positive number, else the box shows the old one again. */
@@ -60,6 +62,7 @@
 			<span class="hint" title={hint}>{hint}</span>
 		{/if}
 	</div>
+	{#if working}<span class="work"><button title={working.title} onclick={working.open}>{working.text}</button><button class="x" title="Stop working on it (edits are no longer tagged)" aria-label="Stop working on the change" onclick={working.stop}>×</button></span>{/if}
 	{#if selected}<button class="selc" title="Zoom to the selection ({KEYS.zoomSel})" onclick={onzoomsel}>{selected}</button>{/if}
 	{#if v?.loading}<span class="load" title="The floorplan is still rendering"><span class="spin"></span> floorplan…</span>{/if}
 	{#if v?.readout}<b class="ro">{v.readout}</b>{/if}
@@ -107,6 +110,10 @@
 	.scale { color: var(--cad-muted); }
 	.selc { padding: 0 6px; border-radius: 4px; color: var(--cad-link, #1d4ed8); background: var(--cad-sel, #dbeafe); font-weight: 600; }
 	.selc:hover { background: #bfdbfe; }
+	.work { display: inline-flex; align-items: center; border-radius: 4px; background: #fef3c7; color: #92400e; font-weight: 600; max-width: 22rem; }
+	.work button { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.work .x { padding: 0 5px; font-weight: 400; }
+	.work button:hover { background: #fde68a; }
 	.load { display: inline-flex; align-items: center; gap: 4px; color: var(--cad-muted); }
 	.spin { width: 10px; height: 10px; border: 2px solid var(--cad-sel-line, #93c5fd); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 	@keyframes spin { to { transform: rotate(360deg); } }

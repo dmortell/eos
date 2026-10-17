@@ -88,6 +88,10 @@
 	{/snippet}
 	{#snippet sel()}
 		<button class="tb" title="Select the items and sheets these changes are about" onclick={showItems}>Show items</button>
+		{#if selChanges.length === 1}{@const one = selChanges[0]}
+			<!-- step 5: tag this tab's edits with it (the status bar shows "Working on …") -->
+			<button class="tb" title={ws.workingOn === one.id ? 'Stop: edits are no longer tagged with it' : `Tag the edits you make from now on with change ${one.n} (kept by the edit history)`} onclick={() => { ws.workingOn = ws.workingOn === one.id ? null : one.id }}>{ws.workingOn === one.id ? 'Stop working on it' : 'Work on it'}</button>
+		{/if}
 		<button class="tb danger" title="Delete the selected changes (Ctrl+Z undoes) — Rejected keeps the record" onclick={remove}>Delete {selChanges.length}</button>
 	{/snippet}
 	<datalist id="cad-log-asked">{#each names as n (n)}<option value={n}></option>{/each}</datalist>

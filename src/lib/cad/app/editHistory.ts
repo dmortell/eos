@@ -10,11 +10,11 @@ const col = (p: CadProject) => collection(p.db, `projects/${p.pid}/cadHistory`)
 
 /** Records this tab's edits while the switch is on; the returned function stops. A failed write is said once, not
  *  retried (the edit itself is saved either way). */
-export function recordEdits(project: CadProject, say: (m: string) => void): () => void {
+export function recordEdits(project: CadProject, say: (m: string) => void, workingOn: () => Id | null): () => void {
 	let warned = false
 	return project.store.subscribe((c) => {
 		if (!project.settings?.editHistory || !project.user) return
-		const e = historyEntry(c, { uid: project.user, name: project.userName }, Date.now())
+		const e = historyEntry(c, { uid: project.user, name: project.userName }, Date.now(), workingOn())
 		if (!e) return
 		addDoc(col(project), e).catch((err) => { if (!warned) { warned = true; say(`Edit history: not written (${(err as Error).message})`) } })
 	})
@@ -25,6 +25,12 @@ export async function historyOf(project: CadProject, id: Id, n = 50): Promise<Hi
 	// no orderBy with array-contains: that pair needs a composite index; one item's history is small, sorted here
 	const snap = await getDocs(query(col(project), where('ids', 'array-contains', id)))
 	return snap.docs.map((d) => d.data() as HistoryEntry).sort(newestFirst).slice(0, n)
+}
+
+/** The edits made for a change ("Working on" it), newest first. */
+export async function historyForChange(project: CadProject, changeId: Id): Promise<HistoryEntry[]> {
+	const snap = await getDocs(query(col(project), where('changeId', '==', changeId)))
+	return snap.docs.map((d) => d.data() as HistoryEntry).sort(newestFirst)
 }
 
 /** The project's latest edits, newest first. */
@@ -47,4 +53,10 @@ export async function trimHistory(project: CadProject, days: number): Promise<nu
 		await b.commit()
 	}
 	return snap.docs.length
+}
+
+/** " — for change 3" after an edit made while working on a change (step 5); '' otherwise (or that change is gone). */
+export function forChange(project: CadProject, e: HistoryEntry): string {
+	const c = e.changeId ? project.index.get(e.changeId) : undefined
+	return c?.type === 'change' ? ` — for change ${c.n}` : ''
 }
