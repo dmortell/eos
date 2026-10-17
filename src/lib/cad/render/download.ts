@@ -40,7 +40,9 @@ export type SaveAction = 'save' | 'share' | 'open'
  *  dialog, what to do with it. Set by the open cad page (CadShell); unset (tests, other pages) = the suggested name. */
 type Namer = (suggested: string, parts: FileParts | undefined, ext: string, type: string) => Promise<string | { name: string; action: SaveAction } | null>
 let namer: Namer | null = null
-export function setFileNamer(f: Namer | null): void { namer = f }
+/** Install the namer; the returned function removes it — only if it is still the one installed (hacky-code review #5:
+ *  a cad page unmounting after a newer one mounted, as on a hot reload, removed the NEWER page's namer). */
+export function setFileNamer(f: Namer | null): () => void { namer = f; return () => { if (namer === f) namer = null } }
 
 /** Can this browser share a file of this type (the dialog's "Email / share…")? */
 export function canShareFile(type: string): boolean {
@@ -71,7 +73,8 @@ export async function saveFile(data: BlobPart, suggested: string, type: string, 
  *  page sets how; Ctrl+P names its PDF tab with it, User 2026-10-15). */
 type Patterner = (suggested: string, parts: FileParts | undefined, ext: string) => string
 let patterner: Patterner | null = null
-export function setFilePatterner(f: Patterner | null): void { patterner = f }
+/** As setFileNamer: the returned function removes it only if it is still the one installed. */
+export function setFilePatterner(f: Patterner | null): () => void { patterner = f; return () => { if (patterner === f) patterner = null } }
 export function fileName(suggested: string, parts?: FileParts): string {
 	const ext = suggested.match(/\.([a-z0-9]+)$/i)?.[1] ?? ''
 	return patterner ? patterner(suggested, parts, ext) : suggested

@@ -1,6 +1,6 @@
 // File names for downloads: fileSafe, and (User 2026-10-15) the project's pattern, then the user's edit before saving.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fileSafe, patternName, saveFile, setFileNamer } from './download'
+import { fileSafe, patternName, saveFile, setFileNamer, setFilePatterner, fileName } from './download'
 
 describe('export file names', () => {
 	afterEach(() => setFileNamer(null))
@@ -23,6 +23,13 @@ describe('export file names', () => {
 		expect(await saveFile('x', 'Patching.xlsx', 'type')).toBeNull()
 		expect(clicks).toHaveLength(1)
 		vi.unstubAllGlobals()
+	})
+	it('removing an older pattern leaves the newer one in place (a hot reload: the old page unmounts after the new one mounted)', () => {
+		const offOld = setFilePatterner(() => 'old.pdf'), offNew = setFilePatterner(() => 'new.pdf')
+		offOld()
+		expect(fileName('x.pdf')).toBe('new.pdf')
+		offNew()
+		expect(fileName('x.pdf')).toBe('x.pdf')
 	})
 })
 

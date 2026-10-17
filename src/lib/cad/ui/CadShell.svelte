@@ -135,12 +135,13 @@
 		return (all ? patternName(project.settings?.fileNamePattern, project.name, all, ext) : null) ?? suggested
 	}
 	$effect(() => {
-		setFileNamer((suggested, parts, ext, type) => new Promise((done) => {
+		const offNamer = setFileNamer((suggested, parts, ext, type) => new Promise((done) => {
 			saveAs?.done(null)
 			saveAs = { name: patterned(suggested, parts, ext), ext, type, sheetIds: parts?.sheetIds, done: (n) => { saveAs = null; done(n) } }
 		}))
-		setFilePatterner(patterned)
-		return () => { setFileNamer(null); setFilePatterner(null) }
+		const offPatterner = setFilePatterner(patterned)
+		// only ours: a newer page (hot reload) keeps its own
+		return () => { offNamer(); offPatterner() }
 	})
 	// a refused edit while someone else's restore runs says why
 	project.store.onRefuse = (reason) => ws.say(reason)
