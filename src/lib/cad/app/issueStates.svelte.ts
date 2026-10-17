@@ -42,13 +42,16 @@ class IssueStates {
 		try {
 			for (const s of sheets) {
 				if (run !== this.#run || !this.#want) return
-				await placeUnderlays(p, [s])
-				out.set(s.id, printNow(p, frozenNow(p, s)))
+				// one sheet that can't be worked out (a floorplan that won't load, a bug) stays '…' — logged, not hiding the rest
+				// (hacky-code review #2: one catch round the loop stopped every sheet after it)
+				try {
+					await placeUnderlays(p, [s])
+					out.set(s.id, printNow(p, frozenNow(p, s)))
+				} catch (e) { console.warn(`cad: the release state of ${s.number || s.title} couldn't be worked out`, e) }
 				await new Promise((r) => setTimeout(r, 0))   // let the page breathe between sheets
 			}
 			if (run === this.#run) this.#fp = out
-		} catch { /* a floorplan that won't load: those sheets stay '…' */ }
-		finally { if (run === this.#run) this.busy = false }
+		} finally { if (run === this.#run) this.busy = false }
 	}
 }
 

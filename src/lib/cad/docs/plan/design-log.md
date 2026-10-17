@@ -94,4 +94,4 @@ No change → no triangle, as today (deleting the letter hides it).
 
 - Packages and revisions: is a revision the PACKAGE's (every sheet in it goes A → B together) or each sheet's? The
   sheets carry their own revisions today; the change list is per package.
-- The change list: columns No and What (User 2026-10-17). Whether it can run over two sheets.
+- The change list: columns No and What, on one sheet — it doesn't run over two (User 2026-10-17).

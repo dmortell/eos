@@ -43,7 +43,13 @@ export class Sync {
 		const off = this.backend.subscribe(scopes, (docs) => {
 			// a doc that LEFT this query because it moved to another scope (an item moved to another level) isn't deleted:
 			// the other scope's listener has it (review R89 — its "removed" could come after the move and delete it here)
-			this.#onRemote(docs.filter((d) => { if (d.data) return true; const cur = this.store.get(d.id); if (!cur) return true; try { return mine.has(scopeOf(cur)) } catch { return false } }))
+			this.#onRemote(docs.filter((d) => {
+				if (d.data) return true
+				const cur = this.store.get(d.id)
+				if (!cur) return true
+				// a shape with no owner has no scope (scopeOf throws): its removal isn't applied — said, not dropped silently
+				try { return mine.has(scopeOf(cur)) } catch (e) { console.warn(`cad: a remote delete of ${d.id} was not applied (it has no scope)`, e); return false }
+			}))
 			if (!loaded) { loaded = true; onLoaded?.() }
 		}, (e) => { this.opts.onListenError?.(e, scopes); onFailed?.(e) })
 		this.#unsubs.push(off)

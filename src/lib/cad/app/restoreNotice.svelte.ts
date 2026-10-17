@@ -30,6 +30,8 @@ export const isLive = (n: Notice | null | undefined, now = Date.now()): boolean 
 	!!n && (n.state === 'pending' || n.state === 'running') && now - n.at < ABANDONED_MS
 
 const ref = (db: Firestore, pid: string) => doc(db, 'projects', pid, 'cadMeta', 'restore')
+/** Our notice is no longer the one in force (cancelled, or another restore's replaced it): expected, not a failure. */
+export class NoticeGone extends Error {}
 
 export class RestoreNotices {
 	notice = $state.raw<Notice | null>(null)
@@ -81,13 +83,14 @@ export class RestoreNotices {
 		const p = this.project
 		await runTransaction(p.db, async (tx) => {
 			const cur = (await tx.get(ref(p.db, p.pid))).data() as Notice | undefined
-			if (cur?.id !== id || !from.includes(cur.state)) throw new Error(cur?.id === id && cur.state === 'cancelled' ? 'The restore was cancelled' : 'The restore notice was replaced')
+			if (cur?.id !== id || !from.includes(cur.state)) throw new NoticeGone(cur?.id === id && cur.state === 'cancelled' ? 'The restore was cancelled' : 'The restore notice was replaced')
 			tx.set(ref(p.db, p.pid), { ...cur, state: to, at: Date.now(), ...(summary ? { summary } : {}) })
 		})
 	}
 	start = (id: string) => this.#step(id, ['pending'], 'running')
 	finish = (id: string, summary: string) => this.#step(id, ['running'], 'done', summary)
-	cancel = (id: string, why = 'Cancelled') => this.#step(id, ['pending', 'running'], 'cancelled', why).catch(() => {})
+	// (already cancelled or replaced: nothing to do; anything else is logged — hacky-code review #2)
+	cancel = (id: string, why = 'Cancelled') => this.#step(id, ['pending', 'running'], 'cancelled', why).catch((e) => { if (!(e instanceof NoticeGone)) console.warn('cad: the restore notice was not cancelled', e) })
 
 	/** Wait out the countdown; throws if our notice is cancelled meanwhile. */
 	async countdown(id: string): Promise<void> {
