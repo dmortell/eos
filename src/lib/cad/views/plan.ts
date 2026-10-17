@@ -4,7 +4,7 @@ import type { Id, Pt, Outlet, Rack, Underlay, Space } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf } from '../domain/shapes'
+import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
 import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
 import { layersOf, layerOf } from '../domain/layers'
@@ -112,10 +112,10 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 /** One drawn shape as prims; `k` = drawing mm per paper mm (1 on a sheet, the plot scale in a plan). Its own color
  *  (`style.stroke`, Properties → Color) on all of them. */
 export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Prim[] {
-	const ps = basePrims(s, k, blocks), fill = s.style?.fill && FILLABLE.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
+	const ps = basePrims(s, k, blocks), fill = s.style?.fill && REGION_KINDS.has(s.geom.kind) ? regionFill(ps[0], s.style.fill) : null
 	return ownStyle(s, fill ? [fill, ...ps] : ps)
 }
-const FILLABLE = new Set(['rect', 'circle', 'ellipse', 'polygon'])
+
 /** A region's fill (Properties → Fill): its outline again, filled with the color, drawn under it. */
 function regionFill(p: Prim | undefined, color: string): Prim | null {
 	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', color }

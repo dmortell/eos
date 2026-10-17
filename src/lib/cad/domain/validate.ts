@@ -3,7 +3,7 @@
 import type { Entity } from './drawing'
 import type { Id, Outlet, Device, Rack, Link, Cord, PortRef, ProjectSettings } from './types'
 import type { Shape } from './shapes'
-import { ownerOf } from './shapes'
+import { ownerOf, REGION_KINDS } from './shapes'
 import { cablesOf, coresOf } from './multicore'
 import { sidesOf, sharesU, overlapAllowed } from './devices'
 
@@ -12,7 +12,7 @@ export interface Issue { id: Id; code: string; message: string; severity: 'error
 const err = (id: Id, code: string, message: string): Issue => ({ id, code, message, severity: 'error' })
 const warn = (id: Id, code: string, message: string): Issue => ({ id, code, message, severity: 'warning' })
 
-const REGION = new Set(['rect', 'circle', 'polygon'])
+
 
 export function validateShape(s: Shape): Issue[] {
 	const out: Issue[] = []
@@ -34,7 +34,7 @@ export function validateShape(s: Shape): Issue[] {
 		if (g.nodes.length < 2) out.push(err(s.id, 'path-short', 'A path needs at least two nodes'))
 	} else {
 		if (s.section) out.push(err(s.id, 'section-on-region', 'Only a path has a section'))
-		if (s.extent && !REGION.has(g.kind)) out.push(err(s.id, 'extent-kind', `A ${g.kind} cannot be extended`))
+		if (s.extent && !REGION_KINDS.has(g.kind)) out.push(err(s.id, 'extent-kind', `A ${g.kind} cannot be extended`))
 		if (g.kind === 'polygon' && g.pts.length < 3) out.push(err(s.id, 'polygon-short', 'A polygon needs at least three points'))
 	}
 	const r = s.role

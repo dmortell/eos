@@ -15,6 +15,11 @@ describe('shapes made by the constructors are valid', () => {
 		const note = makeText({ sheetId: 'S' }, { x: 10, y: 10 }, 'Hello')
 		for (const s of [line, wall, run, box, note]) expect(validateShape(s)).toEqual([])
 	})
+	it('an ellipse box (the Box tool makes them) is a region that can have an extent; a text can’t (hacky-code #4)', () => {
+		const disc: Shape = { type: 'shape', id: 'E', levelId: 'L', geom: { kind: 'ellipse', centre: { x: 0, y: 0 }, rx: 300, ry: 200 }, extent: 750 }
+		expect(codes(validateShape(disc))).not.toContain('extent-kind')
+		expect(codes(validateShape({ ...makeText({ levelId: 'L' }, { x: 0, y: 0 }, 'x'), extent: 10 }))).toContain('extent-kind')
+	})
 	it('a closed path joins its last node to its first', () => {
 		const sq = makePath({ levelId: 'L' }, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], { closed: true })
 		expect(sq.geom.kind === 'path' && sq.geom.segs.length).toBe(3)

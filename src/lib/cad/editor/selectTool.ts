@@ -5,7 +5,7 @@ import type { Gesture } from '../store/store'
 import type { Id, Pt, Rack, Device, Level } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import type { Shape } from '../domain/shapes'
-import { ownFrame, sameFrame } from '../domain/shapes'
+import { ownFrame, sameFrame, REGION_KINDS } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
 import { primBounds, unionBounds, type Prim } from '../views/display'
 import { linkLabel } from '../domain/links'
@@ -41,7 +41,7 @@ import { repatch } from '../domain/cords'
 /** A press on a picked port (rack views), until the release: a click or a drop on another panel. */
 type PortMove = { sel: PortSel; n: number; start: Pt; moved: boolean }
 
-const REGION = new Set(['rect', 'circle', 'ellipse', 'polygon'])
+
 
 /** Select: click picks (Ctrl toggles; Shift is kept for constraints — ports in racks still take Shift ranges), press-drag moves the selection as ONE undo step (attached nodes
  *  follow), drag on empty space draws a window, and a selected path shows node grips to drag. Selection happens on
@@ -442,7 +442,7 @@ export class SelectTool implements Tool {
 			const { base, index, space } = this.#region
 			// snapped like any point here (paper: 0.5 mm), then into the shape's own space
 			const p = c.space.spec.kind === 'sheet' ? snapPt(e.p, e.alt, 0.5) : c.snap(e.p, e.alt, base.id).p
-			this.#gesture ??= c.store.begin(REGION.has(base.geom.kind) ? 'Resize shape' : 'Move point')
+			this.#gesture ??= c.store.begin(REGION_KINDS.has(base.geom.kind) ? 'Resize shape' : 'Move point')
 			this.#gesture.update((tx) => tx.put(dragRegionGrip(base, index, space.from(p), e.shift)))
 			return
 		}

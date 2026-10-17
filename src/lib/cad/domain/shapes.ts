@@ -5,7 +5,7 @@
 // A 2D shape is a 3D shape with no height:
 //  - a PATH with no section is a plain line; give it a section (w × h) and node z's and it is a 3D strip; give it a
 //    role and it IS a wall or a containment run — clear the role and it is a line again. Geometry never changes.
-//  - a REGION (rect / circle / polygon) lies on a plane; with no extent it is flat, with one it is a 2.5D solid pushed
+//  - a REGION (rect / circle / ellipse / polygon — REGION_KINDS) lies on a plane; with no extent it is flat, with one it is a 2.5D solid pushed
 //    straight out of the plane (ADR 0006): up from a plan, away from the viewer on an elevation.
 // Project DATA (outlets, racks, devices, links, cords, places) is not drawn geometry and is not a Shape (./types.ts).
 // Everything follows ./conventions.ts: plan mm, y down, z above the level's FFL.
@@ -97,6 +97,9 @@ export type Geometry =
 	| { kind: 'changeList'; at: Pt; title?: string; sizeMm?: number }
 
 export type GeometryKind = Geometry['kind']
+/** The REGION kinds: filled when solid, resized by their outline's grips, and the only ones an extent can push out
+ *  into a 2.5D solid (one list — hacky-code review #4: the validator's lacked ellipse, though the Box tool makes them). */
+export const REGION_KINDS: ReadonlySet<GeometryKind> = new Set<GeometryKind>(['rect', 'circle', 'ellipse', 'polygon'])
 
 /** A path that bounds a room or space: walls host openings, and doors / windows move with their wall. */
 export interface WallRole {
