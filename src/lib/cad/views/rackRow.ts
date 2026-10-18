@@ -94,7 +94,7 @@ export function rackCaption(r: Rack, face: 'front' | 'rear'): string {
 export interface RowOpts { cords?: 'channels' | 'straight' }
 
 export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts = {}): Prim[] {
-	const out: Prim[] = [], cords: Prim[] = []
+	const out: Prim[] = [], cords: Prim[] = [], stubs: Prim[] = []
 	// "deviceId:port" → cell centre, half its height and its rack's frame, for cords
 	const portAt = new Map<string, { x: number; y: number; hh: number; rack: RackFrame }>()
 	// "deviceId:port" with a cord in (one being removed doesn't count): its cell gets a green edge (User: "patched ports
@@ -261,10 +261,11 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		// one end in this view, the other in another row (User 2026-10-17: a cord to Row B was drawn in neither): a short
 		// stub down from the port and, under it, where it goes — upright, no wider than the port, so neighbours don't overlap
 		if ((a || b) && !(a && b)) {
-			const p = (a ?? b)!, other = a ? c.b : c.a, y0 = p.y + p.hh, len = Math.max(30, p.hh * 3)
-			cords.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, role: 'cord', src: c.id, color: c.colour })
+			// 3U long at least, so a click can find it (Round 11: 30 mm was ~7 px at a working zoom)
+			const p = (a ?? b)!, other = a ? c.b : c.a, y0 = p.y + p.hh, len = Math.max(3 * RU_MM, p.hh * 3)
+			stubs.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, role: 'cord', src: c.id, color: c.colour })
 			const size = Math.min(p.hh * 1.6, 14)
-			cords.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', src: c.id, minPx: 7 })
+			stubs.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', src: c.id, minPx: 7 })
 			continue
 		}
 		if (!a || !b) continue
@@ -283,7 +284,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line', role: 'room-line', ...(ownFloor ? {} : { sub: ROOM_FLOOR }) }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line', role: 'room-line' },
 			...storeyPrims(ix.getOf('level', (sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
 	}
-	return [...lines, ...up(out), ...up(cords)]
+	// the stubs after (over) the cords in the row: where they cross, a click takes the stub (Round 11: it took PP1:5's cord)
+	return [...lines, ...up(out), ...up(cords), ...up(stubs)]
 }
 
 /** The `sub` of the room's floor / ceiling lines in a rack view: dragged to set `Space.floorMm` / `ceilingMm`. */
