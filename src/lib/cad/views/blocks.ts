@@ -38,7 +38,7 @@ export function blockPrims(b: Block, pl: Placement, k: number, attrs: Record<str
 				// a text wholly on a filled shape of the block (a port count inside the symbol) is drawn white; a port count
 				// on an outline symbol gets a small halo (`port-count`), so the symbol's lines don't cross it
 				const tcls = onSolid(b, g, text) ? 'label on-fill' : g.text === '{PORTS}' ? 'label port-count' : 'label'
-				if (text) out.push({ k: 'text', at: P(g.at), text, size: g.sizeMm * s, anchor: g.align === 'centre' ? 'middle' : g.align === 'right' ? 'end' : 'start', rot: (g.rot ?? 0) + rot || undefined, cls: tcls, src })
+				if (text) out.push({ k: 'text', at: P(g.at), text, size: g.sizeMm * s, anchor: g.align === 'centre' ? 'middle' : g.align === 'right' ? 'end' : 'start', rot: (g.rot ?? 0) + rot || undefined, cls: tcls, role: 'label', src })
 				break
 			}
 			default: break   // arcs, images and nested inserts in blocks come later

@@ -7,6 +7,7 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import type { Entity } from '../domain/drawing'
 import type { Shape } from '../domain/shapes'
+import type { PrimRole } from '../domain/prim'
 import type { Rack } from '../domain/types'
 
 describe('plan draw order', () => {
@@ -45,8 +46,8 @@ describe('rack doors on the plan', () => {
 
 describe('labels that collide (UX review L3)', () => {
 	it('a riser / run label moves down clear of the labels already there; rack and outlet labels stay', async () => {
-		const t = (text: string, x: number, y: number, cls: string) => ({ k: 'text' as const, at: { x, y }, text, size: 100, cls })
-		const out = declutter([t('R311', 0, 0, 'label'), t('+2105', 0, 0, 'riser-label'), t('+2600', 0, 0, 'riser-label'), t('TR1', 0, 0, 'label run-label')])
+		const t = (text: string, x: number, y: number, cls: string, role: PrimRole) => ({ k: 'text' as const, at: { x, y }, text, size: 100, cls, role })
+		const out = declutter([t('R311', 0, 0, 'label', 'label'), t('+2105', 0, 0, 'riser-label', 'riser'), t('+2600', 0, 0, 'riser-label', 'riser'), t('TR1', 0, 0, 'label run-label', 'run-label')])
 		const ys = out.map((p) => (p.k === 'text' ? p.at.y : 0))
 		expect(ys[0]).toBe(0)                       // the rack's label stays
 		expect(new Set(ys).size).toBe(4)            // the others each moved to their own line

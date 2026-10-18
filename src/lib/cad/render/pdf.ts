@@ -7,7 +7,7 @@
 // else outside Latin-1 (a Japanese address …) is drawn by the BROWSER's fonts as a ~300 dpi picture in its place
 // (`rasterText`) — crisp on paper, not selectable. Embedding a CJK font instead would add 5–9 MB to every PDF; that's
 // the upgrade if searchable Japanese text is ever needed. Without a rasteriser (tests) such text is reported.
-import type { Prim, Bounds, Dash } from '../views/display'
+import { fillsWithColor, type Prim, type Bounds, type Dash } from '../views/display'
 import type { ProjectIndex } from '../domain/project'
 import type { Sheet } from '../domain/drawing'
 import { sheetDisplayList, paperSize, type SheetOpts } from '../views/sheet'
@@ -106,7 +106,7 @@ export async function pagesToPdf(pages: PdfPage[], loadImage: ImageLoader, o: { 
 		// a shape's own lineweight (mm, printed as set — backlog "True lineweights in print") and line type
 		const st = { ...styleOf(p.cls), ...(p.weight ? { width: p.weight } : {}), ...(p.dash ? { dash: PDF_DASH[p.dash] } : {}) }
 		if (!p.color) return st
-		const fill = (p.k === 'circle' || (p.k === 'line' && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls === 'port-usage' || p.cls.endsWith(' ink')))) && p.fill
+		const fill = (p.k === 'circle' && p.fill) || fillsWithColor(p)
 		return { ...st, ...(st.stroke !== 'none' ? { stroke: p.color } : {}), text: p.cls.includes('on-fill') ? st.text : p.color, ...(fill ? { fill: p.color } : {}) }
 	}
 	if (o.rasterText) for (const page of pages) for (const p of page.prims) {

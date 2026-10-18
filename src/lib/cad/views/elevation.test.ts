@@ -67,6 +67,10 @@ describe('what an elevation shows', () => {
 	})
 	it('level datum lines are drawn (FFL, ceiling …)', () => {
 		expect(view('front').filter((p) => p.k === 'text' && p.cls === 'datum-label').map((p) => (p.k === 'text' ? p.text : ''))).toEqual(expect.arrayContaining(['FFL', 'CSL FFL+3500']))
+		// every storey line is a datum, the ceiling too (its class isn't datum-…): Fit leaves them all out
+		const wide = view('front').filter((p) => p.k === 'line' && p.pts.length === 2 && p.pts[0].y === p.pts[1].y && /datum|ceiling/.test(p.cls))
+		expect(wide.some((p) => p.k === 'line' && p.cls === 'riser-ceiling')).toBe(true)
+		expect(wide.every((p) => p.role === 'datum')).toBe(true)
 	})
 })
 

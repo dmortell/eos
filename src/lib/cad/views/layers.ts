@@ -3,7 +3,7 @@
 // applies where the item has none of its own, locked layers stay drawn (and snap) but can't be picked, and a plan paints in layer order.
 import type { Id } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
-import { DASHES, type Dash, type Prim } from './display'
+import { DASHES, isBackFill, isEndMark, type Dash, type Prim } from './display'
 import { layersOf, primLayer, type LayerInfo } from '../domain/layers'
 
 export interface LayerFilter {
@@ -52,8 +52,8 @@ export function applyLayers(prims: Prim[], ix: ProjectIndex, f: LayerFilter = {}
 /** The layer's lineweight and line type (backlog "Layer line type and lineweight") on a line or circle that sets none
  *  of its own — not on text, pictures, fills behind notes, a run's band, or (the line type) an arrowhead / tick. */
 function byLayerLine(p: Prim, l: LayerInfo | undefined): { weight?: number; dash?: Dash } {
-	if (!l || (p.k !== 'line' && p.k !== 'circle') || p.cls === 'note-bg' || p.cls === 'shape-fill' || (p.k === 'line' && p.w)) return {}
-	const dash = !p.dash && l.dash && (DASHES as string[]).includes(l.dash) && !/line-(head|tick)/.test(p.cls) ? (l.dash as Dash) : undefined
+	if (!l || (p.k !== 'line' && p.k !== 'circle') || isBackFill(p) || (p.k === 'line' && p.w)) return {}
+	const dash = !p.dash && l.dash && (DASHES as string[]).includes(l.dash) && !isEndMark(p) ? (l.dash as Dash) : undefined
 	return { ...(!p.weight && l.weightMm ? { weight: l.weightMm } : {}), ...(dash ? { dash } : {}) }
 }
 

@@ -383,9 +383,9 @@
 		if (b) cam = fit(b, w, h)
 	}
 	/** What Fit fits (UX13): the content, not the storey datum lines — a rack view / elevation shrank to fit the slab,
-	 *  ceiling and slab (FSL / CSL) lines drawn wide either side. */
+	 *  ceiling and slab (FSL / CSL) lines drawn wide either side. (By class, the ceiling line still counted.) */
 	function contentBounds(ps: Prim[]): Bounds | undefined {
-		const core = ps.filter((p) => p.k === 'image' || !p.cls.startsWith('datum'))
+		const core = ps.filter((p) => p.role !== 'datum' && p.role !== 'room-line')
 		return unionBounds((core.length ? core : ps).map(primBounds))
 	}
 	/** Does this view draw `id`? (The selection follows the view, UX09.) */

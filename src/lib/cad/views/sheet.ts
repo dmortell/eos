@@ -202,8 +202,8 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 	const { w, h } = paperSize(sheet), m = sheet.paper.marginMm
 	const rect = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]
 	const out: Prim[] = [
-		{ k: 'line', pts: rect(0, 0, w, h), closed: true, fill: true, cls: 'paper', src: sheet.id },
-		{ k: 'line', pts: rect(m, m, w - m, h - m), closed: true, cls: 'paper-margin' },
+		{ k: 'line', pts: rect(0, 0, w, h), closed: true, fill: true, cls: 'paper', role: 'paper', src: sheet.id },
+		{ k: 'line', pts: rect(m, m, w - m, h - m), closed: true, cls: 'paper-margin', role: 'margin' },
 	]
 	for (const vp of sheet.viewports) {
 		const r = vp.rect, clip = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h }

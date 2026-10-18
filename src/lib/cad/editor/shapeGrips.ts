@@ -129,13 +129,13 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
  *  grips"). An extension line too short to draw: its grip sits on the dimension line's end. `a`, `b`: the measured
  *  points; `a2`, `b2`: the dimension line's ends (as `dimLine` names them). */
 export function dimGrips(prims: Prim[], id: string, { a, b, a2, b2 }: { a: Pt; b: Pt; a2: Pt; b2: Pt }): Pt[] {
-	const text = prims.find((p) => p.src === id && p.k === 'text' && p.cls === 'dim-text')
+	const text = prims.find((p) => p.src === id && p.k === 'text' && p.role === 'dim-text')
 	const start = (p: Pt, p2: Pt): Pt => {
 		const L = Math.hypot(p2.x - p.x, p2.y - p.y)
 		if (!L) return p2
 		const ux = (p2.x - p.x) / L, uy = (p2.y - p.y) / L
 		const line = prims.find((q) => {
-			if (q.src !== id || q.k !== 'line' || q.cls !== 'dim' || q.pts.length !== 2) return false
+			if (q.src !== id || q.k !== 'line' || q.role !== 'dim' || q.pts.length !== 2) return false
 			const s = q.pts[0], along = (s.x - p.x) * ux + (s.y - p.y) * uy, off = Math.abs((s.x - p.x) * -uy + (s.y - p.y) * ux)
 			return off < L * 0.01 + 0.01 && along >= -0.01 && along <= L + 0.01
 		})

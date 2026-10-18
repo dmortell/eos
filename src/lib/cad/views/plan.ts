@@ -15,7 +15,7 @@ import { sectionMarks, sectionsOn, roomElevMarker } from './sectionMarks'
 import { rotate } from '../domain/conventions'
 import { tileLinesLocal } from '../domain/tiles'
 import type { Bounds, Prim, Dash } from './display'
-import { DASHES } from './display'
+import { DASHES, isBackFill, isEndMark } from './display'
 import { blockPrims } from './blocks'
 import { markdownPrims } from './markdown'
 import { defaultOutletBlock, outletAttrs, insertAttrs, is3d, placed3d, type Block } from '../domain/blocks'
@@ -147,7 +147,7 @@ function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined):
 						...op.jambs.map(([p, q]): Prim => ({ k: 'line', pts: [p, q], cls: 'opening', src: s.id })),
 						...op.swings.map((pts): Prim => ({ k: 'line', pts, cls: 'opening opening-swing', src: s.id })),
 						// the gap itself, invisible but pickable: a click selects that opening
-						...op.holes.map((h): Prim => ({ k: 'line', pts: [h.a, h.b], w, cls: 'opening-pick', src: s.id, sub: h.id })),
+						...op.holes.map((h): Prim => ({ k: 'line', pts: [h.a, h.b], w, cls: 'opening-pick', role: 'opening-pick', src: s.id, sub: h.id })),
 					]
 				}
 				return [{ k: 'line', pts: [a, b], ...(w ? { w } : {}), cls, src: s.id }]
@@ -212,8 +212,8 @@ export function ownStyle(s: Shape, ps: Prim[]): Prim[] {
 	const st = s.style ?? {}, dash = st.dash && (DASHES as string[]).includes(st.dash) ? (st.dash as Dash) : undefined
 	if (!st.stroke && !st.weightMm && !dash) return ps
 	return ps.map((p) => {
-		if (p.k === 'image' || p.cls === 'note-bg' || p.cls === 'shape-fill') return p
-		const own = { ...(st.stroke ? { color: st.stroke } : {}), ...(p.k !== 'text' && st.weightMm ? { weight: st.weightMm } : {}), ...(p.k !== 'text' && dash && !/line-(head|tick)/.test(p.cls) ? { dash } : {}) }
+		if (p.k === 'image' || isBackFill(p)) return p
+		const own = { ...(st.stroke ? { color: st.stroke } : {}), ...(p.k !== 'text' && st.weightMm ? { weight: st.weightMm } : {}), ...(p.k !== 'text' && dash && !isEndMark(p) ? { dash } : {}) }
 		return { ...p, ...own }
 	})
 }
@@ -262,7 +262,7 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 		const L = Math.hypot(q.x - p.x, q.y - p.y)
 		if (L < gap) return null
 		const u = { x: (q.x - p.x) / L, y: (q.y - p.y) / L }
-		return { k: 'line', pts: [{ x: p.x + u.x * gap, y: p.y + u.y * gap }, { x: q.x + u.x * over, y: q.y + u.y * over }], cls: 'dim', src }
+		return { k: 'line', pts: [{ x: p.x + u.x * gap, y: p.y + u.y * gap }, { x: q.x + u.x * over, y: q.y + u.y * over }], cls: 'dim', role: 'dim', src }
 	}
 	const d = { x: (b2.x - a2.x) / len, y: (b2.y - a2.y) / len }, dl = Math.hypot(d.x, d.y) || 1, u = { x: d.x / dl, y: d.y / dl }
 	const slash = (p: Pt): Prim => ({ k: 'line', pts: [{ x: p.x - (u.x - u.y) * tick * 0.7, y: p.y - (u.y + u.x) * tick * 0.7 }, { x: p.x + (u.x - u.y) * tick * 0.7, y: p.y + (u.y + u.x) * tick * 0.7 }], cls: 'dim dim-tick', src })
@@ -273,9 +273,9 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 	const text = g.text ?? (len < 10000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(1)} m`)   // mm up to 10 m (User)
 	return [
 		...[ext(a, a2, g.gapA ?? gap), ext(b, b2, g.gapB ?? gap)].filter((p): p is Prim => !!p),
-		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', src },
+		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', role: 'dim', src },
 		slash(a2), slash(b2),
-		{ k: 'text', at: g.textAt ?? { x: mid.x + up.x * k, y: mid.y + up.y * k }, text, size: 2.5 * k, anchor: 'middle', rot: ang || undefined, cls: 'dim-text', src },
+		{ k: 'text', at: g.textAt ?? { x: mid.x + up.x * k, y: mid.y + up.y * k }, text, size: 2.5 * k, anchor: 'middle', rot: ang || undefined, cls: 'dim-text', role: 'dim-text', src },
 	]
 }
 
@@ -379,7 +379,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			if (!best || len > best.len) best = { a, b, len }
 		}
 		const at = best ? { x: (best.a.x + best.b.x) / 2, y: (best.a.y + best.b.y) / 2 - w } : s.geom.nodes[0]
-		if (at) out.push({ k: 'text', at, text: s.label, size: LABEL * k, anchor: best ? 'middle' : undefined, cls: 'label run-label', src: s.id })
+		if (at) out.push({ k: 'text', at, text: s.label, size: LABEL * k, anchor: best ? 'middle' : undefined, cls: 'label run-label', role: 'run-label', src: s.id })
 	}
 	return out
 }
@@ -395,7 +395,7 @@ function rackPrims(r: Rack, k: number): Prim[] {
 		{ k: 'line', pts: [corners[0], corners[2]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [corners[1], corners[3]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [corners[0], corners[1]], cls: 'rack-back', src: r.id },
-		{ k: 'text', at, text: r.name, size: RACK_LABEL * k, anchor: 'middle', cls: 'label', src: r.id },
+		{ k: 'text', at, text: r.name, size: RACK_LABEL * k, anchor: 'middle', cls: 'label', role: 'label', src: r.id },
 		...rackDoorPrims(r, p, hw, hd),
 	]
 }
@@ -435,7 +435,7 @@ function outletPrims(o: Outlet, k: number, blocks?: PlanOpts['blocks']): Prim[] 
 	const r = OUTLET_R * k
 	return [
 		{ k: 'circle', c: o.at!, r, fill: o.tier === 'low', cls: `outlet outlet-${o.tier}`, src: o.id },
-		{ k: 'text', at: { x: o.at!.x + r * 1.3, y: o.at!.y + r * 0.4 }, text: o.label, size: LABEL * k, cls: 'label', src: o.id },
+		{ k: 'text', at: { x: o.at!.x + r * 1.3, y: o.at!.y + r * 0.4 }, text: o.label, size: LABEL * k, cls: 'label', role: 'label', src: o.id },
 	]
 }
 
@@ -538,8 +538,8 @@ export function declutter(prims: Prim[]): Prim[] {
 	type B = ReturnType<typeof box>
 	const hit = (a: B, b: B) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1
 	type T = Extract<Prim, { k: 'text' }>
-	const movable = (p: Prim): boolean => p.k === 'text' && !p.rot && (p.cls === 'riser-label' || p.cls.includes('run-label'))
-	const placed: B[] = prims.flatMap((p) => (p.k === 'text' && !movable(p) && (p.cls === 'label' || p.cls.startsWith('label')) && !p.rot ? [box(p)] : []))
+	const movable = (p: Prim): boolean => p.k === 'text' && !p.rot && (p.role === 'riser' || p.role === 'run-label')
+	const placed: B[] = prims.flatMap((p) => (p.k === 'text' && p.role === 'label' && !p.rot ? [box(p)] : []))
 	return prims.map((p) => {
 		if (!movable(p)) return p
 		let q = p as T

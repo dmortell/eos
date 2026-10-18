@@ -331,7 +331,7 @@ function datums(ix: ProjectIndex, prims: Prim[], level: Level | undefined, k: nu
 		if (sp.floorMm) lines.push([sp.floorMm, 'datum datum-room-floor', `${sp.name} FLOOR FL${sign(sp.floorMm)}`])
 	}
 	return lines.flatMap(([z, cls, label, below]): Prim[] => [
-		{ k: 'line', pts: [{ x: x0, y: -z }, { x: x1, y: -z }], cls },
-		{ k: 'text', at: { x: x0, y: below ? -z + s + gap : -z - gap }, text: label, size: s, cls: 'datum-label' },
+		{ k: 'line', pts: [{ x: x0, y: -z }, { x: x1, y: -z }], cls, role: 'datum' },
+		{ k: 'text', at: { x: x0, y: below ? -z + s + gap : -z - gap }, text: label, size: s, cls: 'datum-label', role: 'datum' },
 	])
 }

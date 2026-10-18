@@ -51,9 +51,18 @@ export type Prim = (
  *  - `riser` — a containment run's riser: its symbol and label on a plan, its shaft in a riser view (the Risers layer)
  *  - `run` / `run-high` — a containment run's drawn body, low / high tier (DXF E-CONTAINMENT / -HIGH)
  *  - `run-pick` — a plan run's pick band (drawn along its centre line; DXF writes the run's outline instead)
- *  - `fill` — a region's fill under its outline (DXF: a solid hatch) */
+ *  - `fill` — a region's fill under its outline (DXF: a solid hatch)
+ *  - `datum` — an elevation's storey line (slab, ceiling, FFL, a room's floor) and its name (Fit leaves them out, as
+ *    it does a rack view's `room-line`s)
+ *  - `label` — an item's name by its symbol (outlet, rack), which the plan's run / riser labels move clear of
+ *  - `run-label` — a containment run's name along it (moved clear of the labels; never boxed when selected)
+ *  - `dim` / `dim-text` — a dimension's lines / its text (`src` = the dimension; its grips are found by them)
+ *  - `opening-pick` — an opening's pick band in its wall (`sub` = the opening; never drawn as selected)
+ *  - `paper` / `margin` — a sheet's paper and its margin line (snapped to when a viewport is dragged)
+ *  - `title-block` — the title block's text (snapped to when a viewport is dragged) */
 export type PrimRole = 'port' | 'port-label' | 'cord' | 'device' | 'device-name' | 'other-face' | 'rack' | 'room-line' | 'viewport'
-	| 'riser' | 'run' | 'run-high' | 'run-pick' | 'fill'
+	| 'riser' | 'run' | 'run-high' | 'run-pick' | 'fill' | 'datum' | 'label' | 'run-label' | 'dim' | 'dim-text' | 'opening-pick'
+	| 'paper' | 'margin' | 'title-block'
 
 /** One placed block: its id, insertion point (drawing mm, y down), rotation (°), scale (incl. the annotative k), the
  *  filled attribute values, and the entity it draws. */

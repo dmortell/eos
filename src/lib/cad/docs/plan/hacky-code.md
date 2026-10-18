@@ -8,8 +8,10 @@ hacky code to improve" (backlog). Nothing fixed yet; paths relative to `src/lib/
 
 ALL 8 FIXED 2026-10-17/18: 1 (c36b0062), 2 (3c4537f3), 3 (0e58f036), 4 (5bea71cc), 5 (91b396a6 — a remover that removes
 only its own; the namer is still a module global), 6 (`Prim.role` — picking, port tips, overlays, layers and DXF read it;
-still on `cls`: Prims.svelte's selection look, the Fit's datum filter, the title block / paper snap lines, dimension
-grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (CordToolDeps; ShellActions attached once
+2026-10-19 the rest too: the selection look, the Fit (`datum` — the ceiling line, not `datum-…` by class, had kept
+Fit at the slab lines' width), the viewport snap lines (`paper` / `margin` / `title-block`), dimension grips, plan
+label placement; the style rules left on `cls` share one copy each in views/display.ts — `fillsWithColor`,
+`isBackFill`, `isEndMark` — for screen, PDF, layers and shape style), 7 (027d41d5), 8 (CordToolDeps; ShellActions attached once
 — toolDefaults left as a settable query).
 1. `ws.focus` / `ws.centreOn` are one-shot requests held as shared state: whichever pane's fit effect runs first takes
    them (FindDevice waits a `tick()` so "the plan doesn't take it"; Navigator / CadShell don't) — ui/ViewCanvas.svelte

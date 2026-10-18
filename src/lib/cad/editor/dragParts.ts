@@ -38,10 +38,8 @@ export function viewportSnapLines(prims: Prim[], vpId: Id): { xs: number[]; ys: 
 	const add = (b: { x0: number; y0: number; x1: number; y1: number } | undefined) => { if (b) { xs.push(b.x0, b.x1); ys.push(b.y0, b.y1) } }
 	const tb: Prim[] = []
 	for (const p of prims) {
-		if (p.k !== 'line') { if (p.k === 'text' && p.cls.startsWith('tb')) tb.push(p); continue }
-		const c = p.cls.split(' ')[0]
-		if (c === 'paper' || c === 'paper-margin' || (p.role === 'viewport' && p.sub !== vpId)) add(primBounds(p))
-		else if (c.startsWith('tb')) tb.push(p)
+		if (p.k === 'line' && (p.role === 'paper' || p.role === 'margin' || (p.role === 'viewport' && p.sub !== vpId))) add(primBounds(p))
+		else if ((p.k === 'line' || p.k === 'text') && p.role === 'title-block') tb.push(p)
 	}
 	add(unionBounds(tb.map(primBounds)))
 	return { xs, ys }

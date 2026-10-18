@@ -11,6 +11,17 @@ export const DASHES: Dash[] = ['dashed', 'dotted', 'dashdot']
 /** Standard lineweights, paper mm. */
 export const WEIGHTS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1]
 
+// How a class is drawn, read the same on screen (ui/Prims.svelte), in print (render/pdf.ts) and by the style rules
+// (views/layers.ts, ownStyle in views/plan.ts) — one copy each, so they can't drift apart.
+/** A filled outline whose fill takes the item's own / layer color (an outlet symbol, a run's band, a fill, a note's
+ *  background, a port's usage tint, a block's solid part); other fills keep their class's. */
+export const fillsWithColor = (p: Prim): boolean => p.k === 'line' && !!p.fill
+	&& (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls === 'port-usage' || p.cls.endsWith(' ink'))
+/** A fill behind something (a note's background, a region's fill): it keeps its own color, lineweight and line type. */
+export const isBackFill = (p: Prim): boolean => p.k !== 'image' && (p.cls === 'note-bg' || p.cls === 'shape-fill')
+/** A line end's mark (an arrowhead, a tick): drawn solid whatever the line's type. */
+export const isEndMark = (p: Prim): boolean => p.k !== 'image' && /line-(head|tick)/.test(p.cls)
+
 
 /** What a prim covers as drawn: inside its clip, when it has one (a section's long run is drawn only between the cut
  *  line's ends — its full length made the view, its datum lines and its fit 16 m wide; User 2026-10-15). */

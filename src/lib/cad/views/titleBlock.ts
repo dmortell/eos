@@ -20,6 +20,8 @@ const fit = (t: string, width: number, size: number) => {
 }
 const box = (x0: number, y0: number, x1: number, y1: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, cls })
 const rule = (x0: number, y0: number, x1: number, y1: number): Prim => ({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y1 }], cls: 'tb-rule' })
+/** The block's prims, marked as the title block's (a dragged viewport snaps to its outline — editor/dragParts.ts). */
+const own = (ps: Prim[]): Prim[] => ps.map((p) => ({ ...p, role: 'title-block' }))
 
 /** One cell: a small grey label over its value — or a logo field's image (no label), fitted in the cell, centred. */
 function cell(out: Prim[], x: number, y: number, w: number, c: TbCell, h = CELL_H): void {
@@ -86,7 +88,7 @@ function grid(out: Prim[], cells: TbShown['cells'], x: number, y: number, w: num
 export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { prims: Prim[]; area?: Bounds } {
 	const out: Prim[] = []
 	if (s.border) out.push(box(m, m, w - m, h - m, 'tb-border'))
-	if (s.hidden) return { prims: out }
+	if (s.hidden) return { prims: own(out) }
 	const wide = s.cells.filter((c) => c.wide), half = s.cells.filter((c) => !c.wide)
 	const innerW = w - 2 * m
 
@@ -109,7 +111,7 @@ export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { 
 			x += cw
 		}
 		out.unshift({ k: 'line', pts: [{ x: m, y: y0 }, { x: w - m, y: y0 }, { x: w - m, y: h - m }, { x: m, y: h - m }], closed: true, fill: true, cls: 'tb-frame' })
-		return { prims: out, area: { x0: m, y0, x1: w - m, y1: h - m } }
+		return { prims: own(out), area: { x0: m, y0, x1: w - m, y1: h - m } }
 	}
 
 	// a strip down the right, or (compact) a box in the bottom-right corner; same sections top to bottom
@@ -126,5 +128,5 @@ export function titleBlockPrims(s: TbShown, w: number, h: number, m: number): { 
 	if (half.length) { out.push(rule(x0, yb, x1, yb)); grid(out, half, x0, yb, W, 2) }
 	if (s.revisions) { yb -= revsH(s); out.push(rule(x0, yb, x1, yb)); revisionTable(out, s, x0, yb, W) }
 	out.unshift({ k: 'line', pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true, fill: true, cls: 'tb-frame' })
-	return { prims: out, area: { x0, y0, x1, y1 } }
+	return { prims: own(out), area: { x0, y0, x1, y1 } }
 }

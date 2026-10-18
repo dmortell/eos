@@ -2,7 +2,7 @@
      (trunks, walls) are drawn at their real width. Selected entities get the `sel` look. -->
 <script lang="ts">
 	import { getContext } from 'svelte'
-	import { primBounds, type Prim } from '../views/display'
+	import { primBounds, fillsWithColor, type Prim } from '../views/display'
 	import type { Id } from '../domain/types'
 
 	/** An image shape's `picture:` reference → the url to show (set by the cad shell; app/pdf.svelte.ts). */
@@ -31,14 +31,15 @@
 	/** The selection as Pages / Sheets show it (User 2026-10-06): the item stays as drawn; a thin blue line over its
 	 *  lines, and a dashed box round each selected symbol, box or text (a run or wall — open lines only — gets the line
 	 *  alone: a box round a long run says nothing). Padded a few screen px when the zoom is known. */
-	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && (p.k === 'circle' || (p.k === 'line' && !p.cls.startsWith('opening-pick') && !p.cls.startsWith('viewport')))
+	const unmarked = (p: Prim) => p.role === 'opening-pick' || p.role === 'viewport'
+	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && (p.k === 'circle' || (p.k === 'line' && !unmarked(p)))
 	const selBoxes = $derived.by(() => {
 		if (!selected.size) return []
 		const by = new Map<string, Prim[]>()
-		for (const p of prims) if (p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && !p.cls.startsWith('viewport') && !p.cls.startsWith('opening-pick')) (by.get(p.src) ?? by.set(p.src, []).get(p.src)!).push(p)
+		for (const p of prims) if (p.src && selected.has(p.src) && shown(p) && p.k !== 'image' && !unmarked(p)) (by.get(p.src) ?? by.set(p.src, []).get(p.src)!).push(p)
 		const pad = k ? 4 / k : 0
 		// a run never (User 2026-10-10: a labelled trunk's text brought a box back round the whole run — it looked odd)
-		const isRun = (q: Prim) => q.k !== 'image' && (/^(run|riser)\b/.test(q.cls) || q.cls.includes('run-label'))
+		const isRun = (q: Prim) => q.role === 'run' || q.role === 'run-high' || q.role === 'run-pick' || q.role === 'riser' || q.role === 'run-label'
 		return [...by.entries()].filter(([, ps]) => !ps.some(isRun) && ps.some((q) => q.k !== 'line' || q.closed)).map(([id, ps]) => {
 			const bs = ps.map(primBounds)
 			const b = { x0: Math.min(...bs.map((q) => q.x0)) - pad, y0: Math.min(...bs.map((q) => q.y0)) - pad, x1: Math.max(...bs.map((q) => q.x1)) + pad, y1: Math.max(...bs.map((q) => q.y1)) + pad }
@@ -72,9 +73,9 @@
 	{:else if p.k === 'line'}
 		{#if p.closed && p.holes?.length}
 			<!-- an outline with holes (a ring of runs): one path, even-odd, so the middle stays clear -->
-			<path d={ringsOf(p)} fill-rule="evenodd" class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && p.cls.startsWith('run-body') ? col : undefined} clip-path={clipOf(p)} />
+			<path d={ringsOf(p)} fill-rule="evenodd" class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={fillsWithColor(p) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.closed}
-			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={p.fill && (p.cls.startsWith('outlet') || p.cls.startsWith('run-body') || p.cls === 'note-bg' || p.cls === 'shape-fill' || p.cls === 'port-usage' || p.cls.endsWith(' ink')) ? col : undefined} clip-path={clipOf(p)} />
+			<polygon points={ptsOf(p)} class="{p.cls} {p.fill ? 'filled' : ''}" class:sel vector-effect="non-scaling-stroke" style:stroke={col} style:stroke-width={lw(p)} style:stroke-dasharray={da(p)} style:fill={fillsWithColor(p) ? col : undefined} clip-path={clipOf(p)} />
 		{:else if p.w}
 			<!-- the real width, plus a 1 px centre line so a run stays visible when zoomed far out -->
 			<!-- inline style: a stylesheet stroke-width would beat the presentation attribute -->

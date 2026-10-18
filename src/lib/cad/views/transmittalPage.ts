@@ -25,7 +25,7 @@ const ROW = 6.5, TXT = 3, HEAD = 3.2
 export function coverPages(ix: ProjectIndex, first: Sheet, d: CoverData, o: SheetOpts = {}): { w: number; h: number; prims: Prim[] }[] {
 	const stand: Sheet = { ...first, id: 'cover', number: '', title: `TRANSMITTAL — ${d.tag}`, viewports: [], revisions: undefined, titleBlock: { ...first.titleBlock, hidden: undefined } }
 	const { w, h } = paperSize(stand), m = stand.paper.marginMm
-	const base = sheetDisplayList(ix, stand, o).filter((p) => p.k === 'image' || p.cls !== 'paper-margin')
+	const base = sheetDisplayList(ix, stand, o).filter((p) => p.role !== 'margin')
 	// the space the title block leaves: above it (a block along the bottom) or beside it (a strip on the right)
 	const a = titleBlockPrims(sheetTitleBlock(ix, stand, o), w, h, m).area
 	const free = !a ? { x0: m, y0: m, x1: w - m, y1: h - m }
