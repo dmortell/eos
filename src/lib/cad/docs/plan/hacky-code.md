@@ -66,6 +66,11 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
 - **Timers / polling**: a double `tick()` before scrolling Settings to the title block (CadShell ~176); 100 ms / 250 ms
   polls in app/backups.ts and restoreNotice; `queueMicrotask(zoomExtents)` in a ViewCanvas effect (~208).
 - **Global state**: shellKeys' `zoomPending` chord state at module level.
-- **Strings parsed for structure**: `${fileId}#${page}` built and split in 6 places; `${dev}:${port}` split in
+- **Strings parsed for structure** — FIXED 2026-10-18: `pageKey` / `parsePageKey` (app/pdf.svelte.ts) build and read
+  `fileId#page` everywhere; outletPortCells keeps the far ends' devices instead of splitting `device:port`; the
+  viewport picker's choices carry their views (`viewChoices`; the key is only compared — a view it doesn't list shows
+  itself, not a blank); issueGuard joins a frozen copy's parts and reads its image references (`copiesDrawing`, tested)
+  — the review's prefix false positive wasn't real (the needle ended in `#`), but a reference cut between two parts
+  was missed, so a file an old release draws could be deleted. Was: `${fileId}#${page}` built and split in 6 places; `${dev}:${port}` split in
   overlays.ts; SheetProps' viewport picker splits `key.split(':')` (an unknown key → a row spec with `spaceId: ''`);
   app/issueGuard.ts finds file use by substring search over serialised JSON (id-prefix false positives).

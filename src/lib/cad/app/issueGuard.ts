@@ -3,7 +3,7 @@
 // or replacing either file would change or blank old issues. Uploads asks here before a delete or a same-name upload.
 // Reads the frozen copies (only when a file is deleted / replaced, which is rare).
 import { collection, doc, getDoc, getDocs, query, where, type Firestore } from 'firebase/firestore'
-import { UNDERLAY_REF } from '../domain/issue'
+import { parseUnderlayRef } from '../domain/issue'
 import { freeFileId } from './projectFiles'
 
 /**
@@ -22,7 +22,7 @@ export async function uploadId(db: Firestore, name: string): Promise<{ id: strin
 /** The names of the issues (in these projects) that use the file — as a floorplan in a frozen sheet, or as the
  *  package PDF. [] = none: it can go. */
 export async function issuesUsingFile(db: Firestore, fileId: string, pids: string[]): Promise<string[]> {
-	const names = new Set<string>(), needle = `${UNDERLAY_REF}${fileId}#`
+	const names = new Set<string>()
 	for (const pid of pids) {
 		const issues = new Map<string, string>()
 		;(await getDocs(query(collection(db, 'projects', pid, 'cadEntities'), where('type', '==', 'issue')))).forEach((d) => {
@@ -32,13 +32,36 @@ export async function issuesUsingFile(db: Firestore, fileId: string, pids: strin
 		})
 		if (!issues.size) continue
 		// frozen copies: a head per (sheet, rev) names its issue; its parts hold the display list as JSON text
-		const heads = new Map<string, string>(), hits = new Set<string>()
+		const heads = new Map<string, string>(), docs: { id: string; json?: unknown }[] = []
 		;(await getDocs(collection(db, 'projects', pid, 'cadIssued'))).forEach((d) => {
-			const x = d.data() as { issueId?: string; json?: string }
+			const x = d.data() as { issueId?: string; json?: unknown }
 			if (x.issueId) heads.set(d.id, x.issueId)
-			if (typeof x.json === 'string' && x.json.includes(needle)) hits.add(d.id.replace(/~p\d+$/, ''))
+			docs.push({ id: d.id, json: x.json })
 		})
-		for (const k of hits) { const iss = heads.get(k); if (iss) names.add(issues.get(iss) ?? 'a release') }
+		for (const k of copiesDrawing(docs, fileId)) { const iss = heads.get(k); if (iss) names.add(issues.get(iss) ?? 'a release') }
 	}
 	return [...names]
+}
+
+/** The frozen copies (by their head's id) that draw the file as a floorplan, from `cadIssued` docs: each copy's parts
+ *  (`<head>~p<i>`) joined in order and read — not searched as text part by part (the list is cut anywhere, so a
+ *  reference across two parts was missed and the file could be deleted). A copy that can't be read counts as using
+ *  it: the file stays. */
+export function copiesDrawing(docs: readonly { id: string; json?: unknown }[], fileId: string): Set<string> {
+	const parts = new Map<string, string[]>()
+	for (const d of docs) {
+		const m = /^(.*)~p(\d+)$/.exec(d.id)
+		if (!m || typeof d.json !== 'string') continue
+		const list = parts.get(m[1]) ?? []
+		list[Number(m[2])] = d.json
+		parts.set(m[1], list)
+	}
+	const out = new Set<string>()
+	for (const [head, list] of parts) {
+		try {
+			const prims = JSON.parse(Array.from(list, (s) => s ?? '').join('')) as { k?: string; url?: string }[]
+			if (prims.some((p) => p.k === 'image' && typeof p.url === 'string' && parseUnderlayRef(p.url)?.fileId === fileId)) out.add(head)
+		} catch { out.add(head) }
+	}
+	return out
 }

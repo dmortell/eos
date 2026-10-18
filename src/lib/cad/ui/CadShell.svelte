@@ -71,6 +71,7 @@
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 	import { provideModals } from './modals.svelte'
+	import { pageKey } from '../app/pdf.svelte'
 	import { setCadOpener } from '$lib/palette/palette.svelte'
 	import PatchPreview from './PatchPreview.svelte'
 	import { addBuilding, buildingsOf, type GroupedProject } from '$lib/projectGroups'
@@ -680,10 +681,10 @@
 	// Origin / Scale / Crop arm the Calibrate tool on that level's plan; it writes the page's calibration in its FILE
 	// (Uploads' format) — not in the drawing's undo, so each change offers "Undo" (or "Keep") ──
 	ws.calibIO = {
-		calib: (u) => project.pdf.calib[`${u.fileId}#${u.page ?? 1}`],
+		calib: (u) => project.pdf.calib[pageKey(u)],
 		write: (u, field, value, what) => {
 			const page = u.page ?? 1
-			const key = `${u.fileId}#${page}`
+			const key = pageKey(u)
 			// a new origin moves the floorplan on the plan: the view moves with it once it's redrawn (User 2026-10-16: the
 			// plan jumped a second after the click, and the crop's corners were then clicked in the wrong place)
 			const follow = (to: unknown) => { const c = project.pdf.calib[key]; if (field === 'origin' && c && to && typeof to === 'object') originFollow = { key, from: { ...c.origin }, to: to as Pt } }

@@ -78,8 +78,10 @@
 	// what a viewport can show, as one picker: plan, the four elevations, each server room's racks front / rear, its
 	// sections, the riser; on paper: a rack's port grid, a room's patch schedule (a fill section comes from a run's
 	// Properties › Fill, a port map from its pane's To sheet…)
-	function viewKey(v: Viewport): string {
-		const s = v.view.spec
+	// Each choice carries its view: the select's value is its key, which is only compared, never read back (hacky-code
+	// review: the key was split on ':' to rebuild the view)
+	type ViewChoice = { key: string; label: string; spec: Viewport['view']['spec'] }
+	function viewKey(s: Viewport['view']['spec']): string {
 		switch (s.kind) {
 			case 'row': return `row:${s.spaceId}:${s.face}${s.rowId ? `:${s.rowId}` : ''}`
 			case 'plan': return 'plan'
@@ -98,26 +100,37 @@
 	const panelRacksOf = (spaceId: string) => racksInOrder(project.index, spaceId).filter((r) => project.index.devices.some((d) => d.rackId === r.id && d.kind === 'panel' && d.portCount > 0))
 	/** The devices with ports in a rack, from the top U down (a port grid of one). */
 	const portDevicesOf = (rackId: string) => project.index.devices.filter((d): d is Device => d.rackId === rackId && d.portCount > 0).sort((a, b) => b.u + b.heightU - (a.u + a.heightU))
-	function specOf(key: string): Viewport['view']['spec'] {
-		const [kind, a, b, c] = key.split(':')
-		switch (kind) {
-			case 'plan': return { kind: 'plan' }
-			case 'riser': return { kind: 'riser', ...(a === 'compact' ? { hideEmpty: true } : {}) }
-			case 'section': return { kind: 'section', sectionId: a }
-			case 'portmap': return { kind: 'portmap', deviceIds: a.split('~') }
-			case 'ports': return { kind: 'ports', rackId: a }
-			case 'schedule': return { kind: 'schedule', table: 'patch', ...(a === 'all' ? {} : { spaceId: a }) }
-			case 'fill': return { kind: 'fill', shapeId: a, segId: b }
-			case 'elev': return { kind: 'elevation', dir: a as 'front' }
-			default: return { kind: 'row', spaceId: a, face: b as 'front' | 'rear', ...(c ? { rowId: c } : {}) }
+	const viewChoices = $derived.by((): ViewChoice[] => {
+		if (!vp) return []
+		const out: ViewChoice[] = [], add = (spec: ViewChoice['spec'], label: string) => out.push({ key: viewKey(spec), label, spec })
+		add({ kind: 'plan' }, 'Plan')
+		for (const dir of ['front', 'rear', 'left', 'right'] as const) add({ kind: 'elevation', dir }, `Elevation ${dir}`)
+		for (const r of rooms) {
+			for (const face of ['front', 'rear'] as const) add({ kind: 'row', spaceId: r.id, face }, `${r.name} racks ${face}`)
+			// one row of the room's racks (User: a sheet of 4AR01 … r6 only)
+			for (const row of rowsOf(r.id)) for (const face of ['front', 'rear'] as const) add({ kind: 'row', spaceId: r.id, face, rowId: row.id }, `${r.name} · ${row.name} racks ${face}`)
 		}
-	}
+		for (const sc of sectionsOn(project.index, vp.view.levelId)) add({ kind: 'section', sectionId: sc.id }, `Section ${sc.name}`)
+		add({ kind: 'riser' }, 'Risers (building)')
+		add({ kind: 'riser', hideEmpty: true }, 'Risers (floors with server rooms)')
+		const cur = vp.view.spec
+		if (cur.kind === 'portmap') add(cur, portMapTitle(project.index, cur.deviceIds))
+		// paper: drawn at 1:1, from the window's top-left
+		for (const r of rooms) {
+			for (const rk of panelRacksOf(r.id)) add({ kind: 'ports', rackId: rk.id }, `${r.name} · ${rk.name} port grid`)
+			add({ kind: 'schedule', table: 'patch', spaceId: r.id }, `${r.name} patch schedule`)
+		}
+		add({ kind: 'schedule', table: 'patch' }, 'Patch schedule (all rooms)')
+		// a view the picker has no entry for (a fill section; a port grid of a rack on another level): listed as it is
+		if (!out.some((c) => c.key === viewKey(cur))) add(cur, viewName(project.index, cur, vp.view.levelId))
+		return out
+	})
 	/** Show another view in it: centred on its content; to or from paper (drawn at 1:1) also a scale that fits. */
 	function showIn(v: Viewport, label: string, view: Viewport['view']) {
 		const next = { ...v, view }
 		putVp(label, isPaperSpec(view.spec) || isPaperSpec(v.view.spec) ? { view, ...fitViewport(project.index, next) } : { view, centre: contentCentre(project.index, next) })
 	}
-	const setView = (v: Viewport, key: string) => showIn(v, 'Viewport view', { ...v.view, spec: specOf(key) })
+	const setView = (v: Viewport, key: string) => { const c = viewChoices.find((x) => x.key === key); if (c) showIn(v, 'Viewport view', { ...v.view, spec: c.spec }) }
 	function setLevel(v: Viewport, levelId: string) {
 		// a room's racks, a section, a rack's ports, a room's schedule and a run's fill belong to their level
 		const s = v.view.spec, own = s.kind === 'row' || s.kind === 'section' || s.kind === 'ports' || s.kind === 'fill' || (s.kind === 'schedule' && !!s.spaceId)
@@ -125,8 +138,6 @@
 	}
 	/** A paper view's own setting (a port grid's device, a schedule's first cord), keeping where it sits. */
 	const setSpec = (v: Viewport, label: string, spec: Viewport['view']['spec']) => putVp(label, { view: { ...v.view, spec } })
-	/** The picker has no entry for it (a fill section; a port grid of a rack on another level): list it as it is. */
-	const offPicker = (v: Viewport) => v.view.spec.kind === 'fill' || (v.view.spec.kind === 'ports' && !rooms.some((r) => panelRacksOf(r.id).some((rk) => viewKey(v) === `ports:${rk.id}`)))
 	/** The view a viewport shows, in its own tab (the chip's “Open view”, from the list too). */
 	const openSource = (v: Viewport) => ws.openInTab({ levelId: v.view.levelId, spec: $state.snapshot(v.view.spec) })
 	/** W19: copies of this sheet for each other floor / server room; they're selected, and the status says how many. */
@@ -184,25 +195,8 @@
 			</select>
 		</label>
 		<label class="row">View
-			<select class="inp" value={viewKey(vp)} onchange={(e) => setView(vp, e.currentTarget.value)}>
-				<option value="plan">Plan</option>
-				{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value="elev:{d}">Elevation {d}</option>{/each}
-				{#each rooms as r (r.id)}
-					{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}">{r.name} racks {f}</option>{/each}
-					<!-- one row of the room's racks (User: a sheet of 4AR01 … r6 only) -->
-					{#each rowsOf(r.id) as row (row.id)}{#each ['front', 'rear'] as f (f)}<option value="row:{r.id}:{f}:{row.id}">{r.name} · {row.name} racks {f}</option>{/each}{/each}
-				{/each}
-				{#each sectionsOn(project.index, vp.view.levelId) as sc (sc.id)}<option value="section:{sc.id}">Section {sc.name}</option>{/each}
-				<option value="riser">Risers (building)</option>
-				<option value="riser:compact">Risers (floors with server rooms)</option>
-				{#if vp.view.spec.kind === 'portmap'}<option value={viewKey(vp)}>{portMapTitle(project.index, vp.view.spec.deviceIds)}</option>{/if}
-				<!-- paper: drawn at 1:1, from the window's top-left -->
-				{#each rooms as r (r.id)}
-					{#each panelRacksOf(r.id) as rk (rk.id)}<option value="ports:{rk.id}">{r.name} · {rk.name} port grid</option>{/each}
-					<option value="schedule:{r.id}">{r.name} patch schedule</option>
-				{/each}
-				<option value="schedule:all">Patch schedule (all rooms)</option>
-				{#if offPicker(vp)}<option value={viewKey(vp)}>{viewName(project.index, vp.view.spec, vp.view.levelId)}</option>{/if}
+			<select class="inp" value={viewKey(vp.view.spec)} onchange={(e) => setView(vp, e.currentTarget.value)}>
+				{#each viewChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
 			</select>
 		</label>
 		{#if vp.view.spec.kind === 'ports'}

@@ -42,6 +42,7 @@
 	import { TouchNav, pinchContent, settleScale, type ContentGesture } from '../editor/touch'
 	import { LONG_PRESS_SLOP } from './longPress'
 	import { PathTool } from '../editor/pathTool'
+	import { pageKey } from '../app/pdf.svelte'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
 	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop, dropTakes } from './viewportEdit'
@@ -258,7 +259,7 @@
 	/** A plan whose floorplan is still rendering: its first fit waits for it (User: fitting to the outlets first and
 	 *  again when the PDF arrived made the view jump). A floorplan that fails to load doesn't hold it up. */
 	const floorplanPending = $derived(spec.kind === 'plan' && (!project.levelLoaded(levelId) ||
-		project.dataIndex.ofType('underlay').some((u) => u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[`${u.fileId}#${u.page ?? 1}`])))
+		project.dataIndex.ofType('underlay').some((u) => u.levelId === levelId && !project.pdf.placement(u) && !project.pdf.problems[pageKey(u)])))
 
 	let switchCheck: { vk: string; ps: Prim[] } | null = null
 	/** Fit a view the first time it has something to show — again when the floorplan image arrives, and when the

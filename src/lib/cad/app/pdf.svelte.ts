@@ -15,6 +15,15 @@ export interface PageCalibUsed { origin: { x: number; y: number }; sf: number; c
 /** An uncalibrated page is shown as if drawn at 1:100: a PDF point (1/72 in = 0.3528 mm) × 100. */
 export const PROVISIONAL_SF = (25.4 / 72) * 100
 
+/** A file page's key in the caches below (`calib`, `problems`, `looks`) and in a floorplan select's value:
+ *  `fileId#page`, the page from 1. Built and read only here. */
+export const pageKey = (u: { fileId: string; page?: number }): string => `${u.fileId}#${u.page ?? 1}`
+/** The file and page back from a `pageKey`; null = not one. */
+export function parsePageKey(key: string): { fileId: string; page: number } | null {
+	const i = key.lastIndexOf('#'), page = Number(key.slice(i + 1))
+	return i > 0 && Number.isInteger(page) && page > 0 ? { fileId: key.slice(0, i), page } : null
+}
+
 /** Where a rendered page (w × h px) sits in plan mm: the calibration origin lands on plan (0, 0). The page's crop
  *  (rendered px, the same space as the origin — as the outlets / model3d tools read it) becomes a clip. */
 /** What an issued sheet keeps of a floorplan file, to reprint it as it was: its url and the settings that change its
@@ -43,13 +52,13 @@ export class PdfCache {
 	looks: Record<string, string> = {}
 	lookRev = $state(0)
 	/** The look of a floorplan reference in a frozen list (domain/issue.ts `sheetPrint`). */
-	lookOfRef = (ref: string): string => { const r = parseUnderlayRef(ref); return r ? this.looks[`${r.fileId}#${r.page}`] ?? '' : '' }
+	lookOfRef = (ref: string): string => { const r = parseUnderlayRef(ref); return r ? this.looks[pageKey(r)] ?? '' : '' }
 
 	constructor(private db: Firestore) {}
 
 	/** Reactive: the placed image for an underlay, or undefined while it renders / when it can't be placed. */
 	placement = (u: Pick<Underlay, 'fileId' | 'page'>): Placed | undefined => {
-		const page = u.page ?? 1, key = `${u.fileId}#${page}`
+		const page = u.page ?? 1, key = pageKey(u)
 		const r = this.#ready[key]
 		if (!r && !this.#jobs.has(key)) this.#jobs.set(key, this.#render(u.fileId, page, key))
 		return r
@@ -57,7 +66,7 @@ export class PdfCache {
 	/** The same, waiting for the render (PDFs of sheets that aren't on screen; reprints of issued sheets). */
 	placed = async (u: Pick<Underlay, 'fileId' | 'page'>): Promise<Placed | undefined> => {
 		this.placement(u)
-		const key = `${u.fileId}#${u.page ?? 1}`
+		const key = pageKey(u)
 		await this.#jobs.get(key)
 		return this.#ready[key]
 	}
@@ -70,19 +79,19 @@ export class PdfCache {
 	picture = (ref: string): string | undefined => {
 		const r = parsePictureRef(ref)
 		if (!r) return undefined
-		const key = `${r.fileId}#${r.page}`, url = this.#pics[key]
+		const key = pageKey(r), url = this.#pics[key]
 		if (!url && !this.#picJobs.has(key)) this.#picJobs.set(key, this.#renderPicture(r.fileId, r.page, key))
 		return url
 	}
 	/** Show this url for an image file's picture (a pasted picture, from its own bytes while it uploads). */
-	showPicture = (fileId: string, url: string): void => { this.#pics[`${fileId}#1`] = url }
+	showPicture = (fileId: string, url: string): void => { this.#pics[pageKey({ fileId })] = url }
 	/** The same, waiting for it (PDFs). */
 	pictureReady = async (ref: string): Promise<string | undefined> => {
 		const r = parsePictureRef(ref)
 		if (!r) return undefined
 		this.picture(ref)
-		await this.#picJobs.get(`${r.fileId}#${r.page}`)
-		return this.#pics[`${r.fileId}#${r.page}`]
+		await this.#picJobs.get(pageKey(r))
+		return this.#pics[pageKey(r)]
 	}
 	async #renderPicture(fileId: string, page: number, key: string): Promise<void> {
 		try {
@@ -110,7 +119,10 @@ export class PdfCache {
 			this.#seen.set(fileId, sig)
 			if (was === undefined || was === sig) return
 			// redraw its pages — also the ones that failed (no url yet, not calibrated …): the change may have fixed them
-			for (const key of new Set([...Object.keys(this.#ready), ...this.#jobs.keys()])) if (key.startsWith(`${fileId}#`)) this.#jobs.set(key, this.#render(fileId, Number(key.split('#')[1]), key))
+			for (const key of new Set([...Object.keys(this.#ready), ...this.#jobs.keys()])) {
+				const p = parsePageKey(key)
+				if (p?.fileId === fileId) this.#jobs.set(key, this.#render(fileId, p.page, key))
+			}
 		}, (e) => {
 			// the live check for a changed origin / scale / layers has stopped: the pages already drawn stay as they are
 			this.problems[`watch:${fileId}`] = `lost the live connection to this file (${(e as Error)?.message ?? e}) — reload the page to see changes made in Uploads`
@@ -121,7 +133,7 @@ export class PdfCache {
 	 *  masks / PDF layers / markups then), for reprinting it as issued (review R24c). Cached per snapshot. */
 	#asWas = new Map<string, Promise<string | undefined>>()
 	imageAsWas = (fileId: string, page: number, fd: FileSnapshot): Promise<string | undefined> => {
-		const k = `${fileId}#${page}@${JSON.stringify(fd)}`
+		const k = `${pageKey({ fileId, page })}@${JSON.stringify(fd)}`
 		let job = this.#asWas.get(k)
 		if (!job) {
 			job = (async () => {

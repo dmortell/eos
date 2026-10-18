@@ -29,10 +29,11 @@ export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 export function outletPortCells(ix: ProjectIndex, prims: Prim[], selection: Id[]): Prim[] {
 	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
 	if (!outlets.size) return []
-	const keys = new Set(ix.links.flatMap((l) => (outlets.has(l.b.on) ? [`${l.a.on}:${l.a.port}`] : outlets.has(l.a.on) ? [`${l.b.on}:${l.b.port}`] : [])))
-	if (!keys.size) return []
+	// the far ends: their devices, and `device:port` keys (only compared — the devices are kept, not split back out)
+	const ends = ix.links.flatMap((l) => (outlets.has(l.b.on) ? [l.a] : outlets.has(l.a.on) ? [l.b] : []))
+	if (!ends.length) return []
+	const keys = new Set(ends.map((e) => `${e.on}:${e.port}`)), devs = [...new Set(ends.map((e) => e.on))]
 	const cells = prims.flatMap((p) => (p.k === 'line' && p.src && p.sub && p.role === 'port' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
-	const devs = [...new Set([...keys].map((k) => k.split(':')[0]))]
 	return [...cells, ...labelsOf(prims, keys, 'port-label port-label-sel'), ...namesOver(prims, devs)]
 }
 

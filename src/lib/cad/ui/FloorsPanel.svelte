@@ -15,6 +15,7 @@
 	import NameInput from './NameInput.svelte'
 	import { levelContents, levelRisers } from '../editor/commands'
 	import { newId } from '../domain/ids'
+	import { pageKey, parsePageKey } from '../app/pdf.svelte'
 	import { defaultSettings } from '../domain/settings'
 	import { untrack } from 'svelte'
 	import { watchProjectPdfs, storeFile, type PdfFile } from '../app/projectFiles'
@@ -86,9 +87,10 @@
 	const fileName = (id: string) => pdfs.find((f) => f.id === id)?.name ?? id
 	/** `u` = the floorplan to change, or none to add one. */
 	function setFloorplan(l: Level, value: string, u?: Underlay) {
-		if (!value) return
-		const [fileId, page] = value.split('#'), n = underlaysOf(l).length
-		const next: Underlay = { ...(u ?? { type: 'underlay', id: newId(), levelId: l.id, ...(n ? { name: `Floorplan ${n + 1}` } : {}) }), fileId, page: Number(page) }
+		const p = parsePageKey(value)
+		if (!p) return
+		const { fileId, page } = p, n = underlaysOf(l).length
+		const next: Underlay = { ...(u ?? { type: 'underlay', id: newId(), levelId: l.id, ...(n ? { name: `Floorplan ${n + 1}` } : {}) }), fileId, page }
 		project.store.transact(`${l.name}: floorplan ${fileName(fileId)} p.${page}`, (tx) => tx.put(next))
 	}
 	/** Upload a PDF straight from a floor's row (backlog "Upload from Settings › Plans & floorplans", W9): it goes to the
@@ -146,9 +148,9 @@
 		if (!t.trim()) return
 		input.value = ''
 		await project.pdf.placed(z)   // another floor's floorplan isn't drawn yet: its page size comes with the render
-		const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]
+		const cal = project.pdf.calib[pageKey(z)]
 		const q = parsePaperScale(t), rec = q && cal?.page && paperScaleRecord(q.n, cal.page, q.paper)
-		if (!cal?.page) { ws.say(`The floorplan couldn't be opened: ${project.pdf.problems[`${z.fileId}#${z.page ?? 1}`] ?? 'try again in a moment'}`); return }
+		if (!cal?.page) { ws.say(`The floorplan couldn't be opened: ${project.pdf.problems[pageKey(z)] ?? 'try again in a moment'}`); return }
 		if (!rec) { ws.say('Type the scale as 100 or 1:100 — add the paper size when it is not the PDF page size: 100 A1'); return }
 		const page = paperOf(cal.page)
 		ws.calibIO.write(z, 'scale', rec, `Scaled: drawn at ${rec.paper}${q!.paper ? '' : page ? ` (an ${page} page)` : ''}`)
@@ -159,11 +161,11 @@
 		const q = parsePaperScale(t)
 		if (!q) { ws.say('Type the scale as 100 or 1:100 — add the paper size when it is not the PDF page size: 100 A1'); return }
 		input.value = ''
-		const pages = [...new Map(us.map((z) => [`${z.fileId}#${z.page ?? 1}`, z])).values()]
+		const pages = [...new Map(us.map((z) => [pageKey(z), z])).values()]
 		const recs: { z: Underlay; rec: NonNullable<ReturnType<typeof paperScaleRecord>> }[] = []
 		for (const z of pages) {
 			await project.pdf.placed(z)
-			const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`], rec = cal?.page && paperScaleRecord(q.n, cal.page, q.paper)
+			const cal = project.pdf.calib[pageKey(z)], rec = cal?.page && paperScaleRecord(q.n, cal.page, q.paper)
 			if (rec) recs.push({ z, rec })
 		}
 		if (!recs.length) { ws.say('The floorplans couldn’t be opened — try again in a moment'); return }
@@ -322,7 +324,7 @@
 	{#each pdfs as f (f.id)}
 		{#each Array.from({ length: f.pageCount }, (_, i) => i + 1) as n (n)}
 			<!-- an uncalibrated page can be picked: it shows as if 1:100, and Origin / Scale / Crop here calibrate it in place -->
-			<option value="{f.id}#{n}">{f.name}{f.pageCount > 1 ? ` p.${n}` : ""}{f.calibrated[n] ? "" : " (not calibrated — set its scale here)"}</option>
+			<option value={pageKey({ fileId: f.id, page: n })}>{f.name}{f.pageCount > 1 ? ` p.${n}` : ""}{f.calibrated[n] ? "" : " (not calibrated — set its scale here)"}</option>
 		{/each}
 	{/each}
 {/snippet}
@@ -449,8 +451,8 @@
 		{#each zones as z (z.id)}
 			<div class="zone">
 				{#if zones.length > 1}<input class="zn" value={z.name ?? ''} placeholder="name" title="This floorplan's name" onchange={(e) => putZone(l, z, 'floorplan name', { name: e.currentTarget.value.trim() || undefined })} />{/if}
-				<select class="fp" value="{z.fileId}#{z.page ?? 1}" title="The PDF page under this plan" onchange={(e) => setFloorplan(l, e.currentTarget.value, z)}>
-					{#if !pdfs.some((f) => f.id === z.fileId)}<option value="{z.fileId}#{z.page ?? 1}">{z.fileId} p.{z.page ?? 1}</option>{/if}
+				<select class="fp" value={pageKey(z)} title="The PDF page under this plan" onchange={(e) => setFloorplan(l, e.currentTarget.value, z)}>
+					{#if !pdfs.some((f) => f.id === z.fileId)}<option value={pageKey(z)}>{z.fileId} p.{z.page ?? 1}</option>{/if}
 					{@render pages()}
 				</select>
 				<label class="off" title="Move this floorplan right (mm)">X <input type="number" step="100" value={z.origin?.x ?? 0} onchange={(e) => setOffset(l, z, 'x', e.currentTarget.value)} /></label>
@@ -458,7 +460,7 @@
 				{#if oncalibrate}
 					<!-- R7-24: start drawing it, so its scale (1:N) and crop (✕) are known before its floor is opened -->
 					{@const _drawn = project.pdf.placement(z)}
-					{@const cal = project.pdf.calib[`${z.fileId}#${z.page ?? 1}`]}
+					{@const cal = project.pdf.calib[pageKey(z)]}
 					<!-- calibrate on the plan (not in Uploads): what it writes is the file's, shared with Uploads and other projects -->
 					<span class="cal" class:todo={cal?.provisional} title={cal?.provisional ? 'Not calibrated yet — shown as if 1:100' : 'Calibrate this floorplan on the plan (saved in its file, as Uploads does)'}>
 						<button onclick={() => oncalibrate(z, 'origin')} title="Click the point that is 0, 0">Origin</button>
